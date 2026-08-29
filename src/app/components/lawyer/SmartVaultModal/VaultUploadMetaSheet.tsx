@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Upload, FileText, Loader2, ImageIcon } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
+import { Upload } from '@/app/components/ui/icons/Upload';
+import { FileText } from '@/app/components/ui/icons/FileText';
+import { Loader2 } from '@/app/components/ui/icons/Loader2';
+import { ImageIcon } from '@/app/components/ui/icons/ImageIcon';
 import { formatFileSize } from '@/app/components/lawyer/hooks/useSmartVault';
 import type { VaultUploadKind } from '@/app/services/vaultUploadService';
 import { revokeBlobUrlIfNeeded } from '@/app/services/vault/vaultDocUtils';
@@ -101,7 +105,14 @@ export const VaultUploadMetaSheet: React.FC<VaultUploadMetaSheetProps> = ({
                             {isImageUpload && file.size > 0 ? ` · ${formatFileSize(file.size)}` : ''}
                         </p>
                     </div>
-                    <button type="button" onClick={onCancel} disabled={isSaving} className="p-2 rounded-lg hover:bg-[#4A4440]/40">
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        disabled={isSaving}
+                        aria-label="إغلاق"
+                        data-testid="vault-upload-cancel-icon"
+                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg hover:bg-[#4A4440]/40 touch-manipulation"
+                    >
                         <X size={18} className="text-[#C9A9A6]/60" />
                     </button>
                 </div>
@@ -151,6 +162,7 @@ export const VaultUploadMetaSheet: React.FC<VaultUploadMetaSheetProps> = ({
                             onChange={(e) => setTitle(e.target.value)}
                             placeholder={isPdf ? 'مثال: عقد البيع — موكل أحمد' : 'مثال: صورة الهوية — موكل أحمد'}
                             className={VAULT_INPUT}
+                            data-testid="vault-upload-title"
                         />
                     </div>
 
@@ -182,7 +194,13 @@ export const VaultUploadMetaSheet: React.FC<VaultUploadMetaSheetProps> = ({
                 </div>
 
                 <div className="px-5 py-4 border-t border-[#C9A9A6]/10 flex gap-2 shrink-0">
-                    <button type="button" onClick={onCancel} disabled={isSaving} className={VAULT_BTN_CANCEL}>
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        disabled={isSaving}
+                        className={VAULT_BTN_CANCEL}
+                        data-testid="vault-upload-cancel"
+                    >
                         إلغاء
                     </button>
                     <button
@@ -196,6 +214,7 @@ export const VaultUploadMetaSheet: React.FC<VaultUploadMetaSheetProps> = ({
                             })
                         }
                         className={VAULT_BTN_SAVE}
+                        data-testid="vault-upload-confirm"
                     >
                         {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
                         {isSaving ? 'جاري الرفع...' : 'رفع وحفظ'}

@@ -1,8 +1,7 @@
 import React, { Suspense } from 'react';
-import {
-    EXEC_OVERLAY_LAZY_FALLBACK,
-    LazyExecutorWorkflowPortalModals,
-} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell';
+import { LazyExecutorWorkflowPortalModals } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistryOverlays';
+import { EXEC_OVERLAY_INNER_SILENT_FALLBACK } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShellUi';
+import { ExecutionNamedOverlayInstantFrame } from './executionOverlayInstantPresets';
 import type { ExecutorWorkflowPortalModalsProps } from './ExecutorWorkflowPortalModals.types';
 
 export type ExecutionDashboardExecutorWorkflowOverlaysProps = Record<string, unknown> & {
@@ -44,9 +43,46 @@ export function ExecutionDashboardExecutorWorkflowOverlays(
     }
 
     return (
-        <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+        <Suspense
+            fallback={
+                <ExecutionNamedOverlayInstantFrame
+                    title={
+                        executorScheduleModalOpen
+                            ? 'موعد المنفّذ'
+                            : policeAssistanceModalOpen
+                              ? 'مؤازرة الشرطة'
+                              : breakInventoryFurnitureModalOpen
+                                ? 'جرد الأثاث'
+                                : judicialCustodianModalOpen
+                                  ? 'الحارس القضائي'
+                                  : 'تأكيد محضر التنفيذ'
+                    }
+                    onClose={() => {
+                        if (executorScheduleModalOpen && typeof props.setExecutorScheduleModalOpen === 'function') {
+                            (props.setExecutorScheduleModalOpen as (v: boolean) => void)(false);
+                        }
+                        if (policeAssistanceModalOpen && typeof props.setPoliceAssistanceModalOpen === 'function') {
+                            (props.setPoliceAssistanceModalOpen as (v: boolean) => void)(false);
+                        }
+                        if (
+                            breakInventoryFurnitureModalOpen &&
+                            typeof props.setBreakInventoryFurnitureModalOpen === 'function'
+                        ) {
+                            (props.setBreakInventoryFurnitureModalOpen as (v: boolean) => void)(false);
+                        }
+                        if (judicialCustodianModalOpen && typeof props.setJudicialCustodianModalOpen === 'function') {
+                            (props.setJudicialCustodianModalOpen as (v: boolean) => void)(false);
+                        }
+                        if (executionReportPrompt && typeof props.setExecutionReportPrompt === 'function') {
+                            (props.setExecutionReportPrompt as (v: null) => void)(null);
+                        }
+                    }}
+                />
+            }
+        >
             <LazyExecutorWorkflowPortalModals
                 {...(props as unknown as ExecutorWorkflowPortalModalsProps)}
+                EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_INNER_SILENT_FALLBACK}
                 judicialCustodianExistingNames={judicialCustodianExistingNames}
             />
         </Suspense>

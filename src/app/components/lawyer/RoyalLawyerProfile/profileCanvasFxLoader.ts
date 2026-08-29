@@ -2,7 +2,7 @@ import type { ProfileCanvasInteraction } from '@/app/services/profile/profilePag
 import { isLitePerformanceActiveFromDom } from '@/app/runtime/devicePerformanceTier';
 import { isAndroidNativeShell } from '@/app/runtime/nativePlatform';
 
-export type ProfileCanvasFxLoadOptions = {
+type ProfileCanvasFxLoadOptions = {
     interaction?: ProfileCanvasInteraction | 'none';
     includeStudio?: boolean;
     /** يتجاوز suppress/defer — يحمّل CSS التفاعل فوراً */
@@ -90,11 +90,6 @@ export function ensureProfileCanvasFxLoadedSync(options: ProfileCanvasFxLoadOpti
 /** تسخين core + material — آمن من الهيدر قبل mount الجذر */
 export function prefetchProfileCanvasFxCore(): void {
     ensureProfileCanvasFxLoadedSync();
-}
-
-/** تسخين استوديو الصفحة — idle بعد فتح التبويب أو hover */
-export function prefetchProfileCanvasStudioFx(): void {
-    ensureProfileCanvasFxLoadedSync({ includeStudio: true });
 }
 
 export function resetProfileCanvasFxLoaderForTests(): void {

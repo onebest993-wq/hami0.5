@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import { resolveExecutionChunkScopeKeys } from './lib/resolveExecutionChunkScopeKeys.mjs';
 import { isExecutionShellExplicitCloseProp } from './lib/executionShellExplicitCloseProps.mjs';
+import { extractConstArrayKeysFromFile } from './lib/extractConstArrayKeys.mjs';
 
 const SHELL_KEYS_PATH =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionShellOverlayPropKeys.ts';
@@ -15,11 +16,6 @@ const OVERLAY_FILES = [
     'src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardSolidaryEvictionOverlays.tsx',
 ];
 
-function extractConstKeys(content) {
-    const m = content.match(/export const EXECUTION_SHELL_OVERLAY_PROP_KEYS = \[([\s\S]*?)\] as const/);
-    return [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
-}
-
 function collectOverlayPropUsage() {
     const used = new Set();
     for (const file of OVERLAY_FILES) {
@@ -29,7 +25,7 @@ function collectOverlayPropUsage() {
     return used;
 }
 
-const shellKeys = new Set(extractConstKeys(fs.readFileSync(SHELL_KEYS_PATH, 'utf8')));
+const shellKeys = new Set(extractConstArrayKeysFromFile(SHELL_KEYS_PATH, 'EXECUTION_SHELL_OVERLAY_PROP_KEYS'));
 const scopeKeys = resolveExecutionChunkScopeKeys();
 const used = collectOverlayPropUsage();
 

@@ -1,7 +1,7 @@
 /**
  * تصنيف ثنائي لنوع الطلب/الإجراء — يتحكم بمسار التظلم والتمييز.
  */
-export type ProcedureCategory = 'petition_orders' | 'urgent_judiciary';
+type ProcedureCategory = 'petition_orders' | 'urgent_judiciary';
 
 /** أوامر ولائية — مسار التظلم (3 أيام) ثم التمييز */
 export const PETITION_ORDERS_DROPDOWN_OPTIONS = [
@@ -56,24 +56,6 @@ const PETITION_ORDERS_LOOKUP = new Set<string>([
     ...PETITION_ORDERS_DROPDOWN_OPTIONS,
     ...PETITION_ORDERS_LEGACY_ALIASES,
 ]);
-
-export function getUnifiedActionTypeOptions(): string[] {
-    return [...PETITION_ORDERS_DROPDOWN_OPTIONS, ...URGENT_JUDICIARY_DROPDOWN_OPTIONS];
-}
-
-export function isPetitionOrdersCategory(
-    storedCategory: unknown,
-    specificActionType: string,
-): boolean {
-    return resolveProcedureCategory(storedCategory, specificActionType) === 'petition_orders';
-}
-
-export function isUrgentJudiciaryCategory(
-    storedCategory: unknown,
-    specificActionType: string,
-): boolean {
-    return resolveProcedureCategory(storedCategory, specificActionType) === 'urgent_judiciary';
-}
 
 /** يُحفظ على الإضبارة عند الإنشاء؛ يُستنتج للبيانات القديمة من specificActionType */
 export function resolveProcedureCategory(

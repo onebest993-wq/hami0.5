@@ -1,12 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { TransactionsThreadingService } from '@/app/modules/transactionsThreading/service';
 import {
-  FinanceRecordType,
   TransactionStatus,
   TransactionTaskStatus,
   type Transaction,
 } from '@/app/modules/transactionsThreading/types';
-import { TransactionInputValidationError } from '@/app/services/transactions/transactionsInputSecurity';
 
 function buildTx(overrides: Partial<Transaction> = {}): Transaction {
   return {
@@ -33,11 +31,6 @@ describe('TransactionsThreadingService — تعقيم الكتابة', () => {
     deleteTask: vi.fn(),
     listTransactions: vi.fn(),
     listTasks: vi.fn(),
-    listFinanceRecords: vi.fn(),
-    saveFinanceRecord: vi.fn(),
-    getFinanceRecord: vi.fn(),
-    updateFinanceRecord: vi.fn(),
-    deleteFinanceRecord: vi.fn(),
     listDocuments: vi.fn(),
     saveDocument: vi.fn(),
     getDocument: vi.fn(),
@@ -54,7 +47,6 @@ describe('TransactionsThreadingService — تعقيم الكتابة', () => {
       ...patch,
     }));
     repo.saveTask.mockImplementation(async (task: unknown) => task);
-    repo.saveFinanceRecord.mockImplementation(async (r: unknown) => r);
     repo.saveDocument.mockImplementation(async (d: unknown) => d);
     service = new TransactionsThreadingService(repo as never, () => 'id-1', () => '2026-07-18T00:00:00.000Z');
   });
@@ -99,35 +91,54 @@ describe('TransactionsThreadingService — تعقيم الكتابة', () => {
     expect(updated.officialReference).toBe('رف-99');
   });
 
-  it('يرفض مبلغاً مالياً سالباً', async () => {
-    await expect(
-      service.addFinanceRecord({
-        transactionId: 'tx-1',
-        type: FinanceRecordType.AdvancePayment,
-        amount: -10,
-        description: 'دفعة',
-      }),
-    ).rejects.toThrow(TransactionInputValidationError);
-    expect(repo.saveFinanceRecord).not.toHaveBeenCalled();
-  });
-
-  it('يعقّم وصف المبلغ والمستمسك', async () => {
-    const record = await service.addFinanceRecord({
-      transactionId: 'tx-1',
-      type: FinanceRecordType.Expense,
-      amount: 100.456,
-      description: '  مصروف\u0007  ',
+    it('يعقّم عنوان المهمة عند التحديث', async () => {
+        repo.getTask.mockResolvedValue({
+            id: 't1',
+            transactionId: 'tx-1',
+            title: 'قديم',
+            status: TransactionTaskStatus.Pending,
+            parentTaskId: null,
+            notes: null,
+            deadline: null,
+            officialReference: null,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            completedAt: null,
+        });
+        repo.updateTask.mockImplementation(async (_id: string, patch: Record<string, unknown>) => ({
+            id: 't1',
+            transactionId: 'tx-1',
+            title: 'قديم',
+            status: TransactionTaskStatus.Pending,
+            parentTaskId: null,
+            notes: null,
+            deadline: null,
+            officialReference: null,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            completedAt: null,
+            ...patch,
+        }));
+        const updated = await service.updateTask('t1', { title: `  مهمة\u0007 محدّثة  ` });
+        expect(updated.title).toBe('مهمة محدّثة');
     });
-    expect(record.amount).toBe(100.46);
-    expect(record.description).toBe('مصروف');
 
+  it('يعقّم عنوان المستمسك ونوعه', async () => {
     const doc = await service.addDocument({
       transactionId: 'tx-1',
       title: '  هوية\u0000  ',
       ownerTag: 'للموكل',
       type: '  بطاقة  ',
     });
-    expect(doc.title).toBe('هوية');
-    expect(doc.type).toBe('بطاقة');
-  });
+        expect(doc.title).toBe('هوية');
+        expect(doc.type).toBe('بطاقة');
+        expect(doc.ownerTag).toBe('للموكل');
+    });
+
+    it('يصحّح ownerTag غير المسموح عند إضافة مستمسك', async () => {
+        const doc = await service.addDocument({
+            transactionId: 'tx-1',
+            title: 'سند',
+            ownerTag: 'هاكر' as never,
+        });
+        expect(doc.ownerTag).toBe('أخرى');
+    });
 });

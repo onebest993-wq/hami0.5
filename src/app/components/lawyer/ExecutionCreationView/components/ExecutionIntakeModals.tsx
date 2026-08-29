@@ -1,5 +1,6 @@
 import React from 'react';
-import { AlertTriangle, Calendar } from '@/app/components/ui/lucideIcons';
+import { AlertTriangle } from '@/app/components/ui/icons/AlertTriangle';
+import { Calendar } from '@/app/components/ui/icons/Calendar';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { ecg } from './executionCreationGlassUi';
 import type { AbsenteeChecks } from '../types';

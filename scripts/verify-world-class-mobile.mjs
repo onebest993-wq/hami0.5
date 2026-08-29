@@ -56,6 +56,15 @@ if (hasAndroid) {
   );
 }
 
+{
+  const n = run('npm', ['run', 'verify:native:ios']);
+  record(
+    'ios-native-templates',
+    n.status === 0,
+    n.status === 0 ? 'iOS templates OK' : (n.stdout || n.stderr).slice(-300),
+  );
+}
+
 const progressPath = path.join(ROOT, '.cursor', 'phase-5-progress.json');
 let deviceProven = false;
 if (fs.existsSync(progressPath)) {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import {
     URGENT_DOSSIER_BTN_PRIMARY,
     URGENT_DOSSIER_DIALOG_OVERLAY,
@@ -26,11 +26,11 @@ export function ConfirmDialogPortal({ open, message, onCancel, onConfirm }: Conf
                 exit={{ opacity: 0 }}
                 onClick={onCancel}
             >
-                <motion.div
+                    <motion.div
                     className={URGENT_DOSSIER_DIALOG_PANEL}
-                    initial={{ y: 16, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: 16, opacity: 0 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                     onClick={(e) => e.stopPropagation()}
                 >
                     <div className="text-white font-extrabold text-sm">تأكيد</div>
@@ -42,7 +42,7 @@ export function ConfirmDialogPortal({ open, message, onCancel, onConfirm }: Conf
                                 e.stopPropagation();
                                 onCancel();
                             }}
-                            className="px-4 py-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-colors font-bold text-sm touch-manipulation"
+                            className="min-h-[44px] px-4 py-2 rounded-lg text-white/60 hover:text-white hover:bg-white/5 font-bold text-sm touch-manipulation"
                         >
                             إلغاء
                         </button>
@@ -52,7 +52,7 @@ export function ConfirmDialogPortal({ open, message, onCancel, onConfirm }: Conf
                                 e.stopPropagation();
                                 onConfirm();
                             }}
-                            className={`${URGENT_DOSSIER_BTN_PRIMARY} min-h-[40px] py-2 text-xs`}
+                            className={`${URGENT_DOSSIER_BTN_PRIMARY} min-h-[44px] py-2 text-xs`}
                         >
                             تأكيد
                         </button>

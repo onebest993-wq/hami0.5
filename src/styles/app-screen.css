@@ -13,8 +13,16 @@
 }
 
 /** أول فتح — بدون fade من opacity:0 (كان يظهر فراغ أسود خلف الشاشة) */
-html[data-hami-initial-boot='1'] .hami-app-screen {
+html[data-hami-initial-boot='1'] .hami-app-screen,
+html[data-hami-boot-revealed='1'] .hami-app-screen {
     animation: none;
+}
+
+html[data-hami-initial-boot='1'] .hami-wallpaper-layer {
+    filter: none !important;
+    transform: none !important;
+    will-change: auto !important;
+    animation: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -42,6 +50,14 @@ html[data-hami-reduce-motion='1'] *::after {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+}
+
+/** شريط الإقلاع يتحرك برمجياً — لا يُجمَّد مع تقليل الحركة حتى لا يبدو التعليق عطلاً */
+html #hami-static-boot .hami-boot-progress-fill,
+html .hami-boot-cinematic .hami-boot-progress-fill {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
 }
 
 /**
@@ -78,15 +94,6 @@ html[data-hami-lite='1'] [data-hami-lawyer-dashboard] .hami-sovereign-glass {
         0 6px 20px rgba(0, 0, 0, 0.28) !important;
 }
 
-html[data-hami-lite='1'] .hami-sovereign-aurora,
-html[data-hami-lite='1'] .hami-sovereign-shine::after,
-html[data-hami-lite='1'] .hami-sovereign-breathe,
-html[data-hami-lite='1'] .hami-sovereign-float,
-html[data-hami-lite='1'] .hami-home-shimmer::after,
-html[data-hami-lite='1'] .hami-home-pulse-ring {
-    animation: none !important;
-}
-
 html[data-hami-lite='1'] button,
 html[data-hami-lite='1'] a,
 html[data-hami-lite='1'] [role='button'] {
@@ -104,10 +111,7 @@ html[data-hami-lite='1'] .hami-home-block-pattern {
     opacity: inherit;
 }
 
-html[data-hami-lite='1'] .hami-home-glass-decor,
-html[data-hami-lite='1'] .hami-wallpaper-scrim,
-html[data-hami-lite='1'] .hami-hub-icon-glow,
-html[data-hami-lite='1'] .hami-hub-glow-orb {
+html[data-hami-lite='1'] .hami-wallpaper-scrim {
     display: none !important;
 }
 
@@ -129,16 +133,7 @@ html[data-hami-animations='0'] .hami-app-screen {
 html[data-hami-animations='0'] .hami-settings-overlay-layer,
 html[data-hami-animations='0'] .hami-forum-overlay-layer,
 html[data-hami-animations='0'] .hami-repository-overlay-layer,
-html[data-hami-animations='0'] .hami-hub-icon-badge-press,
 html[data-hami-animations='0'] .hami-hub-tile-press,
-html[data-hami-animations='0'] .hami-hub-tile--route,
-html[data-hami-animations='0'] .hami-hub-tile--hero,
-html[data-hami-animations='0'] .hami-sovereign-aurora,
-html[data-hami-animations='0'] .hami-sovereign-shine::after,
-html[data-hami-animations='0'] .hami-sovereign-breathe,
-html[data-hami-animations='0'] .hami-sovereign-float,
-html[data-hami-animations='0'] .hami-home-shimmer::after,
-html[data-hami-animations='0'] .hami-home-pulse-ring,
 html[data-hami-animations='0'] .animate-fade-in {
     transition: none !important;
     animation: none !important;
@@ -150,7 +145,7 @@ html[data-hami-animations='0'] .active\:scale-\[0\.98\]:active {
 }
 
 /** عند تفعيل الحركات — انتقال شاشة أوضح ليشعر المستخدم بالفرق */
-html[data-hami-animations='1']:not([data-hami-reduce-motion='1']) .hami-app-screen {
+html[data-hami-animations='1']:not([data-hami-reduce-motion='1']):not([data-hami-initial-boot='1']):not([data-hami-boot-revealed='1']) .hami-app-screen {
     animation: hami-screen-enter 0.35s cubic-bezier(0.25, 0.1, 0.25, 1) both;
 }
 
@@ -229,74 +224,39 @@ html[data-hami-lite='1'] [data-hami-settings-shell] .hami-settings-header--glass
     background: rgba(8, 12, 22, 0.94) !important;
 }
 
-/**
- * حماية الإطارات — يُفعّل تلقائياً عند هبوط FPS (framePacingGuard.ts)
- * أو أثناء التمرير / إخفاء التبويب.
- */
-html[data-hami-jank-guard='1'] *,
-html[data-hami-jank-guard='1'] *::before,
-html[data-hami-jank-guard='1'] *::after,
-html[data-hami-page-hidden='1'] [data-hami-lawyer-dashboard] *,
-html[data-hami-page-hidden='1'] [data-hami-lawyer-dashboard] *::before,
-html[data-hami-page-hidden='1'] [data-hami-lawyer-dashboard] *::after {
-    animation-play-state: paused !important;
-}
-
-html[data-hami-jank-guard='1'] *,
-html[data-hami-jank-guard='1'] *::before,
-html[data-hami-jank-guard='1'] *::after {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-}
-
-html[data-hami-jank-guard='1'] .hami-sovereign-aurora,
-html[data-hami-jank-guard='1'] .hami-sovereign-shine,
-html[data-hami-jank-guard='1'] .hami-sovereign-shine::after,
-html[data-hami-jank-guard='1'] .hami-sovereign-breathe,
-html[data-hami-jank-guard='1'] .hami-sovereign-float,
-html[data-hami-jank-guard='1'] .hami-home-shimmer::after,
-html[data-hami-jank-guard='1'] .hami-home-pulse-ring,
-html[data-hami-jank-guard='1'] .hami-sovereign-grain {
-    animation: none !important;
-    display: none !important;
-}
-
-html[data-hami-jank-guard='1'] .hami-wallpaper-layer {
-    filter: none !important;
-    transform: translateZ(0) !important;
-}
-
-.hami-home-scroll-root[data-hami-scrolling='1'] *,
-.hami-home-scroll-root[data-hami-scrolling='1'] *::before,
-.hami-home-scroll-root[data-hami-scrolling='1'] *::after {
-    animation-play-state: paused !important;
-    transition-duration: 0.01ms !important;
-}
-
-.hami-home-scroll-root[data-hami-scrolling='1'] .hami-sovereign-shine,
-.hami-home-scroll-root[data-hami-scrolling='1'] .hami-home-pulse-ring,
-.hami-home-scroll-root[data-hami-scrolling='1'] .hami-sovereign-aurora {
-    animation: none !important;
-}
-
 /** تخطّي paint للودجات خارج viewport — يُعاد رسمها عند التمرير */
 [data-hami-lawyer-dashboard] [data-hami-block] {
     content-visibility: auto;
     contain-intrinsic-size: auto 12rem;
 }
 
-[data-hami-lawyer-dashboard] [data-hami-block='dockShell'],
-[data-hami-lawyer-dashboard] [data-hami-block='alerts'] {
+[data-hami-lawyer-dashboard] [data-hami-block='dockShell'] {
     contain-intrinsic-size: auto 16rem;
+}
+
+/* البطاقة فوق الطية — لا تقدّر 16rem ثم تنكمش بعد الإقلاع */
+[data-hami-lawyer-dashboard] [data-hami-block='alerts'] {
+    content-visibility: visible;
+    contain-intrinsic-size: auto var(--hami-home-hub-empty-slot-h, 6.75rem);
+}
+
+/* شبكة المنزل فوق الطية — بلا تخمين 12rem على بلاطات ~5.2rem */
+[data-hami-lawyer-dashboard] [data-testid='home-main-grid'] [data-hami-block] {
+    content-visibility: visible;
+    contain-intrinsic-size: auto var(--hami-home-hub-row-h, 5.2rem);
+}
+
+[data-hami-lawyer-dashboard] [data-testid='home-main-grid'] [data-hami-block='forum'] {
+    contain-intrinsic-size: auto var(--hami-home-forum-row-h, 5.65rem);
+}
+
+[data-hami-lawyer-dashboard] [data-testid='home-main-grid'] [data-hami-block='alerts'] {
+    contain-intrinsic-size: auto var(--hami-home-hub-empty-slot-h, 6.75rem);
 }
 
 [data-hami-lawyer-dashboard] button[data-hami-block^='dock'] {
   isolation: isolate;
   background-color: color-mix(in srgb, var(--hami-board-surface-bg, #0d0d1a) 92%, transparent);
-}
-
-[data-hami-lawyer-dashboard] button[data-hami-block^='dock'] .hami-home-glass-wash {
-  opacity: 0.45;
 }
 
 /** إغلاق فوري لكل الطبقات — إطار واحد بلا انتقالات CSS */
@@ -305,10 +265,19 @@ html[data-hami-overlay-snap-close='1'] [data-notification-root],
 html[data-hami-overlay-snap-close='1'] .hami-repository-overlay-layer,
 html[data-hami-overlay-snap-close='1'] [data-field-tasks-root],
 html[data-hami-overlay-snap-close='1'] .hami-settings-warm-layer,
-html[data-hami-overlay-snap-close='1'] [data-hami-profile-open],
-html[data-hami-overlay-snap-close='1'] [data-hami-schedule-open] {
+html[data-hami-overlay-snap-close='1'] [data-testid='lawyer-dashboard-profile-surface'],
+html[data-hami-overlay-snap-close='1'][data-hami-schedule-open],
+html[data-hami-overlay-snap-close='1'] [data-testid='lawyer-dashboard-schedule-surface'],
+html[data-hami-overlay-snap-close='1'] .hami-tx-overlay-layer,
+html[data-hami-overlay-snap-close='1'] [data-testid='tasks-manager-overlay'] {
     transition: none !important;
     animation: none !important;
+}
+
+html[data-hami-overlay-snap-close='1'] [data-testid='lawyer-dashboard-profile-surface'] {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
 }
 
 html[data-hami-overlay-snap-close='1'] .hami-gs-layer[data-search-open='false'],
@@ -318,23 +287,23 @@ html[data-hami-overlay-snap-close='1'] .hami-gs-layer[aria-hidden='true'] {
     pointer-events: none !important;
 }
 
-/** بحث شامل — ستارة html حرجة قبل تحميل chunk البحث */
-html[data-hami-global-search-open='1']::before {
+/** بحث شامل — ستارة html فقط قبل وجود طبقة مفتوحة (مسار بارد) */
+html[data-hami-global-search-open='1']:not(:has(
+        [data-hami-global-search-shell] .hami-gs-layer[data-search-open='true']
+    ))::before {
     content: '';
     position: fixed;
     inset: 0;
     z-index: 279;
-    background: rgba(1, 3, 8, 0.94);
+    background: #0a0f1c;
     pointer-events: none;
 }
 
-html[data-hami-native='1'][data-hami-global-search-open='1']::before,
-html.hami-native-shell[data-hami-global-search-open='1']::before {
-    background: rgba(1, 3, 8, 0.98);
-}
-
-html[data-hami-global-search-open='1']:has(
+html[data-hami-native='1'][data-hami-global-search-open='1']:not(:has(
         [data-hami-global-search-shell] .hami-gs-layer[data-search-open='true']
-    )::before {
-    opacity: 0;
+    ))::before,
+html.hami-native-shell[data-hami-global-search-open='1']:not(:has(
+        [data-hami-global-search-shell] .hami-gs-layer[data-search-open='true']
+    ))::before {
+    background: #0a0f1c;
 }

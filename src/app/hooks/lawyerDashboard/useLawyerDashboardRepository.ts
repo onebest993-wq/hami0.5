@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { isRealSignedIn } from '@/app/services/auth/shellAuth';
+import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
 import {
     openRepositoryFromShell,
     REPOSITORY_SHELL_FEATURE,
@@ -13,19 +13,24 @@ import type { RepositoryTab } from '@/app/components/lawyer/SmartRepositoryModal
 import {
     markRepositoryPerfPhase,
 } from '@/app/services/repository/repositoryPerfMetrics';
-import {
-    loadRepositoryHubModule,
-    prefetchRepositoryHubModule,
-} from '@/app/runtime/repositoryHubLoader';
+import { prefetchRepositoryHubModule } from '@/app/runtime/repositoryHubLoader';
 import {
     loadRepositoryBootHydrator,
     loadRepositoryIntentWarm,
-    prefetchRepositoryOverlayChunks,
     REPOSITORY_PRIME_HOST_EVENT,
-    REPOSITORY_SHELL_HYDRATED_EVENT,
 } from '@/app/hooks/lawyerDashboard/repository/repositoryLazyImports';
+import {
+    persistRepositorySessionOpen,
+    readInitialRepositorySession,
+} from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import { commitRepositoryClose, commitRepositoryOpen } from '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow';
-import { paintRepositoryInstantChrome } from '@/app/runtime/repositoryInstantPaint';
+import {
+    concealRepositoryWarmShell,
+    isRepositoryShellPaintedOpen,
+    paintRepositoryInstantChrome,
+} from '@/app/runtime/repositoryInstantPaint';
+import { deferShellConcealAfterHandoff, isShellHandoffPending } from '@/app/runtime/sectionShellHandoff';
+import { isSectionBackgroundPrefetchAllowed } from '@/app/runtime/sectionPrefetchPolicy';
 
 /** @deprecated use OpenRepositoryOptions — kept for navigation typings */
 export type OpenNotepadOptions = {
@@ -45,6 +50,7 @@ export type UseLawyerDashboardRepositoryParams = {
 };
 
 export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepositoryParams) {
+    useState(() => readInitialRepositorySession());
     const [isRepositoryOpen, setIsRepositoryOpen] = useState(false);
     const [repositoryTab, setRepositoryTab] = useState<RepositoryTab>('notepad');
     const [notepadMode, setNotepadMode] = useState<'list' | 'create'>('list');
@@ -63,36 +69,45 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
             setIsRepositoryOpen,
             setFocusNoteId,
             setVaultOpenScanner,
+            setRepositoryHostMounted,
         });
     }, []);
 
     /** جلسة مستودع مفتوحة بلا هوية — أغلق وامسح الـ host (R2) */
     useEffect(() => {
-        if (isRealSignedIn(userId)) return;
+        if (hasLocalAppSession(userId)) return;
+        concealRepositoryWarmShell();
         setIsRepositoryOpen(false);
         setFocusNoteId(undefined);
         setVaultOpenScanner(false);
         setRepositoryHostMounted(false);
+        persistRepositorySessionOpen(false);
     }, [userId]);
 
+    /** لمسة البلاطة: تسخين بلا تركيب Host حتى الفتح */
     const primeRepositoryShellMount = useCallback(() => {
         prefetchRepositoryHubModule();
-        prefetchRepositoryOverlayChunks();
         void loadRepositoryIntentWarm().then((m) => m.warmRepositoryHubOnHover(userId ?? undefined));
-        armRepositoryHost();
-    }, [armRepositoryHost, userId]);
+    }, [userId]);
 
-    /** ركّب Host مخفياً فور وجود هوية — قبل أول لمسة مستودع */
+    /** تسخين المقطع فور وجود هوية — بلا تركيب Host حتى الفتح */
     useLayoutEffect(() => {
-        if (!isRealSignedIn(userId)) return;
-        armRepositoryHost();
-        prefetchRepositoryHubModule();
-        prefetchRepositoryOverlayChunks();
-        void loadRepositoryIntentWarm().then((m) => m.warmRepositoryHubOnHover(userId));
-    }, [armRepositoryHost, userId]);
+        if (!hasLocalAppSession(userId)) return;
+        if (isSectionBackgroundPrefetchAllowed()) {
+            prefetchRepositoryHubModule();
+            void loadRepositoryIntentWarm().then((m) => m.warmRepositoryHubOnHover(userId));
+        }
+    }, [userId]);
 
     useLayoutEffect(() => {
-        if (isRepositoryOpen) paintRepositoryInstantChrome();
+        if (isRepositoryOpen) {
+            paintRepositoryInstantChrome();
+            return;
+        }
+        return deferShellConcealAfterHandoff(() => {
+            if (isShellHandoffPending('repository')) return;
+            if (isRepositoryShellPaintedOpen()) concealRepositoryWarmShell();
+        });
     }, [isRepositoryOpen]);
 
     useEffect(() => {
@@ -115,12 +130,8 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
     }, [isRepositoryOpen, repositoryOpenEpoch]);
 
     useEffect(() => {
-        return registerDashboardOverlayCloser('repository', () => {
-            setIsRepositoryOpen(false);
-            setFocusNoteId(undefined);
-            setVaultOpenScanner(false);
-        });
-    }, []);
+        return registerDashboardOverlayCloser('repository', closeRepository);
+    }, [closeRepository]);
 
     useEffect(() => {
         let disposed = false;
@@ -141,12 +152,13 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
         if (typeof window === 'undefined') return;
 
         const scheduleWarm = () => {
-            prefetchRepositoryHubModule();
-            prefetchRepositoryOverlayChunks();
-            void loadRepositoryIntentWarm().then((m) => {
-                m.warmRepositoryHubOnHover(userId ?? undefined);
-                m.scheduleRepositoryDockIdlePrefetch();
-            });
+            if (isSectionBackgroundPrefetchAllowed()) {
+                prefetchRepositoryHubModule();
+                void loadRepositoryIntentWarm().then((m) => {
+                    m.warmRepositoryHubOnHover(userId ?? undefined);
+                    m.scheduleRepositoryDockIdlePrefetch();
+                });
+            }
             void loadRepositoryBootHydrator()
                 .then((m) => m.prefetchRepositoryAfterBootReveal(userId))
                 .catch(() => undefined);
@@ -159,31 +171,19 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
         if (typeof window === 'undefined') return;
         const onPrime = () => {
             prefetchRepositoryHubModule();
-            prefetchRepositoryOverlayChunks();
-            void loadRepositoryHubModule().catch(() => undefined);
             void loadRepositoryBootHydrator()
                 .then((m) => m.hydrateRepositoryBootShellForInstantOpen(userId, true))
                 .catch(() => undefined);
             void loadRepositoryIntentWarm().then((m) => m.warmRepositoryHubOnHover(userId ?? undefined));
-            armRepositoryHost();
         };
         window.addEventListener(REPOSITORY_PRIME_HOST_EVENT, onPrime);
         return () => window.removeEventListener(REPOSITORY_PRIME_HOST_EVENT, onPrime);
-    }, [armRepositoryHost, userId]);
-
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        const onHydrated = () => {
-            armRepositoryHost();
-        };
-        window.addEventListener(REPOSITORY_SHELL_HYDRATED_EVENT, onHydrated);
-        return () => window.removeEventListener(REPOSITORY_SHELL_HYDRATED_EVENT, onHydrated);
-    }, [armRepositoryHost]);
+    }, [userId]);
 
     const openRepository = useCallback(
         (opts?: OpenRepositoryOptions) => {
             openRepositoryFromShell({
-                signedIn: isRealSignedIn(userId),
+                signedIn: hasLocalAppSession(userId),
                 onSignedOut: () =>
                     SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${REPOSITORY_SHELL_FEATURE}`),
                 onOpen: () => {
@@ -207,6 +207,12 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
     const resetRepositoryShell = useCallback(() => {
         setRepositorySessionKey((key) => key + 1);
         setRepositoryOpenEpoch(0);
+        concealRepositoryWarmShell();
+        setIsRepositoryOpen(false);
+        setFocusNoteId(undefined);
+        setVaultOpenScanner(false);
+        setRepositoryHostMounted(false);
+        persistRepositorySessionOpen(false);
     }, []);
 
     const openNotepad = useCallback(

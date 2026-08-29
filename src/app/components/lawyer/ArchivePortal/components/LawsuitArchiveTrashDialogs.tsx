@@ -1,11 +1,13 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Trash2 } from '@/app/components/ui/lucideIcons';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import { unpinWorkspaceItem } from '@/app/workspace/unpinWorkspaceEntity';
-import { CIVIL_LAWSUIT_TEST_IDS } from '@/app/components/lawyer/smart-modal/smartFile/civilLawsuitTestIds';
-import { URGENT_DOSSIER_BTN_PRIMARY } from '@/app/components/lawyer/Dashboard_Active_Order_File/layout/urgentDossierUi';
+import { LAWSUIT_VAULT_TEST_IDS } from '@/app/components/lawyer/smart-modal/smartFile/lawsuitVaultTestIds';
 import type { LooseArchiveFile } from '../types';
 import { ArchivePortalConfirmDialog } from './ArchivePortalConfirmDialog';
+
+const CONFIRM_DANGER =
+    'inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 rounded-xl border border-rose-500/35 bg-rose-600/15 text-rose-100 text-sm font-bold hover:bg-rose-600/25 touch-manipulation';
 
 export type LawsuitArchiveTrashDialogsProps = {
     lawsuitTrashConfirmTarget: LooseArchiveFile | null;
@@ -17,7 +19,7 @@ export type LawsuitArchiveTrashDialogsProps = {
     confirmPermanentDelete: () => void;
     permanentIdsRef: React.MutableRefObject<Array<string | number>>;
     onMoveLawsuitToTrash?: (id: string | number) => void;
-    onDeleteCriminalCase?: (id: string) => void;
+    onDeleteCriminalCase?: (id: string) => boolean | void;
 };
 
 function lawsuitArchiveFileLabel(file: LooseArchiveFile): string {
@@ -50,9 +52,9 @@ export function LawsuitArchiveTrashDialogs({
                     open
                     title="تأكيد النقل إلى سلة المهملات"
                     titleId="lawsuit-trash-confirm-title"
-                    testId={CIVIL_LAWSUIT_TEST_IDS.trashConfirmDialog}
+                    testId={LAWSUIT_VAULT_TEST_IDS.trashConfirmDialog}
                     confirmLabel="تأكيد النقل إلى السلة"
-                    confirmTestId={CIVIL_LAWSUIT_TEST_IDS.trashConfirmSubmit}
+                    confirmTestId={LAWSUIT_VAULT_TEST_IDS.trashConfirmSubmit}
                     onCancel={() => setLawsuitTrashConfirmTarget(null)}
                     onConfirm={() => {
                         const id = lawsuitTrashConfirmTarget.id;
@@ -79,16 +81,17 @@ export function LawsuitArchiveTrashDialogs({
                     open
                     title="تأكيد حذف الإضبارة الجزائية"
                     titleId="lawsuit-criminal-delete-title"
-                    testId={CIVIL_LAWSUIT_TEST_IDS.criminalDeleteDialog}
+                    testId={LAWSUIT_VAULT_TEST_IDS.criminalDeleteDialog}
                     confirmLabel="حذف نهائي"
-                    confirmTestId={CIVIL_LAWSUIT_TEST_IDS.criminalDeleteConfirm}
+                    confirmTestId={LAWSUIT_VAULT_TEST_IDS.criminalDeleteConfirm}
                     onCancel={() => setCriminalDeleteTarget(null)}
                     onConfirm={() => {
-                        onDeleteCriminalCase(criminalDeleteTarget.id);
+                        const ok = onDeleteCriminalCase(criminalDeleteTarget.id);
+                        if (ok === false) return;
                         unpinWorkspaceItem(criminalDeleteTarget.id, 'criminal');
                         setCriminalDeleteTarget(null);
                     }}
-                    confirmClassName={`${URGENT_DOSSIER_BTN_PRIMARY} border-rose-500/35 bg-rose-600/15 text-rose-100 hover:bg-rose-600/25`}
+                    confirmClassName={CONFIRM_DANGER}
                 >
                     <p className="text-white/55 text-xs truncate">{criminalDeleteTarget.title}</p>
                     <p>سيتم حذف الإضبارة وكل بياناتها المرتبطة نهائياً من هذا الجهاز.</p>
@@ -105,13 +108,13 @@ export function LawsuitArchiveTrashDialogs({
                         </>
                     }
                     titleId="lawsuit-permanent-delete-title"
-                    testId={CIVIL_LAWSUIT_TEST_IDS.permanentDeleteDialog}
+                    testId={LAWSUIT_VAULT_TEST_IDS.permanentDeleteDialog}
                     confirmLabel="حذف نهائي الآن"
-                    confirmTestId={CIVIL_LAWSUIT_TEST_IDS.permanentDeleteConfirm}
+                    confirmTestId={LAWSUIT_VAULT_TEST_IDS.permanentDeleteConfirm}
                     cancelLabel="إلغاء والاحتفاظ في السلة"
                     onCancel={() => setPermanentDeleteOpen(false)}
                     onConfirm={confirmPermanentDelete}
-                    confirmClassName={`${URGENT_DOSSIER_BTN_PRIMARY} border-rose-500/35 bg-rose-600/15 text-rose-100 hover:bg-rose-600/25`}
+                    confirmClassName={CONFIRM_DANGER}
                 >
                     <p>
                         سيتم حذف {permanentIdsRef.current.length} إضبارة دعوى نهائياً من هذا الجهاز. لا

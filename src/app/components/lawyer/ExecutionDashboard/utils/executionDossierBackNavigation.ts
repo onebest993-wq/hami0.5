@@ -4,7 +4,7 @@ import {
 } from '@/app/stores/executionDashboardStore';
 
 /** ترتيب إغلاق النوافذ — الأعلى بصرياً أولاً */
-export const EXECUTION_DOSSIER_STORE_MODAL_BACK_PRIORITY: (keyof ModalStates)[] = [
+const EXECUTION_DOSSIER_STORE_MODAL_BACK_PRIORITY: (keyof ModalStates)[] = [
     'showUnifiedSummonsModal',
     'showUnifiedExecutionModal',
     'showCoerciveModal',

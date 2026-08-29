@@ -1,6 +1,8 @@
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import React, { useState, useEffect } from 'react';
-import { X, Lock } from '@/app/components/ui/lucideIcons';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { X } from '@/app/components/ui/icons/X';
+import { Lock } from '@/app/components/ui/icons/Lock';
+import { SMART_MODAL_MOTION_ZOOM_ENTER } from './smartFile/smartModalMotionClasses';
 
 interface AttachmentShieldModalProps {
     isOpen: boolean;
@@ -92,7 +94,7 @@ export const AttachmentShieldModal = ({
             onClick={onClose}
         >
             <div
-                className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0A0F1C]/80 backdrop-blur-2xl shadow-[0_24px_80px_rgba(0,0,0,0.65)] animate-in zoom-in-95 fade-in duration-200"
+                className={`w-full max-w-lg overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0A0F1C]/80 backdrop-blur-sm shadow-[0_8px_22px_rgba(0,0,0,0.22)] ${SMART_MODAL_MOTION_ZOOM_ENTER}`}
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="relative px-4 py-4 border-b border-white/[0.08] bg-gradient-to-l from-[#E6C673]/10 via-transparent to-transparent flex justify-between items-center">

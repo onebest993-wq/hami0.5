@@ -7,11 +7,16 @@ import fs from 'fs';
 const hookPath = 'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts';
 const staticScopePath =
     'src/app/components/lawyer/ExecutionDashboard/executionDashboardStaticChunkScope.ts';
-const lazyScopePath =
-    'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardLazyChunkScope.ts';
+const lazyScopePaths = [
+    'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardLazyChunkScopeShell.ts',
+    'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardLazyChunkScopeOverlays.ts',
+];
 const src = fs.readFileSync(hookPath, 'utf8');
 const staticSrc = fs.existsSync(staticScopePath) ? fs.readFileSync(staticScopePath, 'utf8') : '';
-const lazySrc = fs.existsSync(lazyScopePath) ? fs.readFileSync(lazyScopePath, 'utf8') : '';
+const lazySrc = lazyScopePaths
+    .filter((p) => fs.existsSync(p))
+    .map((p) => fs.readFileSync(p, 'utf8'))
+    .join('\n');
 
 const staticScopeKeys = new Set(
     [...staticSrc.matchAll(/^\s+([A-Za-z_][A-Za-z0-9_]*),/gm)].map((m) => m[1]),

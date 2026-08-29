@@ -9,14 +9,14 @@ export type ArchiveBannerProps = {
 
 export function ArchiveBanner({ isIqrarContext, archiveSummaryText, archivedAt, formatDateTimeText }: ArchiveBannerProps) {
     return (
-        <div className="border-b border-amber-500/25 bg-amber-500/10 px-4 py-3">
+        <div className="border-b border-white/10 bg-white/[0.04] px-3 py-2">
             <div className="max-w-7xl mx-auto text-center">
-                <div className="text-amber-100 text-sm font-extrabold">
+                <div className="text-white text-sm font-bold">
                     {isIqrarContext ? 'إقرار مؤرشف — للاطلاع فقط' : 'إضبارة مؤرشفة — للاطلاع فقط'}
                 </div>
-                {!!archiveSummaryText && <div className="text-amber-100/75 text-xs mt-1">{archiveSummaryText}</div>}
+                {!!archiveSummaryText && <div className="text-white/55 text-xs mt-0.5">{archiveSummaryText}</div>}
                 {!!archivedAt && (
-                    <div className="text-amber-100/60 text-[11px] mt-1">
+                    <div className="text-white/40 text-[11px] mt-0.5">
                         تاريخ الأرشفة: {formatDateTimeText(archivedAt)}
                     </div>
                 )}

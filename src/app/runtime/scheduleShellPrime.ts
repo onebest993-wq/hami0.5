@@ -1,22 +1,19 @@
 /**
- * مسار تسخين موحّد للتقويم — نقطة دخول واحدة بدل prefetch متفرق.
+ * تسخين التقويم من داخل المضيف — بعد أن أصبح المقطع محمّلاً.
+ *
+ * لا نستورد `scheduleBootHydrator` هنا. ذلك الملف يقرأ لقطة الإعدادات
+ * (~244 ك.ب) لسياسة prefetch قبل النقر. المضيف يعمل بعد الفتح؛ التسخين
+ * هنا أحداث محلية + chunk السحابة فقط. سياسة prefetch تبقى في المُرطّب
+ * ومسار hover (`scheduleIntentWarm`).
  */
-
-import { warmCalendarEventsCache } from '@/app/hooks/lawyerDashboard/scheduleIntentWarm';
-import { hydrateScheduleShellForInstantOpenWithData } from '@/app/runtime/scheduleBootHydrator';
 import { prefetchScheduleHubModule } from '@/app/runtime/scheduleHubLoader';
-import { prefetchRadarEventForm } from '@/app/runtime/radarWidgetLoader';
+import { runScheduleWarmCore } from '@/app/runtime/scheduleWarmCore';
 
 export function primeScheduleForBoot(): void {
     prefetchScheduleHubModule();
-    prefetchRadarEventForm();
 }
 
-/** تسخين بيانات + نموذج الإضافة عند arm/فتح */
+/** تسخين بيانات عند arm/فتح — بلا إعادة سحب إعدادات التسخين */
 export function primeScheduleForWarm(userId?: string | null): void {
-    primeScheduleForBoot();
-    const uid = userId?.trim();
-    if (!uid) return;
-    void hydrateScheduleShellForInstantOpenWithData(uid, true).catch(() => undefined);
-    void warmCalendarEventsCache(uid).catch(() => undefined);
+    runScheduleWarmCore({ userId, prefetchCloud: 'when-user' });
 }

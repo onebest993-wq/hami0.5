@@ -1,7 +1,5 @@
-import { createJSONStorage } from 'zustand/middleware';
 import { debug } from '@/app/utils/debug';
 import { sentryCaptureException } from '@/app/observability/sentryClient';
-import { defaultPersistWipeGuard } from '@/app/services/securePersistStorage';
 
 /** خط أساس موحّد لمتاجر Zustand غير الجزائي — ارفع عند تغيير شكل الحمولة. */
 export const FOUNDATION_STORE_PERSIST_V1 = 1;
@@ -36,20 +34,4 @@ export function createPersistRehydrateReporter(meta: FoundationPersistMeta) {
             storeKey: meta.storageKey,
         });
     };
-}
-
-/** تخزين JSON مع حارس المسح — يعمل على localStorage أو أي StateStorage. */
-export function createGuardedJSONStorage<S>(
-    backend: () => Storage,
-    wipeGuard = defaultPersistWipeGuard,
-) {
-    return createJSONStorage<S>(() => ({
-        getItem: (name) => backend().getItem(name),
-        setItem: (name, value) => {
-            const existing = backend().getItem(name);
-            if (wipeGuard(value, existing, name)) return;
-            backend().setItem(name, value);
-        },
-        removeItem: (name) => backend().removeItem(name),
-    }));
 }

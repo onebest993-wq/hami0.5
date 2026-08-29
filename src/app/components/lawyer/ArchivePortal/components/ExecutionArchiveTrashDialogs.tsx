@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useContext, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Archive, Trash2 } from '@/app/components/ui/lucideIcons';
+import { ExecutionArchiveBoxMark, ExecutionArchiveTrashMark } from '../executionArchiveMarks';
 import { URGENT_DOSSIER_BTN_PRIMARY } from '@/app/components/lawyer/Dashboard_Active_Order_File/layout/urgentDossierUi';
+import { ExecutionArchiveHostOpenContext } from '@/app/components/lawyer/dashboard/executionArchiveHostOpenContext';
+import {
+    EXECUTION_ARCHIVE_TRASH_DIALOGS_LAYER_TEST_ID,
+} from '../executionArchiveTrashDialogsLayer';
 import type { LooseArchiveFile } from '../types';
 import { ArchivePortalConfirmDialog } from './ArchivePortalConfirmDialog';
 
 export type ExecutionArchiveTrashDialogsProps = {
-    embedded?: boolean;
     trashConfirmTarget: LooseArchiveFile | null;
     setTrashConfirmTarget: (f: LooseArchiveFile | null) => void;
     archiveConfirmTarget: LooseArchiveFile | null;
@@ -26,7 +29,6 @@ function executionArchiveFileLabel(file: LooseArchiveFile): string {
 }
 
 export function ExecutionArchiveTrashDialogs({
-    embedded = false,
     trashConfirmTarget,
     setTrashConfirmTarget,
     archiveConfirmTarget,
@@ -38,12 +40,22 @@ export function ExecutionArchiveTrashDialogs({
     onMoveExecutionToTrash,
     onArchiveExecution,
 }: ExecutionArchiveTrashDialogsProps) {
+    const hostOpen = useContext(ExecutionArchiveHostOpenContext);
+
+    useEffect(() => {
+        if (hostOpen) return;
+        setTrashConfirmTarget(null);
+        setArchiveConfirmTarget(null);
+        setPermanentDeleteOpen(false);
+    }, [hostOpen, setTrashConfirmTarget, setArchiveConfirmTarget, setPermanentDeleteOpen]);
+
     const hasLayer =
         (trashConfirmTarget && onMoveExecutionToTrash) ||
         (archiveConfirmTarget && onArchiveExecution) ||
         permanentDeleteOpen;
 
-    if (!hasLayer) return null;
+    if (!hostOpen || !hasLayer) return null;
+    if (typeof document === 'undefined') return null;
 
     const layer = (
         <>
@@ -55,6 +67,7 @@ export function ExecutionArchiveTrashDialogs({
                     testId="execution-trash-confirm-dialog"
                     confirmLabel="تأكيد النقل إلى السلة"
                     confirmTestId="execution-trash-confirm-submit"
+                    cancelTestId="execution-trash-confirm-cancel"
                     onCancel={() => setTrashConfirmTarget(null)}
                     onConfirm={() => {
                         const id = trashConfirmTarget.id;
@@ -81,7 +94,7 @@ export function ExecutionArchiveTrashDialogs({
                     open
                     title={
                         <>
-                            <Archive size={18} className="text-[#E6C673]" />
+                            <ExecutionArchiveBoxMark size={18} className="text-[#E6C673]" />
                             تأكيد الأرشفة
                         </>
                     }
@@ -89,6 +102,7 @@ export function ExecutionArchiveTrashDialogs({
                     testId="execution-archive-confirm-dialog"
                     confirmLabel="تأكيد الأرشفة"
                     confirmTestId="execution-archive-confirm-submit"
+                    cancelTestId="execution-archive-confirm-cancel"
                     onCancel={() => setArchiveConfirmTarget(null)}
                     onConfirm={() => {
                         const id = archiveConfirmTarget.id;
@@ -115,7 +129,7 @@ export function ExecutionArchiveTrashDialogs({
                     open
                     title={
                         <>
-                            <Trash2 size={18} className="text-rose-300" />
+                            <ExecutionArchiveTrashMark size={18} className="text-rose-300" />
                             تأكيد الحذف النهائي
                         </>
                     }
@@ -137,15 +151,14 @@ export function ExecutionArchiveTrashDialogs({
         </>
     );
 
-    if (embedded) {
-        return (
-            <div className="pointer-events-none fixed inset-0 z-[500]" data-testid="execution-archive-trash-dialogs-layer">
-                <div className="pointer-events-auto">{layer}</div>
-            </div>
-        );
-    }
-
-    if (typeof document === 'undefined') return null;
-
-    return createPortal(layer, document.body);
+    return createPortal(
+        <div
+            className="pointer-events-none fixed inset-0"
+            style={{ zIndex: 10050 }}
+            data-testid={EXECUTION_ARCHIVE_TRASH_DIALOGS_LAYER_TEST_ID}
+        >
+            <div className="pointer-events-auto">{layer}</div>
+        </div>,
+        document.body,
+    );
 }

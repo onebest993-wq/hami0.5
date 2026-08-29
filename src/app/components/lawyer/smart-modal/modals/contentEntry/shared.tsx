@@ -1,6 +1,9 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronUp, FileText, X } from '@/app/components/ui/lucideIcons';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
+import { ChevronUp } from '@/app/components/ui/icons/ChevronUp';
+import { FileText } from '@/app/components/ui/icons/FileText';
+import { X } from '@/app/components/ui/icons/X';
 import { prefetchVaultPdfJsViewer, VaultPdfJsViewerLazy } from '@/app/components/lawyer/SmartVaultModal/VaultPdfJsViewerLazy';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { resolveVaultDocUrl, resolveVaultDocViewerKind } from '@/app/services/vaultUploadService';
@@ -66,14 +69,14 @@ export function ModalInlineTimeline({
     pinActions?: boolean;
 }) {
     return (
-        <div className="rounded-[22px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))] p-4 space-y-3">
+        <div className="rounded-xl bg-white/[0.03] border border-white/[0.07] p-3 space-y-2.5">
             <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                     {collapsible ? (
                         <button
                             type="button"
                             onClick={onToggle}
-                            className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/55 transition-colors hover:text-white hover:bg-white/[0.07]"
+                            className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/55 transition-colors hover:text-white hover:bg-white/[0.07] touch-manipulation"
                             aria-label={expanded ? 'طي السجل' : 'توسيع السجل'}
                         >
                             {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
@@ -90,7 +93,7 @@ export function ModalInlineTimeline({
                     {items.map((item) => (
                         <div
                             key={String(item.id)}
-                            className="group/tl-card rounded-2xl border border-white/[0.06] bg-black/10 px-3 py-2.5 transition-colors hover:border-white/[0.1] hover:bg-black/15"
+                            className="group/tl-card rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2 transition-colors hover:border-white/[0.1] hover:bg-white/[0.05]"
                         >
                             <div className="flex items-center justify-between gap-2">
                                 <span className="truncate text-[12px] font-bold text-[#F4E9CD]">
@@ -125,7 +128,7 @@ export function ModalInlineTimeline({
                     ))}
                 </div>
             ) : (
-                <div className="rounded-2xl border border-dashed border-white/[0.08] bg-black/10 px-3 py-4 text-center text-[11px] text-white/35">
+                <div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.03] px-3 py-3 text-center text-[11px] text-white/35">
                     {emptyLabel}
                 </div>
             )}
@@ -321,10 +324,10 @@ export function FullDocumentPreviewOverlay({
     const layer = (
         <div className={SMART_FILE_DOCUMENT_PREVIEW_OVERLAY_CLASS} onClick={onClose} role="dialog" aria-modal="true">
             <div
-                className="w-[min(98vw,96rem)] h-[min(94dvh,62rem)] rounded-[28px] border border-white/[0.08] bg-[#070B14] shadow-[0_24px_80px_rgba(0,0,0,0.6)] overflow-hidden"
+                className="w-[min(98vw,96rem)] h-[min(94dvh,62rem)] rounded-2xl border border-white/[0.08] bg-[#070B14] shadow-[0_8px_22px_rgba(0,0,0,0.22)] overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/[0.08] bg-[linear-gradient(180deg,rgba(18,24,38,0.98),rgba(10,15,28,0.98))]">
+                <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/[0.08] bg-[#0A0F1C]">
                     <div className="min-w-0">
                         <p className="truncate text-sm font-black text-[#F4E9CD]">{title}</p>
                     </div>

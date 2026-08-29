@@ -22,7 +22,7 @@ export type TimelineFeedCategory =
     | 'attachment'
     | 'pleading';
 
-export type TimelineFeedCategoryMeta = {
+type TimelineFeedCategoryMeta = {
     id: TimelineFeedCategory;
     label: string;
     chipActive: string;
@@ -230,7 +230,7 @@ export function formatTimelineCardBody(event: TimelineEvent): string {
     return refineCivilTimelineBody(event, body);
 }
 
-export function timelineEventSearchBlob(event: TimelineEvent): string {
+function timelineEventSearchBlob(event: TimelineEvent): string {
     const category = classifyTimelineEvent(event);
     const meta = getTimelineCategoryMeta(category);
     const tags = Array.isArray(event.tags) ? event.tags.join(' ') : '';

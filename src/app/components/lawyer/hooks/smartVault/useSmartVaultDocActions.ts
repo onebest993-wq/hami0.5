@@ -5,6 +5,7 @@ import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { resolveVaultDocForViewing } from '@/app/services/vaultUploadService';
 import { revokeBlobUrlIfNeeded } from '@/app/services/vault/vaultDocUtils';
+import { sanitizeVaultPlainNote, sanitizeVaultPreviewUrl } from '@/app/services/vault/vaultPreviewUrlSafety';
 import { prefetchVaultBlobStore } from '@/app/services/vaultBlobStore';
 import type { DropdownAction, VaultFileViewerState } from './types';
 
@@ -64,15 +65,14 @@ export function useSmartVaultDocActions({
                 SmartToast.error('يرجى تسجيل الدخول أولاً');
                 return;
             }
-            if (doc.authorId && doc.authorId !== currentUserId) {
+            if (!doc.authorId || doc.authorId !== currentUserId) {
                 SmartToast.error('ليس لديك صلاحية لحذف هذا الملف');
                 return;
             }
-            const authorId = doc.authorId || currentUserId;
             closeFileViewer();
             removeDocFromState(doc.id);
             try {
-                await SmartVaultDB.deleteDoc(doc.id, authorId);
+                await SmartVaultDB.deleteDoc(doc.id, currentUserId);
                 SmartToast.success('تم حذف الملف بنجاح');
             } catch {
                 await loadDocs();
@@ -88,7 +88,7 @@ export function useSmartVaultDocActions({
                 SmartToast.error('يرجى تسجيل الدخول أولاً');
                 return;
             }
-            if (doc.authorId && doc.authorId !== currentUserId) {
+            if (!doc.authorId || doc.authorId !== currentUserId) {
                 SmartToast.error('ليس لديك صلاحية لتعديل هذا الملف');
                 return;
             }
@@ -109,7 +109,7 @@ export function useSmartVaultDocActions({
                 const updated: SmartVaultDoc = {
                     ...editDoc,
                     title: values.title,
-                    lawyerNote: values.lawyerNote || null,
+                    lawyerNote: sanitizeVaultPlainNote(values.lawyerNote),
                     customCategory: classification || null,
                     tags: classification ? [classification] : [],
                     updatedAt: new Date().toISOString(),
@@ -132,6 +132,10 @@ export function useSmartVaultDocActions({
     );
 
     const handleViewFile = useCallback(async (doc: SmartVaultDoc) => {
+        if (!currentUserId || doc.authorId !== currentUserId) {
+            SmartToast.error('ليس لديك صلاحية لفتح هذا الملف');
+            return;
+        }
         if (fileViewerRef.current?.doc.id === doc.id) {
             closeFileViewer();
             return;
@@ -142,13 +146,14 @@ export function useSmartVaultDocActions({
         try {
             const fresh = docsRef.current?.find((d) => d.id === doc.id) ?? doc;
             const payload = await resolveVaultDocForViewing(fresh);
-            if (!payload) {
+            const safeUrl = payload ? sanitizeVaultPreviewUrl(payload.url) : null;
+            if (!payload || !safeUrl) {
                 SmartToast.error('تعذر فتح الملف — قد يكون غير محفوظ على الجهاز. أعد رفعه أو حدّث الصفحة');
                 return;
             }
 
             if (payload.kind === 'file') {
-                const opened = window.open(payload.url, '_blank', 'noopener,noreferrer');
+                const opened = window.open(safeUrl, '_blank', 'noopener,noreferrer');
                 if (!opened) {
                     SmartToast.error('تعذّر فتح الملف — اسمح بالنوافذ المنبثقة أو استخدم زر التحميل');
                 }
@@ -157,7 +162,7 @@ export function useSmartVaultDocActions({
 
             setFileViewer({
                 doc: payload.doc,
-                url: payload.url,
+                url: safeUrl,
                 blob: payload.blob,
                 kind: payload.kind,
                 revokeOnClose: payload.revokeOnClose,
@@ -167,7 +172,7 @@ export function useSmartVaultDocActions({
         } finally {
             setViewingDocId(null);
         }
-    }, [closeFileViewer, docsRef]);
+    }, [closeFileViewer, currentUserId, docsRef]);
 
     const handleDropdownAction = useCallback(
         async (doc: SmartVaultDoc, action: DropdownAction) => {

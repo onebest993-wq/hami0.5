@@ -2,7 +2,11 @@ import { flushSync } from 'react-dom';
 
 import type { RepositoryTab } from '@/app/components/lawyer/SmartRepositoryModal';
 import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
-import { executeOverlaySnapClose } from '@/app/runtime/overlaySnapClose';
+import { executeRepositoryOverlayClose } from '@/app/runtime/overlaySnapClose';
+import { beginHubLayerExit, clearHubLayerClosing } from '@/app/runtime/overlayHubLayerMotion';
+import { REPOSITORY_HUB_LAYER } from '@/app/runtime/overlayHubLayerSpecs';
+import { persistRepositorySessionOpen } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
+import { blurFocusWithin } from '@/app/utils/inertProps';
 import {
     clearRepositoryPerfMarks,
     markRepositoryPerfPhase,
@@ -12,10 +16,8 @@ import {
     concealRepositoryWarmShell,
     paintRepositoryInstantChrome,
 } from '@/app/runtime/repositoryInstantPaint';
-import {
-    loadRepositoryIntentWarm,
-    prefetchRepositoryHubAndOverlay,
-} from '@/app/hooks/lawyerDashboard/repository/repositoryLazyImports';
+import { prefetchRepositoryHubModule } from '@/app/runtime/repositoryHubLoader';
+import { loadRepositoryIntentWarm } from '@/app/hooks/lawyerDashboard/repository/repositoryLazyImports';
 
 export type OpenRepositoryShellOptions = {
     tab?: RepositoryTab;
@@ -40,6 +42,7 @@ export type CommitRepositoryCloseParams = {
     setIsRepositoryOpen: (open: boolean) => void;
     setFocusNoteId: (id: string | undefined) => void;
     setVaultOpenScanner: (open: boolean) => void;
+    setRepositoryHostMounted: (mounted: boolean) => void;
 };
 
 function applyRepositoryOpenState(
@@ -78,6 +81,7 @@ export function commitRepositoryOpen({
     setRepositoryOpenEpoch,
     setIsRepositoryOpen,
 }: CommitRepositoryOpenParams): void {
+    clearHubLayerClosing(REPOSITORY_HUB_LAYER);
     try {
         if (typeof performance !== 'undefined') {
             clearRepositoryPerfMarks();
@@ -89,7 +93,7 @@ export function commitRepositoryOpen({
 
     dismissTransientOverlays('repository');
 
-    prefetchRepositoryHubAndOverlay();
+    prefetchRepositoryHubModule();
     applyRepositoryOpaqueChrome();
 
     void loadRepositoryIntentWarm()
@@ -111,6 +115,7 @@ export function commitRepositoryOpen({
             setRepositoryOpenEpoch,
             setIsRepositoryOpen,
         });
+        persistRepositorySessionOpen(true, opts?.tab ?? 'notepad');
     });
 }
 
@@ -119,13 +124,26 @@ export function commitRepositoryClose({
     setIsRepositoryOpen,
     setFocusNoteId,
     setVaultOpenScanner,
+    setRepositoryHostMounted,
 }: CommitRepositoryCloseParams): void {
-    executeOverlaySnapClose({
-        conceal: concealRepositoryWarmShell,
-        commit: () => {
-            setIsRepositoryOpen(false);
-            setFocusNoteId(undefined);
-            setVaultOpenScanner(false);
-        },
+    beginHubLayerExit(REPOSITORY_HUB_LAYER, () => {
+        executeRepositoryOverlayClose({
+            conceal: () => {
+                if (typeof document !== 'undefined') {
+                    const modal = document.querySelector('[data-testid="smart-repository-modal"]');
+                    blurFocusWithin(modal instanceof HTMLElement ? modal : null);
+                }
+                concealRepositoryWarmShell();
+            },
+            commit: () => {
+                flushSync(() => {
+                    setIsRepositoryOpen(false);
+                    setFocusNoteId(undefined);
+                    setVaultOpenScanner(false);
+                    setRepositoryHostMounted(false);
+                    persistRepositorySessionOpen(false);
+                });
+            },
+        });
     });
 }

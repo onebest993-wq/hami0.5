@@ -211,8 +211,8 @@ describe('UnifiedSummonsHub — تأكيد التكليف بالحضور', () =>
         );
 
         expect(screen.getByText(/تكليف سارٍ/)).toBeTruthy();
-        expect(screen.getByRole('button', { name: 'حضور المدين' })).toBeTruthy();
-        expect(screen.queryByRole('button', { name: 'إنهاء التكليف' })).toBeNull();
+        expect(screen.getByRole('button', { name: 'انتهاء مدة التكليف' })).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'إنهاء التكليف' })).toBeTruthy();
     });
 
     it('يعرض تبويب الوضع الحالي ويمنع اختيار النشر أثناء تكليف سارٍ', () => {
@@ -221,7 +221,7 @@ describe('UnifiedSummonsHub — تأكيد التكليف بالحضور', () =>
             <UnifiedSummonsHub
                 isOpen
                 onClose={onClose}
-                initialMainTab="status"
+                initialMainTab="taklif"
                 onDebtorNotification={vi.fn()}
                 notificationCount={1}
                 executionSummonsArchived
@@ -253,8 +253,8 @@ describe('UnifiedSummonsHub — تأكيد التكليف بالحضور', () =>
             />,
         );
 
-        expect(screen.getByText(/مسارات سارية/)).toBeTruthy();
-        fireEvent.click(screen.getByRole('tab', { name: 'التبليغ بالنشر' }));
+        expect(screen.getByText(/تكليف سارٍ/)).toBeTruthy();
+        fireEvent.change(screen.getByLabelText('نوع التبليغ'), { target: { value: 'nashr' } });
         expect(screen.getByText(/لا يمكن فتح هذا المسار/)).toBeTruthy();
     });
 });

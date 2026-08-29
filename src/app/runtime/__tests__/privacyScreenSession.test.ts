@@ -1,16 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { syncNativeScreenshotGuard } = vi.hoisted(() => ({
-    syncNativeScreenshotGuard: vi.fn(async () => undefined),
+const { applyNativePrivacyGuard, syncNativePrivacyGuardFromSettings } = vi.hoisted(() => ({
+    applyNativePrivacyGuard: vi.fn(async () => undefined),
+    syncNativePrivacyGuardFromSettings: vi.fn(async () => undefined),
 }));
 
-vi.mock('@/app/runtime/screenshotDeterrentRuntime', () => ({
-    syncNativeScreenshotGuard,
+vi.mock('@/app/runtime/nativePrivacyGuard', () => ({
+    applyNativePrivacyGuard,
+    syncNativePrivacyGuardFromSettings,
 }));
 
-vi.mock('@/app/services/settings/settingsRuntime', () => ({
+vi.mock('@/app/services/settings/settingsSnapshot', () => ({
     getLawyerSettingsSnapshot: vi.fn(() => ({
-        security: { screenshotDeterrent: true },
+        security: { screenshotDeterrent: true, privacyBlur: true },
     })),
 }));
 
@@ -25,24 +27,27 @@ describe('privacyScreenSession', () => {
         vi.clearAllMocks();
     });
 
-    it('يُعطّل الحماية عند البداية ويُعيدها عند الإغلاق', async () => {
+    it('يُعطّل FLAG_SECURE عند البداية ويُعيد الحماية عند الإغلاق', async () => {
         await beginPrivacySensitiveSurface();
-        expect(syncNativeScreenshotGuard).toHaveBeenCalledWith(false);
+        expect(applyNativePrivacyGuard).toHaveBeenCalledWith({
+            recentsCover: true,
+            windowSecure: false,
+        });
 
         await endPrivacySensitiveSurface();
-        expect(syncNativeScreenshotGuard).toHaveBeenCalledWith(true);
+        expect(syncNativePrivacyGuardFromSettings).toHaveBeenCalled();
     });
 
     it('يدعم ref-count للجلسات المتداخلة', async () => {
         await beginPrivacySensitiveSurface();
         await beginPrivacySensitiveSurface();
-        expect(syncNativeScreenshotGuard).toHaveBeenCalledTimes(1);
+        expect(applyNativePrivacyGuard).toHaveBeenCalledTimes(1);
 
         await endPrivacySensitiveSurface();
-        expect(syncNativeScreenshotGuard).toHaveBeenCalledTimes(1);
+        expect(syncNativePrivacyGuardFromSettings).toHaveBeenCalledTimes(0);
 
         await endPrivacySensitiveSurface();
-        expect(syncNativeScreenshotGuard).toHaveBeenCalledTimes(2);
+        expect(syncNativePrivacyGuardFromSettings).toHaveBeenCalledTimes(1);
     });
 
     it('runWithPrivacyScreenSuspended يُعيد التفعيل حتى عند الخطأ', async () => {
@@ -52,7 +57,10 @@ describe('privacyScreenSession', () => {
             }),
         ).rejects.toThrow('fail');
 
-        expect(syncNativeScreenshotGuard).toHaveBeenCalledWith(false);
-        expect(syncNativeScreenshotGuard).toHaveBeenLastCalledWith(true);
+        expect(applyNativePrivacyGuard).toHaveBeenCalledWith({
+            recentsCover: true,
+            windowSecure: false,
+        });
+        expect(syncNativePrivacyGuardFromSettings).toHaveBeenCalled();
     });
 });

@@ -1,4 +1,5 @@
 import React from 'react';
+import { PROFILE_SAFE_IMAGE_ACCEPT } from '@/app/services/profileMediaService';
 
 type ProfileSettingsSheetFileInputsProps = {
     fileRef: React.RefObject<HTMLInputElement | null>;
@@ -18,8 +19,12 @@ export function ProfileSettingsSheetFileInputs({
             <input
                 ref={fileRef}
                 type="file"
-                accept="image/*"
+                accept={PROFILE_SAFE_IMAGE_ACCEPT}
+                hidden
+                tabIndex={-1}
+                aria-hidden="true"
                 className="hidden"
+                data-testid="profile-studio-block-image-input"
                 onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) void onBlockImageSelected(f);
@@ -29,8 +34,12 @@ export function ProfileSettingsSheetFileInputs({
             <input
                 ref={canvasFileRef}
                 type="file"
-                accept="image/*"
+                accept={PROFILE_SAFE_IMAGE_ACCEPT}
+                hidden
+                tabIndex={-1}
+                aria-hidden="true"
                 className="hidden"
+                data-testid="profile-studio-canvas-bg-input"
                 onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) void onCanvasBgSelected(f);

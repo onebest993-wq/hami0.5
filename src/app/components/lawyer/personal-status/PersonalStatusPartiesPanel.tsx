@@ -1,11 +1,12 @@
 import React from 'react';
-import { Plus, Users } from '@/app/components/ui/lucideIcons';
+import { Plus } from '@/app/components/ui/icons/Plus';
+import { Users } from '@/app/components/ui/icons/Users';
 import type { Party } from '../LawyerNewCase/types';
 import { PersonalSectionShell } from './PersonalStatusFormPrimitives';
 import { PersonalStatusPartyCard } from './PersonalStatusPartyCard';
 import { getPersonalStatusRoleForSide } from './personalStatusValidation';
 
-export interface PersonalStatusPartiesPanelProps {
+interface PersonalStatusPartiesPanelProps {
     stage: string;
     parties1: Party[];
     parties2: Party[];
@@ -39,13 +40,13 @@ export function PersonalStatusPartiesPanel({
                 </p>
             ) : null}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 relative">
                 <div className="hidden md:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-px h-[70%] bg-gradient-to-b from-transparent via-white/15 to-transparent pointer-events-none" />
 
-                <div className="space-y-3">
-                    <div className="flex items-center gap-2 mb-1">
-                        <Users size={14} className="text-[#E6C673]/70" />
-                        <span className="text-xs font-bold text-white/85">{side1Label}</span>
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2 mb-0.5">
+                        <Users size={13} className="text-[#E6C673]/70" />
+                        <span className="text-[11px] font-bold text-white/85">{side1Label}</span>
                     </div>
                     {parties1.map((p, i) => (
                         <PersonalStatusPartyCard
@@ -68,10 +69,10 @@ export function PersonalStatusPartiesPanel({
                     </button>
                 </div>
 
-                <div className="space-y-3">
-                    <div className="flex items-center gap-2 mb-1">
-                        <Users size={14} className="text-[#E6C673]/70" />
-                        <span className="text-xs font-bold text-white/85">{side2Label}</span>
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2 mb-0.5">
+                        <Users size={13} className="text-[#E6C673]/70" />
+                        <span className="text-[11px] font-bold text-white/85">{side2Label}</span>
                     </div>
                     {parties2.map((p, i) => (
                         <PersonalStatusPartyCard

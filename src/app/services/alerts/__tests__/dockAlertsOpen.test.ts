@@ -1,14 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
     ALERTS_DOCK_FEATURE,
+    armPendingAlertsDockOpen,
+    consumePendingAlertsDockOpen,
     openAlertsDockFromShell,
+    resetPendingAlertsDockOpenForTests,
     resolveAlertsDockSheetMode,
     shouldShowAlertsDockBadge,
 } from '@/app/services/alerts/dockAlertsOpen';
 
 describe('dockAlertsOpen', () => {
     it('exports Arabic feature label', () => {
-        expect(ALERTS_DOCK_FEATURE).toBe('البطاقة الذكية');
+        expect(ALERTS_DOCK_FEATURE).toBe('البطاقة');
     });
 
     it('opens alerts panel by default', () => {
@@ -60,5 +63,13 @@ describe('dockAlertsOpen', () => {
         expect(shouldShowAlertsDockBadge(0, 0)).toBe(false);
         expect(shouldShowAlertsDockBadge(2, 0)).toBe(true);
         expect(shouldShowAlertsDockBadge(0, 1)).toBe(true);
+    });
+
+    it('armPendingAlertsDockOpen يُستهلك مرة واحدة', () => {
+        resetPendingAlertsDockOpenForTests();
+        expect(consumePendingAlertsDockOpen()).toBe(false);
+        armPendingAlertsDockOpen();
+        expect(consumePendingAlertsDockOpen()).toBe(true);
+        expect(consumePendingAlertsDockOpen()).toBe(false);
     });
 });

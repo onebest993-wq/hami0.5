@@ -2,18 +2,19 @@
  * E2E: 10 مسارات حرجة — ExecutionDashboard (بدون ReferenceError / GlobalErrorBoundary)
  */
 import { test, expect, type Page } from '@playwright/test';
-import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
+import { seedLawyerFiles } from './helpers/civilLawsuitFixtures';
 import {
     collectFatalBootPageErrors,
-    bootToLawyerHome,
+    gotoLawyerHomeE2E,
 } from './helpers/bootFixtures';
 import { dismissProductivityBlockers, prepareProductivityE2E } from './helpers/productivityE2EFixtures';
 import { seedExecutionStorageForFile } from './helpers/executionStorageFixtures';
 import {
     closeExecutionDossierE2E,
-    expectExecutionArchiveConfirmDialog,
-    expectExecutionTrashConfirmHeading,
+    openExecutionArchiveConfirmFromCard,
+    openExecutionTrashConfirmFromCard,
 } from './helpers/executionE2EFixtures';
+import { openExecutionArchiveFromHome, openExecutionDossierByRowText, clickNativeElement } from './helpers/executionE2EBoot';
 
 const E2E_EXEC_ID = 'e2e-exec-critical-1';
 
@@ -45,19 +46,16 @@ async function bootLawyerShell(page: Page) {
     await seedLawyerFiles(page);
     await seedExecutionStorageForFile(page, MINIMAL_EXECUTION_FILE);
 
-    await page.goto('/');
-    await ensureLawyerDashboard(page);
-    await bootToLawyerHome(page);
+    await expect(async () => {
+        await gotoLawyerHomeE2E(page);
+    }).toPass({ timeout: 90_000 });
     await dismissProductivityBlockers(page);
 
     return collectFatalBootPageErrors(pageErrors);
 }
 
 async function openExecutionArchive(page: Page) {
-    await page.getByTestId('hub-archive-execution').click({ timeout: 25_000 });
-    await expect(page.getByRole('heading', { name: /مخزن الأضابير التنفيذية/i })).toBeVisible({
-        timeout: 25_000,
-    });
+    await openExecutionArchiveFromHome(page);
 }
 
 /** بعد إغلاق الإضبارة تبقى طبقة مخزن التنفيذ (وليس بطاقة Home) */
@@ -73,12 +71,7 @@ async function ensureExecutionDossierClosed(page: Page) {
 
 async function openFirstExecutionDossier(page: Page) {
     await ensureExecutionDossierClosed(page);
-    const row = page.getByText(/مديرية تنفيذ E2E|2026\/تنفيذ\/101/).first();
-    await expect(row).toBeVisible({ timeout: 25_000 });
-    await row.scrollIntoViewIfNeeded();
-    await row.click();
-    await expect(page.getByTestId('execution-dashboard-dossier')).toBeVisible({ timeout: 25_000 });
-    await expect(page.getByTestId('execution-followup-memo')).toBeVisible({ timeout: 25_000 });
+    await openExecutionDossierByRowText(page, /مديرية تنفيذ E2E|2026\/تنفيذ\/101/);
 }
 
 async function closeExecutionDossier(page: Page) {
@@ -97,7 +90,7 @@ function assertNoScopeReferenceErrors(pageErrors: string[]) {
 }
 
 test.describe('Execution critical paths', () => {
-    test.describe.configure({ timeout: 120_000, mode: 'serial' });
+    test.describe.configure({ timeout: 120_000 });
     test('1 — lawyer boot without scope ReferenceError', async ({ page }) => {
         const errors = await bootLawyerShell(page);
         assertNoScopeReferenceErrors(errors);
@@ -211,35 +204,47 @@ test.describe('Execution critical paths', () => {
         await openExecutionArchive(page);
 
         await expect(page.getByTestId('execution-archive-search')).toBeVisible();
-        const panel = page.getByTestId('execution-archive-filters-panel');
+        const shell = page.getByTestId('execution-archive-shell');
+        const panel = shell.getByTestId('execution-archive-filters-panel');
         await expect(panel).toHaveAttribute('aria-hidden', 'true');
 
-        await page.getByTestId('execution-archive-filters-toggle').click();
-        await expect(panel).toHaveAttribute('aria-hidden', 'false');
-        await expect(page.getByTestId('execution-archive-filter-civil')).toBeVisible();
+        const filtersToggle = shell.getByTestId('execution-archive-filters-toggle');
+        await expect(filtersToggle).toBeAttached({ timeout: 10_000 });
+        await expect(async () => {
+            if ((await panel.getAttribute('aria-hidden')) !== 'false') {
+                await clickNativeElement(filtersToggle);
+            }
+            await expect(panel).toHaveAttribute('aria-hidden', 'false', { timeout: 3_000 });
+        }).toPass({ timeout: 20_000 });
+        await expect(page.getByTestId('execution-archive-filter-civil')).toBeVisible({ timeout: 8_000 });
     });
 
     test('12 — lifecycle tabs switch and reset search', async ({ page }) => {
         await bootLawyerShell(page);
         await openExecutionArchive(page);
 
-        await page.getByTestId('execution-archive-search').fill('اختبار');
-        await page.getByTestId('executions-view-archived').click();
-        // العنوان H2 قد يبقى عاماً؛ عقد الأرشيف المؤكد: التبويب النشط + تفريغ البحث
-        await expect(page.getByTestId('executions-view-archived')).toBeVisible();
-        await expect(page.getByTestId('execution-archive-search')).toHaveValue('');
-        const archiveState = page
-            .getByRole('heading', { name: /مخزن أرشيف الإضابير التنفيذية|مخزن الأرشيف فارغ/i })
-            .or(page.getByPlaceholder(/مخزن الأرشيف/i));
-        await expect(archiveState.first()).toBeVisible({ timeout: 8_000 });
+        const shell = page.getByTestId('execution-archive-shell');
+        const archiveSearch = shell.getByTestId('execution-archive-search');
+        await expect(shell).toHaveAttribute('data-open', 'true', { timeout: 20_000 });
+        await archiveSearch.fill('اختبار', { force: true });
+        const archivedTab = shell.getByTestId('executions-view-archived');
+        await expect(async () => {
+            if ((await archivedTab.getAttribute('aria-pressed')) !== 'true') {
+                await clickNativeElement(archivedTab);
+            }
+            await expect(archivedTab).toHaveAttribute('aria-pressed', 'true');
+            await expect(archiveSearch).toHaveValue('');
+        }).toPass({ timeout: 20_000 });
     });
 
     test('13 — FAB visible on active tab only', async ({ page }) => {
         await bootLawyerShell(page);
         await openExecutionArchive(page);
 
-        await expect(page.getByTestId('executions-add-new')).toBeVisible();
-        await page.getByTestId('executions-view-archived').click();
+        await expect(page.getByTestId('executions-add-new')).toBeVisible({ timeout: 20_000 });
+        await clickNativeElement(
+            page.getByTestId('execution-archive-shell').getByTestId('executions-view-archived'),
+        );
         await expect(page.getByTestId('executions-add-new')).toBeHidden();
     });
 
@@ -247,9 +252,9 @@ test.describe('Execution critical paths', () => {
         await bootLawyerShell(page);
         await openExecutionArchive(page);
 
-        await page.getByTestId('execution-smart-card-archive').first().click();
-        const dialog = await expectExecutionArchiveConfirmDialog(page);
-        await dialog.getByRole('button', { name: /إلغاء/i }).click();
+        const dialog = await openExecutionArchiveConfirmFromCard(page);
+        await expect(page.getByTestId('execution-archive-confirm-cancel')).toBeVisible();
+        await page.getByTestId('execution-archive-confirm-cancel').click({ force: true });
         await expect(dialog).toBeHidden({ timeout: 8_000 });
     });
 
@@ -257,11 +262,24 @@ test.describe('Execution critical paths', () => {
         await bootLawyerShell(page);
         await openExecutionArchive(page);
 
-        await page.getByTestId('execution-smart-card-trash').first().click();
-        await expectExecutionTrashConfirmHeading(page);
-        await page.getByRole('button', { name: /إلغاء/i }).click();
-        await expect(page.getByRole('dialog', { name: /تأكيد النقل إلى سلة المهملات/i })).toBeHidden({
-            timeout: 8_000,
-        });
+        const trashDialog = await openExecutionTrashConfirmFromCard(page);
+        await expect(page.getByTestId('execution-trash-confirm-cancel')).toBeVisible();
+        await page.getByTestId('execution-trash-confirm-cancel').click({ force: true });
+        await expect(trashDialog).toBeHidden({ timeout: 8_000 });
+    });
+
+    test('16 — archive FAB opens creation shell and closes', async ({ page }) => {
+        await bootLawyerShell(page);
+        await openExecutionArchive(page);
+
+        await expect(page.getByTestId('executions-add-new')).toBeVisible({ timeout: 20_000 });
+        await clickNativeElement(page.getByTestId('executions-add-new'));
+        await expect(page.getByTestId('execution-creation-title')).toBeVisible({ timeout: 20_000 });
+        await clickNativeElement(page.getByTestId('execution-creation-close'));
+        await expect(page.getByTestId('execution-creation-title')).toBeHidden({ timeout: 8_000 });
+        await expect(async () => {
+            await expect(page.getByTestId('execution-archive-shell')).toHaveAttribute('data-open', 'true');
+            await expect(page.getByTestId('execution-archive-shell')).toBeVisible();
+        }).toPass({ timeout: 8_000 });
     });
 });

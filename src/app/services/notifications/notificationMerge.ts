@@ -15,7 +15,36 @@ export function isServerAppendedNotification(n: NotificationModel): boolean {
     return payloadOf(n).appendedBy === 'server';
 }
 
-/** دمج إشعارين بنفس المعرّف — isRead أحادي (true يفوز)، الخادم يفوز على المحتوى عند التعارض. */
+function shallowEqualPayload(a?: Record<string, unknown>, b?: Record<string, unknown>): boolean {
+    if (a === b) return true;
+    const av = a ?? {};
+    const bv = b ?? {};
+    const aKeys = Object.keys(av);
+    if (aKeys.length !== Object.keys(bv).length) return false;
+    return aKeys.every((k) => Object.is(av[k], bv[k]));
+}
+
+/** يقارن محتوى سجلّين — يُستخدم لتفادي إنشاء مرجع جديد عند غياب أي تغيير فعلي. */
+function isSameNotificationContent(x: NotificationModel, y: NotificationModel): boolean {
+    return (
+        x.id === y.id &&
+        x.title === y.title &&
+        x.message === y.message &&
+        x.type === y.type &&
+        x.category === y.category &&
+        x.direction === y.direction &&
+        x.isRead === y.isRead &&
+        x.createdAt === y.createdAt &&
+        shallowEqualPayload(x.actionPayload, y.actionPayload)
+    );
+}
+
+/**
+ * دمج إشعارين بنفس المعرّف — isRead أحادي (true يفوز)، الخادم يفوز على المحتوى عند التعارض.
+ * يُعيد نفس مرجع `a` حرفياً عندما لا يُحدث الدمج أي تغيير فعلي — ضروري لاستقرار مراجع
+ * notifications في الـ store ومنع إعادة رندر لا نهائية عند إعادة مزامنة بيانات مطابقة
+ * (مثال: منتدى ↔ لوحة الجرس عبر syncForumNotificationsToAppStore على كل نبضة مزامنة).
+ */
 export function mergeNotificationRecord(
     a: NotificationModel,
     b: NotificationModel,
@@ -23,33 +52,61 @@ export function mergeNotificationRecord(
     const aServer = isServerAppendedNotification(a);
     const bServer = isServerAppendedNotification(b);
 
+    let merged: NotificationModel;
     if (aServer && !bServer) {
-        return {
+        merged = {
             ...a,
             isRead: a.isRead || b.isRead,
             actionPayload: { ...payloadOf(b), ...payloadOf(a) },
         };
-    }
-    if (bServer && !aServer) {
-        return {
+    } else if (bServer && !aServer) {
+        merged = {
             ...b,
             isRead: a.isRead || b.isRead,
             actionPayload: { ...payloadOf(a), ...payloadOf(b) },
         };
+    } else {
+        const aTime = parseCreatedAt(a.createdAt);
+        const bTime = parseCreatedAt(b.createdAt);
+        const newer = bTime >= aTime ? b : a;
+        const older = bTime >= aTime ? a : b;
+
+        merged = {
+            ...newer,
+            title: newer.title || older.title,
+            message: newer.message || older.message,
+            isRead: a.isRead || b.isRead,
+            actionPayload: { ...payloadOf(older), ...payloadOf(newer) },
+        };
     }
 
-    const aTime = parseCreatedAt(a.createdAt);
-    const bTime = parseCreatedAt(b.createdAt);
-    const newer = bTime >= aTime ? b : a;
-    const older = bTime >= aTime ? a : b;
+    return isSameNotificationContent(merged, a) ? a : merged;
+}
 
-    return {
-        ...newer,
-        title: newer.title || older.title,
-        message: newer.message || older.message,
-        isRead: a.isRead || b.isRead,
-        actionPayload: { ...payloadOf(older), ...payloadOf(newer) },
-    };
+/** مساواة سطحية بالمرجع لقائمتين مُرتّبتين — صحيحة طالما عناصر القوائم تحافظ على ثبات مرجعي عند غياب التغيير. */
+export function notificationListsReferenceEqual(
+    x: NotificationModel[],
+    y: NotificationModel[],
+): boolean {
+    if (x === y) return true;
+    if (x.length !== y.length) return false;
+    return x.every((item, i) => item === y[i]);
+}
+
+/**
+ * مساواة بالمحتوى لقائمتين مُرتّبتين — لطبقات لا تملك ثبات مرجع بين نداءين
+ * (`NotificationRepository.loadLocal` يُعيد `JSON.parse` جديداً كل مرّة، فلا
+ * ثبات مرجعي ممكن حتى مع محتوى مطابق حرفياً). `notificationListsReferenceEqual`
+ * تُخطئ دائماً هنا؛ هذه تفحص القيم فعلاً — أغلى قليلاً، لكنها الصحيحة عند
+ * غياب سلسلة مرجعية بين النداءين.
+ */
+export function notificationListsContentEqual(
+    x: NotificationModel[],
+    y: NotificationModel[],
+): boolean {
+    if (x === y) return true;
+    if (x.length !== y.length) return false;
+    return x.every((item, i) => isSameNotificationContent(item, y[i]));
 }
 
 /** اتحاد قوائم — لا last-write-wins على isRead. */

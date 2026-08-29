@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { SeizedMovable } from '@/app/types/execution';
 import { patchExecutorDecisionRow } from '@/app/utils/executorSeizureDecisionQueue';
 import {
@@ -57,7 +56,7 @@ export function handleSeizureOutcomeMovablePhase(
     if (subtype === 'movable_expert_objection') {
         const rawJson = String(decisionRow?.seizurePayloadJson || '').trim();
         const objectionKind = parseExpertObjectionKindFromPayload(rawJson);
-        const objectionPatch = buildExpertObjectionEntityPatch(cur as any, objectionKind);
+        const objectionPatch = buildExpertObjectionEntityPatch(cur, objectionKind);
         const next = [...prev];
         next[idx] = { ...cur, ...objectionPatch } as SeizedMovable;
         ctx.persistExecutionMergeRef.current?.({ seizedMovables: next });

@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import type { LegalTask } from '@/app/types/TaskEngine';
 import {
     countActiveFieldCurtainTasks,
     countFieldDaySheetTasks,
@@ -7,26 +6,7 @@ import {
     listFieldDaySheetTasks,
     sortFieldCurtainTasks,
 } from '@/app/services/tasks/fieldCurtainTasks';
-
-function task(partial: Partial<LegalTask> & Pick<LegalTask, 'id' | 'title'>): LegalTask {
-    return {
-        id: partial.id,
-        rawText: partial.title,
-        title: partial.title,
-        location: partial.location ?? null,
-        parsedDate: partial.parsedDate ?? null,
-        reminderAt: null,
-        isFatalDeadline: partial.isFatalDeadline ?? false,
-        linkedCaseId: null,
-        status: partial.status ?? 'pending',
-        completedAt: partial.completedAt ?? null,
-        pinnedToFieldCurtain: partial.pinnedToFieldCurtain ?? false,
-        fieldCurtainPinnedAt: partial.fieldCurtainPinnedAt ?? null,
-        subTasks: partial.subTasks ?? [],
-        documentRequirements: [],
-        expenses: [],
-    };
-}
+import { legalTaskStub as task } from './legalTaskStub';
 
 describe('fieldCurtainTasks', () => {
     it('lists only pinned incomplete tasks', () => {
@@ -128,5 +108,55 @@ describe('fieldCurtainTasks', () => {
             }),
         ];
         expect(listFieldDaySheetTasks(tasks, today).map((t) => t.id)).toEqual(['newer', 'older']);
+    });
+
+    it('sheet count matches list length without depending on sort', () => {
+        const today = new Date('2026-08-03T10:00:00');
+        const tasks = [
+            task({
+                id: 'today',
+                title: 'اليوم',
+                parsedDate: new Date('2026-08-03T09:00:00'),
+            }),
+            task({
+                id: 'future-week',
+                title: 'لاحق هذا الأسبوع',
+                parsedDate: new Date('2026-08-05T09:00:00'),
+            }),
+            task({
+                id: 'pinned',
+                title: 'مثبتة',
+                pinnedToFieldCurtain: true,
+            }),
+        ];
+        const listed = listFieldDaySheetTasks(tasks, today);
+        expect(countFieldDaySheetTasks(tasks, today)).toBe(listed.length);
+        expect(listed.map((t) => t.id).sort()).toEqual(['pinned', 'today']);
+    });
+
+    it('includes this-week task when reminder is today even if parsedDate is later this week', () => {
+        const today = new Date('2026-08-03T10:00:00');
+        const tasks = [
+            task({
+                id: 'remind-today',
+                title: 'تذكير اليوم',
+                parsedDate: new Date('2026-08-05T09:00:00'),
+                reminderAt: new Date('2026-08-03T08:00:00'),
+            }),
+        ];
+        expect(listFieldDaySheetTasks(tasks, today).map((t) => t.id)).toEqual(['remind-today']);
+    });
+
+    it('treats local midnight parsedDate as today, not UTC ISO day', () => {
+        const today = new Date(2026, 7, 3, 10, 0, 0);
+        const localMidnight = new Date(2026, 7, 3, 0, 0, 0);
+        const tasks = [
+            task({
+                id: 'local-today',
+                title: 'منتصف الليل المحلي',
+                parsedDate: localMidnight,
+            }),
+        ];
+        expect(countFieldDaySheetTasks(tasks, today)).toBe(1);
     });
 });

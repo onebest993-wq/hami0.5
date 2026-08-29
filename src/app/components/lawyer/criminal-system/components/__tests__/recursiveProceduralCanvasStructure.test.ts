@@ -16,6 +16,12 @@ const EXTRACTED_MODULES: Array<{ file: string; exportName: string }> = [
     { file: 'ProceduralItemRows.tsx', exportName: 'NoteRow' },
     { file: 'ProceduralItemRows.tsx', exportName: 'ActionRow' },
     { file: 'ProceduralContainerTreeNode.tsx', exportName: 'ProceduralContainerTreeNode' },
+    { file: 'canvasHelpers.ts', exportName: 'findEditingContainerInTree' },
+    { file: 'useProceduralCanvasFocus.ts', exportName: 'useProceduralCanvasFocus' },
+    { file: 'ProceduralCanvasToolbar.tsx', exportName: 'ProceduralCanvasToolbar' },
+    { file: 'ProceduralCanvasAttentionBoard.tsx', exportName: 'ProceduralCanvasAttentionBoard' },
+    { file: 'ProceduralCanvasTreePanel.tsx', exportName: 'ProceduralCanvasTreePanel' },
+    { file: 'ProceduralCanvasModalsHost.tsx', exportName: 'ProceduralCanvasModalsHost' },
 ];
 
 describe('RecursiveProceduralCanvas extraction', () => {
@@ -26,12 +32,17 @@ describe('RecursiveProceduralCanvas extraction', () => {
         expect(source).toContain(exportName);
     });
 
-    it('main file imports the recursive tree-node component instead of defining renderContainerTree locally', () => {
+    it('main file imports tree panel / tree-context instead of defining renderContainerTree locally', () => {
         expect(mainFileSource).toMatch(
-            /ProceduralContainerTreeNode,\s*type ProceduralTreeContext,\s*\}\s*from\s*'\.\/RecursiveProceduralCanvas\/ProceduralContainerTreeNode';/,
+            /ProceduralTreeContext\s*\}?\s*from\s*'\.\/RecursiveProceduralCanvas\/ProceduralContainerTreeNode'/,
         );
+        expect(mainFileSource).toContain("from './RecursiveProceduralCanvas/ProceduralCanvasTreePanel'");
         expect(mainFileSource).not.toMatch(/const renderContainerTree = \(/);
-        expect(mainFileSource).toContain('<ProceduralContainerTreeNode');
+        const treePanelSource = fs.readFileSync(
+            path.join(CANVAS_DIR, 'ProceduralCanvasTreePanel.tsx'),
+            'utf8',
+        );
+        expect(treePanelSource).toContain('<ProceduralContainerTreeNode');
     });
 
     it('main file no longer defines the row/primitive components locally', () => {

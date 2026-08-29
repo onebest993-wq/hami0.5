@@ -8,7 +8,7 @@ import type { useSmartFileModalFlags } from '../hooks/useSmartFileModalFlags';
 type ModalFlags = ReturnType<typeof useSmartFileModalFlags>;
 type ModalHandlers = ReturnType<typeof buildSmartFileModalHandlers>;
 
-export type AssembleSmartFileModalLayoutParams = {
+type AssembleSmartFileModalLayoutParams = {
     onClose: () => void;
     file: FileData;
     status: string;
@@ -57,7 +57,6 @@ export type AssembleSmartFileModalLayoutParams = {
     handleCorrespondenceResponse: (...args: unknown[]) => void;
     handleResumeAbandonment: (...args: unknown[]) => void;
     handleResume: (...args: unknown[]) => void;
-    handleToggleClient: (...args: unknown[]) => void;
     handleInterruptionToggle: (...args: unknown[]) => void;
     handleOpenPauseModal: () => void;
     handleOpenPauseResume: () => void;
@@ -152,7 +151,6 @@ export function assembleSmartFileModalLayout(params: AssembleSmartFileModalLayou
         handleCorrespondenceResponse: params.handleCorrespondenceResponse,
         handleResumeAbandonment: params.handleResumeAbandonment,
         handleResume: params.handleResume,
-        handleToggleClient: params.handleToggleClient,
         handleInterruptionToggle: params.handleInterruptionToggle,
         handleOpenPauseModal: params.handleOpenPauseModal,
         handleOpenPauseResume: params.handleOpenPauseResume,

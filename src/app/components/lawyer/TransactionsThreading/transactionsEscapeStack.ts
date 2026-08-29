@@ -9,6 +9,8 @@ export type TransactionsDetailsEscapeSnapshot = {
     taskEditOpen: boolean;
     taskDeleteOpen: boolean;
     shareProcedureOpen?: boolean;
+    addDocumentSheetOpen?: boolean;
+    deleteDocumentOpen?: boolean;
 };
 
 export type TransactionsEscapeSnapshot = {
@@ -17,7 +19,7 @@ export type TransactionsEscapeSnapshot = {
     details: TransactionsDetailsEscapeSnapshot | null;
 };
 
-export type TransactionsEscapeAction =
+type TransactionsEscapeAction =
     | 'close-report'
     | 'close-complete'
     | 'close-save-template'
@@ -27,27 +29,13 @@ export type TransactionsEscapeAction =
     | 'close-task-edit'
     | 'close-task-delete'
     | 'close-share-procedure'
+    | 'close-delete-document'
+    | 'close-add-document'
     | 'close-add-transaction'
     | 'back-to-list'
     | 'exit-hub';
 
-const CLOSED_DETAILS: TransactionsDetailsEscapeSnapshot = {
-    addTaskSheetOpen: false,
-    reportOpen: false,
-    completeOpen: false,
-    saveTemplateOpen: false,
-    templatesOpen: false,
-    taskCompleteOpen: false,
-    taskEditOpen: false,
-    taskDeleteOpen: false,
-    shareProcedureOpen: false,
-};
-
-export function emptyTransactionsDetailsEscape(): TransactionsDetailsEscapeSnapshot {
-    return { ...CLOSED_DETAILS };
-}
-
-export type TransactionsEscapeHandlers = {
+type TransactionsEscapeHandlers = {
     onBack: () => void;
     onCloseListAddSheet: () => void;
     onBackToList: () => void;
@@ -86,6 +74,12 @@ export function applyTransactionsEscapeAction(
         case 'close-share-procedure':
             handlers.onCloseDetailsOverlay({ shareProcedureOpen: false });
             break;
+        case 'close-delete-document':
+            handlers.onCloseDetailsOverlay({ deleteDocumentOpen: false });
+            break;
+        case 'close-add-document':
+            handlers.onCloseDetailsOverlay({ addDocumentSheetOpen: false });
+            break;
         case 'close-add-transaction':
             handlers.onCloseListAddSheet();
             break;
@@ -113,9 +107,32 @@ export function resolveTransactionsEscapeAction(
         if (d.taskDeleteOpen) return 'close-task-delete';
         if (d.taskEditOpen) return 'close-task-edit';
         if (d.taskCompleteOpen) return 'close-task-complete';
+        if (d.deleteDocumentOpen) return 'close-delete-document';
+        if (d.addDocumentSheetOpen) return 'close-add-document';
         if (d.addTaskSheetOpen) return 'close-add-task';
     }
     if (snapshot.listAddSheetOpen) return 'close-add-transaction';
     if (snapshot.view === 'details') return 'back-to-list';
     return 'exit-hub';
 }
+
+export function isSameTransactionsDetailsEscape(
+    prev: TransactionsDetailsEscapeSnapshot | null,
+    next: TransactionsDetailsEscapeSnapshot,
+): boolean {
+    if (!prev) return false;
+    return (
+        prev.addTaskSheetOpen === next.addTaskSheetOpen &&
+        prev.reportOpen === next.reportOpen &&
+        prev.completeOpen === next.completeOpen &&
+        prev.saveTemplateOpen === next.saveTemplateOpen &&
+        prev.templatesOpen === next.templatesOpen &&
+        prev.shareProcedureOpen === next.shareProcedureOpen &&
+        prev.taskCompleteOpen === next.taskCompleteOpen &&
+        prev.taskEditOpen === next.taskEditOpen &&
+        prev.taskDeleteOpen === next.taskDeleteOpen &&
+        prev.addDocumentSheetOpen === next.addDocumentSheetOpen &&
+        prev.deleteDocumentOpen === next.deleteDocumentOpen
+    );
+}
+

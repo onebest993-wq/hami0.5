@@ -15,8 +15,8 @@ vi.mock('@/app/services/forum/forumNotificationEvents', () => ({
     emitForumUnreadCount: vi.fn(),
 }));
 
-vi.mock('@/app/services/PushNotificationService', () => ({
-    PushNotificationService: { notifyForumActivity: vi.fn() },
+vi.mock('@/app/services/notifications/domainNotifications', () => ({
+    notifyForumActivity: vi.fn(),
 }));
 
 import { ForumNotificationStreamService } from '@/app/services/forum/ForumNotificationStreamService';

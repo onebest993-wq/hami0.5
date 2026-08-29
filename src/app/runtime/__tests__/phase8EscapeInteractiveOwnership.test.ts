@@ -1,17 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readHomeTabImplSource } from './readHomeTabImplSource';
+import { readLawyerDashboardMainViewSurface } from './readLawyerDashboardMainViewSurface';
 
 const root = process.cwd();
 
 describe('phase-8 escape + interactive ownership', () => {
     it('MainView يملك Escape التنفيذ مرة واحدة', () => {
-        const main = readFileSync(
-            join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
-            'utf8',
-        );
+        const main = readLawyerDashboardMainViewSurface();
         expect(main).toContain('useLawyerExecutionOverlayEscape');
-        expect(main).toContain('archiveOpen: executionLive');
+        expect(main).toContain('archiveOpen: executionArchiveOpen');
         expect(main).toContain('executionFileOpen: Boolean(executionDossierLive)');
         expect(main).toContain('executionCreateOpen: executionCreateLive');
     });
@@ -33,7 +32,7 @@ describe('phase-8 escape + interactive ownership', () => {
             'utf8',
         );
         const shell = readFileSync(
-            join(root, 'src/app/components/lawyer/dashboard/ExecutionArchiveShell.tsx'),
+            join(root, 'src/app/components/lawyer/dashboard/ExecutionArchiveInstantChrome.tsx'),
             'utf8',
         );
         expect(entry).not.toContain('useLawyerExecutionOverlayEscape');
@@ -64,17 +63,37 @@ describe('phase-8 escape + interactive ownership', () => {
         expect(shell).toContain('stopImmediatePropagation');
     });
 
-    it('HomeTab يعلّم first-tab-open فقط؛ MainView يملك interactive', () => {
-        const home = readFileSync(
-            join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardHomeTab.tsx'),
+    it('first-tab-open: شبكة الرئيسية تعلّم؛ لا مسار Minimal', () => {
+        const home = readHomeTabImplSource(root);
+        const grid = readFileSync(
+            join(root, 'src/app/components/lawyer/dashboard/HomeMainGrid.tsx'),
             'utf8',
         );
-        const main = readFileSync(
-            join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
+        const firstPaint = readFileSync(
+            join(root, 'src/app/components/lawyer/dashboard/HomeMainGridFirstPaint.tsx'),
             'utf8',
         );
+        const gate = readFileSync(
+            join(root, 'src/app/bootstrap/homeMainGridPaintGate.ts'),
+            'utf8',
+        );
+        const main = readLawyerDashboardMainViewSurface();
+        const inner = readFileSync(
+            join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardInner.tsx'),
+            'utf8',
+        );
+        expect(inner).toContain('LawyerDashboardFullBootPath');
+        expect(inner).not.toContain('LawyerDashboardMinimalBootPath');
         expect(home).not.toContain('markDashboardInteractiveOnce');
-        expect(home).toContain("markBootPhase('first-tab-open')");
+        expect(home).not.toContain('markLawyerDashboardFirstTabOpenOnce');
+        expect(grid).toContain('scheduleHomeMainGridPainted');
+        expect(grid).toContain('announcePaint');
+        expect(grid).toContain('home-main-grid');
+        expect(firstPaint).toContain('HomeMainGrid');
+        expect(firstPaint).toContain('announcePaint');
+        expect(main).toContain('announceBootReveal');
+        expect(gate).toContain('markLawyerDashboardFirstTabOpenOnce');
+        expect(gate).toContain('markDashboardInteractiveOnce');
         expect(main).toContain('markDashboardInteractiveOnce');
     });
 

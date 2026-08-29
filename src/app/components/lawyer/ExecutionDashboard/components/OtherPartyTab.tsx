@@ -1,13 +1,31 @@
-import React, { Suspense, useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { OtherPartyEffectiveRequestsPanel } from './OtherPartyEffectiveRequestsPanel';
 import type { OtherPartyEffectiveRequestsPanelProps, CreditorTrackDecisionHandlers } from './OtherPartyEffectiveRequestsPanel';
-import type { OtherPartyActionLogEntry, OtherPartyRequestTrackEntry, TimelineEvent } from '@/app/types/execution';
+import type {
+    ExecutionFile,
+    OtherPartyActionLogEntry,
+    OtherPartyRequestTrackEntry,
+    TimelineEvent,
+} from '@/app/types/execution';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import { isExecutionHandlerStubLeaf } from '../hooks/executionHandlerClusterStubs';
 import { submitOtherPartyFollowupAction } from '@/app/application/execution/followup/submitOtherPartyFollowupAction';
+import { EXEC_OVERLAY_INNER_SILENT_FALLBACK } from '../executionDashboardLazyShellUi';
+import { PreloadableOverlayGate } from '../preloadableOverlayGate';
+
+type OtherPartyActionsLogProps = {
+    entries: OtherPartyActionLogEntry[];
+    onPersist: (next: OtherPartyActionLogEntry[]) => void;
+    onSubmitToDecisions: (input: {
+        date: string;
+        content: string;
+    }) => { ok: boolean; decisionId?: string; logEntryId?: string } | undefined | null;
+    executionId?: string;
+    appealPerspective?: AppealUiPerspective;
+};
 
 export interface OtherPartyTabProps {
-    executionData: Record<string, any> | null | undefined;
+    executionData: ExecutionFile | null | undefined;
     decisionsStorageExecutionId?: string;
     persistExecutionMerge: (patch: Record<string, unknown>) => void;
     handleOtherPartyActionSubmitToDecisions: (input: { date: string; content: string }) => {
@@ -16,7 +34,7 @@ export interface OtherPartyTabProps {
         logEntryId?: string;
     };
     EXEC_OVERLAY_LAZY_FALLBACK: React.ReactNode;
-    LazyOtherPartyActionsLog: React.LazyExoticComponent<React.ComponentType<any>>;
+    LazyOtherPartyActionsLog: React.LazyExoticComponent<React.ComponentType<OtherPartyActionsLogProps>>;
     appealPerspective?: AppealUiPerspective;
     showCreditorRequestsMirror?: boolean;
     isRepresentingDebtor?: boolean;
@@ -41,7 +59,7 @@ export const OtherPartyTab: React.FC<OtherPartyTabProps> = ({
     decisionsStorageExecutionId,
     persistExecutionMerge,
     handleOtherPartyActionSubmitToDecisions,
-    EXEC_OVERLAY_LAZY_FALLBACK,
+    EXEC_OVERLAY_LAZY_FALLBACK: _EXEC_OVERLAY_LAZY_FALLBACK,
     LazyOtherPartyActionsLog,
     showCreditorRequestsMirror = false,
     isRepresentingDebtor = false,
@@ -178,15 +196,17 @@ export const OtherPartyTab: React.FC<OtherPartyTabProps> = ({
 
     return (
         <div className="space-y-4 p-4" onClick={(e) => e.stopPropagation()}>
-            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
-                <LazyOtherPartyActionsLog
-                    entries={manualEntries}
-                    onPersist={persistManualLog}
-                    onSubmitToDecisions={submitOtherPartyAction}
-                    executionId={decisionsExecutionId}
-                    appealPerspective={appealPerspective}
-                />
-            </Suspense>
+            <PreloadableOverlayGate
+                lazy={LazyOtherPartyActionsLog}
+                lazyProps={{
+                    entries: manualEntries,
+                    onPersist: persistManualLog,
+                    onSubmitToDecisions: submitOtherPartyAction,
+                    executionId: decisionsExecutionId,
+                    appealPerspective,
+                }}
+                fallback={EXEC_OVERLAY_INNER_SILENT_FALLBACK}
+            />
         </div>
     );
 };

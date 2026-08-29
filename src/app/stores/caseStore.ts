@@ -6,10 +6,8 @@ import {
   migrateCasePersistState,
   normalizeCasePersistSlice,
 } from '@/app/infrastructure/persistence/caseStorePersist';
-import {
-  createGuardedJSONStorage,
-  createPersistRehydrateReporter,
-} from '@/app/infrastructure/persistence/zustandPersistFoundation';
+import { createSecureJSONStorage } from '@/app/services/securePersistStorage';
+import { createPersistRehydrateReporter } from '@/app/infrastructure/persistence/zustandPersistFoundation';
 
 export type CaseType = 'lawsuit' | 'transaction' | 'execution';
 
@@ -262,7 +260,7 @@ export const useCaseStore = create<CaseState>()(
     {
       name: CASE_STORE_KEY,
       version: CASE_STORE_PERSIST_VERSION,
-      storage: createGuardedJSONStorage<CasePersisted>(() => localStorage),
+      storage: createSecureJSONStorage<CasePersisted>(),
       migrate: migrateCasePersistState,
       merge: (persisted, current) => ({
         ...current,

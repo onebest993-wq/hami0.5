@@ -4,8 +4,8 @@ import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 
 /** لوحة مفاتيح + safe-area لأسفل الشاشة — للمنتدى والأوراق السفلية */
-export function useCommunitySheetChrome() {
-    const keyboardInset = useMobileKeyboardInset();
+export function useCommunitySheetChrome(enabled = true) {
+    const keyboardInset = useMobileKeyboardInset(enabled);
     const isNative = isCapacitorNativePlatform();
 
     const sheetStyle = useMemo(() => {

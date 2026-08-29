@@ -14,6 +14,15 @@ describe('lawyerHomeFx-android.css', () => {
         expect(css).not.toMatch(/data-hami-platform='web'/);
     });
 
+    it('kills home glass blur on native before platform=android settles', () => {
+        expect(css).toContain(":not([data-hami-platform='ios']):not([data-hami-platform='android'])");
+        expect(css).toContain('backdrop-filter: none');
+        expect(css).toContain('.hami-gs-backdrop');
+        expect(css).toContain('.hami-notif-overlay-btn');
+        expect(css).toContain('.hami-notif-layer');
+        expect(css).toContain('translateZ(0)');
+    });
+
     it('strips transparent gradients and uses theme-driven solid card fills', () => {
         expect(css).toContain('--hami-android-card-bg');
         expect(css).toContain('--hami-android-card-elev');
@@ -25,9 +34,8 @@ describe('lawyerHomeFx-android.css', () => {
     });
 
     it('keeps glow off but allows home block pattern overlays on Android', () => {
-        expect(css).toContain('.hami-home-glass-decor');
-        expect(css).toContain('.hami-hub-glow-orb');
         expect(css).toContain('.hami-home-block-pattern');
+        expect(css).not.toContain('.hami-home-glass-decor');
         expect(css).toMatch(/\.hami-home-block-pattern\s*\{[^}]*display:\s*block/s);
         expect(css).toContain('hami-high-contrast');
         expect(css).toContain('--glass-opacity');
@@ -37,14 +45,15 @@ describe('lawyerHomeFx-android.css', () => {
         expect(css).toContain("data-testid='tasks-manager'");
         expect(css).toContain("data-testid='tasks-manager-overlay'");
         expect(css).toContain('tasks-week-day-');
-        expect(css).toContain('#1a4348');
-        expect(css).toContain('#332c25');
+        expect(css).toContain('#0f1629');
+        expect(css).toContain('#12182b');
         expect(css).toContain('background-image: none');
     });
 
-    it('ينزّل الهيدر عن شريط الحالة على Android', () => {
+    it('يرفع شريط الأدوات عن زر النظام على Android', () => {
         expect(css).toContain('--hami-lawyer-header-safe-top');
         expect(css).toContain('--hami-android-status-pad');
+        expect(css).toContain('--hami-android-nav-pad');
         expect(css).toContain('.hami-lawyer-header');
         expect(css).toContain("data-testid='transactions-hub'");
         expect(css).not.toMatch(
@@ -63,11 +72,15 @@ describe('lawyerHomeFx-android.css', () => {
         expect(css).toContain('#0a0f1c');
     });
 
-    it('يُستورد من critical-shell فقط — لا تكرار في deferred-app', () => {
+    it('ويب الحرج بلا Android FX؛ native عبر virtual + لا تكرار في deferred-app', () => {
         const stylesRoot = resolve(__dirname, '../../../../../styles');
         const critical = readFileSync(resolve(stylesRoot, 'critical-shell.css'), 'utf8');
+        const nativeGate = readFileSync(resolve(stylesRoot, 'critical-native-android.css'), 'utf8');
         const deferred = readFileSync(resolve(stylesRoot, 'deferred-app.css'), 'utf8');
-        expect(critical).toMatch(/@import\s+['"].*lawyerHomeFx-android\.css/);
-        expect(deferred).not.toMatch(/@import\s+['"].*lawyerHomeFx-android\.css/);
+        const index = readFileSync(resolve(stylesRoot, '../index.tsx'), 'utf8');
+        expect(critical).not.toMatch(/lawyerHomeFx-android\.css/);
+        expect(nativeGate).toMatch(/@import\s+['"].*lawyerHomeFx-android\.css/);
+        expect(index).toContain("import 'virtual:hami-critical-native-android'");
+        expect(deferred).not.toMatch(/lawyerHomeFx-android\.css/);
     });
 });

@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { LayoutGrid, List } from '@/app/components/ui/lucideIcons';
+import { LayoutGrid } from '@/app/components/ui/icons/LayoutGrid';
+import { List } from '@/app/components/ui/icons/List';
 import {
     normalizeRepositoryFeedLayout,
     type RepositoryFeedLayoutId,
 } from './repositoryFeedLayout';
 
 const PRIMARY_LAYOUTS: Array<{
-    id: Extract<RepositoryFeedLayoutId, 'grid' | 'list'>;
+    id: RepositoryFeedLayoutId;
     label: string;
     icon: React.ReactNode;
 }> = [
@@ -15,7 +16,8 @@ const PRIMARY_LAYOUTS: Array<{
 ];
 
 type RepositoryViewLayoutPickerProps = {
-    layoutId: RepositoryFeedLayoutId;
+    /** يقبل مفاتيح تخزين قديمة ثم يطبّعها إلى شبكة/قائمة */
+    layoutId: string;
     onSelect: (id: RepositoryFeedLayoutId) => void;
     disabled?: boolean;
 };
@@ -33,7 +35,7 @@ export function RepositoryViewLayoutPicker({
     }, [normalizedLayoutId]);
 
     const pick = useCallback(
-        (id: Extract<RepositoryFeedLayoutId, 'grid' | 'list'>) => {
+        (id: RepositoryFeedLayoutId) => {
             if (disabled) return;
             const next = normalizeRepositoryFeedLayout(id);
             if (next === activeId) return;

@@ -10,10 +10,11 @@ import {
     resolveSmartFileParentCourt,
 } from '../smartFile/parentDataClientMeta';
 import type { useSmartFileModalFlags } from './useSmartFileModalFlags';
+import type { SaveToCloud } from './judgment/judgmentHookTypes';
 
 type ModalFlags = ReturnType<typeof useSmartFileModalFlags>;
 
-export type SmartFileModalJudgmentBundleParams = {
+type SmartFileModalJudgmentBundleParams = {
     stages: CaseStage[];
     setStages: Dispatch<SetStateAction<CaseStage[]>>;
     activeStageIndex: number;
@@ -21,7 +22,7 @@ export type SmartFileModalJudgmentBundleParams = {
     setViewingStageIndex: Dispatch<SetStateAction<number>>;
     currentStage: CaseStage | undefined;
     parentData: Record<string, unknown>;
-    saveToCloud: () => void;
+    saveToCloud: SaveToCloud;
     setStatus: Dispatch<SetStateAction<string>>;
     status: string;
     calendarUserId: string | undefined;
@@ -54,7 +55,6 @@ export function useSmartFileModalJudgmentBundle({
         setShowAppealModal,
         setShowJudgmentModal,
         setShowCrossAppealModal,
-        setShowTransitionModal,
     } = modalFlags;
 
     const defaultJudgmentActions = useSmartFileDefaultJudgmentActions({
@@ -111,7 +111,6 @@ export function useSmartFileModalJudgmentBundle({
         setShowObjectionRegistrationModal,
         setShowJudgmentModal,
         setShowCrossAppealModal,
-        setShowTransitionModal,
     });
 
     return {

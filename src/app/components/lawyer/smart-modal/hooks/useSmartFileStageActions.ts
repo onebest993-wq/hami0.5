@@ -249,8 +249,6 @@ export function useSmartFileStageActions(options: {
         [stages, targetStageIndex, displayStage, commitStages],
     );
 
-    const handleToggleClient = useCallback(() => {}, []);
-
     return {
         handleUpdateHeader,
         handleUpdateCaseInfo,
@@ -260,6 +258,5 @@ export function useSmartFileStageActions(options: {
         handleToggleNotification,
         handleSaveStageName,
         setCaseData,
-        handleToggleClient,
     };
 }

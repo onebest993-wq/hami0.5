@@ -1,5 +1,9 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { executionUnifiedFundsLedgerStorageKey } from '@/app/utils/executionStorageKeysLite';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 /**
  * تخزين الوعاء الموحّد (أتعاب + مصاريف) — نفس المفتاح المستخدم في FinancialOperationsCenter
@@ -44,7 +48,8 @@ export const unifiedFundsLedgerStorageKey = executionUnifiedFundsLedgerStorageKe
 export function readUnifiedFundsLedger(executionId: string | undefined): StoredUnifiedLedger | null {
     if (!executionId) return null;
     try {
-        const raw = SecureStoreService.getItemSync(unifiedFundsLedgerStorageKey(executionId));
+        const key = unifiedFundsLedgerStorageKey(executionId);
+        const raw = readSecureOrDrainLegacySync(key);
         if (!raw) return null;
         const p = JSON.parse(raw) as Partial<StoredUnifiedLedger>;
         return {
@@ -133,6 +138,7 @@ export function appendUnifiedLedgerExecutionExpense(
             seeded: true,
         };
         SecureStoreService.setItemSync(unifiedFundsLedgerStorageKey(exId), JSON.stringify(next));
+        clearLegacyPlaintextMirror(unifiedFundsLedgerStorageKey(exId));
         if (typeof window !== 'undefined') {
             try {
                 window.dispatchEvent(

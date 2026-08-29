@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { AppSettingsState } from '@/app/services/settings/types';
+import { isLocalOnlyModeEnabled } from '@/app/services/settings/localOnlyGuard';
 import { PERSIST_DEBOUNCE_MS } from '@/app/utils/constants';
 import { isCloudSyncEnabled } from '@/lib/cloudSyncEnv.js';
 
@@ -16,7 +17,14 @@ export function useLawyerSettingsCloudSync({
     cloudSyncEnabled,
 }: UseLawyerSettingsCloudSyncParams) {
     useEffect(() => {
-        if (!settingsHydrated || !cloudSyncEnabled || !isCloudSyncEnabled()) return;
+        if (
+            !settingsHydrated ||
+            !cloudSyncEnabled ||
+            isLocalOnlyModeEnabled(settings) ||
+            !isCloudSyncEnabled()
+        ) {
+            return;
+        }
 
         const timer = window.setTimeout(() => {
             void (async () => {

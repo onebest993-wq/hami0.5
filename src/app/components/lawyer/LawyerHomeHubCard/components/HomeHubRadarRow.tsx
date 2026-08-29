@@ -1,14 +1,14 @@
-import { CalendarClock, X } from '@/app/components/ui/lucideIcons';
+import { CalendarClock } from '@/app/components/ui/icons/CalendarClock';
+import { X } from '@/app/components/ui/icons/X';
+import { useScrollSafePress } from '@/app/hooks/useScrollSafePress';
 import {
     resolveHomeHubRadarDismissAriaLabel,
     resolveHomeHubRadarItemAriaLabel,
 } from '@/app/services/alerts/homeHubCardLogic';
 import type { CalendarRadarEvent } from '@/app/workspace/types';
+import { HUB_CONTENT_BUTTON_A11Y } from '../homeHub/homeHubA11y';
 
-const HUB_CONTENT_BUTTON_A11Y =
-    'outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1C]';
-
-export type HomeHubRadarRowProps = {
+type HomeHubRadarRowProps = {
     ev: CalendarRadarEvent;
     onNavigate: (routePath: string) => void;
     onDismiss?: (eventId: string) => void;
@@ -21,19 +21,25 @@ export function HomeHubRadarRow({ ev, onNavigate, onDismiss }: HomeHubRadarRowPr
     const court = String(ev.sourcePlace ?? '').trim();
     const headlineSuffix = caseNo || court;
     const courtInDetails = caseNo && court ? court : '';
+    const openPress = useScrollSafePress({
+        onPress: () => onNavigate(ev.routePath),
+    });
+    const dismissPress = useScrollSafePress({
+        onPress: () => onDismiss?.(ev.id),
+    });
 
     return (
         <li
-            className="hami-hub-radar__row [content-visibility:auto] [contain-intrinsic-size:auto_44px]"
+            className="hami-hub-radar__row [content-visibility:auto] [contain-intrinsic-size:auto_52px]"
             dir="rtl"
         >
             <button
                 type="button"
                 dir="rtl"
                 data-testid={`home-hub-radar-item-${ev.id}`}
-                onClick={() => onNavigate(ev.routePath)}
                 aria-label={resolveHomeHubRadarItemAriaLabel(ev)}
                 className={`hami-hub-radar__open ${HUB_CONTENT_BUTTON_A11Y}`}
+                {...openPress}
             >
                 <span className="hami-hub-radar__headline">
                     <span className="hami-hub-radar__title-text">{ev.title}</span>
@@ -72,13 +78,10 @@ export function HomeHubRadarRow({ ev, onNavigate, onDismiss }: HomeHubRadarRowPr
                 <button
                     type="button"
                     data-testid={`home-hub-radar-dismiss-${ev.id}`}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onDismiss(ev.id);
-                    }}
                     title={dismissLabel}
                     aria-label={dismissLabel}
                     className={`hami-hub-radar__dismiss ${HUB_CONTENT_BUTTON_A11Y}`}
+                    {...dismissPress}
                 >
                     <X size={12} strokeWidth={2.1} aria-hidden />
                 </button>

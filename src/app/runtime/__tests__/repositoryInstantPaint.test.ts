@@ -26,38 +26,29 @@ describe('repositoryInstantPaint', () => {
         applyRepositoryOpaqueChrome();
 
         expect(document.documentElement.getAttribute('data-hami-repository-open')).toBe('1');
-        expect(meta.getAttribute('content')).toBe('#050810');
+        expect(meta.getAttribute('content')).toBe('#0A0F1C');
         expect(isRepositoryShellPaintedOpen()).toBe(true);
     });
 
-    it('paintRepositoryInstantChrome يكشف instant shell إن وُجد', () => {
-        const shell = document.createElement('div');
-        shell.setAttribute('data-testid', 'smart-repository-instant-shell');
-        shell.setAttribute('aria-hidden', 'true');
-        document.body.appendChild(shell);
-
-        const painted = paintRepositoryInstantChrome();
-
-        expect(painted).toBe(true);
-        expect(shell.classList.contains('hami-repository-overlay-layer--visible')).toBe(true);
-        expect(shell.style.opacity).toBe('1');
-        expect(shell.getAttribute('aria-hidden')).toBeNull();
-    });
-
-    it('paintRepositoryInstantChrome يفضّل modal على instant shell', () => {
-        const instant = document.createElement('div');
-        instant.setAttribute('data-testid', 'smart-repository-instant-shell');
-        document.body.appendChild(instant);
-
+    it('paintRepositoryInstantChrome يكشف المودال إن وُجد', () => {
         const modal = document.createElement('div');
         modal.setAttribute('data-testid', 'smart-repository-modal');
         modal.setAttribute('aria-hidden', 'true');
         document.body.appendChild(modal);
 
-        paintRepositoryInstantChrome();
+        const painted = paintRepositoryInstantChrome();
 
+        expect(painted).toBe(true);
         expect(modal.classList.contains('hami-repository-overlay-layer--visible')).toBe(true);
-        expect(instant.classList.contains('hami-repository-overlay-layer--visible')).toBe(false);
+        expect(modal.style.opacity).toBe('1');
+        expect(modal.getAttribute('aria-hidden')).toBe('false');
+        expect(modal.hasAttribute('inert')).toBe(false);
+    });
+
+    it('paintRepositoryInstantChrome يضع العلم فقط إن لم توجد طبقة', () => {
+        const painted = paintRepositoryInstantChrome();
+        expect(painted).toBe(false);
+        expect(document.documentElement.getAttribute('data-hami-repository-open')).toBe('1');
     });
 
     it('concealRepositoryWarmShell يخفّي الطبقة ويزيل العلم', () => {
@@ -66,15 +57,16 @@ describe('repositoryInstantPaint', () => {
         meta.setAttribute('content', '#222222');
         document.head.appendChild(meta);
 
-        const shell = document.createElement('div');
-        shell.setAttribute('data-testid', 'smart-repository-instant-shell');
-        document.body.appendChild(shell);
+        const modal = document.createElement('div');
+        modal.setAttribute('data-testid', 'smart-repository-modal');
+        document.body.appendChild(modal);
 
         paintRepositoryInstantChrome();
         concealRepositoryWarmShell();
 
-        expect(shell.classList.contains('hami-repository-overlay-layer--visible')).toBe(false);
-        expect(shell.style.visibility).toBe('hidden');
+        expect(modal.classList.contains('hami-repository-overlay-layer--visible')).toBe(false);
+        expect(modal.style.visibility).toBe('hidden');
+        expect(modal.hasAttribute('inert')).toBe(true);
         expect(document.documentElement.hasAttribute('data-hami-repository-open')).toBe(false);
         expect(meta.getAttribute('content')).toBe('#222222');
     });

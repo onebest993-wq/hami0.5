@@ -3,6 +3,8 @@ import {
     clampProfileContactLabel,
     clampProfileContactValue,
     sanitizeProfileActions,
+    clampProfileDisplayName,
+    safeProfileContactClipboardText,
 } from '@/app/services/profile/profileContactInputSecurity';
 import type { ProfileAction } from '@/app/services/lawyer-cloud';
 
@@ -22,10 +24,19 @@ describe('profileContactInputSecurity', () => {
 
     it('sanitizes actions on save', () => {
         const out = sanitizeProfileActions([
-            action('whatsapp', ' 0756 '),
+            action('call', ' 0756 '),
             { ...action('email', ''), label: '', value: '' },
         ]);
         expect(out).toHaveLength(1);
         expect(out[0]?.value).toBe('0756');
+    });
+
+    it('strips tags from display names', () => {
+        expect(clampProfileDisplayName('<b>أحمد</b>')).toBe('أحمد');
+    });
+
+    it('refuses dangerous clipboard schemes', () => {
+        expect(safeProfileContactClipboardText('javascript:alert(1)')).toBe('');
+        expect(safeProfileContactClipboardText('07701234567')).toBe('07701234567');
     });
 });

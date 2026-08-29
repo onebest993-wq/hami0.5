@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { syncNativeScreenshotGuard, getLawyerSettingsSnapshot } = vi.hoisted(() => ({
-    syncNativeScreenshotGuard: vi.fn(async () => undefined),
+const { syncNativePrivacyGuardFromSettings, getLawyerSettingsSnapshot } = vi.hoisted(() => ({
+    syncNativePrivacyGuardFromSettings: vi.fn(async () => true),
     getLawyerSettingsSnapshot: vi.fn(() => ({
-        security: { screenshotDeterrent: true },
+        security: { screenshotDeterrent: true, privacyBlur: true },
     })),
 }));
 
-vi.mock('@/app/runtime/screenshotDeterrentRuntime', () => ({
-    syncNativeScreenshotGuard,
+vi.mock('@/app/runtime/nativePrivacyGuard', () => ({
+    syncNativePrivacyGuardFromSettings,
 }));
 
-vi.mock('@/app/services/settings/settingsRuntime', () => ({
+vi.mock('@/app/services/settings/settingsSnapshot', () => ({
     getLawyerSettingsSnapshot,
 }));
 
@@ -27,7 +27,7 @@ describe('nativeSecurityBoot', () => {
 
     it('applyNativeSecurityFromSettings يُزامِن حسب snapshot', async () => {
         await applyNativeSecurityFromSettings();
-        expect(syncNativeScreenshotGuard).toHaveBeenCalledWith(true);
+        expect(syncNativePrivacyGuardFromSettings).toHaveBeenCalled();
     });
 
     it('wireNativeSecuritySettingsListener يستجيب لـ hami:settings-updated', async () => {
@@ -39,7 +39,7 @@ describe('nativeSecurityBoot', () => {
         window.dispatchEvent(new CustomEvent('hami:settings-updated'));
         await Promise.resolve();
 
-        expect(syncNativeScreenshotGuard).toHaveBeenCalledWith(false);
+        expect(syncNativePrivacyGuardFromSettings).toHaveBeenCalled();
         dispose();
     });
 });

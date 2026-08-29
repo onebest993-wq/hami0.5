@@ -1,12 +1,10 @@
 import type { CaseStage } from '../../LawyerShared';
-import { isAbsentObjectionStageName } from './absentJudgmentFlow';
-import { isAppealStageName, isCassationStageName } from './judgmentTypes';
-
-function isCassationCorrectionStageName(stageName?: string | null): boolean {
-    const s = String(stageName ?? '').trim();
-    if (!s) return false;
-    return s === 'تصحيح قرار' || (s.includes('تصحيح') && s.includes('قرار'));
-}
+import { isAbsentObjectionStageName } from './absentJudgmentStageNames';
+import {
+    isAppealStageName,
+    isCassationCorrectionStageName,
+    isCassationStageName,
+} from './judgmentStageNames';
 
 /** مراحل إجرائية — ليست مرافعة (لا تُعاد إليها بعد نقض التمييز أو قبول التصحيح). */
 export function isNonPleadingProceduralStageName(stageName?: string | null): boolean {
@@ -58,7 +56,7 @@ export function isPleadingStageName(stageName?: string | null): boolean {
     return s.includes('بداءة') || s.includes('البداءة');
 }
 
-export type PleadingLayer = 'appeal' | 'first_instance';
+type PleadingLayer = 'appeal' | 'first_instance';
 
 export function resolvePleadingLayer(stageName?: string | null): PleadingLayer {
     if (isAppealStageName(stageName)) return 'appeal';

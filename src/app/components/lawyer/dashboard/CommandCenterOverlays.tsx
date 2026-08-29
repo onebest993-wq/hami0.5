@@ -1,7 +1,7 @@
-import React, { Suspense, useCallback } from 'react';
+﻿import React, { Suspense, useCallback } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useWorkspaceStore } from '@/app/stores/workspaceStore';
-import { isRealSignedIn } from '@/app/services/auth/shellAuth';
+import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
 import { ALERTS_DOCK_FEATURE } from '@/app/services/alerts/dockAlertsOpen';
 import {
     guardedHomeHubNavigateRoute,
@@ -25,7 +25,7 @@ type CommandCenterOverlaysProps = {
 export function CommandCenterOverlays({ userId, actions, onNavigateRoute }: CommandCenterOverlaysProps) {
     const { hubDockSheet, setHubDockSheet, secretaryAlerts, onOpenEntity, onUnpinItem } = actions;
     const pinnedItems = useWorkspaceStore((s) => s.pinnedItems);
-    const signedIn = isRealSignedIn(userId);
+    const signedIn = hasLocalAppSession(userId);
 
     const guardInteraction = useCallback(
         (onProceed: () => void) => {

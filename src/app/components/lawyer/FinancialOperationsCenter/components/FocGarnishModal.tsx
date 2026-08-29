@@ -1,7 +1,8 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion } from '@/app/motion/overlayMotionRuntime';
 import { FocModalPortal } from './FocModalPortal';
 import { formatNumberInput } from '../utils';
+import { FOC_MODAL_ACTION_BTN } from '../constants';
 
 export interface FocGarnishModalProps {
     open: boolean;
@@ -36,7 +37,7 @@ export const FocGarnishModal: React.FC<FocGarnishModalProps> = ({
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.96, opacity: 0, y: 8 }}
                 transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
                 className="w-full max-w-md rounded-2xl bg-[#0A1122]/80 backdrop-blur-xl p-6 border border-white/10 shadow-2xl space-y-5"
             >
                 <div className="text-center border-b border-white/5 pb-4">
@@ -97,7 +98,7 @@ export const FocGarnishModal: React.FC<FocGarnishModalProps> = ({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-sm font-semibold hover:bg-white/10 transition"
+                        className={`px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-sm font-semibold hover:bg-white/10 transition ${FOC_MODAL_ACTION_BTN}`}
                     >
                         إلغاء
                     </button>
@@ -105,7 +106,7 @@ export const FocGarnishModal: React.FC<FocGarnishModalProps> = ({
                         type="button"
                         onClick={onConfirm}
                         disabled={!canConfirmGarnishment}
-                        className="px-4 py-2.5 rounded-xl bg-gradient-to-l from-indigo-600 via-violet-600 to-purple-800 text-white text-sm font-bold shadow-lg shadow-violet-950/40 hover:brightness-110 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                        className={`px-4 py-2.5 rounded-xl bg-gradient-to-l from-indigo-600 via-violet-600 to-purple-800 text-white text-sm font-bold shadow-lg shadow-violet-950/40 hover:brightness-110 transition disabled:opacity-40 disabled:cursor-not-allowed ${FOC_MODAL_ACTION_BTN}`}
                     >
                         تأكيد حجز الراتب
                     </button>

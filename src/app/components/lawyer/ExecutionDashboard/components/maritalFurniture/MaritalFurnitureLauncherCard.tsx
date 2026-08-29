@@ -1,4 +1,4 @@
-import { ChevronLeft } from '@/app/components/ui/lucideIcons';
+import { ChevronLeft } from '@/app/components/ui/icons/ChevronLeft';
 
 export type MaritalFurnitureLauncherCardProps = {
     itemCount: number;

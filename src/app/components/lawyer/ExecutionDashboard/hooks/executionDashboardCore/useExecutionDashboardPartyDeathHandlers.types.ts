@@ -1,0 +1,30 @@
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
+import type { Creditor, Debtor, ExecutionFile, TimelineEvent } from '@/app/types/execution';
+import type { AlimonyBeneficiaryProfile } from '@/app/utils/alimonyBeneficiaryDeathUtils';
+
+export type UseExecutionDashboardPartyDeathHandlersParams = {
+    executionDataRef: MutableRefObject<ExecutionFile | null | undefined>;
+    executionData: ExecutionFile | null | undefined;
+    executionId: string | undefined;
+    claimType: string | undefined;
+    creditors: Creditor[];
+    debtors: Debtor[];
+    decisionsStorageExecutionId: string;
+    decisionsReloadEpoch: number;
+    partyDeathModalParty: 'creditor' | 'debtor' | null;
+    setPartyDeathModalParty: (party: 'creditor' | 'debtor' | null) => void;
+    partyDeathModalDecisionId: string | null;
+    setPartyDeathModalDecisionId: (id: string | null) => void;
+    setAlimonyBeneficiaryDeathModalProfile: (profile: AlimonyBeneficiaryProfile | null) => void;
+    setAlimonyBeneficiaryDeathModalOpen: (open: boolean) => void;
+    lastHeirSubRequestAtRef: MutableRefObject<{ debtor: number; creditor: number }>;
+    creditorDeathMarked: boolean;
+    debtorDeathMarked: boolean;
+    heirSubstitutionAllowed: boolean;
+    ongoingAlimonyClaim: boolean;
+    alimonyBeneficiaryProfile: AlimonyBeneficiaryProfile | null | undefined;
+    nextTimelineId: () => string;
+    persistExecutionMerge: (patch: Record<string, unknown>) => void;
+    showToast: (message: string, type?: string, opts?: Record<string, unknown>) => void;
+    setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
+};

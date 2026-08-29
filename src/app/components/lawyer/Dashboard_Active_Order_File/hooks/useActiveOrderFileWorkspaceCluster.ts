@@ -12,7 +12,7 @@ import type { useOrderFileLifecycleState } from './useOrderFileLifecycleState';
 
 type LifecycleState = ReturnType<typeof useOrderFileLifecycleState>;
 
-export type ActiveOrderFileWorkspaceClusterInput = {
+type ActiveOrderFileWorkspaceClusterInput = {
     fileData: ActiveOrderFileProps['fileData'];
     caseId: string | null;
     userId: string | null;

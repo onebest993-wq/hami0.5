@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { CalendarClock } from '@/app/components/ui/lucideIcons';
+import { CalendarClock } from '@/app/components/ui/icons/CalendarClock';
 import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../../criminalModalPortal';
 import { CRIMINAL_DOSSIER_TEST_IDS } from '../../criminalDossierTestIds';
 import {
     formatTrialSessionIsoDate,
     sanitizeTrialSessionIsoDateInput,
-} from '../../trialSessionsEngine';
+} from '../../trialSessionsDisplay';
 
 export type TrialHearingDateModalProps = {
     open: boolean;
@@ -45,7 +45,7 @@ export function TrialHearingDateModal({
     return (
         <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.trial}>
             <div
-                className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 shadow-2xl overflow-hidden"
+                className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 shadow-lg overflow-hidden"
                 data-testid={CRIMINAL_DOSSIER_TEST_IDS.trialHearingDateModal}
                 role="dialog"
                 aria-modal="true"

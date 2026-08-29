@@ -6,10 +6,12 @@ import {
     STATIC_BOOT_SHELL_FADE_MS,
     shouldMountReactBootOverlay,
 } from '@/app/bootstrap/bootStaticShell';
+import { setPlainDocumentCoverForTests } from '@/boot/plainDocumentPath';
 
 describe('bootStaticShell', () => {
     afterEach(() => {
         vi.useRealTimers();
+        setPlainDocumentCoverForTests(false);
     });
 
     it('يزيل طبقة الإقلاع الثابتة وتصنيف html بعد تلاشٍ قصير', () => {
@@ -36,5 +38,11 @@ describe('bootStaticShell', () => {
         expect(shouldMountReactBootOverlay()).toBe(false);
 
         layer.remove();
+    });
+
+    it('لا يركّب overlay React على سطح الغطاء', () => {
+        setPlainDocumentCoverForTests(true);
+        expect(shouldMountReactBootOverlay()).toBe(false);
+        setPlainDocumentCoverForTests(false);
     });
 });

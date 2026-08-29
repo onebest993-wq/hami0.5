@@ -16,13 +16,22 @@ export function globalSearchRecentStorageKey(userId: string | null | undefined):
     return `${RECENT_SEARCHES_KEY_PREFIX}:${id}`;
 }
 
+/** أحرف تحكم + تجاوز اتجاه النص — لا تُمرَّر للاستعلام أو العرض */
+const SEARCH_UNSAFE_CHARS_RE = /[\u0000-\u001F\u007F\u202A-\u202E\u2066-\u2069]/g;
+
+export function stripSearchUnsafeChars(raw: string): string {
+    return raw.replace(SEARCH_UNSAFE_CHARS_RE, '');
+}
+
 export function clampGlobalSearchQuery(raw: string): string {
     if (!raw) return '';
-    return raw.slice(0, GLOBAL_SEARCH_MAX_QUERY_LENGTH);
+    return stripSearchUnsafeChars(raw)
+        .replace(/<[^>]*>/g, '')
+        .slice(0, GLOBAL_SEARCH_MAX_QUERY_LENGTH);
 }
 
 export function clampRecentSearchLabel(raw: string): string {
-    const trimmed = raw.trim();
+    const trimmed = stripSearchUnsafeChars(raw).replace(/<[^>]*>/g, '').trim();
     if (!trimmed) return '';
     return trimmed.slice(0, GLOBAL_SEARCH_MAX_RECENT_LABEL_LENGTH);
 }

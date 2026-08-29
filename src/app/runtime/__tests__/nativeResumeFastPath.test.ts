@@ -37,4 +37,10 @@ describe('nativeResumeFastPath', () => {
         expect(document.documentElement.dataset.hamiAppActive).toBe('1');
         expect(document.documentElement.hasAttribute('data-hami-initial-boot')).toBe(true);
     });
+
+    it('يمسح أثر دخول الشبكة القديم إن وُجد', () => {
+        document.documentElement.dataset.hamiHomeEntrance = '1';
+        applyNativeResumeFastPath();
+        expect(document.documentElement.dataset.hamiHomeEntrance).toBeUndefined();
+    });
 });

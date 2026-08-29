@@ -1,7 +1,11 @@
 import React from 'react';
-import { ShieldCheck, MessageSquare, ArrowRight, Settings } from '@/app/components/ui/lucideIcons';
+import { ShieldCheck } from '@/app/components/ui/icons/ShieldCheck';
+import { MessageSquare } from '@/app/components/ui/icons/MessageSquare';
+import { ArrowRight } from '@/app/components/ui/icons/ArrowRight';
+import { Settings } from '@/app/components/ui/icons/Settings';
 import { PageWrapper, GlassCard, AppHeader } from './SharedComponents';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { HAMI_SUPPORT_EMAIL } from '@/app/constants/supportContacts';
 
 export const PrivacyPolicyScreen = ({ onBack }: { onBack: () => void }) => (
     <PageWrapper>
@@ -35,7 +39,7 @@ export const SupportScreen = ({ onBack }: { onBack: () => void }) => (
                 <p className="text-gray-400 text-sm mt-2">فريق الدعم متاح 24/7 للإجابة على استفساراتك.</p>
             </div>
 
-            <GlassCard className="p-4" onClick={() => SmartToast.info('📧 تواصل معنا عبر البريد: support@hami.app')}>
+            <GlassCard className="p-4" onClick={() => SmartToast.info(`📧 تواصل معنا عبر البريد: ${HAMI_SUPPORT_EMAIL}`)}>
                 <div className="flex justify-between items-center cursor-pointer">
                     <span className="text-white font-bold">تواصل مع الدعم</span>
                     <ArrowRight className="text-[#D4AF37]" />

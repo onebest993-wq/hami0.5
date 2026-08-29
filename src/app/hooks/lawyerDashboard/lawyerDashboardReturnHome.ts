@@ -1,5 +1,6 @@
 import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
 import { snapProfileShellClose } from '@/app/services/profile/profileShellSnap';
+import { clearProfileOpenedThisPage } from '@/app/hooks/lawyerDashboard/profile/profileOpenSession';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 
 export type ReturnToLawyerHomeParams = {
@@ -20,6 +21,7 @@ export function returnToLawyerHomeDashboard({
     exitCriminalDossierToHome,
     dismissOverlays = true,
 }: ReturnToLawyerHomeParams): void {
+    clearProfileOpenedThisPage();
     snapProfileShellClose();
     exitCriminalDossierToHome?.();
     closeHubShellOverlays();

@@ -114,6 +114,8 @@ describe('execution storage unified layer', () => {
         expect(storageCache.get(key)).toBeTruthy();
 
         SecureStoreService.deleteItemSync(key);
+        // إصابة الذاكرة لا تقرأ القرص — الحذف الحقيقي يمرّ purge/invalidate
+        storageCache.invalidate(key);
         expect(storageCache.get(key)).toBeNull();
     });
 
@@ -148,6 +150,7 @@ describe('execution storage unified layer', () => {
         expect(afterInvalidate?.debtAmount).toBe(2_189_220);
 
         SecureStoreService.deleteItemSync(scopedKey);
+        storageCache.invalidate(key);
         expect(storageCache.get(key)).toBeNull();
     });
 

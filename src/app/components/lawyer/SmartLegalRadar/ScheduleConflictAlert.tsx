@@ -1,15 +1,13 @@
 import React from 'react';
-import { AlertTriangle } from '@/app/components/ui/lucideIcons';
 import type { CrossSectionConflictResult } from '@/app/services/calendar/scheduleConflictDetector';
 import {
-    RADAR_ALERT_ICON,
     RADAR_ALERT_MUTED,
     RADAR_ALERT_PANEL_BASE,
     RADAR_ALERT_TEXT,
 } from './radarTheme';
 import { resolveScheduleConflictAlertBorderClass } from './scheduleConflictAlertBorder';
 
-export type ScheduleConflictAlertProps = {
+type ScheduleConflictAlertProps = {
     conflict: CrossSectionConflictResult;
 };
 
@@ -53,23 +51,20 @@ export const ScheduleConflictAlert = React.memo(function ScheduleConflictAlert({
             data-location-mismatch={conflict.hasLocationMismatch ? '1' : '0'}
             data-travel-conflict={conflict.hasTravelConflict ? '1' : '0'}
         >
-            <div className="flex items-start gap-2">
-                <AlertTriangle size={16} className={`mt-0.5 shrink-0 ${RADAR_ALERT_ICON}`} aria-hidden />
-                <div className="min-w-0 flex-1 space-y-1.5 text-right">
-                    <p className={`text-sm leading-relaxed ${RADAR_ALERT_TEXT}`}>{primary}</p>
-                    {showTravelSecondary ? (
-                        <p className={`text-[11px] leading-relaxed ${RADAR_ALERT_MUTED}`}>
-                            {conflict.travelWarning}
-                        </p>
-                    ) : null}
-                    <p className="text-[11px] hami-radar-text-secondary">
-                        إجمالي البنود:{' '}
-                        <span className="font-bold text-[#FAF7F2]">{conflict.totalCount}</span>
-                        {summary ? (
-                            <span className="text-[#94A3B8]/85"> — {summary}</span>
-                        ) : null}
+            <div className="min-w-0 space-y-1.5 text-right">
+                <p className={`text-sm leading-relaxed ${RADAR_ALERT_TEXT}`}>{primary}</p>
+                {showTravelSecondary ? (
+                    <p className={`text-[11px] leading-relaxed ${RADAR_ALERT_MUTED}`}>
+                        {conflict.travelWarning}
                     </p>
-                </div>
+                ) : null}
+                <p className="text-[11px] hami-radar-text-secondary">
+                    إجمالي البنود:{' '}
+                    <span className="font-semibold hami-radar-text-primary">{conflict.totalCount}</span>
+                    {summary ? (
+                        <span className="hami-radar-text-secondary"> — {summary}</span>
+                    ) : null}
+                </p>
             </div>
         </div>
     );

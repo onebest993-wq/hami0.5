@@ -1,10 +1,5 @@
 {
-  "savedAt": "2026-07-31T21:17:21.555Z",
-  "unresolved": 4,
-  "specs": [
-    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreBootPipeline.ts -> ../components/DebtorsSection",
-    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreWorkspacePipeline.ts -> @/app/components/lawyer/ExecutionDashboard/components/BreakInventoryFurnitureModal",
-    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreWorkspacePipeline.ts -> @/app/components/lawyer/ExecutionDashboard/components/JudicialCustodianModal",
-    "src/app/components/ui/ErrorBoundary.tsx -> ./components/ui/ErrorBoundary"
-  ]
+  "savedAt": "2026-08-09T05:11:03.074Z",
+  "unresolved": 0,
+  "specs": []
 }

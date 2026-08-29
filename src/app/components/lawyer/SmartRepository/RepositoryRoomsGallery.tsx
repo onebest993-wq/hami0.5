@@ -1,13 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
-import { Pin, PinOff, Search, Trash2, X } from '@/app/components/ui/lucideIcons';
+import { Pin } from '@/app/components/ui/icons/Pin';
+import { PinOff } from '@/app/components/ui/icons/PinOff';
+import { Search } from '@/app/components/ui/icons/Search';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
+import { X } from '@/app/components/ui/icons/X';
+import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 import {
-    groupRepositoryRoomsByInitial,
     REPOSITORY_PINNED_MAX,
     repositoryRoomInitial,
 } from '@/app/services/repository/repositoryRoomPresentation';
 import type { RepositoryRoom } from '@/app/services/repository/repositoryRooms';
 import { REPO_INPUT, REPO_TOUCH_ICON } from './smartRepositoryTheme';
+import { useRepositoryRoomsGallery } from './hooks/useRepositoryRoomsGallery';
 
 type RepositoryRoomsGalleryProps = {
     open: boolean;
@@ -32,33 +37,13 @@ export function RepositoryRoomsGallery({
     onRemove,
     onTogglePin,
 }: RepositoryRoomsGalleryProps) {
-    const [query, setQuery] = useState('');
-    const pinnedSet = useMemo(() => new Set(pinnedRoomIds), [pinnedRoomIds]);
-
-    useEffect(() => {
-        if (!open) setQuery('');
-    }, [open]);
-
-    useEffect(() => {
-        if (!open) return;
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [open, onClose]);
-
-    const filtered = useMemo(() => {
-        const q = query.trim().toLowerCase();
-        if (!q) return rooms;
-        return rooms.filter(
-            (r) =>
-                r.title.toLowerCase().includes(q) ||
-                (r.clientLabel?.toLowerCase().includes(q) ?? false),
-        );
-    }, [query, rooms]);
-
-    const groups = useMemo(() => groupRepositoryRoomsByInitial(filtered), [filtered]);
+    const { query, setQuery, pinnedSet, groups } = useRepositoryRoomsGallery({
+        open,
+        rooms,
+        pinnedRoomIds,
+        onClose,
+    });
+    const keyboardInset = useMobileKeyboardInset(open);
 
     if (!open || typeof document === 'undefined') return null;
 
@@ -66,7 +51,7 @@ export function RepositoryRoomsGallery({
         <>
             <button
                 type="button"
-                className="fixed inset-0 z-[138] bg-[#05060d]/72 backdrop-blur-[2px]"
+                className="fixed inset-0 z-[138] bg-[#0A0F1C]/55"
                 aria-label="إغلاق معرض الغرف"
                 data-testid="repository-rooms-gallery-backdrop"
                 onClick={onClose}
@@ -77,12 +62,17 @@ export function RepositoryRoomsGallery({
                 aria-label="معرض الغرف المخصصة"
                 data-testid="repository-rooms-gallery"
                 dir="rtl"
-                className="fixed z-[139] inset-x-3 top-[max(12px,env(safe-area-inset-top))] bottom-[max(12px,env(safe-area-inset-bottom))] sm:inset-auto sm:top-[12%] sm:left-1/2 sm:-translate-x-1/2 sm:w-[min(26rem,92vw)] sm:max-h-[72dvh] sm:bottom-auto flex flex-col overflow-hidden rounded-2xl border border-[#E6C673]/20 bg-[#0A0F1C]/97 shadow-[0_24px_64px_rgba(0,0,0,0.5)]"
+                className="fixed z-[139] inset-x-3 top-[max(12px,env(safe-area-inset-top))] bottom-[max(12px,env(safe-area-inset-bottom))] sm:inset-auto sm:top-[12%] sm:left-1/2 sm:-translate-x-1/2 sm:w-[min(26rem,92vw)] sm:max-h-[72dvh] sm:bottom-auto flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0A0F1C]"
+                style={
+                    keyboardInset > 0
+                        ? { paddingBottom: `max(12px, ${keyboardInset}px)` }
+                        : undefined
+                }
             >
                 <div className="shrink-0 px-4 pt-3.5 pb-2.5 border-b border-white/[0.07]">
                     <div className="flex items-start justify-between gap-3 mb-2.5">
                         <div className="min-w-0">
-                            <h2 className="text-sm font-bold text-[#F4F0E8]">كل الغرف</h2>
+                            <h2 className="text-sm font-medium text-[#F4F4F5]">كل الغرف</h2>
                             <p className="text-[10px] text-white/40 mt-0.5">
                                 استعراض وتثبيت · حتى {REPOSITORY_PINNED_MAX} في الشريط · الإنشاء من الزر العلوي
                             </p>
@@ -90,7 +80,7 @@ export function RepositoryRoomsGallery({
                         <button
                             type="button"
                             onClick={onClose}
-                            className={`${REPO_TOUCH_ICON} rounded-xl border border-white/10 text-white/50`}
+                            className={`${REPO_TOUCH_ICON} rounded-full border-0 text-white/50 hover:bg-white/[0.06]`}
                             aria-label="إغلاق"
                         >
                             <X size={15} />
@@ -109,22 +99,25 @@ export function RepositoryRoomsGallery({
                             placeholder="ابحث عن موكل…"
                             data-testid="repository-rooms-gallery-search"
                             autoFocus
-                            className={`${REPO_INPUT} !py-2 !pr-9 !pl-3 text-xs`}
+                            inputMode="search"
+                            enterKeyHint="search"
+                            autoComplete="off"
+                            className={`${REPO_INPUT} !py-2 !pr-9 !pl-3`}
                         />
                     </div>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2.5 py-2.5 space-y-3">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y px-2.5 py-2.5 space-y-3 [-webkit-overflow-scrolling:touch]">
                     {groups.length === 0 ? (
                         <p className="text-center text-xs text-white/40 py-8">لا توجد غرف مطابقة</p>
                     ) : (
                         groups.map((group) => (
                             <section key={group.letter} aria-label={`حرف ${group.letter}`}>
                                 <div className="sticky top-0 z-[1] flex items-center gap-2 py-1 mb-1 bg-[#0A0F1C]/95">
-                                    <span className="inline-flex size-6 items-center justify-center rounded-md border border-[#E6C673]/25 bg-[#E6C673]/10 text-[#E6C673] text-[11px] font-bold">
+                                    <span className="inline-flex size-6 items-center justify-center rounded-md bg-[#E6C673]/10 text-[#E6C673] text-[11px] font-medium">
                                         {group.letter}
                                     </span>
-                                    <div className="h-px flex-1 bg-gradient-to-l from-transparent to-[#E6C673]/20" />
+                                    <div className="h-px flex-1 bg-white/[0.06]" />
                                 </div>
                                 <ul className="space-y-1">
                                     {group.rooms.map((room) => {
@@ -135,10 +128,10 @@ export function RepositoryRoomsGallery({
                                         return (
                                             <li key={room.id}>
                                                 <div
-                                                    className={`flex items-center gap-1 rounded-xl border px-1.5 py-1 ${
+                                                    className={`flex items-center gap-1 rounded-xl px-1.5 py-1 ${
                                                         active
-                                                            ? 'border-[#E6C673]/35 bg-[#E6C673]/10'
-                                                            : 'border-white/[0.06] bg-white/[0.025]'
+                                                            ? 'bg-[#E6C673]/10'
+                                                            : 'bg-white/[0.03]'
                                                     }`}
                                                 >
                                                     <button
@@ -151,17 +144,17 @@ export function RepositoryRoomsGallery({
                                                         className="flex min-w-0 flex-1 items-center gap-2.5 min-h-[44px] px-1 text-right touch-manipulation"
                                                     >
                                                         <span
-                                                            className={`inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold border ${
+                                                            className={`inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-medium border-0 ${
                                                                 active
-                                                                    ? 'border-[#E6C673]/40 bg-[#E6C673]/15 text-[#E6C673]'
-                                                                    : 'border-white/10 bg-[#05060d]/50 text-white/65'
+                                                                    ? 'bg-[#E6C673]/15 text-[#E6C673]'
+                                                                    : 'bg-white/[0.05] text-white/65'
                                                             }`}
                                                             aria-hidden
                                                         >
                                                             {initial}
                                                         </span>
                                                         <span className="min-w-0 flex-1">
-                                                            <span className="block truncate text-[12px] font-bold text-[#F4F0E8]">
+                                                            <span className="block truncate text-[12px] font-medium text-[#F4F4F5]">
                                                                 {room.title}
                                                             </span>
                                                             <span className="block text-[10px] text-white/35 tabular-nums">

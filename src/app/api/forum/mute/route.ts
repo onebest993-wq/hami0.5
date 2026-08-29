@@ -1,7 +1,7 @@
 import { sanitizePayload } from '../../security/sanitizer.ts';
 import { ForumMuteRepository } from '../../../services/forum/forumMuteRepository.ts';
 import { checkForumActionRateLimit } from '../../../services/forum/forumRateLimitServer.ts';
-import { requireForumAuth, assertForumWriteAllowed, jsonResponse } from '../_auth.ts';
+import { requireForumAuth, assertForumWriteAllowed, jsonResponse, forumCatchJsonResponse } from '../_auth.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object';
@@ -67,7 +67,6 @@ export async function POST(request: Request): Promise<Response> {
 
         return jsonResponse(200, { ok: true, muted, targetUserId });
     } catch (err) {
-        const message = err instanceof Error ? err.message : 'Internal server error';
-        return jsonResponse(500, { ok: false, error: message });
+        return forumCatchJsonResponse(err);
     }
 }

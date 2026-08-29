@@ -5,6 +5,7 @@ import {
     invalidateProfileWarmCache,
     setProfileWarmCache,
 } from '@/app/services/profile/profileWarmCache';
+import { resetUserIdentityUiStateForTests } from '@/app/services/profile/userIdentityUiState';
 
 vi.mock('@/app/services/profile/profileCloudLoader', () => ({
     fetchLawyerProfile: vi.fn(),
@@ -27,6 +28,7 @@ describe('useProfileLoader', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         invalidateProfileWarmCache();
+        resetUserIdentityUiStateForTests();
         vi.mocked(fetchLawyerProfile).mockResolvedValue(baseProfile as never);
     });
 
@@ -47,18 +49,18 @@ describe('useProfileLoader', () => {
         await waitFor(() => expect(result.current.profile?.header.name).toBe('اختبار'));
     });
 
-    it('يطبّق displayNameHint للزائر عند غياب الاسم', async () => {
-        vi.mocked(fetchLawyerProfile).mockResolvedValue({
-            header: { name: '', title: '', coverImage: '', profileImage: '' },
+    it('يطبّق displayNameHint للزائر حتى لو وُجد اسم من كاش المشاهد', async () => {
+        setProfileWarmCache('visitor-1', {
+            header: { name: 'E2E Dev', title: 'محامٍ', coverImage: '', profileImage: '' },
             sections: [],
         } as never);
 
         const { result } = renderHook(() =>
-            useProfileLoader('visitor-1', 'viewer-me', false, stableUserMeta, 'اسم من المنتدى'),
+            useProfileLoader('visitor-1', 'viewer-me', false, stableUserMeta, 'محامٍ زائر اختبار'),
         );
 
         await waitFor(() => expect(result.current.loading).toBe(false));
-        expect(result.current.profile?.header.name).toBe('اسم من المنتدى');
+        expect(result.current.profile?.header.name).toBe('محامٍ زائر اختبار');
     });
 
     it('لا يمسح الملف المعروض عند إعادة loadProfile لنفس المستخدم مع كاش', async () => {

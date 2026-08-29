@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import type { CassationLifecyclePanelProps } from '../CassationLifecyclePanelProps';
 import { CassationPhaseHeader } from './CassationPhaseHeader';
 import { CassationPhaseBody } from './CassationPhaseBody';
@@ -21,9 +21,9 @@ export function CassationLifecyclePanel(props: CassationLifecyclePanelProps) {
                         className="pt-2"
                     >
                                                 <CassationPhaseBody {...props} />
-                                            </motion.div>
+                    </motion.div>
                                         )}
-                                    </AnimatePresence>
-                                </div>
+            </AnimatePresence>
+        </div>
     );
 }

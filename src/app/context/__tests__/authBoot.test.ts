@@ -1,6 +1,13 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest';
 import { GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
-import { resolveInitialAuthState, shouldApplyGuestFallbackSession } from '../authBoot';
+import { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
+import { resolveInitialAuthState, shouldApplyGuestFallbackSession, shouldHoldAuthGateUntilSessionProbe, shouldRestoreGuestWhenServerHasNoSession, shouldKeepStoredNonGuestDevMock } from '../authBoot';
+import { markExplicitLocalGuest, clearExplicitLocalGuest } from '@/app/services/auth/localGuestSession';
+import {
+    clearExplicitDevUnlock,
+    DEV_UNLOCK_LAWYER_ID,
+    markExplicitDevUnlock,
+} from '@/app/services/auth/devUnlockSession';
 
 vi.mock('@/app/utils/bffAuthFlags', () => ({
     isBffAuthEnabled: vi.fn(() => false),
@@ -16,11 +23,16 @@ vi.mock('@/app/utils/authStorage', () => ({
 describe('authBoot', () => {
     beforeEach(() => {
         vi.stubEnv('VITE_SHELL_AUTH_OPEN', 'false');
+        clearExplicitLocalGuest();
+        clearExplicitDevUnlock();
+        vi.mocked(isBffAuthEnabled).mockReturnValue(false);
     });
 
     afterEach(() => {
         vi.unstubAllEnvs();
         vi.clearAllMocks();
+        clearExplicitLocalGuest();
+        clearExplicitDevUnlock();
     });
 
     it('does not auto-create guest when bypass is off and no session', () => {
@@ -36,9 +48,62 @@ describe('authBoot', () => {
         expect(boot.session?.user?.id).toBe(GUEST_LAWYER_ID);
     });
 
+    it('restores explicit local guest when bypass is off', () => {
+        markExplicitLocalGuest();
+        const boot = resolveInitialAuthState();
+        expect(boot.user?.id).toBe(GUEST_LAWYER_ID);
+        expect(boot.session?.user?.id).toBe(GUEST_LAWYER_ID);
+    });
+
+    it('restores developer unlock session when bypass is off', () => {
+        markExplicitDevUnlock();
+        const boot = resolveInitialAuthState();
+        expect(boot.user?.id).toBe(DEV_UNLOCK_LAWYER_ID);
+        expect(boot.session?.user?.id).toBe(DEV_UNLOCK_LAWYER_ID);
+    });
+
     it('shouldApplyGuestFallbackSession follows bypass flag', () => {
         expect(shouldApplyGuestFallbackSession()).toBe(false);
         vi.stubEnv('VITE_SHELL_AUTH_OPEN', 'true');
         expect(shouldApplyGuestFallbackSession()).toBe(true);
+    });
+
+    it('shouldApplyGuestFallbackSession لا يُبقي الجلسة بعد خروج المطوّر', () => {
+        markExplicitDevUnlock();
+        expect(shouldApplyGuestFallbackSession()).toBe(false);
+    });
+
+    it('shouldKeepStoredNonGuestDevMock عند محامٍ غير ضيف في التخزين', async () => {
+        const storage = await import('@/app/utils/authStorage');
+        vi.mocked(storage.readDevMockUser).mockReturnValue({
+            id: 'dev-user-uuid-1',
+        } as import('@supabase/supabase-js').User);
+        vi.mocked(storage.readDevMockAccessToken).mockReturnValue('dev-access-token-dev-user-uuid-1');
+        expect(shouldKeepStoredNonGuestDevMock()).toBe(true);
+    });
+
+    it('shouldKeepStoredNonGuestDevMock false للضيف', async () => {
+        const storage = await import('@/app/utils/authStorage');
+        vi.mocked(storage.readDevMockUser).mockReturnValue({
+            id: GUEST_LAWYER_ID,
+        } as import('@supabase/supabase-js').User);
+        vi.mocked(storage.readDevMockAccessToken).mockReturnValue('dev-access-token-guest-lawyer-1');
+        expect(shouldKeepStoredNonGuestDevMock()).toBe(false);
+    });
+
+    it('shouldHoldAuthGateUntilSessionProbe عند BFF بلا مستخدم في الإقلاع', async () => {
+        const flags = await import('@/app/utils/bffAuthFlags');
+        vi.mocked(flags.isBffAuthEnabled).mockReturnValue(true);
+        expect(shouldHoldAuthGateUntilSessionProbe({ user: null, session: null })).toBe(true);
+        expect(
+            shouldHoldAuthGateUntilSessionProbe({
+                user: { id: 'u1' } as import('@supabase/supabase-js').User,
+                session: null,
+            }),
+        ).toBe(false);
+    });
+
+    it('shouldHoldAuthGateUntilSessionProbe مغلق بدون BFF', () => {
+        expect(shouldHoldAuthGateUntilSessionProbe({ user: null, session: null })).toBe(false);
     });
 });

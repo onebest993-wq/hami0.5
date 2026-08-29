@@ -1,5 +1,6 @@
 import React from 'react';
-import { Gavel, Trash2 } from '@/app/components/ui/lucideIcons';
+import { Gavel } from '@/app/components/ui/icons/Gavel';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import type { LawyerRequest } from '../criminalStore';
 import type { CriminalActionParty } from '../criminalStageUtils';
 import { formatLawyerRequestStatusLabel } from '../criminalStageUtils';

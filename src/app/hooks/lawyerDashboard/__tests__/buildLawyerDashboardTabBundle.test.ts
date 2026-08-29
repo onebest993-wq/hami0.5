@@ -30,6 +30,8 @@ vi.mock('@/app/runtime/hubArchiveLoader', () => ({
     loadArchivePortalModule: vi.fn(() => Promise.resolve({ ArchivePortal: () => null })),
 }));
 
+import { hydrateArchiveHubForInstantOpen } from '@/app/runtime/hubArchiveLoader';
+
 function minimalTabBundleParams(
     overrides: Partial<Parameters<typeof buildLawyerDashboardTabBundle>[0]> = {},
 ) {
@@ -56,8 +58,6 @@ function minimalTabBundleParams(
         archiveType: null,
         isCriminalDossierOpen: false,
         showSettings: false,
-        homeTabSessionKey: 1,
-        homeDockChromeSessionKey: 1,
         isNewCaseModalOpen: false,
         isNotepadOpen: false,
         showCommunity: false,
@@ -65,7 +65,6 @@ function minimalTabBundleParams(
         lawsuitsWorkspaceTab: 'civil' as const,
         showTransactions: false,
         showTasksManager: false,
-        fieldTasksSheetOpen: false,
         showDocs: false,
         showGlobalSearch: false,
         showNotifications: false,
@@ -75,13 +74,12 @@ function minimalTabBundleParams(
         appAlertsLoading: false,
         appAlertsError: null,
         theme: { primary: '#E6C673', secondary: '#B8943F', bg: '#0A0F1C' },
-        shapeClass: 'rounded-2xl',
         files: [],
         executionFiles: [],
         setActiveTab: vi.fn(),
         openProfileTab: vi.fn(),
+        closeProfileTab: vi.fn(),
         primeProfileTabMount: vi.fn(),
-        profileShellReady: true,
         primeSettingsShellMount: vi.fn(),
         openSettings: vi.fn(),
         openGlobalSearch: vi.fn(),
@@ -153,6 +151,7 @@ describe('buildLawyerDashboardTabBundle onOpenArchive', () => {
         expect(closeTransactionsHub).toHaveBeenCalledTimes(1);
         expect(armExecutionArchiveHost).toHaveBeenCalledTimes(1);
         expect(setArchiveType).toHaveBeenCalledWith('execution');
+        expect(hydrateArchiveHubForInstantOpen).toHaveBeenCalledWith('execution');
     });
 
     it('يفتح الدعاوى فوراً مع prefetch للـ hub module', () => {

@@ -2,11 +2,12 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
-import { useNotificationStore } from '@/app/stores/notificationStore';
 import {
     loadNotificationBootHydrator,
     loadNotificationIntentWarm,
 } from '@/app/hooks/lawyerDashboard/notifications/notificationDashboardLazyImports';
+import { NOTIFICATION_PRIME_HOST_EVENT } from '@/app/runtime/notificationBootEvents';
+import { shouldKeepNotificationHostWarm } from '@/app/services/notifications/notificationHostKeepAlive';
 
 type UseNotificationHostLifecycleParams = {
     userId: string | null;
@@ -32,10 +33,17 @@ export function useNotificationHostLifecycle({
 
     useLayoutEffect(() => {
         return onDashboardInteractive(() => {
-            setNotificationHostMounted(true);
+            if (shouldKeepNotificationHostWarm()) {
+                setNotificationHostMounted(true);
+            }
             const uid = userId?.trim();
             if (uid) {
-                useNotificationStore.getState().hydrateFromLocalPeek(uid);
+                void import('@/app/stores/notificationStore')
+                    .then((m) => m.useNotificationStore.getState().hydrateFromLocalPeek(uid))
+                    .catch(() => undefined);
+                void import('@/app/services/notifications/HamiNotificationBridge').then((m) =>
+                    m.initializeHamiNotificationBridge(uid),
+                );
             }
             if (!isLitePerformanceActive()) {
                 void loadNotificationIntentWarm()
@@ -47,6 +55,13 @@ export function useNotificationHostLifecycle({
                 .catch(() => undefined);
         });
     }, [setNotificationHostMounted, userId]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const onPrime = () => setNotificationHostMounted(true);
+        window.addEventListener(NOTIFICATION_PRIME_HOST_EVENT, onPrime);
+        return () => window.removeEventListener(NOTIFICATION_PRIME_HOST_EVENT, onPrime);
+    }, [setNotificationHostMounted]);
 
     useEffect(() => {
         if (!initialSessionOpen || restoredWarmRef.current) return;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readLawyerDashboardMainViewSurface } from './readLawyerDashboardMainViewSurface';
 
 const root = process.cwd();
 
@@ -13,23 +14,19 @@ describe('Phase 6 — Execution ArchivePortalHost + archivePortalBoot', () => {
             ),
             'utf8',
         );
-        expect(src).toContain('ArchivePortalHost');
+        expect(src).toContain('ArchivePortalExecutionSurface');
+        expect(src).not.toContain('ArchivePortalHost');
+        expect(src).not.toContain('ArchiveHubInstantShell');
         expect(src).not.toContain('ExecutionArchiveShell');
         expect(src).not.toMatch(/import \{ ArchivePortal \} from/);
         expect(src).not.toContain('adoptCachedArchivePortal');
         expect(src).toContain('openExecutionCreationWithContract');
-        const main = readFileSync(
-            join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
-            'utf8',
-        );
+        const main = readLawyerDashboardMainViewSurface();
         expect(main).toContain('ExecutionArchiveInstantChrome');
     });
 
     it('لا يوجد استيراد sync لـ ArchivePortal من مسارات اللوحة الحية', () => {
-        const main = readFileSync(
-            join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
-            'utf8',
-        );
+        const main = readLawyerDashboardMainViewSurface();
         const exec = readFileSync(
             join(
                 root,
@@ -48,13 +45,10 @@ describe('Phase 6 — Execution ArchivePortalHost + archivePortalBoot', () => {
         const boot = readFileSync(join(root, 'src/app/runtime/archivePortalBoot.ts'), 'utf8');
         expect(boot).toContain('prefetchArchivePortalShell');
         expect(boot).toContain('prefetchArchivePortalForWorkspace');
-        const main = readFileSync(
-            join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
-            'utf8',
-        );
+        const main = readLawyerDashboardMainViewSurface();
         // التركيب الحي: InstantChrome + Entry sync keep-alive
         expect(main).toContain('ExecutionArchiveInstantChrome');
         expect(main).toContain('LawyerDashboardExecutionOverlayEntry');
-        expect(main).not.toContain('LazyExecutionOverlayEntry');
+        expect(main).toContain('LazyExecutionOverlayEntry');
     });
 });

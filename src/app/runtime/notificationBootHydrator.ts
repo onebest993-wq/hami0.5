@@ -1,34 +1,29 @@
-import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
+import {
+    isSectionBackgroundPrefetchAllowed,
+    sectionBackgroundHydrateDelayMs,
+} from '@/app/runtime/sectionPrefetchPolicy';
 import {
     hydrateNotificationPanelForInstantOpen,
     isNotificationPanelModuleResolved,
     prefetchNotificationPanel,
 } from '@/app/runtime/notificationPanelLoader';
+import {
+    NOTIFICATION_PRIME_HOST_EVENT,
+    NOTIFICATION_SHELL_HYDRATED_EVENT,
+} from '@/app/runtime/notificationBootEvents';
 
-export const NOTIFICATION_SHELL_HYDRATED_EVENT = 'hami:notification-shell-hydrated';
+export { NOTIFICATION_PRIME_HOST_EVENT, NOTIFICATION_SHELL_HYDRATED_EVENT };
 
 let bootHydratorArmed = false;
 let hydrateInflight: Promise<boolean> | null = null;
 
 function notificationPrefetchAllowed(): boolean {
-    try {
-        const s = getLawyerSettingsSnapshot();
-        if (s.security.localOnlyMode) return false;
-        if (s.performance.prefetchScreens === false) return false;
-        if (isLitePerformanceActive(s.performance.litePerformance)) return false;
-    } catch {
-        /* ignore */
-    }
-    return true;
+    return isSectionBackgroundPrefetchAllowed();
 }
 
 function hydrateDelayMs(): number {
-    if (!notificationPrefetchAllowed()) return -1;
-    if (isCapacitorNativePlatform()) return 400;
-    return import.meta.env.DEV ? 120 : 200;
+    return sectionBackgroundHydrateDelayMs(0, 0);
 }
 
 function dispatchHydratedOnce(): void {
@@ -92,6 +87,12 @@ export function bindNotificationBootHydrator(): () => void {
         cancelIdle = undefined;
         window.removeEventListener('hami:dashboard-interactive', scheduleHydrate);
     };
+}
+
+/** pointerdown على الجرس — يركّب Host قبل click */
+export function dispatchNotificationPrimeHost(): void {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new Event(NOTIFICATION_PRIME_HOST_EVENT));
 }
 
 /** للاختبارات */

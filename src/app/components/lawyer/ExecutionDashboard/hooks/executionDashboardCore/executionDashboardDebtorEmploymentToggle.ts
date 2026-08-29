@@ -7,6 +7,7 @@ import {
 } from '@/app/stores';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import type { DebtorWorkspaceEntry } from '../useDebtorWorkspaceEntries';
+import { toastAfterExecutionPersist } from '../../helpers/toastAfterExecutionPersist';
 
 export type RunDebtorEmploymentToggleParams = {
     base: ExecutionFile | null | undefined;
@@ -78,9 +79,17 @@ export function runDebtorEmploymentToggle({
 
     const commit = (nextTimeline: TimelineEvent[]) => {
         const merged = { ...base, ...patch, timelineEvents: nextTimeline } as ExecutionFile;
-        persistExecutionMerge({ ...patch, timelineEvents: nextTimeline });
+        const persisted = persistExecutionMerge({ ...patch, timelineEvents: nextTimeline });
+        if (
+            !toastAfterExecutionPersist(
+                persisted,
+                showToast,
+                nextEmp ? 'تمت إعادة صفة الموظف.' : 'تم التحويل إلى كاسب.',
+            )
+        ) {
+            return;
+        }
         useExecutionDashboardStore.getState().setCurrentFile(merged);
-        showToast(nextEmp ? 'تمت إعادة صفة الموظف.' : 'تم التحويل إلى كاسب.', 'success');
     };
 
     if (typeof setTimelineEvents === 'function') {

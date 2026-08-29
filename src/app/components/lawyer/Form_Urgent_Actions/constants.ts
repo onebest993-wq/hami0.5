@@ -2,9 +2,7 @@ import type { PathwayType } from '@/app/domain/urgent/formPathwayConstants';
 import { isIqrarRequest } from '@/app/domain/urgent/formPathwayConstants';
 
 export {
-    URGENT_PETITION_PRIMARY,
     JUDICIAL_ACKNOWLEDGMENT_PRIMARY,
-    actionTypeOptions,
     isIqrarRequest,
     resolveStoredPathwayType,
     type PathwayType,
@@ -15,10 +13,7 @@ export {
     URGENT_JUDICIARY_DROPDOWN_OPTIONS,
     PETITION_ORDER_MANUAL_OPTION,
     PROCEDURE_CATEGORY_GROUP_LABELS,
-    getUnifiedActionTypeOptions,
     resolveProcedureCategory,
-    isPetitionOrdersCategory,
-    isUrgentJudiciaryCategory,
 } from '@/app/domain/urgent/procedureCategory';
 
 /** Phase 46 — تسميات الأطراف في الإقرار (المستفيد يبادر) */
@@ -27,16 +22,8 @@ export const IQRAR_PARTY_LABELS = {
     party2: 'المُقِر (المعترف بالحق)',
 } as const;
 
-/** @deprecated Use isIqrarRequest — kept for existing imports */
-export function isJudicialAcknowledgmentRequest(specificActionType: string): boolean {
-    return isIqrarRequest(specificActionType);
-}
-
 export const UNIFIED_URGENT_FORM_HEADER = {
     title: 'القضاء المستعجل والحجج',
-    subtitle: 'أوامر ولائية، قضاء مستعجل، وإقرار قضائي',
-    icon: '⚖️',
-    gradient: 'from-amber-500 to-yellow-600' as const,
 };
 
 /** Phase 25 — إرشادات ديناميكية لحقل تفاصيل الإجراء */
@@ -131,57 +118,3 @@ export function getProcedureDetailsGuidance(
 
     return { placeholder: defPh, helper: defH };
 }
-
-export interface PathwayConfig {
-    id: PathwayType;
-    title: string;
-    subtitle: string;
-    icon: string;
-    color: string;
-    gradient: string;
-    examples: string[];
-    description: string;
-}
-
-export const pathways: Record<PathwayType, PathwayConfig> = {
-    state_order: {
-        id: 'state_order',
-        title: 'الأمر الولائي',
-        subtitle: 'Orders on Petitions',
-        icon: '⚖️',
-        color: 'amber',
-        gradient: 'from-amber-500 to-yellow-600',
-        examples: [
-            'منع السفر',
-            'إعادة المرافق المقطوعة تعسفاً (ماء/كهرباء/هاتف)',
-            'الاستئذان بالتنفيذ أو العمل على نفقة الخصم',
-            'استكتاب السندات العادية والإقرار بالبصمة أو التوقيع',
-        ],
-        description: 'أوامر سرية مباغتة تصدر دون علم الخصم',
-    },
-    urgent_discovery: {
-        id: 'urgent_discovery',
-        title: 'القضاء المستعجل',
-        subtitle: 'Urgent Jurisdiction',
-        icon: '🔍',
-        color: 'blue',
-        gradient: 'from-blue-500 to-cyan-600',
-        examples: [
-            'الكشف المستعجل وتثبيت الحالة',
-            'سماع شاهد يخشى فوات فرصة الاستشهاد به',
-            'وضع الأموال تحت الحراسة القضائية',
-        ],
-        description: 'إجراء وجاهي سريع لكشف الحقيقة',
-    },
-    /** بقية للتوافق مع بيانات قديمة — الواجهة الموحّدة لا تعرض مساراً منفرداً للإقرار */
-    acknowledgment: {
-        id: 'acknowledgment',
-        title: 'إقرار قضائي',
-        subtitle: 'Judicial acknowledgment (legacy key)',
-        icon: '✅',
-        color: 'green',
-        gradient: 'from-green-500 to-emerald-600',
-        examples: ['إقرار الدين', 'إقرار الملكية', 'إقرار العقد'],
-        description: 'حجة طوعية — تُدار من النموذج الموحّد',
-    },
-};

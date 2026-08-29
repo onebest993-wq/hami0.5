@@ -9,13 +9,21 @@ import {
 } from '@/app/services/calendarBridge';
 import { TransactionsThreadingDB } from '@/app/services/cloud/lawyerTransactionsCloud';
 import { debug } from '@/app/utils/debug';
+import { reportCalendarBridgeSyncFailure } from '@/app/services/calendar/calendarSentryReporting';
 import type { LegalTask } from '@/app/types/TaskEngine';
-import type { DossierSyncStats, LiveCalendarSnapshots, SyncScope } from './types';
+import {
+    CALENDAR_FILE_SAVE_SYNC_SCOPE,
+    CALENDAR_LIVE_SYNC_SCOPE,
+    type DossierSyncStats,
+    type LiveCalendarSnapshots,
+    type SyncScope,
+} from './types';
 import {
     dispatchCalendarUpdated,
     EMPTY_STATS,
     isRecord,
     readEntityId,
+    dispatchCalendarBackgroundSyncFailed,
 } from './shared';
 import { shouldExcludeExecutionFromCalendar, shouldExcludeLawsuitFromCalendar } from './exclusions';
 import { syncOneExecutionFile } from './executionSync';
@@ -72,7 +80,7 @@ export function syncDossierFilesIncremental(
     });
 }
 
-let livePopulateInFlight: Promise<void> | null = null;
+let livePopulateInFlight: Promise<boolean> | null = null;
 type LivePopulateParams = {
     lawyerId: string | null | undefined;
     lawsuitFiles: unknown[];
@@ -86,18 +94,15 @@ let latestLivePopulateParams: { params: LivePopulateParams; emitUpdated: boolean
 async function runLiveCalendarPopulate(
     params: LivePopulateParams,
     options?: { emitUpdated?: boolean },
-): Promise<void> {
+): Promise<boolean> {
     const releaseMute = muteCalendarUpdates();
+    let ok = true;
     try {
-    // 🛡️ WHITELIST صارم — نُسجّل فقط 4 نقاط دخول صريحة:
-    //   1) المدني — "موعد جديد" (timeline.type='appointment')
-    //   2) الجزائي — تاريخ الجلسة في تبويب المحاكمات (trials[].date / nextSessionDate)
-    //   3) التنفيذ — "إضافة موعد" (timeline.type='appointment')
-    //   4) المعاملات — مهلة المهمة في AddTaskBottomSheet (threading.tasks[].deadline)
-    // كل ما عداه (notes/field-tasks/urgent/transactions/Sniffer) مُعطَّل.
+    // المسار الحيّ: مواعيد صريحة + مهل قانونية مخزّنة + مشاهدة قادمة + مهل Threading.
+    // مهام الاستحقاق / ملاحظات / nextDate / المستعجل / Sniffer تبقى خارج هذا المسار.
     const uid = resolveCalendarUserId(params.lawyerId);
     const stats = EMPTY_STATS();
-    const liveScope: SyncScope = { whitelistOnly: true, includeTasks: false };
+    const liveScope: SyncScope = CALENDAR_LIVE_SYNC_SCOPE;
 
     for (const raw of params.lawsuitFiles) {
         if (isRecord(raw)) syncOneLawsuitFile(raw, uid, stats, liveScope);
@@ -110,16 +115,18 @@ async function runLiveCalendarPopulate(
     }
 
     // ✅ Threading tasks (مهل مهام المعاملات) — مسموح
+    let threadingFailed: unknown = null;
     try {
         const threading = await TransactionsThreadingDB.getState(uid);
         syncThreadingCalendarSnapshot(
             uid,
             Array.isArray(threading?.transactions) ? threading.transactions : [],
             Array.isArray(threading?.tasks) ? threading.tasks : [],
-            Array.isArray(threading?.financeRecords) ? threading.financeRecords : [],
         );
     } catch (err) {
+        threadingFailed = err;
         debug.warn('[calendarDossierSync] threading live sync failed:', err);
+        reportCalendarBridgeSyncFailure(err, { phase: 'live-threading', userId: uid });
     }
 
     // 🚫 المسارات المُلغاة (لا تُسجَّل في التقويم/البطاقة):
@@ -133,6 +140,11 @@ async function runLiveCalendarPopulate(
 
     await flushPendingCalendarSyncs();
 
+    if (threadingFailed) {
+        dispatchCalendarBackgroundSyncFailed();
+        ok = false;
+    }
+
     // purgeNonWhitelistedBridgedEvents يُنفَّذ في reconcile/cleanup فقط — ليس في المسار الساخن
     } finally {
         releaseMute();
@@ -140,6 +152,7 @@ async function runLiveCalendarPopulate(
             dispatchCalendarUpdated();
         }
     }
+    return ok;
 }
 
 /**
@@ -156,17 +169,19 @@ export async function ensureCalendarPopulatedFromLiveDossiers(
         fieldTasks?: LegalTask[];
     },
     options?: { emitUpdated?: boolean },
-): Promise<void> {
+): Promise<boolean> {
     latestLivePopulateParams = { params, emitUpdated: options?.emitUpdated !== false };
     if (livePopulateInFlight) return livePopulateInFlight;
 
     livePopulateInFlight = (async () => {
+        let ok = true;
         try {
             while (latestLivePopulateParams) {
                 const batch = latestLivePopulateParams;
                 latestLivePopulateParams = null;
-                await runLiveCalendarPopulate(batch.params, { emitUpdated: batch.emitUpdated });
+                ok = await runLiveCalendarPopulate(batch.params, { emitUpdated: batch.emitUpdated });
             }
+            return ok;
         } finally {
             livePopulateInFlight = null;
             if (latestLivePopulateParams) {
@@ -193,9 +208,9 @@ export function syncLawsuitFileToCalendar(file: Record<string, unknown>, userId?
                 dispatchCalendarUpdated();
                 return;
             }
-            syncOneLawsuitFile(file, uid, EMPTY_STATS(), { includeTasks: true });
+            syncOneLawsuitFile(file, uid, EMPTY_STATS(), CALENDAR_FILE_SAVE_SYNC_SCOPE);
         }
-        await finishDossierCalendarSync(uid, { includeTasks: true }, { lawsuitFiles: [file] });
+        await finishDossierCalendarSync(uid, CALENDAR_FILE_SAVE_SYNC_SCOPE, { lawsuitFiles: [file] });
     })();
 }
 
@@ -215,9 +230,9 @@ export function syncExecutionFileToCalendar(
                 dispatchCalendarUpdated();
                 return;
             }
-            syncOneExecutionFile(file, uid, EMPTY_STATS(), { includeTasks: true });
+            syncOneExecutionFile(file, uid, EMPTY_STATS(), CALENDAR_FILE_SAVE_SYNC_SCOPE);
         }
-        await finishDossierCalendarSync(uid, { includeTasks: true }, { executionFiles: [file] });
+        await finishDossierCalendarSync(uid, CALENDAR_FILE_SAVE_SYNC_SCOPE, { executionFiles: [file] });
     })();
 }
 
@@ -237,10 +252,9 @@ export async function cleanupCalendarForUser(userId?: string | null): Promise<Do
 /**
  * يمسح كل الإضابير المحلية ويرفع المواعيد/المهام ذات التاريخ إلى التقويم (آمن للتكرار).
  *
- * عقد المزامنة (ثابت — لا يتغير بصمت):
- * - المسار الحيّ (ensureCalendarPopulatedFromLiveDossiers): whitelistOnly — 4 نقاط دخول فقط.
- * - حفظ إضبارة واحدة (sync*FileToCalendar): includeTasks — مواعيد + مهام الاستحقاق.
- * - reconcile/cleanup هنا: includeTasks — إعادة بناء كاملة + تطهير اليتامى وغير المصرّح.
+ * عقد المزامنة (ثابت — لا يتوحّد):
+ * - المسار الحيّ (CALENDAR_LIVE_SYNC_SCOPE): مواعيد صريحة + مهل قانونية مخزّنة + مشاهدة قادمة.
+ * - حفظ إضبارة / reconcile (CALENDAR_FILE_SAVE_SYNC_SCOPE): أعلاه + مهام الاستحقاق غير ephemeral.
  */
 export async function reconcileAllDossierDates(userId?: string | null): Promise<DossierSyncStats> {
     if (reconcileInFlight) {
@@ -251,12 +265,12 @@ export async function reconcileAllDossierDates(userId?: string | null): Promise<
     reconcileInFlight = (async () => {
         const stats = EMPTY_STATS();
 
-        const bulkScope: SyncScope = { includeTasks: true };
+        const bulkScope: SyncScope = CALENDAR_FILE_SAVE_SYNC_SCOPE;
 
         try {
             stats.purgedInactive += await purgeInactiveEntityBridgedEvents(uid);
 
-            // 🛡️ WHITELIST: فقط 4 نقاط دخول مسموحة
+            // حفظ/reconcile: مواعيد + مهل قانونية + مهام استحقاق غير ephemeral
             for (const raw of loadLawsuitFilesRaw()) {
                 if (isRecord(raw)) syncOneLawsuitFile(raw, uid, stats, bulkScope);
             }
@@ -280,22 +294,28 @@ export async function reconcileAllDossierDates(userId?: string | null): Promise<
 }
 
 export const CALENDAR_SYNC_RULES = {
-    /** مسارات مُفعّلة في المزامنة الحية (whitelist) */
+    /** مسارات مُفعّلة في المزامنة الحية */
     active: {
-        lawsuit: ['timeline.type=appointment — جلسات مدنية'],
-        execution: ['timelineEvents.type=appointment — مواعيد تنفيذ'],
+        lawsuit: [
+            'timeline.type=appointment — جلسات مدنية',
+            'legalTimers / appealDeadline — مهل قانونية مخزّنة صراحةً',
+        ],
+        execution: [
+            'timelineEvents.type=appointment — مواعيد تنفيذ',
+            'visitationSchedule next scheduled — الموعد القادم فقط',
+        ],
         criminal: ['trials[].date / nextSessionDate — جلسات محاكمات'],
         threading: ['tasks.deadline — مهل مهام المعاملات'],
     },
     /** مسارات مُعطّلة — لا تُزامَن؛ تُنظَّف عبر purgeNonWhitelisted/purgeInauthentic */
     disabled: {
         lawsuitLegacy: [
-            'tasks.dueDate — مهام استحقاق يدوية',
+            'tasks.dueDate — مهام استحقاق يدوية (مسار الحفظ فقط)',
             'history.date — سجل قديم بدون stages',
             'nextDate / stayReviewDate — مواعيد علوية',
             'notes[].apptDate — ملاحظات مضمّنة',
         ],
-        executionTasks: ['caseTasksPending.dueDate — مهام الاستحقاق'],
+        executionTasks: ['caseTasksPending.dueDate — مهام الاستحقاق (مسار الحفظ فقط)'],
         urgent: [
             'hearings.sessionDate',
             'hearings.nextSessionDate',
@@ -304,7 +324,7 @@ export const CALENDAR_SYNC_RULES = {
         ],
         transaction: ['steps.appointmentDate'],
         criminalLegacy: ['timelineEvents.date', 'location.nextHearingDate'],
-        threadingFinance: ['financeRecords.date'],
+        threadingFinance: ['financeRecords.date — مهجور؛ تُفرَّغ دائماً عند الحفظ'],
         note: ['globalNotes apptDate / reminder_at / date'],
         task: ['quantum field tasks parsedDate / reminderAt'],
         sniffer: [

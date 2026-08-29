@@ -1,5 +1,9 @@
 import React from 'react';
-import { HomeBellIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
+import { HeaderNoticeMark } from './headerToolbarIcons';
+import {
+    beginNotificationDismissLock,
+    paintNotificationInstantChrome,
+} from '@/app/runtime/notificationInstantPaint';
 import { HeaderToolbarIcon } from './HeaderToolbarIcon';
 import { formatHeaderToolbarBadge } from './headerToolbarUtils';
 
@@ -22,16 +26,22 @@ export function HeaderNotificationsTrigger({
 
     return (
         <HeaderToolbarIcon
-            icon={HomeBellIcon}
+            icon={HeaderNoticeMark}
             label={label}
             onClick={onClick}
             onPointerEnter={onPointerEnter}
-            onPointerDown={onPointerDown}
+            onPointerDown={() => {
+                beginNotificationDismissLock();
+                paintNotificationInstantChrome();
+                onPointerDown?.();
+            }}
+            /* طلاء الورقة في pointerdown قبل prefetch — الخلفية تُقفل حتى تكتمل اللمسة */
+            activateOnPointerDown
             testId="header-notifications-trigger"
             badge={
                 badgeText ? (
                     <span
-                        className="absolute -top-0.5 -right-0.5 z-[2] min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-rose-500 text-white text-[10px] font-bold border-2 border-[#0F172A] tabular-nums"
+                        className="hami-header-tool-badge absolute z-[2] min-w-[17px] h-[17px] px-1 flex items-center justify-center rounded-full text-[10px] font-bold tabular-nums"
                         aria-hidden
                     >
                         {badgeText}

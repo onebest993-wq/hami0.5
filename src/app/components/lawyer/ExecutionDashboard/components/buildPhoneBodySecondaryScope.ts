@@ -27,7 +27,6 @@ const SECONDARY_SCOPE_KEYS = [
     'setActiveTimelineFilter',
     'setEmployeeCompulsoryBannerDismissed',
     'setShowOnlyActiveFileTimeline',
-    'setShowVisitationCalendarModal',
     'showEmployeeCompulsoryProceduresBanner',
     'showOnlyActiveFileTimeline',
     'showToast',

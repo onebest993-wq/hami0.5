@@ -121,14 +121,9 @@
 
 ---
 
-## [10.1.0] - 2026-03-13 - الذكاء الاصطناعي
+## [10.1.0] - 2026-03-13
 
-### 🤖 AI Integration
-- ✅ Gemini 1.5 Flash/Pro
-- ✅ OpenAI GPT-4o
-- ✅ Whisper Audio Transcription
-- ✅ Vision API (OCR)
-- ✅ Mock Mode Fallback
+- إدخالات نماذج LLM الخارجية أُزيلت بالكامل لاحقاً من المسارات الحية.
 
 ---
 

@@ -63,4 +63,27 @@ describe('useLocalDataClear', () => {
         expect(verifySensitiveSettingsAction).toHaveBeenCalled();
         expect(result.current.wipePhase).toBe('idle');
     });
+
+    it('يفك انتظار العد التنازلي فور الإلغاء ولا يترك العملية معلقة', async () => {
+        const { SmartDialog } = await import('@/app/components/ui/SmartDialog');
+        vi.mocked(SmartDialog.confirm).mockResolvedValueOnce(true);
+        const { verifySensitiveSettingsAction } = await import(
+            '@/app/services/settings/verifySensitiveSettingsAction'
+        );
+        vi.mocked(verifySensitiveSettingsAction).mockResolvedValueOnce(true);
+        const { result } = renderHook(() => useLocalDataClear(vi.fn()));
+
+        let request!: Promise<void>;
+        await act(async () => {
+            request = result.current.requestFullWipe();
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+        expect(result.current.wipePhase).toBe('countdown');
+
+        act(() => result.current.cancelCountdown());
+        await act(async () => request);
+
+        expect(result.current.wipePhase).toBe('idle');
+    });
 });

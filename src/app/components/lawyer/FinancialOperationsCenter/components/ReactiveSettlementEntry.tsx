@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion } from '@/app/motion/overlayMotionRuntime';
 import type { SettlementUxTier } from '../settlementUxMatrix';
 
 export interface ReactiveSettlementEntryProps {

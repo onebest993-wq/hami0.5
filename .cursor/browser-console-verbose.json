@@ -1,8 +1,8 @@
 {
-  "at": "2026-08-05T22:47:31.239Z",
+  "at": "2026-08-15T00:46:58.915Z",
   "url": "http://localhost:8080/",
-  "title": "Hami - Lawyer Dashboard",
-  "messageCount": 6,
+  "title": "Hami",
+  "messageCount": 9,
   "messages": [
     {
       "type": "debug",
@@ -24,11 +24,11 @@
     },
     {
       "type": "info",
-      "text": "[Spark dev] للاختبار: __hamiResetSpark() ثم تحديث الصفحة",
+      "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold",
       "loc": {
-        "url": "http://localhost:8080/src/app/utils/consoleHygiene.ts",
-        "lineNumber": 90,
-        "columnNumber": 6
+        "url": "http://localhost:8080/node_modules/.vite/deps/chunk-6JFHHV6L.js?v=f3b00208",
+        "lineNumber": 21608,
+        "columnNumber": 24
       }
     },
     {
@@ -51,14 +51,50 @@
     },
     {
       "type": "info",
-      "text": "[Spark dev] للاختبار: __hamiResetSpark() ثم تحديث الصفحة",
+      "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold",
       "loc": {
-        "url": "http://localhost:8080/src/app/utils/consoleHygiene.ts",
-        "lineNumber": 90,
-        "columnNumber": 6
+        "url": "http://localhost:8080/node_modules/.vite/deps/chunk-6JFHHV6L.js?v=f3b00208",
+        "lineNumber": 21608,
+        "columnNumber": 24
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "loc": {
+        "url": "http://localhost:8080/@vite/client",
+        "lineNumber": 732,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "loc": {
+        "url": "http://localhost:8080/@vite/client",
+        "lineNumber": 826,
+        "columnNumber": 11
+      }
+    },
+    {
+      "type": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold",
+      "loc": {
+        "url": "http://localhost:8080/node_modules/.vite/deps/chunk-6JFHHV6L.js?v=f3b00208",
+        "lineNumber": 21608,
+        "columnNumber": 24
       }
     }
   ],
   "pageErrors": [],
-  "failedRequests": []
+  "failedRequests": [
+    {
+      "url": "http://localhost:8080/api/public/healthz",
+      "error": "net::ERR_ABORTED"
+    },
+    {
+      "url": "http://localhost:8080/api/public/healthz",
+      "error": "net::ERR_ABORTED"
+    }
+  ]
 }

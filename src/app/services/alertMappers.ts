@@ -1,4 +1,9 @@
-import { AlertTriangle, ClipboardList, Clock, Hammer, Scale, FileText, Inbox } from '@/app/components/ui/lucideIcons';
+import { AlertTriangle } from '@/app/components/ui/icons/AlertTriangle';
+import { ClipboardList } from '@/app/components/ui/icons/ClipboardList';
+import { Clock } from '@/app/components/ui/icons/Clock';
+import { Hammer } from '@/app/components/ui/icons/Hammer';
+import { Scale } from '@/app/components/ui/icons/Scale';
+import { FileText } from '@/app/components/ui/icons/FileText';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { isInjectedFieldTaskAlert } from '@/app/services/fieldTaskAlerts';
 import { filterVisibleAlerts } from '@/app/services/appAlertDismiss';
@@ -38,8 +43,6 @@ function iconForAlert(alert: SecretaryAlert) {
     switch (alert.type) {
         case 'HEARING':
             return Scale;
-        case 'REQUEST':
-            return Inbox;
         case 'NOTE':
             return FileText;
         case 'EXECUTION':

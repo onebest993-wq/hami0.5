@@ -5,6 +5,7 @@ import {
     getForumRepositoryEscapeSnapshot,
     resetForumRepositoryEscape,
     setForumRepositoryEscape,
+    subscribeForumRepositoryEscape,
 } from '../forumRepositoryEscapeBridge';
 import { resolveForumEscapeAction } from '../forumEscapeStack';
 
@@ -21,7 +22,6 @@ describe('forumRepositoryEscapeBridge', () => {
 
         const repo = getForumRepositoryEscapeSnapshot();
         const action = resolveForumEscapeAction({
-            fullscreenImage: null,
             profileView: false,
             pendingDeletePostId: null,
             editingPostId: null,
@@ -43,5 +43,22 @@ describe('forumRepositoryEscapeBridge', () => {
 
         resetForumRepositoryEscape();
         expect(getForumRepositoryEscapeSnapshot().previewOpen).toBe(false);
+    });
+
+    it('لا يُطلق المستمعين إن لم تتغير أعلام المودال', () => {
+        const listener = vi.fn();
+        const unsub = subscribeForumRepositoryEscape(listener);
+        setForumRepositoryEscape(
+            { isUploadModalOpen: false, previewOpen: false, deleteOpen: false },
+            { closeUpload: () => {}, closePreview: () => {}, cancelDelete: () => {} },
+        );
+        listener.mockClear();
+        setForumRepositoryEscape(
+            { isUploadModalOpen: false, previewOpen: false, deleteOpen: false },
+            { closeUpload: () => {}, closePreview: () => {}, cancelDelete: () => {} },
+        );
+        expect(listener).not.toHaveBeenCalled();
+        unsub();
+        resetForumRepositoryEscape();
     });
 });

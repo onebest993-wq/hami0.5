@@ -1,4 +1,4 @@
-import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 import type { UseSmartFileProceduralActionsOptions } from '../../smartFile/proceduralTypes';
 
 export function buildLawsuitCalendarContext(

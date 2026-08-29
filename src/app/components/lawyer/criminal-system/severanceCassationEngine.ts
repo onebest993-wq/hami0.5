@@ -66,7 +66,7 @@ export function stampSeveranceDecisionLinkage(
     return { ...parent, judicialDecisions: nextList };
 }
 
-export function resolveLinkedSeveranceChildCaseId(
+function resolveLinkedSeveranceChildCaseId(
     parent: CriminalCase,
     decision: JudicialDecision,
     allCases: Record<string, CriminalCase>,

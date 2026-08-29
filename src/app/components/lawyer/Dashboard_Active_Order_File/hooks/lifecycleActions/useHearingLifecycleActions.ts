@@ -116,12 +116,12 @@ const updateRegistrationData = (
         const filing = String(grievanceData.filingDate || '').trim();
         const session = String(hearingDraft.sessionDate || '').trim();
         if (filing && session && session < filing) {
-            setHearingsError('⚠️ لا يمكن أن يكون تاريخ جلسة التظلم أقدم من تاريخ تقديم التظلم');
+            setHearingsError('لا يمكن أن يكون تاريخ جلسة التظلم أقدم من تاريخ تقديم التظلم');
             return;
         }
         const minG = phase2NewSessionMinYmd;
         if (minG && session && session < minG) {
-            setHearingsError('⚠️ تاريخ الجلسة يخالف الترتيب الزمني لمرحلة التظلم');
+            setHearingsError('تاريخ الجلسة يخالف الترتيب الزمني لمرحلة التظلم');
             return;
         }
     }
@@ -129,7 +129,7 @@ const updateRegistrationData = (
         const session = String(hearingDraft.sessionDate || '').trim();
         const minP = phase1NewSessionMinYmd;
         if (minP && session && session < minP) {
-            setHearingsError('⚠️ تاريخ الجلسة يخالف الترتيب الزمني لمرحلة ما قبل القرار');
+            setHearingsError('تاريخ الجلسة يخالف الترتيب الزمني لمرحلة ما قبل القرار');
             return;
         }
     }
@@ -139,7 +139,7 @@ const updateRegistrationData = (
             return;
         }
         if (String(hearingDraft.nextSessionDate || '').trim() < String(hearingDraft.sessionDate || '').trim()) {
-            setHearingsError('⚠️ موعد الجلسة القادمة يجب أن يكون بعد/مساوٍ لتاريخ الجلسة');
+            setHearingsError('موعد الجلسة القادمة يجب أن يكون بعد/مساوٍ لتاريخ الجلسة');
             return;
         }
         const adjournReason = hearingDraft.notes.trim();

@@ -4,7 +4,7 @@ import {
     isEmployeeMonetaryFinancialPath,
 } from '@/app/utils/debtorSummonsProfile';
 
-export type BuildSubsequentNoticePolicyInput = {
+type BuildSubsequentNoticePolicyInput = {
     debtorSummonsProfile: DebtorSummonsProfile | string | null;
     followupDebtorSummonsProfile: DebtorSummonsProfile | string | null;
     isEvictionExecutionModule: boolean;

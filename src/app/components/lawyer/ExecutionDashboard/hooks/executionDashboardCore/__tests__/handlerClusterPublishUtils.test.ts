@@ -17,4 +17,19 @@ describe('handlerClusterPublishUtils', () => {
         const next = { seizureAssetModalHandlers: { save: handler } };
         expect(mergeHandlerClusterPatch(current, next)).toBe(current);
     });
+
+    it('mergeHandlerClusterPatch ignores handler function identity churn', () => {
+        const current = { notesTasksHandlers: { save: () => 'a' } };
+        const next = { notesTasksHandlers: { save: () => 'b' } };
+        expect(mergeHandlerClusterPatch(current, next)).toBe(current);
+    });
+
+    it('mergeHandlerClusterPatch merges newly added handler keys', () => {
+        const save = () => undefined;
+        const current = { notesTasksHandlers: { save } };
+        const next = { notesTasksHandlers: { save, open: () => undefined } };
+        const merged = mergeHandlerClusterPatch(current, next);
+        expect(merged).not.toBe(current);
+        expect(Object.keys(merged.notesTasksHandlers as object).sort()).toEqual(['open', 'save']);
+    });
 });

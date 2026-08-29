@@ -1,5 +1,8 @@
-import type { CaseType } from '@/app/components/lawyer/LawyerNewCase/types';
-import { UNIVERSAL_BLOCKED_WORDS } from '@/app/components/lawyer/LawyerNewCase/constants';
+import { UNIVERSAL_BLOCKED_WORDS } from '@/app/components/lawyer/LawyerNewCase/wordLists';
+import {
+    resolveLawsuitJurisdiction,
+    type LawsuitJurisdictionSource,
+} from '@/app/domain/lawsuit/lawsuitJurisdiction';
 import {
     getUnderlyingStageFieldLabel,
     isExtraordinaryProcedureStage,
@@ -39,13 +42,13 @@ export const PERSONAL_STATUS_FORM_STAGE_OPTIONS = [
     'اعتراض الغير',
 ] as const;
 
-export type PersonalStatusStage = (typeof PERSONAL_STATUS_STAGE_OPTIONS)[number];
+type PersonalStatusStage = (typeof PERSONAL_STATUS_STAGE_OPTIONS)[number];
 
 export function computePersonalStatusStageOptions(_court?: string): readonly string[] {
     return PERSONAL_STATUS_FORM_STAGE_OPTIONS;
 }
 
-export function isPersonalExtraordinaryStage(stage: string): boolean {
+function isPersonalExtraordinaryStage(stage: string): boolean {
     return isExtraordinaryProcedureStage(stage.trim());
 }
 
@@ -185,12 +188,6 @@ export function validatePersonalStatusForm(params: {
     return errors;
 }
 
-export function isPersonalStatusJurisdiction(
-    jurisdiction: CaseType | null | undefined,
-): boolean {
-    return jurisdiction === 'personal';
-}
-
 export function resolvePersonalApplicableLawLabel(
     law: PersonalApplicableLaw | string | undefined,
 ): string {
@@ -198,13 +195,26 @@ export function resolvePersonalApplicableLawLabel(
     return hit?.label ?? '';
 }
 
-/** للتمييز في واجهة الإضبارة عن المدني. */
-export function isPersonalStatusFile(file: {
-    lawsuitJurisdiction?: string;
-    selectedType?: string;
-}): boolean {
-    const raw = String(file.lawsuitJurisdiction ?? file.selectedType ?? '').toLowerCase();
-    return raw === 'personal';
+const PARTY_NAME_GENERIC = 'ملاحظة: يرجى التأكد من تطابق المعلومات المدخلة';
+
+/** أسماء الأطراف مطلوبة — نفس روح validateForm المدني (`party_${id}`). */
+export function collectPersonalPartyNameErrors(
+    parties1: ReadonlyArray<{ id: string; name?: string | null }>,
+    parties2: ReadonlyArray<{ id: string; name?: string | null }>,
+): Record<string, string> {
+    const errors: Record<string, string> = {};
+    for (const p of parties1) {
+        if (!String(p.name ?? '').trim()) errors[`party_${p.id}`] = PARTY_NAME_GENERIC;
+    }
+    for (const p of parties2) {
+        if (!String(p.name ?? '').trim()) errors[`party_${p.id}`] = PARTY_NAME_GENERIC;
+    }
+    return errors;
+}
+
+/** للتمييز في واجهة الإضبارة عن المدني — نفس مصدر حقيقة تبويب المخزن. */
+export function isPersonalStatusFile(file: LawsuitJurisdictionSource): boolean {
+    return resolveLawsuitJurisdiction(file) === 'personal';
 }
 
 export { isExtraordinaryProcedureStage as isPersonalFormExtraordinaryStage };

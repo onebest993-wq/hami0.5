@@ -17,13 +17,23 @@ export type LawyerDashboardHeaderVisibilityInput = {
     isCriminalDossierOpen: boolean;
 };
 
+/**
+ * الرئيسية + الملف + تبويب الإشعارات الوهمي — نفس مسار طلاء المنزل.
+ * الإشعارات طبقة فوق المنزل وليست بديلاً له (إخفاء الهيدر عبر snap الإشعارات).
+ * إخفاء الهيدر أثناء الملف يتم عبر html[data-hami-profile-open] فقط.
+ */
+export function isLawyerDashboardHomeStackTab(tab: LawyerDashboardTab): boolean {
+    return tab === 'home' || tab === 'profile' || tab === 'notifications';
+}
+
 export function shouldHideLawyerDashboardHeader(input: LawyerDashboardHeaderVisibilityInput): boolean {
     return (
         /* الإعدادات z-200 فوق الهيدر — لا تُخفِه وإلا وميض عند الإغلاق (conceal قبل React) */
         input.isNewCaseModalOpen ||
         input.isNotepadOpen ||
         input.showCommunity ||
-        input.activeTab !== 'home' ||
+        /* الملف: لا تُخفِ الهيدر في React — CSS الـ snap يخفيه (عقد الإعدادات) */
+        !isLawyerDashboardHomeStackTab(input.activeTab) ||
         Boolean(input.activeFile) ||
         Boolean(input.archiveType) ||
         input.showLawsuitsWorkspace ||
@@ -36,5 +46,9 @@ export function shouldHideLawyerDashboardHeader(input: LawyerDashboardHeaderVisi
 export function computeLawyerDashboardHeaderShouldShow(
     input: LawyerDashboardHeaderVisibilityInput,
 ): boolean {
-    return !shouldHideLawyerDashboardHeader(input) && input.activeTab === 'home' && !input.isCriminalDossierOpen;
+    return (
+        !shouldHideLawyerDashboardHeader(input) &&
+        isLawyerDashboardHomeStackTab(input.activeTab) &&
+        !input.isCriminalDossierOpen
+    );
 }

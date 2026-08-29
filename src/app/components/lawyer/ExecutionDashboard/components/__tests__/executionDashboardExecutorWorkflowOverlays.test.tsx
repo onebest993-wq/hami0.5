@@ -4,8 +4,12 @@ import { describe, expect, it, vi } from 'vitest';
 
 const lazyExecutorWorkflowPortalProps = vi.fn();
 
-vi.mock('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell', () => ({
+vi.mock('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShellUi', () => ({
     EXEC_OVERLAY_LAZY_FALLBACK: <div>lazy fallback</div>,
+    EXEC_OVERLAY_INNER_SILENT_FALLBACK: <div data-testid="execution-overlay-inner-paint-slot" />,
+}));
+
+vi.mock('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistryOverlays', () => ({
     LazyExecutorWorkflowPortalModals: (props: Record<string, unknown>) => {
         lazyExecutorWorkflowPortalProps(props);
         return <div>executor workflow overlays mounted</div>;

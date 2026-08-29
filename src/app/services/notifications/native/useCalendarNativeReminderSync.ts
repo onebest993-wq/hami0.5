@@ -3,11 +3,15 @@ import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
 import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
 import { getCachedCalendarEvents } from '@/app/services/calendar/calendarEventsCache';
 import { readLocalCalendarSnapshotSync } from '@/app/services/calendar/calendarLocalSnapshot';
-import { buildCalendarNativeSchedules } from '@/app/services/notifications/native/calendarNativeReminderScheduler';
+import { buildCalendarNativeSchedules, buildCalendarSnoozeNativeSchedules } from '@/app/services/notifications/native/calendarNativeReminderScheduler';
 import {
     initializeHamiNotificationBridge,
     syncNativeScheduledNotifications,
 } from '@/app/services/notifications/HamiNotificationBridge';
+import {
+    HAMI_CALENDAR_NATIVE_SYNC_EVENT,
+    readCalendarReminderSnoozes,
+} from '@/app/services/calendar/calendarReminderSnoozeStore';
 
 function loadCalendarEvents(userId: string): CalendarEvent[] {
     const cached = getCachedCalendarEvents(userId);
@@ -26,7 +30,11 @@ export function useCalendarNativeReminderSync(userId: string, enabled: boolean):
             if (cancelled) return;
             await initializeHamiNotificationBridge();
             const events = loadCalendarEvents(userId);
-            const schedules = buildCalendarNativeSchedules(events);
+            const snoozes = readCalendarReminderSnoozes();
+            const schedules = [
+                ...buildCalendarNativeSchedules(events),
+                ...buildCalendarSnoozeNativeSchedules(snoozes),
+            ];
             await syncNativeScheduledNotifications(schedules);
         };
 
@@ -42,6 +50,7 @@ export function useCalendarNativeReminderSync(userId: string, enabled: boolean):
 
         window.addEventListener(CALENDAR_UPDATED_EVENT, onCalendarUpdated);
         window.addEventListener('hami:settings-updated', onSettingsUpdated);
+        window.addEventListener(HAMI_CALENDAR_NATIVE_SYNC_EVENT, onCalendarUpdated);
 
         const interval = window.setInterval(() => {
             void sync();
@@ -51,6 +60,7 @@ export function useCalendarNativeReminderSync(userId: string, enabled: boolean):
             cancelled = true;
             window.removeEventListener(CALENDAR_UPDATED_EVENT, onCalendarUpdated);
             window.removeEventListener('hami:settings-updated', onSettingsUpdated);
+            window.removeEventListener(HAMI_CALENDAR_NATIVE_SYNC_EVENT, onCalendarUpdated);
             window.clearInterval(interval);
         };
     }, [enabled, userId]);

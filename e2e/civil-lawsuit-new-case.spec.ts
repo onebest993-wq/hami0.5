@@ -5,8 +5,10 @@ import { test, expect } from '@playwright/test';
 import {
     bootCivilLawsuitsE2E,
     extractPartyNamesFromFile,
+    fillLabeledInput,
     fillMinimalCivilNewCase,
     fillMinimalPersonalNewCase,
+    clickLawyerNewCaseSave,
     openCivilNewCaseForm,
     openPersonalNewCaseForm,
     prepareCivilLawsuitsE2E,
@@ -36,9 +38,10 @@ test.describe('Civil lawsuit new case', () => {
         await dismissProductivityBlockers(page);
         await openCivilNewCaseForm(page);
         await fillMinimalCivilNewCase(page, { plaintiff, court: 'بداءة الكرخ', type: 'دعوى تعويض' });
-        await page.getByTestId('lawyer-new-case-save').click({ force: true });
+        await clickLawyerNewCaseSave(page);
         await expect(page.getByTestId('smart-file-dossier')).toBeVisible({ timeout: 25_000 });
-        await expect(page.getByRole('button', { name: new RegExp(plaintiff) }).first()).toBeVisible({
+        // PartyChip غالباً overflow-hidden → getByText يظهر "hidden" رغم وجود النص
+        await expect(page.getByTestId('smart-file-dossier')).toContainText(plaintiff, {
             timeout: 15_000,
         });
         await waitForPartyInFiles(page, plaintiff, 30_000);
@@ -58,8 +61,8 @@ test.describe('Civil lawsuit new case', () => {
         await bootCivilLawsuitsE2E(page);
         await dismissProductivityBlockers(page);
         await openPersonalNewCaseForm(page);
-        await page.getByPlaceholder('اسم المحكمة...').fill('محكمة أحوال شخصية');
-        await page.getByPlaceholder('طلاق، نفقة، حضانة...').fill('دعوى طلاق');
+        await fillLabeledInput(page, 'محكمة الأحوال الشخصية', 'محكمة أحوال شخصية');
+        await fillLabeledInput(page, 'نوع الدعوى', 'دعوى طلاق');
         await expect(page.getByText('ملاحظة: يرجى التأكد من تطابق المعلومات المدخلة')).toHaveCount(0);
     });
 
@@ -70,9 +73,9 @@ test.describe('Civil lawsuit new case', () => {
         await dismissProductivityBlockers(page);
         await openPersonalNewCaseForm(page);
         await fillMinimalPersonalNewCase(page, { plaintiff, type: 'دعوى طلاق' });
-        await page.getByTestId('lawyer-new-case-save').click({ force: true });
+        await clickLawyerNewCaseSave(page);
         await expect(page.getByTestId('smart-file-dossier')).toBeVisible({ timeout: 25_000 });
-        await expect(page.getByRole('button', { name: new RegExp(plaintiff) }).first()).toBeVisible({
+        await expect(page.getByTestId('smart-file-dossier')).toContainText(plaintiff, {
             timeout: 15_000,
         });
         await waitForPartyInFiles(page, plaintiff, 30_000);

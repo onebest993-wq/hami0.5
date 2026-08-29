@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { e2eViteBuildEnv } from './e2e-build-env.mjs';
+import { e2eViteBuildEnv, hamiBootScriptFingerprint } from './e2e-build-env.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const STAMP_PATH = path.join(ROOT, '.audit', 'e2e-dist-stamp.json');
@@ -37,6 +37,7 @@ if (result.status === 0) {
             builtAt: new Date().toISOString(),
             viteE2e: env.VITE_E2E === '1',
             shellAuthOpen: env.VITE_SHELL_AUTH_OPEN === 'true',
+            hamiBootScript: hamiBootScriptFingerprint(),
         }),
         'utf8',
     );

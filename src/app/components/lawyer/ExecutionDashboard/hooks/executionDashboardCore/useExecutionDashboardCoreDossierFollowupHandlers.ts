@@ -1,7 +1,6 @@
-// @ts-nocheck
 import { useCallback, useMemo } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
-import type { DossierActionType } from '../../components/DossierActionsModal';
+import type { DossierActionType } from '../../components/DossierActionTypes';
 import { useExecutionDashboardDossierAdminFollowupHandlers } from './useExecutionDashboardDossierAdminFollowupHandlers';
 import { useExecutionDashboardDossierControlsHandlers } from './useExecutionDashboardDossierControlsHandlers';
 import { useExecutionDashboardOtherPartyHandlers } from './useExecutionDashboardOtherPartyHandlers';

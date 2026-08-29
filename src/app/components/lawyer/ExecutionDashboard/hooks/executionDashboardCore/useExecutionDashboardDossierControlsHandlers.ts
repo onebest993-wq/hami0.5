@@ -1,7 +1,6 @@
-// @ts-nocheck
 import { useCallback, useMemo, type Dispatch, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
-import type { DossierActionPayload, DossierActionType } from '../../components/DossierActionsModal';
+import type { DossierActionPayload, DossierActionType } from '../../components/DossierActionTypes';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 
 type UseExecutionDashboardDossierControlsHandlersParams = {

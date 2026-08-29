@@ -3,10 +3,6 @@ import { render, screen } from '@testing-library/react';
 import { RadarSelectedDaySection } from '@/app/components/lawyer/SmartLegalRadar/RadarSelectedDaySection';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 
-vi.mock('@/app/hooks/useReduceMotion', () => ({
-    useReduceMotion: () => true,
-}));
-
 describe('RadarSelectedDaySection', () => {
     it('يعرض ملخص اليوم عند وجود مواعيد', () => {
         const events: UnifiedEvent[] = [
@@ -16,14 +12,26 @@ describe('RadarSelectedDaySection', () => {
         render(
             <RadarSelectedDaySection
                 selectedEvents={events}
-                aiBriefing="لديك (1) مواعيد"
+                dayBriefing="لديك (1) مواعيد"
                 conflictMessage={null}
                 onEditEvent={vi.fn()}
                 onDeleteEvent={vi.fn()}
             />,
         );
 
-        expect(screen.getByTestId('radar-ai-briefing')).toBeInTheDocument();
+        expect(screen.getByTestId('radar-day-briefing')).toBeInTheDocument();
         expect(screen.getByText('لديك (1) مواعيد')).toBeInTheDocument();
+    });
+
+    it('يعرض حالة فارغة بلا مواعيد', () => {
+        render(
+            <RadarSelectedDaySection
+                selectedEvents={[]}
+                conflictMessage={null}
+                onEditEvent={vi.fn()}
+                onDeleteEvent={vi.fn()}
+            />,
+        );
+        expect(screen.getByTestId('radar-empty-state')).toHaveTextContent('لا توجد مواعيد لهذا اليوم');
     });
 });

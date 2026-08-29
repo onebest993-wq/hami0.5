@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import { X, AlertCircle } from '@/app/components/ui/lucideIcons';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
+import { X } from '@/app/components/ui/icons/X';
+import { AlertCircle } from '@/app/components/ui/icons/AlertCircle';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { HUB_TOPMOST_OVERLAY_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
 
@@ -69,7 +70,7 @@ export const CrossAppealModal: React.FC<CrossAppealModalProps> = ({
         <div
             className={`fixed inset-0 ${HUB_TOPMOST_OVERLAY_Z_CLASS} flex items-center justify-center bg-[#02060E]/92 p-4 sm:p-6 font-['Tajawal']`}
         >
-            <div className="w-full max-w-2xl overflow-hidden rounded-[28px] border border-[#E6C673]/18 bg-[#08101C] shadow-[0_26px_90px_rgba(0,0,0,0.55)] ring-1 ring-inset ring-white/[0.05]">
+            <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-[#E6C673]/16 bg-[#0C1220] shadow-[0_8px_24px_rgba(0,0,0,0.28)]">
                 <div className="border-b border-white/[0.06] bg-[#0F1828] px-5 py-4 sm:px-6 sm:py-5">
                     <div className="flex items-center justify-between gap-4">
                         <div className="min-w-0">

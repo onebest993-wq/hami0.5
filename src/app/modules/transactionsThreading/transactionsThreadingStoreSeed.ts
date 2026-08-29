@@ -1,9 +1,9 @@
-import type { FinanceRecord, Transaction, TransactionDocument, TransactionTask } from './types';
+import type { Transaction, TransactionDocument, TransactionTask } from './types';
 
 export type ThreadingRepositorySeed = {
     transactions?: Transaction[];
     tasks?: TransactionTask[];
-    financeRecords?: FinanceRecord[];
+    financeRecords?: unknown[];
     documents?: TransactionDocument[];
 };
 
@@ -14,14 +14,6 @@ export function groupThreadingSeedForStore(seed: ThreadingRepositorySeed) {
             tasksByTransactionId[task.transactionId] = [];
         }
         tasksByTransactionId[task.transactionId].push(task);
-    }
-
-    const financeByTransactionId: Record<string, FinanceRecord[]> = {};
-    for (const record of seed.financeRecords ?? []) {
-        if (!financeByTransactionId[record.transactionId]) {
-            financeByTransactionId[record.transactionId] = [];
-        }
-        financeByTransactionId[record.transactionId].push(record);
     }
 
     const documentsByTransactionId: Record<string, TransactionDocument[]> = {};
@@ -35,7 +27,6 @@ export function groupThreadingSeedForStore(seed: ThreadingRepositorySeed) {
     return {
         transactions: seed.transactions ?? [],
         tasksByTransactionId,
-        financeByTransactionId,
         documentsByTransactionId,
     };
 }

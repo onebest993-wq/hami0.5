@@ -4,8 +4,6 @@ import {
     isLawsuitInTrash,
     isLawsuitArchived,
     lawsuitTrashDaysRemaining,
-    purgeExpiredLawsuitsFromTrash,
-    shouldAutoPurgeLawsuitFromTrash,
 } from '../lawsuitTrash';
 
 describe('lawsuitTrash', () => {
@@ -22,18 +20,11 @@ describe('lawsuitTrash', () => {
         expect(days).toBeLessThanOrEqual(28);
     });
 
-    it('purges expired lawsuits from list', () => {
+    it('يعرض صفراً بعد انتهاء مدة الاحتفاظ (بدون تنظيف تلقائي في الإنتاج)', () => {
         const expired = {
-            id: 1,
             status: 'deleted',
             deletedAt: Date.now() - LAWSUIT_TRASH_RETENTION_MS - 1000,
         };
-        const fresh = {
-            id: 2,
-            status: 'deleted',
-            deletedAt: Date.now(),
-        };
-        expect(shouldAutoPurgeLawsuitFromTrash(expired)).toBe(true);
-        expect(purgeExpiredLawsuitsFromTrash([expired, fresh])).toEqual([fresh]);
+        expect(lawsuitTrashDaysRemaining(expired)).toBe(0);
     });
 });

@@ -27,7 +27,7 @@ vi.mock('@/app/modules/transactionsThreading/store', () => ({
                 transactions: mockTransactions,
             }),
         {
-            getState: () => ({ transactions: mockTransactions }),
+            getState: () => ({ userId: 'user-1', transactions: mockTransactions }),
         },
     ),
     ensureTransactionsUserBound: vi.fn(),
@@ -62,6 +62,7 @@ vi.mock('@/app/components/lawyer/TransactionsThreading/TransactionDetailsScreen'
 describe('TransactionsThreadingSystem', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        window.sessionStorage.clear();
     });
 
     it('يعرض القائمة افتراضياً بعد التحميل', async () => {
@@ -82,7 +83,7 @@ describe('TransactionsThreadingSystem', () => {
         const { TransactionsThreadingSystem } = await import(
             '@/app/components/lawyer/TransactionsThreading/TransactionsThreadingSystem'
         );
-        const { getByTestId } = render(
+        const { getByTestId, queryByTestId } = render(
             <TransactionsThreadingSystem
                 onBack={vi.fn()}
                 userId="user-1"
@@ -92,7 +93,23 @@ describe('TransactionsThreadingSystem', () => {
         await waitFor(() => {
             expect(getByTestId('transactions-details-screen')).toBeInTheDocument();
         });
+        expect(queryByTestId('transactions-list-screen')).not.toBeInTheDocument();
         expect(smartToastWarning).not.toHaveBeenCalled();
+    });
+
+    it('لا يعيد جلب القائمة ولا يرسم البطاقات بينما الطبقة مغلقة', async () => {
+        const { TransactionsThreadingSystem } = await import(
+            '@/app/components/lawyer/TransactionsThreading/TransactionsThreadingSystem'
+        );
+        const { queryByTestId } = render(
+            <TransactionsThreadingSystem onBack={vi.fn()} userId="user-1" open={false} />,
+        );
+        await waitFor(() => {
+            expect(setUserId).toHaveBeenCalledWith('user-1');
+        });
+        expect(refreshTransactions).not.toHaveBeenCalled();
+        expect(queryByTestId('transactions-list-screen')).not.toBeInTheDocument();
+        expect(queryByTestId('transactions-details-screen')).not.toBeInTheDocument();
     });
 
     it('يبقى في القائمة وينبه عند initialTransactionId غير موجود', async () => {

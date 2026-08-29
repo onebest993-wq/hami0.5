@@ -1,11 +1,10 @@
-// @ts-nocheck
 export type BulkLawInvokeRow = {
     law_name: string;
     article_number: string;
     content: string;
 };
 
-export type BulkLawParseResult =
+type BulkLawParseResult =
     | {
           ok: true;
           rawCount: number;
@@ -77,7 +76,7 @@ const NESTED_ARTICLE_CONTAINERS: readonly (readonly string[])[] = [
 ];
 
 /** يقبل article_number كنص أو رقم (مثل 1 أو "المادة 1"). */
-export function normalizeBulkArticleNumber(raw: unknown): string {
+function normalizeBulkArticleNumber(raw: unknown): string {
     if (typeof raw === 'string') {
         const trimmed = raw.trim();
         if (!trimmed) return '';
@@ -91,7 +90,7 @@ export function normalizeBulkArticleNumber(raw: unknown): string {
     return '';
 }
 
-export function normalizeBulkContent(raw: unknown): string {
+function normalizeBulkContent(raw: unknown): string {
     if (typeof raw === 'string') return raw.trim();
     if (Array.isArray(raw)) {
         return raw
@@ -150,7 +149,7 @@ function pickFirstRowField(row: Record<string, unknown>, keys: readonly string[]
     return undefined;
 }
 
-export function extractBulkArticleNumber(row: Record<string, unknown>): string {
+function extractBulkArticleNumber(row: Record<string, unknown>): string {
     const direct = normalizeBulkArticleNumber(pickFirstRowField(row, ARTICLE_FIELD_KEYS));
     if (direct) return direct;
 
@@ -161,7 +160,7 @@ export function extractBulkArticleNumber(row: Record<string, unknown>): string {
     return '';
 }
 
-export function extractBulkContent(row: Record<string, unknown>): string {
+function extractBulkContent(row: Record<string, unknown>): string {
     return normalizeBulkContent(pickFirstRowField(row, CONTENT_FIELD_KEYS));
 }
 

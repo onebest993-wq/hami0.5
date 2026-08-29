@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { FileData } from '../../LawyerShared';
 import {
@@ -10,11 +10,10 @@ import {
     listCaseLinkCandidates,
     mergeCaseLinkCandidates,
     readLinkedCriminalIdsFromDossier,
+    type CaseLinkCandidate,
     type CaseLinkPeerSelection,
 } from '../smartFile/caseLinking';
-import { buildCriminalCaseLinkCandidates } from '../smartFile/caseLinkCriminalPeers';
 import { buildInitialParentDataFromFile } from '../smartFile/parentDataInit';
-import { loadLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
 import type { SmartFileModalProps } from '../smartFile/smartFileModalTypes';
 
 type ParentData = ReturnType<typeof buildInitialParentDataFromFile>;
@@ -26,6 +25,7 @@ export function useSmartFileConsolidationLinking(params: {
     onLinkWithExistingCase?: SmartFileModalProps['onLinkWithExistingCase'];
     onStartConsolidationNewCase?: SmartFileModalProps['onStartConsolidationNewCase'];
     onConsolidateWithExisting?: SmartFileModalProps['onConsolidateWithExisting'];
+    showCaseLinkModal?: boolean;
     setShowCaseLinkModal: (open: boolean) => void;
     setShowCaseConsolidationModal: (open: boolean) => void;
 }) {
@@ -36,15 +36,13 @@ export function useSmartFileConsolidationLinking(params: {
         onLinkWithExistingCase,
         onStartConsolidationNewCase,
         onConsolidateWithExisting,
+        showCaseLinkModal,
         setShowCaseLinkModal,
         setShowCaseConsolidationModal,
     } = params;
 
     const lawsuitPool = useMemo(() => {
-        const raw =
-            lawsuitFiles ??
-            (Array.isArray(loadLawsuitFilesRaw()) ? (loadLawsuitFilesRaw() as FileData[]) : []);
-        return Array.isArray(raw) ? raw : [];
+        return Array.isArray(lawsuitFiles) ? lawsuitFiles : [];
     }, [lawsuitFiles]);
 
     const openFileIdentity = useMemo(
@@ -57,13 +55,28 @@ export function useSmartFileConsolidationLinking(params: {
         return listConsolidationCandidates(lawsuitPool, openFileIdentity.fileId);
     }, [lawsuitPool, openFileIdentity.fileId]);
 
+    const [criminalCandidates, setCriminalCandidates] = useState<CaseLinkCandidate[]>([]);
+
+    useEffect(() => {
+        if (!showCaseLinkModal) return undefined;
+        let cancelled = false;
+        const linkedCriminalIds = file ? readLinkedCriminalIdsFromDossier(file) : new Set<string>();
+        void import('../smartFile/caseLinkCriminalPeers')
+            .then((m) => {
+                if (cancelled) return;
+                setCriminalCandidates(m.buildCriminalCaseLinkCandidates(linkedCriminalIds));
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [showCaseLinkModal, file]);
+
     const caseLinkCandidates = useMemo(() => {
         if (openFileIdentity.fileId === null) return [];
         const lawsuitCandidates = listCaseLinkCandidates(lawsuitPool, openFileIdentity.fileId);
-        const linkedCriminalIds = file ? readLinkedCriminalIdsFromDossier(file) : new Set<string>();
-        const criminalCandidates = buildCriminalCaseLinkCandidates(linkedCriminalIds);
         return mergeCaseLinkCandidates(lawsuitCandidates, criminalCandidates);
-    }, [lawsuitPool, openFileIdentity.fileId, file]);
+    }, [lawsuitPool, openFileIdentity.fileId, criminalCandidates]);
 
     const handleCaseLinkExisting = useCallback(
         (data: { peer: CaseLinkPeerSelection; linkDate: string; reason?: string }) => {

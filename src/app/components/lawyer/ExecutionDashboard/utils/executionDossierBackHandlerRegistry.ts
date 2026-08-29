@@ -8,7 +8,7 @@ export function setExecutionDossierBackHandler(handler: ExecutionDossierBackHand
     activeHandler = handler;
 }
 
-export function runRegisteredExecutionDossierBackStep(): boolean {
+function runRegisteredExecutionDossierBackStep(): boolean {
     if (!activeHandler) return false;
     return activeHandler();
 }

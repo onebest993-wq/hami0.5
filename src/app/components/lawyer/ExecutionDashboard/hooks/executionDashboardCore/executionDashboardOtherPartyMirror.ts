@@ -57,7 +57,7 @@ export function buildOtherPartyCreditorMirrorProps(
     const resolvedExecutionId = requireDecisionsStorageExecutionId({
         decisionsStorageExecutionId: input.decisionsStorageExecutionId,
         executionId: input.executionId,
-        executionData: input.executionData as Record<string, unknown> | null,
+        executionData: input.viewExecutionData as Record<string, unknown> | null,
     });
 
     return {

@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { motion } from 'motion/react';
-import { X, Shield } from '@/app/components/ui/lucideIcons';
-import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { X } from '@/app/components/ui/icons/X';
+import { Shield } from '@/app/components/ui/icons/Shield';
+import { EXEC_MODAL_Z } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 import { PoliceAssistanceInlineForm } from '@/app/components/lawyer/execution/PoliceAssistanceInlineForm';
 
 export interface PoliceAssistanceDetailsModalProps {
@@ -29,7 +30,7 @@ export const PoliceAssistanceDetailsModal: React.FC<PoliceAssistanceDetailsModal
 
     return (
         <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-xl flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
             style={{ zIndex: EXEC_MODAL_Z.nestedOverFollowUpPortal }}
             role="presentation"
             onClick={onClose}
@@ -37,7 +38,7 @@ export const PoliceAssistanceDetailsModal: React.FC<PoliceAssistanceDetailsModal
             <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="backdrop-blur-3xl bg-slate-900/40 border border-amber-500/20 rounded-3xl p-6 max-w-lg w-full shadow-2xl shadow-amber-500/10"
+                className="backdrop-blur-3xl bg-slate-900/40 border border-amber-500/20 rounded-3xl p-6 max-w-lg w-full shadow-lg shadow-amber-500/10"
                 onClick={(e) => e.stopPropagation()}
                 dir="rtl"
             >

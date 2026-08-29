@@ -31,10 +31,6 @@ const SUMMARY_ELIGIBLE_ARTICLE_NUMBERS = new Set([
     426, 427, 428, 429, 430, 431, 432, 433, 434,
 ]);
 
-export function isValidCaseClassification(value: string | undefined): value is CaseClassification {
-    return value === 'جناية' || value === 'جنحة' || value === 'مخالفة';
-}
-
 function normalizeClassificationLabel(value: string | undefined): CaseClassification | null {
     const v = String(value ?? '').trim();
     if (v === 'جناية') return 'جناية';
@@ -43,7 +39,7 @@ function normalizeClassificationLabel(value: string | undefined): CaseClassifica
     return null;
 }
 
-export function resolveCaseClassification(
+function resolveCaseClassification(
     record: Pick<CriminalCase, 'case_classification' | 'basics' | 'caseStage'>,
 ): CaseClassification {
     const explicit = normalizeClassificationLabel(record.case_classification);
@@ -135,17 +131,6 @@ export function syncCaseSovereignContext(
         misdemeanor_type: ctx.misdemeanor_type,
     };
 }
-
-export function caseClassificationLabel(classification: CaseClassification): string {
-    return classification;
-}
-
-export function misdemeanorTypeLabel(type: MisdemeanorType | undefined): string {
-    if (type === 'موجزة') return 'جنحة موجزة';
-    if (type === 'غير موجزة') return 'جنحة غير موجزة';
-    return '\u2014';
-}
-
 
 /** يثبّت تصنيف الإحالة الصريح قبل مزامنة السياق السيادي. */
 export function applyReferralClassificationOverride(

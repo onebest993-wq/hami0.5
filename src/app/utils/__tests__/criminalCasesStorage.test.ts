@@ -11,15 +11,16 @@ import {
     purgeCriminalCaseRecord,
 } from '@/app/utils/criminalCasesStorage';
 import { parseCriminalCardIndex } from '@/app/utils/criminalCaseCardIndex';
-import { CRIMINAL_CASE_PREFIX } from '@/app/services/criminalShardedPersistStorage';
+import { CRIMINAL_CASE_PREFIX, CRIMINAL_META_KEY } from '@/app/services/criminalShardedPersistStorage';
 
 describe('criminalCasesStorage', () => {
     beforeEach(() => {
         vi.restoreAllMocks();
         SecureStoreService.listKeysSync().forEach((key) => SecureStoreService.deleteItemSync(key));
+        localStorage.clear();
     });
 
-    it('refreshes cached cases when root storage changes out of band', () => {
+    it('يرحّل بقايا المونولث إلى شظايا ويمحو الجذر الصريح', () => {
         SecureStoreService.setItemSync(
             CRIMINAL_STORE_KEY,
             JSON.stringify({
@@ -31,40 +32,41 @@ describe('criminalCasesStorage', () => {
             }),
         );
         expect(loadCriminalCasesRaw()).toEqual([{ id: 'a', title: 'old' }]);
-
-        SecureStoreService.setItemSync(
-            CRIMINAL_STORE_KEY,
-            JSON.stringify({
-                state: {
-                    casesById: {
-                        b: { id: 'b', title: 'new' },
-                    },
-                },
-            }),
-        );
-        expect(loadCriminalCasesRaw()).toEqual([{ id: 'b', title: 'new' }]);
+        expect(SecureStoreService.getItemSync(CRIMINAL_STORE_KEY)).toBeNull();
+        expect(JSON.parse(SecureStoreService.getItemSync(`${CRIMINAL_CASE_PREFIX}a`) ?? '{}')).toEqual({
+            id: 'a',
+            title: 'old',
+        });
     });
 
-    it('does not return stale cached cases after root deletion', () => {
+    it('refreshes cached cases when a shard changes out of band', () => {
         SecureStoreService.setItemSync(
-            CRIMINAL_STORE_KEY,
-            JSON.stringify({
-                state: {
-                    casesById: {
-                        a: { id: 'a', title: 'gone' },
-                    },
-                },
-            }),
+            CRIMINAL_META_KEY,
+            JSON.stringify({ sharded: true, caseIds: ['a'], state: {} }),
         );
+        SecureStoreService.setItemSync(`${CRIMINAL_CASE_PREFIX}a`, JSON.stringify({ id: 'a', title: 'old' }));
+        expect(loadCriminalCasesRaw()).toEqual([{ id: 'a', title: 'old' }]);
+
+        SecureStoreService.setItemSync(`${CRIMINAL_CASE_PREFIX}a`, JSON.stringify({ id: 'a', title: 'new' }));
+        expect(loadCriminalCasesRaw()).toEqual([{ id: 'a', title: 'new' }]);
+    });
+
+    it('does not return stale cached cases after shard deletion', () => {
+        SecureStoreService.setItemSync(
+            CRIMINAL_META_KEY,
+            JSON.stringify({ sharded: true, caseIds: ['a'], state: {} }),
+        );
+        SecureStoreService.setItemSync(`${CRIMINAL_CASE_PREFIX}a`, JSON.stringify({ id: 'a', title: 'gone' }));
         expect(loadCriminalCasesRaw()).toEqual([{ id: 'a', title: 'gone' }]);
 
-        SecureStoreService.deleteItemSync(CRIMINAL_STORE_KEY);
+        SecureStoreService.deleteItemSync(`${CRIMINAL_CASE_PREFIX}a`);
+        SecureStoreService.deleteItemSync(CRIMINAL_META_KEY);
         expect(loadCriminalCasesRaw()).toEqual([]);
     });
 
     it('patches the root once and dispatches the merge event', () => {
         vi.useFakeTimers();
-        const setItemSpy = vi.spyOn(SecureStoreService, 'setItem');
+        const setItemSyncSpy = vi.spyOn(SecureStoreService, 'setItemSync');
         const eventSpy = vi.fn();
         window.addEventListener(CRIMINAL_STORAGE_PATCHED_EVENT, eventSpy);
 
@@ -82,7 +84,7 @@ describe('criminalCasesStorage', () => {
             }),
         );
 
-        setItemSpy.mockClear();
+        setItemSyncSpy.mockClear();
 
         const ok = patchCriminalCaseRecord('c1', (row) => ({
             ...row,
@@ -90,16 +92,17 @@ describe('criminalCasesStorage', () => {
         }));
 
         expect(ok).toBe(true);
-        // الجذر + فهرس البطاقات يُكتبان عبر setItemSync → setItem (مرتين)
-        expect(setItemSpy).toHaveBeenCalledTimes(2);
-        expect(setItemSpy).toHaveBeenCalledWith(CRIMINAL_STORE_KEY, expect.any(String));
-        expect(setItemSpy).toHaveBeenCalledWith(CRIMINAL_CARD_INDEX_KEY, expect.any(String));
+        expect(setItemSyncSpy).toHaveBeenCalledWith(`${CRIMINAL_CASE_PREFIX}c1`, expect.any(String));
+        expect(setItemSyncSpy).toHaveBeenCalledWith(CRIMINAL_META_KEY, expect.any(String));
+        expect(setItemSyncSpy).toHaveBeenCalledWith(CRIMINAL_CARD_INDEX_KEY, expect.any(String));
+        expect(setItemSyncSpy).not.toHaveBeenCalledWith(CRIMINAL_STORE_KEY, expect.any(String));
         expect(eventSpy).toHaveBeenCalledTimes(1);
 
-        const payload = JSON.parse(SecureStoreService.getItemSync(CRIMINAL_STORE_KEY) ?? '{}') as {
-            state?: { casesById?: Record<string, { location?: { nextHearingDate?: string } }> };
+        expect(SecureStoreService.getItemSync(CRIMINAL_STORE_KEY)).toBeNull();
+        const shard = JSON.parse(SecureStoreService.getItemSync(`${CRIMINAL_CASE_PREFIX}c1`) ?? '{}') as {
+            location?: { nextHearingDate?: string };
         };
-        expect(payload.state?.casesById?.c1?.location?.nextHearingDate).toBe('2028-09-20');
+        expect(shard.location?.nextHearingDate).toBe('2028-09-20');
         expect(loadCriminalCasesCardIndexSync().map((e) => e.id)).toEqual(['c1']);
         expect(parseCriminalCardIndex(SecureStoreService.getItemSync(CRIMINAL_CARD_INDEX_KEY))).toEqual(
             expect.arrayContaining([expect.objectContaining({ id: 'c1' })]),
@@ -177,14 +180,41 @@ describe('criminalCasesStorage', () => {
         );
 
         const rows = loadCriminalCasesRaw();
-        expect(rows).toEqual(
-            expect.arrayContaining([
-                expect.objectContaining({ id: 'stale', title: 'legacy-only' }),
-                expect.objectContaining({ id: 'live', title: 'from-shard' }),
-            ]),
-        );
+        expect(rows).toEqual([expect.objectContaining({ id: 'live', title: 'from-shard' })]);
+        expect(rows.find((row) => row.id === 'stale')).toBeUndefined();
+        expect(SecureStoreService.getItemSync(CRIMINAL_STORE_KEY)).toBeNull();
         expect(loadCriminalCaseRecordByIdSync('live')).toEqual(
             expect.objectContaining({ id: 'live', title: 'from-shard' }),
         );
+    });
+
+    it('يرحّل leftover المونولث من localStorage إلى شظايا ويمحو LS دون إعادة تشفير الجذر', () => {
+        localStorage.setItem(
+            CRIMINAL_STORE_KEY,
+            JSON.stringify({
+                state: {
+                    casesById: {
+                        ls1: { id: 'ls1', title: 'من المرآة' },
+                    },
+                },
+            }),
+        );
+        expect(loadCriminalCasesRaw()).toEqual([expect.objectContaining({ id: 'ls1', title: 'من المرآة' })]);
+        expect(localStorage.getItem(CRIMINAL_STORE_KEY)).toBeNull();
+        expect(SecureStoreService.getItemSync(CRIMINAL_STORE_KEY)).toBeNull();
+        expect(JSON.parse(SecureStoreService.getItemSync(`${CRIMINAL_CASE_PREFIX}ls1`) ?? '{}')).toEqual({
+            id: 'ls1',
+            title: 'من المرآة',
+        });
+    });
+
+    it('يرحّل leftover فهرس البطاقات ويمحوه', () => {
+        localStorage.setItem(
+            CRIMINAL_CARD_INDEX_KEY,
+            JSON.stringify({ v: 1, entries: [{ id: 'idx-ls', title: 'قضية leftover' }] }),
+        );
+        expect(loadCriminalCasesCardIndexSync().map((e) => e.id)).toEqual(['idx-ls']);
+        expect(localStorage.getItem(CRIMINAL_CARD_INDEX_KEY)).toBeNull();
+        expect(SecureStoreService.getItemSync(CRIMINAL_CARD_INDEX_KEY)).toContain('idx-ls');
     });
 });

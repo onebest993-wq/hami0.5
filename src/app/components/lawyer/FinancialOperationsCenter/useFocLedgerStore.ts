@@ -16,7 +16,6 @@ import {
 import {
     computeTrustBalanceFromPayments,
     emptyStore,
-    isUnifiedLedgerLocked,
     notifyUnifiedLedgerUpdated,
     parseStoredMoney,
     parseUnifiedLedgerFromStorage,
@@ -25,7 +24,10 @@ import {
     storageKey,
     type UnifiedLedgerTotalParams,
 } from './utils';
+import { isUnifiedLedgerLocked } from './unifiedLedgerLock';
 import type { LocalPaymentRow, UnifiedLedgerStore } from './types';
+import { publishFocLedgerRemainingToIndex } from './publishFocLedgerRemainingToIndex';
+import { syncExecutionIndexRemainingHint } from '@/app/utils/syncExecutionIndexRemainingHint';
 
 type NotifyFn = (
     message: string,
@@ -223,22 +225,6 @@ export function useFocLedgerStore(params: UseFocLedgerStoreParams): UseFocLedger
         };
     }, [clearCollectionRequestIfUnifiedRejected]);
 
-    const persist = useCallback(
-        (next: UnifiedLedgerStore) => {
-            const cached = executionId
-                ? parseUnifiedLedgerFromStorage(storageCache.get(storageKey(executionId)))
-                : null;
-            const resolved = resolvePersistedLedgerStore(storeRef.current, next, cached);
-            storeRef.current = resolved;
-            setStore(resolved);
-            if (executionId) {
-                storageCache.set(storageKey(executionId), resolved);
-            }
-            notifyUnifiedLedgerUpdated(executionId);
-        },
-        [executionId]
-    );
-
     const ledgerTotalParams = useMemo(
         (): UnifiedLedgerTotalParams => ({
             principal_amount,
@@ -257,6 +243,23 @@ export function useFocLedgerStore(params: UseFocLedgerStoreParams): UseFocLedger
             executionId,
             principal_amount,
         ]
+    );
+
+    const persist = useCallback(
+        (next: UnifiedLedgerStore) => {
+            const cached = executionId
+                ? parseUnifiedLedgerFromStorage(storageCache.get(storageKey(executionId)))
+                : null;
+            const resolved = resolvePersistedLedgerStore(storeRef.current, next, cached);
+            storeRef.current = resolved;
+            setStore(resolved);
+            if (executionId) {
+                storageCache.set(storageKey(executionId), resolved);
+                publishFocLedgerRemainingToIndex(executionId, resolved, ledgerTotalParams);
+            }
+            notifyUnifiedLedgerUpdated(executionId);
+        },
+        [executionId, ledgerTotalParams]
     );
 
     const getLatestLedgerStore = useCallback((): UnifiedLedgerStore => {
@@ -299,12 +302,30 @@ export function useFocLedgerStore(params: UseFocLedgerStoreParams): UseFocLedger
                 if (persistImmediately) {
                     storageCache.set(storageKey(executionId), merged);
                 }
+                publishFocLedgerRemainingToIndex(executionId, merged, {
+                    principal_amount,
+                    courtOrderedFeesSafe,
+                    evictionLawyerFeeWaivedAtIntake,
+                    executionExpensesSumSafe,
+                    evictionCaseExpensesSumSafe,
+                    seedLawyerId: `seed-lawyer-${executionId}`,
+                    seedExpenseId: `seed-exp-${executionId}`,
+                });
                 return;
             }
 
             const next = seedUnifiedLedgerStoreForExecution(hydrateParams);
             setStore(next);
             storageCache.set(storageKey(executionId), next);
+            publishFocLedgerRemainingToIndex(executionId, next, {
+                principal_amount,
+                courtOrderedFeesSafe,
+                evictionLawyerFeeWaivedAtIntake,
+                executionExpensesSumSafe,
+                evictionCaseExpensesSumSafe,
+                seedLawyerId: `seed-lawyer-${executionId}`,
+                seedExpenseId: `seed-exp-${executionId}`,
+            });
         } catch {
             setStore(emptyStore());
         }
@@ -328,9 +349,10 @@ export function useFocLedgerStore(params: UseFocLedgerStoreParams): UseFocLedger
             }
             const next = { ...prev, principalSnapshot: principal };
             storageCache.set(storageKey(executionId), next);
+            publishFocLedgerRemainingToIndex(executionId, next, ledgerTotalParams);
             return next;
         });
-    }, [executionId, principal_amount]);
+    }, [executionId, principal_amount, ledgerTotalParams]);
 
     useEffect(() => {
         if (!executionId) return;
@@ -370,6 +392,15 @@ export function useFocLedgerStore(params: UseFocLedgerStoreParams): UseFocLedger
                 seeded: nextLawyer.length > 0 || nextExpenses.length > 0,
             };
             storageCache.set(storageKey(executionId), next);
+            publishFocLedgerRemainingToIndex(executionId, next, {
+                principal_amount,
+                courtOrderedFeesSafe,
+                evictionLawyerFeeWaivedAtIntake,
+                executionExpensesSumSafe,
+                evictionCaseExpensesSumSafe,
+                seedLawyerId: `seed-lawyer-${executionId}`,
+                seedExpenseId: `seed-exp-${executionId}`,
+            });
             return next;
         });
     }, [
@@ -454,6 +485,7 @@ export function useFocLedgerExternalCollectSync(params: UseFocLedgerExternalColl
                 const next = { ...prev, payments: [row, ...prev.payments] };
                 if (executionId) {
                     storageCache.set(storageKey(executionId), next);
+                    syncExecutionIndexRemainingHint(executionId, Math.round(debtAfter));
                     notifyUnifiedLedgerUpdated(executionId);
                 }
                 storeRef.current = next;

@@ -8,7 +8,7 @@ import type { useActiveOrderFileWorkspaceCluster } from './useActiveOrderFileWor
 type LifecycleState = ReturnType<typeof useOrderFileLifecycleState>;
 type WorkspaceCluster = ReturnType<typeof useActiveOrderFileWorkspaceCluster>;
 
-export type ActiveOrderFileLifecycleClusterInput = {
+type ActiveOrderFileLifecycleClusterInput = {
     caseId: string | null;
     lifecycleState: LifecycleState;
     workspace: WorkspaceCluster;

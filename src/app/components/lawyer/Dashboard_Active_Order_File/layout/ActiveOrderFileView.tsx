@@ -1,16 +1,16 @@
-import React from 'react';
-import { Modal_Quick_Log } from '../../Modal_Quick_Log';
+import React, { Suspense } from 'react';
 import { DossierEditModal } from '../modals/DossierEditModal';
 import { ActiveOrderFileHeader } from './ActiveOrderFileHeader';
 import { ArchiveBanner } from './ArchiveBanner';
 import { PartiesSidebar } from './PartiesSidebar';
 import { LifecyclePanel } from './LifecyclePanel';
 import { AdminWorkspacePanel } from './AdminWorkspacePanel';
-import { SparkUrgentNudgeHost } from '@/app/spark/ui/SparkUrgentNudgeHost';
 import type { ActiveOrderFileViewProps } from './ActiveOrderFileViewProps';
 import { URGENT_DOSSIER_CARD } from './urgentDossierUi';
+import { LazyActiveOrderModalQuickLog } from './activeOrderQuickLogLazy';
 
 export type { ActiveOrderFileViewProps } from './ActiveOrderFileViewProps';
+export { preloadActiveOrderQuickLog } from './activeOrderQuickLogLazy';
 
 export function ActiveOrderFileView({
     onClose,
@@ -26,20 +26,25 @@ export function ActiveOrderFileView({
     return (
         <>
             <div
+                data-testid="urgent-active-order-dossier"
                 className="fixed inset-0 z-[200] bg-[#0B1021] font-['Tajawal'] flex flex-col overflow-hidden"
                 onSubmit={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                 }}
             >
-                <Modal_Quick_Log
-                    isOpen={decisionNotificationModal.isOpen}
-                    onClose={decisionNotificationModal.onClose}
-                    actionType="notification"
-                    caseName={decisionNotificationModal.caseName}
-                    minActionDate={decisionNotificationModal.minActionDate}
-                    onSubmit={decisionNotificationModal.onSubmit}
-                />
+                {decisionNotificationModal.isOpen ? (
+                    <Suspense fallback={null}>
+                        <LazyActiveOrderModalQuickLog
+                            isOpen={decisionNotificationModal.isOpen}
+                            onClose={decisionNotificationModal.onClose}
+                            actionType="notification"
+                            caseName={decisionNotificationModal.caseName}
+                            minActionDate={decisionNotificationModal.minActionDate}
+                            onSubmit={decisionNotificationModal.onSubmit}
+                        />
+                    </Suspense>
+                ) : null}
                 <DossierEditModal {...dossierEdit} />
 
                 <ActiveOrderFileHeader {...header} onClose={onClose} />
@@ -53,33 +58,10 @@ export function ActiveOrderFileView({
                     />
                 ) : null}
 
-                <SparkUrgentNudgeHost
-                    caseId={String(lifecyclePanelProps.caseData?.id ?? '')}
-                    requestNumber={String(lifecyclePanelProps.caseData?.requestNumber ?? '')}
-                    caseLabel={header.workspaceHeaderTitle}
-                    isFinalized={header.isFinalized}
-                    lifecycle={{
-                        fileStatus: lifecyclePanelProps.fileStatus,
-                        activeLifecycleStep: lifecyclePanelProps.activeLifecycleStep,
-                        judgeDecision: lifecyclePanelProps.judgeDecision,
-                        executionData: lifecyclePanelProps.executionData,
-                        grievanceData: lifecyclePanelProps.grievanceData,
-                        grievanceDecisionNotificationConfirmed:
-                            lifecyclePanelProps.grievanceDecisionNotificationConfirmed,
-                        cassationData: lifecyclePanelProps.cassationData,
-                    }}
-                    disabled={header.isFinalized}
-                    onConfirmGrievanceNotification={() =>
-                        lifecyclePanelProps.setDecisionNotificationModalOpen(true)
-                    }
-                    onReviewExecution={() => lifecyclePanelProps.setActiveLifecycleStep('execution')}
-                    onReviewCassation={() => lifecyclePanelProps.setActiveLifecycleStep('cassation')}
-                />
-
                 <div
                     className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]"
                 >
-                    <div className="max-w-5xl mx-auto px-4 py-4">
+                    <div className="max-w-5xl mx-auto px-3 py-3">
                         <div className={`${URGENT_DOSSIER_CARD} overflow-hidden`}>
                             <PartiesSidebar
                                 embedded

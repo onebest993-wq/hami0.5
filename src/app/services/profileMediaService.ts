@@ -24,6 +24,10 @@ const ALLOWED_IMAGE_MIME = new Set([
     'image/heif',
 ]);
 
+/** قبول منتقي الملفات — بلا image/* حتى لا يُعرض SVG */
+export const PROFILE_SAFE_IMAGE_ACCEPT =
+    'image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif';
+
 export type ProfileMediaUploadResult = {
     displayUrl: string;
     storagePath?: string;

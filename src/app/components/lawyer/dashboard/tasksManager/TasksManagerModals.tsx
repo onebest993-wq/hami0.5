@@ -251,7 +251,7 @@ export function TasksManagerModals({
                                             key={d.key}
                                             type="button"
                                             onClick={() => onReminderMoveToDay(dayDate)}
-                                            className={`w-full py-2.5 text-xs font-extrabold text-[#F4F4F5] touch-manipulation ${TASKS_GLASS_PANEL} hover:border-[#E6C673]/35`}
+                                            className={`w-full min-h-[44px] py-2.5 text-xs font-extrabold text-[#F4F4F5] touch-manipulation ${TASKS_GLASS_PANEL} hover:border-[#E6C673]/35`}
                                         >
                                             {d.label} — {formatShortDate(dayDate)}
                                         </button>
@@ -367,7 +367,7 @@ function EditTaskFields({
                                     <button
                                         type="button"
                                         onClick={() => onRemoveEditSubTask(st.id)}
-                                        className="text-[10px] font-bold text-rose-300 hover:text-rose-200"
+                                        className="min-h-[44px] min-w-[44px] px-2 text-[10px] font-bold text-rose-300 hover:text-rose-200 touch-manipulation"
                                     >
                                         حذف
                                     </button>
@@ -380,7 +380,7 @@ function EditTaskFields({
                                 />
                                 <input
                                     dir="rtl"
-                                    className={`${TASKS_INPUT} text-[11px]`}
+                                    className={TASKS_INPUT}
                                     value={st.location}
                                     onChange={(e) => onEditSubTaskChange(st.id, { location: e.target.value })}
                                 />
@@ -432,7 +432,7 @@ function ReminderSnoozeActions({
             <div className="mt-3 flex flex-row-reverse flex-wrap gap-2 items-center justify-end">
                 <input
                     type="date"
-                    className={`${TASKS_INPUT} w-auto text-xs py-1.5`}
+                    className={`${TASKS_INPUT} w-auto min-h-[44px] text-base py-2.5`}
                     value={reminderSnoozeCustom}
                     onChange={(e) => onReminderSnoozeCustomChange(e.target.value)}
                 />

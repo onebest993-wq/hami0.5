@@ -6,6 +6,10 @@ import {
 
 const fragmentsOutPath =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoreScopeBagFragments.ts';
+if (!fs.existsSync(fragmentsOutPath)) {
+    console.log('[spent] executionDashboardCoreScopeBagFragments.ts — skip');
+    process.exit(0);
+}
 const corePath = 'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts';
 
 const fragmentKeys = new Set(ALL_SCOPE_BAG_FRAGMENT_KEYS);

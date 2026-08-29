@@ -39,6 +39,7 @@ describe('filterTransactionsList', () => {
     it('يبحث في الدائرة ويطبّع العربية', () => {
         expect(filterTransactionsList(SAMPLE, 'دائرة الضريبة', 'all')).toHaveLength(3);
         expect(filterTransactionsList([baseTx({ clientName: 'إبراهيم' })], 'ابراهيم', 'all')).toHaveLength(1);
+        expect(filterTransactionsList([baseTx({ title: 'معاملة ٢٠٢٤' })], '2024', 'all')).toHaveLength(1);
     });
 
     it('يجمع البحث والفلتر', () => {

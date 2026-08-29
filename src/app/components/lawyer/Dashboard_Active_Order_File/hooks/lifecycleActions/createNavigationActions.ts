@@ -35,7 +35,7 @@ const toggleLifecycleStep = (step: 'judge' | 'execution' | 'grievance' | 'cassat
 const registerOpponentIntervention = async () => {
     if (isFinalized || !isStateOrder || hasIntervention || isCaseTerminated) return;
     const ok = await requestConfirm(
-        '⚠️ تحذير قانوني\n\nبتسجيل تدخل الخصم والتحويل إلى مسار وجاهي، يتحول سير الإضبارة إلى مرافعة أمام القاضي.\nلا يمكن التراجع عن هذا الإجراء لاحقاً.\n\nهل أنت متأكد من المتابعة؟',
+        'تحذير قانوني\n\nبتسجيل تدخل الخصم والتحويل إلى مسار وجاهي، يتحول سير الإضبارة إلى مرافعة أمام القاضي.\nلا يمكن التراجع عن هذا الإجراء لاحقاً.\n\nهل أنت متأكد من المتابعة؟',
     );
     if (!ok) return;
     setHasIntervention(true);
@@ -44,7 +44,7 @@ const registerOpponentIntervention = async () => {
         await flushPersistPatch(patch);
         onCaseUpdated?.(caseId, patch);
     }
-    setCaseData((prev: any) => ({ ...(prev || {}), ...patch }));
+    setCaseData((prev) => ({ ...(prev || {}), ...patch }));
     appendCaseEvent('تحويل المسار إلى مرافعة وجاهية (تدخل الخصم أمام القاضي)', 'action');
 };
 
@@ -67,11 +67,11 @@ const fastForwardToGrievance = () => {
     };
     void persistPatch(patch);
     if (caseId) onCaseUpdated?.(caseId, patch);
-    setCaseData((prev: any) => ({ ...(prev || {}), ...patch }));
+    setCaseData((prev) => ({ ...(prev || {}), ...patch }));
     appendCaseEvent(
         showGrievanceStep
-            ? '⏩ تخطي خطوة قرار القاضي والدخول مباشرة إلى مرحلة التظلم (وكيل المطلوب ضده)'
-            : '⏩ تخطي خطوة قرار القاضي والدخول مباشرة إلى الطعن التمييزي (وكيل المطلوب ضده)',
+            ? 'تخطي خطوة قرار القاضي والدخول مباشرة إلى مرحلة التظلم (وكيل المطلوب ضده)'
+            : 'تخطي خطوة قرار القاضي والدخول مباشرة إلى الطعن التمييزي (وكيل المطلوب ضده)',
         'system',
     );
     focusStep(showGrievanceStep ? 'grievance' : 'cassation');

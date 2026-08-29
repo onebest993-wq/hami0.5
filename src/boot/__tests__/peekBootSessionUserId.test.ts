@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-import { peekBootSessionUserIdSync } from '@/boot/peekBootSessionUserId';
+import { peekBootSessionPeekSync, peekBootSessionUserIdSync } from '@/boot/peekBootSessionUserId';
 
 describe('peekBootSessionUserIdSync', () => {
     beforeEach(() => {
@@ -18,6 +18,22 @@ describe('peekBootSessionUserIdSync', () => {
     it('يعيد null عند غياب الجلسة', () => {
         expect(peekBootSessionUserIdSync()).toBeNull();
     });
+
+    it('يقرأ بيانات الجلسة مع user_metadata', () => {
+        localStorage.setItem(
+            'sb-test-auth-token',
+            JSON.stringify({
+                user: {
+                    id: 'lawyer-42',
+                    user_metadata: { full_name: 'أحمد مهدي' },
+                },
+            }),
+        );
+        expect(peekBootSessionPeekSync()).toEqual({
+            userId: 'lawyer-42',
+            userMetadata: { full_name: 'أحمد مهدي' },
+        });
+    });
 });
 
 describe('kickoffBootCriticalPreload execution warm', () => {
@@ -33,8 +49,12 @@ describe('kickoffBootCriticalPreload execution warm', () => {
         );
         const { kickoffBootCriticalPreload } = await import('@/boot/bootCriticalPreload');
         kickoffBootCriticalPreload();
-        await vi.waitFor(() => {
-            expect(start).toHaveBeenCalledWith('u-early');
-        });
+        await vi.waitFor(
+            () => {
+                window.dispatchEvent(new Event('hami:boot-content-ready'));
+                expect(start).toHaveBeenCalledWith('u-early');
+            },
+            { timeout: 4_000 },
+        );
     });
 });

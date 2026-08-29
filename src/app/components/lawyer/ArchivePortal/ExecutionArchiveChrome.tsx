@@ -1,17 +1,20 @@
 import React, { Suspense, lazy, useEffect } from 'react';
 import { createPortal, flushSync } from 'react-dom';
+import { registerNativeBackHandler } from '@/app/runtime/nativeBackStack';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
-import { X, Plus } from '@/app/components/ui/lucideIcons';
+import { ExecutionArchivePlusMark, ExecutionArchiveXMark } from './executionArchiveMarks';
 import type { ArchivePortalProps } from '@/app/types/common';
-import { warmExecutionWorkspace } from '@/app/utils/lazyComponentsIntent';
 import { ExecutionArchiveTrashDialogs } from './components/ExecutionArchiveTrashDialogs';
+import { hasExecutionArchiveTrashDialogsLayer } from './executionArchiveTrashDialogsLayer';
+import { hasExecutionArchivePreviewLayer } from './executionArchivePreviewLayer';
 import { ExecutionArchiveLifecycleBars } from './components/ExecutionArchiveLifecycleBars';
 import { ArchivePortalTrashBulkBar } from './components/ArchivePortalTrashBulkBar';
 import { ExecutionArchiveFileGrid } from './components/ExecutionArchiveFileGrid';
 import { ExecutionArchiveToolbar } from './components/ExecutionArchiveToolbar';
-import { ARCHIVE_ROYAL_GLASS_FAB } from './archiveToolbarStyles';
+import { ExecutionArchivePreviewPaintSlot } from './components/ExecutionArchivePreviewPaintSlot';
+import { EXECUTION_ARCHIVE_FAB } from './executionArchiveVisualLite';
+import type { ExecutionArchivePortalState } from './hooks/useArchivePortalController';
 import type { LooseArchiveFile } from './types';
-import { SparkExecutionArchiveInsight } from '@/app/spark/ui/SparkExecutionArchiveInsight';
 
 const LazyArchivePortalExecutionPreviewModal = lazy(() =>
     import('./components/ArchivePortalExecutionPreviewModal').then((m) => ({
@@ -37,7 +40,7 @@ export function ExecutionArchiveChrome({
     executionTrashDaysRemaining,
     portal,
 }: ArchivePortalProps & {
-    portal: Record<string, unknown>;
+    portal: ExecutionArchivePortalState;
     executionTrashDaysRemaining?: (file: LooseArchiveFile) => number | undefined;
 }) {
     const {
@@ -65,85 +68,67 @@ export function ExecutionArchiveChrome({
         confirmPermanentDelete,
         beginPermanentDeleteForIds,
         permanentIdsRef,
-        previewTimelineEvents,
         executionTrashedCountTotal,
         executionJurisdictionCountsForView,
         enrichedFiles,
         selectAllTrashedInView,
         beginPermanentDeleteFlow,
-        hasExecutionLifecycle,
         executionFilterSummary,
         getTitle,
         toggleTrashSelect,
-    } = portal as {
-        searchQuery: string;
-        setSearchQuery: (q: string) => void;
-        filterType: import('./components/ExecutionArchiveToolbar').ExecutionArchiveFilter;
-        setFilterType: (f: import('./components/ExecutionArchiveToolbar').ExecutionArchiveFilter) => void;
-        perspectiveFilter: import('./executionArchiveFilterUtils').ExecutionPerspectiveFilter;
-        setPerspectiveFilter: (f: import('./executionArchiveFilterUtils').ExecutionPerspectiveFilter) => void;
-        dossierStatusFilter: import('./executionArchiveFilterUtils').ExecutionDossierStatusFilter;
-        setDossierStatusFilter: (f: import('./executionArchiveFilterUtils').ExecutionDossierStatusFilter) => void;
-        executionPreviewFile: LooseArchiveFile | null;
-        setExecutionPreviewFile: (f: LooseArchiveFile | null) => void;
-        executionViewMode: import('./executionArchiveFilterUtils').ExecutionViewMode;
-        setExecutionViewMode: (m: import('./executionArchiveFilterUtils').ExecutionViewMode) => void;
-        executionArchivedCount: number;
-        trashConfirmTarget: LooseArchiveFile | null;
-        setTrashConfirmTarget: (f: LooseArchiveFile | null) => void;
-        archiveConfirmTarget: LooseArchiveFile | null;
-        setArchiveConfirmTarget: (f: LooseArchiveFile | null) => void;
-        selectedTrashIds: Set<string>;
-        setSelectedTrashIds: (s: Set<string>) => void;
-        permanentDeleteOpen: boolean;
-        setPermanentDeleteOpen: (o: boolean) => void;
-        confirmPermanentDelete: () => void;
-        beginPermanentDeleteForIds: (ids: Array<string | number>) => void;
-        permanentIdsRef: React.MutableRefObject<Array<string | number>>;
-        previewTimelineEvents: unknown[];
-        executionTrashedCountTotal: number;
-        executionJurisdictionCountsForView: Record<string, number>;
-        enrichedFiles: unknown[];
-        selectAllTrashedInView: () => void;
-        beginPermanentDeleteFlow: () => void;
-        hasExecutionLifecycle: boolean;
-        executionFilterSummary: string;
-        getTitle: () => string;
-        toggleTrashSelect: (id: string | number) => void;
-    };
+    } = portal;
 
     useBodyScrollLock(!embedded);
 
     useEffect(() => {
         if (embedded) return;
-        warmExecutionWorkspace({ includeSecondary: true, secondaryDelayMs: 0 });
+        void import('@/app/runtime/executionWorkspaceWarm')
+            .then((m) =>
+                m.warmExecutionWorkspace({ includeSecondary: true, secondaryDelayMs: 0 }),
+            )
+            .catch(() => undefined);
         return undefined;
     }, [embedded]);
 
     useEffect(() => {
+        if (!executionPreviewFile) return;
+        const closePreview = () => {
+            setExecutionPreviewFile(null);
+            return true;
+        };
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            setExecutionPreviewFile(null);
+        };
+        window.addEventListener('keydown', onKeyDown, true);
+        const unregisterNativeBack = registerNativeBackHandler(closePreview);
+        return () => {
+            window.removeEventListener('keydown', onKeyDown, true);
+            unregisterNativeBack();
+        };
+    }, [executionPreviewFile, setExecutionPreviewFile]);
+
+    useEffect(() => {
         if (embedded || !escapeEnabled) return;
         const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                onClose();
-            }
+            if (event.key !== 'Escape') return;
+            if (event.defaultPrevented) return;
+            if (hasExecutionArchiveTrashDialogsLayer()) return;
+            if (executionPreviewFile || hasExecutionArchivePreviewLayer()) return;
+            event.preventDefault();
+            onClose();
         };
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [embedded, escapeEnabled, onClose]);
+    }, [embedded, escapeEnabled, onClose, executionPreviewFile]);
 
     const chromeScrollRef = React.useRef<HTMLDivElement | null>(null);
     const getChromeScrollElement = React.useCallback(
         () => chromeScrollRef.current,
         [],
-    );
-
-    const sparkArchiveInsight = (
-        <SparkExecutionArchiveInsight
-            files={enrichedFiles as Array<Record<string, unknown>>}
-            executionViewMode={executionViewMode}
-            onOpenFile={(file) => onFileClick(file as Parameters<typeof onFileClick>[0])}
-        />
     );
 
     const shellClass = embedded
@@ -153,10 +138,10 @@ export function ExecutionArchiveChrome({
     const layer = (
         <div className={shellClass}>
             {!hideHeader && (
-                <div className="px-5 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-white/[0.06] flex justify-between items-center gap-4 bg-[#0A0F1C]/80 backdrop-blur-xl shrink-0">
+                <div className="px-3 sm:px-4 hami-overlay-header-safe-pad pb-2 border-b border-white/[0.06] flex justify-between items-center gap-3 bg-[#0B1021] shrink-0">
                     <div className="min-w-0 flex-1">
-                        <h2 className="text-xl sm:text-2xl font-bold text-white truncate">{getTitle()}</h2>
-                        <p className="text-white/40 text-sm mt-0.5 leading-relaxed">
+                        <h2 className="text-[13px] sm:text-sm font-bold text-white truncate">{getTitle()}</h2>
+                        <p className="text-white/40 text-[11px] mt-0.5 leading-snug">
                             {executionViewMode === 'trash' ? (
                                 <>
                                     {enrichedFiles.length}{' '}
@@ -187,9 +172,9 @@ export function ExecutionArchiveChrome({
                         type="button"
                         onClick={onClose}
                         aria-label="إغلاق مخزن الإضابير"
-                        className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-all touch-manipulation"
+                        className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] p-2 rounded-lg bg-slate-800/60 hover:bg-slate-700/80 text-white/80 hover:text-white transition-colors touch-manipulation"
                     >
-                        <X size={20} />
+                        <ExecutionArchiveXMark size={18} />
                     </button>
                 </div>
             )}
@@ -227,21 +212,19 @@ export function ExecutionArchiveChrome({
 
             <div
                 ref={chromeScrollRef}
-                className={`flex-1 overflow-y-auto px-4 sm:px-5 lg:px-6 py-5 ${
+                className={`flex-1 overflow-y-auto px-3 sm:px-4 py-2 ${
                     embedded
-                        ? 'pb-[max(5.5rem,calc(4.5rem+env(safe-area-inset-bottom)))]'
-                        : 'pb-[max(2rem,calc(5.25rem+env(safe-area-inset-bottom)))]'
+                        ? 'pb-[max(4.25rem,calc(3.25rem+env(safe-area-inset-bottom)))]'
+                        : 'pb-[max(1.75rem,calc(4rem+env(safe-area-inset-bottom)))]'
                 }`}
             >
-                {sparkArchiveInsight}
                 <ExecutionArchiveFileGrid
-                    enrichedFiles={enrichedFiles as import('./types').ArchiveEnrichedRow[]}
+                    enrichedFiles={enrichedFiles}
                     searchQuery={searchQuery}
                     filterType={filterType}
                     perspectiveFilter={perspectiveFilter}
                     dossierStatusFilter={dossierStatusFilter}
                     executionViewMode={executionViewMode}
-                    setExecutionViewMode={setExecutionViewMode}
                     lawsuitFilesForCluster={lawsuitFilesForCluster}
                     onFileClick={(file) => onFileClick(file as Parameters<typeof onFileClick>[0])}
                     setExecutionPreviewFile={setExecutionPreviewFile}
@@ -262,10 +245,9 @@ export function ExecutionArchiveChrome({
             </div>
 
             {executionPreviewFile && (
-                <Suspense fallback={null}>
+                <Suspense fallback={<ExecutionArchivePreviewPaintSlot />}>
                     <LazyArchivePortalExecutionPreviewModal
                         file={executionPreviewFile}
-                        previewTimelineEvents={previewTimelineEvents}
                         onClose={() => setExecutionPreviewFile(null)}
                         onOpenFull={(file) => {
                             flushSync(() => {
@@ -278,7 +260,6 @@ export function ExecutionArchiveChrome({
             )}
 
             <ExecutionArchiveTrashDialogs
-                embedded={embedded}
                 trashConfirmTarget={trashConfirmTarget}
                 setTrashConfirmTarget={setTrashConfirmTarget}
                 archiveConfirmTarget={archiveConfirmTarget}
@@ -300,15 +281,15 @@ export function ExecutionArchiveChrome({
                             onClick={onAddAction}
                             onPointerEnter={() => {
                                 void import('@/app/runtime/executionCreationLoader')
-                                    .then((m) => m.prefetchExecutionCreationViewModule())
+                                    .then((m) => m.prefetchExecutionCreationSurface())
                                     .catch(() => undefined);
                             }}
                             title="فتح إضبارة تنفيذ جديدة"
                             aria-label="فتح إضبارة تنفيذ جديدة"
-                            className={ARCHIVE_ROYAL_GLASS_FAB}
+                            className={EXECUTION_ARCHIVE_FAB}
                         >
-                            <Plus size={22} strokeWidth={3} className="drop-shadow" />
-                            <span className="text-sm tracking-wide whitespace-nowrap">إضبارة تنفيذ جديدة</span>
+                            <ExecutionArchivePlusMark />
+                            <span className="tracking-wide whitespace-nowrap">إضبارة تنفيذ جديدة</span>
                         </button>
                     </div>
                 </div>

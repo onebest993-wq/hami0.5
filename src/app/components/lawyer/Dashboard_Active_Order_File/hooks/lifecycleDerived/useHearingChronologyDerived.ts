@@ -9,7 +9,7 @@ import {
 import { maxYmd } from '../../utils/ymd';
 import type { UseOrderFileLifecycleDerivedArgs } from './types';
 
-export type ChronologyPhase = { effectiveJudgeDecisionDate: string };
+type ChronologyPhase = { effectiveJudgeDecisionDate: string };
 
 export function useHearingChronologyDerived(args: UseOrderFileLifecycleDerivedArgs, phase: ChronologyPhase) {
     const {
@@ -46,26 +46,26 @@ export function useHearingChronologyDerived(args: UseOrderFileLifecycleDerivedAr
     const { effectiveJudgeDecisionDate } = phase;
 
     const intakeFirstHearingDate = useMemo(() => {
-    return String((caseData as any)?.firstHearingDate ?? '')
-        .trim()
-        .match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? '';
-}, [(caseData as any)?.firstHearingDate]);
+        return String(caseData?.firstHearingDate ?? '')
+            .trim()
+            .match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? '';
+    }, [caseData?.firstHearingDate]);
 
-const phase1Sessions = useMemo(() => hearings.filter((h) => h.stage === 'pre_decision'), [hearings]);
-const phase2Sessions = useMemo(() => hearings.filter((h) => h.stage === 'grievance'), [hearings]);
-const phase1ActiveDate = useMemo(
-    () => getActiveDate(phase1Sessions, intakeFirstHearingDate),
-    [phase1Sessions, intakeFirstHearingDate],
-);
-const phase2ActiveDate = useMemo(
-    () => getActiveDate(phase2Sessions, phase2FirstHearingDate),
-    [phase2Sessions, phase2FirstHearingDate],
-);
-const grievanceFirstHearingAnchorYmd = useMemo(() => {
-    return String((caseData as any)?.grievanceFirstHearingDate ?? phase2FirstHearingDate ?? '')
-        .trim()
-        .match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? '';
-}, [(caseData as any)?.grievanceFirstHearingDate, phase2FirstHearingDate]);
+    const phase1Sessions = useMemo(() => hearings.filter((h) => h.stage === 'pre_decision'), [hearings]);
+    const phase2Sessions = useMemo(() => hearings.filter((h) => h.stage === 'grievance'), [hearings]);
+    const phase1ActiveDate = useMemo(
+        () => getActiveDate(phase1Sessions, intakeFirstHearingDate),
+        [phase1Sessions, intakeFirstHearingDate],
+    );
+    const phase2ActiveDate = useMemo(
+        () => getActiveDate(phase2Sessions, phase2FirstHearingDate),
+        [phase2Sessions, phase2FirstHearingDate],
+    );
+    const grievanceFirstHearingAnchorYmd = useMemo(() => {
+        return String(caseData?.grievanceFirstHearingDate ?? phase2FirstHearingDate ?? '')
+            .trim()
+            .match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? '';
+    }, [caseData?.grievanceFirstHearingDate, phase2FirstHearingDate]);
 const showGrievancePhase2AdjournBanner = useMemo(() => {
     return (
         phase2Sessions.length > 0 &&
@@ -162,7 +162,7 @@ const judgeDecisionDateChronologyError = useMemo(() => {
     const d = String(judgeDecision.decisionDate || '').trim();
     const minD = phase1JudgeDecisionMinYmd;
     if (!d || !minD) return null;
-    if (d < minD) return '⚠️ تاريخ القرار يجب ألا يسبق ختام المرافعة أو تاريخ تقديم الطلب';
+    if (d < minD) return 'تاريخ القرار يجب ألا يسبق ختام المرافعة أو تاريخ تقديم الطلب';
     return null;
 }, [judgeDecision.decisionDate, phase1JudgeDecisionMinYmd]);
 
@@ -170,7 +170,7 @@ const grievanceFilingDateChronologyError = useMemo(() => {
     const f = grievanceFilingYmd;
     const minD = grievanceFilingMinYmd;
     if (!f || !minD) return null;
-    if (f < minD) return '⚠️ تاريخ التظلم يجب ألا يسبق تاريخ قرار المرحلة الأولى';
+    if (f < minD) return 'تاريخ التظلم يجب ألا يسبق تاريخ قرار المرحلة الأولى';
     return null;
 }, [grievanceFilingMinYmd, grievanceFilingYmd]);
 
@@ -178,7 +178,7 @@ const grievanceFirstHearingDateChronologyError = useMemo(() => {
     const p2 = grievanceFirstHearingAnchorYmd;
     const minD = grievanceFirstHearingMinYmd;
     if (!p2 || !minD) return null;
-    if (p2 < minD) return '⚠️ تاريخ جلسة التظلم الأولى يجب ألا يسبق تاريخ التظلم أو القرار';
+    if (p2 < minD) return 'تاريخ جلسة التظلم الأولى يجب ألا يسبق تاريخ التظلم أو القرار';
     return null;
 }, [grievanceFirstHearingAnchorYmd, grievanceFirstHearingMinYmd]);
 
@@ -186,7 +186,7 @@ const grievanceDecisionDateChronologyError = useMemo(() => {
     const d = String(grievanceDecision.decisionDate || '').trim();
     const minD = grievanceDecisionMinYmd;
     if (!d || !minD) return null;
-    if (d < minD) return '⚠️ تاريخ قرار التظلم يجب ألا يسبق ختام المرافعة أو تاريخ التظلم';
+    if (d < minD) return 'تاريخ قرار التظلم يجب ألا يسبق ختام المرافعة أو تاريخ التظلم';
     return null;
 }, [grievanceDecision.decisionDate, grievanceDecisionMinYmd]);
 
@@ -212,13 +212,13 @@ const hearingDraftSessionDateError = useMemo(() => {
     if (!session) return null;
     if (stage === 'pre_decision') {
         const minS = phase1NewSessionMinYmd;
-        if (minS && session < minS) return '⚠️ تاريخ الجلسة يجب أن يكون بعد/مساوٍ لآخر تاريخ في المسار (تقديم الطلب / جلسات سابقة)';
+        if (minS && session < minS) return 'تاريخ الجلسة يجب أن يكون بعد/مساوٍ لآخر تاريخ في المسار (تقديم الطلب / جلسات سابقة)';
     }
     if (stage === 'grievance') {
         const minS = phase2NewSessionMinYmd;
-        if (minS && session < minS) return '⚠️ تاريخ الجلسة يجب أن يكون بعد/مساوٍ لتاريخ التظلم وجلسة التظلم الأولى والجلسات السابقة';
+        if (minS && session < minS) return 'تاريخ الجلسة يجب أن يكون بعد/مساوٍ لتاريخ التظلم وجلسة التظلم الأولى والجلسات السابقة';
         const filing = String(grievanceData.filingDate || '').trim();
-        if (filing && session < filing) return '⚠️ تاريخ الجلسة يجب أن يكون بعد/مساوٍ لتاريخ تقديم التظلم';
+        if (filing && session < filing) return 'تاريخ الجلسة يجب أن يكون بعد/مساوٍ لتاريخ تقديم التظلم';
     }
     return null;
 }, [
@@ -233,7 +233,7 @@ const hearingDraftNextSessionDateError = useMemo(() => {
     const session = String(hearingDraft.sessionDate || '').trim();
     const next = String(hearingDraft.nextSessionDate || '').trim();
     if (!session || !next) return null;
-    if (next < session) return '⚠️ موعد الجلسة القادمة يجب أن يكون بعد/مساوٍ لتاريخ الجلسة';
+    if (next < session) return 'موعد الجلسة القادمة يجب أن يكون بعد/مساوٍ لتاريخ الجلسة';
     return null;
 }, [hearingDraft.nextSessionDate, hearingDraft.outcome, hearingDraft.sessionDate]);
 const hearingDraftAdjournReasonError = useMemo(() => {

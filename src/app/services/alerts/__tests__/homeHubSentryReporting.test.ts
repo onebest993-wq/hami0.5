@@ -26,7 +26,12 @@ describe('homeHubSentryReporting', () => {
     });
 
     it('يُرسل breadcrumb و distribution', async () => {
-        reportHomeHubOpenToSentry(410, { alertsTabCount: 2, pinsCount: 1, hadRadarCache: true });
+        reportHomeHubOpenToSentry(410, {
+            userId: 'lawyer-secret-id',
+            alertsTabCount: 2,
+            pinsCount: 1,
+            hadRadarCache: true,
+        });
 
         await vi.waitFor(() => expect(addBreadcrumb).toHaveBeenCalledTimes(1));
 
@@ -38,9 +43,11 @@ describe('homeHubSentryReporting', () => {
                     alertsTabCount: 2,
                     pinsCount: 1,
                     hadRadarCache: true,
+                    userId: '[redacted]',
                 }),
             }),
         );
+        expect(JSON.stringify(addBreadcrumb.mock.calls[0])).not.toContain('lawyer-secret-id');
         expect(distribution).toHaveBeenCalledWith(
             'homeHub.open_to_interactive_ms',
             410,

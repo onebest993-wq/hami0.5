@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { IncidentalCase, Task, TimelineEvent } from '../../LawyerShared';
 import type { JudgmentPayload } from '../smartFile/judgmentTypes';
+import { shouldOpenAppointmentEditor } from '../smartFile/timelineLegalDeadline';
 
 export function useSmartFileModalFlags() {
     const [showApptModal, setShowApptModal] = useState(false);
@@ -31,14 +32,12 @@ export function useSmartFileModalFlags() {
     const [showCorrespondenceModal, setShowCorrespondenceModal] = useState(false);
     const [showNotificationModal, setShowNotificationModal] = useState(false);
     const [showObjectionRegistrationModal, setShowObjectionRegistrationModal] = useState(false);
-    const [showObjectionJudgmentModal, setShowObjectionJudgmentModal] = useState(false);
     const [showAbsentJudgmentNotificationModal, setShowAbsentJudgmentNotificationModal] = useState(false);
     const [showOpponentAbsentObjectionModal, setShowOpponentAbsentObjectionModal] = useState(false);
     const [showAppealTransitionModal, setShowAppealTransitionModal] = useState(false);
     const [showCrossAppealModal, setShowCrossAppealModal] = useState(false);
     const [showExtraordinaryAppealModal, setShowExtraordinaryAppealModal] = useState<boolean | string>(false);
     const [showMaterialErrorModal, setShowMaterialErrorModal] = useState<string | null>(null);
-    const [showTransitionModal, setShowTransitionModal] = useState(false);
     const [tempJudgmentData, setTempJudgmentData] = useState<JudgmentPayload | null>(null);
 
     const [editingEvent, setEditingEvent] = useState<TimelineEvent | null>(null);
@@ -50,7 +49,7 @@ export function useSmartFileModalFlags() {
 
     useEffect(() => {
         if (!editingEvent) return;
-        if (editingEvent.type === 'appointment') setShowApptModal(true);
+        if (shouldOpenAppointmentEditor(editingEvent)) setShowApptModal(true);
         if (editingEvent.type === 'note') setShowNoteModal(true);
         if (editingEvent.type === 'document') setShowDocModal(true);
 
@@ -137,8 +136,6 @@ export function useSmartFileModalFlags() {
         setShowNotificationModal,
         showObjectionRegistrationModal,
         setShowObjectionRegistrationModal,
-        showObjectionJudgmentModal,
-        setShowObjectionJudgmentModal,
         showAbsentJudgmentNotificationModal,
         setShowAbsentJudgmentNotificationModal,
         showOpponentAbsentObjectionModal,
@@ -151,8 +148,6 @@ export function useSmartFileModalFlags() {
         setShowExtraordinaryAppealModal,
         showMaterialErrorModal,
         setShowMaterialErrorModal,
-        showTransitionModal,
-        setShowTransitionModal,
         tempJudgmentData,
         setTempJudgmentData,
         editingEvent,

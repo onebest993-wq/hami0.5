@@ -1,7 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
-import { Clock, RotateCcw } from '@/app/components/ui/lucideIcons';
-import { useReduceMotion } from '@/app/hooks/useReduceMotion';
+import { HomeRotateCcwIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
 
 export interface RecentSearchesPanelProps {
     recentSearches: string[];
@@ -10,55 +8,36 @@ export interface RecentSearchesPanelProps {
 }
 
 export function RecentSearchesPanel({ recentSearches, onSelect, onClear }: RecentSearchesPanelProps) {
-    const reduceMotion = useReduceMotion();
-
     if (recentSearches.length === 0) return null;
 
-    const chipClass =
-        'hami-gs-recent-chip hover:border-[#E6C673]/25 hover:bg-[#E6C673]/[0.06] hover:text-[#E6C673] transition-colors';
-
     return (
-        <div className="px-5 py-4 space-y-3" data-testid="global-search-recent-panel">
+        <div className="px-3.5 py-2.5 space-y-2" data-testid="global-search-recent-panel">
             <div className="flex justify-between items-center">
-                <h3 className="text-[11px] font-bold text-white/35 uppercase tracking-wider flex items-center gap-1.5">
-                    <Clock size={12} className="text-[#E6C673]/60" />
-                    الأخيرة
-                </h3>
+                <h3 className="text-[11px] font-semibold text-white/40">الأخيرة</h3>
                 <button
                     type="button"
                     onClick={onClear}
-                    className="text-[10px] text-white/30 hover:text-[#E6C673] flex items-center gap-1 transition-colors min-h-[44px] min-w-[44px] px-2 touch-manipulation"
+                    className="text-[10px] text-white/35 active:text-white/70 flex items-center gap-1 min-h-[44px] min-w-[44px] px-2 touch-manipulation"
+                    aria-label="مسح عمليات البحث الأخيرة"
                     data-testid="global-search-clear-recent"
                 >
-                    <RotateCcw size={10} />
+                    <HomeRotateCcwIcon size={10} aria-hidden />
                     مسح
                 </button>
             </div>
-            <div className="flex flex-wrap gap-2">
-                {recentSearches.map((s) =>
-                    reduceMotion ? (
-                        <button
-                            key={s}
-                            type="button"
-                            onClick={() => onSelect(s)}
-                            className={chipClass}
-                        >
-                            {s}
-                        </button>
-                    ) : (
-                        <motion.button
-                            key={s}
-                            type="button"
-                            initial={false}
-                            animate={{ opacity: 1, scale: 1 }}
-                            whileTap={{ scale: 0.97 }}
-                            onClick={() => onSelect(s)}
-                            className={chipClass}
-                        >
-                            {s}
-                        </motion.button>
-                    ),
-                )}
+            <div className="hami-gs-recent-rail" role="list" aria-label="عمليات البحث الأخيرة">
+                {recentSearches.map((s) => (
+                    <button
+                        key={s}
+                        type="button"
+                        role="listitem"
+                        onClick={() => onSelect(s)}
+                        className="hami-gs-recent-chip"
+                        data-testid={`global-search-recent-${s}`}
+                    >
+                        {s}
+                    </button>
+                ))}
             </div>
         </div>
     );

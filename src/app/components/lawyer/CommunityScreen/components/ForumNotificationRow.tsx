@@ -1,5 +1,13 @@
 import React, { memo } from 'react';
-import { Bell, MessageCircle, Reply, ThumbsUp, UserPlus, Award, FileText, AtSign, X } from '@/app/components/ui/lucideIcons';
+import { Bell } from '@/app/components/ui/icons/Bell';
+import { MessageCircle } from '@/app/components/ui/icons/MessageCircle';
+import { Reply } from '@/app/components/ui/icons/Reply';
+import { ThumbsUp } from '@/app/components/ui/icons/ThumbsUp';
+import { UserPlus } from '@/app/components/ui/icons/UserPlus';
+import { Award } from '@/app/components/ui/icons/Award';
+import { FileText } from '@/app/components/ui/icons/FileText';
+import { AtSign } from '@/app/components/ui/icons/AtSign';
+import { X } from '@/app/components/ui/icons/X';
 import type { ForumNotification, NotificationType } from '@/app/services/lawyer-cloud';
 import { FORUM_TEXT_MUTED, FORUM_TEXT_PRIMARY } from '../forumPlumTheme';
 
@@ -7,14 +15,14 @@ const TYPE_META: Record<
     NotificationType,
     { icon: React.ElementType; accent: string; label: string }
 > = {
-    new_post: { icon: FileText, accent: 'text-[#C9A86C]', label: 'منشور' },
-    new_document: { icon: FileText, accent: 'text-[#C9A86C]', label: 'مستند' },
+    new_post: { icon: FileText, accent: 'text-[#E6C673]', label: 'منشور' },
+    new_document: { icon: FileText, accent: 'text-[#E6C673]', label: 'مستند' },
     comment: { icon: MessageCircle, accent: 'text-sky-300', label: 'تعليق' },
     reply: { icon: Reply, accent: 'text-violet-300', label: 'رد' },
     upvote: { icon: ThumbsUp, accent: 'text-emerald-300', label: 'تصويت' },
     best_answer: { icon: Award, accent: 'text-amber-300', label: 'أفضل إجابة' },
-    follow: { icon: UserPlus, accent: 'text-[#C9A86C]', label: 'متابعة' },
-    mention: { icon: AtSign, accent: 'text-[#C9A86C]', label: 'إشارة' },
+    follow: { icon: UserPlus, accent: 'text-[#E6C673]', label: 'متابعة' },
+    mention: { icon: AtSign, accent: 'text-[#E6C673]', label: 'إشارة' },
     report_update: { icon: Bell, accent: 'text-orange-300', label: 'بلاغ' },
     system: { icon: Bell, accent: 'text-white/50', label: 'نظام' },
 };
@@ -45,7 +53,7 @@ export const ForumNotificationRow = memo(function ForumNotificationRow({
     return (
         <div
             className={`w-full text-right px-4 py-3 border-b border-[#2A3344]/30 last:border-0 transition hover:bg-[#1A2333] ${
-                !notification.read ? 'bg-[#C9A86C]/6' : ''
+                !notification.read ? 'bg-[#E6C673]/6' : ''
             }`}
         >
             <div className="flex items-start gap-2.5">

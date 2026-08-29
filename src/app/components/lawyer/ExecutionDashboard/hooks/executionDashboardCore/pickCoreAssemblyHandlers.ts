@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C Slice 25 — assembly handlers من core (غير cluster) */
 const CORE_ASSEMBLY_HANDLER_KEYS = [
     'followupTabAssembly',

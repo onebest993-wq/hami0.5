@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C — إعلان انتهاء مهلة الإخبار/التبليغ (إخلاء + عام) */
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';

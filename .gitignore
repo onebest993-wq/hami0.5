@@ -12,8 +12,11 @@
 # --- أسرار: لا يُتعقَّب أي ملف بيئة إلا القوالب ---
 .env
 .env.*
+hami/.env
 !.env.example
 !.env.production.example
+vercel-import-missing.env
+vercel-import*.env
 *.pem
 *.key
 *.keystore
@@ -29,6 +32,7 @@ node_modules/
 
 # --- مخرجات البناء ---
 dist/
+dist-hq/
 dist-ssr/
 build/
 out/
@@ -38,12 +42,15 @@ out/
 *.local
 
 # --- مخرجات مولَّدة بسكربتات المستودع ---
-api/_routeManifest.ts
+src/app/api/vercelRouteManifest.ts
+api/handler.js
 code-quality-report.json
 src/imports/lawyer-dashboard-error.txt
 
 # --- أدلة تدقيق مؤقتة (خطوط الأساس المُتعقَّبة مستثناة أدناه) ---
 .audit/_atomic_*
+.audit/execution-inventory.json
+.audit/import-closure-report.json
 .audit/eslint-temp.json
 .audit/tsc-*.txt
 .audit/ts7006-*.txt
@@ -121,3 +128,6 @@ lerna-debug.log*
 ehthumbs.db
 Thumbs.db
 desktop.ini
+
+.vercel
+.env*

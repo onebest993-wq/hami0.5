@@ -1,10 +1,10 @@
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import { ymdPlusDays } from './proceduralTypes';
 
 export const ABANDONMENT_REVIEW_DAYS = 10;
 
 const BANNER_SHELL =
-    'w-full rounded-xl border backdrop-blur-xl px-3.5 py-3 mb-4 flex flex-wrap justify-between items-center gap-3';
+    'w-full rounded-xl border backdrop-blur-sm px-3.5 py-3 mb-4 flex flex-wrap justify-between items-center gap-3';
 export const CASE_FLOW_BANNER_SHELL = BANNER_SHELL;
 
 /** مهلة التجديد: 10 أيام من اليوم التالي لتاريخ الترك */

@@ -267,14 +267,18 @@ export function readMaritalFurnitureItems(data: {
     if (fromList.length > 0) return fromList;
     const details = String(data?.furnitureDetails || '').trim();
     if (!details) return [];
-    return details
+    const names = details
         .split(/\n|؛|;/)
         .map((chunk) => chunk.trim())
-        .filter(Boolean)
-        .map((name, index) => ({
-            id: stableMaritalFurnitureDetailItemId(name, index),
-            name,
-            quantity: 1,
-            unitPriceIqd: Math.max(0, Math.round(Number(data?.furnitureValue) || 0)),
-        }));
+        .filter(Boolean);
+    if (names.length === 0) return [];
+    const total = Math.max(0, Math.round(Number(data?.furnitureValue) || 0));
+    const base = Math.floor(total / names.length);
+    const remainder = total - base * names.length;
+    return names.map((name, index) => ({
+        id: stableMaritalFurnitureDetailItemId(name, index),
+        name,
+        quantity: 1,
+        unitPriceIqd: base + (index === 0 ? remainder : 0),
+    }));
 }

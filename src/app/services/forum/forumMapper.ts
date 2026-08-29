@@ -90,15 +90,20 @@ function parseAttachment(raw: unknown): CommunityPost['attachment'] {
     const a = raw as Record<string, unknown>;
     const type =
         a.type === 'image' ? 'image' : a.type === 'document' ? 'document' : a.type === 'audio' ? 'audio' : null;
-    const url = typeof a.url === 'string' ? a.url : null;
-    const name = typeof a.name === 'string' ? a.name : null;
-    if (!type || !url || !name) return null;
+    const url = typeof a.url === 'string' && a.url.trim() ? a.url.trim() : undefined;
+    const name = typeof a.name === 'string' && a.name.trim() ? a.name.trim() : null;
+    const storagePath =
+        typeof a.storagePath === 'string' && a.storagePath.trim() ? a.storagePath.trim() : undefined;
+    if (!type || !name || (!url && !storagePath)) return null;
+    const bucket = typeof a.bucket === 'string' && a.bucket.trim() ? a.bucket.trim() : undefined;
     return {
         type,
-        url,
+        ...(url ? { url } : {}),
         name,
         mimeType: typeof a.mimeType === 'string' ? a.mimeType : undefined,
-        storagePath: typeof a.storagePath === 'string' ? a.storagePath : undefined,
+        storagePath,
+        ...(bucket ? { bucket } : {}),
+        ...(a.encrypted === true ? { encrypted: true } : {}),
     };
 }
 
@@ -153,7 +158,16 @@ export function communityPostToInsertRow(post: CommunityPost): Record<string, un
         author_name: post.authorName,
         content: post.content,
         tags: post.tags ?? [],
-        attachment: post.attachment ?? null,
+        attachment: post.attachment
+            ? {
+                  type: post.attachment.type,
+                  name: post.attachment.name,
+                  mimeType: post.attachment.mimeType,
+                  storagePath: post.attachment.storagePath,
+                  ...(post.attachment.bucket ? { bucket: post.attachment.bucket } : {}),
+                  ...(post.attachment.encrypted === true ? { encrypted: true } : {}),
+              }
+            : null,
         upvoter_ids: post.upvoterIds ?? [],
         best_comment_id: post.bestCommentId ?? null,
         is_urgent: post.isUrgent === true,

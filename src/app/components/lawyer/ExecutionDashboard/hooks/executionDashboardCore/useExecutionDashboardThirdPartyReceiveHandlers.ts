@@ -45,7 +45,7 @@ export function useExecutionDashboardThirdPartyReceiveHandlers({
     const beginThirdPartyReceiveStep = useCallback(
         (asset: ThirdPartySeizureAsset) => {
             if (asset.record_locked) return;
-            const nextAssets = thirdPartySeizureSnapshotRef.current.map((a) =>
+            const nextAssets = (thirdPartySeizureSnapshotRef.current ?? []).map((a) =>
                 a.id === asset.id
                     ? {
                           ...a,
@@ -63,7 +63,7 @@ export function useExecutionDashboardThirdPartyReceiveHandlers({
     const updateThirdPartyReceiveDraft = useCallback(
         (assetId: string, v: string) => {
             const cleaned = formatNumberInput(String(v || ''));
-            const nextAssets = thirdPartySeizureSnapshotRef.current.map((a) =>
+            const nextAssets = (thirdPartySeizureSnapshotRef.current ?? []).map((a) =>
                 a.id === assetId ? { ...a, receive_amount_draft: cleaned } : a,
             );
             setThirdPartySeizureAssets(nextAssets);
@@ -74,7 +74,7 @@ export function useExecutionDashboardThirdPartyReceiveHandlers({
 
     const cancelThirdPartyReceiveStep = useCallback(
         (asset: ThirdPartySeizureAsset) => {
-            const nextAssets = thirdPartySeizureSnapshotRef.current.map((a) =>
+            const nextAssets = (thirdPartySeizureSnapshotRef.current ?? []).map((a) =>
                 a.id === asset.id ? { ...a, awaiting_receive: false, receive_amount_draft: '' } : a,
             );
             setThirdPartySeizureAssets(nextAssets);
@@ -85,7 +85,7 @@ export function useExecutionDashboardThirdPartyReceiveHandlers({
 
     const confirmThirdPartyReceive = useCallback(
         (asset: ThirdPartySeizureAsset) => {
-            const row = thirdPartySeizureSnapshotRef.current.find((a) => a.id === asset.id) ?? asset;
+            const row = (thirdPartySeizureSnapshotRef.current ?? []).find((a) => a.id === asset.id) ?? asset;
             if (row.record_locked) return;
             const validation = validateThirdPartyReceiveAmount(String(row.receive_amount_draft || ''));
             if (!validation.ok) {
@@ -95,7 +95,7 @@ export function useExecutionDashboardThirdPartyReceiveHandlers({
             const parsed = validation.amountIqd;
             const today = getLocalTodayYmd();
             const now = new Date().toISOString();
-            const nextAssets = thirdPartySeizureSnapshotRef.current.map((a) =>
+            const nextAssets = (thirdPartySeizureSnapshotRef.current ?? []).map((a) =>
                 a.id === row.id ? mapThirdPartyAssetToReceived(row, parsed, today, now) : a,
             );
             setThirdPartySeizureAssets(nextAssets);

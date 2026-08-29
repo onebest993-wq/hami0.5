@@ -1,18 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { pickCurrentLocationForProfile } from '@/app/services/profile/profileGeolocation';
 
-vi.mock('@/app/components/ui/SmartToast', () => ({
-    SmartToast: {
-        success: vi.fn(),
-        error: vi.fn(),
-    },
-}));
-
 vi.mock('@/app/runtime/nativePlatform', () => ({
     isCapacitorNativePlatform: () => false,
 }));
-
-import { SmartToast } from '@/app/components/ui/SmartToast';
 
 describe('pickCurrentLocationForProfile', () => {
     beforeEach(() => {
@@ -20,7 +11,7 @@ describe('pickCurrentLocationForProfile', () => {
         Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });
     });
 
-    it('لا يعلن نجاحاً قبل أن يطبّق المستدعي القيمة', async () => {
+    it('يعيد التسمية دون toast من طبقة الخدمة', async () => {
         vi.stubGlobal('navigator', {
             geolocation: {
                 getCurrentPosition: (ok: PositionCallback) => {
@@ -44,6 +35,10 @@ describe('pickCurrentLocationForProfile', () => {
 
         const label = await pickCurrentLocationForProfile();
         expect(label).toBe('33.300000,44.400000');
-        expect(SmartToast.success).not.toHaveBeenCalled();
+    });
+
+    it('returns null when the page is not a secure context', async () => {
+        Object.defineProperty(window, 'isSecureContext', { value: false, configurable: true });
+        await expect(pickCurrentLocationForProfile()).rejects.toThrow('insecure');
     });
 });

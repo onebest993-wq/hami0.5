@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C — حفظ بيانات الحجز العقاري من النافذة */
 import { useCallback, useMemo, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { RealEstateSeizureAsset, TimelineEvent } from '@/app/types/execution';

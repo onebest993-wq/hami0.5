@@ -22,4 +22,4 @@ export const EXEC_MODAL_Z = {
 
 /** خلفية معتمة موحّدة للطبقات العلوية */
 export const EXEC_MODAL_BACKDROP_STRONG =
-    'bg-slate-950/90 backdrop-blur-md';
+    'bg-[#05060D]';

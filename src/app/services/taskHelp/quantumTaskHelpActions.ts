@@ -4,6 +4,7 @@
  */
 import type { LegalTask } from '@/app/types/TaskEngine';
 import type { ShareScope, TaskHelpRequest } from '@/app/types/taskHelpTypes';
+import { clampTaskText, MAX_HELP_NOTE_LENGTH } from '@/app/services/tasks/taskInputGuard';
 
 export type RequestTaskHelpParams = {
     taskId: string;
@@ -35,16 +36,18 @@ export async function executeRequestTaskHelp(
     if (!canRequestTaskHelp(task)) return null;
     if (params.scope === 'PRIVATE_DIRECT' && !params.targetColleagueId) return null;
 
-    const [{ sanitizeTaskForPublic }, { TaskHelpApiService }] = await Promise.all([
+    const [{ sanitizeTaskForPublic, redactPiiText }, { TaskHelpApiService }] = await Promise.all([
         import('@/app/services/tasks/taskSanitizer'),
         import('@/app/services/taskHelp/taskHelpApiService'),
     ]);
 
+    const note = clampTaskText(params.note ?? '', MAX_HELP_NOTE_LENGTH);
     const publicPayload = params.scope === 'PUBLIC_FORUM' ? sanitizeTaskForPublic(task) : null;
     const title = publicPayload?.title ?? task.title;
     const location = publicPayload?.location ?? task.location;
     const dueDate = publicPayload?.dueDate ?? (task.parsedDate?.toISOString() ?? null);
-    const instructions = [publicPayload?.instructions, params.note?.trim()]
+    const safeNote = params.scope === 'PUBLIC_FORUM' ? redactPiiText(note) : note;
+    const instructions = [publicPayload?.instructions, safeNote]
         .filter(Boolean)
         .join('\n\n');
 
@@ -60,7 +63,7 @@ export async function executeRequestTaskHelp(
         isSanitised: params.scope === 'PUBLIC_FORUM',
         targetColleagueId: params.targetColleagueId,
         targetColleagueName: params.targetColleagueName,
-        note: params.note,
+        note: safeNote || undefined,
     });
 
     if (params.scope === 'PUBLIC_FORUM') {
@@ -113,7 +116,12 @@ export async function executeAddSharedTaskNote(
     authorName?: string,
 ): Promise<TaskHelpRequest> {
     const { TaskHelpApiService } = await import('@/app/services/taskHelp/taskHelpApiService');
-    return TaskHelpApiService.addNote(helpRequestId, authorId, noteText, authorName);
+    return TaskHelpApiService.addNote(
+        helpRequestId,
+        authorId,
+        clampTaskText(noteText, MAX_HELP_NOTE_LENGTH),
+        authorName,
+    );
 }
 
 export async function executeMarkHelpCompleted(

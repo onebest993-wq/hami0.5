@@ -10,9 +10,6 @@ import {
     PS_SECTION_LABEL,
     PS_SECTION_LABEL_ROSE,
 } from './personalStatusPearlTheme';
-import {
-    PersonalStatusArabesqueLayers,
-} from './PersonalStatusMoroccanGlass';
 
 type PearlSectionVariant = 'glass' | 'beige' | 'elephant';
 
@@ -20,12 +17,6 @@ const VARIANT: Record<PearlSectionVariant, string> = {
     glass: PS_PANEL,
     beige: PS_PANEL_BEIGE,
     elephant: PS_PANEL_ELEPHANT,
-};
-
-const VARIANT_PATTERN: Record<PearlSectionVariant, { primary: number; fine: number }> = {
-    glass: { primary: 0.05, fine: 0.025 },
-    beige: { primary: 0.045, fine: 0.022 },
-    elephant: { primary: 0.045, fine: 0.022 },
 };
 
 const VARIANT_HEAD: Record<PearlSectionVariant, string> = {
@@ -58,7 +49,6 @@ export function PersonalStatusPearlSection({
 }) {
     return (
         <section className={cn(VARIANT[variant], 'overflow-hidden min-h-0', className)}>
-            <PersonalStatusArabesqueLayers {...VARIANT_PATTERN[variant]} />
             <div className={cn(VARIANT_HEAD[variant], 'relative z-[1]')}>
                 <span className={VARIANT_LABEL[variant]}>{label}</span>
                 {action ? <div className="shrink-0">{action}</div> : null}

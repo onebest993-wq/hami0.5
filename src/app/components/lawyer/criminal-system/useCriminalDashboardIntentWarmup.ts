@@ -11,7 +11,7 @@ import {
 } from './criminalDashboardIntentPrefetch';
 import { defaultDecisionsScopeForStage } from './decisionsScopeCore';
 
-export type UseCriminalDashboardIntentWarmupParams = {
+type UseCriminalDashboardIntentWarmupParams = {
     id: string;
     requestsTabActive: boolean;
     hasJuvenileInCase: boolean;

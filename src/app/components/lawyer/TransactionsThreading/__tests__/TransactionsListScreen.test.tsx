@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { TransactionStatus, type Transaction } from '@/app/modules/transactionsThreading/types';
+import { clearTransactionsListQuerySession } from '@/app/components/lawyer/TransactionsThreading/utils/transactionsListQuerySession';
 import { TransactionsListScreen } from '@/app/components/lawyer/TransactionsThreading/TransactionsListScreen';
 
 const mockTransactions: Transaction[] = [
@@ -28,13 +29,17 @@ const mockTransactions: Transaction[] = [
 ];
 
 vi.mock('@/app/modules/transactionsThreading/store', () => ({
-    useTransactionsThreadingStore: (selector: (s: { transactions: Transaction[] }) => unknown) =>
-        selector({ transactions: mockTransactions }),
+    useTransactionsThreadingStore: (
+        selector: (s: { transactions: Transaction[] }) => unknown,
+    ) => selector({ transactions: mockTransactions }),
 }));
 
 vi.mock('@/app/components/lawyer/TransactionsThreading/AddTransactionBottomSheet', () => ({
-    AddTransactionBottomSheet: ({ open }: { open: boolean }) =>
-        open ? <div data-testid="transactions-add-sheet">sheet</div> : null,
+    AddTransactionBottomSheet: ({ open }: { open: boolean }) => (
+        <div data-testid="transactions-add-sheet-host" data-open={open ? '1' : '0'}>
+            {open ? <div data-testid="transactions-add-sheet">sheet</div> : null}
+        </div>
+    ),
 }));
 
 vi.mock('@/app/components/lawyer/TransactionsThreading/TransactionCard', () => ({
@@ -52,9 +57,8 @@ vi.mock('@/app/components/lawyer/TransactionsThreading/TransactionCard', () => (
 }));
 
 vi.mock('@/app/components/lawyer/TransactionsThreading/transactionsGlassTheme', () => ({
-    GLASS_FIELD: 'field',
-    TX_LIST_FILTER_CHIP: 'chip',
-    TX_LIST_FILTER_CHIP_ACTIVE: 'chip-active',
+    GLASS_CHIP_ACTIVE: 'chip-active',
+    TX_PAGE_SCROLL: 'tx-page-scroll',
     TxGlassEmpty: ({ testId }: { testId?: string }) => <div data-testid={testId}>empty</div>,
     TxGlassFab: ({ testId, onClick }: { testId?: string; onClick: () => void }) => (
         <button type="button" data-testid={testId} onClick={onClick}>
@@ -78,6 +82,7 @@ vi.mock('@/app/components/lawyer/TransactionsThreading/transactionsGlassTheme', 
 describe('TransactionsListScreen', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        clearTransactionsListQuerySession();
     });
 
     it('يعرض القائمة والبحث والفلاتر', () => {
@@ -87,6 +92,7 @@ describe('TransactionsListScreen', () => {
         expect(screen.getByTestId('transactions-add-fab')).toBeInTheDocument();
         expect(screen.getByTestId('tx-card-tx-a')).toBeInTheDocument();
         expect(screen.getByTestId('tx-card-tx-b')).toBeInTheDocument();
+        expect(screen.queryByTestId('transactions-add-sheet-host')).not.toBeInTheDocument();
     });
 
     it('يفلتر بالبحث', () => {
@@ -127,5 +133,14 @@ describe('TransactionsListScreen', () => {
         render(<TransactionsListScreen onOpenDetails={onOpenDetails} />);
         fireEvent.click(screen.getByTestId('tx-card-tx-a'));
         expect(onOpenDetails).toHaveBeenCalledWith(mockTransactions[0]);
+    });
+
+    it('لا يرسم البطاقات ولا شريط البحث وهي مغلقة', () => {
+        render(<TransactionsListScreen hubOpen={false} />);
+        expect(screen.getByTestId('transactions-list-screen')).toBeInTheDocument();
+        expect(screen.queryByTestId('tx-card-tx-a')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('tx-card-tx-b')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('transactions-search')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('transactions-add-fab')).not.toBeInTheDocument();
     });
 });

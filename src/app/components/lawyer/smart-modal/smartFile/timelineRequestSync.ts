@@ -49,7 +49,7 @@ export function patchTimelineEvent(
     return timeline.map((e) => (e.id === eventId ? { ...e, ...next, id: eventId, isNew: false } : e));
 }
 
-export function readLinkedTimelineEventId(record: Record<string, unknown>): string | undefined {
+function readLinkedTimelineEventId(record: Record<string, unknown>): string | undefined {
     const id = String(record.timelineEventId ?? '').trim();
     return id || undefined;
 }
@@ -88,7 +88,3 @@ export function resolveAttachmentTimelineEventId(
     return `timeline_attach_${Date.now()}`;
 }
 
-export function readAttachmentSubmissionDate(data: SmartFileAttachment): string {
-    const raw = String(data.submissionDate ?? '').trim();
-    return raw || readFastTrackSubmissionDate(data as Record<string, unknown>);
-}

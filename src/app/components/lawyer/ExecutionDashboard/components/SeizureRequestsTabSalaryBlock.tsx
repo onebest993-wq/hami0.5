@@ -1,5 +1,6 @@
 import React from 'react';
-import { Lock, Wallet } from '@/app/components/ui/lucideIcons';
+import { Lock } from '@/app/components/ui/icons/Lock';
+import { Wallet } from '@/app/components/ui/icons/Wallet';
 import { InlineActionGate } from './InlineActionGate';
 import type { InlineActionGateKey } from '../types';
 import { ExecutionInlineAccordion } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
@@ -10,6 +11,10 @@ import {
     type UnifiedSeizureLogTab,
 } from './seizureRequestsTabHelpers';
 import { buildSeizureRequestSteps } from './seizureRequestsTabDecisionSteps';
+import type {
+    SeizureAssetDecisionRow,
+    SubmitBasicSeizureRequest,
+} from './SeizureRequestsTabAssetCompletions';
 
 export function SeizureRequestsTabSalaryBlock(props: {
     seizureActionsDisabled: boolean;
@@ -18,7 +23,7 @@ export function SeizureRequestsTabSalaryBlock(props: {
     salaryRegistrationAckReady: boolean;
     salaryLogReady: boolean;
     salaryRequestTitle: string;
-    salaryRowForUi: any;
+    salaryRowForUi: SeizureAssetDecisionRow | null;
     activeDebtorIsDeceased: boolean;
     decisions: Record<string, unknown>[];
     resolvedExecutionId: string;
@@ -26,12 +31,7 @@ export function SeizureRequestsTabSalaryBlock(props: {
     setInlineActionGateKey: (key: InlineActionGateKey | null) => void;
     acknowledgeSeizureRequestFromLog: (tab: UnifiedSeizureLogTab) => void;
     openSalarySeizureRequest: () => void | Promise<void>;
-    submitBasicSeizureRequest: (args: {
-        actionType: 'salary' | 'property' | 'vehicle' | 'third_party';
-        title: string;
-        body: string;
-        subtype: any;
-    }) => string | null;
+    submitBasicSeizureRequest: SubmitBasicSeizureRequest;
     setLastSalaryDecisionId: (id: string) => void;
     openAppeals: (decisionId?: string) => void;
 }) {

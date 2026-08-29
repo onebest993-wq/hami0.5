@@ -26,6 +26,7 @@ vi.mock('@/app/api/security/bffAuth.ts', async (importOriginal) => {
   return {
     ...actual,
     requireWifeUser: vi.fn(async () => ({ ok: true as const, userId: 'attacker-user-id' })),
+    requireWifeCloudWrite: vi.fn(async () => ({ ok: true as const, userId: 'attacker-user-id' })),
   };
 });
 
@@ -72,10 +73,10 @@ function pdfBytesWith(content: string): Buffer {
   return Buffer.from(`%PDF-1.7\n${content}\n%%EOF`, 'latin1');
 }
 
-function buildUploadRequest(file: File, contentHash: string): Request {
+function buildUploadRequest(file: File, contentHash: string, category = 'vault'): Request {
   const fd = new FormData();
   fd.append('file', file);
-  fd.append('category', 'vault');
+  fd.append('category', category);
   return {
     method: 'POST',
     url: 'http://127.0.0.1/api/upload',
@@ -169,6 +170,24 @@ describe('💥 UPLOAD WAVE 2 — upload route post-WIFE file attacks', () => {
     const res = await uploadPost(buildUploadRequest(file, hash));
     expect(res.status).toBe(200);
     expect(uploadMock).toHaveBeenCalled();
+  });
+
+  it('200 يقبل ciphertext منتدى .enc عبر forum-media دون magic JPEG', async () => {
+    const cipher = Buffer.from('cipher-not-a-jpeg-or-pdf-payload');
+    const hash = sha256Hex(cipher);
+    const file = fileFromBuffer(cipher, '12_photo.jpg.enc', 'application/octet-stream');
+    const res = await uploadPost(buildUploadRequest(file, hash, 'forum-media'));
+    expect(res.status).toBe(200);
+    expect(uploadMock).toHaveBeenCalled();
+  });
+
+  it('400 يرفض .enc خارج forum-media (لا تخطّي لفحص النوع)', async () => {
+    const cipher = Buffer.from('cipher-not-a-jpeg-or-pdf-payload');
+    const hash = sha256Hex(cipher);
+    const file = fileFromBuffer(cipher, '12_photo.jpg.enc', 'application/octet-stream');
+    const res = await uploadPost(buildUploadRequest(file, hash, 'vault'));
+    expect(res.status).toBe(400);
+    expect(uploadMock).not.toHaveBeenCalled();
   });
 });
 

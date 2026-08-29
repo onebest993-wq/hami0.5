@@ -1,7 +1,9 @@
 type RoyalLawyerProfileModule = typeof import('@/app/components/lawyer/RoyalLawyerProfile/index');
 
 import {
+    isRoyalLawyerProfileModuleResolved,
     markRoyalLawyerProfileModuleResolved,
+    resetRoyalLawyerProfileModuleStateForTests,
 } from '@/app/runtime/royalLawyerProfileModuleState';
 import { warmProfileDataCache } from '@/app/services/profile/profileWarmCache';
 
@@ -54,4 +56,29 @@ export function loadRoyalLawyerProfileWithData(
     prefetchRoyalLawyerProfile(userId);
     const dataWarm = warmProfileDataCache(userId);
     return Promise.all([ensureProfileModulePromise(), dataWarm]).then(([mod]) => mod);
+}
+
+/* ——— aliases كانت في profileHubLoader (غلاف ميت بعد sync ProfileTabHost) ——— */
+
+export function isProfileShellModuleResolved(): boolean {
+    return isRoyalLawyerProfileModuleResolved();
+}
+
+function resetProfileHubModuleCacheForTests(): void {
+    resetRoyalLawyerProfileModuleStateForTests();
+    profileModulePromise = null;
+}
+
+export function loadProfileHubModule(): Promise<RoyalLawyerProfileModule> {
+    return loadRoyalLawyerProfileModule();
+}
+
+export function prefetchProfileHubModule(): void {
+    prefetchRoyalLawyerProfileChunk();
+}
+
+export function hydrateProfileShellForInstantOpen(): Promise<boolean> {
+    return loadProfileHubModule()
+        .then(() => isProfileShellModuleResolved())
+        .catch(() => false);
 }

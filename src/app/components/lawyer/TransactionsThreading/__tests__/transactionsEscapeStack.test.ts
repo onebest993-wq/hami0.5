@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
     applyTransactionsEscapeAction,
+    isSameTransactionsDetailsEscape,
     resolveTransactionsEscapeAction,
     type TransactionsEscapeSnapshot,
 } from '@/app/components/lawyer/TransactionsThreading/transactionsEscapeStack';
@@ -32,6 +33,26 @@ describe('resolveTransactionsEscapeAction', () => {
                 details: { ...closedDetails, reportOpen: true, completeOpen: true },
             }),
         ).toBe('close-report');
+    });
+
+    it('يغلق حوار إكمال المهمة قبل حذفها', () => {
+        expect(
+            resolveTransactionsEscapeAction({
+                view: 'details',
+                listAddSheetOpen: false,
+                details: { ...closedDetails, taskCompleteOpen: true, taskDeleteOpen: true },
+            }),
+        ).toBe('close-task-delete');
+    });
+
+    it('يغلق حوار إكمال المهمة عند كونه الطبقة الأعمق', () => {
+        expect(
+            resolveTransactionsEscapeAction({
+                view: 'details',
+                listAddSheetOpen: false,
+                details: { ...closedDetails, taskCompleteOpen: true },
+            }),
+        ).toBe('close-task-complete');
     });
 
     it('يغلق حوار حذف المهمة قبل تعديلها', () => {
@@ -73,6 +94,26 @@ describe('resolveTransactionsEscapeAction', () => {
         ).toBe('back-to-list');
     });
 
+        it('يغلق حوار حذف المستمسك قبل ورقة إضافته', () => {
+        expect(
+            resolveTransactionsEscapeAction({
+                view: 'details',
+                listAddSheetOpen: false,
+                details: { ...closedDetails, addDocumentSheetOpen: true, deleteDocumentOpen: true },
+            }),
+        ).toBe('close-delete-document');
+    });
+
+    it('يغلق ورقة إضافة المستمسك قبل ورقة إضافة المهمة', () => {
+        expect(
+            resolveTransactionsEscapeAction({
+                view: 'details',
+                listAddSheetOpen: false,
+                details: { ...closedDetails, addDocumentSheetOpen: true, addTaskSheetOpen: true },
+            }),
+        ).toBe('close-add-document');
+    });
+
     it('يخرج من مركز المعاملات من القائمة', () => {
         expect(resolveTransactionsEscapeAction(listBase)).toBe('exit-hub');
     });
@@ -92,6 +133,30 @@ describe('applyTransactionsEscapeAction', () => {
 
         expect(onCloseListAddSheet).toHaveBeenCalledTimes(1);
         expect(onBack).not.toHaveBeenCalled();
+    });
+
+    it('يغلق حوار إكمال المهمة عبر apply', () => {
+        const onCloseDetailsOverlay = vi.fn();
+
+        applyTransactionsEscapeAction('close-task-complete', {
+            onBack: vi.fn(),
+            onCloseListAddSheet: vi.fn(),
+            onBackToList: vi.fn(),
+            onCloseDetailsOverlay,
+        });
+
+        expect(onCloseDetailsOverlay).toHaveBeenCalledWith({ taskCompleteOpen: false });
+    });
+
+        it('يغلق ورقة المستمسك عبر apply', () => {
+        const onCloseDetailsOverlay = vi.fn();
+        applyTransactionsEscapeAction('close-add-document', {
+            onBack: vi.fn(),
+            onCloseListAddSheet: vi.fn(),
+            onBackToList: vi.fn(),
+            onCloseDetailsOverlay,
+        });
+        expect(onCloseDetailsOverlay).toHaveBeenCalledWith({ addDocumentSheetOpen: false });
     });
 
     it('يغلق مشاركة الدليل عبر apply', () => {
@@ -118,5 +183,15 @@ describe('applyTransactionsEscapeAction', () => {
         });
 
         expect(onBack).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('isSameTransactionsDetailsEscape', () => {
+    it('يرفض null ولا يعيد رسم لقطة مطابقة', () => {
+        expect(isSameTransactionsDetailsEscape(null, closedDetails)).toBe(false);
+        expect(isSameTransactionsDetailsEscape(closedDetails, closedDetails)).toBe(true);
+        expect(
+            isSameTransactionsDetailsEscape(closedDetails, { ...closedDetails, reportOpen: true }),
+        ).toBe(false);
     });
 });

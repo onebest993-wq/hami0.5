@@ -1,9 +1,8 @@
-import React, { memo, useMemo, type ElementType } from 'react';
-import { Archive, Trash2 } from '@/app/components/ui/lucideIcons';
+import React, { memo, useMemo } from 'react';
 import { HighlightedText } from '@/app/components/lawyer/LawyerShared';
 import type { GlobalSearchEntry } from '@/app/services/globalSearchIndex';
 import { SEARCH_CATEGORY_LABELS } from '@/app/services/globalSearchIndex';
-import { globalSearchOptionId } from '@/app/components/lawyer/GlobalSearchOverlay/constants';
+import { globalSearchOptionId } from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchA11yIds';
 import { SEARCH_LIFECYCLE_LABELS } from '@/app/services/searchLifecycle';
 import { sanitizeSearchDisplayText } from '@/app/services/search/searchDisplayText';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
@@ -12,20 +11,18 @@ import { buildPinFromSearchEntry } from '@/app/workspace/buildPinFromSearchEntry
 export interface ResultRowProps {
     entry: GlobalSearchEntry;
     query: string;
-    onClick: () => void;
+    onPick: (entry: GlobalSearchEntry) => void;
     pinItem: ReturnType<typeof buildPinFromSearchEntry>;
     relatedLinkCount: number;
     resultIndex: number;
     active: boolean;
     onActivate: (index: number) => void;
-    icon?: ElementType;
-    accent?: string;
 }
 
 export const ResultRow = memo(function ResultRow({
     entry,
     query,
-    onClick,
+    onPick,
     pinItem,
     relatedLinkCount,
     resultIndex,
@@ -46,70 +43,67 @@ export const ResultRow = memo(function ResultRow({
     return (
         <div
             role="presentation"
-            className={`hami-gs-result-card ${active ? 'hami-gs-result-card--active' : 'hover:bg-white/[0.03]'}`}
+            className={`hami-gs-result-card ${active ? 'hami-gs-result-card--active' : ''}`}
         >
             <button
                 type="button"
                 role="option"
                 id={globalSearchOptionId(resultIndex)}
-                onClick={onClick}
+                onClick={() => onPick(entry)}
                 onMouseEnter={() => onActivate(resultIndex)}
                 data-search-result-index={resultIndex}
                 data-testid={`global-search-result-${resultIndex}`}
                 data-lifecycle={lifecycle}
                 tabIndex={active ? 0 : -1}
                 aria-selected={active}
-                className="flex-1 min-w-0 text-right group outline-none py-3 px-3 touch-manipulation"
+                className="flex-1 min-h-[44px] min-w-0 text-right outline-none py-2 px-2.5 touch-manipulation"
             >
-                <div className="flex items-center gap-2 justify-between min-w-0">
-                    <span className="text-[10px] text-white/30 font-bold shrink-0 tracking-wide">
-                        {categoryLabel}
-                    </span>
-                    <div className="flex items-center gap-1.5 min-w-0 justify-end">
-                        {isArchived ? (
-                            <span
-                                className="inline-flex items-center gap-1 min-h-[22px] px-2 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-200 border border-amber-400/30 shrink-0"
-                                data-testid="global-search-lifecycle-archived"
-                            >
-                                <Archive size={11} strokeWidth={2.3} aria-hidden />
-                                {SEARCH_LIFECYCLE_LABELS.archived}
-                            </span>
-                        ) : null}
-                        {isTrashed ? (
-                            <span
-                                className="inline-flex items-center gap-1 min-h-[22px] px-2 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-200 border border-rose-400/30 shrink-0"
-                                data-testid="global-search-lifecycle-trash"
-                            >
-                                <Trash2 size={11} strokeWidth={2.3} aria-hidden />
-                                {SEARCH_LIFECYCLE_LABELS.deleted}
-                            </span>
-                        ) : null}
-                        <p
-                            className={`text-[15px] font-bold truncate min-w-0 ${
-                                active ? 'text-[#E6C673]' : 'text-white/95 group-hover:text-[#E6C673]/90'
-                            }`}
+                <div className="flex items-center gap-2 justify-end min-w-0">
+                    {isArchived ? (
+                        <span
+                            className="text-[10px] font-bold text-amber-200/90 shrink-0"
+                            data-testid="global-search-lifecycle-archived"
                         >
-                            <HighlightedText text={title} query={query} />
-                        </p>
-                    </div>
-                </div>
-                {subtitle ? (
-                    <p className="text-[11px] text-white/42 mt-1 truncate leading-relaxed">
-                        <HighlightedText text={subtitle} query={query} />
+                            {SEARCH_LIFECYCLE_LABELS.archived}
+                        </span>
+                    ) : null}
+                    {isTrashed ? (
+                        <span
+                            className="text-[10px] font-bold text-rose-200/90 shrink-0"
+                            data-testid="global-search-lifecycle-trash"
+                        >
+                            {SEARCH_LIFECYCLE_LABELS.deleted}
+                        </span>
+                    ) : null}
+                    <p
+                        className={`text-[14px] font-semibold truncate min-w-0 ${
+                            active ? 'text-[#E6C673]' : 'text-white/95'
+                        }`}
+                    >
+                        <HighlightedText text={title} query={query} />
                     </p>
-                ) : null}
+                </div>
+                <p className="text-[11px] text-white/38 mt-0.5 truncate">
+                    {categoryLabel}
+                    {subtitle ? (
+                        <>
+                            {' · '}
+                            <HighlightedText text={subtitle} query={query} />
+                        </>
+                    ) : null}
+                </p>
                 {snippet ? (
-                    <p className="text-[12px] text-white/55 mt-1.5 line-clamp-2 leading-relaxed">
+                    <p className="text-[11px] text-white/48 mt-0.5 line-clamp-1">
                         <HighlightedText text={snippet} query={query} />
                     </p>
                 ) : null}
             </button>
             {pinItem ? (
-                <div className="shrink-0 flex items-center pe-1.5" onClick={(e) => e.stopPropagation()}>
+                <div className="shrink-0 flex items-center pe-1" onClick={(e) => e.stopPropagation()}>
                     <WorkspacePinButton
                         item={pinItem}
                         relatedLinkCount={relatedLinkCount}
-                        className="!min-w-[40px] !min-h-[40px] !w-10 !h-10 touch-manipulation opacity-70 hover:opacity-100"
+                        className="!min-w-[44px] !min-h-[44px] !w-11 !h-11 touch-manipulation opacity-65"
                         size={13}
                     />
                 </div>

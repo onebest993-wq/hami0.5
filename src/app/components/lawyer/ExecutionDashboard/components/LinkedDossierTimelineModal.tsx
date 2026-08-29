@@ -1,13 +1,18 @@
 import React, { useMemo } from 'react';
-import { X, Clock, Calendar, FileText, User } from '@/app/components/ui/lucideIcons';
-import { storageCache } from '@/app/utils/storageCache';
-import { EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
+import { X } from '@/app/components/ui/icons/X';
+import { Clock } from '@/app/components/ui/icons/Clock';
+import { Calendar } from '@/app/components/ui/icons/Calendar';
+import { FileText } from '@/app/components/ui/icons/FileText';
+import { User } from '@/app/components/ui/icons/User';
+import { loadExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
+import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import {
     EXEC_MODAL_BACKDROP_SAFE_PAD,
     EXEC_MODAL_CLOSE_BTN_CLASS,
     EXEC_MODAL_EDIT_SHELL_MAX,
     EXEC_MODAL_TOUCH_TARGET,
 } from '../executionModalMobileShell';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 
 interface LinkedDossierTimelineModalProps {
     dossier: {
@@ -19,6 +24,16 @@ interface LinkedDossierTimelineModalProps {
         linkToken?: string;
     };
     onClose: () => void;
+}
+
+type LinkedTimelineEvent = TimelineEvent & { createdAt?: string };
+
+type StoredExecutionFileLite = Pick<ExecutionFile, 'id'> & {
+    timelineEvents?: LinkedTimelineEvent[];
+};
+
+function isStoredExecutionFileLite(value: unknown): value is StoredExecutionFileLite {
+    return Boolean(value) && typeof value === 'object' && 'id' in (value as object);
 }
 
 const timelineTypeIcon: Record<string, React.ReactNode> = {
@@ -34,33 +49,39 @@ const timelineTypeColor: Record<string, string> = {
 };
 
 export function LinkedDossierTimelineModal({ dossier, onClose }: LinkedDossierTimelineModalProps) {
+    useBodyScrollLock(true);
+
     const { timelineEvents, hasLocalFile } = useMemo(() => {
         try {
-            const cached = storageCache.get(EXECUTION_FILES_STORAGE_KEY);
-            const allFiles: any[] = Array.isArray(cached) ? cached : [];
-            const linkedFile = allFiles.find((f: any) => String(f.id) === dossier.linkedId);
+            const cached = loadExecutionFilesRaw();
+            const allFiles: StoredExecutionFileLite[] = Array.isArray(cached)
+                ? cached.filter(isStoredExecutionFileLite)
+                : [];
+            const linkedFile = allFiles.find((f) => String(f.id) === dossier.linkedId);
             if (linkedFile?.timelineEvents && Array.isArray(linkedFile.timelineEvents)) {
                 return {
                     hasLocalFile: true,
                     timelineEvents: linkedFile.timelineEvents.slice().sort(
-                    (a: any, b: any) => new Date(b.createdAt || b.date || 0).getTime() - new Date(a.createdAt || a.date || 0).getTime()
+                        (a, b) =>
+                            new Date(b.createdAt || b.date || 0).getTime() -
+                            new Date(a.createdAt || a.date || 0).getTime()
                     ),
                 };
             }
-            return { hasLocalFile: Boolean(linkedFile), timelineEvents: [] as any[] };
+            return { hasLocalFile: Boolean(linkedFile), timelineEvents: [] as LinkedTimelineEvent[] };
         } catch {
-            return { hasLocalFile: false, timelineEvents: [] as any[] };
+            return { hasLocalFile: false, timelineEvents: [] as LinkedTimelineEvent[] };
         }
     }, [dossier.linkedId]);
 
     return (
         <div
-            className={`fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
+            className={`fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
             onClick={onClose}
             role="presentation"
         >
             <div
-                className={`w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-slate-900 p-6 shadow-2xl ${EXEC_MODAL_EDIT_SHELL_MAX}`}
+                className={`w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-slate-900 p-6 shadow-lg ${EXEC_MODAL_EDIT_SHELL_MAX}`}
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="mb-5 flex items-center justify-between">
@@ -116,7 +137,7 @@ export function LinkedDossierTimelineModal({ dossier, onClose }: LinkedDossierTi
                     </div>
                 ) : (
                     <div className="relative space-y-2">
-                        {timelineEvents.map((event: any, idx: number) => {
+                        {timelineEvents.map((event, idx) => {
                             const icon = timelineTypeIcon[event.type] || <Calendar size={14} />;
                             const color = timelineTypeColor[event.type] || timelineTypeColor.system;
                             return (

@@ -28,7 +28,7 @@ function stubConflict(
 }
 
 describe('resolveScheduleConflictAlertBorderClass', () => {
-    it('إثقال فقط — إطار برتقالي', () => {
+    it('إثقال فقط — إطار ذهبي', () => {
         expect(
             resolveScheduleConflictAlertBorderClass(
                 stubConflict({ isOverloaded: true }),
@@ -36,7 +36,7 @@ describe('resolveScheduleConflictAlertBorderClass', () => {
         ).toBe(RADAR_ALERT_BORDER_OVERLOAD);
     });
 
-    it('تعارض مواقع — إطار بنفسجي', () => {
+    it('تعارض مواقع — إطار ذهبي خفيف', () => {
         expect(
             resolveScheduleConflictAlertBorderClass(
                 stubConflict({ hasLocationMismatch: true }),

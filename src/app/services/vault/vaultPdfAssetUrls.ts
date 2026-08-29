@@ -1,44 +1,30 @@
-/** إصدار pdfjs-dist المثبّت — يُطابق package.json */
-export const PDFJS_DIST_VERSION = '4.10.38';
+/**
+ * أصول pdf.js تُقدَّم من أصل التطبيق حصراً.
+ *
+ * كان الإنتاج يجلب `pdf.worker` من cdn.jsdelivr.net افتراضياً: شيفرة طرف ثالث
+ * تُنفَّذ داخل أصلنا وتمرّ عليها مستندات الموكّلين، بلا SRI (وهي غير ممكنة على
+ * العمّال أصلاً). أي اختراق للـCDN أو اختطاف DNS يعني تنفيذاً عن بُعد فوق
+ * إضابير محامٍ. الملفات محلية ولا تُجلب إلا عند فتح PDF، فالمقابل معدوم.
+ */
 
-const PDFJS_CDN_BASE = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_DIST_VERSION}`;
-
-function envTrue(value: string | undefined): boolean {
-    return String(value ?? '').trim().toLowerCase() === 'true';
+/** يُشحن standard_fonts إلا إذا استُثني صراحةً لتصغير حجم النشر */
+function shipsStandardFonts(): boolean {
+    return import.meta.env.VITE_PDF_MINIMAL_ASSETS !== 'true';
 }
 
-/** حزمة محلية كاملة (Capacitor / نشر بدون CDN) */
-export function shouldBundlePdfAssets(): boolean {
-    return envTrue(import.meta.env.VITE_PDF_BUNDLE_ASSETS);
-}
-
-/** جلب worker/cmaps من CDN — افتراضي في الإنتاج ما لم يُفعَّل BUNDLE */
-export function shouldUsePdfCdn(): boolean {
-    if (shouldBundlePdfAssets()) return false;
-    const flag = String(import.meta.env.VITE_PDF_CDN ?? '').trim().toLowerCase();
-    if (flag === 'true') return true;
-    if (flag === 'false') return false;
-    return import.meta.env.PROD;
-}
+/**
+ * خرائط CJK (~1.1MB) تُحذف من نشر أندرويد المصغّر.
+ * PDF عربي بخط مضمّن يبقى صالحاً؛ مستند CID صيني/ياباني قد يفقد خريطة الحروف.
+ */
 
 export function resolvePdfJsWorkerUrl(): string {
-    if (shouldUsePdfCdn()) {
-        return `${PDFJS_CDN_BASE}/build/pdf.worker.min.mjs`;
-    }
     return '/pdfjs-assets/pdf.worker.min.mjs';
 }
 
 export function resolvePdfCmapUrl(): string {
-    if (shouldUsePdfCdn()) {
-        return `${PDFJS_CDN_BASE}/cmaps/`;
-    }
     return '/pdfjs-assets/cmaps/';
 }
 
 export function resolvePdfStandardFontUrl(): string | undefined {
-    if (import.meta.env.VITE_PDF_MINIMAL_ASSETS === 'true') return undefined;
-    if (shouldUsePdfCdn()) {
-        return `${PDFJS_CDN_BASE}/standard_fonts/`;
-    }
-    return '/pdfjs-assets/standard_fonts/';
+    return shipsStandardFonts() ? '/pdfjs-assets/standard_fonts/' : undefined;
 }

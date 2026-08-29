@@ -1,5 +1,11 @@
 import React from 'react';
-import { Scale, ShieldCheck, ShieldX, Clock, RotateCcw, Ban, Archive } from '@/app/components/ui/lucideIcons';
+import { Scale } from '@/app/components/ui/icons/Scale';
+import { ShieldCheck } from '@/app/components/ui/icons/ShieldCheck';
+import { ShieldX } from '@/app/components/ui/icons/ShieldX';
+import { Clock } from '@/app/components/ui/icons/Clock';
+import { RotateCcw } from '@/app/components/ui/icons/RotateCcw';
+import { Ban } from '@/app/components/ui/icons/Ban';
+import { Archive } from '@/app/components/ui/icons/Archive';
 import type { DecisionCardEnforcementVisual } from './decisionCardGlassShell';
 import type { DecisionHubStatusPillTone, ExecutorRequestFollowupBlock } from './utils';
 import type { Decision } from './types';
@@ -34,36 +40,36 @@ export const DECISION_HUB_PILL_CLASS: Record<DecisionHubStatusPillTone, string> 
 };
 
 export const DECISION_HUB_PILL_BASE =
-    'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[9px] font-bold backdrop-blur-md transition-colors';
+    'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[9px] font-bold backdrop-blur-sm transition-colors';
 
 export const DECISION_ACTION_BTN_PRIMARY =
-    'w-full rounded-xl border border-[#E6C673]/25 bg-[#E6C673]/[0.08] px-3 py-2 text-center text-[11px] font-bold text-[#E6C673] backdrop-blur-md transition-all duration-200 hover:border-[#E6C673]/40 hover:bg-[#E6C673]/[0.14] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/30 disabled:pointer-events-none disabled:opacity-40';
+    'w-full rounded-xl border border-[#E6C673]/25 bg-[#E6C673]/[0.08] px-3 py-2 text-center text-[11px] font-bold text-[#E6C673] backdrop-blur-sm transition-all duration-200 hover:border-[#E6C673]/40 hover:bg-[#E6C673]/[0.14] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/30 disabled:pointer-events-none disabled:opacity-40';
 
 export const DECISION_ACTION_BTN_SECONDARY =
-    'w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-center text-[11px] font-semibold text-slate-200 backdrop-blur-md transition-all duration-200 hover:border-white/18 hover:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/15 disabled:pointer-events-none disabled:opacity-40';
+    'w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-center text-[11px] font-semibold text-slate-200 backdrop-blur-sm transition-all duration-200 hover:border-white/18 hover:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/15 disabled:pointer-events-none disabled:opacity-40';
 
 /** صف أفقي موحّد لأزرار الطعن الأولي (تظلم / تمييز / استغناء) */
 export const DECISION_APPEAL_TOOLBAR_ROW =
     'flex w-full min-w-0 flex-row-reverse items-stretch gap-1.5';
 
 export const DECISION_APPEAL_TOOLBAR_BTN_PRIMARY =
-    'flex min-h-[34px] min-w-0 flex-1 basis-0 items-center justify-center rounded-xl border border-[#E6C673]/25 bg-[#E6C673]/[0.08] px-2 py-1.5 text-center text-[10px] font-bold leading-snug text-[#E6C673] backdrop-blur-md transition-all duration-200 hover:border-[#E6C673]/40 hover:bg-[#E6C673]/[0.14] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/30 disabled:pointer-events-none disabled:opacity-40';
+    'flex min-h-[34px] min-w-0 flex-1 basis-0 items-center justify-center rounded-xl border border-[#E6C673]/25 bg-[#E6C673]/[0.08] px-2 py-1.5 text-center text-[10px] font-bold leading-snug text-[#E6C673] backdrop-blur-sm transition-all duration-200 hover:border-[#E6C673]/40 hover:bg-[#E6C673]/[0.14] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/30 disabled:pointer-events-none disabled:opacity-40';
 
 export const DECISION_APPEAL_TOOLBAR_BTN_SECONDARY =
-    'flex min-h-[34px] min-w-0 flex-1 basis-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-2 py-1.5 text-center text-[10px] font-semibold leading-snug text-slate-200 backdrop-blur-md transition-all duration-200 hover:border-white/18 hover:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/15 disabled:pointer-events-none disabled:opacity-40';
+    'flex min-h-[34px] min-w-0 flex-1 basis-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-2 py-1.5 text-center text-[10px] font-semibold leading-snug text-slate-200 backdrop-blur-sm transition-all duration-200 hover:border-white/18 hover:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/15 disabled:pointer-events-none disabled:opacity-40';
 
 /** زر إشعار — المدين طعن بالقرار */
 export const DECISION_BTN_DEBTOR_APPEAL_NOTICE =
-    'w-full rounded-xl border border-sky-400/25 bg-sky-500/[0.08] px-3 py-2.5 text-center text-[11px] font-bold text-sky-100 backdrop-blur-md transition-all duration-200 hover:border-sky-400/40 hover:bg-sky-500/[0.14] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/30 disabled:pointer-events-none disabled:opacity-40';
+    'w-full rounded-xl border border-sky-400/25 bg-sky-500/[0.08] px-3 py-2.5 text-center text-[11px] font-bold text-sky-100 backdrop-blur-sm transition-all duration-200 hover:border-sky-400/40 hover:bg-sky-500/[0.14] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/30 disabled:pointer-events-none disabled:opacity-40';
 
 export const DECISION_BTN_GRIEVANCE_ACCEPT =
-    'rounded-xl border border-emerald-400/25 bg-emerald-500/[0.08] px-4 py-2 text-[11px] font-bold text-emerald-100 backdrop-blur-md transition-all duration-200 hover:border-emerald-400/40 hover:bg-emerald-500/[0.14] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/30 disabled:pointer-events-none disabled:opacity-40';
+    'rounded-xl border border-emerald-400/25 bg-emerald-500/[0.08] px-4 py-2 text-[11px] font-bold text-emerald-100 backdrop-blur-sm transition-all duration-200 hover:border-emerald-400/40 hover:bg-emerald-500/[0.14] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/30 disabled:pointer-events-none disabled:opacity-40';
 
 export const DECISION_BTN_GRIEVANCE_REJECT =
-    'rounded-xl border border-rose-400/25 bg-rose-500/[0.08] px-4 py-2 text-[11px] font-bold text-rose-100 backdrop-blur-md transition-all duration-200 hover:border-rose-400/40 hover:bg-rose-500/[0.14] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/30 disabled:pointer-events-none disabled:opacity-40';
+    'rounded-xl border border-rose-400/25 bg-rose-500/[0.08] px-4 py-2 text-[11px] font-bold text-rose-100 backdrop-blur-sm transition-all duration-200 hover:border-rose-400/40 hover:bg-rose-500/[0.14] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/30 disabled:pointer-events-none disabled:opacity-40';
 
 export const DECISION_NOTICE_GLASS =
-    'rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-[11px] font-medium leading-relaxed text-slate-200/95 backdrop-blur-md';
+    'rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-[11px] font-medium leading-relaxed text-slate-200/95 backdrop-blur-sm';
 
 export const DECISION_META_CHIP =
     'inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] text-slate-300 backdrop-blur-sm';
@@ -160,7 +166,7 @@ export function AppealResultChip({
     })();
     return (
         <span
-            className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-[10px] font-semibold backdrop-blur-md ${tone}`}
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${tone}`}
         >
             <Scale className="h-3.5 w-3.5 opacity-70" />
             <span>{result}</span>

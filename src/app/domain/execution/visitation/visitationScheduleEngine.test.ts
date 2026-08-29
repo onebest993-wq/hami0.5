@@ -19,9 +19,9 @@ import {
     resolveVisitationCalendarCellToneForDate,
     summarizeVisitationAppointment,
     VISITATION_CALENDAR_WINDOW_MONTHS,
-    describeVisitationSessionTiming,
-    computeSleepoverReturnYmd,
     formatDateLongAr,
+    addCalendarDaysToYmd,
+    describeVisitationSessionTiming,
 } from './visitationScheduleEngine';
 import type { VisitationScheduleConfig } from '@/app/types/visitationSchedule';
 
@@ -204,7 +204,7 @@ describe('visitationScheduleEngine', () => {
     });
 
     it('computes sleepover return date after pickup plus nights', () => {
-        expect(computeSleepoverReturnYmd('2026-08-18', 4)).toBe('2026-08-22');
+        expect(addCalendarDaysToYmd('2026-08-18', 4)).toBe('2026-08-22');
         expect(formatDateLongAr('2026-08-18')).toContain('الثلاثاء');
         expect(formatDateLongAr('2026-08-18')).toContain('آب');
     });

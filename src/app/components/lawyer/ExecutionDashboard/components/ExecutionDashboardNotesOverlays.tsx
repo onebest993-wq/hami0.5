@@ -1,40 +1,27 @@
-// @ts-nocheck
-
 import React, { Suspense } from 'react';
-
+import { LazyExecutionNotesAndAppointmentModals } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistryOverlays';
+import type { ExecutionNotesAndAppointmentModalsProps } from './ExecutionNotesAndAppointmentModals';
 import {
+    ExecutionAppointmentInstantFrame,
+    ExecutionNotesInstantFrame,
+} from './executionOverlayInstantPresets';
 
-    EXEC_OVERLAY_LAZY_FALLBACK,
-
-    LazyExecutionNotesAndAppointmentModals,
-
-} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell';
-
-
-
-export type ExecutionDashboardNotesOverlaysProps = Record<string, unknown>;
-
-
+export type ExecutionDashboardNotesOverlaysProps = ExecutionNotesAndAppointmentModalsProps;
 
 /** ملاحظات/مواعيد — lazy + prefetch عند hover شبكة الأدوات */
-
 export function ExecutionDashboardNotesOverlays(props: ExecutionDashboardNotesOverlaysProps) {
-
     const { showNotesModal, showAppointmentModal } = props;
-
     if (!showNotesModal && !showAppointmentModal) return null;
 
-
-
-    return (
-
-        <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
-
-            <LazyExecutionNotesAndAppointmentModals {...props} />
-
-        </Suspense>
-
+    const fallback = showNotesModal ? (
+        <ExecutionNotesInstantFrame onClose={props.onCloseNotesModal} />
+    ) : (
+        <ExecutionAppointmentInstantFrame onClose={props.onCloseAppointmentModal} />
     );
 
+    return (
+        <Suspense fallback={fallback}>
+            <LazyExecutionNotesAndAppointmentModals {...props} />
+        </Suspense>
+    );
 }
-

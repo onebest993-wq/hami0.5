@@ -34,7 +34,7 @@ describe('useHomeHubOverlaySheet', () => {
     it('يسجّل الواجهة في مكدس الرجوع عند الفتح', () => {
         const onClose = vi.fn();
         const { rerender } = renderHook(
-            ({ open }) => useHomeHubOverlaySheet(open, onClose, 'home-hub-secretary-more'),
+            ({ open }) => useHomeHubOverlaySheet(open, onClose, 'home-hub-alerts-more'),
             { initialProps: { open: false } },
         );
 
@@ -46,7 +46,7 @@ describe('useHomeHubOverlaySheet', () => {
     it('requestBack يغلق الواجهة المسجّلة', () => {
         const onClose = vi.fn();
         const { result, rerender } = renderHook(
-            ({ open }) => useHomeHubOverlaySheet(open, onClose, 'home-hub-secretary-more'),
+            ({ open }) => useHomeHubOverlaySheet(open, onClose, 'home-hub-alerts-more'),
             { initialProps: { open: true } },
         );
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Ruler } from '@/app/components/ui/lucideIcons';
+import { Ruler } from '@/app/components/ui/icons/Ruler';
 import type { InlineActionGateKey } from '../types';
 import { useExecutorDecisions } from '@/app/components/lawyer/ExecutionDashboard/hooks/useExecutorDecisions';
 import {

@@ -50,7 +50,20 @@ html[data-hami-initial-boot] .hami-dashboard-tab-reveal.is-active {
     visibility: hidden;
 }
 
-.hami-dashboard-tab-preserve:not(.hami-dashboard-tab-preserve--active) * {
+/*
+ * قفل النقر على keep-alive المخفي.
+ * الملف وهو مفتوح بالـ snap يُستثنى — لا * { auto !important } على الأحفاد:
+ * ذلك كان يفعّل طبقات الزخرفة (rim/مادة/ضباب) فوق النص ويمنع لمس الهاتف.
+ */
+html:not([data-hami-profile-open='1'])
+    .hami-dashboard-tab-preserve[data-testid='lawyer-dashboard-profile-surface']:not(
+        .hami-dashboard-tab-preserve--active
+    )
+    *,
+.hami-dashboard-tab-preserve:not([data-testid='lawyer-dashboard-profile-surface']):not(
+        .hami-dashboard-tab-preserve--active
+    )
+    * {
     pointer-events: none !important;
 }
 
@@ -106,23 +119,45 @@ html[data-hami-profile-open='1'] .hami-dashboard-home-stack-cover * {
     pointer-events: none !important;
 }
 
+/* قفل انتقالات الحاوية أثناء الفتح — يمنع إحساس الصعود/النزول من transition متأخر */
 html[data-hami-profile-open='1'] [data-testid='lawyer-dashboard-profile-surface'] {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100dvh !important;
     opacity: 1 !important;
     visibility: visible !important;
     pointer-events: auto !important;
-    z-index: 20 !important;
+    z-index: 200 !important;
+    background-color: var(--profile-page-bg, #020408) !important;
 }
 
-html[data-hami-profile-open='1'] [data-testid='lawyer-dashboard-profile-surface'],
-html[data-hami-profile-open='1'] [data-testid='lawyer-dashboard-profile-surface'] * {
-    pointer-events: auto !important;
+html[data-hami-profile-open='1'] [data-hami-dashboard-tab-stack] {
+    z-index: 200 !important;
 }
 
-html[data-hami-profile-open='1'] header.fixed.top-0,
-html[data-hami-profile-open='1'] header[data-header-visible] {
+html[data-hami-profile-open='1'] [data-lawyer-profile-root] {
+    transform: none;
+    opacity: 1;
+    transition: none;
+}
+
+html[data-hami-profile-closing='1'] [data-lawyer-profile-root] {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+    transition:
+        transform 170ms cubic-bezier(0.4, 0, 1, 1),
+        opacity 150ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+html[data-hami-profile-open='1'] header.fixed.bottom-0,
+html[data-hami-profile-open='1'] header[data-header-visible],
+html[data-hami-profile-open='1'] .hami-lawyer-header {
     opacity: 0 !important;
     visibility: hidden !important;
     pointer-events: none !important;
+    z-index: 0 !important;
 }
 
 html[data-hami-profile-open='1'] [data-lawyer-profile-root] {
@@ -139,8 +174,42 @@ html[data-hami-profile-open='1'] [data-testid='lawyer-profile-back'] {
     z-index: 210 !important;
 }
 
+html[data-hami-profile-closing='1'] [data-testid='lawyer-dashboard-profile-surface'] {
+    opacity: 0 !important;
+    visibility: visible !important;
+    pointer-events: none !important;
+    z-index: 200 !important;
+    transition: opacity 150ms cubic-bezier(0.4, 0, 1, 1) !important;
+}
+
+html[data-hami-profile-back-locked='1'] [data-testid='lawyer-profile-back'] {
+    pointer-events: none !important;
+}
+
+html[data-hami-profile-closing='1'] [data-testid='lawyer-dashboard-profile-surface'] * {
+    pointer-events: none !important;
+}
+
+html[data-hami-profile-closing='1'] .hami-dashboard-home-stack-cover {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 6 !important;
+}
+
+html[data-hami-profile-closing='1'] .hami-dashboard-home-stack-cover * {
+    pointer-events: auto !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .hami-dashboard-tab-reveal.is-active {
         animation-duration: 0.12s;
+    }
+
+    html[data-hami-profile-open='1'] [data-lawyer-profile-root],
+    html[data-hami-profile-closing='1'] [data-lawyer-profile-root],
+    html[data-hami-profile-closing='1'] [data-testid='lawyer-dashboard-profile-surface'] {
+        transition: none !important;
+        transform: none !important;
     }
 }

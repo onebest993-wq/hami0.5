@@ -2,6 +2,9 @@ import React, { useCallback, useRef, useState } from 'react';
 import type { ProfileCustomBlock } from '@/app/services/profile/profilePageCustomization';
 import { ImageBlockFramePanel } from './imageStudio/ImageBlockFramePanel';
 import { ImageBlockFocusPanel } from './imageStudio/ImageBlockFocusPanel';
+/** CSS لوحة الشكل/الحافة — مع chunk الاستوديو فقط (ليس فتح الملف الأول) */
+import '@/app/components/lawyer/RoyalLawyerProfile/profileImageStudioFx.css';
+import { isPrimaryDragPointer } from '@/app/components/lawyer/RoyalLawyerProfile/utils/profilePointerDrag';
 
 type ImageStudioPanel = 'frame' | 'focus';
 
@@ -52,7 +55,7 @@ export const ImageBlockStudioEditor = React.memo(function ImageBlockStudioEditor
                         className="profile-studio-panel-tab min-h-[44px] touch-manipulation"
                         style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
                         onPointerDown={(event) => {
-                            if (event.button !== 0) return;
+                            if (!isPrimaryDragPointer(event)) return;
                             event.stopPropagation();
                             /* لا preventDefault — على Android يمرّر click لاحقاً ويغلق الورقة */
                             if (event.pointerType === 'touch' || event.pointerType === 'pen') {

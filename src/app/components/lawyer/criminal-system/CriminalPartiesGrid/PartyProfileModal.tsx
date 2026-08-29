@@ -88,7 +88,7 @@ export function PartyProfileModal({
 
     return (
         <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.severance}>
-            <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden shadow-2xl">
+            <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden shadow-lg">
                 <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50 flex items-center justify-between gap-3">
                     <div className="text-white font-black text-sm">تفاصيل الشخص</div>
                     <div className="flex items-center gap-2">

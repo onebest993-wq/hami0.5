@@ -24,7 +24,7 @@ import { FollowupSectionLinkCheckbox } from '@/app/components/lawyer/execution/F
 import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,
-} from '@/app/components/lawyer/execution/executionModalStack';
+} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 import {
     expertCommitteeSizeLabelAr,
     readExpertCommitteeSize,

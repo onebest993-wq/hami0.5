@@ -49,6 +49,13 @@ describe('execution files persistence — owner scoped durability', () => {
         ]);
     });
 
+    it('bootstrap لا يقرأ كاش المفتاح العام بعد ربط المالك', () => {
+        bindExecutionFilesStorageOwner(owner);
+        storageCache.set(EXECUTION_FILES_STORAGE_KEY, [{ id: 'leaked-from-other' }]);
+        expect(readExecutionFilesBootstrap()).toEqual([]);
+        expect(loadExecutionFilesRaw()).toEqual([]);
+    });
+
     it('durable save writes owner index that survives hydrate cycle', async () => {
         bindExecutionFilesStorageOwner(owner);
         const { saveExecutionFilesRawDurable } = await import('@/app/utils/executionFilesStorage');

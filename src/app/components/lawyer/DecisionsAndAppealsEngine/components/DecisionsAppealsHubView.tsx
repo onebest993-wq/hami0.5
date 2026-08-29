@@ -1,5 +1,6 @@
 import React from 'react';
-import { Plus, Scale } from '@/app/components/ui/lucideIcons';
+import { Plus } from '@/app/components/ui/icons/Plus';
+import { Scale } from '@/app/components/ui/icons/Scale';
 import DecisionCard from './DecisionCard';
 import AppealWorkflowCard from './AppealWorkflowCard';
 import type { Decision } from '../types';
@@ -74,7 +75,7 @@ export type DecisionsAppealsHubViewProps = {
     appealsProponentFilter: AppealsHubProponentFilter;
     setAppealsProponentFilter: (f: AppealsHubProponentFilter) => void;
     decisionCardProps: Omit<DecisionCardProps, 'decision'>;
-    appealWorkflowCardProps: React.ComponentProps<typeof AppealWorkflowCard>;
+    appealWorkflowCardProps: Omit<React.ComponentProps<typeof AppealWorkflowCard>, 'decision'>;
 };
 
 export function DecisionsAppealsHubView(props: DecisionsAppealsHubViewProps) {
@@ -153,7 +154,7 @@ export function DecisionsAppealsHubView(props: DecisionsAppealsHubViewProps) {
                                     </div>
                                 ) : null}
                                 <div
-                                    className="flex flex-row-reverse gap-1.5 rounded-xl border border-white/10 bg-white/5 p-1.5 backdrop-blur-md"
+                                    className="flex flex-row-reverse gap-1.5 rounded-xl border border-white/10 bg-white/5 p-1.5 backdrop-blur-sm"
                                     role="tablist"
                                 >
                                     <HubTabButton

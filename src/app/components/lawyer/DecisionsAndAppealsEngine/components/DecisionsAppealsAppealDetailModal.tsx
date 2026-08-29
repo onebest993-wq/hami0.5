@@ -1,8 +1,8 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
-import { X } from '@/app/components/ui/lucideIcons';
-import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
+import { X } from '@/app/components/ui/icons/X';
+import { EXEC_MODAL_Z } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 import {
     formatCreditorPartyDeathSummaryAr,
     parseCreditorPartyDeathPayload,
@@ -33,7 +33,7 @@ export function DecisionsAppealsAppealDetailModal({
                                             animate={{ opacity: 1 }}
                                             exit={{ opacity: 0 }}
                                             transition={{ duration: 0.15 }}
-                                            className="fixed inset-0 flex items-center justify-center overflow-y-auto overscroll-contain bg-slate-950/55 p-4 backdrop-blur-2xl"
+                                            className="fixed inset-0 flex items-center justify-center overflow-y-auto overscroll-contain bg-slate-950/55 p-4 backdrop-blur-sm"
                                             style={{ zIndex: EXEC_MODAL_Z.nestedOverDecisions }}
                                             role="presentation"
                                             onClick={(e) => {
@@ -45,7 +45,7 @@ export function DecisionsAppealsAppealDetailModal({
                                                 animate={{ scale: 1, opacity: 1 }}
                                                 exit={{ scale: 0.94, opacity: 0 }}
                                                 transition={{ duration: 0.18 }}
-                                                className="my-auto flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-900/45 shadow-2xl backdrop-blur-2xl"
+                                                className="my-auto flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-900/45 shadow-lg backdrop-blur-sm"
                                                 onClick={(e) => e.stopPropagation()}
                                             >
                                                 <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 p-3">

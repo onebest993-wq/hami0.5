@@ -47,6 +47,31 @@ describe('useExecutionDashboardDebtorSummonsCoerciveHandlers', () => {
         expect(showToast).toHaveBeenCalledWith('مقفل', 'warning');
     });
 
+    it('handleEarnerSecureForcedAttendance persists flags + timeline', () => {
+        const persistExecutionMerge = vi.fn(() => true);
+        const showToast = vi.fn();
+        const { result } = renderHook(() =>
+            useExecutionDashboardDebtorSummonsCoerciveHandlers({
+                ...baseParams(),
+                persistExecutionMerge,
+                showToast,
+            }),
+        );
+
+        act(() => {
+            result.current.handleEarnerSecureForcedAttendance();
+        });
+
+        expect(persistExecutionMerge).toHaveBeenCalledWith(
+            expect.objectContaining({
+                forcedPathAttendanceSecured: true,
+                debtorForcedToAttend: true,
+                timelineEvents: expect.any(Array),
+            }),
+        );
+        expect(showToast).toHaveBeenCalledWith('تم تسجيل تأمين الإحضار', 'success');
+    });
+
     it('clearDebtorSummonsMarker no-ops without marker id', () => {
         const persistExecutionMerge = vi.fn();
         const { result } = renderHook(() =>

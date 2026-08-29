@@ -101,7 +101,7 @@ function buildPropertyRevertToStepIndex(p: SeizedProperty, targetIdx: number): S
     return next;
 }
 
-export function buildPropertyWorkflowRevertPatch(p: SeizedProperty): SeizedProperty | null {
+function buildPropertyWorkflowRevertPatch(p: SeizedProperty): SeizedProperty | null {
     const status = normalizePropertySeizureStatus(String(p.status || ''));
     const activeIdx = propertyWorkflowActiveStepIndex(status, p);
     if (activeIdx <= 0) return null;
@@ -127,7 +127,7 @@ function buildMovableRevertToStepIndex(m: SeizedMovable, targetIdx: number): Sei
     return next;
 }
 
-export function buildMovableWorkflowRevertPatch(m: SeizedMovable): SeizedMovable | null {
+function buildMovableWorkflowRevertPatch(m: SeizedMovable): SeizedMovable | null {
     const status = normalizePropertySeizureStatus(String(m.status || ''));
     const activeIdx = propertyWorkflowActiveStepIndex(status, m);
     if (activeIdx <= 0) return null;

@@ -122,14 +122,10 @@ localStorage.setItem('case-data', JSON.stringify(sensitiveData));
 
 ### 2. API Keys في Frontend
 
-**المشكلة:**
-```typescript
-// ⚠️ GEMINI_API_KEY قد يكون مرئياً في الـ bundle
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-```
+**المشكلة:** مفاتيح واجهات خارجية في الـ frontend bundle.
 
 **الحل الحالي:**
-- ✅ استخدام Proxy عبر Edge Functions
+- ✅ استخدام Proxy عبر Edge Functions / BFF
 - ✅ Rate Limiting في Backend
 - ⚠️ يُنصح باستخدام Proxy كامل للـ Production
 

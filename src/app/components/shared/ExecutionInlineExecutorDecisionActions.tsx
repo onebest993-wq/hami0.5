@@ -39,6 +39,7 @@ export function ExecutionInlineExecutorDecisionActions(props: {
                 outcome?: 'approved' | 'rejected';
                 personalCoerciveSubtype?: string;
                 storageExecutionId?: string;
+                decisionId?: string;
             } = { ok: false, outcome };
             try {
                 const rowCtx = resolveExecutorDecisionRowContext(executionId, decisionId);

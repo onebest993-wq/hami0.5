@@ -17,6 +17,8 @@ export const CRIMINAL_DOSSIER_TEST_IDS = {
     tabRequests: 'criminal-dashboard-tab-requests',
     tabStatements: 'criminal-dashboard-tab-statements',
     statementsPanel: 'criminal-statements-panel',
+    requestsPanel: 'criminal-requests-panel',
+    trackingPanel: 'criminal-tracking-panel',
     statementsAdd: 'criminal-statements-add',
     statementModal: 'criminal-statement-modal',
     statementGiverType: 'criminal-statement-giver-type',

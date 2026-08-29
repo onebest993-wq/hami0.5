@@ -5,6 +5,7 @@ vi.mock('../../security/wifeValidator.ts', () => ({
 }));
 
 import { POST } from './route.ts';
+import { getVerifiedTokenSubject } from '../../security/wifeValidator.ts';
 import { buildFakeJwt } from '@/app/security/__tests__/wifeRedTeamHelpers.ts';
 import { registerTokenSessionServer, resetStolenTokenServerForTests, detectStolenTokenServer } from '../../security/stolenTokenServer.ts';
 import {
@@ -18,9 +19,13 @@ import { resetCsrfServerStoreForTests } from '../../security/csrfServerStore.ts'
 describe('logout route', () => {
   beforeEach(() => {
     process.env.NODE_ENV = 'test';
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_ANON_KEY;
     resetCsrfServerStoreForTests();
     resetStolenTokenServerForTests();
     resetWifeSessionStoreForTests();
+    vi.mocked(getVerifiedTokenSubject).mockReset();
+    vi.mocked(getVerifiedTokenSubject).mockResolvedValue('logout-user');
   });
 
   it('clears WIFE and token registries for the subject on logout', async () => {
@@ -54,5 +59,29 @@ describe('logout route', () => {
     const postLogoutVerdict = await detectStolenTokenServer(token, 'device-logout-bb');
     expect(postLogoutVerdict.status).toBe('valid');
     expect(postLogoutVerdict.reason).toBe('first-seen');
+  });
+
+  it('يمسح كوكيز الجلسة حتى لو تعذّر إبطال السجلات', async () => {
+    vi.mocked(getVerifiedTokenSubject).mockRejectedValueOnce(new Error('store-unavailable'));
+    const token = buildFakeJwt({
+      sub: 'logout-user',
+      jti: 'logout-jti-2',
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    const response = await POST(
+      new Request('https://app.test/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          cookie: buildAccessSetCookie(token, true),
+          'x-forwarded-proto': 'https',
+        },
+      }),
+    );
+    expect(response.status).toBe(200);
+    const setCookies = response.headers.getSetCookie();
+    expect(setCookies.some((cookie) => cookie.includes('hami_access_token=') && cookie.includes('Max-Age=0'))).toBe(
+      true,
+    );
   });
 });

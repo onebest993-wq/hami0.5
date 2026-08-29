@@ -43,35 +43,12 @@ import {
     resolveCurrentJourneyNodeId,
 } from './stageJourneyRuntimeCore';
 import {
-    isLockedInvestigationTimelineEvent,
-    INVESTIGATION_LOCK_MUTATION_ERROR,
-} from './criminalStageUtils';
-import {
     CASE_IDENTITY_CORRECTION_CATEGORY,
 } from './caseIdentityCorrectionEngine';
 import {
     stampProceduralNodeId,
 } from './caseTransformShared';
 
-export function assertInvestigationTimelineMutable(target: CriminalCase, event?: TimelineEvent, eventId?: string): void {
-    if (!target.isInvestigationLocked) return;
-    const list = Array.isArray(target.timelineEvents) ? target.timelineEvents : [];
-    const hit =
-        event ??
-        (eventId ? list.find((e) => e.id === eventId) : undefined);
-    if (!hit) {
-        const category = String((event as { category?: string } | undefined)?.category ?? '').trim();
-        if (category && isLockedInvestigationTimelineEvent(category, String((event as { type?: string })?.type ?? ''))) {
-            throw new Error(INVESTIGATION_LOCK_MUTATION_ERROR);
-        }
-        return;
-    }
-    if (isLockedInvestigationTimelineEvent(String(hit.category ?? ''), String(hit.type ?? ''))) {
-        throw new Error(INVESTIGATION_LOCK_MUTATION_ERROR);
-    }
-}
-
-/** يقرأ mergedCaseIds مع ترحيل mergedFromCaseIds. */
 export function cassationAppealMutationBlocked(target: CriminalCase): boolean {
     return isMergedDossierCase(target);
 }

@@ -1,0 +1,20 @@
+@import './theme.css';
+@import 'tailwindcss' source(none);
+
+/**
+ * Tailwind لأقسام اللوحة الشائعة (منتدى / مستودع / إعدادات / ملف / بحث…) —
+ * يُحمَّل عند intent أو idle خفيف. الأضابير الثقيلة في deferred-features-dossiers.css.
+ */
+@source '../app/components/lawyer/SmartRepository/**';
+@source '../app/components/lawyer/CommunityScreen/**';
+@source '../app/components/lawyer/ArchivePortal/**';
+@source '../app/components/lawyer/HamiSettings/**';
+@source '../app/components/lawyer/SmartVaultModal/**';
+@source '../app/components/lawyer/GlobalSearchOverlay/**';
+@source '../app/components/lawyer/RoyalLawyerProfile/**';
+@source '../app/components/lawyer/LawyerNewCase/**';
+@source '../app/components/lawyer/TransactionsThreading/**';
+@source not '../app/**/*.test.{ts,tsx,js,jsx}';
+@source not '../app/**/__tests__/**';
+
+@plugin 'tailwindcss-animate';

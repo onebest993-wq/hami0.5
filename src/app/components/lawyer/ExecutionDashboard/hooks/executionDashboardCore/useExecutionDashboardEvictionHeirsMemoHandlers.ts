@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C Slice 18 — مذكرة إخبار الورثة + تاريخ التبليغ (تخلية) */
 import { useCallback } from 'react';
 import { EVICTION_TIMELINE_ACTION_IDS } from '@/app/utils/executionModuleStrategies';

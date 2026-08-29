@@ -1,4 +1,4 @@
-import { Clock } from '@/app/components/ui/lucideIcons';
+import { Clock } from '@/app/components/ui/icons/Clock';
 import type { CaseStage } from '../../../LawyerShared';
 import { shouldShowFirstInstancePleadingLockUi } from '../../smartFile/stageInit';
 import {
@@ -64,7 +64,7 @@ export function SmartFileAppealDeadlineBanner({
 
     return (
         <div
-            className={`w-full rounded-xl border backdrop-blur-xl px-3.5 py-3 mb-4 flex flex-wrap justify-between items-center gap-3 transition-all ${cardStyles}`}
+            className={`w-full rounded-xl border backdrop-blur-sm px-3.5 py-3 mb-4 flex flex-wrap justify-between items-center gap-3 transition-all ${cardStyles}`}
             dir="rtl"
         >
             <div className="flex flex-col min-w-0 text-right">

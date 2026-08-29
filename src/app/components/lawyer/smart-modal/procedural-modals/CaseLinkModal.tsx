@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Link } from '@/app/components/ui/lucideIcons';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { Link } from '@/app/components/ui/icons/Link';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import { MoroccanGlassShell } from '../smartFile/moroccanGlassShell';
 import { SmartModalHeader, useSmartModalAccent } from '../smartFile/smartModalChrome';
 import type { CaseLinkCandidate, CaseLinkPeerSelection } from '../smartFile/caseLinking';
@@ -71,7 +71,7 @@ export const CaseLinkModal = ({
     return (
         <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-3xl">
             <SmartModalHeader icon={Link} title="ربط الدعوى" onClose={onClose} />
-            <div className={`${T.body} md:min-h-[30rem] md:space-y-6`}>
+            <div className={`${T.body} md:min-h-[30rem] md:space-y-4`}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className={cardPrimary}>
                         <p className="text-[10px] text-white/50 mb-0.5">الدعوى الحالية</p>

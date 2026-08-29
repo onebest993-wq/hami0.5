@@ -1,11 +1,9 @@
-/** أقل مدة عرض لطبقة الإقلاع — يمنع وميض «لون فقط» بلا شعار */
-import { HOME_MAIN_GRID_PAINTED_EVENT } from '@/app/bootstrap/homeMainGridPaintGate';
-import { hasStaticBootShell, purgeStaticBootShellPermanently } from '@/app/bootstrap/bootStaticShell';
-
-export const BOOT_REVEAL_MIN_MS = 520;
+/** أقل مدة عرض لطبقة الإقلاع — سطح صامت بنفس لون اللوحة: صفر. أي حد أدنى = انتظار بلا مبرر. */
+/** إزالة #hami-static-boot ليست هنا — مالك التسليم = homeMainGridPaintGate (تلاشي وليس قصّاً). */
+import { FIRST_TAB_OPEN_EVENT, HOME_MAIN_GRID_PAINTED_EVENT } from '@/app/bootstrap/bootEventNames';
 
 export function getBootRevealMinMs(): number {
-    return isDemoShellAuthBuild() ? 0 : BOOT_REVEAL_MIN_MS;
+    return 0;
 }
 
 /**
@@ -14,15 +12,15 @@ export function getBootRevealMinMs(): number {
  */
 export const BOOT_EXIT_MS = 0;
 
-/** أقصى انتظار قبل إجبار الكشف (حماية من التعليق) */
-export const BOOT_REVEAL_MAX_MS = 14_000;
+/** أقصى انتظار قبل إخفاء طبقة React — لا يزيل #hami-static-boot */
+const BOOT_REVEAL_MAX_MS = 4_000;
 
-/** نسخة تجريبية مفتوحة — 0 = كشف فوري بدون انتظار شعار */
-export const BOOT_REVEAL_MAX_MS_DEMO = 0;
+/** تجريبي/جهاز: حارس تعليق فقط — ليس كشفاً فورياً يمزّق الطبقة قبل طلاء المنزل */
+const BOOT_REVEAL_MAX_MS_DEMO = 4_000;
 
 /**
- * كشف عند أول إطار ذي معنى (هيكل اللوحة).
- * deferred-app + dock يُحمَّلان بالتوازي لكن لا يحجبان الكشف — critical-shell + الشبكة الفورية يثبتان التخطيط.
+ * كشف عند أول إطار ذي معنى: شبكة الرئيسية المرسومة (أو بوابة الدخول عبر bootGateSurface).
+ * first-tab صار مرادفاً لـ home-main-grid — لا كشف من نموذج Minimal الفارغ.
  */
 function isBootRevealGateReady(
     shellPaintedReady: boolean,
@@ -41,12 +39,8 @@ export function getBootRevealMaxMs(): number {
 }
 
 /** مهلة جاهزية المحتوى قبل كشف — أقصر في التجريبي بعد التوازي المبكر */
-export function getBootContentReadyMaxMs(): number {
+function getBootContentReadyMaxMs(): number {
     return isDemoShellAuthBuild() ? 800 : 8_000;
-}
-
-export function getBootStaticShellWatchdogMs(): number {
-    return isDemoShellAuthBuild() ? 4_000 : 14_000;
 }
 
 /**
@@ -56,7 +50,7 @@ export function getBootStaticShellWatchdogMs(): number {
 export function applyInstantDemoBootFoundation(): void {
     if (!isDemoShellAuthBuild() || typeof window === 'undefined') return;
 
-    /* لا كشف فوري ولا إزالة shell — MainView + useBootReveal يكشفان بعد paint */
+    /* لا كشف فوري ولا إزالة shell — التسليم يبقى لـ homeMainGridPaintGate بعد الشبكة الحية */
     try {
         document.documentElement.dataset.hamiDemoInstantBoot = '1';
     } catch {
@@ -66,12 +60,9 @@ export function applyInstantDemoBootFoundation(): void {
 
 export const BOOT_CONTENT_READY_EVENT = 'hami:boot-content-ready';
 export const BOOT_REVEAL_DONE_EVENT = 'hami:boot-reveal-done';
-/** يُطلق عند أول طلاء لتبويب المنزل الظاهر — مسار كشف أسرع من انتظار deferred الكامل */
-export const FIRST_TAB_OPEN_EVENT = 'hami:first-tab-open';
 /** يُطلق عند أول commit لـ MainView — يغطي التبويبات غير الرئيسية */
 export const DASHBOARD_SHELL_PAINTED_EVENT = 'hami:dashboard-shell-painted';
-/** يُطلق بعد أول paint لشبكة الرئيسية — بوابة إزالة splash الثابت */
-export { HOME_MAIN_GRID_PAINTED_EVENT } from '@/app/bootstrap/homeMainGridPaintGate';
+export { FIRST_TAB_OPEN_EVENT, HOME_MAIN_GRID_PAINTED_EVENT };
 
 /**
  * مرة واحدة لكل تبويب/جلسة — يمنع إعادة شعار الإقلاع عند الرجوع من التنفيذ/الدعاوى/الإعدادات.
@@ -116,10 +107,18 @@ export function isBootRevealDone(): boolean {
     return readSessionBootComplete();
 }
 
+function pingNativeBootReady(): void {
+    /* لا void-and-forget صامت: المسار يُعيد المحاولة ويُعلن الفشل إن لزم */
+    void import('@/app/runtime/nativeBootSplash').then((m) => {
+        void m.notifyNativeBootReady().catch(() => false);
+    });
+}
+
 /** يثبت أن الإقلاع اكتمل لهذه الجلسة — لا يُعرض Splash مرة أخرى */
 export function markBootRevealDone(): void {
     if (typeof window === 'undefined') return;
-    if (window.__hamiBootRevealDone__ === true) return;
+    /* hami-boot.js قد يضع العلم من sessionStorage قبل paint — لا نتخطى إشعار الأصلي */
+    const firstMark = window.__hamiBootRevealDone__ !== true;
     window.__hamiBootRevealDone__ = true;
     try {
         for (const key of HAMI_BOOT_SESSION_KEYS) {
@@ -136,15 +135,12 @@ export function markBootRevealDone(): void {
         } catch {
             /* ignore */
         }
+        pingNativeBootReady();
     };
 
-    if (hasStaticBootShell()) {
-        purgeStaticBootShellPermanently();
-    }
-    if (typeof window !== 'undefined') {
-        window.requestAnimationFrame(applyRevealedDom);
-    } else {
-        applyRevealedDom();
+    applyRevealedDom();
+    if (firstMark && typeof window !== 'undefined') {
+        void import('@/app/runtime/nativeBootTelemetry').then((m) => m.publishNativeBootTelemetry());
     }
 }
 
@@ -191,8 +187,9 @@ function finishAfterStablePaint(cancelled: () => boolean, finish: () => void): v
 }
 
 /**
- * كشف عند first-tab-open / dashboard-shell-painted ثم إطار paint واحد.
- * المسارات الثانوية (deferred-app، home-dock) تُشغَّل بالتوازي ولا تحجب الكشف.
+ * جاهزية محتوى اللوحة بعد طلاء سطح ذي معنى.
+ * لا يحجب الكشف على deferred-app / dock — يعملان بالتوازي.
+ * إزالة #hami-static-boot ليست هنا: مالك المنزل = homeMainGridPaintGate.
  */
 export function scheduleBootContentReadyAfterStyles(
     ensureStyles: () => Promise<void>,
@@ -200,81 +197,11 @@ export function scheduleBootContentReadyAfterStyles(
 ): () => void {
     if (typeof window === 'undefined') return () => undefined;
 
-    /** تجريبي: نفس بوابات الإنتاج — يمنع قفز البطاقات/العناوين بعد الكشف */
-    if (isDemoShellAuthBuild()) {
-        const maxWaitMs = opts?.maxWaitMs ?? getBootContentReadyMaxMs();
-        let cancelled = false;
-        let done = false;
-        let shellPaintedReady = false;
-        let stylesReady = false;
-        let dockChunkReady = false;
-
-        const finish = () => {
-            if (cancelled || done) return;
-            done = true;
-            notifyBootContentReady();
-            opts?.onReady?.();
-        };
-
-        const finishAfterStablePaintLocal = () => {
-            finishAfterStablePaint(() => cancelled, finish);
-        };
-
-        const tryFinish = () => {
-            if (isBootRevealGateReady(shellPaintedReady, stylesReady, dockChunkReady)) {
-                finishAfterStablePaintLocal();
-            }
-        };
-
-        const onShellPainted = () => {
-            shellPaintedReady = true;
-            tryFinish();
-        };
-        window.addEventListener(FIRST_TAB_OPEN_EVENT, onShellPainted, { once: true });
-        window.addEventListener(DASHBOARD_SHELL_PAINTED_EVENT, onShellPainted, { once: true });
-        window.addEventListener(HOME_MAIN_GRID_PAINTED_EVENT, onShellPainted, { once: true });
-
-        void ensureStyles().then(() => {
-            if (!cancelled) {
-                stylesReady = true;
-                tryFinish();
-            }
-        });
-
-        void import('@/app/bootstrap/homeDockBootGate')
-            .then((m) => m.waitForHomeDockBootChunk())
-            .then(() => {
-                if (!cancelled) {
-                    dockChunkReady = true;
-                    tryFinish();
-                }
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    dockChunkReady = true;
-                    tryFinish();
-                }
-            });
-
-        const maxTimer = window.setTimeout(() => {
-            if (!cancelled) finishAfterStablePaintLocal();
-        }, maxWaitMs);
-
-        return () => {
-            cancelled = true;
-            window.clearTimeout(maxTimer);
-            window.removeEventListener(FIRST_TAB_OPEN_EVENT, onShellPainted);
-            window.removeEventListener(DASHBOARD_SHELL_PAINTED_EVENT, onShellPainted);
-            window.removeEventListener(HOME_MAIN_GRID_PAINTED_EVENT, onShellPainted);
-        };
-    }
-
     let cancelled = false;
     let done = false;
     let shellPaintedReady = false;
     let stylesReady = false;
-    let dockChunkReady = false;
-    const maxWaitMs = opts?.maxWaitMs ?? 8_000;
+    const maxWaitMs = opts?.maxWaitMs ?? getBootContentReadyMaxMs();
     const stylesDeferMs = opts?.stylesDeferMs ?? 0;
 
     const finish = () => {
@@ -290,7 +217,7 @@ export function scheduleBootContentReadyAfterStyles(
 
     const tryFinish = () => {
         if (cancelled || done) return;
-        if (!isBootRevealGateReady(shellPaintedReady, stylesReady, dockChunkReady)) return;
+        if (!isBootRevealGateReady(shellPaintedReady, stylesReady, true)) return;
         finishAfterStablePaintLocal();
     };
 
@@ -298,7 +225,6 @@ export function scheduleBootContentReadyAfterStyles(
         if (!cancelled && !done) {
             shellPaintedReady = true;
             stylesReady = true;
-            dockChunkReady = true;
             finishAfterStablePaintLocal();
         }
     }, maxWaitMs);
@@ -324,19 +250,6 @@ export function scheduleBootContentReadyAfterStyles(
         stylesDeferMs > 0
             ? window.setTimeout(startStylesRace, stylesDeferMs)
             : (startStylesRace(), 0);
-
-    void import('@/app/bootstrap/homeDockBootGate')
-        .then((m) => m.waitForHomeDockBootChunk())
-        .then(() => {
-            if (cancelled || done) return;
-            dockChunkReady = true;
-            tryFinish();
-        })
-        .catch(() => {
-            if (cancelled || done) return;
-            dockChunkReady = true;
-            tryFinish();
-        });
 
     const onShellPainted = () => {
         if (cancelled || done) return;

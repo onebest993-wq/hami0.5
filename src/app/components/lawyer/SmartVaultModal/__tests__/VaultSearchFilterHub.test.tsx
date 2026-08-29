@@ -7,10 +7,6 @@ const baseProps = {
     onSearchChange: vi.fn(),
     onSearchKeyDown: vi.fn(),
     searchInputRef: { current: null },
-    isSearching: false,
-    onAISearch: vi.fn(),
-    liveSearch: true,
-    searchOnly: true,
     activeFilter: 'الكل',
     onFilterChange: vi.fn(),
     customCategories: [],
@@ -19,7 +15,7 @@ const baseProps = {
     docs: [],
 };
 
-describe('VaultSearchFilterHub searchOnly', () => {
+describe('VaultSearchFilterHub', () => {
     it('يُظهر زر التصنيف بجانب البحث ولوحة عمودية بانتقال انسيابي', async () => {
         render(<VaultSearchFilterHub {...baseProps} />);
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ExecutionFollowupOrchestratorSlice } from '../../orchestrators/executionFollowupOrchestratorTypes';
+import type { ExecutionFollowupOrchestratorSlice } from '../../../orchestrators/executionFollowupOrchestratorTypes';
 
 describe('ExecutionFollowupOrchestratorSlice', () => {
     it('includes fields required by handler cluster gate and debtor pipeline', () => {

@@ -1,13 +1,13 @@
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import type { FileData } from './lawsuitFileTypes';
 import { isLawsuitArchived, isLawsuitInTrash } from '@/app/utils/lawsuitTrash';
 import {
     buildLawsuitIndexSearchHaystack,
     resolveLawsuitIndexClientName,
 } from './lawsuitIndexSearchHaystack';
 
-export type LawsuitLifecycleStatus = 'active' | 'archived' | 'deleted';
+type LawsuitLifecycleStatus = 'active' | 'archived' | 'deleted';
 
-export type LawsuitIndexEntry = {
+type LawsuitIndexEntry = {
     id: string;
     status: LawsuitLifecycleStatus;
     caseNo?: string;
@@ -36,7 +36,7 @@ export function emptyLawsuitLifecycleIndex(): LawsuitLifecycleIndex {
     return { v: 1, entries: {}, counts: { active: 0, archived: 0, trash: 0 } };
 }
 
-export function lawsuitStatusFromFile(file: FileData | { status?: string }): LawsuitLifecycleStatus {
+function lawsuitStatusFromFile(file: FileData | { status?: string }): LawsuitLifecycleStatus {
     if (isLawsuitInTrash(file)) return 'deleted';
     if (isLawsuitArchived(file)) return 'archived';
     return 'active';

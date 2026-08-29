@@ -3,15 +3,7 @@ import {
     pickHandlerClusterKeys,
     type HandlerClusterContextSpreads,
 } from './handlerClusterContextShared';
-
-const FOUNDATION_TIMELINE_HANDLER_CLUSTER_KEYS = [
-    'executionDataRef',
-    'executionId',
-    'parentDossierId',
-    'persistExecutionMerge',
-    'setTimelineEvents',
-    'pushTimelineEventRef',
-] as const;
+import { FOUNDATION_TIMELINE_HANDLER_CLUSTER_KEYS } from './handlerClusterFoundationKeys';
 
 const FOLLOWUP_DOSSIER_CONTROLS_HANDLER_CLUSTER_KEYS = Array.from(
     new Set([

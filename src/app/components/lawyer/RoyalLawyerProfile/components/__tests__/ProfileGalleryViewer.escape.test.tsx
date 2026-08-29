@@ -65,4 +65,23 @@ describe('ProfileGalleryViewer Escape', () => {
 
         expect(onClose).toHaveBeenCalled();
     });
+
+    it('وضع العرض يدعم تكبير معاينة مؤقتاً دون حفظ', () => {
+        const onSaveAdjust = vi.fn();
+        render(
+            <ProfileGalleryViewer
+                item={item}
+                open
+                canAdjust
+                initialMode="view"
+                onClose={vi.fn()}
+                onSaveAdjust={onSaveAdjust}
+            />,
+        );
+
+        expect(screen.getByTestId('profile-gallery-view-zoom-in')).toBeTruthy();
+        fireEvent.click(screen.getByTestId('profile-gallery-view-zoom-in'));
+        expect(screen.getByText('110%')).toBeTruthy();
+        expect(onSaveAdjust).not.toHaveBeenCalled();
+    });
 });

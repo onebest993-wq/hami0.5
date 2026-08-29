@@ -20,6 +20,9 @@ export function resetCommunityOverlayEntryCacheForTests(): void {
 }
 
 function ensureEntryPromise(): Promise<CommunityOverlayEntryModule> {
+    if (__HAMI_CLIENT_PRODUCT__ === 'hq') {
+        return Promise.reject(new Error('community overlay is excluded from the headquarters product'));
+    }
     if (!entryPromise) {
         entryPromise = import(
             '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardCommunityOverlayEntry'

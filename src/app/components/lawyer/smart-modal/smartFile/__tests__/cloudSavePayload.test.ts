@@ -63,4 +63,21 @@ describe('buildCloudSavePayload', () => {
         expect(payload.docType).toBe('تعويض');
         expect(payload.judge).toBe('قاضي جديد');
     });
+
+    it('coerces numeric dossier id to string for cloud handoff', () => {
+        const stages = [
+            {
+                id: 's1',
+                stageName: 'البداءة',
+                parties: [],
+                timeline: [],
+                status: 'active',
+            },
+        ] as unknown as CaseStage[];
+
+        const payload = buildCloudSavePayload(stages, { id: 9001, caseNo: '1/2026' }, 0, 'نشطة');
+
+        expect(payload.id).toBe('9001');
+        expect(typeof payload.id).toBe('string');
+    });
 });

@@ -1,5 +1,4 @@
-import React, { useLayoutEffect, useRef } from 'react';
-import { Database, Palette, Shield, User, X, type LucideIcon } from '@/app/components/ui/lucideIcons';
+import React, { useRef } from 'react';
 import { useLawyerSettingsAppearance } from '@/app/context/LawyerSettingsContext';
 import { SETTINGS_NAV, type SettingsSectionId } from '@/app/services/settings';
 import { useHorizontalTabSwipe } from '@/app/utils/horizontalTabSwipe';
@@ -7,16 +6,11 @@ import { SETTINGS_SHELL_CHROME } from './settingsShellStyle';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { useSettingsShellFocusTrap } from './hooks/useSettingsShellFocusTrap';
 import { useSettingsMobileSuspend } from './hooks/useSettingsMobileSuspend';
-import { prefetchSettingsSection } from './settingsSectionLoader';
-import {
-    clearSettingsForceVisible,
-    concealSettingsWarmShell,
-    getSettingsShellRevealedAt,
-    isSettingsForceVisible,
-    isSettingsOverlayInteractionArmed,
-    scheduleSettingsOverlayInteractionArm,
-    SETTINGS_INTERACT_ARM_MS,
-} from '@/app/runtime/settingsInstantPaint';
+import { useSettingsOverlayKeyboard } from './hooks/useSettingsOverlayKeyboard';
+import { useSettingsShellCloseGuard } from './hooks/useSettingsShellCloseGuard';
+import { SettingsShellHeader } from './SettingsShellHeader';
+import { isSettingsLayerOpen } from '@/app/runtime/settingsInstantPaint';
+import { inertProps } from '@/app/utils/inertProps';
 
 export type SettingsShellProps = {
     onClose: () => void;
@@ -27,16 +21,7 @@ export type SettingsShellProps = {
     hydrated?: boolean;
 };
 
-const SECTION_IDS = SETTINGS_NAV.map((item) => item.id);
-
-export const SETTINGS_SECTION_ORDER: readonly SettingsSectionId[] = SECTION_IDS;
-
-const TAB_ICON: Record<SettingsSectionId, LucideIcon> = {
-    appearance: Palette,
-    security: Shield,
-    data: Database,
-    account: User,
-};
+const SETTINGS_SECTION_ORDER: readonly SettingsSectionId[] = SETTINGS_NAV.map((item) => item.id);
 
 /**
  * محتوى مركز الإعدادات داخل HamiSettingsHost (portal + طبقة معتمة).
@@ -52,11 +37,11 @@ export function SettingsShell({
 }: SettingsShellProps) {
     const reduceMotion = useReduceMotion();
     const shellRef = useRef<HTMLDivElement>(null);
-    /** يمنع conceal عند تركيب keepAlive مغلق (pointerdown prime) */
-    const wasVisibleRef = useRef(false);
-    const visible = open;
+    const visible = isSettingsLayerOpen(open);
     const { onKeyDownCapture } = useSettingsShellFocusTrap(shellRef, onClose, visible);
     useSettingsMobileSuspend(visible);
+    const keyboardInset = useSettingsOverlayKeyboard(visible, shellRef, reduceMotion);
+    const { requestCloseGuarded } = useSettingsShellCloseGuard(visible, onClose);
 
     const appearance = useLawyerSettingsAppearance();
     const shellDir = appearance.language === 'en' ? 'ltr' : 'rtl';
@@ -68,64 +53,12 @@ export function SettingsShell({
         enabled: visible,
     });
 
-    useLayoutEffect(() => {
-        if (visible) {
-            wasVisibleRef.current = true;
-            clearSettingsForceVisible();
-            scheduleSettingsOverlayInteractionArm();
-            return undefined;
-        }
-        /* true→false فقط — لا conceal عند أول mount بـ open=false */
-        if (wasVisibleRef.current) {
-            wasVisibleRef.current = false;
-            concealSettingsWarmShell();
-        }
-        clearSettingsForceVisible();
-        return undefined;
-    }, [visible]);
-
-    const onNavKeyDown = (event: React.KeyboardEvent) => {
-        const idx = SECTION_IDS.indexOf(activeSection);
-        if (idx < 0) return;
-        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-            event.preventDefault();
-            const delta = event.key === 'ArrowLeft' ? 1 : -1;
-            const next = SECTION_IDS[(idx + delta + SECTION_IDS.length) % SECTION_IDS.length]!;
-            onSectionChange(next);
-            document.getElementById(`settings-tab-${next}`)?.focus();
-        }
-    };
-
-    const canCloseNow = () => {
-        if (!visible && !isSettingsForceVisible()) return false;
-        if (isSettingsOverlayInteractionArmed()) return true;
-        const revealed = getSettingsShellRevealedAt();
-        if (revealed != null) {
-            const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-            if (now - revealed >= SETTINGS_INTERACT_ARM_MS) return true;
-        }
-        return false;
-    };
-
-    const requestCloseInstant = (event?: React.SyntheticEvent) => {
-        event?.preventDefault();
-        event?.stopPropagation();
-        onClose();
-    };
-
-    const requestCloseGuarded = (event?: React.SyntheticEvent) => {
-        event?.preventDefault();
-        event?.stopPropagation();
-        if (!canCloseNow()) return;
-        onClose();
-    };
-
     return (
         <div
             ref={shellRef}
             data-settings-root
             data-open={visible ? 'true' : 'false'}
-            className="absolute inset-0 flex flex-col overflow-hidden font-sans"
+            className="absolute inset-0 flex flex-col overflow-hidden overscroll-none font-sans"
             style={{ backgroundColor: SETTINGS_SHELL_CHROME }}
             data-hami-settings-shell=""
             data-testid="hami-settings-shell"
@@ -136,88 +69,26 @@ export function SettingsShell({
             aria-hidden={!visible}
             aria-label="مركز الإعدادات"
             onKeyDownCapture={onKeyDownCapture}
+            {...inertProps(!visible)}
         >
             <div className="relative z-[1] flex h-full min-h-0 flex-col">
-                <header
-                    className={`hami-settings-header shrink-0 px-4 pt-[max(0.65rem,env(safe-area-inset-top))] pb-3 ${
-                        reduceMotion ? '' : 'hami-settings-header--glass'
-                    }`}
-                >
-                    <div className="hami-settings-header-inner">
-                        <div className="flex items-center justify-between gap-3 mb-3.5">
-                            <div className="min-w-0">
-                                <h1 className="hami-settings-title">مركز الإعدادات</h1>
-                            </div>
-                            <button
-                                type="button"
-                                data-testid="settings-shell-close"
-                                className="hami-settings-close flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center touch-manipulation"
-                                style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
-                                aria-label="إغلاق الإعدادات"
-                                onPointerDown={(event) => {
-                                    if (typeof event.button === 'number' && event.button !== 0) return;
-                                    requestCloseInstant(event);
-                                }}
-                                onClick={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    requestCloseGuarded(event);
-                                }}
-                            >
-                                <X size={18} strokeWidth={2.25} aria-hidden />
-                            </button>
-                        </div>
-
-                        <nav
-                            className="hami-settings-tabs"
-                            role="tablist"
-                            aria-label="أقسام الإعدادات"
-                            onKeyDown={onNavKeyDown}
-                        >
-                            {SETTINGS_NAV.map((item) => {
-                                const active = activeSection === item.id;
-                                const Icon = TAB_ICON[item.id] ?? Palette;
-                                return (
-                                    <button
-                                        key={item.id}
-                                        id={`settings-tab-${item.id}`}
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={active}
-                                        aria-controls="settings-section-panel"
-                                        tabIndex={active ? 0 : -1}
-                                        onClick={() => {
-                                            prefetchSettingsSection(item.id);
-                                            onSectionChange(item.id);
-                                        }}
-                                        onPointerDown={() => prefetchSettingsSection(item.id)}
-                                        onPointerEnter={() => prefetchSettingsSection(item.id)}
-                                        onFocus={() => prefetchSettingsSection(item.id)}
-                                        data-testid={`settings-nav-${item.id}`}
-                                        className={`hami-settings-tab min-h-[44px] touch-manipulation ${
-                                            active ? 'hami-settings-tab--active' : ''
-                                        }`}
-                                    >
-                                        <Icon
-                                            size={15}
-                                            strokeWidth={active ? 2.25 : 1.85}
-                                            className="hami-settings-tab-icon"
-                                            aria-hidden
-                                        />
-                                        <span className="hami-settings-tab-label">{item.label}</span>
-                                    </button>
-                                );
-                            })}
-                        </nav>
-                    </div>
-                </header>
+                <SettingsShellHeader
+                    requestCloseGuarded={requestCloseGuarded}
+                    activeSection={activeSection}
+                    onSectionChange={onSectionChange}
+                    shellDir={shellDir}
+                />
 
                 <div
                     id="settings-section-panel"
                     role="tabpanel"
                     aria-labelledby={`settings-tab-${activeSection}`}
-                    className="hami-settings-scroll-panel flex-1 overflow-y-auto px-5 pb-[max(5rem,env(safe-area-inset-bottom))] scrollbar-hide overscroll-contain touch-pan-y"
+                    className="hami-settings-scroll-panel flex-1 min-h-0 min-w-0 overflow-y-auto pb-[max(5rem,env(safe-area-inset-bottom))] scrollbar-hide overscroll-contain touch-pan-y"
                     data-testid="settings-section-panel"
+                    data-keyboard-inset={keyboardInset}
+                    style={{
+                        paddingBottom: `calc(max(5rem, env(safe-area-inset-bottom, 0px)) + ${keyboardInset}px)`,
+                    }}
                     {...sectionSwipeHandlers}
                 >
                     {children}

@@ -13,9 +13,12 @@ export type TrialDepositionComparison = {
     trialExcerpt?: string;
     linkedKind?: TrialDepositionLinkKind;
     linkedId?: string;
-    /** @deprecated ترحيل — مقارنة نصية قديمة */
+    /**
+     * @deprecated KEEP — ترحيل مقارنة نصية قديمة في normalizeTrialDepositionComparison؛
+     * يُعرض أيضاً في TrialDepositionWitnessCard إن وُجد بدون trialExcerpt.
+     */
     trialText?: string;
-    /** @deprecated ترحيل — مقارنة نصية قديمة */
+    /** @deprecated KEEP — انظر trialText؛ يُقرأ في نفس مسار التطبيع. */
     investigationText?: string;
 };
 
@@ -52,7 +55,7 @@ export function resolveTrialDepositionPersonName(dep: TrialDeposition): string {
 }
 
 /** إفادات التحقيق لنفس الشخص (مطابقة الاسم). */
-export function matchInvestigationStatementsForDeposition(
+function matchInvestigationStatementsForDeposition(
     dep: TrialDeposition,
     investigationStatements: Statement[],
 ): Statement[] {

@@ -40,6 +40,6 @@ describe('DocumentsTabView', () => {
 
         const sheet = screen.getByTestId('transactions-add-document-sheet');
         expect(sheet).toHaveAttribute('data-state', 'open');
-        expect(screen.getByText('أدخل وصف المستمسك وحدد عائدية المستمسك')).toBeInTheDocument();
+        expect(screen.getByText('وصف المستمسك وعائديته')).toBeInTheDocument();
     });
 });

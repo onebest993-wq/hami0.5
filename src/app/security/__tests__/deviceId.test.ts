@@ -29,4 +29,13 @@ describe('deviceId', () => {
     expect(a).toMatch(/^[a-f0-9]{32}$/);
     expect(a).toBe(b);
   });
+
+  it('يعيد نفس المعرّف من الكوكي إذا فُرغ localStorage', () => {
+    const first = getOrCreateDeviceId();
+    localStorage.removeItem('hami_device_id');
+    sessionStorage.removeItem('hami_device_id');
+    resetDeviceIdForTests();
+    document.cookie = `hami_device_id=${first}; path=/`;
+    expect(getOrCreateDeviceId()).toBe(first);
+  });
 });

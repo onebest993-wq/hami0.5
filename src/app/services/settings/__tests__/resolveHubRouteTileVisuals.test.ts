@@ -18,7 +18,7 @@ describe('resolveHubRouteTileVisuals', () => {
             layoutSpan: 1,
         });
         expect(visuals.titleStyle['--hami-hub-title-accent']).toBe('#B08AD4');
+        expect(visuals.titleStyle['--hami-hub-title-size']).toBe('2.05rem');
         expect(visuals.titleStyle.fontSize).toBeUndefined();
-        expect(visuals.titleStyle['--hami-hub-title-size']).toBe('3.5rem');
     });
 });

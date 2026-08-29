@@ -2,9 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
     clampTransactionText,
     sanitizeTransactionCreateFields,
+    sanitizeTransactionDocumentOwnerTag,
+    sanitizeTransactionDocumentTitle,
+    sanitizeTransactionForumAuthorName,
+    sanitizeTransactionOfficialReference,
+    sanitizeTransactionTaskTitle,
     sanitizeTransactionTemplateName,
     TX_CLIENT_NAME_MAX,
     TX_DEPARTMENT_MAX,
+    TX_TASK_TITLE_MAX,
     TX_TEMPLATE_NAME_MAX,
     TX_TITLE_MAX,
 } from '@/app/services/transactions/transactionsInputSecurity';
@@ -43,5 +49,19 @@ describe('transactionsInputSecurity', () => {
         expect(sanitizeTransactionTemplateName('  \u0007  ', 'مسار افتراضي')).toBe('مسار افتراضي');
         expect(sanitizeTransactionTemplateName('  قالب  ', 'x')).toBe('قالب');
         expect(sanitizeTransactionTemplateName('', 'x').length).toBeLessThanOrEqual(TX_TEMPLATE_NAME_MAX);
+    });
+
+    it('يعقّم عنوان المهمة والمرجع الرسمي', () => {
+        expect(sanitizeTransactionTaskTitle(`  مهمة\u0007 `)).toBe('مهمة');
+        expect(sanitizeTransactionTaskTitle('أ'.repeat(TX_TASK_TITLE_MAX + 8))).toHaveLength(TX_TASK_TITLE_MAX);
+        expect(sanitizeTransactionOfficialReference('  رف-1\u0000  ')).toBe('رف-1');
+        expect(sanitizeTransactionDocumentTitle('  هوية\u0007  ')).toBe('هوية');
+    });
+
+    it('لا يمرّر بريداً كاسم مؤلف المنتدى ويصحّح ownerTag', () => {
+        expect(sanitizeTransactionForumAuthorName('a@b.com')).toBe('محامي');
+        expect(sanitizeTransactionForumAuthorName('  أحمد  ')).toBe('أحمد');
+        expect(sanitizeTransactionDocumentOwnerTag('هاكر')).toBe('أخرى');
+        expect(sanitizeTransactionDocumentOwnerTag('للموكل')).toBe('للموكل');
     });
 });

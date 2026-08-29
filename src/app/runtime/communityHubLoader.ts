@@ -6,28 +6,22 @@ export type CommunityScreenComponent = ComponentType<CommunityScreenProps>;
 /** المنتدى متزامن في stem — لا chunk منفصل للفتح */
 const cachedCommunityScreen: CommunityScreenComponent = CommunityScreen;
 
-export function isCommunityScreenModuleResolved(): boolean {
-    return true;
-}
+/*
+ * الأربع أدناه نُقلت إلى `./communityHubReadiness` لأنها لا تحتاج الشاشة، وبقاؤها
+ * هنا كان يُلزم كلَّ من يسأل عن الجهوزيّة باستيراد الشاشة ثابتاً — وهو ما أغلق
+ * دائرة الستّة على مسار المنتدى. تُعاد من هنا تصديراً فلا يتغيّر مستوردوها.
+ */
+export {
+    hydrateCommunityScreenForInstantOpen,
+    isCommunityScreenModuleResolved,
+    prefetchCommunityScreenModule,
+    resetCommunityHubModuleCacheForTests,
+} from '@/app/runtime/communityHubReadiness';
 
 export function getCachedCommunityScreen(): CommunityScreenComponent {
     return cachedCommunityScreen;
 }
 
-/** للاختبارات */
-export function resetCommunityHubModuleCacheForTests(): void {
-    /* noop — وحدة متزامنة */
-}
-
 export function loadCommunityScreenModule(): Promise<{ CommunityScreen: CommunityScreenComponent }> {
     return Promise.resolve({ CommunityScreen: cachedCommunityScreen });
-}
-
-/** Prefetch — يبقى للتوافق؛ المحتوى أصلاً في stem عند تركيب Host */
-export function prefetchCommunityScreenModule(): void {
-    if (typeof window === 'undefined') return;
-}
-
-export function hydrateCommunityScreenForInstantOpen(): Promise<boolean> {
-    return Promise.resolve(true);
 }

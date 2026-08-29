@@ -9,7 +9,7 @@ import type {
 } from '../../types';
 
 export type UseOrderFileLifecycleDerivedArgs = {
-    caseData: any;
+    caseData: Record<string, unknown> | null | undefined;
     judgeDecision: JudgeDecision;
     grievanceData: GrievanceData;
     grievanceDecision: GrievanceDecision;

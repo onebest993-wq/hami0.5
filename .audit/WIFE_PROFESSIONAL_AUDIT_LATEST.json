@@ -1,0 +1,81 @@
+{
+  "stamp": "2026-08-21T11:32:20.876Z",
+  "passed": 8,
+  "total": 8,
+  "informational": [
+    {
+      "label": "gate:prod-env-report",
+      "prodEnvBlockers": [
+        "env:WIFE_REDIS_REST_URL",
+        "env:WIFE_REDIS_REST_TOKEN"
+      ],
+      "note": "Expected on dev machine without .env.production — ops must fix before deploy"
+    }
+  ],
+  "stages": [
+    {
+      "label": "catalog:generate",
+      "ok": true,
+      "ms": 117,
+      "status": 0,
+      "informational": false
+    },
+    {
+      "label": "vitest:catalog-integrity",
+      "ok": true,
+      "ms": 5152,
+      "status": 0,
+      "informational": false
+    },
+    {
+      "label": "redis:live-probe",
+      "ok": true,
+      "ms": 80,
+      "status": 0,
+      "informational": false
+    },
+    {
+      "label": "capacitor:prep",
+      "ok": true,
+      "ms": 4189,
+      "status": 0,
+      "informational": false
+    },
+    {
+      "label": "prod-readiness",
+      "ok": true,
+      "ms": 10450,
+      "status": 0,
+      "informational": false
+    },
+    {
+      "label": "audit-chain",
+      "ok": true,
+      "ms": 96,
+      "status": 0,
+      "informational": false
+    },
+    {
+      "label": "campaign",
+      "ok": true,
+      "ms": 208087,
+      "status": 0,
+      "informational": false
+    },
+    {
+      "label": "gate:dev",
+      "ok": true,
+      "ms": 6856,
+      "status": 0,
+      "informational": false
+    },
+    {
+      "label": "gate:prod-env-report",
+      "ok": true,
+      "ms": 6380,
+      "status": 1,
+      "informational": true
+    }
+  ],
+  "failed": []
+}

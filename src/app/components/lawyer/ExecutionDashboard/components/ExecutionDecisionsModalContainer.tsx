@@ -1,8 +1,8 @@
 import React, { Suspense, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { X } from '@/app/components/ui/lucideIcons';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { X } from '@/app/components/ui/icons/X';
 import type { DecisionsHubProps } from '@/app/components/lawyer/DecisionsHub';
-import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { EXEC_MODAL_Z } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import {
     EXEC_MODAL_BACKDROP_SAFE_PAD,
@@ -41,7 +41,7 @@ export const ExecutionDecisionsModalContainer: React.FC<
 
     return (
         <div
-            className={`fixed inset-0 flex flex-col overflow-hidden bg-slate-950/55 p-0 backdrop-blur-2xl sm:p-2 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
+            className={`fixed inset-0 flex flex-col overflow-hidden bg-slate-950/75 p-0 sm:p-2 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
             style={{ zIndex: EXEC_MODAL_Z.decisionsShell }}
             onClick={(e) => {
                 if (e.target === e.currentTarget) {
@@ -53,7 +53,7 @@ export const ExecutionDecisionsModalContainer: React.FC<
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex h-full min-h-0 w-full max-h-[min(100dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-1 flex-col overflow-hidden border-0 border-white/10 bg-slate-900/35 shadow-none backdrop-blur-2xl sm:max-h-none sm:rounded-2xl sm:border"
+                className="flex h-full min-h-0 w-full max-h-[min(100dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-1 flex-col overflow-hidden border-0 border-white/10 bg-[#0A0F1C] shadow-none sm:max-h-none sm:rounded-2xl sm:border"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div
@@ -75,7 +75,11 @@ export const ExecutionDecisionsModalContainer: React.FC<
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
                     <Suspense
                         fallback={
-                            <div className="text-slate-200 text-sm py-8 text-center">جاري التحميل…</div>
+                            <div className="space-y-1.5 py-2" aria-busy="true" aria-hidden>
+                                <div className="h-11 min-h-[44px] rounded-lg border border-white/8 bg-white/[0.04]" />
+                                <div className="h-11 min-h-[44px] rounded-lg border border-white/8 bg-white/[0.04]" />
+                                <div className="h-11 min-h-[44px] rounded-lg border border-white/8 bg-white/[0.04]" />
+                            </div>
                         }
                     >
                         <LazyDecisionsAndAppealsEngine {...hubProps} />

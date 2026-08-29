@@ -4,25 +4,34 @@ import type { Decision } from '../../types';
 import {
     type AppealUiPerspective,
 } from '../../appealUiLabels';
-import { resolveUnderlyingDecisionHub } from '../decisionGraphUtils';
 import {
     hubWithInferredAppealOrigin,
     isCreditorInitiatedExecutorRequest,
     isCreditorExecutorAppealSubject,
-    resolveRequestProponent,
 } from '../appealRequestOrigin';
 import { isManualExecutorLedgerDecision } from './manualExecutorIdentity';
 import {
-    buildManualExecutorGrievanceOutcomePatch,
     manualExecutorAwaitingCassationParty,
-    manualExecutorCassationPartyAfterGrievance,
-    resolveManualExecutorGrievanceFiler,
-} from './manualExecutorLedger';
-import { appealGrievanceOutcomeClockPatch } from './appealDates';
+} from './manualExecutorAppealActors';
+import { CASSATION_APPEAL_RESULTS, inferAppealMethodsUsed } from './appealMethodsInference';
+export { buildGrievanceResolutionPatch, grievancePetitionGranted } from './appealGrievanceResolution';
+export { inferAppealMethodsUsed } from './appealMethodsInference';
 import {
     appellantLabelFromLogMessage,
     resolveAppealActorLabel,
-} from './appealProceedingsActors';
+} from './appealActorLabels';
+import {
+    cassationEntryPartyAfterGrievanceGrant,
+    resolveAppealBaseBranch,
+    resolveGrievanceFilerActor,
+    resolveHarmedPartyAppealActor,
+} from './appealActorFiling';
+export {
+    cassationEntryPartyAfterGrievanceGrant,
+    resolveAppealBaseBranch,
+    resolveGrievanceFilerActor,
+    resolveHarmedPartyAppealActor,
+} from './appealActorFiling';
 
 export type DecisionsAppealsAppealSlot = 'appealsTab' | 'previousCard';
 
@@ -63,244 +72,6 @@ export function isDebtorAppealEligibleApprovedHub(
         return true;
     }
     return false;
-}
-
-/** الطرف المتضرر الذي يحق له تقديم التظلم أو التمييز المباشر */
-export function resolveHarmedPartyAppealActor(
-    d: Decision,
-    perspective: AppealUiPerspective = 'creditor_agent'
-): 'lawyer' | 'debtor' | null {
-    if (d.appealRequestOrigin === 'executor_side') {
-        const ex = d.executorOutcome;
-        if (d.activatedByExecutorOrder === true || d.requestKind === 'personal_coercive') {
-            if (ex === 'approved' || ex === 'alternative') return 'debtor';
-            if (ex === 'rejected') return 'lawyer';
-        }
-        return null;
-    }
-    const proponent = resolveRequestProponent(d, perspective);
-    const ex = d.executorOutcome;
-    if (ex === 'approved' || ex === 'alternative') {
-        return proponent === 'creditor' ? 'debtor' : 'lawyer';
-    }
-    if (ex === 'rejected') {
-        return proponent === 'creditor' ? 'lawyer' : 'debtor';
-    }
-    return null;
-}
-
-export function resolveAppealBaseBranch(d: Decision): 'after_approval' | 'after_rejection' {
-    if (d.appealBaseBranch === 'after_rejection' || d.appealBaseBranch === 'after_approval') {
-        return d.appealBaseBranch;
-    }
-    return d.executorOutcome === 'rejected' ? 'after_rejection' : 'after_approval';
-}
-
-/** مُقدّم التظلم — يُستنتج من نتيجة الطعن وفرع القرار (لا يعتمد على appealActor القديم وحده) */
-export function resolveGrievanceFilerActor(
-    d: Decision,
-    perspective: AppealUiPerspective = 'creditor_agent'
-): 'lawyer' | 'debtor' | null {
-    if (isManualExecutorLedgerDecision(d)) {
-        return resolveManualExecutorGrievanceFiler(d);
-    }
-    const hub = hubWithInferredAppealOrigin(d);
-    const creditorRow = isCreditorInitiatedExecutorRequest(hub);
-    const branch = resolveAppealBaseBranch(hub);
-    const result = String(d.appealResult ?? '').trim();
-
-    if (result === 'قبول التظلم' || result === 'رد التظلم') {
-        if (branch === 'after_approval' && creditorRow) return 'debtor';
-        if (branch === 'after_rejection' && creditorRow) return 'lawyer';
-        if (branch === 'after_approval' && !creditorRow) return 'lawyer';
-        if (branch === 'after_rejection' && !creditorRow) return 'debtor';
-    }
-
-    if (d.appealStatus === 'tadhallum_filed' || d.appealPhase === 'grievance') {
-        if (d.appealActor === 'lawyer' || d.appealActor === 'debtor') return d.appealActor;
-        if (branch === 'after_approval' && creditorRow) return 'debtor';
-        if (branch === 'after_rejection' && creditorRow) return 'lawyer';
-    }
-
-    if (d.appealActor === 'lawyer' || d.appealActor === 'debtor') return d.appealActor;
-    return null;
-}
-
-/** true = المُطعّن فاز بالتظلم (قبول التظلم) */
-export function grievancePetitionGranted(d: Decision, grievanceAccepted: boolean): boolean {
-    if (!grievanceAccepted) return false;
-    if (isManualExecutorLedgerDecision(d)) return true;
-
-    const hub = hubWithInferredAppealOrigin(d);
-    const filer = resolveGrievanceFilerActor(d);
-    const filerIsDebtor = filer === 'debtor';
-    const branch = resolveAppealBaseBranch(hub);
-    const creditorRow = isCreditorInitiatedExecutorRequest(hub);
-
-    if (!creditorRow) {
-        return filerIsDebtor;
-    }
-
-    if (branch === 'after_rejection') {
-        return filer === 'lawyer';
-    }
-    return filerIsDebtor;
-}
-
-/** الطرف المخالف الذي يحق له التمييز بعد قبول تظلم الطرف الآخر */
-export function cassationEntryPartyAfterGrievanceGrant(d: Decision): 'lawyer' | 'debtor' | null {
-    if (isManualExecutorLedgerDecision(d)) {
-        return manualExecutorCassationPartyAfterGrievance(d, true);
-    }
-    const branch = resolveAppealBaseBranch(d);
-    const filer = resolveGrievanceFilerActor(d);
-    const filerIsDebtor = filer === 'debtor';
-    const hub = hubWithInferredAppealOrigin(d);
-    const creditorRow = isCreditorInitiatedExecutorRequest(hub);
-    if (branch === 'after_rejection' && creditorRow && filer === 'lawyer') return 'debtor';
-    if (branch === 'after_approval' && creditorRow && filerIsDebtor) return 'lawyer';
-    if (branch === 'after_rejection' && !creditorRow && filerIsDebtor) return 'lawyer';
-    if (branch === 'after_approval' && !creditorRow && filer === 'lawyer') return 'debtor';
-    return null;
-}
-
-function attachGrievanceOutcomeCassationClock(
-    patch: Partial<Decision>,
-    outcomeIssuedYmd?: string
-): Partial<Decision> {
-    const needsClock =
-        Boolean(patch.awaitingCassationEntryBy) ||
-        patch.grievanceRejectedAwaitingTamyeez === true ||
-        patch.grievanceAcceptedAwaitingDebtorTamyeez === true;
-    if (!needsClock) return patch;
-    return { ...patch, ...appealGrievanceOutcomeClockPatch(outcomeIssuedYmd) };
-}
-
-export function buildGrievanceResolutionPatch(
-    d: Decision,
-    grievanceAccepted: boolean,
-    all?: Decision[],
-    outcomeIssuedYmd?: string
-): Partial<Decision> {
-    const underlying =
-        all && all.length > 0 ? resolveUnderlyingDecisionHub(d, all) : d;
-    if (isManualExecutorLedgerDecision(d) || isManualExecutorLedgerDecision(underlying)) {
-        return buildManualExecutorGrievanceOutcomePatch(d, grievanceAccepted, outcomeIssuedYmd);
-    }
-    const hub = hubWithInferredAppealOrigin(d);
-    const granted = grievancePetitionGranted(d, grievanceAccepted);
-    const branch = resolveAppealBaseBranch(hub);
-    const appealResult: NonNullable<Decision['appealResult']> = grievanceAccepted
-        ? 'قبول التظلم'
-        : 'رد التظلم';
-    const phys = hub.executorOutcome;
-    const creditorRow = isCreditorInitiatedExecutorRequest(hub);
-
-    /** تظلم المدين على طلب دائن موافق عليه (حجز/تخلية/جبري…) — إيقاف مؤقت لا إعادة دورة */
-    if (
-        grievanceAccepted &&
-        creditorRow &&
-        (phys === 'approved' || phys === 'alternative') &&
-        branch === 'after_approval' &&
-        resolveGrievanceFilerActor(d) === 'debtor'
-    ) {
-        return attachGrievanceOutcomeCassationClock(
-            {
-                appealPhase: null,
-                appealStatus: 'pending',
-                appealResult,
-                appealWorkflowState: 'PENDING_APPEAL_LAWYER',
-                executorOutcome: phys,
-                status: 'accepted',
-                awaitingCassationEntryBy: 'lawyer',
-                grievanceRejectedAwaitingTamyeez: false,
-                grievanceAcceptedAwaitingDebtorTamyeez: false,
-                appealMethod: 'tadhallum',
-                noAppealChosen: false,
-            },
-            outcomeIssuedYmd
-        );
-    }
-
-    if (granted) {
-        const outcome =
-            branch === 'after_rejection'
-                ? { executorOutcome: 'approved' as const, status: 'accepted' as const }
-                : { executorOutcome: 'approved' as const, status: 'accepted' as const };
-        const cassationParty = cassationEntryPartyAfterGrievanceGrant(d);
-        if (cassationParty) {
-            return attachGrievanceOutcomeCassationClock(
-                {
-                    appealPhase: null,
-                    appealStatus: 'pending',
-                    appealResult,
-                    appealWorkflowState:
-                        cassationParty === 'debtor'
-                            ? ('PENDING_APPEAL_DEBTOR' as const)
-                            : ('PENDING_APPEAL_LAWYER' as const),
-                    ...outcome,
-                    awaitingCassationEntryBy: cassationParty,
-                    grievanceRejectedAwaitingTamyeez: false,
-                    grievanceAcceptedAwaitingDebtorTamyeez: cassationParty === 'debtor',
-                    appealMethod: 'tadhallum',
-                    noAppealChosen: false,
-                },
-                outcomeIssuedYmd
-            );
-        }
-        return {
-            appealPhase: null,
-            appealStatus: 'final',
-            appealResult,
-            appealWorkflowState:
-                branch === 'after_rejection' ? ('FINAL_ACCEPTED' as const) : ('FINAL_REJECTED' as const),
-            ...outcome,
-            awaitingCassationEntryBy: null,
-            grievanceRejectedAwaitingTamyeez: false,
-            grievanceAcceptedAwaitingDebtorTamyeez: false,
-            appealMethod: 'tadhallum',
-            noAppealChosen: false,
-        };
-    }
-
-    const standing =
-        branch === 'after_rejection'
-            ? { executorOutcome: 'rejected' as const, status: 'rejected' as const }
-            : { executorOutcome: 'approved' as const, status: 'accepted' as const };
-
-    if (branch === 'after_approval') {
-        return attachGrievanceOutcomeCassationClock(
-            {
-                appealPhase: null,
-                appealStatus: 'pending',
-                appealResult,
-                appealWorkflowState: 'PENDING_APPEAL_DEBTOR',
-                ...standing,
-                awaitingCassationEntryBy: 'debtor',
-                grievanceRejectedAwaitingTamyeez: true,
-                grievanceAcceptedAwaitingDebtorTamyeez: false,
-                appealMethod: null,
-                noAppealChosen: false,
-            },
-            outcomeIssuedYmd
-        );
-    }
-
-    return attachGrievanceOutcomeCassationClock(
-        {
-            appealPhase: null,
-            appealStatus: 'pending',
-            appealResult,
-            appealWorkflowState: 'NONE',
-            ...standing,
-            grievanceRejectedAwaitingTamyeez: true,
-            grievanceAcceptedAwaitingDebtorTamyeez: false,
-            awaitingCassationEntryBy: d.appealActor ?? null,
-            appealMethod: null,
-            noAppealChosen: false,
-        },
-        outcomeIssuedYmd
-    );
 }
 
 export function petitionGrantedAfterCassation(d: Decision, choice: 'rad_laheeza' | 'naqd'): boolean {
@@ -352,8 +123,6 @@ export function cassationButtonTitles(
         naqd: 'نقض القرار يعني تغيير نتيجة المنفذ في شأن طلب المدين — قبولاً أو رفضاً نهائياً وفق مسار التمييز.',
     };
 }
-
-const CASSATION_APPEAL_RESULTS = new Set(['رد اللائحة', 'نقض القرار', 'تصديق القرار']);
 
 /** من قدّم التمييز فعلياً — الطرف المخالف بعد قبول تظلم الطرف الآخر */
 export function resolveCassationFilerActor(d: Decision): 'lawyer' | 'debtor' | null {
@@ -426,34 +195,5 @@ export function resolveCassationAppellantLabel(
     if (actor === 'lawyer') return 'الدائن';
     if (actor === 'debtor') return perspective === 'debtor_agent' ? 'موكّلنا' : 'المدين';
     return resolveAppealActorLabel(d, perspective);
-}
-
-export function inferAppealMethodsUsed(d: Decision): { tadhallum: boolean; tamyeez: boolean } {
-    const logs = Array.isArray(d.appealTimelineLogs) ? d.appealTimelineLogs : [];
-    const logText = logs.map((l) => l.message).join('\n');
-    const appealResult = String(d.appealResult || '').trim();
-    const grievanceOutcomeOnly =
-        (appealResult === 'قبول التظلم' || appealResult === 'رد التظلم') &&
-        d.appealStatus !== 'tamyeez_filed' &&
-        d.appealPhase !== 'cassation';
-    const tamyeez =
-        d.appealStatus === 'tamyeez_filed' ||
-        d.appealPhase === 'cassation' ||
-        Boolean(String(d.tamyeezDecisionNumber || '').trim()) ||
-        CASSATION_APPEAL_RESULTS.has(appealResult) ||
-        appealResult === 'نقض القرار' ||
-        (!grievanceOutcomeOnly &&
-            (d.appealMethod === 'tamyeez' ||
-                /تم تسجيل تمييز|تسجيل تمييز|سُجِّل تمييز|تمييز المدين|تمييز وكيل/.test(logText) ||
-                (/رد اللائحة|نقض القرار|تصديق القرار/.test(logText) && !/تظلم/.test(logText))));
-    const tadhallum =
-        d.appealMethod === 'tadhallum' ||
-        d.appealPhase === 'grievance' ||
-        d.appealStatus === 'tadhallum_filed' ||
-        appealResult === 'قبول التظلم' ||
-        appealResult === 'رد التظلم' ||
-        /تظلم/.test(logText) ||
-        /قبول التظلم|رد التظلم/.test(logText);
-    return { tadhallum, tamyeez };
 }
 

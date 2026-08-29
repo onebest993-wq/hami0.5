@@ -1,6 +1,6 @@
 /**
- * Chunk بوابة الإعدادات في MainView (LawyerDashboardSettingsOverlayEntry).
- * منفصل عن hamiSettingsLoader — بدون هذا الـ prefetch يعلق Suspense على fallback.
+ * Prefetch لمقطع بوابة الإعدادات (تسخين الكاش / مسار الفتح).
+ * التركيب الحي كسول من FullBootPath عبر Portal.
  */
 
 type SettingsOverlayEntryModule =
@@ -23,10 +23,16 @@ function ensureEntryPromise(): Promise<SettingsOverlayEntryModule> {
     if (!entryPromise) {
         entryPromise = import(
             '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardSettingsOverlayEntry'
-        ).then((mod) => {
-            entryResolved = true;
-            return mod;
-        });
+        )
+            .then((mod) => {
+                entryResolved = true;
+                return mod;
+            })
+            .catch((err: unknown) => {
+                entryPromise = null;
+                entryResolved = false;
+                throw err;
+            });
     }
     return entryPromise;
 }

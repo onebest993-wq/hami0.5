@@ -19,9 +19,12 @@ const MAIN_FILE_LINE_COUNT = mainFileSource.split('\n').length;
  * الجديد فقط ولا يتكرر كتعليق أو نص منطقي آخر في الملف الرئيسي.
  */
 const EXTRACTED_COMPONENT_MARKERS: Array<{ file: string; marker: string }> = [
-    { file: 'InstrumentDetailsSection.tsx', marker: 'بيانات الحجة الشرعية' },
+    // Wave 4: sharia identity block peeled into InstrumentTypeIdentityFields
+    { file: 'InstrumentTypeIdentityFields.tsx', marker: 'بيانات الحجة الشرعية' },
     { file: 'LawyerFeesToggleCard.tsx', marker: 'المطالبة بأتعاب المحاماة المحكوم بها' },
     { file: 'ExecutionIntakeModals.tsx', marker: 'فحص الغياب الإلزامي' },
+    // Wave 6: visitation/custody extras
+    { file: 'VisitationCustodyExtrasSection.tsx', marker: 'أسماء الأولاد (مشاهدة واستصحاب)' },
 ];
 
 describe('ExecutionCreationView Phase-1 split — component extraction', () => {
@@ -41,29 +44,48 @@ describe('ExecutionCreationView Phase-1 split — component extraction', () => {
         }
     });
 
-    it('main ExecutionCreationView.tsx imports the extracted components', () => {
+    it('main ExecutionCreationView.tsx imports the Wave-6 form body composer', () => {
         expect(mainFileSource).toContain(
-            "import { InstrumentDetailsSection } from './ExecutionCreationView/components/InstrumentDetailsSection';",
+            "import { ExecutionCreationFormBody } from './ExecutionCreationView/components/ExecutionCreationFormBody';",
         );
-        expect(mainFileSource).toContain(
-            "import { LawyerFeesToggleCard } from './ExecutionCreationView/components/LawyerFeesToggleCard';",
-        );
-        expect(mainFileSource).toContain(
-            "import { ExecutionIntakeModals } from './ExecutionCreationView/components/ExecutionIntakeModals';",
-        );
+        expect(mainFileSource).toContain('<ExecutionCreationFormBody');
     });
 
-    it('main ExecutionCreationView.tsx renders the extracted components', () => {
-        expect(mainFileSource).toContain('<InstrumentDetailsSection');
-        expect(mainFileSource).toContain('<LawyerFeesToggleCard');
-        expect(mainFileSource).toContain('<ExecutionIntakeModals');
+    it('ExecutionCreationFormBody owns the section/modal component imports', () => {
+        const formBodyPath = path.join(COMPONENTS_DIR, 'ExecutionCreationFormBody.tsx');
+        expect(fs.existsSync(formBodyPath)).toBe(true);
+        const formBodySource = fs.readFileSync(formBodyPath, 'utf8');
+        expect(formBodySource).toContain("from './instrumentDetailsSectionLazy'");
+        expect(formBodySource).toContain("from './partiesSectionLazy'");
+        expect(formBodySource).toContain("from './LawyerFeesToggleCard'");
+        expect(formBodySource).toContain("from './ExecutionIntakeModals'");
+        expect(formBodySource).toContain("from './VisitationCustodyExtrasSection'");
+        expect(formBodySource).toContain('LazyInstrumentDetailsSection');
+        expect(formBodySource).toContain('PreloadableOverlayGate');
+        expect(formBodySource).toContain('<LawyerFeesToggleCard');
+        expect(formBodySource).toContain('<ExecutionIntakeModals');
+        expect(formBodySource).toContain('<VisitationCustodyExtrasSection');
+    });
+
+    it('InstrumentDetailsSection Wave-4 host composes identity/amounts/extras subsections', () => {
+        const hostPath = path.join(COMPONENTS_DIR, 'InstrumentDetailsSection.tsx');
+        const hostSource = fs.readFileSync(hostPath, 'utf8');
+        expect(hostSource).toContain("from './InstrumentTypeIdentityFields'");
+        expect(hostSource).toContain("from './InstrumentClaimAmountsBlock'");
+        expect(hostSource).toContain("from './InstrumentClaimExtrasSection'");
+        expect(hostSource).toContain("from './InstrumentCommercialMetaSection'");
+        expect(hostSource).toContain("from './InstrumentShariaForeignExtras'");
+        expect(hostSource).toContain('export const InstrumentDetailsSection');
     });
 
     it('PartiesSection and other pre-existing extractions remain untouched', () => {
         expect(fs.existsSync(path.join(COMPONENTS_DIR, 'PartiesSection.tsx'))).toBe(true);
-        expect(mainFileSource).toContain(
-            "import { PartiesSection } from './ExecutionCreationView/components/PartiesSection';",
+        const formBodySource = fs.readFileSync(
+            path.join(COMPONENTS_DIR, 'ExecutionCreationFormBody.tsx'),
+            'utf8',
         );
+        expect(formBodySource).toContain("from './partiesSectionLazy'");
+        expect(formBodySource).toContain('LazyPartiesSection');
     });
 });
 

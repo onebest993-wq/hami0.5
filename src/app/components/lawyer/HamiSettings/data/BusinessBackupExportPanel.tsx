@@ -1,13 +1,10 @@
 import React, { useCallback } from 'react';
-import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 import type { useBusinessBackup } from '../hooks/useBusinessBackup';
-import { Toggle } from '../settings-ui';
+import { Toggle } from '../settings-ui/index';
 
 type BackupVm = ReturnType<typeof useBusinessBackup>;
 
 export function BusinessBackupExportPanel({ backup }: { backup: BackupVm }) {
-    const keyboardInset = useMobileKeyboardInset(backup.backupPanelOpen);
-
     const onDateFocus = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
         event.currentTarget.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }, []);
@@ -16,7 +13,6 @@ export function BusinessBackupExportPanel({ backup }: { backup: BackupVm }) {
         <div
             className="px-4 pb-4 border-b border-white/[0.04]"
             data-testid="business-backup-export-panel"
-            style={keyboardInset > 0 ? { paddingBottom: keyboardInset + 16 } : undefined}
         >
             <div className="text-[11px] text-white/50 mb-2">اختر ما تريد تصديره مع نطاق زمني اختياري</div>
             <div className="grid grid-cols-2 gap-2 mb-3">
@@ -117,14 +113,14 @@ export function BusinessBackupExportPanel({ backup }: { backup: BackupVm }) {
                 <button
                     type="button"
                     onClick={() => void backup.refreshBackupPreview()}
-                    className="flex-1 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white/70 hover:text-white min-h-[44px]"
+                    className="flex-1 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white/70 hover:text-white min-h-[44px] min-w-[44px]"
                 >
                     تحديث المعاينة
                 </button>
                 <button
                     type="button"
                     onClick={() => void backup.exportBusinessBackup()}
-                    className="flex-1 px-3 py-2 rounded-xl bg-[#E6C673] text-[#0B1021] text-xs font-bold min-h-[44px]"
+                    className="flex-1 px-3 py-2 rounded-xl bg-[#E6C673] text-[#0B1021] text-xs font-bold min-h-[44px] min-w-[44px]"
                 >
                     تصدير النسخة
                 </button>

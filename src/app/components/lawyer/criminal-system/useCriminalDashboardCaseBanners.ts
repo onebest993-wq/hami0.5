@@ -5,7 +5,7 @@ import { buildMergedCaseHeaderBadges } from './caseMergeTimeline';
 import { computeOrdinaryCassationWindowLite } from './criminalRequestsEntryLite';
 import { availableCassationTypesForStage } from './cassationEngine';
 
-export type UseCriminalDashboardCaseBannersParams = {
+type UseCriminalDashboardCaseBannersParams = {
     criminalCase: CriminalCase;
     displayCasesById: Record<string, CriminalCase | undefined>;
     stage: string;

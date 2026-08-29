@@ -3,6 +3,7 @@ import type { ProfileBlockCanvasStyle } from '@/app/services/profile/profilePage
 import type { ProfileCanvasInteraction } from '@/app/services/profile/profilePageTypes';
 import { PETAL_SEEDS } from './constants';
 import { MistFogLayer } from './MistFogLayer';
+import { isPrimaryDragPointer } from '@/app/components/lawyer/RoyalLawyerProfile/utils/profilePointerDrag';
 
 type ProfileTextCanvasMaskLayersProps = {
     interaction: ProfileCanvasInteraction;
@@ -145,7 +146,7 @@ export function ProfileTextCanvasMaskLayers({
                         WebkitTapHighlightColor: 'transparent',
                     }}
                     onPointerDown={(e) => {
-                        if (typeof e.button === 'number' && e.button !== 0) return;
+                        if (!isPrimaryDragPointer(e)) return;
                         e.preventDefault();
                         e.stopPropagation();
                         onTapReveal();

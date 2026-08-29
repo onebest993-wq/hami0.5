@@ -1,26 +1,12 @@
-import {
-    FIRST_HEARING_TIMELINE_APPT_ID,
-} from '@/app/domain/lawsuit/lawsuitFileFactory';
-import type { CaseStage } from '@/app/components/lawyer/LawyerShared';
-import type { TimelineEvent } from '@/app/components/lawyer/LawyerShared';
-import { computeNextSessionNumber } from '@/app/components/lawyer/smart-modal/smartFile/sessionRecordEngine';
+import { FIRST_HEARING_TIMELINE_APPT_ID } from '@/app/domain/lawsuit/firstHearingTimelineId';
+import type { CaseStage, TimelineEvent } from '@/app/components/lawyer/lawyerShared/stageTimelineTypes';
+import { computeNextSessionNumber } from '@/app/components/lawyer/smart-modal/smartFile/sessionTimelineNumber';
+import { isDossierFinalized } from '@/app/components/lawyer/smart-modal/smartFile/dossierFinality';
 import {
     isCassationCorrectionStageName,
-    isDossierFinalized,
-} from '@/app/components/lawyer/smart-modal/smartFile/extraordinaryAppealGateway';
-import {
     isCassationStageName,
-} from '@/app/components/lawyer/smart-modal/smartFile/judgmentTypes';
-
-const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-export function normalizeLawsuitArchiveYmd(value: unknown): string | null {
-    if (typeof value !== 'string') return null;
-    const trimmed = value.trim();
-    if (YMD_RE.test(trimmed)) return trimmed;
-    const isoPrefix = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
-    return isoPrefix ? isoPrefix[1] : null;
-}
+} from '@/app/components/lawyer/smart-modal/smartFile/judgmentStageNames';
+import { normalizeLawsuitArchiveYmd } from './archiveYmd';
 
 function ymdToMs(ymd: string): number {
     return new Date(`${ymd}T12:00:00`).getTime();
@@ -84,7 +70,7 @@ function readFirstHearingEventNext(file: Record<string, unknown>): string | null
     return null;
 }
 
-export type LawsuitArchiveHearingDisplay = {
+type LawsuitArchiveHearingDisplay = {
     ymd: string;
     label: 'أول مرافعة' | 'المرافعة القادمة';
     sessionNumber: number;
@@ -153,7 +139,7 @@ function resolveLawsuitSessionNumber(
     ) {
         return 2;
     }
-    return computeNextSessionNumber(events);
+    return computeNextSessionNumber(events, firstHearingDate);
 }
 
 function resolveActiveStageRecord(file: Record<string, unknown>): Record<string, unknown> | null {

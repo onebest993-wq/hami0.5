@@ -1,5 +1,8 @@
 import React from 'react';
-import { File, FileText, ImageIcon, Music2 } from '@/app/components/ui/lucideIcons';
+import { File } from '@/app/components/ui/icons/File';
+import { FileText } from '@/app/components/ui/icons/FileText';
+import { ImageIcon } from '@/app/components/ui/icons/ImageIcon';
+import { Music2 } from '@/app/components/ui/icons/Music2';
 import type { VaultMediaKind } from '@/app/services/vault/vaultDocUtils';
 import { vaultMediaKindLabel } from '@/app/services/vault/vaultDocUtils';
 import {

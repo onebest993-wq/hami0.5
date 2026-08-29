@@ -1,18 +1,13 @@
 import type { Party } from '../../LawyerShared';
-import {
-    extractParentheticalUnderlyingSide,
-    isAbsentObjectedRole,
-    isAbsentObjectorRole,
-    isDefendantSideRole,
-    isInterpleaderThirdPartyRole,
-    isPlaintiffSideRole,
-    partitionPartiesForHeader,
-} from './partyRoleClassification';
+import { partitionPartiesForHeader } from './partyRoleClassification';
 import {
     JUDGMENT_TYPE_VOID,
-    type FirstInstanceAppealRights,
-    resolveLawyerSide,
-} from './judgmentTypes';
+} from './judgmentConstants';
+import type { FirstInstanceAppealRights } from './firstInstanceAppealRightsTypes';
+import { resolveLawyerSide } from './lawyerSideResolution';
+import { resolveClientPartyBucket, type LawyerJudgmentBucket } from './clientPartyBucket';
+export { resolveClientPartyBucket, type LawyerJudgmentBucket } from './clientPartyBucket';
+export { resolveClientMarkedParty } from './clientMarkedParty';
 
 export type JudgmentOptionWithHint = {
     value: string;
@@ -20,19 +15,17 @@ export type JudgmentOptionWithHint = {
     hint?: string;
 };
 
-export type LawyerJudgmentBucket = 'plaintiff' | 'defendant' | 'interpleader';
-
 export const INTERPLEADER_JUDGMENT_PLAINTIFF_FULL =
     'إجابة دعوى المدعي (بالكامل)';
 export const INTERPLEADER_JUDGMENT_THIRD_FULL =
     'الحكم للشخص الثالث الاختصامي (بطلباته)';
 export const INTERPLEADER_JUDGMENT_BOTH_DISMISSED =
     'رد الدعوى الأصلية ورد طلب التدخل';
-export const INTERPLEADER_JUDGMENT_PLAINTIFF_PARTIAL =
+const INTERPLEADER_JUDGMENT_PLAINTIFF_PARTIAL =
     'إجابة دعوى المدعي (جزئياً)';
 export const INTERPLEADER_JUDGMENT_THIRD_PARTIAL =
     'إجابة طلب الشخص الثالث (جزئياً)';
-export const INTERPLEADER_JUDGMENT_FORMAL_NULLITY =
+const INTERPLEADER_JUDGMENT_FORMAL_NULLITY =
     'إبطال عريضة الدعوى وعريضة التدخل';
 
 const INTERPLEADER_JUDGMENT_VALUES = new Set<string>([
@@ -90,62 +83,6 @@ export function interpleaderFirstInstanceJudgmentOptions(): JudgmentOptionWithHi
 
 export function interpleaderTerminationJudgmentOptions(): JudgmentOptionWithHint[] {
     return [{ value: JUDGMENT_TYPE_VOID, label: JUDGMENT_TYPE_VOID }];
-}
-
-/** الطرف المعلّم موكلاً — isClient أو مكتبي */
-export function resolveClientMarkedParty(
-    parties?: Array<{
-        role?: string;
-        isClient?: boolean;
-        side?: 'right' | 'left';
-        isMyOffice?: boolean;
-        lawyer?: { isMyOffice?: boolean };
-    }>,
-) {
-    if (!Array.isArray(parties)) return null;
-    return (
-        parties.find(
-            (p) => p.isClient || p.lawyer?.isMyOffice || p.isMyOffice,
-        ) ?? null
-    );
-}
-
-/** صفة الطرف المعلّم موكلاً فقط — لا تعتمد على إعدادات الملف */
-export function resolveClientPartyBucket(
-    parties?: Array<{
-        id?: number | string;
-        role?: string;
-        isClient?: boolean;
-        side?: 'right' | 'left';
-        isMyOffice?: boolean;
-        lawyer?: { isMyOffice?: boolean };
-    }>,
-): LawyerJudgmentBucket | null {
-    const client = resolveClientMarkedParty(parties);
-    if (!client) return null;
-
-    const role = String(client.role ?? '');
-    if (isInterpleaderThirdPartyRole(role)) return 'interpleader';
-    if (isAbsentObjectedRole(role) || isAbsentObjectorRole(role)) {
-        const underlying = extractParentheticalUnderlyingSide(role);
-        if (underlying === 'المدعي') return 'plaintiff';
-        if (underlying === 'المدعى عليه') return 'defendant';
-    }
-    if (isDefendantSideRole(role)) return 'defendant';
-    if (isPlaintiffSideRole(role)) return 'plaintiff';
-    if (client.side === 'left') return 'defendant';
-    if (client.side === 'right') return 'plaintiff';
-
-    if (Array.isArray(parties) && parties.length > 0) {
-        const partitioned = partitionPartiesForHeader(parties as Party[]);
-        const clientId = client.id;
-        const matches = (p: Party) => clientId != null && p.id === clientId;
-        if (partitioned.interpleaders.some(matches)) return 'interpleader';
-        if (partitioned.plaintiffs.some(matches)) return 'plaintiff';
-        if (partitioned.defendants.some(matches)) return 'defendant';
-    }
-
-    return null;
 }
 
 export function resolveLawyerJudgmentBucket(

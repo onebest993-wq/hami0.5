@@ -1,6 +1,3 @@
-const HMAC_ALGORITHM = 'HMAC';
-const HASH_ALGORITHM = 'SHA-256';
-
 export function normalizeWifeMethod(method: string | undefined): string {
   return (method ?? 'GET').toUpperCase();
 }
@@ -12,18 +9,26 @@ export function toBase64Url(data: Uint8Array): string {
 }
 
 export function toBufferSource(bytes: Uint8Array): ArrayBuffer {
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
 }
 
-export function buildWifeCanonicalPayload(
+export async function sha256Bytes(input: string): Promise<Uint8Array> {
+  const bytes = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest('SHA-256', toBufferSource(bytes));
+  return new Uint8Array(digest);
+}
+
+/** حمولة التوقيع بمفتاح JWT — يجب أن تطابق wifeValidator */
+export function buildWifeTokenCanonicalPayload(
   method: string,
   canonicalPathAndQuery: string,
   timestamp: string,
   nonce: string,
-  sessionId: string,
   body: string,
 ): string {
-  return [normalizeWifeMethod(method), canonicalPathAndQuery, timestamp, nonce, sessionId, body].join('\n');
+  return [normalizeWifeMethod(method), canonicalPathAndQuery, timestamp, nonce, body].join('\n');
 }
 
 export function canonicalWifePathAndQuery(url: string): string {
@@ -44,20 +49,4 @@ export function randomWifeNonce(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   return toBase64Url(bytes);
-}
-
-export async function signWifePayloadWithSecret(payload: string, sessionSecret: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    toBufferSource(new TextEncoder().encode(sessionSecret)),
-    { name: HMAC_ALGORITHM, hash: HASH_ALGORITHM },
-    false,
-    ['sign'],
-  );
-  const signature = await crypto.subtle.sign(
-    HMAC_ALGORITHM,
-    key,
-    toBufferSource(new TextEncoder().encode(payload)),
-  );
-  return toBase64Url(new Uint8Array(signature));
 }

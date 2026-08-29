@@ -1,5 +1,8 @@
 import type { LawyerProfileHeader, ProfileAction, ProfileGalleryItem } from '@/app/services/lawyer-cloud';
 
+export type { EditDraft, ProfileEditDraft } from '@/app/services/profile/profileEditDraft';
+export type { LawyerProfileHeader, ProfileAction, ProfileGalleryItem };
+
 export type ForumProfileFollowState = {
     isFollowing: boolean;
     followerCount?: number;
@@ -19,10 +22,4 @@ export type RoyalLawyerProfileProps = {
     targetUserId?: string | null;
     displayNameHint?: string;
     forumFollow?: ForumProfileFollowState;
-};
-
-export type EditDraft = {
-    header: LawyerProfileHeader;
-    actions: ProfileAction[];
-    gallery: ProfileGalleryItem[];
 };

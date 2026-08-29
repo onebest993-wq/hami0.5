@@ -11,7 +11,7 @@ export function useExecutionDashboardPhoneBodyScopeRead(renderFingerprint?: stri
     const props = withPhoneBodyScopeFallback({
         ...readExecutionPhoneBodyScope(scopeRef),
         renderFingerprint,
-    }) as Record<string, any>;
+    }) as Record<string, unknown>;
     return {
         scopeRef,
         props,

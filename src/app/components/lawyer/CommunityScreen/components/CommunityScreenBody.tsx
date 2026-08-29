@@ -1,404 +1,89 @@
-import type { MutableRefObject } from 'react';
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 
-import type { CommunityPost } from '@/app/services/lawyer-cloud';
-import type { ForumGroup } from '@/app/services/forum/forumGroupTypes';
-import type { RepositorySortKey } from '@/app/components/lawyer/CommunityScreen/repositoryListFilters';
-import type { CommunitySection } from '@/app/components/lawyer/CommunityScreen/communitySectionState';
-import type { ForumFollowRecord } from '@/app/services/forum/forumFollowTypes';
-import { ForumAppBar } from '@/app/components/lawyer/CommunityScreen/components/ForumAppBar';
-import { ForumFollowingPanel } from '@/app/components/lawyer/CommunityScreen/components/ForumFollowingPanel';
-import { ForumPostList } from '@/app/components/lawyer/CommunityScreen/components/ForumPostList';
-import { ForumGroupFeedPanel } from '@/app/components/lawyer/CommunityScreen/components/ForumGroupFeedPanel';
-import { ForumGroupsDirectory } from '@/app/components/lawyer/CommunityScreen/components/ForumGroupsDirectory';
-import {
-    LazyLegalRepository,
-    prefetchCommunityRepositorySection,
-} from '@/app/components/lawyer/CommunityScreen/communityScreenLazySections';
-import {
-    FORUM_PUBLISH_FAB,
-    FORUM_PUBLISH_FAB_DISABLED,
-    FORUM_PUBLISH_FAB_ICON,
-    FORUM_PUBLISH_FAB_LABEL,
-    FORUM_PUBLISH_FAB_SLOT,
-} from '@/app/components/lawyer/CommunityScreen/forumPlumTheme';
-import { prefetchCommunityAddQuestionOverlay } from '@/app/components/lawyer/CommunityScreen/communityOverlayPrefetch';
-import { HomePlusIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
+import { CommunityScreenLazySectionPanes } from '@/app/components/lawyer/CommunityScreen/components/CommunityScreenLazySectionPanes';
+import { useCommunityScreenLazySectionMount } from '@/app/components/lawyer/CommunityScreen/hooks/useCommunityScreenLazySectionMount';
 import { useForumSectionSwipe } from '@/app/components/lawyer/CommunityScreen/hooks/useForumSectionSwipe';
+import { useForumSectionScrollMemory } from '@/app/components/lawyer/CommunityScreen/hooks/useForumSectionScrollMemory';
+import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
+import { CommunityScreenBodyChrome } from './CommunityScreenBodyChrome';
+import { pickForumPostListShared } from './pickForumPostListShared';
+import type { CommunityScreenBodyProps } from './CommunityScreenBody.types';
 
-export type CommunityScreenBodyProps = {
-    onBack?: () => void;
-    forumSurfaceOpen?: boolean;
-    activeSection: CommunitySection;
-    onSectionChange: (section: CommunitySection) => void;
-    onSearchOpen: () => void;
-    onNavigateToPost: (postId: string) => void;
-    currentUserId: string | null;
-    selectedFilterIndex: number;
-    onFilterSelect: (index: number) => void;
-    repositorySearchTerm: string;
-    onRepositorySearchTermChange: (value: string) => void;
-    repositorySortBy: RepositorySortKey;
-    onRepositorySortChange: (value: RepositorySortKey) => void;
-    repositorySelectedType: string;
-    onRepositoryTypeChange: (value: string) => void;
-    repositorySelectedTag: string | null;
-    onRepositoryTagChange: (value: string | null) => void;
-    followingRecords: ForumFollowRecord[];
-    onOpenFollowing: () => void;
-    forumFeedScope: 'all' | 'following';
-    onForumFeedScopeChange: (scope: 'all' | 'following') => void;
-    forumStreamConnected: boolean;
-    onAppBarDropdownChange: (open: boolean) => void;
-    closeAppBarDropdownsRef: MutableRefObject<(() => void) | null>;
-    showFollowingPanel: boolean;
-    onCloseFollowingPanel: () => void;
-    followerRecords: Array<{ followerId: string; createdAt: string }>;
-    followingAuthorNames: Record<string, string>;
-    onUnfollow: (id: string) => void;
-    onFollowBack: (id: string) => void;
-    onUpdateFollowPrefs: (
-        id: string,
-        prefs: Partial<Pick<ForumFollowRecord, 'notifyPosts' | 'notifyComments' | 'notifyReplies'>>,
-    ) => void;
-    onOpenFollowingFeed: () => void;
-    onOpenProfile: (userId: string, displayName?: string) => void;
-    loadingPosts: boolean;
-    hasMore: boolean;
-    loadingMore: boolean;
-    visiblePosts: CommunityPost[];
-    isAdmin: boolean;
-    onToggleUpvote: (postId: string) => void;
-    onImageClick: (url: string) => void;
-    onCommentClick: (postId: string) => void;
-    onDelete: (postId: string) => void;
-    onEdit: (postId: string) => void;
-    onReport: (postId: string) => void;
-    onShare: (postId: string) => void;
-    onLoadMore: () => void;
-    onTogglePin: (postId: string) => void;
-    onFollow: (userId: string) => void;
-    followingIds: Set<string>;
-    bookmarkedIds: Set<string>;
-    onToggleBookmark: (postId: string) => void;
-    onCopyPostText: (postId: string) => void;
-    onSaveToVault: (postId: string) => void;
-    onSaveToDevice: (postId: string) => void;
-    onToggleLock: (postId: string) => void;
-    onMuteUser: (userId: string) => void;
-    userStats: Record<string, { followerCount: number; postCount: number }>;
-    threadFollowingIds: Set<string>;
-    onToggleThreadFollow: (postId: string) => void;
-    activeGroupId: string | null;
-    activeGroup: ForumGroup | null;
-    onLeaveGroup: () => void;
-    leavingGroup: boolean;
-    groupPostsLoading: boolean;
-    groupPostsHasMore: boolean;
-    groupPostsLoadingMore: boolean;
-    groupVisiblePosts: CommunityPost[];
-    onLoadMoreGroupPosts: () => void;
-    onBackFromGroup: () => void;
-    groups: ForumGroup[];
-    groupsLoading: boolean;
-    groupsSearchQuery: string;
-    onGroupsSearchQueryChange: (value: string) => void;
-    onJoinGroup: (groupId: string) => void;
-    onOpenGroup: (groupId: string) => void;
-    onCreateGroupClick: () => void;
-    joiningGroupId: string | null;
-    onOpenAddQuestion: () => void;
-    canPublishPost: boolean;
-};
+export type { CommunityScreenBodyProps } from './CommunityScreenBody.types';
 
 /** جسم المنتدى: الشريط + الأقسام الثلاثة + FAB */
 export function CommunityScreenBody(props: CommunityScreenBodyProps) {
-    const {
-        onBack,
-        forumSurfaceOpen = true,
-        activeSection,
-        onSectionChange,
-        onSearchOpen,
-        onNavigateToPost,
-        currentUserId,
-        selectedFilterIndex,
-        onFilterSelect,
-        repositorySearchTerm,
-        onRepositorySearchTermChange,
-        repositorySortBy,
-        onRepositorySortChange,
-        repositorySelectedType,
-        onRepositoryTypeChange,
-        repositorySelectedTag,
-        onRepositoryTagChange,
-        followingRecords,
-        onOpenFollowing,
-        forumFeedScope,
-        onForumFeedScopeChange,
-        forumStreamConnected,
-        onAppBarDropdownChange,
-        closeAppBarDropdownsRef,
-        showFollowingPanel,
-        onCloseFollowingPanel,
-        followerRecords,
-        followingAuthorNames,
-        onUnfollow,
-        onFollowBack,
-        onUpdateFollowPrefs,
-        onOpenFollowingFeed,
-        onOpenProfile,
-        loadingPosts,
-        hasMore,
-        loadingMore,
-        visiblePosts,
-        isAdmin,
-        onToggleUpvote,
-        onImageClick,
-        onCommentClick,
-        onDelete,
-        onEdit,
-        onReport,
-        onShare,
-        onLoadMore,
-        onTogglePin,
-        onFollow,
-        followingIds,
-        bookmarkedIds,
-        onToggleBookmark,
-        onCopyPostText,
-        onSaveToVault,
-        onSaveToDevice,
-        onToggleLock,
-        onMuteUser,
-        userStats,
-        threadFollowingIds,
-        onToggleThreadFollow,
-        activeGroupId,
-        activeGroup,
-        onLeaveGroup,
-        leavingGroup,
-        groupPostsLoading,
-        groupPostsHasMore,
-        groupPostsLoadingMore,
-        groupVisiblePosts,
-        onLoadMoreGroupPosts,
-        onBackFromGroup,
-        groups,
-        groupsLoading,
-        groupsSearchQuery,
-        onGroupsSearchQueryChange,
-        onJoinGroup,
-        onOpenGroup,
-        onCreateGroupClick,
-        joiningGroupId,
-        onOpenAddQuestion,
-        canPublishPost,
-    } = props;
-
-    const [repositoryMounted, setRepositoryMounted] = useState(
-        () => activeSection === 'repository',
+    const forumSurfaceOpen = props.forumSurfaceOpen ?? true;
+    const { repositoryMounted, groupsMounted, warmLazySection } = useCommunityScreenLazySectionMount(
+        props.activeSection,
+        forumSurfaceOpen,
     );
-    useEffect(() => {
-        if (!forumSurfaceOpen) return;
-        prefetchCommunityRepositorySection();
-        setRepositoryMounted(true);
-    }, [forumSurfaceOpen]);
 
     const sectionSwipeContainerRef = useRef<HTMLDivElement | null>(null);
+    useForumSectionScrollMemory(sectionSwipeContainerRef, props.activeSection);
+    const keyboardInset = useMobileKeyboardInset(forumSurfaceOpen);
     const sectionSwipeEnabled =
-        forumSurfaceOpen && !showFollowingPanel && !(activeSection === 'groups' && activeGroupId);
+        forumSurfaceOpen &&
+        !props.showFollowingPanel &&
+        !(props.activeSection === 'groups' && props.activeGroupId) &&
+        keyboardInset === 0;
     const { swipeHandlers } = useForumSectionSwipe(sectionSwipeContainerRef, {
-        activeSection,
+        activeSection: props.activeSection,
         onSectionChange: (section) => {
-            if (section === 'repository') prefetchCommunityRepositorySection();
-            onSectionChange(section);
+            warmLazySection(section);
+            props.onSectionChange(section);
         },
         enabled: sectionSwipeEnabled,
     });
 
-    const postListShared = {
-        currentUserId,
-        onToggleUpvote,
-        onImageClick,
-        onCommentClick,
-        onDelete,
-        onEdit,
-        onReport,
-        onShare,
-        isAdmin,
-        onTogglePin,
-        onFollow,
-        followingIds,
-        bookmarkedIds,
-        onToggleBookmark,
-        onCopyPostText,
-        onSaveToVault,
-        onSaveToDevice,
-        onToggleLock,
-        onMuteUser,
-        userStats,
-        threadFollowingIds,
-        onToggleThreadFollow,
-        onOpenProfile,
-    };
+    const postListShared = pickForumPostListShared(props);
 
     return (
         <>
-            <ForumAppBar
-                onBack={onBack}
-                forumSurfaceOpen={forumSurfaceOpen}
-                activeSection={activeSection}
-                onSectionChange={onSectionChange}
-                onSearchOpen={onSearchOpen}
-                onNavigateToPost={onNavigateToPost}
-                userId={currentUserId}
-                selectedFilterIndex={selectedFilterIndex}
-                onFilterSelect={onFilterSelect}
-                repositorySearchTerm={repositorySearchTerm}
-                onRepositorySearchTermChange={onRepositorySearchTermChange}
-                repositorySortBy={repositorySortBy}
-                onRepositorySortChange={onRepositorySortChange}
-                repositorySelectedType={repositorySelectedType}
-                onRepositoryTypeChange={onRepositoryTypeChange}
-                repositorySelectedTag={repositorySelectedTag}
-                onRepositoryTagChange={onRepositoryTagChange}
-                groupsSearchQuery={groupsSearchQuery}
-                onGroupsSearchQueryChange={onGroupsSearchQueryChange}
-                followingCount={followingRecords.length}
-                onOpenFollowing={onOpenFollowing}
-                forumFeedScope={forumFeedScope}
-                onForumFeedScopeChange={onForumFeedScopeChange}
-                notificationStreamActive={forumStreamConnected}
-                onAppBarDropdownChange={onAppBarDropdownChange}
-                closeAppBarDropdownsRef={closeAppBarDropdownsRef}
-            />
-
-            {showFollowingPanel ? (
-                <ForumFollowingPanel
-                    open
-                    onClose={onCloseFollowingPanel}
-                    following={followingRecords}
-                    followers={followerRecords}
-                    authorNames={followingAuthorNames}
-                    onUnfollow={onUnfollow}
-                    onFollowBack={onFollowBack}
-                    onUpdatePrefs={onUpdateFollowPrefs}
-                    onOpenFollowingFeed={onOpenFollowingFeed}
-                    onOpenProfile={onOpenProfile}
-                />
-            ) : null}
+            <CommunityScreenBodyChrome {...props} onSectionIntent={warmLazySection} />
 
             <div
                 ref={sectionSwipeContainerRef}
                 data-testid="forum-section-swipe-surface"
-                className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide pb-36 touch-pan-y"
+                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-hide pb-36 touch-pan-y"
                 {...swipeHandlers}
             >
-                <div
-                    data-testid="forum-section-forum"
-                    className={activeSection === 'forum' ? 'block' : 'hidden'}
-                    aria-hidden={activeSection !== 'forum'}
-                >
-                    {forumFeedScope === 'following' ? (
-                        <div className="px-4 pt-2 pb-1 flex items-center justify-between gap-2">
-                            <p className="text-[#C9A86C]/80 text-[11px] font-bold">عرض منشورات المحامين الذين تتابعهم</p>
-                            <button
-                                type="button"
-                                onClick={() => onForumFeedScopeChange('all')}
-                                className="text-[10px] text-[#9AA3B2] hover:text-[#C9A86C] font-bold"
-                            >
-                                الكل
-                            </button>
-                        </div>
-                    ) : null}
-                    <ForumPostList
-                        loadingPosts={loadingPosts}
-                        hasMore={hasMore}
-                        loadingMore={loadingMore}
-                        visiblePosts={visiblePosts}
-                        emptyHint={
-                            forumFeedScope === 'following'
-                                ? followingRecords.length === 0
-                                    ? 'تابع محامياً لعرض منشوراته هنا'
-                                    : 'لا منشورات جديدة من المحامين الذين تتابعهم'
-                                : undefined
-                        }
-                        onLoadMore={onLoadMore}
-                        {...postListShared}
-                    />
-                </div>
-                <div
-                    data-testid="forum-section-repository"
-                    className={activeSection === 'repository' ? 'block' : 'hidden'}
-                    aria-hidden={activeSection !== 'repository'}
-                >
-                    {repositoryMounted ? (
-                        <Suspense fallback={null}>
-                            <LazyLegalRepository
-                                searchTerm={repositorySearchTerm}
-                                selectedType={repositorySelectedType}
-                                sortBy={repositorySortBy}
-                                selectedTag={repositorySelectedTag}
-                                surfaceOpen={forumSurfaceOpen}
-                                repositoryActive={activeSection === 'repository'}
-                            />
-                        </Suspense>
-                    ) : null}
-                </div>
-                <div
-                    data-testid="forum-section-groups"
-                    className={activeSection === 'groups' ? 'block' : 'hidden'}
-                    aria-hidden={activeSection !== 'groups'}
-                >
-                    {activeGroupId && activeGroup ? (
-                        <ForumGroupFeedPanel
-                            group={activeGroup}
-                            onBack={onBackFromGroup}
-                            onLeave={onLeaveGroup}
-                            leaving={leavingGroup}
-                            loadingPosts={groupPostsLoading}
-                            hasMore={groupPostsHasMore}
-                            loadingMore={groupPostsLoadingMore}
-                            visiblePosts={groupVisiblePosts}
-                            onLoadMore={onLoadMoreGroupPosts}
-                            {...postListShared}
-                        />
-                    ) : (
-                        <ForumGroupsDirectory
-                            groups={groups}
-                            loading={groupsLoading}
-                            searchQuery={groupsSearchQuery}
-                            onSearchQueryChange={onGroupsSearchQueryChange}
-                            onJoin={onJoinGroup}
-                            onOpenGroup={onOpenGroup}
-                            onCreateClick={onCreateGroupClick}
-                            joiningGroupId={joiningGroupId}
-                        />
-                    )}
-                </div>
+                <CommunityScreenLazySectionPanes
+                    activeSection={props.activeSection}
+                    forumSurfaceOpen={forumSurfaceOpen}
+                    forumFeedScope={props.forumFeedScope}
+                    onForumFeedScopeChange={props.onForumFeedScopeChange}
+                    followingCount={props.followingRecords.length}
+                    loadingPosts={props.loadingPosts}
+                    hasMore={props.hasMore}
+                    loadingMore={props.loadingMore}
+                    visiblePosts={props.visiblePosts}
+                    onLoadMore={props.onLoadMore}
+                    postListShared={postListShared}
+                    repositoryMounted={repositoryMounted}
+                    groupsMounted={groupsMounted}
+                    repositorySearchTerm={props.repositorySearchTerm}
+                    repositorySelectedType={props.repositorySelectedType}
+                    repositorySortBy={props.repositorySortBy}
+                    repositorySelectedTag={props.repositorySelectedTag}
+                    activeGroupId={props.activeGroupId}
+                    activeGroup={props.activeGroup}
+                    onBackFromGroup={props.onBackFromGroup}
+                    onLeaveGroup={props.onLeaveGroup}
+                    leavingGroup={props.leavingGroup}
+                    groupPostsLoading={props.groupPostsLoading}
+                    groupPostsHasMore={props.groupPostsHasMore}
+                    groupPostsLoadingMore={props.groupPostsLoadingMore}
+                    groupVisiblePosts={props.groupVisiblePosts}
+                    onLoadMoreGroupPosts={props.onLoadMoreGroupPosts}
+                    groups={props.groups}
+                    groupsLoading={props.groupsLoading}
+                    onJoinGroup={props.onJoinGroup}
+                    onOpenGroup={props.onOpenGroup}
+                    onCreateGroupClick={props.onCreateGroupClick}
+                    joiningGroupId={props.joiningGroupId}
+                />
             </div>
-
-            <div className="fixed bottom-0 left-0 right-0 h-[140px] bg-gradient-to-t from-[#0A0F1C]/90 via-[#0A0F1C]/40 to-transparent pointer-events-none z-10" />
-
-            {activeSection === 'forum' || (activeSection === 'groups' && activeGroupId) ? (
-                <div className={FORUM_PUBLISH_FAB_SLOT} data-testid="forum-publish-fab-slot">
-                    <button
-                        type="button"
-                        data-testid="forum-add-question-fab"
-                        onClick={onOpenAddQuestion}
-                        onPointerEnter={prefetchCommunityAddQuestionOverlay}
-                        className={`pointer-events-auto ${canPublishPost ? FORUM_PUBLISH_FAB : FORUM_PUBLISH_FAB_DISABLED}`}
-                        disabled={!canPublishPost}
-                        aria-disabled={!canPublishPost}
-                        aria-label="النشر"
-                    >
-                        <span className={FORUM_PUBLISH_FAB_ICON}>
-                            <HomePlusIcon size={20} strokeWidth={2.5} />
-                        </span>
-                        <span className={FORUM_PUBLISH_FAB_LABEL}>النشر</span>
-                    </button>
-                </div>
-            ) : null}
         </>
     );
 }

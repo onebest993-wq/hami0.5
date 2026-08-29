@@ -1,5 +1,7 @@
 import React from 'react';
-import { CheckCircle, History, Send } from '@/app/components/ui/lucideIcons';
+import { CheckCircle } from '@/app/components/ui/icons/CheckCircle';
+import { History } from '@/app/components/ui/icons/History';
+import { Send } from '@/app/components/ui/icons/Send';
 import { formatIqdDisplay } from '../utils';
 import { SECTION_GLASS, LINK_RETRACT_COLLECTION } from '../constants';
 import type { UnifiedLedgerStore } from '../types';

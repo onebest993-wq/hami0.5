@@ -9,11 +9,14 @@ const applySettingsToDom = vi.fn();
 const publishLawyerSettingsLive = vi.fn();
 const invalidateLawyerSettingsCache = vi.fn();
 const clearStoredBiometricCredential = vi.fn();
+const clearBiometricSessionEnrollment = vi.fn();
+const syncNativeScreenshotGuard = vi.fn();
 
 vi.mock('@/app/infrastructure/persistence/LocalStorageRepository', () => ({
     persistenceRepository: {
         load: vi.fn(),
         save: (...args: unknown[]) => save(...args),
+        flushPending: vi.fn(),
     },
 }));
 
@@ -64,10 +67,27 @@ vi.mock('@/app/context/lawyerSettings/lawyerSettingsPersistence', async (importO
 
 vi.mock('@/app/runtime/nativePlatform', () => ({
     isCapacitorNativePlatform: () => false,
+    getCapacitorPlatformId: () => 'web',
+    isAndroidNativeShell: () => false,
 }));
 
 vi.mock('@/app/services/security/webAuthnLock', () => ({
     clearStoredBiometricCredential: () => clearStoredBiometricCredential(),
+}));
+
+vi.mock('@/app/services/security/biometricSessionService', () => ({
+    clearBiometricSessionEnrollment: () => clearBiometricSessionEnrollment(),
+    reconcileBiometricSessionLockEnabled: () => 'ok',
+}));
+
+vi.mock('@/app/runtime/screenshotDeterrentRuntime', () => ({
+    syncNativeScreenshotGuard: (...args: unknown[]) => syncNativeScreenshotGuard(...args),
+    bindWebScreenshotDeterrent: () => () => undefined,
+}));
+
+vi.mock('@/app/services/settings/localOnlyNetworkIsolation', () => ({
+    armLocalOnlyNetworkIsolation: vi.fn(),
+    installLocalOnlyNetworkIsolation: vi.fn(),
 }));
 
 import { LawyerSettingsProvider } from '@/app/context/lawyerSettings/LawyerSettingsProvider';
@@ -122,10 +142,11 @@ describe('LawyerSettingsProvider', () => {
         );
         expect(save).toHaveBeenCalledWith('lawyer_settings', expect.any(Object));
         expect(save).toHaveBeenCalledWith('lawyer_theme', LAWYER_SETTINGS_V2_DEFAULTS.appearance.theme);
-        expect(clearStoredBiometricCredential).toHaveBeenCalled();
+        expect(clearBiometricSessionEnrollment).toHaveBeenCalled();
         expect(persistWallpaper).toHaveBeenCalledWith(undefined);
         expect(invalidateLawyerSettingsCache).toHaveBeenCalled();
         expect(applySettingsToDom).toHaveBeenCalled();
+        expect(save).toHaveBeenCalledWith('lawyer_theme', LAWYER_SETTINGS_V2_DEFAULTS.appearance.theme);
     });
 
     it('patchSettings يدمج التعديلات الجزئية', async () => {

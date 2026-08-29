@@ -59,7 +59,7 @@ export function resolveSalarySeizureSubject(
     return { roleLabel: 'المدين', personName: text };
 }
 
-export function buildSalarySeizureDescriptionLines(input: {
+function buildSalarySeizureDescriptionLines(input: {
     employerName?: string;
     salaryAmount?: string;
     monthlyDeductionIqd?: number;

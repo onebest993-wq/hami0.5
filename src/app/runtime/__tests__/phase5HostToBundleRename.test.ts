@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readLawyerDashboardMainViewSurface } from './readLawyerDashboardMainViewSurface';
 
 const root = process.cwd();
 
@@ -8,6 +9,9 @@ describe('Phase 5 — Host→Bundle rename + consolidation lazy', () => {
     it('لا تبقى رموز OverlaysHostProps / overlaysHostProps في المسار الحي', () => {
         const samples = [
             'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx',
+            'src/app/components/lawyer/dashboard/LawyerDashboardMainViewOverlayHosts.tsx',
+            'src/app/components/lawyer/dashboard/LawyerDashboardMainView.lazyEntries.ts',
+            'src/app/components/lawyer/dashboard/useLawyerDashboardMainViewChrome.ts',
             'src/app/hooks/lawyerDashboard/assembleLawyerDashboardReadyView.ts',
             'src/app/hooks/lawyerDashboard/useLawyerDashboardCore.types.ts',
             'src/app/hooks/lawyerDashboard/buildLawyerDashboardOverlaysBundleProps.ts',
@@ -48,10 +52,7 @@ describe('Phase 5 — Host→Bundle rename + consolidation lazy', () => {
     });
 
     it('MainView يستخدم overlaysBundle ويمكّن ConsolidationNav lazy', () => {
-        const src = readFileSync(
-            join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
-            'utf8',
-        );
+        const src = readLawyerDashboardMainViewSurface();
         expect(src).toContain('overlaysBundle');
         expect(src).toContain('LazyConsolidationNavOverlayEntry');
         expect(src).not.toMatch(

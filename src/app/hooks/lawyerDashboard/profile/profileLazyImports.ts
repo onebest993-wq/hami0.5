@@ -1,12 +1,11 @@
 import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
 import { ensureDeferredAppStylesLoaded } from '@/app/runtime/deferredAppStyles';
-import { prefetchProfileHubModule, loadProfileHubModule } from '@/app/runtime/profileHubLoader';
 
 /** Matches profileBootHydrator.ts PROFILE_PRIME_HOST_EVENT — local to avoid sync stem pull. */
 export const PROFILE_PRIME_HOST_EVENT = 'hami:profile-prime-host';
 
 export function loadProfileIntentWarm() {
-    return import('@/app/hooks/lawyerDashboard/profileIntentWarm');
+    return import('@/app/runtime/profileShellPrime');
 }
 
 export function loadProfileBootHydrator() {
@@ -20,6 +19,13 @@ export function loadProfileWarmCache() {
 export function prefetchProfileShellChunks(): void {
     void ensureDeferredFeatureStylesLoaded();
     void ensureDeferredAppStylesLoaded().catch(() => undefined);
-    prefetchProfileHubModule();
-    void loadProfileHubModule().catch(() => undefined);
+    void import('@/app/components/lawyer/dashboard/profile/ProfileTabHost').catch(() => undefined);
+    void import('@/app/runtime/royalLawyerProfileLoader')
+        .then((m) => {
+            m.prefetchProfileHubModule();
+            return m.loadProfileHubModule();
+        })
+        .then(() => import('@/app/runtime/profilePageExtrasPrefetch'))
+        .then((extras) => extras.prefetchProfileCustomBlocksChunk())
+        .catch(() => undefined);
 }

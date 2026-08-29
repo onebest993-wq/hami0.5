@@ -1,15 +1,14 @@
-import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
+import {
+    isSectionBackgroundPrefetchAllowed,
+    sectionBackgroundHydrateDelayMs,
+} from '@/app/runtime/sectionPrefetchPolicy';
 import {
     hydrateCommunityScreenForInstantOpen,
     isCommunityScreenModuleResolved,
-    prefetchCommunityScreenModule,
 } from '@/app/runtime/communityHubLoader';
 import { prefetchCommunityCloudModule } from '@/app/services/forum/communityCloudLoader';
 import { warmForumPostsCache } from '@/app/services/forum/forumPostsWarmCache';
-import { warmRepositoryDocsCache } from '@/app/services/forum/repositoryDocsWarmCache';
 import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
 import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
 
@@ -20,22 +19,11 @@ let hydrateInflight: Promise<boolean> | null = null;
 let coldBootPrefetchStarted = false;
 
 function communityPrefetchAllowed(): boolean {
-    try {
-        const s = getLawyerSettingsSnapshot();
-        if (s.security.localOnlyMode) return false;
-        if (s.performance.prefetchScreens === false) return false;
-        if (isLitePerformanceActive(s.performance.litePerformance)) return false;
-    } catch {
-        /* ignore */
-    }
-    return true;
+    return isSectionBackgroundPrefetchAllowed();
 }
 
 function hydrateDelayMs(): number {
-    if (!communityPrefetchAllowed()) return -1;
-    /* Android: أسرع من 400ms حتى يصل Host قبل أول نقرة على الدوك */
-    if (isCapacitorNativePlatform()) return 120;
-    return import.meta.env.DEV ? 120 : 200;
+    return sectionBackgroundHydrateDelayMs(400, import.meta.env.DEV ? 400 : 600);
 }
 
 function dispatchHydratedOnce(): void {
@@ -43,23 +31,39 @@ function dispatchHydratedOnce(): void {
     window.dispatchEvent(new Event(COMMUNITY_SHELL_HYDRATED_EVENT));
 }
 
+async function liveSessionCanUseForumNetwork(): Promise<boolean> {
+    const [{ canUseNetworkFeatures }, { getLiveAuthUserId }] = await Promise.all([
+        import('@/app/services/auth/lawyerAccountStatus'),
+        import('@/app/utils/liveAuthUserId'),
+    ]);
+    return canUseNetworkFeatures(getLiveAuthUserId());
+}
+
 /**
- * تسخين فوري بعد رفع حاجز الإقلاع — يلغي ~150ms parse lag عند أول نقرة.
- * لا ينتظر idle ولا dashboard-interactive.
+ * تسخين المنتدى بعد الكشف + idle + حساب معتمد — لا عند هيكل الجذع.
  */
 export function prefetchForumAfterBootReveal(): void {
     if (typeof window === 'undefined' || coldBootPrefetchStarted) return;
     if (!communityPrefetchAllowed()) return;
-    coldBootPrefetchStarted = true;
 
-    void ensureDeferredFeatureStylesLoaded();
-    void import('@/app/runtime/communityOverlayEntryLoader')
-        .then((m) => m.prefetchCommunityOverlayEntry())
+    void liveSessionCanUseForumNetwork()
+        .then((allowed) => {
+            if (!allowed || coldBootPrefetchStarted) return;
+            const delay = hydrateDelayMs();
+            if (delay < 0) return;
+            coldBootPrefetchStarted = true;
+            scheduleIdleWork(
+                () => {
+                    void ensureDeferredFeatureStylesLoaded();
+                    void import('@/app/runtime/communityOverlayEntryLoader')
+                        .then((m) => m.prefetchCommunityOverlayEntry())
+                        .catch(() => undefined);
+                    void hydrateCommunityShellForInstantOpen().catch(() => undefined);
+                },
+                { minDelayMs: delay, timeoutMs: 8_000 },
+            );
+        })
         .catch(() => undefined);
-    prefetchCommunityScreenModule();
-    void import('@/app/components/lawyer/CommunityScreen/CommunityScreenHost').catch(() => undefined);
-    void import('@/app/components/lawyer/CommunityScreen/components/ForumInstantShell').catch(() => undefined);
-    void hydrateCommunityShellForInstantOpen().catch(() => undefined);
 }
 
 /**
@@ -68,8 +72,14 @@ export function prefetchForumAfterBootReveal(): void {
  */
 export function hydrateCommunityShellForInstantOpen(force = false): Promise<boolean> {
     if (!force && !communityPrefetchAllowed()) return Promise.resolve(false);
-    if (isCommunityScreenModuleResolved()) {
+
+    const maybeWarmPosts = async () => {
+        if (!(await liveSessionCanUseForumNetwork())) return;
         warmForumPostsCache();
+    };
+
+    if (isCommunityScreenModuleResolved()) {
+        void maybeWarmPosts().catch(() => undefined);
         void ensureDeferredFeatureStylesLoaded();
         dispatchHydratedOnce();
         return Promise.resolve(true);
@@ -79,8 +89,7 @@ export function hydrateCommunityShellForInstantOpen(force = false): Promise<bool
     hydrateInflight = hydrateCommunityScreenForInstantOpen()
         .then(async (ok) => {
             if (ok) {
-                warmForumPostsCache();
-                warmRepositoryDocsCache();
+                await maybeWarmPosts().catch(() => undefined);
                 void ensureDeferredFeatureStylesLoaded();
                 prefetchCommunityCloudModule();
                 dispatchHydratedOnce();
@@ -95,32 +104,14 @@ export function hydrateCommunityShellForInstantOpen(force = false): Promise<bool
 }
 
 /**
- * يُجدول:
- * 1) prefetch فوري عند `hami:boot-reveal-done` (أو إن كان الإقلاع منتهياً)
- * 2) hydrate إضافي عند `hami:dashboard-interactive`
+ * يُجدول تسخين المنتدى بعد boot-reveal فقط — لا interactive ولا lawyer-dashboard-ready من الجذع.
  */
 export function bindCommunityBootHydrator(): () => void {
     if (typeof window === 'undefined' || bootHydratorArmed) return () => undefined;
     bootHydratorArmed = true;
 
-    let cancelIdle: (() => void) | undefined;
-
     const onBootRevealDone = () => {
         prefetchForumAfterBootReveal();
-    };
-
-    const scheduleHydrate = () => {
-        prefetchForumAfterBootReveal();
-        const delay = hydrateDelayMs();
-        if (delay < 0) return;
-        cancelIdle?.();
-        cancelIdle = scheduleIdleWork(
-            () => {
-                prefetchCommunityScreenModule();
-                void hydrateCommunityShellForInstantOpen().catch(() => undefined);
-            },
-            { minDelayMs: delay, timeoutMs: 8_000 },
-        );
     };
 
     window.addEventListener(BOOT_REVEAL_DONE_EVENT, onBootRevealDone, { once: true });
@@ -128,18 +119,9 @@ export function bindCommunityBootHydrator(): () => void {
         queueMicrotask(onBootRevealDone);
     }
 
-    window.addEventListener('hami:dashboard-interactive', scheduleHydrate, { once: true });
-
-    if (document.querySelector('[data-testid="lawyer-dashboard-ready"]')) {
-        scheduleHydrate();
-    }
-
     return () => {
         bootHydratorArmed = false;
-        cancelIdle?.();
-        cancelIdle = undefined;
         window.removeEventListener(BOOT_REVEAL_DONE_EVENT, onBootRevealDone);
-        window.removeEventListener('hami:dashboard-interactive', scheduleHydrate);
     };
 }
 

@@ -1,11 +1,13 @@
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { docMatchesCategoryFilter } from '@/app/services/vaultCustomCategories';
+import { isAllowedVaultImageMeta, isScriptableVaultMedia } from '@/app/services/vault/vaultPreviewUrlSafety';
+import { archiveTextMatchesQuery } from '@/app/services/search/normalizeArabicSearch';
+import { clampGlobalSearchQuery } from '@/app/services/search/globalSearchQuerySecurity';
 
 export function inferDocType(mimeType: string, fileName?: string): 'pdf' | 'image' {
     const mime = (mimeType || '').toLowerCase();
     const name = fileName || '';
-    if (mime.startsWith('image/')) return 'image';
-    if (/\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(name)) return 'image';
+    if (isAllowedVaultImageMeta(mime, name)) return 'image';
     if (mime === 'application/pdf' || /\.pdf$/i.test(name)) return 'pdf';
     return 'pdf';
 }
@@ -16,7 +18,10 @@ export function resolveVaultMediaKind(doc: SmartVaultDoc): VaultMediaKind {
     const mime = (doc.mimeType || '').toLowerCase();
     const name = (doc.fileName || doc.title || '').toLowerCase();
 
-    if (doc.type === 'image' || mime.startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(name)) {
+    if (
+        !isScriptableVaultMedia(mime, name) &&
+        (doc.type === 'image' || isAllowedVaultImageMeta(mime, name))
+    ) {
         return 'image';
     }
     if (mime.startsWith('audio/') || /\.(mp3|wav|m4a|ogg|aac|webm|flac)$/i.test(name)) {
@@ -78,17 +83,18 @@ export function formatVaultDate(dateStr: string): string {
 }
 
 export function vaultDocMatchesSearch(doc: SmartVaultDoc, query: string): boolean {
-    const q = query.trim().toLowerCase();
-    if (!q) return true;
-    return (
-        doc.title.toLowerCase().includes(q) ||
-        (doc.customCategory?.toLowerCase().includes(q) ?? false) ||
-        doc.tags.some((t) => t.toLowerCase().includes(q)) ||
-        (doc.lawyerNote?.toLowerCase().includes(q) ?? false) ||
-        (doc.aiSummary?.toLowerCase().includes(q) ?? false) ||
-        (doc.extractedText?.toLowerCase().includes(q) ?? false) ||
-        (doc.fileName?.toLowerCase().includes(q) ?? false)
-    );
+    const q = clampGlobalSearchQuery(query);
+    if (!q.trim()) return true;
+    const hay = [
+        doc.title,
+        doc.customCategory ?? '',
+        ...doc.tags,
+        doc.lawyerNote ?? '',
+        doc.aiSummary ?? '',
+        doc.extractedText ?? '',
+        doc.fileName ?? '',
+    ].join(' ');
+    return archiveTextMatchesQuery(hay, q);
 }
 
 export function filterVaultDocs(

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useLawyerDashboardScheduleTab } from '@/app/hooks/lawyerDashboard/useLawyerDashboardScheduleTab';
+import { markShellHandoffPending, resetShellHandoffPendingForTests } from '@/app/runtime/sectionShellHandoff';
 
 vi.mock('@/app/components/ui/SmartToast', () => ({
     SmartToast: {
@@ -14,6 +15,13 @@ vi.mock('@/app/runtime/scheduleBootHydrator', () => ({
     hydrateScheduleShellForInstantOpenWithData: vi.fn(() => Promise.resolve(true)),
     prefetchScheduleAfterBootReveal: vi.fn(),
     bindScheduleBootHydrator: vi.fn(() => () => undefined),
+}));
+
+vi.mock('@/app/runtime/scheduleHubLoader', () => ({
+    prefetchScheduleTabHostModule: vi.fn(),
+    prefetchScheduleHubModule: vi.fn(),
+    loadScheduleTabHostModule: () => Promise.resolve({}),
+    loadScheduleHubModule: () => Promise.resolve([]),
 }));
 
 vi.mock('@/app/hooks/lawyerDashboard/scheduleIntentWarm', async (importOriginal) => {
@@ -34,6 +42,7 @@ vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
 vi.mock('@/app/bootstrap/bootReveal', () => ({
     BOOT_REVEAL_DONE_EVENT: 'hami:boot-reveal-done',
     isBootRevealDone: () => false,
+    onBootContentReady: () => () => undefined,
 }));
 
 vi.mock('@/app/services/schedule/scheduleShellSnap', () => ({
@@ -46,6 +55,51 @@ vi.mock('@/app/services/schedule/scheduleShellSnap', () => ({
 describe('useLawyerDashboardScheduleTab', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.useRealTimers();
+        resetShellHandoffPendingForTests();
+    });
+
+    it('لا يغلق ستارة التقويم فوراً عند تركيب الـ hook والتبويب الرئيسية (handoff)', async () => {
+        const snap = await import('@/app/services/schedule/scheduleShellSnap');
+        vi.mocked(snap.isScheduleShellSnappedOpen).mockReturnValue(true);
+
+        renderHook(() =>
+            useLawyerDashboardScheduleTab({
+                userId: 'lawyer-1',
+                activeTab: 'home',
+                setActiveTab: vi.fn(),
+            }),
+        );
+
+        expect(snap.snapScheduleShellClose).not.toHaveBeenCalled();
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+        /* بعد macrotask بدون فتح حقيقي يُغلق اليتيم */
+        await act(async () => {
+            await new Promise<void>((r) => setTimeout(r, 0));
+        });
+        expect(snap.snapScheduleShellClose).toHaveBeenCalled();
+    });
+
+    it('لا يغلق ستارة التقويم أثناء تسليم stub→live المعلّق', async () => {
+        const snap = await import('@/app/services/schedule/scheduleShellSnap');
+        vi.mocked(snap.isScheduleShellSnappedOpen).mockReturnValue(true);
+        markShellHandoffPending('schedule');
+
+        renderHook(() =>
+            useLawyerDashboardScheduleTab({
+                userId: 'lawyer-1',
+                activeTab: 'home',
+                setActiveTab: vi.fn(),
+            }),
+        );
+
+        await act(async () => {
+            await new Promise<void>((r) => setTimeout(r, 0));
+        });
+        expect(snap.snapScheduleShellClose).not.toHaveBeenCalled();
     });
 
     it('لا يركّب Host التقويم عند الإقلاع على تبويب الرئيسية بلا هوية', () => {
@@ -59,7 +113,7 @@ describe('useLawyerDashboardScheduleTab', () => {
         expect(result.current.scheduleHostMounted).toBe(false);
     });
 
-    it('يركّب Host التقويم مخفياً فور وجود هوية حقيقية', () => {
+    it('لا يركّب Host التقويم فور الهوية — حتى فتح التبويب', () => {
         const { result } = renderHook(() =>
             useLawyerDashboardScheduleTab({
                 userId: 'lawyer-1',
@@ -67,7 +121,22 @@ describe('useLawyerDashboardScheduleTab', () => {
                 setActiveTab: vi.fn(),
             }),
         );
-        expect(result.current.scheduleHostMounted).toBe(true);
+        expect(result.current.scheduleHostMounted).toBe(false);
+    });
+
+    it('لمسة prime لا تركّب Host التقويم', () => {
+        const { result } = renderHook(() =>
+            useLawyerDashboardScheduleTab({
+                userId: 'lawyer-1',
+                activeTab: 'home',
+                setActiveTab: vi.fn(),
+            }),
+        );
+
+        act(() => {
+            result.current.primeScheduleTabMount();
+        });
+        expect(result.current.scheduleHostMounted).toBe(false);
     });
 
     it('يزيد sessionKey عند دخول تبويب الجدول', () => {
@@ -94,8 +163,14 @@ describe('useLawyerDashboardScheduleTab', () => {
             result.current.openScheduleTab({ date: '2026-06-01', eventId: 'ev-1' });
         });
 
-        expect(setActiveTab).toHaveBeenCalledWith('schedule');
-        expect(result.current.calendarSearchFocus).toEqual({ date: '2026-06-01', eventId: 'ev-1' });
+        await vi.waitFor(() => {
+            expect(setActiveTab).toHaveBeenCalledWith('schedule');
+            expect(result.current.scheduleHostMounted).toBe(true);
+            expect(result.current.calendarSearchFocus).toEqual({
+                date: '2026-06-01',
+                eventId: 'ev-1',
+            });
+        });
     });
 
     it('يرفض الفتح بدون تسجيل دخول', () => {
@@ -122,7 +197,9 @@ describe('useLawyerDashboardScheduleTab', () => {
         act(() => {
             result.current.openScheduleTab();
         });
-        expect(setActiveTab).toHaveBeenCalledWith('schedule');
+        await vi.waitFor(() => {
+            expect(setActiveTab).toHaveBeenCalledWith('schedule');
+        });
         rerender({ activeTab: 'schedule' });
         const sessionKey = result.current.scheduleTabSessionKey;
         expect(sessionKey).toBeGreaterThan(0);
@@ -135,7 +212,9 @@ describe('useLawyerDashboardScheduleTab', () => {
         act(() => {
             result.current.openScheduleTab();
         });
-        expect(setActiveTab).toHaveBeenLastCalledWith('schedule');
+        await vi.waitFor(() => {
+            expect(setActiveTab).toHaveBeenLastCalledWith('schedule');
+        });
         rerender({ activeTab: 'schedule' });
 
         expect(result.current.scheduleTabSessionKey).toBe(sessionKey);

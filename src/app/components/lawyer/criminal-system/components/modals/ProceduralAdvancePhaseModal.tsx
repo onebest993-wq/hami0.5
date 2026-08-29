@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../../criminalModalPortal';
 
-export type ProceduralAdvancePhasePayload = { spawnChildTitle?: string };
+type ProceduralAdvancePhasePayload = { spawnChildTitle?: string };
 
 export type ProceduralAdvancePhaseModalProps = {
     open: boolean;
@@ -51,7 +51,7 @@ export const ProceduralAdvancePhaseModal = ({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-black text-white/75"
+                            className="min-h-[44px] px-4 rounded-xl border border-slate-700 text-sm font-black text-white/75 touch-manipulation"
                         >
                             إلغاء
                         </button>
@@ -62,7 +62,7 @@ export const ProceduralAdvancePhaseModal = ({
                                     spawnChildTitle: spawnChildTitle.trim() || undefined,
                                 })
                             }
-                            className="rounded-xl bg-emerald-600/90 px-4 py-2 text-sm font-black text-white"
+                            className="min-h-[44px] px-4 rounded-xl bg-emerald-600/90 text-sm font-black text-white touch-manipulation"
                         >
                             تأكيد الانتقال
                         </button>

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C Slice 16 — أعلام قفل الإجراءات الجبرية + مشتقات واجهة الإضبارة */
 import { useMemo } from 'react';
 import { buildExecutionCoerciveUiFlags } from './executionDashboardCoerciveUi';

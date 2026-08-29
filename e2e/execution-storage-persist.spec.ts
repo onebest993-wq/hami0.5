@@ -5,6 +5,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
 import { bootToLawyerHome } from './helpers/bootFixtures';
 import { dismissProductivityBlockers, prepareProductivityE2E } from './helpers/productivityE2EFixtures';
+import { openExecutionArchiveFromHome } from './helpers/executionE2EBoot';
 import {
     E2E_EXEC_PERSIST_ID,
     buildE2eExecutionLiveBlob,
@@ -30,11 +31,11 @@ test.describe('Execution storage persist', () => {
     test('auto-reconciles executionFiles index from live blob on lawyer boot', async ({ page }) => {
         await prepareProductivityE2E(page);
         await seedLawyerFiles(page);
+        await seedDivergedExecutionStorage(page);
         await page.goto('/');
         await ensureLawyerDashboard(page);
         await bootToLawyerHome(page);
-        await seedDivergedExecutionStorage(page);
-        await bootToLawyerHome(page);
+        await dismissProductivityBlockers(page);
         await triggerExecutionStorageReconcile(page).catch(() => undefined);
 
         const row = await waitForExecutionIndexReconciled(page);
@@ -48,10 +49,7 @@ test.describe('Execution storage persist', () => {
         await seedSyncedExecutionStorage(page);
         await bootLawyerForStorageE2E(page);
 
-        await page.getByTestId('hub-archive-execution').click({ timeout: 25_000 });
-        await expect(page.getByRole('heading', { name: /مخزن الأضابير التنفيذية/i })).toBeVisible({
-            timeout: 25_000,
-        });
+        await openExecutionArchiveFromHome(page);
 
         await expect(page.getByText(/بلوب حيّ E2E|2026\/تنفيذ\/880/).first()).toBeVisible({
             timeout: 20_000,

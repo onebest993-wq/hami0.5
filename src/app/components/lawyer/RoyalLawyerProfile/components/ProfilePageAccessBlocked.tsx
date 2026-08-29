@@ -1,11 +1,12 @@
 import React, { memo } from 'react';
-import { Lock, UserPlus } from '@/app/components/ui/lucideIcons';
+import { Lock } from '@/app/components/ui/icons/Lock';
+import { UserPlus } from '@/app/components/ui/icons/UserPlus';
 import type { ForumProfileFollowState } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 import type { ProfilePageAccess } from '@/app/services/profile/profilePageTypes';
 import { getProfilePageAccessMeta } from '@/app/services/profile/profilePageAccess';
 import { MoroccanGlassFrame } from '@/app/components/shared/MoroccanGlassOverlay';
 
-export type ProfilePageAccessBlockedProps = {
+type ProfilePageAccessBlockedProps = {
     pageAccess: ProfilePageAccess;
     displayName: string;
     forumFollow?: ForumProfileFollowState;
@@ -22,8 +23,8 @@ export const ProfilePageAccessBlocked = memo(function ProfilePageAccessBlocked({
     const showFollowCta = pageAccess === 'followers' && forumFollow && !forumFollow.isFollowing;
 
     return (
-        <div className="px-4 mt-4" data-testid="lawyer-profile-access-blocked">
-            <MoroccanGlassFrame profilePanel ornatePattern={ornatePattern} className="hami-profile-hero-panel">
+        <div className="mt-4" data-testid="lawyer-profile-access-blocked">
+            <MoroccanGlassFrame profilePanel ornatePattern={ornatePattern}>
                 <div className="text-center space-y-3 py-2">
                     <div className="mx-auto w-12 h-12 rounded-full border border-white/15 bg-white/5 flex items-center justify-center">
                         <Lock size={22} className="text-white/55" aria-hidden />

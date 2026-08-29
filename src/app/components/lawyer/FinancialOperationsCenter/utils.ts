@@ -159,7 +159,7 @@ export function localYmdToDate(ymd: string): Date | null {
     return Number.isFinite(dt.getTime()) ? dt : null;
 }
 
-export function formatLocalYmd(dt: Date): string {
+function formatLocalYmd(dt: Date): string {
     const p = (n: number) => String(n).padStart(2, '0');
     return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`;
 }
@@ -224,11 +224,6 @@ export function invalidPositiveAmountMessage(fieldLabel: string): string {
     return `يرجى إدخال ${fieldLabel} بصيغة رقمية صحيحة أكبر من صفر.`;
 }
 
-import {
-    getLatestUnifiedCollectionDecisionState,
-    hasApprovedUnifiedCollection,
-    type UnifiedCollectionDecisionState,
-} from '@/app/utils/executorSeizureDecisionQueue';
 import { unifiedFundsLedgerStorageKey } from '@/app/utils/unifiedFundsLedgerStorage';
 
 export function storageKey(executionId: string): string {
@@ -277,9 +272,9 @@ export function pickRicherLedgerStore(
             if (typeof a === 'number' && typeof b === 'number') return Math.max(a, b);
             return a ?? b ?? null;
         })(),
-        evictionLedgerActivated: stateStore.evictionLedgerActivated || cachedStore.evictionLedgerActivated,
+        evictionLedgerActivated: stateStore.evictionLedgerActivated,
         principalSnapshot: stateStore.principalSnapshot ?? cachedStore.principalSnapshot,
-        garnishment: stateStore.garnishment || cachedStore.garnishment,
+        garnishment: stateStore.garnishment,
         /** null صريح يُلغي التسوية — لا يُستبدل من الكاش */
         pendingSettlement: stateStore.pendingSettlement,
         settlementBreachTriggeredAt:
@@ -353,19 +348,11 @@ export function hasFrozenLedgerRows(store: UnifiedLedgerStore, executionId: stri
     );
 }
 
-export function isUnifiedLedgerLocked(
-    executionId: string | undefined,
-    store: UnifiedLedgerStore,
-    decisionState?: UnifiedCollectionDecisionState
-): boolean {
-    if (typeof store.collectionRequestedTotal === 'number' && store.collectionRequestedTotal > 0) return true;
-    if (store.collectionRequestActive) return true;
-    if (executionId && hasFrozenLedgerRows(store, executionId)) return true;
-    if (!executionId) return false;
-    if (hasApprovedUnifiedCollection(executionId)) return true;
-    const state = decisionState ?? getLatestUnifiedCollectionDecisionState(executionId);
-    return state === 'pending' || state === 'approved';
-}
+/*
+ * `isUnifiedLedgerLocked` انتقل إلى `./unifiedLedgerLock`. لا يُعاد تصديره من هنا
+ * عن قصد: إعادة التصدير تُعيد ضلع الاستيراد إلى طابور قرارات الحجز، فيرجع وزنه
+ * إلى كل من يمسّ هذا الملفّ — وهو ما نُقل لأجل إزالته.
+ */
 
 /** يحوّل بذور الإضبارة إلى بنود دائمة لا تُمسح عند تغيّر بيانات الإضبارة بعد الطلب */
 export function freezeLedgerForCollection(
@@ -582,9 +569,9 @@ export function resolvePersistedLedgerStore(
             return next.collectionRequestedTotal ?? merged.collectionRequestedTotal ?? null;
         })(),
         collectionRequestActive: next.collectionRequestActive,
-        evictionLedgerActivated: merged.evictionLedgerActivated || next.evictionLedgerActivated,
+        evictionLedgerActivated: next.evictionLedgerActivated,
         completed: next.completed,
-        garnishment: merged.garnishment || next.garnishment,
+        garnishment: next.garnishment,
         pendingSettlement: next.pendingSettlement,
         settlementBreachTriggeredAt:
             next.settlementBreachTriggeredAt !== undefined

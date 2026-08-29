@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { FolderInput } from '@/app/components/ui/lucideIcons';
+import { FolderInput } from '@/app/components/ui/icons/FolderInput';
 import { groupRepositoryRoomsByInitial } from '@/app/services/repository/repositoryRoomPresentation';
 import type { RepositoryRoom } from '@/app/services/repository/repositoryRooms';
+import { computeRepositoryMoveMenuPos, type AnchoredPopoverPos } from './anchoredPopoverPos';
 import { REPO_CARD_ICON_BTN } from './smartRepositoryTheme';
+import { useRepositoryChromeDismiss } from './hooks/useRepositoryChromeDismiss';
 
 const ROOM_SEARCH_THRESHOLD = 8;
 
@@ -23,8 +25,15 @@ export function RepositoryMoveToRoomButton({
     const [open, setOpen] = useState(false);
     const [busy, setBusy] = useState(false);
     const [query, setQuery] = useState('');
+    const closeMenu = useCallback(() => setOpen(false), []);
+    useRepositoryChromeDismiss(open, closeMenu);
     const anchorRef = useRef<HTMLButtonElement>(null);
-    const [menuPos, setMenuPos] = useState({ top: 0, left: 0, width: 280 });
+    const [menuPos, setMenuPos] = useState<AnchoredPopoverPos>({
+        top: 0,
+        left: 0,
+        width: 280,
+        maxHeight: 224,
+    });
 
     const normalizedCurrent = currentRoomId?.trim() || null;
     const showSearch = rooms.length >= ROOM_SEARCH_THRESHOLD;
@@ -43,12 +52,7 @@ export function RepositoryMoveToRoomButton({
 
     useEffect(() => {
         if (!open || !anchorRef.current) return;
-        const rect = anchorRef.current.getBoundingClientRect();
-        setMenuPos({
-            top: rect.bottom + 6,
-            left: Math.max(8, rect.right - 280),
-            width: 280,
-        });
+        setMenuPos(computeRepositoryMoveMenuPos(anchorRef.current));
     }, [open]);
 
     useEffect(() => {
@@ -75,12 +79,17 @@ export function RepositoryMoveToRoomButton({
 
     const menu = open ? (
         <div
-            className="fixed z-[136] rounded-2xl border border-[#E6C673]/20 bg-[#0a0f1c]/96 backdrop-blur-xl shadow-2xl p-2.5"
-            style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}
+            className="fixed z-[136] overflow-hidden rounded-2xl border border-white/10 bg-[#121826] p-2.5"
+            style={{
+                top: menuPos.top,
+                left: menuPos.left,
+                width: menuPos.width,
+                maxHeight: menuPos.maxHeight,
+            }}
             dir="rtl"
             data-testid="repository-move-room-menu"
         >
-            <p className="px-2 pb-1.5 text-[10px] font-bold text-[#E6C673]/70">نقل إلى…</p>
+            <p className="px-2 pb-1.5 text-[10px] font-medium text-[#E6C673]/70">نقل إلى…</p>
             {showSearch ? (
                 <input
                     type="search"
@@ -88,10 +97,16 @@ export function RepositoryMoveToRoomButton({
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="ابحث عن موكل…"
                     data-testid="repository-move-room-search"
-                    className="w-full mb-2 px-3 py-2 rounded-xl bg-white/[0.06] border border-white/10 text-white text-sm outline-none focus:border-[#E6C673]/35"
+                    inputMode="search"
+                    enterKeyHint="search"
+                    autoComplete="off"
+                    className="w-full mb-2 px-3 py-2 min-h-[44px] rounded-xl bg-white/[0.05] border-0 text-white text-base outline-none focus:ring-1 focus:ring-[#E6C673]/30"
                 />
             ) : null}
-            <div className="max-h-56 overflow-y-auto overscroll-contain space-y-2">
+            <div
+                className="overflow-y-auto overscroll-contain space-y-2"
+                style={{ maxHeight: Math.min(224, Math.max(88, menuPos.maxHeight - 40)) }}
+            >
                 <button
                     type="button"
                     disabled={busy || normalizedCurrent == null}
@@ -137,6 +152,7 @@ export function RepositoryMoveToRoomButton({
                 type="button"
                 className="fixed inset-0 z-[135] cursor-default bg-transparent"
                 aria-label="إغلاق قائمة النقل"
+                data-testid="repository-move-room-backdrop"
                 onClick={() => setOpen(false)}
             />
         ) : null;

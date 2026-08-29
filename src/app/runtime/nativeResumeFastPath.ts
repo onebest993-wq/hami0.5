@@ -13,9 +13,12 @@ export function applyNativeResumeFastPath(): void {
 
     dismissNativePrivacyShieldImmediately();
 
+    /* لا إعادة تهيئة ثقيلة — الجلسة الحية تبقى كما هي في الذاكرة */
     if (isBootRevealDone()) {
         try {
             document.documentElement.dataset.hamiBootRevealed = '1';
+            document.documentElement.dataset.hamiInitialBoot = '0';
+            delete document.documentElement.dataset.hamiHomeEntrance;
         } catch {
             /* ignore */
         }

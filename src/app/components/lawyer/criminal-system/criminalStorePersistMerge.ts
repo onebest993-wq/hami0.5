@@ -69,7 +69,7 @@ type CriminalStoreCasesSlice = {
     casesById: Record<string, CriminalCase>;
 };
 
-export function mergeCriminalCasesFromPersistedStorage(
+function mergeCriminalCasesFromPersistedStorage(
     setState: (
         partial:
             | Partial<CriminalStoreCasesSlice>

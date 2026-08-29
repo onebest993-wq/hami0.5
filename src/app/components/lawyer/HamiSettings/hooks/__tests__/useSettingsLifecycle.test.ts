@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useSettingsLifecycle } from '@/app/components/lawyer/HamiSettings/hooks/useSettingsLifecycle';
+import { SETTINGS_INTERACTIVE_FALLBACK_MS } from '@/app/services/settings/settingsPerfBudget';
 
 const markSettingsPerfPhase = vi.fn();
 const reportSettingsPerf = vi.fn();
@@ -53,9 +54,9 @@ describe('useSettingsLifecycle', () => {
         expect(onHydrated).toHaveBeenCalled();
     });
 
-    it('fallback يبلّغ interactive بعد 1200ms', () => {
+    it('fallback يبلّغ interactive بعد مهلة قصيرة', () => {
         renderHook(() => useSettingsLifecycle(true, 'data', 'user-1'));
-        vi.advanceTimersByTime(1_200);
+        vi.advanceTimersByTime(SETTINGS_INTERACTIVE_FALLBACK_MS);
         expect(markSettingsPerfPhase).toHaveBeenCalledWith('interactive');
     });
 });

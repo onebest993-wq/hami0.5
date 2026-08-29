@@ -1,37 +1,29 @@
 import {
     BOOT_REVEAL_DONE_EVENT,
-    isBootRevealDone,
     markBootRevealDone,
     notifyBootContentReady,
 } from '@/app/bootstrap/bootReveal';
+import { announceHomeMainGridPainted } from '@/app/bootstrap/homeMainGridPaintAnnounce';
 import { hasStaticBootShell, removeStaticBootShell } from '@/app/bootstrap/bootStaticShell';
 
 function finishGateBootReveal(): void {
-    if (!isBootRevealDone()) {
-        markBootRevealDone();
-        try {
-            window.dispatchEvent(new Event(BOOT_REVEAL_DONE_EVENT));
-        } catch {
-            /* ignore */
-        }
+    markBootRevealDone();
+    try {
+        window.dispatchEvent(new Event(BOOT_REVEAL_DONE_EVENT));
+    } catch {
+        /* ignore */
     }
 }
 
 /**
- * بوابة تسجيل الدخول فقط — تُعلِن الجاهزية ثم تزيل الشعار بعد paint الواجهة (إطاران).
+ * كشف بوابة الدخول بعد إقلاع صامت.
+ * الإعلان يمر من بوابة الطلاء؛ القصّ هنا فوري بلا rAF حتى لا يتجمّد الكشف.
  */
 export function finalizeBootGateSurface(): void {
     notifyBootContentReady();
-    if (!hasStaticBootShell()) {
-        finishGateBootReveal();
-        return;
+    announceHomeMainGridPainted();
+    if (hasStaticBootShell()) {
+        removeStaticBootShell({ force: true, instant: true });
     }
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-            if (hasStaticBootShell()) {
-                removeStaticBootShell({ force: true, instant: true });
-            }
-            finishGateBootReveal();
-        });
-    });
+    finishGateBootReveal();
 }

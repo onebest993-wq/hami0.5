@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { SeizedAsset } from '@/app/types/execution';
+import { toastAfterExecutionPersist } from '../helpers/toastAfterExecutionPersist';
 
 export function useEvictionLawyerFeeOutcome(input: {
     executionDataId?: string;
@@ -9,7 +10,7 @@ export function useEvictionLawyerFeeOutcome(input: {
     evictionCaseExpenses: Array<{ amount?: number }>;
     setEvictionAssetsTabUnlocked: (v: boolean) => void;
     setSeizedAssets: React.Dispatch<React.SetStateAction<SeizedAsset[]>>;
-    persistExecutionMerge: (patch: Record<string, unknown>) => void;
+    persistExecutionMerge: (patch: Record<string, unknown>) => boolean | void;
     showToast: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
 }) {
     const {
@@ -69,8 +70,13 @@ export function useEvictionLawyerFeeOutcome(input: {
             if (rk === 'case_expense') {
                 const sum = evictionCaseExpenses.reduce((s, x) => s + (Number(x.amount) || 0), 0);
                 if (sum <= 0) {
-                    queueMicrotask(() => persistExecutionMerge({ eviction_assets_tab_unlocked: true }));
-                    showToast('تم قبول المصاريف — تبويب الأموال', 'success');
+                    queueMicrotask(() => {
+                        toastAfterExecutionPersist(
+                            persistExecutionMerge({ eviction_assets_tab_unlocked: true }),
+                            showToast,
+                            'تم قبول المصاريف — تبويب الأموال',
+                        );
+                    });
                     return;
                 }
                 setSeizedAssets((prev) => {

@@ -48,7 +48,7 @@ export const StructuralIndexPill = ({ chain, tone }: { chain: ProceduralParentNu
     const num = formatProceduralNumberChain(chain);
     const toneClass =
         tone === 'root'
-            ? 'min-w-[2.1rem] bg-[#E6C673] text-[#0B1021] border-[#E6C673] shadow-[0_0_10px_rgba(230,198,115,0.25)]'
+            ? 'min-w-[2.1rem] bg-[#E6C673] text-[#0B1021] border-[#E6C673]'
             : tone === 'primary'
               ? 'min-w-[2rem] bg-[#E6C673]/18 text-[#E6C673] border-[#E6C673]/55'
               : tone === 'sub'
@@ -201,7 +201,7 @@ export const ActionFollowUpBadge = ({ followUpDate }: { followUpDate: string }) 
 };
 
 const STARRED_CARD =
-    'border-[#E6C673]/60 ring-1 ring-[#E6C673]/50 shadow-[0_0_10px_rgba(230,198,115,0.1)]';
+    'border-[#E6C673]/60 ring-1 ring-[#E6C673]/50';
 
 export const withStarredBorder = (base: string, starred: boolean) => (starred ? `${base} ${STARRED_CARD}` : base);
 
@@ -266,7 +266,7 @@ export const RowMenu = ({
         <summary className="list-none cursor-pointer rounded-lg border border-slate-600/50 px-2 py-1 text-white/60 hover:text-white hover:bg-slate-700/50 text-xs font-black [&::-webkit-details-marker]:hidden">
             ⋯
         </summary>
-        <div className="absolute top-full end-0 z-[80] mt-1 min-w-[7.5rem] rounded-xl border border-slate-600 bg-slate-900 shadow-2xl p-1 flex flex-col gap-0.5">
+        <div className="absolute top-full end-0 z-[80] mt-1 min-w-[7.5rem] rounded-xl border border-slate-600 bg-slate-900 shadow-lg p-1 flex flex-col gap-0.5">
             {onClone ? (
                 <button
                     type="button"

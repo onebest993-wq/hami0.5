@@ -42,10 +42,13 @@ describe('wave7c BFF + fossils + privileged-role honesty', () => {
 
     it('AdminLawEntry لا يذكر مفتاح الخدمة المميّز في رسالة العميل', () => {
         const privileged = ['SERVICE', '_ROLE'].join('');
-        for (const rel of [
+        const rels = [
             'src/app/components/admin/AdminLawEntry.tsx',
-            'src/app/components/admin/AdminLawEntry/useAdminLawEntry.ts',
-        ]) {
+            'src/app/components/admin/useAdminLawEntry.ts',
+            'src/app/components/admin/adminLawEntryApi.ts',
+            'src/app/components/admin/adminLawEntryTypes.ts',
+        ];
+        for (const rel of rels) {
             const t = fs.readFileSync(path.join(root, rel), 'utf8');
             expect(t).not.toContain(privileged);
         }

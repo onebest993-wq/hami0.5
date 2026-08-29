@@ -35,6 +35,22 @@ export function pruneOrphanedBridgeEvents(userId?: string | null): void {
         .catch(() => undefined);
 }
 
+export function syncLawsuitTimelineAppointment(
+    p: Parameters<DossierSyncModule['syncLawsuitTimelineAppointment']>[0],
+): void {
+    void loadDossierSync()
+        .then((m) => m.syncLawsuitTimelineAppointment(p))
+        .catch(() => undefined);
+}
+
+export function syncLawsuitTaskDue(
+    p: Parameters<DossierSyncModule['syncLawsuitTaskDue']>[0],
+): void {
+    void loadDossierSync()
+        .then((m) => m.syncLawsuitTaskDue(p))
+        .catch(() => undefined);
+}
+
 export function removeAllBridgedEventsForEntity(
     sourceModule: Parameters<DossierSyncModule['removeAllBridgedEventsForEntity']>[0],
     sourceEntityId: string | number,

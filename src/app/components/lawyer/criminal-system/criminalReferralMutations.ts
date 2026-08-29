@@ -21,7 +21,7 @@ import {
     type InvestigationReferralTargetStage as ReferralStageTarget,
 } from './juvenileInvestigationRules';
 
-export type InvestigationReferralPayload = {
+type InvestigationReferralPayload = {
     targetCaseStage: InvestigationReferralTargetStage;
     courtName: string;
     courtCaseNumber: string;
@@ -35,7 +35,7 @@ export type InvestigationReferralPayload = {
     referralMisdemeanorType?: MisdemeanorType;
 };
 
-export type InvestigationReferralTrialPayload = {
+type InvestigationReferralTrialPayload = {
     defendantIds: string[];
     targetCaseStage: ReferralStageTarget;
     courtName: string;

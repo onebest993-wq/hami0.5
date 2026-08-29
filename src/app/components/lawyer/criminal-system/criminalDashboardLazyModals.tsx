@@ -1,5 +1,6 @@
-import React, { lazy, Suspense, type ComponentProps, type ReactNode } from 'react';
-import { CriminalModalPortal, CRIMINAL_MODAL_Z, renderCriminalModalPortal } from './criminalModalPortal';
+import React, { lazy } from 'react';
+import { CRIMINAL_MODAL_Z } from './criminalModalPortal';
+import { lazyModal } from './criminalLazyModalCore';
 
 const LazyInvestigationDecisionModal = lazy(() =>
     import('./components/modals/InvestigationDecisionModal').then((m) => ({
@@ -76,38 +77,36 @@ const LazyVenueIdentityCorrectionModal = lazy(() =>
         default: m.VenueIdentityCorrectionModal,
     })),
 );
-
-function ModalSuspense({ children }: { children: ReactNode }) {
-    return <Suspense fallback={null}>{children}</Suspense>;
-}
-
-type LazyModalProps<C extends React.ComponentType<any>> = ComponentProps<C> & { open?: boolean };
-
-type LazyModalOptions = {
-    zIndex?: number;
-    /** المكوّن يستخدم CriminalModalPortal داخلياً — لا نُضيف غلافاً خارجياً */
-    selfPortaled?: boolean;
-    /** المكوّن ما زال يحمل fixed inset-0 — نرفعه بـ createPortal فقط دون غلاف مزدوج */
-    legacyShell?: boolean;
-};
-
-function lazyModal<C extends React.ComponentType<any>>(
-    Component: C,
-    options: LazyModalOptions = {},
-) {
-    const zIndex = options.zIndex ?? CRIMINAL_MODAL_Z.default;
-    return function LazyModalWrapper(props: LazyModalProps<C>) {
-        if (props.open === false) return null;
-        const body = (
-            <ModalSuspense>
-                <Component {...props} />
-            </ModalSuspense>
-        );
-        if (options.selfPortaled) return body;
-        if (options.legacyShell) return renderCriminalModalPortal(body);
-        return <CriminalModalPortal zIndex={zIndex}>{body}</CriminalModalPortal>;
-    };
-}
+const LazyStageCloserModal = lazy(() =>
+    import('./components/StageCloserModal').then((m) => ({
+        default: m.StageCloserModal,
+    })),
+);
+const LazyRequestsEntryModal = lazy(() =>
+    import('./components/RequestsEntryModal').then((m) => ({
+        default: m.RequestsEntryModal,
+    })),
+);
+const LazySendToCassationModal = lazy(() =>
+    import('./components/SendToCassationModal').then((m) => ({
+        default: m.SendToCassationModal,
+    })),
+);
+const LazyLegalArticleEditModal = lazy(() =>
+    import('./components/LegalArticleEditModal').then((m) => ({
+        default: m.LegalArticleEditModal,
+    })),
+);
+const LazyReopenCaseModal = lazy(() =>
+    import('./components/ReopenCaseModal').then((m) => ({
+        default: m.ReopenCaseModal,
+    })),
+);
+const LazyBailForfeitureModal = lazy(() =>
+    import('./components/BailForfeitureModal').then((m) => ({
+        default: m.BailForfeitureModal,
+    })),
+);
 
 /** مودالات جزائية — lazy عند الفتح (لا استيراد ثابت لـ store داخل registry) */
 export const InvestigationDecisionModal = lazyModal(LazyInvestigationDecisionModal, {
@@ -161,6 +160,32 @@ export const VenueIdentityCorrectionModal = lazyModal(LazyVenueIdentityCorrectio
 });
 
 export const ConfirmActionModal = lazyModal(LazyConfirmActionModal, {
+    zIndex: CRIMINAL_MODAL_Z.default,
+    legacyShell: true,
+});
+
+/** Wave 2 — مودالات ثقيلة كانت ثابتة في ModalsHost */
+export const StageCloserModal = lazyModal(LazyStageCloserModal, {
+    zIndex: CRIMINAL_MODAL_Z.stageCloser,
+    legacyShell: true,
+});
+export const RequestsEntryModal = lazyModal(LazyRequestsEntryModal, {
+    zIndex: CRIMINAL_MODAL_Z.request,
+    legacyShell: true,
+});
+export const SendToCassationModal = lazyModal(LazySendToCassationModal, {
+    zIndex: CRIMINAL_MODAL_Z.default,
+    legacyShell: true,
+});
+export const LegalArticleEditModal = lazyModal(LazyLegalArticleEditModal, {
+    zIndex: CRIMINAL_MODAL_Z.default,
+    legacyShell: true,
+});
+export const ReopenCaseModal = lazyModal(LazyReopenCaseModal, {
+    zIndex: CRIMINAL_MODAL_Z.default,
+    legacyShell: true,
+});
+export const BailForfeitureModal = lazyModal(LazyBailForfeitureModal, {
     zIndex: CRIMINAL_MODAL_Z.default,
     legacyShell: true,
 });

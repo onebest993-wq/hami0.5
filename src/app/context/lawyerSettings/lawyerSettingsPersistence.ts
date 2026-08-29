@@ -3,7 +3,7 @@ import {
     loadPersistedWallpaper,
     persistWallpaper,
 } from '@/app/services/settings/apply';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
+import { getLawyerSettingsSnapshot, publishLawyerSettingsLive } from '@/app/services/settings/settingsSnapshot';
 import { LAWYER_SETTINGS_V2_DEFAULTS } from '@/app/services/settings/defaults';
 import type { ShapeKey, ThemeKey } from '@/app/types/common';
 import type { AppSettingsState } from '@/app/services/settings/types';
@@ -68,4 +68,18 @@ export function readProviderBootSettings(): AppSettingsState {
     } catch {
         return BOOT_DEFAULT_SETTINGS;
     }
+}
+
+/** تطبيق إعدادات من جسر أصلي (Compose) — يُزامن React + التخزين. */
+export function applyLawyerSettingsPatchExternal(
+    mutator: (prev: AppSettingsState) => AppSettingsState,
+): AppSettingsState {
+    const prev = getLawyerSettingsSnapshot();
+    const next = mutator(prev);
+    persistenceRepository.save('lawyer_settings', stripWallpaperForStorage(next));
+    publishLawyerSettingsLive(next);
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('hami:settings-external-commit', { detail: next }));
+    }
+    return next;
 }

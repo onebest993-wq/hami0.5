@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mic } from '@/app/components/ui/lucideIcons';
+import { Mic } from '@/app/components/ui/icons/Mic';
 import { VoiceNoteAudio } from '@/app/components/lawyer/dashboard/VoiceNoteAudio';
 import { TASKS_INNER_GLASS } from './tasksBoucleTheme';
 
@@ -18,7 +18,7 @@ export function TaskVoicePlayback({ voiceRef, compact = false, className = '' }:
                 data-testid="task-voice-playback-compact"
             >
                 <Mic className="size-3.5 shrink-0 text-[#E6C673]/80" aria-hidden />
-                <VoiceNoteAudio body={voiceRef} className="h-8 min-w-0 flex-1" preload="metadata" />
+                <VoiceNoteAudio body={voiceRef} className="min-h-[44px] h-11 min-w-0 flex-1" preload="metadata" />
             </div>
         );
     }
@@ -32,7 +32,7 @@ export function TaskVoicePlayback({ voiceRef, compact = false, className = '' }:
                 <Mic className="size-3 shrink-0 opacity-80" aria-hidden />
                 تسجيل صوتي
             </p>
-            <VoiceNoteAudio body={voiceRef} className="w-full h-9" preload="metadata" />
+            <VoiceNoteAudio body={voiceRef} className="w-full min-h-[44px] h-11" preload="metadata" />
         </div>
     );
 }

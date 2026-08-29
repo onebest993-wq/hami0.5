@@ -3,17 +3,11 @@ import {
     deriveNotificationCategory,
     type NotificationModel,
 } from '@/app/infrastructure/NotificationRepository';
-import { SecureAPIClient } from '@/app/services/SecureAPIClient';
-import { SmartToast } from '@/app/components/ui/SmartToast';
-import { SmartDialog } from '@/app/components/ui/SmartDialog';
-import {
-    clampClientPhoneInput,
-    normalizeClientPhoneInput,
-} from '@/app/services/notifications/notificationClientRequestSecurity';
 import {
     isNotificationNavTarget,
     sanitizeNotificationActionPayload,
 } from '@/app/services/notifications/notificationNavigateSecurity';
+import { requestOpenLawyerForum } from '@/app/runtime/forumOpenIntent';
 
 type MarkAsReadFn = (userId: string, notificationId: string) => Promise<void>;
 
@@ -25,8 +19,6 @@ export function useNotificationActions(
 ) {
     const handleTap = useCallback(
         async (notification: NotificationModel) => {
-            if (!notification.isRead) await markAsRead(userId, notification.id);
-            onClose();
             const cat = deriveNotificationCategory(notification);
             const payload = sanitizeNotificationActionPayload(notification.actionPayload ?? {});
             let path: string | null = null;
@@ -37,50 +29,33 @@ export function useNotificationActions(
                 case 'document':
                     path = 'vault';
                     break;
+                case 'execution':
+                    path = payload.caseId ? 'case_details' : 'execution_home';
+                    break;
+                case 'civil':
+                case 'criminal':
+                    path = payload.caseId ? 'case_details' : 'lawsuit_home';
+                    break;
+                case 'task':
+                    path = 'schedule';
+                    break;
                 case 'ai':
                     if (payload.caseId) path = 'case_details';
                     break;
                 default:
                     break;
             }
-            if (path && isNotificationNavTarget(path)) onNavigate(path, payload);
+            if (!notification.isRead) {
+                void markAsRead(userId, notification.id).catch(() => undefined);
+            }
+            if (path === 'community') {
+                const postId = typeof payload.postId === 'string' ? payload.postId : undefined;
+                requestOpenLawyerForum(postId);
+            } else if (path && isNotificationNavTarget(path)) onNavigate(path, payload);
+            onClose();
         },
         [markAsRead, onClose, onNavigate, userId],
     );
-
-    const handleClientRequest = useCallback(async (e: MouseEvent, _notif: NotificationModel) => {
-        e.stopPropagation();
-        const clientPhoneRaw = await SmartDialog.prompt(
-            'أدخل رقم هاتف الموكل (مثال: +9647800000000):',
-            '',
-        );
-        if (!clientPhoneRaw) return;
-
-        const clientPhone = normalizeClientPhoneInput(clampClientPhoneInput(clientPhoneRaw));
-        if (!clientPhone) {
-            SmartToast.error('رقم الهاتف غير صالح. استخدم صيغة عراقية مثل +9647800000000');
-            return;
-        }
-
-        const message = 'أهلاً بك، يرجى إرسال صورة القيد أو سند الطابو لإكمال ملف دعواكم.';
-        try {
-            const data = await SecureAPIClient.fetchSecure<{ success?: boolean; error?: string }>(
-                '/api/comms-dispatcher',
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ to: clientPhone, message, channel: 'whatsapp' }),
-                },
-            );
-            if (data.success) SmartToast.success('تم إرسال الطلب للموكل بنجاح (Simulation) ✅');
-            else throw new Error(data.error);
-        } catch {
-            window.open(
-                `https://wa.me/${clientPhone.replace('+', '')}?text=${encodeURIComponent(message)}`,
-                '_blank',
-            );
-        }
-    }, []);
 
     const handleScan = useCallback(
         (e: MouseEvent) => {
@@ -91,5 +66,5 @@ export function useNotificationActions(
         [onClose, onNavigate],
     );
 
-    return { handleTap, handleClientRequest, handleScan };
+    return { handleTap, handleScan };
 }

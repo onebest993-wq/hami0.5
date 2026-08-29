@@ -10,8 +10,6 @@ export type DockShellBadgeContext = {
     pinnedCount?: number;
     urgentAlertsCount?: number;
     forumUnreadCount?: number;
-    repositorySparkAttentionCount?: number;
-    calendarSparkAttentionCount?: number;
 };
 
 /** تسمية قارئ الشاشة لأيقونة الشريط السفلي — تتضمن الشارات عند وجودها */
@@ -25,8 +23,11 @@ export function resolveDockShellItemAriaLabel(
     const urgent = ctx.urgentAlertsCount ?? 0;
     const forumUnread = ctx.forumUnreadCount ?? 0;
 
-    if (widgetId === 'dockTasks' && pending > 0) {
-        return `${label}، ${pending} مهام معلقة`;
+    if (widgetId === 'dockTasks') {
+        if (pending > 0) {
+            return `${label}، ${pending} مهام معلقة`;
+        }
+        return `${label}، مهام اليوم الميدانية`;
     }
 
     if (widgetId === 'alerts' && shouldShowAlertsDockBadge(pinned, urgent)) {
@@ -43,20 +44,8 @@ export function resolveDockShellItemAriaLabel(
         return `${label}، ${urgent} تنبيه عاجل`;
     }
 
-    const calendarSpark = ctx.calendarSparkAttentionCount ?? 0;
-    if (widgetId === 'dockCalendar' && calendarSpark > 0) {
-        const countLabel =
-            calendarSpark === 1 ? 'متابعة إجرائية واحدة' : `${calendarSpark} متابعات إجرائية`;
-        return `${label} — ${countLabel}`;
-    }
-
     if (widgetId === 'forum' && shouldShowForumUnreadBadge(forumUnread)) {
         return resolveForumShellAriaLabel(forumUnread);
-    }
-
-    const repositorySpark = ctx.repositorySparkAttentionCount ?? 0;
-    if (widgetId === 'dockRepository' && repositorySpark > 0) {
-        return `${label}، متابعة إجرائية في المستودع`;
     }
 
     return label;

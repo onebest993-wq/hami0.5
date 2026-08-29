@@ -15,7 +15,7 @@ const DEFAULT_CAPTION_STYLE = {
     align: 'center' as const,
 };
 
-export type ProfileCustomBlockViewProps = {
+type ProfileCustomBlockViewProps = {
     block: ProfileCustomBlock;
     /** تفعيل تفاعلات المعاينة (لمسة، ضباب، …) */
     interactive?: boolean;
@@ -49,7 +49,13 @@ export function ProfileCustomBlockView({
     const imageHeight = block.imageHeightPx ?? 160;
 
     return (
-        <div data-profile-block-shell data-block-kind="image" className="w-full space-y-2">
+        <div
+            data-profile-block-shell
+            data-block-kind="image"
+            data-testid="profile-page-image-block"
+            data-has-image={block.imageUrl ? 'true' : 'false'}
+            className="w-full space-y-2"
+        >
             {block.imageUrl ? (
                 <ProfileMediaFrame
                     block={block}

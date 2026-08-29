@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import type { JudgeDecisionLifecyclePanelProps } from '../JudgeDecisionLifecyclePanelProps';
 import { JudgeDecisionPhaseHeader } from './JudgeDecisionPhaseHeader';
 import { JudgeDecisionReadOnlySummaries } from './JudgeDecisionReadOnlySummaries';

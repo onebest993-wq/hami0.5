@@ -2,7 +2,7 @@ import type { ProcedureGuideApplyPayload } from '@/app/services/transactions/pro
 import type { TransactionDocumentOwnerTag } from '@/app/modules/transactionsThreading/types';
 import type { TransactionTask } from '@/app/modules/transactionsThreading/types';
 
-export type ApplyProcedureGuideDeps = {
+type ApplyProcedureGuideDeps = {
     addTask: (input: {
         transactionId: string;
         title: string;

@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { AtSign } from '@/app/components/ui/lucideIcons';
+import { AtSign } from '@/app/components/ui/icons/AtSign';
 import type { MentionCandidate } from '@/app/hooks/useForumMentionAutocomplete';
 import { FORUM_PANEL, FORUM_TEXT_APRICOT, FORUM_TEXT_MUTED, FORUM_TEXT_PRIMARY } from '../forumPlumTheme';
 
@@ -36,10 +36,10 @@ export const ForumMentionSuggestions = memo(function ForumMentionSuggestions({
                     onMouseEnter={() => onHover(idx)}
                     onClick={() => onSelect(c)}
                     className={`w-full text-right px-3 py-2.5 flex items-center gap-2 transition-colors ${
-                        idx === activeIndex ? 'bg-[#C9A86C]/12' : 'hover:bg-[#1A2333]'
+                        idx === activeIndex ? 'bg-[#E6C673]/12' : 'hover:bg-[#1A2333]'
                     }`}
                 >
-                    <span className="w-7 h-7 rounded-full bg-[#C9A86C]/12 border border-[#C9A86C]/25 flex items-center justify-center text-[#C9A86C] text-[10px] font-bold shrink-0">
+                    <span className="w-7 h-7 rounded-full bg-[#E6C673]/12 border border-[#E6C673]/25 flex items-center justify-center text-[#E6C673] text-[10px] font-bold shrink-0">
                         {c.name.slice(0, 1)}
                     </span>
                     <span className={`${FORUM_TEXT_PRIMARY} text-xs font-bold truncate flex-1`}>{c.name}</span>

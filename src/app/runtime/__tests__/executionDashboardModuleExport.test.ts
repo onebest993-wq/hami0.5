@@ -8,5 +8,5 @@ describe('executionDashboard module export', () => {
         const mod = await loadExecutionDashboardModule();
         expect(mod.ExecutionDashboard).toBeDefined();
         expect(typeof mod.ExecutionDashboard).toBe('object');
-    });
+    }, 60_000);
 });

@@ -1,5 +1,10 @@
 import type { TimelineEvent } from '../../LawyerShared';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
+import {
+    collectUniqueHearingDates,
+    recordedHearingDates,
+} from './sessionTimelineNumber';
+import { isPleadingHearingAppointment } from './timelineLegalDeadline';
 
 export type SessionRecordFormData = {
     date: string;
@@ -10,26 +15,25 @@ export type SessionRecordFormData = {
     recordScope?: 'court' | 'opponent';
 };
 
-const SESSION_RECORD_HINT_RE = /جلسة|محضر|مرافعة/i;
+export {
+    collectUniqueHearingDates,
+    computeNextSessionNumber,
+    findCourtSessionRecordForDate,
+    isCourtSessionRecord,
+    isOpponentProceedingsEvent,
+    isSessionHubFocusEvent,
+    isSessionTimelineEvent,
+    normalizeHearingYmd,
+    recordedHearingDates,
+    sessionNumberForHearingDate,
+} from './sessionTimelineNumber';
+
 const SESSION_NUMBER_RE = /رقم\s*الجلس[ةه]\s*[:\-]?\s*(\d+)/i;
 const SESSION_TITLE_NUMBER_RE = /(?:الجلسة|محضر\s*الجلسة|جلسة\s*مرافعة)\s*(?:رقم\s*)?(\d+)/i;
 const PROCEEDINGS_RE = /مجريات\s*الدعوى\s*[:\-]?\s*\n?([\s\S]*?)(?=\n\nقرارات\s*القاضي|$)/i;
 const OPPONENT_PROCEEDINGS_RE = /تحركات\s*(?:الطرف\s*الآخر\s*\/\s*وكيل\s*الخصم|وكيل\s*الخصم)\s*[:\-]?\s*\n?([\s\S]*?)$/i;
 const JUDGE_DECISIONS_RE = /قرارات\s*القاضي\s*[:\-]?\s*\n?([\s\S]*?)(?=\n\nتاريخ\s*المرافعة\s*القادمة|$)/i;
 const NEXT_HEARING_RE = /تاريخ\s*المرافعة\s*القادمة\s*[:\-]?\s*(\d{4}-\d{2}-\d{2})/i;
-
-export function isOpponentProceedingsEvent(event: TimelineEvent): boolean {
-    if (event.isDeleted) return false;
-    if (event.isOpponentProceedings) return true;
-    return /تحركات\s*(الطرف|وكيل)/i.test(String(event.title ?? ''));
-}
-
-export function isSessionTimelineEvent(event: TimelineEvent): boolean {
-    if (event.isDeleted) return false;
-    if (event.isSessionRecord) return true;
-    if (isOpponentProceedingsEvent(event)) return true;
-    return event.type === 'decision' && SESSION_RECORD_HINT_RE.test(event.title || '');
-}
 
 export function parseSessionRecordEvent(event: TimelineEvent): SessionRecordFormData {
     const details = String(event.details ?? '');
@@ -54,52 +58,32 @@ export function parseSessionRecordEvent(event: TimelineEvent): SessionRecordForm
     };
 }
 
-export function computeNextSessionNumber(timeline: TimelineEvent[]): number {
-    let max = 0;
-    let count = 0;
+/** تاريخ جلسة المرافعة الجارية — يطابق تاريخاً بلا محضر، لا يضاعف نفس اليوم. */
+export function suggestCurrentHearingDate(
+    timeline: TimelineEvent[],
+    firstHearingDate?: string | null,
+): string {
+    const today = getLocalTodayYmd();
+    const dates = collectUniqueHearingDates(timeline, firstHearingDate);
+    const recorded = recordedHearingDates(timeline);
 
-    for (const event of timeline) {
-        if (!isSessionTimelineEvent(event)) continue;
-        count += 1;
-        const parsed = parseSessionRecordEvent(event);
-        const n = Number.parseInt(parsed.sessionNumber, 10);
-        if (Number.isFinite(n) && n > 0) max = Math.max(max, n);
+    if (dates.includes(today) && !recorded.has(today)) return today;
+
+    const unrecorded = dates.filter((d) => !recorded.has(d));
+    if (unrecorded.length > 0) {
+        const due = unrecorded.filter((d) => d <= today);
+        if (due.length > 0) return due[due.length - 1];
+        return unrecorded[0];
     }
 
-    const pleadingAppointments = timeline.filter(
-        (e) => !e.isDeleted && e.type === 'appointment' && e.subType === 'pleading',
-    ).length;
-
-    return Math.max(max, count, pleadingAppointments) + 1;
-}
-
-/** تاريخ جلسة المرافعة الجارية — افتراضياً اليوم. */
-export function suggestCurrentHearingDate(timeline: TimelineEvent[]): string {
-    const today = getLocalTodayYmd();
-    const todayAppt = timeline.find(
-        (e) => !e.isDeleted && e.type === 'appointment' && e.subType === 'pleading' && e.date === today,
-    );
-    if (todayAppt) return today;
-
-    const lastSessionDate = timeline
-        .filter(isSessionTimelineEvent)
-        .map((e) => e.date)
-        .filter(Boolean)
-        .sort()
-        .pop();
-    return lastSessionDate && lastSessionDate <= today ? lastSessionDate : today;
-}
-
-/** @deprecated use suggestCurrentHearingDate */
-export function suggestHearingDate(timeline: TimelineEvent[]): string {
-    return suggestCurrentHearingDate(timeline);
+    return recorded.has(today) ? '' : today;
 }
 
 /** تاريخ المرافعة القادمة من مواعيد الجلسات بعد تاريخ الجلسة الحالية. */
 export function suggestNextHearingDate(timeline: TimelineEvent[], afterDate?: string): string {
     const pivot = (afterDate || getLocalTodayYmd()).slice(0, 10);
     const dates = timeline
-        .filter((e) => !e.isDeleted && e.type === 'appointment' && e.subType === 'pleading')
+        .filter((e) => !e.isDeleted && isPleadingHearingAppointment(e))
         .map((e) => e.date?.slice(0, 10))
         .filter((d): d is string => Boolean(d))
         .sort();

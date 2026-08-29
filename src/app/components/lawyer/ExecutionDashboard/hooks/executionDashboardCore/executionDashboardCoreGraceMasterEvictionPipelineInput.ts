@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import type { DebtorWorkspaceEntry } from '../useDebtorWorkspaceEntries';
 

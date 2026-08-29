@@ -1,11 +1,6 @@
 import { useCallback, useMemo } from 'react';
-import { Phone, MapPin } from '@/app/components/ui/lucideIcons';
 import type { ProfilePageCustomization } from '@/app/services/profile/profilePageCustomization';
-import {
-    filterActionsForVisitor,
-    isProfileMetaFieldVisible,
-    shouldApplyVisitorPrivacy,
-} from '@/app/services/profile/profilePageCustomization';
+import { deriveProfilePageView } from './deriveProfilePageView';
 import { useProfileDisplayCustomization } from './useProfileDisplayCustomization';
 import type { ProfileAction } from '@/app/services/lawyer-cloud';
 
@@ -54,58 +49,23 @@ export function useProfileContentModel({
     });
 
     const privacy = displayCustomization.privacy;
-    const applyVisitorPrivacy = shouldApplyVisitorPrivacy(isVisitor, settingsOpen);
 
     const handleSaveEdit = useCallback(() => {
         void saveProfile(isEditing ? previewCustomization : undefined);
     }, [isEditing, previewCustomization, saveProfile]);
 
-    const visibleActions = useMemo(
+    const view = useMemo(
         () =>
-            filterActionsForVisitor(actions, privacy, !applyVisitorPrivacy).filter(
-                (action) => action.value.trim().length > 0,
-            ),
-        [actions, privacy, applyVisitorPrivacy],
-    );
-
-    const showContactSection =
-        !applyVisitorPrivacy || (privacy.showContactChannels && visibleActions.length > 0);
-    const showGallerySection = !applyVisitorPrivacy || privacy.showGallery;
-    const showCustomBlocks = !applyVisitorPrivacy || privacy.showCustomBlocks;
-
-    const metaItems = useMemo(
-        () =>
-            [
-                isProfileMetaFieldVisible(phonePublic, privacy.showPhoneMeta, isVisitor, settingsOpen)
-                    ? {
-                          icon: Phone,
-                          label: 'الهاتف',
-                          value: phonePublic!,
-                          testId: 'profile-hero-meta-phone' as const,
-                      }
-                    : null,
-                isProfileMetaFieldVisible(cityPublic, privacy.showCityMeta, isVisitor, settingsOpen)
-                    ? {
-                          icon: MapPin,
-                          label: 'المدينة',
-                          value: cityPublic!,
-                          testId: 'profile-hero-meta-city' as const,
-                      }
-                    : null,
-            ].filter(Boolean) as {
-                icon: typeof Phone;
-                label: string;
-                value: string;
-                testId: 'profile-hero-meta-phone' | 'profile-hero-meta-city';
-            }[],
-        [phonePublic, cityPublic, isVisitor, settingsOpen, privacy.showPhoneMeta, privacy.showCityMeta],
-    );
-
-    const showSyndicate = isProfileMetaFieldVisible(
-        syndicateIdPublic,
-        privacy.showSyndicate,
-        isVisitor,
-        settingsOpen,
+            deriveProfilePageView({
+                privacy,
+                actions,
+                phonePublic,
+                cityPublic,
+                syndicateIdPublic,
+                isVisitor,
+                settingsOpen,
+            }),
+        [privacy, actions, phonePublic, cityPublic, syndicateIdPublic, isVisitor, settingsOpen],
     );
 
     return {
@@ -114,11 +74,6 @@ export function useProfileContentModel({
         handleSettingsSave,
         handleBlocksLayoutChange,
         handleSaveEdit,
-        visibleActions,
-        showContactSection,
-        showGallerySection,
-        showCustomBlocks,
-        metaItems,
-        showSyndicate,
+        ...view,
     };
 }

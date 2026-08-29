@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pencil } from '@/app/components/ui/lucideIcons';
+import { Pencil } from '@/app/components/ui/icons/Pencil';
 import { getDynamicPartyLabels, ordinalOf } from '../utils/partyLabels';
 
 export type PartyCardItemProps = {
@@ -20,15 +20,13 @@ export function PartyCardItem({ party, type, index, procedureType, totalCount, o
     const nameText = String(party?.name ?? '').trim() || '—';
 
     return (
-        <div className="group flex items-center gap-2 rounded-lg border border-white/[0.08] bg-[#0A0F1C]/50 px-3 py-2 min-h-[44px]">
+        <div className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 min-h-[44px]">
             <div className="min-w-0 flex-1">
                 <div className="text-[10px] font-bold text-white/40 leading-tight">{title}</div>
                 <div className="flex items-center gap-2 mt-0.5 min-w-0">
                     <span className="text-sm font-bold text-white/90 truncate">{nameText}</span>
                     {!!party?.isRepresented && (
-                        <span className="shrink-0 text-[10px] bg-amber-500/15 border border-amber-500/30 text-amber-200 px-1.5 py-0.5 rounded-full">
-                            موكلي
-                        </span>
+                        <span className="shrink-0 text-[10px] text-[#E6C673]">موكلي</span>
                     )}
                 </div>
             </div>
@@ -36,7 +34,7 @@ export function PartyCardItem({ party, type, index, procedureType, totalCount, o
                 <button
                     type="button"
                     onClick={() => onEdit({ type, index, party })}
-                    className="shrink-0 w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white flex items-center justify-center transition-colors touch-manipulation"
+                    className="shrink-0 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white touch-manipulation"
                     aria-label="تعديل"
                 >
                     <Pencil size={14} />

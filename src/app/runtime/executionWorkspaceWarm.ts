@@ -41,7 +41,7 @@ export function warmExecutionWorkspace(options?: ExecutionWorkspaceWarmOptions):
     prefetchArchivePortalForWorkspace('execution');
 
     void import('@/app/services/SecureStoreService')
-        .then((m) => m.default.ensurePersistedReady())
+        .then((m) => m.default.ensureExecutionIndexReady())
         .catch(() => undefined);
 
     if (options?.userId !== undefined) {

@@ -13,7 +13,6 @@ import {
     sortTrialSessionsDesc,
     inferDecisionPresenceFromTrialSessions,
     isTrialSessionPostCassationRemand,
-    reopenTrialDossierAfterCassationRemand,
     resolveCassationRemandRetrialPivotDate,
     suggestNextSessionNumber,
     validateTrialSessionIsoDate,
@@ -23,6 +22,7 @@ import {
     prunePhantomScheduledTrialSessions,
     filterTrialSessionsForDisplay,
 } from './trialSessionsEngine';
+import { reopenTrialDossierAfterCassationRemand } from './trialSessionsRemand';
 import type { TrialSession } from './trialSessionsEngine';
 
 describe('trialSessionsEngine', () => {

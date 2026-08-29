@@ -1,5 +1,7 @@
 import React from 'react';
-import { ArrowRightLeft, CheckSquare, Edit3 } from '@/app/components/ui/lucideIcons';
+import { ArrowRightLeft } from '@/app/components/ui/icons/ArrowRightLeft';
+import { CheckSquare } from '@/app/components/ui/icons/CheckSquare';
+import { Edit3 } from '@/app/components/ui/icons/Edit3';
 import type { IncidentalCase, IncidentalStatus } from '../../LawyerShared';
 import { isLinkedSpawnIncidentalType } from '../smartFile/incidentalCaseLinking';
 
@@ -33,7 +35,7 @@ export const IncidentalCasesManager = ({
     const renderManualActiveCard = (c: IncidentalCase) => (
         <div
             key={c.id}
-            className="bg-[#1A1E2E] border border-red-500/30 rounded-xl p-4 mb-3 relative overflow-hidden group shadow-[0_0_15px_rgba(239,68,68,0.1)]"
+            className="bg-[#1A1E2E] border border-red-500/30 rounded-xl p-4 mb-3 relative overflow-hidden group"
         >
             <div className="absolute top-0 right-0 w-1 h-full bg-red-500/50" />
             <div className="flex justify-between items-start mb-2 gap-2">

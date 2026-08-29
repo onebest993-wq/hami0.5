@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase B Slice 1 — timeline + seizure modal foundation (extracted from handler cluster) */
 import { useExecutionDashboardCoreHandlerClusterFoundationCore } from './useExecutionDashboardCoreHandlerClusterFoundationCore';
 import { useExecutionDashboardCoreHandlerClusterFoundationSeizure } from './useExecutionDashboardCoreHandlerClusterFoundationSeizure';

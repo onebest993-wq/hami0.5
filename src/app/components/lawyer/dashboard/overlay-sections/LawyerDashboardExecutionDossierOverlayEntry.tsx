@@ -3,6 +3,7 @@ import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { LawyerDashboardOverlaysBundleProps } from '@/app/components/lawyer/dashboard/lawyerDashboardOverlaysBundles';
 import { setExecutionDossierNavHandlers } from '@/app/components/lawyer/ExecutionDashboard/utils/executionDossierNavRegistry';
 import { LazyExecutionDashboardPortal } from '@/app/components/lawyer/dashboard/executionDashboardPortalLazy';
+import { ExecutionDossierInstantPaintCover } from '@/app/components/lawyer/dashboard/ExecutionDossierInstantPaintCover';
 
 type Props = Pick<LawyerDashboardOverlaysBundleProps, 'dossier' | 'archive'> & {
     file: FileData;
@@ -51,7 +52,11 @@ export function LawyerDashboardExecutionDossierOverlayEntry({
     }
 
     return (
-        <Suspense fallback={null}>
+        <Suspense
+            fallback={
+                <ExecutionDossierInstantPaintCover file={file} onExitToHome={exitToHome} />
+            }
+        >
             <LazyExecutionDashboardPortal {...portalProps} />
         </Suspense>
     );

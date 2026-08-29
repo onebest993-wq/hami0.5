@@ -16,6 +16,7 @@ import {
     writeExecutorDecisionsUnionForExecution,
     flushExecutorDecisionsStorageAwait,
 } from '../executionDecisionsNamespace';
+import { readDecisionsStoreRaw } from '../executionDecisionsNamespaceStore';
 import { clearDomainReconcileMarker } from '../executionDomainReconcile';
 
 describe('executionDecisionsNamespace', () => {
@@ -26,6 +27,17 @@ describe('executionDecisionsNamespace', () => {
         execId = `exec-ns-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}`;
         clearDecisionsNamespaceForTests(execId);
         clearDomainReconcileMarker(execId);
+        localStorage.clear();
+    });
+
+    it('يرحّل leftover قرارات namespace ويمحوه', () => {
+        const key = executionDecisionsNamespaceStorageKey(execId, 'financial');
+        localStorage.setItem(key, JSON.stringify([{ id: 'legacy-d', title: 'قرار leftover' }]));
+        expect(JSON.parse(String(readDecisionsStoreRaw(key)))).toEqual([
+            { id: 'legacy-d', title: 'قرار leftover' },
+        ]);
+        expect(localStorage.getItem(key)).toBeNull();
+        expect(SecureStoreService.getItemSync(key)).toContain('legacy-d');
     });
 
     it('writes decisions to owner-scoped key when session user is present', () => {

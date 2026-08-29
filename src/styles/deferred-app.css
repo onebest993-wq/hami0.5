@@ -1,5 +1,6 @@
 @import './tailwind.css';
 @import './theme.css';
+@import './app-screen-runtime.css';
 @import '../app/components/lawyer/dashboard/lawyerHomeFx.css';
-/* radarTheme + royalGlassBtn → deferred-features.css (أقسام lazy) */
-/* lawyerHomeFx-android.css — مرة واحدة في critical-shell.css (قواعد !important تسبق lawyerHomeFx) */
+/* radarTheme + royalGlassBtn → deferred-features-workspace.css (أقسام لوحة شائعة) */
+/* Android WebView FX — بوابة virtual native فقط، ليس هنا */

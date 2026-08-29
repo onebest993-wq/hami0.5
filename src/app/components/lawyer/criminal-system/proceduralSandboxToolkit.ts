@@ -13,11 +13,11 @@ export type ProceduralCanvasAuditEntry = {
     summary: string;
 };
 
-export const PROCEDURAL_AUDIT_MAX = 80;
+const PROCEDURAL_AUDIT_MAX = 80;
 
 export type SandboxTemplateId = 'starter-lane' | 'triple-lanes' | 'nested-workspace';
 
-export type SandboxTemplateMeta = {
+type SandboxTemplateMeta = {
     id: SandboxTemplateId;
     title: string;
     hint: string;
@@ -145,7 +145,7 @@ export function buildSandboxTemplateRoots(templateId: SandboxTemplateId): Proced
     ];
 }
 
-export type PrintLine = { depth: number; kind: 'container' | 'note' | 'action'; text: string; meta?: string };
+type PrintLine = { depth: number; kind: 'container' | 'note' | 'action'; text: string; meta?: string };
 
 export function flattenContainersForPrint(roots: ProceduralContainer[]): PrintLine[] {
     const lines: PrintLine[] = [];

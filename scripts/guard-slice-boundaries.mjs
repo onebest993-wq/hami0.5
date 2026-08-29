@@ -40,6 +40,10 @@ const SLICES = [
             /^src\/app\/components\/lawyer\/DecisionsAndAppealsEngine\//,
             /^src\/app\/components\/lawyer\/ArchivePortal\//,
             /^src\/app\/components\/lawyer\/FinancialOperationsCenter/,
+            /^src\/app\/components\/lawyer\/seizedAssetsManager\//,
+            /^src\/app\/components\/lawyer\/Modal_Seized_Assets_Manager/,
+            /^src\/app\/components\/lawyer\/Modal_Unified_Summons_Hub/,
+            /^src\/app\/domain\/seizure\//,
             /^src\/app\/utils\/financialCenterTimeline/,
             /^src\/app\/hooks\//,
             /^src\/app\/utils\/(personalCoercive|syncPersonalCoercive|syncExecutor|specificDelivery|lawyerCassation)/,
@@ -71,8 +75,8 @@ const SLICES = [
             /^src\/app\/constants\//,
             /^src\/app\/components\/lawyer\/smart-modal\//,
             /^src\/app\/components\/lawyer\/personal-status\//,
-            /^src\/app\/components\/admin\//,
             /^src\/app\/components\/lawyer\/LawyerNewCase/,
+            /^src\/app\/services\/settings\//,
         ],
     },
     {
@@ -102,7 +106,7 @@ const SLICES = [
             'src/app/components/lawyer/CommunityScreen/',
             'src/app/components/lawyer/CommunityScreen.tsx',
         ],
-        publicModule: '@/app/slices/community/public',
+        publicModule: '@/app/runtime/communityHubReadiness',
         allowImporters: [
             /^src\/app\/slices\/community\//,
             /^src\/app\/components\/lawyer\/CommunityScreen/,
@@ -152,6 +156,7 @@ const SLICES = [
             /^src\/app\/utils\/lazyComponents/,
             /^src\/app\/components\/lawyer\/dashboard\//,
             /^src\/app\/components\/lawyer\/ActionModals\//,
+            /^src\/app\/components\/lawyer\/ExecutionDashboard\//,
         ],
     },
     {

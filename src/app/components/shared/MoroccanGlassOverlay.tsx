@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 
 type MoroccanGlassOverlayProps = {
     className?: string;
@@ -59,18 +59,16 @@ export function MoroccanGlassFrame({
             className={
                 profilePanel
                     ? `relative hami-profile-panel-shell ${clip ? 'overflow-hidden' : 'overflow-visible'} ${className}`
-                    : `relative bg-white/[0.03] backdrop-blur-2xl border border-[#E6C673]/15 shadow-[0_12px_48px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.08)] ${clip ? 'overflow-hidden' : 'overflow-visible'} ${className}`
+                    : `relative bg-[#0C1220]/88 backdrop-blur-md border border-[#E6C673]/14 shadow-[0_8px_28px_rgba(0,0,0,0.26),0_1px_0_rgba(255,255,255,0.04)_inset] ${clip ? 'overflow-hidden' : 'overflow-visible'} ${className}`
             }
         >
-            {showMoroccan ? <MoroccanGlassOverlay opacity={patternOpacity} /> : null}
-            <div
-                className={
-                    profilePanel
-                        ? 'absolute inset-0 hami-profile-panel-sheen pointer-events-none rounded-[inherit]'
-                        : 'absolute inset-0 bg-gradient-to-br from-[#E6C673]/[0.06] via-transparent to-indigo-500/[0.04] pointer-events-none rounded-[inherit]'
-                }
-                aria-hidden
-            />
+            {showMoroccan ? <MoroccanGlassOverlay opacity={Math.min(patternOpacity, 0.045)} /> : null}
+            {profilePanel ? null : (
+                <div
+                    className="absolute inset-0 bg-gradient-to-br from-[#E6C673]/[0.04] via-transparent to-transparent pointer-events-none rounded-[inherit]"
+                    aria-hidden
+                />
+            )}
             <div className="relative z-[1]">{children}</div>
         </div>
     );

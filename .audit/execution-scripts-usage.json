@@ -1,0 +1,198 @@
+[
+  {
+    "s": "scripts/dedupe-execution-dashboard-core-hooks.mjs",
+    "inPkg": false,
+    "refs": [],
+    "oneShot": true
+  },
+  {
+    "s": "scripts/extract-execution-dashboard-state.mjs",
+    "inPkg": false,
+    "refs": [],
+    "oneShot": true
+  },
+  {
+    "s": "scripts/extract-execution-static-chunk-scope.mjs",
+    "inPkg": false,
+    "refs": [],
+    "oneShot": true
+  },
+  {
+    "s": "scripts/measure-execution-open.mjs",
+    "inPkg": false,
+    "refs": [],
+    "oneShot": true
+  },
+  {
+    "s": "scripts/merge-execution-law-json.mjs",
+    "inPkg": false,
+    "refs": [],
+    "oneShot": true
+  },
+  {
+    "s": "scripts/restore-execution-dashboard-core.mjs",
+    "inPkg": false,
+    "refs": [],
+    "oneShot": true
+  },
+  {
+    "s": "scripts/restore-execution-dashboard-state.mjs",
+    "inPkg": false,
+    "refs": [],
+    "oneShot": true
+  },
+  {
+    "s": "scripts/slim-execution-dashboard-render.mjs",
+    "inPkg": false,
+    "refs": [],
+    "oneShot": true
+  },
+  {
+    "s": "scripts/split-execution-dashboard-core.mjs",
+    "inPkg": false,
+    "refs": [],
+    "oneShot": true
+  },
+  {
+    "s": "scripts/sync-execution-chunk-scope.mjs",
+    "inPkg": false,
+    "refs": [],
+    "oneShot": true
+  },
+  {
+    "s": "scripts/sync-execution-shell-overlay-props.mjs",
+    "inPkg": false,
+    "refs": [],
+    "oneShot": true
+  },
+  {
+    "s": "scripts/trim-useExecutionDashboardCore-imports.mjs",
+    "inPkg": false,
+    "refs": [],
+    "oneShot": true
+  },
+  {
+    "s": "scripts/wire-execution-dashboard-core-chunks.mjs",
+    "inPkg": false,
+    "refs": [],
+    "oneShot": true
+  },
+  {
+    "s": "scripts/wire-execution-dashboard-core.mjs",
+    "inPkg": false,
+    "refs": [],
+    "oneShot": true
+  },
+  {
+    "s": "scripts/wire-execution-domain-orchestrators.mjs",
+    "inPkg": false,
+    "refs": [],
+    "oneShot": true
+  },
+  {
+    "s": "scripts/wire-execution-orchestrators.mjs",
+    "inPkg": false,
+    "refs": [],
+    "oneShot": true
+  },
+  {
+    "s": "scripts/audit-execution-all-overlay-props.mjs",
+    "inPkg": true,
+    "refs": [],
+    "oneShot": false
+  },
+  {
+    "s": "scripts/audit-execution-chunk-scope.mjs",
+    "inPkg": true,
+    "refs": [],
+    "oneShot": false
+  },
+  {
+    "s": "scripts/audit-execution-heavy-modals-props.mjs",
+    "inPkg": true,
+    "refs": [],
+    "oneShot": false
+  },
+  {
+    "s": "scripts/audit-execution-overlay-component-props.mjs",
+    "inPkg": true,
+    "refs": [],
+    "oneShot": false
+  },
+  {
+    "s": "scripts/capture-execution-console.mjs",
+    "inPkg": true,
+    "refs": [],
+    "oneShot": false
+  },
+  {
+    "s": "scripts/execution-gate-fast.mjs",
+    "inPkg": true,
+    "refs": [],
+    "oneShot": false
+  },
+  {
+    "s": "scripts/execution-gate-manifest.mjs",
+    "inPkg": false,
+    "refs": [
+      "scripts/execution-production-gate.mjs",
+      "scripts/run-execution-e2e.mjs"
+    ],
+    "oneShot": false
+  },
+  {
+    "s": "scripts/execution-probes-gate.mjs",
+    "inPkg": true,
+    "refs": [],
+    "oneShot": false
+  },
+  {
+    "s": "scripts/execution-production-gate.mjs",
+    "inPkg": true,
+    "refs": [],
+    "oneShot": false
+  },
+  {
+    "s": "scripts/guard-execution-modal-mobile.mjs",
+    "inPkg": true,
+    "refs": [],
+    "oneShot": false
+  },
+  {
+    "s": "scripts/guard-execution-window-confirm.mjs",
+    "inPkg": true,
+    "refs": [],
+    "oneShot": false
+  },
+  {
+    "s": "scripts/lib/executionShellExplicitCloseProps.mjs",
+    "inPkg": false,
+    "refs": [
+      "scripts/audit-execution-all-overlay-props.mjs",
+      "scripts/audit-execution-heavy-modals-props.mjs",
+      "scripts/audit-execution-overlay-component-props.mjs"
+    ],
+    "oneShot": false
+  },
+  {
+    "s": "scripts/lib/resolveExecutionChunkScopeKeys.mjs",
+    "inPkg": false,
+    "refs": [
+      "scripts/audit-execution-all-overlay-props.mjs",
+      "scripts/audit-execution-chunk-scope.mjs",
+      "scripts/audit-execution-heavy-modals-props.mjs",
+      "scripts/audit-execution-overlay-component-props.mjs",
+      "scripts/extract-phase-b-coercive-scope.mjs",
+      "scripts/extract-phase-b-financial-scope.mjs",
+      "scripts/extract-phase-b-slice4-scope.mjs",
+      "scripts/extract-phase-b-timeline-dossier-scope.mjs"
+    ],
+    "oneShot": false
+  },
+  {
+    "s": "scripts/run-execution-e2e.mjs",
+    "inPkg": true,
+    "refs": [],
+    "oneShot": false
+  }
+]

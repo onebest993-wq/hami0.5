@@ -1,9 +1,9 @@
 import React from 'react';
-import { ArrowRight } from '@/app/components/ui/lucideIcons';
+import { ArrowRight } from '@/app/components/ui/icons/ArrowRight';
 import { HomeXIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
 
 const navBtnClass =
-    'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-hami-navy/45 text-slate-400 backdrop-blur-md transition-all duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] touch-manipulation min-h-[44px] min-w-[44px]';
+    'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-[#0A0F1C] text-slate-400 transition-colors duration-150 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] touch-manipulation min-h-[44px] min-w-[44px]';
 
 export type DossierHeaderNavButtonsProps = {
     onBack?: () => void;
@@ -26,7 +26,7 @@ export function DossierHeaderNavButtons({
     exitTestId = 'dossier-nav-exit',
     compact = false,
 }: DossierHeaderNavButtonsProps) {
-    const sizeClass = compact ? 'h-8 w-8 min-h-[36px] min-w-[36px]' : '';
+    const sizeClass = compact ? 'h-11 w-11 min-h-[44px] min-w-[44px]' : '';
 
     return (
         <div className="flex items-center gap-1">

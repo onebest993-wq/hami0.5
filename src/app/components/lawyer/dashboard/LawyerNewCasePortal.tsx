@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useSyncExternalStore } from 'react';
+import React, { useCallback, useLayoutEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import type { LawyerNewCaseProps } from '@/app/types/components';
 import type { JurisdictionId } from '@/app/components/lawyer/LawyerNewCase/wordLists';
@@ -31,24 +31,53 @@ export function LawyerNewCasePortal({
         () => null,
     );
 
-    const [bootJurisdiction, setBootJurisdiction] = React.useState<JurisdictionId | null>(null);
+    const [bootJurisdiction, setBootJurisdiction] = useState<JurisdictionId | null>(null);
+    const [loadFailed, setLoadFailed] = useState(false);
+    const [loadGeneration, setLoadGeneration] = useState(0);
+
+    const requestLoad = useCallback(() => {
+        setLoadFailed(false);
+        void loadLawyerNewCaseModule()
+            .then(() => {
+                setLoadFailed(false);
+            })
+            .catch(() => {
+                setLoadFailed(true);
+            });
+    }, []);
 
     useLayoutEffect(() => {
         if (!isOpen) {
             setBootJurisdiction(null);
+            setLoadFailed(false);
             return;
         }
         if (incidentalSpawnContext?.parent) {
             setPendingIncidentalSpawnContext(incidentalSpawnContext);
         }
-        setBootJurisdiction((prev) => prev ?? consumePendingLawyerNewCaseJurisdiction());
-        void loadLawyerNewCaseModule().catch(() => undefined);
-    }, [isOpen, incidentalSpawnContext]);
+        const pending =
+            (presetSelectedType as JurisdictionId | undefined) ??
+            consumePendingLawyerNewCaseJurisdiction() ??
+            getPendingLawyerNewCaseJurisdiction();
+        setBootJurisdiction((prev) => prev ?? pending);
+        if (pending === 'personal') {
+            void import('@/app/components/lawyer/personal-status/PersonalStatusNewCaseForm');
+        } else if (pending === 'civil') {
+            void import('@/app/components/lawyer/LawyerNewCase/components/CivilNewCaseForm');
+        } else if (pending === 'criminal') {
+            void import('@/app/components/lawyer/criminal-system/CriminalNewCase');
+        }
+        requestLoad();
+    }, [isOpen, incidentalSpawnContext, presetSelectedType, loadGeneration, requestLoad]);
 
     const handleSelectJurisdiction = useCallback((id: JurisdictionId) => {
         setPendingLawyerNewCaseJurisdiction(id);
         setBootJurisdiction(id);
-        void loadLawyerNewCaseModule().catch(() => undefined);
+        setLoadGeneration((g) => g + 1);
+    }, []);
+
+    const handleRetryLoad = useCallback(() => {
+        setLoadGeneration((g) => g + 1);
     }, []);
 
     if (!isOpen) return null;
@@ -68,8 +97,9 @@ export function LawyerNewCasePortal({
     ) : (
         <LawyerNewCaseSelectionInstantShell
             onClose={onClose}
-            mode={pendingWhileLoading ? 'loading' : 'picker'}
+            mode={loadFailed ? 'error' : pendingWhileLoading ? 'loading' : 'picker'}
             onSelectJurisdiction={handleSelectJurisdiction}
+            onRetryLoad={handleRetryLoad}
             dossierNewCaseElevated={rest.dossierNewCaseElevated}
         />
     );

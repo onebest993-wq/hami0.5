@@ -11,7 +11,7 @@ import { spawnSync } from 'node:child_process';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 
-function loadEnvFile(rel) {
+function loadEnvFile(rel, override = false) {
   const full = path.join(ROOT, rel);
   if (!fs.existsSync(full)) return;
   const text = fs.readFileSync(full, 'utf8');
@@ -25,15 +25,16 @@ function loadEnvFile(rel) {
     if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
       val = val.slice(1, -1);
     }
-    if (!(key in process.env) || process.env[key] === '') {
+    if (override || !(key in process.env) || process.env[key] === '') {
       process.env[key] = val;
     }
   }
 }
 
 loadEnvFile('.env');
-loadEnvFile('.env.production');
-loadEnvFile('.env.local');
+loadEnvFile('.env.production', true);
+loadEnvFile('.env.local', true);
+loadEnvFile('.env.production.local', true);
 
 const gateArgs = process.argv.slice(2);
 const result = spawnSync('node', ['scripts/wife-production-gate.mjs', ...gateArgs], {

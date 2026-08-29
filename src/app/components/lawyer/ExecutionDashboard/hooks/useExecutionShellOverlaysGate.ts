@@ -1,69 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
-import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
+import { useMemo } from 'react';
+import {
+    isExecutionOtherShellOverlayUrgent,
+    type ExecutionShellOverlayModalFlags,
+} from './executionShellOverlayModalFlags';
 
-export type ExecutionShellOverlayModalFlags = {
-    showUnifiedExecutionModal?: boolean;
-    showDecisionsModal?: boolean;
-    showDocumentsModal?: boolean;
-    showTimelineModal?: boolean;
-    showCoerciveModal?: boolean;
-    showNotificationModal?: boolean;
-    showUnifiedSummonsModal?: boolean;
-    showPaymentModal?: boolean;
-    showSeizedAssetsModal?: boolean;
-    showNotesModal?: boolean;
-    showAppointmentModal?: boolean;
-    showEditDossierMetaModal?: boolean;
-    showLedgerModal?: boolean;
-    showPauseModal?: boolean;
-    showPaymentCalculator?: boolean;
-    showSettlementCalculator?: boolean;
-    showExecutionTrashModal?: boolean;
-    showGuarantorDetailsModal?: boolean;
-    showHeirsNotificationModal?: boolean;
-    showTransferFileNumberChangeModal?: boolean;
-    showRealEstateSeizureModal?: boolean;
-};
+export type { ExecutionShellOverlayModalFlags };
 
-/** يؤجّل تركيب overlays حتى idle — أو فوراً عند فتح modal */
+/** overlays عند نية نافذة فقط — محضر المتابعة له مسار مستقل. */
 export function useExecutionShellOverlaysGate(modals: ExecutionShellOverlayModalFlags) {
     const overlayUrgent = useMemo(
-        () =>
-            Boolean(
-                modals.showUnifiedExecutionModal ||
-                    modals.showDecisionsModal ||
-                    modals.showDocumentsModal ||
-                    modals.showTimelineModal ||
-                    modals.showCoerciveModal ||
-                    modals.showNotificationModal ||
-                    modals.showUnifiedSummonsModal ||
-                    modals.showPaymentModal ||
-                    modals.showSeizedAssetsModal ||
-                    modals.showNotesModal ||
-                modals.showAppointmentModal ||
-                modals.showEditDossierMetaModal ||
-                modals.showLedgerModal ||
-                modals.showPauseModal ||
-                modals.showPaymentCalculator ||
-                modals.showSettlementCalculator ||
-                modals.showExecutionTrashModal ||
-                modals.showGuarantorDetailsModal ||
-                modals.showHeirsNotificationModal ||
-                modals.showTransferFileNumberChangeModal ||
-                modals.showRealEstateSeizureModal,
-            ),
+        () => isExecutionOtherShellOverlayUrgent(modals),
         [modals],
     );
 
-    const [shellOverlaysReady, setShellOverlaysReady] = useState(false);
-
-    useEffect(() => {
-        if (overlayUrgent) setShellOverlaysReady(true);
-    }, [overlayUrgent]);
-
-    useEffect(() => {
-        return scheduleIdleWork(() => setShellOverlaysReady(true), 500);
-    }, []);
-
-    return { shellOverlaysReady, overlayUrgent };
+    return { shellOverlaysReady: overlayUrgent, overlayUrgent };
 }

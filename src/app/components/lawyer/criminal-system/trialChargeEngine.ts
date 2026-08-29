@@ -26,7 +26,7 @@ const MISDEMEANOR_ARTICLE_NUMBERS = new Set([
     431, 432, 433, 434,
 ]);
 
-export function createTrialChargeModificationId(): string {
+function createTrialChargeModificationId(): string {
     return globalThis.crypto &&
         'randomUUID' in globalThis.crypto &&
         typeof globalThis.crypto.randomUUID === 'function'

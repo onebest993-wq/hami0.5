@@ -1,6 +1,6 @@
 import type { Transaction } from '@/app/modules/transactionsThreading/types';
 
-export type TransactionsHubView = 'list' | 'details';
+type TransactionsHubView = 'list' | 'details';
 
 export function resolveInitialTransactionsView(
     initialTransactionId: string | undefined,

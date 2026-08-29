@@ -39,7 +39,8 @@ function mergeBuildEnv() {
     if (!String(merged.VITE_ENABLE_CLOUD_SYNC ?? '').trim()) {
         merged.VITE_ENABLE_CLOUD_SYNC = 'true';
     }
-    if (!String(merged.VITE_ENABLE_SENTRY ?? '').trim()) {
+    // وجود DSN يعني أن الإبلاغ مقصود — لا يُطفأ قسراً على الأصلي (انظر cap-sync-android.mjs)
+    if (!String(merged.VITE_SENTRY_DSN ?? '').trim() && !String(merged.VITE_ENABLE_SENTRY ?? '').trim()) {
         merged.VITE_ENABLE_SENTRY = 'false';
     }
     if (!String(merged.VITE_PDF_MINIMAL_ASSETS ?? '').trim()) {
@@ -62,6 +63,7 @@ console.log(`[cap-sync-native] VITE_BUILD_NATIVE=${buildEnv.VITE_BUILD_NATIVE}\n
 
 run('npm', ['run', 'build'], buildEnv);
 run('node', ['scripts/assert-native-capacitor-dist.mjs']);
+run('node', ['scripts/guard-dist-no-hq-runtime.mjs']);
 
 const distIndex = path.join(ROOT, 'dist', 'index.html');
 if (!fs.existsSync(distIndex)) {
@@ -71,6 +73,9 @@ if (!fs.existsSync(distIndex)) {
 
 if (target === 'ios') {
     run('npx', ['cap', 'sync', 'ios']);
+    if (fs.existsSync(path.join(ROOT, 'ios', 'App', 'App', 'Info.plist'))) {
+        run('node', ['scripts/apply-ios-native-ready.mjs']);
+    }
 } else if (target === 'android') {
     run('npx', ['cap', 'sync', 'android']);
     if (fs.existsSync(path.join(ROOT, 'android', 'app', 'build.gradle'))) {
@@ -78,8 +83,12 @@ if (target === 'ios') {
     }
     run('node', ['scripts/patch-android-proguard-compat.mjs']);
     run('node', ['scripts/patch-android-gradle-hygiene.mjs']);
+    run('node', ['scripts/patch-android-app-version.mjs']);
 } else {
     run('npx', ['cap', 'sync']);
+    if (fs.existsSync(path.join(ROOT, 'ios', 'App', 'App', 'Info.plist'))) {
+        run('node', ['scripts/apply-ios-native-ready.mjs']);
+    }
 }
 
 console.log('\n[cap-sync-native] OK — reinstall the app on device (npm run cap:install:android)\n');

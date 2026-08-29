@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
-import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
+import { registerNativeBackHandler } from '@/app/runtime/nativeBackStack';
 import { HomeChevronRightIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
 
 type ArchiveHubInstantShellProps = {
@@ -43,8 +43,9 @@ export function ArchiveHubInstantShell({
             aria-busy="true"
             aria-label={title}
             data-testid={testId}
+            data-hami-overlay-safe="1"
         >
-            <div className="px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-4 border-b border-white/[0.06] flex items-center gap-3">
+            <div className="px-5 hami-overlay-header-safe-pad pb-4 border-b border-white/[0.06] flex items-center gap-3">
                 <button
                     type="button"
                     onClick={onBack}

@@ -8,6 +8,7 @@ export type TaskNodeActionHandlers = {
     onAddSubTask: (task: TransactionTask) => void;
     onEdit: (task: TransactionTask) => void;
     onDelete: (task: TransactionTask) => void;
+    onSetTaskStatus: (task: TransactionTask, status: TransactionTask['status']) => void;
     readOnly?: boolean;
 };
 
@@ -28,7 +29,7 @@ export const TaskThreadNodeRenderer = memo(function TaskThreadNodeRenderer({
 }) {
     void index;
     void siblingsCount;
-    const { onToggleStatus, onAddSubTask, onEdit, onDelete, readOnly } = handlers;
+    const { onToggleStatus, onAddSubTask, onEdit, onDelete, onSetTaskStatus, readOnly } = handlers;
 
     return (
         <div className="w-full min-w-0">
@@ -40,6 +41,7 @@ export const TaskThreadNodeRenderer = memo(function TaskThreadNodeRenderer({
                 onAddSubTask={onAddSubTask}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onSetTaskStatus={onSetTaskStatus}
                 readOnly={readOnly}
             />
 

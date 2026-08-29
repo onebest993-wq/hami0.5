@@ -6,9 +6,9 @@ import {
 } from '@/app/services/transactions/importTaskTemplateToTransaction';
 
 describe('importTaskTemplateToTransaction', () => {
-    it('canImportTaskTemplate يرفض القراءة فقط أو وجود مهام', () => {
+    it('canImportTaskTemplate يرفض القراءة فقط ويسمح بالإضافة مع وجود مهام', () => {
         expect(canImportTaskTemplate({ isReadOnly: true, existingTaskCount: 0 })).toBe(false);
-        expect(canImportTaskTemplate({ isReadOnly: false, existingTaskCount: 2 })).toBe(false);
+        expect(canImportTaskTemplate({ isReadOnly: false, existingTaskCount: 2 })).toBe(true);
         expect(canImportTaskTemplate({ isReadOnly: false, existingTaskCount: 0 })).toBe(true);
     });
 

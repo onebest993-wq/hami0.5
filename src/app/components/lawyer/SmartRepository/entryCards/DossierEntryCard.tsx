@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { Trash2 } from '@/app/components/ui/lucideIcons';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import {

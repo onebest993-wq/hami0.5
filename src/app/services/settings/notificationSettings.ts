@@ -5,7 +5,6 @@ import {
     BUILTIN_QUIET_HOURS,
     BUILTIN_QUIET_HOURS_END,
     BUILTIN_QUIET_HOURS_START,
-    BUILTIN_SMART_ALERTS,
 } from './builtInBehavior';
 
 export const NOTIFICATION_CHANNEL_KEYS = [
@@ -18,6 +17,20 @@ export const NOTIFICATION_CHANNEL_KEYS = [
 ] as const;
 
 export type NotificationChannelKey = (typeof NOTIFICATION_CHANNEL_KEYS)[number];
+
+/**
+ * قنوات لوحة الإشعارات فقط — المنتدى + النظام.
+ * باقي المفاتيح تبقى في الإعدادات للتوافق الخلفي (تقويم/دعاوى…) دون عرضها هنا.
+ */
+export const NOTIFICATION_INBOX_CHANNEL_KEYS = ['community', 'secretary'] as const;
+
+export type NotificationInboxChannelKey = (typeof NOTIFICATION_INBOX_CHANNEL_KEYS)[number];
+
+export function isNotificationInboxChannel(
+    channel: string,
+): channel is NotificationInboxChannelKey {
+    return (NOTIFICATION_INBOX_CHANNEL_KEYS as readonly string[]).includes(channel);
+}
 
 export interface NotificationChannelPrefs {
     enabled: boolean;
@@ -36,7 +49,6 @@ export interface NotificationSettings {
     masterEnabled: boolean;
     soundMaster: boolean;
     vibrateMaster: boolean;
-    secretaryEnabled: boolean;
     quietHours: NotificationQuietHours;
     channels: Record<NotificationChannelKey, NotificationChannelPrefs>;
     /** إيقاف سريع من لوحة الإشعارات — timestamp بالمللي */
@@ -49,7 +61,13 @@ export const NOTIFICATION_CHANNEL_LABELS: Record<NotificationChannelKey, string>
     calendar: 'التقويم والمواعيد',
     community: 'المنتدى',
     financial: 'المعاملات',
-    secretary: 'السكرتير الذكي',
+    secretary: 'النظام',
+};
+
+/** تسميات عرض لوحة الإشعارات (صريح) */
+export const NOTIFICATION_INBOX_CHANNEL_LABELS: Record<NotificationInboxChannelKey, string> = {
+    community: 'المنتدى',
+    secretary: 'النظام',
 };
 
 function defaultChannelPrefs(): NotificationChannelPrefs {
@@ -65,7 +83,6 @@ export const NOTIFICATION_SETTINGS_DEFAULTS: NotificationSettings = {
     masterEnabled: BUILTIN_NOTIFICATIONS_ENABLED,
     soundMaster: BUILTIN_NOTIFICATION_SOUND,
     vibrateMaster: BUILTIN_NOTIFICATION_VIBRATE,
-    secretaryEnabled: BUILTIN_SMART_ALERTS,
     quietHours: {
         enabled: BUILTIN_QUIET_HOURS,
         start: BUILTIN_QUIET_HOURS_START,
@@ -127,7 +144,6 @@ export function normalizeNotificationSettings(raw: unknown): NotificationSetting
         masterEnabled: o.masterEnabled !== false,
         soundMaster: o.soundMaster !== false,
         vibrateMaster: o.vibrateMaster !== false,
-        secretaryEnabled: o.secretaryEnabled !== false,
         quietHours: {
             enabled: o.quietHours?.enabled === true,
             start: normalizeHm(o.quietHours?.start, base.quietHours.start),
@@ -182,4 +198,20 @@ export function sessionMuteUntilTomorrowMorning(): number {
     d.setDate(d.getDate() + 1);
     d.setHours(7, 0, 0, 0);
     return d.getTime();
+}
+
+/** قيمة datetime-local (محلي) من timestamp */
+export function toDatetimeLocalValue(ms: number): string {
+    const d = new Date(ms);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** يحول datetime-local إلى ms؛ يرفض الماضي */
+export function parseDatetimeLocalToMuteUntil(value: string): number | null {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const ms = new Date(trimmed).getTime();
+    if (!Number.isFinite(ms) || ms <= Date.now() + 30_000) return null;
+    return ms;
 }

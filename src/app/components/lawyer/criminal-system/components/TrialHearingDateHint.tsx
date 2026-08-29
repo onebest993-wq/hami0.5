@@ -1,6 +1,6 @@
 import React from 'react';
-import { CalendarClock } from '@/app/components/ui/lucideIcons';
-import { formatTrialSessionIsoDate } from '../trialSessionsEngine';
+import { CalendarClock } from '@/app/components/ui/icons/CalendarClock';
+import { formatTrialSessionIsoDate } from '../trialSessionsDisplay';
 import { CRIMINAL_DOSSIER_TEST_IDS } from '../criminalDossierTestIds';
 
 export type TrialHearingDateHintProps = {

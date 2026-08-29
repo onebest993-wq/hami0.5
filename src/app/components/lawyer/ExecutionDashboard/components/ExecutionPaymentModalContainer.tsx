@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
+import { motion } from '@/app/motion/overlayMotionRuntime';
 import type { Dispatch, SetStateAction } from 'react';
-import { X } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { formatNumberInput } from '@/app/utils/execution/amountInput';
 import {
@@ -10,6 +10,7 @@ import {
     EXEC_MODAL_HEADER_SAFE_TOP,
     EXEC_MODAL_TOUCH_TARGET,
 } from '../executionModalMobileShell';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 
 export interface ExecutionPaymentModalContainerProps {
     showPaymentModal: boolean;
@@ -50,10 +51,12 @@ export const ExecutionPaymentModalContainer: React.FC<ExecutionPaymentModalConta
         }
     }, [showPaymentModal, paymentDate, setPaymentDate]);
 
+    useBodyScrollLock(showPaymentModal);
+
     if (!showPaymentModal) return null;
 
     return (
-        <div className={`fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}>
+        <div className={`fixed inset-0 z-[60] bg-black/62 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}>
             <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}

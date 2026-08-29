@@ -1,61 +1,45 @@
-// @ts-nocheck
-import { getEffectiveClaimTypes } from '@/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils';
-import {
-    isEncroachmentExecutionClaim,
-    isEvictionExecutionClaim,
-    isMaritalFurnitureExecutionClaim,
-    isVisitationExecutionClaim,
-    resolvePrimaryExecutionClaimType,
-} from '@/app/utils/executionClaimIsolation';
 import { isLawyerRepresentingDebtor } from '@/app/utils/debtorAgentRepresentationUtils';
-import {
-    isLegalEntityDebtorKind,
-    resolveDebtorEntityKind,
-} from '@/app/utils/debtorEntityKindUtils';
-import {
-    isFinancialDebtCollectionClaim,
-    isMatwaaClaim,
-    isPersonalStatusCourtDecisionsDossier,
-} from '@/app/utils/followupSpecializationVisibility';
-import { isSpecificDeliveryClaim } from '@/app/utils/executionModuleStrategies';
+import { isLegalEntityDebtorKind } from '@/app/utils/debtorEntityKindUtils';
 import { isExecutionArchived, isExecutionInTrash } from '@/app/utils/executionTrash';
-import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import {
     normalizeDossierLifecycleStatus,
     type DossierLifecycleStatus,
-} from '@/app/types/execution/executionShared';
+} from '@/app/types/execution/core';
+import { archiveTextMatchesQuery } from '@/app/services/search/normalizeArabicSearch';
+import { clampGlobalSearchQuery } from '@/app/services/search/globalSearchQuerySecurity';
 import type { LooseArchiveFile } from './types';
+import { executionArchiveSearchHaystack } from './executionArchiveListLabels';
 import {
-    formatExecutionArchiveCreditorLabel,
-    formatExecutionArchiveDebtorLabel,
-    readExecutionFileLiveSnapshot,
-} from './utils';
+    EXECUTION_DOSSIER_STATUS_CHIP_DEFS,
+    EXECUTION_DOSSIER_STATUS_LABELS,
+    EXECUTION_JURISDICTION_LABELS,
+    EXECUTION_JURISDICTION_TAB_DEFS,
+    EXECUTION_PERSPECTIVE_LABELS,
+    EXECUTION_PERSPECTIVE_TAB_DEFS,
+    type ExecutionArchiveLifecycleMode,
+    type ExecutionDossierStatusFilter,
+    type ExecutionJurisdictionFilter,
+    type ExecutionPerspectiveFilter,
+    type ExecutionViewMode,
+} from './executionArchiveFilterPresentation';
 
-export type ExecutionJurisdictionFilter = 'all' | 'civil' | 'sharia';
-export type ExecutionPerspectiveFilter = 'all' | 'creditor_agent' | 'debtor_agent' | 'legal_entity';
-
-export const EXECUTION_JURISDICTION_LABELS: Record<ExecutionJurisdictionFilter, string> = {
-    all: 'الكل',
-    civil: 'مدني',
-    sharia: 'شرعي',
+export type {
+    ExecutionArchiveLifecycleMode,
+    ExecutionDossierStatusFilter,
+    ExecutionJurisdictionFilter,
+    ExecutionPerspectiveFilter,
+    ExecutionViewMode,
+};
+export {
+    EXECUTION_DOSSIER_STATUS_CHIP_DEFS,
+    EXECUTION_DOSSIER_STATUS_LABELS,
+    EXECUTION_JURISDICTION_LABELS,
+    EXECUTION_JURISDICTION_TAB_DEFS,
+    EXECUTION_PERSPECTIVE_LABELS,
+    EXECUTION_PERSPECTIVE_TAB_DEFS,
 };
 
-export const EXECUTION_PERSPECTIVE_LABELS: Record<ExecutionPerspectiveFilter, string> = {
-    all: 'الكل',
-    creditor_agent: 'وكيل دائن',
-    debtor_agent: 'وكيل مدين',
-    legal_entity: 'شخص معنوي',
-};
-
-function resolvePrimaryDebtorKey(snap: ReturnType<typeof readExecutionFileLiveSnapshot>): string {
-    return String(
-        Array.isArray(snap.debtors) && snap.debtors[0]
-            ? (snap.debtors[0] as { id?: string }).id
-            : ''
-    ).trim();
-}
-
-/** تصنيف سريع من صف الفهرس — بلا قراءة blob الإضبارة (ثقيل لإضابير المشاهدة) */
+/** تصنيف سريع من صف الفهرس — بلا قراءة blob الإضبارة */
 function isShariaExecutionArchiveIndexHint(file: LooseArchiveFile): boolean {
     const classification = String(file.classification || '').trim();
     if (classification === 'شرعي' || classification === 'أحوال شخصية') return true;
@@ -81,95 +65,19 @@ function isShariaExecutionArchiveIndexHint(file: LooseArchiveFile): boolean {
     );
 }
 
-/** إضبارة شرعية / أحوال شخصية — لا تُصنَّف مدنياً */
+/** إضبارة شرعية / أحوال شخصية — قائمة المخزن تتبع الفهرس لا البلوب */
 export function isShariaExecutionArchive(file: LooseArchiveFile): boolean {
-    if (isShariaExecutionArchiveIndexHint(file)) return true;
-
-    const snap = readExecutionFileLiveSnapshot(file);
-    const data = snap as Record<string, unknown>;
-    const debtorKey = resolvePrimaryDebtorKey(snap);
-    const debtorEntityKind = resolveDebtorEntityKind({ executionData: snap, debtorKey });
-
-    if (
-        isPersonalStatusCourtDecisionsDossier(
-            snap.docType,
-            snap.classification,
-            (snap as { category?: string }).category,
-            debtorEntityKind
-        )
-    ) {
-        return true;
-    }
-
-    const classification = String(snap.classification || '').trim();
-    if (classification === 'شرعي' || classification === 'أحوال شخصية') return true;
-
-    const category = String((snap as { category?: string }).category || '').trim();
-    if (category === 'sharia' || category === 'personal') return true;
-
-    if (isVisitationExecutionClaim(data)) return true;
-    if (isMaritalFurnitureExecutionClaim(data)) return true;
-
-    const types = getEffectiveClaimTypes(data);
-    const claimList =
-        types.length > 0 ? types : [String(snap.claimType || snap.docType || '').trim()].filter(Boolean);
-
-    return claimList.some(
-        (ct) =>
-            isMatwaaClaim(ct) ||
-            ct.includes('نفقة') ||
-            ct.includes('مهر') ||
-            ct.includes('مشاهدة') ||
-            ct.includes('مطاوعة') ||
-            ct.includes('أثاث زوجية') ||
-            ct.includes('استصحاب') ||
-            ct.includes('مبيت') ||
-            ct.includes('تسليم طفل') ||
-            ct.includes('تسليم ولد') ||
-            ct.includes('شرعي') ||
-            ct.includes('أحوال')
-    );
+    return isShariaExecutionArchiveIndexHint(file);
 }
 
-/** إضبارة مدنية — تستبعد الشرعي صراحةً لمنع الازدواج */
+/** إضبارة مدنية — عكس الشرعي في الفهرس ليطابق عدّ الاختصاص */
 export function isCivilExecutionArchive(file: LooseArchiveFile): boolean {
-    if (isShariaExecutionArchiveIndexHint(file)) return false;
-
-    const snap = readExecutionFileLiveSnapshot(file);
-    const data = snap as Record<string, unknown>;
-    const primary = resolvePrimaryExecutionClaimType(data);
-
-    if (isFinancialDebtCollectionClaim(primary)) return true;
-    if (isEvictionExecutionClaim(data)) return true;
-    if (isEncroachmentExecutionClaim(data)) return true;
-    if (isSpecificDeliveryClaim(primary)) return true;
-
-    const classification = String(snap.classification || '').trim();
-    if (classification === 'مدني' || classification === 'civil') return true;
-
-    const category = String((snap as { category?: string }).category || '').trim();
-    if (category === 'civil') return true;
-
-    const types = getEffectiveClaimTypes(data);
-    const claimList =
-        types.length > 0 ? types : [String(snap.claimType || snap.docType || '').trim()].filter(Boolean);
-
-    return claimList.some(
-        (ct) =>
-            ct.includes('دين') ||
-            ct.includes('استحصال') ||
-            ct.includes('استخلاص') ||
-            ct.includes('إخلاء') ||
-            ct.includes('تخلية') ||
-            ct.includes('إزالة') ||
-            ct.includes('تسليم') ||
-            ct.includes('مدني')
-    );
+    return !isShariaExecutionArchiveIndexHint(file);
 }
 
-export function matchesExecutionJurisdictionFilter(
+function matchesExecutionJurisdictionFilter(
     file: LooseArchiveFile,
-    filter: ExecutionJurisdictionFilter
+    filter: ExecutionJurisdictionFilter,
 ): boolean {
     if (filter === 'all') return true;
     if (filter === 'sharia') return isShariaExecutionArchive(file);
@@ -178,35 +86,43 @@ export function matchesExecutionJurisdictionFilter(
 
 /** الشرعي / أحوال شخصية — لا يوجد مدين معنوي */
 export function isLegalEntityPerspectiveAllowed(
-    jurisdiction: ExecutionJurisdictionFilter
+    jurisdiction: ExecutionJurisdictionFilter,
 ): boolean {
     return jurisdiction !== 'sharia';
+}
+
+function isLegalEntityFromIndex(file: LooseArchiveFile): boolean {
+    const rec = file as Record<string, unknown>;
+    if (isLegalEntityDebtorKind(rec.debtor_entity_kind as string)) return true;
+    if (isLegalEntityDebtorKind(rec.debtor_entity_type as string)) return true;
+    const d0 = Array.isArray(file.debtors)
+        ? (file.debtors[0] as Record<string, unknown> | undefined)
+        : undefined;
+    if (!d0) return false;
+    return isLegalEntityDebtorKind(
+        (d0.entityKind ?? d0.entityType ?? d0.entity_kind) as string,
+    );
 }
 
 export function matchesExecutionPerspectiveFilter(
     file: LooseArchiveFile,
     filter: ExecutionPerspectiveFilter,
-    jurisdiction: ExecutionJurisdictionFilter = 'all'
+    jurisdiction: ExecutionJurisdictionFilter = 'all',
 ): boolean {
     if (filter === 'all') return true;
     if (filter === 'legal_entity' && !isLegalEntityPerspectiveAllowed(jurisdiction)) return false;
 
-    const snap = readExecutionFileLiveSnapshot(file);
-    if (filter === 'debtor_agent') return isLawyerRepresentingDebtor(snap);
-    if (filter === 'creditor_agent') return !isLawyerRepresentingDebtor(snap);
+    if (filter === 'debtor_agent') return isLawyerRepresentingDebtor(file);
+    if (filter === 'creditor_agent') return !isLawyerRepresentingDebtor(file);
 
     if (isShariaExecutionArchive(file)) return false;
-
-    const debtorKey = resolvePrimaryDebtorKey(snap);
-    return isLegalEntityDebtorKind(
-        resolveDebtorEntityKind({ executionData: snap, debtorKey })
-    );
+    return isLegalEntityFromIndex(file);
 }
 
 export function matchesExecutionArchiveFilters(
     file: LooseArchiveFile,
     jurisdiction: ExecutionJurisdictionFilter,
-    perspective: ExecutionPerspectiveFilter
+    perspective: ExecutionPerspectiveFilter,
 ): boolean {
     if (jurisdiction === 'sharia' && perspective === 'legal_entity') return false;
     return (
@@ -215,42 +131,13 @@ export function matchesExecutionArchiveFilters(
     );
 }
 
-export type ExecutionArchiveLifecycleMode = 'active' | 'archived' | 'trash';
-
-export type ExecutionViewMode = ExecutionArchiveLifecycleMode;
-
-/** فلتر حالة دورة حياة الإضبارة — نفس قيم DossierLifecyclePanel */
-export type ExecutionDossierStatusFilter = 'all' | DossierLifecycleStatus;
-
-export const EXECUTION_DOSSIER_STATUS_LABELS: Record<ExecutionDossierStatusFilter, string> = {
-    all: 'الكل',
-    active: 'النشطة',
-    paused: 'متوقفة',
-    suspended: 'مستأخرة',
-    finished: 'منتهية',
-};
-
-export const EXECUTION_DOSSIER_STATUS_CHIP_DEFS: {
-    id: ExecutionDossierStatusFilter;
-    label: string;
-}[] = [
-    { id: 'all', label: EXECUTION_DOSSIER_STATUS_LABELS.all },
-    { id: 'active', label: EXECUTION_DOSSIER_STATUS_LABELS.active },
-    { id: 'paused', label: EXECUTION_DOSSIER_STATUS_LABELS.paused },
-    { id: 'suspended', label: EXECUTION_DOSSIER_STATUS_LABELS.suspended },
-    { id: 'finished', label: EXECUTION_DOSSIER_STATUS_LABELS.finished },
-];
-
-export function resolveExecutionDossierLifecycleStatus(
-    file: LooseArchiveFile,
-): DossierLifecycleStatus {
-    const snap = readExecutionFileLiveSnapshot(file);
-    const fromSnap = (snap as { dossier_lifecycle_status?: string }).dossier_lifecycle_status;
-    const fromFile = (file as { dossier_lifecycle_status?: string }).dossier_lifecycle_status;
-    return normalizeDossierLifecycleStatus(fromSnap ?? fromFile);
+function resolveExecutionDossierLifecycleStatus(file: LooseArchiveFile): DossierLifecycleStatus {
+    return normalizeDossierLifecycleStatus(
+        (file as { dossier_lifecycle_status?: string }).dossier_lifecycle_status,
+    );
 }
 
-export function matchesExecutionDossierStatusFilter(
+function matchesExecutionDossierStatusFilter(
     file: LooseArchiveFile,
     statusFilter: ExecutionDossierStatusFilter,
 ): boolean {
@@ -261,7 +148,7 @@ export function matchesExecutionDossierStatusFilter(
 /** مجموعة أساسية منفصلة — نشطة أو مؤرشفة أو مهملات (بدون دمج بينها) */
 export function getExecutionArchiveBasePool(
     files: LooseArchiveFile[] | null | undefined,
-    mode: ExecutionArchiveLifecycleMode
+    mode: ExecutionArchiveLifecycleMode,
 ): LooseArchiveFile[] {
     if (!Array.isArray(files)) return [];
     return files.filter((f) => {
@@ -275,72 +162,26 @@ export function getExecutionArchiveBasePool(
     });
 }
 
-export function countExecutionArchiveByJurisdiction(
-    pool: LooseArchiveFile[],
-    jurisdiction: ExecutionJurisdictionFilter
-): number {
-    if (jurisdiction === 'all') return pool.length;
-    return pool.filter((f) => matchesExecutionJurisdictionFilter(f, jurisdiction)).length;
-}
-
 export function buildExecutionJurisdictionCounts(
-    pool: LooseArchiveFile[]
+    pool: LooseArchiveFile[],
 ): Record<ExecutionJurisdictionFilter, number> {
+    /* فهرس فقط — لا فك بلوب لكل صف عند أول رسم */
+    let sharia = 0;
+    for (const file of pool) {
+        if (isShariaExecutionArchiveIndexHint(file)) sharia += 1;
+    }
     return {
         all: pool.length,
-        civil: countExecutionArchiveByJurisdiction(pool, 'civil'),
-        sharia: countExecutionArchiveByJurisdiction(pool, 'sharia'),
+        sharia,
+        civil: Math.max(0, pool.length - sharia),
     };
-}
-
-export const EXECUTION_JURISDICTION_TAB_DEFS: { id: ExecutionJurisdictionFilter; label: string }[] = [
-    { id: 'all', label: EXECUTION_JURISDICTION_LABELS.all },
-    { id: 'civil', label: EXECUTION_JURISDICTION_LABELS.civil },
-    { id: 'sharia', label: EXECUTION_JURISDICTION_LABELS.sharia },
-];
-
-export const EXECUTION_PERSPECTIVE_TAB_DEFS: { id: ExecutionPerspectiveFilter; label: string }[] = [
-    { id: 'all', label: EXECUTION_PERSPECTIVE_LABELS.all },
-    { id: 'creditor_agent', label: EXECUTION_PERSPECTIVE_LABELS.creditor_agent },
-    { id: 'debtor_agent', label: EXECUTION_PERSPECTIVE_LABELS.debtor_agent },
-];
-
-function resolveArchiveCourtHaystack(file: LooseArchiveFile): string {
-    const courtRaw = file.court;
-    if (typeof courtRaw === 'string') return courtRaw;
-    if (courtRaw && typeof courtRaw === 'object' && 'name' in courtRaw) {
-        return String((courtRaw as { name?: string }).name ?? '');
-    }
-    return '';
 }
 
 /** بحث موحّد — يُستخدم في الأرشيف النشط وسلة المهملات */
 export function matchesExecutionArchiveSearch(file: LooseArchiveFile, query: string): boolean {
-    const q = String(query || '').trim().toLowerCase();
-    if (!q) return true;
-
-    const snap = readExecutionFileLiveSnapshot(file) as ExecutionFile;
-    const fileNumber = (file.fileNumber || file.caseNo || '').toString().toLowerCase();
-    const creditor = formatExecutionArchiveCreditorLabel(snap).toLowerCase();
-    const debtor = formatExecutionArchiveDebtorLabel(snap).toLowerCase();
-    const claimType = String(file.claimType || file.docType || '').toLowerCase();
-    const court = resolveArchiveCourtHaystack(file).toLowerCase();
-    const status = String(file.status || '').toLowerCase();
-    const relationship = String(file.relationship || '').toLowerCase();
-    const linkedDebtor = String(file.linkedDebtor ?? '').toLowerCase();
-    const amount = String(file.amount ?? file.totalAmount ?? 0);
-
-    return (
-        fileNumber.includes(q) ||
-        creditor.includes(q) ||
-        debtor.includes(q) ||
-        claimType.includes(q) ||
-        court.includes(q) ||
-        status.includes(q) ||
-        relationship.includes(q) ||
-        linkedDebtor.includes(q) ||
-        amount.includes(q)
-    );
+    const q = clampGlobalSearchQuery(String(query || ''));
+    if (!q.trim()) return true;
+    return archiveTextMatchesQuery(executionArchiveSearchHaystack(file), q);
 }
 
 export function filterExecutionArchiveFiles(
@@ -351,7 +192,7 @@ export function filterExecutionArchiveFiles(
         perspective?: ExecutionPerspectiveFilter;
         dossierStatus?: ExecutionDossierStatusFilter;
         searchQuery?: string;
-    }
+    },
 ): LooseArchiveFile[] {
     const jurisdiction = opts.jurisdiction ?? 'all';
     const perspective = opts.perspective ?? 'all';

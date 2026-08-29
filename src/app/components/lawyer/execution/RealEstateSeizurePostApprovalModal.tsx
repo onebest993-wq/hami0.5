@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AnimatePresence, motion } from 'motion/react';
-import { X } from '@/app/components/ui/lucideIcons';
+import { AnimatePresence, motion } from '@/app/motion/overlayMotionRuntime';
+import { X } from '@/app/components/ui/icons/X';
 import type { RealEstateGender, RealEstateSeizureAsset } from '@/app/types/execution';
-import { EXEC_MODAL_BACKDROP_STRONG, EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { EXEC_MODAL_BACKDROP_STRONG, EXEC_MODAL_Z } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 
 type Draft = {
     propertyNoAndDistrict: string;

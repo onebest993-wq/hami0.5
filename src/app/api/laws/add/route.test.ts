@@ -29,6 +29,7 @@ vi.mock('../../security/wifeValidator.ts', () => ({
 
 vi.mock('../../security/sanitizer.ts', () => ({
   sanitizePayload: (v: unknown) => v,
+  isJsonObjectRecord: (v: unknown) => Boolean(v) && typeof v === 'object' && !Array.isArray(v),
 }));
 
 vi.mock('../lawsAdminAuth.ts', () => ({

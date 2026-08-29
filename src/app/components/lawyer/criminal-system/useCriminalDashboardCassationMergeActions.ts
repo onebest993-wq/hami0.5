@@ -4,7 +4,7 @@ import { availableCassationTypesForStage } from './cassationEngine';
 import type { InitiateCassationPayload } from './cassationEngine';
 import { MergeValidationError } from './criminalStore';
 
-export type UseCriminalDashboardCassationMergeActionsParams = {
+type UseCriminalDashboardCassationMergeActionsParams = {
     caseId: string;
     stage: string;
     caseStage: CaseStage;

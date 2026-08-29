@@ -30,6 +30,19 @@ describe('useProfileSettingsFocusTrap', () => {
         expect(onClose).not.toHaveBeenCalled();
     });
 
+    it('لا يستدعي onClose عند Escape إن عُطّل الإغلاق', () => {
+        const onClose = vi.fn();
+        const sheetRef = createRef<HTMLDivElement>();
+
+        renderHook(() => useProfileSettingsFocusTrap(true, sheetRef, onClose, { closeEnabled: false }));
+
+        act(() => {
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        });
+
+        expect(onClose).not.toHaveBeenCalled();
+    });
+
     it('يعيد Tab من خارج الورقة إلى أول عنصر داخلها', () => {
         const onClose = vi.fn();
         const sheet = document.createElement('div');

@@ -61,4 +61,17 @@ describe('mergeTransactionsThreadingStates', () => {
         );
         expect((result[0] as { title: string }).title).toBe('local');
     });
+
+    it('لا يدمج حركات مالية مهجورة من أي طرف', () => {
+        const local = state({
+            transactions: [{ id: 'tx-1' }],
+            financeRecords: [{ id: 'f-local', amount: 10 }],
+        });
+        const remote = state({
+            transactions: [{ id: 'tx-1' }],
+            financeRecords: [{ id: 'f-remote', amount: 20 }],
+        });
+        const merged = mergeTransactionsThreadingStates(local, remote);
+        expect(merged?.financeRecords).toEqual([]);
+    });
 });

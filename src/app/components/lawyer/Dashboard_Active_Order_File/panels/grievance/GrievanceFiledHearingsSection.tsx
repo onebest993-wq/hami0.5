@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import { DatePickerField } from '../../components/DatePickerField';
 import { formatDateText } from '../../utils/formatters';
 import type { GrievanceLifecyclePanelProps } from '../GrievanceLifecyclePanelProps';
@@ -67,7 +67,7 @@ export function GrievanceFiledHearingsSection(props: GrievanceLifecyclePanelProp
                                                                                             })
                                                                                         }
                                                                                         disabled={grievanceWizardInputsLocked}
-                                                                                        className={`${URGENT_DOSSIER_BTN_GHOST} min-h-[36px] py-1.5 px-3 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
+                                                                                        className={`${URGENT_DOSSIER_BTN_GHOST} min-h-[44px] py-1.5 px-3 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
                                                                                     >
                                                                                         إضافة جلسة
                                                                                     </button>
@@ -216,7 +216,7 @@ export function GrievanceFiledHearingsSection(props: GrievanceLifecyclePanelProp
                                                                                                     decisionDate: '',
                                                                                                 })
                                                                                             }
-                                                                                            className={`${URGENT_DOSSIER_BTN_GHOST} min-h-[40px] py-2 text-xs`}
+                                                                                            className={`${URGENT_DOSSIER_BTN_GHOST} min-h-[44px] py-2 text-xs`}
                                                                                         >
                                                                                             إغلاق
                                                                                         </button>
@@ -230,7 +230,7 @@ export function GrievanceFiledHearingsSection(props: GrievanceLifecyclePanelProp
                                                                                                 !!hearingDraftNextSessionDateError ||
                                                                                                 !!hearingDraftAdjournReasonError
                                                                                             }
-                                                                                            className={`${URGENT_DOSSIER_BTN_PRIMARY} min-h-[40px] py-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
+                                                                                            className={`${URGENT_DOSSIER_BTN_PRIMARY} min-h-[44px] py-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
                                                                                         >
                                                                                             حفظ الجلسة
                                                                                         </button>

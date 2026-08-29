@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check } from '@/app/components/ui/lucideIcons';
+import { Check } from '@/app/components/ui/icons/Check';
 
 export type TaskRingToggleProps = {
     checked: boolean;
@@ -45,9 +45,14 @@ export function TaskRingToggle({
             aria-label={label}
             disabled={disabled}
             onClick={onToggle}
-            className={`${dim} shrink-0 inline-flex items-center justify-center rounded-full border-2 transition-all duration-200 touch-manipulation disabled:opacity-40 ${toneClass}`}
+            className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-full touch-manipulation disabled:opacity-40"
         >
-            {checked ? <Check className={icon} strokeWidth={2.5} aria-hidden /> : null}
+            <span
+                className={`${dim} inline-flex items-center justify-center rounded-full border-2 transition-all duration-200 ${toneClass}`}
+                aria-hidden
+            >
+                {checked ? <Check className={icon} strokeWidth={2.5} /> : null}
+            </span>
         </button>
     );
 }

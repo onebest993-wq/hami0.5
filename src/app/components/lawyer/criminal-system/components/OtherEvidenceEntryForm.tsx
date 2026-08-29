@@ -46,7 +46,7 @@ export function OtherEvidenceEntryForm({ onSubmit, onClose, showLegalToast }: Ot
     };
 
     const fieldClass =
-        'w-full min-h-[44px] rounded-xl border border-white/[0.08] bg-gradient-to-b from-white/[0.045] to-[#070a14]/80 px-3.5 py-2.5 text-sm text-white placeholder:text-white/25 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-[border-color,box-shadow] focus:border-[#E6C673]/55 focus:shadow-[0_0_0_3px_rgba(230,198,115,0.12)] touch-manipulation';
+        'w-full min-h-[44px] rounded-xl border border-white/[0.08] bg-gradient-to-b from-white/[0.045] to-[#070a14]/80 px-3.5 py-2.5 text-sm text-white placeholder:text-white/25 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-[border-color,box-shadow] focus:border-[#E6C673]/55 focus: touch-manipulation';
 
     return (
         <div className="space-y-3 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-black/20 p-4 shadow-[0_8px_28px_rgba(0,0,0,0.2)] backdrop-blur-sm">

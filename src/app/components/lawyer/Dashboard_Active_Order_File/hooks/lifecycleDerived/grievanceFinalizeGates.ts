@@ -1,4 +1,4 @@
-export type ComputeGrievancePhase2FinalizeReadyArgs = {
+type ComputeGrievancePhase2FinalizeReadyArgs = {
     isFinalized: boolean;
     grievanceOutcome: string | null | undefined;
     grievanceExpiredCanClose: boolean;

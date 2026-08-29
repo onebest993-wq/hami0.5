@@ -12,6 +12,8 @@
  */
 
 import { supabasePrivilegedKeyEnvName } from './supabasePrivilegedEnv.ts';
+import { wifeRedisJson } from './wifeRedisRest.ts';
+import { getWifeEnv, hasWifeRedisConfig, isWifeProduction } from './wifeStoreEnv.ts';
 
 const DEFAULT_NONCE_TABLE = 'wife_nonce_store';
 const IN_MEMORY_NONCE_FALLBACK = new Map<string, number>();
@@ -19,15 +21,6 @@ const IN_MEMORY_NONCE_FALLBACK = new Map<string, number>();
 type NonceStore = {
   consumeNonce(nonce: string, nowMs: number, ttlMs: number): Promise<boolean>;
 };
-
-function getEnv(name: string): string {
-  const raw = process.env[name];
-  return typeof raw === 'string' ? raw.trim() : '';
-}
-
-function isProduction(): boolean {
-  return getEnv('NODE_ENV').toLowerCase() === 'production';
-}
 
 function buildNonceKey(nonce: string): string {
   return `wife:nonce:${nonce}`;
@@ -48,47 +41,29 @@ const memoryStore: NonceStore = {
   },
 };
 
-function hasRedisConfig(): boolean {
-  return Boolean(getEnv('WIFE_REDIS_REST_URL') && getEnv('WIFE_REDIS_REST_TOKEN'));
-}
-
 const redisStore: NonceStore = {
   async consumeNonce(nonce: string, _nowMs: number, ttlMs: number): Promise<boolean> {
-    const redisUrl = getEnv('WIFE_REDIS_REST_URL');
-    const redisToken = getEnv('WIFE_REDIS_REST_TOKEN');
-    if (!redisUrl || !redisToken) throw new Error('Redis nonce store is not configured.');
-
     const key = encodeURIComponent(buildNonceKey(nonce));
-    const endpoint = `${redisUrl.replace(/\/+$/, '')}/set/${key}/1?NX=true&PX=${ttlMs}`;
-
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${redisToken}`,
-      },
-    });
-
+    const response = await wifeRedisJson(`/set/${key}/1?NX=true&PX=${ttlMs}`, 'POST');
     if (!response.ok) {
       throw new Error(`Redis nonce store failed: ${response.status}`);
     }
-
-    const result = (await response.json().catch(() => null)) as { result?: unknown } | null;
     // Upstash returns { result: "OK" } when SET NX succeeds.
-    return result?.result === 'OK';
+    return response.result === 'OK';
   },
 };
 
 function hasSupabaseConfig(): boolean {
-  return Boolean(getEnv('SUPABASE_URL') && (getEnv(supabasePrivilegedKeyEnvName()) || getEnv('SUPABASE_ANON_KEY')));
+  return Boolean(getWifeEnv('SUPABASE_URL') && (getWifeEnv(supabasePrivilegedKeyEnvName()) || getWifeEnv('SUPABASE_ANON_KEY')));
 }
 
 const supabaseStore: NonceStore = {
   async consumeNonce(nonce: string, nowMs: number, ttlMs: number): Promise<boolean> {
-    const supabaseUrl = getEnv('SUPABASE_URL');
-    const supabaseKey = getEnv(supabasePrivilegedKeyEnvName()) || getEnv('SUPABASE_ANON_KEY');
+    const supabaseUrl = getWifeEnv('SUPABASE_URL');
+    const supabaseKey = getWifeEnv(supabasePrivilegedKeyEnvName()) || getWifeEnv('SUPABASE_ANON_KEY');
     if (!supabaseUrl || !supabaseKey) throw new Error('Supabase nonce store is not configured.');
 
-    const table = getEnv('WIFE_NONCE_TABLE') || DEFAULT_NONCE_TABLE;
+    const table = getWifeEnv('WIFE_NONCE_TABLE') || DEFAULT_NONCE_TABLE;
     const baseUrl = supabaseUrl.replace(/\/+$/, '');
     const restTableUrl = `${baseUrl}/rest/v1/${encodeURIComponent(table)}`;
 
@@ -124,9 +99,9 @@ const supabaseStore: NonceStore = {
 };
 
 function resolvePrimaryStore(): NonceStore | null {
-  if (hasRedisConfig()) return redisStore;
+  if (hasWifeRedisConfig()) return redisStore;
   if (hasSupabaseConfig()) return supabaseStore;
-  if (!isProduction()) return memoryStore;
+  if (!isWifeProduction()) return memoryStore;
   return null;
 }
 
@@ -139,14 +114,14 @@ export async function consumeNonceWithTtl(nonce: string, ttlMs: number): Promise
   const primary = resolvePrimaryStore();
 
   if (!primary) {
-    if (isProduction()) return false;
+    if (isWifeProduction()) return false;
     return await memoryStore.consumeNonce(nonce, nowMs, ttlMs);
   }
 
   try {
     return await primary.consumeNonce(nonce, nowMs, ttlMs);
   } catch {
-    if (isProduction()) return false;
+    if (isWifeProduction()) return false;
     return await memoryStore.consumeNonce(nonce, nowMs, ttlMs);
   }
 }

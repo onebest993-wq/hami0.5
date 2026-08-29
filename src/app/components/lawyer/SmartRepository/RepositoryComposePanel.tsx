@@ -1,5 +1,10 @@
 import React, { memo, useEffect, useMemo } from 'react';
-import { Loader2, Paperclip, Pin, PinOff, Save, X } from '@/app/components/ui/lucideIcons';
+import { Loader2 } from '@/app/components/ui/icons/Loader2';
+import { Paperclip } from '@/app/components/ui/icons/Paperclip';
+import { Pin } from '@/app/components/ui/icons/Pin';
+import { PinOff } from '@/app/components/ui/icons/PinOff';
+import { Save } from '@/app/components/ui/icons/Save';
+import { X } from '@/app/components/ui/icons/X';
 import type { RefObject } from 'react';
 import type { DossierLawArticleRichEditorHandle } from '@/app/components/lawyer/dossier-notes/DossierLawArticleRichEditor';
 import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
@@ -96,6 +101,10 @@ export const RepositoryComposePanel = memo(function RepositoryComposePanel({
                 placeholder="عنوان المسودة"
                 className={REPO_COMPOSE_TITLE}
                 aria-label="عنوان المسودة"
+                data-testid="repository-compose-title"
+                enterKeyHint="next"
+                autoComplete="off"
+                autoCapitalize="sentences"
             />
 
             <RepositoryRichEditor editorRef={editorRef} value={bodyHtml} onChange={onBodyChange} compact />
@@ -106,6 +115,7 @@ export const RepositoryComposePanel = memo(function RepositoryComposePanel({
                         className={REPO_COMPOSE_ICON_BTN}
                         title="إرفاق ملف"
                         aria-label="إرفاق ملف"
+                        data-testid="repository-compose-attach"
                     >
                         <Paperclip size={16} aria-hidden />
                         <input
@@ -113,6 +123,7 @@ export const RepositoryComposePanel = memo(function RepositoryComposePanel({
                             type="file"
                             accept="image/*,application/pdf,.pdf"
                             className="sr-only"
+                            data-testid="repository-compose-attach-input"
                             onChange={(e) => onAttachmentChange(e.target.files?.[0] ?? null)}
                         />
                     </label>
@@ -130,9 +141,9 @@ export const RepositoryComposePanel = memo(function RepositoryComposePanel({
                     </button>
 
                     {attachmentFile ? (
-                        <div className={REPO_COMPOSE_ATTACH_CHIP}>
+                        <div className={REPO_COMPOSE_ATTACH_CHIP} data-testid="repository-compose-attach-chip">
                             {attachmentPreviewUrl ? (
-                                <span className="size-5 shrink-0 overflow-hidden rounded border border-white/10">
+                                <span className="size-8 shrink-0 overflow-hidden rounded-lg border border-white/10">
                                     <img
                                         src={attachmentPreviewUrl}
                                         alt=""
@@ -146,10 +157,11 @@ export const RepositoryComposePanel = memo(function RepositoryComposePanel({
                             <button
                                 type="button"
                                 onClick={() => onAttachmentChange(null)}
-                                className="inline-flex shrink-0 items-center justify-center rounded-md p-0.5 text-white/40 hover:text-white/75 touch-manipulation"
+                                className="inline-flex shrink-0 items-center justify-center min-h-[44px] min-w-[44px] rounded-xl text-white/40 hover:text-white/80 hover:bg-white/[0.06] touch-manipulation"
                                 aria-label="إزالة المرفق"
+                                data-testid="repository-compose-attach-remove"
                             >
-                                <X size={12} aria-hidden />
+                                <X size={16} aria-hidden />
                             </button>
                         </div>
                     ) : null}

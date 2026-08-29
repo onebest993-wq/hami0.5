@@ -4,7 +4,7 @@ import type { useLawyerDashboardWorkspace } from '@/app/hooks/lawyerDashboard/us
 type Workspace = ReturnType<typeof useLawyerDashboardWorkspace>;
 
 export type BuildLawyerDashboardOverlaysBundleParams = {
-    onLogout: () => void;
+    onLogout: (options?: { skipLocalPurge?: boolean }) => void | Promise<void>;
     onAppNavigate?: (target: 'privacy' | 'support' | 'settings') => void;
     onNavigateToCase?: (caseId: string) => void;
     user: { id?: string } | null;

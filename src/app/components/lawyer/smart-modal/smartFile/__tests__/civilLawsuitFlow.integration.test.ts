@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CaseStage } from '../../../LawyerShared';
-import { buildFileDataFromNewCaseSave, filterLawsuitWorkspaceFiles } from '@/app/domain/lawsuit/lawsuitFileFactory';
+import { allLawsuitFilesForArchive, buildFileDataFromNewCaseSave } from '@/app/domain/lawsuit/lawsuitFileFactory';
 import { loadLawsuitFilesRaw, saveLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
 import { buildCloudSavePayload } from '../cloudSavePayload';
 import { buildInitialParentDataFromFile } from '../parentDataInit';
@@ -16,7 +16,7 @@ import {
 } from '../appealRouteEligibility';
 
 describe('civil lawsuit flow (integration)', () => {
-    it('new case → stages → cloud payload → workspace filter', () => {
+    it('new case → stages → cloud payload → archive pool', () => {
         const file = buildFileDataFromNewCaseSave({
             mainCategory: 'lawsuit',
             details: { number: '100/2026', court: 'بداءة الكرخ', type: 'مدنية' },
@@ -34,12 +34,12 @@ describe('civil lawsuit flow (integration)', () => {
         const payload = buildCloudSavePayload(stages, parent, 0, 'نشطة');
         expect(payload.caseNo).toBe('100/2026');
 
-        const workspace = filterLawsuitWorkspaceFiles([
+        const archivePool = allLawsuitFilesForArchive([
             file!,
             { type: 'execution', status: 'active' },
             { type: 'lawsuit', status: 'deleted' },
         ]);
-        expect(workspace).toHaveLength(1);
+        expect(archivePool).toHaveLength(2);
     });
 
     it('archived stage is read-only (viewing past stage)', () => {

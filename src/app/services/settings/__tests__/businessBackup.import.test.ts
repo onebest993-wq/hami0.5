@@ -33,8 +33,8 @@ describe('importBusinessBackupEntries', () => {
     });
 
     it('يُرجع البيانات السابقة عند فشل الكتابة في منتصف الاستيراد', async () => {
-        store.set('hami_notes_vault_a', 'original-a');
-        store.set('hami_notes_vault_b', 'original-b');
+        store.set('hami_notes_vault_a', '["original-a"]');
+        store.set('hami_notes_vault_b', '["original-b"]');
 
         const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
         vi.mocked(SecureStoreService.setItem).mockImplementation(async (key, value) => {
@@ -43,13 +43,13 @@ describe('importBusinessBackupEntries', () => {
         });
 
         const entries: Array<[string, string]> = [
-            ['hami_notes_vault_a', 'new-a'],
-            ['hami_notes_vault_b', 'new-b'],
+            ['hami_notes_vault_a', '["new-a"]'],
+            ['hami_notes_vault_b', '["new-b"]'],
         ];
 
         await expect(importBusinessBackupEntries(entries)).rejects.toThrow('disk full');
-        expect(store.get('hami_notes_vault_a')).toBe('original-a');
-        expect(store.get('hami_notes_vault_b')).toBe('original-b');
+        expect(store.get('hami_notes_vault_a')).toBe('["original-a"]');
+        expect(store.get('hami_notes_vault_b')).toBe('["original-b"]');
     });
 
     it('يحذف المفاتيح الجديدة عند الفشل إذا لم تكن موجودة مسبقاً', async () => {
@@ -60,7 +60,7 @@ describe('importBusinessBackupEntries', () => {
         });
 
         await expect(
-            importBusinessBackupEntries([['hami_notes_vault_new', 'payload']]),
+            importBusinessBackupEntries([['hami_notes_vault_new', '["payload"]']]),
         ).rejects.toThrow('write failed');
         expect(store.has('hami_notes_vault_new')).toBe(false);
     });

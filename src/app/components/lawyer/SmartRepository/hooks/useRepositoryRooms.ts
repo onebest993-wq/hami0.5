@@ -27,8 +27,8 @@ export function useRepositoryRooms(userId?: string) {
     }, [uid]);
 
     const createRoom = useCallback(
-        (title: string): { room: RepositoryRoom | null; reason?: 'duplicate' | 'limit' } => {
-            if (!uid) return { room: null };
+        (title: string): { room: RepositoryRoom | null; reason?: 'duplicate' | 'limit' | 'unsigned' } => {
+            if (!uid) return { room: null, reason: 'unsigned' };
             const before = loadRepositoryRooms(uid);
             if (before.some((r) => r.title === title.trim())) {
                 const existing = before.find((r) => r.title === title.trim()) ?? null;
@@ -59,11 +59,11 @@ export function useRepositoryRooms(userId?: string) {
     );
 
     const togglePinRoom = useCallback(
-        (roomId: string): { pinned: boolean; atLimit: boolean } => {
-            if (!uid) return { pinned: false, atLimit: false };
+        (roomId: string): { pinned: boolean; atLimit: boolean; applied: boolean } => {
+            if (!uid) return { pinned: false, atLimit: false, applied: false };
             const result = toggleRepositoryPinnedRoom(uid, roomId, pinnedRoomIds);
             setPinnedRoomIds(result.ids);
-            return { pinned: result.pinned, atLimit: result.atLimit };
+            return { pinned: result.pinned, atLimit: result.atLimit, applied: !result.atLimit };
         },
         [pinnedRoomIds, uid],
     );

@@ -153,6 +153,7 @@ export function useAutoSync(
 
             return () => clearTimeout(timeoutId);
         }
+        return undefined;
     }, [data, enabled, saveOnChange, key, performSync]);
 
     useEffect(() => {

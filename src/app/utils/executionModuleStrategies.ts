@@ -5,6 +5,8 @@
 
 import type { TimelineEvent } from '@/app/types/execution';
 import { calculateGracePeriodEndDate } from '@/app/utils/executionStateMachine';
+import { isEvictionClaim } from '@/app/utils/isEvictionClaim';
+export { isEvictionClaim } from '@/app/utils/isEvictionClaim';
 export {
     EVICTION_TIMELINE_ACTION_IDS,
     type EvictionTimelineActionId,
@@ -22,18 +24,6 @@ export interface ExecutionModuleStrategy {
     useEvictionFieldProcedures: boolean;
     /** إخفاء أدوات الحجز المالي (راتب، منع سفر، إلخ) للمطالبة الأساسية */
     hideStandardFinancialSeizureInTools: boolean;
-}
-
-export function isEvictionClaim(claimType: string | undefined | null): boolean {
-    const c = (claimType || '').trim();
-    if (c === 'eviction') return true;
-    return (
-        c.includes('تخلية مأجور') ||
-        c.includes('تسليم عقار') ||
-        c.includes('تخلية') ||
-        c.includes('إخلاء') ||
-        c.toLowerCase().includes('eviction')
-    );
 }
 
 /** تسليم شيء معين — مسار تسليم عيني قابل للتحول المالي */

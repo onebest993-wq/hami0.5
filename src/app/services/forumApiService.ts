@@ -6,6 +6,7 @@ import {
     forumApiPostJson,
     getForumSessionUserId,
     hasForumRemoteSession,
+    parseForumApiError,
     persistForumPostLocally,
     removeForumPostLocally,
     shouldRethrowForumMutationError,
@@ -15,7 +16,6 @@ import {
     type ForumApiOk,
 } from '@/app/services/forum/forumApi/forumApiClientCore';
 import {
-    addCommunityComment,
     deleteCommunityComment,
     editCommunityComment,
     deleteCommunityPost,
@@ -126,14 +126,12 @@ export class ForumApiService {
                 { method: 'GET' },
             );
             if (!res.ok) throw new Error('تعذّر جلب المنشورات');
-            const merged = sortCommunityPosts(
-                filterDeletedCommunityPosts(mergeCommunityPostsById(localAll, res.posts), deletedIds),
+            const remote = sortCommunityPosts(
+                filterDeletedCommunityPosts(res.posts, deletedIds),
             );
+            const merged = sortCommunityPosts(mergeCommunityPostsById(scopedLocal, remote));
             await CommunityDB.persistPostsBatch(merged);
-            const scopedMerged = options?.groupId
-                ? merged.filter((p) => p.groupId === options.groupId)
-                : merged.filter((p) => !p.groupId);
-            return this.slicePostsPage(scopedMerged, limit, offset);
+            return this.slicePostsPage(merged, limit, offset);
         } catch (err) {
             if (err instanceof SecureFetchError && err.status === 401) {
                 return this.slicePostsPage(scopedLocal, limit, offset);
@@ -146,19 +144,20 @@ export class ForumApiService {
     }
 
     static async createPost(post: CommunityPost): Promise<CommunityPost> {
+        if (!(await canUseRemoteForumSession())) {
+            throw new SecureFetchError(
+                'يجب تسجيل الدخول بحساب حقيقي للمشاركة في المنتدى',
+                401,
+                '',
+                '/api/forum/posts',
+            );
+        }
+
         let attachment = post.attachment;
         const storagePath = attachment?.storagePath?.trim() ?? '';
-        const hasDurableLocalAttachment =
-            storagePath.startsWith('idb:forum:') && !storagePath.startsWith('idb:forum:pending:');
         const hasCloudAttachment = Boolean(storagePath) && !storagePath.startsWith('idb:forum:');
-        const needsAttachmentPreparation =
-            Boolean(attachment) && !hasDurableLocalAttachment && !hasCloudAttachment;
-        if (attachment && post.authorId && needsAttachmentPreparation) {
-            try {
-                attachment = await prepareForumAttachmentForPublish(attachment, post.authorId);
-            } catch {
-                attachment = null;
-            }
+        if (attachment && post.authorId && !hasCloudAttachment) {
+            attachment = await prepareForumAttachmentForPublish(attachment, post.authorId);
         }
 
         const safePost = sanitizeCommunityPostForCreate(
@@ -173,38 +172,27 @@ export class ForumApiService {
             post.authorId,
         );
 
-        await addCommunityPost(safePost);
-
-        try {
-            const res = await postJson<ApiOk<{ post: CommunityPost }>>('/api/forum/posts', {
-                action: 'create',
-                post: safePost,
-            });
-            if (!res.post) throw new Error('استجابة غير صالحة');
-            const reconciled = {
-                ...res.post,
-                attachment: res.post.attachment ?? safePost.attachment ?? null,
-            };
-            await persistPostLocally(reconciled);
-            void import('@/app/services/auditLogPublisher')
-                .then(({ AuditLog }) => {
-                    AuditLog.forum.questionPosted({
-                        questionId: String(reconciled.id ?? safePost.id ?? ''),
-                        title: String(safePost.content.slice(0, 80) || 'سؤال'),
-                    });
-                })
-                .catch(() => undefined);
-            return reconciled;
-        } catch (err) {
-            if (this.shouldRethrowMutationError(err)) throw err;
-            if (post.authorId) {
-                const record = await BanDB.isBanned(post.authorId);
-                if (record) {
-                    throw new SecureFetchError('حسابك محظور من المنتدى', 403, '', '');
-                }
-            }
-            return safePost;
-        }
+        const res = await postJson<ApiOk<{ post: CommunityPost }>>('/api/forum/posts', {
+            action: 'create',
+            post: safePost,
+        }).catch((err: unknown) => {
+            throw new Error(parseForumApiError(err) || 'تعذّر نشر المنشور');
+        });
+        if (!res.post) throw new Error('استجابة غير صالحة');
+        const reconciled = {
+            ...res.post,
+            attachment: res.post.attachment ?? safePost.attachment ?? null,
+        };
+        await persistPostLocally(reconciled);
+        void import('@/app/services/auditLogPublisher')
+            .then(({ AuditLog }) => {
+                AuditLog.forum.questionPosted({
+                    questionId: String(reconciled.id ?? safePost.id ?? ''),
+                    title: String(safePost.content.slice(0, 80) || 'سؤال'),
+                });
+            })
+            .catch(() => undefined);
+        return reconciled;
     }
 
     static async syncPost(post: CommunityPost): Promise<CommunityPost> {
@@ -338,47 +326,33 @@ export class ForumApiService {
     }
 
     static async addComment(postId: string, comment: CommunityComment): Promise<CommunityPost> {
-        await addCommunityComment(postId, comment);
-        const localPosts = await CommunityDB.listPosts();
-        const localPost = localPosts.find((p) => p.id === postId);
-        if (!localPost) throw new Error('المنشور غير موجود');
-
-        let result = localPost;
-        try {
-            const res = await postJson<ApiOk<{ post: CommunityPost }>>('/api/forum/comment', {
-                action: 'add',
-                postId,
-                comment,
-            });
-            if (res.post) {
-                await persistPostLocally(res.post);
-                result = res.post;
-            }
-        } catch (err) {
-            if (this.shouldRethrowMutationError(err)) throw err;
-            const parentComment = comment.parentId
-                ? result.comments.find((c) => c.id === comment.parentId) ?? null
-                : null;
-            try {
-                const {
-                    autoSubscribeCommenterToThread,
-                    dispatchCommentNotifications,
-                } = await import('@/app/services/forum/forumNotificationDispatch');
-                await autoSubscribeCommenterToThread(comment.authorId, postId);
-                await dispatchCommentNotifications({ post: result, comment, parentComment });
-            } catch {
-                /* offline dispatch optional */
-            }
+        if (!(await canUseRemoteForumSession())) {
+            throw new SecureFetchError(
+                'يجب تسجيل الدخول بحساب حقيقي للمشاركة في المنتدى',
+                401,
+                '',
+                '/api/forum/comment',
+            );
         }
+
+        const res = await postJson<ApiOk<{ post: CommunityPost }>>('/api/forum/comment', {
+            action: 'add',
+            postId,
+            comment,
+        }).catch((err: unknown) => {
+            throw new Error(parseForumApiError(err) || 'تعذّر نشر التعليق');
+        });
+        if (!res.post) throw new Error('استجابة غير صالحة');
+        await persistPostLocally(res.post);
 
         try {
             const { AuditLog } = await import('@/app/services/auditLogPublisher');
             AuditLog.forum.replyPosted({
                 questionId: postId,
-                questionTitle: String(result.content?.slice(0, 80) ?? 'سؤال'),
+                questionTitle: String(res.post.content?.slice(0, 80) ?? 'سؤال'),
             });
         } catch { /* silent */ }
-        return result;
+        return res.post;
     }
 
     static async deleteComment(postId: string, commentId: string, isAdmin: boolean): Promise<CommunityPost> {

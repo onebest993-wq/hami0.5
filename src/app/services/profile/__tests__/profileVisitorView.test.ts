@@ -19,7 +19,7 @@ function sampleProfile(): LawyerProfileData {
                 id: 'actions-1',
                 type: 'actions',
                 data: [
-                    { id: 'a1', type: 'whatsapp', label: 'واتساب', value: '9647501234567' },
+                    { id: 'a1', type: 'email', label: 'بريد', value: 'a@example.com' },
                     { id: 'a2', type: 'call', label: 'هاتف', value: '07501234567' },
                 ],
             },

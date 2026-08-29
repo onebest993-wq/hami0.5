@@ -21,9 +21,9 @@ import {
 
 
 import type { UseSmartFileJudgmentActionsOptions } from './judgmentHookTypes';
-import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 import { buildLawsuitCalendarContext } from '../procedural/lawsuitCalendarContext';
-import { mirrorStageLegalDatesToCalendar } from '@/app/services/lawsuitTimelineCalendarMirror';
+import { overlayMirrorStageLegalDatesToCalendar } from '@/app/services/lawsuitTimelineCalendarMirrorLazy';
 import { normalizePersonalStatusAppealMethod } from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
 
 export function useAppealTransitionAction(options: UseSmartFileJudgmentActionsOptions) {
@@ -44,7 +44,6 @@ export function useAppealTransitionAction(options: UseSmartFileJudgmentActionsOp
         setShowObjectionRegistrationModal,
         setShowJudgmentModal,
         setShowCrossAppealModal,
-        setShowTransitionModal,
     } = options;
 
 const handleAppealTransition = (appealData: AppealTransitionPayload) => {
@@ -133,12 +132,14 @@ const handleAppealTransition = (appealData: AppealTransitionPayload) => {
     debug.log('👥 الأطراف بعد انقلاب المراكز:', newStage?.parties?.map((p) => `${p.role}: ${p.name}`).join(', '));
 
     const calCtx = buildLawsuitCalendarContext(parentData, resolveCalendarUserId());
-    const stagesForCalendar = mirrorStageLegalDatesToCalendar(updatedStages, activeStageIndex, calCtx);
-
-    setStages(stagesForCalendar);
+    setStages(updatedStages);
     setActiveStageIndex(newActiveIndex);
     setViewingStageIndex(newActiveIndex);
-    saveToCloud(stagesForCalendar, parentData, newActiveIndex);
+    saveToCloud(updatedStages, parentData, newActiveIndex);
+    overlayMirrorStageLegalDatesToCalendar(updatedStages, activeStageIndex, calCtx, (mirrored) => {
+        setStages(mirrored);
+        saveToCloud(mirrored, parentData, newActiveIndex);
+    });
     setShowAppealTransitionModal(false);
     setTempJudgmentData(null);
     setStatus(`مرحلة ${newStage?.stageName ?? appealType}`);

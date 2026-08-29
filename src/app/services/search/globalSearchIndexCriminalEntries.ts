@@ -27,7 +27,40 @@ export function criminalToEntry(raw: unknown): GlobalSearchEntry[] {
     const stage = String(basics.stage ?? '').trim();
     const title = clientName || (stage ? `جزائي — ${stage}` : 'إضبارة جزائية');
     const lifecycle: SearchLifecycle = c.isArchived === true ? 'archived' : LIFECYCLE_ACTIVE;
-    const text = [title, caseNo, stage, c.notes].filter(Boolean).join(' ');
+    const notesRaw = Array.isArray(c.notes) ? c.notes : [];
+    const noteTextsForMain: string[] = [];
+    for (const nRaw of notesRaw) {
+        if (!nRaw || typeof nRaw !== 'object') continue;
+        const n = nRaw as Record<string, unknown>;
+        if (n.isDeleted) continue;
+        const noteText = String(n.text ?? n.content ?? '').trim();
+        if (noteText) noteTextsForMain.push(noteText);
+    }
+
+    const proceduralTimeline = Array.isArray(c.proceduralTimeline) ? c.proceduralTimeline : [];
+    const proceduralTexts: string[] = [];
+    for (const evRaw of proceduralTimeline) {
+        if (!evRaw || typeof evRaw !== 'object') continue;
+        const ev = evRaw as Record<string, unknown>;
+        const evTitle = String(ev.title ?? ev.name ?? '').trim();
+        const evDetails = String(ev.details ?? ev.description ?? '').trim();
+        if (evTitle || evDetails) proceduralTexts.push(`${evTitle} ${evDetails}`.trim());
+    }
+
+    const partyNamesForMain = [
+        ...defendants.map((p) =>
+            p && typeof p === 'object' ? String((p as Record<string, unknown>).fullName ?? '') : '',
+        ),
+        ...complainants.map((p) =>
+            p && typeof p === 'object' ? String((p as Record<string, unknown>).fullName ?? '') : '',
+        ),
+    ]
+        .map((n) => n.trim())
+        .filter(Boolean);
+
+    const text = [title, caseNo, stage, ...partyNamesForMain, ...noteTextsForMain, ...proceduralTexts]
+        .filter(Boolean)
+        .join(' ');
 
     const entries: GlobalSearchEntry[] = [
         withLifecycle(
@@ -61,7 +94,7 @@ export function criminalToEntry(raw: unknown): GlobalSearchEntry[] {
                     category: 'party',
                     title: name,
                     subtitle: `${role} — ${title}${caseNo ? ` • ${caseNo}` : ''}`,
-                    _searchStr: blob([name, nat, occ, addr, role, title, caseNo]),
+                    _searchStr: blob([name, nat, occ, addr, role]),
                     navigate: { type: 'criminal', criminalId: id },
                 },
                 lifecycle,
@@ -76,7 +109,6 @@ export function criminalToEntry(raw: unknown): GlobalSearchEntry[] {
         if (p && typeof p === 'object') indexParty(p as Record<string, unknown>, i, 'شاكٍ', 'complainant');
     });
 
-    const notesRaw = Array.isArray(c.notes) ? c.notes : [];
     for (const nRaw of notesRaw) {
         if (!nRaw || typeof nRaw !== 'object') continue;
         const n = nRaw as Record<string, unknown>;
@@ -91,7 +123,7 @@ export function criminalToEntry(raw: unknown): GlobalSearchEntry[] {
                     title: noteText.slice(0, 80),
                     subtitle: `ملاحظة جزائية — ${title}`,
                     snippet: noteText,
-                    _searchStr: blob([noteText, title, caseNo]),
+                    _searchStr: blob([noteText]),
                     navigate: { type: 'criminal', criminalId: id },
                 },
                 lifecycle,
@@ -99,7 +131,6 @@ export function criminalToEntry(raw: unknown): GlobalSearchEntry[] {
         );
     }
 
-    const proceduralTimeline = Array.isArray(c.proceduralTimeline) ? c.proceduralTimeline : [];
     for (const evRaw of proceduralTimeline) {
         if (!evRaw || typeof evRaw !== 'object') continue;
         const ev = evRaw as Record<string, unknown>;
@@ -114,7 +145,7 @@ export function criminalToEntry(raw: unknown): GlobalSearchEntry[] {
                     title: evTitle || evDetails.slice(0, 80),
                     subtitle: `إجراء — ${title}`,
                     snippet: evDetails || undefined,
-                    _searchStr: blob([evTitle, evDetails, title, caseNo]),
+                    _searchStr: blob([evTitle, evDetails]),
                     navigate: { type: 'criminal', criminalId: id },
                 },
                 lifecycle,

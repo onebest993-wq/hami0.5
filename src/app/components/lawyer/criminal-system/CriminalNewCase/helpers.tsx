@@ -3,7 +3,7 @@ import type { CriminalComplainant } from '../criminalCaseModel';
 import { isInvestigationStoredStage } from '../criminalStageRuntimeCore';
 
 export const INPUT_BASE =
-    'w-full min-h-[44px] rounded-xl border border-white/[0.08] bg-gradient-to-b from-white/[0.045] to-[#070a14]/80 px-3.5 py-2.5 text-sm text-white placeholder:text-white/25 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-[border-color,box-shadow,background-color] duration-200 focus:border-[#E6C673]/55 focus:shadow-[0_0_0_3px_rgba(230,198,115,0.12)] disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation';
+    'w-full min-h-[44px] rounded-xl border border-white/[0.08] bg-gradient-to-b from-white/[0.045] to-[#070a14]/80 px-3.5 py-2.5 text-sm text-white placeholder:text-white/25 outline-none shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-[border-color,box-shadow,background-color] duration-200 focus:border-[#E6C673]/55 focus: disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation';
 
 export const CARD_BASE =
     'bg-[#11162A]/95 border border-white/[0.06] rounded-2xl p-4 shadow-[0_8px_28px_rgba(0,0,0,0.22)]';
@@ -101,7 +101,7 @@ export function PremiumCheckbox({
                     dense ? 'h-4 w-4 rounded-[5px]' : 'h-5 w-5'
                 } ${
                     checked
-                        ? 'border-[#E6C673]/70 bg-[#E6C673]/20 text-[#E6C673] shadow-[0_0_12px_rgba(230,198,115,0.18)]'
+                        ? 'border-[#E6C673]/70 bg-[#E6C673]/20 text-[#E6C673]'
                         : 'border-white/20 bg-white/[0.03] text-transparent group-hover:border-white/35'
                 }`}
                 aria-hidden
@@ -219,7 +219,7 @@ export function SegmentedChoice<T extends string>({
                                 : 'min-h-[44px] px-3 py-2 text-[12px]'
                         } ${
                             active
-                                ? 'border border-[#E6C673]/40 bg-[#E6C673]/15 text-[#E6C673] shadow-[0_0_16px_rgba(230,198,115,0.12)]'
+                                ? 'border border-[#E6C673]/40 bg-[#E6C673]/15 text-[#E6C673]'
                                 : 'border border-transparent text-white/65 hover:bg-white/[0.05] hover:text-white/90'
                         }`}
                     >
@@ -252,7 +252,7 @@ export function UnknownDefendantToggle({
                 disabled
                     ? 'border-white/10 bg-white/5 text-white/35 cursor-not-allowed'
                     : active
-                      ? 'border-rose-400/45 bg-rose-500/15 text-rose-100 shadow-[0_0_14px_rgba(244,63,94,0.15)]'
+                      ? 'border-rose-400/45 bg-rose-500/15 text-rose-100'
                       : 'border-white/12 bg-white/[0.04] text-white/70 hover:border-rose-400/35 hover:text-rose-100'
             }`}
             aria-pressed={active}

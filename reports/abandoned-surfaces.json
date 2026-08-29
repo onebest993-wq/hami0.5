@@ -6,7 +6,7 @@
     "zombieOverlaysDeferred": 0,
     "deprecatedComments": 125,
     "unusedLazyExports": 9,
-    "orphanCandidates": 50,
+    "orphanCandidates": 49,
     "placeholderNotificationRoutes": 0
   },
   "zombieOverlays": [],
@@ -752,10 +752,6 @@
     },
     {
       "file": "src/app/components/lawyer/dashboard/profile/ProfileTabHost.tsx",
-      "bucket": "other"
-    },
-    {
-      "file": "src/app/components/lawyer/dashboard/profile/RoyalLawyerProfileHost.tsx",
       "bucket": "other"
     },
     {

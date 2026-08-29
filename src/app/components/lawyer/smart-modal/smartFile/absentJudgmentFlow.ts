@@ -2,8 +2,8 @@ import { addDaysYmd } from './judgmentDateUtils';
 import type { CaseStage } from '../../LawyerShared';
 import { isCassationCorrectionStageName } from './extraordinaryAppealGateway';
 import { isBeginningPleadingStageName } from './pleadingStageClassification';
-import { isPersonalStatusCoreStage } from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
-import { resolveClientMarkedParty } from './interpleaderJudgmentEngine';
+import { isPersonalStatusCoreStage } from '@/app/components/lawyer/personal-status/personalStatusAppealStageHelpers';
+import { resolveClientMarkedParty } from './clientMarkedParty';
 import {
     isAbsentObjectedRole,
     isAbsentObjectorRole,
@@ -64,14 +64,8 @@ export function isAbsentGhayabiWorkflowStage(stageName?: string | null): boolean
     return isBeginningPleadingStageName(s);
 }
 
-/** وكيل المدعى عليه — يحق له الاعتراض على الحكم الغيابي. */
-export { isDefendantRepresentedParty } from './representedPartySide';
-
-/** وكيل المدعي — انتظار طعن الخصم بعد حكم لصالح موكله. */
-export { isPlaintiffRepresentedParty } from './representedPartySide';
-
 /** حكم غيابي لصالح المدعى عليه — لا يُعرض اعتراض الغيابي. */
-export function isDefendantFavorableAbsentOutcome(finalDecision?: string | null): boolean {
+function isDefendantFavorableAbsentOutcome(finalDecision?: string | null): boolean {
     const fd = String(finalDecision ?? '').trim();
     if (!fd) return false;
     if (fd.includes('رد الدعوى كلياً') || fd.includes('رد الدعوى كليا')) return true;
@@ -122,9 +116,9 @@ export function canOfferAbsentObjectionToDefendant(params: {
     return true;
 }
 
-export type AbsentObjectionJudgmentOption = { value: string; label: string; hint?: string };
+type AbsentObjectionJudgmentOption = { value: string; label: string; hint?: string };
 
-export type AbsentObjectionClientRole = 'objector' | 'objected' | null;
+type AbsentObjectionClientRole = 'objector' | 'objected' | null;
 
 /** الجانب الأصلي لموكلك في دعوى الاعتراض على الحكم الغيابي (مدعي/مدعى عليه) */
 export function resolveLawyerOriginalSideInAbsentObjection(

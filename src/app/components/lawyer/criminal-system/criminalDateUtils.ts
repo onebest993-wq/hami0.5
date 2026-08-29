@@ -1,4 +1,4 @@
-export function addUtcDays(ymd: string, days: number): string | null {
+function addUtcDays(ymd: string, days: number): string | null {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd ?? '').trim());
     if (!m) return null;
     const dt = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
@@ -6,7 +6,7 @@ export function addUtcDays(ymd: string, days: number): string | null {
     return dt.toISOString().slice(0, 10);
 }
 
-export function addUtcMonths(ymd: string, months: number): string | null {
+function addUtcMonths(ymd: string, months: number): string | null {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd ?? '').trim());
     if (!m) return null;
     const dt = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));

@@ -1,6 +1,6 @@
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft } from '@/app/components/ui/lucideIcons';
+import { ChevronLeft } from '@/app/components/ui/icons/ChevronLeft';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { useOpaqueFeatureSurface } from '@/app/hooks/useOpaqueFeatureSurface';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
@@ -11,21 +11,21 @@ import type { RepositoryFeedFilter } from '@/app/services/repository/repositoryU
 import { SmartRepositoryUnifiedFeed } from './SmartRepository/SmartRepositoryUnifiedFeed';
 import { REPO_HEADER, REPO_ICON_BTN, REPO_OVERLAY, REPO_PANEL } from './SmartRepository/smartRepositoryTheme';
 import { concealRepositoryWarmShell } from '@/app/runtime/repositoryInstantPaint';
+import { inertProps } from '@/app/utils/inertProps';
+import './SmartRepository/repositoryChrome.css';
 
 export type RepositoryTab = 'notepad' | 'vault';
 
 export type SmartRepositoryModalProps = {
     isOpen: boolean;
     onClose: () => void;
-    /** يُبقي الطبقة والمحتوى mounted بعد الإغلاق — فتح/إغلاق أسرع */
+    /** يُبقي طبقة الكشف اللحظي بعد الإغلاق — الخلاصة تُركَّب عند الفتح فقط */
     keepAlive?: boolean;
     initialTab?: RepositoryTab;
     notepadMode?: 'list' | 'create';
     focusNoteId?: string;
     vaultOpenScanner?: boolean;
     notes: GlobalNote[];
-    /** هل استقرت ملاحظات الإقلاع — يمرَّر للـ feed لتجنب وميض فارغ */
-    notesBootSettled?: boolean;
     lawsuitFiles: FileData[];
     executionFiles: ExecutionFile[];
     currentUserId?: string;
@@ -54,7 +54,6 @@ export function SmartRepositoryModal({
     focusNoteId,
     vaultOpenScanner = false,
     notes,
-    notesBootSettled = true,
     lawsuitFiles,
     executionFiles,
     currentUserId,
@@ -138,24 +137,24 @@ export function SmartRepositoryModal({
             data-testid="smart-repository-modal"
             role="presentation"
             aria-hidden={!overlayVisible}
+            {...inertProps(!overlayVisible)}
             onTransitionEnd={handleOverlayTransitionEnd}
         >
             <div
                 className={`${REPO_PANEL} flex flex-col`}
-                role="dialog"
+                role={overlayVisible ? 'dialog' : undefined}
                 aria-modal={overlayVisible ? 'true' : undefined}
                 aria-label="المستودع"
             >
-                <div className="pointer-events-none absolute inset-0 hami-repository-ambient" aria-hidden />
                 <div className={REPO_HEADER}>
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
                         <button
                             type="button"
                             onPointerDown={(event) => {
                                 requestClose(event);
                             }}
                             onClick={(event) => {
-                                event.preventDefault();
+                                requestClose(event);
                             }}
                             data-testid="smart-repository-close"
                             className={REPO_ICON_BTN}
@@ -164,29 +163,28 @@ export function SmartRepositoryModal({
                         >
                             <ChevronLeft size={18} />
                         </button>
-                        <div className="flex items-center gap-2 min-w-0">
-                            <h2 className="font-bold text-lg text-[#F4F0E8] truncate">المستودع</h2>
-                        </div>
+                        <h2 className="font-medium text-[17px] text-[#F4F4F5] truncate">المستودع</h2>
                     </div>
                 </div>
 
-                <SmartRepositoryUnifiedFeed
-                    currentUserId={currentUserId}
-                    notes={notes}
-                    notesBootSettled={notesBootSettled}
-                    lawsuitFiles={lawsuitFiles}
-                    executionFiles={executionFiles}
-                    startMode={notepadMode}
-                    focusNoteId={focusNoteId}
-                    initialFilter={initialFilter}
-                    vaultOpenScanner={vaultOpenScanner}
-                    onSaveNote={onSaveNote}
-                    onDeleteNote={onDeleteNote}
-                    onUpdateLawsuitFile={onUpdateLawsuitFile}
-                    onUpdateExecutionFile={onUpdateExecutionFile}
-                    onRequestClose={requestClose}
-                    escapeEnabled={overlayVisible}
-                />
+                {overlayVisible ? (
+                    <SmartRepositoryUnifiedFeed
+                        currentUserId={currentUserId}
+                        notes={notes}
+                        lawsuitFiles={lawsuitFiles}
+                        executionFiles={executionFiles}
+                        startMode={notepadMode}
+                        focusNoteId={focusNoteId}
+                        initialFilter={initialFilter}
+                        vaultOpenScanner={vaultOpenScanner}
+                        onSaveNote={onSaveNote}
+                        onDeleteNote={onDeleteNote}
+                        onUpdateLawsuitFile={onUpdateLawsuitFile}
+                        onUpdateExecutionFile={onUpdateExecutionFile}
+                        onRequestClose={requestClose}
+                        escapeEnabled={overlayVisible}
+                    />
+                ) : null}
             </div>
         </div>,
         document.body,

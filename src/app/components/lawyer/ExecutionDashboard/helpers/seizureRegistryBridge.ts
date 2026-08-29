@@ -1,7 +1,6 @@
-// @ts-nocheck
 import type { SeizedMovable, SeizedProperty, ThirdPartySeizure } from '@/app/types/execution';
 
-export function inferPropertyGenderFromType(raw: string): SeizedProperty['propertyGender'] {
+function inferPropertyGenderFromType(raw: string): SeizedProperty['propertyGender'] {
     const t = String(raw || '').trim();
     if (/شقة/i.test(t)) return 'شقة';
     if (/عرصة/i.test(t)) return 'عرصة';

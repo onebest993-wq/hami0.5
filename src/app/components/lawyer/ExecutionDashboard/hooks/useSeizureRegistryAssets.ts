@@ -1,12 +1,17 @@
 import { useMemo } from 'react';
 import { isSalarySeizureAsset } from '@/app/components/lawyer/ExecutionDashboard/helpers/seizureUtils';
+import type {
+    RealEstateSeizureAsset,
+    SeizedAsset,
+    ThirdPartySeizureAsset,
+} from '@/app/types/execution';
 
 export { isSalarySeizureAsset };
 
 export function useSeizureRegistryAssets(
-    seizedAssets: any[] | undefined | null,
-    realEstateSeizureAssets: any[] | undefined | null,
-    thirdPartySeizureAssets: any[] | undefined | null,
+    seizedAssets: SeizedAsset[] | undefined | null,
+    realEstateSeizureAssets: RealEstateSeizureAsset[] | undefined | null,
+    thirdPartySeizureAssets: ThirdPartySeizureAsset[] | undefined | null,
 ) {
     const salarySeizureRegistryAssets = useMemo(
         () => (seizedAssets || []).filter(isSalarySeizureAsset),

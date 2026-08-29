@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
+import { clampTransactionText, TX_TASK_TITLE_MAX } from '@/app/services/transactions/transactionsInputSecurity';
 import {
     GLASS_BTN,
     GLASS_FIELD,
-    TX_TEXT_MUTED,
     TxFieldLabel,
     TxGlassDrawerFrame,
 } from './transactionsGlassTheme';
@@ -64,7 +64,12 @@ export function AddTaskBottomSheet({
         : 'ستُضاف كمهمة رئيسية ضمن المعاملة';
 
     return (
-        <TransactionsHubSheet open={open} onOpenChange={onOpenChange}>
+        <TransactionsHubSheet
+            open={open}
+            onOpenChange={onOpenChange}
+            testId="transactions-add-task-sheet"
+            ariaLabel="إضافة مهمة"
+        >
             <TxGlassDrawerFrame
                     title="إضافة مهمة"
                     subtitle={subtitle}
@@ -80,13 +85,17 @@ export function AddTaskBottomSheet({
                     }
             >
                     <div>
-                        <TxFieldLabel>عنوان المهمة</TxFieldLabel>
+                        <TxFieldLabel htmlFor="transactions-task-title">عنوان المهمة</TxFieldLabel>
                         <input
+                            id="transactions-task-title"
                             value={title}
-                            onChange={(e) => setTitle(e.target.value)}
+                            onChange={(e) => setTitle(clampTransactionText(e.target.value, TX_TASK_TITLE_MAX))}
                             placeholder="مثال: تقديم العريضة"
                             disabled={!!readOnly}
                             className={`${GLASS_FIELD} disabled:opacity-50`}
+                            autoComplete="off"
+                            enterKeyHint="done"
+                            autoCapitalize="sentences"
                         />
                     </div>
                     <div>
@@ -96,10 +105,8 @@ export function AddTaskBottomSheet({
                             onChange={(e) => setDeadlineDate(e.target.value)}
                             disabled={!!readOnly}
                         />
-                        <p className={`${TX_TEXT_MUTED} text-[10px] mt-1.5 leading-5 font-medium`}>
-                            {deadlineDate
-                                ? 'سيظهر في التقويم كموعد مهلة لهذه المهمة.'
-                                : 'مهلة المهام وتواريخ المصاريف تُزامَن مع التقويم.'}
+                        <p className="text-black/40 text-[10px] mt-1 leading-4 font-medium">
+                            {deadlineDate ? 'سيظهر في التقويم كمهلة.' : 'مهلة المهام تُزامَن مع التقويم.'}
                         </p>
                     </div>
             </TxGlassDrawerFrame>

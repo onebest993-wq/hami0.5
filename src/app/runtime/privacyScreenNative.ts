@@ -50,12 +50,11 @@ export async function callPrivacyScreenGuard(enabled: boolean): Promise<boolean>
     return false;
 }
 
-/** للاختبارات — يثبت أن PrivacyScreen يستجيب */
+/** يثبت التسجيل دون تغيير FLAG_SECURE */
 export async function probePrivacyScreenPlugin(): Promise<boolean> {
     try {
-        const { PrivacyScreen } = await import('@capacitor-community/privacy-screen');
-        await PrivacyScreen.disable();
-        return true;
+        const { Capacitor } = await import('@capacitor/core');
+        return Capacitor.isPluginAvailable('PrivacyScreen') || Capacitor.isPluginAvailable('HamiPrivacy');
     } catch {
         return false;
     }

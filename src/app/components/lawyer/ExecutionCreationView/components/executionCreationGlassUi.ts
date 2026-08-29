@@ -1,132 +1,132 @@
-/** أنماط زجاجية موحّدة — نموذج إنشاء التنفيذ */
+/** أنماط زجاجية موحّدة — نموذج إنشاء التنفيذ (سطح مسطّح خفيف) */
 export const ecg = {
-    sheetBackdrop: 'fixed inset-0 z-[235] bg-[#05060D]/75 backdrop-blur-md',
+    sheetBackdrop: 'fixed inset-0 z-[235] bg-[#05060D]/55',
     sheetPanel:
-        'fixed inset-x-0 bottom-0 z-[236] flex flex-col rounded-t-3xl border-t border-[#E6C673]/25 bg-[#0A0F1C]/88 backdrop-blur-2xl shadow-[0_-16px_48px_rgba(0,0,0,0.55)] ring-1 ring-white/5',
-    sheetHeader: 'flex-shrink-0 flex items-center justify-between gap-3 px-5 py-4 border-b border-white/8',
+        'fixed inset-x-0 bottom-0 z-[236] flex flex-col rounded-t-2xl border-t border-white/[0.08] bg-[#0A0F1C]',
+    sheetHeader: 'flex-shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-white/[0.06]',
     sheetTitle: 'text-sm font-bold text-[#E6C673] flex-1 text-center tracking-wide',
-    sheetClose: 'text-xs text-slate-400 hover:text-white min-w-[3rem] text-right transition-colors',
+    sheetClose:
+        'inline-flex min-h-[44px] min-w-[44px] items-center justify-end text-xs text-slate-400 hover:text-white text-right transition-colors touch-manipulation',
     sheetBody: 'flex flex-col flex-1 min-h-0 overflow-y-auto overscroll-contain',
-    sheetSectionTitle: 'text-[11px] font-bold text-[#E6C673]/90 tracking-wide',
+    sheetSectionTitle: 'text-[11px] font-semibold text-[#E6C673]/90 tracking-wide',
     sheetSectionBadge:
-        'shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[9px] font-medium text-slate-500',
+        'shrink-0 rounded-full border border-white/[0.08] bg-transparent px-2 py-0.5 text-[9px] font-medium text-slate-500',
     sheetBodyUnified:
         'flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3 pb-2',
     sheetGroupedCard:
-        'rounded-2xl border border-white/[0.07] bg-white/[0.025] backdrop-blur-sm p-3.5 space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
-    sheetSectionDivider:
-        'h-px w-full bg-gradient-to-r from-transparent via-[#E6C673]/12 to-transparent',
+        'rounded-xl border border-white/[0.06] bg-transparent p-3 space-y-3',
+    sheetSectionDivider: 'h-px w-full bg-white/[0.06]',
     sheetSectionHeader: 'flex flex-row-reverse items-center justify-between gap-2 px-0.5',
     sheetFooter:
-        'flex-shrink-0 border-t border-white/[0.08] bg-[#0A0F1C]/92 backdrop-blur-xl px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]',
+        'flex-shrink-0 border-t border-white/[0.06] bg-[#0A0F1C] px-4 pt-2.5 pb-[max(1rem,env(safe-area-inset-bottom))]',
     sheetScroll: 'flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-2 space-y-1.5',
     choiceRow: 'flex flex-row-reverse gap-2',
     choiceBtn:
-        'flex-1 rounded-xl border px-4 py-3 text-sm font-semibold text-center transition-all',
+        'flex-1 min-h-[44px] rounded-xl border px-3.5 py-2.5 text-sm font-semibold text-center transition-colors touch-manipulation',
     choiceBtnIdle:
-        'text-slate-300 border-white/10 bg-white/[0.03] hover:border-[#E6C673]/25 hover:bg-white/[0.06] disabled:opacity-40 disabled:cursor-not-allowed',
+        'text-slate-400 border-transparent bg-transparent hover:bg-white/[0.04] hover:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed',
     choiceBtnActive:
-        'text-[#F5E6B8] border-[#E6C673]/45 bg-gradient-to-b from-[#E6C673]/16 to-[#E6C673]/6 shadow-[0_0_16px_-6px_rgba(230,198,115,0.45)]',
+        'text-[#F5E6B8] border-[#E6C673]/28 bg-[#E6C673]/08',
     optionBtn:
-        'w-full text-right rounded-2xl px-4 py-3.5 text-sm font-semibold transition-all border backdrop-blur-sm',
+        'w-full min-h-[44px] text-right rounded-xl px-3.5 py-3 text-sm font-semibold transition-colors border touch-manipulation',
     optionBtnIdle:
-        'text-slate-200 border-white/8 bg-white/[0.03] hover:border-[#E6C673]/25 hover:bg-white/[0.06]',
+        'text-slate-200 border-white/[0.06] bg-transparent hover:border-[#E6C673]/22 hover:bg-white/[0.04]',
     optionBtnActive:
-        'text-[#F5E6B8] border-[#E6C673]/40 bg-gradient-to-l from-[#E6C673]/14 to-transparent shadow-[0_0_20px_-8px_rgba(230,198,115,0.5)]',
+        'text-[#F5E6B8] border-[#E6C673]/28 bg-[#E6C673]/08',
     multiPanel: 'space-y-3',
     multiHint: 'text-[11px] font-medium text-slate-400/95 leading-relaxed text-right px-1',
     multiList: 'space-y-2',
     multiItem:
-        'flex flex-row-reverse items-center gap-3 min-h-[48px] rounded-2xl px-3.5 py-3 cursor-pointer transition-all duration-200 border',
-    multiItemIdle: 'border-white/8 bg-white/[0.02] hover:border-white/14 hover:bg-white/[0.05]',
+        'flex flex-row-reverse items-center gap-3 min-h-[48px] rounded-xl px-3 py-2.5 cursor-pointer transition-colors duration-150 border',
+    multiItemIdle: 'border-white/[0.06] bg-transparent hover:border-white/12 hover:bg-white/[0.04]',
     multiItemChecked:
-        'border-[#E6C673]/40 bg-gradient-to-l from-[#E6C673]/14 via-[#E6C673]/6 to-transparent shadow-[0_0_20px_-10px_rgba(230,198,115,0.45)]',
+        'border-[#E6C673]/28 bg-[#E6C673]/08',
     multiToggle:
-        'relative flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border transition-all duration-200',
-    multiToggleIdle: 'border-white/25 bg-[#0A0F1C]/60 backdrop-blur-sm',
+        'relative flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] border transition-colors duration-150',
+    multiToggleIdle: 'border-white/20 bg-transparent',
     multiToggleChecked:
-        'border-[#E6C673]/70 bg-gradient-to-br from-[#E6C673]/50 to-[#B8942E]/30 shadow-[0_0_14px_-4px_rgba(230,198,115,0.7)]',
+        'border-[#E6C673]/55 bg-[#E6C673]/28',
     saveBtn:
-        'w-full rounded-2xl border border-[#E6C673]/45 bg-gradient-to-l from-[#E6C673]/22 to-[#E6C673]/8 py-3.5 text-sm font-bold text-[#F8EED0] hover:from-[#E6C673]/30 hover:to-[#E6C673]/12 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-[0_0_24px_-10px_rgba(230,198,115,0.55)]',
-    label: 'block text-xs font-bold text-slate-400/95 mb-2 tracking-wide',
-    labelGold: 'block text-xs font-bold text-[#E6C673]/90 mb-2 tracking-wide',
+        'w-full min-h-[44px] rounded-xl border border-[#E6C673]/28 bg-[#E6C673]/10 py-3 text-sm font-bold text-[#F8EED0] hover:bg-[#E6C673]/16 disabled:opacity-40 disabled:cursor-not-allowed transition-colors touch-manipulation',
+    label: 'block text-xs font-semibold text-slate-400/95 mb-1.5 tracking-wide',
+    labelGold: 'block text-xs font-semibold text-[#E6C673]/90 mb-1.5 tracking-wide',
     pickerBtn:
-        'w-full rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-md px-4 py-3.5 outline-none transition-all flex flex-row-reverse items-center justify-between gap-2 text-right text-slate-100 hover:border-[#E6C673]/30 hover:bg-white/[0.06] focus:border-[#E6C673]/45',
-    pickerBtnDisabled: 'text-slate-500 cursor-not-allowed opacity-60 hover:border-white/10 hover:bg-white/[0.04]',
+        'w-full min-h-[44px] rounded-xl border border-white/[0.06] bg-transparent px-3.5 py-3 outline-none transition-colors flex flex-row-reverse items-center justify-between gap-2 text-right text-slate-100 hover:border-[#E6C673]/25 hover:bg-white/[0.04] focus:border-[#E6C673]/35 touch-manipulation',
+    pickerBtnDisabled: 'text-slate-500 cursor-not-allowed opacity-60 hover:border-white/[0.06] hover:bg-transparent',
     select:
-        'w-full rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-md px-4 py-3.5 outline-none transition-all text-slate-100 focus:border-[#E6C673]/45 focus:ring-1 focus:ring-[#E6C673]/15 hover:border-white/18 cursor-pointer',
+        'w-full min-h-[44px] rounded-xl border border-white/[0.06] bg-transparent px-3.5 py-3 outline-none transition-colors text-slate-100 focus:border-[#E6C673]/40 focus:ring-1 focus:ring-[#E6C673]/12 hover:border-white/14 cursor-pointer',
     selectDisabled: 'text-slate-600 cursor-not-allowed opacity-50',
     card:
-        'rounded-2xl border border-white/10 bg-[#0A0F1C]/50 backdrop-blur-xl p-4 md:p-5 space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.35)] ring-1 ring-[#E6C673]/10 animate-fade-in',
-    cardHeader: 'border-b border-white/8 pb-3',
-    cardTitle: 'text-[#E6C673] font-black text-base flex items-center gap-2',
+        'rounded-xl border border-white/[0.08] bg-[#0B1021] p-3 space-y-3',
+    cardHeader: 'border-b border-white/[0.06] pb-2',
+    cardTitle: 'text-[#E6C673] font-bold text-sm flex items-center gap-2',
     cardSubtitle: 'text-slate-400 text-[11px] mt-1 leading-relaxed',
-    subCard: 'rounded-xl border border-white/8 bg-white/[0.03] backdrop-blur-sm p-4 space-y-3',
+    subCard: 'rounded-xl border border-white/[0.06] bg-transparent p-3 space-y-3',
     subCardTitle: 'text-slate-200 font-bold text-sm flex items-center gap-2',
     field:
-        'w-full rounded-xl border border-white/10 bg-[#05060D]/55 text-slate-100 px-3 py-3 outline-none transition-all focus:border-[#E6C673]/40 focus:ring-1 focus:ring-[#E6C673]/12',
+        'w-full min-h-[44px] rounded-xl border border-white/[0.06] bg-transparent text-slate-100 px-3 py-2.5 outline-none transition-colors focus:border-[#E6C673]/40 focus:ring-1 focus:ring-[#E6C673]/12',
     moneyWrap:
-        'flex items-center gap-2 w-full rounded-xl border border-white/10 bg-[#05060D]/55 px-3 py-3 focus-within:border-[#E6C673]/40 focus-within:ring-1 focus-within:ring-[#E6C673]/12 transition-all',
+        'flex min-h-[44px] items-center gap-2 w-full rounded-xl border border-white/[0.06] bg-transparent px-3 py-2.5 focus-within:border-[#E6C673]/40 focus-within:ring-1 focus-within:ring-[#E6C673]/12 transition-colors',
     moneyInput: 'flex-1 bg-transparent text-white outline-none font-mono text-base',
     chip:
-        'rounded-full border border-[#E6C673]/30 bg-[#E6C673]/10 backdrop-blur-sm px-3 py-1 text-[10px] font-bold text-[#F0DFA8] hover:bg-[#E6C673]/18 transition-colors',
+        'rounded-full border border-[#E6C673]/22 bg-[#E6C673]/08 px-3 py-1 text-[10px] font-bold text-[#F0DFA8] hover:bg-[#E6C673]/14 transition-colors',
     badge:
-        'inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold text-amber-200/95',
+        'inline-flex items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-500/8 px-2.5 py-1 text-[10px] font-bold text-amber-200/95',
     resultCard:
-        'rounded-xl border border-emerald-500/20 bg-emerald-950/15 backdrop-blur-sm p-4 space-y-3',
+        'rounded-xl border border-emerald-500/18 bg-emerald-950/10 p-3 space-y-3',
     aggregatePanel:
-        'rounded-2xl border border-[#E6C673]/28 bg-[#0A0F1C]/60 backdrop-blur-xl p-4 md:p-5 space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.4)] ring-1 ring-[#E6C673]/18 animate-fade-in',
+        'rounded-xl border border-[#E6C673]/20 bg-[#0B1021] p-3 space-y-3',
     aggregateTotalRow:
-        'flex flex-row-reverse items-center justify-between gap-3 rounded-xl border border-[#E6C673]/30 bg-gradient-to-l from-[#E6C673]/12 to-emerald-950/20 px-4 py-4',
+        'flex flex-row-reverse items-center justify-between gap-3 rounded-xl border border-[#E6C673]/22 bg-[#E6C673]/08 px-3.5 py-3',
     aggregateTotalLabel: 'text-sm font-bold text-[#F0DFA8]',
-    aggregateTotalValue: 'text-xl font-black font-mono text-[#E6C673] tabular-nums tracking-wide',
-    sectionWrap: 'w-full px-3 py-4',
-    sectionHeader: 'mb-4 pb-2.5 border-b border-[#E6C673]/15',
-    sectionTitle: 'text-base md:text-lg font-bold text-[#E6C673] tracking-wide leading-snug',
-    partyGroup: 'rounded-2xl border border-white/10 bg-[#0A0F1C]/40 backdrop-blur-sm',
-    partyDivider: 'py-4',
-    partyDividerLine: 'h-px w-full bg-gradient-to-r from-transparent via-white/12 to-transparent',
+    aggregateTotalValue: 'text-lg font-black font-mono text-[#E6C673] tabular-nums tracking-wide',
+    sectionWrap: 'w-full px-2 sm:px-3 py-2.5',
+    sectionHeader: 'mb-2.5 pb-1.5 border-b border-white/[0.06]',
+    sectionTitle: 'text-sm font-bold text-[#E6C673] tracking-wide leading-snug',
+    partyGroup: 'rounded-xl border border-white/[0.06] bg-transparent',
+    partyDivider: 'py-3',
+    partyDividerLine: 'h-px w-full bg-white/[0.08]',
     addBtn:
-        'w-full mt-3 text-[#E6C673] bg-[#E6C673]/8 border border-[#E6C673]/28 hover:bg-[#E6C673]/14 text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors',
-    hintPanel: 'mt-3 space-y-2 rounded-xl border border-[#E6C673]/22 bg-[#E6C673]/6 p-3 text-right',
+        'w-full mt-2.5 min-h-[44px] text-[#E6C673] bg-transparent border border-[#E6C673]/20 hover:bg-[#E6C673]/08 text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors touch-manipulation',
+    hintPanel: 'mt-3 space-y-2 rounded-xl border border-[#E6C673]/18 bg-[#E6C673]/05 p-3 text-right',
     hintText: 'text-[10px] leading-relaxed text-[#F0DFA8]/85',
-    modalShell: 'flex flex-col w-full h-screen bg-[#0A0F1C] overflow-hidden fixed inset-0 z-[220]',
+    modalShell: 'flex flex-col w-full h-screen bg-[#0A0F1C] overflow-hidden fixed inset-0 z-[241]',
     modalHeader:
-        'flex-shrink-0 flex justify-between items-center w-full border-b border-white/8 px-4 py-3 bg-[#0A0F1C]/95 backdrop-blur-xl shadow-sm z-20',
-    modalHeaderTitle: 'text-lg md:text-xl font-bold text-[#E6C673] flex items-center gap-3',
+        'flex-shrink-0 flex justify-between items-center w-full border-b border-white/[0.06] px-3 sm:px-4 hami-overlay-header-safe-pad pb-1 z-20',
+    modalHeaderTitle: 'min-w-0 truncate text-right text-[13px] font-bold text-[#E6C673]',
     modalClose:
-        'text-slate-400 hover:text-rose-300 p-2 rounded-xl transition-colors flex items-center gap-2 bg-white/[0.04] border border-white/8',
-    modalBody: 'flex-1 w-full overflow-y-auto scrollbar-none [&::-webkit-scrollbar]:hidden px-2 py-2',
-    modalBodyStack: 'w-full space-y-3',
+        'min-h-[44px] min-w-[44px] text-slate-400 hover:text-white p-2 rounded-lg transition-colors flex items-center gap-2 touch-manipulation',
+    modalBody: 'flex-1 w-full overflow-y-auto scrollbar-none [&::-webkit-scrollbar]:hidden px-2 py-1.5',
+    modalBodyStack: 'w-full space-y-2',
     fieldSm:
-        'w-full rounded-xl border border-white/10 bg-[#05060D]/55 text-slate-100 px-3 py-2 outline-none transition-all focus:border-[#E6C673]/40 focus:ring-1 focus:ring-[#E6C673]/12 text-xs text-right',
+        'w-full min-h-[44px] rounded-xl border border-white/[0.06] bg-transparent text-slate-100 px-3 py-2 outline-none transition-colors focus:border-[#E6C673]/40 focus:ring-1 focus:ring-[#E6C673]/12 text-xs text-right',
     textarea:
-        'w-full rounded-xl border border-white/10 bg-[#05060D]/55 text-slate-100 px-3 py-3 outline-none transition-all focus:border-[#E6C673]/40 focus:ring-1 focus:ring-[#E6C673]/12 resize-y',
-    callout: 'rounded-xl border border-[#E6C673]/22 bg-[#E6C673]/6 p-3 space-y-3 animate-fade-in',
+        'w-full rounded-xl border border-white/[0.06] bg-transparent text-slate-100 px-3 py-2.5 outline-none transition-colors focus:border-[#E6C673]/40 focus:ring-1 focus:ring-[#E6C673]/12 resize-y',
+    callout: 'rounded-xl border border-[#E6C673]/18 bg-[#E6C673]/05 p-3 space-y-3',
     calloutTitle: 'text-sm font-bold text-[#E6C673] flex items-center gap-2',
-    calloutDanger: 'rounded-xl border border-rose-500/35 bg-rose-950/20 p-4 animate-fade-in space-y-3',
-    calloutDangerTitle: 'text-rose-300 font-bold text-lg flex items-center gap-2',
-    hintWarn: 'mt-2 rounded-lg border border-amber-400/25 bg-amber-500/8 p-2',
-    hintSuccess: 'mt-2 rounded-lg border border-emerald-500/25 bg-emerald-500/8 p-2',
-    hintDangerInline: 'text-xs text-rose-200/90 bg-rose-950/25 border border-rose-500/20 rounded-lg p-2',
+    calloutDanger: 'rounded-xl border border-rose-500/30 bg-rose-950/15 p-3 space-y-3',
+    calloutDangerTitle: 'text-rose-300 font-bold text-base flex items-center gap-2',
+    hintWarn: 'mt-2 rounded-lg border border-amber-400/22 bg-amber-500/6 p-2',
+    hintSuccess: 'mt-2 rounded-lg border border-emerald-500/22 bg-emerald-500/6 p-2',
+    hintDangerInline: 'text-xs text-rose-200/90 bg-rose-950/20 border border-rose-500/18 rounded-lg p-2',
     chipToggle:
-        'px-3 py-2 rounded-lg text-xs font-bold border transition-all',
-    chipToggleActive: 'border-[#E6C673]/50 bg-[#E6C673]/15 text-[#E6C673]',
-    chipToggleIdle: 'border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/18',
+        'min-h-[44px] px-3 py-2 rounded-lg text-xs font-bold border transition-colors touch-manipulation',
+    chipToggleActive: 'border-[#E6C673]/40 bg-[#E6C673]/10 text-[#E6C673]',
+    chipToggleIdle: 'border-transparent bg-transparent text-slate-400 hover:bg-white/[0.04]',
     radioRow:
-        'flex flex-row-reverse items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all',
-    radioRowActive: 'border-[#E6C673]/45 bg-[#E6C673]/10',
-    radioRowIdle: 'border-white/10 bg-white/[0.03] hover:border-white/16',
-    modalBackdrop: 'fixed inset-0 bg-black/80 z-[999999] flex items-center justify-center p-4',
+        'flex min-h-[44px] flex-row-reverse items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors touch-manipulation',
+    radioRowActive: 'border-[#E6C673]/35 bg-[#E6C673]/08',
+    radioRowIdle: 'border-white/[0.06] bg-transparent hover:border-white/12',
+    modalBackdrop: 'fixed inset-0 z-[240] bg-black/55 flex items-center justify-center p-4',
     modalPanel:
-        'rounded-2xl border border-[#E6C673]/30 bg-[#0A0F1C]/95 backdrop-blur-xl p-6 max-w-lg w-full',
+        'rounded-xl border border-[#E6C673]/22 bg-[#0A0F1C] p-5 max-w-lg w-full',
     modalPanelDanger:
-        'rounded-2xl border border-rose-500/40 bg-[#0A0F1C]/95 backdrop-blur-xl p-6 max-w-md w-full',
-    modalDialogTitle: 'text-xl font-bold text-[#E6C673] mb-2 flex items-center gap-2',
-    modalTitle: 'text-xl font-bold text-[#E6C673] mb-2 flex items-center gap-2',
+        'rounded-xl border border-rose-500/35 bg-[#0A0F1C] p-5 max-w-md w-full',
+    modalDialogTitle: 'text-base font-bold text-[#E6C673] mb-2 flex items-center gap-2',
+    modalTitle: 'text-base font-bold text-[#E6C673] mb-2 flex items-center gap-2',
     modalBtnPrimary:
-        'flex-1 rounded-xl border border-[#E6C673]/45 bg-gradient-to-l from-[#E6C673]/22 to-[#E6C673]/8 py-3 text-sm font-bold text-[#F8EED0] hover:from-[#E6C673]/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all',
+        'flex-1 min-h-[44px] rounded-xl border border-[#E6C673]/35 bg-[#E6C673]/12 py-3 text-sm font-bold text-[#F8EED0] hover:bg-[#E6C673]/18 disabled:opacity-40 disabled:cursor-not-allowed transition-colors touch-manipulation',
     modalBtnGhost:
-        'px-6 rounded-xl border border-white/15 bg-white/[0.04] text-slate-200 font-bold py-3 hover:bg-white/[0.08] transition-all',
-    optionRow: 'flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3',
+        'min-h-[44px] px-5 rounded-xl border border-white/[0.08] bg-transparent text-slate-200 font-bold py-3 hover:bg-white/[0.05] transition-colors touch-manipulation',
+    optionRow: 'flex items-center gap-3 rounded-xl border border-white/[0.06] bg-transparent p-3',
 } as const;

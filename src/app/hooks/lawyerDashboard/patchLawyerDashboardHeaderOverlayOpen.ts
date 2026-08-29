@@ -1,6 +1,7 @@
 import type { LawyerDashboardCoreViewModel } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCore.types';
 import {
     computeLawyerDashboardHeaderShouldShow,
+    isLawyerDashboardHomeStackTab,
     type LawyerDashboardHeaderVisibilityInput,
 } from '@/app/hooks/lawyerDashboard/lawyerDashboardHeaderVisibility';
 import {
@@ -31,7 +32,7 @@ export function patchLawyerDashboardHeaderOverlayOpen(
 ): ReadyView {
     const tabStackHidden = shouldMaskLawyerDashboardTabStack(input.tabStackMask);
     const headerShouldShow = computeLawyerDashboardHeaderShouldShow(input.headerVisibility);
-    const homeTabBaseActive = input.activeTab === 'home';
+    const homeTabBaseActive = isLawyerDashboardHomeStackTab(input.activeTab);
     const scheduleTabBaseActive = input.activeTab === 'schedule';
     const homeTabMounted = isLawyerDashboardTabMounted(homeTabBaseActive, input.tabStackMask);
     const scheduleTabMounted = isLawyerDashboardTabMounted(scheduleTabBaseActive, input.tabStackMask);

@@ -1,7 +1,15 @@
 import React from 'react';
-import { Archive, Trash2 } from '@/app/components/ui/lucideIcons';
-import type { ExecutionViewMode } from '../executionArchiveFilterUtils';
-import { ARCHIVE_SEGMENT_SHELL, ARCHIVE_TOOLBAR_SECTION } from '../archiveToolbarStyles';
+import { ExecutionArchiveTrashMark } from '../executionArchiveMarks';
+import type { ExecutionViewMode } from '../executionArchiveFilterPresentation';
+import {
+    EXECUTION_ARCHIVE_LIFECYCLE_ROW,
+    EXECUTION_FILTER_TAB_ACTIVE,
+    EXECUTION_SEGMENT_ARCHIVED_ACTIVE,
+    EXECUTION_SEGMENT_BTN_BASE,
+    EXECUTION_SEGMENT_BTN_INACTIVE,
+    EXECUTION_SEGMENT_SHELL,
+    EXECUTION_SEGMENT_TRASH_ACTIVE,
+} from '../executionArchiveVisualLite';
 import { CountBadge, LifecycleSegment } from './archiveLifecycleSegmentUi';
 
 export type ExecutionArchiveLifecycleBarsProps = {
@@ -18,10 +26,10 @@ export function ExecutionArchiveLifecycleBars({
     executionArchivedCount,
 }: ExecutionArchiveLifecycleBarsProps) {
     return (
-        <div className={`${ARCHIVE_TOOLBAR_SECTION} pb-2.5`}>
+        <div className={EXECUTION_ARCHIVE_LIFECYCLE_ROW}>
             <div className="flex w-full items-center gap-2" data-testid="executions-lifecycle-row">
                 <div
-                    className={`${ARCHIVE_SEGMENT_SHELL} min-w-0 flex-1`}
+                    className={`${EXECUTION_SEGMENT_SHELL} min-w-0 flex-1`}
                     role="tablist"
                     aria-label="حالة إضابير التنفيذ"
                 >
@@ -29,6 +37,9 @@ export function ExecutionArchiveLifecycleBars({
                         active={executionViewMode === 'active'}
                         onClick={() => setExecutionViewMode('active')}
                         testId="executions-view-active"
+                        baseClassName={EXECUTION_SEGMENT_BTN_BASE}
+                        activeClassName={EXECUTION_FILTER_TAB_ACTIVE}
+                        inactiveClassName={EXECUTION_SEGMENT_BTN_INACTIVE}
                     >
                         الإضابير النشطة
                     </LifecycleSegment>
@@ -36,26 +47,29 @@ export function ExecutionArchiveLifecycleBars({
                         active={executionViewMode === 'archived'}
                         onClick={() => setExecutionViewMode('archived')}
                         testId="executions-view-archived"
-                        activeClassName="bg-amber-950/45 text-amber-100 border border-amber-500/30"
+                        baseClassName={EXECUTION_SEGMENT_BTN_BASE}
+                        activeClassName={EXECUTION_SEGMENT_ARCHIVED_ACTIVE}
+                        inactiveClassName={EXECUTION_SEGMENT_BTN_INACTIVE}
                     >
-                        <Archive size={13} />
                         مخزن الأرشيف
                         {executionViewMode !== 'archived' ? (
                             <CountBadge count={executionArchivedCount} tone="amber" />
                         ) : null}
                     </LifecycleSegment>
                 </div>
-                <div className={`${ARCHIVE_SEGMENT_SHELL} shrink-0`}>
+                <div className={`${EXECUTION_SEGMENT_SHELL} shrink-0`}>
                     <LifecycleSegment
                         active={executionViewMode === 'trash'}
                         onClick={() => setExecutionViewMode('trash')}
                         testId="executions-trash-toggle"
-                        activeClassName="bg-rose-950/50 text-rose-100 border border-rose-500/30"
+                        baseClassName={EXECUTION_SEGMENT_BTN_BASE}
+                        activeClassName={EXECUTION_SEGMENT_TRASH_ACTIVE}
+                        inactiveClassName={EXECUTION_SEGMENT_BTN_INACTIVE}
                         iconOnly
                         ariaLabel="سلة المهملات"
                     >
                         <span className="relative inline-flex items-center justify-center">
-                            <Trash2 size={15} />
+                            <ExecutionArchiveTrashMark />
                             {executionViewMode !== 'trash' && executionTrashedCountTotal > 0 ? (
                                 <span className="absolute -top-1.5 -left-1.5 min-w-[1rem] h-4 px-1 rounded-full bg-rose-600 text-[10px] font-bold text-white inline-flex items-center justify-center">
                                     {executionTrashedCountTotal > 9 ? '9+' : executionTrashedCountTotal}

@@ -1,15 +1,9 @@
 import { useMemo } from 'react';
 import type { Debtor, ExecutionFile } from '@/app/types/execution';
 import type { DebtorSummonsProfile } from '@/app/utils/debtorSummonsProfile';
-import {
-    isEarnerLikeSummonsBranch,
-    isEmployeeMonetaryFinancialPath,
-} from '@/app/utils/debtorSummonsProfile';
-import {
-    isGracePeriodExpired,
-    calculateDaysRemaining,
-} from '@/app/utils/executionStateMachine';
 import { buildFollowupDerivedState } from '@/app/application/execution/followup/buildFollowupDerivedState';
+import { buildSubsequentNoticePolicy } from '@/app/application/execution/followup/buildSubsequentNoticePolicy';
+import { buildSubsequentNoticePresentation } from '@/app/application/execution/followup/buildSubsequentNoticePresentation';
 import { readExecutorDecisionsArray } from '@/app/utils/executorSeizureDecisionQueue';
 
 export function useSubsequentNoticeFlow(
@@ -55,128 +49,89 @@ export function useSubsequentNoticeFlow(
     primaryDebtorKeyResolved: string | null,
     debtorNotifiedForEvictionGrace: boolean,
 ) {
-    const earnerForcedActionUnlocked = useMemo(() => {
-        if (!isEarnerLikeSummonsBranch(debtorSummonsProfile as DebtorSummonsProfile)) return false;
-        if (isEvictionExecutionModule && isDebtorGovernmentEmployee) return false;
-        if (forcedAttendanceIssued) return false;
-        if (summoningRound >= 2) return true;
-        if (
-            isEvictionExecutionModule &&
-            !isDebtorGovernmentEmployee &&
-            !isDebtorRetired &&
-            unifiedCollectionApproved &&
-            executionData?.eviction_last_summons_for_collection === true &&
-            executionData?.eviction_last_collection_summons_branch === 'coercive'
-        ) {
-            return true;
-        }
-        const graceDone = isEvictionExecutionModule ? isEvictionGraceExpiredNow : isGracePeriodExpiredNow;
-        if (!graceDone || debtorAttendedVoluntarily) return false;
-        return true;
-    }, [
-        debtorSummonsProfile,
-        isEvictionExecutionModule,
-        isDebtorGovernmentEmployee,
-        isDebtorRetired,
-        unifiedCollectionApproved,
-        executionData?.eviction_last_summons_for_collection,
-        executionData?.eviction_last_collection_summons_branch,
-        notificationCount,
-        forcedAttendanceIssued,
-        summoningRound,
-        isEvictionGraceExpiredNow,
-        isGracePeriodExpiredNow,
-        debtorAttendedVoluntarily,
-    ]);
-
-    const followupEarnerForcedActionUnlocked = useMemo(() => {
-        if (!isEarnerLikeSummonsBranch(followupDebtorSummonsProfile as DebtorSummonsProfile)) return false;
-        if (isEvictionExecutionModule && followupIsDebtorGovernmentEmployee) return false;
-        if (forcedAttendanceIssued) return false;
-        if (summoningRound >= 2) return true;
-        if (
-            isEvictionExecutionModule &&
-            !followupIsDebtorGovernmentEmployee &&
-            !followupIsDebtorRetired &&
-            unifiedCollectionApproved &&
-            executionData?.eviction_last_summons_for_collection === true &&
-            executionData?.eviction_last_collection_summons_branch === 'coercive'
-        ) {
-            return true;
-        }
-        const graceDone = isEvictionExecutionModule ? isEvictionGraceExpiredNow : isGracePeriodExpiredNow;
-        if (!graceDone || debtorAttendedVoluntarily) return false;
-        return true;
-    }, [
-        followupDebtorSummonsProfile,
-        isEvictionExecutionModule,
-        followupIsDebtorGovernmentEmployee,
-        followupIsDebtorRetired,
-        unifiedCollectionApproved,
-        executionData?.eviction_last_summons_for_collection,
-        executionData?.eviction_last_collection_summons_branch,
-        forcedAttendanceIssued,
-        summoningRound,
-        isEvictionGraceExpiredNow,
-        isGracePeriodExpiredNow,
-        debtorAttendedVoluntarily,
-    ]);
-
-    const baseSubsequentNoticeUnlocked = useMemo(() => {
-        const voluntaryEndGeneral =
-            !isEvictionExecutionModule &&
-            Boolean(
-                executionData?.notice_voluntary_period_end_declared ||
-                    noticeVoluntaryPeriodEndOptimistic
-            );
-        const memoFirstVoluntaryCycle = notificationCount === 1;
-        if (debtorSummonsProfile === 'employee_monetary') {
-            return (
-                debtorAttendedVoluntarily ||
-                voluntaryEndGeneral ||
-                (!memoFirstVoluntaryCycle && activeCoerciveActions.includes('salary')) ||
-                (!memoFirstVoluntaryCycle &&
-                    isGracePeriodExpiredNow &&
-                    activeCoerciveActions.length > 0)
-            );
-        }
-        return (
-            voluntaryAttendanceCount > 0 ||
-            voluntaryEndGeneral ||
-            forcedPathAttendanceSecured ||
-            debtorForcedToAttend ||
-            investigationMemoIssued ||
-            debtorArrested ||
-            (!memoFirstVoluntaryCycle &&
-                isGracePeriodExpiredNow &&
-                activeCoerciveActions.length > 0)
-        );
-    }, [
-        debtorSummonsProfile,
-        debtorAttendedVoluntarily,
-        activeCoerciveActions,
-        isGracePeriodExpiredNow,
-        voluntaryAttendanceCount,
-        forcedPathAttendanceSecured,
-        debtorForcedToAttend,
-        investigationMemoIssued,
-        debtorArrested,
-        isEvictionExecutionModule,
-        executionData?.notice_voluntary_period_end_declared,
-        noticeVoluntaryPeriodEndOptimistic,
-        notificationCount,
-    ]);
-
-    const evictionSubsequentNoticeUnlocked =
-        isEvictionExecutionModule &&
-        debtorNotifiedForEvictionGrace &&
-        notificationCount >= 1 &&
-        (notificationCount >= 2 || isEvictionGraceEffectivelyExpired);
-
-    const subsequentNoticeUnlocked =
-        baseSubsequentNoticeUnlocked ||
-        evictionSubsequentNoticeUnlocked ||
-        Boolean(executionData?.executor_coercive_unlock);
+    const policy = useMemo(
+        () =>
+            buildSubsequentNoticePolicy({
+                debtorSummonsProfile,
+                followupDebtorSummonsProfile,
+                isEvictionExecutionModule,
+                isDebtorGovernmentEmployee,
+                isDebtorRetired,
+                followupIsDebtorGovernmentEmployee,
+                followupIsDebtorRetired,
+                unifiedCollectionApproved,
+                notificationCount,
+                forcedAttendanceIssued,
+                summoningRound,
+                isEvictionGraceExpiredNow,
+                isGracePeriodExpiredNow,
+                debtorAttendedVoluntarily,
+                voluntaryAttendanceCount,
+                forcedPathAttendanceSecured,
+                debtorForcedToAttend,
+                investigationMemoIssued,
+                debtorArrested,
+                executionExecutorCoerciveUnlock: executionData?.executor_coercive_unlock,
+                executionNoticeVoluntaryPeriodEndDeclared:
+                    executionData?.notice_voluntary_period_end_declared,
+                executionEvictionVoluntaryPeriodEndDeclared:
+                    executionData?.eviction_voluntary_period_end_declared,
+                executionEvictionLastSummonsForCollection:
+                    executionData?.eviction_last_summons_for_collection,
+                executionEvictionLastCollectionSummonsBranch:
+                    executionData?.eviction_last_collection_summons_branch,
+                noticeVoluntaryPeriodEndOptimistic,
+                voluntaryEndOptimistic,
+                isEvictionGraceEffectivelyExpired,
+                debtorNotifiedForEvictionGrace,
+                activeCoerciveActions,
+                monetaryExecutionStrictPathFlag,
+                isAlimonyClaim,
+                activeDebtorIsDeceased,
+                debtorBrowserTabsMode,
+                activeWorkspaceDebtorForFollowup,
+                executionGarnishmentAmount: executionData?.garnishmentAmount,
+                perDebtorGarnishments: executionExtras.perDebtorGarnishments,
+            }),
+        [
+            debtorSummonsProfile,
+            followupDebtorSummonsProfile,
+            isEvictionExecutionModule,
+            isDebtorGovernmentEmployee,
+            isDebtorRetired,
+            followupIsDebtorGovernmentEmployee,
+            followupIsDebtorRetired,
+            unifiedCollectionApproved,
+            notificationCount,
+            forcedAttendanceIssued,
+            summoningRound,
+            isEvictionGraceExpiredNow,
+            isGracePeriodExpiredNow,
+            debtorAttendedVoluntarily,
+            voluntaryAttendanceCount,
+            forcedPathAttendanceSecured,
+            debtorForcedToAttend,
+            investigationMemoIssued,
+            debtorArrested,
+            executionData?.executor_coercive_unlock,
+            executionData?.notice_voluntary_period_end_declared,
+            executionData?.eviction_voluntary_period_end_declared,
+            executionData?.eviction_last_summons_for_collection,
+            executionData?.eviction_last_collection_summons_branch,
+            noticeVoluntaryPeriodEndOptimistic,
+            voluntaryEndOptimistic,
+            isEvictionGraceEffectivelyExpired,
+            debtorNotifiedForEvictionGrace,
+            activeCoerciveActions,
+            monetaryExecutionStrictPathFlag,
+            isAlimonyClaim,
+            activeDebtorIsDeceased,
+            debtorBrowserTabsMode,
+            activeWorkspaceDebtorForFollowup,
+            executionData?.garnishmentAmount,
+            executionExtras.perDebtorGarnishments,
+        ],
+    );
 
     const followupDerivedState = useMemo(() => {
         const ex = executionData?.id ?? executionId;
@@ -204,220 +159,84 @@ export function useSubsequentNoticeFlow(
         showEmployeeAssignmentCoerciveBlock,
     } = followupDerivedState;
 
-    const primaryMemoNoticeBadge = useMemo(() => {
-        if (notificationCount !== 1 || subsequentNoticeUnlocked) return null;
-        if (debtorAttendedVoluntarily || voluntaryAttendanceCount > 0) return null;
-        if (lawyerStartedPostNoticeExecution) return null;
-        if (
-            !isEvictionExecutionModule &&
-            (executionData?.notice_voluntary_period_end_declared || noticeVoluntaryPeriodEndOptimistic)
-        ) {
-            return null;
-        }
-        if (
-            isEvictionExecutionModule &&
-            (executionData?.eviction_voluntary_period_end_declared || voluntaryEndOptimistic)
-        ) {
-            return null;
-        }
-        if (anyExecutorDecisionResolvedForMemoBadge) return null;
-        if (primaryDebtorTaklifActive) return null;
-        const extra = isEvictionExecutionModule ? 0 : manualGraceCalendarExtra ? 1 : 0;
-        const anchor = isEvictionExecutionModule
-            ? executionData?.eviction_first_notice_date ||
-              executionData?.debtorNotificationDate ||
-              debtorNotificationDate ||
-              null
-            : executionData?.execution_memo_anchor_date ||
-              executionData?.debtorNotificationDate ||
-              debtorNotificationDate ||
-              null;
-        if (!anchor) return null;
-        const expired = isGracePeriodExpired(anchor, new Date(), extra);
-        const remaining = calculateDaysRemaining(anchor, new Date(), extra);
-        return { anchor, remaining, graceExpired: expired };
-    }, [
-        notificationCount,
-        subsequentNoticeUnlocked,
-        isEvictionExecutionModule,
-        executionData?.eviction_first_notice_date,
-        executionData?.debtorNotificationDate,
-        executionData?.execution_memo_anchor_date,
-        debtorNotificationDate,
-        manualGraceCalendarExtra,
-        debtorAttendedVoluntarily,
-        voluntaryAttendanceCount,
-        lawyerStartedPostNoticeExecution,
-        executionData?.notice_voluntary_period_end_declared,
-        noticeVoluntaryPeriodEndOptimistic,
-        executionData?.eviction_voluntary_period_end_declared,
-        voluntaryEndOptimistic,
-        anyExecutorDecisionResolvedForMemoBadge,
-        primaryDebtorTaklifActive,
-    ]);
-
-    const primaryDebtorNoticeYmdResolved = useMemo(() => {
-        const d0 = effectiveDebtors[0] as Debtor | undefined;
-        return (
-            debtorNotificationDate ||
-            executionData?.debtorNotificationDate ||
-            d0?.notificationDate ||
-            null
-        );
-    }, [debtorNotificationDate, executionData?.debtorNotificationDate, effectiveDebtors]);
-
-    const showDebtorUnservedMemoBadge =
-        notificationCount === 0 &&
-        !primaryDebtorNoticeYmdResolved &&
-        !debtorAttendedVoluntarily &&
-        voluntaryAttendanceCount === 0 &&
-        !(executionData?.notice_voluntary_period_end_declared || noticeVoluntaryPeriodEndOptimistic) &&
-        !(executionData?.eviction_voluntary_period_end_declared || voluntaryEndOptimistic);
-
-    const shouldWarnOnMemoClick = useMemo(() => {
-        if (debtorAttendedVoluntarily || voluntaryAttendanceCount > 0) return false;
-        if (lawyerStartedPostNoticeExecution) return false;
-        const graceExpired = isEvictionExecutionModule ? isEvictionGraceExpiredNow : isGracePeriodExpiredNow;
-        if (graceExpired) return false;
-        const periodEnded = isEvictionExecutionModule
-            ? (executionData?.eviction_voluntary_period_end_declared || voluntaryEndOptimistic)
-            : (executionData?.notice_voluntary_period_end_declared || noticeVoluntaryPeriodEndOptimistic);
-        if (periodEnded) return false;
-        return true;
-    }, [
-        debtorAttendedVoluntarily,
-        voluntaryAttendanceCount,
-        lawyerStartedPostNoticeExecution,
-        isEvictionExecutionModule,
-        isEvictionGraceExpiredNow,
-        isGracePeriodExpiredNow,
-        executionData?.eviction_voluntary_period_end_declared,
-        voluntaryEndOptimistic,
-        executionData?.notice_voluntary_period_end_declared,
-        noticeVoluntaryPeriodEndOptimistic,
-    ]);
-
-    const primaryDebtorAbsenceBadge = useMemo(() => {
-        if (activeDebtorNoticeScope.absenceBadgeDismissed) return null;
-        if (lawyerStartedPostNoticeExecution) return null;
-        if (primaryDebtorTaklifActive) return null;
-        const noVoluntaryAttendance =
-            !debtorAttendedVoluntarily && voluntaryAttendanceCount === 0;
-        if (!noVoluntaryAttendance) return null;
-
-        const voluntaryEndNonEviction =
-            !isEvictionExecutionModule &&
-            notificationCount === 1 &&
-            (executionData?.notice_voluntary_period_end_declared || noticeVoluntaryPeriodEndOptimistic);
-
-        const voluntaryEndEviction =
-            isEvictionExecutionModule &&
-            notificationCount === 1 &&
-            (executionData?.eviction_voluntary_period_end_declared || voluntaryEndOptimistic);
-
-        if (!voluntaryEndNonEviction && !voluntaryEndEviction) return null;
-        if (!subsequentNoticeUnlocked) return null;
-
-        const rose =
-            'backdrop-blur-sm bg-rose-500/25 text-rose-200 px-2 py-0.5 rounded-lg text-[9px] border border-rose-400/35 font-bold';
-        return { label: 'عدم حضور المدين', className: rose };
-    }, [
-        notificationCount,
-        subsequentNoticeUnlocked,
-        activeDebtorNoticeScope.absenceBadgeDismissed,
-        lawyerStartedPostNoticeExecution,
-        debtorAttendedVoluntarily,
-        voluntaryAttendanceCount,
-        primaryDebtorTaklifActive,
-        isEvictionExecutionModule,
-        executionData?.notice_voluntary_period_end_declared,
-        noticeVoluntaryPeriodEndOptimistic,
-        executionData?.eviction_voluntary_period_end_declared,
-        voluntaryEndOptimistic,
-    ]);
-
-    const showDebtorSummonsAttendanceBadge = useMemo(
+    const presentation = useMemo(
         () =>
-            Boolean(subsequentNoticeUnlocked) &&
-            !primaryDebtorTaklifActive &&
-            !debtorAttendedVoluntarily &&
-            voluntaryAttendanceCount === 0 &&
-            !lawyerStartedPostNoticeExecution &&
-            Boolean(
-                executionData?.debtor_summons_marker?.id ||
-                    debtorSummonsMarkerLocal?.id ||
-                    notificationCount >= 2
-            ),
+            buildSubsequentNoticePresentation({
+                notificationCount,
+                subsequentNoticeUnlocked: policy.subsequentNoticeUnlocked,
+                isEvictionExecutionModule,
+                executionDebtorNotificationDate: executionData?.debtorNotificationDate,
+                executionMemoAnchorDate: executionData?.execution_memo_anchor_date,
+                executionEvictionFirstNoticeDate: executionData?.eviction_first_notice_date,
+                executionNoticeVoluntaryPeriodEndDeclared:
+                    executionData?.notice_voluntary_period_end_declared,
+                executionEvictionVoluntaryPeriodEndDeclared:
+                    executionData?.eviction_voluntary_period_end_declared,
+                debtorNotificationDate,
+                manualGraceCalendarExtra,
+                debtorAttendedVoluntarily,
+                voluntaryAttendanceCount,
+                lawyerStartedPostNoticeExecution,
+                noticeVoluntaryPeriodEndOptimistic,
+                voluntaryEndOptimistic,
+                anyExecutorDecisionResolvedForMemoBadge,
+                primaryDebtorTaklifActive,
+                activeDebtorNoticeScope,
+                executionDebtorSummonsMarkerId: executionData?.debtor_summons_marker?.id,
+                debtorSummonsMarkerLocalId: debtorSummonsMarkerLocal?.id,
+                effectiveDebtors,
+                isEvictionGraceExpiredNow,
+                isGracePeriodExpiredNow,
+            }),
         [
-            subsequentNoticeUnlocked,
-            primaryDebtorTaklifActive,
+            notificationCount,
+            policy.subsequentNoticeUnlocked,
+            isEvictionExecutionModule,
+            executionData?.debtorNotificationDate,
+            executionData?.execution_memo_anchor_date,
+            executionData?.eviction_first_notice_date,
+            executionData?.notice_voluntary_period_end_declared,
+            executionData?.eviction_voluntary_period_end_declared,
+            debtorNotificationDate,
+            manualGraceCalendarExtra,
             debtorAttendedVoluntarily,
             voluntaryAttendanceCount,
             lawyerStartedPostNoticeExecution,
+            noticeVoluntaryPeriodEndOptimistic,
+            voluntaryEndOptimistic,
+            anyExecutorDecisionResolvedForMemoBadge,
+            primaryDebtorTaklifActive,
+            activeDebtorNoticeScope,
             executionData?.debtor_summons_marker?.id,
             debtorSummonsMarkerLocal?.id,
-            notificationCount,
-        ]
+            effectiveDebtors,
+            isEvictionGraceExpiredNow,
+            isGracePeriodExpiredNow,
+        ],
     );
 
-    const noticeKindGoalStrictBinding =
-        !isEvictionExecutionModule &&
-        (followupDebtorSummonsProfile === 'employee_monetary' ||
-            followupDebtorSummonsProfile === 'earner_like');
-
-    const employeeAssignmentTabEnabled = notificationCount >= 1 && !activeDebtorIsDeceased;
-
-    const employeeFinancialSalaryOnlyCoercive = isEmployeeMonetaryFinancialPath(debtorSummonsProfile as DebtorSummonsProfile);
-
-    const monetaryCoerciveLimitedOnly =
-        monetaryExecutionStrictPathFlag && !isAlimonyClaim && !employeeFinancialSalaryOnlyCoercive;
-
-    const followupEmployeeFinancialSalaryOnlyCoercive =
-        isEmployeeMonetaryFinancialPath(followupDebtorSummonsProfile as DebtorSummonsProfile);
-    const followupMonetaryCoerciveLimitedOnly =
-        monetaryExecutionStrictPathFlag &&
-        !isAlimonyClaim &&
-        !followupEmployeeFinancialSalaryOnlyCoercive;
-
-    const followupGarnishmentAmountPreview = useMemo(() => {
-        if (!debtorBrowserTabsMode || !activeWorkspaceDebtorForFollowup) {
-            return executionData?.garnishmentAmount;
-        }
-        if (activeWorkspaceDebtorForFollowup.isPrimary) {
-            return executionData?.garnishmentAmount;
-        }
-        const g =
-            executionExtras.perDebtorGarnishments?.[activeWorkspaceDebtorForFollowup.key];
-        return g != null && String(g) !== '' ? String(g) : undefined;
-    }, [
-        debtorBrowserTabsMode,
-        activeWorkspaceDebtorForFollowup,
-        executionData?.garnishmentAmount,
-        executionExtras.perDebtorGarnishments,
-    ]);
-
     return {
-        earnerForcedActionUnlocked,
-        followupEarnerForcedActionUnlocked,
-        baseSubsequentNoticeUnlocked,
-        evictionSubsequentNoticeUnlocked,
-        subsequentNoticeUnlocked,
+        earnerForcedActionUnlocked: policy.earnerForcedActionUnlocked,
+        followupEarnerForcedActionUnlocked: policy.followupEarnerForcedActionUnlocked,
+        baseSubsequentNoticeUnlocked: policy.baseSubsequentNoticeUnlocked,
+        evictionSubsequentNoticeUnlocked: policy.evictionSubsequentNoticeUnlocked,
+        subsequentNoticeUnlocked: policy.subsequentNoticeUnlocked,
         anyExecutorDecisionResolvedForMemoBadge,
         primaryDebtorTaklifActive,
-        primaryMemoNoticeBadge,
-        primaryDebtorNoticeYmdResolved,
-        showDebtorUnservedMemoBadge,
-        shouldWarnOnMemoClick,
-        primaryDebtorAbsenceBadge,
-        showDebtorSummonsAttendanceBadge,
-        noticeKindGoalStrictBinding,
-        employeeAssignmentTabEnabled,
+        primaryMemoNoticeBadge: presentation.primaryMemoNoticeBadge,
+        primaryDebtorNoticeYmdResolved: presentation.primaryDebtorNoticeYmdResolved,
+        showDebtorUnservedMemoBadge: presentation.showDebtorUnservedMemoBadge,
+        shouldWarnOnMemoClick: presentation.shouldWarnOnMemoClick,
+        primaryDebtorAbsenceBadge: presentation.primaryDebtorAbsenceBadge,
+        showDebtorSummonsAttendanceBadge: presentation.showDebtorSummonsAttendanceBadge,
+        noticeKindGoalStrictBinding: policy.noticeKindGoalStrictBinding,
+        employeeAssignmentTabEnabled: policy.employeeAssignmentTabEnabled,
         resolvedEmployeeSummonsAssignment,
         showEmployeeAssignmentCoerciveBlock,
-        employeeFinancialSalaryOnlyCoercive,
-        monetaryCoerciveLimitedOnly,
-        followupEmployeeFinancialSalaryOnlyCoercive,
-        followupMonetaryCoerciveLimitedOnly,
-        followupGarnishmentAmountPreview,
+        employeeFinancialSalaryOnlyCoercive: policy.employeeFinancialSalaryOnlyCoercive,
+        monetaryCoerciveLimitedOnly: policy.monetaryCoerciveLimitedOnly,
+        followupEmployeeFinancialSalaryOnlyCoercive: policy.followupEmployeeFinancialSalaryOnlyCoercive,
+        followupMonetaryCoerciveLimitedOnly: policy.followupMonetaryCoerciveLimitedOnly,
+        followupGarnishmentAmountPreview: policy.followupGarnishmentAmountPreview,
     };
 }

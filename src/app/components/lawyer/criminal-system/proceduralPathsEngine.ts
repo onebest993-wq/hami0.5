@@ -1,20 +1,20 @@
-export type ProceduralPathStepStatus = 'in_progress' | 'done' | 'postponed';
+type ProceduralPathStepStatus = 'in_progress' | 'done' | 'postponed';
 
-export type ProceduralPathStep = {
+type ProceduralPathStep = {
     id: string;
     title: string;
     date: string;
     status: ProceduralPathStepStatus;
 };
 
-export type ProceduralPath = {
+type ProceduralPath = {
     id: string;
     name: string;
     color: string;
     items: ProceduralPathStep[];
 };
 
-export const PROCEDURAL_PATH_COLOR_PRESETS = [
+const PROCEDURAL_PATH_COLOR_PRESETS = [
     '#E6C673',
     '#38bdf8',
     '#a78bfa',
@@ -25,21 +25,11 @@ export const PROCEDURAL_PATH_COLOR_PRESETS = [
     '#94a3b8',
 ] as const;
 
-export const PROCEDURAL_STEP_STATUS_OPTIONS: { value: ProceduralPathStepStatus; label: string }[] = [
-    { value: 'in_progress', label: 'قيد المتابعة' },
-    { value: 'done', label: 'منجز' },
-    { value: 'postponed', label: 'مؤجل' },
-];
-
-export function proceduralStepStatusLabel(status: ProceduralPathStepStatus): string {
-    return PROCEDURAL_STEP_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
-}
-
-export function isProceduralStepStatus(v: string): v is ProceduralPathStepStatus {
+function isProceduralStepStatus(v: string): v is ProceduralPathStepStatus {
     return v === 'in_progress' || v === 'done' || v === 'postponed';
 }
 
-export function normalizePathColor(raw: unknown): string {
+function normalizePathColor(raw: unknown): string {
     const v = String(raw ?? '').trim();
     if (/^#[0-9A-Fa-f]{6}$/.test(v)) return v;
     return PROCEDURAL_PATH_COLOR_PRESETS[0];
@@ -54,7 +44,7 @@ export function sortPathStepsChronologically(items: ProceduralPathStep[]): Proce
     });
 }
 
-export function normalizeProceduralPathStep(raw: unknown): ProceduralPathStep | null {
+function normalizeProceduralPathStep(raw: unknown): ProceduralPathStep | null {
     if (!raw || typeof raw !== 'object') return null;
     const o = raw as Record<string, unknown>;
     const title = String(o.title ?? '').trim();

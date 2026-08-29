@@ -1,4 +1,8 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 import { NotificationRepository } from '@/app/infrastructure/NotificationRepository';
 import {
     isActivityLogNotification,
@@ -41,7 +45,7 @@ export async function purgeLegacyNotificationsIfNeeded(userId: string): Promise<
     if (!userId) return false;
 
     try {
-        if (SecureStoreService.getItemSync(purgeFlagKey(userId)) === '1') {
+        if (readSecureOrDrainLegacySync(purgeFlagKey(userId)) === '1') {
             return false;
         }
     } catch {
@@ -58,6 +62,7 @@ export async function purgeLegacyNotificationsIfNeeded(userId: string): Promise<
 
     try {
         SecureStoreService.setItemSync(purgeFlagKey(userId), '1');
+        clearLegacyPlaintextMirror(purgeFlagKey(userId));
     } catch {
         /* ignore */
     }

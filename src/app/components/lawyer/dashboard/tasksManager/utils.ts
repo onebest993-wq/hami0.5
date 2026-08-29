@@ -5,9 +5,20 @@ import {
     isTaskDayOverdueIncomplete,
     isTaskInCurrentAgendaWeek,
     isTaskMarkedDone,
+    getTaskAgendaDay,
+    isTaskAgendaReadOnly,
+    getSaturdayOfWeekContaining,
 } from '@/app/services/tasks/taskAgendaStatusLite';
+import { clampExpenseAmount } from '@/app/services/tasks/taskInputGuard';
 
-export { isTaskDayOverdueIncomplete, isTaskInCurrentAgendaWeek, isTaskMarkedDone };
+export {
+    isTaskDayOverdueIncomplete,
+    isTaskInCurrentAgendaWeek,
+    isTaskMarkedDone,
+    getTaskAgendaDay,
+    isTaskAgendaReadOnly,
+    getSaturdayOfWeekContaining,
+};
 export const COMPLETED_TASK_RETENTION_DAYS = 30;
 
 function scheduleVoiceAttachmentCleanup(voiceRef: string): void {
@@ -16,31 +27,8 @@ function scheduleVoiceAttachmentCleanup(voiceRef: string): void {
         .catch(() => undefined);
 }
 
-export function getSaturdayOfWeekContaining(ref: Date): Date {
-    const d = startOfLocalDay(ref);
-    const dow = d.getDay();
-    const daysFromSat = (dow - 6 + 7) % 7;
-    const sat = new Date(d);
-    sat.setDate(d.getDate() - daysFromSat);
-    return startOfLocalDay(sat);
-}
-
 export function taskCompletedAt(task: LegalTask): Date | null {
     return task.completedAt ?? null;
-}
-
-/** يوم المهمة في الأجندة — تاريخ المهمة أو يوم الإنجاز للمهام بلا تاريخ */
-export function getTaskAgendaDay(task: LegalTask): Date | null {
-    if (task.parsedDate) return startOfLocalDay(task.parsedDate);
-    if (task.completedAt) return startOfLocalDay(task.completedAt);
-    return null;
-}
-
-/** بعد انتهاء يوم المهمة: بطاقة للمعاينة فقط */
-export function isTaskAgendaReadOnly(task: LegalTask, now = new Date()): boolean {
-    const taskDay = getTaskAgendaDay(task);
-    if (!taskDay) return false;
-    return startOfLocalDay(taskDay).getTime() < startOfLocalDay(now).getTime();
 }
 
 export function isTaskArchivedToHistory(task: LegalTask, now = new Date()): boolean {
@@ -48,6 +36,20 @@ export function isTaskArchivedToHistory(task: LegalTask, now = new Date()): bool
     const taskWeek = getSaturdayOfWeekContaining(task.parsedDate).getTime();
     const thisWeek = getSaturdayOfWeekContaining(now).getTime();
     return taskWeek < thisWeek;
+}
+
+/** إعادة فتح مهمة منتهية — الأرشيف يُعاد إلى اليوم حتى لا يُغلق الأسبوع السابق فوراً */
+export function applyReopenTask(task: LegalTask, now = new Date()): LegalTask | null {
+    if (!task.completedAt) return null;
+    const archived = isTaskArchivedToHistory(task, now);
+    const today = startOfLocalDay(now);
+    return {
+        ...task,
+        completedAt: null,
+        status: 'pending',
+        parsedDate: archived ? today : task.parsedDate,
+        reminderAt: archived ? null : task.reminderAt,
+    };
 }
 
 /** عند بداية أسبوع جديد: نقل مهام الأسبوع السابق إلى أرشيف المهام المنتهية */
@@ -253,18 +255,6 @@ export function isAgendaDayPast(dayDate: Date, now = new Date()): boolean {
     return startOfLocalDay(dayDate).getTime() < startOfLocalDay(now).getTime();
 }
 
-/** هل يُعرض عمود اليوم في الأجندة الأسبوعية؟ الأسبوع كامل يبقى ظاهراً */
-export function isWeeklyAgendaDayVisible(
-    _dayDate: Date,
-    _taskCount: number,
-    _now = new Date(),
-    weekAddDayKey?: string | null,
-    dayKey?: string,
-): boolean {
-    if (weekAddDayKey && dayKey === weekAddDayKey) return true;
-    return true;
-}
-
 /** هل يوم منتهٍ يُعرض بشكل مختزل (فيه مهام) */
 export function isWeeklyPastDayCompact(dayDate: Date, taskCount: number, now = new Date()): boolean {
     return isAgendaDayPast(dayDate, now) && taskCount > 0;
@@ -322,7 +312,7 @@ export function formatIqd(n: number): string {
 
 export function parseAmountInput(s: string): number {
     const n = parseFloat(String(s).replace(/[,\s٬]/g, ''));
-    return Number.isFinite(n) && n > 0 ? n : 0;
+    return clampExpenseAmount(n) ?? 0;
 }
 
 export function isReminderDue(task: LegalTask, now: Date): boolean {

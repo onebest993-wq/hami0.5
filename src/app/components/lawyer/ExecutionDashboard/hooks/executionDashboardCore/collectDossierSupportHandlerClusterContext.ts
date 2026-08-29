@@ -3,29 +3,7 @@ import {
     pickHandlerClusterKeys,
     type HandlerClusterContextSpreads,
 } from './handlerClusterContextShared';
-
-const FOUNDATION_HANDLER_CLUSTER_KEYS = [
-    'decisionsStorageExecutionId',
-    'decisionsReloadEpoch',
-    'executionData',
-    'executionDataRef',
-    'executionId',
-    'parentDossierId',
-    'persistExecutionMerge',
-    'showToast',
-    'setTimelineEvents',
-    'pushTimelineEventRef',
-    'realEstateSeizureAssets',
-    'realEstateSeizureModalDecisionId',
-    'realEstateSeizureSnapshotRef',
-    'nextTimelineId',
-    'setRealEstateSeizureAssets',
-    'setShowRealEstateSeizureModal',
-    'getLocalTodayYmd',
-    'setThirdPartySeizuresUi',
-    'linkSeizureAuctionToAppointments',
-    'pushSeizureAuctionCalendarAppointment',
-] as const;
+import { FOUNDATION_HANDLER_CLUSTER_KEYS } from './handlerClusterFoundationKeys';
 
 const DOSSIER_SUPPORT_HANDLER_CLUSTER_KEYS = Array.from(
     new Set([
@@ -53,7 +31,6 @@ const DOSSIER_SUPPORT_HANDLER_CLUSTER_KEYS = Array.from(
         'reconcileDossierLifecycle',
         'seizedAssetsSnapshotRef',
         'setDossierDateDraft',
-        'setDossierLifecyclePanelOpen',
         'setDossierLifecyclePanelPhase',
         'setDossierPendingStatus',
         'setDossierReasonDraft',

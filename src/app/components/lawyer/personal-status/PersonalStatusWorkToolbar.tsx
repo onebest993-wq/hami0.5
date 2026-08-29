@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, BookOpen, Calendar, FileText, ListTodo, Paperclip, Scale } from '@/app/components/ui/lucideIcons';
+import { CalendarDays } from '@/app/components/ui/icons/CalendarDays';
+import { Gavel } from '@/app/components/ui/icons/Gavel';
+import { ListChecks } from '@/app/components/ui/icons/ListChecks';
+import { Paperclip } from '@/app/components/ui/icons/Paperclip';
+import { ScrollText } from '@/app/components/ui/icons/ScrollText';
+import { StickyNote } from '@/app/components/ui/icons/StickyNote';
 import type { CaseFlowActionsPanelProps } from '@/app/components/lawyer/smart-modal/parts/CaseFlowActionsPanel';
 import { CaseFlowActionsPanel } from '@/app/components/lawyer/smart-modal/parts/CaseFlowActionsPanel';
 import type { PersonalApplicableLaw } from '@/app/components/lawyer/personal-status/personalStatusValidation';
@@ -40,7 +45,8 @@ export function PersonalStatusWorkToolbar({
 }: PersonalStatusWorkToolbarProps) {
     const [lawPanelOpen, setLawPanelOpen] = useState(false);
     const showAppointment = variant !== 'notes-only';
-    const primaryCols = showAppointment ? 3 : 2;
+    const showFlowRail = showCaseFlow && Boolean(caseFlow);
+    const primaryCols = (showAppointment ? 1 : 0) + 1 + (showFlowRail ? 1 : 0);
 
     useEffect(() => {
         if (showLawReference) prefetchCivilLawArticles(['civil_procedure', 'evidence']);
@@ -48,64 +54,49 @@ export function PersonalStatusWorkToolbar({
 
     return (
         <>
-            <div className="p-2 space-y-2" dir="rtl">
-                <div className="grid grid-cols-2 gap-2 items-stretch min-w-0">
+            <div className="p-1.5 space-y-1.5" dir="rtl">
+                <div className="grid grid-cols-2 gap-1.5 items-stretch min-w-0">
                     <div className="min-w-0">{sessionSlot}</div>
                     <button
                         type="button"
-                        title="إجراء"
+                        title="إجراء قانوني"
                         onClick={onOpenLegalActions}
                         className={PS_HERO_ACTION}
                     >
-                        <div
-                            className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-[#C9B89A]/10 blur-2xl"
-                            aria-hidden
-                        />
-                        <span className="relative z-[1] flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#C9B89A]/35 bg-[#C9B89A]/[0.14] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
-                            <Scale size={18} className="text-[#E8DFD0]" aria-hidden />
+                        <Gavel size={15} className="shrink-0 text-white/55" strokeWidth={1.7} aria-hidden />
+                        <span className="min-w-0 flex-1 text-right text-[12px] font-bold text-white/88">
+                            إجراء قانوني
                         </span>
-                        <div className="relative z-[1] min-w-0 flex-1 text-right">
-                            <span className="block text-[8px] font-black tracking-[0.18em] text-[#C9B89A]/75 uppercase">
-                                قانوني
-                            </span>
-                            <span className="block text-[13px] font-black text-[#FFFEF9] leading-tight">
-                                إجراء
-                            </span>
-                        </div>
                     </button>
                 </div>
 
                 <PersonalStatusRailShell
+                    secondaryCount={2 + (showLawReference ? 1 : 0)}
                     primary={
                         <div
                             className={`col-span-full grid divide-x divide-x-reverse divide-white/[0.08] ${
-                                primaryCols === 3 ? 'grid-cols-3' : 'grid-cols-2'
+                                primaryCols === 3
+                                    ? 'grid-cols-3'
+                                    : primaryCols === 2
+                                      ? 'grid-cols-2'
+                                      : 'grid-cols-1'
                             }`}
                         >
                             {showAppointment ? (
                                 <PersonalStatusRailPrimary
-                                    icon={Calendar}
+                                    icon={CalendarDays}
                                     label="موعد"
-                                    tone="rose"
                                     onClick={() => onAction('appointment')}
                                 />
                             ) : null}
                             <PersonalStatusRailPrimary
-                                icon={FileText}
+                                icon={StickyNote}
                                 label="ملاحظة"
-                                tone="pearl"
                                 onClick={() => onAction('note')}
                             />
-                            {showCaseFlow && caseFlow ? (
+                            {showFlowRail && caseFlow ? (
                                 <CaseFlowActionsPanel {...caseFlow} variant="rail" />
-                            ) : (
-                                <PersonalStatusRailPrimary
-                                    icon={Activity}
-                                    label="سير"
-                                    tone="flow"
-                                    onClick={() => {}}
-                                />
-                            )}
+                            ) : null}
                         </div>
                     }
                     secondary={
@@ -116,7 +107,7 @@ export function PersonalStatusWorkToolbar({
                                 onClick={() => onAction('document')}
                             />
                             <PersonalStatusRailSecondary
-                                icon={ListTodo}
+                                icon={ListChecks}
                                 label="مهمة"
                                 onClick={onOpenTasks}
                                 testId={CIVIL_LAWSUIT_TEST_IDS.taskAdd}
@@ -124,7 +115,7 @@ export function PersonalStatusWorkToolbar({
                             />
                             {showLawReference ? (
                                 <PersonalStatusRailSecondary
-                                    icon={BookOpen}
+                                    icon={ScrollText}
                                     label="قانون"
                                     onClick={() => setLawPanelOpen(true)}
                                 />

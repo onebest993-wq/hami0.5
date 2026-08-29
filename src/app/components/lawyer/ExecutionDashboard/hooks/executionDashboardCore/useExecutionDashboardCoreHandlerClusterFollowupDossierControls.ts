@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useExecutionDashboardCoreHandlerClusterFoundationTimeline } from './useExecutionDashboardCoreHandlerClusterFoundationTimeline';
 import { useExecutionDashboardDossierControlsHandlers } from './useExecutionDashboardDossierControlsHandlers';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
@@ -22,7 +21,7 @@ export function useExecutionDashboardCoreHandlerClusterFollowupDossierControls(
         setDossierActionModalSaving,
         setDossierActionModalType,
         setExecutionStorageTick,
-    } = c as any;
+    } = c as Record<string, unknown>;
 
     const dossierFollowupHandlers = useExecutionDashboardDossierControlsHandlers({
         executionData,

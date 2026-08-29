@@ -4,10 +4,11 @@ import {
     normalizeAsciiDigits,
     normalizeTelHref,
 } from '@/app/services/profile/profileContactNavigation';
+import { sanitizeProfilePlainText } from '@/app/services/profile/profileUrlSanitize';
 
-export const MAX_PROFILE_CONTACT_LABEL_LENGTH = 48;
-export const MAX_PROFILE_CONTACT_VALUE_LENGTH = 240;
-export const MAX_PROFILE_DISPLAY_NAME_LENGTH = 80;
+const MAX_PROFILE_CONTACT_LABEL_LENGTH = 48;
+const MAX_PROFILE_CONTACT_VALUE_LENGTH = 240;
+const MAX_PROFILE_DISPLAY_NAME_LENGTH = 80;
 
 export class ProfileContactValidationError extends Error {
     constructor(message: string) {
@@ -27,7 +28,7 @@ export function clampProfileContactValueLive(raw: string): string {
 }
 
 export function clampProfileContactLabel(raw: string): string {
-    return clampProfileContactLabelLive(raw).trim();
+    return sanitizeProfilePlainText(clampProfileContactLabelLive(raw), MAX_PROFILE_CONTACT_LABEL_LENGTH).trim();
 }
 
 export function clampProfileContactValue(raw: string): string {
@@ -35,12 +36,21 @@ export function clampProfileContactValue(raw: string): string {
 }
 
 export function clampProfileDisplayName(raw: string): string {
-    return raw.replace(/[\r\n\t]/g, ' ').slice(0, MAX_PROFILE_DISPLAY_NAME_LENGTH).trim();
+    return sanitizeProfilePlainText(raw.replace(/[\r\n\t]/g, ' '), MAX_PROFILE_DISPLAY_NAME_LENGTH).trim();
 }
 
-export function sanitizeProfileAction(action: ProfileAction): ProfileAction {
+const UNSAFE_CLIPBOARD_SCHEME = /^\s*(javascript|data|vbscript|file|blob):/i;
+
+/** نص النسخ — يرفض مخططات خطرة حتى لو وُجدت في قيمة مخزّنة قديمة */
+export function safeProfileContactClipboardText(raw: string): string {
+    const value = clampProfileContactValue(raw);
+    if (!value || UNSAFE_CLIPBOARD_SCHEME.test(value)) return '';
+    return value;
+}
+
+function sanitizeProfileAction(action: ProfileAction): ProfileAction {
     let value = clampProfileContactValue(action.value || '');
-    if (action.type === 'call' || action.type === 'whatsapp') {
+    if (action.type === 'call') {
         value = normalizeAsciiDigits(value);
     }
     return {
@@ -65,7 +75,7 @@ export function sanitizeProfileHeaderPhone(raw: string | undefined | null): stri
  * يتحقق أن كل قناة ذات قيمة غير فارغة تُنتج هدفاً صالحاً (tel/mailto/https…).
  * يرمي ProfileContactValidationError عند أول قيمة غير صالحة.
  */
-export function assertProfileContactsValid(actions: ProfileAction[]): void {
+function assertProfileContactsValid(actions: ProfileAction[]): void {
     for (const action of sanitizeProfileActions(actions)) {
         if (!action.value.trim()) continue;
         if (buildProfileContactTarget(action) == null) {

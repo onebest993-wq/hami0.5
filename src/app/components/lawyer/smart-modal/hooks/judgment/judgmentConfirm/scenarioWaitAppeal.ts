@@ -10,7 +10,7 @@ import {
 } from '../../../smartFile/interpleaderJudgmentEngine';
 import { isPersonalStatusAppealContext } from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
 import { isAbsentObjectionStageName } from '../../../smartFile/absentJudgmentStageNames';
-import { resolveAbsentObjectionAppealRights } from '../../../smartFile/absentJudgmentAppealRights';
+import { resolveAbsentObjectionAppealRights, resolveAbsentObjectionWaitDecisionText } from '../../../smartFile/absentJudgmentAppealRights';
 import {
     resolveFirstInstanceHadoriAppealRights,
     resolveLawyerSide,
@@ -45,10 +45,12 @@ export function applyWaitAppealScenarios(scope: JudgmentConfirmScope, rt: Judgme
 
 if (action === 'waiting_for_appeal') {
     rt.handled = true;
-    const isGhayabi = judgmentForm === 'غيابي';
+    const isAbsentObjectionCtx = isAbsentObjectionStageName(stageName);
+    const effectiveForm = isAbsentObjectionCtx ? 'حضوري' : judgmentForm;
+    const isGhayabi = effectiveForm === 'غيابي';
     const judgmentYmd = String(judgmentDate ?? '').trim().slice(0, 10);
     const cassationDeadline = judgmentYmd ? computeCassationDeadline(judgmentYmd) : addDays(now, CASSATION_APPEAL_DAYS);
-    const isPersonalCtx = isPersonalStatusAppealContext(stageName, stages);
+    const isPersonalCtx = isPersonalStatusAppealContext(stageName, stages, parentData);
     const plaintiffFavorableGhayabi =
         isGhayabi
         && (judgmentType === 'إجابة الدعوى'
@@ -64,7 +66,6 @@ if (action === 'waiting_for_appeal') {
         currentStage.parties,
     );
     const lawyerSide = resolveLawyerSide(parentData.representedParty, currentStage.parties);
-    const isAbsentObjectionCtx = isAbsentObjectionStageName(stageName);
     const hadoriRights = isAbsentObjectionCtx
         ? resolveAbsentObjectionAppealRights(judgmentType, currentStage.parties)
         : resolveFirstInstanceHadoriAppealRights(judgmentType, lawyerSide, {
@@ -80,26 +81,32 @@ if (action === 'waiting_for_appeal') {
         awaitingAbsentJudgmentNotification = true;
     } else if (
         !isGhayabi
-        && judgmentForm === 'حضوري'
+        && effectiveForm === 'حضوري'
         && !isPersonalCtx
-        && (stageName.includes('بداءة') || stageName.includes('البداءة'))
+        && (
+            isAbsentObjectionCtx
+            || stageName.includes('بداءة')
+            || stageName.includes('البداءة')
+        )
     ) {
         appealDeadline = judgmentYmd ? computeFirstInstanceAppealDeadline(judgmentYmd) : undefined;
     }
+
+    const objectionDecisionText = isAbsentObjectionCtx
+        ? resolveAbsentObjectionWaitDecisionText(judgmentType, hadoriRights.action)
+        : null;
 
     let decisionText = `محسومة - بانتظار الطعن (${judgmentType})`;
     if (isInterpleaderJudgmentType(judgmentType)) {
         decisionText = resolveInterpleaderDecisionText(judgmentType, lawyerBucket);
     } else if (plaintiffFavorableGhayabi && awaitingAbsentJudgmentNotification) {
         decisionText = 'حكم غيابي — بانتظار التبليغ والاعتراض';
+    } else if (objectionDecisionText) {
+        decisionText = objectionDecisionText;
     } else if (hadoriRights.action === 'wait_opponent') {
-        decisionText = isAbsentObjectionCtx
-            ? 'تأييد الحكم الغيابي — بانتظار طعن المعترض'
-            : 'محسومة لصالح الموكل - بانتظار الطعن';
+        decisionText = 'محسومة لصالح الموكل - بانتظار الطعن';
     } else if (hadoriRights.action === 'self_appeal') {
-        decisionText = isAbsentObjectionCtx
-            ? 'رفض الاعتراض — يحق لموكلك الطعن'
-            : 'محسومة ضد الموكل - يحق لموكلك الطعن';
+        decisionText = 'محسومة ضد الموكل - يحق لموكلك الطعن';
     } else if (hadoriRights.action === 'both_paths' || judgmentType === 'رد الدعوى جزئياً') {
         decisionText = 'محسومة جزئياً - يحق للطرفين الطعن فيما حُسم عليه';
     } else if (judgmentType === 'رد الدعوى' || judgmentType === 'رد الدعوى كلياً') {
@@ -117,12 +124,12 @@ if (action === 'waiting_for_appeal') {
         status: 'active',
         finalDecision: decisionText,
         judgmentForm:
-            judgmentForm === 'غيابي' || judgmentForm === 'حضوري'
-                ? judgmentForm
+            effectiveForm === 'غيابي' || effectiveForm === 'حضوري'
+                ? effectiveForm
                 : undefined,
         lastJudgmentType:
-            judgmentForm === 'غيابي' || judgmentForm === 'حضوري'
-                ? judgmentForm
+            effectiveForm === 'غيابي' || effectiveForm === 'حضوري'
+                ? effectiveForm
                 : undefined,
         decisionDate: judgmentDate,
         isPleadingsClosed: true,
@@ -145,8 +152,8 @@ if (action === 'waiting_for_appeal') {
         date: judgmentDate,
         title: isAbsentObjectionCtx
             ? `قرار الاعتراض على الحكم الغيابي: ${judgmentType}`
-            : `حكم بـ ${judgmentType} (${judgmentForm})`,
-        details: `${notes}\n\nالمنطوق: ${judgmentType}\nالشكل: ${judgmentForm}\nالنتيجة للموكل: ${hadoriRights.hint || decisionText}\n\nصدر الحكم وقُفلت المرافعة بانتظار انتهاء المدة القانونية للطعن.\n\nمواعيد الطعن القانونية:\n${
+            : `حكم بـ ${judgmentType} (${effectiveForm})`,
+        details: `${notes}\n\nالمنطوق: ${judgmentType}\nالشكل: ${effectiveForm}\nالنتيجة للموكل: ${hadoriRights.hint || decisionText}\n\nصدر الحكم وقُفلت المرافعة بانتظار انتهاء المدة القانونية للطعن.\n\nمواعيد الطعن القانونية:\n${
             isPersonalCtx
                 ? `- التمييز: حتى ${cassationDeadlineText} (من تاريخ صدور القرار)`
                 : `- الاستئناف: حتى ${appealDeadlineText} (15 يوماً من اليوم التالي لصدور القرار)\n- التمييز: حتى ${cassationDeadlineText} (شهر من تاريخ صدور القرار)`

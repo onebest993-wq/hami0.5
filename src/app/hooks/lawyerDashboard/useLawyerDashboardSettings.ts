@@ -1,39 +1,41 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { isRealSignedIn } from '@/app/services/auth/shellAuth';
+import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
 import {
     openSettingsFromShell,
     SETTINGS_SHELL_FEATURE,
 } from '@/app/services/settings/settingsShellNavigation';
 import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
-import { executeOverlaySnapClose } from '@/app/runtime/overlaySnapClose';
+import { executeSettingsOverlayClose } from '@/app/runtime/overlaySnapClose';
 import {
     clearSettingsForceVisible,
     concealSettingsWarmShell,
-    getSettingsShellRevealedAt,
-    isSettingsForceVisible,
-    isSettingsOverlayInteractionArmed,
+    hasSettingsOverlayHost,
     isSettingsReopenSuppressed,
-    registerSettingsInstantCloseHandler,
     removeSettingsInstantBridge,
-    SETTINGS_INTERACT_ARM_MS,
     suppressSettingsReopen,
 } from '@/app/runtime/settingsInstantPaint';
 import {
     persistSettingsSessionOpen,
     readInitialSettingsSession,
+    LAWYER_SETTINGS_OPEN_KEY,
 } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
 import {
     clearSettingsPerfMarks,
     markSettingsPerfPhase,
 } from '@/app/services/settings/settingsPerfMetrics';
+import { beginSettingsShellExit } from '@/app/hooks/lawyerDashboard/settings/settingsShellExit';
 import { commitSettingsShellOpen } from '@/app/hooks/lawyerDashboard/settings/settingsShellOpenFlow';
 import {
     primeSettingsHostMount,
     useSettingsHostLifecycle,
 } from '@/app/hooks/lawyerDashboard/settings/useSettingsHostLifecycle';
+import {
+    snapSettingsShellClose,
+} from '@/app/services/settings/settingsShellSnap';
+import { SETTINGS_PRIME_HOST_EVENT } from '@/app/runtime/settingsShellEvents';
 
 function loadSettingsBootHydrator() {
     return import('@/app/runtime/settingsBootHydrator');
@@ -76,17 +78,18 @@ function persistSettingsSessionDeferred(open: boolean): void {
 
 /**
  * مسار فتح/إغلاق — نمط الإشعارات:
- * - فتح: paint فوري → rAF commit (أو flushSync عند أول تركيب)
+ * - فتح: snap + paint فوري → setState بلا flushSync
  * - إغلاق: conceal فوري → setState بلا flushSync
  */
 export function useLawyerDashboardSettings(userId: string | null) {
     const [initialSession] = useState(() => readInitialSettingsSession());
-    const signedIn = isRealSignedIn(userId);
+    const signedIn = hasLocalAppSession(userId);
     const [showSettings, setShowSettings] = useState(() => initialSession.open);
     const [settingsHostMounted, setSettingsHostMounted] = useState(() => initialSession.open);
     const [settingsSessionKey, setSettingsSessionKey] = useState(0);
     const showSettingsRef = useRef(initialSession.open);
     const settingsHostMountedRef = useRef(initialSession.open);
+    const settingsShellResetOnceRef = useRef(false);
     const openInFlightRef = useRef(false);
     showSettingsRef.current = showSettings;
 
@@ -96,33 +99,50 @@ export function useLawyerDashboardSettings(userId: string | null) {
         setSettingsHostMounted(true);
     }, []);
 
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            sessionStorage.removeItem(LAWYER_SETTINGS_OPEN_KEY);
+        } catch {
+            /* ignore */
+        }
+    }, []);
+
     useSettingsHostLifecycle({
         signedIn,
         initialSessionOpen: initialSession.open,
         ensureSettingsHostMounted,
     });
 
+    /** كان الحدث يُطلَق من pointerdown بلا مستمع — الآن يركّب Host مثل الملف الشخصي */
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const onPrime = () => {
+            primeSettingsHostMount(ensureSettingsHostMounted);
+        };
+        window.addEventListener(SETTINGS_PRIME_HOST_EVENT, onPrime);
+        return () => window.removeEventListener(SETTINGS_PRIME_HOST_EVENT, onPrime);
+    }, [ensureSettingsHostMounted]);
+
     const closeSettings = useCallback(() => {
         openInFlightRef.current = false;
         suppressSettingsReopen();
-        showSettingsRef.current = false;
-        executeOverlaySnapClose({
-            conceal: () => {
-                concealSettingsWarmShell();
-                clearSettingsForceVisible();
-                removeSettingsInstantBridge();
-            },
-            commit: () => {
-                setShowSettings(false);
-                persistSettingsSessionDeferred(false);
-            },
+        beginSettingsShellExit(() => {
+            showSettingsRef.current = false;
+            executeSettingsOverlayClose({
+                conceal: () => {
+                    snapSettingsShellClose();
+                    concealSettingsWarmShell({ suppressReopen: true });
+                    clearSettingsForceVisible();
+                    removeSettingsInstantBridge();
+                },
+                commit: () => {
+                    setShowSettings(false);
+                    persistSettingsSessionDeferred(false);
+                },
+            });
         });
     }, []);
-
-    useEffect(() => {
-        registerSettingsInstantCloseHandler(closeSettings);
-        return () => registerSettingsInstantCloseHandler(null);
-    }, [closeSettings]);
 
     useEffect(() => {
         if (signedIn) return;
@@ -131,6 +151,7 @@ export function useLawyerDashboardSettings(userId: string | null) {
         settingsHostMountedRef.current = false;
         setShowSettings(false);
         setSettingsHostMounted(false);
+        snapSettingsShellClose();
         concealSettingsWarmShell();
         clearSettingsForceVisible();
         removeSettingsInstantBridge();
@@ -138,11 +159,21 @@ export function useLawyerDashboardSettings(userId: string | null) {
     }, [signedIn]);
 
     const primeSettingsShellMount = useCallback(() => {
+        /* لا flushSync — تجنّب تجميد إيماءة الفتح خلف تركيب Host */
+        if (hasSettingsOverlayHost()) {
+            void ensureDeferredFeatureStylesLoaded();
+            void loadSettingsBootHydrator()
+                .then((m) => m.hydrateSettingsShellForInstantOpen(true))
+                .catch(() => undefined);
+            return;
+        }
         primeSettingsHostMount(ensureSettingsHostMounted);
         void ensureDeferredFeatureStylesLoaded();
     }, [ensureSettingsHostMounted]);
 
     const resetSettingsShell = useCallback(() => {
+        if (settingsShellResetOnceRef.current) return;
+        settingsShellResetOnceRef.current = true;
         setSettingsSessionKey((k) => k + 1);
     }, []);
 
@@ -152,6 +183,9 @@ export function useLawyerDashboardSettings(userId: string | null) {
 
     useEffect(() => {
         persistSettingsSessionDeferred(showSettings);
+        if (!showSettings) {
+            settingsShellResetOnceRef.current = false;
+        }
     }, [showSettings]);
 
     const openSettings = useCallback(() => {
@@ -192,14 +226,25 @@ export function useLawyerDashboardSettings(userId: string | null) {
         });
     }, [closeSettings, ensureSettingsHostMounted, signedIn]);
 
-    return {
-        showSettings,
-        setShowSettings,
-        closeSettings,
-        settingsSessionKey,
-        settingsHostMounted,
-        primeSettingsShellMount,
-        resetSettingsShell,
-        openSettings,
-    };
+    return useMemo(
+        () => ({
+            showSettings,
+            setShowSettings,
+            closeSettings,
+            settingsSessionKey,
+            settingsHostMounted,
+            primeSettingsShellMount,
+            resetSettingsShell,
+            openSettings,
+        }),
+        [
+            closeSettings,
+            openSettings,
+            primeSettingsShellMount,
+            resetSettingsShell,
+            settingsHostMounted,
+            settingsSessionKey,
+            showSettings,
+        ],
+    );
 };

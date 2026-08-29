@@ -1,4 +1,4 @@
-import { ChevronDown } from '@/app/components/ui/lucideIcons';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
 import type {
     CrimeType,
     CriminalComplainant,
@@ -268,7 +268,7 @@ export function ComplainantColumn({
                                                     align="end"
                                                     sideOffset={6}
                                                     collisionPadding={12}
-                                                    className="z-[300] min-w-[15rem] max-h-[min(60vh,320px)] overflow-y-auto border border-slate-600 bg-slate-900 text-white font-['Tajawal'] shadow-xl shadow-black/40 p-1"
+                                                    className="z-[300] min-w-[15rem] max-h-[min(60vh,320px)] overflow-y-auto border border-slate-600 bg-slate-900 text-white font-['Tajawal'] shadow-lg shadow-black/25 p-1"
                                                 >
                                                     {isFrozen || partyMenusLocked || accusedDeathLocked ? (
                                                         <div className="px-3 py-2 text-xs font-bold text-white/50 whitespace-normal break-words">

@@ -5,6 +5,10 @@ const mergePath =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/mergeExecutionDashboardCoreScopeBagInput.ts';
 const groupPath =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/groupExecutionDashboardCoreScopeBagInput.generated.ts';
+if (!fs.existsSync(mergePath) || !fs.existsSync(groupPath)) {
+    console.log('[spent] merge/group scope-bag input — skip');
+    process.exit(0);
+}
 
 const core = fs.readFileSync(corePath, 'utf8');
 const mergeStart = core.indexOf('mergeExecutionDashboardCoreScopeBagInput({');

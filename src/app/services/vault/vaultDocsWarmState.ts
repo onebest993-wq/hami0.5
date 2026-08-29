@@ -1,6 +1,8 @@
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { mergeSmartVaultDocs } from '@/app/services/vault/vaultDocUtils';
 
+export const SMART_VAULT_DOCS_UPDATED_EVENT = 'hami:smart-vault-docs-updated';
+
 export const vaultDocsWarmCacheStore = new Map<string, SmartVaultDoc[]>();
 export const vaultDocsWarmInflightStore = new Map<string, Promise<SmartVaultDoc[]>>();
 

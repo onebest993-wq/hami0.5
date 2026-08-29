@@ -3,10 +3,11 @@ import type { CaseStage, TimelineEvent } from '../../LawyerShared';
 import { useSmartFileStageActions } from './useSmartFileStageActions';
 import { useSmartFileTimelineActions } from './useSmartFileTimelineActions';
 import type { useSmartFileModalFlags } from './useSmartFileModalFlags';
+import type { SaveToCloud } from './judgment/judgmentHookTypes';
 
 type ModalFlags = ReturnType<typeof useSmartFileModalFlags>;
 
-export type SmartFileModalStageTimelineBundleParams = {
+type SmartFileModalStageTimelineBundleParams = {
     stages: CaseStage[];
     setStages: Dispatch<SetStateAction<CaseStage[]>>;
     activeStageIndex: number;
@@ -17,7 +18,7 @@ export type SmartFileModalStageTimelineBundleParams = {
     displayStage: CaseStage | undefined;
     parentData: Record<string, unknown>;
     setParentData: Dispatch<SetStateAction<Record<string, unknown>>>;
-    saveToCloud: () => void;
+    saveToCloud: SaveToCloud;
     isEditingStageName: boolean;
     setIsEditingStageName: Dispatch<SetStateAction<boolean>>;
     tempStageName: string;

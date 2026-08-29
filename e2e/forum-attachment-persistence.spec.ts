@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { seedLawyerFiles } from './helpers/civilLawsuitFixtures';
 import { dismissProductivityBlockers } from './helpers/productivityE2EFixtures';
-import { prepareForumE2E, dismissForumBlockers } from './helpers/forumFixtures';
+import { prepareForumE2E, dismissForumBlockers, openForumFromHome } from './helpers/forumFixtures';
 
 const TINY_PNG = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WnXl7sAAAAASUVORK5CYII=',
@@ -35,24 +35,15 @@ test.describe('forum attachment persistence', () => {
     test.describe.configure({ timeout: 120_000 });
 
     test.beforeEach(async ({ page }) => {
-        await prepareForumE2E(page);
         await seedLawyerFiles(page);
+        await prepareForumE2E(page);
     });
 
     test('keeps an image post after reload', async ({ page }) => {
-        const postText = `اختبار ثبات مرفق الصورة ${Date.now()} مع نص كافٍ لإتمام النشر`;
+        const postText = 'اختبار ثبات مرفق الصورة للمنتىى الوسمي مع نص كاف لإتمام النشر';
 
-        await page.addInitScript(() => {
-            try {
-                sessionStorage.setItem('hami:lawyer-community-open', '1');
-                sessionStorage.setItem('hami:lawyer-dashboard-tab', 'community');
-                sessionStorage.setItem('hami:community-section', 'forum');
-            } catch {
-                /* ignore */
-            }
-        });
         await page.goto('/');
-        await expect(page.getByTestId('forum-screen')).toBeVisible({ timeout: 20_000 });
+        await openForumFromHome(page);
         await dismissProductivityBlockers(page);
         await dismissForumBlockers(page);
         await dismissRepositoryIfBlocking(page);
@@ -65,6 +56,9 @@ test.describe('forum attachment persistence', () => {
             mimeType: 'image/png',
             buffer: TINY_PNG,
         });
+        await expect(
+            page.getByTestId('forum-add-question-sheet').getByAltText('Preview'),
+        ).toBeVisible({ timeout: 10_000 });
         await dismissRepositoryIfBlocking(page);
         await page
             .getByTestId('forum-add-question-sheet')
@@ -72,20 +66,38 @@ test.describe('forum attachment persistence', () => {
             .click({ force: true });
 
         await expect(page.getByText(postText)).toBeVisible({ timeout: 20_000 });
-        await expect(page.getByAltText('forum-e2e-image.png')).toBeVisible({ timeout: 20_000 });
+        await expect(page.getByAltText('صورة مرفقة')).toBeVisible({ timeout: 20_000 });
 
-        const savedBeforeReload = await page.evaluate((needle) => {
-            const posts = JSON.parse(localStorage.getItem('hami:community:posts:v1') || '[]') as Array<{ content?: string; attachment?: { name?: string; storagePath?: string; url?: string } }>;
-            return posts.find((post) => post.content?.includes(needle)) ?? null;
+        const persistDump = await page.evaluate((needle) => {
+            const w = window as Window & {
+                __hamiE2eSecureStore?: { getItemSync?: (key: string) => string | null };
+            };
+            const raw =
+                w.__hamiE2eSecureStore?.getItemSync?.('hami:community:posts:v1') ??
+                localStorage.getItem('hami:community:posts:v1');
+            let parsed: unknown = null;
+            try {
+                parsed = raw ? JSON.parse(raw) : null;
+            } catch (error) {
+                parsed = { parseError: String(error) };
+            }
+            const list = Array.isArray(parsed) ? parsed : [];
+            const hit = list.find((post) =>
+                String((post as { content?: string }).content ?? '').includes(needle),
+            );
+            return {
+                saved: Boolean(hit),
+                attachmentType: (hit as { attachment?: { type?: string } } | undefined)?.attachment?.type ?? null,
+            };
         }, postText);
-
-        expect(savedBeforeReload).not.toBeNull();
+        expect(persistDump.saved, `المنشور غير محفوظ في SecureStore: ${JSON.stringify(persistDump)}`).toBe(true);
+        expect(persistDump.attachmentType).toBe('image');
 
         await page.reload({ waitUntil: 'domcontentloaded' });
-        await expect(page.getByTestId('forum-screen')).toBeVisible({ timeout: 20_000 });
+        await openForumFromHome(page);
         await dismissProductivityBlockers(page);
 
         await expect(page.getByText(postText)).toBeVisible({ timeout: 20_000 });
-        await expect(page.getByAltText('forum-e2e-image.png')).toBeVisible({ timeout: 20_000 });
+        await expect(page.getByAltText('صورة مرفقة')).toBeVisible({ timeout: 20_000 });
     });
 });

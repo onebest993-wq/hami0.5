@@ -4,7 +4,7 @@ import React from 'react';
 import { ErrorBoundary } from '@/app/components/ui/ErrorBoundary';
 import { View_Urgent_And_Orders_Dashboard } from '../View_Urgent_And_Orders_Dashboard';
 
-vi.mock('@/app/context/AuthContext', () => ({
+vi.mock('@/app/context/authHooks', () => ({
     useAuthSafe: () => ({
         user: { id: 'dev-user-uuid-1' },
         isLoading: false,

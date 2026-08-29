@@ -22,7 +22,7 @@ export function OtherEvidenceLogCard({
 }: OtherEvidenceLogCardProps) {
     const notes = String(item.notes ?? '').trim();
     return (
-        <div className="w-full rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.18)] ring-1 ring-white/[0.06]">
+        <div className="w-full rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm shadow-[0_4px_24px_rgba(0,0,0,0.18)] ring-1 ring-white/[0.06]">
             <div className="flex flex-wrap items-center gap-2">
                 <div className="text-white/90 font-black text-base whitespace-normal break-words">
                     {item.evidenceType}

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import type { JudgeDecision } from '../../types';
 import type { UseOrderFileLifecycleDerivedArgs } from './types';
 
 export function useLifecyclePhaseDerived(args: UseOrderFileLifecycleDerivedArgs) {
@@ -14,19 +15,20 @@ export function useLifecyclePhaseDerived(args: UseOrderFileLifecycleDerivedArgs)
         isIqrarContext,
     } = args;
 
-    const effectiveJudgeDecision = judgeDecision.decision ?? (caseData as any)?.judgeDecision ?? null;
+    const persistedJudgeFromCase = caseData?.judgeDecision as JudgeDecision['decision'] | undefined;
+    const effectiveJudgeDecision = judgeDecision.decision ?? persistedJudgeFromCase ?? null;
     const effectiveJudgeDecisionDate = String(
-        judgeDecision.decisionDate || (caseData as any)?.judgeDecisionDate || '',
+        judgeDecision.decisionDate || caseData?.judgeDecisionDate || '',
     ).trim();
-    const persistedJudgeDecision = String((caseData as any)?.judgeDecision ?? '').trim();
-    const persistedJudgeDate = String((caseData as any)?.judgeDecisionDate ?? '').trim();
+    const persistedJudgeDecision = String(caseData?.judgeDecision ?? '').trim();
+    const persistedJudgeDate = String(caseData?.judgeDecisionDate ?? '').trim();
     const judgePhaseSaved =
         (persistedJudgeDecision && persistedJudgeDate) || fileStatus !== 'pending' || isFinalized;
 
     const defenderStateOrderSummaryDate = useMemo(() => {
-        const s = String((caseData as any)?.stateOrderIssuedDate || '').trim();
+        const s = String(caseData?.stateOrderIssuedDate || '').trim();
         return s.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? '';
-    }, [(caseData as any)?.stateOrderIssuedDate]);
+    }, [caseData?.stateOrderIssuedDate]);
 
     const grievancePhaseStarted =
         !!caseData?.grievanceOutcome || !!caseData?.grievanceDecision || isFinalityNoGrievance;
@@ -57,13 +59,13 @@ export function useLifecyclePhaseDerived(args: UseOrderFileLifecycleDerivedArgs)
         const cassationReached =
             !!caseData?.cassationOutcome ||
             !!caseData?.cassationDecision ||
-            (caseData as any)?.legalState === 'Awaiting_Cassation' ||
+            caseData?.legalState === 'Awaiting_Cassation' ||
             isFinalized;
         return cassationReached;
     }, [caseData, grievancePhaseClosed, isFinalized, isIqrarContext, judgePhaseSaved, showGrievanceStep]);
 
     const effectiveRejectionNotificationDate = useMemo(() => {
-        return String(grievanceData.rejectionNotificationDate || (caseData as any)?.notificationDate || '').trim();
+        return String(grievanceData.rejectionNotificationDate || caseData?.notificationDate || '').trim();
     }, [caseData, grievanceData.rejectionNotificationDate]);
 
     const judgePhaseComplete = !!effectiveJudgeDecision && !!effectiveJudgeDecisionDate;

@@ -1,9 +1,9 @@
 import type { ExecutionFile } from '@/app/types/execution';
 import type { FileData, CaseStage } from '@/app/components/lawyer/LawyerShared';
 import type { CriminalCase } from '@/app/components/lawyer/criminal-system/criminalStore';
-import SecureStoreService from '@/app/services/SecureStoreService';
 import { readExecutorDecisionsFromActiveNamespace } from '@/app/utils/executionDecisionsNamespace';
 import { executionDocumentsStorageKey } from '@/app/utils/executionStorageKeysLite';
+import { readSecureOrDrainLegacySync } from '@/app/services/storage/readSecureOrDrainLegacySync';
 import type { ShareCatalogItem, ShareCatalogSection } from './caseShareTypes';
 import { EXECUTION_CONSULT_SECTION_DEFS } from './caseShareTypes';
 
@@ -36,7 +36,7 @@ function isDocumentEvent(ev: { type?: string; isAttachment?: boolean }): boolean
 
 function readStoredExecutionDocuments(executionId: string): ShareCatalogItem[] {
     try {
-        const raw = SecureStoreService.getItemSync(executionDocumentsStorageKey(executionId));
+        const raw = readSecureOrDrainLegacySync(executionDocumentsStorageKey(executionId));
         if (!raw) return [];
         const parsed = JSON.parse(raw) as unknown;
         if (!Array.isArray(parsed)) return [];

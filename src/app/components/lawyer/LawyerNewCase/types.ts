@@ -26,12 +26,6 @@ export interface ThirdParty {
     /** جانب الانضمام — للشخص الثالث الانضمامي فقط */
     affiliatedSide?: 1 | 2;
     roleLabel: string;
-    /** @deprecated legacy */
-    entryType?: string;
-    /** @deprecated legacy */
-    role?: string;
-    /** @deprecated legacy */
-    alignment?: string;
     type: string;
     isClient: boolean;
     hasLawyer: boolean;

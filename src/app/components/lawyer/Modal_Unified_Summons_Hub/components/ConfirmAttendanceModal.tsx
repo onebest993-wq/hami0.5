@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
 
 interface ConfirmAttendanceModalProps {
     isOpen: boolean;
@@ -16,7 +16,7 @@ function ConfirmAttendanceModal({ isOpen, onConfirm, onCancel }: ConfirmAttendan
             role="presentation"
         >
             <div
-                className="w-full max-w-sm rounded-2xl border border-amber-500/35 bg-[#0B1120]/95 p-4 shadow-2xl"
+                className="w-full max-w-sm rounded-2xl border border-amber-500/35 bg-[#0B1120]/95 p-4 shadow-lg"
                 onClick={(e) => e.stopPropagation()}
                 dir="rtl"
             >

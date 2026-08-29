@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { timeValue } from '@/app/components/lawyer/SmartLegalRadar/utils';
+import { timeValue } from '@/app/components/lawyer/SmartLegalRadar/radarCalendarMath';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 import { detectConflictsFromUnifiedEvents } from '@/app/services/calendar/scheduleConflictDetector';
 import {
@@ -43,7 +43,7 @@ export function useSmartLegalRadarDayInsights(selectedEvents: UnifiedEvent[]) {
         return null;
     }, [scheduleConflict.hasConflict, selectedEvents]);
 
-    const aiBriefing = useMemo(() => {
+    const dayBriefing = useMemo(() => {
         if (selectedEvents.length === 0) return null;
         const critical = selectedEvents.filter((e) => e.type === 'deadline' || e.type === 'hearing');
         const consultations = selectedEvents.filter((e) => e.type === 'consultation');
@@ -58,5 +58,5 @@ export function useSmartLegalRadarDayInsights(selectedEvents: UnifiedEvent[]) {
         return parts.join('. ');
     }, [selectedEvents, conflictMessage, scheduleConflict.hasConflict]);
 
-    return { conflictMessage, aiBriefing, scheduleConflict };
+    return { conflictMessage, dayBriefing, scheduleConflict };
 }

@@ -1,105 +1,54 @@
-import { useEffect, useMemo, useState } from 'react';
-import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
+import { useEffect, useMemo } from 'react';
 
-import { prefetchExecutionDashboardShellOverlays } from '../executionDashboardShellOverlaysLazy';
 import { prefetchExecutionFollowupOverlay } from '../executionDashboardOverlayPrefetch';
+import { prefetchExecutionDashboardShellOverlays } from '../executionDashboardShellOverlaysLazy';
 
-import type { ExecutionShellOverlayModalFlags } from './executionShellOverlayModalFlags';
+import {
+    isExecutionAnyOverlayUrgent,
+    isExecutionOtherShellOverlayUrgent,
+    type ExecutionShellOverlayModalFlags,
+} from './executionShellOverlayModalFlags';
 
-/** بوابة lazy — الجسم فوري عند جاهزية البيانات؛ overlays في الإطار التالي. */
+/** بوابة lazy — الجسم فوري عند جاهزية البيانات؛ overlays عند نية نافذة فقط. */
 export function useExecutionDashboardLazyChunkGates(
     modals: ExecutionShellOverlayModalFlags,
     chunkDataReady = true,
     overlayIntentUrgent = false,
 ) {
     const overlayUrgent = useMemo(
-        () =>
-            Boolean(
-                modals.showUnifiedExecutionModal ||
-                    modals.showDecisionsModal ||
-                    modals.showDocumentsModal ||
-                    modals.showTimelineModal ||
-                    modals.showCoerciveModal ||
-                    modals.showNotificationModal ||
-                    modals.showUnifiedSummonsModal ||
-                    modals.showPaymentModal ||
-                    modals.showSeizedAssetsModal ||
-                    modals.showNotesModal ||
-                    modals.showAppointmentModal ||
-                    modals.showEditDossierMetaModal ||
-                    modals.showExecutionTrashModal ||
-                    modals.showGuarantorDetailsModal ||
-                    modals.showHeirsNotificationModal ||
-                    modals.showLedgerModal ||
-                    modals.showPauseModal ||
-                    modals.showPaymentCalculator ||
-                    modals.showSettlementCalculator ||
-                    modals.showTransferFileNumberChangeModal ||
-                    modals.showRealEstateSeizureModal,
-            ) || overlayIntentUrgent,
-        [
-            modals.showUnifiedExecutionModal,
-            modals.showDecisionsModal,
-            modals.showDocumentsModal,
-            modals.showTimelineModal,
-            modals.showCoerciveModal,
-            modals.showNotificationModal,
-            modals.showUnifiedSummonsModal,
-            modals.showPaymentModal,
-            modals.showSeizedAssetsModal,
-            modals.showNotesModal,
-            modals.showAppointmentModal,
-            modals.showEditDossierMetaModal,
-            modals.showExecutionTrashModal,
-            modals.showGuarantorDetailsModal,
-            modals.showHeirsNotificationModal,
-            modals.showLedgerModal,
-            modals.showPauseModal,
-            modals.showPaymentCalculator,
-            modals.showSettlementCalculator,
-            modals.showTransferFileNumberChangeModal,
-            modals.showRealEstateSeizureModal,
-            overlayIntentUrgent,
-        ],
+        () => isExecutionAnyOverlayUrgent(modals) || overlayIntentUrgent,
+        [modals, overlayIntentUrgent],
+    );
+    const shellOverlaysReady = useMemo(
+        () => isExecutionOtherShellOverlayUrgent(modals) || overlayIntentUrgent,
+        [modals, overlayIntentUrgent],
     );
 
     const phoneBodyReady = overlayUrgent || chunkDataReady;
 
-    const [shellOverlaysReadyDeferred, setShellOverlaysReady] = useState(false);
-    const shellOverlaysReady = overlayUrgent || shellOverlaysReadyDeferred;
+    useEffect(() => {
+        if (!modals.showUnifiedExecutionModal) return;
+        prefetchExecutionFollowupOverlay();
+    }, [modals.showUnifiedExecutionModal]);
 
     useEffect(() => {
-        if (overlayUrgent) {
-            prefetchExecutionFollowupOverlay();
-            setShellOverlaysReady(true);
+        if (!shellOverlaysReady) return;
+        prefetchExecutionDashboardShellOverlays();
+        if (
+            modals.showEvictionExpenseModal ||
+            modals.showEvictionLawyerFeeModal ||
+            modals.showEvictionResidentialGraceModal
+        ) {
+            void import('../executionEvictionFollowupLazy')
+                .then((m) => m.prefetchEvictionFollowupSurfaces())
+                .catch(() => undefined);
         }
-    }, [overlayUrgent]);
-
-    useEffect(() => {
-        if (!chunkDataReady || overlayUrgent) return;
-        if (typeof requestAnimationFrame !== 'undefined') {
-            const frameId = requestAnimationFrame(() => {
-                prefetchExecutionDashboardShellOverlays();
-                prefetchExecutionFollowupOverlay();
-                setShellOverlaysReady(true);
-            });
-            return () => cancelAnimationFrame(frameId);
-        }
-        const cancelIdle = scheduleIdleWork(() => {
-            prefetchExecutionDashboardShellOverlays();
-            prefetchExecutionFollowupOverlay();
-            setShellOverlaysReady(true);
-        }, 120);
-        return cancelIdle;
-    }, [chunkDataReady, overlayUrgent]);
-
-    useEffect(() => {
-        if (!shellOverlaysReadyDeferred && overlayUrgent) {
-            prefetchExecutionDashboardShellOverlays();
-            prefetchExecutionFollowupOverlay();
-            setShellOverlaysReady(true);
-        }
-    }, [overlayUrgent, shellOverlaysReadyDeferred]);
+    }, [
+        shellOverlaysReady,
+        modals.showEvictionExpenseModal,
+        modals.showEvictionLawyerFeeModal,
+        modals.showEvictionResidentialGraceModal,
+    ]);
 
     return { phoneBodyReady, shellOverlaysReady, overlayUrgent };
 }

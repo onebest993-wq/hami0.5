@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
+import { inertProps } from '@/app/utils/inertProps';
 import type { CommunityScreenControllerProps } from './CommunityScreen/hooks/useCommunityScreenController';
 import {
     CommunityScreenContent,
     type CommunityScreenContentProps,
 } from './CommunityScreen/CommunityScreenContent';
+import { prefetchPersistedCommunitySectionChunk } from './CommunityScreen/communityScreenLazySections';
 
 export type CommunityScreenProps = CommunityScreenControllerProps & {
     /** Host keepAlive — المحتوى مركّب مخفياً قبل أول نقرة */
@@ -23,6 +25,11 @@ export function CommunityScreen(props: CommunityScreenProps) {
     const isOpen = props.isOpen !== false;
     const keepAlive = props.keepAlive === true;
 
+    useEffect(() => {
+        if (!isOpen) return;
+        prefetchPersistedCommunitySectionChunk();
+    }, [isOpen]);
+
     if (!isOpen && !keepAlive) {
         return null;
     }
@@ -34,6 +41,7 @@ export function CommunityScreen(props: CommunityScreenProps) {
             data-forum-open={isOpen ? '1' : '0'}
             hidden={!isOpen}
             aria-hidden={!isOpen}
+            {...inertProps(!isOpen)}
         >
             <CommunityScreenContent {...props} isOpen={isOpen} />
         </div>
@@ -43,12 +51,4 @@ export function CommunityScreen(props: CommunityScreenProps) {
 /** توافق — المحتوى متزامن؛ الدالة تُحل فوراً */
 export function ensureCommunityScreenContentLoaded(): Promise<ContentComponent> {
     return Promise.resolve(CommunityScreenContent);
-}
-
-export function prefetchCommunityScreenContent(): void {
-    /* محتوى متزامن — لا عمل */
-}
-
-export function isCommunityScreenContentReady(): boolean {
-    return true;
 }

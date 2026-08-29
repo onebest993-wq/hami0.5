@@ -1,0 +1,372 @@
+﻿
+ RUN  v3.2.7 C:/Users/HEX STORE/Downloads/New folder
+
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > parses formatted claim values 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > blocks appellate appeal when claim value is at or below threshold 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > blocks appellate appeal for undetermined value or fixed fee flags 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > blocks appellate appeal for last-instance stage label when value is within threshold 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > allows appellate appeal for last-instance label when quantified value exceeds threshold 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > parses Arabic-Indic claim values 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > filters out ╪د╪│╪ز╪خ┘╪د┘ when appellate appeal is not allowed 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > keeps all methods when appellate appeal is allowed 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > resolves context from file and first-instance stage 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > allows appellate appeal when file claim exceeds threshold despite stale last-instance stage 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > prefers active first-instance stage over stale last-instance currentStage label 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > resolves claim value from lawsuit file details fallback 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > resolves claim value from lawsuit file root and stages 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > allows appellate appeal when file claim exceeds threshold despite stale stage flags 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > returns cassation-only hint for low value claims 25ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > extraordinary procedure: inherits appeal rules from retrialTargetStage 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > inferRetrialTargetStageLabel prefers locked basis stage over stale file retrialTargetStage 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > resolveAppealRouteContext uses activeStage for extraordinary procedure inference 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > absent objection stage: allows appellate appeal when underlying value exceeds threshold 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > retrial: inherits appeal rules from retrialTargetStage 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealRouteEligibility.test.ts > appealRouteEligibility > resolveAppealRouteContext passes retrialTargetStage from file 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseConsolidationLinking.test.ts > caseConsolidationLinking > excludes the open file from candidates (numeric and string ids) 3ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseConsolidationLinking.test.ts > caseConsolidationLinking > returns empty candidates when current id is invalid 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseConsolidationLinking.test.ts > caseConsolidationLinking > resolves open file identity from pool not stale stage text 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseConsolidationLinking.test.ts > caseConsolidationLinking > rejects self-consolidation pairs 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseConsolidationLinking.test.ts > caseConsolidationLinking > keeps primary court and case number when merging with existing file 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseConsolidationLinking.test.ts > caseConsolidationLinking > rejects merge across different litigation degrees 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseConsolidationLinking.test.ts > caseConsolidationLinking > lists only candidates at the same litigation degree 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseConsolidationLinking.test.ts > caseConsolidationLinking > assertConsolidationStageCompatibility blocks mixed degrees 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseConsolidationLinking.test.ts > caseConsolidationLinking > merges notes, images, and history from both dossiers 14ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseConsolidationLinking.test.ts > caseConsolidationLinking > redirects open target from archived merged dossier to unified primary 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseConsolidationLinking.test.ts > caseConsolidationLinking > adds external consolidation ref without changing primary identity 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseLinking.test.ts > caseLinking > links existing files by updating origin only ظ¤ peer dossier untouched 3ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseLinking.test.ts > caseLinking > allows linking active peers and cross-jurisdiction lawsuit peers 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseLinking.test.ts > caseLinking > links criminal peer on origin only 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseLinking.test.ts > caseLinking > adds external case link reference only 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseLinking.test.ts > caseLinking > excludes already-linked peer from candidates 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseLinking.test.ts > caseLinking > lists candidates with string vs numeric ids 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseLinking.test.ts > caseLinking > lists candidates across different litigation degrees (unlike consolidation) 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseLinking.test.ts > caseLinking > lists active and cross-jurisdiction lawsuit peers 14ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseLinking.test.ts > caseLinking > origin dossier stays editable; browse uses isolated clone without mutating peer 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseLinking.test.ts > caseLinking > removeInternalCaseLinkFromOrigin updates origin only and leaves peer untouched 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseLinking.test.ts > caseLinking > removeInternalCaseLinkFromOrigin supports criminal peer unlink 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseLinking.test.ts > caseLinking > resolveCaseLinkBrowseUi shows controls on origin for active or archived lawsuit peers 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseLinking.test.ts > caseLinking > resolveCaseLinkBrowseUi shows criminal link on origin 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseLinking.test.ts > caseLinking > clone preserves all stages for browse copy 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseLinking.test.ts > caseLinking > resolveOutboundCaseLink ignores legacy inbound pollution on peer dossier 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseLinking.test.ts > caseLinking > resolveCaseLinkPeerNav returns origin and peer roles 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAbsentImportSafety.test.ts > judgmentTypes ظ¤ absentJudgmentFlow import safety > loads both modules without undefined exports (circular import guard) 57ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/dossierLayoutSmoke.test.ts > dossier layout smoke (no crash on build) > civil lawsuit dossier layout builds 26ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/dossierLayoutSmoke.test.ts > dossier layout smoke (no crash on build) > personal status dossier layout builds 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/dossierLayoutSmoke.test.ts > dossier layout smoke (no crash on build) > judgment modal modules load without circular undefined exports 820ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/timelineSearch.test.ts > timelineSearch > filters by title and details 29ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/timelineFeedTaxonomy.test.ts > timelineFeedTaxonomy > classifies events by source section 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/timelineFeedTaxonomy.test.ts > timelineFeedTaxonomy > filters by category and query together 24ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/timelineFeedTaxonomy.test.ts > timelineFeedTaxonomy > cleans fast track title and strips redundant status lines from body 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/timelineFeedTaxonomy.test.ts > timelineFeedTaxonomy > strips note html stamps and appeal boilerplate from civil timeline body 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/timelineFeedTaxonomy.test.ts > timelineFeedTaxonomy > adds appointment hearing date to expanded civil timeline details 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/timelineFeedTaxonomy.test.ts > timelineFeedTaxonomy > labels legal deadline appointments as ╪ز┘à┘è┘è╪▓ deadline ظ¤ not ┘à╪▒╪د┘╪╣╪ر 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/civilLawsuitFlow.integration.test.ts > civil lawsuit flow (integration) > new case ظْ stages ظْ cloud payload ظْ workspace filter 29ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/civilLawsuitFlow.integration.test.ts > civil lawsuit flow (integration) > archived stage is read-only (viewing past stage) 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/civilLawsuitFlow.integration.test.ts > civil lawsuit flow (integration) > storage round-trip preserves lawsuit files 4ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/civilLawsuitFlow.integration.test.ts > civil lawsuit flow (integration) > printDossier invokes browser print 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/civilLawsuitFlow.integration.test.ts > civil lawsuit flow (integration) > cloud save payload survives reload (F5 simulation) 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/civilLawsuitFlow.integration.test.ts > civil lawsuit flow (integration) > patchActiveStage updates active stage for save 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/civilLawsuitFlow.integration.test.ts > civil lawsuit flow (integration) > undetermined civil file blocks appellate appeal route (╪ز┘à┘è┘è╪▓ only) 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/layout/__tests__/SmartFileChrome.test.tsx > SmartFileChrome dossier nav > ┘è╪╣╪▒╪╢ ╪▓╪▒ ╪د┘╪ح╪║┘╪د┘é ┘┘é╪╖ ┘┘è ╪د┘┘ê╪╢╪╣ ╪د┘┘╪د┘╪░┘è 57ms
+ ظ£ô src/app/components/lawyer/smart-modal/layout/__tests__/SmartFileChrome.test.tsx > SmartFileChrome dossier nav > ┘è╪╣╪▒╪╢ ╪▓╪▒ ╪د┘╪▒╪ش┘ê╪╣ ┘┘é╪╖ ╪╣┘╪» ╪د┘╪ز┘┘é┘ ╪د┘┘à╪ز╪»╪د╪«┘ 9ms
+ ├ù src/app/components/lawyer/smart-modal/layout/portal/__tests__/SmartFileModalsContentSection.test.ts > resolveEditableCaseNumber > uses the injected parent number when the stage still carries the legacy placeholder 6ms
+   ظْ (0 , resolveEditableCaseNumber) is not a function
+ ├ù src/app/components/lawyer/smart-modal/layout/portal/__tests__/SmartFileModalsContentSection.test.ts > resolveEditableCaseNumber > keeps a real stage-specific number 1ms
+   ظْ (0 , resolveEditableCaseNumber) is not a function
+ ظ£ô src/app/components/lawyer/smart-modal/hooks/__tests__/useSmartFileDossierHeaderNavigation.test.ts > useSmartFileDossierHeaderNavigation > ╪▓╪▒ ╪د┘┘à╪║╪د╪»╪▒╪ر ┘è╪│╪ز╪»╪╣┘è onExitToProfile ╪╣┘╪» ╪ز┘ê┘╪▒┘ç 19ms
+ ظ£ô src/app/components/lawyer/smart-modal/hooks/__tests__/useSmartFileDossierHeaderNavigation.test.ts > useSmartFileDossierHeaderNavigation > ╪▓╪▒ ╪د┘┘à╪║╪د╪»╪▒╪ر ┘è╪│╪ز╪»╪╣┘è onClose ┘┘é╪╖ ╪ذ╪»┘ê┘ onExitToProfile 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/modals/contentEntryModals.test.tsx > content entry modals > prefills appointment date and submits a valid payload 2071ms
+ ظ£ô src/app/components/lawyer/smart-modal/modals/contentEntryModals.test.tsx > content entry modals > passes the actual selected file when saving a document 804ms
+ ظ£ô src/app/components/lawyer/smart-modal/hooks/__tests__/useSmartFileStageActions.test.ts > useSmartFileStageActions > updates the currently viewed stage when saving case info from the edit modal 21ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > excludes extraordinary pleading stages from first-instance classification 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > treats win, sulh, and waiver as defendant-only cassation outcomes 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > detects awaiting opponent appeal state 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > shows opponent appeal register button after wait save 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > detects plaintiff-favorable sealed decisions 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > infers lawyer side from client party when representedParty unset 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveFirstInstanceHadoriAppealRights > full win: plaintiff waits, defendant appeals 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveFirstInstanceHadoriAppealRights > full loss: plaintiff appeals, defendant waits 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveFirstInstanceHadoriAppealRights > partial loss: both sides may appeal 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveFirstInstanceHadoriAppealRights > sulh and waiver finalize without appeal 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveFirstInstanceHadoriAppealRights > appeal hints reflect lawyer side for standard outcomes 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveFirstInstanceHadoriAppealRights > resolves interpleader merit judgment from client marker without interpleader lawyer 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveFirstInstanceHadoriAppealRights > waits for opponent when marked plaintiff wins interpleader judgment 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveFirstInstanceHadoriAppealRights > offers both paths when interpleader judgment has no client side yet 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveFirstInstanceHadoriAppealRights > finalizes interpleader sulh without requiring file settings 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveAllowedOpponentAppealMethods > plaintiff lawyer waits after absent-objection uphold (╪ح╪ش╪د╪ذ╪ر ╪د┘╪»╪╣┘ê┘ë ╪ذ╪د┘┘â╪د┘à┘) 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveAllowedOpponentAppealMethods > offers ╪د╪│╪ز╪خ┘╪د┘ on civil absent-objection stage when ╪ذ╪»╪د╪ة╪ر exists in history 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveAllowedOpponentAppealMethods > hides absentia objection for in-person judgment 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveAllowedOpponentAppealMethods > shows absentia objection only for default judgment 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveAllowedOpponentAppealMethods > hides absentia objection after objection stage already exists 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveAllowedOpponentAppealMethods > hides absentia objection on appeal stage 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveAllowedOpponentAppealMethods > hides absentia objection when defendant won absent judgment 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveAllowedOpponentAppealMethods > hides extraordinary remedies when appellate appeal is allowed 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveAllowedOpponentAppealMethods > removes ╪د╪│╪ز╪خ┘╪د┘ when claim value is within last-instance threshold 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts > judgmentAppealRights > resolveAllowedOpponentAppealMethods > removes ╪د╪│╪ز╪خ┘╪د┘ for undetermined-value or fixed-fee cases 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/crossAppealEngine.test.ts > crossAppealEngine > shows cross-appeal button in ordinary appeal for pending appellee 5ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/crossAppealEngine.test.ts > crossAppealEngine > shows cross-appeal for partial judgment on pending appellees 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/crossAppealEngine.test.ts > crossAppealEngine > shows only omitted co-litigant ┘à╪ص┘à╪» after ╪د╪ص┘à╪» ┘ê╪╣┘┘è appealed together 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/crossAppealEngine.test.ts > crossAppealEngine > offers cross appeal to interpleader appellee who has not appealed yet 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/crossAppealEngine.test.ts > crossAppealEngine > shows cross appeal for co-plaintiff ╪╣┘┘è when ┘à╪ص┘à╪» alone appealed 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/crossAppealEngine.test.ts > crossAppealEngine > detects partial judgment from locked stage lastJudgmentType when metadata missing 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/crossAppealEngine.test.ts > crossAppealEngine > does not offer cross appeal to co-plaintiff appellees who fully won and have no appeal right 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/crossAppealEngine.test.ts > crossAppealEngine > offers cross appeal to plaintiff only after third-party partial judgment when interpleader is already in waiting position 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageTransition.test.ts > appealStageTransition > maps ╪د╪│╪ز╪خ┘╪د┘ to ╪د┘╪د╪│╪ز╪خ┘╪د┘ on civil absent-objection stage with ╪ذ╪»╪د╪ة╪ر history 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageTransition.test.ts > appealStageTransition > maps ╪د╪│╪ز╪خ┘╪د┘ to ╪ز┘à┘è┘è╪▓ on personal-status dossier objection stage 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageTransition.test.ts > appealStageTransition > flips plaintiff to appellee when defendant appeals 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageTransition.test.ts > appealStageTransition > resolves opponent appellant from lawyer side 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageTransition.test.ts > appealStageTransition > resolves opponent appellant on absent objection from original sides 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageTransition.test.ts > appealStageTransition > locks previous stage with clean appeal timeline and no counterclaim carryover 3ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageTransition.test.ts > appealStageTransition > hides opponent appeal button on locked or appeal stages 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageTransition.test.ts > appealStageTransition > shows incidental UI only on open first instance 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageTransition.test.ts > appealStageTransition > migrates only third party incidental cases 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageTransition.test.ts > appealStageTransition > remands direct cassation to first instance when no prior appeal exists 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageTransition.test.ts > appealStageTransition > remands cassation to appeal when appeal stage existed before cassation 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageTransition.test.ts > appealStageTransition > remands personal status cassation to ╪ث╪ص┘ê╪د┘ ╪┤╪«╪╡┘è╪ر with preserved parties 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageTransition.test.ts > appealStageTransition > merges legacy duplicate remand appeal stage on normalize 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageTransition.test.ts > appealStageTransition > rejects correction request and finalizes dossier without reopening litigation 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageTransition.test.ts > appealStageTransition > accepts correction and returns to last pleading stage (not cassation) 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > detects absent judgment form 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > computes objection deadline 10 days after notification 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > detects awaiting notification state 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > calculates days remaining 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > detects absent objection stage name 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > exposes objection-stage judgment labels without ╪ح╪ذ╪╖╪د┘ 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > allows absent objection only once per dossier 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > resolves absent objection appeal rights from objector/objected roles 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > labels objection options relative to marked client 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > resolves lawyer original side from objection roles 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > restricts absent ghayabi workflow to beginning pleading stages only 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > allows absent objection only when absent judgment favors plaintiff 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > keeps absent objection in opponent registration for ghayabi personal status 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > blocks absent objection on appeal stage even with ╪║┘è╪د╪ذ┘è judgment form 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > allows absent objection for defendant counsel on personal status core stage 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > blocks absent objection when defendant won absent judgment (╪▒╪» ╪د┘╪»╪╣┘ê┘ë) 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > blocks absent judgment footer after objection stage exists in dossier 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentJudgmentFlow.test.ts > absentJudgmentFlow > offers absent objection on personal status subject-matter stage for defendant counsel 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > does not classify ╪د┘┘à╪»╪╣┘ë ╪╣┘┘è┘ç as plaintiff (substring trap) 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > classifies absent objector despite (╪د┘┘à╪»╪╣┘ë ╪╣┘┘è┘ç) in parentheses 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > classifies absent objected party in defendant column 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > splits objection stage parties into two columns 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > deduplicates same id in one bucket 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > keeps same-name parties when ids differ 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > deduplicates by id 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > classifies appeal roles 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > places affiliative third party in affiliated column 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > isolates interpleader third party in dedicated bucket at first instance 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > merges appeal-stage interpleader into appellant or appellee column 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > merges appeal-stage affiliative third party into side column 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > routes interpleader with appeal side into column instead of third bucket 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > drops duplicate third-party shadow when appeal role exists for same id 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > keeps same-name co-litigants when ids differ 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > does not put ╪د┘┘à╪│╪ز╪ث┘┘ ╪╣┘┘è┘ç in plaintiffs column (appeal stage) 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.test.ts > partyRoleClassification > dedupePartiesList removes duplicate ids and prefers non-client same-name merge in header 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealPartyEngine.test.ts > appealPartyEngine > lists all defendant-side opponents when plaintiff appeals 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealPartyEngine.test.ts > appealPartyEngine > treats affiliative third party as defendant side 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealPartyEngine.test.ts > appealPartyEngine > excludes deselected opponents from appeal dossier 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealPartyEngine.test.ts > appealPartyEngine > defaults to all opponents selected 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealPartyEngine.test.ts > appealPartyEngine > flips roles after filtering opponents 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealPartyEngine.test.ts > appealPartyEngine > excludes deselected appellants when multiple plaintiffs appeal 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealPartyEngine.test.ts > appealPartyEngine > accepts string party ids from legacy appeal modals 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealPartyEngine.test.ts > appealPartyEngine > hides party pickers for simple one-plaintiff one-defendant opponent registration 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealPartyEngine.test.ts > appealPartyEngine > shows appellant picker when multiple defendants appeal without third party 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealPartyEngine.test.ts > appealPartyEngine > shows pickers when interpleader third party exists 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealPartyEngine.test.ts > appealPartyEngine > hides interpleader from appellant list when selected as opponent 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealPartyEngine.test.ts > appealPartyEngine > uses interpleader legal side when only interpleader selected as appellant 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealPartyEngine.test.ts > appealPartyEngine > flips interpleader to ╪د┘┘à╪│╪ز╪ث┘┘ when selected as sole appellant in opponent registration 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealPartyEngine.test.ts > appealPartyEngine > flips interpleader to ╪د┘┘à╪│╪ز╪ث┘┘ ╪╣┘┘è┘ç when selected as opponent only 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealPartyEngine.test.ts > appealPartyEngine > keeps interpleader appellant when repairing legacy appeal stage parties 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/viewProps.test.ts > viewProps builders > buildSmartFileLayoutProps returns chrome, mainPanel, modalsPortal 5ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/viewProps.test.ts > viewProps builders > individual builders match combined layout 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/viewProps.test.ts > viewProps builders > appealRoute uses live stage claim when file root is empty 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/viewProps.test.ts > viewProps builders > appealRoute prefers locked first-instance stage on absent-objection dossier 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/timelineEventVisuals.test.ts > timelineEventVisuals > assigns distinct palettes per procedural event family 3ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/timelineEventVisuals.test.ts > timelineEventVisuals > does not paint every decision event gold 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/timelineEventVisuals.test.ts > timelineEventVisuals > maps event types to distinct base colors 3ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileCore.test.ts > smartFile core utilities > buildInitialParentDataFromFile maps represented party aliases 3ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileCore.test.ts > smartFile core utilities > buildInitialParentDataFromFile preserves file status for mutation guard 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileCore.test.ts > smartFile core utilities > buildCloudSavePayload mirrors active stage fields 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileCore.test.ts > smartFile core utilities > buildStepperStagesFromArray marks active and locked steps 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileCore.test.ts > smartFile core utilities > resolveSwipeViewingIndex moves within bounds 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileCore.test.ts > smartFile core utilities > patchActiveStage and parseStepperStageIndex work 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileCore.test.ts > smartFile core utilities > notification cycle and timeline soft delete 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileCore.test.ts > smartFile core utilities > judgmentDates adds calendar days from YMD input 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileCore.test.ts > smartFile core utilities > buildCaseShareReportText includes court and parties 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileCore.test.ts > smartFile core utilities > applyStageTransition completes current and appends blank child 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/stageInit.test.ts > buildInitialStagesFromFile > returns existing stages when present 4ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/stageInit.test.ts > buildInitialStagesFromFile > creates default first stage from file metadata 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/stageInit.test.ts > buildInitialStagesFromFile > uses file parties when active stage has empty parties array 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/stageInit.test.ts > resolveInitialStageIndex > uses file activeStageIndex when valid 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/stageInit.test.ts > resolveInitialStageIndex > falls back to last stage for civil when no active marker 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/stageInit.test.ts > resolveInitialStageIndex > prefers active stage from stages array when activeStageIndex missing 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/stageInit.test.ts > resolveInitialStageIndex > personal status opens core dossier when cassation is terminal only 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/stageInit.test.ts > isViewingArchivedStage > detects completed or locked stages 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/stageInit.test.ts > isViewingArchivedStage > does not archive stages awaiting opponent appeal 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/stageInit.test.ts > pleading lock UI helpers > hides lock chrome on locked prior stages 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/stageInit.test.ts > pleading lock UI helpers > shows lock chrome on active awaiting first instance 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/stageInit.test.ts > pleading lock UI helpers > shows post-judgment appeal chrome on third-party objection after pleadings close 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/petitionVoidFlow.test.ts > petitionVoidFlow > labels void action by stage 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/petitionVoidFlow.test.ts > petitionVoidFlow > filters void types from judgment picker 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/petitionVoidFlow.test.ts > petitionVoidFlow > hides menu during active void flow 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentObjectionAppealRepair.test.ts > absentObjectionAppealRepair > infers objector as loser on uphold 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentObjectionAppealRepair.test.ts > absentObjectionAppealRepair > detects corrupted flip when winner is marked ╪د┘┘à╪│╪ز╪ث┘┘ 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentObjectionAppealRepair.test.ts > absentObjectionAppealRepair > resolves correct appellant legal side as original defendant (objector) 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentObjectionAppealRepair.test.ts > absentObjectionAppealRepair > repairs appeal stage: client becomes ╪د┘┘à╪│╪ز╪ث┘┘ ╪╣┘┘è┘ç, opponent ╪د┘┘à╪│╪ز╪ث┘┘ 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentObjectionAppealRepair.test.ts > absentObjectionAppealRepair > repairs stages array on load 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentObjectionAppealRepair.test.ts > absentObjectionAppealRepair > infers objected as loser on full modify 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/absentObjectionAppealRepair.test.ts > absentObjectionAppealRepair > does not repair when flip is already correct 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/sessionRecordEngine.test.ts > sessionRecordEngine > detects session timeline events 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/sessionRecordEngine.test.ts > sessionRecordEngine > computes next session number from records and pleading appointments 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/sessionRecordEngine.test.ts > sessionRecordEngine > parses and builds session record payload with judge decisions and next date 3ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/sessionRecordEngine.test.ts > sessionRecordEngine > suggests next pleading date after current session 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/sessionRecordEngine.test.ts > sessionRecordEngine > parses and builds opponent proceedings payload 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/resolveDisplayParties.test.ts > resolveDisplayParties > prefers active stage parties 3ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/resolveDisplayParties.test.ts > resolveDisplayParties > falls back to file parties when stage is empty 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/resolveDisplayParties.test.ts > resolveDisplayParties > coerces status-only party records from new case payload 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/resolveDisplayParties.test.ts > resolveDisplayParties > recovers parties from a locked prior stage 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/resolveDisplayParties.test.ts > resolveDisplayParties > builds parties from thirdParties payload 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/resolveDisplayParties.test.ts > resolveDisplayParties > repairs unflipped interpleader on appeal stage for header display 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/interpleaderJudgmentEngine.test.ts > interpleaderJudgmentEngine > detects interpleader parties in dossier 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/interpleaderJudgmentEngine.test.ts > interpleaderJudgmentEngine > resolves lawyer bucket from client party role 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/interpleaderJudgmentEngine.test.ts > interpleaderJudgmentEngine > plaintiff full win: plaintiff waits, defendant and interpleader appeal 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/interpleaderJudgmentEngine.test.ts > interpleaderJudgmentEngine > third party full win: interpleader waits, plaintiff appeals, defendant wins 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/interpleaderJudgmentEngine.test.ts > interpleaderJudgmentEngine > third party request dismissed: interpleader may appeal 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/interpleaderJudgmentEngine.test.ts > interpleaderJudgmentEngine > both dismissed: only defendant is winner 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/interpleaderJudgmentEngine.test.ts > interpleaderJudgmentEngine > maps original claim outcome for attachment shield 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/cloudSavePayload.test.ts > buildCloudSavePayload > includes judge from active stage when parent judge is empty 4ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/cloudSavePayload.test.ts > buildCloudSavePayload > prefers active stage caseNo/court/docType over stale parent values 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/fastTrackRequestTemplates.test.ts > fastTrackRequestTemplates > normalizes and dedupes on add 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/fastTrackRequestTemplates.test.ts > fastTrackRequestTemplates > removes template by normalized text 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/fastTrackRequestTemplates.test.ts > fastTrackRequestTemplates > rejects empty templates 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/parts/civilLawTaxonomy.test.ts > civilLawTaxonomy > defines five civil procedure sections without overlapping article ownership at section level 3ms
+ ظ£ô src/app/components/lawyer/smart-modal/parts/civilLawTaxonomy.test.ts > civilLawTaxonomy > excludes repealed article 9 from its node but keeps neighbors 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/parts/civilLawTaxonomy.test.ts > civilLawTaxonomy > filters by section then branch then node without cross-branch leakage 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/parts/civilLawTaxonomy.test.ts > civilLawTaxonomy > maps evidence law into three top-level sections 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/extraordinaryAppealGateway.test.ts > extraordinaryAppealGateway > detects final dossier from status or stage decision 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/extraordinaryAppealGateway.test.ts > extraordinaryAppealGateway > resolves retrial target to appeal when present, else first instance 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/extraordinaryAppealGateway.test.ts > extraordinaryAppealGateway > resolves correction accept return to last pleading stage before correction (not cassation) 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/extraordinaryAppealGateway.test.ts > extraordinaryAppealGateway > resolves personal status retrial to ╪ث╪ص┘ê╪د┘ ╪┤╪«╪╡┘è╪ر not ╪ز┘à┘è┘è╪▓ 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/extraordinaryAppealGateway.test.ts > extraordinaryAppealGateway > consumes cassation correction within the same cassation cycle 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/extraordinaryAppealGateway.test.ts > extraordinaryAppealGateway > allows cassation correction again after new cassation cycle 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/extraordinaryAppealGateway.test.ts > extraordinaryAppealGateway > hides consumed extraordinary paths 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/extraordinaryAppealGateway.test.ts > extraordinaryAppealGateway > shows legal entry for archived final and for correction in progress 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealDeadlineEngine.test.ts > appealDeadlineEngine > computes first-instance appeal deadline 15 days after the day after judgment 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealDeadlineEngine.test.ts > appealDeadlineEngine > computes cassation deadline 30 days from judgment issuance 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealDeadlineEngine.test.ts > appealDeadlineEngine > detects expired appeal deadlines 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageJudgmentEngine.test.ts > appealStageJudgmentEngine > resolves client as appellee from appeal-integrated role 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageJudgmentEngine.test.ts > appealStageJudgmentEngine > appellee loses when appeal court quashes first-instance judgment 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageJudgmentEngine.test.ts > appealStageJudgmentEngine > cassation ratification after appeal loss is loss for appellee 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageJudgmentEngine.test.ts > appealStageJudgmentEngine > cassation ratification after appeal win is win for appellee 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageJudgmentEngine.test.ts > appealStageJudgmentEngine > reads prior appeal judgment from cassation metadata 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageJudgmentEngine.test.ts > appealStageJudgmentEngine > builds loss timeline title when appellee transitions to cassation after quash 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageJudgmentEngine.test.ts > appealStageJudgmentEngine > correction rejected is loss when cassation ratified adverse appeal judgment 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageJudgmentEngine.test.ts > appealStageJudgmentEngine > correction rejected is win when cassation ratified favorable appeal judgment 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageJudgmentEngine.test.ts > appealStageJudgmentEngine > correction accepted flips adverse cassation standing to win for client 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageJudgmentEngine.test.ts > appealStageJudgmentEngine > partial appeal quash maps cassation ratification to appellant win 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageJudgmentEngine.test.ts > appealStageJudgmentEngine > builds remand title favorable when appeal loss reversed at cassation 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/interpleaderAppealEngine.test.ts > interpleaderAppealEngine > detects answered vs dismissed third party request 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/interpleaderAppealEngine.test.ts > interpleaderAppealEngine > uses interpleader_appellant mode when client marker is on interpleader after dismissal 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/interpleaderAppealEngine.test.ts > interpleaderAppealEngine > uses against_interpleader when client marker is on main party after third party win 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/interpleaderAppealEngine.test.ts > interpleaderAppealEngine > ignores representedParty when isClient marker differs 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/interpleaderAppealEngine.test.ts > interpleaderAppealEngine > lists interpleader as opponent when plaintiff appeals third party win 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentTypes.test.ts > judgmentTypes helpers > str coerces unknown values 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentTypes.test.ts > judgmentTypes helpers > parseJudgmentDateInput accepts YMD strings 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentTypes.test.ts > judgmentTypes helpers > addDaysYmd adds calendar days 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentTypes.test.ts > judgmentTypes helpers > isSulhJudgmentType accepts current and legacy labels 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentTypes.test.ts > judgmentTypes helpers > isSubjectMatterJudgmentType covers first-instance merit outcomes 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/hooks/procedural/lawsuitCalendarContext.test.ts > buildLawsuitCalendarContext > uses the explicit calendar user id when provided 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/hooks/procedural/lawsuitCalendarContext.test.ts > buildLawsuitCalendarContext > falls back to persisted auth user id when calendar user id is missing 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseFlowAbandonment.test.ts > caseFlowAbandonment > shows first-time abandon during open pleadings 3ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseFlowAbandonment.test.ts > caseFlowAbandonment > shows second-time warning after prior abandon was resumed 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseFlowAbandonment.test.ts > caseFlowAbandonment > hides while already abandoned or pleadings closed 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/requestsHubEngine.test.ts > requestsHubEngine > builds unified requests without task urgency hints 4ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/requestsHubEngine.test.ts > requestsHubEngine > filters and computes accept/reject/pending stats 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/manualClassificationTemplates.test.ts > manualClassificationTemplates > normalizes tags with hash prefix 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/manualClassificationTemplates.test.ts > manualClassificationTemplates > dedupes on add 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/manualClassificationTemplates.test.ts > manualClassificationTemplates > removes by normalized tag 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/pleadingStageClassification.test.ts > pleadingStageClassification > classifies procedural stages as non-pleading 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/pleadingStageClassification.test.ts > pleadingStageClassification > classifies pleading stages 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/pleadingStageClassification.test.ts > pleadingStageClassification > beginning pleading excludes objection and appeal layers 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/pleadingStageClassification.test.ts > pleadingStageClassification > resolveLastPleadingStageIndex skips cassation and correction 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/pleadingStageClassification.test.ts > pleadingStageClassification > cassation remand returns to last pleading not cassation after objection path 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageFooter.test.ts > appealStageFooter > shows register opponent cassation when appeal won and waiting 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageFooter.test.ts > appealStageFooter > shows file cassation when client lost on appeal 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageFooter.test.ts > appealStageFooter > hides when cassation stage is already active 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageFooter.test.ts > appealStageFooter > prefers pleading close footer for remanded appeal stage after cassation 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageFooter.test.ts > appealStageFooter > does not prefer pleading close footer for cassation stage itself 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageFooter.test.ts > appealStageFooter > shows opponent cassation footer for remanded appeal after issuing a new judgment 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageFooter.test.ts > appealStageFooter > does not keep pleading close footer after remanded appeal judgment is already saved 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/hooks/useSmartFileModalFileSync.test.ts > resolveStableStageIndex > preserves the same stage by id when incoming indices shift 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/hooks/useSmartFileModalFileSync.test.ts > resolveStableStageIndex > falls back to previous index when stage id is missing but index is still valid 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/hooks/useSmartFileModalFileSync.test.ts > resolveStableStageIndex > falls back to supplied index when previous index is no longer valid 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/hooks/useSmartFileModalFileSync.test.ts > resolveStableStageIndex > moves viewing stage with the new active stage when user was viewing the active stage 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/hooks/useSmartFileModalFileSync.test.ts > resolveStableStageIndex > preserves archived viewing stage when active stage changes in background 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgeDecisionTemplates.test.ts > judgeDecisionTemplates > normalizes and dedupes on add 3ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgeDecisionTemplates.test.ts > judgeDecisionTemplates > removes template by normalized text 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgeDecisionTemplates.test.ts > judgeDecisionTemplates > rejects empty templates 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/timelineRequestSync.test.ts > timelineRequestSync > builds and patches fast track timeline events 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/timelineRequestSync.test.ts > timelineRequestSync > resolves linked timeline id from petition record 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/stepperPipeline.test.ts > stepperPipeline > does not show future ╪د┘╪ز┘à┘è┘è╪▓ placeholder before cassation exists 3ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/stepperPipeline.test.ts > stepperPipeline > hides future ╪د┘╪ز┘à┘è┘è╪▓ when cassation stage already exists 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/stepperPipeline.test.ts > stepperPipeline > marks active remand stage without renaming in stepper 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/buildSmartFileModalHandlers.test.ts > buildSmartFileModalHandlers > includes resume flow handlers used by NextHearingResumeModal 3ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileNestedOverlayState.test.ts > isSmartFileNestedOverlayOpen > returns false when no nested overlay is open 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileNestedOverlayState.test.ts > isSmartFileNestedOverlayOpen > detects appointment modal 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileNestedOverlayState.test.ts > isSmartFileNestedOverlayOpen > detects note modal 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileNestedOverlayState.test.ts > isSmartFileNestedOverlayOpen > detects legal actions menu 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileNestedOverlayState.test.ts > isSmartFileNestedOverlayOpen > detects extraordinary appeal string flag 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/fastTrackNormalize.test.ts > fastTrackNormalize > maps modal fields to canonical storage fields 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/fastTrackNormalize.test.ts > fastTrackNormalize > prefers canonical fields when present 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileInlineOverlayRegistry.test.ts > smartFileInlineOverlayRegistry > tracks nested inline overlays 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/smartFileInlineOverlayRegistry.test.ts > smartFileInlineOverlayRegistry > reset clears stuck overlay count 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgeDecisionComposer.test.ts > judgeDecisionComposer > formats petition and attachment lines 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/judgeDecisionComposer.test.ts > judgeDecisionComposer > appends lines without duplication 1ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/viewOnlyQuickActions.test.ts > resolveViewOnlyQuickActionIds > returns only action ids that have timeline content 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/viewOnlyQuickActions.test.ts > resolveViewOnlyQuickActionIds > ignores deleted events 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/fastTrackStatus.test.ts > fastTrackStatus > resolves stored status strings 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/fastTrackStatus.test.ts > fastTrackStatus > maps keys back to stored values 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/fastTrackStatus.test.ts > fastTrackStatus > detects decided statuses for task automation 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseFlowStatusDisplay.test.ts > caseFlowStatusDisplay > computes abandonment review deadline as 10 days after the day after event 2ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/caseFlowStatusDisplay.test.ts > caseFlowStatusDisplay > formats interruption banner with reason and party 0ms
+ ظ£ô src/app/components/lawyer/smart-modal/smartFile/__tests__/civilLawsuitTestIds.test.ts > civilLawsuitTestIds > exposes stable selectors for E2E 2ms
+node.exe : 
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ظ»ظ»ظ»ظ»ظ»ظ»ظ» Failed Tests 2 ظ»ظ»ظ»ظ»ظ»ظ»ظ»
+
+ FAIL  src/app/components/lawyer/smart-modal/layout/portal/__tests__/SmartFileModalsContentSection.test.ts > 
+resolveEditableCaseNumber > uses the injected parent number when the stage still carries the legacy placeholder
+TypeError: (0 , resolveEditableCaseNumber) is not a function
+ ظإ» src/app/components/lawyer/smart-modal/layout/portal/__tests__/SmartFileModalsContentSection.test.ts:7:16
+      5| describe('resolveEditableCaseNumber', () => {
+      6|     it('uses the injected parent number when the stage still carries tظخ
+      7|         expect(resolveEditableCaseNumber('╪ش╪»┘è╪»', '15/╪ذ/2026')).toBe('1ظخ
+       |                ^
+      8|     });
+      9| 
+
+ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»[1/2]ظ»
+
+ FAIL  src/app/components/lawyer/smart-modal/layout/portal/__tests__/SmartFileModalsContentSection.test.ts > 
+resolveEditableCaseNumber > keeps a real stage-specific number
+TypeError: (0 , resolveEditableCaseNumber) is not a function
+ ظإ» src/app/components/lawyer/smart-modal/layout/portal/__tests__/SmartFileModalsContentSection.test.ts:11:16
+      9| 
+     10|     it('keeps a real stage-specific number', () => {
+     11|         expect(resolveEditableCaseNumber('45/╪│/2026', '15/╪ذ/2026')).toظخ
+       |                ^
+     12|     });
+     13| });
+
+ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»[2/2]ظ»
+
+
+ Test Files  1 failed | 54 passed (55)
+      Tests  2 failed | 324 passed (326)
+   Start at  00:26:46
+   Duration  122.06s (transform 38.46s, setup 202.51s, collect 61.44s, tests 4.41s, environment 639.85s, prepare 60.08s)
+

@@ -1,18 +1,16 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import {
-    GLOBAL_SEARCH_RESULTS_MAX_HEIGHT,
-} from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchOverlayLayout';
 import type { GlobalSearchOverlayShellContentProps } from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchOverlayShellTypes';
 import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 import { peekGlobalSearchDraftQuery, writeGlobalSearchDraftQuery } from '@/app/runtime/globalSearchDraftQuery';
 import { clampGlobalSearchQuery } from '@/app/services/search/globalSearchQuerySecurity';
-import { readGlobalSearchRecentSearchesSync } from '@/app/services/search/readGlobalSearchRecentSearchesSync';
+import { peekGlobalSearchRecentSearches } from '@/app/services/search/globalSearchRecentsPeekLite';
 import type { WorkspacePinLookupContext } from '@/app/workspace/buildPinFromSearchEntry';
 
 const EMPTY_PIN_LOOKUP: WorkspacePinLookupContext = {
     files: [],
     executionFiles: [],
+    lawsuitFiles: [],
     notes: [],
     tasks: [],
     urgentCases: [],
@@ -24,7 +22,7 @@ const EMPTY_PIN_LOOKUP: WorkspacePinLookupContext = {
 export function useGlobalSearchBridgeShellContent(userId: string | null, open: boolean): GlobalSearchOverlayShellContentProps {
     const keyboardInset = useMobileKeyboardInset(open, true);
     const [query, setQueryState] = useState(() => clampGlobalSearchQuery(peekGlobalSearchDraftQuery()));
-    const recentSearches = useMemo(() => readGlobalSearchRecentSearchesSync(userId), [userId]);
+    const recentSearches = useMemo(() => peekGlobalSearchRecentSearches(userId), [userId]);
 
     const setQuery = useCallback((value: string) => {
         const next = clampGlobalSearchQuery(value);
@@ -36,7 +34,6 @@ export function useGlobalSearchBridgeShellContent(userId: string | null, open: b
         () => ({
             onKeyDownCapture: () => undefined,
             keyboardInset,
-            resultsMaxHeight: GLOBAL_SEARCH_RESULTS_MAX_HEIGHT,
             query,
             setQuery,
             showEmptyState: true,
@@ -44,8 +41,7 @@ export function useGlobalSearchBridgeShellContent(userId: string | null, open: b
             isEnrichingIndex: false,
             recentSearches,
             clearRecent: () => undefined,
-            isSearching: false,
-            isLoadingIndex: false,
+            searchUiState: 'idle' as const,
             results: null,
             flatResults: [],
             pick: () => undefined,

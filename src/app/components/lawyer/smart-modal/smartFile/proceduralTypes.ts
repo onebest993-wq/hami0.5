@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { formatDateToLocalYmd } from '@/app/utils/executionStateMachine';
+import { formatDateToLocalYmd } from '@/app/utils/localYmd';
 import type {
     CaseStage,
     IncidentalCase,
@@ -9,7 +9,7 @@ import type {
 import type { SmartFileParentData } from './parentDataInit';
 import type { SmartFileAttachment } from './judgmentTypes';
 
-export type SaveToCloudFn = (
+type SaveToCloudFn = (
     updatedStages: CaseStage[],
     updatedParent?: SmartFileParentData,
     activeStageIndex?: number,

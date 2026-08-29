@@ -63,6 +63,7 @@ function defaultBody(apiPath, method) {
   if (apiPath.includes('/admin/')) return { targetUserId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' };
   if (apiPath.includes('/settings/wipe')) return { confirmation: 'WRONG', version: 1 };
   if (apiPath.includes('/account/delete')) return { confirmation: 'WRONG', version: 1 };
+  if (apiPath.includes('/work-checkpoints')) return { encrypted_data: 'x', data_signature: 'y' };
   if (apiPath.includes('/auth/')) return {};
   return { probe: true };
 }

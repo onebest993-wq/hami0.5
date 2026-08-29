@@ -3,8 +3,17 @@
  * يوحّد الجلسات والمعاملات والمهام، ويستبعد المكتمل، ويستخدم المحكمة كاحتياطي موقع.
  */
 import { resolveExplicitCalendarEventDurationMinutes } from '@/app/services/calendar/calendarDurationUtils';
+import {
+    mapCalendarModuleToScheduleSource,
+    resolveScheduleItemDurationMinutes,
+    type ScheduleItemSource,
+} from '@/app/services/calendar/scheduleItemSource';
 
-export type ScheduleItemSource = 'HEARING' | 'TRANSACTION' | 'TASK';
+export {
+    mapCalendarModuleToScheduleSource,
+    resolveScheduleItemDurationMinutes,
+    type ScheduleItemSource,
+};
 
 export type UnifiedScheduleItem = {
     id: string;
@@ -71,20 +80,6 @@ export type CrossSectionConflictResult = {
 
 const OVERLOAD_THRESHOLD = 3;
 const TRAVEL_GAP_MINUTES = 60;
-const DEFAULT_DURATION_MINUTES: Record<ScheduleItemSource, number> = {
-    HEARING: 60,
-    TRANSACTION: 45,
-    TASK: 30,
-};
-
-export function resolveScheduleItemDurationMinutes(
-    source: ScheduleItemSource,
-    explicitMinutes?: number | null,
-): number {
-    const raw = Number(explicitMinutes);
-    if (Number.isFinite(raw) && raw > 0) return Math.round(raw);
-    return DEFAULT_DURATION_MINUTES[source];
-}
 
 const EMPTY_SOURCE_COUNTS = (): SourceCounts => ({
     HEARING: 0,
@@ -293,25 +288,6 @@ export function detectCrossSectionConflicts(
     };
 }
 
-/** خريطة مصدر الجسر → تصنيف الكاشف */
-export function mapCalendarModuleToScheduleSource(
-    sourceModule: string | null | undefined,
-    fallbackSource?: string | null,
-    eventType?: string | null,
-): ScheduleItemSource {
-    const mod = String(sourceModule ?? '').trim().toLowerCase();
-    if (mod === 'transaction' || mod === 'threading') return 'TRANSACTION';
-    if (mod === 'task' || mod === 'note') return 'TASK';
-    if (mod === 'lawsuit' || mod === 'execution' || mod === 'criminal' || mod === 'urgent') {
-        return 'HEARING';
-    }
-    const fb = String(fallbackSource ?? '').trim().toLowerCase();
-    if (fb === 'hearing' || fb === 'deadline') return 'HEARING';
-    const typ = String(eventType ?? '').trim().toLowerCase();
-    if (typ === 'consultation' || typ === 'deadline') return 'TASK';
-    if (typ === 'execution') return 'HEARING';
-    return 'HEARING';
-}
 
 export type CalendarLikeEvent = {
     id: string;

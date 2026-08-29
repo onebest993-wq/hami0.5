@@ -1,12 +1,14 @@
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { useSheetSwipeDismiss } from '@/app/hooks/useSheetSwipeDismiss';
 
-export type HomeHubOverlaySheetHandleProps = {
+type HomeHubOverlaySheetHandleProps = {
     enabled: boolean;
     onClose: () => void;
 };
 
 export function HomeHubOverlaySheetHandle({ enabled, onClose }: HomeHubOverlaySheetHandleProps) {
-    const swipe = useSheetSwipeDismiss(onClose, { enabled });
+    const reduceMotion = useReduceMotion();
+    const swipe = useSheetSwipeDismiss(onClose, { enabled: enabled && !reduceMotion });
 
     return (
         <div

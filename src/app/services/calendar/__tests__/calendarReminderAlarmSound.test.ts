@@ -53,6 +53,18 @@ describe('calendarReminderAlarmSound', () => {
             'AudioContext',
             vi.fn(() => ctx),
         );
+        vi.stubGlobal('Audio', class {
+            loop = false;
+            volume = 1;
+            preload = '';
+            muted = false;
+            currentTime = 0;
+            src = '';
+            play = vi.fn(async () => {
+                throw new Error('wav unavailable in synth path');
+            });
+            pause = vi.fn();
+        });
         vi.stubGlobal('navigator', {
             vibrate: vi.fn(),
         });
@@ -65,6 +77,25 @@ describe('calendarReminderAlarmSound', () => {
 
     it('يشغّل النغمة القانونية ويعيد دالة إيقاف', async () => {
         const stop = await playHamiLegalReminderAlarm({ repeats: 1 });
+        expect(typeof stop).toBe('function');
+        stop();
+        stopHamiLegalReminderAlarm();
+    });
+
+    it('يشغّل ملف WAV الحقيقي عند نجاح Audio.play', async () => {
+        class FakeAudio {
+            loop = false;
+            volume = 1;
+            preload = '';
+            src = '';
+            constructor(src: string) {
+                this.src = src;
+            }
+            play = vi.fn(async () => undefined);
+            pause = vi.fn();
+        }
+        vi.stubGlobal('Audio', FakeAudio);
+        const stop = await playHamiLegalReminderAlarm({ loop: true });
         expect(typeof stop).toBe('function');
         stop();
         stopHamiLegalReminderAlarm();

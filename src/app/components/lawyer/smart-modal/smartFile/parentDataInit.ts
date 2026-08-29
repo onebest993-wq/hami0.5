@@ -1,4 +1,4 @@
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import { readCaseLinks } from './caseLinking';
 
 import type { CaseLinkRecord, ConsolidationSecondaryRef } from '../../LawyerShared';

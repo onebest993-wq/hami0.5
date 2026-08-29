@@ -4,13 +4,14 @@
 
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AnimatePresence, motion } from 'motion/react';
-import { UserCheck, X } from '@/app/components/ui/lucideIcons';
+import { AnimatePresence, motion } from '@/app/motion/overlayMotionRuntime';
+import { UserCheck } from '@/app/components/ui/icons/UserCheck';
+import { X } from '@/app/components/ui/icons/X';
 import type { JudicialCustodianSavePayload } from '@/app/utils/executorApprovalWorkflow';
 import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,
-} from '@/app/components/lawyer/execution/executionModalStack';
+} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 import { formatNumberInput, formatStoredAmountForInput } from '@/app/utils/execution/amountInput';
 
 export interface ExecutorJudicialCustodianModalProps {
@@ -72,7 +73,7 @@ export const ExecutorJudicialCustodianModal: React.FC<ExecutorJudicialCustodianM
                     initial={{ opacity: 0, y: 10, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.98 }}
-                    className="w-full max-w-[480px] rounded-3xl border-2 border-emerald-500/30 bg-[#0B1120] shadow-2xl shadow-black/60"
+                    className="w-full max-w-[480px] rounded-3xl border-2 border-emerald-500/30 bg-[#0B1120] shadow-lg shadow-black/60"
                     onClick={(e) => e.stopPropagation()}
                     role="dialog"
                     aria-label="بيانات الحارس القاضي"

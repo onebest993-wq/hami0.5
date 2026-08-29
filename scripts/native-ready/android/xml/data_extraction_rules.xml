@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    منع استخراج بيانات التطبيق — أندرويد ١٢ فما فوق (API 31+).
+
+    `allowBackup="false"` وحده يمنع النسخ السحابي و`adb backup`، لكنه لا يمنع
+    «النقل بين جهازين» (D2D) في أندرويد ١٢: بلا هذا الملف تُنقل كل بيانات التطبيق
+    تلقائياً إلى الجهاز الجديد. المخزون هنا إضابير موكّلين وقرارات ومرافعات تحت
+    سرّية المهنة، فالنقل الصامت غير مقبول.
+
+    `path="."` يعني الدليل وكل ما تحته تعاودياً.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+    </device-transfer>
+</data-extraction-rules>

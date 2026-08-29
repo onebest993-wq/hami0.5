@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check } from '@/app/components/ui/lucideIcons';
+import { Check } from '@/app/components/ui/icons/Check';
 import { HamiDateInput } from '@/app/components/ui/HamiDateInput';
 import { formatNumberInput } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
 import { NC_FIELD, NC_LABEL, NC_SECTION, NC_SECTION_TITLE, ncFieldClass } from '../newCaseGlassTheme';
@@ -8,6 +8,7 @@ import {
     getUnderlyingStageFieldLabel,
     getUnderlyingStageOptions,
     isExtraordinaryProcedureStage,
+    isFixedFeeType,
 } from '../validation';
 
 const VALUE_MODE_OPTIONS = [
@@ -40,7 +41,7 @@ export interface CaseBasicsFormProps {
     }>>;
     errorMap: Record<string, string>;
     caseNumberError: string | null;
-    labels: { courtPlaceholder: string; typePlaceholder: string };
+    labels: { p1Main: string; p2Main: string; courtPlaceholder: string; typePlaceholder: string };
     stageOptions: string[];
     isUndeterminedValue: boolean;
     setIsUndeterminedValue: React.Dispatch<React.SetStateAction<boolean>>;
@@ -60,16 +61,19 @@ export interface CaseBasicsFormProps {
 export const CaseBasicsForm = ({
     caseDetails, setCaseDetails,
     errorMap, caseNumberError,
+    labels,
     stageOptions,
     isUndeterminedValue, setIsUndeterminedValue,
     isFixedFee, setIsFixedFee,
+    valuePlaceholder,
     exceptionWarning,
     courtRef, typeRef, stageRef, numberRef, retrialTargetRef,
     lockParentFields = false,
 }: CaseBasicsFormProps) => {
     const isExtraordinary = isExtraordinaryProcedureStage(caseDetails.stage);
     const underlyingStageOptions = getUnderlyingStageOptions(caseDetails.stage);
-    const valueLocked = isUndeterminedValue || isFixedFee;
+    const valueLocked =
+        isUndeterminedValue || isFixedFee || isFixedFeeType(caseDetails.type);
 
     const numberHasError = Boolean(errorMap['number'] || caseNumberError);
 
@@ -94,7 +98,7 @@ export const CaseBasicsForm = ({
                     <label className={NC_LABEL}>رقم الدعوى</label>
                     <div className="relative group">
                         <input
-                            ref={numberRef}
+                            ref={numberRef as React.RefObject<HTMLInputElement>}
                             type="text"
                             inputMode="text"
                             autoComplete="off"
@@ -111,11 +115,12 @@ export const CaseBasicsForm = ({
                 <div>
                     <label className={NC_LABEL}>اسم المحكمة المختصة</label>
                     <input
-                        ref={courtRef}
+                        ref={courtRef as React.RefObject<HTMLInputElement>}
                         type="text"
                         value={caseDetails.court}
                         readOnly={lockParentFields}
                         onChange={(e) => setCaseDetails({ ...caseDetails, court: e.target.value })}
+                        placeholder={labels.courtPlaceholder}
                         className={`${ncFieldClass(Boolean(errorMap['court']))} ${lockParentFields ? 'opacity-80 cursor-default' : ''}`}
                     />
                     {errorMap['court'] && <p className="text-yellow-600/90 text-[10px] mt-1 font-medium">{errorMap['court']}</p>}
@@ -125,11 +130,12 @@ export const CaseBasicsForm = ({
                     <div>
                         <label className={NC_LABEL}>نوع الدعوى</label>
                         <input
-                            ref={typeRef}
+                            ref={typeRef as React.RefObject<HTMLInputElement>}
                             type="text"
                             value={caseDetails.type}
                             readOnly={lockParentFields}
                             onChange={(e) => setCaseDetails({ ...caseDetails, type: e.target.value })}
+                            placeholder={labels.typePlaceholder}
                             className={`${ncFieldClass(Boolean(errorMap['type']))} ${lockParentFields ? 'opacity-80 cursor-default' : ''}`}
                         />
                         {errorMap['type'] && <p className="text-yellow-600/90 text-[10px] mt-1 font-medium">{errorMap['type']}</p>}
@@ -138,7 +144,7 @@ export const CaseBasicsForm = ({
                     <div>
                         <label className={NC_LABEL}>المرحلة الحالية</label>
                         <CaseFieldSelect
-                            ref={stageRef}
+                            ref={stageRef as React.RefObject<HTMLButtonElement>}
                             value={caseDetails.stage}
                             onChange={(stage) => setCaseDetails({ ...caseDetails, stage })}
                             options={stageOptions}
@@ -180,7 +186,7 @@ export const CaseBasicsForm = ({
                                     {getUnderlyingStageFieldLabel(caseDetails.stage)}
                                 </label>
                                 <CaseFieldSelect
-                                    ref={retrialTargetRef}
+                                    ref={retrialTargetRef as React.RefObject<HTMLButtonElement> | undefined}
                                     value={caseDetails.retrialTargetStage ?? ''}
                                     onChange={(retrialTargetStage) =>
                                         setCaseDetails({ ...caseDetails, retrialTargetStage })
@@ -207,7 +213,7 @@ export const CaseBasicsForm = ({
                                     disabled={valueLocked}
                                     onChange={(e) => setCaseDetails({ ...caseDetails, claimValue: formatNumberInput(e.target.value) })}
                                     className={`${ncFieldClass(Boolean(errorMap['claimValue']) || Boolean(exceptionWarning))} disabled:opacity-50 text-left`}
-                                    placeholder={valueLocked ? '----' : undefined}
+                                    placeholder={valueLocked ? '----' : valuePlaceholder}
                                 />
                                 <div className="mt-2 flex flex-col gap-1.5">
                                     {VALUE_MODE_OPTIONS.map(({ id, label }) => {
@@ -221,7 +227,7 @@ export const CaseBasicsForm = ({
                                                 onClick={() => toggleValueMode(id)}
                                                 className={`flex items-center gap-2 w-full rounded-lg border px-2.5 py-1.5 text-[10px] font-medium text-right transition-all duration-200 ${
                                                     active
-                                                        ? 'border-[#E6C673]/45 bg-[#E6C673]/10 text-[#E6C673] shadow-[0_0_12px_rgba(230,198,115,0.08)]'
+                                                        ? 'border-[#E6C673]/45 bg-[#E6C673]/10 text-[#E6C673]'
                                                         : 'border-white/[0.08] bg-white/[0.03] text-white/45 hover:border-white/15 hover:bg-white/[0.05] hover:text-white/65'
                                                 }`}
                                             >

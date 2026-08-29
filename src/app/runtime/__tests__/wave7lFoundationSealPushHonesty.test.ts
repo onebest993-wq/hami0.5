@@ -5,11 +5,17 @@ import path from 'node:path';
 const root = process.cwd();
 
 describe('wave7l foundation seal push honesty', () => {
-    it('CalendarClusterLite لا يُجبَر داخل cluster-deferred', () => {
+    it('CalendarClusterLite في مقطع scan-lite لا داخل execution-handler', () => {
         const vite = fs.readFileSync(path.join(root, 'vite.config.mts'), 'utf8');
-        expect(vite).toContain('CalendarClusterLite');
-        expect(vite).toContain("!normalized.includes('CalendarClusterLite')");
-        expect(vite).toContain('app-workspace-scan-lite');
+        expect(vite).toContain('useLawyerDashboardCalendarClusterLite');
+        expect(vite).toContain('clusterScanSourcesLite');
+        expect(vite).toContain("return 'app-workspace-scan-lite'");
+        expect(vite).toContain('resolveWorkspaceScanLiteChunk');
+        const handlerStart = vite.indexOf('function resolveExecutionHandlerClusterChunk');
+        const handlerEnd = vite.indexOf('\nfunction ', handlerStart + 10);
+        expect(handlerStart).toBeGreaterThan(-1);
+        expect(handlerEnd).toBeGreaterThan(handlerStart);
+        expect(vite.slice(handlerStart, handlerEnd)).not.toContain('CalendarClusterLite');
     });
 
     it('notification background sync ديناميكي من stem hook', () => {
@@ -34,13 +40,19 @@ describe('wave7l foundation seal push honesty', () => {
         expect(t).toContain("from '@/app/workspace/clusterScanSources.types'");
     });
 
-    it('MainView يعيد LazyLawyerDashboardHomeTab', () => {
+    it('MainView يبقي غلاف HomeTab متزامناً؛ المحتوى خارج الغلاف', () => {
         const t = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
             'utf8',
         );
-        expect(t).toContain('LazyLawyerDashboardHomeTab');
-        expect(t).not.toMatch(/import \{ LawyerDashboardHomeTab \} from/);
+        const wrap = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardHomeTab.tsx'),
+            'utf8',
+        );
+        expect(t).toMatch(/import \{ LawyerDashboardHomeTab \} from/);
+        expect(t).not.toContain('LazyLawyerDashboardHomeTab');
+        expect(wrap).toContain('loadHomeTabContent');
+        expect(wrap).not.toMatch(/from ['"]\.\/HomeTabContent['"]/);
     });
 
     it('navigation يقطع lazyComponentsIntent عن stem', () => {

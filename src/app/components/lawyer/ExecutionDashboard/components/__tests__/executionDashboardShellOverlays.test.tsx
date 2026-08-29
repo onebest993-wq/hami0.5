@@ -101,6 +101,20 @@ describe('ExecutionDashboardShellOverlays', () => {
         expect(screen.queryByText('edit overlays mounted')).toBeNull();
     });
 
+    it('does not mount the shell overlay barrel for followup-only', () => {
+        render(
+            <ExecutionDashboardShellOverlays
+                scope={{}}
+                showUnifiedExecutionModal
+                followupSnapshot={{}}
+            />,
+        );
+
+        expect(screen.queryByText('edit overlays mounted')).toBeNull();
+        expect(screen.queryByText('followup host mounted')).toBeNull();
+        expect(screen.queryByText('notes overlays mounted')).toBeNull();
+    });
+
     it('keeps store-backed modal fallbacks active even when stale scope flags are false', () => {
         useExecutionDashboardStore.getState().openModal('showNotesModal');
 

@@ -3,7 +3,7 @@ import { isExtraordinaryProcedureStage, isFixedFeeType } from '@/app/components/
 /** حد القيمة التقديرية — ما دونها أو يساويها: تمييز فقط (بدون استئناف) */
 export const APPELLATE_CLAIM_THRESHOLD_IQD = 1_000_000;
 
-export type AppealRouteStageRef = {
+type AppealRouteStageRef = {
     id?: string | number | null;
     stageName?: string | null;
     name?: string | null;
@@ -56,7 +56,7 @@ function stageLabelOf(stage?: AppealRouteStageRef | null): string {
 }
 
 /** بداءة فعلية — تستثني الطعن الاستثنائي والاستئناف والتمييز */
-export function isAppealRouteFirstInstanceStage(stageName?: string | null): boolean {
+function isAppealRouteFirstInstanceStage(stageName?: string | null): boolean {
     const label = String(stageName ?? '').trim();
     if (!label) return false;
     if (isExtraordinaryProcedureStage(label)) return false;

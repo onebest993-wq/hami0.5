@@ -52,6 +52,26 @@ describe('Imprisonment Eligibility Engine', () => {
             expect(result.blockingReasons).toContain('❌ المدين متجاوز الـ60 عاماً - محمي من الحبس بالقانون');
         });
         
+        test('Should block imprisonment when age is missing or zero', () => {
+            const missing = calculateImprisonmentEligibility({
+                debtorAge: '',
+                debtorProfession: 'كاسب',
+                debtorKinship: '',
+                claimType: 'استحصال دين مالي',
+                debtAmount: 1000000
+            });
+            const zero = calculateImprisonmentEligibility({
+                debtorAge: 0,
+                debtorProfession: 'كاسب',
+                debtorKinship: '',
+                claimType: 'استحصال دين مالي',
+                debtAmount: 1000000
+            });
+            expect(missing.canRequestImprisonment).toBe(false);
+            expect(zero.canRequestImprisonment).toBe(false);
+            expect(missing.blockingReasons[0]).toContain('عمر المدين');
+        });
+
         test('Should allow imprisonment at age boundaries (18 and 60)', () => {
             const result18 = calculateImprisonmentEligibility({
                 debtorAge: 18,

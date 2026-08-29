@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { applyShareAccessPolicy, canFetchShareDetail, toShareListSummary } from '../caseShareAccessControl';
+import {
+    applyShareAccessPolicy,
+    canFetchShareDetail,
+    toShareListSummary,
+} from '../caseShareAccessControl';
 import type { CaseShareRecord } from '../caseShareTypes';
 import { fieldsWith, PERSONAS, richLawsuitSource } from './caseShareTestFixtures';
 import { buildMaskedView } from '../caseShareMasking';
@@ -55,5 +59,28 @@ describe('caseShareAccessControl', () => {
         const share = buildPendingShare();
         expect(canFetchShareDetail(share, PERSONAS.recipient.id)).toBe(false);
         expect(canFetchShareDetail(share, PERSONAS.sender.id)).toBe(true);
+    });
+
+    it('يسحب المحتوى الحساس من المستقبل بعد إنهاء الجلسة', () => {
+        const share = buildPendingShare();
+        const accepted = {
+            ...share,
+            status: 'accepted' as const,
+            sessionStartedAt: new Date(Date.now() - 3_600_000).toISOString(),
+            sessionDurationMinutes: 60,
+        };
+        const ended = {
+            ...accepted,
+            status: 'ended' as const,
+            sessionEndedAt: new Date().toISOString(),
+        };
+
+        const sanitized = applyShareAccessPolicy(ended, PERSONAS.recipient.id);
+        expect(sanitized.maskedView.parties).toEqual([]);
+        expect(sanitized.maskedView.caseNumbers).toEqual([]);
+        expect(sanitized.maskedView.visibleCatalog).toEqual([]);
+        expect(sanitized.dossierId).toBe('');
+        expect(canFetchShareDetail(ended, PERSONAS.recipient.id)).toBe(false);
+        expect(canFetchShareDetail(ended, PERSONAS.sender.id)).toBe(true);
     });
 });

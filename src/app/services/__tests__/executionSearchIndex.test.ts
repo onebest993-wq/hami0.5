@@ -43,7 +43,9 @@ describe('buildExecutionDeepSearchEntries', () => {
         }));
 
         expect(readExecutionDossierBlobScanningScopes).toHaveBeenCalledWith('ex-9');
-        expect(entries.some((e) => e.title === 'إنذار')).toBe(true);
+        expect(entries).toHaveLength(1);
+        expect(entries[0]?._searchStr).toContain('انذار');
+        expect(entries[0]?.navigate).toEqual({ type: 'file', fileId: 'ex-9' });
     });
 
     it('does not index dossier deep entries when scoped blob reader returns null', () => {

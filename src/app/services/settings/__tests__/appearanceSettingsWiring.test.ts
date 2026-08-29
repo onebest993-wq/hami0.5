@@ -21,5 +21,7 @@ describe('shapeKeyToHomeBlockShape', () => {
         expect(shapeKeyToHomeBlockShape('square')).toBe('sharp');
         expect(resolveHomeBlockClassNames(undefined, 'pill')).toContain('rounded-[2rem]');
         expect(resolveHomeBlockClassNames(undefined, 'square')).toContain('rounded-xl');
+        expect(resolveHomeBlockClassNames(undefined)).toContain('hami-home-block-solid');
+        expect(resolveHomeBlockClassNames(undefined)).not.toContain('hami-sovereign-glass');
     });
 });

@@ -221,15 +221,7 @@ export function classifySecretaryAlertsByHorizon(
 
 
         if (hoursLeft === null) {
-
-            if (alert.type === 'REQUEST' && alert.target === 'client_requests') {
-
-                urgent.push(alert);
-
-            }
-
             continue;
-
         }
 
 

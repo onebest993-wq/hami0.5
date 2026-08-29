@@ -1,6 +1,9 @@
 import React from 'react';
-import { motion } from 'motion/react';
-import { Calendar, Clock, Scale, Users } from '@/app/components/ui/lucideIcons';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { Calendar } from '@/app/components/ui/icons/Calendar';
+import { Clock } from '@/app/components/ui/icons/Clock';
+import { Scale } from '@/app/components/ui/icons/Scale';
+import { Users } from '@/app/components/ui/icons/Users';
 
 export interface AlimonyFinancialBreakdown {
     baseAccumulation: number;

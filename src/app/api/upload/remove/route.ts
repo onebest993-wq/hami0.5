@@ -1,6 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
-import { readSupabasePrivilegedKey } from '../../security/supabasePrivilegedEnv.ts';
-import { requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
+import { getSupabaseAdminClient } from '../../security/supabaseAdminClient.ts';
+import { requireWifeCloudWrite, unwrapWifeUser } from '../../security/bffAuth.ts';
 import { isStoragePathOwnedByUser, resolveUploadBucket } from '../uploadStorageUtils.ts';
 
 export const runtime = 'nodejs';
@@ -12,15 +11,6 @@ function json(status: number, payload: Record<string, unknown>): Response {
     status,
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
   });
-}
-
-function getSupabaseAdminClient() {
-  const supabaseUrl = (process.env.SUPABASE_URL ?? '').trim();
-  const serviceRoleKey = readSupabasePrivilegedKey();
-  if (!supabaseUrl || !serviceRoleKey) {
-    return null;
-  }
-  return createClient(supabaseUrl, serviceRoleKey);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -45,7 +35,7 @@ function normalizePaths(raw: unknown): string[] {
  */
 export async function POST(request: Request): Promise<Response> {
   try {
-    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    const authGate = unwrapWifeUser(await requireWifeCloudWrite(request));
     if ('response' in authGate) return authGate.response;
     const { userId } = authGate;
 

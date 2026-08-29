@@ -27,6 +27,5 @@ export type UseSmartFileJudgmentActionsOptions = {
     setShowObjectionRegistrationModal: (v: boolean) => void;
     setShowJudgmentModal: (v: boolean) => void;
     setShowCrossAppealModal: (v: boolean) => void;
-    setShowTransitionModal: (v: boolean) => void;
     status: string;
 };

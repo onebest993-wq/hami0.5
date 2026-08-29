@@ -1,9 +1,10 @@
 import React from 'react';
-import { XCircle } from '@/app/components/ui/lucideIcons';
+import { XCircle } from '@/app/components/ui/icons/XCircle';
 import type { ExecutionFile } from '@/app/types/execution';
 import { DossierSwitcher } from './DossierSwitcher';
 import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 import { formatUnifiedChildDossierTabLabel } from '../helpers/formatUnifiedChildDossierTabLabel';
+import { EXEC_MODAL_TOUCH_TARGET } from '../executionModalMobileShell';
 
 export type ExecutionDashboardPhoneBodyDossierChromeProps = {
     stayOfExecutionActive: boolean;
@@ -48,13 +49,13 @@ export function ExecutionDashboardPhoneBodyDossierChrome({
 
             {hasChildDossiers && !isInabaActive ? (
                 <div className="mx-3 mt-2" dir="rtl">
-                    <div className="flex items-center gap-1 overflow-x-auto rounded-xl border border-white/10 bg-hami-navy/40 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                    <div className="flex items-center gap-1 overflow-x-auto rounded-xl border border-white/10 bg-hami-navy/40 p-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                         <button
                             type="button"
                             onClick={() => setActiveTabId(String(currentFileId || ''))}
-                            className={`shrink-0 inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-[10px] font-bold transition-all ${
+                            className={`shrink-0 inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-[10px] font-bold transition-all ${EXEC_MODAL_TOUCH_TARGET} ${
                                 String(activeTabId) === String(currentFileId)
-                                    ? 'bg-amber-500/20 text-amber-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+                                    ? 'bg-amber-500/20 text-amber-200'
                                     : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
                             }`}
                             aria-label="الإضبارة الأصلية"
@@ -78,9 +79,9 @@ export function ExecutionDashboardPhoneBodyDossierChrome({
                                 <button
                                     type="button"
                                     onClick={() => setActiveTabId(String(child.id))}
-                                    className={`inline-flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold transition-all ${
+                                    className={`inline-flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold transition-all ${EXEC_MODAL_TOUCH_TARGET} ${
                                         String(activeTabId) === String(child.id)
-                                            ? 'bg-indigo-500/20 text-indigo-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+                                            ? 'bg-indigo-500/20 text-indigo-200'
                                             : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
                                     }`}
                                     aria-label={`إضبارة موحّدة: ${childLabel}`}

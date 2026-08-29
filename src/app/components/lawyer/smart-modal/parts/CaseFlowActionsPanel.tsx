@@ -1,6 +1,12 @@
 import React, { useEffect, useState, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, AlertOctagon, Archive, Ban, Clock, X, type LucideIcon } from '@/app/components/ui/lucideIcons';
+import { FolderOpen } from '@/app/components/ui/icons/FolderOpen';
+import { GitBranch } from '@/app/components/ui/icons/GitBranch';
+import { Hourglass } from '@/app/components/ui/icons/Hourglass';
+import { PauseCircle } from '@/app/components/ui/icons/PauseCircle';
+import { ShieldOff } from '@/app/components/ui/icons/ShieldOff';
+import { X } from '@/app/components/ui/icons/X';
+import type { LucideIcon } from '@/app/components/ui/lucideIcons';
 import { resolveAbandonmentFlowAction } from '../smartFile/caseFlowAbandonment';
 import {
     resolvePetitionVoidMenuLabel,
@@ -8,13 +14,16 @@ import {
 } from '../smartFile/petitionVoidFlow';
 import type { CaseStage } from '../../LawyerShared';
 import { personalPearlModalTheme, PS_DOCK_BTN_ROSE, PS_RAIL_CELL_FLOW, PS_RIBBON_BTN } from '@/app/components/lawyer/personal-status/personalStatusPearlTheme';
+import { CaseFlowConfirmDialog } from './CaseFlowConfirmDialog';
 import { PersonalStatusFlowConfirmDialog } from '@/app/components/lawyer/personal-status/PersonalStatusFlowConfirmDialog';
 import { useSmartFileModalTheme } from '../smartFile/smartFileModalTheme';
 import {
     SMART_FILE_FLOW_PANEL_BACKDROP_CLASS,
+    SMART_FILE_FLOW_PANEL_HOST_CLASS,
     SMART_FILE_FLOW_PANEL_SHELL_CLASS,
 } from '../smartFile/smartFileOverlayZ';
 import { registerSmartFileInlineOverlay } from '../smartFile/smartFileInlineOverlayRegistry';
+import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 
 type FlowConfirmState = {
     title: string;
@@ -93,12 +102,17 @@ export const CaseFlowActionsPanel = memo(({
     const pearlFlow = personalPearlModalTheme();
     const isDock = variant === 'dock';
     const isRail = variant === 'rail';
-    const dockBtnClass = compactDock ? PS_RIBBON_BTN : PS_DOCK_BTN_ROSE;
+    const civilCompactDock =
+        'min-h-[44px] min-w-[44px] h-11 w-11 rounded-lg flex items-center justify-center border border-white/[0.12] bg-white/[0.04] text-[#E6C673] hover:bg-white/[0.08] hover:border-[#E6C673]/30 active:scale-95 touch-manipulation';
+    const dockBtnClass = compactDock
+        ? T.variant === 'personal-pearl'
+            ? PS_RIBBON_BTN
+            : civilCompactDock
+        : PS_DOCK_BTN_ROSE;
     const usePearlFlowChrome = isRail || (isDock && T.variant === 'personal-pearl');
-    const needsPearlConfirm = usePearlFlowChrome || T.variant === 'personal-pearl';
     const closeAnd = (fn: () => void, confirm?: Omit<FlowConfirmState, 'onConfirm'>) => () => {
         setIsOpen(false);
-        if (needsPearlConfirm && confirm) {
+        if (confirm) {
             setPendingConfirm({ ...confirm, onConfirm: fn });
             return;
         }
@@ -111,8 +125,8 @@ export const CaseFlowActionsPanel = memo(({
         actions.push({
             key: 'interrupt',
             label: isInterrupted ? 'استئناف السير' : 'انقطاع السير في الدعوى',
-            icon: AlertOctagon,
-            iconClass: 'text-red-400/90',
+            icon: PauseCircle,
+            iconClass: 'text-[#FFD4DC]/90',
             onClick: isInterrupted
                 ? closeAnd(onInterrupt)
                 : closeAnd(onInterrupt, {
@@ -128,8 +142,8 @@ export const CaseFlowActionsPanel = memo(({
         actions.push({
             key: 'pause',
             label: isPaused ? 'استئناف السير' : 'استئخار الدعوى',
-            icon: Clock,
-            iconClass: 'text-amber-400/90',
+            icon: Hourglass,
+            iconClass: 'text-[#E8DFD0]/90',
             onClick: closeAnd(
                 () => {
                     if (isPaused && onResume) onResume();
@@ -157,8 +171,8 @@ export const CaseFlowActionsPanel = memo(({
         actions.push({
             key: 'abandon',
             label: abandonFlow.label,
-            icon: Archive,
-            iconClass: abandonFlow.isSecondAttempt ? 'text-rose-400/90' : 'text-slate-300/90',
+            icon: FolderOpen,
+            iconClass: abandonFlow.isSecondAttempt ? 'text-rose-300/90' : 'text-[#9894A0]',
             onClick: closeAnd(onAbandon, {
                 title: abandonFlow.isSecondAttempt ? 'إبطال العريضة' : 'ترك الدعوى للمراجعة',
                 message: abandonFlow.isSecondAttempt
@@ -174,8 +188,8 @@ export const CaseFlowActionsPanel = memo(({
         actions.push({
             key: 'petition_void',
             label: resolvePetitionVoidMenuLabel(flowStage?.stageName),
-            icon: Ban,
-            iconClass: 'text-rose-400/90',
+            icon: ShieldOff,
+            iconClass: 'text-rose-300/90',
             onClick: closeAnd(onPetitionVoid, {
                 title: resolvePetitionVoidMenuLabel(flowStage?.stageName),
                 message: 'هل تريد تسجيل إبطال العريضة؟ هذا الإجراء له آثار قانونية على سير الدعوى.',
@@ -207,26 +221,51 @@ export const CaseFlowActionsPanel = memo(({
     const panelBackdrop = usePearlFlowChrome ? pearlFlow.flowBackdrop : SMART_FILE_FLOW_PANEL_BACKDROP_CLASS;
     const panelShell = usePearlFlowChrome ? pearlFlow.flowPanel : SMART_FILE_FLOW_PANEL_SHELL_CLASS;
     const panelHeader = usePearlFlowChrome
-        ? pearlFlow.header
-        : 'relative px-4 py-3.5 border-b border-white/[0.08] bg-gradient-to-l from-[#E6C673]/10 via-transparent to-transparent';
+        ? pearlFlow.flowHeader
+        : 'flex h-11 items-center justify-between gap-2 px-2.5 border-b border-white/[0.08] bg-[#0A0F1C]';
+    const panelCloseClass = usePearlFlowChrome
+        ? pearlFlow.flowClose
+        : 'inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg bg-white/[0.06] border border-white/[0.08] text-white/50 hover:text-white hover:bg-white/10 touch-manipulation shrink-0';
+
+    const toggleOpen = (event: React.MouseEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setIsOpen((value) => !value);
+    };
 
     const panel = isOpen && (
-        <>
-            <div className={panelBackdrop} onClick={() => setIsOpen(false)} />
-            <div className={panelShell} dir="rtl">
+        <div
+            className={SMART_FILE_FLOW_PANEL_HOST_CLASS}
+            data-testid={CIVIL_LAWSUIT_TEST_IDS.caseFlowPanel}
+        >
+            <div
+                className={panelBackdrop}
+                onClick={() => setIsOpen(false)}
+                role="presentation"
+            />
+            <div
+                className={panelShell}
+                dir="rtl"
+                role="dialog"
+                aria-labelledby="case-flow-panel-title"
+                onClick={(event) => event.stopPropagation()}
+            >
                 <div className={panelHeader}>
+                    <h3
+                        id="case-flow-panel-title"
+                        className={`min-w-0 truncate font-bold text-[13px] flex items-center gap-1.5 ${usePearlFlowChrome ? 'text-[#FFFEF9]' : 'text-white/95'}`}
+                    >
+                        <GitBranch size={15} className={usePearlFlowChrome ? 'text-[#C9B89A] shrink-0' : 'text-[#E6C673] shrink-0'} strokeWidth={1.75} />
+                        سير الدعوى
+                    </h3>
                     <button
                         type="button"
                         onClick={() => setIsOpen(false)}
-                        className={usePearlFlowChrome ? pearlFlow.closeBtn : 'absolute left-3 top-3 p-1.5 rounded-lg bg-white/[0.06] border border-white/[0.08] text-white/50 hover:text-white hover:bg-white/10 transition-colors'}
+                        className={panelCloseClass}
                         aria-label="إغلاق"
                     >
                         <X size={16} />
                     </button>
-                    <h3 className={`font-bold text-[13px] flex items-center gap-2 ${usePearlFlowChrome ? 'text-[#FFFEF9]' : 'text-white/95 pr-1'}`}>
-                        <Activity size={16} className={usePearlFlowChrome ? 'text-[#C9B89A]' : 'text-[#E6C673] shrink-0'} strokeWidth={1.75} />
-                        سير الدعوى
-                    </h3>
                 </div>
                 <div className={`${usePearlFlowChrome ? 'px-2 py-2 space-y-1' : 'px-2 py-3 space-y-1'}`}>
                     {actions.map((a) => (
@@ -234,23 +273,36 @@ export const CaseFlowActionsPanel = memo(({
                     ))}
                 </div>
             </div>
-        </>
+        </div>
     );
 
     const confirmDialog =
         pendingConfirm && typeof document !== 'undefined'
-            ? createPortal(
-                  <PersonalStatusFlowConfirmDialog
-                      isOpen
-                      title={pendingConfirm.title}
-                      message={pendingConfirm.message}
-                      confirmLabel={pendingConfirm.confirmLabel}
-                      danger={pendingConfirm.danger}
-                      onConfirm={pendingConfirm.onConfirm}
-                      onCancel={() => setPendingConfirm(null)}
-                  />,
-                  document.body,
-              )
+            ? T.variant === 'personal-pearl'
+                ? createPortal(
+                      <PersonalStatusFlowConfirmDialog
+                          isOpen
+                          title={pendingConfirm.title}
+                          message={pendingConfirm.message}
+                          confirmLabel={pendingConfirm.confirmLabel}
+                          danger={pendingConfirm.danger}
+                          onConfirm={pendingConfirm.onConfirm}
+                          onCancel={() => setPendingConfirm(null)}
+                      />,
+                      document.body,
+                  )
+                : createPortal(
+                      <CaseFlowConfirmDialog
+                          isOpen
+                          title={pendingConfirm.title}
+                          message={pendingConfirm.message}
+                          confirmLabel={pendingConfirm.confirmLabel}
+                          danger={pendingConfirm.danger}
+                          onConfirm={pendingConfirm.onConfirm}
+                          onCancel={() => setPendingConfirm(null)}
+                      />,
+                      document.body,
+                  )
             : null;
 
     if (isRail) {
@@ -258,12 +310,16 @@ export const CaseFlowActionsPanel = memo(({
             <>
                 <button
                     type="button"
-                    onClick={() => setIsOpen(!isOpen)}
+                    onClick={toggleOpen}
                     className={PS_RAIL_CELL_FLOW}
                     title="سير الدعوى"
+                    aria-label="سير الدعوى"
+                    aria-expanded={isOpen}
+                    aria-haspopup="dialog"
+                    data-testid={CIVIL_LAWSUIT_TEST_IDS.caseFlowOpen}
                 >
-                    <Activity size={16} className="text-[#C9B89A]" strokeWidth={1.75} aria-hidden />
-                    <span className="text-[9px] font-black text-[#FFFEF9] leading-none">سير</span>
+                    <GitBranch size={16} className="text-[#C9B89A]" strokeWidth={1.75} aria-hidden />
+                    <span className="text-[10px] font-bold text-[#FFFEF9] leading-tight">سير</span>
                 </button>
                 {panel && createPortal(panel, document.body)}
                 {confirmDialog}
@@ -276,11 +332,15 @@ export const CaseFlowActionsPanel = memo(({
             <>
                 <button
                     type="button"
-                    onClick={() => setIsOpen(!isOpen)}
+                    onClick={toggleOpen}
                     className={dockBtnClass}
                     title="سير الدعوى"
+                    aria-label="سير الدعوى"
+                    aria-expanded={isOpen}
+                    aria-haspopup="dialog"
+                    data-testid={CIVIL_LAWSUIT_TEST_IDS.caseFlowOpen}
                 >
-                    <Activity size={compactDock ? 15 : 17} strokeWidth={1.75} />
+                    <GitBranch size={compactDock ? 15 : 17} strokeWidth={1.75} />
                 </button>
                 {panel && createPortal(panel, document.body)}
                 {confirmDialog}
@@ -292,11 +352,15 @@ export const CaseFlowActionsPanel = memo(({
         <>
             <button
                 type="button"
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={toggleOpen}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.10] text-white/70 hover:text-[#E6C673] hover:border-[#E6C673]/25 hover:bg-[#E6C673]/[0.06] transition-all duration-200 shrink-0"
                 title="سير الدعوى"
+                aria-label="سير الدعوى"
+                aria-expanded={isOpen}
+                aria-haspopup="dialog"
+                data-testid={CIVIL_LAWSUIT_TEST_IDS.caseFlowOpen}
             >
-                <Activity size={14} strokeWidth={1.75} className="text-[#E6C673]/80" />
+                <GitBranch size={14} strokeWidth={1.75} className="text-[#E6C673]/80" />
                 <span className="text-[11px] font-bold whitespace-nowrap">سير الدعوى</span>
             </button>
             {panel && createPortal(panel, document.body)}

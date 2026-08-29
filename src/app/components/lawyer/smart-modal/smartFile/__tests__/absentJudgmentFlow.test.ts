@@ -16,7 +16,7 @@ import {
     resolveLawyerOriginalSideInAbsentObjection,
     shouldShowAbsentJudgmentFooter,
 } from '../absentJudgmentFlow';
-import { resolveAbsentObjectionAppealRights } from '../absentJudgmentAppealRights';
+import { resolveAbsentObjectionAppealRights, resolveAbsentObjectionWaitDecisionText } from '../absentJudgmentAppealRights';
 import { resolveAllowedOpponentAppealMethods } from '../judgmentTypes';
 
 describe('absentJudgmentFlow', () => {
@@ -132,6 +132,19 @@ describe('absentJudgmentFlow', () => {
         expect(
             resolveAbsentObjectionAppealRights('رد الدعوى كلياً', objectedClient).action,
         ).toBe('self_appeal');
+
+        expect(resolveAbsentObjectionWaitDecisionText('إجابة الدعوى بالكامل', 'wait_opponent')).toBe(
+            'تأييد الحكم الغيابي — بانتظار طعن المعترض',
+        );
+        expect(resolveAbsentObjectionWaitDecisionText('رد الدعوى كلياً', 'wait_opponent')).toBe(
+            'تعديل الحكم الغيابي — بانتظار طعن المعترض عليه',
+        );
+        expect(resolveAbsentObjectionWaitDecisionText('إجابة الدعوى بالكامل', 'self_appeal')).toBe(
+            'تأييد الحكم الغيابي — يحق لموكلك الطعن',
+        );
+        expect(resolveAbsentObjectionWaitDecisionText('رد الدعوى كلياً', 'self_appeal')).toBe(
+            'تعديل الحكم الغيابي — يحق لموكلك الطعن',
+        );
     });
 
     it('labels objection options relative to marked client', () => {

@@ -5,6 +5,9 @@ import { defaultProfilePageCustomization } from '@/app/services/profile/profileP
 
 vi.mock('@/app/services/profile/profileThemeRuntime', () => ({
     applyProfileRootTheme: vi.fn(),
+    scheduleProfileRootTheme: vi.fn(),
+    getLiveProfileAppearance: vi.fn(() => null),
+    clearLiveProfileAppearance: vi.fn(),
 }));
 
 import { applyProfileRootTheme } from '@/app/services/profile/profileThemeRuntime';

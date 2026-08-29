@@ -1,8 +1,11 @@
 import type { CaseShareVisibleFields, DossierShareSource } from '../caseShareTypes';
 import { DEFAULT_CASE_SHARE_VISIBLE_FIELDS } from '../caseShareTypes';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
-import { extractLawsuitShareSource } from '../caseShareExtractors';
+import type { ExecutionFile } from '@/app/types/execution';
+import { extractExecutionShareSource, extractLawsuitShareSource } from '../caseShareExtractors';
 import { clearCaseShareRecords } from '../caseShareLocalStore';
+import { saveExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
+import { saveLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
 
 /** شخصيات الاختبار — محاكاة محامين في شبكة المتابعة */
 export const PERSONAS = {
@@ -15,6 +18,38 @@ export function resetCaseShareStore(): void {
     const g = globalThis as unknown as { __HAMI_CASE_SHARES?: unknown[] };
     g.__HAMI_CASE_SHARES = [];
     void clearCaseShareRecords();
+}
+
+/** يُخزّن الإضبارة محلياً حتى يمرّ تحقق الملكية عند createShare */
+export function seedOwnedLawsuitForShareTests(): FileData {
+    const file = buildRichLawsuitFile();
+    saveLawsuitFilesRaw([file]);
+    return file;
+}
+
+/** يُخزّن إضبارة التنفيذ محلياً حتى يمرّ تحقق الملكية عند createShare */
+export function seedOwnedExecutionForShareTests(): ExecutionFile {
+    const file = buildRichExecutionFile();
+    saveExecutionFilesRaw([file]);
+    return file;
+}
+
+export function buildRichExecutionFile(): ExecutionFile {
+    return {
+        id: 'exec-9001',
+        directorate: 'مديرية تنفيذ الرصافة',
+        fileNumber: '1540',
+        fileYear: '2026',
+        claimType: 'استحصال دين مالي',
+        documentType: 'حكم نهائي',
+        docNumber: '8821/2025',
+        lifecycleStatus: 'active',
+        notes: 'ملاحظة تنفيذية سرية',
+    } as unknown as ExecutionFile;
+}
+
+export function richExecutionSource(): DossierShareSource {
+    return extractExecutionShareSource(buildRichExecutionFile());
 }
 
 /** إضبارة دعوى غنية للسيناريوهات */

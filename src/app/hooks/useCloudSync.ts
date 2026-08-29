@@ -2,10 +2,10 @@
  * useCloudSync - Hook للمزامنة التلقائية مع السحابة
  * 
  * الوظيفة:
- * - مزامنة البيانات بين localStorage والسحابة (Supabase)
+ * - مطابقة البيانات المحلية والسحابة (Supabase)
  * - حل التعارضات تلقائياً (Last Write Wins)
- * - إعادة المحاولة عند فشل الاتصال
- * - دعم Offline Mode مع Queue
+ * - إعادة المحاولة دورياً وعند عودة الاتصال
+ * - التوقف الصريح أثناء انقطاع الشبكة أو وضع العمل المحلي
  * 
  * الاستخدام:
  * ```typescript
@@ -22,15 +22,14 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { SupabaseService } from '@/app/services/SupabaseService';
-import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import { debug } from '@/app/utils/debug';
-import SecureStoreService from '@/app/services/SecureStoreService';
 import { isLocalOnlyModeEnabled } from '@/app/services/settings/localOnlyGuard';
-import { EXECUTION_FILES_STORAGE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
-import { STORAGE_KEYS } from '@/app/utils/constants';
 import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import { isCloudPollingPausedByRealtime } from '@/app/services/realtimeSyncGate';
-import { isBenignSecureFetchError } from '@/app/services/secureFetchErrors';
+import {
+  performCloudSyncBucket,
+  resolveSyncBucket,
+} from '@/app/services/cloudSyncEngine';
 import {
     mapLocalKeyToCloudSyncBucket,
     useCloudSyncStatusStore,
@@ -62,103 +61,10 @@ export interface CloudSyncState {
 // =====================================================
 
 /**
- * دمج البيانات مع حل التعارضات (Last Write Wins)
- */
-type SyncItem = Record<string, unknown>;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object';
-}
-
-function idOf(item: unknown): string | null {
-  if (!isRecord(item)) return null;
-  const id = item.id;
-  if (typeof id === 'string') return id;
-  if (typeof id === 'number' && Number.isFinite(id)) return String(id);
-  return null;
-}
-
-function updatedAtMsOf(item: unknown): number {
-  if (!isRecord(item)) return 0;
-  const v = item.updatedAt;
-  if (typeof v !== 'string') return 0;
-  const t = Date.parse(v);
-  return Number.isNaN(t) ? 0 : t;
-}
-
-function normalizeArray(input: unknown): SyncItem[] {
-  if (!Array.isArray(input)) return [];
-  return input.filter((x): x is SyncItem => isRecord(x) && idOf(x) !== null);
-}
-
-function mergeWithConflictResolution(
-  cloudDataRaw: unknown,
-  localDataRaw: unknown,
-): { merged: SyncItem[]; conflictsResolved: number } {
-  const cloudData = normalizeArray(cloudDataRaw);
-  const localData = normalizeArray(localDataRaw);
-
-  const map = new Map<string, SyncItem>();
-  let conflictsResolved = 0;
-  
-  // إضافة بيانات السحابة أولاً
-  cloudData.forEach((item) => {
-    const id = idOf(item);
-    if (!id) return;
-    map.set(id, item);
-  });
-  
-  // دمج البيانات المحلية
-  localData.forEach((localItem) => {
-    const id = idOf(localItem);
-    if (!id) return;
-    const cloudItem = map.get(id);
-    
-    if (!cloudItem) {
-      // عنصر جديد محلياً
-      map.set(id, localItem);
-    } else {
-      // تعارض: اختر الأحدث
-      const localTime = updatedAtMsOf(localItem);
-      const cloudTime = updatedAtMsOf(cloudItem);
-      
-      if (localTime > cloudTime) {
-        map.set(id, localItem);
-        conflictsResolved++;
-        debug.log(`[CloudSync] تم حل تعارض: ${id} (المحلي أحدث)`);
-      }
-    }
-  });
-  
-  return {
-    merged: Array.from(map.values()),
-    conflictsResolved
-  };
-}
-
-/**
  * التحقق من الاتصال بالإنترنت
  */
 function checkOnlineStatus(): boolean {
   return typeof navigator === 'undefined' ? true : navigator.onLine;
-}
-
-type SyncBucket = 'execution' | 'lawsuit' | 'notes' | 'unsupported';
-
-function resolveSyncBucket(localKey: string): SyncBucket {
-  const key = localKey.trim();
-  const executionKeys = new Set([
-    EXECUTION_FILES_STORAGE_KEY,
-    'lawyer_execution_files',
-    'hami-execution-files',
-    'execution_files',
-  ]);
-  if (executionKeys.has(key)) return 'execution';
-  if (key === STORAGE_KEYS.LAWYER_FILES || key.includes('lawyer_files')) return 'lawsuit';
-  if (key.includes('lawsuit')) return 'lawsuit';
-  if (key.includes('notes')) return 'notes';
-  if (key.includes('execution')) return 'execution';
-  return 'unsupported';
 }
 
 // =====================================================
@@ -226,9 +132,9 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
   /**
    * دالة المزامنة الرئيسية - مستقرة (لا تعتمد على callbacks أو state للتشغيل)
    */
-  const performSync = useCallback(async () => {
+  const performSync = useCallback(async (explicit: boolean = false) => {
     if (!enabled) return;
-    if (isCloudPollingPausedByRealtime()) {
+    if (!explicit && isCloudPollingPausedByRealtime()) {
       debug.log('[CloudSync] تخطي المزامنة — Realtime نشط');
       return;
     }
@@ -245,65 +151,32 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
       debug.log('[CloudSync] المزامنة معطلة أو لا يوجد اتصال');
       return;
     }
-    
-    if (isSyncingRef.current) return; // تخطي صامت - لا حاجة لسجلات متكررة
-    
-    let hasUser = false;
-    try {
-      const authTimeoutMs = 8_000;
-      hasUser = await Promise.race([
-        SupabaseService.checkUserAuth(),
-        new Promise<boolean>((_, reject) => {
-          setTimeout(() => reject(new Error('auth timeout')), authTimeoutMs);
-        }),
-      ]);
-    } catch {
+    if (resolveSyncBucket(localKey) === 'unsupported') {
+      if (isMountedRef.current) {
+        setState((prev) => ({
+          ...prev,
+          isSyncing: false,
+          syncStatus: 'idle',
+          syncError: null,
+        }));
+      }
       return;
     }
-    if (!hasUser) return;
-    
+    if (isSyncingRef.current) return;
+
     isSyncingRef.current = true;
     try {
-      await SecureStoreService.ensurePersistedReady();
-
       setState(prev => ({
         ...prev,
         isSyncing: true,
         syncStatus: 'syncing',
         syncError: null
       }));
-      
-      debug.log(`[CloudSync] بدء المزامنة لـ ${localKey}...`);
-      
-      // تحديد نوع البيانات بناءً على المفتاح
-      let cloudDataRaw: unknown = [];
-      let localDataRaw: unknown = [];
-      
-      const bucket = resolveSyncBucket(localKey);
-      if (bucket === 'execution') {
-        // ملفات التنفيذ
-        cloudDataRaw = await SupabaseService.getExecutionFiles();
-        localDataRaw = (await persistenceRepository.loadAsync(localKey)) ?? [];
-      } else if (bucket === 'lawsuit') {
-        // ملفات الدعاوى — محلي فقط (لا شبكة، لا دمج ثقيل يجمّد الواجهة)
-        localDataRaw = (await persistenceRepository.loadAsync(localKey)) ?? [];
-        if (isMountedRef.current) {
-          setState((prev) => ({
-            ...prev,
-            isSyncing: false,
-            syncStatus: 'success',
-            lastSyncTime: new Date(),
-            pendingChanges: 0,
-          }));
-        }
-        callbacksRef.current?.onSyncSuccess?.();
-        return;
-      } else if (bucket === 'notes') {
-        // الملاحظات
-        cloudDataRaw = await SupabaseService.getGlobalNotes();
-        localDataRaw = (await persistenceRepository.loadAsync(localKey)) ?? [];
-      } else {
-        debug.warn(`[CloudSync] نوع غير مدعوم: ${localKey}`);
+
+      const result = await performCloudSyncBucket(localKey, {
+        allowWhenRealtimeActive: explicit,
+      });
+      if (result.skipped) {
         if (isMountedRef.current) {
           setState((prev) => ({
             ...prev,
@@ -314,22 +187,10 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
         }
         return;
       }
-      
-      // دمج البيانات
-      const { merged, conflictsResolved } = mergeWithConflictResolution(cloudDataRaw, localDataRaw);
-
-      const mergedItems = normalizeArray(merged);
-      const localItems = normalizeArray(localDataRaw);
-      const cloudItems = normalizeArray(cloudDataRaw);
-
-      // لا نُ persist مصفوفة فارغة فوق بيانات غير محمّلة أو مفقودة
-      if (mergedItems.length === 0 && localItems.length === 0 && cloudItems.length === 0) {
-        debug.log(`[CloudSync] تخطي الحفظ — لا بيانات في ${localKey}`);
-      } else {
-        persistenceRepository.save(localKey, merged);
+      if (!result.ok) {
+        throw result.error ?? new Error('cloud sync failed');
       }
-      
-      // تحديث الحالة
+
       if (isMountedRef.current) {
         setState(prev => ({
           ...prev,
@@ -339,23 +200,9 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
           pendingChanges: 0
         }));
       }
-      
-      debug.log(`[CloudSync] ✅ المزامنة مكتملة:`, {
-        cloudItems: cloudItems.length,
-        localItems: localItems.length,
-        mergedItems: mergedItems.length,
-        conflictsResolved,
-      });
-      
       callbacksRef.current?.onSyncSuccess?.();
-      
     } catch (error: unknown) {
-      if (isBenignSecureFetchError(error)) {
-        debug.warn('[CloudSync] sync skipped (offline/unavailable):', error);
-      } else {
-        debug.error('[CloudSync] فشلت المزامنة:', error);
-      }
-      
+      debug.error('[CloudSync] فشلت المزامنة:', error);
       if (isMountedRef.current) {
         setState(prev => ({
           ...prev,
@@ -364,7 +211,6 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
           syncError: errorMessageOf(error)
         }));
       }
-      
       callbacksRef.current?.onSyncError?.(error instanceof Error ? error : new Error(errorMessageOf(error)));
     } finally {
       isSyncingRef.current = false;
@@ -376,7 +222,7 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
    */
   const syncNow = useCallback(async () => {
     debug.log('[CloudSync] مزامنة يدوية مطلوبة');
-    await performSync();
+    await performSync(true);
   }, [performSync]);
   
   /**
@@ -415,7 +261,7 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
         cancelIdleCallback(idleId);
       }
       if (initialTimer !== null) window.clearTimeout(initialTimer);
-      void performSync();
+      void performSync(true);
     };
 
     if (typeof requestIdleCallback !== 'undefined') {
@@ -445,7 +291,7 @@ export function useCloudSync(options: CloudSyncOptions): CloudSyncState & {
     const handleOnline = () => {
       debug.log('[CloudSync] الاتصال بالإنترنت مستعاد');
       setState(prev => ({ ...prev, isOnline: true }));
-      performSync(); // مزامنة فورية عند استعادة الاتصال
+      void performSync(true); // مطابقة صريحة للكتابات المحلية المؤجلة بعد عودة الاتصال
     };
     
     const handleOffline = () => {

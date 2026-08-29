@@ -35,8 +35,6 @@ export type CommunicationResultDraft = {
 };
 
 export type CommunicationAwaitingUiState = {
-    /** @deprecated استخدم noResponseFlow */
-    confirmingNoResponse?: boolean;
     noResponseFlow?: 'choose' | 'confirm_same' | 'edit';
     noResponseEditDate?: string;
     noResponseEditBody?: string;

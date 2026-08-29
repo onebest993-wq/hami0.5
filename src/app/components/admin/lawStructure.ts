@@ -5,7 +5,8 @@ import {
     IRAQI_LAW_CANONICAL_NAMES,
 } from '@/app/constants/iraqiLawCatalog';
 import { buildExecutionLawAdminBrowseFilters } from '@/data/executionLawHierarchy';
-import { getLawTaxonomySectionFilters } from '@/app/components/lawyer/smart-modal/parts/civilLawTaxonomy';
+import { getLawTaxonomySectionFilters } from '@/app/kernel/laws/civilLawTaxonomy';
+import type { LawStructureFilter } from '@/app/kernel/laws/lawFilterTypes';
 
 /** مفتاح القسم العام في شريط التصفية الهرمي */
 export type LawStructureSectionId =
@@ -16,17 +17,12 @@ export type LawStructureSectionId =
     | 'civil_procedure'
     | 'evidence';
 
-export type LawStructureFilter = {
-    id: string;
-    label: string;
-    from: number;
-    to: number;
-};
+export type { LawStructureFilter };
 
 export type LawStructureSection = {
     id: LawStructureSectionId;
     label: string;
-    /** يطابق LAW_NAME_BY_TARGET في AdminLawEntry */
+    /** يطابق LAW_NAME_BY_TARGET في adminLawEntryTypes */
     lawName: string;
     filters: LawStructureFilter[];
 };

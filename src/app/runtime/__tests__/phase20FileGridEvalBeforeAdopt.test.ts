@@ -23,17 +23,17 @@ describe('phase-20 FileGrid eval during InstantShell before portal adopt', () =>
         );
     });
 
-    it('ArchivePortalHost يؤجّل children حتى Component && lawsuitFileGridReady', () => {
+    it('ArchivePortalHost يتبنّى Component فور الكاش — FileGrid تبعية ثابتة للـ Chrome', () => {
         const host = readFileSync(
             join(root, 'src/app/components/lawyer/dashboard/ArchivePortalHost.tsx'),
             'utf8',
         );
-        expect(host).toContain('getLawsuitFileGridReady');
-        expect(host).toContain('subscribeLawsuitFileGridReady');
         expect(host).toContain('prefetchLawsuitArchiveContent');
-        expect(host).toContain('lawsuitFileGridReady');
-        expect(host).toMatch(/Component && lawsuitFileGridReady \?/);
+        expect(host).not.toContain('getLawsuitFileGridReady');
+        expect(host).not.toContain('lawsuitFileGridReady');
+        expect(host).toMatch(/\{Component \? \(/);
         expect(host).toMatch(/if \(type === 'lawsuits'\)[\s\S]{0,120}prefetchLawsuitArchiveContent/);
+        expect(host).toContain('prepareLawsuitDossierChromeOnce');
     });
 
     it('InstantShell يستدعي prefetchLawsuitArchiveContent عند التركيب', () => {
@@ -42,8 +42,9 @@ describe('phase-20 FileGrid eval during InstantShell before portal adopt', () =>
             'utf8',
         );
         expect(shell).toContain('prefetchLawsuitArchiveContent');
+        expect(shell).toContain('prefetchLawsuitArchiveHubModule');
         expect(shell).toMatch(
-            /useEffect\(\(\) => \{\s*prefetchLawsuitArchiveContent\(\);\s*\}, \[\]\)/,
+            /useEffect\(\(\) => \{\s*prefetchLawsuitArchiveContent\(\);\s*prefetchLawsuitArchiveHubModule\(\);\s*\}, \[\]\)/,
         );
     });
 });

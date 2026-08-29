@@ -42,6 +42,9 @@ vi.mock('@/app/services/settings/businessBackupSecurity', () => ({
         return { ok: true };
     },
     BACKUP_PASSWORD_MIN_LENGTH: 12,
+    BACKUP_PASSWORD_MAX_LENGTH: 1024,
+    MAX_BACKUP_FILE_BYTES: 25_000_000,
+    MAX_BACKUP_PLAINTEXT_BYTES: 18_000_000,
 }));
 
 vi.mock('@/app/services/settings/verifySensitiveSettingsAction', () => ({
@@ -66,6 +69,7 @@ describe('useBusinessBackup — import flow', () => {
             counts: { notes: 2 },
             keys: 1,
             entries: [['hami_notes_vault_a', '[]']],
+            vaultBlobs: [],
         });
         importBusinessBackupEntries.mockResolvedValue(undefined);
     });
@@ -155,7 +159,10 @@ describe('useBusinessBackup — import flow', () => {
             await result.current.importBusinessBackup([['hami_notes_vault_a', '[]']]);
         });
 
-        expect(importBusinessBackupEntries).toHaveBeenCalledWith([['hami_notes_vault_a', '[]']]);
+        expect(importBusinessBackupEntries).toHaveBeenCalledWith(
+            [['hami_notes_vault_a', '[]']],
+            [],
+        );
         expect(success).toHaveBeenCalledWith('تم استيراد البيانات');
     });
 });

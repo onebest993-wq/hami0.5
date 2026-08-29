@@ -1,0 +1,7 @@
+/**
+ * كان مسحاً واحداً لكل أضابير المحامي — استُبدل بأوراق مجال منفصلة.
+ * يبقى الملف كي لا تنكسر إشارات التجميع القديمة.
+ */
+@import './tailwind-features-dossiers-execution.css';
+@import './tailwind-features-dossiers-criminal.css';
+@import './tailwind-features-dossiers-smart.css';

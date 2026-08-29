@@ -1,4 +1,6 @@
-import { ArrowUp, Lock, X } from '@/app/components/ui/lucideIcons';
+import { ArrowUp } from '@/app/components/ui/icons/ArrowUp';
+import { Lock } from '@/app/components/ui/icons/Lock';
+import { X } from '@/app/components/ui/icons/X';
 import type { CommunityComment, CommunityPost } from '@/app/services/lawyer-cloud';
 import type { useForumMentionAutocomplete } from '@/app/hooks/useForumMentionAutocomplete';
 import { ForumMentionSuggestions } from './ForumMentionSuggestions';
@@ -9,7 +11,7 @@ import {
     FORUM_SURFACE_INPUT,
 } from '../forumPlumTheme';
 
-export const COMMENT_MAX_LENGTH = 5_000;
+import { COMMENT_MAX_LENGTH } from '../communityCommentContent';
 
 export type CommentSheetComposerProps = {
     post: CommunityPost;
@@ -53,7 +55,7 @@ export function CommentSheetComposer({
                     <button
                         type="button"
                         onClick={onCancelReply}
-                        className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white flex items-center justify-center"
+                        className="min-h-[44px] min-w-[44px] rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white flex items-center justify-center touch-manipulation"
                         title="إلغاء الرد"
                     >
                         <X size={14} />
@@ -82,10 +84,12 @@ export function CommentSheetComposer({
                         onKeyDown={mention.handleKeyDown}
                         onBlur={() => window.setTimeout(() => mention.closeSuggestions(), 120)}
                         placeholder={isLocked ? 'النقاش مقفل' : 'اكتب تعليقك هنا... (@ لإشارة زميل)'}
-                        className="w-full bg-transparent text-white text-sm placeholder-white/30 outline-none resize-none max-h-24 custom-scrollbar disabled:cursor-not-allowed"
+                        className="w-full bg-transparent text-white text-[16px] placeholder-white/30 outline-none resize-none max-h-24 custom-scrollbar disabled:cursor-not-allowed"
                         rows={1}
-                        style={{ minHeight: '40px' }}
+                        style={{ minHeight: '44px' }}
                         maxLength={COMMENT_MAX_LENGTH}
+                        enterKeyHint="send"
+                        autoComplete="off"
                         disabled={submittingComment || isLocked}
                     />
                     {comment.length > COMMENT_MAX_LENGTH * 0.8 ? (

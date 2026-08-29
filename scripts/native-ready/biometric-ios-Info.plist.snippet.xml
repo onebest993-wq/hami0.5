@@ -1,8 +1,18 @@
 <!--
-  أضف إلى ios/App/App/Info.plist قبل </dict> عند إنشاء مشروع iOS.
-  مطلوب لـ Face ID مع @aparajita/capacitor-biometric-auth.
+  يُدمَج تلقائياً في ios/App/App/Info.plist عبر npm run cap:apply:ios
+  (أو npm run cap:add:ios على macOS). مطلوب وإلا Face ID / الكاميرا / الميكروفون تسقط.
 -->
 <key>NSFaceIDUsageDescription</key>
 <string>حامي يستخدم Face ID لحماية بيانات الموكلين وقفل الجلسة.</string>
 <key>NSLocationWhenInUseUsageDescription</key>
 <string>حامي يحتاج موقعك لإظهار عنوان المكتب على ملفك المهني.</string>
+<key>NSCameraUsageDescription</key>
+<string>حامي يستخدم الكاميرا لالتقاط مرفقات الخزنة ومسح المستندات.</string>
+<key>NSMicrophoneUsageDescription</key>
+<string>حامي يستخدم الميكروفون لتسجيل الملاحظات الصوتية.</string>
+<!-- روابط الاستعادة/التأكيد تُدمَج في Info.plist عبر ensureHamiAppUrlScheme (ليست مفاتيح string). -->
+<key>UIDeviceFamily</key>
+<array>
+	<integer>1</integer>
+	<integer>2</integer>
+</array>

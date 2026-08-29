@@ -1,17 +1,18 @@
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
-import type { CalendarRadarEvent } from '@/app/workspace/types';
-import type { SmartAlert } from '../../NeuralAlertsCard/types';
+import type { WorkspacePinnedItem } from '@/app/workspace/types';
 import type { HomeHubUrgentOverflowSplit } from '../homeHub/homeHubTabOverflow';
 import { HomeHubAlertRow } from './HomeHubAlertRow';
 import { HomeHubRadarRow } from './HomeHubRadarRow';
 
-export type HomeHubUrgentTabContentProps = {
+type HomeHubUrgentTabContentProps = {
     split: HomeHubUrgentOverflowSplit;
     sourceById: Map<string, SecretaryAlert>;
     onDismissAlert?: (alertId: string) => void;
     onOpenEntity: (alert: SecretaryAlert) => void;
     onNavigate: (routePath: string) => void;
     onDismissRadar?: (eventId: string) => void;
+    onTogglePin: (item: WorkspacePinnedItem) => void;
+    isPinned: (id: string, type: WorkspacePinnedItem['type']) => boolean;
 };
 
 export function HomeHubUrgentTabContent({
@@ -21,6 +22,8 @@ export function HomeHubUrgentTabContent({
     onOpenEntity,
     onNavigate,
     onDismissRadar,
+    onTogglePin,
+    isPinned,
 }: HomeHubUrgentTabContentProps) {
     const { previewRadar, previewAlerts } = split;
 
@@ -44,6 +47,8 @@ export function HomeHubUrgentTabContent({
                             source={source}
                             onDismiss={(id) => onDismissAlert?.(id)}
                             onNavigate={onOpenEntity}
+                            onTogglePin={onTogglePin}
+                            isPinned={isPinned}
                         />
                     );
                 })}

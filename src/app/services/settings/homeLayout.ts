@@ -40,13 +40,13 @@ import type { BackgroundPresetId } from './backgroundPresets';
 import { LAWYER_THEME_TOKENS } from './lawyerThemeTokens';
 import type { ThemeKey } from '@/app/types/common';
 
-export const HOME_SCROLL_BLOCK_IDS = ['alerts', 'hub', 'forum'] as const;
+const HOME_SCROLL_BLOCK_IDS = ['alerts', 'hub', 'forum'] as const;
 export type HomeScrollBlockId = (typeof HOME_SCROLL_BLOCK_IDS)[number];
 
-export const HOME_HUB_TILE_IDS = ['hubExecution', 'hubLawsuit', 'hubTransaction'] as const;
+const HOME_HUB_TILE_IDS = ['hubExecution', 'hubLawsuit', 'hubTransaction'] as const;
 export type HomeHubTileId = (typeof HOME_HUB_TILE_IDS)[number];
 
-export const DOCK_ITEM_IDS = ['dockRepository', 'dockCalendar', 'dockTasks', 'dockQuickNote'] as const;
+const DOCK_ITEM_IDS = ['dockRepository', 'dockCalendar', 'dockTasks', 'dockQuickNote'] as const;
 export type DockItemId = (typeof DOCK_ITEM_IDS)[number];
 
 export type HomeCustomizableId = HomeScrollBlockId | HomeHubTileId | DockItemId | 'dockShell';
@@ -91,10 +91,6 @@ export interface HomeLayoutSettings {
     overrides: Partial<Record<HomeCustomizableId | HomeWidgetId, HomeBlockStyleOverride>>;
 }
 
-export const HOME_SCROLL_ORDER_DEFAULT: HomeScrollBlockId[] = [...HOME_SCROLL_BLOCK_IDS];
-export const HOME_HUB_TILE_ORDER_DEFAULT: HomeHubTileId[] = [...HOME_HUB_TILE_IDS];
-export const DOCK_ITEM_ORDER_DEFAULT: DockItemId[] = [...DOCK_ITEM_IDS];
-
 export const HOME_LAYOUT_DEFAULTS: HomeLayoutSettings = {
     placements: buildDefaultPlacements(),
     dockVisible: true,
@@ -102,15 +98,6 @@ export const HOME_LAYOUT_DEFAULTS: HomeLayoutSettings = {
     dockHiddenWidgetIds: [],
     overrides: {},
 };
-
-export const HOME_BLOCK_ACCENT_PRESETS = [
-    { id: 'inherit', label: 'من الثيم', color: '' },
-    { id: 'gold', label: 'ذهبي', color: '#E6C673' },
-    { id: 'emerald', label: 'زمردي', color: '#34D399' },
-    { id: 'rose', label: 'نحاسي', color: '#D4A574' },
-    { id: 'cyan', label: 'سماوي', color: '#67E8F9' },
-    { id: 'violet', label: 'بنفسجي', color: '#A78BFA' },
-] as const;
 
 function normalizeOverride(raw: unknown): HomeBlockStyleOverride | undefined {
     if (!raw || typeof raw !== 'object') return undefined;
@@ -160,6 +147,24 @@ function normalizeOverride(raw: unknown): HomeBlockStyleOverride | undefined {
     return Object.keys(out).length > 0 ? out : undefined;
 }
 
+const FLAT_HALF_TILE_IDS = ['forum'] as const;
+
+function flattenLegacyFullRowTiles(
+    overrides: HomeLayoutSettings['overrides'],
+): HomeLayoutSettings['overrides'] {
+    let next = overrides;
+    for (const id of FLAT_HALF_TILE_IDS) {
+        const current = next[id];
+        if (current?.span !== 2) continue;
+        if (next === overrides) next = { ...overrides };
+        const rest = { ...current };
+        delete rest.span;
+        if (Object.keys(rest).length > 0) next[id] = rest;
+        else delete next[id];
+    }
+    return next;
+}
+
 export function normalizeHomeLayout(raw: unknown): HomeLayoutSettings {
     if (!raw || typeof raw !== 'object') return { ...HOME_LAYOUT_DEFAULTS, overrides: {} };
     const obj = raw as Partial<HomeLayoutSettings> & { sectionOrder?: unknown };
@@ -171,13 +176,14 @@ export function normalizeHomeLayout(raw: unknown): HomeLayoutSettings {
         placements: obj.placements,
     });
 
-    const overrides: HomeLayoutSettings['overrides'] = {};
+    let overrides: HomeLayoutSettings['overrides'] = {};
     if (obj.overrides && typeof obj.overrides === 'object') {
         for (const [key, val] of Object.entries(obj.overrides)) {
             const normalized = normalizeOverride(val);
             if (normalized) overrides[key as HomeCustomizableId] = normalized;
         }
     }
+    overrides = flattenLegacyFullRowTiles(overrides);
 
     const quickNoteVisible =
         typeof obj.quickNoteVisible === 'boolean' ? obj.quickNoteVisible : false;
@@ -192,9 +198,10 @@ export function normalizeHomeLayout(raw: unknown): HomeLayoutSettings {
     let resolvedPlacements = placements;
     if (shellStillInDock) {
         const evacuated = evacuateDockShellIconsToMain(resolvedPlacements);
-        resolvedPlacements = applyCanonicalMainWidgetOrder(evacuated.placements);
+        resolvedPlacements = evacuated.placements;
         dockHiddenWidgetIds = [...dockHiddenWidgetIds, ...evacuated.dockHiddenWidgetIds];
     }
+    resolvedPlacements = applyCanonicalMainWidgetOrder(resolvedPlacements);
 
     /** الشريط السفلي أُزيل — أيقونات الدوك في الشبكة الرئيسية */
     const dockVisible = false;
@@ -206,12 +213,4 @@ export function normalizeHomeLayout(raw: unknown): HomeLayoutSettings {
         dockHiddenWidgetIds,
         overrides,
     };
-}
-
-export function moveOrderItem<T>(order: T[], index: number, direction: -1 | 1): T[] {
-    const next = [...order];
-    const target = index + direction;
-    if (target < 0 || target >= next.length) return order;
-    [next[index], next[target]] = [next[target], next[index]];
-    return next;
 }

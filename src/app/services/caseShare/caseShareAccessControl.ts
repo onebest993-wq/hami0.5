@@ -26,7 +26,34 @@ const EMPTY_VISIBLE_FIELDS: CaseShareVisibleFields = {
     hiddenItemIds: [],
 };
 
-/** يمنع تسريب maskedView قبل الموافقة ويُنهي الجلسات المنتهية زمنياً */
+/** بعد انتهاء/رفض الجلسة — للمستقبل فقط */
+function buildEndedRecipientPreview(share: CaseShareRecord): CaseShareRecord['maskedView'] {
+    return {
+        module: share.dossierModule,
+        dossierId: '',
+        title: share.maskedView.title,
+        caseNumbers: [],
+        parties: [],
+        court: '—',
+        narrative: 'انتهت الجلسة — لم يعد بإمكانك عرض تفاصيل الإضبارة.',
+        documentsIncluded: false,
+        ownerDisplayName: share.maskedView.ownerDisplayName ?? share.ownerName,
+        visibleCatalog: [],
+        sessionDurationMinutes: share.sessionDurationMinutes ?? share.maskedView.sessionDurationMinutes,
+    };
+}
+
+function stripRecipientSensitiveView(share: CaseShareRecord, viewerId: string): CaseShareRecord {
+    if (share.ownerId === viewerId) return share;
+    return {
+        ...share,
+        dossierId: '',
+        visibleFields: EMPTY_VISIBLE_FIELDS,
+        maskedView: buildEndedRecipientPreview(share),
+    };
+}
+
+/** يمنع تسريب maskedView قبل الموافقة وبعد إنهاء الجلسة */
 export function applyShareAccessPolicy(share: CaseShareRecord, viewerId: string): CaseShareRecord {
     let next = share;
 
@@ -48,12 +75,16 @@ export function applyShareAccessPolicy(share: CaseShareRecord, viewerId: string)
         };
     }
 
-    if (next.status === 'accepted' && next.recipientId === viewerId && !isCaseShareSessionActive(next)) {
-        return next;
+    if (next.recipientId === viewerId && next.status === 'declined') {
+        return stripRecipientSensitiveView(next, viewerId);
     }
 
-    if (next.status === 'ended' || next.status === 'declined') {
-        return next;
+    if (next.recipientId === viewerId && next.status === 'ended') {
+        return stripRecipientSensitiveView(next, viewerId);
+    }
+
+    if (next.status === 'accepted' && next.recipientId === viewerId && !isCaseShareSessionActive(next)) {
+        return stripRecipientSensitiveView(next, viewerId);
     }
 
     return next;
@@ -99,9 +130,19 @@ export function toShareListSummary(share: CaseShareRecord, viewerId: string): Ca
     };
 }
 
-/** تفاصيل كاملة — فقط بعد الموافقة للمستقبل، أو للمرسل */
+/** تفاصيل كاملة — فقط أثناء جلسة نشطة للمستقبل، أو للمرسل */
 export function canFetchShareDetail(share: CaseShareRecord, viewerId: string): boolean {
     if (share.ownerId !== viewerId && share.recipientId !== viewerId) return false;
     if (share.recipientId === viewerId && share.status === 'pending') return false;
+    if (share.recipientId === viewerId && (share.status === 'ended' || share.status === 'declined')) {
+        return false;
+    }
+    if (
+        share.recipientId === viewerId &&
+        share.status === 'accepted' &&
+        !isCaseShareSessionActive(share)
+    ) {
+        return false;
+    }
     return true;
 }

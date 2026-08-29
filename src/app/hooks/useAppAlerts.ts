@@ -7,10 +7,14 @@ import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
 import { syncPushForNewCriticalAlerts } from '@/app/services/appAlertPushSync';
 import { writeHomeHubSecretaryAlertsCache, peekHomeHubSecretaryAlertsCache } from '@/app/services/alerts/homeHubSecretaryAlertsWarmCache';
-import { filterAlertsByNotificationSettings, getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
+import { buildAlertsDataSignature } from '@/app/services/alerts/alertsDataSignature';
+import { filterAlertsByNotificationSettings } from '@/app/services/settings/settingsRuntime';
+import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
 import { isBenignSecureFetchError } from '@/app/services/secureFetchErrors';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { debug } from '@/app/utils/debug';
+import { QUANTUM_TASKS_CHANGED_EVENT } from '@/app/utils/quantumTasksEvents';
+import { getQuantumPendingSnapshot } from '@/app/utils/quantumTasksMetrics';
 
 function loadCalendarDossierSync() {
     return import('@/app/services/calendarDossierSync');
@@ -31,45 +35,12 @@ const CALENDAR_REPOPULATE_INTERVAL_MS = 25 * 60 * 1000;
 const DEBOUNCE_MS = 350;
 const DATA_CHANGE_DEBOUNCE_MS = 2_500;
 
-/** بصمة خفيفة — تجنّب join لآلاف المعرفات على كل تغيير */
-function fingerprintIds(items: Array<{ id?: unknown }>): number {
-    let h = items.length;
-    const step = items.length > 48 ? Math.ceil(items.length / 48) : 1;
-    for (let i = 0; i < items.length; i += step) {
-        const id = String(items[i]?.id ?? i);
-        h = (Math.imul(h, 31) + id.charCodeAt(0)) | 0;
-        if (id.length > 1) h = (Math.imul(h, 31) + id.charCodeAt(id.length - 1)) | 0;
-    }
-    return h;
-}
-
-function buildAlertsDataSignature(params: {
-    files: FileData[];
-    executionFiles: unknown[];
-    criminalCases?: unknown[];
-    notes: RawNote[];
-    fieldTasks?: LegalTask[];
-}): string {
-    return [
-        params.files.length,
-        params.executionFiles.length,
-        params.criminalCases?.length ?? 0,
-        params.notes.length,
-        params.fieldTasks?.length ?? 0,
-        fingerprintIds(params.files),
-        fingerprintIds(params.executionFiles as Array<{ id?: unknown }>),
-        fingerprintIds((params.criminalCases ?? []) as Array<{ id?: unknown }>),
-        fingerprintIds(params.notes),
-        fingerprintIds(params.fieldTasks ?? []),
-    ].join('|');
-}
-
 export function useAppAlerts(params: {
     lawyerId?: string | null;
     files: FileData[];
     executionFiles: unknown[];
     criminalCases?: unknown[];
-    notes: RawNote[];
+    notes: unknown[];
     fieldTasks?: LegalTask[];
     /** تأجيل توليد تنبيهات السكرتير حتى idle — لا يعيق أول إطار */
     deferUntilIdle?: boolean;
@@ -127,7 +98,7 @@ export function useAppAlerts(params: {
                 files: filesRef.current,
                 executionFiles: executionRef.current,
                 criminalCases: criminalRef.current,
-                notes: notesRef.current,
+                notes: notesRef.current as RawNote[],
                 fieldTasks: fieldTasksRef.current,
             });
             const enriched = rawList.map((a) =>
@@ -224,6 +195,10 @@ export function useAppAlerts(params: {
         if (isVisible()) startInterval();
 
         const onCalendar = () => scheduleRefresh({ syncCalendar: false });
+        const onQuantumTasks = () => {
+            fieldTasksRef.current = getQuantumPendingSnapshot();
+            scheduleRefresh({ syncCalendar: false });
+        };
         const onVisibilityChange = () => {
             if (isVisible()) {
                 scheduleRefresh({ syncCalendar: false });
@@ -233,6 +208,7 @@ export function useAppAlerts(params: {
             }
         };
         window.addEventListener(CALENDAR_UPDATED_EVENT, onCalendar);
+        window.addEventListener(QUANTUM_TASKS_CHANGED_EVENT, onQuantumTasks);
         if (typeof document !== 'undefined') {
             document.addEventListener('visibilitychange', onVisibilityChange);
         }
@@ -241,6 +217,7 @@ export function useAppAlerts(params: {
             if (debounceRef.current !== null) window.clearTimeout(debounceRef.current);
             stopInterval();
             window.removeEventListener(CALENDAR_UPDATED_EVENT, onCalendar);
+            window.removeEventListener(QUANTUM_TASKS_CHANGED_EVENT, onQuantumTasks);
             if (typeof document !== 'undefined') {
                 document.removeEventListener('visibilitychange', onVisibilityChange);
             }

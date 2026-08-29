@@ -1,7 +1,3 @@
-import {
-    deriveNotificationCategory,
-    type NotificationModel,
-} from '@/app/infrastructure/NotificationRepository';
 import { useNotificationStore } from '@/app/stores/notificationStore';
 import { emitForumUnreadCount } from '@/app/services/forum/forumNotificationEvents';
 import {
@@ -9,10 +5,6 @@ import {
     persistForumMarkAllRead,
     persistForumNotificationRead,
 } from '@/app/services/notifications/forumNotificationRead';
-
-export function isForumShellNotification(n: Pick<NotificationModel, 'type' | 'category'>): boolean {
-    return deriveNotificationCategory(n as NotificationModel) === 'forum';
-}
 
 /** المنتدى → لوحة الجرس: تحديث isRead في blob عند mark_read من المنتدى. */
 export async function syncForumReadToShell(userId: string, notificationId: string): Promise<void> {

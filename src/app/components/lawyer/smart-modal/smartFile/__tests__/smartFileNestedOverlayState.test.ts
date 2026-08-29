@@ -43,8 +43,6 @@ function basePortal(overrides: Partial<SmartFileModalsPortalProps> = {}): SmartF
         setShowInterlocutoryModal: () => undefined,
         showObjectionRegistrationModal: false,
         setShowObjectionRegistrationModal: () => undefined,
-        showObjectionJudgmentModal: false,
-        setShowObjectionJudgmentModal: () => undefined,
         showAbsentJudgmentNotificationModal: false,
         setShowAbsentJudgmentNotificationModal: () => undefined,
         showOpponentAbsentObjectionModal: false,

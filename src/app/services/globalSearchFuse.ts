@@ -11,7 +11,7 @@ let fuseModulePromise: Promise<{ default: typeof Fuse }> | null = null;
 const fuseCache = new Map<string, FuseInstance>();
 const MAX_FUSE_CACHE = 4;
 /** يُرفَع عند تغيّر خيارات المحرك لإبطال كاش قديم */
-const FUSE_ENGINE_REV = 5;
+const FUSE_ENGINE_REV = 6;
 let appliedEngineRev = 0;
 
 function normalizeSearchField(value: unknown): string {

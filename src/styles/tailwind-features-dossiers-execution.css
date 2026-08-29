@@ -1,0 +1,14 @@
+@import './theme.css';
+@import 'tailwindcss' source(none);
+
+/**
+ * Tailwind إضبارة التنفيذ + المركز المالي — يُحمَّل عند نية التنفيذ فقط.
+ */
+@source '../app/components/lawyer/ExecutionDashboard/**';
+@source '../app/components/lawyer/execution/**';
+@source '../app/components/lawyer/FinancialOperationsCenter.tsx';
+@source '../app/components/lawyer/FinancialOperationsCenter/**';
+@source not '../app/**/*.test.{ts,tsx,js,jsx}';
+@source not '../app/**/__tests__/**';
+
+@plugin 'tailwindcss-animate';

@@ -5,8 +5,7 @@ import {
 } from '@/app/types/criminal';
 import type { CriminalComplainant, CriminalDefendant, StageConclusion } from '../../criminalStore';
 import { MISDEMEANOR_TYPE_REFERRAL_OPTIONS, isMisdemeanorType, type MisdemeanorType } from '../../caseClassificationEngine';
-import { filterSelectableDefendantsForScope, resolveEffectiveDefendantScopeIds } from '../../partyPersonalStage';
-import { INVESTIGATION_MIXED_UNKNOWN_IDENTIFIED_REFERRAL_BLOCKED_MESSAGE } from '../../investigationPhaseGuidance';
+import { resolveEffectiveDefendantScopeIds } from '../../partyPersonalStage';
 import { investigationDossierHasMixedUnknownAndIdentified } from '../../criminalUnknownDefendant';
 import {
     JUVENILE_TRIAL_COURT_NAME,
@@ -14,6 +13,15 @@ import {
     selectedInvestigationDefendantsIncludeJuvenile,
     type InvestigationReferralTargetStage,
 } from '../../juvenileInvestigationRules';
+import {
+    investigationDecisionValidationError,
+    isDefendantStatus,
+} from './investigationDecisionModalValidation';
+export {
+    investigationDecisionValidationError,
+    isDefendantStatus,
+} from './investigationDecisionModalValidation';
+import { InvestigationDecisionDefendantScopePicker } from './InvestigationDecisionDefendantScopePicker';
 
 type DefendantStatus = StageConclusion['defendantStatusAtDecision'];
 
@@ -42,124 +50,6 @@ export type InvestigationDecisionModalProps = {
         defendantStatusesByDefendantId?: Record<string, DefendantStatus>;
         referralMisdemeanorType?: MisdemeanorType;
     }) => void;
-};
-
-const isDefendantStatus = (v: string): v is DefendantStatus =>
-    v === 'detained' || v === 'bailed' || v === 'fugitive';
-
-export function investigationDecisionValidationError(input: {
-    decisionDate: string;
-    referralTarget: InvestigationReferralTargetStage | '';
-    misdemeanorType?: string;
-    courtName: string;
-    scopedDefendantIds: string[];
-    scopedAllJuvenile?: boolean;
-    scopedIncludesJuvenile?: boolean;
-    dossierMixesUnknownAndIdentified?: boolean;
-}): string | null {
-    if (input.dossierMixesUnknownAndIdentified) {
-        return INVESTIGATION_MIXED_UNKNOWN_IDENTIFIED_REFERRAL_BLOCKED_MESSAGE;
-    }
-    if (!input.decisionDate.trim()) return 'أدخل تاريخ صدور القرار.';
-    if (!input.scopedDefendantIds.length) {
-        return 'حدّد متهماً واحداً على الأقل مشمولاً بالقرار.';
-    }
-    if (input.scopedIncludesJuvenile && !input.scopedAllJuvenile) {
-        return 'لا يمكن إحالة المتهم الحدث مع المتهم البالغ في قرار واحد — استخدم «تفريق الإضبارة» أولاً.';
-    }
-    if (input.scopedAllJuvenile) {
-        if (input.referralTarget !== 'juvenile') return 'مسار إحالة الأحداث غير مُهيّأ.';
-        if (!input.courtName.trim()) return 'أدخل اسم محكمة الموضوع.';
-        return null;
-    }
-    if (!input.referralTarget) return 'اختر جهة الإحالة (جنح أو جنايات).';
-    if (input.referralTarget === 'misdemeanor' && !isMisdemeanorType(input.misdemeanorType)) {
-        return 'اختر نوع الدعوى (موجزة أو غير موجزة).';
-    }
-    if (!input.courtName.trim()) return 'أدخل اسم محكمة الموضوع.';
-    return null;
-}
-
-type DefendantScopeWithStatusPickerProps = {
-    defendants: CriminalDefendant[];
-    selectedIds: string[];
-    onToggle: (id: string, next: boolean) => void;
-    statuses: Record<string, DefendantStatus>;
-    onStatusChange: (id: string, status: DefendantStatus) => void;
-};
-
-const DefendantScopeWithStatusPicker = ({
-    defendants,
-    selectedIds,
-    onToggle,
-    statuses,
-    onStatusChange,
-}: DefendantScopeWithStatusPickerProps) => {
-    const selectable = useMemo(() => filterSelectableDefendantsForScope(defendants), [defendants]);
-
-    if (!selectable.length) {
-        return (
-            <div
-                className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-100 text-xs font-bold whitespace-normal break-words"
-                dir="rtl"
-            >
-                لا يوجد متهمون قابلون للإدراج في الإحالة.
-            </div>
-        );
-    }
-
-    if (selectable.length <= 1) {
-        return null;
-    }
-
-    return (
-        <div
-            className="rounded-xl border border-slate-700/80 bg-slate-800/30 backdrop-blur-md p-3 space-y-2 shadow-inner shadow-black/20"
-            dir="rtl"
-        >
-            <div className="flex items-center justify-between gap-2">
-                <div className="text-white font-black text-xs">المتهمون المشمولون بالإحالة</div>
-                <div className="text-white/50 text-[10px] font-bold">
-                    {selectedIds.length} / {selectable.length}
-                </div>
-            </div>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-                {selectable.map((d) => {
-                    const checked = selectedIds.includes(d.id);
-                    return (
-                        <div
-                            key={d.id}
-                            className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5"
-                        >
-                            <label className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={(e) => onToggle(d.id, e.target.checked)}
-                                    className="accent-[#E6C673]"
-                                />
-                                <span className="text-white text-xs font-bold truncate">{d.fullName}</span>
-                            </label>
-                            {checked ? (
-                                <select
-                                    className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[11px] text-white outline-none focus:border-[#E6C673]/60 shrink-0"
-                                    value={statuses[d.id] ?? 'bailed'}
-                                    onChange={(e) => {
-                                        const v = e.target.value;
-                                        if (isDefendantStatus(v)) onStatusChange(d.id, v);
-                                    }}
-                                >
-                                    <option value="detained">موقوف</option>
-                                    <option value="bailed">مكفل</option>
-                                    <option value="fugitive">هارب</option>
-                                </select>
-                            ) : null}
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
 };
 
 /** مودال إحالة مرحلة التحقيق إلى محكمة الموضوع — غلق/انقضاء/صلح عبر «قرارات القاضي». */
@@ -342,20 +232,20 @@ export const InvestigationDecisionModal = ({
 
     return (
         <div
-            className="fixed inset-0 z-[500] isolate bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden"
+            className="fixed inset-0 z-[500] isolate bg-black/62 backdrop-blur-sm p-4 flex items-center justify-center print:hidden"
             dir="rtl"
             role="dialog"
             aria-modal="true"
         >
             <div
-                className="relative z-[501] w-full max-w-lg max-h-[min(92vh,720px)] flex flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden"
+                className="relative z-[501] w-full max-w-lg max-h-[min(92vh,720px)] flex flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-lg overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex items-center justify-between gap-3">
                     <div className="text-white font-black text-sm whitespace-normal break-words">
                         إحالة إلى محكمة الموضوع
                     </div>
-                    <button type="button" onClick={onClose} className="text-white/70 hover:text-white text-sm font-bold">
+                    <button type="button" onClick={onClose} className="min-h-[44px] min-w-[44px] px-3 text-white/70 hover:text-white text-sm font-bold touch-manipulation">
                         إغلاق
                     </button>
                 </div>
@@ -453,7 +343,7 @@ export const InvestigationDecisionModal = ({
                         />
                     </div>
 
-                    <DefendantScopeWithStatusPicker
+                    <InvestigationDecisionDefendantScopePicker
                         defendants={accusedRoster}
                         selectedIds={scopedDefendantIds}
                         onToggle={toggleDefendant}
@@ -466,7 +356,7 @@ export const InvestigationDecisionModal = ({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-black text-white/80"
+                        className="min-h-[44px] px-4 rounded-xl border border-slate-700 text-sm font-black text-white/80 touch-manipulation"
                     >
                         إلغاء
                     </button>
@@ -474,7 +364,7 @@ export const InvestigationDecisionModal = ({
                         type="button"
                         onClick={handleSubmit}
                         disabled={Boolean(submitBlocker)}
-                        className="rounded-lg bg-[#E6C673] text-[#0B1021] font-black py-2.5 px-4 text-sm hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="min-h-[44px] px-4 rounded-lg bg-[#E6C673] text-[#0B1021] font-black text-sm hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation"
                     >
                         تأكيد الإحالة
                     </button>
@@ -483,3 +373,4 @@ export const InvestigationDecisionModal = ({
         </div>
     );
 };
+

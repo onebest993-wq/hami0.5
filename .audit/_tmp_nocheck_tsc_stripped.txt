@@ -1,0 +1,145 @@
+src/app/components/lawyer/execution/evictionField/sections/HeirsNotificationSection.tsx(60,5): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/evictionField/sections/HeirsNotificationSection.tsx(61,1): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(425,37): error TS1005: '>' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(425,42): error TS1005: ')' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(425,79): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(426,38): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(426,83): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(426,88): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(426,89): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(427,24): error TS1005: '>' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(427,33): error TS1005: ')' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(428,29): error TS1005: ':' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(429,22): error TS1110: Type expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(430,17): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(430,19): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(431,20): error TS1005: '>' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(431,29): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(432,26): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(432,33): error TS1434: Unexpected keyword or identifier.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(432,39): error TS1434: Unexpected keyword or identifier.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(432,49): error TS1127: Invalid character.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(432,51): error TS1434: Unexpected keyword or identifier.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(432,57): error TS1434: Unexpected keyword or identifier.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(432,65): error TS1434: Unexpected keyword or identifier.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(432,68): error TS1434: Unexpected keyword or identifier.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(432,73): error TS1434: Unexpected keyword or identifier.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(432,82): error TS1434: Unexpected keyword or identifier.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(432,91): error TS1127: Invalid character.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(432,92): error TS1434: Unexpected keyword or identifier.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(432,95): error TS1434: Unexpected keyword or identifier.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(432,105): error TS1127: Invalid character.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(432,106): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(433,18): error TS1110: Type expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(436,21): error TS1005: '>' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(436,25): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(438,30): error TS1136: Property assignment expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(438,33): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(443,21): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(444,17): error TS1109: Expression expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(445,26): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(445,35): error TS1127: Invalid character.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(445,37): error TS1434: Unexpected keyword or identifier.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(445,42): error TS1434: Unexpected keyword or identifier.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(446,18): error TS1161: Unterminated regular expression literal.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(447,14): error TS1161: Unterminated regular expression literal.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(448,9): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(449,5): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveDetentionJudgeActions.ts(459,1): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(286,30): error TS1005: '>' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(286,37): error TS1005: ')' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(286,44): error TS1005: ':' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(287,32): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(289,25): error TS1005: '>' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(289,32): error TS1005: ')' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(289,34): error TS1136: Property assignment expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(289,59): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(290,34): error TS1136: Property assignment expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(290,54): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(290,64): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(291,31): error TS1136: Property assignment expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(291,51): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(291,56): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(292,37): error TS1136: Property assignment expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(292,55): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(295,30): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(296,30): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(298,33): error TS1005: '>' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(298,37): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(299,54): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(299,61): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(300,42): error TS1136: Property assignment expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(300,46): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(305,34): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(308,39): error TS1005: '>' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(308,48): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(309,43): error TS1005: '>' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(309,47): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(309,81): error TS1109: Expression expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(310,42): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(310,57): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(310,83): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(311,34): error TS1110: Type expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(312,30): error TS1161: Unterminated regular expression literal.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(315,54): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(315,61): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(316,42): error TS1136: Property assignment expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(316,46): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(319,34): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(323,30): error TS1161: Unterminated regular expression literal.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(324,26): error TS1161: Unterminated regular expression literal.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(325,22): error TS1161: Unterminated regular expression literal.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(326,17): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(326,19): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(326,25): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(327,14): error TS1110: Type expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(328,9): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(328,10): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(330,5): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/actions/usePersonalCoerciveSubmitCore.ts(546,1): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(128,21): error TS1005: '>' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(128,32): error TS1005: ')' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(130,51): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(130,54): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(130,62): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(130,63): error TS1109: Expression expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(130,64): error TS1005: ':' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(132,32): error TS1136: Property assignment expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(132,41): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(133,17): error TS1161: Unterminated regular expression literal.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(134,13): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(135,9): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(135,10): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(143,5): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(159,21): error TS1005: '>' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(160,21): error TS1005: ')' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(160,32): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(161,41): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(164,25): error TS1005: '>' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(164,36): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(166,42): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(167,54): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(170,45): error TS1136: Property assignment expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(170,48): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(175,25): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(176,21): error TS1161: Unterminated regular expression literal.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(178,18): error TS1110: Type expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(179,13): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(180,9): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(180,10): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(182,5): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(227,22): error TS1005: '>' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(227,31): error TS1005: ')' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(229,25): error TS1005: '>' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(229,29): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(231,41): error TS1005: ',' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(232,40): error TS1136: Property assignment expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(232,45): error TS1005: ';' expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(232,100): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(234,22): error TS1109: Expression expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(235,18): error TS1110: Type expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(236,13): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(237,9): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(237,10): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(239,5): error TS1128: Declaration or statement expected.
+src/app/components/lawyer/execution/personalCoercive/hooks/decisions/usePersonalCoerciveAppealRenderers.ts(262,1): error TS1128: Declaration or statement expected.

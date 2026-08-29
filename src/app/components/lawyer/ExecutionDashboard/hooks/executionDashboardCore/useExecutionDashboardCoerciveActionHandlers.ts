@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** توجيه handleCoerciveAction — موجة 7 */
 import { useCallback, type MutableRefObject } from 'react';
 import {

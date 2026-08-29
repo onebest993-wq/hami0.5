@@ -17,6 +17,9 @@ export function getLawyerDashboardModuleSync(): LawyerDashboardModule | null {
 }
 
 function createDashboardModuleImport(): Promise<LawyerDashboardModule> {
+    if (__HAMI_CLIENT_PRODUCT__ === 'hq') {
+        return Promise.reject(new Error('lawyer dashboard is excluded from the headquarters product'));
+    }
     return import('@/app/components/lawyer/LawyerDashboard')
         .then((mod) => {
             cachedDashboardModule = mod;

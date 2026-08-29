@@ -1,3 +1,5 @@
+import { dispatchGlobalSearchOverlayInteractive } from '@/app/runtime/globalSearchOverlayInteractive';
+
 export type ObserveGlobalSearchOverlayInteractiveInput = {
     onInteractive: () => void;
     isDone: () => boolean;
@@ -23,6 +25,7 @@ export function observeGlobalSearchOverlayInteractive({
         const input = document.querySelector(GLOBAL_SEARCH_OPEN_INPUT_SELECTOR);
         if (!overlay || !input) return;
         onInteractive();
+        dispatchGlobalSearchOverlayInteractive();
     };
 
     const scheduleTry = () => {

@@ -14,7 +14,7 @@ describe('buildDebtorSummonsProfileBundle', () => {
         });
 
         expect(result.isDebtorGovernmentEmployee).toBe(true);
-        expect(result.isDebtorFreelancer).toBe(true);
+        expect(result.isDebtorFreelancer).toBe(false);
         expect(result.debtorSummonsProfile).toBe('earner_like');
     });
 

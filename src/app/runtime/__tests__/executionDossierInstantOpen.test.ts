@@ -1,25 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readLawyerDashboardMainViewSurface } from './readLawyerDashboardMainViewSurface';
 
 const root = process.cwd();
 
 describe('execution dossier instant open — archive warm + sync Entry', () => {
     it('MainView يركّب Dossier Entry بشكل sync بلا Suspense InstantChrome', () => {
-        const main = readFileSync(
-            join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
-            'utf8',
-        );
-        expect(main).toMatch(
-            /import \{ LawyerDashboardExecutionDossierOverlayEntry \} from/,
-        );
-        expect(main).not.toContain('LazyExecutionDossierOverlayEntry');
+        const main = readLawyerDashboardMainViewSurface();
+        expect(main).toContain('LazyExecutionDossierOverlayEntry');
+        expect(main).not.toContain('execution-dashboard-portal-keepalive');
         expect(main).toContain('EXECUTION_DOSSIER_PRIME_HOST_EVENT');
         expect(main).toContain('executionDossierOverlayLive');
         expect(main).not.toContain('executionDossierHostFile');
-        expect(main).not.toMatch(
-            /executionDossierLive[\s\S]{0,200}ExecutionDossierInstantChrome/,
-        );
     });
 
     it('OverlayEntry يستخدم نفس preloadable Portal ويتخطى Suspense عند الجاهزية', () => {
@@ -34,6 +27,8 @@ describe('execution dossier instant open — archive warm + sync Entry', () => {
         expect(entry).toContain('isPreloaded()');
         expect(entry).toContain('open,');
         expect(entry).not.toContain('lazyWithRetry');
+        expect(entry).toContain('ExecutionDossierInstantPaintCover');
+        expect(entry).not.toContain('<Suspense fallback={null}>');
     });
 
     it('Portal لا يُركَّب في DOM عند open=false (لا keep-alive يومض)', () => {
@@ -47,6 +42,36 @@ describe('execution dossier instant open — archive warm + sync Entry', () => {
         expect(portal).toContain('createPortal(layer, document.body)');
     });
 
+    it('OverlayHosts يعرض توأم هندسي فوراً بدل فراغ Suspense', () => {
+        const hosts = readFileSync(
+            join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainViewOverlayHosts.tsx'),
+            'utf8',
+        );
+        expect(hosts).toContain('ExecutionDossierInstantPaintCover');
+        expect(hosts).not.toMatch(
+            /executionDossierOverlayLive && executionDossierLive \? \(\s*<Suspense fallback=\{null\}>/,
+        );
+        const frame = readFileSync(
+            join(root, 'src/app/components/lawyer/dashboard/ExecutionDossierInstantFrame.tsx'),
+            'utf8',
+        );
+        expect(frame).not.toContain('animate-pulse');
+        expect(frame).not.toContain("from '@/app/components/ui/icons/");
+        expect(frame).not.toContain('ExecutionDossierHeaderNavButtons');
+        expect(frame).toContain('EXECUTION_DOSSIER_TEST_IDS.close');
+        expect(frame).toContain('min-h-[44px]');
+        const shell = readFileSync(
+            join(
+                root,
+                'src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodyLoadingShell.tsx',
+            ),
+            'utf8',
+        );
+        expect(shell).toContain('ExecutionDossierInstantBody');
+        expect(shell).not.toContain('animate-pulse');
+        expect(shell).toContain('onExitToHome');
+    });
+
     it('مخزن التنفيذ يسخّن سلسلة الإضبارة فوراً (includeSecondary)', () => {
         const chrome = readFileSync(
             join(root, 'src/app/components/lawyer/ArchivePortal/ExecutionArchiveChrome.tsx'),
@@ -55,7 +80,7 @@ describe('execution dossier instant open — archive warm + sync Entry', () => {
         expect(chrome).toMatch(/warmExecutionWorkspace[\s\S]{0,200}includeSecondary:\s*true/);
     });
 
-    it('ensureFirstPaint ينتظر preload البوابة + مكوّن الإضبارة', () => {
+    it('ensureFirstPaint ينتظر preload البوابة + أقسام أول viewport — بلا وحدة الإضبارة السمينة', () => {
         const loader = readFileSync(
             join(root, 'src/app/runtime/executionDashboardLoader.ts'),
             'utf8',
@@ -65,6 +90,11 @@ describe('execution dossier instant open — archive warm + sync Entry', () => {
             loader.indexOf('export function primeExecutionDossierSurface'),
         );
         expect(ensureFn).toContain('LazyExecutionDashboardPortal.preload()');
-        expect(ensureFn).toContain('prefetchExecutionDashboardComponent');
+        expect(ensureFn).not.toContain('prefetchExecutionDashboardComponent');
+        expect(ensureFn).not.toContain('loadExecutionDashboardModule().then');
+        expect(ensureFn).toContain('void loadExecutionDashboardModule()');
+        expect(ensureFn).toContain('preloadExecutionDashboardFirstViewportSections');
+        expect(ensureFn).toContain('executionDashboardLazyRegistryShell');
+        expect(ensureFn).not.toContain("import('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell')");
     });
 });

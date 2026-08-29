@@ -1,55 +1,35 @@
 /**
- * ═══════════════════════════════════════════════════════════════════════════
- * 📦 Helpers Index - فهرس الدوال المساعدة
- * ═══════════════════════════════════════════════════════════════════════════
- * 
- * نقطة الدخول الموحدة لجميع الدوال المساعدة
- * 
- * @version 1.0.0
- * @author Hami Legal System - Modular Architecture
+ * نقطة الدخول الموحدة للدوال المساعدة في ExecutionDashboard.
  */
 
-// Export from progressBars
 export { executionDebtorRowCleared } from './progressBars';
 
-// Export from dateUtils
-export { 
-    evictionLocalYmdToday, 
-    evictionInclusiveCalendarDays 
+export {
+    evictionLocalYmdToday,
+    evictionInclusiveCalendarDays,
 } from './dateUtils';
 
-// Export from seizureUtils
-export { 
+export {
     seizureCoerciveKeyFromAssetType,
     stripSeizureTypeDecorators,
-    isSalarySeizureRow,
-    isSalarySeizureAsset,
-    isMovablePropertySeizureRow
 } from './seizureUtils';
 
 export {
-    buildSeizureRegistryDraftPatch,
     upsertSeizedMovableFromDetails,
     upsertSeizedPropertyFromDetails,
 } from './seizureRegistryBridge';
 
-// Export from heirUtils
-export { 
+export {
     makeHeirRowId,
     heirsDetailsIncludeClient,
-    heirRowCompletenessScore,
-    dedupeHeirDetailRowsByName,
-    collectPartyHeirDetailRows,
     heirRowHasAnyText,
-    type HeirDetailRow
+    type HeirDetailRow,
 } from './heirUtils';
 
-// Export from dossierLifecycleUtils
-export { 
+export {
     dossierLifecycleLabelAr,
     dossierLifecycleTriggerTextClass,
-    dossierLifecycleTriggerDotClass
+    dossierLifecycleTriggerDotClass,
 } from './dossierLifecycleUtils';
 
-// Export from domUtils
 export { bindHorizontalWheelToScroll } from './domUtils';

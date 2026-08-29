@@ -4,7 +4,7 @@ import { resolveBlockCanvasStyle } from '@/app/services/profile/profilePageCusto
 import { ensureProfileCanvasFxLoadedSync } from '@/app/components/lawyer/RoyalLawyerProfile/profileCanvasFxLoader';
 import { ProfileTextCanvasShell } from './profileTextCanvas/ProfileTextCanvasShell';
 
-export type ProfileTextCanvasProps = {
+type ProfileTextCanvasProps = {
     block: ProfileCustomBlock;
     children: React.ReactNode;
     previewInteractive?: boolean;

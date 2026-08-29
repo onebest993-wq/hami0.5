@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** أعلام تكليف حضور الموظف للواجهة الجبرية — موجة 9 */
 import { useMemo } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';

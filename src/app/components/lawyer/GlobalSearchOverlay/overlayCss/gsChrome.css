@@ -1,0 +1,258 @@
+.hami-gs-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.96);
+}
+
+.hami-gs-close {
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+  background: transparent;
+}
+
+.hami-gs-close:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.hami-gs-header {
+  position: relative;
+  flex-shrink: 0;
+  padding: 0.2rem 0.75rem 0.45rem;
+}
+
+.hami-gs-header[data-compact='true'] {
+  padding-top: 0.05rem;
+  padding-bottom: 0.3rem;
+}
+
+.hami-gs-header[data-compact='true'] .hami-gs-title-row {
+  margin-bottom: 0.25rem;
+}
+
+.hami-gs-header[data-compact='true'] .hami-gs-title-text {
+  display: none;
+}
+
+@media (min-width: 768px) and (min-height: 560px) {
+  .hami-gs-header {
+    padding: 0.7rem 1rem 0.5rem;
+  }
+
+  .hami-gs-header[data-compact='true'] .hami-gs-title-text {
+    display: block;
+  }
+}
+
+.hami-gs-field-shell {
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.hami-gs-field-shell--active {
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(230, 198, 115, 0.28);
+}
+
+.hami-gs-scope-rail {
+  display: flex;
+  gap: 0.3rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 0.3rem 0.5rem 0.4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hami-gs-scope-rail::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 768px) and (min-height: 560px) {
+  .hami-gs-scope-rail {
+    flex-wrap: wrap;
+    overflow: visible;
+    justify-content: flex-end;
+  }
+}
+
+.hami-gs-scope-chip {
+  flex-shrink: 0;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  touch-action: manipulation;
+  outline: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.hami-gs-scope-chip:active {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.hami-gs-scope-chip--active {
+  background: color-mix(in srgb, #e6c673 12%, transparent);
+  color: #f4ead0;
+}
+
+.hami-gs-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  scroll-padding-bottom: 0.5rem;
+}
+
+.hami-gs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.hami-gs-sheet[data-keyboard-open='true'] .hami-gs-scroll {
+  scroll-padding-bottom: 1rem;
+}
+
+@media (min-width: 768px) and (min-height: 560px) {
+  .hami-gs-scroll {
+    max-height: min(calc(88dvh - 176px), 600px);
+  }
+
+  .hami-gs-sheet[data-keyboard-open='true'] .hami-gs-scroll {
+    max-height: none;
+  }
+}
+
+.hami-gs-result-card {
+  width: 100%;
+  display: flex;
+  align-items: stretch;
+  gap: 0.15rem;
+  border-radius: 0.7rem;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 56px;
+}
+
+html[data-hami-native='1'] .hami-gs-result-card {
+  content-visibility: visible;
+}
+
+.hami-gs-result-card--active {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.hami-gs-section-label {
+  margin: 0 0 0.35rem;
+  padding: 0 0.5rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #e6c673;
+}
+
+.hami-gs-section-count {
+  font-size: 0.625rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.hami-gs-recent-chip {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.7rem;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  touch-action: manipulation;
+  max-width: min(220px, 72vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hami-gs-recent-rail {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 0.2rem;
+  padding-inline-end: 0.25rem;
+}
+
+.hami-gs-recent-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.hami-gs-idle-hint {
+  margin: 0;
+  padding: 0.85rem 0.75rem 0.4rem;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.38);
+  text-align: center;
+}
+
+@media (min-width: 768px) and (min-height: 560px) {
+  .hami-gs-error-layer {
+    justify-content: center;
+    align-items: center;
+    padding: max(1rem, env(safe-area-inset-top, 0px))
+      max(1rem, env(safe-area-inset-right, 0px))
+      max(1rem, env(safe-area-inset-bottom, 0px))
+      max(1rem, env(safe-area-inset-left, 0px));
+  }
+
+  .hami-gs-error-sheet {
+    max-width: 22rem;
+    border-radius: 1.25rem;
+    border: 1px solid rgba(244, 63, 94, 0.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hami-gs-scope-chip,
+  .hami-gs-result-card,
+  .hami-gs-recent-chip,
+  .hami-gs-field-shell {
+    transition: none !important;
+  }
+
+  .hami-gs-recent-chip {
+    transform: none !important;
+  }
+}
+
+html.reduce-motion .hami-gs-scope-chip,
+html.reduce-motion .hami-gs-result-card,
+html.reduce-motion .hami-gs-recent-chip,
+html.reduce-motion .hami-gs-field-shell,
+html[data-hami-reduce-motion='1'] .hami-gs-scope-chip,
+html[data-hami-reduce-motion='1'] .hami-gs-result-card,
+html[data-hami-reduce-motion='1'] .hami-gs-recent-chip,
+html[data-hami-reduce-motion='1'] .hami-gs-field-shell {
+  transition: none !important;
+}
+
+html.reduce-motion .hami-gs-recent-chip,
+html[data-hami-reduce-motion='1'] .hami-gs-recent-chip {
+  transform: none !important;
+}

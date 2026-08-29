@@ -9,6 +9,12 @@ type NavigatorWithHints = Navigator & {
     };
 };
 
+/** غلاف أصلي مختوم على html — بلا وحدة قارئ الأصل. */
+export function isNativeShellStampedOnDom(): boolean {
+    if (typeof document === 'undefined') return false;
+    return document.documentElement.dataset.hamiNative === '1';
+}
+
 /** إشارات الجهاز/الشبكة — بدون UA sniffing (يشمل الهواتف المتوسطة) */
 export function isModestDevice(): boolean {
     if (typeof navigator === 'undefined') return false;
@@ -30,7 +36,7 @@ export function isModestDevice(): boolean {
     if (effective === 'slow-2g' || effective === '2g' || effective === '3g') return true;
 
     if (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches) {
-        if (window.innerWidth <= 520) return true;
+        if (window.innerWidth <= 520 && !isNativeShellStampedOnDom()) return true;
     }
 
     return false;

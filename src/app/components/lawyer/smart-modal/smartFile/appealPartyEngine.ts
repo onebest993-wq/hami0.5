@@ -8,23 +8,41 @@ import {
     resolveAppealRoleTitles,
     resolveOpponentAsAppellant,
     type AppealPartyFlipSelection,
-} from './appealStageTransition';
+} from './appealPartyFlip';
 import { isAppealStageName } from './judgmentTypes';
 import { resolveLawyerOriginalSideInAbsentObjection } from './absentJudgmentFlow';
 import {
-    affiliativeThirdPartySide,
-    isAffiliativeThirdPartyRole,
     isAppellantAppealRole,
     isAppelleeAppealRole,
-    isDefendantSideRole,
     isInterpleaderThirdPartyRole,
+    isDefendantSideRole,
     isPlaintiffSideRole,
     isThirdPartyRole,
 } from './partyRoleClassification';
 import type { CaseStage } from '../../LawyerShared';
+import { INTERPLEADER_APPELLANT_SIDE } from './appealInterpleaderConstants';
+import {
+    defaultIncludedAppellantIds,
+    defaultIncludedOpponentIds,
+    listAppellantPartiesForAppeal,
+    listOpponentPartiesForAppeal,
+    normalizePartyIdKey,
+    partyBelongsToAppealSide,
+    partyIdInList,
+    type AppealSide,
+} from './appealPartyListHelpers';
+export {
+    defaultIncludedAppellantIds,
+    defaultIncludedOpponentIds,
+    listAppellantPartiesForAppeal,
+    listOpponentPartiesForAppeal,
+    normalizePartyIdKey,
+    partyBelongsToAppealSide,
+    partyIdInList,
+    type AppealSide,
+} from './appealPartyListHelpers';
 import {
     filterPartiesForAppealDossier,
-    INTERPLEADER_APPELLANT_SIDE,
     type AppealDossierLayout,
 } from './interpleaderAppealEngine';
 
@@ -38,21 +56,6 @@ function findIncidentalForParty(party: Party, incidentalCases?: IncidentalCase[]
             && c.entryDecision !== 'rejected'
             && String(c.partyName ?? '').trim() === name,
     );
-}
-
-export type AppealSide = 'المدعي' | 'المدعى عليه';
-
-/** Legacy modals emit string ids; stage parties keep numeric Party.id. */
-export function normalizePartyIdKey(id: number | string | null | undefined): string {
-    return String(id ?? '').trim();
-}
-
-export function partyIdInList(
-    ids: Array<number | string>,
-    partyId: number | string | null | undefined,
-): boolean {
-    const key = normalizePartyIdKey(partyId);
-    return ids.some((id) => normalizePartyIdKey(id) === key);
 }
 
 function partyIdSet(ids: Array<number | string>): Set<string> {
@@ -75,32 +78,6 @@ export function inferAppellantSideFromLawyer(
     return 'المدعي';
 }
 
-export function partyBelongsToAppealSide(
-    party: Party,
-    side: AppealSide,
-    incidentalCases?: IncidentalCase[],
-): boolean {
-    if (isThirdPartyRole(party.role)) {
-        const inc = findIncidentalForParty(party, incidentalCases);
-        const affiliative =
-            inc?.thirdPartyEntryMode === 'affiliative'
-            || isAffiliativeThirdPartyRole(String(party.role ?? ''));
-        if (affiliative) {
-            const affSide =
-                inc?.affiliationSide === 'plaintiff'
-                    ? 'plaintiff'
-                    : inc?.affiliationSide === 'defendant'
-                      ? 'defendant'
-                      : affiliativeThirdPartySide(String(party.role ?? ''), party.side);
-            const withPlaintiff = affSide === 'plaintiff';
-            return side === 'المدعي' ? withPlaintiff : !withPlaintiff;
-        }
-        return false;
-    }
-    if (side === 'المدعي') return isPlaintiffSideRole(party.role);
-    return isDefendantSideRole(party.role);
-}
-
 function dedupeParties(parties: Party[]): Party[] {
     const seen = new Set<number | string>();
     const out: Party[] = [];
@@ -112,7 +89,7 @@ function dedupeParties(parties: Party[]): Party[] {
     return out;
 }
 
-export function listInterpleaderPartiesForAppeal(parties: Party[]): Party[] {
+function listInterpleaderPartiesForAppeal(parties: Party[]): Party[] {
     return parties.filter((p) => isInterpleaderThirdPartyRole(String(p.role ?? '')));
 }
 
@@ -155,7 +132,7 @@ export function isInterpleaderAppealParty(party: Party): boolean {
 }
 
 /** أطراف ثالثة (منضم / اختصامي) أو دعاوى حادثة نشطة */
-export function hasThirdPartyInAppealContext(
+function hasThirdPartyInAppealContext(
     parties: Party[],
     incidentalCases?: IncidentalCase[],
 ): boolean {
@@ -240,39 +217,6 @@ export function resolveAppellantLegalSideFromSelection(
     );
     if (allInterpleader) return INTERPLEADER_APPELLANT_SIDE;
     return fallback;
-}
-
-export function listAppellantPartiesForAppeal(
-    parties: Party[],
-    appellantSide: AppealSide,
-    incidentalCases?: IncidentalCase[],
-): Party[] {
-    return parties.filter((p) => partyBelongsToAppealSide(p, appellantSide, incidentalCases));
-}
-
-export function listOpponentPartiesForAppeal(
-    parties: Party[],
-    appellantSide: AppealSide,
-    incidentalCases?: IncidentalCase[],
-): Party[] {
-    const opponentSide: AppealSide = appellantSide === 'المدعي' ? 'المدعى عليه' : 'المدعي';
-    return parties.filter((p) => partyBelongsToAppealSide(p, opponentSide, incidentalCases));
-}
-
-export function defaultIncludedAppellantIds(
-    parties: Party[],
-    appellantSide: AppealSide,
-    incidentalCases?: IncidentalCase[],
-): Array<number | string> {
-    return listAppellantPartiesForAppeal(parties, appellantSide, incidentalCases).map((p) => p.id);
-}
-
-export function defaultIncludedOpponentIds(
-    parties: Party[],
-    appellantSide: AppealSide,
-    incidentalCases?: IncidentalCase[],
-): Array<number | string> {
-    return listOpponentPartiesForAppeal(parties, appellantSide, incidentalCases).map((p) => p.id);
 }
 
 function isInterpleaderPartyRecord(

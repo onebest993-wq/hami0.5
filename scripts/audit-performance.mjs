@@ -48,7 +48,8 @@ const _homeTabChunks = [
   'LawyerDashboard-',
   'LawyerHomeHubCard-',
   'LazyLegalCommandCenterDock', // may not match
-  'CommandHubTiles',
+  'lawyer-home-command-hub',
+  'lawyer-home-tab-content',
   'LawyerDashboardBackgroundServices-',
   'lazyComponents-',
   'DraggableHomeWidget-',
@@ -64,8 +65,12 @@ const homeRelated = new Set(
     (f) =>
       f.startsWith('LawyerDashboard-') ||
       f.startsWith('LawyerHomeHubCard-') ||
+      f.includes('lawyer-home-paint') ||
+      f.includes('lawyer-home-hub-card') ||
+      f.includes('home-boot-chrome') ||
       f.startsWith('LegalCommandCenterDock') ||
-      f.includes('CommandHubTiles') ||
+      f.includes('lawyer-home-command-hub') ||
+      f.includes('lawyer-home-tab-content') ||
       f.startsWith('LawyerDashboardBackgroundServices-') ||
       f.startsWith('lazyComponents-') ||
       f.startsWith('DraggableHomeWidget-') ||

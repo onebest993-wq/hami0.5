@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assignExecutionDashboardChunkScope } from '../assignExecutionDashboardChunkScope';
+import { assignExecutionDashboardChunkScope } from './assignExecutionDashboardChunkScopeForTests';
 import { EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS } from '../../followupSnapshotFieldKeys';
 
 describe('useExecutionDashboardChunkScopeRef wiring', () => {

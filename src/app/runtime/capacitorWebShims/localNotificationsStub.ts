@@ -14,6 +14,9 @@ export const LocalNotifications = {
     schedule: async () => ({ notifications: [] }),
     cancel: async () => undefined,
     getPending: async () => ({ notifications: [] as { id: number }[] }),
+    getDeliveredNotifications: async () => ({ notifications: [] }),
+    removeDeliveredNotifications: async () => undefined,
+    removeAllDeliveredNotifications: async () => undefined,
     addListener: async () => ({ remove: async () => undefined }),
     removeAllListeners: async () => undefined,
 };

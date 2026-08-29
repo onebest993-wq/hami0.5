@@ -9,6 +9,7 @@ import {
 import { getCachedProfileLine, resolveProfileLine } from '@/app/services/globalSearchProfileCache';
 
 const FOCUS_REFRESH_MS = 800;
+const OVERLAY_EXTRAS_OPTIONS = { includeCommunityPosts: true } as const;
 
 export interface UseSearchExtrasOptions {
     userId: string | null;
@@ -22,10 +23,15 @@ export interface UseSearchExtrasReturn {
 }
 
 export function useSearchExtras({ userId, overlayOpen }: UseSearchExtrasOptions): UseSearchExtrasReturn {
+    const extrasLoadOptions = overlayOpen ? OVERLAY_EXTRAS_OPTIONS : undefined;
     const [extrasVersion, setExtrasVersion] = useState(0);
     const [profileLine, setProfileLine] = useState(() => getCachedProfileLine(userId));
-    const [extras, setExtras] = useState<GlobalSearchExtras | null>(() => getCachedGlobalSearchExtras(userId));
-    const [isLoadingExtras, setIsLoadingExtras] = useState(() => !getCachedGlobalSearchExtras(userId));
+    const [extras, setExtras] = useState<GlobalSearchExtras | null>(() =>
+        getCachedGlobalSearchExtras(userId, extrasLoadOptions),
+    );
+    const [isLoadingExtras, setIsLoadingExtras] = useState(
+        () => overlayOpen === true && !getCachedGlobalSearchExtras(userId, extrasLoadOptions),
+    );
 
     useEffect(() => {
         if (!overlayOpen) {
@@ -36,7 +42,7 @@ export function useSearchExtras({ userId, overlayOpen }: UseSearchExtrasOptions)
         }
 
         let cancelled = false;
-        const cached = getCachedGlobalSearchExtras(userId);
+        const cached = getCachedGlobalSearchExtras(userId, OVERLAY_EXTRAS_OPTIONS);
         if (cached) {
             setExtras(cached);
             setIsLoadingExtras(false);
@@ -47,7 +53,7 @@ export function useSearchExtras({ userId, overlayOpen }: UseSearchExtrasOptions)
         void (async () => {
             try {
                 const [loadedExtras, line] = await Promise.all([
-                    loadGlobalSearchExtras(userId),
+                    loadGlobalSearchExtras(userId, OVERLAY_EXTRAS_OPTIONS),
                     resolveProfileLine(userId),
                 ]);
                 if (cancelled) return;
@@ -78,7 +84,7 @@ export function useSearchExtras({ userId, overlayOpen }: UseSearchExtrasOptions)
         const onFocus = () => {
             if (timer !== undefined) window.clearTimeout(timer);
             timer = window.setTimeout(() => {
-                void loadGlobalSearchExtras(userId).then((loaded) => {
+                void loadGlobalSearchExtras(userId, OVERLAY_EXTRAS_OPTIONS).then((loaded) => {
                     setExtras(loaded);
                 });
             }, FOCUS_REFRESH_MS);

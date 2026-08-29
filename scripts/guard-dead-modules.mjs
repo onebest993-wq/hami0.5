@@ -131,8 +131,24 @@ const isTest = (f) =>
     f.startsWith('src/test/') ||
     f.startsWith('e2e/');
 
-/** نقاط الدخول الحقيقية: المتصفّح، الأدوات، الخادم، والـe2e */
-const ENTRY = [/^src\/index\.tsx$/, /^src\/vite-plugins\//, /^src\/test\/setup\.ts$/, /\.d\.ts$/, /^api\//, /^e2e\//];
+/**
+ * نقاط الدخول الحقيقية: المتصفّح، الأدوات، الخادم، والـe2e.
+ *
+ * `api/` هو المخرج المجمّع (`api/handler.js`) — esbuild يطوي المسارات فلا تُرى
+ * كاستيرادات. المصدر الحي للـ BFF هو البيان + المعالج في `src/app/api`.
+ * بدون هذين يبقى كل `route.ts` غير المغطى باختبار «ميتاً» وهو مسار إنتاج.
+ */
+const ENTRY = [
+    /^src\/index\.tsx$/,
+    /^src\/hq\/index\.tsx$/,
+    /^src\/vite-plugins\//,
+    /^src\/test\/setup\.ts$/,
+    /\.d\.ts$/,
+    /^api\//,
+    /^e2e\//,
+    /^src\/app\/api\/vercelNodeHandler\.ts$/,
+    /^src\/app\/api\/vercelRouteManifest\.ts$/,
+];
 const readIfExists = (p) => (fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '');
 const viteConfigText = readIfExists(path.join(ROOT, 'vite.config.mts'));
 const external = new Set();

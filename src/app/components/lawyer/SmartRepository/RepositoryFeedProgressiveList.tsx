@@ -10,13 +10,11 @@ const PROGRESSIVE_BATCH_SIZE = 24;
 type RepositoryFeedProgressiveListProps = Omit<UniversalEntryCardProps, 'item'> & {
     items: RepositoryFeedItem[];
     feedLayout: RepositoryFeedLayoutId;
-    itemLayoutClass?: string;
 };
 
 export const RepositoryFeedProgressiveList = React.memo(function RepositoryFeedProgressiveList({
     items,
     feedLayout,
-    itemLayoutClass = '',
     ...cardProps
 }: RepositoryFeedProgressiveListProps) {
     const [showAll, setShowAll] = useState(false);
@@ -61,7 +59,7 @@ export const RepositoryFeedProgressiveList = React.memo(function RepositoryFeedP
             {visibleItems.map((item) => (
                 <div
                     key={repositoryFeedItemKey(item)}
-                    className={`${REPO_FEED_ITEM} ${itemLayoutClass}`.trim()}
+                    className={REPO_FEED_ITEM}
                 >
                     <UniversalEntryCard item={item} feedLayout={feedLayout} {...cardProps} />
                 </div>

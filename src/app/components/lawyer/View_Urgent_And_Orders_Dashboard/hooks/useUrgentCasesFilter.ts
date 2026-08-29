@@ -1,35 +1,30 @@
 import { useMemo } from 'react';
-import { isUrgentCaseClosed, type UrgentCase } from '../../Component_Urgent_Card';
-import type { FilterStatus } from '../types';
-
-function normalizeSearchText(v: unknown) {
-    return String(v ?? '')
-        .toLowerCase()
-        .replace(/\s+/g, '')
-        .replace(/[أإآ]/g, 'ا')
-        .replace(/ة/g, 'ه')
-        .replace(/ى/g, 'ي');
-}
+import {
+    isUrgentCaseInActiveScope,
+    isUrgentCaseInArchiveScope,
+    isUrgentCaseTrashed,
+    type UrgentCase,
+} from '../../Component_Urgent_Card';
+import { archiveTextMatchesQuery } from '@/app/services/search/normalizeArabicSearch';
+import { clampGlobalSearchQuery } from '@/app/services/search/globalSearchQuerySecurity';
 
 type UseUrgentCasesFilterArgs = {
     cases: UrgentCase[];
     scope: 'active' | 'archive' | 'trash';
-    filterStatus: FilterStatus;
     searchQuery: string;
 };
 
-export function useUrgentCasesFilter({ cases, scope, filterStatus, searchQuery }: UseUrgentCasesFilterArgs) {
+export function useUrgentCasesFilter({ cases, scope, searchQuery }: UseUrgentCasesFilterArgs) {
     const sortedAndFilteredCases = useMemo(() => {
-        const isFinalized = (c: UrgentCase) => isUrgentCaseClosed(c) || c.status === 'completed' || c.phase === 'completed';
         let filtered =
             scope === 'trash'
-                ? cases.filter((c) => !!c.deleted)
+                ? cases.filter(isUrgentCaseTrashed)
                 : scope === 'archive'
-                  ? cases.filter((c) => !c.deleted && (!!c.archived || isFinalized(c)))
-                  : cases.filter((c) => !c.deleted && !c.archived && !isFinalized(c));
+                  ? cases.filter(isUrgentCaseInArchiveScope)
+                  : cases.filter(isUrgentCaseInActiveScope);
 
-        if (searchQuery.trim()) {
-            const q = normalizeSearchText(searchQuery);
+        const q = clampGlobalSearchQuery(searchQuery);
+        if (q.trim()) {
             filtered = filtered.filter((c) => {
                 const haystack = [
                     c.applicantName,
@@ -41,23 +36,13 @@ export function useUrgentCasesFilter({ cases, scope, filterStatus, searchQuery }
                     c.party1Name,
                     c.party2Name,
                     c.specificActionType,
-                ];
-                return haystack.some((x) => normalizeSearchText(x).includes(q));
+                ].join(' ');
+                return archiveTextMatchesQuery(haystack, q);
             });
         }
 
-        if (filterStatus !== 'all') {
-            if (filterStatus === 'critical') {
-                filtered = filtered.filter((c) => c.status === 'critical');
-            } else if (filterStatus === 'active') {
-                filtered = filtered.filter((c) => c.status === 'warning' || c.status === 'safe');
-            } else if (filterStatus === 'completed') {
-                filtered = filtered.filter((c) => c.status === 'completed');
-            }
-        }
-
         return filtered;
-    }, [cases, filterStatus, scope, searchQuery]);
+    }, [cases, scope, searchQuery]);
 
     const criticalCases = useMemo(
         () => sortedAndFilteredCases.filter((c) => c.status === 'critical'),
@@ -68,10 +53,6 @@ export function useUrgentCasesFilter({ cases, scope, filterStatus, searchQuery }
             sortedAndFilteredCases.filter(
                 (c) => c.status === 'warning' || c.status === 'safe' || c.status === 'expired',
             ),
-        [sortedAndFilteredCases],
-    );
-    const completedCases = useMemo(
-        () => sortedAndFilteredCases.filter((c) => c.status === 'completed'),
         [sortedAndFilteredCases],
     );
     const archivedCases = useMemo(
@@ -87,7 +68,6 @@ export function useUrgentCasesFilter({ cases, scope, filterStatus, searchQuery }
         sortedAndFilteredCases,
         criticalCases,
         pendingCases,
-        completedCases,
         archivedCases,
         trashedCases,
     };

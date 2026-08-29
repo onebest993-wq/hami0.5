@@ -1,5 +1,5 @@
 import {
-    requireWifeUser,
+    requireWifeCloudWrite,
     unwrapWifeUser,
 } from '../security/bffAuth.ts';
 import { sanitizePayload } from '../security/sanitizer.ts';
@@ -18,7 +18,7 @@ export function isRecord(v: unknown): v is Record<string, unknown> {
 export async function requireTaskHelpAuth(
     request: Request,
 ): Promise<{ userId: string } | Response> {
-    const auth = await requireWifeUser(request);
+    const auth = await requireWifeCloudWrite(request);
     const unwrapped = unwrapWifeUser(auth);
     if ('response' in unwrapped) return unwrapped.response;
     return { userId: unwrapped.userId };

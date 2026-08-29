@@ -1,8 +1,9 @@
 import React from 'react';
-import { motion } from 'motion/react';
-import { X } from '@/app/components/ui/lucideIcons';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { X } from '@/app/components/ui/icons/X';
 import { FocModalPortal } from './FocModalPortal';
 import { formatNumberInput } from '../utils';
+import { FOC_MODAL_ACTION_BTN, FOC_MODAL_CLOSE_BTN } from '../constants';
 
 export interface FocDisburseModalProps {
     open: boolean;
@@ -37,7 +38,7 @@ export const FocDisburseModal: React.FC<FocDisburseModalProps> = ({
                 initial={{ scale: 0.98, opacity: 0, y: 8 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.98, opacity: 0, y: 8 }}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
                 className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-950/70 p-4 shadow-2xl"
                 dir="rtl"
             >
@@ -45,7 +46,8 @@ export const FocDisburseModal: React.FC<FocDisburseModalProps> = ({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="p-2 rounded-full hover:bg-white/10 text-slate-400"
+                        className={FOC_MODAL_CLOSE_BTN}
+                        aria-label="إغلاق"
                     >
                         <X size={18} />
                     </button>
@@ -78,7 +80,7 @@ export const FocDisburseModal: React.FC<FocDisburseModalProps> = ({
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    className="flex-1 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-xs font-bold text-slate-200"
+                                    className={`flex-1 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-xs font-bold text-slate-200 ${FOC_MODAL_ACTION_BTN}`}
                                 >
                                     إلغاء
                                 </button>
@@ -88,7 +90,7 @@ export const FocDisburseModal: React.FC<FocDisburseModalProps> = ({
                                         onClose();
                                         onOpenGhuramaaModal();
                                     }}
-                                    className="flex-1 rounded-xl bg-amber-600/80 py-2.5 text-xs font-black text-white"
+                                    className={`flex-1 rounded-xl bg-amber-600/80 py-2.5 text-xs font-black text-white ${FOC_MODAL_ACTION_BTN}`}
                                 >
                                     إجراء القسمة
                                 </button>
@@ -111,7 +113,7 @@ export const FocDisburseModal: React.FC<FocDisburseModalProps> = ({
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    className="flex-1 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-xs font-bold text-slate-200"
+                                    className={`flex-1 rounded-xl border border-white/10 bg-white/[0.03] py-2.5 text-xs font-bold text-slate-200 ${FOC_MODAL_ACTION_BTN}`}
                                 >
                                     إلغاء
                                 </button>
@@ -119,7 +121,7 @@ export const FocDisburseModal: React.FC<FocDisburseModalProps> = ({
                                     type="button"
                                     onClick={onApplyDisbursement}
                                     disabled={!canApplyDisburseAmount}
-                                    className="flex-1 rounded-xl bg-emerald-600/75 py-2.5 text-xs font-black text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                                    className={`flex-1 rounded-xl bg-emerald-600/75 py-2.5 text-xs font-black text-white disabled:opacity-40 disabled:cursor-not-allowed ${FOC_MODAL_ACTION_BTN}`}
                                 >
                                     توثيق الصرف
                                 </button>

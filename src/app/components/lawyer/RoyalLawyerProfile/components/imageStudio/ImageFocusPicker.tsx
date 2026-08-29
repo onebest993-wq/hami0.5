@@ -1,15 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { ProfileCustomBlock } from '@/app/services/profile/profilePageCustomization';
 import { ProfileMediaFrame } from '../ProfileMediaFrame';
-
-function clampFocus(value: number) {
-    return Math.max(0, Math.min(100, Math.round(value)));
-}
-
-function clampZoom(value: number) {
-    /* يطابق حدود normalizeProfilePageCustomization — تجنّب قصّ صامت عند الحفظ */
-    return Math.max(100, Math.min(220, Math.round(value)));
-}
+import { clampFocus, clampZoom } from '../../utils/profileFocusZoomClamp';
+import {
+    capturePointerSafe,
+    preventDefaultIfCancelable,
+    releasePointerSafe,
+} from '@/app/components/lawyer/RoyalLawyerProfile/utils/profilePointerDrag';
+import { useNonPassiveTouchPrevent } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useNonPassiveTouchPrevent';
 
 const ZOOM_COMMIT_DELAY_MS = 120;
 
@@ -31,6 +29,13 @@ export function ImageFocusPicker({ block, src, onChange }: ImageFocusPickerProps
     const [liveFocus, setLiveFocus] = useState({ x: committedX, y: committedY });
     const [liveZoom, setLiveZoom] = useState(committedZoom);
     const height = 180;
+
+    useNonPassiveTouchPrevent(
+        ref,
+        true,
+        '.profile-image-focus-picker',
+        '.profile-image-focus-picker__zoom-controls',
+    );
 
     useEffect(() => {
         if (!dragging.current) {
@@ -69,13 +74,10 @@ export function ImageFocusPicker({ block, src, onChange }: ImageFocusPickerProps
 
     const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         if ((e.target as HTMLElement).closest('.profile-image-focus-picker__zoom-controls')) return;
+        preventDefaultIfCancelable(e);
         dragging.current = true;
         e.currentTarget.dataset.dragging = 'true';
-        try {
-            e.currentTarget.setPointerCapture(e.pointerId);
-        } catch {
-            /* بعض WebViews ترفض capture */
-        }
+        capturePointerSafe(e.currentTarget, e.pointerId);
         const next = computeFocus(e.clientX, e.clientY);
         if (next) {
             pendingFocus.current = next;
@@ -85,6 +87,7 @@ export function ImageFocusPicker({ block, src, onChange }: ImageFocusPickerProps
 
     const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
         if (!dragging.current) return;
+        preventDefaultIfCancelable(e);
         const next = computeFocus(e.clientX, e.clientY);
         if (next) {
             pendingFocus.current = next;
@@ -93,15 +96,10 @@ export function ImageFocusPicker({ block, src, onChange }: ImageFocusPickerProps
     };
 
     const finishPointer = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!dragging.current) return;
         dragging.current = false;
         e.currentTarget.dataset.dragging = 'false';
-        try {
-            if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-                e.currentTarget.releasePointerCapture(e.pointerId);
-            }
-        } catch {
-            /* ignore */
-        }
+        releasePointerSafe(e.currentTarget, e.pointerId);
         const pending = pendingFocus.current;
         pendingFocus.current = null;
         if (pending) {

@@ -1,15 +1,38 @@
 /**
- * Storage Cache Layer
- * طبقة تخزين مؤقت لتحسين أداء LocalStorage (بدون تأثير على التصميم)
+ * كاش قراءة/كتابة لإضابير التنفيذ — لا «طبقة تخزين مؤقت عامّة».
+ *
+ * كان العنوان يقول «طبقة تخزين مؤقت لتحسين أداء LocalStorage»، وهو تضليل: الملفّ
+ * يعرف صيغة كتلة إضبارة التنفيذ ويستورد أربع دوالّ من طبقة تثبيتها، فيسير كل من
+ * يمسّه على إغلاق ثابت من ٥٥ وحدة و٤٠٨ كيلوبايت. ومن قرأ الاسم والعنوان حسبه
+ * بدائية عامّة رخيصة صالحة لأي مفتاح، فأدخلها حيث لا تصلح.
+ *
+ * والقياس يُنصف التصميم القائم: مستورديه ٤٤، وكلّهم — بلا استثناء واحد — من نطاق
+ * التنفيذ والمالية، ومنهم `alimonyPaymentEngine` الذي يبدو خارجاً باسمه وهو يقرأ
+ * إضبارة تنفيذ بمفتاحها. فالوزن لا يدفعه غريب، ولا موجب لعكس الاعتماد ولا لمخاطرة
+ * إعادة هيكلة في طبقة تخزين حسّاسة.
+ *
+ * الحدّ المعلوم: هذا الملفّ طرفٌ في دائرة استيراد من خمسة ملفّات
+ * (`executionDossierBlobPersistence` ← `executionDossierTombstones` ←
+ * `executionStorageKeys` ← هنا). والدائرة تُخضِع ترتيب التهيئة لمن حُمِّل أوّلاً،
+ * وقد أنتجت عطل TDZ حقيقياً في هذه الطبقة — دالّة سهم `const` استُدعيت قبل
+ * تعريفها. فكل دالّة تُستدعى هنا لحظةَ تهيئة الوحدة يجب أن تكون `function` مرفوعة
+ * لا `const`، وذلك شرطٌ قائم لا تفصيل أسلوبيّ.
+ *
+ * (لا تأثير على التصميم — قراءة وكتابة فقط.)
  */
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { startBackgroundInterval } from '@/app/runtime/backgroundInterval';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 import {
   applyExecutionDossierBlobSetWithOutcome,
   isExecutionDossierMainBlobKey,
   readExecutionDossierBlob,
   registerExecutionBlobCacheTouch,
 } from '@/app/utils/executionDossierBlobPersistence';
-import { executionDossierIdFromStorageKey } from '@/app/utils/executionStorageKeys';
+import { executionDossierIdFromStorageKey } from '@/app/utils/executionStorageKeysLite';
 
 function readExecutionDossierCacheValue(key: string): Record<string, unknown> | null {
   if (!isExecutionDossierMainBlobKey(key)) return null;
@@ -17,10 +40,6 @@ function readExecutionDossierCacheValue(key: string): Record<string, unknown> | 
   if (!dossierId) return null;
   const blob = readExecutionDossierBlob(dossierId);
   return blob && typeof blob === 'object' ? blob : null;
-}
-
-function executionDossierValueExistsInStorage(key: string): boolean {
-  return readExecutionDossierCacheValue(key) != null;
 }
 
 interface CacheEntry {
@@ -31,26 +50,11 @@ interface CacheEntry {
 class StorageCacheClass {
   private cache: Map<string, CacheEntry> = new Map();
   private readonly TTL = 5 * 60 * 1000; // 5 دقائق
-  private isEnabled: boolean = true;
-
-  /**
-   * تفعيل/تعطيل الـ Cache
-   */
-  setEnabled(enabled: boolean): void {
-    this.isEnabled = enabled;
-    if (!enabled) {
-      this.cache.clear();
-    }
-  }
 
   /**
    * قراءة من الـ Cache أو LocalStorage
    */
   get(key: string): any | null {
-    if (!this.isEnabled) {
-      return this.readFromLocalStorage(key);
-    }
-
     const cached = this.cache.get(key);
 
     if (cached) {
@@ -58,19 +62,13 @@ class StorageCacheClass {
         this.cache.delete(key);
         return this.get(key);
       }
-      // إن حُذف المفتاح من SecureStore مباشرةً — لا نُرجع قيمة قديمة من الذاكرة
-      try {
-        const stillExists = isExecutionDossierMainBlobKey(key)
-          ? executionDossierValueExistsInStorage(key)
-          : SecureStoreService.getItemSync(key) !== null;
-        if (!stillExists) {
-          this.cache.delete(key);
-          return null;
-        }
-      } catch {
-        this.cache.delete(key);
-        return null;
-      }
+      /*
+       * إصابة الذاكرة: أعد القيمة بلا قراءة قرص.
+       * كان مسار الإضبارة يستدعي readExecutionDossierBlob لمجرد «هل المفتاح
+       * ما زال موجوداً؟» فيُفكّ تشفير البلوب كاملاً في كل get — بما فيها قائمة
+       * المخزن. والحذف الحقيقي يمرّ purgeExecutionStorageCache.
+       * TTL يسقط المدخل بعد خمس دقائق.
+       */
       return cached.value;
     }
 
@@ -85,10 +83,20 @@ class StorageCacheClass {
   }
 
   /**
-   * تحديث الذاكرة المؤقتة فقط — بعد كتابة SecureStore مباشرة
+   * ذاكرة فقط — بلا قرص ولا فك تشفير. لقائمة المخزن حتى لا تُفكّ كل إضبارة عند الرسم.
    */
+  peekMemory(key: string): any | null {
+    const cached = this.cache.get(key);
+    if (!cached) return null;
+    if (Date.now() - cached.timestamp > this.TTL) {
+      this.cache.delete(key);
+      return null;
+    }
+    return cached.value;
+  }
+
+  /** تحديث الذاكرة المؤقتة فقط — بعد كتابة SecureStore مباشرة */
   touchCacheEntry(key: string, value: any): void {
-    if (!this.isEnabled) return;
     this.cache.set(key, {
       value,
       timestamp: Date.now(),
@@ -105,23 +113,24 @@ class StorageCacheClass {
     const executionOutcome = applyExecutionDossierBlobSetWithOutcome(key, value, (k, v) =>
       this.touchCacheEntry(k, v),
     );
-    if (executionOutcome === 'persisted') return true;
+    if (executionOutcome === 'persisted') {
+      clearLegacyPlaintextMirror(key);
+      return true;
+    }
     if (executionOutcome === 'rejected-wipe') return false;
     // 'not-execution-key' | 'invalid-payload' — يُكمل بالمسار العام
     try {
       SecureStoreService.setItemSync(key, JSON.stringify(value));
+      clearLegacyPlaintextMirror(key);
     } catch (e) {
       console.error('[StorageCache] فشل الحفظ في localStorage:', e);
       return false;
     }
 
-    // الكتابة إلى الـ Cache
-    if (this.isEnabled) {
-      this.cache.set(key, {
-        value,
-        timestamp: Date.now()
-      });
-    }
+    this.cache.set(key, {
+      value,
+      timestamp: Date.now(),
+    });
     return true;
   }
 
@@ -135,6 +144,7 @@ class StorageCacheClass {
     } catch (e) {
       console.error('[StorageCache] فشل الحذف من localStorage:', e);
     }
+    clearLegacyPlaintextMirror(key);
   }
 
   /**
@@ -151,57 +161,18 @@ class StorageCacheClass {
     this.cache.clear();
   }
 
-  /**
-   * مسح الـ Cache و LocalStorage
+  /*
+   * `clearAll` حُذفت — ولم يكن لها مستدعٍ واحد في الشيفرة الحيّة.
+   *
+   * كانت تمرّ على كل مفاتيح المخزن وتحذف ما بدأ بـ`hami_`/`hami:`/`lawyer_`/
+   * `execution_`/`lawsuit_`/`client_`/`notes_` عبر `deleteItemSync` مباشرةً — أي
+   * بيانات المحامي كلّها، بتجاوز حارس المسح وشواهد القبر جميعاً. زرٌّ واحد يُوصَل
+   * بها يوماً باسم «تفريغ الذاكرة المؤقتة» يمحو الخزنة والمستودع والإضابير معاً،
+   * والاسم يوحي بأنه يمسّ ذاكرةً مؤقتة لا قرصاً.
+   *
+   * `getCacheSize` و`getStats` و`setEnabled` حُذفن كذلك: صفر مستدعٍ. و`setEnabled`
+   * خاصّةً كانت تُخفي فرعاً ميتاً في كل قراءة وكتابة — رايةٌ لا تُطفأ أبداً.
    */
-  clearAll(): void {
-    this.cache.clear();
-    try {
-      const appKeyPrefixes = ['hami_', 'hami:', 'lawyer_', 'execution_', 'lawsuit_', 'client_', 'notes_', 'cache_'];
-      const keys = SecureStoreService.listKeysSync();
-      keys.forEach((k) => {
-        if (appKeyPrefixes.some((p) => k.startsWith(p))) {
-          SecureStoreService.deleteItemSync(k);
-        }
-      });
-    } catch (e) {
-      console.error('[StorageCache] فشل مسح localStorage:', e);
-    }
-  }
-
-  /**
-   * الحصول على حجم الـ Cache
-   */
-  getCacheSize(): number {
-    return this.cache.size;
-  }
-
-  /**
-   * الحصول على إحصائيات الـ Cache
-   */
-  getStats(): {
-    cacheSize: number;
-    oldestEntry: number | null;
-    newestEntry: number | null;
-  } {
-    let oldestTimestamp: number | null = null;
-    let newestTimestamp: number | null = null;
-
-    this.cache.forEach((entry) => {
-      if (oldestTimestamp === null || entry.timestamp < oldestTimestamp) {
-        oldestTimestamp = entry.timestamp;
-      }
-      if (newestTimestamp === null || entry.timestamp > newestTimestamp) {
-        newestTimestamp = entry.timestamp;
-      }
-    });
-
-    return {
-      cacheSize: this.cache.size,
-      oldestEntry: oldestTimestamp,
-      newestEntry: newestTimestamp
-    };
-  }
 
   /**
    * قراءة من LocalStorage مع معالجة الأخطاء
@@ -209,16 +180,17 @@ class StorageCacheClass {
   private readFromLocalStorage(key: string): any | null {
     try {
       const dossierBlob = readExecutionDossierCacheValue(key);
-      if (dossierBlob) return dossierBlob;
+      if (dossierBlob) {
+        clearLegacyPlaintextMirror(key);
+        return dossierBlob;
+      }
 
-      const value = SecureStoreService.getItemSync(key);
-      if (value === null) return null;
-
+      const drained = readSecureOrDrainLegacySync(key);
+      if (drained == null) return null;
       try {
-        return JSON.parse(value);
+        return JSON.parse(drained);
       } catch {
-        // إذا لم يكن JSON، أرجع النص كما هو
-        return value;
+        return drained;
       }
     } catch (e) {
       console.error('[StorageCache] فشل القراءة من localStorage:', e);
@@ -253,40 +225,24 @@ export const storageCache = new StorageCacheClass();
 
 registerExecutionBlobCacheTouch((key, value) => storageCache.touchCacheEntry(key, value));
 
-if (typeof window !== 'undefined') {
-  const w = window as unknown as {
-    __hamiStorageCacheCleanupInterval?: number;
-  };
-  if (w.__hamiStorageCacheCleanupInterval) {
-    clearInterval(w.__hamiStorageCacheCleanupInterval);
-  }
-  w.__hamiStorageCacheCleanupInterval = window.setInterval(() => storageCache.cleanup(), 10 * 60 * 1000);
-  const cleanup = () => {
-    if (w.__hamiStorageCacheCleanupInterval) {
-      clearInterval(w.__hamiStorageCacheCleanupInterval);
-      w.__hamiStorageCacheCleanupInterval = undefined;
-    }
-  };
-  window.addEventListener('pagehide', cleanup, { once: true });
-  import.meta.hot?.dispose(() => cleanup());
-}
-
-/**
- * Helper Functions للاستخدام المباشر
+/*
+ * كان المؤقّت يُكتب هنا بيده: `pagehide` بـ`{ once: true }` يُزيله ولا يُعيده، فالعودة
+ * من ذاكرة الصفحة تجد التنظيف موقوفاً لبقيّة الجلسة وتنمو الخريطة بلا حدّ. وكان
+ * يعمل أيضاً والتطبيق مُخفى في الخلفية على الهاتف لأن `pagehide` لا يُطلَق هناك.
  */
+const stopStorageCacheCleanup = startBackgroundInterval({
+  globalKey: '__hamiStorageCacheCleanupStop',
+  intervalMs: 10 * 60 * 1000,
+  tick: () => storageCache.cleanup(),
+  /* ما انتهت مدّته أثناء الخفاء يُنظَّف مرّة عند العودة قبل استئناف الدورية */
+  runOnResume: true,
+});
 
-export const getCachedItem = (key: string): any | null => {
-  return storageCache.get(key);
-};
+import.meta.hot?.dispose(() => stopStorageCacheCleanup());
 
-export const setCachedItem = (key: string, value: any): void => {
-  storageCache.set(key, value);
-};
-
-export const removeCachedItem = (key: string): void => {
-  storageCache.remove(key);
-};
-
-export const invalidateCache = (key: string): void => {
-  storageCache.invalidate(key);
-};
+/*
+ * أربع مساعدات مُصدَّرة حُذفت — `getCachedItem` و`setCachedItem` و`removeCachedItem`
+ * و`invalidateCache`. صفر مستدعٍ لكلٍّ منها: كل مواضع الاستعمال في الشيفرة تنادي
+ * `storageCache.get/set/remove/invalidate` مباشرةً. وغلافٌ بلا مستهلك يُضاعف سطح
+ * الوحدة ويُوهم قارئها بأن للوصول طريقين مقصودين.
+ */

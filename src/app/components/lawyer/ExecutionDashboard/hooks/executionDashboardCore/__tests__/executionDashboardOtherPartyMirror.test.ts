@@ -75,6 +75,7 @@ describe('buildOtherPartyCreditorMirrorProps', () => {
         });
 
         expect(result?.executionId).toBe('ex-99');
+        expect(result?.guarantorCtx.executionData).toEqual({ id: 'ex-99' });
         expect(result?.flags.showHiddenExecutiveDossierPresentation).toBe(true);
         expect(result?.mirrorWorkflow.debtRemainingIqd).toBe(750_000);
         expect(result?.debtorAgentManualTrack).toBe(true);

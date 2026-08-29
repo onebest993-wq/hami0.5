@@ -7,20 +7,14 @@ import { peekVaultDocsWarmCache } from '@/app/services/vault/vaultDocsWarmCache'
 
 export function useRepositoryLifecycle(
     userId: string | undefined,
-    vaultLoading: boolean,
     vaultDocCount: number,
     notesCount: number,
-    _notesBootSettled = true,
     repositoryOpen = false,
 ) {
     const uid = userId?.trim() ?? '';
     const hadVaultCacheRef = useRef(peekVaultDocsWarmCache(uid) !== undefined);
     const reportedRef = useRef(false);
     const wasOpenRef = useRef(false);
-
-    /** الفلاتر والقائمة تظهر فوراً — بيانات vault تُدمَج عند وصولها دون حجب كامل */
-    const isShellReady = true;
-    const feedLoading = false;
 
     useEffect(() => {
         reportedRef.current = false;
@@ -35,7 +29,7 @@ export function useRepositoryLifecycle(
     }, [repositoryOpen]);
 
     useEffect(() => {
-        if (!repositoryOpen || !isShellReady || reportedRef.current) return;
+        if (!repositoryOpen || reportedRef.current) return;
         reportedRef.current = true;
         markRepositoryPerfPhase('first-paint');
         markRepositoryPerfPhase('interactive');
@@ -45,9 +39,9 @@ export function useRepositoryLifecycle(
             notesCount,
             hadVaultCache: hadVaultCacheRef.current,
         });
-    }, [isShellReady, repositoryOpen, notesCount, userId, vaultDocCount]);
+    }, [repositoryOpen, notesCount, userId, vaultDocCount]);
 
-    /* احتياطي — لا يبقى open→interactive معلّقاً إن تأخرت الجاهزية (R1/R9) */
+    /* احتياطي — لا يبقى open→interactive معلّقاً إن تأخر التبليغ (R1/R9) */
     useEffect(() => {
         if (!repositoryOpen || reportedRef.current) return;
 
@@ -67,6 +61,4 @@ export function useRepositoryLifecycle(
         const fallback = window.setTimeout(markInteractiveFallback, 1_200);
         return () => window.clearTimeout(fallback);
     }, [repositoryOpen, notesCount, uid, userId, vaultDocCount]);
-
-    return { isShellReady, feedLoading, hadVaultCache: hadVaultCacheRef.current };
 }

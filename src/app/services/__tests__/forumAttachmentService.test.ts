@@ -72,12 +72,25 @@ describe('forumAttachmentService', () => {
         expect(url).toBe('blob:forum-decrypted');
     });
 
-    it('prepareForumAttachmentForPublish يعود إلى IDB المحلي إذا فشل الرفع السحابي', async () => {
+    it('prepareForumAttachmentForPublish يحتفظ بالمسار المحلي إذا تعذّر الرفع السحابي', async () => {
         const { LawyerStorage } = await import('@/app/services/storage/lawyerStorageRuntime');
+        const { putForumBlob } = await import('@/app/services/forumBlobStore');
         vi.mocked(LawyerStorage.uploadSmartFile).mockRejectedValueOnce(new Error('Upload failed'));
+        vi.mocked(putForumBlob).mockResolvedValueOnce(undefined);
+        vi.stubGlobal(
+            'FileReader',
+            class {
+                result = 'data:image/jpeg;base64,abc';
+                onload: (() => void) | null = null;
+                onerror: (() => void) | null = null;
+                readAsDataURL() {
+                    this.onload?.();
+                }
+            },
+        );
 
         const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' });
-        const prepared = await prepareForumAttachmentForPublish(
+        const result = await prepareForumAttachmentForPublish(
             {
                 type: 'image',
                 url: 'blob:preview',
@@ -88,11 +101,24 @@ describe('forumAttachmentService', () => {
             'user-1',
             file,
         );
+        expect(result.storagePath).toMatch(/^idb:forum:/);
+        expect(result.storagePath).not.toMatch(/pending:/);
+        expect(result.url).toMatch(/^data:image\/jpeg/);
+        expect(result.bucket).toBeUndefined();
+    });
 
-        expect(prepared.storagePath).toMatch(/^idb:forum:/);
-        expect(prepared.storagePath).not.toContain('pending:');
-        expect(prepared.url).toBe('blob:preview');
-        expect(prepared.type).toBe('image');
+    it('resolveCommunityAttachmentUrl لا يفك تشفير forum-media غير المشفّر', async () => {
+        const { resolveEncryptedForumImageUrl } = await import('@/lib/forumService.js');
+        vi.mocked(resolveEncryptedForumImageUrl).mockClear();
+        const url = await resolveCommunityAttachmentUrl({
+            type: 'image',
+            name: 'photo.jpg',
+            url: 'blob:dead',
+            storagePath: 'users/u1/drafts/photo.jpg',
+            bucket: 'forum-media',
+        });
+        expect(resolveEncryptedForumImageUrl).not.toHaveBeenCalled();
+        expect(url).toBe('https://cdn.example/users/u1/drafts/photo.jpg');
     });
 
     it('resolveCommunityAttachmentUrl يرفض data:text/html', async () => {

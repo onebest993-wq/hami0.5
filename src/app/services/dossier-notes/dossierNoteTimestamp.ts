@@ -8,5 +8,5 @@ export function formatDossierNoteTimestamp(date: Date = new Date()): string {
 }
 
 export function dossierNoteTimestampLabel(date: Date = new Date()): string {
-    return `🕒 ${formatDossierNoteTimestamp(date)}`;
+    return formatDossierNoteTimestamp(date);
 }

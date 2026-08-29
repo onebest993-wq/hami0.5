@@ -1,11 +1,8 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import type { AlertTimeHorizon } from '@/app/services/alertTimeClassification';
 
 /** تبويبات البطاقة — عاجل (اليوم+غدا) · قادم (3 أيام بعد غد) */
 export const HOME_HUB_ALERT_HORIZONS: AlertTimeHorizon[] = ['urgent', 'upcoming'];
-
-/** @deprecated استخدم HOME_HUB_ALERT_HORIZONS */
-export const HOME_HUB_SCHEDULED_HORIZONS = HOME_HUB_ALERT_HORIZONS;
 
 const TAB_META: Record<
     AlertTimeHorizon,
@@ -35,42 +32,97 @@ type HorizonFilterTabsProps = {
     horizons?: AlertTimeHorizon[];
     hideCounts?: boolean;
     compact?: boolean;
+    /** يربط التبويب بلوحة التغذية عند وجودها — اختياري حتى لا تُفرَض معرفات الهاب على كل مستورد */
+    feedId?: string;
+    idPrefix?: string;
 };
+
+function adjacentHorizon(
+    horizons: AlertTimeHorizon[],
+    current: AlertTimeHorizon,
+    delta: 1 | -1,
+): AlertTimeHorizon {
+    const idx = horizons.indexOf(current);
+    if (idx < 0) return horizons[0] ?? current;
+    return horizons[(idx + delta + horizons.length) % horizons.length] ?? current;
+}
 
 export const HorizonFilterTabs: React.FC<HorizonFilterTabsProps> = ({
     counts,
     activeFilter,
     onChange,
-    horizons = ['urgent', 'near', 'upcoming'],
+    horizons = HOME_HUB_ALERT_HORIZONS,
     hideCounts = false,
     compact = false,
-}) => (
-    <div
-        className={`flex flex-wrap gap-1 justify-end shrink-0 ${compact ? 'hami-hub-horizon-tabs--compact' : ''}`}
-        role="tablist"
-        aria-label="تصفية التنبيهات الزمنية"
-    >
-        {horizons.map((key) => {
-            const meta = TAB_META[key];
-            const count = counts[key];
-            const isActive = activeFilter === key;
-            const sizeClass = compact
-                ? 'text-[8px] font-extrabold min-h-[36px] px-2.5 py-0.5'
-                : 'text-[9px] font-bold min-h-[44px] px-3 py-1';
-            return (
-                <button
-                    key={key}
-                    type="button"
-                    role="tab"
-                    aria-selected={isActive}
-                    onClick={() => onChange(key)}
-                    className={`${sizeClass} rounded-full border transition-colors touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/40 ${
-                        isActive ? meta.activeClass : meta.idleClass
-                    } ${count === 0 && !hideCounts ? 'opacity-45' : ''}`}
-                >
-                    {hideCounts ? meta.label : count > 0 ? `${count} ${meta.label}` : meta.label}
-                </button>
-            );
-        })}
-    </div>
-);
+    feedId,
+    idPrefix = 'horizon',
+}) => {
+    const tabRefs = useRef<Partial<Record<AlertTimeHorizon, HTMLButtonElement | null>>>({});
+
+    const selectAndFocus = useCallback(
+        (key: AlertTimeHorizon) => {
+            onChange(key);
+            requestAnimationFrame(() => {
+                tabRefs.current[key]?.focus();
+            });
+        },
+        [onChange],
+    );
+
+    const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, key: AlertTimeHorizon) => {
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            event.preventDefault();
+            selectAndFocus(adjacentHorizon(horizons, key, event.key === 'ArrowLeft' ? 1 : -1));
+            return;
+        }
+        if (event.key === 'Home') {
+            event.preventDefault();
+            const first = horizons[0];
+            if (first) selectAndFocus(first);
+            return;
+        }
+        if (event.key === 'End') {
+            event.preventDefault();
+            const last = horizons[horizons.length - 1];
+            if (last) selectAndFocus(last);
+        }
+    };
+
+    return (
+        <div
+            className={`flex flex-wrap gap-1 justify-end shrink-0 ${compact ? 'hami-hub-horizon-tabs--compact' : ''}`}
+            role="tablist"
+            aria-label="تصفية التنبيهات الزمنية"
+        >
+            {horizons.map((key) => {
+                const meta = TAB_META[key];
+                const count = counts[key];
+                const isActive = activeFilter === key;
+                const sizeClass = compact
+                    ? 'text-[8px] font-extrabold min-h-[44px] px-2.5 py-0.5'
+                    : 'text-[9px] font-bold min-h-[44px] px-3 py-1';
+                return (
+                    <button
+                        key={key}
+                        type="button"
+                        role="tab"
+                        id={`${idPrefix}-${key}`}
+                        ref={(node) => {
+                            tabRefs.current[key] = node;
+                        }}
+                        aria-selected={isActive}
+                        aria-controls={feedId}
+                        tabIndex={isActive ? 0 : -1}
+                        onClick={() => onChange(key)}
+                        onKeyDown={(event) => handleKeyDown(event, key)}
+                        className={`${sizeClass} rounded-full border transition-colors touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/40 ${
+                            isActive ? meta.activeClass : meta.idleClass
+                        } ${count === 0 && !hideCounts ? 'opacity-45' : ''}`}
+                    >
+                        {hideCounts ? meta.label : count > 0 ? `${count} ${meta.label}` : meta.label}
+                    </button>
+                );
+            })}
+        </div>
+    );
+};

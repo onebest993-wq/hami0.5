@@ -40,4 +40,76 @@ describe('computeLawsuitSmartStatus', () => {
         expect(status.title).toBe('مكتسبة الدرجة القطعية');
         expect(status.type).toBe('final');
     });
+
+    it('does not trust a stale parent review status without active-stage evidence', () => {
+        const status = computeLawsuitSmartStatus({
+            status: 'متروكة للمراجعة',
+            stages: [
+                {
+                    stageName: 'البداءة',
+                    status: 'active',
+                    abandonmentDate: undefined,
+                    finalDecision: null,
+                },
+            ],
+            activeStageIndex: 0,
+        });
+        expect(status.label).toBe('مستمرة');
+        expect(status.type).toBe('active');
+    });
+
+    it('keeps an explicitly selected completed-stage review decision', () => {
+        const status = computeLawsuitSmartStatus({
+            status: 'نشطة',
+            stages: [
+                {
+                    stageName: 'البداءة',
+                    status: 'completed',
+                    finalDecision: 'متروكة للمراجعة',
+                    legalTimers: { reviewDeadline: '2099-01-01' },
+                },
+            ],
+            activeStageIndex: 0,
+        });
+        expect(status.label).toBe('متروكة للمراجعة');
+        expect(status.type).toBe('review');
+    });
+
+    it('shows انتهت when finalization conflicts with stale review metadata', () => {
+        const status = computeLawsuitSmartStatus({
+            status: 'منتهية',
+            stages: [
+                {
+                    stageName: 'البداءة',
+                    status: 'completed',
+                    finalDecision: 'مكتسبة الدرجة القطعية',
+                    abandonmentDate: '2026-01-01',
+                },
+            ],
+            activeStageIndex: 0,
+        });
+        expect(status.label).toBe('انتهت');
+        expect(status.type).toBe('final');
+    });
+
+    it('derives the card from the active stage, not a finalized historical stage', () => {
+        const status = computeLawsuitSmartStatus({
+            status: 'مرحلة الاستئناف',
+            stages: [
+                {
+                    stageName: 'البداءة',
+                    status: 'completed',
+                    finalDecision: 'مكتسبة الدرجة القطعية',
+                },
+                {
+                    stageName: 'الاستئناف',
+                    status: 'active',
+                    finalDecision: null,
+                },
+            ],
+            activeStageIndex: 1,
+        });
+        expect(status.label).toBe('مستمرة');
+        expect(status.type).toBe('active');
+    });
 });

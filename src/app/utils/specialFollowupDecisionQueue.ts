@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * واجهة موحّدة لطلبات special_followup — المصدر الفعلي executorSeizureDecisionQueue.
  */

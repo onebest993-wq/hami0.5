@@ -1,11 +1,16 @@
 import React, { memo } from 'react';
-import { prefetchCommunityRepositorySection } from '../communityScreenLazySections';
+import {
+    prefetchCommunityGroupsSection,
+    prefetchCommunityRepositorySection,
+    prefetchCommunityRepositorySectionChunk,
+} from '../communityScreenLazySections';
 
 export type ForumSectionId = 'forum' | 'groups' | 'repository';
 
 interface ForumSectionSwitchProps {
     activeSection: ForumSectionId;
     onSectionChange: (section: ForumSectionId) => void;
+    onSectionIntent?: (section: ForumSectionId) => void;
 }
 
 const SECTIONS = [
@@ -14,9 +19,19 @@ const SECTIONS = [
     { id: 'repository' as const, label: 'المستودع' },
 ];
 
+function prefetchForumSection(id: ForumSectionId, mode: 'full' | 'chunk'): void {
+    if (id === 'repository') {
+        if (mode === 'full') prefetchCommunityRepositorySection();
+        else void prefetchCommunityRepositorySectionChunk();
+        return;
+    }
+    if (id === 'groups') prefetchCommunityGroupsSection();
+}
+
 export const ForumSectionSwitch = memo(function ForumSectionSwitch({
     activeSection,
     onSectionChange,
+    onSectionIntent,
 }: ForumSectionSwitchProps) {
     return (
         <div
@@ -34,14 +49,21 @@ export const ForumSectionSwitch = memo(function ForumSectionSwitch({
                         role="tab"
                         data-testid={`forum-section-tab-${id}`}
                         aria-selected={isActive}
-                        onClick={() => onSectionChange(id)}
-                        onPointerEnter={() => {
-                            if (id === 'repository') prefetchCommunityRepositorySection();
+                        onClick={() => {
+                            prefetchForumSection(id, 'full');
+                            onSectionChange(id);
                         }}
-                        className={`hami-forum-cuneiform-btn relative min-h-[44px] rounded-xl px-3 py-2.5 text-center text-sm font-bold transition-colors duration-150 touch-manipulation ${
+                        onPointerDown={() => {
+                            onSectionIntent?.(id);
+                            prefetchForumSection(id, 'full');
+                        }}
+                        onPointerEnter={() => {
+                            prefetchForumSection(id, 'chunk');
+                        }}
+                        className={`relative min-h-[44px] rounded-xl px-3 py-2.5 text-center text-sm font-bold transition-colors duration-150 touch-manipulation ${
                             isActive
                                 ? 'hami-forum-section-active'
-                                : 'hami-forum-section-idle hover:bg-white/[0.04]'
+                                : 'hami-forum-section-idle'
                         }`}
                     >
                         <span className="block truncate">{label}</span>

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useExecutionDashboardRealEstateSeizureModalHandlers } from './useExecutionDashboardRealEstateSeizureModalHandlers';
 import { useExecutionDashboardThirdPartySeizureHandlers } from './useExecutionDashboardThirdPartySeizureHandlers';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';

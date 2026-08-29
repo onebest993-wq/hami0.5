@@ -70,6 +70,13 @@ describe('SmartRepositoryModal shell', () => {
     it('زر الإغلاق native يستدعي onClose', () => {
         const onClose = vi.fn();
         render(<SmartRepositoryModal {...baseProps} onClose={onClose} />);
+        fireEvent.pointerDown(screen.getByTestId('smart-repository-close'));
+        expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('زر الإغلاق click يستدعي onClose', () => {
+        const onClose = vi.fn();
+        render(<SmartRepositoryModal {...baseProps} onClose={onClose} />);
         fireEvent.click(screen.getByTestId('smart-repository-close'));
         expect(onClose).toHaveBeenCalledTimes(1);
     });
@@ -84,5 +91,23 @@ describe('SmartRepositoryModal shell', () => {
         expect(screen.getByTestId('smart-repository-modal')).toBeInTheDocument();
         rerender(<SmartRepositoryModal {...baseProps} isOpen={false} />);
         expect(screen.queryByTestId('smart-repository-modal')).not.toBeInTheDocument();
+    });
+
+    it('keepAlive المغلق يبقي الطبقة دون خلاصة', () => {
+        render(<SmartRepositoryModal {...baseProps} isOpen={false} keepAlive />);
+        const modal = screen.getByTestId('smart-repository-modal');
+        expect(modal).toBeInTheDocument();
+        expect(modal).toHaveAttribute('aria-hidden', 'true');
+        expect(modal).toHaveAttribute('inert');
+        expect(screen.queryByTestId('repository-unified-feed-mock')).not.toBeInTheDocument();
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('الفتح يركّب الخلاصة', () => {
+        render(<SmartRepositoryModal {...baseProps} isOpen keepAlive />);
+        const modal = screen.getByTestId('smart-repository-modal');
+        expect(screen.getByTestId('repository-unified-feed-mock')).toBeInTheDocument();
+        expect(modal).not.toHaveAttribute('inert');
+        expect(screen.getByRole('dialog', { name: 'المستودع' })).toBeInTheDocument();
     });
 });

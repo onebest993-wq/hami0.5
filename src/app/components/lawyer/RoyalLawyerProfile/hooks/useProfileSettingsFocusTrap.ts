@@ -19,7 +19,10 @@ function listFocusables(root: HTMLElement): HTMLElement[] {
     });
 }
 
-function trapTabInSheet(e: Pick<KeyboardEvent, 'key' | 'shiftKey' | 'preventDefault'>, root: HTMLElement) {
+export function trapTabInRoot(
+    e: Pick<KeyboardEvent, 'key' | 'shiftKey' | 'preventDefault'>,
+    root: HTMLElement,
+) {
     if (e.key !== 'Tab') return;
     const focusables = listFocusables(root);
     if (focusables.length === 0) return;
@@ -41,18 +44,25 @@ export function useProfileSettingsFocusTrap(
     open: boolean,
     sheetRef: RefObject<HTMLDivElement | null>,
     onClose: () => void,
-    options?: { closeEnabled?: boolean },
+    options?: { closeEnabled?: boolean; trapTab?: boolean },
 ) {
     const closeEnabled = options?.closeEnabled !== false;
+    const trapTab = options?.trapTab !== false;
 
     useEffect(() => {
         if (!open) return;
         const root = sheetRef.current;
         const focusables = root ? listFocusables(root) : [];
-        const initial = focusables[0];
+        const initial =
+            focusables.find((el) => el.getAttribute('data-testid') !== 'profile-settings-close') ??
+            focusables[0];
         if (initial) {
             window.requestAnimationFrame(() => initial.focus());
         }
+    }, [open, sheetRef]);
+
+    useEffect(() => {
+        if (!open) return;
 
         const onKey = (e: globalThis.KeyboardEvent) => {
             if (e.key === 'Escape') {
@@ -62,23 +72,24 @@ export function useProfileSettingsFocusTrap(
                 onClose();
                 return;
             }
-            if (e.key !== 'Tab') return;
+            if (e.key !== 'Tab' || !trapTab) return;
             const sheet = sheetRef.current;
             if (!sheet) return;
             /* نافذة كاملة — لا تعتمد على فوكس داخل الورقة فقط */
-            trapTabInSheet(e, sheet);
+            trapTabInRoot(e, sheet);
         };
         window.addEventListener('keydown', onKey, true);
         return () => window.removeEventListener('keydown', onKey, true);
-    }, [open, onClose, sheetRef, closeEnabled]);
+    }, [open, onClose, sheetRef, closeEnabled, trapTab]);
 
     const onKeyDownCapture = useCallback(
         (e: KeyboardEvent) => {
+            if (!trapTab) return;
             const root = sheetRef.current;
             if (!root) return;
-            trapTabInSheet(e, root);
+            trapTabInRoot(e, root);
         },
-        [sheetRef],
+        [sheetRef, trapTab],
     );
 
     return { onKeyDownCapture };

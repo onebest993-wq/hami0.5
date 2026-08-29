@@ -14,6 +14,8 @@ export { isSafeForumAttachmentUrl } from '@/app/services/forum/forumUrlSafety';
 
 const IDB_PERSIST_TIMEOUT_MS = 4_000;
 
+void 0; // placeholder to keep line - will remove withTimeout instead
+
 function createCacheKey(): string {
     const cryptoObj = globalThis.crypto as Crypto | undefined;
     if (cryptoObj?.randomUUID) return cryptoObj.randomUUID();
@@ -30,17 +32,21 @@ function isEphemeralIdbKey(idbKey: string | null): boolean {
     return idbKey.startsWith('pending:') || idbKey.startsWith('blob:');
 }
 
-async function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
-    try {
-        return await Promise.race([
-            promise,
-            new Promise<never>((_, reject) => {
-                setTimeout(() => reject(new Error('forum-attachment-timeout')), ms);
-            }),
-        ]);
-    } catch {
-        return fallback;
-    }
+function fileToDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(reader.error ?? new Error('forum-attachment-data-url-failed'));
+        reader.readAsDataURL(file);
+    });
+}
+
+function isEncryptedForumAttachment(
+    attachment: CommunityAttachment,
+    storagePath: string,
+): boolean {
+    if (attachment.encrypted === true) return true;
+    return /\.enc$/i.test(storagePath);
 }
 
 async function blobUrlToFile(
@@ -130,11 +136,12 @@ export function createInstantForumAttachmentPreview(file: File): {
 export async function persistForumAttachmentFile(file: File): Promise<string> {
     const cacheKey = createCacheKey();
     try {
-        await withTimeout(
+        await Promise.race([
             putForumBlob(cacheKey, file, file.type || 'application/octet-stream'),
-            IDB_PERSIST_TIMEOUT_MS,
-            undefined,
-        );
+            new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error('forum-attachment-timeout')), IDB_PERSIST_TIMEOUT_MS);
+            }),
+        ]);
         return buildForumIdbPath(cacheKey);
     } catch {
         throw new Error('forum-attachment-idb-failed');
@@ -169,16 +176,34 @@ export async function prepareForumAttachmentForPublish(
 
     try {
         return await finalizeForumAttachmentForPersist(working, userId);
-    } catch (error) {
-        const idbKey = parseForumIdbPath(working.storagePath);
-        if (idbKey && !isEphemeralIdbKey(idbKey)) {
-            return {
-                ...working,
-                ...(working.url?.trim() ? { url: working.url.trim() } : {}),
-            };
-        }
-        throw error;
+    } catch {
+        return persistLocalForumAttachment(working, sourceFile ?? null);
     }
+}
+
+async function persistLocalForumAttachment(
+    attachment: CommunityAttachment,
+    sourceFile: File | null,
+): Promise<CommunityAttachment> {
+    const file = sourceFile ?? (await readCommunityAttachmentFile(attachment));
+    let url = attachment.url?.trim() ?? '';
+    if (attachment.type === 'image' && (!url || url.startsWith('blob:')) && file) {
+        try {
+            const dataUrl = await fileToDataUrl(file);
+            if (dataUrl.startsWith('data:image/') && isSafeForumAttachmentUrl(dataUrl)) {
+                url = dataUrl;
+            }
+        } catch {
+            /* keep existing url */
+        }
+    }
+    return {
+        ...attachment,
+        url: url || attachment.url,
+        mimeType: file?.type || attachment.mimeType,
+        bucket: undefined,
+        encrypted: undefined,
+    };
 }
 
 /** يرفع المرفق للسحابة قبل حفظ المنشور — يمنع اختفاء الصور بعد إعادة التحميل */
@@ -191,13 +216,15 @@ export async function finalizeForumAttachmentForPersist(
     if (isCloudStoragePath(storagePath)) {
         const signed =
             (await LawyerStorage.getSignedUrl(storagePath)) ||
-            (attachment.url?.startsWith('blob:') ? null : attachment.url?.trim()) ||
+            (attachment.url && !attachment.url.startsWith('blob:') ? attachment.url.trim() : '') ||
             '';
-        return {
-            ...attachment,
-            url: signed || attachment.url,
-            storagePath,
-        };
+        if (signed && isSafeForumAttachmentUrl(signed) && !signed.startsWith('blob:')) {
+            return {
+                ...attachment,
+                url: signed,
+                storagePath,
+            };
+        }
     }
 
     const file = await readCommunityAttachmentFile(attachment);
@@ -206,24 +233,28 @@ export async function finalizeForumAttachmentForPersist(
     }
 
     const category =
-        attachment.type === 'audio' ? 'audio' : attachment.type === 'document' ? 'drafts' : 'drafts';
-    const uploaded = await LawyerStorage.uploadSmartFile(userId, file, category);
-    const cloudPath = uploaded.path || uploaded.fullPath;
-    if (!cloudPath) {
-        throw new Error('forum-attachment-upload-missing-path');
+        attachment.type === 'image' ? 'forum-media' : attachment.type === 'audio' ? 'audio' : 'drafts';
+    try {
+        const uploaded = await LawyerStorage.uploadSmartFile(userId, file, category);
+        const cloudPath = uploaded.path || uploaded.fullPath;
+        const url =
+            uploaded.downloadUrl ||
+            (cloudPath ? await LawyerStorage.getSignedUrl(cloudPath) : '') ||
+            '';
+        if (cloudPath && url && isSafeForumAttachmentUrl(url)) {
+            return {
+                ...attachment,
+                url,
+                storagePath: cloudPath,
+                bucket: uploaded.bucket || (category === 'forum-media' ? 'forum-media' : attachment.bucket),
+                mimeType: file.type || attachment.mimeType,
+            };
+        }
+    } catch {
+        /* يبقى المسار المحلي */
     }
 
-    const url =
-        uploaded.downloadUrl ||
-        (await LawyerStorage.getSignedUrl(cloudPath)) ||
-        attachment.url;
-
-    return {
-        ...attachment,
-        url,
-        storagePath: cloudPath,
-        mimeType: file.type || attachment.mimeType,
-    };
+    return persistLocalForumAttachment(attachment, file);
 }
 
 /** @deprecated استخدم createInstantForumAttachmentPreview + persistForumAttachmentFile */
@@ -242,16 +273,17 @@ export async function resolveCommunityAttachmentUrl(
 ): Promise<string | null> {
     if (!attachment) return null;
 
-    if (attachment.encrypted === true || attachment.bucket === 'forum-media') {
+    const storagePath = attachment.storagePath?.trim() ?? '';
+    if (isEncryptedForumAttachment(attachment, storagePath)) {
         try {
             const { resolveEncryptedForumImageUrl } = await import('@/lib/forumService.js');
-            return await resolveEncryptedForumImageUrl(attachment);
+            const decrypted = await resolveEncryptedForumImageUrl(attachment);
+            if (decrypted) return decrypted;
         } catch {
-            return null;
+            /* نكمل المسارات غير المشفّرة */
         }
     }
 
-    const storagePath = attachment.storagePath?.trim() ?? '';
     if (isCloudStoragePath(storagePath)) {
         const fresh = await LawyerStorage.getSignedUrl(storagePath);
         if (fresh) {

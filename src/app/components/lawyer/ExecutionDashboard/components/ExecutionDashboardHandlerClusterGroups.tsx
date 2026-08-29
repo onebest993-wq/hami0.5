@@ -137,6 +137,12 @@ export function ExecutionDashboardSeizureHandlerClusterGroup({
                             input={input}
                             onCluster={onCluster}
                         />
+                        {/* AssetModal owns focus/modal handlers (peeled from Heavy) — bind refs in requests too. */}
+                        <LazyExecutionDashboardHandlerClusterSeizureLogAssetModalBridge
+                            key={`${mountKey}:heavy-seizure-requests-asset-modal`}
+                            input={input}
+                            onCluster={onCluster}
+                        />
                     </>
                 </Suspense>
             ) : null}

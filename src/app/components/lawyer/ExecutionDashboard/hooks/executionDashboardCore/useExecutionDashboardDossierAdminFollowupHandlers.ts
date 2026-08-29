@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useMemo, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
@@ -136,6 +135,7 @@ export function useExecutionDashboardDossierAdminFollowupHandlers({
             setSpecialRequestContent('');
             setSpecialRequestManualTitle('');
             setSpecialRequestDate(getLocalTodayYmd());
+            return true;
         },
         onClose: () => {},
         successMessage:

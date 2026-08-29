@@ -7,6 +7,11 @@ import type {
 import { CaseShareRepository } from './caseShareRepository';
 import { assertRecipientInNetwork } from './caseShareNetworkGuard';
 import { listNetworkColleagues } from './lawyerNetworkRepository';
+import {
+    assertShareSourceOwnedByUser,
+    ShareSourceOwnershipError,
+} from './caseShareDossierOwnership';
+import { registerCriminalCaseOwnershipOnServer } from './caseShareCriminalOwnershipApi';
 
 type ApiOk<T> = { ok: true } & T;
 
@@ -30,8 +35,10 @@ export class CaseShareApiService {
                 { method: 'GET' },
             );
             if (Array.isArray(res.shares)) return res.shares;
+            if (import.meta.env.PROD) return [];
         } catch {
-            /* fallback */
+            if (import.meta.env.PROD) return [];
+            /* DEV: repository fallback below */
         }
         return CaseShareRepository.listForUser(userId, { summary: true });
     }
@@ -43,8 +50,10 @@ export class CaseShareApiService {
                 { method: 'GET' },
             );
             if (res.share) return res.share;
+            if (import.meta.env.PROD) return null;
         } catch {
-            /* fallback */
+            if (import.meta.env.PROD) return null;
+            /* DEV: repository fallback below */
         }
         return CaseShareRepository.getById(shareId, userId);
     }
@@ -68,6 +77,10 @@ export class CaseShareApiService {
             throw new Error('RECIPIENT_NOT_IN_NETWORK');
         }
         try {
+            if (params.source.module === 'criminal') {
+                await assertShareSourceOwnedByUser(params.ownerId, params.source);
+                await registerCriminalCaseOwnershipOnServer(params.source.dossierId);
+            }
             const res = await postJson<ApiOk<{ share: CaseShareRecord }>>('/api/case-share', {
                 action: 'create',
                 recipientId: params.recipientId,
@@ -78,10 +91,14 @@ export class CaseShareApiService {
                 sessionDurationMinutes: params.sessionDurationMinutes,
             });
             if (res.share) return res.share;
-        } catch {
-            /* local */
+            throw new Error('CREATE_SHARE_EMPTY');
+        } catch (err) {
+            if (err instanceof ShareSourceOwnershipError) throw err;
+            if (import.meta.env.PROD) {
+                throw err;
+            }
+            return CaseShareRepository.createShare(params);
         }
-        return CaseShareRepository.createShare(params);
     }
 
     static async respond(shareId: string, action: 'accept' | 'decline', userId: string): Promise<void> {
@@ -92,7 +109,10 @@ export class CaseShareApiService {
             });
             if (!res.share) throw new Error('RESPOND_FAILED');
             return;
-        } catch {
+        } catch (err) {
+            if (import.meta.env.PROD) {
+                throw err;
+            }
             const updated = await CaseShareRepository.updateStatus(
                 shareId,
                 userId,
@@ -109,9 +129,12 @@ export class CaseShareApiService {
                 shareId,
             });
             if (res.share) return res.share;
-        } catch {
-            /* local */
+            throw new Error('END_SESSION_EMPTY');
+        } catch (err) {
+            if (import.meta.env.PROD) {
+                throw err;
+            }
+            return CaseShareRepository.endSession(shareId, userId);
         }
-        return CaseShareRepository.endSession(shareId, userId);
     }
 }

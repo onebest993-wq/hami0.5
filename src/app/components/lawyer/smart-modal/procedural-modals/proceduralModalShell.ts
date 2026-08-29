@@ -1,8 +1,10 @@
 import { SMART_FILE_NESTED_MODAL_OVERLAY_CLASS } from '../smartFile/smartFileOverlayZ';
 
+import { SMART_MODAL_MOTION_ZOOM_ENTER } from '../smartFile/smartModalMotionClasses';
+
 export const GLASS_MODAL_OVERLAY = SMART_FILE_NESTED_MODAL_OVERLAY_CLASS;
 export const GLASS_MODAL_SHELL =
-    'rounded-2xl border border-white/[0.1] bg-[#0A0F1C]/80 backdrop-blur-2xl shadow-[0_24px_80px_rgba(0,0,0,0.65)] w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200';
+    `rounded-2xl border border-white/[0.1] bg-[#0A0F1C]/80 backdrop-blur-sm shadow-[0_8px_22px_rgba(0,0,0,0.22)] w-full max-w-lg overflow-hidden ${SMART_MODAL_MOTION_ZOOM_ENTER}`;
 export const GLASS_MODAL_HEADER =
     'relative px-4 py-4 border-b border-white/[0.08] bg-gradient-to-l from-[#E6C673]/10 via-transparent to-transparent flex justify-between items-center';
 export const GLASS_FIELD =

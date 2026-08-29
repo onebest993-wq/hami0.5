@@ -292,7 +292,7 @@ describe('calendar full simulation (real CalendarDB)', () => {
         await awaitFileCalendarSync();
 
         expect(loadLawsuitFilesRaw().length).toBe(1);
-        const stored = localStorage.getItem(CAL_KEY) || SecureStoreService.getItemSync(CAL_KEY);
+        const stored = SecureStoreService.getItemSync(CAL_KEY) || localStorage.getItem(CAL_KEY);
         expect(stored).toBeTruthy();
         const parsed = JSON.parse(String(stored)) as unknown[];
         expect(Array.isArray(parsed) && parsed.length > 0).toBe(true);

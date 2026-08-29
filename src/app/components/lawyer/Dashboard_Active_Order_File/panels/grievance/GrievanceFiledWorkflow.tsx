@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import type { GrievanceLifecyclePanelProps } from '../GrievanceLifecyclePanelProps';
 import { GrievanceFiledDecisionSection } from './GrievanceFiledDecisionSection';
 import { GrievanceFiledDetailsSection } from './GrievanceFiledDetailsSection';

@@ -6,6 +6,13 @@ const nativePlatform = vi.hoisted(() => ({ native: false }));
 
 vi.mock('@/app/runtime/nativePlatform', () => ({
     isCapacitorNativePlatform: () => nativePlatform.native,
+    getCapacitorPlatformId: () => (nativePlatform.native ? 'android' : 'web'),
+    isAndroidNativeShell: () => nativePlatform.native,
+}));
+
+vi.mock('@/app/runtime/nativeCapacitorBoot', () => ({
+    whenNativeCapacitorBootComplete: () => Promise.resolve(),
+    bootNativeCapacitorShell: () => Promise.resolve(),
 }));
 
 vi.mock('@/app/hooks/useAutoSave', () => ({

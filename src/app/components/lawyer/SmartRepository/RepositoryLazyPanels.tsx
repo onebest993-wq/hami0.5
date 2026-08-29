@@ -1,6 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { Loader2 } from '@/app/components/ui/lucideIcons';
-import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
+import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import type { DossierLawArticleRichEditorHandle } from '@/app/components/lawyer/dossier-notes/DossierLawArticleRichEditor';
 
 /**
@@ -102,4 +101,3 @@ export function RepositoryVoiceRecorder({
     );
 }
 
-export type { SmartVaultDoc };

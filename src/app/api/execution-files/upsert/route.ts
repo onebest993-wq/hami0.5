@@ -1,7 +1,9 @@
 import { sanitizePayload } from '@/app/api/security/sanitizer';
 import { getSupabaseAdminClient } from '@/app/api/security/supabaseAdminClient';
 import { wifeJsonResponse } from '@/app/api/security/wifeSecurityHeaders';
+import { rejectNonUuidCloudWrite } from '@/app/api/security/postgresUuidSubject';
 import { requireExecutionFilesAuth } from '../_auth';
+import { encryptedPayloadSignatureMatches, computeDossierPayloadMac } from '@/app/api/security/encryptedPayloadSignature';
 
 export const runtime = 'nodejs';
 
@@ -25,6 +27,8 @@ export async function POST(request: Request): Promise<Response> {
     const authGate = await requireExecutionFilesAuth(request);
     if (authGate.ok === false) return authGate.response;
     const { userId } = authGate;
+    const denied = rejectNonUuidCloudWrite(userId);
+    if (denied) return denied;
 
     let payload: unknown = null;
     try {
@@ -44,6 +48,9 @@ export async function POST(request: Request): Promise<Response> {
     if (!externalId || !caseNo || !executionType || !encryptedData || !dataSignature) {
       return wifeJsonResponse(400, { ok: false, error: 'Missing required fields' });
     }
+    if (!encryptedPayloadSignatureMatches(encryptedData, dataSignature)) {
+      return wifeJsonResponse(400, { ok: false, error: 'Invalid data signature' });
+    }
 
     const court = normalizeText(payload.court, MAX_TEXT_LEN);
     const executionBasis = normalizeText(payload.execution_basis, MAX_TEXT_LEN);
@@ -58,6 +65,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const nowIso = new Date().toISOString();
+    const payloadMac = computeDossierPayloadMac(encryptedData);
     const row = {
       user_id: userId,
       external_id: externalId,
@@ -67,6 +75,7 @@ export async function POST(request: Request): Promise<Response> {
       execution_basis: executionBasis ?? null,
       encrypted_data: encryptedData,
       data_signature: dataSignature,
+      ...(payloadMac ? { payload_mac: payloadMac } : {}),
       security_version: securityVersion,
       status,
       updated_at: nowIso,

@@ -17,29 +17,11 @@ export function shouldShowGuarantorExternalHub(executionData: ExecutionFile | nu
     return hasActiveFinancialGuarantorFollowup(executionData);
 }
 
-/** أهلية تبليغ الكفيل — دون تكرار مع تبليغ المدين */
-function normalizeGuarantorIqdDigits(raw: string): string {
-    return String(raw || '')
-        .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
-        .replace(/,/g, '')
-        .replace(/\s/g, '')
-        .replace(/\u066B/g, '.')
-        .trim();
-}
-
 /** قراءة مبلغ د.ع من التخزين (رقم أو نص بعد JSON) */
 export function readGuarantorIqd(value: unknown): number | null {
     if (value == null || value === '') return null;
     if (typeof value === 'number' && Number.isFinite(value)) return value;
-    const t = normalizeGuarantorIqdDigits(String(value));
-    if (!t) return null;
-    const n = Number(t);
-    return Number.isFinite(n) ? n : null;
-}
-
-/** تحويل إدخال المستخدم (عربي/إنجليزي + فواصل) إلى د.ع */
-export function parseGuarantorIqdInput(raw: string): number | null {
-    const n = parseAmount(raw);
+    const n = parseAmount(String(value));
     return Number.isFinite(n) ? n : null;
 }
 
@@ -47,18 +29,6 @@ export function formatGuarantorIqdForDisplay(value: unknown, emptyLabel = 'لم 
     const n = readGuarantorIqd(value);
     if (n == null) return emptyLabel;
     return `${n.toLocaleString('ar-IQ')} د.ع`;
-}
-
-/** اسم الكفيل وجهة العمل — من متابعة الكفيل الضامن */
-export function resolveGuarantorIdentity(
-    executionData: ExecutionFile | null | undefined,
-    gf?: ExecutionFile['guarantor_followup'] | null
-): { name: string; workplace: string } {
-    const g = gf ?? executionData?.guarantor_followup;
-    return {
-        name: String(g?.guarantor_name || '').trim(),
-        workplace: String(g?.guarantor_workplace || '').trim(),
-    };
 }
 
 /** آخر صف طلب كفيل «مفتوح» يحكم واجهة المحضر — يتجاهل الدورات المؤرشفة أو المكتملة بعد إزالة الكفيل */

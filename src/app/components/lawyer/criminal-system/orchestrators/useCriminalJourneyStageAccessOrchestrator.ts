@@ -16,7 +16,7 @@ import {
 } from '../investigationDefendantPurge';
 import { resolveCanCreateDecisionsOrRequests } from '../criminalDashboardStageAccess';
 
-export type UseCriminalJourneyStageAccessOrchestratorParams = {
+type UseCriminalJourneyStageAccessOrchestratorParams = {
     id: string;
     rawCase: CriminalCase | null;
     criminalCase: CriminalCase;
@@ -35,7 +35,7 @@ export type UseCriminalJourneyStageAccessOrchestratorParams = {
     setSelectedJourneyBranchId: Dispatch<SetStateAction<string>>;
 };
 
-export type UseCriminalJourneyStageAccessOrchestratorResult = {
+type UseCriminalJourneyStageAccessOrchestratorResult = {
     stageJourney: JourneyNode[];
     journeyBranchTracks: JourneyBranchTrack[];
     activeJourneyBranch: JourneyBranchTrack | null;

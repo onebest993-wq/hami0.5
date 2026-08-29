@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { ForumNotification } from '@/app/services/lawyer-cloud';
-import { ForumApiService } from '@/app/services/forumApiService';
 import { FORUM_UNREAD_CHANGED_EVENT } from '@/app/services/forum/forumNotificationEvents';
 import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import { withForumAsyncTimeout } from '../forumAsync';
@@ -12,12 +10,12 @@ import {
 import {
     applyForumNotificationsSnapshot,
     resolveInitialForumNotifications,
-    sortForumNotificationsByDate,
 } from './forumAppBarNotificationSnapshot';
 import {
     FORUM_NOTIF_FETCH_TIMEOUT_MS,
     useForumNotificationFetch,
 } from './useForumNotificationFetch';
+import { useForumAppBarNotificationActions } from './useForumAppBarNotificationActions';
 
 const FORUM_NOTIF_CACHE_HYDRATE_MS = 1_500;
 
@@ -77,6 +75,7 @@ export function useForumAppBarNotifications(
             setRefreshingNotifs(false);
             return;
         }
+        if (surfaceOpen === false) return;
 
         let cancelled = false;
 
@@ -108,7 +107,7 @@ export function useForumAppBarNotifications(
             cancelled = true;
             refreshInflightRef.current += 1;
         };
-    }, [fetchNotifications, seedNotificationsFromLocal, userId]);
+    }, [fetchNotifications, seedNotificationsFromLocal, userId, surfaceOpen]);
 
     useVisibilityAwareInterval(
         () => {
@@ -131,84 +130,23 @@ export function useForumAppBarNotifications(
         return () => window.removeEventListener(FORUM_UNREAD_CHANGED_EVENT, onExternal);
     }, [fetchNotifications]);
 
-    const handleMarkAllRead = useCallback(async () => {
-        if (!userId) return;
-        try {
-            await ForumApiService.markAllForumNotificationsRead(userId);
-            setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-            setUnreadCount(0);
-            lastUnreadRef.current = 0;
-            SmartToast.success('تم تحديد جميع التنبيهات كمقروءة');
-        } catch {
-            SmartToast.error('تعذّر تحديث التنبيهات');
-        }
-    }, [userId]);
-
-    const handleNotificationClick = useCallback(
-        async (notif: ForumNotification) => {
-            if (!userId) return;
-            try {
-                if (!notif.read) {
-                    await ForumApiService.markForumNotificationRead(notif.id, userId);
-                    setNotifications((prev) =>
-                        prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n)),
-                    );
-                    setUnreadCount((c) => Math.max(0, c - 1));
-                    lastUnreadRef.current = Math.max(0, lastUnreadRef.current - 1);
-                }
-                setShowNotifPanel(false);
-                if (notif.postId) {
-                    onSectionChange?.('forum');
-                    onNavigateToPost?.(notif.postId);
-                }
-            } catch {
-                SmartToast.error('تعذّر فتح التنبيه');
-            }
-        },
-        [onNavigateToPost, onSectionChange, userId],
-    );
-
-    const handleNotificationDismiss = useCallback(
-        async (notif: ForumNotification) => {
-            if (!userId) return;
-            const wasUnread = !notif.read;
-            setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
-            setUnreadCount((count) => Math.max(0, count - (wasUnread ? 1 : 0)));
-            lastUnreadRef.current = Math.max(0, lastUnreadRef.current - (wasUnread ? 1 : 0));
-            seenNotifIdsRef.current.delete(notif.id);
-
-            try {
-                await ForumApiService.dismissForumNotification(notif.id, userId);
-            } catch {
-                setNotifications((prev) => sortForumNotificationsByDate([notif, ...prev]).slice(0, 25));
-                if (wasUnread) {
-                    setUnreadCount((count) => count + 1);
-                    lastUnreadRef.current += 1;
-                }
-                SmartToast.error('تعذّر إزالة التنبيه');
-            }
-        },
-        [userId],
-    );
-
-    const handleBellClick = useCallback(
-        (onDropdownChange?: (open: boolean) => void) => {
-            if (!userId) {
-                SmartToast.warning('سجّل الدخول لعرض التنبيهات');
-                return;
-            }
-            setShowNotifPanel((v) => {
-                const next = !v;
-                if (next) {
-                    seedNotificationsFromLocal(userId);
-                    void fetchNotifications({ background: true });
-                }
-                onDropdownChange?.(next);
-                return next;
-            });
-        },
-        [fetchNotifications, seedNotificationsFromLocal, userId],
-    );
+    const {
+        handleMarkAllRead,
+        handleNotificationClick,
+        handleNotificationDismiss,
+        handleBellClick,
+    } = useForumAppBarNotificationActions({
+        userId,
+        lastUnreadRef,
+        seenNotifIdsRef,
+        setNotifications,
+        setUnreadCount,
+        setShowNotifPanel,
+        fetchNotifications,
+        seedNotificationsFromLocal,
+        onNavigateToPost,
+        onSectionChange,
+    });
 
     return {
         notifications,

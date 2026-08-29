@@ -1,6 +1,7 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { X, Check } from '@/app/components/ui/lucideIcons';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
+import { X } from '@/app/components/ui/icons/X';
+import { Check } from '@/app/components/ui/icons/Check';
 import { DatePickerField } from '../components/DatePickerField';
 import { getDynamicPartyLabels, ordinalOf } from '../utils/partyLabels';
 import type { MetaEditForm } from './MetaEditModal';
@@ -37,7 +38,7 @@ function PartyFields({
 }) {
     return (
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 space-y-2.5">
-            <div className="text-xs font-extrabold text-[#E6C673]/90">{label}</div>
+            <div className="text-xs font-bold text-white/50">{label}</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                     <div className="text-[10px] font-semibold text-white/40 mb-1">الاسم</div>
@@ -83,15 +84,15 @@ export function DossierEditModal({
                 onClick={onClose}
             >
                 <motion.div
-                    className="w-full sm:max-w-lg bg-[#0B1021] border border-white/10 rounded-t-2xl sm:rounded-2xl p-4 sm:p-5 max-h-[min(88vh,640px)] overflow-y-auto"
-                    initial={{ y: 24, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: 24, opacity: 0 }}
+                    className="w-full sm:max-w-lg bg-[#0B1021] border border-white/10 rounded-t-xl sm:rounded-xl p-4 max-h-[min(88vh,640px)] overflow-y-auto"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                     onClick={(e) => e.stopPropagation()}
                 >
                     <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                            <div className="text-white font-extrabold">تعديل البيانات</div>
+                            <div className="text-white font-bold text-sm">تعديل البيانات</div>
                             {procedureType ? (
                                 <div className="text-[11px] text-white/45 mt-0.5 truncate">{procedureType}</div>
                             ) : null}
@@ -99,7 +100,7 @@ export function DossierEditModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white flex items-center justify-center touch-manipulation"
+                            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-white touch-manipulation"
                             aria-label="إغلاق"
                         >
                             <X size={16} />
@@ -221,14 +222,14 @@ export function DossierEditModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-colors font-bold text-sm touch-manipulation"
+                            className="min-h-[44px] px-4 rounded-lg text-white/60 hover:text-white hover:bg-white/5 font-bold text-sm touch-manipulation"
                         >
                             إلغاء
                         </button>
                         <button
                             type="button"
                             onClick={onSave}
-                            className="px-4 py-2 rounded-xl bg-[#E6C673]/20 border border-[#E6C673]/35 hover:bg-[#E6C673]/30 text-[#F5F0E6] text-sm font-bold flex items-center gap-2 touch-manipulation"
+                            className="min-h-[44px] px-4 rounded-lg bg-[#E6C673]/20 border border-[#E6C673]/35 hover:bg-[#E6C673]/30 text-[#F5F0E6] text-sm font-bold inline-flex items-center gap-2 touch-manipulation"
                         >
                             <Check size={16} />
                             حفظ

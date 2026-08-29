@@ -1,4 +1,3 @@
-// @ts-nocheck
 import {
     appealPipelineRowForCard,
     hubWithInferredAppealOrigin,
@@ -63,8 +62,8 @@ export function syncPersonalCoerciveAppealClosureIfNeeded(input: {
         });
     }
 
-    const hub = hubWithInferredAppealOrigin(row as Decision);
-    const pipe = appealPipelineRowForCard(hub, all as Decision[]);
+    const hub = hubWithInferredAppealOrigin(row as unknown as Decision);
+    const pipe = appealPipelineRowForCard(hub, all as unknown as Decision[]);
     const state = resolveCreditorDecisionEnforcementState(hub, pipe, {
         hubTab: 'previous',
         appealLegallyFinal: true,

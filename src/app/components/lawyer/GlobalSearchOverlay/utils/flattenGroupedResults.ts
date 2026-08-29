@@ -1,11 +1,10 @@
 import type { GlobalSearchEntry, GroupedSearchResults } from '@/app/services/globalSearchIndex';
-import { SEARCH_SECTION_ORDER } from '@/app/components/lawyer/GlobalSearchOverlay/constants';
+import { iterSearchResultSections } from '@/app/components/lawyer/GlobalSearchOverlay/utils/searchResultSections';
 
 export function flattenGroupedResults(grouped: GroupedSearchResults): GlobalSearchEntry[] {
     const out: GlobalSearchEntry[] = [];
-    for (const cat of SEARCH_SECTION_ORDER) {
-        const entries = grouped[cat];
-        if (entries?.length) out.push(...entries);
+    for (const section of iterSearchResultSections(grouped)) {
+        out.push(...section.entries);
     }
     return out;
 }

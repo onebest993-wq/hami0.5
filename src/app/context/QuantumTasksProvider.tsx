@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import { prepareAgendaTasks } from '@/app/components/lawyer/dashboard/tasksManager/utils';
@@ -16,6 +16,7 @@ import {
     readQuantumTasksFromDiskSync,
 } from '@/app/utils/quantumTasksStorage';
 import { QUANTUM_TASKS_CHANGED_EVENT } from '@/app/utils/quantumTasksEvents';
+import { clearLegacyPlaintextMirror } from '@/app/services/storage/readSecureOrDrainLegacySync';
 import {
     QuantumTasksActionsContext,
     QuantumTasksContext,
@@ -186,12 +187,57 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
                     skipRetentionPurge: true,
                 });
 
+                let leftoverRaw: string | null = null;
+                try {
+                    leftoverRaw =
+                        typeof localStorage !== 'undefined'
+                            ? localStorage.getItem(QUANTUM_TASKS_STORAGE_KEY)
+                            : null;
+                } catch {
+                    leftoverRaw = null;
+                }
+
+                /**
+                 * أصل القرص يربح: امسح المرآة قبل merge حتى لا يكتب persist
+                 * leftover فوق SecureStore أثناء drain داخل persistQuantumTasksSync.
+                 */
+                if (blob && leftoverRaw?.trim()) {
+                    clearLegacyPlaintextMirror(QUANTUM_TASKS_STORAGE_KEY);
+                    leftoverRaw = null;
+                }
+
+                let leftoverSeed: LegalTask[] = [];
+                if (leftoverRaw?.trim()) {
+                    try {
+                        leftoverSeed = prepareAgendaTasks(
+                            deserializeQuantumTasks(JSON.parse(leftoverRaw) as unknown),
+                            new Date(),
+                        );
+                    } catch {
+                        leftoverSeed = [];
+                    }
+                }
+
                 value.setTasks((prev) => {
-                    const merged = mergeHydratedQuantumTasks(prev, loaded);
+                    const base =
+                        prev.length > 0 ? prev : leftoverSeed.length > 0 ? leftoverSeed : prev;
+                    const merged = mergeHydratedQuantumTasks(base, loaded);
                     tasksRef.current = merged;
                     return merged;
                 });
                 setStorageHydrated(true);
+                try {
+                    if (!leftoverRaw?.trim()) return;
+                    const toPersist =
+                        tasksRef.current.length > 0 ? tasksRef.current : leftoverSeed;
+                    if (toPersist.length > 0) {
+                        persistQuantumTasksSync(toPersist);
+                    } else {
+                        clearLegacyPlaintextMirror(QUANTUM_TASKS_STORAGE_KEY);
+                    }
+                } catch {
+                    /* leftover drain must not block the agenda */
+                }
             })();
         };
         /** بعد content-ready — لا تنافس I/O القرص مع HomeTab قبل كشف الشعار */
@@ -274,4 +320,11 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
             </QuantumTasksDataContext.Provider>
         </QuantumTasksActionsContext.Provider>
     );
+}
+
+/** يُركَّب عند فتح ستارة/مدير المهام — لا يلفّ FullBoot حتى لا يُعاد تركيب المنزل. */
+export function EnsureQuantumTasksProvider({ children }: { children: React.ReactNode }) {
+    const ctx = useContext(QuantumTasksContext);
+    if (ctx) return <>{children}</>;
+    return <QuantumTasksProvider>{children}</QuantumTasksProvider>;
 }

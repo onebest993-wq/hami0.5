@@ -13,6 +13,7 @@ export const DYNAMIC_SCOPE_PATH = path.join(
     ROOT,
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoreDynamicScope.ts',
 );
+void fs.existsSync(DYNAMIC_SCOPE_PATH);
 
 export const SCOPE_BAGS_IN_CALL = [
     'executionModalFlags',

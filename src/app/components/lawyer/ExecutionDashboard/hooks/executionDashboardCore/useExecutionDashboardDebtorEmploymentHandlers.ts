@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C — تبديل صفة المدين (موظف ↔ كاسب) */
 import { useCallback, type MutableRefObject, type Dispatch, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';

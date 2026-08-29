@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
     WALLPAPER_EDITOR_DEFAULT_TRANSFORM,
+    WALLPAPER_EXPORT_MAX_BYTES,
+    canvasToWallpaperDataUrl,
     clampWallpaperEditorTransform,
     computeWallpaperCoverLayout,
 } from '../wallpaperEditorRender';
@@ -31,5 +33,19 @@ describe('wallpaperEditorRender', () => {
         expect(
             clampWallpaperEditorTransform({ scale: 5, offsetX: 2, offsetY: -3 }),
         ).toEqual({ scale: 3, offsetX: 1, offsetY: -1 });
+    });
+
+    it('canvasToWallpaperDataUrl يُرجع dataUrl ضمن الحد', async () => {
+        const canvas = document.createElement('canvas');
+        const huge = `data:image/jpeg;base64,${'A'.repeat(WALLPAPER_EXPORT_MAX_BYTES + 1)}`;
+        const ok = `data:image/jpeg;base64,${'B'.repeat(1000)}`;
+        vi.spyOn(canvas, 'toDataURL')
+            .mockReturnValueOnce(huge)
+            .mockReturnValueOnce(huge)
+            .mockReturnValue(ok);
+
+        const dataUrl = await canvasToWallpaperDataUrl(canvas);
+        expect(dataUrl).toBe(ok);
+        expect(dataUrl.length).toBeLessThanOrEqual(WALLPAPER_EXPORT_MAX_BYTES);
     });
 });

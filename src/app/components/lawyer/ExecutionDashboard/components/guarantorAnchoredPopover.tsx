@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 
-export function useAnchoredRect(open: boolean, anchorRef: React.RefObject<HTMLElement | null>) {
+function useAnchoredRect(open: boolean, anchorRef: React.RefObject<HTMLElement | null>) {
     const [rect, setRect] = React.useState<DOMRect | null>(null);
 
     const update = React.useCallback(() => {
@@ -63,7 +63,7 @@ export const GuarantorAnchoredPopover: React.FC<GuarantorAnchoredPopoverProps> =
         <>
             <div className="fixed inset-0" style={{ zIndex: zIndex - 1 }} role="presentation" onClick={onClose} />
             <div
-                className="fixed overflow-hidden rounded-xl border border-white/10 bg-[#0A0F1C]/98 shadow-2xl"
+                className="fixed overflow-hidden rounded-xl border border-white/10 bg-[#0A0F1C]/98 shadow-lg"
                 style={{
                     zIndex,
                     top,

@@ -2,8 +2,12 @@ import { SecureAPIClient, SecureFetchError } from '@/app/services/SecureAPIClien
 import { supabase } from '@/app/lib/supabase-client';
 import { BanDB, CommunityDB } from '@/app/services/forum/forumCommunityRuntime';
 import type { CommunityPost } from '@/app/services/forum/forumTypes';
+import { canReachProtectedServerNetwork } from '@/app/services/secureApiNetworkFeatures';
 import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
 import { humanizeUnknownError, isSilentOfflineError } from '@/app/utils/humanizeAppError';
+import { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
+import { getLiveAuthUserId } from '@/app/utils/liveAuthUserId';
+import { isShellDemoUserId } from '@/app/services/auth/shellAuth';
 
 export type ForumApiOk<T> = { ok: true } & T;
 export type ForumApiErr = { ok: false; error?: string };
@@ -29,8 +33,18 @@ export async function removeForumPostLocally(postId: string): Promise<void> {
     await CommunityDB.deletePost(postId);
 }
 
+function liveNetworkUserId(): string | null {
+    const id = getLiveAuthUserId()?.trim() || null;
+    if (!id || isShellDemoUserId(id)) return null;
+    return id;
+}
+
 export async function getForumSessionUserId(explicitUserId?: string | null): Promise<string | null> {
     if (explicitUserId) return explicitUserId;
+    if (isBffAuthEnabled()) {
+        const live = liveNetworkUserId();
+        if (live) return live;
+    }
     const { data } = await supabase.auth.getSession();
     const fromSession = data.session?.user?.id ?? null;
     if (fromSession) return fromSession;
@@ -38,8 +52,21 @@ export async function getForumSessionUserId(explicitUserId?: string | null): Pro
 }
 
 export async function hasForumRemoteSession(): Promise<boolean> {
+    const explicit = liveNetworkUserId();
+    if (explicit) {
+        const persisted = readPersistedSupabaseAuth();
+        const meta = (persisted.user?.user_metadata ?? null) as Record<string, unknown> | null;
+        return canReachProtectedServerNetwork(explicit, meta);
+    }
+    if (isBffAuthEnabled()) {
+        return false;
+    }
     const { data } = await supabase.auth.getSession();
-    return Boolean(data.session?.access_token && data.session?.user?.id);
+    const userId = data.session?.user?.id ?? readPersistedSupabaseAuth().user?.id ?? null;
+    const meta = (data.session?.user?.user_metadata ??
+        readPersistedSupabaseAuth().user?.user_metadata ??
+        null) as Record<string, unknown> | null;
+    return canReachProtectedServerNetwork(userId, meta);
 }
 
 export function parseForumApiError(err: unknown): string {

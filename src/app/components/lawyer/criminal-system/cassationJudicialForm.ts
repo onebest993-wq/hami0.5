@@ -11,15 +11,7 @@ import {
     PROCEDURAL_CASSATION_RESULT_OPTIONS,
 } from './proceduralCassationResults';
 
-export type CassationResultFormValue = CassationAppealResult;
-
-/** خيارات الحسم الختامي — للتوافق مع الاستيرادات القديمة. */
-export const CASSATION_RESULT_FORM_OPTIONS: { value: CassationResultFormValue; label: string }[] = [
-    { value: 'affirmation', label: 'تصديق' },
-    { value: 'quash_remand', label: 'نقض وإعادة' },
-    { value: 'quash_dismissal', label: 'نقض (استدراك)' },
-    { value: 'quash_modify', label: 'نقض وتعديل الوصف والمادة' },
-];
+type CassationResultFormValue = CassationAppealResult;
 
 export { getCassationResultFormOptions } from './proceduralCassationResults';
 
@@ -54,7 +46,7 @@ export function normalizeCassationAppealResult(raw: string | undefined): Cassati
     return LEGACY_RESULT_MAP[key] ?? (key as CassationAppealResult);
 }
 
-export function remandCourtLabel(stage: CassationAppealRemandTarget | undefined): string {
+function remandCourtLabel(stage: CassationAppealRemandTarget | undefined): string {
     if (stage === 'investigation') return 'مكتب التحقيق';
     if (stage === 'felony') return 'محكمة الجنايات';
     if (stage === 'misdemeanor') return 'محكمة الجنح';
@@ -140,9 +132,9 @@ export function buildCassationHistoricalBadge(
     return `نقض تمييزي للقرار وإفراج نهائي عن: ${label}${suffix269}.`;
 }
 
-export function cassationBadgeTone(result: CassationAppealResult | ''): string {
+function cassationBadgeTone(result: CassationAppealResult | ''): string {
     if (result === 'affirmation' || result === 'procedural_affirmation') {
-        return 'border-emerald-500/55 bg-gradient-to-r from-emerald-950/55 to-slate-900/40 text-emerald-100 shadow-[0_0_12px_rgba(16,185,129,0.2)]';
+        return 'border-emerald-500/55 bg-gradient-to-r from-emerald-950/55 to-slate-900/40 text-emerald-100';
     }
     if (result === 'quash_remand' || result === 'procedural_remand_direction') {
         return 'border-amber-500/50 bg-gradient-to-r from-amber-950/45 to-slate-900/40 text-amber-100';
@@ -150,7 +142,7 @@ export function cassationBadgeTone(result: CassationAppealResult | ''): string {
     if (result === 'quash_modify') {
         return 'border-violet-500/50 bg-gradient-to-r from-violet-950/50 to-slate-900/40 text-violet-100';
     }
-    return 'border-rose-500/55 bg-gradient-to-r from-rose-950/50 to-violet-950/35 text-rose-50 shadow-[0_0_14px_rgba(244,63,94,0.18)]';
+    return 'border-rose-500/55 bg-gradient-to-r from-rose-950/50 to-violet-950/35 text-rose-50';
 }
 
 /**

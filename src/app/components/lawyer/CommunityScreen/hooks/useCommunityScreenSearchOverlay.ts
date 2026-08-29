@@ -9,6 +9,8 @@ import {
     repositoryDocMatchesTag,
 } from '../repositoryTagUtils';
 import { getRepositoryMediaKind } from '../components/repositoryMedia';
+import { archiveTextMatchesQuery } from '@/app/services/search/normalizeArabicSearch';
+import { clampGlobalSearchQuery } from '@/app/services/search/globalSearchQuerySecurity';
 
 export function useCommunityScreenSearchOverlay(posts: CommunityPost[], allTags: string[]) {
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -43,14 +45,11 @@ export function useCommunityScreenSearchOverlay(posts: CommunityPost[], allTags:
 
     const filteredPosts = useMemo(() => {
         if (!isSearchOpen) return [];
-        const q = searchQuery.trim().toLowerCase();
+        const q = clampGlobalSearchQuery(searchQuery);
         return posts
             .filter((p) => {
-                const matchesSearch =
-                    q === '' ||
-                    p.content.toLowerCase().includes(q) ||
-                    p.authorName.toLowerCase().includes(q) ||
-                    p.tags.some((t) => t.toLowerCase().includes(q));
+                const hay = [p.content, p.authorName, ...(p.tags ?? [])].join(' ');
+                const matchesSearch = !q.trim() || archiveTextMatchesQuery(hay, q);
                 const matchesPdf = !filterHasPdf || p.attachment?.type === 'document';
                 const matchesImage = !filterHasImage || p.attachment?.type === 'image';
                 const matchesTag = communityTagMatchesFilter(

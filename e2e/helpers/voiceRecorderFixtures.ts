@@ -29,13 +29,23 @@ export async function installVoiceRecorderMocks(page: Page) {
 
         window.MediaRecorder = MockMediaRecorder as unknown as typeof MediaRecorder;
 
+        const track = {
+            kind: 'audio',
+            readyState: 'live',
+            stop: () => undefined,
+        } as Pick<MediaStreamTrack, 'kind' | 'readyState' | 'stop'>;
+
         navigator.mediaDevices.getUserMedia = async () =>
             ({
-                getTracks: () => [{ stop: () => undefined }],
+                getTracks: () => [track],
+                getAudioTracks: () => [track],
             }) as MediaStream;
     });
 }
 
 export async function grantMicrophonePermission(page: Page) {
-    await page.context().grantPermissions(['microphone']);
+    const raw = page.url();
+    const origin = !raw || raw === 'about:blank' ? 'http://localhost:8080' : new URL(raw).origin;
+    // WebKit (mobile-safari) يرفض microphone مثل camera — المسجّل يعتمد على mocks
+    await page.context().grantPermissions(['microphone'], { origin }).catch(() => undefined);
 }

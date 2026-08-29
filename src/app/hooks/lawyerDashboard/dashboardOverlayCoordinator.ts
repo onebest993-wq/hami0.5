@@ -4,6 +4,8 @@ import {
     type TransientOverlayId,
 } from '@/app/utils/bodyScrollLock';
 import { markOverlaySnapClosing } from '@/app/runtime/overlaySnapClose';
+import { isProfileShellSnappedOpen } from '@/app/services/profile/profileShellSnap';
+import { isViteE2eHooksEnabled } from '@/app/utils/viteE2eHooks';
 
 type OverlayCloser = () => void;
 
@@ -35,9 +37,12 @@ function shouldSkipCloser(id: TransientOverlayId, except?: TransientOverlayId): 
     return false;
 }
 
-/** تبويب الملف يُغلق فقط عند dismiss كامل أو فتح شاشة بديلة — لا عند إشعارات/بحث */
+/**
+ * تبويب الملف يُغلق عند فتح شاشة بديلة (منتدى/مستودع/…) لا عند dismiss عام للستائر.
+ * العودة للرئيسية تمسح snap أولاً ثم تستدعي dismiss — لا تعتمد على طرد التبويب من هنا.
+ */
 export function shouldEvictProfileTabOnDismiss(except?: TransientOverlayId): boolean {
-    if (except === undefined) return true;
+    if (except === undefined) return !isProfileShellSnappedOpen();
     if (PROFILE_OVERLAY_GROUP.has(except)) return false;
     if (PROFILE_PERSIST_EXCEPTS.has(except)) return false;
     if (REPOSITORY_OVERLAY_GROUP.has(except)) return true;
@@ -46,10 +51,34 @@ export function shouldEvictProfileTabOnDismiss(except?: TransientOverlayId): boo
     return false;
 }
 
+function recordE2eOverlayDismiss(except: TransientOverlayId | undefined, evictProfile: boolean): void {
+    if (!isViteE2eHooksEnabled() || typeof window === 'undefined') return;
+    const w = window as Window & {
+        __hamiE2eLastOverlayDismiss?: {
+            except: TransientOverlayId | null;
+            evictProfile: boolean;
+            profileOpen: string | null;
+            at: number;
+            stack: string;
+        };
+    };
+    w.__hamiE2eLastOverlayDismiss = {
+        except: except ?? null,
+        evictProfile,
+        profileOpen:
+            typeof document === 'undefined'
+                ? null
+                : document.documentElement.getAttribute('data-hami-profile-open'),
+        at: Date.now(),
+        stack: new Error().stack?.split('\n').slice(0, 14).join('\n') ?? '',
+    };
+}
+
 function onDismissEvent(event: Event): void {
     markOverlaySnapClosing();
     const except = (event as CustomEvent<{ except?: TransientOverlayId }>).detail?.except;
     const evictProfile = shouldEvictProfileTabOnDismiss(except);
+    recordE2eOverlayDismiss(except, evictProfile);
     for (const [id, close] of closers) {
         if (shouldSkipCloser(id, except)) continue;
         if (id === 'profile' && !evictProfile) continue;

@@ -1,6 +1,10 @@
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { dismissProductivityBlockers } from './productivityE2EFixtures';
+import { lawyerDashboardReady } from './lawyerDashboardLocators';
+
+/** يطابق LEGAL_TERMS_ACCEPTANCE_VERSION — بلا استيراد مسار التطبيق (Playwright ESM) */
+const E2E_LEGAL_TERMS_VERSION = 'v1-2026-08-12';
 
 /** يزيل طبقة فشل الإقلاع التي تحجب النقرات أثناء الاختبارات */
 export async function stripBootFailureLayer(page: Page): Promise<void> {
@@ -8,6 +12,7 @@ export async function stripBootFailureLayer(page: Page): Promise<void> {
     await page
         .evaluate(() => {
             document.getElementById('hami-boot-failure')?.remove();
+            document.querySelectorAll('vite-error-overlay').forEach((node) => node.remove());
         })
         .catch(() => undefined);
 }
@@ -102,7 +107,7 @@ export async function applyE2eBootHomeLayoutAtRuntime(page: Page): Promise<void>
 /** يجهّز جلسة E2E للإقلاع المباشر إلى لوحة المحامي */
 export async function prepareBootE2E(page: Page): Promise<void> {
     await suppressWeeklyBackupReminder(page);
-    await page.addInitScript(() => {
+    await page.addInitScript((termsVersion: string) => {
         const apply = () => {
             try {
                 localStorage.setItem('hami:last-screen', 'lawyer');
@@ -146,6 +151,18 @@ export async function prepareBootE2E(page: Page): Promise<void> {
                 settings.performance = performance;
                 if (settings.version == null) settings.version = 2;
                 localStorage.setItem(key, JSON.stringify(settings));
+                localStorage.setItem(
+                    'hami:legal:terms-accepted:v1',
+                    JSON.stringify({
+                        version: termsVersion,
+                        acceptedAt: new Date().toISOString(),
+                    }),
+                );
+                try {
+                    document.cookie = `hami_legal_terms_accepted=${encodeURIComponent(termsVersion)}; path=/; max-age=31536000; SameSite=Lax`;
+                } catch {
+                    /* ignore */
+                }
                 if (typeof document !== 'undefined' && document.documentElement) {
                     document.documentElement.dataset.hamiLite = '0';
                 }
@@ -162,7 +179,7 @@ export async function prepareBootE2E(page: Page): Promise<void> {
         if (document.documentElement) {
             observer.observe(document.documentElement, { childList: true, subtree: true });
         }
-    });
+    }, E2E_LEGAL_TERMS_VERSION);
 }
 
 /** يعالج خطأ React boundary للوحة ويعيد المحاولة */
@@ -172,7 +189,7 @@ export async function recoverLawyerDashboardBootError(page: Page): Promise<boole
     if (!(await bootError.isVisible().catch(() => false))) return false;
     await page.getByTestId('lawyer-dashboard-boot-error-retry').click({ force: true, noWaitAfter: true });
     try {
-        await expect(page.getByTestId('lawyer-dashboard-ready')).toBeVisible({ timeout: 30_000 });
+        await expect(lawyerDashboardReady(page)).toBeVisible({ timeout: 30_000 });
     } catch {
         return false;
     }
@@ -192,6 +209,8 @@ export async function collectBootTimeline(page: Page): Promise<
             'shell-visible',
             'dashboard-chunk-loaded',
             'dashboard-interactive',
+            'first-tab-open',
+            'hub-boot-stable',
         ];
         const startMark = performance.getEntriesByName('hami:boot:start', 'mark')[0];
         const origin = startMark?.startTime ?? 0;
@@ -235,13 +254,7 @@ export async function assertE2eBootSurface(page: Page): Promise<void> {
 }
 
 export async function bootToLawyerHome(page: Page): Promise<void> {
-    await recoverLawyerDashboardBootError(page);
-    try {
-        await expect(page.getByTestId('lawyer-dashboard-ready')).toBeVisible({ timeout: 60_000 });
-    } catch (error) {
-        await assertE2eBootSurface(page);
-        throw error;
-    }
+    await waitForLawyerDashboardReady(page);
     await stripBootFailureLayer(page);
     await dismissProductivityBlockers(page);
 
@@ -261,6 +274,52 @@ export async function bootToLawyerHome(page: Page): Promise<void> {
 
     await expect(page.getByTestId('hami-static-boot')).toHaveCount(0, { timeout: 5_000 }).catch(() => undefined);
     await expect(page.getByTestId('lawyer-boot-shell')).toBeHidden({ timeout: 5_000 }).catch(() => undefined);
+}
+
+/**
+ * goto مع إعادة محاولة إذا أوقف Vite HMR التصفح (شائع على خادم التطوير أثناء السويت).
+ */
+export async function gotoAppPath(page: Page, path = '/'): Promise<void> {
+    const attempts = 3;
+    let lastError: Error | undefined;
+    for (let i = 0; i < attempts; i++) {
+        try {
+            await page.goto(path, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+            return;
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (!/interrupted by another navigation/i.test(message)) throw error;
+            lastError = error instanceof Error ? error : new Error(message);
+            await page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => undefined);
+        }
+    }
+    throw lastError;
+}
+
+/**
+ * انتظار جاهزية اللوحة — محاولة واحدة ثم إعادة تحميل عند تعثّر Vite/HMR.
+ * لا حلقة لا نهائية: إعادة goto واحدة فقط.
+ */
+export async function waitForLawyerDashboardReady(page: Page): Promise<void> {
+    await recoverLawyerDashboardBootError(page);
+    const ready = lawyerDashboardReady(page);
+    if (await ready.isVisible().catch(() => false)) return;
+    try {
+        await expect(ready).toBeVisible({ timeout: 40_000 });
+        return;
+    } catch {
+        await recoverLawyerDashboardBootError(page);
+        if (await ready.isVisible().catch(() => false)) return;
+        await gotoAppPath(page, '/');
+        await applyE2eBootHomeLayoutAtRuntime(page);
+        await recoverLawyerDashboardBootError(page);
+    }
+    try {
+        await expect(ready).toBeVisible({ timeout: 25_000 });
+    } catch (error) {
+        await assertE2eBootSurface(page);
+        throw error;
+    }
 }
 
 /** ينتظر ظهور حاويات الرئيسية الأساسية بعد الإقلاع */

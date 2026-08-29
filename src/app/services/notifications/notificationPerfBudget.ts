@@ -7,6 +7,8 @@ export const NOTIFICATION_PERF_BUDGET = {
         ciColdMax: 6_000,
         ciCachedMax: 3_500,
     },
+    /** لا إعادة جلب خادم إن نُفّذ جلب ناجح خلال هذه النافذة */
+    fetchFreshWindowMs: 8_000,
     sentryMetric: 'notifications.open_to_interactive_ms',
 } as const;
 

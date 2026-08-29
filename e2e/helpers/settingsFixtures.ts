@@ -1,14 +1,16 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { SETTINGS_PERF_BUDGET } from '@/app/services/settings/settingsPerfBudget';
+import { SETTINGS_SECTION_STORAGE_KEY } from '@/app/services/settings/settingsSectionPersistence';
+import { SETTINGS_REOPEN_SUPPRESS_MS } from '@/app/runtime/settingsInstantPaintReopen';
 import { dismissProductivityBlockers } from './productivityE2EFixtures';
 import { stripBootFailureLayer, recoverLawyerDashboardBootError } from './bootFixtures';
+import { revealHeaderToolbarTools } from './headerToolbarFixtures';
+export { revealHeaderToolbarTools };
 
 /** Shell جاهز للتفاعل — بعد interactive lifecycle */
 export const SETTINGS_HYDRATED_SHELL_SELECTOR =
     '[data-testid="hami-settings-shell"][data-settings-hydrated="true"]';
-
-const SETTINGS_SECTION_STORAGE_KEY = 'hami:settings-active-section';
 
 /** ms من open-request → interactive — للـ E2E */
 export async function readSettingsOpenToInteractiveMs(page: Page): Promise<number | null> {
@@ -33,9 +35,9 @@ export const E2E_SETTINGS_CACHED_OPEN_MS = SETTINGS_PERF_BUDGET.openToInteractiv
 
 /** عزل حالة الإعدادات قبل كل سيناريو — init script يُنفَّذ قبل تحميل الصفحة */
 export async function installSettingsE2EIsolation(page: Page): Promise<void> {
-    await page.addInitScript(() => {
+    await page.addInitScript((sectionKey) => {
         try {
-            sessionStorage.removeItem('hami:settings-active-section');
+            sessionStorage.removeItem(sectionKey);
             for (const phase of ['open-request', 'first-paint', 'interactive', 'chunk-ready']) {
                 performance.clearMarks(`hami:settings:${phase}`);
             }
@@ -51,7 +53,7 @@ export async function installSettingsE2EIsolation(page: Page): Promise<void> {
         } catch {
             /* ignore */
         }
-    });
+    }, SETTINGS_SECTION_STORAGE_KEY);
 }
 
 /** تصفير overlays وmarks — لا يمسّ تبويب الجلسة المحفوظ */
@@ -105,8 +107,21 @@ export async function awaitDashboardStableForSettings(page: Page): Promise<void>
     await recoverLawyerDashboardBootError(page);
     await stripBootFailureLayer(page);
     await dismissProductivityBlockers(page);
+    await resetSettingsE2ETransientState(page);
+    if (!page.isClosed()) {
+        await page
+            .evaluate(() => {
+                const w = window as Window & {
+                    __hamiE2eForceCloseGlobalSearch?: () => void;
+                    __hamiE2eForceCloseNotifications?: () => void;
+                };
+                w.__hamiE2eForceCloseGlobalSearch?.();
+                w.__hamiE2eForceCloseNotifications?.();
+            })
+            .catch(() => undefined);
+    }
     await expect(page.getByTestId('lawyer-dashboard-ready')).toBeVisible({ timeout: 45_000 });
-    await expect(page.getByTestId('header-settings-trigger')).toBeVisible({ timeout: 20_000 });
+    await revealHeaderToolbarTools(page);
 }
 
 /** يعيد فتح الإعدادات إن أُغلقت بعد خطأ إقلاع أو تعطيل لوحة */
@@ -123,32 +138,83 @@ export async function ensureSettingsShellOpen(page: Page): Promise<Locator> {
 export async function waitForSettingsShellReady(page: Page, timeout = 45_000) {
     const shell = page.locator(SETTINGS_HYDRATED_SHELL_SELECTOR);
     await expect(shell).toBeVisible({ timeout });
-    await expect(page.getByTestId('settings-nav-appearance')).toBeVisible({ timeout: 8_000 });
+    await expect(shell.locator('[data-testid^="settings-nav-"][aria-selected="true"]')).toBeVisible({
+        timeout: 8_000,
+    });
     return page.getByTestId('hami-settings-shell');
+}
+
+const SETTINGS_POINTER_INIT = {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    button: 0,
+    pointerId: 1,
+    isPrimary: true,
+    pointerType: 'mouse',
+} as const;
+
+/** نقر DOM — يتجاوز actionability عندما الشريط يُطوى أثناء سلسلة Playwright */
+export async function dispatchDomClick(target: Locator): Promise<void> {
+    await target.evaluate((el) => {
+        if (el instanceof HTMLElement) el.click();
+    });
+}
+
+/** pointerdown+up — لأزرار تُفتح/تُغلق عند اللمس لا عند click */
+export async function dispatchPrimaryPointerDown(target: Locator): Promise<void> {
+    await target.evaluate((el, init) => {
+        if (!(el instanceof HTMLElement)) return;
+        const down = { ...init, view: window, buttons: 1 };
+        el.dispatchEvent(new PointerEvent('pointerdown', down));
+        el.dispatchEvent(new PointerEvent('pointerup', { ...down, buttons: 0 }));
+    }, SETTINGS_POINTER_INIT);
+}
+
+async function isSettingsShellOpen(page: Page): Promise<boolean> {
+    return page.locator(SETTINGS_HYDRATED_SHELL_SELECTOR).isVisible().catch(() => false);
+}
+
+/** click برمجي — pointerdown يطلي الكروم قبل React فيُتخطى الفتح الحقيقي */
+async function completeSettingsGearOpenGesture(page: Page): Promise<void> {
+    await page.getByTestId('header-settings-trigger').evaluate((el) => {
+        if (el instanceof HTMLElement) el.click();
+    });
+}
+
+/** حارس الإغلاق يبقى حتى تسليح الطبقة — لا تُغلق قبل --interact */
+async function waitUntilSettingsCloseUnblocked(page: Page): Promise<void> {
+    await page
+        .waitForFunction(
+            () =>
+                !document.documentElement.hasAttribute('data-settings-close-guard') &&
+                Boolean(document.querySelector('.hami-settings-overlay-layer--interact')),
+            { timeout: 3_000 },
+        )
+        .catch(() => undefined);
 }
 
 export async function openSettingsFromHeader(page: Page) {
     await awaitDashboardStableForSettings(page);
-    await resetSettingsE2ETransientState(page);
+    await page
+        .waitForFunction(
+            () => !document.documentElement.hasAttribute('data-hami-settings-closing'),
+            { timeout: 2_000 },
+        )
+        .catch(() => undefined);
+    await page.waitForTimeout(SETTINGS_REOPEN_SUPPRESS_MS + 40);
 
-    const trigger = page.getByTestId('header-settings-trigger');
-    await expect(trigger).toBeVisible({ timeout: 20_000 });
-    await trigger.click({ timeout: 15_000, force: true, noWaitAfter: true });
+    await expect(async () => {
+        if (await isSettingsShellOpen(page)) return;
 
-    try {
-        return await waitForSettingsShellReady(page, 30_000);
-    } catch {
-        await page.keyboard.press('Escape').catch(() => undefined);
-        await expect(page.getByTestId('hami-settings-shell-loading'))
-            .toBeHidden({ timeout: 5_000 })
-            .catch(() => undefined);
-        await expect(page.getByTestId('hami-settings-shell'))
-            .toBeHidden({ timeout: 5_000 })
-            .catch(() => undefined);
-        await awaitDashboardStableForSettings(page);
-        await trigger.click({ timeout: 15_000, force: true, noWaitAfter: true });
-        return waitForSettingsShellReady(page, 35_000);
-    }
+        await revealHeaderToolbarTools(page);
+        await completeSettingsGearOpenGesture(page);
+        await expect(page.locator(SETTINGS_HYDRATED_SHELL_SELECTOR)).toBeVisible({ timeout: 8_000 });
+    }).toPass({ timeout: 45_000 });
+
+    const shell = await waitForSettingsShellReady(page, 20_000);
+    await waitUntilSettingsCloseUnblocked(page);
+    return shell;
 }
 
 const SECTION_READY: Record<'appearance' | 'security' | 'data' | 'account', string> = {
@@ -244,6 +310,38 @@ export async function openSettingsDataTab(page: Page) {
     const shell = await openSettingsFromHeader(page);
     await switchSettingsTab(shell, 'data');
     return shell;
+}
+
+/**
+ * مسار تفعيل المزامنة السحابية — حوار تأكيد ثم fail-closed في E2E demo (لا جلسة Supabase حقيقية).
+ * يُرجع الحالة النهائية للمفتاح.
+ */
+export async function exerciseCloudSyncToggleFromData(
+    page: Page,
+): Promise<'disabled' | 'enabled' | 'blocked-after-confirm'> {
+    const toggle = page.getByTestId('settings-toggle-data-cloudSync');
+    await expect(toggle).toBeVisible({ timeout: 12_000 });
+
+    if ((await toggle.getAttribute('aria-disabled')) === 'true') {
+        await expect(toggle).toHaveAttribute('aria-checked', 'false');
+        return 'disabled';
+    }
+
+    if ((await toggle.getAttribute('aria-checked')) === 'true') {
+        return 'enabled';
+    }
+
+    await ensureSmartDialogInfrastructure(page);
+    await toggle.evaluate((el) => (el as HTMLElement).click());
+    const dialog = page.getByTestId('smart-dialog-overlay');
+    await expect(dialog).toBeVisible({ timeout: 8_000 });
+    await dialog.getByTestId('smart-dialog-confirm').click({ force: true, noWaitAfter: true });
+    await expect(dialog).toBeHidden({ timeout: 8_000 });
+
+    if ((await toggle.getAttribute('aria-checked')) === 'true') {
+        return 'enabled';
+    }
+    return 'blocked-after-confirm';
 }
 
 /** إغلاق الإعدادات وتصفير الحالة — afterEach */

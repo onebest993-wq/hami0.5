@@ -1,0 +1,11 @@
+@import './theme.css';
+@import 'tailwindcss' source(none);
+
+/**
+ * Tailwind الإضبارة الجزائية — يُحمَّل عند نية الجزائي فقط.
+ */
+@source '../app/components/lawyer/criminal-system/**';
+@source not '../app/**/*.test.{ts,tsx,js,jsx}';
+@source not '../app/**/__tests__/**';
+
+@plugin 'tailwindcss-animate';

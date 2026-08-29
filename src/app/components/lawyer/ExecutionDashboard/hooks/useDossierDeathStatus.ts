@@ -6,6 +6,7 @@ import {
     isPersonalStatusNoHeirClaim,
 } from '@/app/utils/partyDeathClaimPolicyLite';
 import { resolveAlimonyBeneficiaryProfile } from '@/app/utils/alimonyBeneficiaryDeathUtils';
+import type { Debtor, ExecutionFile } from '@/app/types/execution';
 
 type DossierDeathStatusHeavyResult = {
     heirSubstitutionAllowed: boolean;
@@ -21,11 +22,15 @@ type DossierDeathStatusHeavyResult = {
     debtorDeathMenuLabel: string;
 };
 
-function resolveClaimForLite(claimType: string | undefined, executionData: any): string {
+function resolveClaimForLite(
+    claimType: string | undefined,
+    executionData: ExecutionFile | null | undefined,
+): string {
     if (claimType && String(claimType).trim()) return String(claimType);
     const direct = String(executionData?.claimType ?? '').trim();
     if (direct) return direct;
-    const types = executionData?.claimTypes;
+    const bag = executionData as (ExecutionFile & { claimTypes?: unknown }) | null | undefined;
+    const types = bag?.claimTypes;
     if (Array.isArray(types)) {
         const hit = types.find((t: unknown) => typeof t === 'string' && String(t).trim());
         if (hit) return String(hit);
@@ -38,8 +43,8 @@ function resolveClaimForLite(claimType: string | undefined, executionData: any):
  * يُبقي مسار cold-open بلا partyDeathClaimPolicy / نفقة / طابور قرارات ثقيل.
  */
 export function useDossierDeathStatus(
-    executionData: any,
-    debtors: any[],
+    executionData: ExecutionFile | null | undefined,
+    debtors: Debtor[],
     claimType?: string,
     decisionsStorageExecutionId?: string,
     decisionsReloadEpoch?: number,
@@ -95,15 +100,22 @@ export function useDossierDeathStatus(
 
     const alimonySourceKey = useMemo(() => {
         try {
+            const bag = executionData as
+                | (ExecutionFile & {
+                      claimTypes?: unknown;
+                      children_count?: unknown;
+                  })
+                | null
+                | undefined;
             return JSON.stringify({
-                claimTypes: executionData?.claimTypes,
-                alimony: executionData?.alimony,
-                death: executionData?.alimony_beneficiary_death,
-                w: executionData?.monthlyWifeAlimony,
-                c: executionData?.monthlyChildrenAlimony,
-                n: executionData?.childrenCount ?? executionData?.children_count,
-                ic: executionData?.is_creditor_deceased,
-                id: executionData?.is_debtor_deceased,
+                claimTypes: bag?.claimTypes,
+                alimony: bag?.alimony,
+                death: bag?.alimony_beneficiary_death,
+                w: bag?.monthlyWifeAlimony,
+                c: bag?.monthlyChildrenAlimony,
+                n: bag?.childrenCount ?? bag?.children_count,
+                ic: bag?.is_creditor_deceased,
+                id: bag?.is_debtor_deceased,
             });
         } catch {
             return String(claimType ?? '');
@@ -117,7 +129,7 @@ export function useDossierDeathStatus(
                 if (!alive) return;
                 setHeavy(
                     computeDossierDeathStatusHeavy({
-                        executionData: executionDataRef.current,
+                        executionData: executionDataRef.current as Record<string, unknown> | null | undefined,
                         claimType,
                         decisionsStorageExecutionId,
                         creditorDeathMarked,

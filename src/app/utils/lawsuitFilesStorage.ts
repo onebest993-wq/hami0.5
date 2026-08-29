@@ -4,10 +4,12 @@ import {
     loadDossierCollectionSync,
     persistDossierCollectionSyncLite,
 } from '@/app/services/dossierPersistence/dossierCollectionSyncLite';
+import { shouldRejectDossierWipe } from '@/app/services/dossierPersistence/dossierWipeGuard';
 import {
     LAWSUIT_FILES_STORAGE_KEY,
     LAWSUIT_FILES_STORAGE_KEYS_LEGACY,
 } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { readSecureOrDrainLegacySync, clearLegacyPlaintextMirror } from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 export {
     LAWSUIT_FILES_STORAGE_KEY,
@@ -16,7 +18,7 @@ export {
 
 function readJsonArray(key: string): unknown[] | null {
     try {
-        const raw = SecureStoreService.getItemSync(key);
+        const raw = readSecureOrDrainLegacySync(key);
         if (!raw) return null;
         const parsed: unknown = JSON.parse(raw);
         return Array.isArray(parsed) ? parsed : null;
@@ -30,8 +32,11 @@ export function loadLawsuitFilesRaw(): unknown[] {
     const fromDossier = loadDossierCollectionSync('lawsuit');
     if (fromDossier.length > 0) {
         const primaryOnly = readJsonArray(LAWSUIT_FILES_STORAGE_KEY);
-        if (primaryOnly === null || primaryOnly.length === 0) {
-            saveLawsuitFilesRawImmediate(fromDossier);
+        if (
+            (primaryOnly === null || primaryOnly.length === 0) &&
+            !SecureStoreService.isUnreadSync(LAWSUIT_FILES_STORAGE_KEY)
+        ) {
+            saveLawsuitFilesRaw(fromDossier);
         }
         return fromDossier;
     }
@@ -48,7 +53,7 @@ export function loadLawsuitFilesRaw(): unknown[] {
     for (const legacyKey of LAWSUIT_FILES_STORAGE_KEYS_LEGACY) {
         const legacy = readJsonArray(legacyKey);
         if (legacy !== null && legacy.length > 0) {
-            saveLawsuitFilesRawImmediate(legacy);
+            saveLawsuitFilesRaw(legacy);
             return legacy;
         }
     }
@@ -58,12 +63,15 @@ export function loadLawsuitFilesRaw(): unknown[] {
 
 /** حفظ ملفات الدعاوى — مصدر واحد + مرآة للمفاتيح القديمة لتوافق الإصدارات السابقة. */
 export function saveLawsuitFilesRaw(next: unknown[]): void {
-    saveLawsuitFilesRawImmediate(next);
-}
-
-/** حفظ فوري متزامn — للاختبارات والترحيل */
-export function saveLawsuitFilesRawImmediate(next: unknown[]): void {
     const payload = Array.isArray(next) ? next : [];
+    const serialized = JSON.stringify(payload);
+    if (SecureStoreService.isUnreadSync(LAWSUIT_FILES_STORAGE_KEY)) {
+        return;
+    }
+    const existing = readSecureOrDrainLegacySync(LAWSUIT_FILES_STORAGE_KEY);
+    if (existing && shouldRejectDossierWipe(LAWSUIT_FILES_STORAGE_KEY, serialized, existing)) {
+        return;
+    }
     persistDossierCollectionSyncLite('lawsuit', payload);
     try {
         persistenceRepository.save(LAWSUIT_FILES_STORAGE_KEY, payload);
@@ -71,7 +79,7 @@ export function saveLawsuitFilesRawImmediate(next: unknown[]): void {
     } catch {
         /* persistence may be mocked in tests */
     }
-    const serialized = JSON.stringify(payload);
     SecureStoreService.setItemSync(LAWSUIT_FILES_STORAGE_KEY, serialized);
+    clearLegacyPlaintextMirror(LAWSUIT_FILES_STORAGE_KEY);
     SecureStoreService.flushHeavyPersistPending();
 }

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    سياسة الشبكة للتطبيق الأصلي.
+
+    - لا نص صريح إطلاقاً: واجهة التطبيق تُخدَم من WebViewAssetLoader على
+      `https://localhost` (androidScheme: 'https')، وكل نداءات الخادم HTTPS.
+    - مراسي الثقة نظامية فقط: شهادة يثبّتها المستخدم (أو مدير جهاز، أو وسيط
+      شبكة) تكفي لفكّ TLS وقراءة مراسلات الموكّلين. استبعادها هو جوهر التهديد
+      هنا، لا تشدّداً زائداً.
+    - `debug-overrides` يقبل شهادات المستخدم في بناء التنقيح وحده، فيبقى الفحص
+      بالوسيط ممكناً للمطوّر بلا إضعاف الإصدار.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </debug-overrides>
+</network-security-config>

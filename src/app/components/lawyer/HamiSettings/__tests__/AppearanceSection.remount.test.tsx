@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { LawyerSettingsProvider } from '@/app/context/LawyerSettingsContext';
 import { AppearanceSection } from '@/app/components/lawyer/HamiSettings/appearance/AppearanceSection';
@@ -43,6 +43,11 @@ describe('AppearanceSection remount', () => {
         });
 
         expect(screen.getByTestId('settings-section-appearance')).toBeInTheDocument();
-        expect(screen.getByTestId('settings-toggle-appearance-reduceMotion')).toBeInTheDocument();
+        const wallpaper = screen.getByTestId('appearance-chapter-wallpaper');
+        fireEvent.pointerDown(wallpaper);
+        fireEvent.click(wallpaper);
+        expect(
+            await screen.findByTestId('settings-wallpaper-upload', {}, { timeout: 8_000 }),
+        ).toBeInTheDocument();
     });
 });

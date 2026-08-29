@@ -8,7 +8,14 @@ describe('Header hide hardening', () => {
             resolve(__dirname, '../Header.tsx'),
             'utf8',
         );
+        expect(src).toContain('ResizeObserver');
         expect(src).toContain("visibility: shouldShow ? 'visible' : 'hidden'");
         expect(src).toContain("data-header-visible={shouldShow ? 'true' : 'false'}");
+        expect(src).toContain('fixed top-0');
+        expect(src).toContain('HAMI_SHELL_CONTAINER');
+        expect(src).not.toContain('fixed bottom-0');
+        expect(src).not.toMatch(
+            /visualViewport\?\.removeEventListener\('resize', syncOffset\);\s*clearPublishedLawyerHeaderOffset/,
+        );
     });
 });

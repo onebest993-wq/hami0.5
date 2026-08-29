@@ -1,17 +1,19 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { resolveNotificationServerSyncEnabled } from '@/app/services/notifications/notificationServerSync';
 
-vi.mock('@/app/services/notifications/notificationServerSync', () => ({
-    isNotificationServerSyncEnabled: vi.fn(() => false),
-}));
-
-import { isNotificationServerSyncEnabled } from '@/app/services/notifications/notificationServerSync';
-
-describe('notificationServerSync', () => {
-    beforeEach(() => {
-        vi.mocked(isNotificationServerSyncEnabled).mockReturnValue(false);
+describe('resolveNotificationServerSyncEnabled', () => {
+    it('الخادم دائماً يسحب/يكتب الصندوق', () => {
+        expect(resolveNotificationServerSyncEnabled({ isBrowser: false })).toBe(true);
+        expect(resolveNotificationServerSyncEnabled({ isBrowser: false, flag: 'false' })).toBe(true);
     });
 
-    it('DEV بدون flag → sync معطّل', () => {
-        expect(isNotificationServerSyncEnabled()).toBe(false);
+    it('المتصفح مفعّل افتراضياً حتى بدون flag', () => {
+        expect(resolveNotificationServerSyncEnabled({ isBrowser: true })).toBe(true);
+        expect(resolveNotificationServerSyncEnabled({ isBrowser: true, flag: 'true' })).toBe(true);
+    });
+
+    it('VITE_HAMI_NOTIFICATION_SERVER_SYNC=false يعطّل المزامنة في المتصفح', () => {
+        expect(resolveNotificationServerSyncEnabled({ isBrowser: true, flag: 'false' })).toBe(false);
+        expect(resolveNotificationServerSyncEnabled({ isBrowser: true, flag: '0' })).toBe(false);
     });
 });

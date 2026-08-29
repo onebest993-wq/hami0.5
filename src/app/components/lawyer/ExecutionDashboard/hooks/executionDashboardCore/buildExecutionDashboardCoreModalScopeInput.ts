@@ -1,6 +1,6 @@
-/** Phase C Slice 25 — مدخلات modal scope */
-// ModalStates في الـ store لا يشمل كل modals المحلية — يُبقى nocheck حتى توسيع النوع
-// @ts-nocheck
+/** Phase C Slice 25 — مدخلات modal scope.
+ * أعلام النوافذ المحلية (إخلاء/كفيل/ورثة…) من الـ workflow لا من Zustand ModalStates.
+ */
 import type { ModalStates } from '@/app/stores/executionDashboardStore';
 import type { ExecutionSeizureOrchestratorSlice } from '../../orchestrators/executionSeizureOrchestratorTypes';
 
@@ -71,17 +71,15 @@ export function buildExecutionDashboardCoreModalScopeInput(p: {
         showLedgerModal: modals.showLedgerModal,
         // من workflow المقيم — ليس من Zustand (المفتاح غير موجود في ModalStates)
         showEditDossierMetaModal: Boolean(p.showEditDossierMetaModal),
-        showEvictionExpenseModal: p.showEvictionExpenseModal ?? modals.showEvictionExpenseModal,
-        showEvictionLawyerFeeModal: p.showEvictionLawyerFeeModal ?? modals.showEvictionLawyerFeeModal,
-        showEvictionResidentialGraceModal:
-            p.showEvictionResidentialGraceModal ?? modals.showEvictionResidentialGraceModal,
-        showGuarantorDetailsModal: p.showGuarantorDetailsModal ?? modals.showGuarantorDetailsModal,
-        showHeirsNotificationModal: p.showHeirsNotificationModal ?? modals.showHeirsNotificationModal,
+        showEvictionExpenseModal: Boolean(p.showEvictionExpenseModal),
+        showEvictionLawyerFeeModal: Boolean(p.showEvictionLawyerFeeModal),
+        showEvictionResidentialGraceModal: Boolean(p.showEvictionResidentialGraceModal),
+        showGuarantorDetailsModal: Boolean(p.showGuarantorDetailsModal),
+        showHeirsNotificationModal: Boolean(p.showHeirsNotificationModal),
         showLinkedDossierTimeline: p.showLinkedDossierTimeline,
-        showRealEstateSeizureModal: p.showRealEstateSeizureModal ?? modals.showRealEstateSeizureModal,
-        showSolidaryCoerciveTargetModal:
-            p.showSolidaryCoerciveTargetModal ?? modals.showSolidaryCoerciveTargetModal,
-        showStayOfExecutionModal: p.showStayOfExecutionModal ?? modals.showStayOfExecutionModal,
+        showRealEstateSeizureModal: Boolean(p.showRealEstateSeizureModal),
+        showSolidaryCoerciveTargetModal: Boolean(p.showSolidaryCoerciveTargetModal),
+        showStayOfExecutionModal: Boolean(p.showStayOfExecutionModal),
         showTransferFileNumberChangeModal: p.showTransferFileNumberChangeModal,
         setShowUnifiedExecutionModal: followupOrchestrator.setShowUnifiedExecutionModal,
         setShowDecisionsModal: p.setShowDecisionsModal,

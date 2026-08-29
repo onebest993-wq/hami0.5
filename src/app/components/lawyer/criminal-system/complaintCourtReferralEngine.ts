@@ -109,7 +109,7 @@ export function restoreComplaintCourtReferralOnQuash(
     };
 }
 
-export function isQuashCassationAppealResult(result: string | undefined): boolean {
+function isQuashCassationAppealResult(result: string | undefined): boolean {
     const key = String(result ?? '').trim();
     return key === 'quash_dismissal' || key === 'quash_remand' || key === 'quash_modify';
 }

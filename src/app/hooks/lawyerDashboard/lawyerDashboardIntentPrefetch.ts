@@ -119,6 +119,9 @@ export function prefetchDockWidgetIntent(
             });
             break;
         case 'forum':
+            void import('@/app/runtime/communityOverlayEntryLoader')
+                .then((m) => m.prefetchCommunityOverlayEntry())
+                .catch(() => undefined);
             void import('@/app/hooks/lawyerDashboard/forumIntentWarm').then((m) => {
                 if (phase === 'open') m.warmForumOnOpen();
                 else m.warmForumOnHover();

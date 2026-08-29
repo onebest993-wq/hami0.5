@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    isForumShellNotification,
     syncForumReadToShell,
     syncShellReadToForum,
 } from '@/app/services/notifications/notificationReadSync';
@@ -53,11 +52,6 @@ describe('notificationReadSync', () => {
         persistForumNotificationRead.mockClear();
         countForumUnread.mockClear();
         emitForumUnreadCount.mockClear();
-    });
-
-    it('isForumShellNotification يتعرّف على forum_reply', () => {
-        expect(isForumShellNotification({ type: 'forum_reply' })).toBe(true);
-        expect(isForumShellNotification({ type: 'system_alert' })).toBe(false);
     });
 
     it('syncForumReadToShell يستدعي markAsRead مع skipForumPersist', async () => {

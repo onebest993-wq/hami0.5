@@ -38,6 +38,21 @@ vi.mock('@/app/services/notifications/notificationForumKvMigration', () => ({
     retryLegacyPrefixCleanupIfPartial: (...args: unknown[]) => retryLegacyPrefixCleanupIfPartial(...args),
 }));
 
+vi.mock('@/app/services/auth/accountNetworkGate', () => ({
+    invalidateAccountNetworkGateCache: vi.fn(),
+    fetchAccountNetworkGate: vi.fn(async () => ({
+        frozen: false,
+        forumBanned: false,
+        freezeUntil: null,
+        code: null,
+        message: null,
+    })),
+}));
+
+vi.mock('@/app/services/auth/lawyerVerificationRemote', () => ({
+    syncLawyerVerificationFromServer: vi.fn(async () => undefined),
+}));
+
 function makeNotif(id: string): NotificationModel {
     return {
         id,
@@ -56,6 +71,19 @@ describe('notificationLimits', () => {
         expect(capped).toHaveLength(NOTIFICATION_LIST_CAP);
         expect(capped[0]!.id).toBe('n-0');
         expect(capped[NOTIFICATION_LIST_CAP - 1]!.id).toBe(`n-${NOTIFICATION_LIST_CAP - 1}`);
+    });
+
+    it('capNotificationList يبقي تنبيهات المقر appendedBy=server حتى في الذيل', () => {
+        const list = Array.from({ length: NOTIFICATION_LIST_CAP }, (_, i) => makeNotif(`n-${i}`));
+        const hq = Array.from({ length: 5 }, (_, i) => {
+            const n = makeNotif(`hq-${i}`);
+            n.actionPayload = { appendedBy: 'server', dedupeKey: `sys:hq-${i}` };
+            return n;
+        });
+        const capped = capNotificationList([...list, ...hq]);
+        expect(capped).toHaveLength(NOTIFICATION_LIST_CAP);
+        expect(capped.filter((n) => n.id.startsWith('hq-'))).toHaveLength(5);
+        expect(capped[0]!.id).toBe('n-0');
     });
 });
 
@@ -97,5 +125,15 @@ describe('refreshNotificationShellBadge', () => {
         await refreshNotificationShellBadge('user-1', { includeForumSync: false });
         expect(fetchNotifications).toHaveBeenCalledWith('user-1');
         expect(listForumNotifications).not.toHaveBeenCalled();
+    });
+
+    it('يزامن توثيق الحساب وبوابة الشبكة مع شارة الجرس', async () => {
+        const { syncLawyerVerificationFromServer } = await import(
+            '@/app/services/auth/lawyerVerificationRemote'
+        );
+        const { fetchAccountNetworkGate } = await import('@/app/services/auth/accountNetworkGate');
+        await refreshNotificationShellBadge('user-1', { includeForumSync: false });
+        expect(syncLawyerVerificationFromServer).toHaveBeenCalledWith('user-1');
+        expect(fetchAccountNetworkGate).toHaveBeenCalledWith('user-1');
     });
 });

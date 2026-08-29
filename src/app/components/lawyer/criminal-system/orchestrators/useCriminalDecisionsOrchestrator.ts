@@ -7,7 +7,7 @@ import type { CriminalDecisionsOrchestratorSlice } from './criminalOrchestratorS
 
 const DECISIONS_PAGE_SIZE = 12;
 
-export type UseCriminalDecisionsOrchestratorParams = {
+type UseCriminalDecisionsOrchestratorParams = {
     effectiveUiStage: CaseStage;
     caseId: string;
     selectedNodeFilter: string;

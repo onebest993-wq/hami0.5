@@ -6,6 +6,7 @@ import {
     EXEC_MODAL_CLOSE_BTN_CLASS,
     EXEC_MODAL_EDIT_SHELL_MAX,
 } from '../executionModalMobileShell';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 
 export type HeirsQuickViewRow = {
     name: string;
@@ -26,6 +27,8 @@ export function ExecutionHeirsQuickViewModal({
     setHeirsQuickView,
     X,
 }: ExecutionHeirsQuickViewModalProps) {
+    useBodyScrollLock(Boolean(heirsQuickView));
+
     if (!heirsQuickView || typeof document === 'undefined') return null;
 
     return createPortal(
@@ -53,7 +56,7 @@ export function ExecutionHeirsQuickViewModal({
                     <p className="text-[12px] font-bold text-cyan-200">{heirsQuickView.title}</p>
                     <span className="w-7" aria-hidden />
                 </div>
-                <div className="max-h-[60vh] space-y-2 overflow-y-auto">
+                <div className="max-h-[60dvh] space-y-2 overflow-y-auto overscroll-contain">
                     {heirsQuickView.rows.map((h, idx) => (
                         <div
                             key={`${h.name}-${idx}`}

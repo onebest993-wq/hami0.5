@@ -1,5 +1,5 @@
 import type { CaseStage, FileData, IncidentalCase, IncidentalFileLink, IncidentalType, Party, TimelineEvent } from '../../LawyerShared';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import {
     classifyPartySideBucket,
     isDefendantSideRole,
@@ -9,26 +9,16 @@ import {
     partitionPartiesForHeader,
 } from './partyRoleClassification';
 
-export type IncidentalSpawnStageOverride = {
-    stageIndex: number;
-    stageName: string;
-    court: string;
-    judge: string;
-    docType: string;
-    retrialTargetStage?: string;
-    parties: Party[];
-};
+export type {
+    IncidentalSpawnContext,
+    IncidentalSpawnStageOverride,
+} from '@/app/domain/lawsuit/incidentalSpawnPrefill';
 
-export type IncidentalSpawnContext = {
-    parentFileId: number;
-    parentCaseNo: string;
-    incidentalId: string;
+type IncidentalLinkedFileCreateStub = {
     type: 'joined' | 'counter';
-    /** لقطة المرحلة المعروضة حالياً في الإضبارة — أدق من قراءة files العامة */
-    stageOverride?: IncidentalSpawnStageOverride;
-    /** مقدّم الدعوى عند التعدد (معرّف الطرف في الإضبارة الأم) */
-    filingPartyId?: string;
-    filingPartyName?: string;
+    details?: string;
+    date?: string;
+    partyName?: string;
 };
 
 type FileWithStages = FileData & {
@@ -63,21 +53,35 @@ export function affiliationSideLabel(side: 'plaintiff' | 'defendant', count: num
     return count > 1 ? 'للمدعى عليهم' : 'للمدعى عليه';
 }
 
-function patchIncidentalInStages(
-    stages: CaseStage[],
-    stageIndex: number,
+function upsertIncidentalCases(
+    cases: IncidentalCase[] | undefined,
     incidentalId: string,
     patch: Partial<IncidentalCase>,
-): CaseStage[] {
-    const next = stages.map((stage, idx) => {
-        if (idx !== stageIndex) return stage;
-        const cases = Array.isArray(stage.incidentalCases) ? stage.incidentalCases : [];
-        return {
-            ...stage,
-            incidentalCases: cases.map((c) => (c.id === incidentalId ? { ...c, ...patch } : c)),
-        };
-    });
-    return next;
+    createIfMissing?: IncidentalLinkedFileCreateStub,
+): IncidentalCase[] {
+    const list = Array.isArray(cases) ? cases : [];
+    const existingIdx = list.findIndex((c) => c.id === incidentalId);
+    if (existingIdx >= 0) {
+        return list.map((c) => (c.id === incidentalId ? { ...c, ...patch } : c));
+    }
+    if (!createIfMissing) return list;
+
+    const stubParty =
+        String(patch.partyName ?? '').trim() ||
+        String(createIfMissing.partyName ?? '').trim() ||
+        (createIfMissing.type === 'joined' ? 'دعوى منضمة' : 'دعوى متقابلة');
+
+    const created: IncidentalCase = {
+        id: incidentalId,
+        type: createIfMissing.type,
+        partyName: stubParty,
+        details: createIfMissing.details || '',
+        date: createIfMissing.date || getLocalTodayYmd(),
+        status: 'active',
+        linkedFileId: patch.linkedFileId,
+        linkedCaseNo: patch.linkedCaseNo,
+    };
+    return [...list, created];
 }
 
 export function patchIncidentalLinkedFile(
@@ -86,6 +90,7 @@ export function patchIncidentalLinkedFile(
     linkedFileId: number,
     linkedCaseNo: string,
     partyName?: string,
+    createIfMissing?: IncidentalLinkedFileCreateStub,
 ): FileWithStages {
     const patch: Partial<IncidentalCase> = { linkedFileId, linkedCaseNo };
     const resolvedPartyName = String(partyName ?? '').trim();
@@ -97,15 +102,28 @@ export function patchIncidentalLinkedFile(
     if (stages.length > 0) {
         return {
             ...file,
-            stages: patchIncidentalInStages(stages, stageIdx, incidentalId, patch),
+            stages: stages.map((stage, idx) => {
+                if (idx !== stageIdx) return stage;
+                return {
+                    ...stage,
+                    incidentalCases: upsertIncidentalCases(
+                        stage.incidentalCases,
+                        incidentalId,
+                        patch,
+                        createIfMissing,
+                    ),
+                };
+            }),
         };
     }
 
-    const rootCases = Array.isArray(file.incidentalCases) ? file.incidentalCases : [];
     return {
         ...file,
-        incidentalCases: rootCases.map((c) =>
-            c.id === incidentalId ? { ...c, ...patch } : c,
+        incidentalCases: upsertIncidentalCases(
+            file.incidentalCases,
+            incidentalId,
+            patch,
+            createIfMissing,
         ),
     };
 }
@@ -233,7 +251,7 @@ export function isLinkedSpawnIncidentalType(type: IncidentalCase['type']): boole
     return type === 'joined' || type === 'counter';
 }
 
-export type LinkedStageJudgment = {
+type LinkedStageJudgment = {
     isClosed: boolean;
     finalDecision?: string;
     decisionDate?: string;
@@ -253,7 +271,7 @@ export function readActiveStageJudgment(file: FileWithStages): LinkedStageJudgme
     };
 }
 
-export function buildIncidentalLinkedJudgmentEvent(
+function buildIncidentalLinkedJudgmentEvent(
     c: IncidentalCase,
     payload: { finalDecision: string; linkedCaseNo: string; judgmentDate?: string },
 ): TimelineEvent {

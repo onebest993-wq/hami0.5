@@ -1,7 +1,6 @@
 export interface SmartHeaderProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     formData: any;
-    onToggleClient?: () => void;
     isPaused?: boolean;
     incidentalCases?: unknown[];
     stages?: unknown[];

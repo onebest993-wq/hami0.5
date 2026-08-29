@@ -1,11 +1,15 @@
-import React, { useEffect, useLayoutEffect, useState } from 'react';
-import { Plus } from '@/app/components/ui/lucideIcons';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
-import { CIVIL_LAWSUIT_TEST_IDS } from '@/app/components/lawyer/smart-modal/smartFile/civilLawsuitTestIds';
-import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
-import { inertProps } from '@/app/utils/inertProps';
+import { LAWSUIT_VAULT_TEST_IDS } from '@/app/components/lawyer/smart-modal/smartFile/lawsuitVaultTestIds';
+import { registerNativeBackHandler } from '@/app/runtime/nativeBackStack';
+import { blurFocusWithin, inertProps } from '@/app/utils/inertProps';
 import { ARCHIVE_SEGMENT_BTN_ACTIVE } from '@/app/components/lawyer/ArchivePortal/archiveToolbarStyles';
 import { DossierHeaderNavButtons } from '@/app/components/lawyer/dashboard/DossierHeaderNavButtons';
+import { HAMI_SHELL_OVERLAY_COLUMN_CLASS } from '@/app/utils/overlayPortal';
+import {
+    URGENT_WORKSPACE_TAB_ACTIVE,
+    URGENT_WORKSPACE_TAB_IDLE,
+} from '@/app/components/lawyer/dashboard/urgentWorkspaceChrome';
 
 export type LawsuitsWorkspaceTab = 'civil' | 'urgent';
 
@@ -23,8 +27,6 @@ type LawsuitsWorkspaceShellProps = {
     open?: boolean;
     /** زر الإضافة — يُركَّب عائماً فوق المحتوى (بدون شريط سفلي) */
     addCaseFab?: React.ReactNode;
-    /** طبقة فوق المحتوى (مثلاً اختيار الاختصاص) */
-    layerOverlay?: React.ReactNode;
     children: (tab: LawsuitsWorkspaceTab) => React.ReactNode;
 };
 
@@ -38,12 +40,17 @@ export function LawsuitsWorkspaceShell({
     escapeEnabled = true,
     open = true,
     addCaseFab,
-    layerOverlay,
     children,
 }: LawsuitsWorkspaceShellProps): React.ReactElement {
     const [tab, setTab] = useState<LawsuitsWorkspaceTab>(defaultTab);
+    const rootRef = useRef<HTMLDivElement>(null);
 
     useBodyScrollLock(open);
+
+    useLayoutEffect(() => {
+        if (open) return;
+        blurFocusWithin(rootRef.current);
+    }, [open]);
 
     useLayoutEffect(() => {
         if (!open) return;
@@ -57,13 +64,26 @@ export function LawsuitsWorkspaceShell({
     useEffect(() => {
         if (!open || !escapeEnabled) return;
         const exit = onExitToHome ?? onClose;
+        const hasBlockingOverlay = () =>
+            Boolean(
+                document.querySelector('[data-testid="criminal-dashboard-portal"]') ||
+                    document.querySelector('[data-testid="criminal-dashboard-dossier"]') ||
+                    document.querySelector(`[data-testid="${LAWSUIT_VAULT_TEST_IDS.jurisdictionPicker}"]`) ||
+                    document.querySelector(`[data-testid="${LAWSUIT_VAULT_TEST_IDS.trashConfirmDialog}"]`) ||
+                    document.querySelector(`[data-testid="${LAWSUIT_VAULT_TEST_IDS.permanentDeleteDialog}"]`) ||
+                    document.querySelector(`[data-testid="${LAWSUIT_VAULT_TEST_IDS.criminalDeleteDialog}"]`) ||
+                    document.querySelector('[data-testid="lawyer-new-case-save"]') ||
+                    document.querySelector('[data-testid="lawyer-new-case-instant-shell"]') ||
+                    document.querySelector('[data-testid="smart-file-dossier"]') ||
+                    document.querySelector('[data-testid="smart-file-modal-boot-chrome"]') ||
+                    document.querySelector('[data-testid="urgent-actions-form"]') ||
+                    document.querySelector('[data-testid="urgent-active-order-dossier"]') ||
+                    document.querySelector('[role="listbox"]') ||
+                    document.querySelector('[role="menu"]'),
+            );
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key !== 'Escape') return;
-            if (
-                document.querySelector('[data-testid="criminal-dashboard-portal"]') ||
-                document.querySelector('[data-testid="criminal-dashboard-dossier"]') ||
-                document.querySelector(`[data-testid="${CIVIL_LAWSUIT_TEST_IDS.jurisdictionPicker}"]`)
-            ) {
+            if (hasBlockingOverlay()) {
                 return;
             }
             event.preventDefault();
@@ -72,11 +92,7 @@ export function LawsuitsWorkspaceShell({
             exit();
         };
         const tryClose = (): boolean => {
-            if (
-                document.querySelector('[data-testid="criminal-dashboard-portal"]') ||
-                document.querySelector('[data-testid="criminal-dashboard-dossier"]') ||
-                document.querySelector(`[data-testid="${CIVIL_LAWSUIT_TEST_IDS.jurisdictionPicker}"]`)
-            ) {
+            if (hasBlockingOverlay()) {
                 return false;
             }
             exit();
@@ -98,8 +114,10 @@ export function LawsuitsWorkspaceShell({
 
     return (
         <div
-            className="fixed inset-0 z-[220] bg-[#0B1021] font-['Tajawal','Cairo',sans-serif] flex flex-col"
-            data-testid={CIVIL_LAWSUIT_TEST_IDS.workspace}
+            ref={rootRef}
+            className="fixed inset-0 z-[220] bg-[#0B1021] font-['Tajawal','Cairo',sans-serif] flex"
+            data-testid={LAWSUIT_VAULT_TEST_IDS.workspace}
+            data-hami-overlay-safe={open ? '1' : undefined}
             data-open={open ? 'true' : 'false'}
             aria-hidden={!open}
             style={{
@@ -109,8 +127,9 @@ export function LawsuitsWorkspaceShell({
             }}
             {...inertProps(!open)}
         >
+            <div className={`${HAMI_SHELL_OVERLAY_COLUMN_CLASS} relative`}>
             <header className="shrink-0 relative z-10 bg-transparent" dir="rtl">
-                <div className="px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
+                <div className="px-4 hami-overlay-header-safe-pad pb-2">
                     <div className="flex w-full items-center gap-2">
                         {onExitToHome ? (
                             <DossierHeaderNavButtons
@@ -120,18 +139,18 @@ export function LawsuitsWorkspaceShell({
                             />
                         ) : null}
                         <div className="min-w-0 flex-1 text-center">
-                            <h2 className="text-white font-extrabold text-lg tracking-tight">
+                            <h2 className="text-white font-extrabold text-base tracking-tight">
                                 مخزن الإضابير
                             </h2>
                         </div>
-                        <span className="inline-flex h-9 w-9 shrink-0" aria-hidden />
-                        <span className="inline-flex h-9 w-9 shrink-0" aria-hidden />
+                        <span className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0" aria-hidden />
+                        <span className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0" aria-hidden />
                     </div>
                 </div>
 
-                <div dir="rtl" className="px-4 pb-4">
+                <div dir="rtl" className="px-4 pb-2.5">
                     <div
-                        className="grid grid-cols-2 gap-1.5 rounded-2xl border border-white/10 bg-transparent p-1.5"
+                        className="grid grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-transparent p-1"
                         role="tablist"
                         aria-label="أقسام مخزن الإضابير"
                     >
@@ -139,7 +158,7 @@ export function LawsuitsWorkspaceShell({
                             type="button"
                             role="tab"
                             aria-selected={tab === 'civil'}
-                            data-testid={CIVIL_LAWSUIT_TEST_IDS.tabCivil}
+                            data-testid={LAWSUIT_VAULT_TEST_IDS.tabCivil}
                             onClick={() => selectTab('civil')}
                             className={`min-h-[44px] rounded-xl text-xs font-bold transition-all touch-manipulation ${
                                 tab === 'civil'
@@ -153,14 +172,13 @@ export function LawsuitsWorkspaceShell({
                             type="button"
                             role="tab"
                             aria-selected={tab === 'urgent'}
-                            data-testid={CIVIL_LAWSUIT_TEST_IDS.tabUrgent}
+                            data-testid={LAWSUIT_VAULT_TEST_IDS.tabUrgent}
                             onPointerEnter={() => onUrgentTabIntent?.()}
+                            onPointerDown={() => onUrgentTabIntent?.()}
                             onFocus={() => onUrgentTabIntent?.()}
                             onClick={() => selectTab('urgent')}
-                            className={`min-h-[44px] rounded-xl text-xs font-bold transition-all touch-manipulation ${
-                                tab === 'urgent'
-                                    ? 'bg-gradient-to-r from-rose-600/85 to-red-500/80 border border-rose-300/25 text-white'
-                                    : 'bg-transparent text-white/65 hover:bg-white/[0.06] hover:text-white'
+                            className={`min-h-[44px] rounded-xl text-xs font-bold transition-colors touch-manipulation ${
+                                tab === 'urgent' ? URGENT_WORKSPACE_TAB_ACTIVE : URGENT_WORKSPACE_TAB_IDLE
                             }`}
                         >
                             مستعجل
@@ -171,68 +189,24 @@ export function LawsuitsWorkspaceShell({
 
             <div className="flex-1 min-h-0 overflow-hidden flex flex-col min-w-0">{children(tab)}</div>
 
-            {layerOverlay}
-
             {tab === 'civil' && addCaseFab ? (
-                <div
-                    className="pointer-events-none fixed inset-0 z-[235] flex flex-col items-end justify-end pe-[max(1rem,env(safe-area-inset-right))] ps-[max(1rem,env(safe-area-inset-left))] pb-[max(1rem,calc(env(safe-area-inset-bottom)+0.5rem))]"
-                    aria-hidden
-                >
+                <div className="pointer-events-none absolute inset-0 z-[235] flex flex-col items-end justify-end pe-[max(1rem,env(safe-area-inset-right))] ps-[max(1rem,env(safe-area-inset-left))] pb-[max(1rem,calc(env(safe-area-inset-bottom)+0.5rem))]">
                     <div className="pointer-events-auto">{addCaseFab}</div>
                 </div>
             ) : null}
+            </div>
         </div>
-    );
-}
-
-export type LawsuitsAddCaseFabTone = 'gold' | 'urgent';
-
-/**
- * زر إضافة مضغوط — absolute صريح (لا يعتمد على hami-royal-glass-btn لأنه يفرض position:relative).
- */
-export function LawsuitsAddCaseFab({
-    onClick,
-    onIntent,
-    label = 'إضبارة جديدة',
-    tone = 'gold',
-    testId = CIVIL_LAWSUIT_TEST_IDS.addLawsuit,
-}: {
-    onClick: () => void;
-    onIntent?: () => void;
-    label?: string;
-    tone?: LawsuitsAddCaseFabTone;
-    testId?: string;
-}): React.ReactElement {
-    const toneClass =
-        tone === 'urgent'
-            ? 'border-rose-400/50 bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-lg shadow-rose-900/40'
-            : 'border-[#E6C673]/50 bg-[linear-gradient(155deg,rgba(230,198,115,0.42)_0%,rgba(11,16,33,0.92)_48%,rgba(201,162,39,0.28)_100%)] text-[#F8F1DE] shadow-[inset_0_1px_0_rgba(255,249,230,0.28),0_10px_28px_rgba(0,0,0,0.35)]';
-
-    return (
-        <button
-            type="button"
-            data-testid={testId}
-            onClick={onClick}
-            onPointerEnter={() => onIntent?.()}
-            onFocus={() => onIntent?.()}
-            title={`إضافة ${label}`}
-            aria-label={`إضافة ${label}`}
-            className={`inline-flex h-12 w-auto shrink-0 items-center justify-center gap-2 rounded-full border px-4 text-sm font-bold backdrop-blur-md touch-manipulation transition-transform duration-200 hover:scale-[1.03] active:scale-95 ${toneClass}`}
-        >
-            <Plus size={18} strokeWidth={3} aria-hidden />
-            <span className="whitespace-nowrap">{label}</span>
-        </button>
     );
 }
 
 export function LawsuitsWorkspaceTabLoading({ label }: { label: string }): React.ReactElement {
     return (
         <div className="h-full flex flex-col px-5 pt-4 pb-24" aria-busy="true">
-            <div className="h-11 rounded-xl border border-white/10 bg-white/[0.04] animate-pulse" aria-hidden />
-            <div className="mt-3 h-10 rounded-xl border border-white/10 bg-white/[0.04] animate-pulse" aria-hidden />
+            <div className="h-11 rounded-xl border border-white/10 bg-white/[0.04] motion-safe:animate-pulse" aria-hidden />
+            <div className="mt-3 h-10 rounded-xl border border-white/10 bg-white/[0.04] motion-safe:animate-pulse" aria-hidden />
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 content-start" aria-hidden>
                 {Array.from({ length: 4 }).map((_, index) => (
-                    <div key={index} className="h-28 rounded-xl border border-white/10 bg-white/[0.04] animate-pulse" />
+                    <div key={index} className="h-28 rounded-xl border border-white/10 bg-white/[0.04] motion-safe:animate-pulse" />
                 ))}
             </div>
             <p className="sr-only">{label}</p>

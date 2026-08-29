@@ -18,11 +18,12 @@ import {
     listOpponentPartiesForAppeal,
     normalizePartyIdKey,
     type AppealSide,
-} from './appealPartyEngine';
+} from './appealPartyListHelpers';
 
-export const INTERPLEADER_APPELLANT_SIDE = 'الشخص الثالث الاختصامي';
+import { INTERPLEADER_APPELLANT_SIDE } from './appealInterpleaderConstants';
+export { INTERPLEADER_APPELLANT_SIDE } from './appealInterpleaderConstants';
 
-export type AppealDossierMode = 'standard' | 'interpleader_appellant' | 'against_interpleader';
+type AppealDossierMode = 'standard' | 'interpleader_appellant' | 'against_interpleader';
 
 export type AppealDossierLayout = {
     mode: AppealDossierMode;
@@ -54,12 +55,12 @@ export function isInterpleaderRequestDismissed(judgmentType: string): boolean {
     return true;
 }
 
-export function listInterpleaderParties(parties: Party[]): Party[] {
+function listInterpleaderParties(parties: Party[]): Party[] {
     return partitionPartiesForHeader(parties).interpleaders;
 }
 
 /** المدعون والمدعى عليهم (بدون الاختصاميين) + الانضماميون */
-export function listMainLitigantParties(
+function listMainLitigantParties(
     parties: Party[],
     incidentalCases?: IncidentalCase[],
 ): Party[] {

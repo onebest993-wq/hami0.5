@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** التبليغ بالنشر — handlers محضر المتابعة والتبليغ الموحّد */
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';

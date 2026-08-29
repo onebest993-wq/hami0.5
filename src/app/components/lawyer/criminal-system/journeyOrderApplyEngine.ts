@@ -8,7 +8,7 @@ import {
     proceduralActionFromConclusion,
 } from './stageJourney';
 
-export type PendingJourneyOrder = {
+type PendingJourneyOrder = {
     actionId: ProceduralTransitionActionId;
     summary: string;
     sourceFinalDecision?: StageConclusion;
@@ -121,7 +121,7 @@ export function resolvePendingJourneyOrder(caseRecord: CriminalCase | undefined)
     return null;
 }
 
-export function pendingJourneyOrderRequiresReferralMeta(order: PendingJourneyOrder): boolean {
+function pendingJourneyOrderRequiresReferralMeta(order: PendingJourneyOrder): boolean {
     return (
         order.actionId === 'refer_misdemeanor' ||
         order.actionId === 'refer_felony' ||

@@ -5,9 +5,10 @@ import {
     resetCalendarReminderFiredKeysForTests,
 } from '@/app/services/calendar/calendarEventReminder';
 import { clearCalendarReminderFiredForTests } from '@/app/services/calendar/calendarReminderFiredStore';
+import { clearCalendarReminderSnoozesForTests } from '@/app/services/calendar/calendarReminderSnoozeStore';
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
 
-vi.mock('@/app/services/notifications/HamiNotificationBridge', () => ({
+vi.mock('@/app/services/notifications/bridge/hamiBridgePresent', () => ({
     showHamiNotification: vi.fn(async () => undefined),
 }));
 
@@ -37,6 +38,7 @@ describe('useCalendarEventReminders', () => {
         vi.useFakeTimers();
         resetCalendarReminderFiredKeysForTests();
         clearCalendarReminderFiredForTests();
+        clearCalendarReminderSnoozesForTests();
     });
 
     afterEach(() => {
@@ -70,5 +72,34 @@ describe('useCalendarEventReminders', () => {
             result.current.snoozeAlarm(5);
         });
         expect(result.current.activeAlarm).toBeNull();
+    });
+
+    it('يعيد المنبه بعد انتهاء مدة التأجيل', () => {
+        vi.setSystemTime(new Date('2026-08-07T09:50:10'));
+
+        const { result } = renderHook(() => useCalendarEventReminders([event], true));
+
+        act(() => {
+            vi.advanceTimersByTime(1);
+        });
+        act(() => {
+            result.current.snoozeAlarm(5);
+        });
+        expect(result.current.activeAlarm).toBeNull();
+
+        act(() => {
+            vi.advanceTimersByTime(5 * 60_000);
+        });
+        expect(result.current.activeAlarm?.event.id).toBe('evt-rem');
+    });
+
+    it('يفتح المنبه من معرّف إشعار النظام', () => {
+        vi.setSystemTime(new Date('2026-08-07T08:00:00'));
+        const { result } = renderHook(() => useCalendarEventReminders([event], true));
+
+        act(() => {
+            expect(result.current.presentAlarmForEventId('evt-rem')).toBe(true);
+        });
+        expect(result.current.activeAlarm?.event.id).toBe('evt-rem');
     });
 });

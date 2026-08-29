@@ -1,5 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle, Send, X, Handshake, Trophy, PencilLine } from '@/app/components/ui/lucideIcons';
+import { CheckCircle } from '@/app/components/ui/icons/CheckCircle';
+import { Send } from '@/app/components/ui/icons/Send';
+import { X } from '@/app/components/ui/icons/X';
+import { Handshake } from '@/app/components/ui/icons/Handshake';
+import { Trophy } from '@/app/components/ui/icons/Trophy';
+import { PencilLine } from '@/app/components/ui/icons/PencilLine';
 import { formatIqdDisplay } from '../utils';
 import { SECTION_GLASS } from '../constants';
 import type { UnifiedLedgerStore, FinancialLedgerEntry } from '../types';

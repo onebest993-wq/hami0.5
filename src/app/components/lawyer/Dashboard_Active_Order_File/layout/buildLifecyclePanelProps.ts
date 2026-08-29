@@ -3,7 +3,7 @@ import type { useOrderFileLifecycleDerived } from '../hooks/useOrderFileLifecycl
 import type { useOrderFileLifecycleActions } from '../hooks/useOrderFileLifecycleActions';
 import type { LifecyclePanelStateInput } from './lifecyclePanelStateInput';
 
-export type BuildLifecyclePanelPropsInput = {
+type BuildLifecyclePanelPropsInput = {
     pathway: ReturnType<typeof useOrderFileCasePathway>;
     derived: ReturnType<typeof useOrderFileLifecycleDerived>;
     actions: ReturnType<typeof useOrderFileLifecycleActions>;

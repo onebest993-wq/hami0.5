@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
+import { clearLegacyPlaintextMirror } from '@/app/services/storage/readSecureOrDrainLegacySync';
+import { readSecureJsonRawSync, writeSecureJsonValue } from '@/app/services/storage/syncSecureJson';
 
 const STORAGE_KEY = 'hami:forum:muted-users:v1';
 
@@ -26,7 +28,7 @@ export function useMutedUsers(currentUserId: string | null): {
         (next: Set<string>) => {
             if (!storageKey) return;
             try {
-                window.localStorage.setItem(storageKey, JSON.stringify([...next]));
+                writeSecureJsonValue(storageKey, [...next]);
             } catch { /* quota */ }
         },
         [storageKey],
@@ -38,7 +40,7 @@ export function useMutedUsers(currentUserId: string | null): {
             return;
         }
         try {
-            const raw = window.localStorage.getItem(storageKey);
+            const raw = readSecureJsonRawSync(storageKey);
             if (raw) {
                 const parsed = JSON.parse(raw) as unknown;
                 if (Array.isArray(parsed)) {
@@ -122,7 +124,10 @@ export function useMutedUsers(currentUserId: string | null): {
         const previous = [...mutedIds];
         setMutedIds(new Set());
         if (storageKey) {
-            try { window.localStorage.removeItem(storageKey); } catch { /* ignore */ }
+            try {
+                writeSecureJsonValue(storageKey, []);
+                clearLegacyPlaintextMirror(storageKey);
+            } catch { /* ignore */ }
         }
         if (currentUserId) {
             void Promise.allSettled(

@@ -56,7 +56,6 @@ function buildLayoutInput(
         caseLinkCandidates: [],
         handleResumeAbandonment: noop as never,
         handleResume: noop as never,
-        handleToggleClient: noop as never,
         handleInterruptionToggle: noop as never,
         handleOpenPauseModal: noop,
         handleOpenPauseResume: noop,

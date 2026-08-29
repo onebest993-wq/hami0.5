@@ -149,7 +149,7 @@ function mergePartyLists(...lists: Party[][]): Party[] {
     return out;
 }
 
-export type ResolveDisplayPartiesInput = {
+type ResolveDisplayPartiesInput = {
     displayStage?: CaseStage | null;
     file?: Record<string, unknown> | null;
     parentData?: { parties?: unknown[]; originalParties?: unknown[] } | null;

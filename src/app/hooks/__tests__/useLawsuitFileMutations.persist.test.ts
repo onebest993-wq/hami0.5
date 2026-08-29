@@ -1,19 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useLawsuitFileMutations } from '@/app/hooks/useLawsuitFileMutations';
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
-
-const persistSpy = vi.fn((files: FileData[]) => files);
-
-vi.mock('@/app/domain/lawsuit/lawsuitFilesRepository', async () => {
-    const actual = await vi.importActual<typeof import('@/app/domain/lawsuit/lawsuitFilesRepository')>(
-        '@/app/domain/lawsuit/lawsuitFilesRepository',
-    );
-    return {
-        ...actual,
-        persistLawsuitFiles: (files: FileData[]) => persistSpy(files),
-    };
-});
+import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
+import {
+    applyLawsuitTrashSegments,
+    emptyLawsuitFileSegments,
+} from '@/app/domain/lawsuit/lawsuitFilesRepository';
 
 vi.mock('@/app/services/calendar/dossierSyncLazy', () => ({
     pruneOrphanedBridgeEvents: vi.fn(() => Promise.resolve()),
@@ -25,6 +17,38 @@ vi.mock('@/app/services/calendar/bridge/lite', () => ({
     resolveCalendarUserId: (id: string | null | undefined) => id ?? null,
 }));
 
+vi.mock('@/app/services/caseShare/caseShareDossierRevocation', () => ({
+    scheduleRevokeLawsuitCaseShares: vi.fn(),
+}));
+
+const isLiveCloudSyncBucketEnabled = vi.fn(() => true);
+
+vi.mock('@/app/services/settings/cloudSyncBucket', () => ({
+    isLiveCloudSyncBucketEnabled: (...args: unknown[]) => isLiveCloudSyncBucketEnabled(...args),
+    isCloudSyncBucketEnabled: () => true,
+}));
+
+vi.mock('@/app/services/SupabaseService', () => ({
+    SupabaseService: {
+        deleteLawsuitFile: vi.fn(() => Promise.resolve()),
+    },
+}));
+
+vi.mock('@/app/utils/lawsuitDossierTombstones', () => ({
+    markLawsuitDossierTombstone: vi.fn(() => true),
+}));
+
+vi.mock('@/app/domain/lawsuit/lawsuitPersistFlush', () => ({
+    awaitLawsuitWorkspaceCommit: vi.fn(async () => ({ ok: true })),
+    scheduleLawsuitWorkspaceCommit: vi.fn(),
+    commitLawsuitWorkspacePersist: vi.fn(async () => ({ ok: true })),
+    flushLawsuitWorkspacePersist: vi.fn(async () => true),
+}));
+
+vi.mock('@/app/components/ui/SmartToast', () => ({
+    SmartToast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+}));
+
 function sampleFile(overrides: Partial<FileData> = {}): FileData {
     return {
         id: 'f1',
@@ -34,25 +58,32 @@ function sampleFile(overrides: Partial<FileData> = {}): FileData {
     } as FileData;
 }
 
-describe('useLawsuitFileMutations persist integrity', () => {
+describe('useLawsuitFileMutations segment integrity', () => {
     beforeEach(() => {
-        persistSpy.mockClear();
-        persistSpy.mockImplementation((files: FileData[]) => files);
+        vi.clearAllMocks();
+        isLiveCloudSyncBucketEnabled.mockReturnValue(true);
     });
 
-    it('يحفظ الحذف الناعم عبر persistLawsuitFiles', () => {
-        const setFiles = vi.fn((updater: (prev: FileData[]) => FileData[]) => {
-            updater([sampleFile()]);
-        });
+    it('handleDeleteFile ينقل الإضبارة النشطة إلى مقطع trash (لا soft-delete داخل active)', () => {
+        const initial = {
+            ...emptyLawsuitFileSegments(),
+            active: [sampleFile()],
+            trash: [],
+        };
+        let segments = initial;
+
         const { result } = renderHook(() =>
             useLawsuitFileMutations({
-                files: [sampleFile()],
-                setFiles: setFiles as React.Dispatch<React.SetStateAction<FileData[]>>,
+                setLawsuitSegments: (updater) => {
+                    segments =
+                        typeof updater === 'function'
+                            ? updater(segments)
+                            : updater;
+                },
                 setActiveFile: vi.fn(),
                 userId: 'u1',
                 authUserId: 'u1',
                 refreshAppAlerts: vi.fn(),
-                showLawsuitsWorkspace: true,
                 unpinWorkspaceForDeletedFile: vi.fn(),
             }),
         );
@@ -61,26 +92,114 @@ describe('useLawsuitFileMutations persist integrity', () => {
             result.current.handleDeleteFile(sampleFile());
         });
 
-        expect(persistSpy).toHaveBeenCalled();
-        const persisted = persistSpy.mock.calls[0]?.[0] as FileData[];
-        expect(persisted[0]?.status).toBe('deleted');
-        expect(persisted[0]?.deletedAt).toEqual(expect.any(Number));
+        expect(segments.active).toHaveLength(0);
+        expect(segments.trash).toHaveLength(1);
+        expect(segments.trash?.[0]?.status).toBe('deleted');
+        expect(segments.trash?.[0]?.deletedAt).toEqual(expect.any(Number));
     });
 
-    it('يحفظ الاستعادة عبر persistLawsuitFiles', () => {
+    it('handleDeleteFile للحذف النهائي يضيف tombstone ويحذف من السحابة', async () => {
+        const { markLawsuitDossierTombstone } = await import('@/app/utils/lawsuitDossierTombstones');
+        const { SupabaseService } = await import('@/app/services/SupabaseService');
+        const { scheduleRevokeLawsuitCaseShares } = await import(
+            '@/app/services/caseShare/caseShareDossierRevocation'
+        );
+
         const trashed = sampleFile({ status: 'deleted', deletedAt: Date.now() });
-        const setFiles = vi.fn((updater: (prev: FileData[]) => FileData[]) => {
-            updater([trashed]);
-        });
+        const initial = {
+            ...emptyLawsuitFileSegments(),
+            active: [],
+            trash: [trashed],
+        };
+        let segments = initial;
+
         const { result } = renderHook(() =>
             useLawsuitFileMutations({
-                files: [trashed],
-                setFiles: setFiles as React.Dispatch<React.SetStateAction<FileData[]>>,
+                setLawsuitSegments: (updater) => {
+                    segments =
+                        typeof updater === 'function'
+                            ? updater(segments)
+                            : updater;
+                },
                 setActiveFile: vi.fn(),
                 userId: 'u1',
                 authUserId: 'u1',
                 refreshAppAlerts: vi.fn(),
-                showLawsuitsWorkspace: true,
+                unpinWorkspaceForDeletedFile: vi.fn(),
+            }),
+        );
+
+        act(() => {
+            result.current.handleDeleteFile(trashed);
+        });
+
+        expect(markLawsuitDossierTombstone).toHaveBeenCalledWith('f1');
+        expect(SupabaseService.deleteLawsuitFile).toHaveBeenCalledWith('f1');
+        expect(scheduleRevokeLawsuitCaseShares).toHaveBeenCalledWith('u1', 'f1');
+        expect(segments.trash).toHaveLength(0);
+    });
+
+    it('الحذف النهائي يبقى محلياً عندما سلة الملفات السحابية مطفأة', async () => {
+        isLiveCloudSyncBucketEnabled.mockReturnValue(false);
+        const { SupabaseService } = await import('@/app/services/SupabaseService');
+        const { markLawsuitDossierTombstone } = await import('@/app/utils/lawsuitDossierTombstones');
+
+        const trashed = sampleFile({ status: 'deleted', deletedAt: Date.now() });
+        const initial = {
+            ...emptyLawsuitFileSegments(),
+            active: [],
+            trash: [trashed],
+        };
+        let segments = initial;
+
+        const { result } = renderHook(() =>
+            useLawsuitFileMutations({
+                setLawsuitSegments: (updater) => {
+                    segments =
+                        typeof updater === 'function'
+                            ? updater(segments)
+                            : updater;
+                },
+                setActiveFile: vi.fn(),
+                userId: 'u1',
+                authUserId: 'u1',
+                refreshAppAlerts: vi.fn(),
+                unpinWorkspaceForDeletedFile: vi.fn(),
+            }),
+        );
+
+        act(() => {
+            result.current.handleDeleteFile(trashed);
+        });
+
+        expect(markLawsuitDossierTombstone).toHaveBeenCalledWith('f1');
+        expect(SupabaseService.deleteLawsuitFile).not.toHaveBeenCalled();
+        expect(segments.trash).toHaveLength(0);
+    });
+
+    it('handleRestoreFile يستعيد من مقطع trash إلى active', () => {
+        const trashed = sampleFile({ status: 'deleted', deletedAt: Date.now() });
+        const initial = applyLawsuitTrashSegments(
+            { ...emptyLawsuitFileSegments(), active: [sampleFile()], trash: [] },
+            'f1',
+        );
+        expect(initial.trash).toHaveLength(1);
+
+        let segments = initial;
+        const setActiveFile = vi.fn();
+
+        const { result } = renderHook(() =>
+            useLawsuitFileMutations({
+                setLawsuitSegments: (updater) => {
+                    segments =
+                        typeof updater === 'function'
+                            ? updater(segments)
+                            : updater;
+                },
+                setActiveFile,
+                userId: 'u1',
+                authUserId: 'u1',
+                refreshAppAlerts: vi.fn(),
                 unpinWorkspaceForDeletedFile: vi.fn(),
             }),
         );
@@ -89,9 +208,9 @@ describe('useLawsuitFileMutations persist integrity', () => {
             result.current.handleRestoreFile(trashed);
         });
 
-        expect(persistSpy).toHaveBeenCalled();
-        const persisted = persistSpy.mock.calls[0]?.[0] as FileData[];
-        expect(persisted[0]?.status).toBe('active');
-        expect(persisted[0]?.deletedAt).toBeUndefined();
+        expect(segments.active).toHaveLength(1);
+        expect(segments.active[0]?.status).toBe('active');
+        expect(segments.trash).toHaveLength(0);
+        expect(setActiveFile).toHaveBeenCalled();
     });
 });

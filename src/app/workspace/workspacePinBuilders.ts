@@ -1,45 +1,15 @@
 import type { WorkspacePinnedItem } from './types';
-import { effectiveCaseNumber, extractCaseRefsFromText } from './extractCaseRefs';
+import { extractCaseRefsFromText } from './extractCaseRefs';
 import {
     buildLinkedCaseLookup,
     resolveLinkedCaseMetaFromIndex,
     type LinkedCaseLookupIndex,
 } from './resolveLinkedCaseMeta';
-import { buildWorkspaceRoute } from './workspaceRoutes';
 import { sanitizePinCaseNumber } from './pinDisplayUtils';
-import { extractExecutionCaseNumber, extractExecutionClientName } from './executionPinMeta';
+import { recordFromParts, safeEntityId, safeStr } from './workspacePinRecord';
 
-function safeStr(v: unknown): string {
-    return typeof v === 'string' ? v.trim() : '';
-}
-
-function partyName(p: unknown): string {
-    if (!p || typeof p !== 'object') return '';
-    return safeStr((p as { name?: string }).name);
-}
-
-function safeEntityId(v: unknown): string {
-    if (typeof v === 'string') return v.trim();
-    if (typeof v === 'number' && Number.isFinite(v)) return String(v);
-    return '';
-}
-
-function recordFromParts(
-    type: WorkspacePinnedItem['type'],
-    id: string,
-    title: string,
-    clientName: string,
-    caseNumber: string,
-): WorkspacePinnedItem {
-    return {
-        id,
-        type,
-        title: title || '—',
-        clientName,
-        caseNumber,
-        routePath: buildWorkspaceRoute(type, id),
-    };
-}
+export { buildLawsuitWorkspacePin } from './lawsuitWorkspacePin';
+export { buildExecutionWorkspacePin } from './executionWorkspacePin';
 
 export type HubSectionId = 'lawsuit' | 'execution' | 'transaction';
 
@@ -53,52 +23,6 @@ const HUB_SECTION_LABELS: Record<HubSectionId, string> = {
 export function buildHubSectionPin(section: HubSectionId): WorkspacePinnedItem {
     const label = HUB_SECTION_LABELS[section];
     return recordFromParts('hub', section, label, '', '');
-}
-
-/** استخراج حقول التثبيت من كائنات الأقسام دون استيراد أنواعها */
-export function buildLawsuitWorkspacePin(file: unknown): WorkspacePinnedItem | null {
-    if (!file || typeof file !== 'object') return null;
-    const f = file as Record<string, unknown>;
-    const fileType = safeStr(f.type);
-    if (fileType && fileType !== 'lawsuit') return null;
-    const id = safeEntityId(f.id);
-    if (!id) return null;
-    const parties = Array.isArray(f.parties) ? f.parties : [];
-    const clientParty = parties.find((p) => p && typeof p === 'object' && (p as Record<string, unknown>).isClient);
-    let clientName =
-        clientParty && typeof clientParty === 'object'
-            ? safeStr((clientParty as Record<string, unknown>).name)
-            : '';
-    if (!clientName && parties.length > 0) {
-        clientName = partyName(parties[0]);
-    }
-    const docType = safeStr(f.docType);
-    const caseNumber = sanitizePinCaseNumber(
-        effectiveCaseNumber(
-            safeStr(f.caseNo) || safeStr(f.caseNumber) || safeStr(f.fileNumber),
-            safeStr(f.title),
-            docType,
-        ),
-        safeStr(f.title),
-        docType,
-    );
-    const title = caseNumber ? `دعوى — ${caseNumber}` : docType || 'دعوى مدنية';
-    return recordFromParts('lawsuit', id, title, clientName, caseNumber);
-}
-
-export function buildExecutionWorkspacePin(
-    file: unknown,
-    lawsuitFiles: unknown[] = [],
-    lookupIndex?: LinkedCaseLookupIndex,
-): WorkspacePinnedItem | null {
-    if (!file || typeof file !== 'object') return null;
-    const f = file as Record<string, unknown>;
-    const id = safeEntityId(f.id);
-    if (!id) return null;
-    const clientName = extractExecutionClientName(f);
-    const caseForPin = extractExecutionCaseNumber(f, lawsuitFiles, lookupIndex);
-    const title = caseForPin ? `تنفيذ — ${caseForPin}` : 'إضبارة تنفيذ';
-    return recordFromParts('execution', id, title, clientName, caseForPin);
 }
 
 /** معاملات نظام Threading (TransactionsThreadingDB) — منفصلة عن ملفات type:transaction */

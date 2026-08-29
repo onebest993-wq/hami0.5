@@ -10,7 +10,6 @@ import { criminalToEntry } from '@/app/services/search/globalSearchIndexCriminal
 import {
     calendarToEntry,
     communityPostToEntries,
-    financeToEntry,
     notificationToEntry,
     quantumTaskToEntry,
     threadingTaskToEntry,
@@ -151,10 +150,6 @@ export function buildGlobalSearchIndex(input: BuildGlobalSearchIndexInput): Glob
         for (const t of extras.threadingTasks) {
             const tx = txById.get(t.transactionId);
             push(threadingTaskToEntry(t, tx?.clientName || tx?.title || 'معاملة', t.transactionId));
-        }
-        for (const f of extras.threadingFinance) {
-            const tx = txById.get(f.transactionId);
-            push(financeToEntry(f, tx?.clientName || tx?.title || 'معاملة', f.transactionId));
         }
         extras.communityPosts.forEach((p) => communityPostToEntries(p).forEach(push));
     }

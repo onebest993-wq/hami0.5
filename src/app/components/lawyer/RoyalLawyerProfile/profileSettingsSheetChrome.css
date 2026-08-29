@@ -1,0 +1,218 @@
+[data-profile-settings-sheet] {
+    background: #0a0f1c;
+    border-color: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.22);
+}
+
+[data-profile-settings-sheet]::before {
+    content: none;
+}
+
+.profile-settings-handle {
+    width: 2.4rem;
+    height: 0.22rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.profile-settings-scroll-panel {
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+    contain: content;
+    content-visibility: visible;
+}
+
+.profile-settings-sheet-footer {
+    background: #0a0f1c;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+}
+
+.profile-settings-tab {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    padding: 0.65rem 0.5rem;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.45);
+    border-radius: 0.85rem;
+    transition: none;
+}
+
+.profile-settings-tab[data-active='true'] {
+    color: var(--profile-accent, #e6c673);
+    background: color-mix(in srgb, var(--profile-accent, #e6c673) 10%, transparent);
+}
+
+.profile-settings-luxury-card {
+    border-radius: 0.95rem;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.03);
+    box-shadow: none;
+}
+
+.profile-settings-luxury-toggle {
+    position: relative;
+    width: 2.65rem;
+    height: 1.45rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.35);
+    transition: background 0.22s, border-color 0.22s;
+    flex-shrink: 0;
+}
+
+.profile-settings-luxury-toggle[data-on='true'] {
+    background: color-mix(in srgb, var(--profile-accent, #e6c673) 35%, #1a1f2e);
+    border-color: color-mix(in srgb, var(--profile-accent, #e6c673) 45%, transparent);
+}
+
+.profile-settings-luxury-toggle-thumb {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.profile-settings-luxury-toggle[data-on='true'] .profile-settings-luxury-toggle-thumb {
+    transform: translateX(-1.15rem);
+    background: var(--profile-accent, #e6c673);
+}
+
+.profile-settings-color-swatch {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+    border-radius: 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.45rem 0.4rem 0.4rem;
+    font-size: 10px;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.02);
+    color: rgba(255, 255, 255, 0.82);
+    transition: none;
+}
+
+.profile-settings-color-swatch__chip {
+    display: block;
+    width: 100%;
+    height: 1.65rem;
+    border-radius: 0.55rem;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background-color: var(--accent-swatch-hex, #e6c673);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.profile-settings-color-swatch__label {
+    text-align: center;
+    line-height: 1.2;
+}
+
+.profile-settings-color-swatch[data-selected='true'] {
+    border-color: color-mix(in srgb, var(--profile-accent, #e6c673) 50%, white);
+    box-shadow: none;
+}
+
+.profile-settings-material-chip {
+    border-radius: 0.85rem;
+    padding: 0.65rem 0.5rem;
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.02);
+    color: rgba(255, 255, 255, 0.55);
+    transition: none;
+}
+
+.profile-settings-material-chip[data-selected='true'] {
+    color: var(--profile-accent-ink, #e6c673);
+    border-color: color-mix(in srgb, var(--profile-accent, #e6c673) 40%, transparent);
+    background: color-mix(in srgb, var(--profile-accent, #e6c673) 10%, transparent);
+}
+
+.profile-settings-portrait-frame-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border-radius: 0.95rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.02);
+    text-align: right;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.profile-settings-portrait-frame-chip[data-selected='true'] {
+    border-color: color-mix(in srgb, var(--profile-accent, #e6c673) 42%, transparent);
+    background: color-mix(in srgb, var(--profile-accent, #e6c673) 10%, transparent);
+}
+
+.profile-settings-portrait-frame-preview {
+    position: relative;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex-shrink: 0;
+    border-radius: 999px;
+    border: 2px solid color-mix(in srgb, var(--profile-accent, #e6c673) 45%, transparent);
+    background:
+        radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.18), transparent 45%),
+        #0a0f1c;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.profile-settings-portrait-frame-preview[data-frame='classic'] {
+    border-color: color-mix(in srgb, #e6c673 55%, transparent);
+}
+
+.profile-settings-portrait-frame-preview[data-frame='ornate'] {
+    border-color: color-mix(in srgb, #f9a8d4 55%, #e6c673);
+    box-shadow:
+        7px -6px 0 -10px #fb7185,
+        -6px 5px 0 -10px #f9a8d4,
+        8px 7px 0 -11px #fda4af;
+}
+
+.profile-settings-portrait-frame-preview[data-frame='minimal'] {
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.28);
+    box-shadow: none;
+}
+
+.profile-settings-portrait-frame-preview[data-frame='circle'] {
+    border-color: #a5b4fc;
+    box-shadow:
+        6px -8px 0 -11px #e0e7ff,
+        -7px 6px 0 -11px #fde68a,
+        8px 7px 0 -12px #a5b4fc;
+}
+
+.profile-settings-portrait-frame-preview[data-frame='arch'] {
+    border-color: #6366f1;
+    background:
+        conic-gradient(from 0deg, #020408, #312e81, #020408, #1e1b4b, #020408),
+        #0a0f1c;
+    box-shadow: 0 0 10px color-mix(in srgb, #6366f1 28%, transparent);
+}
+
+.profile-settings-save-btn {
+    background: var(--profile-accent, #e6c673);
+    color: var(--profile-accent-on-solid, #0a0c12);
+    box-shadow: none;
+}
+
+.profile-settings-contact-row {
+    border-radius: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(0, 0, 0, 0.22);
+}
+

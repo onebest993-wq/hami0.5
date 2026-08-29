@@ -1,15 +1,20 @@
 import type { CSSProperties } from 'react';
 import type { ShapeKey } from '@/app/types/common';
-import type { HomeBlockStyleOverride, HomeBlockShape, HomeBlockPattern, HomeBlockSize } from './homeLayout';
+import { defaultMainSpan } from './homeWidgetPlacements';
 import { normalizeGlassOpacity, normalizeBackgroundPatternOpacity } from './surfaceAppearance';
 import { contentScaleVar, resolveContentScale } from './homeBlockScale';
-import { defaultMainSpan, type HomeWidgetId, type HomeWidgetZone } from './homeWidgetPlacements';
 import { resolveCardThemeBg, resolveCardThemePrimary } from './themeResolve';
 import type { AppearanceSettings } from './types';
 import { mergeBlockScopedAppearance } from './themeResolve';
 import { resolveLawyerDashboardCanvasBg } from './boardSurfaceResolve';
 import { loadPersistedWallpaper } from './apply';
 import { resolveGlassPanelBackground, tintHex, resolveGlassPatternScale } from './glassSurfacePaint';
+import type {
+    HomeBlockPattern,
+    HomeBlockShape,
+    HomeBlockSize,
+    HomeBlockStyleOverride,
+} from './homeLayout';
 
 const SHAPE_RADIUS: Record<HomeBlockShape, string> = {
     pill: 'rounded-[2rem]',
@@ -38,7 +43,7 @@ export function shapeKeyToHomeBlockShape(shape: ShapeKey): HomeBlockShape {
     return shape as HomeBlockShape;
 }
 
-export function resolveGlobalBlockShape(
+function resolveGlobalBlockShape(
     override: HomeBlockStyleOverride | undefined,
     globalShape?: ShapeKey,
 ): HomeBlockShape {
@@ -52,25 +57,9 @@ export function resolveHomeBlockClassNames(
     globalShape?: ShapeKey,
 ): string {
     const shape = resolveGlobalBlockShape(override, globalShape);
-    const pattern = override?.pattern ?? 'glass';
+    const pattern = override?.pattern ?? 'solid';
     const size = override?.size ?? 'normal';
     return [SHAPE_RADIUS[shape], PATTERN_CLASS[pattern], SIZE_CLASS[size]].filter(Boolean).join(' ');
-}
-
-export function resolveHomeBlockShapeClass(
-    override?: HomeBlockStyleOverride,
-    globalShape?: ShapeKey,
-): string {
-    return SHAPE_RADIUS[resolveGlobalBlockShape(override, globalShape)];
-}
-
-export function shouldShowHomeBlockSheen(_pattern?: HomeBlockPattern): boolean {
-    return false;
-}
-
-export function shouldShowHomeMoroccanGlassDecor(pattern?: HomeBlockPattern): boolean {
-    const resolved = pattern ?? 'glass';
-    return resolved === 'glass' || resolved === 'rim' || resolved === 'gradient';
 }
 
 export function resolveHomeBlockAccent(override: HomeBlockStyleOverride | undefined, themePrimary: string): string {
@@ -86,14 +75,6 @@ export function resolveBlockPatternOpacity(
         return normalizeBackgroundPatternOpacity(override.patternOpacity);
     }
     return normalizeBackgroundPatternOpacity(appearance.backgroundPatternOpacity);
-}
-
-export function resolveBlockGlassDecorOpacity(
-    _override: HomeBlockStyleOverride | undefined,
-    _appearance: { backgroundPatternOpacity?: number },
-): number {
-    /* ثابت — غسيل الزجاج لا يختفي عند خفض حدة الزخرفة */
-    return 0.48;
 }
 
 export function resolveHomeBlockInlineStyle(
@@ -169,19 +150,19 @@ export function resolveWidgetSpan(
     override?: HomeBlockStyleOverride,
 ): 1 | 2 {
     if (override?.span === 1 || override?.span === 2) return override.span;
-    if (widgetId === 'alerts') return 2;
-    return 1;
+    return defaultMainSpan(widgetId);
 }
 
 export function resolveHubTileMinHeight(
-    tileId: 'hubExecution' | 'hubLawsuit' | 'hubTransaction' | 'forum',
+    tileId: 'hubExecution' | 'hubLawsuit' | 'hubTransaction' | 'forum' | 'alerts',
     size: HomeBlockSize = 'normal',
 ): string {
     const map = {
-        hubExecution: { compact: 'min-h-[6.25rem]', normal: 'min-h-[6.25rem]', large: 'min-h-[7rem]' },
-        hubLawsuit: { compact: 'min-h-[6.25rem]', normal: 'min-h-[6.25rem]', large: 'min-h-[7rem]' },
-        hubTransaction: { compact: 'min-h-[6.25rem]', normal: 'min-h-[6.25rem]', large: 'min-h-[7rem]' },
-        forum: { compact: 'min-h-[6.25rem]', normal: 'min-h-[6.25rem]', large: 'min-h-[7rem]' },
+        hubExecution: { compact: 'min-h-[5rem]', normal: 'min-h-[5rem]', large: 'min-h-[5.5rem]' },
+        hubLawsuit: { compact: 'min-h-[5rem]', normal: 'min-h-[5rem]', large: 'min-h-[5.5rem]' },
+        hubTransaction: { compact: 'min-h-[5rem]', normal: 'min-h-[5rem]', large: 'min-h-[5.5rem]' },
+        forum: { compact: 'min-h-[5rem]', normal: 'min-h-[5rem]', large: 'min-h-[5.5rem]' },
+        alerts: { compact: 'min-h-[5rem]', normal: 'min-h-[5rem]', large: 'min-h-[5.5rem]' },
     };
     return map[tileId][size];
 }
@@ -190,34 +171,7 @@ export function resolveAlertsMinHeight(size: HomeBlockSize = 'normal'): string {
     return { compact: 'min-h-[180px]', normal: 'min-h-[240px]', large: 'min-h-[300px]' }[size];
 }
 
-/** بطاقات لا يُطبَّق عليها ضغط الارتفاع اليدوي — لحماية المحتوى */
-export const HEIGHT_PROTECTED_WIDGET_IDS = ['alerts'] as const;
-
-/** الحد الأدنى لارتفاع البطاقة عند السحب اليدوي */
-export function resolveWidgetResizeMinHeight(
-    widgetId: import('./homeWidgetPlacements').HomeWidgetId,
-): number {
-    const map: Partial<Record<import('./homeWidgetPlacements').HomeWidgetId, number>> = {
-        hubExecution: 108,
-        hubLawsuit: 120,
-        hubTransaction: 120,
-        forum: 100,
-        alerts: 180,
-        dockNotepad: 88,
-        dockCalendar: 88,
-        dockVault: 88,
-        dockTasks: 88,
-        dockQuickNote: 88,
-    };
-    return map[widgetId] ?? 88;
-}
-
-export function isHeightProtectedWidget(
-    widgetId: import('./homeWidgetPlacements').HomeWidgetId,
-): boolean {
-    return (HEIGHT_PROTECTED_WIDGET_IDS as readonly string[]).includes(widgetId);
-}
-
+/** ارتفاع الغلاف حسب نوع البطاقة */
 export function resolveWidgetWrapperStyle(
     widgetId: import('./homeWidgetPlacements').HomeWidgetId,
     override: HomeBlockStyleOverride | undefined,
@@ -228,7 +182,7 @@ export function resolveWidgetWrapperStyle(
 ): CSSProperties {
     const inDock = zone === 'dock';
     const baseHeights: Partial<Record<import('./homeWidgetPlacements').HomeWidgetId, number>> = {
-        alerts: 240,
+        alerts: 88,
         hubExecution: 120,
         hubLawsuit: 88,
         hubTransaction: 88,
@@ -242,7 +196,7 @@ export function resolveWidgetWrapperStyle(
     const scoped = appearance ? mergeBlockScopedAppearance(appearance, override) : undefined;
     const style = resolveHomeBlockInlineStyle(override, themePrimary, {
         baseMinHeightPx: baseHeights[widgetId],
-        skipHeightPx: isHeightProtectedWidget(widgetId) || inDock,
+        skipHeightPx: inDock,
         skipGlassPaint: true,
         defaultGlassOpacity,
         appearance: scoped,
@@ -262,41 +216,4 @@ export function resolveBlockContainerBorder(
     if (override?.containerBorder === true) return true;
     if (override?.containerBorder === false) return false;
     return globalEnabled;
-}
-
-/** تكييف الأبعاد عند نقل عنصر بين الشبكة الرئيسية والشريط السفلي */
-export function adaptWidgetStyleForZoneChange(
-    widgetId: HomeWidgetId,
-    override: HomeBlockStyleOverride | undefined,
-    toZone: HomeWidgetZone,
-): HomeBlockStyleOverride | undefined {
-    if (!override) {
-        return toZone === 'dock' ? { size: 'compact' } : undefined;
-    }
-
-    const preserved = {
-        accentColor: override.accentColor,
-        cardTheme: override.cardTheme,
-        patternTheme: override.patternTheme,
-        shape: override.shape,
-        pattern: override.pattern,
-        visible: override.visible,
-        backgroundPreset: override.backgroundPreset,
-        glassOpacity: override.glassOpacity,
-        patternOpacity: override.patternOpacity,
-        containerBorder: override.containerBorder,
-        span: override.span,
-        heightPx: override.heightPx,
-        size: override.size,
-    };
-
-    if (toZone === 'dock') {
-        return { ...preserved, size: 'compact' as HomeBlockSize };
-    }
-
-    return {
-        ...preserved,
-        size: (override.size === 'large' ? 'large' : override.size === 'compact' ? 'compact' : 'normal') as HomeBlockSize,
-        span: override.span ?? defaultMainSpan(widgetId),
-    };
 }

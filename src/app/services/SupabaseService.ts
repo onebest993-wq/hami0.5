@@ -6,6 +6,12 @@ import { isShellAuthBypassed } from '@/app/services/auth/shellAuth';
 import { probeSameOriginApi } from '@/app/runtime/sameOriginApiProbe';
 import { isLiveCloudSyncBucketEnabled } from '@/app/services/settings/cloudSyncBucket';
 
+function scheduleWorkCheckpointAfterCloudWrite(): void {
+  void import('@/app/services/cloud/workCloudCheckpoint').then((m) => {
+    m.scheduleWorkCloudCheckpoint();
+  });
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
 }
@@ -176,6 +182,7 @@ export class SupabaseService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    scheduleWorkCheckpointAfterCloudWrite();
     return file.id;
   }
 
@@ -255,6 +262,7 @@ export class SupabaseService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ external_id: fileId }),
     });
+    scheduleWorkCheckpointAfterCloudWrite();
   }
 
   static async saveLawsuitFile(file: LawsuitFile): Promise<string> {
@@ -282,6 +290,7 @@ export class SupabaseService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    scheduleWorkCheckpointAfterCloudWrite();
     return file.id;
   }
 
@@ -292,6 +301,7 @@ export class SupabaseService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ external_id: fileId }),
     });
+    scheduleWorkCheckpointAfterCloudWrite();
   }
 
   static async getLawsuitFiles(): Promise<LawsuitFile[]> {
@@ -365,6 +375,7 @@ export class SupabaseService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    scheduleWorkCheckpointAfterCloudWrite();
 
     return noteId;
   }
@@ -398,6 +409,7 @@ export class SupabaseService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ external_id: noteId }),
     });
+    scheduleWorkCheckpointAfterCloudWrite();
   }
 
   static async checkConnection(): Promise<boolean> {

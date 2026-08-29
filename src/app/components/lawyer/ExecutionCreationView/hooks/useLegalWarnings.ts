@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-export function getLegalWarningsAndAttachments(selectedClaimType: string) {
+function getLegalWarningsAndAttachments(selectedClaimType: string) {
     const warnings: string[] = [];
     const requiredAttachments: string[] = [];
     const legalTips: string[] = [];

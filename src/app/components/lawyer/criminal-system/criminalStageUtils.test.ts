@@ -12,7 +12,6 @@ import {
     formatProceduralStageLabel,
     getDefendantStatusSelectOptions,
     isDetentionArrestCategory,
-    buildConcernedParties,
     caseStageFromStoredStage,
     formatInvestigationLogStatusLabel,
     formatLawyerRequestStatusLabel,
@@ -149,15 +148,6 @@ describe('investigation timeline categories and governance', () => {
     it('isInvestigationAffidavitTimelineCategory matches current and legacy labels', () => {
         expect(isInvestigationAffidavitTimelineCategory(INVESTIGATION_AFFIDAVIT_TIMELINE_CATEGORY)).toBe(true);
         expect(isInvestigationAffidavitTimelineCategory('تدوين إفادة (مشتكي / مخبر / شاهد)')).toBe(true);
-    });
-
-    it('buildConcernedParties merges complainants and defendants', () => {
-        const parties = buildConcernedParties(
-            [{ id: 'c1', fullName: 'أحمد' }],
-            [{ id: 'd1', fullName: 'علي' }],
-        );
-        expect(parties).toHaveLength(2);
-        expect(parties.map((p) => p.id).sort()).toEqual(['c1', 'd1']);
     });
 
     it('formatLawyerRequestStatusLabel returns Iraqi court-facing labels', () => {

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { CalendarGrid } from '@/app/components/lawyer/SmartLegalRadar/CalendarGrid';
-import { MONTHS, todayYmd } from '@/app/components/lawyer/SmartLegalRadar/utils';
+import { MONTHS } from '@/app/components/lawyer/SmartLegalRadar/radarCalendarLabels';
+import { todayYmd } from '@/app/components/lawyer/SmartLegalRadar/radarCalendarMath';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 
 function renderGrid(overrides?: Partial<React.ComponentProps<typeof CalendarGrid>>) {

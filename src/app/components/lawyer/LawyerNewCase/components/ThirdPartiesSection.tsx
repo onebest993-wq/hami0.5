@@ -1,5 +1,7 @@
 import React from 'react';
-import { Plus, X, UserCheck } from '@/app/components/ui/lucideIcons';
+import { Plus } from '@/app/components/ui/icons/Plus';
+import { X } from '@/app/components/ui/icons/X';
+import { UserCheck } from '@/app/components/ui/icons/UserCheck';
 import type { ThirdParty } from '../types';
 import { NC_GLASS_CARD, NC_SECTION_TITLE } from '../newCaseGlassTheme';
 import { buildThirdPartyRoleLabel } from '../clientRepresentation';
@@ -14,7 +16,7 @@ export interface ThirdPartiesSectionProps {
 
 function clientPillClass(tp: ThirdParty, active: boolean): string {
     const base =
-        'inline-flex items-center justify-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-[11px] font-bold backdrop-blur-sm transition-colors duration-150 touch-manipulation cursor-pointer';
+        'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-[11px] font-bold backdrop-blur-sm transition-colors duration-150 touch-manipulation cursor-pointer';
     if (!active) {
         return `${base} border-white/10 bg-white/[0.04] text-white/45 hover:border-white/16 hover:text-white/70`;
     }
@@ -65,7 +67,7 @@ export const ThirdPartiesSection = ({
                                         <button
                                             type="button"
                                             onClick={() => onRemove(tp.id)}
-                                            className="w-6 h-6 flex items-center justify-center rounded bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all shrink-0"
+                                            className="min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all shrink-0 touch-manipulation"
                                             title="حذف"
                                         >
                                             <X size={14} />
@@ -106,7 +108,7 @@ export const ThirdPartiesSection = ({
                     type="button"
                     data-testid="lawyer-new-case-add-third-party"
                     onClick={onAdd}
-                    className="w-full py-2.5 rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] flex items-center justify-center gap-2 text-white/40 text-xs hover:border-[#E6C673]/35 hover:text-[#E6C673]/90 hover:bg-white/[0.04] transition-colors"
+                    className="w-full min-h-[44px] py-2.5 rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] flex items-center justify-center gap-2 text-white/40 text-xs hover:border-[#E6C673]/35 hover:text-[#E6C673]/90 hover:bg-white/[0.04] transition-colors touch-manipulation"
                 >
                     <Plus size={14} /> <span>إضافة شخص ثالث</span>
                 </button>

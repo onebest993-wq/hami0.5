@@ -6,31 +6,43 @@ import {
     scanAndFireCalendarReminders,
     type CalendarReminderMinutes,
 } from '@/app/services/calendar/calendarEventReminder';
-import { showHamiNotification } from '@/app/services/notifications/HamiNotificationBridge';
+import {
+    isCalendarReminderSnoozed,
+    readCalendarReminderSnoozes,
+    removeCalendarReminderSnooze,
+    requestCalendarNativeReminderSync,
+    upsertCalendarReminderSnooze,
+} from '@/app/services/calendar/calendarReminderSnoozeStore';
 import {
     shouldFireCalendarAlarm,
     shouldPlayCalendarAlarmSound,
 } from '@/app/services/notifications/notificationAlertPolicy';
 import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
-import {
-    shouldFireCalendarAlarm,
-    shouldPlayCalendarAlarmSound,
-} from '@/app/services/notifications/notificationAlertPolicy';
 import type { CalendarReminderAlarmPayload } from '@/app/components/lawyer/SmartLegalRadar/CalendarReminderModal';
+
+function eventFromId(events: CalendarEvent[], eventId: string): CalendarEvent | undefined {
+    return events.find((event) => event.id === eventId);
+}
 
 export function useCalendarEventReminders(events: CalendarEvent[], enabled: boolean) {
     const [activeAlarm, setActiveAlarm] = useState<CalendarReminderAlarmPayload | null>(null);
-    const snoozedUntilRef = useRef<Map<string, number>>(new Map());
     const eventsRef = useRef(events);
     eventsRef.current = events;
+    const snoozeTimersRef = useRef<Map<string, number>>(new Map());
 
-    const isSnoozed = useCallback((key: string) => {
-        const until = snoozedUntilRef.current.get(key);
-        if (!until) return false;
-        if (Date.now() >= until) {
-            snoozedUntilRef.current.delete(key);
+    const isSnoozed = useCallback((key: string) => isCalendarReminderSnoozed(key), []);
+
+    const presentAlarm = useCallback((event: CalendarEvent, fireAt: Date = new Date()) => {
+        const minutes = event.reminderMinutesBefore ?? 0;
+        const settings = getLawyerSettingsSnapshot();
+        if (!shouldFireCalendarAlarm(settings) && !shouldPlayCalendarAlarmSound(settings)) {
             return false;
         }
+        setActiveAlarm({
+            event,
+            fireAt,
+            reminderMinutesBefore: minutes > 0 ? minutes : 10,
+        });
         return true;
     }, []);
 
@@ -43,29 +55,57 @@ export function useCalendarEventReminders(events: CalendarEvent[], enabled: bool
             return;
         }
 
-        const payload: CalendarReminderAlarmPayload = {
-            event,
-            fireAt,
-            reminderMinutesBefore: minutes,
-        };
-
-        if (shouldFireCalendarAlarm(settings)) {
-            setActiveAlarm(payload);
-        }
+        presentAlarm(event, fireAt);
 
         const timeLabel = event.time ? ` · ${event.time}` : '';
-        void showHamiNotification(
-            'calendar',
-            {
-                title: 'تذكير موعد — حامي',
-                body: `${event.title}${timeLabel}`,
-                tag: `calendar-reminder-${event.id}`,
-                requireInteraction: true,
-                data: { type: 'calendar-reminder', eventId: event.id },
-            },
-            true,
-        );
+        void import('@/app/services/notifications/bridge/hamiBridgePresent').then((m) => {
+            void m.showHamiNotification(
+                'calendar',
+                {
+                    title: 'تذكير موعد — حامي',
+                    body: `${event.title}${timeLabel}`,
+                    tag: `calendar-reminder-${event.id}`,
+                    requireInteraction: true,
+                    data: { type: 'calendar-reminder', eventId: event.id, date: event.date },
+                },
+                true,
+            );
+        });
+    }, [presentAlarm]);
+
+    const presentAlarmForEventId = useCallback(
+        (eventId: string) => {
+            const trimmed = eventId.trim();
+            if (!trimmed) return false;
+            const event = eventFromId(eventsRef.current, trimmed);
+            if (!event) return false;
+            return presentAlarm(event);
+        },
+        [presentAlarm],
+    );
+
+    const clearSnoozeTimer = useCallback((key: string) => {
+        const timer = snoozeTimersRef.current.get(key);
+        if (timer !== undefined) {
+            window.clearTimeout(timer);
+            snoozeTimersRef.current.delete(key);
+        }
     }, []);
+
+    const armSnoozeTimer = useCallback(
+        (key: string, untilMs: number, eventId: string) => {
+            clearSnoozeTimer(key);
+            const delay = Math.max(0, untilMs - Date.now());
+            const timer = window.setTimeout(() => {
+                snoozeTimersRef.current.delete(key);
+                removeCalendarReminderSnooze(key);
+                const event = eventFromId(eventsRef.current, eventId);
+                if (event) presentAlarm(event, new Date());
+            }, delay);
+            snoozeTimersRef.current.set(key, timer);
+        },
+        [clearSnoozeTimer, presentAlarm],
+    );
 
     useEffect(() => {
         if (!enabled) return;
@@ -91,9 +131,40 @@ export function useCalendarEventReminders(events: CalendarEvent[], enabled: bool
         };
     }, [enabled, fireReminder, isSnoozed]);
 
+    useEffect(() => {
+        if (!enabled) {
+            for (const timer of snoozeTimersRef.current.values()) {
+                window.clearTimeout(timer);
+            }
+            snoozeTimersRef.current.clear();
+            return;
+        }
+        for (const snooze of readCalendarReminderSnoozes()) {
+            armSnoozeTimer(snooze.key, snooze.untilMs, snooze.eventId);
+        }
+        return () => {
+            for (const timer of snoozeTimersRef.current.values()) {
+                window.clearTimeout(timer);
+            }
+            snoozeTimersRef.current.clear();
+        };
+    }, [enabled, armSnoozeTimer]);
+
     const dismissAlarm = useCallback(() => {
+        const alarm = activeAlarm;
+        if (alarm) {
+            const key = buildCalendarReminderKey(
+                alarm.event.id,
+                alarm.event.date,
+                alarm.event.time ?? '',
+                alarm.reminderMinutesBefore,
+            );
+            removeCalendarReminderSnooze(key);
+            clearSnoozeTimer(key);
+            requestCalendarNativeReminderSync();
+        }
         setActiveAlarm(null);
-    }, []);
+    }, [activeAlarm, clearSnoozeTimer]);
 
     const snoozeAlarm = useCallback(
         (minutes: CalendarReminderMinutes) => {
@@ -105,15 +176,28 @@ export function useCalendarEventReminders(events: CalendarEvent[], enabled: bool
                 alarm.event.time ?? '',
                 alarm.reminderMinutesBefore,
             );
-            snoozedUntilRef.current.set(key, Date.now() + minutes * 60_000);
+            const untilMs = Date.now() + minutes * 60_000;
+            upsertCalendarReminderSnooze({
+                key,
+                eventId: alarm.event.id,
+                date: alarm.event.date,
+                time: alarm.event.time ?? '',
+                reminderMinutesBefore: alarm.reminderMinutesBefore,
+                title: alarm.event.title,
+                location: alarm.event.location,
+                untilMs,
+            });
+            armSnoozeTimer(key, untilMs, alarm.event.id);
+            requestCalendarNativeReminderSync();
             setActiveAlarm(null);
         },
-        [activeAlarm],
+        [activeAlarm, armSnoozeTimer],
     );
 
     return {
         activeAlarm,
         dismissAlarm,
         snoozeAlarm,
+        presentAlarmForEventId,
     };
 }

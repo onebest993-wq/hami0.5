@@ -1,50 +1,356 @@
 /**
  * CSS حرج للوحة المحامي — أول إطار فقط (~صغير).
- * الباقي في lawyerHomeFx.css يُحمَّل مع deferred-app.css
+ * إضافات المنزل المؤجّلة: homeFeatureOpenFx / homeDockShellFx / overlayMotion
+ * عبر lawyerHomeFx.css مع deferred-app.css
  */
 
 :root,
 html {
     /* ارتفاع شريط المحتوى + safe-area — مصدر واحد على html (لا يُعاد تعريفه داخل اللوحة) */
-    --hami-lawyer-header-content-h: 72px;
+    --hami-lawyer-header-content-h: 3.75rem;
+    /*
+     * صف الأيقونات أعلى الشاشة — القياس التقريبي ~60px محتوى
+     * قبل safe-top. الإزاحة الافتراضية تضم شريط الحالة حتى لا تسقط الشبكة.
+     */
+    --hami-lawyer-header-toolbar-chrome: 0.5rem;
+    /* فاصل هوائي بين قاع شريط الأدوات ولوحة المنزل — بلا حاوية */
+    --hami-lawyer-header-clearance: 0.5rem;
     --hami-lawyer-header-safe-top: env(safe-area-inset-top, 0px);
+    --hami-lawyer-header-safe-bottom: env(safe-area-inset-bottom, 0px);
     --hami-lawyer-header-offset: calc(
-        var(--hami-lawyer-header-content-h) + var(--hami-lawyer-header-safe-top)
+        var(--hami-lawyer-header-content-h) + var(--hami-lawyer-header-toolbar-chrome) +
+            var(--hami-lawyer-header-safe-top)
     );
-    --hami-home-main-zone-pad-top: 0.75rem;
+    --hami-home-main-zone-pad-top: 0.85rem;
+    --hami-home-board-gap: 0.62rem;
+    --hami-home-forum-row-h: clamp(5.15rem, 9.2vh, 5.75rem);
+    --hami-home-hub-row-h: clamp(5.2rem, 10.8vh, 6.15rem);
+    /*
+     * ارتفاع محجوز: تبويبات 44px + فجوة + رسالة 44px (هامش أمان لسطر ثانٍ).
+     */
+    --hami-home-hub-empty-slot-h: 6.75rem;
+}
+
+/* Android: شريط الحالة من أول إطار — لا تنتظر lawyerHomeFx-android */
+html[data-hami-native='1'][data-hami-platform='android'] {
+    --hami-lawyer-header-safe-top: max(
+        env(safe-area-inset-top, 0px),
+        var(--hami-android-status-pad, 48px)
+    );
+    --hami-android-nav-pad: 28px;
+    --hami-lawyer-header-safe-bottom: max(
+        env(safe-area-inset-bottom, 0px),
+        var(--hami-android-nav-pad, 28px)
+    );
+}
+
+/* طبقات ملء الشاشة — padding في CSS (لا تعتمد على Tailwind arbitrary بفواصل) */
+.hami-overlay-safe-insets {
+    box-sizing: border-box;
+    padding-top: var(--hami-lawyer-header-safe-top, env(safe-area-inset-top, 0px));
+    padding-bottom: var(--hami-lawyer-header-safe-bottom, env(safe-area-inset-bottom, 0px));
+    padding-inline-start: env(safe-area-inset-left, 0px);
+    padding-inline-end: env(safe-area-inset-right, 0px);
+}
+
+.hami-overlay-header-safe-pad {
+    padding-top: max(1rem, var(--hami-lawyer-header-safe-top, env(safe-area-inset-top, 0px)));
+}
+
+/* متاح لـ portal إلى body — نفس عمود الرئيسية */
+html {
+    --hami-shell-max-width: calc(100vw - 1.35rem);
+}
+
+.hami-shell-overlay-column {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    max-width: var(--hami-shell-max-width, 100%);
+    margin-inline: auto;
+    min-height: 0;
 }
 
 [data-hami-lawyer-dashboard] {
-    --hami-shell-max-width: min(440px, calc(100vw - 2.5rem));
-    --hami-shell-gutter: 1.25rem;
+    --hami-shell-max-width: calc(100vw - 1.35rem);
+    --hami-shell-gutter: 0.7rem;
     --hami-dock-ui-scale: 1;
-    --hami-home-dock-scroll-pad: 13rem;
     --hami-glass-base: var(--hami-card-surface-bg, #020408);
 }
 
-.hami-lawyer-header {
-    height: var(--hami-lawyer-header-content-h, 72px);
-    padding-top: env(safe-area-inset-top, 0px);
-    box-sizing: content-box;
-    background-color: transparent;
-    background-image: none;
-    border-bottom: none;
+/*
+ * فتح الإعدادات: أبقِ اللوحة مركَّبة تحت الطبقة المعتمة.
+ * content-visibility:hidden كان يعيد تخطيط المنزل عند كل إغلاق فيبدو «إعادة تحميل».
+ */
+html[data-hami-settings-open='1'] [data-hami-lawyer-dashboard] {
+    pointer-events: none !important;
 }
 
-/* محتوى الرئيسية تحت الهيدر الثابت — critical (لا يعتمد على top-[84px] المؤجّل) */
+html[data-hami-native='1'][data-hami-settings-open='1'] [data-hami-lawyer-dashboard] {
+    pointer-events: none !important;
+}
+
+html:not([data-hami-settings-open='1']):not([data-hami-settings-closing='1']) .hami-settings-overlay-host,
+html:not([data-hami-settings-open='1']):not([data-hami-settings-closing='1']) .hami-settings-overlay-layer,
+html:not([data-hami-settings-open='1']):not([data-hami-settings-closing='1']) #hami-settings-instant-bridge {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-settings-closing='1'] .hami-settings-overlay-host,
+html[data-hami-settings-closing='1'] .hami-settings-overlay-layer {
+    visibility: visible !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-notifications-open='1'] .hami-lawyer-header {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-notifications-open='1'] [data-hami-lawyer-dashboard] {
+    pointer-events: none !important;
+}
+
+html[data-hami-native='1'][data-hami-notifications-open='1'] [data-hami-lawyer-dashboard] {
+    pointer-events: none !important;
+}
+
+html:not([data-hami-notifications-open='1']):not([data-hami-notifications-closing='1']) [data-notification-root],
+html:not([data-hami-notifications-open='1']):not([data-hami-notifications-closing='1']) .hami-notif-layer,
+html:not([data-hami-notifications-open='1']):not([data-hami-notifications-closing='1']) #hami-notifications-instant-bridge {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-notifications-closing='1'] [data-notification-root],
+html[data-hami-notifications-closing='1'] .hami-notif-layer {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-global-search-open='1'] .hami-lawyer-header,
+html[data-hami-global-search-closing='1'] .hami-lawyer-header {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/*
+ * لا content-visibility:hidden على اللوحة: كان يعيد تخطيط المنزل عند الرجوع.
+ */
+html[data-hami-global-search-open='1'] [data-hami-lawyer-dashboard] {
+    pointer-events: none !important;
+}
+
+html[data-hami-native='1'][data-hami-global-search-open='1'] [data-hami-lawyer-dashboard] {
+    pointer-events: none !important;
+}
+
+html:not([data-hami-global-search-open='1']):not([data-hami-global-search-closing='1']) .hami-gs-layer {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/*
+ * إغلاق مغطّى: أعد رسم اللوحة تحت الطبقة قبل إخفائها — يمنع الإطار الأسود.
+ */
+html[data-hami-transactions-open='1'] .hami-lawyer-header {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-transactions-open='1'] [data-hami-lawyer-dashboard] {
+    pointer-events: none !important;
+}
+
+html[data-hami-native='1'][data-hami-transactions-open='1'] [data-hami-lawyer-dashboard] {
+    pointer-events: none !important;
+}
+
+/*
+ * إخفاء طبقات الملء قبل الفتح — أول إطار (FOUC).
+ * حركة الدخول/الخروج في lawyerHomeFx-overlayMotion.css مع المؤجّل.
+ */
+html:not([data-hami-transactions-open='1']):not([data-hami-transactions-closing='1']) .hami-tx-overlay-layer,
+html:not([data-hami-transactions-open='1']):not([data-hami-transactions-closing='1']) #hami-transactions-instant-chrome {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-field-tasks-closing='1'] [data-field-tasks-root] {
+    visibility: visible !important;
+    pointer-events: none !important;
+}
+
+html:not([data-hami-field-tasks-open='1']):not([data-hami-field-tasks-closing='1']) [data-field-tasks-root] {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-field-tasks-open='1'] .hami-home-scroll-root {
+    overflow: hidden !important;
+    touch-action: none;
+}
+
+html[data-hami-tasks-manager-open='1'] .hami-lawyer-header {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-tasks-manager-open='1'] [data-hami-lawyer-dashboard] {
+    pointer-events: none !important;
+}
+
+html[data-hami-native='1'][data-hami-tasks-manager-open='1'] [data-hami-lawyer-dashboard] {
+    pointer-events: none !important;
+}
+
+html:not([data-hami-tasks-manager-open='1']):not([data-hami-tasks-manager-closing='1']) [data-testid='tasks-manager-overlay'],
+html:not([data-hami-tasks-manager-open='1']):not([data-hami-tasks-manager-closing='1']) #hami-tasks-manager-instant-chrome {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-repository-open='1'] .hami-lawyer-header {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-repository-open='1'] [data-hami-lawyer-dashboard] {
+    pointer-events: none !important;
+}
+
+html[data-hami-native='1'][data-hami-repository-open='1'] [data-hami-lawyer-dashboard] {
+    pointer-events: none !important;
+}
+
+html:not([data-hami-repository-open='1']):not([data-hami-repository-closing='1']) .hami-repository-overlay-layer {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-forum-open='1'] .hami-lawyer-header {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-forum-open='1'] [data-hami-lawyer-dashboard] {
+    pointer-events: none !important;
+}
+
+html[data-hami-native='1'][data-hami-forum-open='1'] [data-hami-lawyer-dashboard] {
+    pointer-events: none !important;
+}
+
+html:not([data-hami-forum-open='1']):not([data-hami-forum-closing='1']) .hami-forum-overlay-layer,
+html:not([data-hami-forum-open='1']):not([data-hami-forum-closing='1']) [data-testid='forum-overlay-host'] {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-forum-open='1'] [data-testid='forum-overlay-host'][hidden] {
+    display: block !important;
+}
+
+html[data-hami-overlay-unfreeze='1'][data-hami-settings-open='1'] [data-hami-lawyer-dashboard],
+html[data-hami-overlay-unfreeze='1'][data-hami-notifications-open='1'] [data-hami-lawyer-dashboard],
+html[data-hami-overlay-unfreeze='1'][data-hami-global-search-open='1'] [data-hami-lawyer-dashboard],
+html[data-hami-overlay-unfreeze='1'][data-hami-transactions-open='1'] [data-hami-lawyer-dashboard],
+html[data-hami-overlay-unfreeze='1'][data-hami-tasks-manager-open='1'] [data-hami-lawyer-dashboard],
+html[data-hami-overlay-unfreeze='1'][data-hami-repository-open='1'] [data-hami-lawyer-dashboard],
+html[data-hami-overlay-unfreeze='1'][data-hami-forum-open='1'] [data-hami-lawyer-dashboard] {
+    content-visibility: visible !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-overlay-unfreeze='1'][data-hami-notifications-open='1'] .hami-lawyer-header,
+html[data-hami-overlay-unfreeze='1'][data-hami-global-search-open='1'] .hami-lawyer-header,
+html[data-hami-overlay-unfreeze='1'][data-hami-transactions-open='1'] .hami-lawyer-header,
+html[data-hami-overlay-unfreeze='1'][data-hami-tasks-manager-open='1'] .hami-lawyer-header,
+html[data-hami-overlay-unfreeze='1'][data-hami-repository-open='1'] .hami-lawyer-header,
+html[data-hami-overlay-unfreeze='1'][data-hami-forum-open='1'] .hami-lawyer-header {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+}
+
+/*
+ * أول طلاء تحت شعار الإقلاع: بلا blur/حركة على الزجاج.
+ * يُرفع مع إزالة data-hami-initial-boot بعد كشف اللوحة.
+ */
+html[data-hami-initial-boot='1'] [data-hami-lawyer-dashboard] .hami-sovereign-glass,
+html[data-hami-initial-boot='1'] [data-hami-lawyer-dashboard] .hami-sovereign-glass::before,
+html[data-hami-initial-boot='1'] [data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-glass,
+html[data-hami-initial-boot='1'] [data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-glass::before {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    animation: none !important;
+    transition: none !important;
+}
+
+.hami-lawyer-header {
+    height: auto;
+    min-height: var(--hami-lawyer-header-content-h, 3.75rem);
+    padding-top: var(--hami-lawyer-header-safe-top, env(safe-area-inset-top, 0px));
+    padding-bottom: 0.35rem;
+    box-sizing: content-box;
+    overflow: visible;
+    background-color: transparent;
+    background-image: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    /* فوق غطاء الرئيسية absolute inset-0 z-[1] — وإلا تُسرق نقرات الشريط */
+    z-index: 100;
+}
+
+/* عمود الهيدر = عمود اللوحة — الأدوات المفتوحة لا تمتد على الخلفية الكحلية */
+.hami-lawyer-header > .hami-shell-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 1 var(--hami-shell-max-width);
+    width: min(100%, var(--hami-shell-max-width));
+    min-width: 0;
+}
+
+/* محتوى الرئيسية تحت شريط الأدوات العلوي — مع فاصل clearance (حتى مع offset المنشور من JS) */
 .hami-below-lawyer-header {
-    top: var(
-        --hami-lawyer-header-offset,
-        calc(72px + env(safe-area-inset-top, 0px))
+    top: calc(
+        var(
+                --hami-lawyer-header-offset,
+                calc(
+                    3.75rem + var(--hami-lawyer-header-toolbar-chrome, 0.5rem) +
+                        env(safe-area-inset-top, 0px)
+                )
+            ) + var(--hami-lawyer-header-clearance, 0.5rem)
     );
+    bottom: 0;
 }
 
 /*
  * الهيدر fixed + pt(safe-area) يملك الحافة العلوية.
  * SafeView يجب ألا يضاعف padding-top وإلا ينزاح المحتوى أو يتداخل.
+ * !important يغلب Tailwind pt-[env(safe-area-inset-top)] (نفس specificity، ترتيب لاحق).
  */
 [data-testid='lawyer-dashboard-ready'] {
-    padding-top: 0;
+    padding-top: 0 !important;
 }
 
 [data-hami-lawyer-dashboard] .hami-sovereign-glass {
@@ -55,16 +361,16 @@ html {
     background-color: var(--hami-glass-panel-bg, var(--hami-glass-base, #020408));
     background-image: linear-gradient(
         135deg,
-        color-mix(in srgb, var(--hami-primary, #e6c673) 11%, transparent) 0%,
-        transparent 48%,
-        color-mix(in srgb, var(--hami-secondary, #b8943f) 6%, transparent) 100%
+        color-mix(in srgb, var(--hami-primary, #e6c673) 7%, transparent) 0%,
+        transparent 52%,
+        color-mix(in srgb, var(--hami-secondary, #b8943f) 4%, transparent) 100%
     );
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    border-color: color-mix(in srgb, var(--hami-primary, #e6c673) 18%, rgba(255, 255, 255, 0.07));
+    border-color: color-mix(in srgb, var(--hami-primary, #e6c673) 16%, rgba(255, 255, 255, 0.06));
     box-shadow:
-        0 12px 48px rgba(0, 0, 0, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        0 6px 20px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
     /* بلا transition هنا — وإلا وصول deferred يبدو كوميض شكل/لون */
 }
 
@@ -73,12 +379,12 @@ html {
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    opacity: calc(var(--glass-opacity, 0.92) * 0.65);
+    opacity: calc(var(--glass-opacity, 0.92) * 0.38);
     background: linear-gradient(
         180deg,
-        color-mix(in srgb, var(--hami-primary, #e6c673) 7%, transparent) 0%,
-        transparent 42%,
-        rgba(0, 0, 0, 0.1) 100%
+        color-mix(in srgb, var(--hami-primary, #e6c673) 5%, transparent) 0%,
+        transparent 48%,
+        rgba(0, 0, 0, 0.06) 100%
     );
     pointer-events: none;
     z-index: 0;
@@ -90,16 +396,16 @@ html {
 
 [data-hami-lawyer-dashboard] .hami-sovereign-rim {
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.08),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.22),
-        0 12px 48px rgba(0, 0, 0, 0.4);
+        inset 0 1px 0 rgba(255, 255, 255, 0.07),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.16),
+        0 6px 20px rgba(0, 0, 0, 0.28);
 }
 
 .hami-sovereign-rim {
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.12),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-        0 24px 64px rgba(0, 0, 0, 0.45);
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+        0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] .hami-home-themed-border {
@@ -114,8 +420,8 @@ html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] .hami-sov
     box-shadow:
         inset 0 1px 0 color-mix(in srgb, var(--hami-primary, #e6c673) 28%, rgba(255, 255, 255, 0.1)),
         inset 0 -1px 0 rgba(0, 0, 0, 0.24),
-        0 0 0 1px color-mix(in srgb, var(--hami-primary, #e6c673) 14%, transparent),
-        0 12px 36px rgba(0, 0, 0, 0.3);
+        0 0 0 1px color-mix(in srgb, var(--hami-primary, #e6c673) 12%, transparent),
+        0 6px 18px rgba(0, 0, 0, 0.24);
 }
 
 html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] .hami-home-themed-border {
@@ -138,8 +444,8 @@ html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] [data-ham
     box-shadow:
         inset 0 1px 0 color-mix(in srgb, var(--hami-primary, #e6c673) 28%, rgba(255, 255, 255, 0.1)),
         inset 0 -1px 0 rgba(0, 0, 0, 0.24),
-        0 0 0 1px color-mix(in srgb, var(--hami-primary, #e6c673) 14%, transparent),
-        0 12px 36px rgba(0, 0, 0, 0.3);
+        0 0 0 1px color-mix(in srgb, var(--hami-primary, #e6c673) 12%, transparent),
+        0 6px 18px rgba(0, 0, 0, 0.24);
 }
 
 html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-hami-block-border='0'] .hami-home-themed-border {
@@ -148,9 +454,9 @@ html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-ham
 
 html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-hami-block-border='0'] .hami-sovereign-rim {
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.12),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-        0 24px 64px rgba(0, 0, 0, 0.45);
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+        0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 [data-hami-lawyer-dashboard] [data-hami-block] {
@@ -171,13 +477,13 @@ html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-ham
     );
     background-image: linear-gradient(
         135deg,
-        color-mix(in srgb, var(--hami-block-accent) calc(12% * var(--glass-opacity, 0.92)), transparent) 0%,
-        transparent 48%,
-        color-mix(in srgb, var(--hami-secondary, #b8943f) calc(6% * var(--glass-opacity, 0.92)), transparent) 100%
+        color-mix(in srgb, var(--hami-block-accent) calc(8% * var(--glass-opacity, 0.92)), transparent) 0%,
+        transparent 52%,
+        color-mix(in srgb, var(--hami-secondary, #b8943f) calc(4% * var(--glass-opacity, 0.92)), transparent) 100%
     );
-    border-color: color-mix(in srgb, var(--hami-block-accent) calc(15% * var(--glass-opacity, 0.92)), rgba(255, 255, 255, 0.06));
-    backdrop-filter: blur(calc(2px + (1 - var(--glass-opacity, 0.92)) * 12px));
-    -webkit-backdrop-filter: blur(calc(2px + (1 - var(--glass-opacity, 0.92)) * 12px));
+    border-color: color-mix(in srgb, var(--hami-block-accent) calc(14% * var(--glass-opacity, 0.92)), rgba(255, 255, 255, 0.06));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 [data-hami-lawyer-dashboard] [data-hami-block].hami-home-themed-border {
@@ -186,9 +492,9 @@ html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-ham
 
 [data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-rim {
     box-shadow:
-        inset 0 1px 0 color-mix(in srgb, var(--hami-block-accent) 12%, rgba(255, 255, 255, 0.08)),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.22),
-        0 12px 48px rgba(0, 0, 0, 0.4);
+        inset 0 1px 0 color-mix(in srgb, var(--hami-block-accent) 10%, rgba(255, 255, 255, 0.07)),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.16),
+        0 6px 20px rgba(0, 0, 0, 0.28);
 }
 
 html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-hami-block].hami-home-themed-border {
@@ -199,8 +505,24 @@ html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-ham
     box-shadow:
         inset 0 1px 0 color-mix(in srgb, var(--hami-block-accent) 28%, rgba(255, 255, 255, 0.1)),
         inset 0 -1px 0 rgba(0, 0, 0, 0.24),
-        0 0 0 1px color-mix(in srgb, var(--hami-block-accent) 14%, transparent),
-        0 12px 36px rgba(0, 0, 0, 0.3);
+        0 0 0 1px color-mix(in srgb, var(--hami-block-accent) 12%, transparent),
+        0 6px 18px rgba(0, 0, 0, 0.24);
+}
+
+/* الكتلة نفسها تحمل data-hami-block-border + hami-home-themed-border — لا يكفي محدد السليل */
+html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-hami-block][data-hami-block-border='0'].hami-home-themed-border,
+html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-hami-block-border='0'].hami-home-themed-border,
+html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-hami-block-border='0'] .hami-home-themed-border {
+    border-color: transparent;
+}
+
+html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-hami-block][data-hami-block-border='0'].hami-sovereign-rim,
+html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-hami-block-border='0'].hami-sovereign-rim,
+html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-hami-block-border='0'] .hami-sovereign-rim {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+        0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] [data-hami-block-border='1'].hami-home-themed-border,
@@ -213,8 +535,8 @@ html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] [data-ham
     box-shadow:
         inset 0 1px 0 color-mix(in srgb, var(--hami-block-accent) 28%, rgba(255, 255, 255, 0.1)),
         inset 0 -1px 0 rgba(0, 0, 0, 0.24),
-        0 0 0 1px color-mix(in srgb, var(--hami-block-accent) 14%, transparent),
-        0 12px 36px rgba(0, 0, 0, 0.3);
+        0 0 0 1px color-mix(in srgb, var(--hami-block-accent) 12%, transparent),
+        0 6px 18px rgba(0, 0, 0, 0.24);
 }
 
 [data-hami-lawyer-dashboard] .hami-home-block-solid {
@@ -223,9 +545,19 @@ html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] [data-ham
         var(--hami-block-accent) calc(var(--glass-opacity, 0.92) * 11%),
         rgba(8, 10, 18, calc(var(--glass-opacity, 0.92) * 0.95))
     );
-    border-color: color-mix(in srgb, var(--hami-block-accent) calc(var(--glass-opacity, 0.92) * 30%), transparent);
+    border: 1px solid color-mix(
+        in srgb,
+        var(--hami-block-accent) calc(var(--glass-opacity, 0.92) * 30%),
+        transparent
+    );
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+}
+
+html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] [data-hami-block]:not([data-hami-block-border='1']).hami-home-block-solid,
+html[data-hami-home-container-border='1'] [data-hami-lawyer-dashboard] [data-hami-block][data-hami-block-border='0'].hami-home-block-solid {
+    border-width: 0;
+    border-color: transparent;
 }
 
 [data-hami-lawyer-dashboard] .hami-home-block-gradient {
@@ -241,30 +573,31 @@ html[data-hami-home-container-border='0'] [data-hami-lawyer-dashboard] [data-ham
 [data-hami-lawyer-dashboard] .hami-home-block-minimal {
     background: rgba(255, 255, 255, calc(var(--glass-opacity, 0.92) * 0.028));
     border-color: rgba(255, 255, 255, calc(var(--glass-opacity, 0.92) * 0.08));
-    backdrop-filter: blur(calc(4px + var(--glass-opacity, 0.92) * 10px));
-    -webkit-backdrop-filter: blur(calc(4px + var(--glass-opacity, 0.92) * 10px));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     box-shadow: none;
 }
 
 html[data-hami-wallpaper='1'] [data-hami-lawyer-dashboard] .hami-sovereign-glass,
 [data-hami-lawyer-dashboard][data-hami-wallpaper='1'] .hami-sovereign-glass {
-    backdrop-filter: blur(calc(2px + (1 - var(--glass-opacity, 0.92)) * 14px)) saturate(1.05) !important;
-    -webkit-backdrop-filter: blur(calc(2px + (1 - var(--glass-opacity, 0.92)) * 14px)) saturate(1.05) !important;
+    /* يطابق deferred من أول إطار — blur ثم none يظهر كرعشة زجاج */
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     background-color: var(--hami-glass-panel-bg, var(--hami-glass-base, #020408)) !important;
     background-image: linear-gradient(
         135deg,
-        color-mix(in srgb, var(--hami-primary, #e6c673) calc(11% * var(--glass-opacity, 0.92)), transparent) 0%,
-        transparent 50%,
-        color-mix(in srgb, var(--hami-secondary, #b8943f) calc(6% * var(--glass-opacity, 0.92)), transparent) 100%
+        color-mix(in srgb, var(--hami-primary, #e6c673) calc(8% * var(--glass-opacity, 0.92)), transparent) 0%,
+        transparent 52%,
+        color-mix(in srgb, var(--hami-secondary, #b8943f) calc(4% * var(--glass-opacity, 0.92)), transparent) 100%
     ) !important;
     border-color: color-mix(
         in srgb,
-        var(--hami-primary, #e6c673) calc(18% * var(--glass-opacity, 0.92)),
-        rgba(255, 255, 255, 0.07)
+        var(--hami-primary, #e6c673) calc(16% * var(--glass-opacity, 0.92)),
+        rgba(255, 255, 255, 0.06)
     ) !important;
     box-shadow:
-        0 12px 48px rgba(0, 0, 0, calc(0.12 + (1 - var(--glass-opacity, 0.92)) * 0.38)),
-        inset 0 1px 0 rgba(255, 255, 255, calc(var(--glass-opacity, 0.92) * 0.09)) !important;
+        0 6px 20px rgba(0, 0, 0, calc(0.1 + (1 - var(--glass-opacity, 0.92)) * 0.22)),
+        inset 0 1px 0 rgba(255, 255, 255, calc(var(--glass-opacity, 0.92) * 0.07)) !important;
 }
 
 html[data-hami-wallpaper='1'] [data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-glass,
@@ -281,11 +614,6 @@ html[data-hami-wallpaper='1'] [data-hami-lawyer-dashboard] [data-hami-block].ham
         var(--hami-block-accent) calc(15% * var(--glass-opacity, 0.92)),
         rgba(255, 255, 255, 0.06)
     ) !important;
-}
-
-html[data-hami-wallpaper='1'] [data-hami-lawyer-dashboard] button[data-hami-block='forum'].hami-forum-meridian-shell,
-[data-hami-lawyer-dashboard][data-hami-wallpaper='1'] button[data-hami-block='forum'].hami-forum-meridian-shell {
-    background-color: var(--hami-glass-panel-bg, var(--hami-block-surface-bg, #020408)) !important;
 }
 
 html[data-hami-wallpaper='1'] [data-hami-lawyer-dashboard] .hami-sovereign-glass::before,
@@ -305,71 +633,19 @@ html[data-hami-wallpaper='1'] [data-hami-lawyer-dashboard] .hami-sovereign-glass
         0 0 0 4px color-mix(in srgb, var(--hami-primary, #e6c673) 45%, transparent);
 }
 
-/* تدرج ذهبي ناعم — critical بلا انتظار Tailwind */
-.hami-home-glass-wash {
-    background-image: linear-gradient(
-        135deg,
-        color-mix(in srgb, #e6c673 6%, transparent) 0%,
-        transparent 52%,
-        color-mix(in srgb, #b8943f 4%, transparent) 100%
-    );
-}
-
-/* نصف بلاطة hub — تخطيط أول إطار دون deferred */
-[data-hami-lawyer-dashboard] .hami-hub-tile--half {
+/* نصف بلاطة hub — وجه واحد بلا أغلفة متداخلة */
+[data-hami-lawyer-dashboard] .hami-hub-tile-face {
+    position: relative;
+    z-index: 10;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    padding: 0.375rem 0.5rem;
-    position: relative;
-    z-index: 10;
     width: 100%;
     height: 100%;
     min-height: 0;
-}
-
-[data-hami-lawyer-dashboard] .hami-hub-tile--half.hami-hub-tile--half-between {
-    justify-content: space-between;
-}
-
-/* بلاطة مسار كاملة — padding + mt-auto من critical */
-[data-hami-lawyer-dashboard] .hami-hub-tile--route {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0.75rem;
-    padding: 1rem;
-    position: relative;
-    z-index: 10;
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-}
-
-[data-hami-lawyer-dashboard] .hami-hub-tile--route .hami-hub-tile-body {
-    width: 100%;
-    min-width: 0;
-    margin-top: auto;
-    padding-top: 0.125rem;
-}
-
-/* بطل التنفيذ — justify-end + padding من critical */
-[data-hami-lawyer-dashboard] .hami-hub-tile--hero {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    padding: 1.25rem;
-    position: relative;
-    z-index: 10;
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-}
-
-[data-hami-lawyer-dashboard] .hami-hub-tile--hero .hami-hub-hero-icon {
-    margin-inline-start: 1.25rem;
+    padding: 0;
+    pointer-events: none;
 }
 
 /* عناوين hub — مقاييس ثابتة بلا انتظار Google Fonts */
@@ -378,7 +654,7 @@ html[data-hami-wallpaper='1'] [data-hami-lawyer-dashboard] .hami-sovereign-glass
 }
 
 [data-hami-lawyer-dashboard] .hami-hub-title {
-  font-family: Cairo, Tajawal, 'Segoe UI', Tahoma, sans-serif;
+  font-family: Tajawal, Cairo, 'Segoe UI', Tahoma, sans-serif;
   font-weight: 800;
   font-synthesis: none;
   letter-spacing: -0.025em;
@@ -392,191 +668,316 @@ html[data-hami-wallpaper='1'] [data-hami-lawyer-dashboard] .hami-sovereign-glass
 [data-hami-lawyer-dashboard] .hami-hub-title-crystal {
   color: #f7f2e8;
   -webkit-text-fill-color: #f7f2e8;
-  text-shadow:
-    0 0 28px color-mix(in srgb, var(--hami-hub-title-accent, #e6c673) 26%, transparent),
-    0 2px 6px rgba(0, 0, 0, 0.38);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.32);
 }
 
 [data-hami-layout-span='1'] .hami-hub-title-crystal {
-  color: color-mix(in srgb, #faf6ee 82%, var(--hami-hub-title-accent, #e6c673));
-  -webkit-text-fill-color: color-mix(in srgb, #faf6ee 82%, var(--hami-hub-title-accent, #e6c673));
+  color: color-mix(in srgb, #faf6ee 88%, var(--hami-hub-title-accent, #e6c673));
+  -webkit-text-fill-color: color-mix(in srgb, #faf6ee 88%, var(--hami-hub-title-accent, #e6c673));
 }
 
-[data-hami-layout-span='1'] button[data-hami-block] {
+[data-hami-layout-span='1'] button[data-hami-block],
+[data-hami-layout-span='1'] [data-hami-block] {
     container-type: size;
     container-name: hub-half-tile;
     display: flex;
     flex-direction: column;
-    height: 6.25rem;
-    min-height: 6.25rem;
-    max-height: 6.25rem;
+    height: 100%;
+    min-height: var(--hami-home-hub-row-h, 5.2rem);
+    max-height: none;
 }
 
-[data-hami-layout-span='1'] button[data-hami-block] > div.relative.z-10 {
+[data-hami-layout-span='1'] button[data-hami-block] > .hami-hub-tile-face,
+[data-hami-layout-span='1'] [data-hami-block] > .hami-hub-tile-face {
     flex: 1 1 auto;
     min-height: 0;
-    width: 100%;
-    height: 100%;
 }
 
 [data-hami-layout-span='1'] .hami-hub-title--half-fill {
   position: relative;
   z-index: 2;
   width: 100%;
+  height: 100%;
   max-width: 100%;
   margin: 0;
   text-align: center;
-  display: block;
-  overflow: visible;
-  text-wrap: balance;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
   word-break: keep-all;
   hyphens: none;
-  line-height: 1.02;
-  padding-block: 0;
-  /* أقصى ما يسمح به 6.25rem — عرض + ارتفاع */
-  font-size: min(
-    3.75rem,
-    20cqw,
-    58cqh
-  );
+  font-weight: 800;
+  line-height: 0.95;
+  padding: 0 0.2rem;
+  font-size: var(--hami-hub-title-size, 2.05rem);
 }
 
 [data-hami-layout-span='1'] .hami-hub-title--half-compact {
-  font-size: min(
-    2.35rem,
-    14cqw,
-    40cqh
-  ) !important;
-  line-height: 1.1;
-  display: block;
-  overflow: visible;
-  padding-block: 0;
-}
-
-[data-hami-layout-span='1'] .hami-hub-tile--half .hami-hub-tile-body {
+  font-size: 1.72rem !important;
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  min-height: 0;
-  width: 100%;
-  flex: 1;
-}
-
-[data-hami-layout-span='1'] .hami-hub-tile--half .hami-hub-tile-body > div {
-  width: 100%;
-  min-width: 0;
-}
-
-[data-hami-lawyer-dashboard] .hami-hub-title--hero {
-    line-height: 1.08;
-    min-height: unset;
-}
-
-/* ——— بلاطة المنتدى Meridian (بود لوني · شكل كبسولة — نقل نوعي) ——— */
-[data-hami-lawyer-dashboard] button[data-hami-block='forum'].hami-forum-meridian-shell {
-  isolation: isolate;
-  border-radius: 1.1rem 3.75rem 3.75rem 1.1rem !important;
-  border-color: color-mix(in srgb, var(--hami-forum-accent, #e6c673) 22%, rgba(255, 255, 255, 0.08)) !important;
-}
-
-[data-hami-lawyer-dashboard] .hami-forum-meridian-body {
-  display: block;
-  position: relative;
-  min-height: 8rem;
-}
-
-[data-hami-lawyer-dashboard] .hami-forum-meridian-pod {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 36%;
-  min-width: 7.5rem;
-  max-width: 9.5rem;
-  border-radius: 0 3.5rem 3.5rem 0;
-  background: #050810;
-  border-left: 1px solid color-mix(in srgb, var(--hami-forum-accent, #e6c673) 42%, transparent);
   overflow: hidden;
-  z-index: 1;
+  padding: 0 0.15rem;
 }
 
-[data-hami-lawyer-dashboard] .hami-forum-meridian-emblem {
-  position: absolute;
-  inset: 8% 6% 10%;
-  display: block;
-  width: auto;
-  height: auto;
-  max-width: 88%;
-  max-height: 84%;
-  margin: auto;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  user-select: none;
-  pointer-events: none;
+[data-hami-block='dockTasks'] .hami-hub-title-crystal,
+[data-hami-block='dockRepository'] .hami-hub-title-crystal {
+  text-shadow: none;
 }
 
-[data-hami-lawyer-dashboard] .hami-forum-meridian-shear {
-  position: absolute;
-  top: -20%;
-  bottom: -20%;
-  right: 34%;
-  width: 3.5rem;
-  background: linear-gradient(
-    118deg,
-    transparent 38%,
-    color-mix(in srgb, var(--hami-forum-accent, #e6c673) 22%, transparent) 50%,
-    transparent 62%
-  );
-  transform: skewX(-16deg);
-  opacity: 0.65;
-  z-index: 2;
-  pointer-events: none;
+[data-hami-layout-span='1'] .hami-hub-title-mark {
+    display: none;
 }
 
-[data-hami-lawyer-dashboard] .hami-forum-meridian-copy {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 36%;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  direction: rtl;
-  padding-inline: 0.85rem;
-  text-align: center;
-  contain: layout style;
-  pointer-events: none;
+[data-hami-lawyer-dashboard] .hami-forum-profile-shell,
+[data-hami-lawyer-dashboard] .hami-forum-profile-shell.hami-home-block-solid,
+[data-hami-lawyer-dashboard] .hami-forum-profile-shell.hami-home-themed-border {
+    --forum-moon-size: var(--hami-home-forum-row-h, 5.65rem);
+    --forum-crescent-gap: 0.22rem;
+    --forum-bite-r: calc(var(--forum-moon-size) / 2 + var(--forum-crescent-gap));
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+    height: var(--hami-home-forum-row-h, 5.65rem);
+    min-height: var(--hami-home-forum-row-h, 5.65rem);
+    max-height: var(--hami-home-forum-row-h, 5.65rem);
+    isolation: isolate;
+    overflow: visible !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none;
 }
 
-[data-hami-lawyer-dashboard] .hami-forum-meridian-title {
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
-  text-align: center;
-  font-size: clamp(2.35rem, 12vw, 3.65rem);
-  line-height: 1.04;
-  white-space: nowrap;
-  font-weight: 800;
-  font-synthesis: none;
-  -webkit-font-smoothing: antialiased;
+[data-testid='home-main-grid'] > [data-hami-layout-span]:has(.hami-forum-profile-shell) {
+    contain: style;
+    overflow: visible;
+    height: var(--hami-home-forum-row-h, 5.65rem);
+    min-height: var(--hami-home-forum-row-h, 5.65rem);
+    max-height: var(--hami-home-forum-row-h, 5.65rem);
+    align-self: start;
 }
 
-[data-hami-lawyer-dashboard] .hami-forum-meridian-title.hami-hub-title-crystal {
-  color: color-mix(in srgb, #faf6ee 82%, var(--hami-hub-title-accent, var(--hami-forum-accent, #e6c673)));
-  -webkit-text-fill-color: color-mix(
-    in srgb,
-    #faf6ee 82%,
-    var(--hami-hub-title-accent, var(--hami-forum-accent, #e6c673))
-  );
+[data-testid='home-main-grid'] > [data-hami-layout-span]:has(.hami-forum-profile-shell) > * {
+    height: 100%;
+    max-height: 100%;
 }
 
-[data-hami-lawyer-dashboard] button[data-hami-block='forum'].hami-forum-meridian-shell:hover .hami-forum-meridian-emblem {
-  filter: brightness(1.06) saturate(1.08);
+[data-hami-lawyer-dashboard] .hami-forum-profile-shell .hami-forum-tile-main,
+[data-hami-lawyer-dashboard] .hami-forum-profile-shell .hami-forum-tile-profile {
+    appearance: none;
+    -webkit-appearance: none;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.hami-forum-profile-shell .hami-forum-tile-main::-moz-focus-inner,
+.hami-forum-profile-shell .hami-forum-tile-profile::-moz-focus-inner {
+    border: 0;
+    padding: 0;
+}
+
+.hami-forum-profile-shell .hami-forum-tile-main,
+.hami-forum-profile-shell .hami-forum-tile-profile-pane {
+    height: 100%;
+    min-width: 0;
+    border-radius: 2rem;
+    overflow: hidden;
+    background: color-mix(
+        in srgb,
+        var(--hami-block-accent, #e6c673) calc(var(--glass-opacity, 0.92) * 7%),
+        rgba(8, 10, 18, calc(var(--glass-opacity, 0.92) * 0.96))
+    ) !important;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+}
+
+.hami-forum-profile-shell .hami-forum-tile-main {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0 !important;
+    -webkit-mask-image: radial-gradient(
+        circle at right center,
+        transparent var(--forum-bite-r),
+        #000 calc(var(--forum-bite-r) + 1.25px)
+    );
+    mask-image: radial-gradient(
+        circle at right center,
+        transparent var(--forum-bite-r),
+        #000 calc(var(--forum-bite-r) + 1.25px)
+    );
+}
+
+.hami-forum-profile-shell .hami-forum-tile-profile {
+    position: relative;
+    z-index: 2;
+    min-width: 0;
+    height: 100%;
+    overflow: visible;
+    padding: 0 !important;
+    display: block;
+    background: transparent !important;
+    border-radius: 0;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.hami-forum-profile-shell .hami-forum-tile-profile-pane {
+    display: block;
+    width: 100%;
+    pointer-events: none;
+    -webkit-mask-image: radial-gradient(
+        circle at left center,
+        transparent var(--forum-bite-r),
+        #000 calc(var(--forum-bite-r) + 1.25px)
+    );
+    mask-image: radial-gradient(
+        circle at left center,
+        transparent var(--forum-bite-r),
+        #000 calc(var(--forum-bite-r) + 1.25px)
+    );
+}
+
+.hami-forum-profile-shell .hami-forum-tile-main > .hami-hub-tile-face {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-inline-start: calc(var(--forum-moon-size) / 2 + 0.4rem);
+    padding-inline-end: 0.45rem;
+}
+
+.hami-forum-profile-shell .hami-forum-tile-copy {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.12rem;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding-block: 0.2rem;
+    padding-inline-start: 0.55rem;
+    padding-inline-end: calc(var(--forum-moon-size) / 2 + 0.35rem);
+    pointer-events: none;
+    container-type: inline-size;
+    container-name: forum-profile-name;
+}
+
+.hami-forum-profile-shell .hami-forum-tile-name {
+    margin: 0;
+    max-width: 100%;
+    min-height: calc(1.22em * 2);
+    font-family: Tajawal, Cairo, 'Segoe UI', Tahoma, sans-serif;
+    font-size: clamp(0.78rem, 2.8vw, 1.12rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.22;
+    color: #f7f2e8;
+    text-align: center;
+    text-shadow: none;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+@supports (font-size: 1cqi) {
+    .hami-forum-profile-shell .hami-forum-tile-name {
+        font-size: clamp(0.72rem, 12cqi, 1.12rem);
+    }
+}
+
+.hami-forum-profile-shell .hami-forum-tile-avatar-frame {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 4;
+    width: var(--forum-moon-size);
+    height: var(--forum-moon-size);
+    border-radius: 50%;
+    overflow: hidden;
+    contain: layout paint;
+    background: #0a0f1c;
+    box-shadow:
+        0 0 0 1px color-mix(in srgb, #e6c673 46%, transparent),
+        0 4px 10px rgba(0, 0, 0, 0.22);
+}
+
+.hami-forum-profile-shell .hami-forum-tile-avatar-frame > *:not(.hami-accredited-mark),
+.hami-forum-profile-shell .hami-forum-tile-profile [data-testid='home-dock-forum-profile-avatar'] > *:not(.hami-accredited-mark) {
+    width: 100%;
+    height: 100%;
+}
+
+.hami-forum-profile-shell .hami-forum-tile-profile img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    border: none;
+    display: block;
+    border-radius: 50%;
+}
+
+[data-hami-lawyer-dashboard] .hami-hub-tile-pip {
+    position: absolute;
+    top: 0.55rem;
+    inset-inline-start: 0.55rem;
+    z-index: 4;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #fb7185;
+    box-shadow: 0 0 0 2px color-mix(in srgb, #0a0f1c 70%, transparent);
+}
+
+[data-hami-lawyer-dashboard] .hami-hub-unread-pip {
+    position: absolute;
+    top: 0.45rem;
+    inset-inline-start: 0.45rem;
+    z-index: 4;
+    min-width: 1.125rem;
+    min-height: 1.125rem;
+    padding: 0 0.28rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--hami-primary, #e6c673) 88%, #7f1d1d);
+    color: #0a0f1c;
+    font-size: 0.625rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.hami-forum-profile-shell .hami-hub-unread-pip {
+    inset-inline-start: auto;
+    inset-inline-end: 0.45rem;
+}
+
+[data-hami-layout-span='1'][data-hami-block].hami-home-block-solid,
+[data-hami-layout-span='1'] .hami-home-block-solid {
+    background: color-mix(
+        in srgb,
+        var(--hami-block-accent) calc(var(--glass-opacity, 0.92) * 7%),
+        rgba(8, 10, 18, calc(var(--glass-opacity, 0.92) * 0.82))
+    );
 }
 
 /* دوك — حشوة حسب العدد من critical (بلا Tailwind مؤجّل) */
@@ -610,42 +1011,57 @@ html[data-hami-wallpaper='1'] [data-hami-lawyer-dashboard] .hami-sovereign-glass
 }
 
 @media (min-width: 600px) {
+    html {
+        --hami-shell-max-width: min(520px, calc(100vw - 3rem));
+    }
     [data-hami-lawyer-dashboard] {
         --hami-dock-ui-scale: 1.04;
-        --hami-shell-max-width: min(520px, calc(100vw - 2.5rem));
+        --hami-shell-max-width: min(520px, calc(100vw - 3rem));
+        --hami-shell-gutter: 1.5rem;
+        --hami-home-main-zone-pad-top: 0.95rem;
+        --hami-home-board-gap: 0.72rem;
+        --hami-home-forum-row-h: clamp(5.35rem, 8.5vh, 5.95rem);
+        --hami-home-hub-row-h: clamp(5.45rem, 10vh, 6.35rem);
     }
 }
 
 @media (min-width: 768px) {
+    html {
+        --hami-shell-max-width: min(580px, calc(100vw - 3.5rem));
+    }
     [data-hami-lawyer-dashboard] {
         --hami-dock-ui-scale: 1.06;
-        --hami-shell-max-width: min(560px, calc(100vw - 2.75rem));
+        --hami-shell-max-width: min(580px, calc(100vw - 3.5rem));
+        --hami-shell-gutter: 1.75rem;
+        --hami-home-main-zone-pad-top: 1rem;
+        --hami-home-board-gap: 0.78rem;
+        --hami-home-forum-row-h: clamp(5.45rem, 8vh, 6.05rem);
+        --hami-home-hub-row-h: clamp(5.6rem, 9.5vh, 6.5rem);
     }
 }
 
 @media (min-width: 1024px) {
+    html {
+        --hami-shell-max-width: min(640px, calc(100vw - 4rem));
+    }
     [data-hami-lawyer-dashboard] {
         --hami-dock-ui-scale: 1.08;
-        --hami-shell-max-width: min(600px, calc(100vw - 3rem));
+        --hami-shell-max-width: min(640px, calc(100vw - 4rem));
+        --hami-shell-gutter: 2rem;
+        --hami-home-main-zone-pad-top: 1.05rem;
+        --hami-home-board-gap: 0.85rem;
+        --hami-home-forum-row-h: clamp(5.55rem, 7.5vh, 6.15rem);
+        --hami-home-hub-row-h: clamp(5.7rem, 9vh, 6.6rem);
     }
 }
 
-[data-hami-lawyer-dashboard] [data-hami-layout-span='2'] .hami-hub-glow-orb {
-    position: absolute;
-    bottom: -2rem;
-    left: -2rem;
-    width: 8rem;
-    height: 8rem;
-    border-radius: 9999px;
-    pointer-events: none;
-    opacity: 0.4;
-    filter: blur(48px);
-}
-
-[data-hami-lawyer-dashboard] .hami-hub-icon-glow {
-    filter: blur(8px);
-    opacity: 0.5;
-    pointer-events: none;
+@media (min-width: 1280px) {
+    html {
+        --hami-shell-max-width: min(800px, calc(100vw - 4rem));
+    }
+    [data-hami-lawyer-dashboard] {
+        --hami-shell-max-width: min(800px, calc(100vw - 4rem));
+    }
 }
 
 .hami-shell-container {
@@ -677,6 +1093,8 @@ html[data-hami-wallpaper='1'] [data-hami-lawyer-dashboard] .hami-sovereign-glass
     max-height: none;
     overflow-x: hidden;
     overflow-y: auto;
+    overflow-anchor: none;
+    scrollbar-gutter: stable;
     scroll-behavior: auto;
     overscroll-behavior-y: contain;
     contain: layout style;
@@ -685,56 +1103,329 @@ html[data-hami-wallpaper='1'] [data-hami-lawyer-dashboard] .hami-sovereign-glass
     flex-direction: column;
 }
 
+html[data-hami-native='1'] .hami-home-scroll-root {
+    scrollbar-gutter: auto;
+}
+
 html.hami-native-shell .hami-home-scroll-root,
 html[data-hami-native='1'] .hami-home-scroll-root {
     overscroll-behavior-y: none;
 }
 
-[data-hami-lawyer-dashboard] .hami-sovereign-shine,
-[data-hami-lawyer-dashboard] .hami-sovereign-shine::after,
-[data-hami-lawyer-dashboard] .hami-sovereign-aurora,
-[data-hami-lawyer-dashboard] .hami-sovereign-grain,
-[data-hami-lawyer-dashboard] .hami-home-shimmer::after,
-[data-hami-lawyer-dashboard] .hami-home-pulse-ring,
-[data-hami-lawyer-dashboard] .hami-sovereign-breathe,
-[data-hami-lawyer-dashboard] .hami-sovereign-float {
-    display: none !important;
-    animation: none !important;
-}
-
-/* الهيدر يجب أن يملك شكله النهائي في أول paint بدون انتظار deferred-app.css */
+/* شريط الأدوات — أيقونات حرة بلا حاوية؛ زر إظهار مضغوط (سهم فوق العلامة) */
 [data-testid='header-toolbar-nav'] {
     display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.625rem;
-    border-radius: 1.35rem;
-    border: 1px solid rgb(255 255 255 / 0.08);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    justify-content: center;
+    position: relative;
+    width: auto;
+    min-width: 44px;
+    min-height: 3.75rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    touch-action: pan-y;
+    gap: 0.15rem;
 }
 
-[data-testid='header-toolbar-nav'] > button {
+[data-testid='header-toolbar-nav'][data-hami-tools-open='1'] {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 3.75rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    justify-content: space-between;
+    gap: 0.35rem;
+}
+
+[data-testid='header-toolbar-nav'] .hami-header-tool-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    width: auto;
+    min-width: 0;
+    min-height: 3rem;
+    flex: 1 1 auto;
+    order: 0;
+}
+
+[data-testid='header-toolbar-nav'] .hami-header-tool-actions[hidden] {
+    display: none;
+}
+
+.hami-header-tools-reveal {
+    appearance: none;
+    -webkit-appearance: none;
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    margin: 0;
+    padding: 0;
+    width: 3.75rem;
+    min-width: 60px;
+    max-width: 3.75rem;
+    height: 3.75rem;
+    min-height: 60px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #e6c673;
+    cursor: pointer;
+    touch-action: manipulation;
+    box-shadow: none;
+    overflow: visible;
+    flex: 0 0 auto;
+    order: 0;
+}
+
+[data-testid='header-toolbar-nav'][data-hami-tools-open='1'] .hami-header-tools-reveal {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    flex: 0 0 auto;
+    width: 3.75rem;
+    max-width: 3.75rem;
+    min-width: 60px;
+    height: 3.75rem;
+    min-height: 60px;
+    padding: 0;
+    gap: 0.1rem;
+}
+
+.hami-header-tools-reveal__burst,
+.hami-header-tools-reveal__caret {
+    position: relative;
+    inset: auto;
+    margin: 0;
+    display: block;
+    flex: 0 0 auto;
+    color: #e6c673;
+    transform-origin: center;
+    filter: drop-shadow(0 0 3px rgba(230, 198, 115, 0.38)) drop-shadow(0 1px 0 rgba(0, 0, 0, 0.35));
+    transition:
+        opacity 0.28s ease,
+        transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+        max-height 0.28s ease;
+}
+
+.hami-header-tools-reveal__burst {
+    width: 28px;
+    height: 28px;
+    opacity: 1;
+    transform: none;
+}
+
+.hami-header-tools-reveal__caret {
+    width: 16px;
+    height: 16px;
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(3px) scale(0.55);
+    pointer-events: none;
+    overflow: hidden;
+}
+
+[data-testid='header-toolbar-nav'][data-hami-tools-open='1'] .hami-header-tools-reveal__burst {
+    width: 22px;
+    height: 22px;
+    opacity: 0.55;
+    transform: none;
+    pointer-events: none;
+}
+
+[data-testid='header-toolbar-nav'][data-hami-tools-open='1'] .hami-header-tools-reveal__caret {
+    opacity: 1;
+    max-height: 18px;
+    width: 18px;
+    height: 18px;
+    transform: none;
+    pointer-events: auto;
+}
+
+.hami-header-tools-reveal__pip {
+    position: absolute;
+    top: 0.2rem;
+    inset-inline-end: 0.2rem;
+    z-index: 3;
+    width: 0.42rem;
+    height: 0.42rem;
+    min-width: 0.42rem;
+    min-height: 0.42rem;
+    padding: 0;
+    border-radius: 0.1rem;
+    background: #e11d48;
+    color: transparent;
+    border: 0;
+    font-size: 0;
+    overflow: hidden;
+}
+
+.hami-header-tools-reveal:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 2px #0a0f1c,
+        0 0 0 4px color-mix(in srgb, #e6c673 45%, transparent);
+    border-radius: 0.45rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    html:not([data-hami-reduce-motion='1']):not([data-hami-animations='0'])
+        [data-testid='header-toolbar-nav'][data-hami-tools-open='0']
+        .hami-header-tools-reveal__burst {
+        animation: hami-tools-peek 2.4s ease-in-out infinite;
+    }
+
+    html:not([data-hami-reduce-motion='1']):not([data-hami-animations='0'])
+        [data-testid='header-toolbar-nav'][data-hami-tools-bloom='1']
+        .hami-header-tool-btn .hami-header-tool-btn__icon {
+        animation: hami-tool-bloom 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    html:not([data-hami-reduce-motion='1']):not([data-hami-animations='0'])
+        [data-testid='header-toolbar-nav'][data-hami-tools-bloom='1']
+        .hami-header-tool-btn:nth-child(1) .hami-header-tool-btn__icon {
+        animation-delay: 0.02s;
+    }
+
+    html:not([data-hami-reduce-motion='1']):not([data-hami-animations='0'])
+        [data-testid='header-toolbar-nav'][data-hami-tools-bloom='1']
+        .hami-header-tool-btn:nth-child(2) .hami-header-tool-btn__icon {
+        animation-delay: 0.07s;
+    }
+
+    html:not([data-hami-reduce-motion='1']):not([data-hami-animations='0'])
+        [data-testid='header-toolbar-nav'][data-hami-tools-bloom='1']
+        .hami-header-tool-btn:nth-child(3) .hami-header-tool-btn__icon {
+        animation-delay: 0.12s;
+    }
+
+    html:not([data-hami-reduce-motion='1']):not([data-hami-animations='0'])
+        [data-testid='header-toolbar-nav'][data-hami-tools-bloom='1']
+        .hami-header-tool-btn:nth-child(4) .hami-header-tool-btn__icon {
+        animation-delay: 0.17s;
+    }
+}
+
+@keyframes hami-tools-peek {
+    0%,
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: translateY(3px) scale(1.06);
+    }
+}
+
+@keyframes hami-tool-bloom {
+    from {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.42);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+html[data-hami-reduce-motion='1'] .hami-header-tools-reveal__burst,
+html[data-hami-reduce-motion='1'] .hami-header-tools-reveal__caret,
+html[data-hami-animations='0'] .hami-header-tools-reveal__burst,
+html[data-hami-animations='0'] .hami-header-tools-reveal__caret {
+    animation: none;
+    transition: none;
+}
+
+html[data-hami-reduce-motion='1'] [data-testid='header-toolbar-nav'] .hami-header-tool-btn,
+html[data-hami-animations='0'] [data-testid='header-toolbar-nav'] .hami-header-tool-btn,
+html[data-hami-reduce-motion='1'] [data-testid='header-toolbar-nav'] .hami-header-tool-btn__icon,
+html[data-hami-animations='0'] [data-testid='header-toolbar-nav'] .hami-header-tool-btn__icon {
+    animation: none;
+}
+
+html[data-hami-home-container-border='0'] [data-testid='header-toolbar-nav'] {
+    border-width: 0;
+    border-color: transparent;
+}
+
+[data-testid='header-toolbar-nav'] .hami-header-tool-btn {
     appearance: none;
     -webkit-appearance: none;
     border: 0;
     margin: 0;
     padding: 0;
-    width: 2.75rem;
-    height: 2.75rem;
-    border-radius: 1.1rem;
+    width: 3rem;
+    height: 3rem;
+    min-width: 48px;
+    min-height: 48px;
+    border-radius: 0.5rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     background: transparent;
-    color: inherit;
+    color: color-mix(in srgb, #f7f2e8 88%, #e6c673);
     line-height: 1;
     flex: 0 0 auto;
+    position: relative;
+    z-index: 1;
+    box-shadow: none;
 }
 
-[data-testid='header-toolbar-nav'] > button > svg,
+[data-testid='header-toolbar-nav'] .hami-header-tool-btn:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 2px #0a0f1c,
+        0 0 0 4px color-mix(in srgb, #e6c673 45%, transparent);
+}
+
+[data-testid='header-toolbar-nav'] .hami-header-tool-btn[data-hami-tool-accent='1'] {
+    color: #e6c673;
+}
+
+[data-testid='header-toolbar-nav'] .hami-header-tool-btn > svg,
+[data-testid='header-toolbar-nav'] .hami-header-tool-btn__icon,
 [data-testid='header-profile-trigger'] > svg {
     display: block;
     flex: 0 0 auto;
+}
+
+[data-testid='header-toolbar-nav'] .hami-header-tool-btn[data-hami-tool-accent='1'] .hami-header-tool-btn__icon {
+    color: #e6c673;
+}
+
+[data-testid='header-toolbar-nav'] .hami-header-tool-badge {
+    top: 0.05rem;
+    inset-inline-end: 0.05rem;
+    background: #e11d48;
+    color: #fff;
+    border: 1.5px solid #0a0f1c;
+}
+
+[data-testid='header-toolbar-nav'] .hami-header-tool-btn:active,
+.hami-header-tools-reveal:active {
+    opacity: 0.88;
+}
+
+html[data-hami-reduce-motion='1'] [data-testid='header-toolbar-nav'] .hami-header-tool-btn:active,
+html[data-hami-animations='0'] [data-testid='header-toolbar-nav'] .hami-header-tool-btn:active,
+html[data-hami-reduce-motion='1'] .hami-header-tools-reveal:active,
+html[data-hami-animations='0'] .hami-header-tools-reveal:active {
+    transform: none;
 }
 
 [data-testid='header-profile-trigger'] {
@@ -768,6 +1459,8 @@ html[data-hami-native='1'] .hami-home-scroll-root {
     min-width: 0;
     flex: 1 1 auto;
     text-align: right;
+    direction: rtl;
+    unicode-bidi: isolate;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -806,18 +1499,6 @@ html[data-hami-native='1'] .hami-home-scroll-root {
     .hami-hub-tile-press--hero:not(:disabled):active {
         transform: scale(0.985);
     }
-
-    .hami-hub-icon-badge-press {
-        transition: transform 120ms cubic-bezier(0.25, 0.1, 0.25, 1);
-    }
-
-    .group:hover .hami-hub-icon-badge-press {
-        transform: scale(1.05) rotate(-2deg);
-    }
-
-    .hami-hub-tile-press:active .hami-hub-icon-badge-press {
-        transform: scale(0.94);
-    }
 }
 
 /* ── تخطيط اللوحة + الدوك — يجب أن يكون جاهزاً قبل كشف الإقلاع (بلا انتظار deferred-app) ── */
@@ -831,19 +1512,14 @@ html[data-hami-native='1'] .hami-home-scroll-root {
 }
 
 .hami-home-main-zone {
-    flex: 1 0 auto;
-    min-height: min-content;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .hami-home-main-zone-pad {
     padding-top: var(--hami-home-main-zone-pad-top, 0.75rem);
-}
-
-.hami-home-dock-zone {
-    flex: 0 0 auto;
-    margin-top: auto;
-    position: relative;
-    z-index: 2;
 }
 
 .hami-home-bottom-chrome {
@@ -867,20 +1543,6 @@ html[data-hami-native='1'] .hami-home-scroll-root {
 
 .hami-home-dock-chrome-sticky {
     padding-top: var(--hami-dock-chrome-sticky-pad-top, 0px);
-}
-
-.hami-home-flow-end-pad {
-    padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
-}
-
-.hami-home-dock-scroll-pad {
-    padding-bottom: calc(var(--hami-home-dock-scroll-pad) + env(safe-area-inset-bottom, 0px));
-    scroll-padding-bottom: calc(var(--hami-home-dock-scroll-pad) + env(safe-area-inset-bottom, 0px));
-}
-
-.hami-home-dock-scroll-pad-shell {
-    padding-bottom: 7.5rem;
-    scroll-padding-bottom: 7.5rem;
 }
 
 /**
@@ -944,32 +1606,321 @@ html[data-hami-native='1'] .hami-home-scroll-root {
     word-break: break-word;
 }
 
+.hami-home-main-zone .hami-shell-container {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: 0;
+}
+
 [data-testid='home-main-grid'] {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.875rem;
+    grid-auto-rows: max-content;
+    gap: var(--hami-home-board-gap, 0.62rem);
     width: 100%;
-    align-items: stretch;
+    flex: 0 1 auto;
+    align-items: start;
+    align-content: start;
 }
 
 [data-testid='home-main-grid'] > [data-hami-layout-span] {
     min-width: 0;
     width: 100%;
+    min-height: 0;
     contain: layout style;
 }
 
-[data-testid='home-main-grid'] > [data-hami-layout-span='2'],
-[data-testid='home-main-grid'] > .col-span-2 {
+[data-testid='home-main-grid'] > [data-hami-layout-span] > * {
+    height: 100%;
+}
+
+[data-testid='home-main-grid'] > [data-hami-layout-span='2'] {
     grid-column: span 2 / span 2;
 }
 
-[data-testid='home-hub-card'] {
-    min-height: 240px;
-    contain: layout style;
+/*
+ * من اللوح الأفقي فما فوق: ثلاثة أعمدة — بلاطات أقرب للمربع بدل شريط عريض.
+ * span=2 يبقى صفّاً كاملاً (التنبيهات / المنتدى).
+ */
+@media (min-width: 1024px) {
+    [data-testid='home-main-grid'] {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    [data-testid='home-main-grid'] > [data-hami-layout-span='2'] {
+        grid-column: span 3 / span 3;
+    }
+
+    [data-hami-layout-span='1'] .hami-hub-title--half-fill {
+        font-size: 1.58rem;
+    }
+
+    [data-hami-layout-span='1'] .hami-hub-title--half-compact {
+        font-size: 1.38rem !important;
+    }
 }
 
-[data-testid='home-hub-card'] .hami-hub-readable-panels {
-    min-height: 15rem;
+[data-testid='home-main-grid'] > [data-hami-layout-span='1'] {
+    height: var(--hami-home-hub-row-h, 5.2rem);
+    min-height: var(--hami-home-hub-row-h, 5.2rem);
+    max-height: var(--hami-home-hub-row-h, 5.2rem);
+}
+
+[data-testid='home-main-grid'] > [data-hami-layout-span]:has(.hami-forum-profile-shell),
+[data-testid='home-main-grid'] > [data-hami-layout-span]:has([data-testid='home-hub-card']),
+[data-testid='home-main-grid'] > [data-hami-layout-span]:has([data-testid='home-hub-card-skeleton']) {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    align-self: start;
+}
+
+/*
+ * حد فاصل البطاقة العلوية عن صف المنتدى — خط ذهبي خفيف + فراغ، بلا صندوق جديد.
+ */
+[data-testid='home-main-grid'] > [data-hami-layout-span]:has([data-testid='home-hub-card']),
+[data-testid='home-main-grid'] > [data-hami-layout-span]:has([data-testid='home-hub-card-skeleton']) {
+    position: relative;
+    margin-bottom: 0.15rem;
+    padding-bottom: 0.45rem;
+}
+
+[data-testid='home-main-grid'] > [data-hami-layout-span]:has([data-testid='home-hub-card'])::after,
+[data-testid='home-main-grid'] > [data-hami-layout-span]:has([data-testid='home-hub-card-skeleton'])::after {
+    content: '';
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    bottom: 0;
+    height: 1px;
+    pointer-events: none;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+[data-testid='home-main-grid'] > [data-hami-layout-span]:has([data-testid='home-hub-card']) > *,
+[data-testid='home-main-grid'] > [data-hami-layout-span]:has([data-testid='home-hub-card-skeleton']) > * {
+    height: auto;
+}
+
+[data-testid='home-main-grid'] [data-hami-block],
+[data-testid='home-main-grid'] [data-hami-block]::before {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/*
+ * أرضية الحالة الفارغة ثابتة من أول إطار.
+ * حد الـ feed (240) فقط بعد استقرار العدّ مع عناصر — لا أثناء التسوية.
+ */
+section[data-testid='home-hub-card'] {
+    contain: layout style;
+    min-height: var(--hami-home-hub-empty-slot-h);
+}
+
+section[data-testid='home-hub-card'][data-hub-has-items='1'][data-hub-boot-settling='0'] {
+    min-height: 240px;
+    gap: 0.5rem;
+}
+
+section[data-testid='home-hub-card'][data-hub-has-items='1'][data-hub-boot-settling='0'].hami-home-block-compact {
+    min-height: 180px;
+}
+
+section[data-testid='home-hub-card'][data-hub-has-items='1'][data-hub-boot-settling='0'].hami-home-block-large {
+    min-height: 300px;
+}
+
+/* هيكل الكسل = نفس أرضية الفارغة (المسار الشائع على الإقلاع) */
+[data-testid='home-hub-card-skeleton'] {
+    min-height: var(--hami-home-hub-empty-slot-h);
+    contain: layout style;
+    padding: 0;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+/* لا 240 على الهيكل: البطاقة الحية أثناء التسوية تبقى على أرضية الفارغة */
+[data-testid='home-hub-card-skeleton'].hami-home-block-compact {
+    min-height: var(--hami-home-hub-empty-slot-h);
+}
+
+[data-testid='home-hub-card-skeleton'].hami-home-block-large {
+    min-height: var(--hami-home-hub-empty-slot-h);
+}
+
+/* تبويبات البطاقة في الحرج — الهيكل والحي يستخدمان نفس الكروم من أول إطار */
+.hami-hub-tabs {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    margin-bottom: 0;
+    border-radius: 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.03);
+    box-shadow: none;
+    box-sizing: border-box;
+}
+
+.hami-hub-tab {
+    position: relative;
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 44px;
+    padding: 0.35rem 0.5rem;
+    border: none;
+    border-radius: 0.75rem;
+    background: transparent;
+    font-family: Tajawal, Cairo, system-ui, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    font-synthesis: none;
+    line-height: 1.2;
+    color: rgba(255, 255, 255, 0.45);
+    touch-action: manipulation;
+    cursor: pointer;
+    transition: none;
+    box-sizing: border-box;
+}
+
+.hami-hub-tab[data-active='true'] {
+    color: #f5f0e6;
+}
+
+.hami-hub-tab__pill {
+    position: absolute;
+    inset: 0;
+    border-radius: 0.75rem;
+    border: none;
+    background: color-mix(in srgb, var(--hami-block-accent, #e6c673) 12%, transparent);
+    box-shadow: none;
+}
+
+.hami-hub-tab__label {
+    position: relative;
+    z-index: 1;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.hami-hub-tab__badge {
+    position: relative;
+    z-index: 1;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 0.28rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--hami-block-accent, #e6c673) 18%, rgba(0, 0, 0, 0.35));
+    border: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    color: color-mix(in srgb, var(--hami-block-accent, #e6c673) 85%, white);
+    box-shadow: none;
+    font-size: 9px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 16px;
+    text-align: center;
+}
+
+.hami-hub-tab__badge--reserved {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+[data-testid='home-hub-card-skeleton'] .hami-hub-tab {
+    cursor: inherit;
+    pointer-events: none;
+}
+
+[data-testid='home-hub-card-skeleton'] .hami-hub-empty,
+section[data-testid='home-hub-card'] .hami-hub-empty,
+.hami-hub-empty {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    min-height: 44px;
+    padding: 0.35rem 0.45rem;
+    box-sizing: border-box;
+    text-align: center;
+}
+
+section[data-testid='home-hub-card'][data-hub-has-items='0'],
+[data-testid='home-hub-card-skeleton'] {
+    gap: 0.3rem;
+}
+
+[data-testid='home-hub-card-skeleton'] .hami-hub-empty__text,
+section[data-testid='home-hub-card'] .hami-hub-empty__text,
+.hami-hub-empty__text {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    font-synthesis: none;
+    color: rgba(255, 255, 255, 0.42);
+    max-width: 18rem;
+}
+
+/* أثناء التسوية: أرضية الفارغة حتى مع شارات مؤقتة — لا 240 ثم انكماش */
+section[data-testid='home-hub-card'][data-hub-boot-settling='1'] {
+    min-height: var(--hami-home-hub-empty-slot-h);
+}
+
+section[data-testid='home-hub-card'][data-hub-boot-settling='1'][data-hub-has-items='1'] {
+    min-height: var(--hami-home-hub-empty-slot-h);
+}
+
+section[data-testid='home-hub-card'][data-hub-boot-settling='1'][data-hub-has-items='1'].hami-home-block-compact {
+    min-height: var(--hami-home-hub-empty-slot-h);
+}
+
+section[data-testid='home-hub-card'][data-hub-boot-settling='1'][data-hub-has-items='1'].hami-home-block-large {
+    min-height: var(--hami-home-hub-empty-slot-h);
+}
+
+[data-testid='home-hub-card'] .hami-hub-tabs,
+[data-testid='home-hub-card-skeleton'] .hami-hub-tabs {
+    flex-shrink: 0;
+    contain: layout style;
+    min-height: 44px;
+}
+
+[data-testid='home-hub-card'] .hami-hub-readable-panels,
+[data-testid='home-hub-card-skeleton'] .hami-hub-readable-panels {
+    flex: 0 0 auto;
+    min-height: 2.55rem;
+    display: flex;
+    flex-direction: column;
+}
+
+section[data-testid='home-hub-card'][data-hub-has-items='1'][data-hub-boot-settling='0'] .hami-hub-readable-panels {
+    flex: 1 1 auto;
+}
+
+[data-testid='home-hub-card'][data-hub-has-items='0'][data-hub-boot-settling='0'] .hami-hub-alerts-loading {
+    flex: 0 0 auto;
+}
+
+[data-testid='home-hub-card'][data-hub-boot-settling='1'] .hami-hub-tab__pill,
+[data-testid='home-hub-card'][data-hub-boot-settling='1'] .hami-hub-tab__badge {
+    transition: none !important;
+    animation: none !important;
+}
+
+[data-testid='home-hub-card'][data-hub-boot-settling='1'] .hami-sovereign-glass::before {
+    transition: none !important;
+    animation: none !important;
 }
 
 /* Hub archive tiles — reserve final footprint before fonts/icons settle */
@@ -985,7 +1936,7 @@ html[data-hami-native='1'] .hami-home-scroll-root {
 [data-testid='hub-archive-execution'][data-hami-layout-span='1'],
 [data-testid='hub-archive-lawsuit'][data-hami-layout-span='1'],
 [data-testid='hub-archive-transaction'][data-hami-layout-span='1'] {
-    min-height: 88px;
+    min-height: 5rem;
 }
 
 /**
@@ -1010,10 +1961,7 @@ html[data-hami-native='1'] .hami-home-scroll-root {
     transition: none;
 }
 
-/* منتدى — خلفية Quiet Court فورية قبل وصول chunk/CSS المؤجّل */
-[data-testid='forum-screen-loading'],
-[data-testid='forum-instant-shell'],
-[data-testid='forum-boot-shell'],
+/* منتدى — خلفية كحلية فورية قبل وصول CSS المؤجّل */
 [data-testid='forum-overlay-host'],
 [data-testid='forum-screen-shell'],
 [data-testid='forum-screen'],
@@ -1038,7 +1986,19 @@ html[data-hami-native='1'] .hami-home-scroll-root {
     visibility: hidden;
 }
 
-.hami-dashboard-tab-preserve:not(.hami-dashboard-tab-preserve--active) * {
+/*
+ * قفل النقر على keep-alive المخفي.
+ * الملف وهو مفتوح بالـ snap يُستثنى — وإلا * { none } يمنع التمرير حتى يلحق --active.
+ */
+html:not([data-hami-profile-open='1'])
+    .hami-dashboard-tab-preserve[data-testid='lawyer-dashboard-profile-surface']:not(
+        .hami-dashboard-tab-preserve--active
+    )
+    *,
+.hami-dashboard-tab-preserve:not([data-testid='lawyer-dashboard-profile-surface']):not(
+        .hami-dashboard-tab-preserve--active
+    )
+    * {
     pointer-events: none !important;
 }
 
@@ -1081,22 +2041,41 @@ html[data-hami-profile-open='1'] .hami-dashboard-home-stack-cover * {
 }
 
 html[data-hami-profile-open='1'] [data-testid='lawyer-dashboard-profile-surface'] {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100dvh !important;
     opacity: 1 !important;
     visibility: visible !important;
     pointer-events: auto !important;
-    z-index: 20 !important;
+    z-index: 200 !important;
+    background-color: var(--profile-page-bg, #020408) !important;
 }
 
-html[data-hami-profile-open='1'] [data-testid='lawyer-dashboard-profile-surface'],
-html[data-hami-profile-open='1'] [data-testid='lawyer-dashboard-profile-surface'] * {
-    pointer-events: auto !important;
+html[data-hami-profile-open='1'] [data-lawyer-profile-root] {
+    transform: none;
+    opacity: 1;
+    transition: none;
 }
 
-html[data-hami-profile-open='1'] header.fixed.top-0,
-html[data-hami-profile-open='1'] header[data-header-visible] {
+html[data-hami-profile-closing='1'] [data-lawyer-profile-root] {
+    opacity: 0;
+    pointer-events: none !important;
+}
+
+/* ستاك التبويب كان z-1 تحت الهيدر z-100 فيتسرّب «ا المحامي» فوق الملف */
+html[data-hami-profile-open='1'] [data-hami-dashboard-tab-stack] {
+    z-index: 200 !important;
+}
+
+html[data-hami-profile-open='1'] header.fixed.bottom-0,
+html[data-hami-profile-open='1'] header[data-header-visible],
+html[data-hami-profile-open='1'] .hami-lawyer-header {
     opacity: 0 !important;
     visibility: hidden !important;
     pointer-events: none !important;
+    z-index: 0 !important;
 }
 
 html[data-hami-profile-open='1'] [data-lawyer-profile-root],
@@ -1110,16 +2089,46 @@ html[data-hami-profile-open='1'] [data-testid='lawyer-profile-back'] {
     z-index: 210 !important;
 }
 
+/*
+ * إغلاق الملف: React قد يعيد رسم السطح ويمسح inline hide بينما --active باقٍ —
+ * العلم على html لا يُمسَح فيعيد الرئيسية فوق الملف فوراً (يمنع هيدر+سواد).
+ */
+html[data-hami-profile-closing='1'] [data-testid='lawyer-dashboard-profile-surface'] {
+    opacity: 0 !important;
+    visibility: visible !important;
+    pointer-events: none !important;
+    z-index: 200 !important;
+    transition: opacity 150ms cubic-bezier(0.4, 0, 1, 1) !important;
+}
+
+html[data-hami-profile-back-locked='1'] [data-testid='lawyer-profile-back'] {
+    pointer-events: none !important;
+}
+
+html[data-hami-profile-closing='1'] [data-testid='lawyer-dashboard-profile-surface'] * {
+    pointer-events: none !important;
+}
+
+html[data-hami-profile-closing='1'] .hami-dashboard-home-stack-cover {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 6 !important;
+}
+
+html[data-hami-profile-closing='1'] .hami-dashboard-home-stack-cover * {
+    pointer-events: auto !important;
+}
+
 /* فتح المستودع — إخفاء هيدر اللوحة (يمنع تسرّب النقر إلى الملف/الإعدادات) */
-html[data-hami-repository-open='1'] header.fixed.top-0,
+html[data-hami-repository-open='1'] header.fixed.bottom-0,
 html[data-hami-repository-open='1'] header[data-header-visible] {
     opacity: 0 !important;
     visibility: hidden !important;
     pointer-events: none !important;
 }
 
-html[data-hami-repository-open='1'] [data-testid='smart-repository-modal'],
-html[data-hami-repository-open='1'] [data-testid='smart-repository-instant-shell'] {
+html[data-hami-repository-open='1'] [data-testid='smart-repository-modal'] {
     pointer-events: auto !important;
 }
 
@@ -1144,13 +2153,7 @@ html[data-hami-schedule-open='1'] [data-testid='lawyer-profile-back'] {
     z-index: 0 !important;
 }
 
-/* فتح الإشعارات — إخفاء هيدر اللوحة (يمنع تسرّب النقر) */
-html[data-hami-notifications-open='1'] header.fixed.top-0,
-html[data-hami-notifications-open='1'] header[data-header-visible] {
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-}
+/* فتح الإشعارات — الهيدر يبقى تفاعلياً للتبديل (إغلاق بالجرس) */
 
 /* فتح التقويم — علم على html (مثل الملف المهني) */
 html[data-hami-schedule-open='1'] .hami-dashboard-home-stack-cover {
@@ -1160,6 +2163,11 @@ html[data-hami-schedule-open='1'] .hami-dashboard-home-stack-cover {
 
 html[data-hami-schedule-open='1'] .hami-dashboard-home-stack-cover * {
     pointer-events: none !important;
+}
+
+html[data-hami-schedule-open='1'] .hami-home-scroll-root {
+    overflow: hidden !important;
+    touch-action: none;
 }
 
 html[data-hami-schedule-open='1'] [data-testid='lawyer-dashboard-schedule-surface'] {
@@ -1174,11 +2182,18 @@ html[data-hami-schedule-open='1'] [data-testid='lawyer-dashboard-schedule-surfac
     pointer-events: auto !important;
 }
 
-html[data-hami-schedule-open='1'] header.fixed.top-0,
+html[data-hami-schedule-open='1'] header.fixed.bottom-0,
 html[data-hami-schedule-open='1'] header[data-header-visible] {
     opacity: 0 !important;
     visibility: hidden !important;
     pointer-events: none !important;
+}
+
+html[data-hami-schedule-closing='1'] [data-testid='lawyer-dashboard-schedule-surface'] {
+    visibility: visible !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    z-index: 20 !important;
 }
 
 .hami-dashboard-tab-reveal:not(.is-active) {
@@ -1197,19 +2212,3 @@ html[data-hami-schedule-open='1'] header[data-header-visible] {
     pointer-events: auto;
 }
 
-/* كشف موحّد لوجهة المنزل — إطار واحد بعد جاهزية الأصول */
-[data-hami-lawyer-dashboard] .hami-home-destination-reveal {
-    animation: none;
-    opacity: 1;
-}
-
-[data-hami-lawyer-dashboard] .hami-home-destination-reveal--instant {
-    animation: none;
-    opacity: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    [data-hami-lawyer-dashboard] .hami-home-destination-reveal {
-        animation: none;
-    }
-}

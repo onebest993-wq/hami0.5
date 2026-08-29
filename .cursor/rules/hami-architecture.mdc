@@ -33,7 +33,7 @@ Hyper-premium Legal Application and Closed E-commerce Marketplace for Iraqi lawy
 
 ## Routing (App.tsx)
 
-State-based, no React Router. Screens: `splash` | `auth` | `client` | `lawyer` | `profile` | `admin` | `adminLawLibrary` | `settings` | `privacy` | `support`
+State-based, no React Router. Screens: `splash` | `auth` | `client` | `lawyer` | `profile` | `admin` | `settings` | `privacy` | `support`
 
 ---
 

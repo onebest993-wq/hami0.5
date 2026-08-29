@@ -1,20 +1,23 @@
 import { useMemo } from 'react';
+import type { TimelineEvent } from '@/app/types/execution';
 import { parseTimelineDeadlineDate } from '@/app/utils/timelineSmartDisplay';
 import {
     filterTimelineEventsForInabaDossier,
     filterTimelineEventsForParentDossier,
-    isInabaSubFileId,
-} from '@/app/stores/executionDashboardStore';
+} from '@/app/domain/execution/dossier/ExecutionDossierScope';
+import { isInabaSubFileId } from '@/app/stores/executionDashboardStore';
+
+type TimelineSortable = TimelineEvent & { createdAt?: string };
 
 interface SubFile {
     id: string;
     fileNumber?: string;
-    timelineEvents?: any[];
+    timelineEvents?: TimelineEvent[];
     [key: string]: unknown;
 }
 
 export function useMergedTimelineEvents(
-    activeTimelineEvents: any[],
+    activeTimelineEvents: TimelineEvent[],
     subFiles: SubFile[],
     showOnlyActiveFileTimeline: boolean,
     activeSubFileId: string | null,
@@ -23,7 +26,7 @@ export function useMergedTimelineEvents(
     const mergedTimelineEvents = useMemo(() => {
         const events = Array.isArray(activeTimelineEvents) ? activeTimelineEvents : [];
         const files = Array.isArray(subFiles) ? subFiles : [];
-        const sortKeyMs = (e: any): number => {
+        const sortKeyMs = (e: TimelineSortable): number => {
             const raw = e?.timestamp || e?.date || e?.createdAt;
             const d = parseTimelineDeadlineDate(raw ? String(raw) : undefined);
             return d ? d.getTime() : 0;
@@ -35,7 +38,7 @@ export function useMergedTimelineEvents(
             const sf = files.find((f) => f.id === activeSubFileId);
             const fromSub = filterTimelineEventsForInabaDossier(sf?.timelineEvents || [], activeSubFileId);
             const fromActive = filterTimelineEventsForInabaDossier(events, activeSubFileId);
-            const byId = new Map<string, any>();
+            const byId = new Map<string, TimelineEvent>();
             for (const e of [...fromSub, ...fromActive]) {
                 if (e?.id) byId.set(String(e.id), e);
             }
@@ -82,8 +85,8 @@ export function useMergedTimelineEvents(
         }));
         const subEvents = files.flatMap((sf) =>
             filterTimelineEventsForInabaDossier(sf.timelineEvents || [], sf.id)
-                .filter((e: any) => !e.trashedAt)
-                .map((e: any) => ({
+                .filter((e) => !e.trashedAt)
+                .map((e) => ({
                     ...e,
                     _dossierSource: 'sub' as const,
                     _dossierLabel: 'الإضبارة الفرعية',

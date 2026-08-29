@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
-import { SmartToast } from '@/app/components/ui/SmartToast';
 import { parseCommunityDeepLinkFromLocation } from '@/app/components/lawyer/CommunityScreen/communityDeepLink';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
-import {
-    FORUM_SHELL_FEATURE,
-    openLawyerForumFromShell,
-} from '@/app/services/forum/forumShellNavigation';
+import { openLawyerForumFromShell } from '@/app/services/forum/forumShellNavigation';
 import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
 import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
+import {
+    BOOT_REVEAL_DONE_EVENT,
+    isBootRevealDone,
+} from '@/app/bootstrap/bootReveal';
 import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import { prefetchCommunityOverlayEntry } from '@/app/runtime/communityOverlayEntryLoader';
 import {
     getOverlayKeepAliveIdleMs,
@@ -29,7 +28,18 @@ import {
     loadForumIntentWarm,
     prefetchCommunityHostChunks,
 } from '@/app/hooks/lawyerDashboard/community/communityLazyImports';
-import { commitCommunityOpen } from '@/app/hooks/lawyerDashboard/community/communityShellOpenFlow';
+import {
+    commitCommunityClose,
+    commitCommunityOpen,
+    isCommunityOpenInFlight,
+} from '@/app/hooks/lawyerDashboard/community/communityShellOpenFlow';
+import {
+    concealForumWarmShell,
+    isForumShellPaintedOpen,
+    paintForumInstantChrome,
+} from '@/app/runtime/forumInstantPaint';
+import { consumeForumOpenPostId, isForumOpenIntentPending } from '@/app/runtime/forumOpenIntent';
+import { deferShellConcealAfterHandoff, isShellHandoffPending } from '@/app/runtime/sectionShellHandoff';
 
 export type UseLawyerDashboardCommunityParams = {
     userId: string | null;
@@ -37,8 +47,8 @@ export type UseLawyerDashboardCommunityParams = {
 };
 
 /**
- * فتح المنتدى = قشرة فورية (flushSync) ثم ملء المحتوى/المنشورات في الخلفية.
- * Host يُركَّب مخفياً بعد interactive (مثل الإعدادات) لإلغاء انتظار أول فتح بارد.
+ * فتح المنتدى = انتظار مقطع Entry ثم flushSync، ثم ملء المحتوى في الخلفية.
+ * Host يُركَّب عند الفتح. التسخين الخلفي بعد boot-reveal فقط (لا interactive قبل uncover).
  */
 export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDashboardCommunityParams) {
     const initialOpen = readInitialCommunityOpen();
@@ -47,6 +57,8 @@ export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDash
     const [communityHostMounted, setCommunityHostMounted] = useState(() => initialOpen);
     const showCommunityRef = useRef(false);
     showCommunityRef.current = showCommunity;
+    const communityHostMountedRef = useRef(communityHostMounted);
+    communityHostMountedRef.current = communityHostMounted;
     const [communityDeepLink, setCommunityDeepLink] = useState<{
         postId?: string;
         openComments?: boolean;
@@ -58,9 +70,9 @@ export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDash
             : null;
     });
 
-    const armCommunityHost = useCallback(() => {
-        setCommunityHostMounted(true);
+    const warmCommunityPrimeChain = useCallback(() => {
         prefetchCommunityOverlayEntry();
+        prefetchCommunityHostChunks();
         void loadForumIntentWarm().then((m) => m.warmForumOnHover(userId));
         void ensureDeferredFeatureStylesLoaded();
         void ensureCommunityScreenContentLoaded().catch(() => undefined);
@@ -72,17 +84,17 @@ export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDash
     }, [userId]);
 
     const closeCommunity = useCallback(() => {
-        showCommunityRef.current = false;
-        setShowCommunity(false);
-        setCommunityDeepLink(null);
-        if (typeof window !== 'undefined' && window.location.hash.includes('community/post/')) {
-            window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
-        }
+        commitCommunityClose({
+            setShowCommunity,
+            setCommunityDeepLink,
+            setCommunityHostMounted,
+        });
     }, []);
 
+    /** لمسة البلاطة: تسخين بلا تركيب Host حتى الفتح */
     const primeCommunityShellMount = useCallback(() => {
-        armCommunityHost();
-    }, [armCommunityHost]);
+        warmCommunityPrimeChain();
+    }, [warmCommunityPrimeChain]);
 
     useEffect(() => {
         return registerDashboardOverlayCloser('forum', () => {
@@ -91,17 +103,23 @@ export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDash
     }, [closeCommunity]);
 
     /**
-     * بعد interactive: تركيب Host مخفي فقط — التسخين عبر bindCommunityBootHydrator.
+     * بعد boot-reveal فقط: تسخين عبر hydrator (idle + KYC).
+     * interactive يُعلَن قبل uncover — أي prefetch هنا كان ينافس تلاشي الشعار.
      */
-    useLayoutEffect(() => {
-        if (isLitePerformanceActive()) return;
-        return onDashboardInteractive(() => {
-            setCommunityHostMounted(true);
-            prefetchCommunityHostChunks();
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!isRealSignedIn(userId)) return;
+        const scheduleWarm = () => {
             void loadCommunityBootHydrator()
-                .then((m) => m.hydrateCommunityShellForInstantOpen(false))
+                .then((m) => m.prefetchForumAfterBootReveal())
                 .catch(() => undefined);
-        });
+        };
+        if (isBootRevealDone()) {
+            scheduleWarm();
+            return;
+        }
+        window.addEventListener(BOOT_REVEAL_DONE_EVENT, scheduleWarm);
+        return () => window.removeEventListener(BOOT_REVEAL_DONE_EVENT, scheduleWarm);
     }, [userId]);
 
     /** استعادة بعد F5: ثبّت host فقط — بلا إعادة arm (الفتح يسخّن عبر warmForumOnOpen) */
@@ -110,6 +128,24 @@ export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDash
         setCommunityHostMounted(true);
         prefetchCommunityOverlayEntry();
     }, [showCommunity, userId]);
+
+    useLayoutEffect(() => {
+        if (showCommunity) {
+            paintForumInstantChrome();
+            return;
+        }
+        return deferShellConcealAfterHandoff(() => {
+            if (
+                isCommunityOpenInFlight() ||
+                showCommunityRef.current ||
+                isForumOpenIntentPending() ||
+                isShellHandoffPending('community')
+            ) {
+                return;
+            }
+            if (isForumShellPaintedOpen()) concealForumWarmShell();
+        });
+    }, [showCommunity]);
 
     useKeepAliveIdleRelease(showCommunity, () => {
         setCommunityHostMounted(false);
@@ -149,16 +185,20 @@ export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDash
     }, [activeTab, showCommunity]);
 
     const openCommunityTab = useCallback(() => {
+        const postId = consumeForumOpenPostId();
+        if (postId) {
+            setCommunityDeepLink({ postId, openComments: false });
+        }
+        // افتح سطح المنتدى دائماً — الضيف يرى بوابة دخول/تسجيل داخل الشاشة
         openLawyerForumFromShell({
-            signedIn: isRealSignedIn(userId),
-            onSignedOut: () =>
-                SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${FORUM_SHELL_FEATURE}`),
+            signedIn: true,
             onOpen: () => {
                 commitCommunityOpen({
                     userId,
                     showCommunityRef,
                     setCommunityHostMounted,
                     setShowCommunity,
+                    hostAlreadyMounted: communityHostMountedRef.current,
                 });
             },
         });
@@ -172,17 +212,22 @@ export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDash
         setCommunitySessionKey((k) => k + 1);
         setShowCommunity(false);
         setCommunityDeepLink(null);
+        setCommunityHostMounted(false);
     }, []);
 
     useEffect(() => {
         const syncCommunityHash = () => {
             const target = parseCommunityDeepLinkFromLocation(window.location);
             if (target) {
-                setCommunityDeepLink((prev) => ({
-                    ...prev,
-                    postId: target.postId,
-                    openComments: target.openComments,
-                }));
+                setCommunityDeepLink((prev) => {
+                    if (
+                        prev?.postId === target.postId &&
+                        prev?.openComments === target.openComments
+                    ) {
+                        return prev;
+                    }
+                    return { postId: target.postId, openComments: target.openComments };
+                });
                 /* لا flushSync من داخل useEffect — أخّر لـ microtask */
                 queueMicrotask(() => openCommunityTab());
             }

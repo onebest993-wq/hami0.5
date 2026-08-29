@@ -2,6 +2,11 @@ import React, { Component, ErrorInfo, ReactNode } from "react";
 import { resetLawyerDashboardModuleCache } from '@/app/runtime/lawyerDashboardLoader';
 import { resetArchivePortalPrefetch } from '@/app/runtime/archivePortalPrefetch';
 import { sentryCaptureException } from '@/app/observability/sentryClient';
+import {
+  isNamedExportMismatchMessage,
+  isStaleChunkError,
+  reloadOnceForStaleChunk,
+} from '@/app/utils/lazy/staleChunkError';
 import { debug } from "@/app/utils/debug";
 
 interface Props {
@@ -12,10 +17,7 @@ interface State {
   hasError: boolean;
   error: Error | null;
   errorInfo: ErrorInfo | null;
-}
-
-function isStaleChunkLoadError(error: Error): boolean {
-  return /Failed to fetch dynamically imported module/i.test(error.message);
+  isStaleChunk: boolean;
 }
 
 function isAuthProviderHmrError(error: Error): boolean {
@@ -29,21 +31,43 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     hasError: false,
     error: null,
     errorInfo: null,
+    isStaleChunk: false,
   };
 
   public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error, errorInfo: null };
+    return { hasError: true, error, errorInfo: null, isStaleChunk: isStaleChunkError(error) };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     if (isAuthProviderHmrError(error) && import.meta.env.DEV) {
       debug.error('❌ [GlobalErrorBoundary] Auth context HMR glitch — soft reset');
-      this.setState({ hasError: false, error: null, errorInfo: null });
+      this.setState({ hasError: false, error: null, errorInfo: null, isStaleChunk: false });
       return;
     }
 
-    if (isStaleChunkLoadError(error) && import.meta.env.DEV) {
-      debug.error('❌ [GlobalErrorBoundary] Stale chunk load (auto-reload disabled):', error.message);
+    /*
+     * المقطع البائت يُشفى بإعادة تحميل واحدة لا بإعادة رسم.
+     *
+     * كان هذا الفرع يسجّل سطراً في التطوير ولا شيء في الإنتاج، فيهبط المستخدم على
+     * شاشة «حدث خطأ غير متوقع» وزرّها يُعيد الرسم — فيطلب المقطع الميت نفسه ويسقط
+     * مرّة أخرى. حلقةٌ لا مخرج منها إلّا إغلاق التطبيق قسراً، وتقع بعد كل نشرة على
+     * كل من كان التطبيق مفتوحاً عنده.
+     *
+     * التطوير مستثنى من التلقائي عن قصد: HMR يُطلق هذا العطل طبيعياً، وإعادة
+     * التحميل معه تُقاطع العمل بلا سبب. الزرّ اليدويّ يبقى متاحاً هناك.
+     */
+    if (this.state.isStaleChunk && !import.meta.env.DEV) {
+      if (reloadOnceForStaleChunk()) return;
+      debug.error('❌ [GlobalErrorBoundary] Stale chunk — reload budget spent, manual recovery only');
+    }
+
+    /*
+     * تصدير HMR الناقص لا يُشفى بإعادة الرسم حتى في التطوير: `React.lazy` يحتفظ
+     * بالوعد المرفوض. إعادة تحميل واحدة (نفس ميزانية المقطع البائت) أفضل من شاشة
+     * عطل لا يخرج منها إلّا تحديث يدوي.
+     */
+    if (import.meta.env.DEV && isNamedExportMismatchMessage(error.message)) {
+      if (reloadOnceForStaleChunk()) return;
     }
 
     debug.error("❌ [GlobalErrorBoundary] Uncaught error:", error, errorInfo);
@@ -91,9 +115,21 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   }
 
   private handleReset = () => {
+    /*
+     * زرّ واحد بسلوكين لأن العطلين مختلفان في طبيعتهما: عطل عابر في مكوّن يشفيه
+     * إعادة الرسم، ومقطعٌ محذوف من الخادم لا يشفيه إلّا جلب `index.html` جديد.
+     * كان الزرّ يُعيد الرسم في الحالتين، فلا يعمل في الثانية أبداً.
+     */
+    if (
+      (this.state.isStaleChunk || isNamedExportMismatchMessage(this.state.error?.message ?? '')) &&
+      typeof window !== 'undefined'
+    ) {
+      window.location.reload();
+      return;
+    }
     resetLawyerDashboardModuleCache();
     resetArchivePortalPrefetch();
-    this.setState({ hasError: false, error: null, errorInfo: null });
+    this.setState({ hasError: false, error: null, errorInfo: null, isStaleChunk: false });
   };
 
   public render() {
@@ -117,9 +153,13 @@ export class GlobalErrorBoundary extends Component<Props, State> {
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold mb-2">عذراً، حدث خطأ غير متوقع</h1>
+          <h1 className="text-2xl font-bold mb-2">
+            {this.state.isStaleChunk ? 'صدر تحديث للتطبيق' : 'عذراً، حدث خطأ غير متوقع'}
+          </h1>
           <p className="text-white/60 mb-8 max-w-md">
-            واجه النظام مشكلة تقنية تمنع عرض الصفحة. تم تسجيل الخطأ وسيتم مراجعته.
+            {this.state.isStaleChunk
+              ? 'نسخة أحدث من التطبيق أصبحت متاحة، وهذه الصفحة ما تزال على النسخة السابقة. أعد التحميل للمتابعة — لا تفقد شيئاً من بياناتك.'
+              : 'واجه النظام مشكلة تقنية تمنع عرض الصفحة. تم تسجيل الخطأ وسيتم مراجعته.'}
           </p>
           
           {process.env.NODE_ENV === 'development' && (
@@ -146,7 +186,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
                 strokeLinejoin="round"
               />
             </svg>
-            المحاولة مرة أخرى
+            {this.state.isStaleChunk ? 'إعادة التحميل' : 'المحاولة مرة أخرى'}
           </button>
         </div>
       );

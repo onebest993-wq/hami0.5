@@ -66,7 +66,7 @@ export function patchJudicialDecisionPartyName(
     };
 }
 
-export function patchLawyerRequestPartyName(
+function patchLawyerRequestPartyName(
     request: LawyerRequest,
     partyId: string,
     priorName: string,
@@ -92,7 +92,7 @@ export function patchLawyerRequestPartyName(
     };
 }
 
-export function patchTimelineEventPartyName(
+function patchTimelineEventPartyName(
     event: TimelineEvent,
     partyId: string,
     priorName: string,
@@ -166,7 +166,7 @@ export function patchJudicialDecisionLegalArticle(
     };
 }
 
-export function patchLawyerRequestLegalArticle(
+function patchLawyerRequestLegalArticle(
     request: LawyerRequest,
     priorArticle: string,
     nextArticle: string,
@@ -214,7 +214,7 @@ export function syncCaseLegalArticleCorrection(
     };
 }
 
-export function patchJudicialDecisionCourtName(
+function patchJudicialDecisionCourtName(
     decision: JudicialDecision,
     priorCourtName: string,
     nextCourtName: string,
@@ -228,7 +228,7 @@ export function patchJudicialDecisionCourtName(
     };
 }
 
-export function patchLawyerRequestCourtName(
+function patchLawyerRequestCourtName(
     request: LawyerRequest,
     priorCourtName: string,
     nextCourtName: string,

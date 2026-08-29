@@ -7,8 +7,7 @@ type CapacitorLike = {
 
 function readCapacitorGlobal(): CapacitorLike | null {
     if (typeof window === 'undefined') return null;
-    const cap = (window as Window & { Capacitor?: CapacitorLike }).Capacitor;
-    return cap ?? null;
+    return (window as Window & { Capacitor?: CapacitorLike }).Capacitor ?? null;
 }
 
 function normalizePlatformId(raw: string | undefined | null): NativePlatformId {
@@ -16,6 +15,22 @@ function normalizePlatformId(raw: string | undefined | null): NativePlatformId {
     if (value === 'ios') return 'ios';
     if (value === 'android') return 'android';
     return 'web';
+}
+
+/**
+ * كشف أندرويد Capacitor قبل جاهزية window.Capacitor:
+ * androidScheme = https://localhost بلا منفذ + UA Android.
+ */
+export function detectEarlyAndroidCapacitorShell(): boolean {
+    if (typeof window === 'undefined') return false;
+    const ua = String(navigator.userAgent || '');
+    if (!/Android/i.test(ua)) return false;
+    if (/;\s*wv\)/i.test(ua) || /Capacitor/i.test(ua)) return true;
+    const loc = window.location;
+    const host = String(loc?.hostname || '');
+    const proto = String(loc?.protocol || '');
+    const port = String(loc?.port || '');
+    return proto === 'https:' && (host === 'localhost' || host === '127.0.0.1') && !port;
 }
 
 /** يقرأ data-hami-platform من DOM — يُضبط مبكراً من hami-boot.js أو capacitorShellBoot */
@@ -33,11 +48,15 @@ export function isCapacitorNativePlatform(): boolean {
         if (fromDom === '0') return false;
     }
 
-    const cap = readCapacitorGlobal();
-    return Boolean(cap?.isNativePlatform?.());
+    if (readCapacitorGlobal()?.isNativePlatform?.()) return true;
+    return detectEarlyAndroidCapacitorShell();
 }
 
 export function getCapacitorPlatformId(): NativePlatformId {
+    if (typeof document !== 'undefined' && document.documentElement.dataset.hamiNative === '0') {
+        return 'web';
+    }
+
     const fromDom = readNativePlatformFromDom();
     if (fromDom) return fromDom;
 
@@ -45,11 +64,8 @@ export function getCapacitorPlatformId(): NativePlatformId {
     if (cap?.isNativePlatform?.()) {
         return normalizePlatformId(cap.getPlatform?.());
     }
+    if (detectEarlyAndroidCapacitorShell()) return 'android';
     return 'web';
-}
-
-export function isIosNativeShell(): boolean {
-    return isCapacitorNativePlatform() && getCapacitorPlatformId() === 'ios';
 }
 
 export function isAndroidNativeShell(): boolean {

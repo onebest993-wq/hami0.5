@@ -7,7 +7,7 @@ import {
     SeizureMovableRequestBlock,
     SeizurePropertyRequestBlock,
 } from './SeizureRequestsTabAssetBlocks';
-
+import type { ToastOptions } from './useSeizureRequestsTabModel.types';
 export interface CoerciveSeizureToolsSectionProps {
     isEvictionExecutionModule: boolean;
     activeDebtorIsEmployee: boolean;
@@ -32,7 +32,7 @@ export interface CoerciveSeizureToolsSectionProps {
     showToast: (
         message: string,
         type: 'success' | 'error' | 'warning' | 'info',
-        options?: any,
+        options?: ToastOptions,
     ) => void;
     persistExecutionMerge?: (patch: Record<string, unknown>) => void;
 }

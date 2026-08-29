@@ -56,12 +56,14 @@ export const LegalRichTextEditor = forwardRef<LegalRichTextEditorHandle, LegalRi
                     onInput={editor.handleInput}
                     onBeforeInput={editor.handleBeforeInput}
                     onKeyDown={editor.handleKeyDown}
+                    onPaste={editor.handlePaste}
                     onBlur={editor.handleBlur}
                     onKeyUp={editor.syncToolbarFromSelection}
                     onMouseUp={editor.syncToolbarFromSelection}
+                    onTouchEnd={editor.syncToolbarFromSelection}
                     data-placeholder={placeholder}
-                    className={`overflow-y-auto w-full rounded-xl border border-white/[0.12] bg-[#0A0F1C]/70 text-[#F4F0E8] text-right outline-none focus:border-[#E6C673]/45 focus:ring-1 focus:ring-[#E6C673]/18 empty:before:content-[attr(data-placeholder)] empty:before:text-white/30 ${
-                        compact ? 'px-3 py-2.5 text-sm' : 'px-4 py-3'
+                    className={`overflow-y-auto w-full rounded-2xl border-0 bg-white/[0.05] text-[#F4F4F5] text-right outline-none touch-manipulation text-base focus:ring-1 focus:ring-[#E6C673]/30 empty:before:content-[attr(data-placeholder)] empty:before:text-white/30 ${
+                        compact ? 'px-3 py-2.5' : 'px-4 py-3'
                     } ${heightClass}`}
                     dir="rtl"
                 />

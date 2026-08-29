@@ -1,31 +1,27 @@
 import { createContext, useContext } from 'react';
-import type { CriminalCase } from '@/app/components/lawyer/criminal-system/criminalStore';
+import type { CriminalCase } from './criminalStore';
 
-/**
- * سياق جسر الجزائي فقط — بلا SecureStore/Crypto.
- * الـ Provider الثقيل يُحمَّل كسولاً من criminalDashboardBridge.tsx.
- */
 export type CriminalDashboardBridge = {
     ready: boolean;
     criminalCases: CriminalCase[];
-    deleteCriminalCase: (id: string) => void;
+    deleteCriminalCase: (id: string) => boolean;
     resumePendingSeveranceForm: () => boolean;
     prepareNormalCriminalCaseForm: () => void;
 };
 
 const noop = () => false;
-const noopDelete = () => {};
 
-export const CRIMINAL_DASHBOARD_BRIDGE_STUB: CriminalDashboardBridge = {
+export const CRIMINAL_DASHBOARD_STUB: CriminalDashboardBridge = {
     ready: false,
     criminalCases: [],
-    deleteCriminalCase: noopDelete,
+    deleteCriminalCase: noop,
     resumePendingSeveranceForm: noop,
     prepareNormalCriminalCaseForm: () => undefined,
 };
 
-export const CriminalDashboardBridgeContext =
-    createContext<CriminalDashboardBridge>(CRIMINAL_DASHBOARD_BRIDGE_STUB);
+export const CriminalDashboardBridgeContext = createContext<CriminalDashboardBridge>(
+    CRIMINAL_DASHBOARD_STUB,
+);
 
 export function useCriminalDashboardBridge(): CriminalDashboardBridge {
     return useContext(CriminalDashboardBridgeContext);

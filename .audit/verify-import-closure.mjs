@@ -10,12 +10,28 @@
  * الناتج: .audit/import-closure-report.json
  */
 
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
 const ROOT = process.cwd();
 const toPosix = (p) => p.split(sep).join('/');
 const EXT = ['.ts', '.tsx', '.mts', '.js', '.jsx', '.mjs'];
+const INVENTORY_PATH = join(ROOT, '.audit', 'execution-inventory.json');
+
+/** الجرد مولَّد — بلاه تنهار البوابة بـ ENOENT بدل فحص الإغلاق. */
+function ensureExecutionInventory() {
+    if (existsSync(INVENTORY_PATH)) return;
+    console.log('[closure] execution-inventory.json missing — generating');
+    const result = spawnSync(process.execPath, [join(ROOT, '.audit', 'build-execution-inventory.mjs')], {
+        cwd: ROOT,
+        stdio: 'inherit',
+    });
+    if ((result.status ?? 1) !== 0 || !existsSync(INVENTORY_PATH)) {
+        console.error('[closure] FAIL: could not generate .audit/execution-inventory.json');
+        process.exit(1);
+    }
+}
 
 /** نقاط دخول قسم التنفيذ — كل ما يفتح القسم أو ينشئ إضبارة أو يخدمها عبر API */
 const SEEDS = [
@@ -26,12 +42,17 @@ const SEEDS = [
     'src/app/components/lawyer/ArchivePortal/ArchivePortalExecutionSurface.tsx',
     'src/app/components/lawyer/dashboard/ExecutionDashboardPortal.tsx',
     'src/app/components/lawyer/dashboard/ExecutionCreationPortal.tsx',
-    'src/app/components/lawyer/dashboard/ExecutionArchiveShell.tsx',
+    'src/app/components/lawyer/dashboard/ExecutionArchiveInstantChrome.tsx',
     'src/app/components/lawyer/dashboard/ExecutionDossierInstantChrome.tsx',
     'src/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardExecutionOverlayEntry.tsx',
     'src/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardExecutionDossierOverlayEntry.tsx',
     'src/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardExecutionCreateOverlayEntry.tsx',
-    'src/app/slices/execution/public.ts',
+    /*
+     * حُذف `slices/execution/public.ts` من البذور مع حذف الملفّ: كان عقد شريحة
+     * مُعلَناً لم يستورده أحد قطّ. وبذرة الإغلاق تعني «مدخلٌ يصل منه المستخدم إلى
+     * القسم»؛ ملفٌّ بلا مستورد لا يُوصِل شيئاً، فإغلاقه فرعٌ ميت في القياس لا مدخل.
+     * المداخل الاثنا عشر أعلاه كلّها موصولة بشيفرة حيّة.
+     */
 ];
 
 /** أضف تلقائياً كل مسارات API ومواصفات e2e التي تخص التنفيذ */
@@ -80,6 +101,36 @@ function resolveImport(spec, fromFile) {
     return null;
 }
 
+/**
+ * تجريد التعليقات قبل مطابقة الاستيرادات.
+ *
+ * كان الحارس يُطابق على المصدر الخام، فأيّ تعليق يذكر `from '…'` يُقرأ استيراداً.
+ * والأثر أوسع من إنذار كاذب: استيرادٌ مُعلَّق يُضاف إلى الإغلاق فيُحسَب ما لا يُشحن،
+ * فتظهر وحدات ميتة «مستعملة» وتُنجو من التنظيف. وأرقام الوحدات الميتة والإغلاق في
+ * هذا المشروع تُبنى على هذا الملفّ.
+ *
+ * (نفس منطق `scripts/analyze-static-closure.mjs` — والمصدر الوحيد للاختلاف بينهما
+ * أن ذاك يقيس الإغلاق الثابت وهذا يتحقّق من قابلية الوصول.)
+ */
+function stripComments(src) {
+    let out = '';
+    for (let i = 0; i < src.length; i += 1) {
+        if (src[i] === '/' && src[i + 1] === '/') {
+            while (i < src.length && src[i] !== '\n') i += 1;
+            out += '\n';
+            continue;
+        }
+        if (src[i] === '/' && src[i + 1] === '*') {
+            i += 2;
+            while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i += 1;
+            i += 1;
+            continue;
+        }
+        out += src[i];
+    }
+    return out;
+}
+
 const IMPORT_RE = [
     /\bimport\s+[^;'"]*?from\s*['"]([^'"]+)['"]/g,
     /\bimport\s*['"]([^'"]+)['"]/g,
@@ -113,10 +164,11 @@ while (head < queue.length) {
         continue;
     }
     const specs = new Set();
+    const cleaned = stripComments(src);
     for (const re of IMPORT_RE) {
         re.lastIndex = 0;
         let m;
-        while ((m = re.exec(src)) !== null) specs.add(m[1]);
+        while ((m = re.exec(cleaned)) !== null) specs.add(m[1]);
     }
     for (const spec of specs) {
         const target = resolveImport(spec, cur);
@@ -132,7 +184,8 @@ while (head < queue.length) {
 }
 
 const closure = new Set(depth.keys());
-const inventory = JSON.parse(readFileSync(join(ROOT, '.audit', 'execution-inventory.json'), 'utf8'));
+ensureExecutionInventory();
+const inventory = JSON.parse(readFileSync(INVENTORY_PATH, 'utf8'));
 const inv = new Set(inventory.records.map((r) => r.path));
 
 const linesOf = (rel) => {

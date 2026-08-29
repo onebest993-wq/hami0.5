@@ -1,12 +1,14 @@
 import type { Page } from '@playwright/test';
 
-const WEB_DB_NAME = 'hami-secure-store';
-const WEB_STORE_NAME = 'secure_kv';
+/** يطابق SecureStoreService.WEB_DB_VERSION — فتح الإصدار 1 يفشل بعد ترقية التطبيق إلى 2. */
+export const HAMI_SECURE_STORE_DB = 'hami-secure-store';
+export const HAMI_SECURE_STORE_VERSION = 2;
+export const HAMI_SECURE_KV_STORE = 'secure_kv';
 
 /** يكتب مفتاحاً في localStorage + IndexedDB (hami-secure-store) لقراءة SecureStoreService. */
 export async function writeE2eSecureStoreKey(page: Page, key: string, value: string): Promise<void> {
     await page.evaluate(
-        async ({ storageKey, storageValue, dbName, storeName }) => {
+        async ({ storageKey, storageValue, dbName, dbVersion, storeName }) => {
             try {
                 localStorage.setItem(storageKey, storageValue);
             } catch {
@@ -15,7 +17,7 @@ export async function writeE2eSecureStoreKey(page: Page, key: string, value: str
 
             await new Promise<void>((resolve) => {
                 try {
-                    const req = indexedDB.open(dbName, 1);
+                    const req = indexedDB.open(dbName, dbVersion);
                     req.onerror = () => resolve();
                     req.onupgradeneeded = () => {
                         const db = req.result;
@@ -53,8 +55,9 @@ export async function writeE2eSecureStoreKey(page: Page, key: string, value: str
         {
             storageKey: key,
             storageValue: value,
-            dbName: WEB_DB_NAME,
-            storeName: WEB_STORE_NAME,
+            dbName: HAMI_SECURE_STORE_DB,
+            dbVersion: HAMI_SECURE_STORE_VERSION,
+            storeName: HAMI_SECURE_KV_STORE,
         },
     );
 }

@@ -10,4 +10,13 @@ describe('getHamiOverlayPortalRoot', () => {
         expect(root.style.pointerEvents).toBe('none');
         expect(root.style.zIndex).toBe('230');
     });
+
+    it('لا يعيد تطبيق النمط إن كان الـ anchor جاهزاً بنفس z-index', () => {
+        const root = getHamiOverlayPortalRoot({ id: 'hami-test-portal-root-once', zIndex: 229 });
+        root.style.zIndex = '1';
+        root.dataset.hamiPortalZ = '229';
+        const again = getHamiOverlayPortalRoot({ id: 'hami-test-portal-root-once', zIndex: 229 });
+        expect(again).toBe(root);
+        expect(root.style.zIndex).toBe('1');
+    });
 });

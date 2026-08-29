@@ -6,7 +6,7 @@ import { Dashboard_Active_Order_File } from '../ActiveOrderFileRoot';
 import { hydrateCase } from '@/app/domain/urgent/hydrateCase';
 import type { UrgentCase } from '../../Component_Urgent_Card';
 
-vi.mock('@/app/context/AuthContext', () => ({
+vi.mock('@/app/context/authHooks', () => ({
     useAuth: () => ({ user: { id: 'dev-user-uuid-1' }, isLoading: false }),
     useAuthUser: () => ({ id: 'dev-user-uuid-1' }),
 }));

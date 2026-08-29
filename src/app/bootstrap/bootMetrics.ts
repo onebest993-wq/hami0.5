@@ -19,7 +19,7 @@ export {
 
 const MARK_PREFIX = 'hami:boot:';
 
-export type BootPhase =
+type BootPhase =
     | 'start'
     | 'static-shell-visible'
     | 'overlay-removed'
@@ -29,7 +29,8 @@ export type BootPhase =
     | 'dashboard-interactive'
     | 'first-tab-open'
     | 'home-destination-reveal'
-    | 'dashboard-main-view';
+    | 'dashboard-main-view'
+    | 'hub-boot-stable';
 
 export type BootTimelineRow = { phase: BootPhase; ms: number | null };
 
@@ -55,6 +56,7 @@ export function getBootTimeline(origin: 'start' | 'navigation' = 'start'): BootT
         'dashboard-interactive',
         'first-tab-open',
         'home-destination-reveal',
+        'hub-boot-stable',
     ];
 
     let originMs = 0;
@@ -77,7 +79,7 @@ export function getBootTimeline(origin: 'start' | 'navigation' = 'start'): BootT
     });
 }
 
-export function getBootPhaseMs(phase: BootPhase): number | null {
+function getBootPhaseMs(phase: BootPhase): number | null {
     return getBootTimeline().find((row) => row.phase === phase)?.ms ?? null;
 }
 

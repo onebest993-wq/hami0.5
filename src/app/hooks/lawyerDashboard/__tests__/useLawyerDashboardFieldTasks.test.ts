@@ -44,7 +44,7 @@ describe('useLawyerDashboardFieldTasks', () => {
             useLawyerDashboardFieldTasks({ userId: 'lawyer-1', setActiveTab }),
         );
 
-        expect(result.current.fieldTasksHostMounted).toBe(true);
+        expect(result.current.fieldTasksHostMounted).toBe(false);
 
         await act(async () => {
             result.current.openFieldTasksSheet();
@@ -74,6 +74,9 @@ describe('useLawyerDashboardFieldTasks', () => {
             result.current.closeFieldTasksSheet();
         });
 
+        expect(result.current.fieldTasksSheetOpen).toBe(false);
+        expect(result.current.fieldTasksHostMounted).toBe(false);
+
         act(() => {
             result.current.openFieldTasksSheet();
         });
@@ -92,6 +95,19 @@ describe('useLawyerDashboardFieldTasks', () => {
         });
 
         expect(result.current.fieldTasksSheetOpen).toBe(false);
+    });
+
+    it('primeFieldTasksShellMount يسخّن بلا تركيب Host', () => {
+        const { result } = renderHook(() =>
+            useLawyerDashboardFieldTasks({ userId: 'lawyer-1', setActiveTab: vi.fn() }),
+        );
+
+        act(() => {
+            result.current.primeFieldTasksShellMount();
+        });
+
+        expect(result.current.fieldTasksSheetOpen).toBe(false);
+        expect(result.current.fieldTasksHostMounted).toBe(false);
     });
 
     it('openTasksManager يفتح مدير المهام مع تركيز اختياري', async () => {
@@ -145,6 +161,7 @@ describe('useLawyerDashboardFieldTasks', () => {
         });
 
         expect(result.current.fieldTasksSheetOpen).toBe(false);
+        expect(result.current.fieldTasksHostMounted).toBe(false);
     });
 
     it('T2: يمسح host ويغلق عند غياب الهوية', async () => {

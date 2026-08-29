@@ -1,7 +1,7 @@
 import type { TaskTemplate } from '@/app/modules/transactionsThreading/taskTemplates';
 import type { TransactionTask } from '@/app/modules/transactionsThreading/types';
 
-export type ImportTaskTemplateDeps = {
+type ImportTaskTemplateDeps = {
     addTask: (input: {
         transactionId: string;
         title: string;
@@ -11,8 +11,8 @@ export type ImportTaskTemplateDeps = {
     refreshTransactionData: (transactionId: string) => Promise<void>;
 };
 
-export function canImportTaskTemplate(params: { isReadOnly: boolean; existingTaskCount: number }): boolean {
-    return !params.isReadOnly && params.existingTaskCount === 0;
+export function canImportTaskTemplate(params: { isReadOnly: boolean; existingTaskCount?: number }): boolean {
+    return !params.isReadOnly;
 }
 
 export async function importTaskTemplateToTransaction(

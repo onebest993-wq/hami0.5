@@ -30,14 +30,6 @@ function ActionSvgIcon({
     );
 }
 
-function MessageCircleIcon(props: ActionSvgIconProps) {
-    return (
-        <ActionSvgIcon {...props}>
-            <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
-        </ActionSvgIcon>
-    );
-}
-
 function PhoneIcon(props: ActionSvgIconProps) {
     return (
         <ActionSvgIcon {...props}>
@@ -76,7 +68,6 @@ function MapPinIcon(props: ActionSvgIconProps) {
 
 export function ActionIcon({ type }: { type: ProfileAction['type'] }) {
     const cls = 'shrink-0';
-    if (type === 'whatsapp') return <MessageCircleIcon size={18} className={cls} />;
     if (type === 'call') return <PhoneIcon size={18} className={cls} />;
     if (type === 'email') return <MailIcon size={18} className={cls} />;
     if (type === 'website') return <GlobeIcon size={18} className={cls} />;

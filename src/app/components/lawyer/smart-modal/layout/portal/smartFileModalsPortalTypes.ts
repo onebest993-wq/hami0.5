@@ -62,8 +62,6 @@ export type SmartFileModalsPortalProps = {
     setShowInterlocutoryModal: (v: boolean) => void;
     showObjectionRegistrationModal: boolean;
     setShowObjectionRegistrationModal: (v: boolean) => void;
-    showObjectionJudgmentModal: boolean;
-    setShowObjectionJudgmentModal: (v: boolean) => void;
     showAbsentJudgmentNotificationModal: boolean;
     setShowAbsentJudgmentNotificationModal: (v: boolean) => void;
     showOpponentAbsentObjectionModal: boolean;

@@ -22,6 +22,9 @@ const LazyDashboardActiveOrderFile = lazyWithRetry(() => {
 /** يحمّل حزمة الإضبارة مسبقاً عند التمرير على بطاقة طلب */
 export function preloadActiveOrderFilePanel(): void {
     if (typeof window === 'undefined') return;
+    void import('@/app/runtime/deferredFeatureStyles')
+        .then((m) => m.ensureDeferredSmartDossierStylesLoaded())
+        .catch(() => undefined);
     if (!activeOrderFilePreload) {
         activeOrderFilePreload = import('./Dashboard_Active_Order_File').then((m) => ({
             default: m.Dashboard_Active_Order_File,

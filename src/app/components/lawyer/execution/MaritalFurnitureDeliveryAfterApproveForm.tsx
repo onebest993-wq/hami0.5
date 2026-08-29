@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Lock } from '@/app/components/ui/lucideIcons';
+import { Lock } from '@/app/components/ui/icons/Lock';
 
 import type { TimelineEvent } from '@/app/types/execution';
 
@@ -35,6 +35,8 @@ import { resolveFollowupDecisionsStorageId } from '@/app/utils/openDecisionsModa
 import { runPersistMaritalFurnitureDeliverySchedule } from '@/app/utils/maritalFurnitureDeliveryPersistence';
 
 import { MaritalFurnitureDeliveryInventoryForm } from '@/app/components/lawyer/execution/MaritalFurnitureDeliveryInventoryForm';
+
+import { useExecutionSectionConfirm } from '@/app/components/lawyer/execution/useExecutionSectionConfirm';
 
 
 
@@ -121,6 +123,8 @@ export const MaritalFurnitureDeliveryAfterApproveForm: React.FC<
     const [scheduleDraft, setScheduleDraft] = React.useState('');
 
     const [earlyDeliveryUnlocked, setEarlyDeliveryUnlocked] = React.useState(false);
+
+    const { confirm, dialog: confirmDialog } = useExecutionSectionConfirm();
 
 
 
@@ -342,11 +346,11 @@ export const MaritalFurnitureDeliveryAfterApproveForm: React.FC<
 
                 onRequestEarlyDelivery={() => {
 
-                    if (window.confirm('تسليم مبكر قبل موعد التسليم — هل أنت متأكد؟')) {
+                    void confirm('تسليم مبكر قبل موعد التسليم — هل أنت متأكد؟').then((accepted) => {
 
-                        setEarlyDeliveryUnlocked(true);
+                        if (accepted) setEarlyDeliveryUnlocked(true);
 
-                    }
+                    });
 
                 }}
 
@@ -373,6 +377,8 @@ export const MaritalFurnitureDeliveryAfterApproveForm: React.FC<
                 onFinalize={() => finalizeBreakInventoryRequest?.({ decisionId })}
 
             />
+
+            {confirmDialog}
 
         </div>
 

@@ -1,5 +1,7 @@
 import React, { memo, useCallback, useState } from 'react';
-import { Globe, Lock, Users } from '@/app/components/ui/lucideIcons';
+import { Globe } from '@/app/components/ui/icons/Globe';
+import { Lock } from '@/app/components/ui/icons/Lock';
+import { Users } from '@/app/components/ui/icons/Users';
 import type { ProfilePageAccess } from '@/app/services/profile/profilePageTypes';
 import { getProfilePageAccessMeta } from '@/app/services/profile/profilePageAccess';
 
@@ -9,7 +11,7 @@ const ACCESS_ICONS: Record<ProfilePageAccess, typeof Globe> = {
     private: Lock,
 };
 
-export type ProfilePageAccessControlProps = {
+type ProfilePageAccessControlProps = {
     pageAccess: ProfilePageAccess;
     busy?: boolean;
     onCycle: () => void;
@@ -31,44 +33,19 @@ export const ProfilePageAccessControl = memo(function ProfilePageAccessControl({
     }, [busy, onCycle]);
 
     return (
-        <div className="hami-profile-sigil-slot" data-sigil="privacy">
-            <button
-                type="button"
-                data-testid="lawyer-profile-page-access"
-                data-page-access={pageAccess}
-                disabled={busy}
-                onClick={handleClick}
-                className={`hami-profile-sigil hami-profile-sigil--privacy ${busy ? 'is-busy' : ''}`}
-                aria-label={`خصوصية الصفحة: ${meta.label}. اضغط للتبديل`}
-            >
-                <span className="hami-profile-sigil-halo" aria-hidden />
-                <span className="hami-profile-sigil-orbit" aria-hidden />
-                <span
-                    key={`${pageAccess}-${pulseKey}`}
-                    className="hami-profile-sigil-glyph"
-                    aria-hidden
-                >
-                    <Icon size={18} strokeWidth={2.15} />
-                </span>
-                {pulseKey > 0 ? (
-                    <span key={`ripple-${pulseKey}`} className="hami-profile-sigil-ripple" aria-hidden />
-                ) : null}
-            </button>
-            <span className="hami-profile-sigil-micro hami-profile-sigil-micro--privacy" aria-live="polite">
-                <span className="hami-profile-sigil-micro-privacy-eyebrow">خصوصية</span>
-                <span className="hami-profile-sigil-micro-privacy-state">
-                    <span
-                        className="hami-profile-sigil-legend-dot"
-                        data-page-access={pageAccess}
-                        aria-hidden
-                    />
-                    <span>{meta.shortLabel}</span>
-                </span>
+        <button
+            type="button"
+            data-testid="lawyer-profile-page-access"
+            data-page-access={pageAccess}
+            disabled={busy}
+            onClick={handleClick}
+            className={`hami-profile-sigil hami-profile-sigil--privacy ${busy ? 'is-busy' : ''}`}
+            aria-label={`خصوصية الصفحة: ${meta.label}. اضغط للتبديل`}
+        >
+            <span key={`${pageAccess}-${pulseKey}`} className="hami-profile-sigil-glyph" aria-hidden>
+                <Icon size={15} strokeWidth={2.1} />
             </span>
-        </div>
+            <span aria-live="polite">{meta.shortLabel}</span>
+        </button>
     );
 });
-
-export function getProfilePageAccessLegend(pageAccess: ProfilePageAccess): string {
-    return getProfilePageAccessMeta(pageAccess).label;
-}

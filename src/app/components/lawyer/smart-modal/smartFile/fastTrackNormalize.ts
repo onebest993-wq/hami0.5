@@ -1,4 +1,4 @@
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import type { FastTrackRecord } from './proceduralTypes';
 
 export function readFastTrackRequestType(record: Record<string, unknown>): string {

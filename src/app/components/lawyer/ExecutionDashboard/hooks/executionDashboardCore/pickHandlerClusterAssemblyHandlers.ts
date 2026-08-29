@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C Slice 23 — handlers من handler cluster لحقيبة scope assembly */
 const HANDLER_CLUSTER_ASSEMBLY_HANDLER_KEYS = [
     'notesTasksHandlers',

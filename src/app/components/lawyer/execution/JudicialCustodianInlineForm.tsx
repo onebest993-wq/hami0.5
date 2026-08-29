@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { UserCheck } from '@/app/components/ui/lucideIcons';
+import { UserCheck } from '@/app/components/ui/icons/UserCheck';
 import { formatNumberInput } from '@/app/utils/execution/amountInput';
 
 export interface JudicialCustodianInlineFormProps {

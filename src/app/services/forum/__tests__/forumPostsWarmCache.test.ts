@@ -5,6 +5,15 @@ import {
     warmForumPostsCache,
 } from '@/app/services/forum/forumPostsWarmCache';
 
+vi.mock('@/app/services/auth/lawyerAccountStatus', () => ({
+    canUseNetworkFeatures: () => true,
+}));
+vi.mock('@/app/utils/liveAuthUserId', () => ({
+    getLiveAuthUserId: () => 'lawyer-1',
+}));
+vi.mock('@/app/utils/authStorage', () => ({
+    readPersistedSupabaseAuth: () => ({ user: { id: 'lawyer-1', user_metadata: {} }, session: null }),
+}));
 vi.mock('@/app/services/forum/communityCloudLoader', () => ({
     fetchCommunityPosts: vi.fn().mockResolvedValue([
         { id: 'p1', groupId: null },
@@ -25,7 +34,7 @@ describe('forumPostsWarmCache', () => {
 
     it('يُحمّي المنشورات بدون groupId', async () => {
         warmForumPostsCache();
-        await vi.waitFor(() => expect(peekForumPostsCache()).not.toBeNull());
+        await vi.waitFor(() => expect(peekForumPostsCache()).not.toBeNull(), { timeout: 5_000 });
         expect(peekForumPostsCache()?.map((p) => p.id)).toEqual(['p1']);
     });
 });

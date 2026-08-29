@@ -3,11 +3,15 @@ import type {
     CaseShareRecord,
     CaseShareStatus,
     CaseShareVisibleFields,
+    CaseShareDossierModule,
     DossierShareSource,
 } from './caseShareTypes';
 import { buildMaskedView } from './caseShareMasking';
 import { applyShareAccessPolicy, canFetchShareDetail, toShareListSummary } from './caseShareAccessControl';
 import { assertRecipientInNetwork } from './caseShareNetworkGuard';
+import {
+    assertShareSourceOwnedByUser,
+} from './caseShareDossierOwnership';
 import { loadCaseShareRecords, saveCaseShareRecords } from './caseShareLocalStore';
 import {
     DEFAULT_CASE_SHARE_SESSION_MINUTES,
@@ -63,13 +67,49 @@ async function serverKvGetByPrefix(prefix: string): Promise<unknown[]> {
     }
 }
 
+export const CASE_SHARE_DOSSIER_DELETED_ENDED_BY = 'system:dossier-deleted';
+
+const LAWSUIT_SHARE_MODULES: CaseShareDossierModule[] = ['lawsuit', 'personal'];
+
+function isRevocableShareStatus(status: CaseShareStatus): boolean {
+    return status === 'pending' || status === 'accepted';
+}
+
+function shouldRevokeShareForDossier(
+    share: CaseShareRecord,
+    ownerId: string,
+    dossierId: string,
+    modules: Set<CaseShareDossierModule>,
+): boolean {
+    if (share.ownerId !== ownerId) return false;
+    if (String(share.dossierId) !== dossierId) return false;
+    if (!modules.has(share.dossierModule)) return false;
+    return isRevocableShareStatus(share.status);
+}
+
+function buildRevokedShareRecord(share: CaseShareRecord, now: string): CaseShareRecord {
+    return {
+        ...share,
+        status: 'ended',
+        sessionEndedAt: share.sessionEndedAt ?? now,
+        endedByUserId: CASE_SHARE_DOSSIER_DELETED_ENDED_BY,
+        ...(share.status === 'pending' ? { respondedAt: now } : {}),
+    };
+}
+
+async function persistAllRecords(records: CaseShareRecord[]): Promise<void> {
+    await saveLocal(records);
+    for (const record of records) {
+        await serverKvSet(`case_share:${record.id}`, record);
+        await serverKvSet(`case_share:owner:${record.ownerId}:${record.id}`, record.id);
+        await serverKvSet(`case_share:recipient:${record.recipientId}:${record.id}`, record.id);
+    }
+}
+
 async function persistRecord(record: CaseShareRecord): Promise<void> {
     const rows = await loadLocal();
     const next = [record, ...rows.filter((r) => r.id !== record.id)];
-    await saveLocal(next);
-    await serverKvSet(`case_share:${record.id}`, record);
-    await serverKvSet(`case_share:owner:${record.ownerId}:${record.id}`, record.id);
-    await serverKvSet(`case_share:recipient:${record.recipientId}:${record.id}`, record.id);
+    await persistAllRecords(next);
 }
 
 async function loadRecordById(id: string): Promise<CaseShareRecord | null> {
@@ -127,6 +167,7 @@ export const CaseShareRepository = {
         if (!inNetwork) {
             throw new Error('RECIPIENT_NOT_IN_NETWORK');
         }
+        await assertShareSourceOwnedByUser(params.ownerId, params.source);
         const sessionDurationMinutes = params.sessionDurationMinutes ?? DEFAULT_CASE_SHARE_SESSION_MINUTES;
         const maskedView = buildMaskedView(params.source, params.visibleFields, params.ownerName, sessionDurationMinutes);
         const record: CaseShareRecord = {
@@ -206,6 +247,39 @@ export const CaseShareRepository = {
         await persistRecord(updated);
         dispatchCaseShareChanged();
         return updated;
+    },
+
+    /**
+     * ينهي جلسات المشاركة المعلّقة/النشطة عند حذف الإضبارة نهائياً.
+     * يُرجع عدد السجلات التي تغيّرت.
+     */
+    async revokeSharesForDossier(
+        ownerId: string,
+        dossierId: string,
+        modules: CaseShareDossierModule[] = LAWSUIT_SHARE_MODULES,
+    ): Promise<number> {
+        const uid = String(ownerId ?? '').trim();
+        const dossierKey = String(dossierId ?? '').trim();
+        if (!uid || !dossierKey) return 0;
+
+        const moduleSet = new Set(modules);
+        const rows = await loadLocal();
+        const now = new Date().toISOString();
+        let revokedCount = 0;
+
+        const next = rows.map((share) => {
+            if (!shouldRevokeShareForDossier(share, uid, dossierKey, moduleSet)) {
+                return share;
+            }
+            revokedCount += 1;
+            return buildRevokedShareRecord(share, now);
+        });
+
+        if (revokedCount === 0) return 0;
+
+        await persistAllRecords(next);
+        dispatchCaseShareChanged();
+        return revokedCount;
     },
 };
 

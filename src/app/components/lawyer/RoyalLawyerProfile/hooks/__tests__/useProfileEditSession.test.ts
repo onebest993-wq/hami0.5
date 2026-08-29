@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useProfileEditSession } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileEditSession';
 
 vi.mock('@/app/services/lawyer-cloud', () => ({
@@ -15,6 +15,21 @@ vi.mock('@/app/services/profile/profileSaveQueue', () => ({
 
 vi.mock('@/app/services/profile/profileWarmCache', () => ({
     setProfileWarmCache: vi.fn(),
+}));
+
+vi.mock('@/app/services/profile/displayNameCorrectionClient', () => ({
+    submitDisplayNameCorrection: vi.fn(async (fullName: string) => ({
+        fullName,
+        previousFullName: 'أحمد',
+        previousVisibleUntil: new Date(Date.now() + 86400000).toISOString(),
+        correctionUsed: true,
+        canCorrect: false,
+        correctedAt: new Date().toISOString(),
+    })),
+    fetchOwnDisplayNamePolicy: vi.fn(async () => null),
+    DisplayNameCorrectionError: class extends Error {
+        code = 'used';
+    },
 }));
 
 vi.mock('@/app/components/ui/SmartToast', () => ({
@@ -136,12 +151,13 @@ describe('useProfileEditSession', () => {
         expect(result.current.draft).toBeNull();
     });
 
-    it('يخرج من التحرير فوراً عند الحفظ دون انتظار السحابة', () => {
+    it('يبقى في التحرير حتى يكتمل الحفظ ثم يخرج', async () => {
+        let resolveSave!: (value: { cloudSynced: boolean; localPersisted: boolean }) => void;
         vi.mocked(ProfileDB.saveProfile).mockImplementation(
             () =>
-                new Promise((resolve) =>
-                    window.setTimeout(() => resolve({ cloudSynced: true, localPersisted: true }), 5_000),
-                ),
+                new Promise((resolve) => {
+                    resolveSave = resolve;
+                }),
         );
         const { result } = renderHook(() =>
             useProfileEditSession({
@@ -168,9 +184,17 @@ describe('useProfileEditSession', () => {
             void result.current.saveProfile();
         });
 
+        expect(result.current.isEditing).toBe(true);
+        expect(result.current.saving).toBe(true);
+        expect(setProfile).toHaveBeenCalled();
+
+        await waitFor(() => expect(ProfileDB.saveProfile).toHaveBeenCalled());
+        await act(async () => {
+            resolveSave({ cloudSynced: true, localPersisted: true });
+        });
+
         expect(result.current.isEditing).toBe(false);
         expect(result.current.draft).toBeNull();
-        expect(setProfile).toHaveBeenCalled();
     });
 
     it('يرفض الحفظ عند اسم فارغ', async () => {
@@ -298,9 +322,6 @@ describe('useProfileEditSession', () => {
             savePromise = result.current.saveProfile();
         });
 
-        act(() => {
-            result.current.cancelEdit();
-        });
         rerender({ userId: 'owner-2' });
 
         let ok = false;

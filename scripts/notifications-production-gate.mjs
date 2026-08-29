@@ -16,6 +16,7 @@ const live = args.has('--live');
 const migrations = [
     '027_lawyer_shell_notifications.sql',
     '028_lawyer_shell_inbox_rebuild_from_events.sql',
+    '20260828121500_ensure_lawyer_shell_notifications.sql',
 ];
 
 const apiRoutes = [
@@ -25,6 +26,7 @@ const apiRoutes = [
     'src/app/api/notifications/list/route.ts',
     'src/app/api/notifications/wipe/route.ts',
     'src/app/api/notifications/health/route.ts',
+    'src/app/api/notifications/fcm-register/route.ts',
 ];
 
 const criticalPaths = [
@@ -77,6 +79,9 @@ for (const key of [
     'SHELL_NOTIFICATIONS_KV_CACHE',
     'SHELL_NOTIFICATIONS_PURGE_KV_AFTER_BACKFILL',
     'VITE_HAMI_NOTIFICATION_SERVER_SYNC',
+    'VITE_NATIVE_NOTIFICATION_SHEET',
+    'VITE_VAPID_PUBLIC_KEY',
+    'FCM_SERVICE_ACCOUNT_JSON',
 ]) {
     if (envExample.includes(key)) ok(`env documented: ${key}`);
     else fail(`env missing in .env.production.example: ${key}`);
@@ -89,8 +94,12 @@ const test = spawnSync(
         'vitest',
         'run',
         'src/app/services/notifications/__tests__',
+        'src/app/services/notifications/native/__tests__',
+        'src/app/services/notifications/fcm/__tests__',
         'src/app/stores/__tests__/notificationStore.test.ts',
+        'src/app/stores/__tests__/notificationStoreList.test.ts',
         'src/app/infrastructure/__tests__/notificationModel.test.ts',
+        'src/app/infrastructure/__tests__/NotificationRepository.test.ts',
         'src/app/services/__tests__/auditLogPublisher.test.ts',
         'src/app/hooks/__tests__/useLawyerDashboardNotifications.test.ts',
         'src/app/hooks/lawyerDashboard/notifications/__tests__/notificationShellOpenFlow.test.ts',
@@ -98,6 +107,11 @@ const test = spawnSync(
         'src/app/components/lawyer/CommunityScreen/hooks/__tests__/useForumAppBarNotifications.test.ts',
         'src/app/hooks/lawyerDashboard/__tests__/observeNotificationPanelInteractive.test.ts',
         'src/app/hooks/lawyerDashboard/__tests__/notificationIntentWarm.test.ts',
+        'src/app/hooks/lawyerDashboard/__tests__/useIncomingNotificationPopups.test.ts',
+        'src/app/hooks/lawyerDashboard/__tests__/incomingNotificationPopupModel.test.ts',
+        'src/app/hooks/lawyerDashboard/__tests__/incomingNotificationPopupArrival.test.ts',
+        'src/app/hooks/lawyerDashboard/__tests__/useNotificationMobileSuspend.test.ts',
+        'src/app/runtime/__tests__/notificationInstantPaint.test.ts',
         'src/app/hooks/lawyerDashboard/__tests__/headerShellIntentWarm.test.ts',
         'src/app/hooks/lawyerDashboard/__tests__/patchLawyerDashboardHeaderOverlayOpen.test.ts',
         'src/app/hooks/lawyerDashboard/__tests__/lawyerDashboardHeaderPrefetch.test.ts',

@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import { resolveExecutionChunkScopeKeys } from './lib/resolveExecutionChunkScopeKeys.mjs';
 import { isExecutionShellExplicitCloseProp } from './lib/executionShellExplicitCloseProps.mjs';
+import { extractConstArrayKeysFromFile } from './lib/extractConstArrayKeys.mjs';
 
 const ROOT = 'src/app/components/lawyer/ExecutionDashboard';
 const SHELL_KEYS_PATH = `${ROOT}/hooks/executionShellOverlayPropKeys.ts`;
@@ -30,12 +31,6 @@ const TYPED_OVERLAY_SOURCES = [
     },
 ];
 
-function extractConstKeys(content, constName) {
-    const m = content.match(new RegExp(`export const ${constName} = \\[([\\s\\S]*?)\\] as const`));
-    if (!m) throw new Error(`missing ${constName}`);
-    return [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
-}
-
 function extractRequiredTypeProps(src, typeName) {
     const iface = src.match(new RegExp(`export interface ${typeName} \\{([\\s\\S]*?)\n\\}`));
     const typeAlias = src.match(new RegExp(`export type ${typeName} = \\{([\\s\\S]*?)\n\\};`));
@@ -61,10 +56,10 @@ function collectSProps(files) {
 }
 
 const shellKeys = new Set(
-    extractConstKeys(fs.readFileSync(SHELL_KEYS_PATH, 'utf8'), 'EXECUTION_SHELL_OVERLAY_PROP_KEYS'),
+    extractConstArrayKeysFromFile(SHELL_KEYS_PATH, 'EXECUTION_SHELL_OVERLAY_PROP_KEYS'),
 );
-const portalKeys = extractConstKeys(
-    fs.readFileSync(PORTAL_KEYS_PATH, 'utf8'),
+const portalKeys = extractConstArrayKeysFromFile(
+    PORTAL_KEYS_PATH,
     'SEIZED_PROPERTY_PORTAL_PROP_KEYS',
 );
 const scopeKeys = resolveExecutionChunkScopeKeys();

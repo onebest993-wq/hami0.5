@@ -1,8 +1,9 @@
 import React from 'react';
-import { motion } from 'motion/react';
-import { X } from '@/app/components/ui/lucideIcons';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { X } from '@/app/components/ui/icons/X';
 import { FocModalPortal } from './FocModalPortal';
 import { formatNumberInput } from '../utils';
+import { FOC_MODAL_ACTION_BTN, FOC_MODAL_CLOSE_BTN } from '../constants';
 import type { LawyerFeeRow } from '../types';
 
 export interface FocFeesSheetEvictionStrip {
@@ -48,14 +49,15 @@ export const FocFeesSheet: React.FC<FocFeesSheetProps> = ({
                 initial={{ scale: 0.96, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.96, opacity: 0 }}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
                 className={sheetClass}
             >
                 <div className="flex items-center justify-between">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="p-2 rounded-full hover:bg-white/10 text-slate-400"
+                        className={FOC_MODAL_CLOSE_BTN}
+                        aria-label="إغلاق"
                     >
                         <X size={18} />
                     </button>
@@ -81,7 +83,7 @@ export const FocFeesSheet: React.FC<FocFeesSheetProps> = ({
                         type="button"
                         onClick={onAddLawyerFee}
                         disabled={!canAddLawyerFee}
-                        className="w-full rounded-xl bg-emerald-600/75 py-2.5 text-white text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+                        className={`w-full rounded-xl bg-emerald-600/75 py-2.5 text-white text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed ${FOC_MODAL_ACTION_BTN}`}
                     >
                         إضافة بند أتعاب
                     </button>
@@ -97,7 +99,7 @@ export const FocFeesSheet: React.FC<FocFeesSheetProps> = ({
                                 onClose();
                             }
                         }}
-                        className="w-full rounded-xl bg-white/5 border border-white/10 py-2.5 text-[11px] text-slate-300 disabled:opacity-40"
+                        className={`w-full rounded-xl bg-white/5 border border-white/10 py-2.5 text-[11px] text-slate-300 disabled:opacity-40 ${FOC_MODAL_ACTION_BTN}`}
                     >
                         طلب صرف أتعاب (تخلية)
                     </button>

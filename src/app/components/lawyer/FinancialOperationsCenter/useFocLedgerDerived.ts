@@ -17,13 +17,13 @@ import {
     computeTotalOwedUnifiedFromStore,
     extractYmd,
     hasFrozenLedgerRows,
-    isUnifiedLedgerLocked,
     parseAmount,
     resolvePrincipalBasisFromStore,
     resolveSettlementDuePhase,
     shouldShowSettlementDueActions,
     type UnifiedLedgerTotalParams,
 } from './utils';
+import { isUnifiedLedgerLocked } from './unifiedLedgerLock';
 import type { UnifiedLedgerStore } from './types';
 
 export interface UseFocLedgerDerivedParams {
@@ -315,11 +315,12 @@ export function useFocLedgerDerived(params: UseFocLedgerDerivedParams): UseFocLe
                 pendingSettlement: store.pendingSettlement,
                 pendingSettlementDueYmd,
                 currentYmd,
-                isFinancialDebtCollectionClaim: false,
+                isFinancialDebtCollectionClaim: isFinancialDebtCollectionClaim(claimType),
                 financialCenterTotalIqd: remainingUnified,
                 settlementBreachTriggeredAt: store.settlementBreachTriggeredAt,
                 salarySeizureActive,
                 activeDebtorIsDeceased,
+                hideAllGuarantorPresence: forceSettlementBuriedOnly,
             }),
         [
             settlementUxTier,
@@ -333,6 +334,8 @@ export function useFocLedgerDerived(params: UseFocLedgerDerivedParams): UseFocLe
             currentYmd,
             salarySeizureActive,
             activeDebtorIsDeceased,
+            claimType,
+            forceSettlementBuriedOnly,
         ]
     );
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { UnifiedSeizureLogEntryFooter } from '../UnifiedSeizureLogEntryFooter';
-import type { UnifiedSeizureLogEntry } from '@/app/components/lawyer/execution/UnifiedSeizureLogModal';
+import type { UnifiedSeizureLogEntry } from '@/app/components/lawyer/execution/unifiedSeizureLogEntryTypes';
 import type { UnifiedSeizureLogEntryFooterProps } from '../UnifiedSeizureLogEntryFooter';
 import { dispatchUnifiedSeizureLogFooterAction } from '@/app/components/lawyer/ExecutionDashboard/utils/unifiedSeizureLogFooterNavigation';
 
@@ -158,6 +158,22 @@ describe('UnifiedSeizureLogEntryFooter', () => {
         expect(screen.getByTestId('third-party-registry')).toBeInTheDocument();
     });
 
+    it('renders third-party workflow from UI list without throwing', () => {
+        const entry: UnifiedSeizureLogEntry = {
+            id: 'third_party_ui:tp-ui-1',
+            entityId: 'tp-ui-1',
+            title: 'حجز لدى الغير — مصرف',
+            dateYmd: '2026-08-03',
+            kind: 'third_party',
+            statusLabel: 'بانتظار الإجابة',
+            statusCode: 'notified',
+            description: 'الجهة: مصرف',
+        };
+
+        render(<UnifiedSeizureLogEntryFooter entry={entry} {...buildProps()} />);
+        expect(screen.getByTestId('third-party-workflow')).toBeInTheDocument();
+    });
+
     it('renders movable init card for movable_decision entries without seized record', () => {
         const props = buildProps();
         props.seizedMovablesForSeizureLog = [];
@@ -299,5 +315,29 @@ describe('UnifiedSeizureLogEntryFooter', () => {
             seizedAssets: Array<{ details?: Record<string, string> }>;
         };
         expect(patch.seizedAssets[0].details?.employerName).toBe('وزارة');
+    });
+
+    it('renders third-party workflow from executionData when UI list is empty', () => {
+        const props = buildProps();
+        props.thirdPartySeizuresUi = [];
+        props.executionData = {
+            id: 'exec-1',
+            thirdPartySeizures: [
+                { id: 'tp-file-1', thirdPartyName: 'مصرف الرافدين', status: 'notified' },
+            ],
+        } as never;
+        const entry: UnifiedSeizureLogEntry = {
+            id: 'third_party_ui:tp-file-1',
+            entityId: 'tp-file-1',
+            title: 'حجز لدى الغير — مصرف الرافدين',
+            dateYmd: '2026-08-03',
+            kind: 'third_party',
+            statusLabel: 'بانتظار الإجابة',
+            statusCode: 'notified',
+            description: 'الجهة: مصرف الرافدين',
+        };
+
+        render(<UnifiedSeizureLogEntryFooter entry={entry} {...props} />);
+        expect(screen.getByTestId('third-party-workflow')).toBeInTheDocument();
     });
 });

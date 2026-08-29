@@ -33,19 +33,26 @@ function prune(timestamps: number[], windowMs: number): number[] {
 
 export type ForumRateLimitResult = { allowed: true } | { allowed: false; retryAfterSec: number };
 
-/**
- * حد معدّل على الجهاز (طبقة UX) — لا يغني عن حدود السيرفر.
- */
-export function checkForumRateLimit(
-    scope: 'post' | 'comment' | 'report',
+type ForumRateScope = 'post' | 'comment' | 'report';
+
+function resolveRateKey(scope: ForumRateScope, userId: string, opts?: { postId?: string }): string {
+    return scope === 'report' && opts?.postId ? `${scope}:${userId}:${opts.postId}` : `${scope}:${userId}`;
+}
+
+type RateEvaluation =
+    | { allowed: true; key: string; inWindow: number[]; now: number }
+    | { allowed: false; retryAfterSec: number };
+
+function evaluateForumRateLimit(
+    scope: ForumRateScope,
     userId: string,
     opts?: { postId?: string },
-): ForumRateLimitResult {
+): RateEvaluation {
+    if (!userId.trim()) {
+        return { allowed: false, retryAfterSec: 60 };
+    }
     const now = Date.now();
-    const key =
-        scope === 'report' && opts?.postId
-            ? `${scope}:${userId}:${opts.postId}`
-            : `${scope}:${userId}`;
+    const key = resolveRateKey(scope, userId, opts);
     const bucket = readBucket(key);
     let windowMs = 60_000;
     let maxInWindow = 5;
@@ -73,6 +80,33 @@ export function checkForumRateLimit(
         return { allowed: false, retryAfterSec: Math.max(1, retryAfterSec) };
     }
 
-    writeBucket(key, { timestamps: [...inWindow, now] });
+    return { allowed: true, key, inWindow, now };
+}
+
+/**
+ * قراءة حد المعدّل دون استهلاك الحصة — لفحص الإبلاغ قبل طلب الخادم.
+ */
+export function peekForumRateLimit(
+    scope: ForumRateScope,
+    userId: string,
+    opts?: { postId?: string },
+): ForumRateLimitResult {
+    const evaluated = evaluateForumRateLimit(scope, userId, opts);
+    if (!evaluated.allowed) return evaluated;
+    return { allowed: true };
+}
+
+/**
+ * حد معدّل على الجهاز (طبقة UX) — لا يغني عن حدود السيرفر.
+ * يستهلك حصة عند السماح.
+ */
+export function checkForumRateLimit(
+    scope: ForumRateScope,
+    userId: string,
+    opts?: { postId?: string },
+): ForumRateLimitResult {
+    const evaluated = evaluateForumRateLimit(scope, userId, opts);
+    if (!evaluated.allowed) return evaluated;
+    writeBucket(evaluated.key, { timestamps: [...evaluated.inWindow, evaluated.now] });
     return { allowed: true };
 }

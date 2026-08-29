@@ -1,0 +1,249 @@
+{
+  "seizureEntryFiles": [
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureHeavyBridge.tsx",
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogAssetModalBridge.tsx",
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogResolutionBridge.tsx"
+  ],
+  "otherBridgeCount": 19,
+  "exclusiveCount": 39,
+  "exclusiveKb": 177.9,
+  "sharedWithOtherClustersCount": 332,
+  "sharedKb": 1509.5,
+  "seizureNamedKb": 38,
+  "exclusiveAbsorbedKb": 137.1,
+  "estimatedSeizureChunkSourceKb": 175.1,
+  "exclusiveAbsorbedByBucketKb": {
+    "other": 98.1,
+    "ed-utils": 26.6,
+    "salary": 5,
+    "utils-seizure": 4,
+    "ed-hooks": 1.8,
+    "domain-seizure": 1.6
+  },
+  "topExclusiveAbsorbed": [
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSeizedPropertyModals.ts",
+      "kb": 15.7,
+      "cluster": "absorbed",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSeizureAssetModalHandlers.ts",
+      "kb": 11.1,
+      "cluster": "absorbed",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSeizureAssetModalSaveHandlers.ts",
+      "kb": 9.9,
+      "cluster": "absorbed",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardAuctionSessionResult.ts",
+      "kb": 7.7,
+      "cluster": "absorbed",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardThirdPartyReceiveHandlers.ts",
+      "kb": 7.5,
+      "cluster": "absorbed",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardFollowupSeizureInits.ts",
+      "kb": 7.3,
+      "cluster": "absorbed",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/utils/thirdPartyFundsReceivedOutcomeUtils.ts",
+      "kb": 6,
+      "cluster": "absorbed",
+      "bucket": "ed-utils"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/utils/movableSeizureFinancialUtils.ts",
+      "kb": 5.8,
+      "cluster": "absorbed",
+      "bucket": "ed-utils"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSeizureRowPatch.ts",
+      "kb": 5.5,
+      "cluster": "absorbed",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardRealEstateSeizureModalHandlers.ts",
+      "kb": 5.2,
+      "cluster": "absorbed",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/utils/thirdPartySeizureFinancialUtils.ts",
+      "kb": 5.2,
+      "cluster": "absorbed",
+      "bucket": "ed-utils"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardFollowupSeizureHandlers.ts",
+      "kb": 4.9,
+      "cluster": "absorbed",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSeizureReleaseHandlers.ts",
+      "kb": 4.1,
+      "cluster": "absorbed",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/utils/seizureFinancialTrustLedgerUtils.ts",
+      "kb": 4,
+      "cluster": "absorbed",
+      "bucket": "utils-seizure"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/utils/unifiedSeizureLogFooterNavigation.ts",
+      "kb": 3.7,
+      "cluster": "absorbed",
+      "bucket": "ed-utils"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSeizureRequestSubmit.ts",
+      "kb": 3.6,
+      "cluster": "absorbed",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardStandaloneMarkMutations.ts",
+      "kb": 3.5,
+      "cluster": "absorbed",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSavePublicationDetails.ts",
+      "kb": 3.5,
+      "cluster": "absorbed",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/utils/executionPhoneBodyExecutionDataMerge.ts",
+      "kb": 3.3,
+      "cluster": "absorbed",
+      "bucket": "ed-utils"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardStandaloneMarkSave.ts",
+      "kb": 3.1,
+      "cluster": "absorbed",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardStandaloneMarkHandlers.ts",
+      "kb": 2.9,
+      "cluster": "absorbed",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSalarySeizurePatch.ts",
+      "kb": 2.8,
+      "cluster": "absorbed",
+      "bucket": "salary"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/utils/expertCommitteeUtils.ts",
+      "kb": 2.5,
+      "cluster": "absorbed",
+      "bucket": "ed-utils"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSalarySeizurePatch.ts",
+      "kb": 2.2,
+      "cluster": "absorbed",
+      "bucket": "salary"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/useUnifiedSeizureLogFooterBridge.ts",
+      "kb": 1.8,
+      "cluster": "absorbed",
+      "bucket": "ed-hooks"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardThirdPartyReceive.ts",
+      "kb": 1.7,
+      "cluster": "absorbed",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/domain/seizure/seizureInlineFocusSession.ts",
+      "kb": 1.6,
+      "cluster": "absorbed",
+      "bucket": "domain-seizure"
+    },
+    {
+      "f": "src/app/utils/execution/amountInput.ts",
+      "kb": 1,
+      "cluster": "absorbed",
+      "bucket": "other"
+    }
+  ],
+  "topSeizureNamed": [
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureFollowup.ts",
+      "kb": 8.1,
+      "cluster": "seizure",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureAssetModal.ts",
+      "kb": 7.3,
+      "cluster": "seizure",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureCoercive.ts",
+      "kb": 7,
+      "cluster": "seizure",
+      "bucket": "coercive-logic"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogAssetModalBridge.tsx",
+      "kb": 3.2,
+      "cluster": "seizure",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureHeavyBridge.tsx",
+      "kb": 3.1,
+      "cluster": "seizure",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureResolution.ts",
+      "kb": 3,
+      "cluster": "seizure",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogResolutionBridge.tsx",
+      "kb": 2.6,
+      "cluster": "seizure",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureHeavy.ts",
+      "kb": 2.2,
+      "cluster": "seizure",
+      "bucket": "other"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureFollowupRequests.ts",
+      "kb": 1.5,
+      "cluster": "seizure",
+      "bucket": "other"
+    }
+  ]
+}

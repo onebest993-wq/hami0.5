@@ -3,24 +3,21 @@ export const TX_CLIENT_NAME_MAX = 80;
 export const TX_DEPARTMENT_MAX = 80;
 export const TX_TEMPLATE_NAME_MAX = 80;
 export const TX_TASK_TITLE_MAX = 160;
-export const TX_TASK_NOTES_MAX = 2_000;
+const TX_TASK_NOTES_MAX = 2_000;
 export const TX_DOC_TITLE_MAX = 160;
-export const TX_DOC_TYPE_MAX = 60;
-export const TX_FINANCE_DESC_MAX = 240;
+const TX_DOC_TYPE_MAX = 60;
 export const TX_OFFICIAL_REF_MAX = 120;
-/** حد أعلى منطقي للمبالغ بالدينار (يمنع قيم شاذة/Overflow في الواجهة) */
-export const TX_FINANCE_AMOUNT_MAX = 1_000_000_000_000;
+export const TX_ID_MAX = 80;
+export const TX_USER_ID_MAX = 128;
+export const TX_SHARE_BODY_MAX = 16_000;
+export const TX_ISO_MAX = 40;
+export const TX_FORUM_AUTHOR_MAX = 80;
+
+const DOCUMENT_OWNER_TAGS = new Set(['للموكل', 'للدائرة', 'أخرى']);
 
 const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
 
-export class TransactionInputValidationError extends Error {
-    constructor(message: string) {
-        super(message);
-        this.name = 'TransactionInputValidationError';
-    }
-}
-
-export function stripTransactionControlChars(value: string): string {
+function stripTransactionControlChars(value: string): string {
     return value.replace(CONTROL_CHARS, '');
 }
 
@@ -71,28 +68,30 @@ export function sanitizeTransactionDocumentType(type: string | undefined): strin
     return trimmed.length > 0 ? trimmed : 'مستمسك';
 }
 
-export function sanitizeTransactionFinanceDescription(description: string): string {
-    return clampTransactionText(description.trim(), TX_FINANCE_DESC_MAX);
+export function sanitizeTransactionId(value: unknown): string {
+    return clampTransactionText(String(value ?? '').trim(), TX_ID_MAX);
 }
 
-/**
- * يتحقق من المبلغ المالي: رقم محدود، غير سالب، ضمن سقف معقول.
- * يرمي TransactionInputValidationError عند الرفض.
- */
-export function sanitizeTransactionFinanceAmount(amount: number): number {
-    if (!Number.isFinite(amount)) {
-        throw new TransactionInputValidationError('المبلغ غير صالح');
-    }
-    if (amount < 0) {
-        throw new TransactionInputValidationError('المبلغ لا يمكن أن يكون سالباً');
-    }
-    if (amount > TX_FINANCE_AMOUNT_MAX) {
-        throw new TransactionInputValidationError('المبلغ يتجاوز الحد المسموح');
-    }
-    // تقريب لفلسين لتفادي ضوضاء الفاصلة العائمة عند العرض
-    return Math.round(amount * 100) / 100;
+export function sanitizeTransactionUserId(value: unknown): string {
+    return clampTransactionText(String(value ?? '').trim(), TX_USER_ID_MAX);
 }
 
-export function sanitizeTransactionAgreedFees(amount: number): number {
-    return sanitizeTransactionFinanceAmount(amount);
+export function sanitizeTransactionIsoTimestamp(value: unknown, fallback: string): string {
+    if (value instanceof Date && Number.isFinite(value.getTime())) {
+        return clampTransactionText(value.toISOString(), TX_ISO_MAX);
+    }
+    const raw = clampTransactionText(String(value ?? '').trim(), TX_ISO_MAX);
+    return raw.length > 0 ? raw : fallback;
+}
+
+export function sanitizeTransactionDocumentOwnerTag(value: unknown): 'للموكل' | 'للدائرة' | 'أخرى' {
+    const tag = String(value ?? '').trim();
+    if (DOCUMENT_OWNER_TAGS.has(tag)) return tag as 'للموكل' | 'للدائرة' | 'أخرى';
+    return 'أخرى';
+}
+
+export function sanitizeTransactionForumAuthorName(fullName: unknown): string {
+    const name = clampTransactionText(String(fullName ?? '').trim(), TX_FORUM_AUTHOR_MAX);
+    if (!name || name.includes('@')) return 'محامي';
+    return name;
 }

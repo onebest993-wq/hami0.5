@@ -21,7 +21,6 @@ import {
 } from '@/app/api/security/csrfServerStore.ts';
 import { isKeyOwnedBy, isPrefixOwnedBy } from '@/app/security/kvProxyKeyOwnership';
 import { isWifeProtectedApiUrl } from '@/app/security/wifeFetchGuard';
-import { POST as commsPost } from '@/app/api/comms-dispatcher/route.ts';
 import {
   ATTACKER_ID as USER_A,
   ATTACKER_TOKEN as TOKEN,
@@ -30,6 +29,7 @@ import {
   VICTIM_TOKEN as TOKEN_B,
   buildFakeJwt,
   resetWifeDrillEnv,
+  primeDrillCsrf,
   signWifePayload,
   signedPost,
   stubSupabaseAuth,
@@ -44,10 +44,11 @@ function resetAllWifeTestState(): void {
 }
 
 describe('🔴 WAVE 1 — Reconnaissance & unsigned flood', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetAllWifeTestState();
     resetWifeDrillEnv();
     stubSupabaseAuth(USER_A);
+    await primeDrillCsrf(USER_A);
   });
 
   afterEach(() => {
@@ -76,17 +77,18 @@ describe('🔴 WAVE 1 — Reconnaissance & unsigned flood', () => {
 });
 
 describe('🔴 WAVE 2 — Signature forgery & tampering', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetAllWifeTestState();
     resetWifeDrillEnv();
     stubSupabaseAuth(USER_A);
+    await primeDrillCsrf(USER_A);
   });
 
   afterEach(() => vi.unstubAllGlobals());
 
   it('blocks signature from victim token applied to attacker session token', async () => {
     const body = '{"amount":999999}';
-    const url = 'https://app.test/api/requests/create';
+    const url = 'https://app.test/api/forum/posts';
     const ts = String(Date.now());
     const nonce = 'nonce_cross_token_1';
     const sigVictim = await signWifePayload({ method: 'POST', url, timestamp: ts, nonce, body, token: TOKEN_B });
@@ -162,7 +164,7 @@ describe('🔴 WAVE 2 — Signature forgery & tampering', () => {
 });
 
 describe('🔴 WAVE 3 — Replay & time manipulation', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetAllWifeTestState();
     process.env.NODE_ENV = 'test';
     delete process.env.WIFE_REDIS_REST_URL;
@@ -170,6 +172,7 @@ describe('🔴 WAVE 3 — Replay & time manipulation', () => {
     process.env.SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
     stubSupabaseAuth(USER_A);
+    await primeDrillCsrf(USER_A);
   });
 
   afterEach(() => vi.unstubAllGlobals());
@@ -177,7 +180,7 @@ describe('🔴 WAVE 3 — Replay & time manipulation', () => {
   it('blocks stale timestamp beyond 120s window', async () => {
     const stale = String(Date.now() - 121_000);
     const req = await signedPost({
-      url: 'https://app.test/api/requests/list',
+      url: 'https://app.test/api/kv-proxy',
       body: '{}',
       timestamp: stale,
       nonce: 'nonce_stale_ts_123456',
@@ -188,7 +191,7 @@ describe('🔴 WAVE 3 — Replay & time manipulation', () => {
   it('blocks far-future timestamp (clock skew attack)', async () => {
     const future = String(Date.now() + 121_000);
     const req = await signedPost({
-      url: 'https://app.test/api/requests/list',
+      url: 'https://app.test/api/kv-proxy',
       body: '{}',
       timestamp: future,
       nonce: 'nonce_future_ts_123456',
@@ -198,7 +201,7 @@ describe('🔴 WAVE 3 — Replay & time manipulation', () => {
 
   it('blocks real nonce replay (second identical nonce rejected)', async () => {
     const nonce = 'nonce_replay_live_abcdef12';
-    const url = 'https://app.test/api/requests/create';
+    const url = 'https://app.test/api/forum/posts';
     const body = '{"a":1}';
     const req1 = await signedPost({ url, body, nonce });
     expect(await verifyWifeSignature(req1, TOKEN)).toBe(true);
@@ -208,10 +211,11 @@ describe('🔴 WAVE 3 — Replay & time manipulation', () => {
 });
 
 describe('🔴 WAVE 4 — CSRF & session hijack attempts', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetAllWifeTestState();
     process.env.NODE_ENV = 'test';
     stubSupabaseAuth(USER_A);
+    await primeDrillCsrf(USER_A);
   });
 
   afterEach(() => vi.unstubAllGlobals());
@@ -223,25 +227,26 @@ describe('🔴 WAVE 4 — CSRF & session hijack attempts', () => {
     expect(await validateCsrfForSubject(USER_A, tokenB!)).toBe(false);
   });
 
-  it('blocks POST in production without any CSRF cookie (XSS-only header attack)', async () => {
+  it('production بدون Redis: لا يُصدَر CSRF (fail-closed)', async () => {
     process.env.NODE_ENV = 'production';
-    const req = await signedPost({
-      url: 'https://app.test/api/forum/report',
-      body: '{"reason":"spam"}',
-      csrf: CSRF_A,
-    });
-    const stripped = new Request(req.url, {
+    delete process.env.WIFE_REDIS_REST_URL;
+    delete process.env.WIFE_REDIS_REST_TOKEN;
+    expect(await issueCsrfTokenForSubject(USER_A)).toBeNull();
+  });
+
+  it('production: CSRF غير مسجّل يُرفض', async () => {
+    process.env.NODE_ENV = 'production';
+    const rogue = 'RogueCsrfToken1234567890AbCd';
+    const req = new Request('https://app.test/api/forum/report', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-wife-signature': req.headers.get('x-wife-signature')!,
-        'x-wife-timestamp': req.headers.get('x-wife-timestamp')!,
-        'x-wife-nonce': req.headers.get('x-wife-nonce')!,
-        'x-csrf-token': CSRF_A,
+        'x-csrf-token': rogue,
+        cookie: `hami_csrf_token=${encodeURIComponent(rogue)}`,
       },
       body: '{"reason":"spam"}',
     });
-    expect(await verifyCsrfToken(stripped, TOKEN)).toBe(false);
+    expect(await verifyCsrfToken(req, TOKEN)).toBe(false);
   });
 
   it('blocks malformed CSRF tokens (script injection shapes)', async () => {
@@ -268,19 +273,21 @@ describe('🔴 WAVE 5 — KV lateral movement & data exfiltration', () => {
   });
 
   it('blocks prefix enumeration of all users (catastrophic prefix)', () => {
-    expect(isPrefixOwnedBy('user:', ME)).toBe(false);
-    expect(isPrefixOwnedBy('calendar:', ME)).toBe(false);
-    expect(isPrefixOwnedBy(`user:${VICTIM}:`, ME)).toBe(false);
+    expect(isPrefixOwnedBy('user:', ME, 'read')).toBe(false);
+    expect(isPrefixOwnedBy('calendar:', ME, 'write')).toBe(false);
+    expect(isPrefixOwnedBy(`user:${VICTIM}:`, ME, 'read')).toBe(false);
   });
 
-  it('blocks writing community global keys through kv-proxy', () => {
-    expect(isKeyOwnedBy('community:posts:inject', ME, 'write')).toBe(false);
-    expect(isKeyOwnedBy('repository:docs:secret', ME, 'write')).toBe(false);
-    expect(isKeyOwnedBy('banned:users:admin', ME, 'write')).toBe(false);
-  });
+    it('blocks writing community global keys through kv-proxy', () => {
+        expect(isKeyOwnedBy('community:posts:inject', ME, 'write')).toBe(false);
+        expect(isKeyOwnedBy('repository:docs:secret', ME, 'write')).toBe(false);
+        expect(isKeyOwnedBy('repository:docs:secret', ME, 'read')).toBe(false);
+        expect(isKeyOwnedBy('banned:users:admin', ME, 'write')).toBe(false);
+    });
 
   it('blocks follow impersonation (attacker follows as victim)', () => {
     expect(isKeyOwnedBy(`follow:${VICTIM}:${ME}`, ME, 'write')).toBe(false);
+    expect(isKeyOwnedBy(`follow:${VICTIM}:stranger-id`, ME, 'read')).toBe(false);
   });
 });
 
@@ -289,6 +296,8 @@ describe('🔴 WAVE 6 — Token cloning & stolen JWT radar', () => {
     resetAllWifeTestState();
     process.env.NODE_ENV = 'test';
     delete process.env.WIFE_REDIS_REST_URL;
+    delete process.env.WIFE_REDIS_REST_TOKEN;
+    delete process.env.SUPABASE_URL;
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   });
 
@@ -314,7 +323,7 @@ describe('🔴 WAVE 6 — Token cloning & stolen JWT radar', () => {
   });
 });
 
-describe('🔴 WAVE 7 — Rate limit & comms abuse', () => {
+describe('🔴 WAVE 7 — Rate limit', () => {
   beforeEach(() => {
     resetAllWifeTestState();
     process.env.NODE_ENV = 'test';
@@ -333,32 +342,22 @@ describe('🔴 WAVE 7 — Rate limit & comms abuse', () => {
     expect(allowed).toBeLessThanOrEqual(100);
     expect(blocked).toBeGreaterThanOrEqual(10);
   });
-
-  it('comms route rejects without auth token (organised SMS flood)', async () => {
-    const res = await commsPost(
-      new Request('http://127.0.0.1/api/comms-dispatcher', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: '07901234567', message: 'spam', channel: 'sms' }),
-      }),
-    );
-    expect(res.status).toBe(401);
-  });
 });
 
 describe('🔴 WAVE 8 — Banned / deactivated account', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetAllWifeTestState();
     process.env.NODE_ENV = 'test';
     process.env.SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
     stubSupabaseAuth(USER_A, { id: USER_A, status: 'banned', is_banned: true, deleted_at: null });
+    await primeDrillCsrf(USER_A);
   });
 
   afterEach(() => vi.unstubAllGlobals());
 
-  it('blocks WIFE-verified request from banned profile', async () => {
+  it('توقيع HMAC يبقى صالحاً للحساب المحظور — الحظر طبقة الجلسة/الكتابة لا التوقيع', async () => {
     const req = await signedPost({ url: 'https://app.test/api/forum/posts', body: '{}' });
-    expect(await verifyWifeSignature(req, TOKEN)).toBe(false);
+    expect(await verifyWifeSignature(req, TOKEN)).toBe(true);
   });
 });

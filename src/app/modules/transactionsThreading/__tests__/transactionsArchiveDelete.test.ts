@@ -44,7 +44,6 @@ describe('transactions store archive/delete', () => {
                 saveTransaction: vi.fn(),
                 updateTransaction,
                 listTasks: vi.fn(async () => []),
-                listFinanceRecords: vi.fn(async () => []),
                 listDocuments: vi.fn(async () => []),
                 getTask: vi.fn(),
                 saveTask: vi.fn(),
@@ -53,10 +52,6 @@ describe('transactions store archive/delete', () => {
                 getDocument: vi.fn(),
                 saveDocument: vi.fn(),
                 deleteDocument: vi.fn(),
-                getFinanceRecord: vi.fn(),
-                saveFinanceRecord: vi.fn(),
-                updateFinanceRecord: vi.fn(),
-                deleteFinanceRecord: vi.fn(),
             })),
         }));
 
@@ -81,7 +76,6 @@ describe('transactions store archive/delete', () => {
                 },
             ],
             tasksByTransactionId: {},
-            financeByTransactionId: {},
             documentsByTransactionId: {},
         });
 
@@ -122,7 +116,6 @@ describe('transactions store archive/delete', () => {
                 saveTransaction: vi.fn(),
                 updateTransaction,
                 listTasks: vi.fn(async () => []),
-                listFinanceRecords: vi.fn(async () => []),
                 listDocuments: vi.fn(async () => []),
                 getTask: vi.fn(),
                 saveTask: vi.fn(),
@@ -131,10 +124,6 @@ describe('transactions store archive/delete', () => {
                 getDocument: vi.fn(),
                 saveDocument: vi.fn(),
                 deleteDocument: vi.fn(),
-                getFinanceRecord: vi.fn(),
-                saveFinanceRecord: vi.fn(),
-                updateFinanceRecord: vi.fn(),
-                deleteFinanceRecord: vi.fn(),
             })),
         }));
 
@@ -159,7 +148,6 @@ describe('transactions store archive/delete', () => {
                 },
             ],
             tasksByTransactionId: {},
-            financeByTransactionId: {},
             documentsByTransactionId: {},
         });
 

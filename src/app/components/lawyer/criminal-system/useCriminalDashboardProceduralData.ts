@@ -6,7 +6,7 @@ import {
     type ProceduralLinkReference,
 } from './proceduralContainersEngine';
 
-export type UseCriminalDashboardProceduralDataParams = {
+type UseCriminalDashboardProceduralDataParams = {
     criminalCase: CriminalCase;
     editingRequestId: string | null;
     linkedTimelineFromProcedural: TimelineEvent | null;

@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { CaseShareRepository } from '../caseShareRepository';
-import { PERSONAS, fieldsWith, resetCaseShareStore, richLawsuitSource } from './caseShareTestFixtures';
+import { CaseShareRepository, CASE_SHARE_DOSSIER_DELETED_ENDED_BY } from '../caseShareRepository';
+import { canFetchShareDetail } from '../caseShareAccessControl';
+import { PERSONAS, fieldsWith, resetCaseShareStore, richLawsuitSource, seedOwnedLawsuitForShareTests } from './caseShareTestFixtures';
 
 describe('CaseShareRepository — محاكاة طرفين', () => {
     beforeEach(() => {
         resetCaseShareStore();
+        seedOwnedLawsuitForShareTests();
     });
 
     it('المرسل ينشئ طلباً والمستقبل يراه في الوارد', async () => {
@@ -150,5 +152,56 @@ describe('CaseShareRepository — محاكاة طرفين', () => {
         const ended = await CaseShareRepository.endSession(share.id, PERSONAS.sender.id);
         expect(ended?.status).toBe('ended');
         expect(ended?.endedByUserId).toBe(PERSONAS.sender.id);
+    });
+
+    it('يرفض الإنشاء إذا لم تُخزَّن الإضبارة محلياً للمالك', async () => {
+        const forgedSource = { ...richLawsuitSource(), dossierId: 'missing-dossier-9999' };
+        await expect(
+            CaseShareRepository.createShare({
+                ownerId: PERSONAS.sender.id,
+                ownerName: PERSONAS.sender.name,
+                recipientId: PERSONAS.recipient.id,
+                recipientName: PERSONAS.recipient.name,
+                source: forgedSource,
+                visibleFields: fieldsWith({}),
+            }),
+        ).rejects.toThrow('DOSSIER_NOT_OWNED');
+    });
+
+    it('ينهي الجلسات المعلّقة والنشطة عند حذف الإضبارة نهائياً', async () => {
+        const source = richLawsuitSource();
+        const pending = await CaseShareRepository.createShare({
+            ownerId: PERSONAS.sender.id,
+            ownerName: PERSONAS.sender.name,
+            recipientId: PERSONAS.recipient.id,
+            recipientName: PERSONAS.recipient.name,
+            source,
+            visibleFields: fieldsWith({}),
+        });
+        const active = await CaseShareRepository.createShare({
+            ownerId: PERSONAS.sender.id,
+            ownerName: PERSONAS.sender.name,
+            recipientId: PERSONAS.recipient.id,
+            recipientName: PERSONAS.recipient.name,
+            source,
+            visibleFields: fieldsWith({ documents: false }),
+        });
+        await CaseShareRepository.updateStatus(active.id, PERSONAS.recipient.id, 'accepted');
+
+        const revoked = await CaseShareRepository.revokeSharesForDossier(
+            PERSONAS.sender.id,
+            source.dossierId,
+        );
+        expect(revoked).toBe(2);
+
+        const pendingAfter = await CaseShareRepository.getById(pending.id, PERSONAS.recipient.id);
+        expect(pendingAfter).toBeNull();
+        const activeAfter = await CaseShareRepository.getById(active.id, PERSONAS.recipient.id);
+        expect(activeAfter).toBeNull();
+
+        const ownerView = await CaseShareRepository.getById(pending.id, PERSONAS.sender.id);
+        expect(ownerView?.status).toBe('ended');
+        expect(ownerView?.endedByUserId).toBe(CASE_SHARE_DOSSIER_DELETED_ENDED_BY);
+        expect(canFetchShareDetail(ownerView!, PERSONAS.recipient.id)).toBe(false);
     });
 });

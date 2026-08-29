@@ -1,8 +1,8 @@
 import React from 'react';
 import { SmartFileModalContent } from './smart-modal/SmartFileModalContent';
-import type { SmartFileModalProps } from './smart-modal';
+import type { SmartFileModalProps } from './smart-modal/SmartFileModalContent';
 
-export type { SmartFileModalProps } from './smart-modal';
+export type { SmartFileModalProps } from './smart-modal/SmartFileModalContent';
 
 export const SmartFileModal = (props: SmartFileModalProps) => {
     const fileId = (props.file as { id?: unknown } | undefined)?.id;

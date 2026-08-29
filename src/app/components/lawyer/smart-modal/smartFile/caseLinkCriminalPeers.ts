@@ -20,7 +20,7 @@ function readCriminalClientName(entry: CriminalCaseCardIndexEntry): string | und
     return name || undefined;
 }
 
-export function criminalCaseLinkCandidate(entry: CriminalCaseCardIndexEntry): CaseLinkCandidate {
+function criminalCaseLinkCandidate(entry: CriminalCaseCardIndexEntry): CaseLinkCandidate {
     const caseNo = readCriminalCaseNo(entry);
     return {
         key: `criminal:${entry.id}`,

@@ -1,10 +1,5 @@
 import type { CaseStage } from '../../LawyerShared';
 import {
-    isAppealStageName,
-    isCassationStageName,
-    isFirstInstanceStageName,
-} from './judgmentTypes';
-import {
     CASSATION_CORRECTION_TAB_LABEL,
     shouldShowCassationCorrectionTabLabel,
 } from './extraordinaryAppealGateway';
@@ -67,11 +62,4 @@ export function buildChromeStageStripItems(
     });
 
     return items;
-}
-
-export function isDirectCassationOnlyPath(stages: CaseStage[]): boolean {
-    const hasAppeal = stages.some((s) => isAppealStageName(stageNameOf(s)));
-    const hasCassation = stages.some((s) => isCassationStageName(stageNameOf(s)));
-    const hasFirst = stages.some((s) => isFirstInstanceStageName(stageNameOf(s)));
-    return hasCassation && hasFirst && !hasAppeal;
 }

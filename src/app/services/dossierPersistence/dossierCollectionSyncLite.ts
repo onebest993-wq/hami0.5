@@ -2,7 +2,6 @@
  * نواة مزامنة إضبارات خفيفة — SecureStore فقط بلا backup/cloud/executionFilesStorage.
  * تُستخدم من مسار الدعاوى على اللوحة حتى لا يُسحب app-execution-storage-deferred إلى LD stem.
  */
-import SecureStoreService from '@/app/services/SecureStoreService';
 import { debug } from '@/app/utils/debug';
 import {
     EXECUTION_FILES_STORAGE_KEY,
@@ -12,6 +11,10 @@ import {
 } from './dossierStorageKeys';
 import { shouldRejectDossierWipe } from './dossierWipeGuard';
 import type { DossierDomain } from './dossierPersistenceTypes';
+import {
+    readSecureOrDrainLegacySync,
+    writeSecureAndClearLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 type DomainConfig = {
     domain: DossierDomain;
@@ -58,12 +61,12 @@ function mergeUniqueById(primary: unknown[], incoming: unknown[]): unknown[] {
 }
 
 function loadFromAllKeysSync(config: DomainConfig): unknown[] {
-    const primary = parseArray(SecureStoreService.getItemSync(config.primaryKey));
+    const primary = parseArray(readSecureOrDrainLegacySync(config.primaryKey));
     if (primary !== null && primary.length > 0) return primary;
 
     let merged: unknown[] = primary ?? [];
     for (const legacyKey of config.legacyKeys) {
-        const legacy = parseArray(SecureStoreService.getItemSync(legacyKey));
+        const legacy = parseArray(readSecureOrDrainLegacySync(legacyKey));
         if (legacy !== null && legacy.length > 0) {
             merged = mergeUniqueById(merged, legacy);
         }
@@ -88,20 +91,24 @@ export function persistDossierCollectionSyncLite(
     const serialized = JSON.stringify(payload);
     const config = DOMAIN_CONFIG[domain];
 
-    const existing = SecureStoreService.getItemSync(config.primaryKey);
+    const existing = readSecureOrDrainLegacySync(config.primaryKey);
     if (existing && shouldRejectDossierWipe(config.primaryKey, serialized, existing)) {
         debug.warn(`[DossierSyncLite] رفض مسح "${config.primaryKey}" — البيانات الحالية محفوظة.`);
-        return payload;
+        return parseArray(existing) ?? payload;
     }
-    SecureStoreService.setItemSync(config.primaryKey, serialized);
+    /*
+     * getItemSync على أصل مشفَّر بارد تُرجع null فيتخطّى الحارس أعلاه.
+     * setItemSync يؤجّل الكتابة ويفكّ الأصل قبل حارس المسح — لا نكتب هنا يدوياً.
+     */
+    writeSecureAndClearLegacySync(config.primaryKey, serialized);
 
     config.legacyKeys.forEach((legacyKey) => {
         try {
-            const legacyExisting = SecureStoreService.getItemSync(legacyKey);
+            const legacyExisting = readSecureOrDrainLegacySync(legacyKey);
             if (legacyExisting && shouldRejectDossierWipe(legacyKey, serialized, legacyExisting)) {
                 return;
             }
-            SecureStoreService.setItemSync(legacyKey, serialized);
+            writeSecureAndClearLegacySync(legacyKey, serialized);
         } catch {
             /* ignore */
         }

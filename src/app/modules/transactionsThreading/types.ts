@@ -1,4 +1,4 @@
-export type ISODateTimeString = string;
+type ISODateTimeString = string;
 
 export enum TransactionStatus {
   Active = 'Active',

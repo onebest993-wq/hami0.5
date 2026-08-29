@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { OutputChunk, Plugin } from 'rollup';
 
-const BOOT_SCRIPT_TAG = '<script src="/hami-boot.js"></script>';
-const BOOT_SCRIPT_RE = /<script[^>]*src="\/hami-boot\.js"[^>]*><\/script>/i;
+const BOOT_SCRIPT_TAG = '<script src="/hami-boot.js?v=boot-worthy-4"></script>';
+const BOOT_SCRIPT_RE = /<script[^>]*src="\/hami-boot\.js[^"]*"[^>]*><\/script>/i;
 const APP_MODULE_RE = /<script[^>]*type="module"[^>]*><\/script>/i;
 
 const CRITICAL_PRELOAD_PREFIXES = ['boot-runtime', 'vendor-react'] as const;
@@ -38,7 +38,7 @@ function patchIndexHtml(html: string, chunkFileNames: string[]): string {
     let out = reorderBootScriptBeforeAppModule(html, {
         demoBoot,
         hideStaticBoot: false,
-        bootGuardMs: demoBoot ? 4_000 : 14_000,
+        bootGuardMs: 14_000,
     });
     out = injectCriticalModulePreloads(out, chunkFileNames);
     return out;
@@ -60,7 +60,7 @@ export function reorderBootScriptBeforeAppModule(
 ): string {
     let out = html;
     const hideBoot = Boolean(opts?.hideStaticBoot);
-    const guardMs = opts?.bootGuardMs ?? (opts?.demoBoot ? 4_000 : 14_000);
+    const guardMs = opts?.bootGuardMs ?? 14_000;
 
     out = injectHtmlRootAttr(out, 'data-hami-boot-guard-ms', String(guardMs));
     if (opts?.demoBoot) {
@@ -102,11 +102,14 @@ export function hamiBootScriptOrder(): Plugin {
         enforce: 'post',
         transformIndexHtml: {
             order: 'post',
-            handler(html) {
+            handler(html, ctx) {
+                const file = String(ctx.filename ?? ctx.path ?? '').replace(/\\/g, '/');
+                if (file.endsWith('/hq.html') || file.endsWith('hq.html')) return html;
+                const serve = Boolean(ctx.server);
                 return reorderBootScriptBeforeAppModule(html, {
                     demoBoot: process.env.VITE_SHELL_AUTH_OPEN === 'true',
                     hideStaticBoot: false,
-                    bootGuardMs: process.env.VITE_SHELL_AUTH_OPEN === 'true' ? 4_000 : 14_000,
+                    bootGuardMs: serve ? 120_000 : 14_000,
                 });
             },
         },

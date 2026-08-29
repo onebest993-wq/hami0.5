@@ -1,4 +1,4 @@
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
+import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 type PrefetchPriority = 'critical' | 'high' | 'low';
 

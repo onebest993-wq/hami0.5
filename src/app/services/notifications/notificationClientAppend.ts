@@ -40,24 +40,3 @@ export async function appendNotificationClient(input: ClientAppendInput): Promis
         return null;
     }
 }
-
-export function notificationFromAppendInput(
-    input: ClientAppendInput,
-    id: string,
-    createdAt: string,
-): NotificationModel {
-    return {
-        id,
-        title: input.title,
-        message: input.message,
-        type: input.type,
-        category: input.category,
-        direction: 'incoming',
-        isRead: false,
-        actionPayload: {
-            ...(input.actionPayload ?? {}),
-            ...(input.dedupeKey ? { dedupeKey: input.dedupeKey } : {}),
-        },
-        createdAt,
-    };
-}

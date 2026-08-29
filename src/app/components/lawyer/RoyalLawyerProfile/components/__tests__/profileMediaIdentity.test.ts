@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { profileMediaIdentity } from '../ProfileAvatarImage';
+import { profileMediaIdentity } from '@/app/services/profile/profileMediaIdentity';
 
 describe('profileMediaIdentity', () => {
     it('يتجاهل query التوقيع لنفس المسار', () => {

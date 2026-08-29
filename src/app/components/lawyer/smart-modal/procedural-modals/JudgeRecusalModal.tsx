@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, AlertTriangle } from '@/app/components/ui/lucideIcons';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { X } from '@/app/components/ui/icons/X';
+import { AlertTriangle } from '@/app/components/ui/icons/AlertTriangle';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import type { ModalProps } from './proceduralModalShell';
 
 export const JudgeRecusalModal = ({ isOpen, onClose, onConfirm }: ModalProps) => {
@@ -16,8 +17,8 @@ export const JudgeRecusalModal = ({ isOpen, onClose, onConfirm }: ModalProps) =>
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']" dir="rtl">
-            <div className="bg-[#1A1E2E] border border-rose-500/40 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl shadow-rose-900/40">
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/62 backdrop-blur-sm p-4 font-['Tajawal']" dir="rtl">
+            <div className="bg-[#1A1E2E] border border-rose-500/40 rounded-2xl w-full max-w-lg overflow-hidden shadow-lg shadow-rose-900/40">
                 <div className="bg-gradient-to-r from-rose-600 to-red-700 p-4 text-white flex justify-between items-center">
                     <h3 className="font-bold text-sm flex items-center gap-2">
                         <span className="text-lg">🛑</span>

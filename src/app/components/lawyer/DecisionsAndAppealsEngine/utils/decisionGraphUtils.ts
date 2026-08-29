@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Decision } from '../types';
 
 export function resolveUnderlyingDecisionHub(row: Decision, all: Decision[]): Decision {
@@ -9,7 +8,7 @@ export function resolveUnderlyingDecisionHub(row: Decision, all: Decision[]): De
 
 export function parseDecisionPayloadJson(hub: Decision): Record<string, unknown> | null {
     try {
-        const raw = String(hub.payloadJson || '').trim();
+        const raw = String((hub as Decision & { payloadJson?: unknown }).payloadJson || '').trim();
         if (!raw) return null;
         const parsed = JSON.parse(raw) as unknown;
         return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;

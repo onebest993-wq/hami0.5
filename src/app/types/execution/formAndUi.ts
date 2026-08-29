@@ -1,4 +1,10 @@
-import type { Currency, Party, PaymentRecord, TimelineEvent } from './executionShared';
+/**
+ * Form state, component prop types, and small utility aliases.
+ */
+import type { Currency } from './core';
+import type { Party } from './party';
+import type { PaymentRecord } from './financial';
+import type { TimelineEvent } from './timeline';
 import type { ExecutionFile } from './executionFile';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -48,6 +54,8 @@ export interface ExecutionDashboardProps {
     executionId?: string;
     onClose: () => void;
     onUpdate?: (file: ExecutionFile) => void;
+    /** مغادرة للرئيسية — تُستخدم أثناء الهيكل الفوري قبل الجسم الحي */
+    onExitToHome?: () => void;
 }
 
 export interface FinancialOperationsCenterProps {
@@ -80,8 +88,6 @@ export interface PartyCardProps {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// UTILITY TYPES
-// ═══════════════════════════════════════════════════════════════════════════
 
 export type DeepPartial<T> = {
     [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
@@ -92,10 +98,3 @@ export type Nullable<T> = T | null;
 export type Optional<T> = T | undefined;
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EXPORT ALL
-// ═══════════════════════════════════════════════════════════════════════════
-
-export default {
-    // Types are exported individually above
-};
-

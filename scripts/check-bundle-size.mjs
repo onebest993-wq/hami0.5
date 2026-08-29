@@ -191,13 +191,12 @@ for (const file of jsFiles) {
         );
 
     } else if (row.rawKb > TARGETS.anyChunkRawKb) {
-
-        console.warn(
-
-            `[check-bundle-size] chunk target: ${file} ${row.rawKb}KB raw > ${TARGETS.anyChunkRawKb}KB`,
-
-        );
-
+        // vendor-* خارج تقشير التطبيق — لا ضوضاء تحذير ناعمة كاذبة
+        if (!/^vendor-/.test(file)) {
+            console.warn(
+                `[check-bundle-size] chunk target: ${file} ${row.rawKb}KB raw > ${TARGETS.anyChunkRawKb}KB`,
+            );
+        }
     }
 
 }

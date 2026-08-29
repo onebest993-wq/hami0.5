@@ -1,7 +1,7 @@
 import type { TimelineEvent } from '../../LawyerShared';
 
 /** معرّفات مواعيد الخط الزمني للمُهل القانونية — ليست جلسات مرافعة. */
-export const LEGAL_DEADLINE_APPT_ID_PREFIXES = [
+const LEGAL_DEADLINE_APPT_ID_PREFIXES = [
     'appt_appeal_deadline_',
     'appt_cassation_deadline_',
     'appt_review_deadline_',
@@ -24,7 +24,13 @@ export function isPleadingHearingAppointment(event: TimelineEvent): boolean {
     if (isLegalDeadlineTimelineEvent(event)) return false;
     if (event.subType === 'pleading') return true;
     const title = String(event.title ?? '');
-    return /مرافعة قادمة|موعد المرافعة|جلسة مرافعة|محضر الجلسة/i.test(title);
+    if (/ختام\s*المرافعة|حجز\s*الدعوى\s*للقرار/i.test(title)) return false;
+    return /مرافعة|جلسة مرافعة|محضر الجلسة/i.test(title);
+}
+
+/** مواعيد غير المرافعات فقط — جلسة المرافعة تُفتح في سجل الجلسات. */
+export function shouldOpenAppointmentEditor(event: TimelineEvent): boolean {
+    return event.type === 'appointment' && !isPleadingHearingAppointment(event);
 }
 
 export function resolveLegalDeadlineDateLabel(event: TimelineEvent): string {

@@ -22,7 +22,24 @@ export const DOSSIER_WARM_KEYS = [
     LAWSUIT_FILES_STORAGE_KEY,
     LAWSUIT_FILES_INDEX_KEY,
     LAWSUIT_FILES_ACTIVE_KEY,
+    LAWSUIT_FILES_ARCHIVED_KEY,
+    LAWSUIT_FILES_TRASH_KEY,
     EXECUTION_FILES_STORAGE_KEY,
     ...LAWSUIT_FILES_STORAGE_KEYS_LEGACY,
+    ...EXECUTION_FILES_STORAGE_KEYS_LEGACY,
+] as const;
+
+/** كل مقاطع الدعوى — تُسخَّن قبل getItemSync بعد HMR أو فتح المخزن */
+export const LAWSUIT_SEGMENT_WARM_KEYS = [
+    LAWSUIT_FILES_STORAGE_KEY,
+    LAWSUIT_FILES_INDEX_KEY,
+    LAWSUIT_FILES_ACTIVE_KEY,
+    LAWSUIT_FILES_ARCHIVED_KEY,
+    LAWSUIT_FILES_TRASH_KEY,
+] as const;
+
+/** فهرس التنفيذ فقط — شواهد الحذف تُفكّ عند المزامنة لا عند تسخين الفهرس */
+export const EXECUTION_INDEX_WARM_KEYS = [
+    EXECUTION_FILES_STORAGE_KEY,
     ...EXECUTION_FILES_STORAGE_KEYS_LEGACY,
 ] as const;

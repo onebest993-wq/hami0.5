@@ -1,4 +1,6 @@
 /** فئات shell موحّدة للنوافذ الحرجة — Capacitor / safe-area / touch 44px */
+import type { CSSProperties } from 'react';
+
 export const EXEC_MODAL_CLOSE_BTN_CLASS =
     'touch-manipulation inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-transparent p-2 text-slate-300 transition-colors hover:border-white/15 hover:bg-white/10 hover:text-white';
 
@@ -24,13 +26,18 @@ export const EXEC_MODAL_EDIT_SHELL_MAX =
     'max-h-[min(88dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]';
 
 export const EXEC_MODAL_EDIT_PANEL_CLASS =
-    `w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl border border-slate-600/40 bg-[#0A0F1C] p-4 shadow-2xl ${EXEC_MODAL_EDIT_SHELL_MAX}`;
-
-export const EXEC_MODAL_DOSSIER_META_PANEL_CLASS =
-    `w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl border border-amber-500/30 bg-[#0A0F1C] p-4 shadow-2xl ${EXEC_MODAL_EDIT_SHELL_MAX}`;
+    `w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl border border-slate-600/40 bg-[#0A0F1C] p-4 shadow-md ${EXEC_MODAL_EDIT_SHELL_MAX}`;
 
 export const EXEC_MODAL_EDIT_PRIMARY_BTN_CLASS =
     'touch-manipulation min-h-[44px] w-full rounded-lg py-2.5 text-sm font-bold';
 
 /** يُلحق بأزرار الصف الداخلية (حفظ/إلغاء/إصدار) — هدف لمس 44px دون تغيير الألوان */
-export const EXEC_MODAL_TOUCH_TARGET = 'touch-manipulation min-h-[44px]';
+export const EXEC_MODAL_TOUCH_TARGET = 'touch-manipulation min-h-[44px] min-w-[44px]';
+
+/** حشوة سفلية عند ظهور لوحة المفاتيح (visualViewport) فوق safe-area */
+export function execModalKeyboardPadStyle(keyboardInsetPx: number): CSSProperties | undefined {
+    if (!(keyboardInsetPx > 0)) return undefined;
+    return {
+        paddingBottom: `max(${Math.ceil(keyboardInsetPx)}px, env(safe-area-inset-bottom, 0px))`,
+    };
+}

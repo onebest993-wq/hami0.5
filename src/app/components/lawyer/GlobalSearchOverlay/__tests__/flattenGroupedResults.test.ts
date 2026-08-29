@@ -4,6 +4,7 @@ import type { GroupedSearchResults } from '@/app/services/globalSearchIndex';
 
 function emptyGrouped(): GroupedSearchResults {
     return {
+        total: 0,
         hasResults: true,
         lawsuit: [],
         execution: [],
@@ -20,7 +21,6 @@ function emptyGrouped(): GroupedSearchResults {
         repository: [],
         community: [],
         threading: [],
-        finance: [],
         notification: [],
         profile: [],
     };
@@ -38,5 +38,28 @@ describe('flattenGroupedResults', () => {
 
         const flat = flattenGroupedResults(grouped);
         expect(flat.map((e) => e.id)).toEqual(['f1', 'c1']);
+    });
+
+    it('يدمج ملف المعاملة ومركز المعاملات في قسم واحد قبل المستعجل', () => {
+        const grouped: GroupedSearchResults = {
+            ...emptyGrouped(),
+            transaction: [
+                { id: 'file-tx', title: 'ملف', subtitle: '', navigate: { type: 'file', fileId: '1' } },
+            ],
+            threading: [
+                {
+                    id: 'hub-tx',
+                    title: 'مركز',
+                    subtitle: '',
+                    navigate: { type: 'transactions', transactionId: 't1' },
+                },
+            ],
+            urgent: [
+                { id: 'u1', title: 'مستعجل', subtitle: '', navigate: { type: 'urgent', urgentId: '1' } },
+            ],
+        };
+
+        const flat = flattenGroupedResults(grouped);
+        expect(flat.map((e) => e.id)).toEqual(['file-tx', 'hub-tx', 'u1']);
     });
 });

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { isRealSignedIn } from '@/app/services/auth/shellAuth';
+import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
 import {
     SCHEDULE_SHELL_FEATURE,
     openScheduleFromShell,
@@ -9,7 +9,11 @@ import {
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import { useKeepAliveIdleRelease, getLatchedTabIdleReleaseMs } from '@/app/hooks/lawyerDashboard/useKeepAliveIdleRelease';
 import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
-import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
+import {
+    BOOT_REVEAL_DONE_EVENT,
+    isBootRevealDone,
+    onBootContentReady,
+} from '@/app/bootstrap/bootReveal';
 import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
 import {
     loadScheduleBootHydrator,
@@ -23,6 +27,7 @@ import {
     snapScheduleShellClose,
     snapScheduleShellOpen,
 } from '@/app/services/schedule/scheduleShellSnap';
+import { deferShellConcealAfterHandoff, isShellHandoffPending } from '@/app/runtime/sectionShellHandoff';
 import type { CalendarSearchFocus } from '@/app/hooks/lawyerDashboard/schedule/scheduleShellOpenFlow';
 
 export type { CalendarSearchFocus };
@@ -51,10 +56,8 @@ export function useLawyerDashboardScheduleTab({
     const [scheduleHostMounted, setScheduleHostMounted] = useState(() => scheduleInitiallyOpen);
     const hasMarkedScheduleOpenRef = useRef(scheduleInitiallyOpen);
 
-    const armScheduleHost = useCallback(() => {
-        setScheduleHostMounted(true);
+    const warmSchedulePrimeChain = useCallback(() => {
         void loadScheduleHubLoader().then((m) => {
-            m.prefetchScheduleTabHostModule();
             m.prefetchScheduleHubModule();
         });
         queueMicrotask(() => {
@@ -62,10 +65,16 @@ export function useLawyerDashboardScheduleTab({
         });
     }, []);
 
+    const armScheduleHost = useCallback(() => {
+        setScheduleHostMounted(true);
+        warmSchedulePrimeChain();
+    }, [warmSchedulePrimeChain]);
+
+    /** لمسة البلاطة: تسخين بلا تركيب Host حتى فتح التبويب */
     const primeScheduleTabMount = useCallback(() => {
         void loadScheduleIntentWarm().then((m) => m.warmScheduleOnHover(userId ?? undefined));
-        armScheduleHost();
-    }, [armScheduleHost, userId]);
+        warmSchedulePrimeChain();
+    }, [userId, warmSchedulePrimeChain]);
 
     useEffect(() => {
         let disposed = false;
@@ -96,15 +105,19 @@ export function useLawyerDashboardScheduleTab({
         };
     }, [userId]);
 
-    /** ركّب Host مخفياً فور وجود هوية — قبل أول لمسة تقويم (مثل الإعدادات/المعاملات) */
-    useLayoutEffect(() => {
-        if (!isRealSignedIn(userId)) return;
-        armScheduleHost();
-        void loadScheduleIntentWarm().then((m) => m.warmScheduleOnHover(userId));
-        void loadScheduleHubLoader()
-            .then((m) => m.loadScheduleHubModule())
-            .catch(() => undefined);
-    }, [armScheduleHost, userId]);
+    /**
+     * بعد استقرار المحتوى: تسخين المقطع فقط — بلا تركيب Host حتى اللمسة أو فتح التبويب.
+     * التركيب المبكر كان يسحب ~١٧٦٥ ك.ب إلى مسار الإقلاع.
+     */
+    useEffect(() => {
+        if (!hasLocalAppSession(userId)) return;
+        return onBootContentReady(() => {
+            void loadScheduleIntentWarm().then((m) => m.warmScheduleOnHover(userId));
+            void loadScheduleHubLoader()
+                .then((m) => m.prefetchScheduleHubModule())
+                .catch(() => undefined);
+        });
+    }, [userId]);
 
     useKeepAliveIdleRelease(
         activeTab === 'schedule',
@@ -114,7 +127,7 @@ export function useLawyerDashboardScheduleTab({
 
     /** جلسة تقويم مفتوحة بلا هوية — ارجع للرئيسية وامسح الـ host (C2) */
     useEffect(() => {
-        if (isRealSignedIn(userId)) return;
+        if (hasLocalAppSession(userId)) return;
         setCalendarSearchFocus(null);
         setScheduleHostMounted(false);
         if (activeTab === 'schedule') {
@@ -173,15 +186,17 @@ export function useLawyerDashboardScheduleTab({
             snapScheduleShellOpen();
             return;
         }
-        if (isScheduleShellSnappedOpen()) {
-            snapScheduleShellClose();
-        }
+        /* لا تُغلق فوراً — تسليم stub→live يمر بـ activeTab=home والستارة مفتوحة */
+        return deferShellConcealAfterHandoff(() => {
+            if (isShellHandoffPending('schedule')) return;
+            if (isScheduleShellSnappedOpen()) snapScheduleShellClose();
+        });
     }, [activeTab]);
 
     const openScheduleTab = useCallback(
         (opts?: OpenScheduleTabOptions) => {
             openScheduleFromShell({
-                signedIn: isRealSignedIn(userId),
+                signedIn: hasLocalAppSession(userId),
                 onSignedOut: () =>
                     SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${SCHEDULE_SHELL_FEATURE}`),
                 onOpenCalendar: () => {

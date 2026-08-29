@@ -1,4 +1,5 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { readSecureOrDrainLegacySync, writeSecureAndClearLegacySync } from '@/app/services/storage/readSecureOrDrainLegacySync';
 import {
     executionDecisionsNamespaceStorageKey,
     isExecutorDecisionsStorageKey,
@@ -40,7 +41,7 @@ export function patchExecutorDecisionRowInStorage(input: {
 
         const slug = resolveDecisionRowNamespaceSlug(targetRow, executionData, input.executionId);
         const bucketKey = executionDecisionsNamespaceStorageKey(input.executionId, slug);
-        const bucketRows = parseStoredDecisionsArray(SecureStoreService.getItemSync(bucketKey));
+        const bucketRows = parseStoredDecisionsArray(readSecureOrDrainLegacySync(bucketKey));
         let found = false;
         const nextBucketRows = bucketRows.map((row) => {
             if (String((row as { id?: string }).id ?? '') !== decisionId) return row;
@@ -61,7 +62,7 @@ export function patchExecutorDecisionRowInStorage(input: {
             return true;
         }
 
-        SecureStoreService.setItemSync(bucketKey, JSON.stringify(nextBucketRows));
+        writeSecureAndClearLegacySync(bucketKey, JSON.stringify(nextBucketRows));
         input.onReload?.();
         return true;
     } catch {
@@ -90,7 +91,7 @@ export function patchExecutorDecisionRowEverywhereInStorage(input: {
             if (!key || !isExecutorDecisionsStorageKey(key)) continue;
             if (scopePrefix && !key.startsWith(scopePrefix)) continue;
 
-            const rows = parseStoredDecisionsArray(SecureStoreService.getItemSync(key));
+            const rows = parseStoredDecisionsArray(readSecureOrDrainLegacySync(key));
             if (rows.length === 0) continue;
 
             let changed = false;
@@ -101,7 +102,7 @@ export function patchExecutorDecisionRowEverywhereInStorage(input: {
             });
 
             if (!changed) continue;
-            SecureStoreService.setItemSync(key, JSON.stringify(nextRows));
+            writeSecureAndClearLegacySync(key, JSON.stringify(nextRows));
             patchedKeys += 1;
         }
 

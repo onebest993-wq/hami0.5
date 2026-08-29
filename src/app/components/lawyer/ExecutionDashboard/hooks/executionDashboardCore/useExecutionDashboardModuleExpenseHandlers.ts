@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C — مصاريف الوحدات (إزالة تجاوز / تسليم شيء معين) */
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';

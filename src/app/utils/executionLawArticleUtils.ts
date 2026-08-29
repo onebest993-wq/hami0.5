@@ -1,5 +1,5 @@
 import type { ExecutionLawArticle } from '@/data/executionLaws';
-import { normalizeLawSearchText } from '@/data/executionLaws';
+import { normalizeLawSearchText } from '@/data/executionLawSearchNormalize';
 
 export function escapeRegExp(s: string): string {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

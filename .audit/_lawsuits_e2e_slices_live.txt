@@ -1,0 +1,82 @@
+﻿batch-A start 2026-08-25T12:29:47.0198904+03:00
+=== proc-add 12:29:50 ===
+exit=0
+=== proc-survive 12:30:03 ===
+exit=0
+=== proc-toggle 12:30:17 ===
+exit=1
+=== nc-open 12:31:27 ===
+exit=0
+=== nc-civil 12:31:36 ===
+exit=0
+=== nc-ps-kw 12:32:17 ===
+exit=1
+=== nc-ps-create 12:33:46 ===
+exit=1
+=== life-trash 12:36:10 ===
+exit=0
+=== life-archive 12:36:23 ===
+exit=0
+=== life-delete 12:37:31 ===
+exit=1
+=== criminal-all 12:37:58 ===
+exit=0
+batch-A done fail=4 2026-08-25T12:38:32.6659365+03:00
+
+batch-B start 2026-08-25T12:42:32.7681654+03:00
+=== proc-toggle 12:42:36 ===
+exit=0
+=== nc-ps-kw 12:45:21 ===
+exit=0
+=== nc-ps-create 12:46:32 ===
+exit=0
+=== life-delete 12:48:56 ===
+exit=1
+=== sc-high-claim 12:49:33 ===
+exit=0
+=== sc-fixed-fee 12:51:46 ===
+exit=1
+=== sc-appeal-roles 12:55:01 ===
+exit=1
+=== sc-blocked-ps 12:57:12 ===
+exit=0
+=== sc-no-client 12:58:53 ===
+exit=0
+=== sc-interpleader-ui 13:00:23 ===
+exit=1
+=== sc-persist-high 13:01:38 ===
+exit=0
+=== sc-persist-inter 13:04:04 ===
+exit=1
+=== sc-persist-undetermined 13:04:57 ===
+exit=1
+=== sc-filter 13:06:45 ===
+exit=-1
+=== sc-eviction 13:07:40 ===
+exit=1
+=== sc-one-client 13:09:37 ===
+exit=1
+=== sc-affiliative 13:10:42 ===
+exit=1
+=== sc-retrial-hides 13:10:51 ===
+exit=1
+=== sc-absent 13:12:07 ===
+exit=0
+=== sc-extra-req 13:12:58 ===
+exit=1
+=== sc-retrial-create 13:18:01 ===
+exit=1
+=== sc-appeal-route 13:18:17 ===
+exit=1
+batch-B done fail=14 2026-08-25T13:19:53.5656279+03:00
+
+batch-C vite8080 start 2026-08-25T13:21:41.9644665+03:00
+C1 exit=0
+C2 exit=0
+C3 exit=0
+batch-C done 2026-08-25T13:36:52.4275148+03:00 c1=0 c2=0 c3=0
+
+full-8080 start 2026-08-25T13:44:58.4282152+03:00
+G1 exit=0
+G2 exit=0
+full-8080 done 2026-08-25T13:51:09.5613350+03:00 g1=0 g2=0

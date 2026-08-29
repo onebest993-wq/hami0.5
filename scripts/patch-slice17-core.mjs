@@ -209,11 +209,11 @@ if (!core.includes('const notesTasksHandlers = useExecutionDashboardNotesTasksHa
 // --- remove inline hasApprovedCollectionDecision ---
 core = core.replace(
     `    const hasApprovedCollectionDecision = useMemo(() => {
-        if (!Array.isArray(executionCopilotDecisions)) return false;
-        return executionCopilotDecisions.some(
+        if (!Array.isArray(executorDecisions)) return false;
+        return executorDecisions.some(
             (r: any) => r?.requestKind === 'unified_collection' && r?.executorOutcome === 'approved'
         );
-    }, [executionCopilotDecisions]);
+    }, [executorDecisions]);
 
 `,
     '',

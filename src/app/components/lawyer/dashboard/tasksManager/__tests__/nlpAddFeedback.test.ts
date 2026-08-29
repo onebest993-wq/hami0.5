@@ -1,26 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildNlpAddFeedback } from '@/app/components/lawyer/dashboard/tasksManager/nlpAddFeedback';
-import type { LegalTask } from '@/app/types/TaskEngine';
 import { startOfLocalDay } from '@/app/utils/nlpParser';
+import { legalTaskStub } from '@/app/services/tasks/__tests__/legalTaskStub';
 
-function task(partial: Partial<LegalTask> & Pick<LegalTask, 'title'>): LegalTask {
-    return {
-        id: 't1',
-        rawText: partial.title,
-        title: partial.title,
-        location: partial.location ?? null,
-        parsedDate: partial.parsedDate ?? null,
-        reminderAt: null,
-        isFatalDeadline: partial.isFatalDeadline ?? false,
-        linkedCaseId: partial.linkedCaseId ?? null,
-        status: 'pending',
-        completedAt: null,
-        pinnedToFieldCurtain: false,
-        fieldCurtainPinnedAt: null,
-        subTasks: [],
-        documentRequirements: [],
-        expenses: [],
-    };
+function task(partial: Parameters<typeof legalTaskStub>[0] & { title: string }) {
+    return legalTaskStub({ id: 't1', ...partial });
 }
 
 describe('buildNlpAddFeedback', () => {

@@ -18,16 +18,6 @@ let criminalStorePrefetch: Promise<unknown> | null = null;
 
 
 
-export function resetCriminalDashboardModuleCache(): void {
-
-    criminalModulePromise = null;
-
-    criminalStorePrefetch = null;
-
-}
-
-
-
 function prefetchCriminalStore(): Promise<unknown> {
 
     if (!criminalStorePrefetch) {
@@ -87,6 +77,10 @@ function createCriminalModuleImport(): Promise<CriminalDashboardModule> {
     const dashboardImport = import('@/app/components/lawyer/criminal-system/CriminalDashboard');
 
     const storeImport = prefetchCriminalStore();
+
+    void import('@/app/runtime/deferredFeatureStyles')
+        .then((m) => m.ensureDeferredCriminalDossierStylesLoaded())
+        .catch(() => undefined);
 
     return Promise.all([storeImport, dashboardImport])
 
@@ -184,32 +178,6 @@ export function prefetchCriminalDashboardChromeWarm(): void {
 
 
 
-/**
-
- * تسخين محركات ثقيلة بعد ظهور القشرة / عند نية التبويب —
-
- * لا يُستدعى من idle الـ store قبل أول فتح.
-
- */
-
-export function prefetchCriminalHeavyEnginesOnIntent(): void {
-
-    if (typeof window === 'undefined') return;
-
-    void import('@/app/components/lawyer/criminal-system/trialSessionsEngine').catch(() => undefined);
-
-    void import('@/app/components/lawyer/criminal-system/cassationEngine').catch(() => undefined);
-
-    void import('@/app/components/lawyer/criminal-system/proceduralContainersEngine').catch(
-
-        () => undefined,
-
-    );
-
-}
-
-
-
 if (import.meta.hot) {
 
     import.meta.hot.dispose(() => {
@@ -221,5 +189,3 @@ if (import.meta.hot) {
     });
 
 }
-
-

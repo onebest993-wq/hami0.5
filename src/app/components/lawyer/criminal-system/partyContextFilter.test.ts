@@ -10,6 +10,8 @@ describe('partyContextFilter', () => {
     it('detects deceased by status and personalStage', () => {
         expect(isPartyDeceased({ status: 'متوفى' })).toBe(true);
         expect(isPartyDeceased({ personalStage: 'lawsuit_dropped_death' })).toBe(true);
+        expect(isPartyDeceased({ accusedStatus: 'متوفى' })).toBe(true);
+        expect(isPartyDeceased({ accusedPersonalStage: 'lawsuit_dropped_death' })).toBe(true);
         expect(isPartyDeceased({ status: 'موقوف' })).toBe(false);
     });
 

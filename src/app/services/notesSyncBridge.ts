@@ -1,4 +1,8 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 import type { Note } from '@/app/data/NotesVault';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 
@@ -10,7 +14,7 @@ const syncMapKey = (userId: string) => `hami_notes_sync_map_${userId}`;
 
 export function loadSyncMap(userId: string): NotesSyncMap {
     try {
-        const raw = SecureStoreService.getItemSync(syncMapKey(userId));
+        const raw = readSecureOrDrainLegacySync(syncMapKey(userId));
         if (!raw) return {};
         const parsed: unknown = JSON.parse(raw);
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
@@ -22,9 +26,10 @@ export function loadSyncMap(userId: string): NotesSyncMap {
 
 export function saveSyncMap(userId: string, map: NotesSyncMap): void {
     const serialized = JSON.stringify(map);
+    const key = syncMapKey(userId);
     if (serialized === '{}' || serialized === 'null') {
         try {
-            const existing = SecureStoreService.getItemSync(syncMapKey(userId));
+            const existing = readSecureOrDrainLegacySync(key);
             if (existing && existing.trim() !== '' && existing !== '{}' && existing !== 'null') {
                 return;
             }
@@ -32,7 +37,8 @@ export function saveSyncMap(userId: string, map: NotesSyncMap): void {
             /* ignore */
         }
     }
-    SecureStoreService.setItemSync(syncMapKey(userId), serialized);
+    SecureStoreService.setItemSync(key, serialized);
+    clearLegacyPlaintextMirror(key);
 }
 
 export function emitVaultNotesChanged(): void {

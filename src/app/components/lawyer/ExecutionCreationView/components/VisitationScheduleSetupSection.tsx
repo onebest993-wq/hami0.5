@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Clock, MapPin } from '@/app/components/ui/lucideIcons';
+import { Clock } from '@/app/components/ui/icons/Clock';
+import { MapPin } from '@/app/components/ui/icons/MapPin';
 import type { VisitationDecisionMode, VisitationScheduleConfig } from '@/app/types/visitationSchedule';import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import {
     ARABIC_WEEKDAY_LABELS,

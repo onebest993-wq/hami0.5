@@ -19,12 +19,12 @@ describe('LawyerBootShell splash freeze', () => {
         window.__hamiBootRevealDone__ = undefined;
     });
 
-    it('يعرض شعار الإقلاع قبل اكتمال الجلسة', () => {
+    it('يعرض طبقة الإقلاع قبل اكتمال الجلسة', () => {
         render(<LawyerBootShell />);
         expect(screen.getByTestId('lawyer-boot-shell')).toBeInTheDocument();
     });
 
-    it('بعد hami_boot_complete لا يعيد الشعار — canvas مجمّد فقط', () => {
+    it('بعد hami_boot_complete لا يعيد الطبقة — canvas مجمّد فقط', () => {
         markBootRevealDone();
         render(<LawyerBootShell />);
         expect(screen.queryByTestId('lawyer-boot-shell')).not.toBeInTheDocument();

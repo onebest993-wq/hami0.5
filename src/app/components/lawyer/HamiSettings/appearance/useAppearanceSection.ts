@@ -3,23 +3,12 @@ import {
     useLawyerSettingsHomeLayout,
     useLawyerSettingsPerformance,
 } from '@/app/context/LawyerSettingsContext';
+import { resolveLawyerSurfaceBaseColor } from '@/app/services/settings';
 import type { ThemeKey } from '@/app/types/common';
 import { useSettingsPatches } from '../hooks/useSettingsPatches';
-import {
-    APPEARANCE_THEME_KEYS,
-    THEME_COLLAPSED_COUNT,
-    PATTERN_COLLAPSED_COUNT,
-} from './appearanceConstants';
 import { useAppearanceThemeControls } from './useAppearanceThemeControls';
 import { useAppearanceWallpaperControls } from './useAppearanceWallpaperControls';
-import { useAppearancePatternControls } from './useAppearancePatternControls';
 import { useAppearanceBlockCustomize } from './useAppearanceBlockCustomize';
-
-export {
-    APPEARANCE_THEME_KEYS,
-    THEME_COLLAPSED_COUNT,
-    PATTERN_COLLAPSED_COUNT,
-} from './appearanceConstants';
 
 export function useAppearanceSection() {
     const appearance = useLawyerSettingsAppearance();
@@ -30,13 +19,6 @@ export function useAppearanceSection() {
 
     const theme = useAppearanceThemeControls(appearance, patchAppearance);
     const wallpaper = useAppearanceWallpaperControls(appearance, patchAppearance);
-    const pattern = useAppearancePatternControls(
-        appearance,
-        patchAppearance,
-        wallpaper,
-        theme.activeThemeKey,
-        theme.themeToken,
-    );
 
     const selectTheme = (key: ThemeKey) => {
         theme.selectTheme(key);
@@ -55,7 +37,6 @@ export function useAppearanceSection() {
         activeTheme: appearance.theme,
         activeThemeKey: theme.activeThemeKey,
         activeThemeToken: theme.activeThemeToken,
-        themeToken: theme.themeToken,
         visibleThemeKeys: theme.visibleThemeKeys,
         hiddenThemeCount: theme.hiddenThemeCount,
         selectTheme,
@@ -67,7 +48,7 @@ export function useAppearanceSection() {
         removeWallpaper: wallpaper.removeWallpaper,
         patchAppearance,
         patchPerformance,
-        previewBaseColor: pattern.previewBaseColor,
+        previewBaseColor: resolveLawyerSurfaceBaseColor(theme.activeThemeKey, 'dark', false),
     };
 }
 

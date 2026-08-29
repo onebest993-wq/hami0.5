@@ -13,23 +13,39 @@ vi.mock('@/app/runtime/nativeCapacitorPluginRegistry', () => ({
     loadBiometricAuthPlugin: (...args: unknown[]) => loadBiometricAuthPlugin(...args),
 }));
 
+vi.mock('@/app/runtime/nativeBiometricEnrollmentStore', () => ({
+    hasNativeBiometricEnrollment: vi.fn(() => false),
+    markNativeBiometricEnrolled: vi.fn(),
+    clearNativeBiometricEnrollment: vi.fn(),
+}));
+
+vi.mock('@/app/runtime/nativeBridgeReady', () => ({
+    whenNativeBridgeReady: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('@/app/runtime/privacyBlurRuntime', () => ({
+    dismissNativePrivacyShieldImmediately: vi.fn(),
+}));
+
+vi.mock('@/app/runtime/nativeSensitivePrompt', () => ({
+    withNativeSensitivePrompt: async (fn: () => Promise<unknown>) => fn(),
+    isNativeSensitivePromptActive: () => false,
+}));
+
 vi.mock('@/app/runtime/biometricNative', () => ({
     callBiometricNative: (...args: unknown[]) => callBiometricNative(...args),
     withReadyBiometricPlugin: (...args: unknown[]) => withReadyBiometricPlugin(...args),
 }));
 
 import {
-    clearNativeBiometricEnrollment,
-    hasNativeBiometricEnrollment,
     probeNativeBiometricAvailability,
     registerNativeBiometric,
 } from '@/app/runtime/nativeBiometricBridge';
+import { markNativeBiometricEnrolled } from '@/app/runtime/nativeBiometricEnrollmentStore';
 
 describe('nativeBiometricBridge', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        localStorage.clear();
-        clearNativeBiometricEnrollment();
         isCapacitorNativePlatform.mockReturnValue(false);
         callBiometricNative.mockImplementation(async (fn: (plugin: unknown) => unknown) => {
             const plugin = await loadBiometricAuthPlugin();
@@ -49,6 +65,7 @@ describe('nativeBiometricBridge', () => {
             nativeShell: false,
             pluginLoaded: false,
             hardwareAvailable: false,
+            strongBiometryAvailable: false,
         });
     });
 
@@ -60,6 +77,7 @@ describe('nativeBiometricBridge', () => {
             nativeShell: true,
             pluginLoaded: false,
             hardwareAvailable: false,
+            strongBiometryAvailable: false,
         });
     });
 
@@ -74,6 +92,22 @@ describe('nativeBiometricBridge', () => {
             nativeShell: true,
             pluginLoaded: true,
             hardwareAvailable: true,
+            strongBiometryAvailable: false,
+        });
+    });
+
+    it('يفضّل Class 3 عندما يعلن الجهاز توفّره', async () => {
+        isCapacitorNativePlatform.mockReturnValue(true);
+        loadBiometricAuthPlugin.mockResolvedValue({
+            checkBiometry: vi.fn().mockResolvedValue({ isAvailable: true, strongBiometryIsAvailable: true }),
+            authenticate: vi.fn(),
+        });
+
+        await expect(probeNativeBiometricAvailability()).resolves.toEqual({
+            nativeShell: true,
+            pluginLoaded: true,
+            hardwareAvailable: true,
+            strongBiometryAvailable: true,
         });
     });
 
@@ -81,12 +115,14 @@ describe('nativeBiometricBridge', () => {
         isCapacitorNativePlatform.mockReturnValue(true);
         const authenticate = vi.fn().mockResolvedValue(undefined);
         loadBiometricAuthPlugin.mockResolvedValue({
-            checkBiometry: vi.fn().mockResolvedValue({ isAvailable: true }),
+            checkBiometry: vi.fn().mockResolvedValue({ isAvailable: true, strongBiometryIsAvailable: true }),
             authenticate,
         });
 
         await expect(registerNativeBiometric()).resolves.toBe(true);
-        expect(authenticate).toHaveBeenCalled();
-        expect(hasNativeBiometricEnrollment()).toBe(true);
+        expect(authenticate).toHaveBeenCalledWith(
+            expect.objectContaining({ androidBiometryStrength: 1 }),
+        );
+        expect(markNativeBiometricEnrolled).toHaveBeenCalledWith(true);
     });
 });

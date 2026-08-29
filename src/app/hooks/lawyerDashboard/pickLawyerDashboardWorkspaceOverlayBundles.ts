@@ -1,4 +1,4 @@
-﻿import type {
+import type {
     LawyerDashboardArchiveBundle,
     LawyerDashboardDossierBundle,
     LawyerDashboardExecutionCreateBundle,
@@ -25,6 +25,11 @@ export function pickLawyerDashboardDossierBundle(workspace: Workspace): LawyerDa
         consolidationNavActive,
         caseLinkNav,
         consolidationSpawnNav,
+        caseLinkBrowse,
+        caseLinkViewOnly,
+        returnFromCaseLinkBrowse,
+        clearCaseLinkBrowse,
+        handleUnlinkCaseLink,
     } = workspace;
 
     return {
@@ -42,6 +47,11 @@ export function pickLawyerDashboardDossierBundle(workspace: Workspace): LawyerDa
         consolidationNavActive,
         caseLinkNav,
         consolidationSpawnNav,
+        caseLinkBrowse,
+        caseLinkViewOnly,
+        returnFromCaseLinkBrowse,
+        clearCaseLinkBrowse,
+        handleUnlinkCaseLink,
     };
 }
 

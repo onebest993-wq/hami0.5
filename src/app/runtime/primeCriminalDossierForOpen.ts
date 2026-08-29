@@ -5,19 +5,24 @@
  * 3) تحميل chunk اللوحة حتى لا يظهر BootChrome في الـ Portal
  */
 
+import { injectCriminalCaseIntoMap } from '@/app/utils/criminalCaseStoreInject';
+import { isCriminalCaseCardIndexStub } from '@/app/utils/criminalCaseCardIndex';
+
 const HYDRATE_WAIT_MS = 2_500;
 /** ميزانية تهيئة خلفية بعد commit البوابة — لا تحجب النقرة */
 const PRIME_BUDGET_MS = 2_000;
 
-function casePresentInMap(
-    casesById: Record<string, { id?: string } | undefined>,
+function findCaseInMap(
+    casesById: Record<string, unknown>,
     caseId: string,
-): boolean {
-    if (casesById[caseId]) return true;
+): unknown | null {
+    if (casesById[caseId] != null) return casesById[caseId];
     for (const row of Object.values(casesById)) {
-        if (row && String(row.id ?? '').trim() === caseId) return true;
+        if (row && typeof row === 'object' && String((row as { id?: unknown }).id ?? '').trim() === caseId) {
+            return row;
+        }
     }
-    return false;
+    return null;
 }
 
 function waitForCriminalStoreHydration(
@@ -60,25 +65,25 @@ function waitForCriminalStoreHydration(
     });
 }
 
-function injectCaseIntoStore(
+/**
+ * Inject into casesById with stub/full policy:
+ * card-index stubs are display-only (marked) and must not overwrite a full case;
+ * a later full shard load upgrades the stub. Persist skips stub shard writes.
+ */
+export function injectCaseIntoStore(
     useCriminalStore: {
         getState: () => { casesById?: Record<string, unknown> };
         setState: (partial: { casesById: Record<string, unknown> }) => void;
     },
     caseId: string,
     row: { id?: string } & Record<string, unknown>,
-): void {
+    options?: { fromCardIndex?: boolean },
+): boolean {
     const live = (useCriminalStore.getState().casesById ?? {}) as Record<string, unknown>;
-    if (casePresentInMap(live as Record<string, { id?: string } | undefined>, caseId)) return;
-    const recordId = String(row.id ?? caseId).trim() || caseId;
-    const record = { ...row, id: recordId };
-    useCriminalStore.setState({
-        casesById: {
-            ...live,
-            [caseId]: record,
-            ...(recordId !== caseId ? { [recordId]: record } : {}),
-        },
-    });
+    const { next, injected } = injectCriminalCaseIntoMap(live, caseId, row, options);
+    if (!injected) return false;
+    useCriminalStore.setState({ casesById: next });
+    return true;
 }
 
 /**
@@ -102,13 +107,17 @@ export async function primeCriminalDossierForOpen(caseId: string): Promise<void>
             const useCriminalStore = storeMod.useCriminalStore;
             await waitForCriminalStoreHydration(useCriminalStore, HYDRATE_WAIT_MS);
 
-            if (casePresentInMap(useCriminalStore.getState().casesById ?? {}, trimmed)) {
+            const liveMap = (useCriminalStore.getState().casesById ?? {}) as Record<string, unknown>;
+            const existing = findCaseInMap(liveMap, trimmed);
+            const existingIsFull = existing != null && !isCriminalCaseCardIndexStub(existing);
+            if (existingIsFull) {
                 return;
             }
 
             let row =
                 storage.loadCriminalCaseRecordByIdSync(trimmed) ??
                 (await storage.loadCriminalCaseRecordByIdAsync(trimmed).catch(() => null));
+            let fromCardIndex = false;
 
             if (!row) {
                 const indexHit = storage
@@ -116,6 +125,7 @@ export async function primeCriminalDossierForOpen(caseId: string): Promise<void>
                     .find((entry) => String(entry.id ?? '').trim() === trimmed);
                 if (indexHit) {
                     row = indexHit as unknown as typeof row;
+                    fromCardIndex = true;
                 }
             }
 
@@ -127,10 +137,11 @@ export async function primeCriminalDossierForOpen(caseId: string): Promise<void>
                     },
                     trimmed,
                     row as { id?: string } & Record<string, unknown>,
+                    { fromCardIndex },
                 );
             }
 
-            // ترقية خلفية إن كان الحقن من فهرس خفيف فقط
+            // ترقية خلفية إن كان الحقن من فهرس خفيف فقط (يستبدل الـ stub بالسجل الكامل)
             void storage.loadCriminalCaseRecordByIdAsync(trimmed).then((full) => {
                 if (!full) return;
                 injectCaseIntoStore(
@@ -140,6 +151,7 @@ export async function primeCriminalDossierForOpen(caseId: string): Promise<void>
                     },
                     trimmed,
                     full as { id?: string } & Record<string, unknown>,
+                    { fromCardIndex: false },
                 );
             });
         })().catch(() => undefined);

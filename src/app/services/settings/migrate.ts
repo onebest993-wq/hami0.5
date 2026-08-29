@@ -19,7 +19,6 @@ import type { AppSettingsState } from './types';
 import { SETTINGS_SCHEMA_VERSION } from './types';
 import { normalizeHomeLayout } from './homeLayout';
 import { normalizeLitePerformanceMode } from '@/app/runtime/devicePerformanceTier';
-import { normalizeFontPreset, normalizeFontSizePx } from './nav';
 import { normalizeNotificationSettings } from './notificationSettings';
 
 
@@ -139,8 +138,8 @@ function normalizeAppSettings(merged: AppSettingsState): AppSettingsState {
             cardTheme: themeTargets.cardTheme,
             patternTheme: themeTargets.patternTheme,
             wallpaperStamp: merged.appearance.wallpaperStamp,
-            fontSize: normalizeFontSizePx(merged.appearance.fontSize),
-            fontPreset: normalizeFontPreset(merged.appearance.fontPreset, merged.appearance.fontSize),
+            fontSize: LAWYER_SETTINGS_V2_DEFAULTS.appearance.fontSize,
+            fontPreset: LAWYER_SETTINGS_V2_DEFAULTS.appearance.fontPreset,
         },
 
         security: {
@@ -148,10 +147,19 @@ function normalizeAppSettings(merged: AppSettingsState): AppSettingsState {
             ...merged.security,
 
             localOnlyMode: merged.security.localOnlyMode === true,
+            privacyBlur: LAWYER_SETTINGS_V2_DEFAULTS.security.privacyBlur,
 
         },
 
-        data: { ...merged.data },
+        data: merged.security.localOnlyMode
+            ? {
+                  ...merged.data,
+                  cloudSync: false,
+                  syncNotes: false,
+                  syncFiles: false,
+                  syncExecution: false,
+              }
+            : { ...merged.data },
 
         performance: {
             ...merged.performance,
@@ -216,12 +224,8 @@ export function migrateLawyerSettings(
 
                 language: obj.language ?? LAWYER_SETTINGS_V2_DEFAULTS.appearance.language,
 
-                fontSize: normalizeFontSizePx(obj.fontSize ?? LAWYER_SETTINGS_V2_DEFAULTS.appearance.fontSize),
-                fontPreset: normalizeFontPreset(
-                    (obj.appearance as AppSettingsState['appearance'] | undefined)?.fontPreset ??
-                        LAWYER_SETTINGS_V2_DEFAULTS.appearance.fontPreset,
-                    obj.fontSize ?? LAWYER_SETTINGS_V2_DEFAULTS.appearance.fontSize,
-                ),
+                fontSize: LAWYER_SETTINGS_V2_DEFAULTS.appearance.fontSize,
+                fontPreset: LAWYER_SETTINGS_V2_DEFAULTS.appearance.fontPreset,
 
                 glassOpacity: normalizeGlassOpacity(obj.glassOpacity ?? LAWYER_SETTINGS_V2_DEFAULTS.appearance.glassOpacity),
 
@@ -241,7 +245,7 @@ export function migrateLawyerSettings(
 
                 ...LAWYER_SETTINGS_V2_DEFAULTS.security,
 
-                privacyBlur: obj.privacyBlur ?? LAWYER_SETTINGS_V2_DEFAULTS.security.privacyBlur,
+                privacyBlur: LAWYER_SETTINGS_V2_DEFAULTS.security.privacyBlur,
 
                 biometricLock: obj.biometric ?? LAWYER_SETTINGS_V2_DEFAULTS.security.biometricLock,
 

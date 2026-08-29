@@ -1,6 +1,7 @@
 import { requireWifeUser, unwrapWifeUser } from '@/app/api/security/bffAuth';
 import { getSupabaseAdminClient } from '@/app/api/security/supabaseAdminClient';
 import { wifeJsonResponse } from '@/app/api/security/wifeSecurityHeaders';
+import { emptyUuidScopedRows } from '@/app/api/security/postgresUuidSubject';
 
 export const runtime = 'nodejs';
 
@@ -11,6 +12,8 @@ export async function GET(request: Request): Promise<Response> {
     const authGate = unwrapWifeUser(await requireWifeUser(request));
     if ('response' in authGate) return authGate.response;
     const { userId } = authGate;
+    const empty = emptyUuidScopedRows(userId);
+    if (empty) return empty;
 
     const admin = getSupabaseAdminClient();
     if (!admin) {

@@ -1,10 +1,12 @@
 import React from 'react';
-import { Plus, UserCheck, X } from '@/app/components/ui/lucideIcons';
+import { Plus } from '@/app/components/ui/icons/Plus';
+import { UserCheck } from '@/app/components/ui/icons/UserCheck';
+import { X } from '@/app/components/ui/icons/X';
 import type { ThirdParty } from '../LawyerNewCase/types';
 import { buildThirdPartyRoleLabel } from '../LawyerNewCase/clientRepresentation';
 import { PersonalSectionShell } from './PersonalStatusFormPrimitives';
 
-export interface PersonalStatusThirdPartiesPanelProps {
+interface PersonalStatusThirdPartiesPanelProps {
     thirdParties: ThirdParty[];
     onAdd: () => void;
     onRemove: (id: number) => void;
@@ -37,7 +39,7 @@ export function PersonalStatusThirdPartiesPanel({
                                     <button
                                         type="button"
                                         onClick={() => onUpdate(tp.id, 'isClient', !tp.isClient)}
-                                        className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[9px] font-bold border touch-manipulation ${
+                                        className={`inline-flex min-h-[44px] items-center gap-1 rounded-lg px-2 py-1 text-[9px] font-bold border touch-manipulation ${
                                             tp.isClient
                                                 ? 'border-[#E6C673]/45 bg-[#E6C673]/12 text-[#E6C673]'
                                                 : 'border-white/12 text-white/40'
@@ -48,7 +50,7 @@ export function PersonalStatusThirdPartiesPanel({
                                     <button
                                         type="button"
                                         onClick={() => onRemove(tp.id)}
-                                        className="w-8 h-8 rounded-lg border border-rose-400/20 bg-rose-500/10 text-rose-300 flex items-center justify-center hover:bg-rose-500/20 transition-colors touch-manipulation"
+                                        className="min-h-[44px] min-w-[44px] h-11 w-11 rounded-lg border border-rose-400/20 bg-rose-500/10 text-rose-300 flex items-center justify-center hover:bg-rose-500/20 transition-colors touch-manipulation"
                                         aria-label="إزالة"
                                     >
                                         <X size={12} />
@@ -68,7 +70,7 @@ export function PersonalStatusThirdPartiesPanel({
             <button
                 type="button"
                 onClick={onAdd}
-                className="w-full py-3 rounded-xl border border-white/10 bg-white/[0.03] text-white/70 text-xs font-bold flex items-center justify-center gap-2 hover:border-[#E6C673]/25 hover:text-[#E6C673]/85 transition-colors touch-manipulation"
+                className="w-full min-h-[44px] py-3 rounded-xl border border-white/10 bg-white/[0.03] text-white/70 text-xs font-bold flex items-center justify-center gap-2 hover:border-[#E6C673]/25 hover:text-[#E6C673]/85 transition-colors touch-manipulation"
             >
                 <Plus size={16} /> إضافة شخص ثالث
             </button>

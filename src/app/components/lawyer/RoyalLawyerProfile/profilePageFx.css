@@ -2,7 +2,9 @@
 @import './profilePageMaterialFx.css';
 @import './profilePageHeroFx.css';
 @import './profilePageSectionFx.css';
-@import './profilePageBlockFx.css';
 @import './profilePortraitFrameFx.css';
-/* Android banding — مع الملف لا على deferred-app البارد */
-@import './lawyerProfileFx-android.css';
+/*
+ * كتل الصفحة (profilePageBlockFx) مع ProfileCustomBlocks — ليست جزءاً من أول طلاء
+ * للصفحة الفارغة (هيرو + سكة + قنوات + معرض). تُحمَّل مع الشجرة إن وُجدت كتل.
+ * Android banding: profileAndroidFxLoader — Capacitor Android فقط (لا وزن ويب)
+ */

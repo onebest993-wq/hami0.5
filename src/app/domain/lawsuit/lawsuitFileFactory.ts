@@ -1,7 +1,10 @@
-import type { FileData, Party, TimelineEvent } from '@/app/components/lawyer/LawyerShared';
-import type { CaseType } from '@/app/components/lawyer/LawyerShared';
+import type { FileData } from './lawsuitFileTypes';
+import type { CaseType, Party } from '@/app/components/lawyer/lawyerShared/fileDataTypes';
+import type { TimelineEvent } from '@/app/components/lawyer/lawyerShared/stageTimelineTypes';
+import { FIRST_HEARING_TIMELINE_APPT_ID } from './firstHearingTimelineId';
 
-export const FIRST_HEARING_TIMELINE_APPT_ID = 'appt_first_hearing';
+export { FIRST_HEARING_TIMELINE_APPT_ID };
+export { allLawsuitFilesForArchive } from './lawsuitArchivePool';
 
 function buildFirstHearingTimelineEvent(date: string): TimelineEvent {
     return {
@@ -294,14 +297,4 @@ export function buildFileDataFromNewCaseSave(data: unknown): FileData | null {
     }
 
     return buildFromStructuredPayload(data);
-}
-
-/** ملفات تظهر في تبويب «الدعاوى المدنية» بمساحة العمل (النشطة فقط). */
-export function filterLawsuitWorkspaceFiles<T extends { type?: string; status?: string }>(files: T[]): T[] {
-    return files.filter((f) => f.type === 'lawsuit' && f.status !== 'deleted' && f.status !== 'archived');
-}
-
-/** كل إضابير الدعاوى لبوابة الأرشيف (نشطة + مؤرشفة + سلة). */
-export function allLawsuitFilesForArchive<T extends { type?: string }>(files: T[]): T[] {
-    return files.filter((f) => f.type === 'lawsuit');
 }

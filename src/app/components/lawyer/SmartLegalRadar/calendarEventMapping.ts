@@ -4,6 +4,7 @@ import {
     isUserAuthoredBridgedCalendarEvent,
 } from '@/app/services/calendar/calendarEventAuthorship';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
+import { unifiedCalendarEventId } from '@/app/components/lawyer/SmartLegalRadar/calendarFocusIds';
 import { resolveRadarEventDisplayMeta } from '@/app/components/lawyer/SmartLegalRadar/radarEventDisplayMeta';
 import {
     durationMinutesFromTimeRange,
@@ -31,7 +32,7 @@ function buildUnifiedEventFromCalendarRecord(e: CalendarEvent): UnifiedEvent {
         });
 
     return {
-        id: `cal_${e.id}`,
+        id: unifiedCalendarEventId(e.id),
         title: e.title,
         date: e.date,
         time: e.time,

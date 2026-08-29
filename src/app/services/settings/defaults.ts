@@ -49,3 +49,11 @@ export const LAWYER_SETTINGS_V2_DEFAULTS: AppSettingsState = {
         channels: { ...NOTIFICATION_SETTINGS_DEFAULTS.channels },
     },
 };
+
+/** نسخة مستقلة — لا تُشارك الكائنات المتداخلة مع الثابت الافتراضي */
+export function cloneLawyerSettingsV2Defaults(): AppSettingsState {
+    if (typeof structuredClone === 'function') {
+        return structuredClone(LAWYER_SETTINGS_V2_DEFAULTS);
+    }
+    return JSON.parse(JSON.stringify(LAWYER_SETTINGS_V2_DEFAULTS)) as AppSettingsState;
+}

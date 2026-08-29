@@ -2,30 +2,26 @@ import { TransactionTaskStatus, type TransactionTask } from '@/app/modules/trans
 
 export const EMPTY_TASKS: TransactionTask[] = [];
 
+/** دورة النقر على البطاقة — «معطّل» من قائمة المهمة فقط، لا من النقر */
 export const STATUS_CYCLE: TransactionTaskStatus[] = [
     TransactionTaskStatus.Pending,
     TransactionTaskStatus.InProgress,
-    TransactionTaskStatus.Blocked,
     TransactionTaskStatus.Done,
 ];
 
-export const CHILD_NEST_CLASS = 'mt-3 space-y-3 w-full border-r-2 border-[#2A4550]/50 pr-3';
+export const CHILD_NEST_CLASS = 'mt-3 space-y-3 w-full border-r-2 border-white/10 pr-3';
 
 export function emptyPathDismissKey(transactionId: string) {
     return `hami:tx:path-empty-dismiss:${transactionId}`;
 }
 
 export function nextTaskStatus(current: TransactionTaskStatus) {
+    if (current === TransactionTaskStatus.Blocked) {
+        return TransactionTaskStatus.Done;
+    }
     const idx = STATUS_CYCLE.indexOf(current);
+    if (idx < 0) return TransactionTaskStatus.Pending;
     return STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
-}
-
-/** تدوير الحالة من البطاقة دون المرور بـ Done — الإكمال عبر زر مخصّص فقط */
-export function nextActiveTaskStatus(current: TransactionTaskStatus): TransactionTaskStatus {
-    if (current === TransactionTaskStatus.Done) return TransactionTaskStatus.Pending;
-    if (current === TransactionTaskStatus.Pending) return TransactionTaskStatus.InProgress;
-    if (current === TransactionTaskStatus.InProgress) return TransactionTaskStatus.Blocked;
-    return TransactionTaskStatus.Pending;
 }
 
 export function countTaskCascade(rootId: string, tasks: TransactionTask[]) {

@@ -1,9 +1,7 @@
 import React from 'react';
-import {
-    RotateCcw,
-    Trash2,
-    X,
-} from '@/app/components/ui/lucideIcons';
+import { RotateCcw } from '@/app/components/ui/icons/RotateCcw';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
+import { X } from '@/app/components/ui/icons/X';
 import { TimelineEvent } from '../../../LawyerShared';
 
 
@@ -21,8 +19,8 @@ export const TrashModal = ({ isOpen, onClose, deletedItems, onRestore, onPermane
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 font-['Tajawal']">
-            <div className="bg-[#1A1E2E] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 font-['Tajawal']">
+            <div className="bg-[#1A1E2E] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-lg">
                 {/* Header */}
                 <div className="bg-red-500/20 border-b border-red-500/30 p-4 flex justify-between items-center">
                     <h3 className="font-bold flex items-center gap-2 text-white">
@@ -37,7 +35,7 @@ export const TrashModal = ({ isOpen, onClose, deletedItems, onRestore, onPermane
                 {/* Content */}
                 <div className="p-5 overflow-y-auto scrollbar-hide max-h-[60vh]">
                     {deletedItems.length === 0 ? (
-                        <div className="text-center py-12">
+                        <div className="text-center py-8">
                             <Trash2 size={48} className="mx-auto text-white/20 mb-3" />
                             <p className="text-white/40 text-sm">سلة المهملات فارغة</p>
                         </div>

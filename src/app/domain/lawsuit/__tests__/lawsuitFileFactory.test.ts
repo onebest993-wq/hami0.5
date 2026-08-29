@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+    allLawsuitFilesForArchive,
     buildFileDataFromNewCaseSave,
-    filterLawsuitWorkspaceFiles,
 } from '../lawsuitFileFactory';
 
-describe('filterLawsuitWorkspaceFiles', () => {
-    it('keeps active lawsuit files only', () => {
+describe('allLawsuitFilesForArchive', () => {
+    it('keeps lawsuit files across lifecycle statuses', () => {
         const files = [
             { id: 1, type: 'lawsuit', status: 'active' },
             { id: 2, type: 'lawsuit', status: 'deleted' },
             { id: 3, type: 'execution', status: 'active' },
         ];
-        expect(filterLawsuitWorkspaceFiles(files).map((f) => f.id)).toEqual([1]);
+        expect(allLawsuitFilesForArchive(files).map((f) => f.id)).toEqual([1, 2]);
     });
 });
 

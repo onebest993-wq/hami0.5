@@ -1,8 +1,13 @@
 import React, { memo } from 'react';
 
-import { motion } from 'motion/react';
+import { motion } from '@/app/motion/overlayMotionRuntime';
 
-import { X, Lock, FileText, Ban, Clock, PhoneOff } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
+import { Lock } from '@/app/components/ui/icons/Lock';
+import { FileText } from '@/app/components/ui/icons/FileText';
+import { Ban } from '@/app/components/ui/icons/Ban';
+import { Clock } from '@/app/components/ui/icons/Clock';
+import { PhoneOff } from '@/app/components/ui/icons/PhoneOff';
 
 import type { CaseShareRecord } from '@/app/services/caseShare/caseShareTypes';
 
@@ -58,6 +63,12 @@ export const SharedDossierViewer = memo(function SharedDossierViewer({
 
     const counterpart = isOwner ? share.recipientName : share.ownerName;
 
+    const recipientContentBlocked =
+        !isOwner &&
+        (ended ||
+            share.status === 'declined' ||
+            (share.status === 'accepted' && !active));
+
 
 
     return (
@@ -96,7 +107,7 @@ export const SharedDossierViewer = memo(function SharedDossierViewer({
 
                     </div>
 
-                    <button type="button" onClick={onClose} className="w-9 h-9 rounded-full bg-white/5 text-white/50 flex items-center justify-center shrink-0">
+                    <button type="button" onClick={onClose} className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full bg-white/5 text-white/50 flex items-center justify-center shrink-0 touch-manipulation" aria-label="إغلاق">
 
                         <X size={18} />
 
@@ -124,6 +135,15 @@ export const SharedDossierViewer = memo(function SharedDossierViewer({
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
+                    {recipientContentBlocked ? (
+                        <section className="rounded-xl border border-white/10 p-4 text-center">
+                            <PhoneOff size={20} className="mx-auto text-white/40 mb-2" />
+                            <p className="text-white/60 text-sm leading-relaxed">
+                                {view.narrative || 'انتهت الجلسة — لم يعد بإمكانك عرض تفاصيل الإضبارة.'}
+                            </p>
+                        </section>
+                    ) : (
+                        <>
                     <section className="rounded-xl border border-[#E6C673]/20 bg-[#E6C673]/5 px-3 py-2 flex items-center gap-2">
 
                         <Clock size={14} className="text-[#E6C673] shrink-0" />
@@ -261,6 +281,9 @@ export const SharedDossierViewer = memo(function SharedDossierViewer({
                         )}
 
                     </section>
+
+                        </>
+                    )}
 
                 </div>
 

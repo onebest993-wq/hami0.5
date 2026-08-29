@@ -1,6 +1,6 @@
 /**
  * طبقة مشتركة لطبقات الميزات الفورية — theme-color + إظهار/إخفاء DOM.
- * الإعدادات تحتفظ بمنطقها الخاص (bridge، كبح إعادة الفتح)؛ المستودع يستخدم هذه الأساسيات.
+ * الإعدادات تحتفظ بمنطقها الخاص (bridge، كبح إعادة الفتح)؛ المستودع والمنتدى يستخدمان هذه الأساسيات.
  */
 
 export type OverlayThemeChromeConfig = {
@@ -65,7 +65,7 @@ export function applyOverlayLayerVisible(
         root.style.setProperty('opacity', '1');
         root.style.setProperty('visibility', 'visible');
         root.style.setProperty('pointer-events', 'auto');
-        root.removeAttribute('aria-hidden');
+        root.setAttribute('aria-hidden', 'false');
         return;
     }
 
@@ -77,4 +77,8 @@ export function applyOverlayLayerVisible(
     root.setAttribute('aria-hidden', 'true');
 }
 
-export { markOverlaySnapClosing, executeOverlaySnapClose } from '@/app/runtime/overlaySnapClose';
+export {
+    markOverlaySnapClosing,
+    executeOverlaySnapClose,
+    executeOverlayCoveredUnfreezeClose,
+} from '@/app/runtime/overlaySnapClose';

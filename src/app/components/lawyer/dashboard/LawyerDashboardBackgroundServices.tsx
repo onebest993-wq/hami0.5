@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import type { User } from '@supabase/supabase-js';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
@@ -8,11 +7,19 @@ import { useCloudSync } from '@/app/hooks/useCloudSync';
 import { useRealtime } from '@/app/hooks/useRealtime';
 import { useAppAlerts } from '@/app/hooks/useAppAlerts';
 import { PushNotificationService } from '@/app/services/PushNotificationService';
+import { notifyNewExecution, notifyNewLawsuit } from '@/app/services/notifications/domainNotifications';
 import { debug } from '@/app/utils/debug';
 import { STORAGE_KEYS } from '@/app/utils/constants';
-import { EXECUTION_FILES_STORAGE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { resolveExecutionFilesStorageKey } from '@/app/utils/executionFilesStorage';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import { useCloudSyncStatusStore } from '@/app/services/cloudSync/cloudSyncStatusStore';
+import { canUseNetworkFeatures } from '@/app/services/auth/lawyerAccountStatus';
+import {
+    fetchAccountNetworkGate,
+    peekAccountNetworkGate,
+    subscribeAccountNetworkGate,
+} from '@/app/services/auth/accountNetworkGate';
+import { alertsHubPayloadUnchanged } from '@/app/services/alerts/homeHubAlertRevision';
 import {
     getBackgroundServicesDeferMs,
     scheduleIdleWork,
@@ -38,6 +45,7 @@ export type LawyerDashboardBackgroundServicesProps = {
     }) => void;
     onNotesSynced: (merged: unknown[]) => void;
     onLawsuitFilesSynced: (merged: FileData[]) => void;
+    onExecutionFilesSynced?: () => void;
     mergeNotesStores: (synced: unknown[]) => void;
     syncExecutionFilesNowRef: MutableRefObject<() => void>;
     syncLawsuitFilesNowRef: MutableRefObject<() => void>;
@@ -93,17 +101,11 @@ function AlertsBackgroundRuntime({
     } | null>(null);
 
     useEffect(() => {
-        const prev = lastAlertsPayloadRef.current;
-        if (
-            prev &&
-            prev.loading === loading &&
-            prev.error === error &&
-            prev.alerts.length === alerts.length &&
-            prev.alerts.every((a, i) => a.id === alerts[i]?.id)
-        ) {
+        const next = { alerts, loading, error };
+        if (alertsHubPayloadUnchanged(lastAlertsPayloadRef.current, next)) {
             return;
         }
-        lastAlertsPayloadRef.current = { alerts, loading, error };
+        lastAlertsPayloadRef.current = next;
         onAlertsRef.current({ alerts, loading, error, refresh });
     }, [alerts, loading, error, refresh]);
 
@@ -122,6 +124,7 @@ type AdvancedBackgroundRuntimeProps = Pick<
     | 'pushAllowed'
     | 'onNotesSynced'
     | 'onLawsuitFilesSynced'
+    | 'onExecutionFilesSynced'
     | 'mergeNotesStores'
     | 'syncExecutionFilesNowRef'
     | 'syncLawsuitFilesNowRef'
@@ -138,6 +141,7 @@ function AdvancedBackgroundRuntime({
     pushAllowed,
     onNotesSynced,
     onLawsuitFilesSynced,
+    onExecutionFilesSynced,
     mergeNotesStores,
     syncExecutionFilesNowRef,
     syncLawsuitFilesNowRef,
@@ -146,11 +150,35 @@ function AdvancedBackgroundRuntime({
 }: AdvancedBackgroundRuntimeProps) {
     const advancedServicesOnceRef = useRef(false);
     const realtimeSyncTimersRef = useRef<Partial<Record<'notes' | 'lawsuit' | 'execution', number>>>({});
+    const [accountFrozen, setAccountFrozen] = useState(
+        () => peekAccountNetworkGate(user?.id)?.frozen === true,
+    );
+    const networkEligible =
+        canUseNetworkFeatures(
+            user?.id,
+            (user?.user_metadata ?? null) as Record<string, unknown> | null,
+            (user?.app_metadata ?? null) as Record<string, unknown> | null,
+        ) && !accountFrozen;
+
+    useEffect(() => {
+        const uid = user?.id?.trim();
+        if (!uid) {
+            setAccountFrozen(false);
+            return;
+        }
+        const apply = () => {
+            setAccountFrozen(peekAccountNetworkGate(uid)?.frozen === true);
+        };
+        apply();
+        const unsub = subscribeAccountNetworkGate(apply);
+        void fetchAccountNetworkGate(uid).catch(() => undefined);
+        return unsub;
+    }, [user?.id]);
 
     const { syncNow: syncNotesNow } = useCloudSync({
         localKey: STORAGE_KEYS.LAWYER_NOTES,
         syncInterval: 180_000,
-        enabled: !!user && syncNotesOn,
+        enabled: networkEligible && syncNotesOn,
         onSyncSuccess: () => {
             const synced = persistenceRepository.load<unknown[]>(STORAGE_KEYS.LAWYER_NOTES);
             mergeNotesStores(synced ?? []);
@@ -162,7 +190,7 @@ function AdvancedBackgroundRuntime({
     const { syncNow: syncLawsuitFilesNow } = useCloudSync({
         localKey: STORAGE_KEYS.LAWYER_FILES,
         syncInterval: 240_000,
-        enabled: !!user && syncFilesOn,
+        enabled: networkEligible && syncFilesOn,
         onSyncSuccess: () => {
             const merged = persistenceRepository.load<FileData[]>(STORAGE_KEYS.LAWYER_FILES);
             if (Array.isArray(merged)) onLawsuitFilesSynced(merged);
@@ -170,22 +198,80 @@ function AdvancedBackgroundRuntime({
         onSyncError: (error) => debug.warn('[LawyerDashboard] sync lawsuit skipped:', error),
     });
 
+    const executionFilesStorageKey = resolveExecutionFilesStorageKey(user?.id);
+
     const { syncNow: syncExecutionFilesNow } = useCloudSync({
-        localKey: EXECUTION_FILES_STORAGE_KEY,
+        localKey: executionFilesStorageKey,
         syncInterval: 300_000,
-        enabled: !!user && syncExecutionOn,
+        enabled: networkEligible && syncExecutionOn,
+        onSyncSuccess: () => {
+            onExecutionFilesSynced?.();
+        },
         onSyncError: (error) => debug.warn('[LawyerDashboard] sync execution skipped:', error),
     });
 
     useEffect(() => {
-        useCloudSyncStatusStore.getState().setSignedIn(Boolean(user?.id));
+        syncNotesNowRef.current = () => {
+            void syncNotesNow();
+        };
+        syncLawsuitFilesNowRef.current = () => {
+            void syncLawsuitFilesNow();
+        };
+        syncExecutionFilesNowRef.current = () => {
+            void syncExecutionFilesNow();
+        };
+        return () => {
+            syncNotesNowRef.current = () => undefined;
+            syncLawsuitFilesNowRef.current = () => undefined;
+            syncExecutionFilesNowRef.current = () => undefined;
+        };
+    }, [
+        syncExecutionFilesNow,
+        syncExecutionFilesNowRef,
+        syncLawsuitFilesNow,
+        syncLawsuitFilesNowRef,
+        syncNotesNow,
+        syncNotesNowRef,
+    ]);
+
+    useEffect(() => {
+        useCloudSyncStatusStore.getState().setSignedIn(networkEligible);
+    }, [networkEligible]);
+
+    useEffect(() => {
+        const uid = user?.id?.trim();
+        if (!uid) return;
+        const sync = () => {
+            void import('@/app/services/auth/lawyerVerificationRemote')
+                .then((m) => m.syncLawyerVerificationFromServer(uid))
+                .catch(() => undefined);
+        };
+        const cancelIdle = scheduleIdleWork(sync, { minDelayMs: 800, timeoutMs: 8_000 });
+        const onVis = () => {
+            if (document.visibilityState === 'visible') sync();
+        };
+        document.addEventListener('visibilitychange', onVis);
+        return () => {
+            cancelIdle();
+            document.removeEventListener('visibilitychange', onVis);
+        };
     }, [user?.id]);
 
     useEffect(() => {
         const store = useCloudSyncStatusStore.getState();
-        store.registerSyncHandler('notes', () => syncNotesNowRef.current());
-        store.registerSyncHandler('lawsuit', () => syncLawsuitFilesNowRef.current());
-        store.registerSyncHandler('execution', () => syncExecutionFilesNowRef.current());
+        /* دوال مستقرة عبر refs — التسجيل مرة لكل عمر المكوّن */
+        const notes = async () => {
+            syncNotesNowRef.current();
+        };
+        const lawsuit = async () => {
+            syncLawsuitFilesNowRef.current();
+        };
+        const execution = async () => {
+            syncExecutionFilesNowRef.current();
+        };
+        store.registerSyncHandler('notes', notes);
+        store.registerSyncHandler('lawsuit', lawsuit);
+        store.registerSyncHandler('execution', execution);
     }, [syncNotesNowRef, syncLawsuitFilesNowRef, syncExecutionFilesNowRef]);
 
     const scheduleRealtimeSync = useCallback(
@@ -205,7 +291,9 @@ function AdvancedBackgroundRuntime({
 
     useRealtime({
         userId: user?.id ?? '',
-        enabled: Boolean(user?.id),
+        enabled:
+            networkEligible &&
+            (syncNotesOn || syncFilesOn || syncExecutionOn),
         showToasts: true,
         onExecutionUpdate: async (payload) => {
             scheduleRealtimeSync('execution', () => {
@@ -213,7 +301,7 @@ function AdvancedBackgroundRuntime({
                 refreshAlertsLightRef.current();
             });
             if (payload.eventType === 'INSERT' && payload.new) {
-                await PushNotificationService.notifyNewExecution(payload.new.case_no || 'جديد');
+                await notifyNewExecution(payload.new.case_no || 'جديد');
             }
         },
         onLawsuitUpdate: async (payload) => {
@@ -222,7 +310,7 @@ function AdvancedBackgroundRuntime({
                 refreshAlertsLightRef.current();
             });
             if (payload.eventType === 'INSERT' && payload.new) {
-                await PushNotificationService.notifyNewLawsuit(payload.new.case_no || 'جديد');
+                await notifyNewLawsuit(payload.new.case_no || 'جديد');
             }
         },
         onNoteUpdate: async () => {
@@ -269,16 +357,8 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
     const refreshAlertsLightRef = useRef<() => void>(() => undefined);
 
     useEffect(() => {
-        props.syncExecutionFilesNowRef.current = () => undefined;
-        props.syncLawsuitFilesNowRef.current = () => undefined;
-        props.syncNotesNowRef.current = () => undefined;
         props.refreshAppAlertsRef.current = () => undefined;
-    }, [
-        props.refreshAppAlertsRef,
-        props.syncExecutionFilesNowRef,
-        props.syncLawsuitFilesNowRef,
-        props.syncNotesNowRef,
-    ]);
+    }, [props.refreshAppAlertsRef]);
 
     useEffect(() => {
         if (!props.user?.id) {
@@ -320,6 +400,7 @@ export default function LawyerDashboardBackgroundServices(props: LawyerDashboard
                     pushAllowed={props.pushAllowed}
                     onNotesSynced={props.onNotesSynced}
                     onLawsuitFilesSynced={props.onLawsuitFilesSynced}
+                    onExecutionFilesSynced={props.onExecutionFilesSynced}
                     mergeNotesStores={props.mergeNotesStores}
                     syncExecutionFilesNowRef={props.syncExecutionFilesNowRef}
                     syncLawsuitFilesNowRef={props.syncLawsuitFilesNowRef}

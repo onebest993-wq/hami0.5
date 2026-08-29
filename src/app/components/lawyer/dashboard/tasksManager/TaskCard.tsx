@@ -1,23 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import {
-    AlertCircle,
-    CalendarClock,
-    Check,
-    CheckCircle2,
-    Flame,
-    GitBranch,
-    MoreHorizontal,
-    PanelBottom,
-    Paperclip,
-    Pencil,
-    Trash2,
-} from '@/app/components/ui/lucideIcons';
+import { AlertCircle } from '@/app/components/ui/icons/AlertCircle';
+import { Check } from '@/app/components/ui/icons/Check';
+import { CheckCircle2 } from '@/app/components/ui/icons/CheckCircle2';
+import { Flame } from '@/app/components/ui/icons/Flame';
+import { GitBranch } from '@/app/components/ui/icons/GitBranch';
+import { MoreHorizontal } from '@/app/components/ui/icons/MoreHorizontal';
+import { PanelBottom } from '@/app/components/ui/icons/PanelBottom';
+import { Paperclip } from '@/app/components/ui/icons/Paperclip';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildTaskWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import {
-    TASKS_INNER_GLASS,
-    TASKS_INNER_GLASS_HOVER,
     TASKS_INNER_GLASS_SOFT,
     TASK_CARD_BASE,
     TASK_CARD_DEFAULT,
@@ -28,14 +20,12 @@ import {
     TASK_CARD_ICON_BTN_IDLE,
     TASK_TOOL_BTN,
 } from './tasksBoucleTheme';
+import { formatIqd, isReminderDue, isTaskArchivedToHistory } from './utils';
 import {
-    formatIqd,
-    isReminderDue,
     isTaskAgendaReadOnly,
-    isTaskArchivedToHistory,
     isTaskDayOverdueIncomplete,
     isTaskMarkedDone,
-} from './utils';
+} from '@/app/services/tasks/taskAgendaStatusLite';
 import { TaskCardFieldBrief } from './TaskCardFieldBrief';
 import { TaskCardMainBrief } from './TaskCardMainBrief';
 import { TaskVoicePlayback } from './TaskVoicePlayback';
@@ -44,6 +34,7 @@ import { partitionSubTasks } from './subTaskUtils';
 import type { TaskCardProps } from './taskCardUtils';
 import { areTaskCardPropsEqual } from './taskCardUtils';
 import { TaskListOrdinalBadge, taskListStripeToneClass } from './TaskListOrdinalBadge';
+import { TaskCardOptionsMenu } from './TaskCardOptionsMenu';
 import { useAnchoredMenuPosition, computeAnchoredMenuPosition, type AnchoredMenuPosition } from './useAnchoredMenuPosition';
 
 function releaseTouchFocus(e: React.PointerEvent<HTMLButtonElement>) {
@@ -72,6 +63,7 @@ function TaskCardComponent(props: TaskCardProps) {
         onDeleteRequest,
         onReminderBadgeClick,
         onPostponeRequest,
+        onRequestHelp,
     } = props;
     const [branchOpen, setBranchOpen] = useState(false);
     const [addStepOpen, setAddStepOpen] = useState(false);
@@ -188,13 +180,13 @@ function TaskCardComponent(props: TaskCardProps) {
     return (
         <li
             data-testid={`tasks-task-card-${task.id}`}
-            className={`${TASK_CARD_BASE}
-                ${(listOrdinal?.total ?? 0) > 1 ? '!overflow-visible' : ''}
+            tabIndex={-1}
+            className={`${TASK_CARD_BASE} [content-visibility:auto] [contain-intrinsic-size:auto_9rem]
                 ${fatalPulse ? `${TASK_CARD_FATAL} motion-safe:animate-pulse` : readOnly && markedDone ? `${TASK_CARD_DONE} opacity-95` : markedDone ? TASK_CARD_DONE : overdueIncomplete ? 'border-rose-500/40' : TASK_CARD_DEFAULT}
             `}
         >
             {(listOrdinal?.total ?? 0) > 1 ? (
-                <TaskListOrdinalBadge ordinal={listOrdinal!} placement="edge" />
+                <TaskListOrdinalBadge ordinal={listOrdinal!} />
             ) : null}
             <div className={`absolute top-0 right-0 bottom-0 w-0.5 bg-gradient-to-b ${taskListStripeToneClass(listOrdinal)} to-transparent pointer-events-none`} />
             <div className="p-3.5 text-right space-y-2">
@@ -233,7 +225,7 @@ function TaskCardComponent(props: TaskCardProps) {
                                 <span
                                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-extrabold whitespace-nowrap min-h-[44px] ${
                                         readOnly
-                                            ? 'bg-slate-700/30 border-slate-600/50 text-slate-300'
+                                            ? 'bg-white/[0.04] border-white/[0.1] text-[#F4F4F5]/70'
                                             : 'bg-emerald-600/25 border-emerald-500/45 text-emerald-100'
                                     }`}
                                 >
@@ -246,7 +238,7 @@ function TaskCardComponent(props: TaskCardProps) {
                                         data-testid={`tasks-task-reopen-${task.id}`}
                                         onClick={() => onReopenTask(task)}
                                         onPointerUp={releaseTouchFocus}
-                                        className="min-h-[44px] text-[10px] font-bold text-sky-300/90 hover:text-sky-200 underline-offset-2 hover:underline touch-manipulation px-1"
+                                        className="min-h-[44px] text-[10px] font-bold text-[#E6C673]/80 hover:text-[#E6C673] underline-offset-2 hover:underline touch-manipulation px-1"
                                     >
                                         تراجع عن الإنهاء
                                     </button>
@@ -275,7 +267,7 @@ function TaskCardComponent(props: TaskCardProps) {
                                 onClick={() => onReminderBadgeClick(task)}
                                 onPointerUp={releaseTouchFocus}
                                 title="حان وقت التخطيط"
-                                className="flex h-11 w-11 items-center justify-center rounded-full border border-amber-400/60 bg-amber-500/25 text-base shadow-[0_0_14px_rgba(251,191,36,0.4)] motion-safe:animate-pulse touch-manipulation"
+                                className="flex h-11 w-11 items-center justify-center rounded-full border border-amber-400/55 bg-amber-500/18 text-base touch-manipulation"
                                 aria-label="تذكير مؤجلة"
                             >
                                 🔔
@@ -304,69 +296,19 @@ function TaskCardComponent(props: TaskCardProps) {
                             >
                                 <MoreHorizontal className="size-4" aria-hidden />
                             </button>
-                            {optionsOpen && menuPos && typeof document !== 'undefined'
-                                ? createPortal(
-                                      <div
-                                          id={`tasks-task-options-menu-${task.id}`}
-                                          role="menu"
-                                          data-testid={`tasks-task-options-menu-${task.id}`}
-                                          style={{
-                                              position: 'fixed',
-                                              top: menuPos.top,
-                                              left: menuPos.left,
-                                              minWidth: menuPos.minWidth,
-                                              zIndex: 1200,
-                                          }}
-                                          className="rounded-xl border border-[#E6C673]/28 bg-[#12182B]/98 py-1 shadow-xl shadow-black/45 backdrop-blur-sm"
-                                      >
-                                          {onPostponeRequest ? (
-                                              <button
-                                                  type="button"
-                                                  role="menuitem"
-                                                  disabled={archived}
-                                                  onClick={() => {
-                                                      if (archived) return;
-                                                      closeOptionsMenu();
-                                                      onPostponeRequest(task);
-                                                  }}
-                                                  className={`flex w-full flex-row-reverse items-center gap-2 px-3 py-2.5 text-right text-sm font-bold text-[#F4F4F5] ${TASKS_INNER_GLASS_HOVER} disabled:opacity-40 min-h-[44px] touch-manipulation`}
-                                              >
-                                                  <CalendarClock className="size-4 shrink-0 opacity-80" aria-hidden />
-                                                  ترحيل
-                                              </button>
-                                          ) : null}
-                                          <button
-                                              type="button"
-                                              role="menuitem"
-                                              disabled={readOnly}
-                                              onClick={() => {
-                                                  if (readOnly) return;
-                                                  closeOptionsMenu();
-                                                  onEditRequest(task);
-                                              }}
-                                              className={`flex w-full flex-row-reverse items-center gap-2 px-3 py-2.5 text-right text-sm font-bold text-[#F4F4F5] ${TASKS_INNER_GLASS_HOVER} disabled:opacity-40 min-h-[44px] touch-manipulation`}
-                                          >
-                                              <Pencil className="size-4 shrink-0 opacity-80" aria-hidden />
-                                              تعديل المهمة
-                                          </button>
-                                          <button
-                                              type="button"
-                                              role="menuitem"
-                                              disabled={readOnly}
-                                              onClick={() => {
-                                                  if (readOnly) return;
-                                                  closeOptionsMenu();
-                                                  onDeleteRequest(task);
-                                              }}
-                                              className="flex w-full flex-row-reverse items-center gap-2 px-3 py-2.5 text-right text-sm font-bold text-rose-200 hover:bg-rose-950/40 disabled:opacity-40 min-h-[44px] touch-manipulation"
-                                          >
-                                              <Trash2 className="size-4 shrink-0 opacity-80" aria-hidden />
-                                              حذف
-                                          </button>
-                                      </div>,
-                                      document.body,
-                                  )
-                                : null}
+                            {optionsOpen && menuPos ? (
+                                <TaskCardOptionsMenu
+                                    task={task}
+                                    menuPos={menuPos}
+                                    archived={archived}
+                                    readOnly={readOnly}
+                                    onClose={closeOptionsMenu}
+                                    onEditRequest={onEditRequest}
+                                    onDeleteRequest={onDeleteRequest}
+                                    onPostponeRequest={onPostponeRequest}
+                                    onRequestHelp={onRequestHelp}
+                                />
+                            ) : null}
                         </div>
                     </div>
                 </div>

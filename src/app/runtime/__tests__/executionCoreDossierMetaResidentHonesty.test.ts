@@ -2,15 +2,23 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+const coreSrc = readFileSync(
+    join(process.cwd(), 'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts'),
+    'utf8',
+);
+const residentSegmentSrc = readFileSync(
+    join(
+        process.cwd(),
+        'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreDossierAndResidentSegment.ts',
+    ),
+    'utf8',
+);
+
 /**
- * عقد W0a: المسار الحي (Core) يستضيف workflow تعديل الإضبارة مقيماً،
+ * عقد W0a: المسار الحي (Core → DossierAndResidentSegment) يستضيف workflow تعديل الإضبارة مقيماً،
  * ولا يقرأ العلم من Zustand ModalStates الميت.
  */
 describe('execution Core — resident dossier meta workflow honesty', () => {
-    const coreSrc = readFileSync(
-        join(process.cwd(), 'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts'),
-        'utf8',
-    );
     const modalScopeSrc = readFileSync(
         join(
             process.cwd(),
@@ -18,29 +26,40 @@ describe('execution Core — resident dossier meta workflow honesty', () => {
         ),
         'utf8',
     );
-    const storeSrc = readFileSync(
-        join(process.cwd(), 'src/app/stores/executionDashboardStore.ts'),
+    const storeTypesSrc = readFileSync(
+        join(process.cwd(), 'src/app/stores/executionDashboardStore/types.ts'),
         'utf8',
     );
 
-    it('Core يستورد ويستضيف useExecutionDashboardUnifiedDossierMetaWorkflow', () => {
-        expect(coreSrc).toContain('useExecutionDashboardUnifiedDossierMetaWorkflow');
-        expect(coreSrc).toMatch(
+    it('Core يركّب DossierAndResidentSegment الذي يستضيف UnifiedDossierMetaWorkflow', () => {
+        expect(coreSrc).toContain('useExecutionDashboardCoreDossierAndResidentSegment');
+        expect(coreSrc).toContain('dossierMetaWorkflow');
+        expect(residentSegmentSrc).toContain('useExecutionDashboardUnifiedDossierMetaWorkflow');
+        expect(residentSegmentSrc).toMatch(
             /const dossierMetaWorkflow = useExecutionDashboardUnifiedDossierMetaWorkflow\(/,
         );
-        expect(coreSrc).toContain('...dossierMetaWorkflow');
-        expect(coreSrc).toContain('dossierMetaWorkflow,');
+        expect(residentSegmentSrc).toContain('dossierMetaWorkflow,');
+        expect(coreSrc).toContain('loadError: boot.loadError');
     });
 
     it('Core لا يمرّر setShowEditDossierMetaModal من dossierLifecyclePanel', () => {
+        const modalChunkSrc = readFileSync(
+            join(
+                process.cwd(),
+                'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreModalAndChunkInputs.ts',
+            ),
+            'utf8',
+        );
         expect(coreSrc).not.toMatch(
             /setShowEditDossierMetaModal:\s*dossierLifecyclePanel\.setShowEditDossierMetaModal/,
         );
-        expect(coreSrc).toMatch(
-            /setShowEditDossierMetaModal:\s*dossierMetaWorkflow\.setShowEditDossierMetaModal/,
+        expect(coreSrc).toContain('dossierMetaWorkflow');
+        expect(coreSrc).toContain('useExecutionDashboardCoreModalAndChunkInputs');
+        expect(modalChunkSrc).toMatch(
+            /setShowEditDossierMetaModal:\s*p\.dossierMetaWorkflow\.setShowEditDossierMetaModal/,
         );
-        expect(coreSrc).toMatch(
-            /showEditDossierMetaModal:\s*dossierMetaWorkflow\.showEditDossierMetaModal/,
+        expect(modalChunkSrc).toMatch(
+            /showEditDossierMetaModal:\s*p\.dossierMetaWorkflow\.showEditDossierMetaModal/,
         );
     });
 
@@ -54,19 +73,16 @@ describe('execution Core — resident dossier meta workflow honesty', () => {
     });
 
     it('Zustand ModalStates ما زال بلا showEditDossierMetaModal (العقد: workflow محلي)', () => {
-        const modalBlock = storeSrc.slice(
-            storeSrc.indexOf('interface ModalStates'),
-            storeSrc.indexOf('interface NoteFormData'),
+        const modalBlock = storeTypesSrc.slice(
+            storeTypesSrc.indexOf('export interface ModalStates'),
+            storeTypesSrc.indexOf('export interface NoteFormData'),
         );
+        expect(modalBlock.length).toBeGreaterThan(0);
         expect(modalBlock).not.toContain('showEditDossierMetaModal');
     });
 });
 
 describe('execution Core — resident followup open honesty (W0b)', () => {
-    const coreSrc = readFileSync(
-        join(process.cwd(), 'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts'),
-        'utf8',
-    );
     const handlerClusterRuntimeSrc = readFileSync(
         join(
             process.cwd(),
@@ -89,11 +105,13 @@ describe('execution Core — resident followup open honesty (W0b)', () => {
         'utf8',
     );
 
-    it('Core يستضيف handleMemoFollowupClick ومعالجات notes على Core مباشرة', () => {
-        expect(coreSrc).toMatch(/const handleMemoFollowupClick = useCallback\(/);
-        expect(coreSrc).toContain('followupDebtor.openFollowupModalPersisted');
-        expect(coreSrc).toContain('useExecutionDashboardCoreResidentHandlers');
-        expect(coreSrc).toContain('...coreResidentHandlers');
+    it('Core يمرّر coreResidentHandlers من Segment الذي يستضيف handleMemoFollowupClick', () => {
+        expect(coreSrc).toContain('useExecutionDashboardCoreDossierAndResidentSegment');
+        expect(coreSrc).toContain('coreResidentHandlers');
+        expect(residentSegmentSrc).toMatch(/const handleMemoFollowupClick = useCallback\(/);
+        expect(residentSegmentSrc).toContain('followupDebtor.openFollowupModalPersisted');
+        expect(residentSegmentSrc).toContain('useExecutionDashboardCoreResidentHandlers');
+        expect(residentSegmentSrc).toContain('...coreResidentHandlers');
         expect(handlerClusterRuntimeSrc).toMatch(
             /shouldLoadExecutionHandlerClusterLight\(handlerClusterGateInput\)/,
         );

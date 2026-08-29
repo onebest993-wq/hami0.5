@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     computeLawyerDashboardHeaderShouldShow,
+    isLawyerDashboardHomeStackTab,
     shouldHideLawyerDashboardHeader,
 } from '@/app/hooks/lawyerDashboard/lawyerDashboardHeaderVisibility';
 
@@ -25,10 +26,25 @@ describe('lawyerDashboardHeaderVisibility', () => {
         expect(shouldHideLawyerDashboardHeader(base)).toBe(false);
     });
 
-    it('hides header on profile tab (prevents settings/search leak)', () => {
+    it('يبقي الهيدر في React أثناء الملف — الإخفاء عبر CSS snap فقط (عقد الإعدادات)', () => {
         const profile = { ...base, activeTab: 'profile' as const };
-        expect(shouldHideLawyerDashboardHeader(profile)).toBe(true);
-        expect(computeLawyerDashboardHeaderShouldShow(profile)).toBe(false);
+        expect(isLawyerDashboardHomeStackTab('profile')).toBe(true);
+        expect(shouldHideLawyerDashboardHeader(profile)).toBe(false);
+        expect(computeLawyerDashboardHeaderShouldShow(profile)).toBe(true);
+    });
+
+    it('يبقي الرئيسية تحت طبقة الإشعارات (التبويب ليس بديلاً للمنزل)', () => {
+        expect(isLawyerDashboardHomeStackTab('notifications')).toBe(true);
+        const notifications = { ...base, activeTab: 'notifications' as const };
+        expect(shouldHideLawyerDashboardHeader(notifications)).toBe(false);
+        expect(computeLawyerDashboardHeaderShouldShow(notifications)).toBe(true);
+    });
+
+    it('يخفي الهيدر على تبويب التقويم', () => {
+        const schedule = { ...base, activeTab: 'schedule' as const };
+        expect(isLawyerDashboardHomeStackTab('schedule')).toBe(false);
+        expect(shouldHideLawyerDashboardHeader(schedule)).toBe(true);
+        expect(computeLawyerDashboardHeaderShouldShow(schedule)).toBe(false);
     });
 
     it('يبقي الهيدر ظاهراً تحت طبقة الإعدادات (يمنع وميض الإغلاق)', () => {

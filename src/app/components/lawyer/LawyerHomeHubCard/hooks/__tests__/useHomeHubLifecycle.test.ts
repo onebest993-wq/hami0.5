@@ -1,38 +1,18 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useHomeHubLifecycle } from '@/app/components/lawyer/LawyerHomeHubCard/hooks/useHomeHubLifecycle';
 import {
     clearHomeHubPerfMarks,
     getHomeHubOpenToInteractiveMs,
     markHomeHubPerfPhase,
 } from '@/app/services/alerts/homeHubPerfMetrics';
-import {
-    resetHomeHubRadarCacheForTests,
-    setHomeHubRadarCacheForTests,
-} from '@/app/services/alerts/homeHubRadarWarmCache';
-import {
-    resetHomeHubSecretaryAlertsCacheForTests,
-    writeHomeHubSecretaryAlertsCache,
-} from '@/app/services/alerts/homeHubSecretaryAlertsWarmCache';
-import type { CalendarEvent } from '@/app/services/lawyer-cloud';
 
 vi.mock('@/app/services/alerts/homeHubSentryReporting', () => ({
     reportHomeHubOpenToSentry: vi.fn(),
 }));
 
-const sampleEvent = (): CalendarEvent =>
-    ({
-        id: 'ev-1',
-        title: 'test',
-        start: new Date().toISOString(),
-        end: new Date().toISOString(),
-        lawyerId: 'u1',
-    }) as CalendarEvent;
-
 describe('useHomeHubLifecycle', () => {
     beforeEach(() => {
-        resetHomeHubRadarCacheForTests();
-        resetHomeHubSecretaryAlertsCacheForTests();
         clearHomeHubPerfMarks();
     });
 
@@ -45,13 +25,14 @@ describe('useHomeHubLifecycle', () => {
                 alertsTabCount: 0,
                 pinsCount: 0,
                 radarLoading: true,
+                hadRadarCache: false,
+                hadAlertsCache: false,
             }),
         );
         expect(result.current.isShellReady).toBe(false);
     });
 
-    it('isShellReady=true مع كاش تنبيهات السكرتير', async () => {
-        writeHomeHubSecretaryAlertsCache('u1', [{ id: 'alert-1' } as never]);
+    it('isShellReady=true مع كاش تنبيهات السكرتير', () => {
         const { result } = renderHook(() =>
             useHomeHubLifecycle({
                 lawyerId: 'u1',
@@ -60,14 +41,14 @@ describe('useHomeHubLifecycle', () => {
                 alertsTabCount: 0,
                 pinsCount: 0,
                 radarLoading: true,
+                hadRadarCache: false,
+                hadAlertsCache: true,
             }),
         );
-        await waitFor(() => expect(result.current.isShellReady).toBe(true));
-        expect(result.current.hadAlertsCache).toBe(true);
+        expect(result.current.isShellReady).toBe(true);
     });
 
-    it('isShellReady=true مع كاش رادار', async () => {
-        setHomeHubRadarCacheForTests('u1', [sampleEvent()]);
+    it('isShellReady=true مع كاش رادار', () => {
         const { result } = renderHook(() =>
             useHomeHubLifecycle({
                 lawyerId: 'u1',
@@ -76,10 +57,11 @@ describe('useHomeHubLifecycle', () => {
                 alertsTabCount: 0,
                 pinsCount: 0,
                 radarLoading: true,
+                hadRadarCache: true,
+                hadAlertsCache: false,
             }),
         );
-        await waitFor(() => expect(result.current.isShellReady).toBe(true));
-        expect(result.current.hadRadarCache).toBe(true);
+        expect(result.current.isShellReady).toBe(true);
     });
 
     it('يسجّل interactive عند shell ready', () => {
@@ -102,6 +84,8 @@ describe('useHomeHubLifecycle', () => {
                 alertsTabCount: 1,
                 pinsCount: 0,
                 radarLoading: false,
+                hadRadarCache: false,
+                hadAlertsCache: false,
             }),
         );
 
@@ -121,6 +105,8 @@ describe('useHomeHubLifecycle', () => {
                 alertsTabCount: 0,
                 pinsCount: 0,
                 radarLoading: true,
+                hadRadarCache: false,
+                hadAlertsCache: false,
             }),
         );
 

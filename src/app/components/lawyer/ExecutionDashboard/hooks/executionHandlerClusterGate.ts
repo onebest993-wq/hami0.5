@@ -36,14 +36,6 @@ export function shouldLoadExecutionHandlerClusterLight(input: ExecutionHandlerCl
     return Boolean(input.showAppointmentModal || input.showPaymentModal || input.showNotesModal);
 }
 
-/**
- * عند فتح الإضبارة: يُفضَّل تحميل light فوراً حتى لو لم تُفتح نوافذ بعد.
- * تُستخدم من Core مع وجود executionData.
- */
-export function shouldPreferLightHandlerClusterOnDossierMount(hasExecutionData: boolean): boolean {
-    return Boolean(hasExecutionData);
-}
-
 export function shouldLoadExecutionHandlerClusterHeavy(input: ExecutionHandlerClusterGateInput): boolean {
     return resolveExecutionHandlerClusterHeavyMode(input) !== 'none';
 }
@@ -58,13 +50,6 @@ export function shouldLoadExecutionHandlerClusterFollowupAdminSpecial(
     // سخّن جسر نماذج الطلبات طوال فتح المحضر — كما أدوات الإضبارة وطلبات الحجز
     if (input.showUnifiedExecutionModal) return true;
     return resolveExecutionHandlerClusterFollowupMode(input) === 'admin-special';
-}
-
-export function shouldLoadExecutionHandlerClusterFollowupControlsOtherParty(
-    input: ExecutionHandlerClusterGateInput,
-): boolean {
-    const mode = resolveExecutionHandlerClusterFollowupMode(input);
-    return mode === 'dossier-controls' || mode === 'other-party';
 }
 
 export function shouldLoadExecutionHandlerClusterFollowupDossierControls(

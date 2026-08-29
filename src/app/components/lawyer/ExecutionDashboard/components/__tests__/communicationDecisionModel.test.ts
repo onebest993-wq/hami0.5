@@ -2,12 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
     buildCommunicationDisplayContext,
     buildNoResponseConfirmationDetails,
-    extractDirectorate,
-    hasResult,
     isAwaitingCommunicationResult,
     isCommunicationDecision,
-    isCommunicationFollowupComplete,
-    isFollowupDismissed,
     isNoResponseConfirmed,
 } from '../communicationDecisionModel';
 
@@ -18,18 +14,38 @@ describe('communicationDecisionModel', () => {
         expect(isCommunicationDecision({ title: 'حجز راتب' })).toBe(false);
     });
 
-    it('يحسب اكتمال المتابعة والنتيجة', () => {
-        expect(hasResult({ deputationClosed: true })).toBe(true);
-        expect(hasResult({ deputationResultDetails: 'تم' })).toBe(true);
-        expect(isFollowupDismissed({ deputationFollowupDismissed: true })).toBe(true);
+    it('يحسب اكتمال المتابعة والنتيجة عبر واجهة الانتظار', () => {
         expect(isNoResponseConfirmed({ deputationNoResponseConfirmed: true })).toBe(true);
-        expect(hasResult({ deputationNoResponseConfirmed: true, deputationClosed: true })).toBe(false);
         expect(
-            isCommunicationFollowupComplete({ deputationFollowupDismissed: true }),
-        ).toBe(true);
-        expect(
-            isCommunicationFollowupComplete({ deputationNoResponseConfirmed: true }),
+            isAwaitingCommunicationResult(
+                {
+                    title: 'إرسال كتاب / مخاطبة جهة — جهة',
+                    deputationClosed: true,
+                    id: 'd-closed',
+                },
+                [{ id: 'd-closed', deputationClosed: true }],
+            ),
         ).toBe(false);
+        expect(
+            isAwaitingCommunicationResult(
+                {
+                    title: 'إرسال كتاب / مخاطبة جهة — جهة',
+                    deputationFollowupDismissed: true,
+                    id: 'd-dismissed',
+                },
+                [{ id: 'd-dismissed', deputationFollowupDismissed: true }],
+            ),
+        ).toBe(false);
+        expect(
+            isAwaitingCommunicationResult(
+                {
+                    title: 'إرسال كتاب / مخاطبة جهة — جهة',
+                    deputationNoResponseConfirmed: true,
+                    id: 'd-no-resp',
+                },
+                [{ id: 'd-no-resp', deputationNoResponseConfirmed: true }],
+            ),
+        ).toBe(true);
     });
 
     it('يبني سياق العرض للموافق بانتظار النتيجة', () => {
@@ -81,10 +97,15 @@ describe('communicationDecisionModel', () => {
         expect(ctx.outcomeBody).not.toContain('تم التأكيد — عدم ورود');
     });
 
-    it('يستخرج اسم الجهة من العنوان', () => {
-        expect(extractDirectorate('إرسال كتاب / مخاطبة جهة — محكمة البداءة')).toBe(
-            'محكمة البداءة',
+    it('يستخرج اسم الجهة من العنوان عبر سياق العرض', () => {
+        const ctx = buildCommunicationDisplayContext(
+            {
+                title: 'إرسال كتاب / مخاطبة جهة — محكمة البداءة',
+                executorOutcome: 'approved',
+            },
+            [{ id: 'x', executorOutcome: 'approved' }],
         );
+        expect(ctx.directorate).toBe('محكمة البداءة');
     });
 
     it('يحدّد انتظار النتيجة للمخاطبات دون اشتراط موافقة المنفذ', () => {

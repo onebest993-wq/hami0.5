@@ -2,63 +2,63 @@
  * مسار تسخين موحّد للملف المهني — نقطة دخول واحدة بدل prefetch متفرق.
  *
  * boot   → shell chunks فقط (بعد الإقلاع)
- * hover  → shell + data + studio prefetch خفيف
- * open   → data sync + shell hydrate إجباري + studio prefetch
+ * hover  → shell + data (بدون استوديو)
+ * open   → data sync + shell hydrate (بدون استوديو)
+ * studio → primeProfileStudio عند نية فتح الاستوديو فقط
+ *
+ * بلا استيراد sync لمحمّلات الاستوديو/الورقة/FX — حتى لا يسحبها ProfileTabHost إلى stem.
  */
-
-import { prefetchProfileCanvasFxCore } from '@/app/components/lawyer/RoyalLawyerProfile/profileCanvasFxLoader';
-import { hydrateProfileShellForInstantOpenWithData } from '@/app/runtime/profileBootHydrator';
-import { prefetchProfileTabModule } from '@/app/runtime/profileTabModuleLoader';
-import { prefetchRoyalLawyerProfileChunk } from '@/app/runtime/royalLawyerProfileLoader';
-import { prefetchProfileSettingsSheetModule } from '@/app/runtime/profileSettingsSheetLoader';
-import { prefetchProfileStudioChunk } from '@/app/runtime/profileSettingsStudioTabsLoader';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
-import {
-    hydrateProfileWarmCachePeekSync,
-    prefetchProfileData,
-} from '@/app/services/profile/profileWarmCache';
 
 export type ProfilePrimeTier = 'boot' | 'hover' | 'open';
 
-function shouldAggressiveProfileWarm(): boolean {
-    try {
-        const s = getLawyerSettingsSnapshot();
-        if (s.security.localOnlyMode) return false;
-        if (s.performance.prefetchScreens === false) return false;
-        if (isLitePerformanceActive(s.performance.litePerformance)) return false;
-    } catch {
-        /* ignore */
-    }
-    return true;
+async function shouldAggressiveProfileWarm(): Promise<boolean> {
+    const { isSectionBackgroundPrefetchAllowed } = await import('@/app/runtime/sectionPrefetchPolicy');
+    return isSectionBackgroundPrefetchAllowed();
 }
 
 export function primeProfileStudio(): void {
-    prefetchProfileSettingsSheetModule();
-    prefetchProfileStudioChunk('appearance');
+    void import('@/app/runtime/profileSettingsSheetLoader')
+        .then((m) => m.prefetchProfileSettingsSheetModule())
+        .catch(() => undefined);
+    void import('@/app/runtime/profileSettingsStudioTabsLoader')
+        .then((m) => m.prefetchProfileStudioChunk('appearance'))
+        .catch(() => undefined);
 }
 
-function primeProfileDataSync(userId?: string | null): void {
+function primeProfileData(userId?: string | null, mode: 'sync' | 'full' = 'full'): void {
     const uid = userId?.trim();
     if (!uid) return;
-    hydrateProfileWarmCachePeekSync(uid);
-}
-
-function primeProfileDataAsync(userId?: string | null): void {
-    const uid = userId?.trim();
-    if (!uid || typeof document === 'undefined' || document.hidden) return;
-    prefetchProfileData(uid);
+    void import('@/app/services/profile/profileWarmCache')
+        .then((m) => {
+            m.hydrateProfileWarmCachePeekSync(uid);
+            if (mode === 'full') {
+                m.prefetchProfileData(uid);
+            }
+        })
+        .catch(() => undefined);
 }
 
 function primeProfileShellChunks(): void {
-    prefetchProfileTabModule();
-    prefetchRoyalLawyerProfileChunk();
+    /* التبويب sync في MainView — تسخين Royal فقط عند الحاجة (منتدى / كاش ديناميكي) */
+    void import('@/app/runtime/royalLawyerProfileLoader')
+        .then((m) => m.prefetchRoyalLawyerProfileChunk())
+        .catch(() => undefined);
 }
 
 function scheduleDeferredFx(): void {
-    if (!shouldAggressiveProfileWarm()) return;
-    if (typeof document !== 'undefined' && document.hidden) return;
-    prefetchProfileCanvasFxCore();
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    void shouldAggressiveProfileWarm().then((ok) => {
+        if (!ok) return;
+        void import('@/app/components/lawyer/RoyalLawyerProfile/profileCanvasFxLoader')
+            .then((m) => m.prefetchProfileCanvasFxCore())
+            .catch(() => undefined);
+    });
+}
+
+function prefetchAndroidProfileFx(): void {
+    void import('@/app/runtime/profileAndroidFxLoader')
+        .then((m) => m.prefetchProfileAndroidFx())
+        .catch(() => undefined);
 }
 
 /** التسلسل الرسمي للتسخين — لا تُضاف prefetch خارج هذه الوحدة */
@@ -66,21 +66,25 @@ export function primeProfileShell(tier: ProfilePrimeTier, userId?: string | null
     switch (tier) {
         case 'boot':
             primeProfileShellChunks();
+            prefetchAndroidProfileFx();
             return;
         case 'hover':
-            primeProfileDataSync(userId);
+            primeProfileData(userId, 'full');
             primeProfileShellChunks();
-            primeProfileStudio();
-            primeProfileDataAsync(userId);
-            if (shouldAggressiveProfileWarm()) prefetchProfileCanvasFxCore();
+            prefetchAndroidProfileFx();
+            scheduleDeferredFx();
             return;
         case 'open':
-            primeProfileDataSync(userId);
+            primeProfileData(userId, 'full');
             primeProfileShellChunks();
-            primeProfileStudio();
-            void hydrateProfileShellForInstantOpenWithData(userId, true).catch(() => undefined);
-            primeProfileDataAsync(userId);
-            queueMicrotask(scheduleDeferredFx);
+            prefetchAndroidProfileFx();
+            void import('@/app/runtime/profileBootHydrator')
+                .then((m) => m.hydrateProfileShellForInstantOpenWithData(userId, true))
+                .catch(() => undefined);
+            /* FX بعد الإطار — لا تنافس snap الصفحة؛ الاستوديو عند زرّه فقط */
+            queueMicrotask(() => {
+                scheduleDeferredFx();
+            });
             return;
         default: {
             const _exhaustive: never = tier;
@@ -90,9 +94,13 @@ export function primeProfileShell(tier: ProfilePrimeTier, userId?: string | null
 }
 
 export function primeProfileForBoot(): void {
-    primeProfileShell('boot');
-    void import('@/app/runtime/profileHubLoader')
-        .then((m) => m.loadProfileHubModule())
+    prefetchAndroidProfileFx();
+    /* استيراد واحد: تسخين + load — يغطي المنتدى/الكاش الديناميكي */
+    void import('@/app/runtime/royalLawyerProfileLoader')
+        .then((m) => {
+            m.prefetchRoyalLawyerProfileChunk();
+            return m.loadProfileHubModule();
+        })
         .catch(() => undefined);
 }
 
@@ -102,4 +110,13 @@ export function primeProfileForHover(userId?: string | null): void {
 
 export function primeProfileForOpen(userId?: string | null): void {
     primeProfileShell('open', userId);
+}
+
+/** aliases — كانت في profileIntentWarm (غلاف ميت) */
+export function warmProfileOnHover(userId?: string | null): void {
+    primeProfileForHover(userId);
+}
+
+export function warmProfileOnOpen(userId?: string | null): void {
+    primeProfileForOpen(userId);
 }

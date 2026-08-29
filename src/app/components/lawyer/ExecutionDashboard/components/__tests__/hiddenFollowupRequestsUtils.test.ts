@@ -6,7 +6,6 @@ import {
     listHiddenGuarantorCatalog,
     listHiddenPersonalCoerciveCatalog,
     shouldAlwaysShowHiddenRequestsToggle,
-    shouldShowGuarantorRequestEntryCard,
     shouldShowGuarantorRequestInSeizureTab,
 } from '../hiddenFollowupRequestsUtils';
 
@@ -187,7 +186,6 @@ describe('hiddenFollowupRequestsUtils', () => {
             hideAllGuarantorPresence: false,
         };
 
-        expect(shouldShowGuarantorRequestEntryCard(employeeFlags, guarantorCtx)).toBe(false);
         expect(
             listHiddenGuarantorCatalog(nonEmployeeFlags, { ...guarantorCtx, activeDebtorIsEmployee: false }).map(
                 (x) => x.key

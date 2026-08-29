@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const upsert = vi.fn();
-const selectEq = vi.fn();
-const maybeSingle = vi.fn();
+const fetchSecure = vi.fn();
+
+vi.mock('@/app/services/SecureAPIClient', () => ({
+    SecureAPIClient: {
+        fetchSecure: (...args: unknown[]) => fetchSecure(...args),
+    },
+}));
 
 vi.mock('@/lib/supabaseClient.js', () => ({
     supabase: {
@@ -16,31 +20,6 @@ vi.mock('@/lib/supabaseClient.js', () => ({
                 },
             })),
         },
-        from: vi.fn(() => ({
-            upsert: (...args: unknown[]) => {
-                upsert(...args);
-                return {
-                    select: () => ({
-                        single: async () => ({
-                            data: {
-                                user_key: 'user-uuid-1',
-                                app_data: {},
-                                updated_at: '2026-01-01',
-                            },
-                            error: null,
-                        }),
-                    }),
-                };
-            },
-            select: (...args: unknown[]) => {
-                selectEq(...args);
-                return {
-                    eq: () => ({
-                        maybeSingle,
-                    }),
-                };
-            },
-        })),
     },
 }));
 
@@ -58,29 +37,36 @@ describe('syncService', () => {
         vi.clearAllMocks();
     });
 
-    it('saveToCloud يحفظ بمفتاح المستخدم الحقيقي', async () => {
+    it('saveToCloud يمر عبر BFF بمفتاح المستخدم الحقيقي', async () => {
+        fetchSecure.mockResolvedValueOnce({
+            ok: true,
+            user_key: 'user-uuid-1',
+            app_data: { lawyer_settings: { version: 2 } },
+        });
+
         const { saveToCloud } = await import('@/lib/syncService.js');
         await saveToCloud({ lawyer_settings: { version: 2 } });
 
-        expect(upsert).toHaveBeenCalledWith(
-            expect.objectContaining({
-                user_key: 'user-uuid-1',
-                app_data: { lawyer_settings: { version: 2 } },
-            }),
-            { onConflict: 'user_key' },
-        );
+        expect(fetchSecure).toHaveBeenCalledWith('/api/settings/cloud-sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ app_data: { lawyer_settings: { version: 2 } } }),
+        });
     });
 
-    it('loadFromCloud يجلب بيانات المستخدم الحالي', async () => {
-        maybeSingle.mockResolvedValueOnce({
-            data: { app_data: { lawyer_settings: { version: 2 } }, updated_at: '2026-01-01' },
-            error: null,
+    it('loadFromCloud يجلب عبر BFF', async () => {
+        fetchSecure.mockResolvedValueOnce({
+            ok: true,
+            app_data: { lawyer_settings: { version: 2 } },
         });
 
         const { loadFromCloud } = await import('@/lib/syncService.js');
         const data = await loadFromCloud();
 
-        expect(selectEq).toHaveBeenCalledWith('app_data, updated_at');
+        expect(fetchSecure).toHaveBeenCalledWith('/api/settings/cloud-sync', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+        });
         expect(data).toEqual({ lawyer_settings: { version: 2 } });
     });
 
@@ -95,5 +81,6 @@ describe('syncService', () => {
         await expect(saveToCloud({ lawyer_settings: { version: 2 } })).rejects.toMatchObject({
             code: 'CLOUD_SYNC_AUTH_REQUIRED',
         });
+        expect(fetchSecure).not.toHaveBeenCalled();
     });
 });

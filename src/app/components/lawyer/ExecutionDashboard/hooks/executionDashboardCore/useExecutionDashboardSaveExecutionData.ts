@@ -3,7 +3,7 @@ import { useCallback, type MutableRefObject } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
 import { persistExecutionDashboardSnapshot } from './persistExecutionDashboardSnapshot';
 import { useExecutionDashboardSaveOnUnmount } from './useExecutionDashboardRuntimeSyncEffects';
-import type { ExecutionDashboardFollowupClusterInput } from './useExecutionDashboardFollowupCluster';
+import type { ExecutionDashboardFollowupClusterInput } from './executionDashboardFollowupClusterTypes';
 import type { ExecutionDashboardSaveApprovalClusterInput } from './useExecutionDashboardSaveApprovalCluster';
 import type { EvictionEarnerFeeCollectionSM } from '@/app/utils/evictionEarnerFeeCollectionMachine';
 

@@ -24,7 +24,6 @@ const CRITICAL_SAFE_AREA_FILES = [
   'src/app/components/lawyer/dashboard/lawyerHomeFx-critical.css',
   'src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardRootFrame.tsx',
   'src/app/components/lawyer/ExecutionDashboard/executionModalMobileShell.ts',
-  'src/app/components/lawyer/LegalCommandCenterDock.tsx',
 ];
 
 /** فجوات safe-area السابقة — أُغلقت بتوكنات موجودة (Header + ED phone chrome) */
@@ -81,7 +80,7 @@ console.log('[verify:w5-mobile-proof] starting…');
 {
   const touchFiles = [
     'src/app/components/lawyer/LawyerDashboardParts/components/HeaderToolbarIcon.tsx',
-    'src/app/components/lawyer/HamiSettings/SettingsShell.tsx',
+    'src/app/components/lawyer/HamiSettings/SettingsShellHeader.tsx',
     'src/app/components/lawyer/ExecutionDashboard/executionModalMobileShell.ts',
   ];
   const okTouch = touchFiles.every((rel) => {

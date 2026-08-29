@@ -1,6 +1,5 @@
-// @ts-nocheck
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion } from '@/app/motion/overlayMotionRuntime';
 import {
     ArchiveDecisionButton,
 } from '../decisionCardPresentation';

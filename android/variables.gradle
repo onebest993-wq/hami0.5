@@ -1,16 +1,32 @@
+/*
+ * مصدر الحقيقة لمتغيّرات بناء أندرويد — `npm run cap:apply:android` ينسخه فوق
+ * android/variables.gradle بعد أي إعادة توليد.
+ *
+ * لماذا قالب أصلاً: `npx cap add android` يكتب هذا الملف من قالب Capacitor،
+ * فأي إعادة توليد كانت تُعيد targetSdk صامتةً إلى ما يوافق نسخة Capacitor
+ * المثبَّتة. مع بوّابة Play السنوية، انحدارٌ صامت في targetSdk يعني رفض النشر.
+ *
+ * targetSdk 36 (أندرويد ١٦) إلزامي: منذ ٣١ آب ٢٠٢٦ يمنع Play تقديم أي تطبيق
+ * جديد أو تحديث دونه. وCapacitor لا يدعم targetSdk مخصّصاً — كل إصدار رئيسي
+ * مربوط بمستوى واحد (8.x ↔ 36)، فالرقم هنا يتبع نسخة Capacitor لا العكس.
+ *
+ * minSdk 24 هو الحدّ الأدنى لـCapacitor 8 (كان 22). أندرويد ٥ خارج التغطية.
+ */
 ext {
-    minSdkVersion = 22
-    compileSdkVersion = 34
-    targetSdkVersion = 34
-    androidxActivityVersion = '1.8.0'
-    androidxAppCompatVersion = '1.6.1'
-    androidxCoordinatorLayoutVersion = '1.2.0'
-    androidxCoreVersion = '1.12.0'
-    androidxFragmentVersion = '1.6.2'
-    coreSplashScreenVersion = '1.0.1'
-    androidxWebkitVersion = '1.9.0'
+    kotlinVersion = '2.3.0'
+    composeBomVersion = '2025.01.01'
+    minSdkVersion = 24
+    compileSdkVersion = 36
+    targetSdkVersion = 36
+    androidxActivityVersion = '1.11.0'
+    androidxAppCompatVersion = '1.7.1'
+    androidxCoordinatorLayoutVersion = '1.3.0'
+    androidxCoreVersion = '1.17.0'
+    androidxFragmentVersion = '1.8.9'
+    coreSplashScreenVersion = '1.2.0'
+    androidxWebkitVersion = '1.14.0'
     junitVersion = '4.13.2'
-    androidxJunitVersion = '1.1.5'
-    androidxEspressoCoreVersion = '3.5.1'
-    cordovaAndroidVersion = '10.1.1'
+    androidxJunitVersion = '1.3.0'
+    androidxEspressoCoreVersion = '3.7.0'
+    cordovaAndroidVersion = '14.0.1'
 }

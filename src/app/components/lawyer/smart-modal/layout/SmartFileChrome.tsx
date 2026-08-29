@@ -1,11 +1,9 @@
 import type React from 'react';
 import { Fragment } from 'react';
 import type { CaseStage } from '../../LawyerShared';
-import {
-    Edit2,
-    Trash2,
-    Lock,
-} from '@/app/components/ui/lucideIcons';
+import { Edit2 } from '@/app/components/ui/icons/Edit2';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
+import { Lock } from '@/app/components/ui/icons/Lock';
 import { buildChromeStageStripItems } from '../smartFile/stepperPipeline';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 import { CaseFlowActionsPanel } from '../parts/CaseFlowActionsPanel';
@@ -85,9 +83,9 @@ export function SmartFileChrome({
 
     return (
         <>
-            <div className="sticky top-0 z-50 w-full shrink-0 bg-slate-950/90 border-b border-white/10 print:hidden overflow-hidden">
-                <div className="flex items-center justify-between gap-2 px-3 py-2.5 min-w-0">
-                    <div className="flex items-center gap-2 shrink-0">
+            <div className="sticky top-0 z-50 w-full shrink-0 bg-[#0A0F1C] border-b border-white/[0.08] print:hidden">
+                <div className="flex items-center justify-between gap-2 px-3 py-2 min-w-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                         <DossierHeaderNavButtons
                             onBack={dossierBack}
                             onExit={dossierExit}
@@ -99,7 +97,7 @@ export function SmartFileChrome({
                     </div>
 
                     <div className="flex items-center justify-center flex-1 gap-1.5 min-w-0 overflow-x-auto scrollbar-hide">
-                        <h2 className="font-bold text-base sm:text-lg text-white/90 tracking-wide whitespace-nowrap shrink-0">
+                        <h2 className="font-bold text-sm sm:text-base text-white/90 tracking-wide whitespace-nowrap shrink-0">
                             اضبارة الدعوى
                         </h2>
                         <ColleagueConsultationHeaderButton iconOnly />
@@ -158,10 +156,10 @@ export function SmartFileChrome({
                 </div>
             </div>
 
-            <div className="sticky top-[72px] z-40 w-full bg-[#0A0F1C]/55 backdrop-blur-xl border-b border-[#E6C673]/10 print:hidden">
-                <div className="px-3 py-2">
+            <div className="sticky top-[3.75rem] z-40 w-full bg-[#0A0F1C] border-b border-white/[0.07] print:hidden">
+                <div className="px-3 py-1.5">
                     <div className="flex items-center overflow-x-auto scrollbar-hide">
-                            <div className="inline-flex items-stretch rounded-xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-md p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                            <div className="inline-flex items-stretch rounded-lg border border-white/[0.08] bg-white/[0.02] p-0.5">
                                 {stageStripItems.map((item, idx) => {
                                     const isCurrentlyViewing = item.isViewing;
                                     const isPast = item.isPast;
@@ -189,7 +187,7 @@ export function SmartFileChrome({
                                                     onClick={() => onStageSelect(stageId)}
                                                     className={`relative inline-flex items-center gap-1 px-2.5 py-1 rounded-[10px] text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                                                         isCurrentlyViewing
-                                                            ? 'bg-gradient-to-br from-[#E6C673]/16 to-[#E6C673]/[0.06] text-[#E6C673] shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
+                                                            ? 'bg-[#E6C673]/12 text-[#E6C673]'
                                                             : isPast
                                                               ? 'text-white/40 hover:text-white/60 hover:bg-white/[0.04]'
                                                               : item.postCassationRemand

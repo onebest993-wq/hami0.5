@@ -19,12 +19,11 @@ export function inferDebtorEmploymentFlags(debtor: DebtorEmploymentLike | null |
         occupation.includes('موظف') ||
         occupation.includes('حكومي') ||
         occupation === 'موظف';
+    const isRetired = occupation.includes('متقاعد') || occupation.includes('تقاعد');
     const isFreelancer =
-        (!isDebtorRowEmployee(debtor) && Boolean(debtor)) ||
         occupation.includes('كاسب') ||
         occupation.includes('خاص') ||
         occupation === 'كاسب';
-    const isRetired = occupation.includes('متقاعد') || occupation.includes('تقاعد');
 
     return {
         occupation,

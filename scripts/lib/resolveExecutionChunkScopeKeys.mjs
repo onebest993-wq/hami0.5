@@ -2,22 +2,30 @@
  * يحلّ مفاتيح chunk scope من core + ملفات scope المستخرجة (موجة 14+).
  */
 import fs from 'node:fs';
+import { extractConstArrayKeys } from './extractConstArrayKeys.mjs';
 
 const CORE_PATH = 'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts';
 const DYNAMIC_SCOPE_PATH =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoreDynamicScope.ts';
+void fs.existsSync(DYNAMIC_SCOPE_PATH);
 const DECISIONSSEIZUREEVICTIONSCOPEBAG_PATH =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardDecisionsSeizureEvictionScopeBag.ts';
+void fs.existsSync(DECISIONSSEIZUREEVICTIONSCOPEBAG_PATH);
 const WORKSPACESCOPEBAG_PATH =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardWorkspaceScopeBag.ts';
+void fs.existsSync(WORKSPACESCOPEBAG_PATH);
 const TIMELINE_DOSSIER_BAG_PATH =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardTimelineDossierScopeBag.ts';
+void fs.existsSync(TIMELINE_DOSSIER_BAG_PATH);
 const FINANCIAL_BAG_PATH =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardFinancialScopeBag.ts';
+void fs.existsSync(FINANCIAL_BAG_PATH);
 const COERCIVE_BAG_PATH =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoerciveScopeBag.ts';
+void fs.existsSync(COERCIVE_BAG_PATH);
 const FOLLOWUP_BAG_PATH =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardFollowupScopeBag.ts';
+void fs.existsSync(FOLLOWUP_BAG_PATH);
 
 function extractBalancedBlock(src, openBraceIdx) {
     let depth = 0;
@@ -47,10 +55,11 @@ function extractObjectKeys(core, varName) {
     return extractExplicitScopeKeys(body);
 }
 
-function extractConstArrayKeys(content, constName) {
-    const m = content.match(new RegExp(`export const ${constName} = \\[([\\s\\S]*?)\\] as const`));
-    if (!m) return new Set();
-    return new Set([...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]));
+function addScopeBagArrayKeys(resolved, filePath, constName) {
+    if (!fs.existsSync(filePath)) return;
+    const src = fs.readFileSync(filePath, 'utf8');
+    for (const k of extractConstArrayKeys(src, constName, filePath)) resolved.add(k);
+    for (const k of extractPropertyKeysFromFile(filePath)) resolved.add(k);
 }
 
 function extractObjectConstKeys(path, constName) {
@@ -109,13 +118,6 @@ function extractPhoneBodyFallbackComponentKeys() {
     return extractExplicitScopeKeys(body);
 }
 
-function addScopeBagArrayKeys(resolved, path, constName) {
-    if (!fs.existsSync(path)) return;
-    const src = fs.readFileSync(path, 'utf8');
-    for (const k of extractConstArrayKeys(src, constName)) resolved.add(k);
-    for (const k of extractPropertyKeysFromFile(path)) resolved.add(k);
-}
-
 function collectPhaseCScopeArchitectureKeys(resolved) {
     const coreDir = 'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore';
     const bagSpecs = [
@@ -131,8 +133,12 @@ function collectPhaseCScopeArchitectureKeys(resolved) {
     const runtimeKeysPath = `${coreDir}/executionDashboardCoreRuntimeVarKeys.generated.ts`;
     if (fs.existsSync(runtimeKeysPath)) {
         const runtimeSrc = fs.readFileSync(runtimeKeysPath, 'utf8');
-        for (const k of extractConstArrayKeys(runtimeSrc, 'CORE_RUNTIME_VAR_SEED_KEYS')) resolved.add(k);
-        for (const k of extractConstArrayKeys(runtimeSrc, 'CORE_RUNTIME_VAR_KEYS')) resolved.add(k);
+        for (const k of extractConstArrayKeys(runtimeSrc, 'CORE_RUNTIME_VAR_SEED_KEYS', runtimeKeysPath)) {
+            resolved.add(k);
+        }
+        for (const k of extractConstArrayKeys(runtimeSrc, 'CORE_RUNTIME_VAR_KEYS', runtimeKeysPath)) {
+            resolved.add(k);
+        }
     }
 
     const bundleGroupsPath = `${coreDir}/buildScopeBundleGroups.ts`;
@@ -176,15 +182,25 @@ function collectPhaseCScopeArchitectureKeys(resolved) {
         for (const k of extractPropertyKeysFromFile(file)) resolved.add(k);
         if (fs.existsSync(file)) {
             const src = fs.readFileSync(file, 'utf8');
-            for (const k of extractConstArrayKeys(src, 'EXECUTION_PHONE_BODY_SCOPE_READ_KEYS')) resolved.add(k);
+            for (const k of extractConstArrayKeys(src, 'EXECUTION_PHONE_BODY_SCOPE_READ_KEYS', file)) {
+                resolved.add(k);
+            }
         }
     }
 
-    for (const k of extractObjectConstKeys(
-        'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardLazyChunkScope.ts',
-        'EXECUTION_DASHBOARD_LAZY_CHUNK_SCOPE',
-    )) {
-        resolved.add(k);
+    for (const [file, constName] of [
+        [
+            'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardLazyChunkScopeShell.ts',
+            'EXECUTION_DASHBOARD_LAZY_CHUNK_SCOPE_SHELL',
+        ],
+        [
+            'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardLazyChunkScopeOverlays.ts',
+            'EXECUTION_DASHBOARD_LAZY_CHUNK_SCOPE_OVERLAYS',
+        ],
+    ]) {
+        for (const k of extractObjectConstKeys(file, constName)) {
+            resolved.add(k);
+        }
     }
     for (const k of extractObjectConstKeys(
         'src/app/components/lawyer/ExecutionDashboard/executionDashboardUiChunkScope.ts',
@@ -207,6 +223,7 @@ function collectPhaseCScopeArchitectureKeys(resolved) {
         for (const k of extractConstArrayKeys(
             followupSrc,
             'EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS',
+            followupRegistryPath,
         )) {
             resolved.add(k);
         }
@@ -328,6 +345,25 @@ const SCOPE_CHUNK_PATH =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreScopeAndChunk.ts';
 const SCOPE_SOURCES_LAZY_PATH =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoreScopeSourcesLazy.ts';
+void fs.existsSync(SCOPE_SOURCES_LAZY_PATH);
+const SCOPE_SOURCE_GROUPS_PATH =
+    'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoreScopeSourceGroups.ts';
+
+function extractScopeBlockFromSourceGroups() {
+    if (!fs.existsSync(SCOPE_SOURCE_GROUPS_PATH)) {
+        throw new Error('executionDashboardCoreScopeSourceGroups.ts not found');
+    }
+    const groupsSrc = fs.readFileSync(SCOPE_SOURCE_GROUPS_PATH, 'utf8');
+    const returnStart = groupsSrc.indexOf('    return {');
+    if (returnStart < 0) throw new Error('scope source groups return not found');
+    const returnOpen = returnStart + '    return '.length;
+    const returnBody = extractBalancedBlock(groupsSrc, returnOpen);
+    const inputMatch = groupsSrc.match(
+        /ExecutionDashboardCoreDeferredChunkScopeSourcesInput = \{([\s\S]*?)\};/,
+    );
+    const inputBody = inputMatch ? inputMatch[1] : '';
+    return `${inputBody}\n${returnBody}`;
+}
 
 function extractScopeBlock(core) {
     const marker = 'buildExecutionDashboardCoreDynamicScope({';
@@ -341,9 +377,15 @@ function extractScopeBlock(core) {
         srcForBlock = fs.readFileSync(SCOPE_CHUNK_PATH, 'utf8');
         start = srcForBlock.indexOf(marker);
     }
-    if (start < 0) throw new Error('buildExecutionDashboardCoreDynamicScope call not found');
+    if (start < 0) {
+        return extractScopeBlockFromSourceGroups();
+    }
     const open = start + marker.length - 1;
     const inputBody = extractBalancedBlock(srcForBlock, open);
+
+    if (!fs.existsSync(DYNAMIC_SCOPE_PATH)) {
+        return `${inputBody}\n${extractScopeBlockFromSourceGroups()}`;
+    }
 
     const dynamicSrc = fs.readFileSync(DYNAMIC_SCOPE_PATH, 'utf8');
     const returnStart = dynamicSrc.indexOf('return {');
@@ -410,7 +452,8 @@ export function resolveExecutionChunkScopeKeys(coreSrc = fs.readFileSync(CORE_PA
         'src/app/components/lawyer/ExecutionDashboard/executionDashboardRuntimeChunkScope.ts',
         'src/app/components/lawyer/ExecutionDashboard/executionDashboardUiChunkScope.ts',
         'src/app/components/lawyer/ExecutionDashboard/executionDashboardImportedHelpersChunkScope.ts',
-        'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardLazyChunkScope.ts',
+        'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardLazyChunkScopeShell.ts',
+        'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardLazyChunkScopeOverlays.ts',
     ]) {
         if (!fs.existsSync(file)) continue;
         const src = fs.readFileSync(file, 'utf8');

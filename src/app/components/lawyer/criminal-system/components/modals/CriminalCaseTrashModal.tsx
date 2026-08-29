@@ -24,7 +24,7 @@ export const CriminalCaseTrashModal = ({
 
     return (
         <div
-            className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden shadow-2xl max-h-[min(88vh,720px)] flex flex-col"
+            className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden shadow-lg max-h-[min(88vh,720px)] flex flex-col"
             role="dialog"
             aria-modal="true"
             data-testid={CRIMINAL_DOSSIER_TEST_IDS.trashModal}
@@ -39,7 +39,7 @@ export const CriminalCaseTrashModal = ({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="text-white/60 hover:text-white transition text-xs font-bold px-2 py-1 rounded-md hover:bg-slate-700/60"
+                        className="min-h-[44px] min-w-[44px] px-3 text-white/60 hover:text-white transition text-xs font-bold rounded-md hover:bg-slate-700/60 touch-manipulation"
                     >
                         إغلاق
                     </button>
@@ -72,14 +72,14 @@ export const CriminalCaseTrashModal = ({
                                         <button
                                             type="button"
                                             onClick={() => onRestore(item.id)}
-                                            className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-black text-emerald-200 hover:bg-emerald-500/20 transition"
+                                            className="min-h-[44px] px-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-[11px] font-black text-emerald-200 hover:bg-emerald-500/20 transition touch-manipulation"
                                         >
                                             ↩ استرجاع
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => onPurge(item.id)}
-                                            className="rounded-lg border border-red-500/35 bg-red-500/10 px-3 py-1.5 text-[11px] font-black text-red-200 hover:bg-red-500/20 transition"
+                                            className="min-h-[44px] px-3 rounded-lg border border-red-500/35 bg-red-500/10 text-[11px] font-black text-red-200 hover:bg-red-500/20 transition touch-manipulation"
                                         >
                                             حذف نهائي
                                         </button>

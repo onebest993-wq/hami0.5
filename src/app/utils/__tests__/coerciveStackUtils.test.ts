@@ -7,7 +7,7 @@ import {
     buildPersonalCoerciveStaleExecutionPatch,
     isArrestWarrantEnforceable,
     isExecutiveDetentionPathEnforceable,
-    isInvestigationCoerciveLaneSettled,
+    isInvestigationLaneSettled,
     isTravelBanEnforceable,
     isTravelBanLaneSettled,
     isTravelBanRequestCycleWithdrawn,
@@ -17,7 +17,6 @@ import {
     buildForcedBringPersonalOutcomePatch,
     resolvePrimaryDebtorCoerciveStack,
     shouldShowInvestigationCourtBlock,
-    canWithdrawInvestigationCourtPath,
 } from '@/app/components/lawyer/execution/coerciveStackUtils';
 
 describe('isTravelBanRequestWithdrawn', () => {
@@ -160,6 +159,14 @@ describe('resolveForcedBringNeedsOutcomeUi', () => {
                 forcedApproved: true,
                 forcedPending: false,
                 outcome: 'dismissed',
+            })
+        ).toBe(false);
+        expect(
+            resolveForcedBringNeedsOutcomeUi({
+                forcedApproved: true,
+                forcedPending: false,
+                outcome: null,
+                requestEffectivelyEnforced: true,
             })
         ).toBe(false);
     });
@@ -333,21 +340,21 @@ describe('shouldShowInvestigationCourtBlock', () => {
     });
 });
 
-describe('isInvestigationCoerciveLaneSettled', () => {
+describe('isInvestigationLaneSettled', () => {
     it('returns true when investigation path debtor present', () => {
-        expect(isInvestigationCoerciveLaneSettled({ investigationPathDebtorPresent: true })).toBe(
+        expect(isInvestigationLaneSettled({ investigationPathDebtorPresent: true })).toBe(
             true
         );
     });
 
     it('returns true when warrant custody secured', () => {
         expect(
-            isInvestigationCoerciveLaneSettled({ debtor_arrest_warrant_cleared_after_custody: true })
+            isInvestigationLaneSettled({ debtor_arrest_warrant_cleared_after_custody: true })
         ).toBe(true);
     });
 
     it('returns false for open investigation lane', () => {
-        expect(isInvestigationCoerciveLaneSettled({ investigationPathDebtorPresent: false })).toBe(
+        expect(isInvestigationLaneSettled({ investigationPathDebtorPresent: false })).toBe(
             false
         );
     });
@@ -367,23 +374,6 @@ describe('appendImplicitForcedBringBroughtPatch', () => {
             true
         );
         expect(patch).toEqual({ foo: 1 });
-    });
-});
-
-describe('canWithdrawInvestigationCourtPath', () => {
-    it('is disabled — withdraw removed from forced-bring rebuild', () => {
-        expect(
-            canWithdrawInvestigationCourtPath({
-                forcedOutcomeAbsconded: true,
-                investigationCourtWithdrawn: false,
-                warrantCustodyRecorded: false,
-                arrestPending: true,
-                investigationCourtRequested: true,
-                arrestApproved: false,
-                arrestAlternative: false,
-                investigationPostApprovalActive: false,
-            }),
-        ).toBe(false);
     });
 });
 

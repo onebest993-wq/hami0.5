@@ -106,4 +106,26 @@ describe('resolveAlertNavigation', () => {
             ),
         ).toEqual({ kind: 'open_lawsuit', entityId: 'file-2' });
     });
+
+    it('من visit_next يطلب مساحة جدول المشاهدة مع إضبارة التنفيذ', () => {
+        expect(
+            resolveAlertNavigation(
+                alert({
+                    target: 'execution',
+                    entityId: 'ex-9',
+                    calendarSource: {
+                        module: 'execution',
+                        entityId: 'ex-9',
+                        eventId: 'visit_next',
+                        dossierModule: 'execution',
+                        dossierId: 'ex-9',
+                    },
+                }),
+            ),
+        ).toEqual({
+            kind: 'open_execution',
+            entityId: 'ex-9',
+            openVisitationWorkspace: true,
+        });
+    });
 });

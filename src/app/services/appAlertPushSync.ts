@@ -1,12 +1,13 @@
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { PushNotificationService } from '@/app/services/PushNotificationService';
 import { savePushSubscription } from '@/app/services/pushSubscriptionStore';
+import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import {
     canSendPushNotifications,
     filterAlertsByNotificationSettings,
-    getLawyerSettingsSnapshot,
     alertNotificationChannel,
 } from '@/app/services/settings/settingsRuntime';
+import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
 import { showHamiNotification } from '@/app/services/notifications/HamiNotificationBridge';
 import { debug } from '@/app/utils/debug';
 
@@ -114,7 +115,8 @@ export async function syncPushForNewCriticalAlerts(
     if (PushNotificationService.getPermission() === 'granted' && lawyerId) {
         void persistPushSubscription(lawyerId);
     }
-    if (PushNotificationService.getPermission() !== 'granted') return;
+    const nativePush = isCapacitorNativePlatform();
+    if (!nativePush && PushNotificationService.getPermission() !== 'granted') return;
 
     const critical = channelFiltered.filter((a) => a.priority <= 1);
     if (critical.length === 0) return;

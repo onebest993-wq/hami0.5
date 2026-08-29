@@ -34,7 +34,7 @@ import {
 
 type PartyAppealBucket = LawyerJudgmentBucket;
 
-export function isPartialMeritJudgmentType(judgmentType?: string | null): boolean {
+function isPartialMeritJudgmentType(judgmentType?: string | null): boolean {
     const t = String(judgmentType ?? '').trim();
     if (!t) return false;
     return (
@@ -49,7 +49,7 @@ export function isPartialMeritJudgmentType(judgmentType?: string | null): boolea
     );
 }
 
-export function isPartialMeritDecisionText(text?: string | null): boolean {
+function isPartialMeritDecisionText(text?: string | null): boolean {
     const t = String(text ?? '');
     return (
         t.includes('جزئ')

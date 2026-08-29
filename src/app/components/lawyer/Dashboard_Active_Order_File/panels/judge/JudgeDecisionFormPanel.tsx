@@ -59,7 +59,7 @@ export function JudgeDecisionFormPanel(props: JudgeDecisionLifecyclePanelProps) 
                             void handleJudgeDecisionSubmit(e);
                         }}
                         disabled={isFinalized}
-                        className="min-h-[40px] px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+                        className="min-h-[44px] px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
                     >
                         حفظ وإغلاق الإضبارة
                     </button>
@@ -147,7 +147,7 @@ export function JudgeDecisionFormPanel(props: JudgeDecisionLifecyclePanelProps) 
                             e.stopPropagation();
                             void clearJudgeDecision(e);
                         }}
-                        className="min-h-[40px] px-3 py-2 text-white/50 hover:text-white text-xs font-bold transition-colors touch-manipulation"
+                        className="min-h-[44px] px-3 py-2 text-white/50 hover:text-white text-xs font-bold transition-colors touch-manipulation"
                     >
                         إلغاء
                     </button>
@@ -159,7 +159,7 @@ export function JudgeDecisionFormPanel(props: JudgeDecisionLifecyclePanelProps) 
                             void handleJudgeDecisionSubmit(e);
                         }}
                         disabled={isFinalized || !!judgeDecisionDateChronologyError}
-                        className={`${URGENT_DOSSIER_BTN_PRIMARY} min-h-[40px] py-2 text-xs`}
+                        className={`${URGENT_DOSSIER_BTN_PRIMARY} min-h-[44px] py-2 text-xs`}
                     >
                         حفظ القرار
                     </button>
@@ -174,7 +174,7 @@ export function JudgeDecisionFormPanel(props: JudgeDecisionLifecyclePanelProps) 
                                 type="button"
                                 disabled={isFinalized}
                                 onClick={() => setJudgeDecision((prev) => ({ ...prev, requiresGuarantee: true }))}
-                                className={`min-h-[36px] px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-colors touch-manipulation ${
+                                className={`min-h-[44px] px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-colors touch-manipulation ${
                                     judgeDecision.requiresGuarantee
                                         ? 'border-amber-500/40 bg-amber-500/15 text-amber-100'
                                         : 'border-white/10 text-white/50 hover:bg-white/[0.04]'
@@ -189,7 +189,7 @@ export function JudgeDecisionFormPanel(props: JudgeDecisionLifecyclePanelProps) 
                                     setJudgeDecision((prev) => ({ ...prev, requiresGuarantee: false }));
                                     setGuaranteeSubmitted(false);
                                 }}
-                                className={`min-h-[36px] px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-colors touch-manipulation ${
+                                className={`min-h-[44px] px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-colors touch-manipulation ${
                                     !judgeDecision.requiresGuarantee
                                         ? 'border-white/25 bg-white/[0.06] text-white/90'
                                         : 'border-white/10 text-white/50 hover:bg-white/[0.04]'

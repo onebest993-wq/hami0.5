@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import {
     areAllStoredNotesTombstoned,
     filterDeletedGlobalNotes,
+    filterTombstonedNotesSyncRows,
     markGlobalNoteDeleted,
     resetGlobalNotesTombstonesForTests,
 } from '@/app/services/notes/globalNotesTombstones';
@@ -19,6 +20,16 @@ describe('globalNotesTombstones', () => {
             'lawyer-1',
         );
         expect(next.map((n) => n.id)).toEqual(['note_2']);
+    });
+
+    it('filters sync rows without userId via _local_ scope', () => {
+        markGlobalNoteDeleted('lawyer-1', 'note_dead');
+        expect(
+            filterTombstonedNotesSyncRows([
+                { id: 'note_dead' },
+                { id: 'note_live' },
+            ]),
+        ).toEqual([{ id: 'note_live' }]);
     });
 
     it('allows empty lawyer_notes wipe when all remaining ids are tombstoned', () => {

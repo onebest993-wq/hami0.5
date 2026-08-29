@@ -31,11 +31,6 @@ export function loadAndCacheExecutionDashboardBaseScopeBuilder(): Promise<BaseSc
     return loadPromise;
 }
 
-export function prefetchExecutionDashboardBaseScopeBuilder(): void {
-    if (typeof window === 'undefined') return;
-    void loadAndCacheExecutionDashboardBaseScopeBuilder().catch(() => undefined);
-}
-
 export function resetExecutionDashboardBaseScopeCacheForTests(): void {
     cachedBuilder = null;
     loadPromise = null;

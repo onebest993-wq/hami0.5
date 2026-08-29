@@ -1,4 +1,8 @@
-import { Bell, Calendar, MapPin, Phone, X } from '@/app/components/ui/lucideIcons';
+import { Bell } from '@/app/components/ui/icons/Bell';
+import { Calendar } from '@/app/components/ui/icons/Calendar';
+import { MapPin } from '@/app/components/ui/icons/MapPin';
+import { Phone } from '@/app/components/ui/icons/Phone';
+import { X } from '@/app/components/ui/icons/X';
 import { ColleagueConsultationProvider } from '@/app/components/lawyer/caseShare/ColleagueConsultationContext';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import SecureStoreService from '@/app/services/SecureStoreService';
@@ -24,7 +28,7 @@ import {
 import {
     HAMI_RESIDENTIAL_GRACE_CLEARED,
 } from '@/app/utils/residentialEvictionGrace';
-import * as PhoneBodyLazyFallback from '../executionDashboardLazyRegistry';
+import * as PhoneBodyLazyFallbackShell from '../executionDashboardLazyRegistryShell';
 import {
     PartyOverflowToggle,
 } from '../executionDashboardLazyShellUi';
@@ -33,7 +37,7 @@ export type ExecutionDashboardPhoneBodyProps = Record<string, unknown>;
 
 export function withPhoneBodyScopeFallback(scope: Record<string, unknown>): Record<string, unknown> {
     const out = { ...scope };
-    for (const [key, value] of Object.entries(PhoneBodyLazyFallback)) {
+    for (const [key, value] of Object.entries(PhoneBodyLazyFallbackShell)) {
         if ((key.startsWith('Lazy') || key.startsWith('prefetch')) && out[key] == null && value != null) {
             out[key] = value;
         }

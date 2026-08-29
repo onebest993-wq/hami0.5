@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import type { ExecutionFile, SeizedAsset } from '@/app/types/execution';
 import { formatNumberInput } from '@/app/utils/execution/amountInput';
@@ -108,7 +107,7 @@ export const SalarySeizureLogDetailCard: React.FC<SalarySeizureLogDetailCardProp
 
     return (
         <div
-            className={`relative overflow-hidden rounded-2xl border p-3 backdrop-blur-xl ${
+            className={`relative overflow-hidden rounded-2xl border p-3 ${
                 locked
                     ? 'border-slate-600/40 bg-slate-900/55 opacity-90'
                     : isPending

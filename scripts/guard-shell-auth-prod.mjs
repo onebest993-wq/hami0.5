@@ -25,25 +25,25 @@ for (const rel of files) {
 
 /**
  * عقد shellAuth.ts المقصود (fail-closed):
- * - تجاوز صريح عبر VITE_SHELL_AUTH_OPEN=true|false ولا شيء غيره
- * - الافتراضي خارج الإنتاج فقط: PROD !== true
- * - ممنوع أي مسار يفتح الإنتاج ضمنياً
- *
- * كان العقد السابق يشترط isStaticSpaProduction: أي أن الإنتاج يُفتح كلّما لم
- * يساوِ VITE_BFF_AUTH القيمة 'true' بالضبط، فنسيان متغيّر بيئة واحد يُلغي
- * تسجيل الدخول عن التطبيق كلّه. الحارس الآن يمنع عودة ذلك المسار.
+ * - تجاوز صريح فقط عبر VITE_SHELL_AUTH_OPEN=true
+ * - false أو غير مضبوط → بوابة الدخول (لا ضيف تلقائي)
+ * - ممنوع أي مسار يفتح الإنتاج ضمنياً عبر BFF/SPA
  */
 const shellAuth = fs.readFileSync(path.join(ROOT, 'src/app/services/auth/shellAuth.ts'), 'utf8');
 const hasExplicitFlag =
   shellAuth.includes("flag === 'true'") && shellAuth.includes("flag === 'false'");
-const hasNonProdDefault = shellAuth.includes('PROD !== true');
+const hasFailClosedDefault =
+  /الافتراضي دائماً مغلق|return false;\s*\/\//.test(shellAuth) ||
+  (shellAuth.includes("if (flag === 'true') return true") &&
+    shellAuth.includes('return false') &&
+    !shellAuth.includes('PROD !== true'));
 const hasImplicitOpenPath =
   shellAuth.includes('isStaticSpaProduction') || shellAuth.includes("VITE_BFF_AUTH !== 'true'");
 
-if (!hasExplicitFlag || !hasNonProdDefault) {
+if (!hasExplicitFlag || !hasFailClosedDefault) {
   console.error(
     '[guard-shell-auth-prod] BLOCKED: shellAuth.ts missing the fail-closed contract ' +
-      '(need explicit VITE_SHELL_AUTH_OPEN true/false and a PROD !== true default)',
+      '(need explicit VITE_SHELL_AUTH_OPEN true/false and closed-by-default when unset)',
   );
   failed = true;
 } else if (hasImplicitOpenPath) {

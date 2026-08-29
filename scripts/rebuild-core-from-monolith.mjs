@@ -77,11 +77,11 @@ rb('    const {\n        generalMemoGraceAnchor,', '    // =====================
 
 // --- 6 persist ---
 const PERSIST = fs.readFileSync('scripts/patch-slice27-persist-snippet.txt', 'utf8');
-rb('    // ===========================\n    // SMART DEMOGRAPHIC ROUTING', '    const {\n        executionCopilotDecisions,', PERSIST, 'persist');
+rb('    // ===========================\n    // SMART DEMOGRAPHIC ROUTING', '    const {\n        executorDecisions,', PERSIST, 'persist');
 
 // --- 7 tail (handler cluster + scope) ---
 const TAIL = fs.readFileSync('scripts/patch-slice28-tail-snippet.txt', 'utf8');
-rb('    const {\n        executionCopilotDecisions,', '    return {\n        isLoading,', TAIL, 'tail');
+rb('    const {\n        executorDecisions,', '    return {\n        isLoading,', TAIL, 'tail');
 
 fs.writeFileSync(corePath, core, 'utf8');
 console.log('rebuild complete, lines:', core.split('\n').length);

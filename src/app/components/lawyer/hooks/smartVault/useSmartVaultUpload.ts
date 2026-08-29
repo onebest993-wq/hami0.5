@@ -116,6 +116,7 @@ export function useSmartVaultUpload({
 
     const handleImageUploadSelect = useCallback(
         (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+            void import('@/app/components/lawyer/SmartVaultModal/VaultUploadMetaSheet');
             queueUploadFiles(e.target.files, 'image');
             return Promise.resolve();
         },
@@ -124,6 +125,7 @@ export function useSmartVaultUpload({
 
     const handlePdfUploadSelect = useCallback(
         (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+            void import('@/app/components/lawyer/SmartVaultModal/VaultUploadMetaSheet');
             prefetchVaultBlobStore();
             queueUploadFiles(e.target.files, 'pdf');
             return Promise.resolve();

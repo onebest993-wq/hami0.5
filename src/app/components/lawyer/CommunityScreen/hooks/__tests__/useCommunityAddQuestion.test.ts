@@ -15,10 +15,9 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
     },
 }));
 
-vi.mock('@/app/services/forumApiService', () => ({
-    ForumApiService: {
-        createPost: (...args: unknown[]) => createPost(...args),
-    },
+vi.mock('@/lib/forumService.js', () => ({
+    uploadEncryptedForumImage: vi.fn().mockResolvedValue(null),
+    publishForumPost: (...args: unknown[]) => createPost(...args),
 }));
 
 vi.mock('@/app/services/lawyer-cloud', () => ({
@@ -33,27 +32,47 @@ vi.mock('@/app/services/forumAttachmentService', () => ({
         storagePath: 'idb:forum:pending:test',
     })),
     persistForumAttachmentFile: vi.fn().mockResolvedValue('idb:forum:cached'),
+    prepareForumAttachmentForPublish: vi.fn(async (attachment) => attachment),
+}));
+
+vi.mock('@/app/services/forum/forumApi/forumApiClientCore', () => ({
+    persistForumPostLocally: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/app/services/cloud/lawyerCommunityCloud', () => ({
     mergeCommunityPostsById: (...args: unknown[]) => mergeCommunityPostsById(...args),
     sortCommunityPosts: (...args: unknown[]) => sortCommunityPosts(...args),
+    syncCommunityPostToLocalMirror: vi.fn(),
 }));
 
-vi.mock('../communityScreenLazyOverlays', () => ({
+vi.mock('../../communityOverlayPrefetch', () => ({
     prefetchCommunityAddQuestionOverlay: vi.fn(),
 }));
 
-vi.mock('../utils', () => ({
-    applyAutoRedaction: (content: string) => ({ redacted: content, changed: false }),
-}));
+const applyAutoRedaction = vi.hoisted(() =>
+    vi.fn((content: string) => ({ redacted: content, changed: false })),
+);
+
+vi.mock('../../utils', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../../utils')>();
+    return {
+        ...actual,
+        applyAutoRedaction,
+    };
+});
 
 import { useCommunityAddQuestion } from '../useCommunityAddQuestion';
+import { peekForumRateLimit } from '../../forumRateLimit';
 
 describe('useCommunityAddQuestion', () => {
     beforeEach(() => {
         window.localStorage.clear();
         createPost.mockReset();
+        applyAutoRedaction.mockReset();
+        applyAutoRedaction.mockImplementation((content: string) => ({
+            redacted: content,
+            changed: false,
+        }));
         createPost.mockResolvedValue({
             id: 'post-1',
             authorId: 'user-1',
@@ -176,5 +195,80 @@ describe('useCommunityAddQuestion', () => {
             url: 'blob:mock-photo.jpg',
             name: 'photo.jpg',
         });
+    });
+
+    it('يعيد السماح بالنشر بعد فشل التنقيح الفارغ', async () => {
+        applyAutoRedaction.mockReturnValueOnce({ redacted: '', changed: true });
+        const { result } = renderHook(() =>
+            useCommunityAddQuestion({
+                lists: { setPosts: vi.fn(), removePostFromList: vi.fn() },
+                currentUserId: 'user-1',
+                authUser: { user_metadata: { fullName: 'محامي' } },
+                isBanned: false,
+                activeGroupId: null,
+                appendPublishedGroupPost: vi.fn(),
+            }),
+        );
+
+        act(() => {
+            result.current.setNewPostText('استشارة قانونية تجريبية طويلة');
+        });
+
+        await act(async () => {
+            await result.current.handleAddPost();
+        });
+        expect(createPost).not.toHaveBeenCalled();
+
+        await act(async () => {
+            await result.current.handleAddPost();
+        });
+        expect(createPost).toHaveBeenCalledTimes(1);
+    });
+
+    it('لا يستهلك حد النشر إذا فشل الخادم', async () => {
+        createPost.mockRejectedValueOnce(new Error('تعذّر النشر'));
+        const { result } = renderHook(() =>
+            useCommunityAddQuestion({
+                lists: { setPosts: vi.fn(), removePostFromList: vi.fn() },
+                currentUserId: 'user-1',
+                authUser: { user_metadata: { fullName: 'محامي' } },
+                isBanned: false,
+                activeGroupId: null,
+                appendPublishedGroupPost: vi.fn(),
+            }),
+        );
+
+        act(() => {
+            result.current.setNewPostText('استشارة قانونية تجريبية طويلة');
+        });
+
+        await act(async () => {
+            await result.current.handleAddPost();
+        });
+
+        expect(peekForumRateLimit('post', 'user-1').allowed).toBe(true);
+    });
+
+    it('يستهلك حد النشر بعد نجاح الخادم', async () => {
+        const { result } = renderHook(() =>
+            useCommunityAddQuestion({
+                lists: { setPosts: vi.fn(), removePostFromList: vi.fn() },
+                currentUserId: 'user-1',
+                authUser: { user_metadata: { fullName: 'محامي' } },
+                isBanned: false,
+                activeGroupId: null,
+                appendPublishedGroupPost: vi.fn(),
+            }),
+        );
+
+        act(() => {
+            result.current.setNewPostText('استشارة قانونية تجريبية طويلة');
+        });
+
+        await act(async () => {
+            await result.current.handleAddPost();
+        });
+
+        expect(peekForumRateLimit('post', 'user-1').allowed).toBe(false);
     });
 });

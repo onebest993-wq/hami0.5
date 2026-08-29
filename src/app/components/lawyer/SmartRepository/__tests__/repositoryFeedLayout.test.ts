@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
     getRepositoryFeedContainerClass,
-    resolveRepositoryCardVariant,
+    normalizeRepositoryFeedLayout,
     resolveRepositoryCardInnerLayout,
+    resolveRepositoryCardVariant,
 } from '../repositoryFeedLayout';
 import type { RepositoryFeedItem } from '@/app/services/repository/repositoryUnifiedFeed';
 
@@ -27,7 +28,13 @@ describe('repositoryFeedLayout', () => {
         expect(resolveRepositoryCardVariant(dossier)).toBe('dossier');
     });
 
-    it('exposes container classes for gallery', () => {
-        expect(getRepositoryFeedContainerClass('gallery')).toContain('columns-');
+    it('يطبع التخطيطات القديمة إلى شبكة أو قائمة', () => {
+        expect(normalizeRepositoryFeedLayout('compact')).toBe('grid');
+        expect(normalizeRepositoryFeedLayout('timeline')).toBe('grid');
+        expect(normalizeRepositoryFeedLayout('gallery')).toBe('grid');
+        expect(normalizeRepositoryFeedLayout('list')).toBe('list');
+        expect(getRepositoryFeedContainerClass('grid')).toContain('grid-cols-');
+        expect(getRepositoryFeedContainerClass('list')).toContain('flex flex-col');
+        expect(getRepositoryFeedContainerClass('grid')).not.toContain('columns-');
     });
 });

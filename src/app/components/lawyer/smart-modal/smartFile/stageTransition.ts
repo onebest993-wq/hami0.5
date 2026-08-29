@@ -1,7 +1,7 @@
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import type { CaseStage } from '../../LawyerShared';
 
-export function createBlankChildStage(newStageName: string, parentStageType?: string): CaseStage {
+function createBlankChildStage(newStageName: string, parentStageType?: string): CaseStage {
     return {
         id: `stage_${Date.now()}`,
         name: newStageName,
@@ -24,7 +24,7 @@ export function createBlankChildStage(newStageName: string, parentStageType?: st
     } as unknown as CaseStage;
 }
 
-export type StageTransitionInput = {
+type StageTransitionInput = {
     newStage: string;
     result: string;
     date: string;

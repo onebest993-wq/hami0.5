@@ -223,4 +223,14 @@ describe('executionDomainIsolation', () => {
         expect(gate.allowed).toBe(false);
         expect(gate.reasonAr).toBeTruthy();
     });
+
+    it('13) resolveExecutionDomainContext always exposes followup flags (boot regression)', () => {
+        for (const data of [null, undefined, {}, { id: 'bare' }]) {
+            const ctx = resolveExecutionDomainContext(data as Record<string, unknown> | null);
+            expect(ctx.flags).toBeDefined();
+            expect(typeof ctx.flags.hidePersonalCoerciveFollowupTab).toBe('boolean');
+            expect(typeof ctx.flags.hideFollowupCoerciveTab).toBe('boolean');
+            expect(typeof ctx.flags.hideFollowupSeizureRequestsTab).toBe('boolean');
+        }
+    });
 });

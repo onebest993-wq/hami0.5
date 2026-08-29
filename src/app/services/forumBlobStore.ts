@@ -55,8 +55,18 @@ export async function putForumBlob(cacheKey: string, blob: Blob, mimeType: strin
 
     await new Promise<void>((resolve, reject) => {
         const tx = db.transaction(STORE, 'readwrite');
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error ?? new Error('forum blob write failed'));
+        tx.oncomplete = () => {
+            db.close();
+            resolve();
+        };
+        tx.onerror = () => {
+            db.close();
+            reject(tx.error ?? new Error('forum blob write failed'));
+        };
+        tx.onabort = () => {
+            db.close();
+            reject(tx.error ?? new Error('forum blob write aborted'));
+        };
         tx.objectStore(STORE).put(row);
     });
 }
@@ -68,10 +78,27 @@ export async function getForumBlob(
     if (!db) return null;
 
     const row = await new Promise<ForumBlobRow | null>((resolve) => {
+        let value: ForumBlobRow | null = null;
         const tx = db.transaction(STORE, 'readonly');
         const req = tx.objectStore(STORE).get(cacheKey.trim());
-        req.onsuccess = () => resolve((req.result as ForumBlobRow | undefined) ?? null);
-        req.onerror = () => resolve(null);
+        req.onsuccess = () => {
+            value = (req.result as ForumBlobRow | undefined) ?? null;
+        };
+        req.onerror = () => {
+            value = null;
+        };
+        tx.oncomplete = () => {
+            db.close();
+            resolve(value);
+        };
+        tx.onerror = () => {
+            db.close();
+            resolve(null);
+        };
+        tx.onabort = () => {
+            db.close();
+            resolve(null);
+        };
     });
 
     if (!row?.blob) return null;

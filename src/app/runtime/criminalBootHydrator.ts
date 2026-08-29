@@ -1,11 +1,10 @@
 /**
  * Phase-2: تسخين خفيف لمسار Instant الإضبارة الجزائية (BootChrome + store).
  * لا يحمّل ResolvedRuntime الكامل عند الإقلاع.
+ * لا تسخين فوري على boot-reveal — ينافس تلاشي الشعار؛ التسخين من interactive.
  */
-import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
+import { isSectionBackgroundPrefetchAllowed, sectionBackgroundHydrateDelayMs } from '@/app/runtime/sectionPrefetchPolicy';
 import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
 import {
     prefetchCriminalDashboardChromeWarm,
@@ -18,21 +17,11 @@ let bootHydratorArmed = false;
 let coldBootPrefetchStarted = false;
 
 function criminalPrefetchAllowed(): boolean {
-    try {
-        const s = getLawyerSettingsSnapshot();
-        if (s.security.localOnlyMode) return false;
-        if (s.performance.prefetchScreens === false) return false;
-        if (isLitePerformanceActive(s.performance.litePerformance)) return false;
-    } catch {
-        /* ignore */
-    }
-    return true;
+    return isSectionBackgroundPrefetchAllowed();
 }
 
 function hydrateDelayMs(): number {
-    if (!criminalPrefetchAllowed()) return -1;
-    if (isCapacitorNativePlatform()) return 80;
-    return 0;
+    return sectionBackgroundHydrateDelayMs();
 }
 
 function dispatchHydratedOnce(): void {
@@ -53,12 +42,11 @@ export function bindCriminalBootHydrator(_userId?: string | null): () => void {
     bootHydratorArmed = true;
 
     let cancelIdle: (() => void) | undefined;
-
-    const onBootRevealDone = () => {
-        prefetchCriminalAfterBootReveal();
-    };
+    let hydrateScheduled = false;
 
     const scheduleHydrate = () => {
+        if (hydrateScheduled) return;
+        hydrateScheduled = true;
         prefetchCriminalAfterBootReveal();
         const delay = hydrateDelayMs();
         if (delay < 0) return;
@@ -66,7 +54,6 @@ export function bindCriminalBootHydrator(_userId?: string | null): () => void {
         cancelIdle = scheduleIdleWork(
             () => {
                 prefetchCriminalDashboardChromeWarm();
-                // موجة idle خفيفة بعد interactive — phased (store→dashboard) فقط عند السماح
                 prefetchCriminalDashboardPhased();
                 dispatchHydratedOnce();
             },
@@ -74,22 +61,27 @@ export function bindCriminalBootHydrator(_userId?: string | null): () => void {
         );
     };
 
-    window.addEventListener(BOOT_REVEAL_DONE_EVENT, onBootRevealDone, { once: true });
-    if (isBootRevealDone()) {
-        queueMicrotask(onBootRevealDone);
-    }
-
+    /* كشف الشعار وحده لا يسحب chrome — انتظر interactive أو لوحة جاهزة */
     window.addEventListener('hami:dashboard-interactive', scheduleHydrate, { once: true });
 
-    if (document.querySelector('[data-testid="lawyer-dashboard-ready"]')) {
-        scheduleHydrate();
+    const maybeHydrateIfAlreadyReady = () => {
+        if (document.querySelector('[data-testid="lawyer-dashboard-ready"]')) {
+            scheduleHydrate();
+        }
+    };
+
+    window.addEventListener(BOOT_REVEAL_DONE_EVENT, maybeHydrateIfAlreadyReady, { once: true });
+    if (isBootRevealDone()) {
+        queueMicrotask(maybeHydrateIfAlreadyReady);
+    } else {
+        maybeHydrateIfAlreadyReady();
     }
 
     return () => {
         bootHydratorArmed = false;
         cancelIdle?.();
         cancelIdle = undefined;
-        window.removeEventListener(BOOT_REVEAL_DONE_EVENT, onBootRevealDone);
+        window.removeEventListener(BOOT_REVEAL_DONE_EVENT, maybeHydrateIfAlreadyReady);
         window.removeEventListener('hami:dashboard-interactive', scheduleHydrate);
     };
 }

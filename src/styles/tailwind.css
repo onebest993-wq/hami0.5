@@ -18,7 +18,6 @@
 @source '../app/components/lawyer/LawyerDashboardParts/**';
 @source '../app/components/lawyer/LawyerHomeHubCard/**';
 @source '../app/components/lawyer/LawyerDashboard.tsx';
-@source '../app/components/lawyer/LegalCommandCenterDock/**';
 @source '../app/components/lawyer/NotificationPanel/**';
 @source '../app/components/lawyer/NeuralAlertsCard/**';
 @source '../app/components/lawyer/SmartLegalRadar/**';

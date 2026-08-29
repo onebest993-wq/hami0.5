@@ -1,5 +1,5 @@
 /**
- * Sync production security headers from TypeScript SoT → vercel.json + public/_headers.
+ * Sync production security headers from TypeScript SoT → vercel.json + vercel-hq.json + public/_headers.
  * Usage:
  *   node scripts/sync-security-headers.mjs           # write
  *   node scripts/sync-security-headers.mjs --check   # fail on drift
@@ -43,6 +43,32 @@ function loadProductionHeaders() {
   }
 }
 
+/**
+ * سياسة التخزين — جدول واحد لكِلا المستضيفَين.
+ *
+ * كانت مكتوبة مرتين: `vercel.json` يغطّي hami-boot.js وfavicon، و`_headers`
+ * يغطّي static-law-data — ولا أحد منهما يغطّي `sw.js`. فالسلوك يختلف بحسب أين
+ * نُشر، وهو أسوأ من أن يكون خاطئاً في الاثنين: يظهر العطل عند مستضيف دون آخر.
+ *
+ * `sw.js` بلا تخزين قاطع: العامل يبقى مسيطراً إلى أن يُستبدل، فنسخة عالقة على
+ * حافة CDN تعني قشرة قديمة عند كل زائر حتى انتهاء مدّتها.
+ *
+ * لا قاعدة لـ`hami-boot.js`: `hami-shell-asset-hash` ينقله إلى `assets/` باسم
+ * مختوم بتجزئة محتواه، فتغطّيه سياسة الأصول الأبدية بلا استثناء خاص.
+ */
+const CACHE_POLICY = [
+  { netlify: '/index.html', vercel: '/index.html', value: 'no-cache' },
+  { netlify: '/sw.js', vercel: '/sw.js', value: 'no-cache, must-revalidate' },
+  { netlify: '/assets/*', vercel: '/assets/(.*)', value: 'public, max-age=31536000, immutable' },
+  { netlify: '/favicon.svg', vercel: '/favicon.svg', value: 'public, max-age=604800' },
+  { netlify: '/static-law-data/manifest.json', vercel: '/static-law-data/manifest.json', value: 'no-cache' },
+  {
+    netlify: '/static-law-data/v1/*',
+    vercel: '/static-law-data/v1/(.*)',
+    value: 'public, max-age=31536000, immutable',
+  },
+];
+
 function renderNetlifyHeaders(headers) {
   const lines = [
     '# Netlify / static — أمان الإنتاج + cache (CSP = contentSecurityPolicy production)',
@@ -52,35 +78,39 @@ function renderNetlifyHeaders(headers) {
   for (const [key, value] of Object.entries(headers)) {
     lines.push(`  ${key}: ${value}`);
   }
-  lines.push(
-    '',
-    '/index.html',
-    '  Cache-Control: no-cache',
-    '',
-    '/assets/*',
-    '  Cache-Control: public, max-age=31536000, immutable',
-    '',
-    '/static-law-data/manifest.json',
-    '  Cache-Control: no-cache',
-    '',
-    '/static-law-data/v1/*',
-    '  Cache-Control: public, max-age=31536000, immutable',
-    '',
-  );
+  for (const rule of CACHE_POLICY) {
+    lines.push('', rule.netlify, `  Cache-Control: ${rule.value}`);
+  }
+  lines.push('');
   return `${lines.join('\n')}`;
 }
 
-function syncVercel(headers) {
-  const vercelPath = path.join(ROOT, 'vercel.json');
+function syncVercelFile(headers, filename) {
+  const vercelPath = path.join(ROOT, filename);
   const vercel = JSON.parse(fs.readFileSync(vercelPath, 'utf8'));
   const securityBlock = vercel.headers?.find((h) => h.source === '/(.*)');
-  if (!securityBlock) throw new Error('vercel.json missing /(.*) headers block');
+  if (!securityBlock) throw new Error(`${filename} missing /(.*) headers block`);
   const nextHeaders = Object.entries(headers).map(([key, value]) => ({ key, value }));
   const keep = (securityBlock.headers || []).filter((h) => !(h.key in headers));
   securityBlock.headers = [...nextHeaders, ...keep];
+  vercel.headers = [
+    securityBlock,
+    ...CACHE_POLICY.map((rule) => ({
+      source: rule.vercel,
+      headers: [{ key: 'Cache-Control', value: rule.value }],
+    })),
+  ];
   const next = `${JSON.stringify(vercel, null, 2)}\n`;
   const prev = fs.readFileSync(vercelPath, 'utf8');
   return { path: vercelPath, prev, next, changed: prev !== next };
+}
+
+function syncVercel(headers) {
+  return syncVercelFile(headers, 'vercel.json');
+}
+
+function syncVercelHq(headers) {
+  return syncVercelFile(headers, 'vercel-hq.json');
 }
 
 function syncNetlify(headers) {
@@ -93,7 +123,7 @@ function syncNetlify(headers) {
 }
 
 const headers = loadProductionHeaders();
-const jobs = [syncVercel(headers), syncNetlify(headers)];
+const jobs = [syncVercel(headers), syncVercelHq(headers), syncNetlify(headers)];
 let drift = false;
 for (const job of jobs) {
   if (!job.changed) {

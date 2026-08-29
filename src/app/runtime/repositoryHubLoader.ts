@@ -1,105 +1,49 @@
-import type { ComponentType } from 'react';
-import type { SmartRepositoryModalProps } from '@/app/components/lawyer/SmartRepository/SmartRepositoryModalEntry';
-import type { SmartRepositoryUnifiedFeedProps } from '@/app/components/lawyer/SmartRepository/SmartRepositoryUnifiedFeed';
+type RepositoryOverlayEntryModule =
+    typeof import('@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardRepositoryOverlayEntry');
 
-type RepositoryHubModule = typeof import('@/app/components/lawyer/SmartRepository/SmartRepositoryModalEntry');
-type RepositoryFeedModule = typeof import('@/app/components/lawyer/SmartRepository/SmartRepositoryUnifiedFeed');
-
-export type SmartRepositoryModalComponent = ComponentType<SmartRepositoryModalProps>;
-export type SmartRepositoryUnifiedFeedComponent = ComponentType<SmartRepositoryUnifiedFeedProps>;
-
-let hubModulePromise: Promise<RepositoryHubModule> | null = null;
-let feedModulePromise: Promise<RepositoryFeedModule> | null = null;
-let cachedSmartRepositoryModal: SmartRepositoryModalComponent | null = null;
-let cachedUnifiedFeed: SmartRepositoryUnifiedFeedComponent | null = null;
+let overlayEntryPromise: Promise<RepositoryOverlayEntryModule> | null = null;
+let overlayEntryResolved = false;
 
 export function isRepositoryHubModuleResolved(): boolean {
-    return cachedSmartRepositoryModal !== null;
-}
-
-export function isRepositoryFeedModuleResolved(): boolean {
-    return cachedUnifiedFeed !== null;
-}
-
-export function getCachedSmartRepositoryModal(): SmartRepositoryModalComponent | null {
-    return cachedSmartRepositoryModal;
-}
-
-export function getCachedRepositoryUnifiedFeed(): SmartRepositoryUnifiedFeedComponent | null {
-    return cachedUnifiedFeed;
+    return overlayEntryResolved;
 }
 
 /** للاختبارات */
 export function resetRepositoryHubModuleCacheForTests(): void {
-    hubModulePromise = null;
-    feedModulePromise = null;
-    cachedSmartRepositoryModal = null;
-    cachedUnifiedFeed = null;
+    overlayEntryPromise = null;
+    overlayEntryResolved = false;
 }
 
-function ensureRepositoryHubModulePromise(): Promise<RepositoryHubModule> {
-    if (!hubModulePromise) {
-        hubModulePromise = import('@/app/components/lawyer/SmartRepository/SmartRepositoryModalEntry')
+function ensureOverlayEntry(): Promise<RepositoryOverlayEntryModule> {
+    if (!overlayEntryPromise) {
+        overlayEntryPromise = import(
+            '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardRepositoryOverlayEntry'
+        )
             .then((mod) => {
-                if (mod?.SmartRepositoryModal) {
-                    cachedSmartRepositoryModal = mod.SmartRepositoryModal;
-                }
+                overlayEntryResolved = Boolean(mod.LawyerDashboardRepositoryOverlayEntry);
                 return mod;
             })
             .catch((err) => {
-                hubModulePromise = null;
+                overlayEntryPromise = null;
+                overlayEntryResolved = false;
                 throw err;
             });
     }
-    return hubModulePromise;
+    return overlayEntryPromise;
 }
 
-function ensureRepositoryFeedModulePromise(): Promise<RepositoryFeedModule> {
-    if (!feedModulePromise) {
-        feedModulePromise = import('@/app/components/lawyer/SmartRepository/SmartRepositoryUnifiedFeed')
-            .then((mod) => {
-                if (mod?.SmartRepositoryUnifiedFeed) {
-                    cachedUnifiedFeed = mod.SmartRepositoryUnifiedFeed;
-                }
-                return mod;
-            })
-            .catch((err) => {
-                feedModulePromise = null;
-                throw err;
-            });
-    }
-    return feedModulePromise;
+/** مقطع Entry (Host + Modal ثابتان داخله) */
+export function loadRepositoryHubModule(): Promise<RepositoryOverlayEntryModule> {
+    return ensureOverlayEntry();
 }
 
-export function loadRepositoryHubModule(): Promise<RepositoryHubModule> {
-    return ensureRepositoryHubModulePromise();
-}
-
-export function loadRepositoryFeedComponent(): Promise<SmartRepositoryUnifiedFeedComponent | null> {
-    return ensureRepositoryFeedModulePromise()
-        .then(() => cachedUnifiedFeed)
-        .catch(() => null);
-}
-
-/** Prefetch قشرة + تغذية — يُستدعى من hover/boot */
 export function prefetchRepositoryHubModule(): void {
     if (typeof window === 'undefined') return;
-    void ensureRepositoryHubModulePromise().catch(() => undefined);
-    prefetchRepositoryFeedModule();
+    void loadRepositoryHubModule().catch(() => undefined);
 }
 
-/** Prefetch تغذية المستودع — المسار الحرج للفتح اللحظي */
-export function prefetchRepositoryFeedModule(): void {
-    if (typeof window === 'undefined') return;
-    void ensureRepositoryFeedModulePromise().catch(() => undefined);
-}
-
-/** يضمن جاهزية قشرة المستودع (Modal) للفتح الفوري — التغذية ثانوية */
 export function hydrateRepositoryShellForInstantOpen(): Promise<boolean> {
-    return Promise.all([
-        ensureRepositoryHubModulePromise(),
-        ensureRepositoryFeedModulePromise().catch(() => null),
-    ])
-        .then(() => cachedSmartRepositoryModal != null)
+    return loadRepositoryHubModule()
+        .then(() => overlayEntryResolved)
         .catch(() => false);
 }

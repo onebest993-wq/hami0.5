@@ -1,4 +1,4 @@
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
 
 /** find محلي خفيف — لا يسحب حزم الربط/التوحيد إلى stem LD */
 export function findLawsuitFileById(files: FileData[], fileId: number): FileData | null {

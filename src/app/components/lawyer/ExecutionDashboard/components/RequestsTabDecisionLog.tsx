@@ -1,5 +1,6 @@
 import React from 'react';
-import { CheckCircle, Gavel } from '@/app/components/ui/lucideIcons';
+import { CheckCircle } from '@/app/components/ui/icons/CheckCircle';
+import { Gavel } from '@/app/components/ui/icons/Gavel';
 import {
     ExecutionInlineExecutorDecisionActions,
 } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';

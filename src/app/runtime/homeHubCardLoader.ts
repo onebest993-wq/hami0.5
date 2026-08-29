@@ -12,21 +12,11 @@ export function prefetchLawyerHomeHubCardModule(): void {
     });
 }
 
+export function getCachedLawyerHomeHubCard(): LawyerHomeHubCardModule['LawyerHomeHubCard'] | null {
+    return resolvedModule?.LawyerHomeHubCard ?? null;
+}
+
 export function loadLawyerHomeHubCardModule(): Promise<LawyerHomeHubCardModule> {
     prefetchLawyerHomeHubCardModule();
     return modulePromise!;
-}
-
-export function isLawyerHomeHubCardModuleResolved(): boolean {
-    return resolvedModule != null;
-}
-
-export function peekLawyerHomeHubCardModule(): LawyerHomeHubCardModule | null {
-    return resolvedModule;
-}
-
-/** للاختبارات */
-export function resetLawyerHomeHubCardLoaderForTests(): void {
-    modulePromise = null;
-    resolvedModule = null;
 }

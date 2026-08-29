@@ -8,9 +8,11 @@ import { primeProfileStudio } from '@/app/runtime/profileShellPrime';
 import { ProfileSettingsSheetLoadingFallback } from './ProfileSettingsSheetLoadingFallback';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 
+import type { CloseProfileSettingsOptions } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileStudioSettings';
+
 type ProfileSettingsSheetProps = {
     open: boolean;
-    onClose: () => void;
+    onClose: (options?: CloseProfileSettingsOptions) => void;
     onRegisterDiscard?: (fn: (() => void) | null) => void;
     customization: ProfilePageCustomization;
     userId: string;
@@ -24,7 +26,7 @@ type ProfileSettingsSheetComponent = React.ComponentType<ProfileSettingsSheetPro
 const LOAD_RETRY_MS = 700;
 const MAX_LOAD_ATTEMPTS = 3;
 
-/** يُبقى الاستوديو mounted مع الملف — chunk جاهز قبل النقر */
+/** يُحمَّل الاستوديو عند الفتح (أو من كاش نية الزر) — لا يرافق إقلاع الصفحة */
 export function ProfileSettingsSheetHost(props: ProfileSettingsSheetProps) {
     const { open } = props;
     const [Component, setComponent] = useState<ProfileSettingsSheetComponent | null>(() =>
@@ -40,6 +42,8 @@ export function ProfileSettingsSheetHost(props: ProfileSettingsSheetProps) {
     }, []);
 
     useLayoutEffect(() => {
+        if (!open) return;
+
         primeProfileStudio();
 
         const cached = getCachedProfileSettingsSheet();
@@ -55,7 +59,6 @@ export function ProfileSettingsSheetHost(props: ProfileSettingsSheetProps) {
         const adoptModule = () => {
             void loadProfileSettingsSheetModule()
                 .then((mod) => {
-                    if (cancelled) return;
                     if (mod?.ProfileSettingsSheet) {
                         setComponent(() => mod.ProfileSettingsSheet);
                         setLoadFailed(false);
@@ -79,7 +82,7 @@ export function ProfileSettingsSheetHost(props: ProfileSettingsSheetProps) {
         return () => {
             cancelled = true;
         };
-    }, [loadGeneration]);
+    }, [open, loadGeneration]);
 
     if (!Component) {
         if (open) {
@@ -101,7 +104,7 @@ export function ProfileSettingsSheetHost(props: ProfileSettingsSheetProps) {
                             </button>
                             <button
                                 type="button"
-                                onClick={props.onClose}
+                                onClick={() => props.onClose()}
                                 className="block mx-auto min-h-[44px] px-3 text-xs text-white/50 touch-manipulation"
                             >
                                 إغلاق

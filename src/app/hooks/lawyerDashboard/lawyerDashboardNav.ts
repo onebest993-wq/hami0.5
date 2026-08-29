@@ -1,5 +1,6 @@
 import { parseCommunityDeepLinkFromLocation } from '@/app/components/lawyer/CommunityScreen/communityDeepLink';
 import { isBootRevealDone } from '@/app/bootstrap/bootReveal';
+import { wasProfileOpenedThisPage } from '@/app/hooks/lawyerDashboard/profile/profileOpenSession';
 
 export const LAWYER_DASHBOARD_TAB_KEY = 'hami:lawyer-dashboard-tab';
 export const LAWYER_COMMUNITY_OPEN_KEY = 'hami:lawyer-community-open';
@@ -31,13 +32,17 @@ export function readInitialCommunityOpen(): boolean {
     if (typeof window === 'undefined') return false;
     if (parseCommunityDeepLinkFromLocation(window.location)) return true;
     try {
-        return (
-            sessionStorage.getItem(LAWYER_COMMUNITY_OPEN_KEY) === '1' ||
-            sessionStorage.getItem(LAWYER_DASHBOARD_TAB_KEY) === 'community'
-        );
+        /* overlay — لا يُستعاد بعد reload (يفتح المنتدى تلقائياً ويُربك المستخدم) */
+        if (sessionStorage.getItem(LAWYER_COMMUNITY_OPEN_KEY) === '1') {
+            sessionStorage.removeItem(LAWYER_COMMUNITY_OPEN_KEY);
+        }
+        if (sessionStorage.getItem(LAWYER_DASHBOARD_TAB_KEY) === 'community') {
+            sessionStorage.removeItem(LAWYER_DASHBOARD_TAB_KEY);
+        }
     } catch {
-        return false;
+        /* ignore storage */
     }
+    return false;
 }
 
 export function readInitialRepositorySession(): {
@@ -46,10 +51,12 @@ export function readInitialRepositorySession(): {
 } {
     if (typeof window === 'undefined') return { open: false, tab: 'vault' };
     try {
-        const open = sessionStorage.getItem(LAWYER_REPOSITORY_OPEN_KEY) === '1';
-        const rawTab = sessionStorage.getItem(LAWYER_REPOSITORY_TAB_KEY);
-        const tab: LawyerRepositorySessionTab = rawTab === 'notepad' ? 'notepad' : 'vault';
-        return { open, tab };
+        /* overlay — لا يُستعاد بعد reload */
+        if (sessionStorage.getItem(LAWYER_REPOSITORY_OPEN_KEY) === '1') {
+            sessionStorage.removeItem(LAWYER_REPOSITORY_OPEN_KEY);
+        }
+        sessionStorage.removeItem(LAWYER_REPOSITORY_TAB_KEY);
+        return { open: false, tab: 'vault' };
     } catch {
         return { open: false, tab: 'vault' };
     }
@@ -76,7 +83,11 @@ export function persistRepositorySessionOpen(
 export function readInitialTransactionsSession(): { open: boolean } {
     if (typeof window === 'undefined') return { open: false };
     try {
-        return { open: sessionStorage.getItem(LAWYER_TRANSACTIONS_OPEN_KEY) === '1' };
+        /* overlay — لا يُستعاد بعد reload (يفتح المركز تلقائياً ويُربك المستخدم) */
+        if (sessionStorage.getItem(LAWYER_TRANSACTIONS_OPEN_KEY) === '1') {
+            sessionStorage.removeItem(LAWYER_TRANSACTIONS_OPEN_KEY);
+        }
+        return { open: false };
     } catch {
         return { open: false };
     }
@@ -96,12 +107,8 @@ export function persistTransactionsSessionOpen(open: boolean): void {
 }
 
 export function readInitialSettingsSession(): { open: boolean } {
-    if (typeof window === 'undefined') return { open: false };
-    try {
-        return { open: sessionStorage.getItem(LAWYER_SETTINGS_OPEN_KEY) === '1' };
-    } catch {
-        return { open: false };
-    }
+    /* لا نستعيد فتح الإعدادات بعد reload — كان يعلق sessionStorage عند فشل الإغلاق */
+    return { open: false };
 }
 
 export function persistSettingsSessionOpen(open: boolean): void {
@@ -123,10 +130,12 @@ export function readInitialFieldTasksSession(): {
 } {
     if (typeof window === 'undefined') return { open: false, surface: 'sheet' };
     try {
-        const open = sessionStorage.getItem(LAWYER_FIELD_TASKS_OPEN_KEY) === '1';
-        const raw = sessionStorage.getItem(LAWYER_FIELD_TASKS_SURFACE_KEY);
-        const surface: LawyerFieldTasksSurface = raw === 'manager' ? 'manager' : 'sheet';
-        return { open, surface };
+        /* overlay — لا يُستعاد بعد reload (يفتح الستارة تلقائياً ويُربك المستخدم) */
+        if (sessionStorage.getItem(LAWYER_FIELD_TASKS_OPEN_KEY) === '1') {
+            sessionStorage.removeItem(LAWYER_FIELD_TASKS_OPEN_KEY);
+        }
+        sessionStorage.removeItem(LAWYER_FIELD_TASKS_SURFACE_KEY);
+        return { open: false, surface: 'sheet' };
     } catch {
         return { open: false, surface: 'sheet' };
     }
@@ -201,18 +210,16 @@ export function persistGlobalSearchSessionOpen(open: boolean): void {
 export function readInitialLawyerTab(): LawyerDashboardTab {
     if (typeof window === 'undefined') return 'home';
     try {
-        /* الملف overlay — لا يُستعاد أبداً بعد reload (يسبب قفزاً مخيفاً للملف) */
-        if (sessionStorage.getItem(LAWYER_DASHBOARD_TAB_KEY) === 'profile') {
+        /* الملف والتقويم overlays داخل اللوحة — لا يُستعادان بعد reload */
+        const savedTab = sessionStorage.getItem(LAWYER_DASHBOARD_TAB_KEY);
+        if (savedTab === 'profile' || savedTab === 'schedule') {
             sessionStorage.removeItem(LAWYER_DASHBOARD_TAB_KEY);
         }
-        /* أول إقلاع للجلسة: دائماً الرئيسية — استعادة التقويم تحت السبلاش تسبب تشوهاً */
+        /* أول إقلاع للجلسة: دائماً الرئيسية */
         if (!isBootRevealDone()) {
             return 'home';
         }
         const saved = sessionStorage.getItem(LAWYER_DASHBOARD_TAB_KEY);
-        if (saved === 'schedule') {
-            return saved;
-        }
         if (saved === 'notifications') {
             sessionStorage.removeItem(LAWYER_DASHBOARD_TAB_KEY);
         }
@@ -220,6 +227,18 @@ export function readInitialLawyerTab(): LawyerDashboardTab {
         /* ignore storage */
     }
     return 'home';
+}
+
+/** يمسح تبويب التقويم من الجلسة — يُستدعى عند الإغلاق */
+export function clearPersistedLawyerScheduleTab(): void {
+    if (typeof window === 'undefined') return;
+    try {
+        if (sessionStorage.getItem(LAWYER_DASHBOARD_TAB_KEY) === 'schedule') {
+            sessionStorage.removeItem(LAWYER_DASHBOARD_TAB_KEY);
+        }
+    } catch {
+        /* ignore storage */
+    }
 }
 
 /** يمسح تبويب الملف من الجلسة — يُستدعى عند الإغلاق */
@@ -236,9 +255,12 @@ export function clearPersistedLawyerProfileTab(): void {
 
 /** إغلاق snap + جلسة — يُستدعى عند cold boot لمنع ظهور الملف دون نية */
 export function resetProfileShellOnColdDashboardBoot(): void {
+    /* إعادة تركيب اللوحة ليست cold boot إن كانت نية الفتح قائمة في هذه الصفحة */
+    if (wasProfileOpenedThisPage()) return;
     clearPersistedLawyerProfileTab();
     if (typeof document === 'undefined') return;
     document.documentElement.removeAttribute('data-hami-profile-open');
+    document.documentElement.removeAttribute('data-hami-profile-closing');
 }
 
 export type CriminalReturnTarget = 'lawsuits_workspace' | 'main';

@@ -1,27 +1,11 @@
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
-import type { LegalRequest } from '@/app/types/admin-types';
-import { RequestStatus } from '@/app/types/admin-types';
-import { ClientRequestService } from '@/app/services/ClientRequestService';
 import { CalendarDB } from '@/app/services/cloud/lawyerCalendarCloud';
 import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { UrgentActionsDB } from '@/app/services/urgent-actions-db';
-import { TransactionsThreadingDB } from '@/app/services/cloud/lawyerTransactionsCloud';
-import {
-    TransactionStatus,
-    TransactionTaskStatus,
-    type Transaction,
-    type TransactionTask,
-} from '@/app/modules/transactionsThreading/types';
-import {
-    computeUrgentCaseStatus,
-    isUrgentCaseClosed,
-    type UrgentCase,
-} from '@/app/components/lawyer/Component_Urgent_Card';
 import {
     buildDossierRegistry,
     contextFromCalendarEvent,
-    isActiveUrgentCaseRecord,
     mergeDossierContext,
     type DossierRegistry,
 } from '@/app/services/alertDossierRegistry';
@@ -42,9 +26,6 @@ import {
     buildFieldTaskAlerts,
     stripCalendarDuplicatesForFieldTasks,
 } from '@/app/services/fieldTaskAlerts';
-import { buildExecutionAlerts } from '@/app/services/executionAlerts';
-import { buildLawsuitAlerts } from '@/app/services/lawsuitAlerts';
-import { buildFinancialAlerts } from '@/app/services/financialAlerts';
 import { calendarEventToTimestamp } from '@/app/utils/calendarDateTime';
 
 export type { ClassifiedSecretaryAlerts } from '@/app/services/alertTimeClassification';
@@ -58,7 +39,6 @@ export type SecretaryAlertType =
     | 'HEARING'
     | 'NOTE'
     | 'TASK'
-    | 'REQUEST'
     | 'EXECUTION'
     | 'URGENT'
     | 'DEADLINE';
@@ -66,7 +46,6 @@ export type SecretaryAlertType =
 export type SecretaryAlertTarget =
     | 'schedule'
     | 'notepad'
-    | 'client_requests'
     | 'transactions'
     | 'threading'
     | 'community'
@@ -95,7 +74,6 @@ export interface SecretaryAlert {
     target: SecretaryAlertTarget;
     priority: number;
     entityId?: string;
-    request?: LegalRequest;
     clientName?: string;
     caseNumber?: string;
     courtName?: string;
@@ -181,263 +159,10 @@ export function parseDate(value: unknown): number | null {
     return null;
 }
 
-function isSameDay(ts: number, now: Date): boolean {
-    const d = new Date(ts);
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-}
-
 function safeText(value: unknown): string | null {
     if (typeof value !== 'string') return null;
     const t = value.trim();
     return t ? t : null;
-}
-
-function clientNameFromRequest(r: LegalRequest): string {
-    const fromMeta = safeText((r.ai_metadata as { client_name?: string } | undefined)?.client_name);
-    if (fromMeta) return fromMeta;
-    const title = safeText(r.title);
-    if (title && !/طلب|توكيل|قانوني/i.test(title)) return title;
-    return 'موكل';
-}
-
-function clientNameFromParties(file: FileData): string {
-    const p = file.parties?.find((x) => x.isClient);
-    return p?.name?.trim() || 'موكل';
-}
-
-function isActiveUrgentCase(c: UrgentCase): boolean {
-    if (c.deleted) return false;
-    if (c.archived) return false;
-    if (isUrgentCaseClosed(c)) return false;
-    return true;
-}
-
-function buildUrgentAlerts(cases: unknown[], now: Date, registry: DossierRegistry): SecretaryAlert[] {
-    const out: SecretaryAlert[] = [];
-
-    for (const raw of cases) {
-        if (!raw || typeof raw !== 'object') continue;
-        const c = raw as UrgentCase;
-        if (!c.id || !isActiveUrgentCase(c) || !isActiveUrgentCaseRecord(c)) continue;
-
-        const status = computeUrgentCaseStatus(c, { now });
-        if (status === 'safe' || status === 'completed') continue;
-
-        const entityId = String(c.id);
-        const ctx = registry.resolve('urgent', entityId);
-        if (!ctx) continue;
-
-        let priority = 4;
-        if (status === 'critical' || status === 'expired') priority = 1;
-        else if (status === 'warning') priority = 2;
-
-        const dueTs =
-            parseDate(c.deadlineDate) ??
-            parseDate(c.sessionDate) ??
-            parseDate(c.notificationDate) ??
-            null;
-
-        if (dueTs != null && dueTs < now.getTime()) continue;
-        if (status === 'expired') continue;
-
-        const alert = composeRichAlert({
-            id: `urgent:${entityId}`,
-            type: 'URGENT',
-            dueAt: dueTs != null ? new Date(dueTs).toISOString() : undefined,
-            aiDeepDive: `الطلب المستعجل في حالة ${status}. تابع إجراءات التبليغ أو التظلم أو التمييز حسب المرحلة.`,
-            target: 'urgent',
-            entityId,
-            priority,
-            context: ctx,
-            suggestedAction: suggestedFutureActionForAlert({ type: 'URGENT', target: 'urgent' }),
-        });
-        if (alert) out.push(alert);
-    }
-
-    return out;
-}
-
-/**
- * تنبيهات الإضبارات الجزائية: الجلسات القادمة + مهل الطعن (appealDeadline) للأحكام الصادرة.
- *  - يشمل جلسات `pending` التي لم يحلّ موعدها بعد.
- *  - يشمل جلسات `postponed` بـ `nextSessionDate` مستقبلي.
- *  - يشمل verdicts التي لها `appealDeadline` لم تنقضِ بعد.
- */
-function buildCriminalAlerts(
-    criminalCases: unknown[],
-    now: Date,
-    registry: DossierRegistry,
-): SecretaryAlert[] {
-    const out: SecretaryAlert[] = [];
-    const nowTs = now.getTime();
-
-    for (const raw of criminalCases) {
-        if (!raw || typeof raw !== 'object') continue;
-        const c = raw as Record<string, unknown>;
-        const id = String(c.id ?? '');
-        if (!id) continue;
-        if (c.isArchived === true) continue;
-
-        const ctx = registry.resolve('criminal', id);
-        if (!ctx) continue;
-
-        const trials = Array.isArray(c.trials) ? (c.trials as Record<string, unknown>[]) : [];
-        for (const session of trials) {
-            if (!session || typeof session !== 'object') continue;
-            const status = String(session.status ?? '');
-
-            // جلسة معلّقة بموعد
-            if (status === 'pending') {
-                const dateStr = typeof session.date === 'string' ? session.date : '';
-                const ts = parseDate(dateStr);
-                if (ts == null || ts < nowTs) continue;
-                const diffH = (ts - nowTs) / 3_600_000;
-                const priority = diffH <= 24 ? 1 : diffH <= 48 ? 2 : 3;
-                const sid = String(session.id ?? '');
-                const alert = composeRichAlert({
-                    id: `criminal:${id}:trial:${sid || dateStr}`,
-                    type: 'HEARING',
-                    dueAt: new Date(ts).toISOString(),
-                    aiDeepDive: 'جلسة جزائية قادمة. تأكد من المرافعة، الشهود، والمستندات المطلوبة.',
-                    target: 'criminal',
-                    entityId: id,
-                    priority,
-                    context: ctx,
-                });
-                if (alert) out.push(alert);
-                continue;
-            }
-
-            // جلسة مؤجّلة لها موعد جديد
-            if (status === 'postponed') {
-                const dateStr =
-                    typeof session.nextSessionDate === 'string' ? session.nextSessionDate : '';
-                const ts = parseDate(dateStr);
-                if (ts == null || ts < nowTs) continue;
-                const diffH = (ts - nowTs) / 3_600_000;
-                const priority = diffH <= 24 ? 1 : diffH <= 48 ? 2 : 3;
-                const sid = String(session.id ?? '');
-                const alert = composeRichAlert({
-                    id: `criminal:${id}:postponed:${sid || dateStr}`,
-                    type: 'HEARING',
-                    dueAt: new Date(ts).toISOString(),
-                    aiDeepDive: 'جلسة جزائية مؤجلة. تابع الاستعداد وفق ملاحظة التحضير.',
-                    target: 'criminal',
-                    entityId: id,
-                    priority,
-                    context: ctx,
-                });
-                if (alert) out.push(alert);
-                continue;
-            }
-
-            // حكم صادر لكنه قابل للطعن — مهلة الطعن
-            if (status === 'verdict_issued') {
-                const verdict = session.verdict as Record<string, unknown> | undefined;
-                if (!verdict) continue;
-                const dl = typeof verdict.appealDeadline === 'string' ? verdict.appealDeadline : '';
-                const ts = parseDate(dl);
-                if (ts == null || ts < nowTs) continue;
-                const diffH = (ts - nowTs) / 3_600_000;
-                const priority = diffH <= 48 ? 1 : diffH <= 168 ? 2 : 3; // 168h = 7 أيام
-                const sid = String(session.id ?? '');
-                const alert = composeRichAlert({
-                    id: `criminal:${id}:appeal:${sid || dl}`,
-                    type: 'DEADLINE',
-                    dueAt: new Date(ts).toISOString(),
-                    aiDeepDive: 'مهلة طعن جزائي قريبة من الانتهاء. لا تفوّت موعد تقديم لائحة الطعن.',
-                    target: 'criminal',
-                    entityId: id,
-                    priority,
-                    context: ctx,
-                });
-                if (alert) out.push(alert);
-            }
-        }
-    }
-
-    return out;
-}
-
-/** معاملات نظام Threading (TransactionsThreadingDB) */
-function buildThreadingAlerts(
-    transactions: Transaction[],
-    tasks: TransactionTask[],
-): SecretaryAlert[] {
-    const out: SecretaryAlert[] = [];
-    const tasksByTx = new Map<string, TransactionTask[]>();
-
-    for (const t of tasks) {
-        const list = tasksByTx.get(t.transactionId) ?? [];
-        list.push(t);
-        tasksByTx.set(t.transactionId, list);
-    }
-
-    for (const tx of transactions) {
-        if (tx.status === TransactionStatus.Completed) continue;
-
-        const txTasks = tasksByTx.get(tx.id) ?? [];
-        const clientName = tx.clientName?.trim() || '';
-        const label = tx.title?.trim() || 'معاملة إدارية';
-
-        // dueAt للـ threading: نستخدم updatedAt أو createdAt كـ proxy
-        // لأن `filterAuthenticSecretaryAlerts` يشترط dueAt للقبول
-        const txDueAt = tx.updatedAt || tx.createdAt;
-
-        if (tx.status === TransactionStatus.Paused) {
-            out.push({
-                id: `threading:paused:${tx.id}`,
-                type: 'TASK',
-                title: `معاملة متوقفة — ${label}`,
-                summary: `${clientName} • ${tx.targetDepartment}`,
-                dueAt: txDueAt,
-                suggestedAction: 'فتح المعاملة الإدارية',
-                aiDeepDive: `المعاملة الإدارية «${label}» متوقفة وتحتاج متابعة.`,
-                target: 'threading',
-                entityId: tx.id,
-                priority: 3,
-                clientName: clientName || undefined,
-            });
-            continue;
-        }
-
-        const blocked = txTasks.filter((t) => t.status === TransactionTaskStatus.Blocked);
-        if (blocked.length > 0) {
-            out.push({
-                id: `threading:blocked:${tx.id}`,
-                type: 'TASK',
-                title: `مهام معطّلة — ${label}`,
-                summary: `${blocked.length} مهمة بحاجة تدخل • ${tx.targetDepartment}`,
-                dueAt: txDueAt,
-                suggestedAction: 'مراجعة العوائق',
-                aiDeepDive: blocked.map((b) => b.title).join(' · '),
-                target: 'threading',
-                entityId: tx.id,
-                priority: 3,
-                clientName: clientName || undefined,
-            });
-        }
-    }
-
-    return out;
-}
-
-function buildRequestAlerts(requests: LegalRequest[]): SecretaryAlert[] {
-    return requests
-        .filter((r) => r.status === RequestStatus.PENDING)
-        .map((r) => ({
-            id: `request:${r.id}`,
-            type: 'REQUEST' as const,
-            title: r.title || 'طلب توكيل جديد',
-            summary: r.ai_metadata?.summary || r.smart_summary || 'طلب جديد ينتظر الرد',
-            dueAt: r.ai_metadata?.deadline ?? r.due_at,
-            suggestedAction: r.ai_metadata?.suggested_action ?? 'المراجعة والرد السريع',
-            aiDeepDive: `طلب موكل معلّق. ${r.ai_metadata?.summary ?? ''}`,
-            target: 'client_requests' as const,
-            priority: 2,
-            request: r,
-            clientName: clientNameFromRequest(r),
-        }));
 }
 
 function calendarEventTimestamp(ev: CalendarEvent): number | null {
@@ -580,7 +305,6 @@ function buildCalendarAlerts(
         } else if (entityId && !registry.isActive(module, entityId)) continue;
 
         const alertType = calendarAlertType(ev);
-        const isToday = isSameDay(ts, now);
         const sourceEntityId = safeText(ev.sourceEntityId) ?? safeText(ev.caseId) ?? '';
         const calendarSource = sourceEntityId
             ? {
@@ -599,28 +323,47 @@ function buildCalendarAlerts(
             if (session) ctx.actionType = session;
         }
 
-        const alert = composeRichAlert({
+        const suggestedAction = suggestedFutureActionForAlert({
+            type: alertType,
+            target,
+            calendarSource,
+        });
+        const dueAt = new Date(ts).toISOString();
+        const aiDeepDive = ev.notes?.trim() || `موعد في التقويم: ${ev.title}`;
+        const priority =
+            alertType === 'HEARING' || alertType === 'EXECUTION' ? 2 : 4;
+        const composed = composeRichAlert({
             id: `calendar:${ev.id}`,
             type: alertType,
-            dueAt: new Date(ts).toISOString(),
-            aiDeepDive: ev.notes?.trim() || `موعد في التقويم: ${ev.title}`,
+            dueAt,
+            aiDeepDive,
             target,
             entityId,
-            priority:
-                isToday
-                    ? 2
-                    : alertType === 'HEARING' || alertType === 'EXECUTION'
-                      ? 2
-                      : 4,
+            priority,
             context: ctx,
-            suggestedAction: suggestedFutureActionForAlert({
-                type: alertType,
-                target,
-                calendarSource,
-            }),
+            suggestedAction,
             clientPhone: safeText(ev.clientPhone) ?? undefined,
             calendarSource,
         });
+        const titleFallback = ev.title.trim();
+        const alert =
+            composed ??
+            (titleFallback
+                ? {
+                      id: `calendar:${ev.id}`,
+                      type: alertType,
+                      title: titleFallback,
+                      summary: safeText(ev.sourceLabel) || ctx.actionType || 'موعد',
+                      dueAt,
+                      suggestedAction,
+                      aiDeepDive,
+                      target,
+                      entityId,
+                      priority,
+                      calendarSource,
+                      clientPhone: safeText(ev.clientPhone) ?? undefined,
+                  }
+                : null);
         if (alert) out.push(alert);
     }
 
@@ -694,29 +437,14 @@ export class SecretaryOrchestrator {
         const now = new Date();
         const executionList = Array.isArray(params.executionFiles) ? params.executionFiles : [];
         const fieldTasks = Array.isArray(params.fieldTasks) ? params.fieldTasks : [];
+        void params.notes;
 
-        const [requests, urgentState, calendarEvents, threadingState] = await Promise.all([
-            ClientRequestService.getLawyerRequests(params.lawyerId).catch((): LegalRequest[] => []),
+        const [urgentState, calendarEvents] = await Promise.all([
             UrgentActionsDB.getState(params.lawyerId).catch(() => null),
             CalendarDB.getEvents(params.lawyerId).catch((): CalendarEvent[] => []),
-            TransactionsThreadingDB.getState(params.lawyerId).catch(() => null),
         ]);
 
         const urgentCases = Array.isArray(urgentState?.cases) ? urgentState!.cases : [];
-        const threadingTx = Array.isArray(threadingState?.transactions)
-            ? (threadingState!.transactions as Transaction[])
-            : [];
-        const threadingTasks = Array.isArray(threadingState?.tasks)
-            ? (threadingState!.tasks as TransactionTask[])
-            : [];
-        const threadingFinance = Array.isArray(
-            (threadingState as { financeRecords?: unknown[] } | null)?.financeRecords,
-        )
-            ? ((threadingState as { financeRecords: unknown[] }).financeRecords as Array<
-                  import('@/app/modules/transactionsThreading/types').FinanceRecord
-              >)
-            : [];
-
         const criminalCases = Array.isArray(params.criminalCases) ? params.criminalCases : [];
         const registry = buildDossierRegistry({
             lawsuitFiles: params.files,
@@ -727,18 +455,13 @@ export class SecretaryOrchestrator {
 
         const fieldTaskAlerts = buildFieldTaskAlerts(fieldTasks, now, registry);
 
+        // البطاقة العامة: تقويم + مهام ميدان فقط.
+        // منتجو الدعوى/التنفيذ/الجزائي/المستعجل/Threading/المالية يُرفضون بالـ whitelist.
         const alerts = filterAuthenticSecretaryAlerts(
             dedupeAlerts(
                 suppressRedundantUrgentStatusAlerts([
                     ...buildCalendarAlerts(calendarEvents, now, registry),
                     ...fieldTaskAlerts,
-                    ...buildRequestAlerts(requests),
-                    ...buildThreadingAlerts(threadingTx, threadingTasks),
-                    ...buildUrgentAlerts(urgentCases, now, registry),
-                    ...buildCriminalAlerts(criminalCases, now, registry),
-                    ...buildExecutionAlerts(executionList, now, registry),
-                    ...buildLawsuitAlerts(params.files, now, registry),
-                    ...buildFinancialAlerts(threadingTx, threadingFinance, threadingTasks, now),
                 ]),
             ),
         );

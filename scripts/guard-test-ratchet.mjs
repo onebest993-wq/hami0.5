@@ -36,16 +36,31 @@ function runVitest() {
     return JSON.parse(readFileSync(join(ROOT, REPORT), 'utf8'));
 }
 
-/** يجمع أسماء الاختبارات الفاشلة بمفتاح مستقر: مسار الملف + العنوان الكامل */
+/**
+ * يجمع الاختبارات الفاشلة بمفتاح مستقر: مسار الملف + العنوان الكامل.
+ *
+ * التكرار مقصود: vitest يقتطع العناوين الطويلة بنقاط، فاختبارات مولَّدة من مسارات
+ * مختلفة تتطابق أسماؤها. مجموعةٌ فريدة كانت تبتلع الزائد فيمرّ الانحدار دون رؤية.
+ */
 function collectFailures(report) {
-    const failures = new Set();
+    const failures = [];
     for (const suite of report.testResults ?? []) {
         const file = toPosix(relative(ROOT, suite.name ?? ''));
         for (const t of suite.assertionResults ?? []) {
-            if (t.status === 'failed') failures.add(`${file} :: ${(t.fullName || t.title || '').trim()}`);
+            if (t.status === 'failed') failures.push(`${file} :: ${(t.fullName || t.title || '').trim()}`);
         }
     }
-    return [...failures].sort();
+    return failures.sort();
+}
+
+/** فرق المجموعات المتعدّدة: يحترم عدد مرّات كل مفتاح لا مجرّد وجوده */
+function multisetDiff(from, to) {
+    const counts = new Map();
+    for (const f of from) counts.set(f, (counts.get(f) ?? 0) + 1);
+    for (const f of to) counts.set(f, (counts.get(f) ?? 0) - 1);
+    const out = [];
+    for (const [f, n] of counts) for (let i = 0; i < n; i += 1) out.push(f);
+    return out.sort();
 }
 
 const report = runVitest();
@@ -67,9 +82,8 @@ if (process.argv.includes('--save') || !existsSync(join(ROOT, BASELINE))) {
 }
 
 const base = JSON.parse(readFileSync(join(ROOT, BASELINE), 'utf8'));
-const baseSet = new Set(base.failures ?? []);
-const added = failures.filter((f) => !baseSet.has(f));
-const fixed = (base.failures ?? []).filter((f) => !failures.includes(f));
+const added = multisetDiff(failures, base.failures ?? []);
+const fixed = multisetDiff(base.failures ?? [], failures);
 
 console.log(`[test ratchet] failing  baseline ${base.failures?.length ?? 0}  ->  current ${failures.length}`);
 console.log(`[test ratchet] total tests ${summary.numTotalTests}`);

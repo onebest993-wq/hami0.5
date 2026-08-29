@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildTaskTree, type TransactionTask } from '@/app/modules/transactionsThreading';
-import { TransactionTaskStatus } from '@/app/modules/transactionsThreading/types';
+import { buildTaskTree } from '@/app/modules/transactionsThreading/service';
+import { TransactionTaskStatus, type TransactionTask } from '@/app/modules/transactionsThreading/types';
 
 describe('transactionsThreading.buildTaskTree', () => {
   it('builds a nested tree from flat tasks', () => {

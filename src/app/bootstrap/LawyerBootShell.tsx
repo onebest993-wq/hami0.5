@@ -4,9 +4,8 @@ import { isBootRevealDone } from '@/app/bootstrap/bootReveal';
 import { shouldMountReactBootOverlay } from '@/app/bootstrap/bootStaticShell';
 
 /**
- * غلاف أثناء انتظار المستخدم/التهيئة قبل أول كشف.
- * مع #hami-static-boot: خلفية فقط — الشعار من الطبقة الثابتة.
- * لا يُزيل الشعار هنا — ينتظر paint شبكة الرئيسية أو useBootReveal.
+ * غلاف أثناء انتظار التهيئة قبل أول كشف.
+ * مع #hami-static-boot: الطبقة الثابتة هي السطح الصامت — هنا خلفية فقط عند الحاجة.
  */
 export function LawyerBootShell(): React.ReactElement {
     if (isBootRevealDone() || !shouldMountReactBootOverlay()) {
@@ -15,11 +14,9 @@ export function LawyerBootShell(): React.ReactElement {
                 className="min-h-screen w-full hami-board-canvas-bg"
                 data-testid="lawyer-boot-shell-frozen"
                 aria-busy="true"
-                aria-label="تهيئة حامي"
+                aria-label="جاري التهيئة"
             />
         );
     }
     return <HamiBootOverlay phase="visible" />;
 }
-
-export { HamiBootOverlay } from '@/app/bootstrap/HamiBootOverlay';

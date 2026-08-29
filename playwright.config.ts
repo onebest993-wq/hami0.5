@@ -67,18 +67,38 @@ export default defineConfig({
     projects: [
         {
             name: 'chromium',
-            use: { ...devices['Desktop Chrome'] },
+            use: {
+                ...devices['Desktop Chrome'],
+                launchOptions: {
+                    args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+                },
+            },
         },
         {
             name: 'mobile-chrome',
-            use: { ...devices['Pixel 7'] },
+            use: {
+                ...devices['Pixel 7'],
+                launchOptions: {
+                    args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+                },
+            },
         },
         {
             name: 'mobile-safari',
             use: { ...devices['iPhone 14'] },
         },
+        {
+            name: 'tablet-chrome',
+            testMatch: /settings-mobile\.spec\.ts/,
+            use: { ...devices['iPad Mini'] },
+        },
+        {
+            name: 'tablet-ipad',
+            testMatch: /(?:app-boot-smoke|boot-full-path-probe)\.spec\.ts/,
+            use: { ...devices['iPad Mini'] },
+        },
     /* تشغيل المتصفحات الأخرى يدوياً: npx playwright test --project=firefox */
-    ...(process.env.CI
+    ...(process.env.CI || process.env.E2E_BOOT_FULL === '1'
       ? [
           { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
           { name: 'webkit', use: { ...devices['Desktop Safari'] } },
@@ -94,14 +114,23 @@ export default defineConfig({
               ? {
                     command: `npm run preview -- --port ${previewPort} --host 127.0.0.1 --strictPort`,
                     url: baseURL,
-                    reuseExistingServer: true,
+                    reuseExistingServer: process.env.E2E_REUSE_PREVIEW === '1',
                     timeout: 120 * 1000,
+                    env: {
+                        ...process.env,
+                        E2E_PREVIEW_RELAXED_SECURITY: '1',
+                        VITE_COMMUNITY_DEV_OPEN: 'false',
+                    },
                 }
               : {
                     command: 'npm run dev',
                     url: 'http://localhost:8080',
                     reuseExistingServer: !process.env.CI,
                     timeout: 120 * 1000,
+                    env: {
+                        ...process.env,
+                        VITE_COMMUNITY_DEV_OPEN: 'false',
+                    },
                 },
       }),
 });

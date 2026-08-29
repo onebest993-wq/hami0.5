@@ -12,7 +12,12 @@ import { EXECUTION_FILES_STORAGE_KEY } from '@/app/services/dossierPersistence/d
 import { STORAGE_KEYS } from '@/app/utils/constants';
 import { isCloudPollingPausedByRealtime } from '@/app/services/realtimeSyncGate';
 import { filterTombstonedExecutionSyncRows } from '@/app/services/executionCloudSyncFilter';
-import { filterTombstonedLawsuitSyncRows } from '@/app/utils/lawsuitDossierTombstones';
+import { filterTombstonedLawsuitSyncRows, ensureLawsuitDossierTombstonesReadable } from '@/app/utils/lawsuitDossierTombstones';
+import { ensureExecutionDossierTombstonesReadable } from '@/app/utils/executionDossierTombstones';
+import {
+    ensureNotesDeletedIdsReadable,
+    filterTombstonedNotesSyncRows,
+} from '@/app/services/notes/globalNotesTombstones';
 
 export type CloudSyncBucket = 'execution' | 'lawsuit' | 'notes' | 'unsupported';
 
@@ -221,6 +226,11 @@ export async function performCloudSyncBuckets(
     for (const localKey of localKeys) {
         results.set(localKey, await performCloudSyncBucketInternal(localKey));
     }
+    const savedAny = [...results.values()].some((r) => r.ok && !r.skipped);
+    if (savedAny) {
+        const { scheduleWorkCloudCheckpoint } = await import('@/app/services/cloud/workCloudCheckpoint');
+        scheduleWorkCloudCheckpoint();
+    }
     return results;
 }
 
@@ -236,6 +246,10 @@ async function performCloudSyncBucketInternal(localKey: string): Promise<Perform
         let localDataRaw: unknown = [];
 
         if (bucket === 'execution') {
+            if (!(await ensureExecutionDossierTombstonesReadable())) {
+                debug.warn('[CloudSync] تخطي دمج التنفيذ — شواهد الحذف لم تُفكّ');
+                return { ok: true, skipped: true };
+            }
             // الدمج «الأحدث يفوز» لا يعرف الحذف: بلا هذا الترشيح تعود كل إضبارة
             // حُذفت نهائياً عند أول مزامنة، لأن نسخة السحابة تبقى موجودة.
             cloudDataRaw = filterTombstonedExecutionSyncRows(await SupabaseService.getExecutionFiles());
@@ -243,6 +257,10 @@ async function performCloudSyncBucketInternal(localKey: string): Promise<Perform
                 (await persistenceRepository.loadAsync(localKey)) ?? [],
             );
         } else if (bucket === 'lawsuit') {
+            if (!(await ensureLawsuitDossierTombstonesReadable())) {
+                debug.warn('[CloudSync] تخطي دمج الدعاوى — شواهد الحذف لم تُفكّ');
+                return { ok: true, skipped: true };
+            }
             cloudDataRaw = filterTombstonedLawsuitSyncRows(await SupabaseService.getLawsuitFiles());
             const fromRepo = (await persistenceRepository.loadAsync(localKey)) ?? [];
             let fromSegments: unknown[] = [];
@@ -258,8 +276,15 @@ async function performCloudSyncBucketInternal(localKey: string): Promise<Perform
                 mergeWithConflictResolution(fromRepo, fromSegments).merged,
             );
         } else if (bucket === 'notes') {
-            cloudDataRaw = await SupabaseService.getGlobalNotes();
-            localDataRaw = (await persistenceRepository.loadAsync(localKey)) ?? [];
+            if (!(await ensureNotesDeletedIdsReadable())) {
+                debug.warn('[CloudSync] تخطي دمج الملاحظات — شواهد الحذف لم تُفكّ');
+                return { ok: true, skipped: true };
+            }
+            // الدمج «الأحدث يفوز» لا يعرف الحذف — بلا الترشيح تعود الملاحظة المحذوفة من السحابة.
+            cloudDataRaw = filterTombstonedNotesSyncRows(await SupabaseService.getGlobalNotes());
+            localDataRaw = filterTombstonedNotesSyncRows(
+                (await persistenceRepository.loadAsync(localKey)) ?? [],
+            );
         } else {
             debug.warn(`[CloudSync] نوع غير مدعوم: ${localKey}`);
             return { ok: true, skipped: true };
@@ -318,6 +343,8 @@ async function performCloudSyncBucketInternal(localKey: string): Promise<Perform
             mergedItems: mergedItems.length,
             uploadedItems: localUploads.length,
         });
+        const { scheduleWorkCloudCheckpoint } = await import('@/app/services/cloud/workCloudCheckpoint');
+        scheduleWorkCloudCheckpoint();
         return { ok: true };
     } catch (error: unknown) {
         const err = error instanceof Error ? error : new Error(String(error));

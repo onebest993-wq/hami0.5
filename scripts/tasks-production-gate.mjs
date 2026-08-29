@@ -99,6 +99,7 @@ if (
             'src/app/components/lawyer/dashboard/__tests__/useCommandCenterDockActions.test.ts',
             'src/app/components/lawyer/dashboard/tasksManager/__tests__',
             'src/app/components/lawyer/dashboard/fieldTasks/__tests__',
+            'src/app/runtime/__tests__/fieldTasksInstantPaint.test.ts',
         ],
         'tasks unit tests',
     )

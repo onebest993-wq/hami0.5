@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useCallback, useEffect, useMemo, useRef, type MutableRefObject, type Dispatch, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import SecureStoreService from '@/app/services/SecureStoreService';
@@ -73,7 +72,7 @@ export function useExecutionDashboardOtherPartyHandlers({
     );
 
     const handleOtherPartyActionSubmitToDecisions = useCallback(
-        (input: { date: string; content: string }): { ok: boolean; decisionId?: string } => {
+        (input: { date: string; content: string }): { ok: boolean; decisionId?: string; logEntryId?: string } => {
             const d = String(input.date || '').trim();
             const content = String(input.content || '').trim();
             if (!d || !content) {

@@ -29,6 +29,10 @@ const criticalPaths = [
     'src/app/runtime/globalSearchDraftQuery.ts',
     'src/app/components/lawyer/GlobalSearchOverlay/index.tsx',
     'src/app/components/lawyer/GlobalSearchOverlay/GlobalSearchErrorBoundary.tsx',
+    'src/app/components/lawyer/GlobalSearchOverlay/hooks/searchIndexBuildExecutor.ts',
+    'src/app/components/lawyer/GlobalSearchOverlay/hooks/searchIndexBuildPlan.ts',
+    'src/app/components/lawyer/GlobalSearchOverlay/components/SearchScopeChipList.tsx',
+    'src/app/services/search/globalSearchCriminalOwnership.ts',
     'src/app/components/lawyer/LawyerDashboardParts/components/HeaderSearchTrigger.tsx',
 ];
 
@@ -57,6 +61,7 @@ const test = spawnSync(
         'vitest',
         'run',
         'src/app/hooks/lawyerDashboard/__tests__/useLawyerDashboardGlobalSearch.test.ts',
+        'src/app/hooks/lawyerDashboard/__tests__/pickLawyerDashboardDossierBundle.test.ts',
         'src/app/hooks/lawyerDashboard/globalSearch/__tests__/globalSearchShellOpenFlow.test.ts',
         'src/app/hooks/lawyerDashboard/__tests__/globalSearchIntentWarm.test.ts',
         'src/app/hooks/lawyerDashboard/__tests__/observeGlobalSearchOverlayInteractive.test.ts',
@@ -73,6 +78,7 @@ const test = spawnSync(
         'src/app/services/search/__tests__',
         'src/app/components/lawyer/GlobalSearchOverlay',
         'src/app/runtime/__tests__/dashboardPostInteractiveWarm.test.ts',
+        'src/app/runtime/__tests__/globalSearchBootHydrator.test.ts',
     ],
     { stdio: 'inherit', shell: true },
 );

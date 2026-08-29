@@ -27,7 +27,7 @@ export type ExecutionDashboardLazyChunkSetupResult = {
     shellOverlayScopeRef: MutableRefObject<Record<string, unknown>>;
 };
 
-export function computeExecutionShellOverlayFingerprint(
+function computeExecutionShellOverlayFingerprint(
     modalFlags: ExecutionShellOverlayModalFlags,
     scopeSyncToken = '0',
     shellOverlayStateToken = '0',
@@ -54,6 +54,12 @@ export function computeExecutionShellOverlayFingerprint(
         modalFlags.showHeirsNotificationModal,
         modalFlags.showTransferFileNumberChangeModal,
         modalFlags.showRealEstateSeizureModal,
+        modalFlags.showEvictionExpenseModal,
+        modalFlags.showEvictionLawyerFeeModal,
+        modalFlags.showEvictionResidentialGraceModal,
+        modalFlags.showSolidaryCoerciveTargetModal,
+        modalFlags.showStayOfExecutionModal,
+        modalFlags.showLinkedDossierTimeline,
     ]
         .map((value) => (value ? '1' : '0'))
         .join('')

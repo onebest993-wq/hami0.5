@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useQuantumTasksActions, useQuantumTasksData } from '@/app/hooks/useQuantumTasksContext';
@@ -7,8 +7,7 @@ import { addDays, startOfLocalDay } from '@/app/utils/nlpParser';
 import { WORK_WEEK } from './constants';
 import { TaskCard } from './TaskCard';
 import type { TaskListOrdinal } from './TaskListOrdinalBadge';
-import type { EditSubTaskDraft } from './TasksManagerModals';
-import type { DetailPanel, WeekAddState } from './types';
+import { useTasksManagerUiState } from './useTasksManagerUiState';
 import {
     dateFromYmdInput,
     formatLocalYmdInput,
@@ -58,28 +57,42 @@ export function useTasksManagerController({
 
     const now = useAgendaNow();
 
-    const [weekAdd, setWeekAdd] = useState<WeekAddState>(null);
-    const [detailPanel, setDetailPanel] = useState<DetailPanel>(null);
-
-    const [snoozePanelOpen, setSnoozePanelOpen] = useState(false);
+    const {
+        weekAdd,
+        setWeekAdd,
+        detailPanel,
+        setDetailPanel,
+        snoozePanelOpen,
+        setSnoozePanelOpen,
+        reminderModalTaskId,
+        setReminderModalTaskId,
+        reminderSnoozeCustom,
+        setReminderSnoozeCustom,
+        editOpen,
+        setEditOpen,
+        editTaskId,
+        setEditTaskId,
+        editTitle,
+        setEditTitle,
+        editLocation,
+        setEditLocation,
+        editSubTasks,
+        setEditSubTasks,
+        deleteConfirmId,
+        setDeleteConfirmId,
+        showCompletedArchive,
+        setShowCompletedArchive,
+        helpTaskId,
+        setHelpTaskId,
+        helpInboxOpen,
+        setHelpInboxOpen,
+        postponeTaskId,
+        setPostponeTaskId,
+        postponeDateYmd,
+        setPostponeDateYmd,
+    } = useTasksManagerUiState();
 
     const minSnoozeIso = useMemo(() => formatLocalYmdInput(now), [now]);
-
-    const [reminderModalTaskId, setReminderModalTaskId] = useState<string | null>(null);
-    const [reminderSnoozeCustom, setReminderSnoozeCustom] = useState('');
-
-    const [editOpen, setEditOpen] = useState(false);
-    const [editTaskId, setEditTaskId] = useState<string | null>(null);
-    const [editTitle, setEditTitle] = useState('');
-    const [editLocation, setEditLocation] = useState('');
-    const [editSubTasks, setEditSubTasks] = useState<EditSubTaskDraft[]>([]);
-
-    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-    const [showCompletedArchive, setShowCompletedArchive] = useState(false);
-    const [helpTaskId, setHelpTaskId] = useState<string | null>(null);
-    const [helpInboxOpen, setHelpInboxOpen] = useState(false);
-    const [postponeTaskId, setPostponeTaskId] = useState<string | null>(null);
-    const [postponeDateYmd, setPostponeDateYmd] = useState('');
 
     useEffect(() => {
         if (!focusTaskId) return;
@@ -340,6 +353,7 @@ export function useTasksManagerController({
         minSnoozeIso,
         requestDelete,
         renderTaskCard,
+        reopenTask,
         showCompletedArchive,
         setShowCompletedArchive,
         weekStartLive,

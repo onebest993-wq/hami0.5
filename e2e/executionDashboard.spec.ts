@@ -4,13 +4,19 @@
 
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
+import { gotoLawyerHomeE2E } from './helpers/bootFixtures';
 import { dismissProductivityBlockers, prepareProductivityE2E } from './helpers/productivityE2EFixtures';
 import { seedSyncedExecutionStorage } from './helpers/executionStorageFixtures';
 import {
     closeExecutionDossierE2E,
-    expectExecutionArchiveConfirmDialog,
-    expectExecutionTrashConfirmHeading,
+    openExecutionArchiveConfirmFromCard,
+    openExecutionTrashConfirmFromCard,
 } from './helpers/executionE2EFixtures';
+import {
+    openExecutionArchiveFromHome,
+    openExecutionDossierByRowText,
+    clickNativeElement,
+} from './helpers/executionE2EBoot';
 
 const EXECUTION_ROW_TEXT = /بلوب حيّ E2E|2026\/تنفيذ\/880/;
 
@@ -45,9 +51,15 @@ async function bootExecutionWorkspace(page: Page): Promise<void> {
 }
 
 async function resetExecutionWorkspace(page: Page): Promise<void> {
-    await page.goto('/');
-    await expect(page.getByTestId('lawyer-dashboard-ready')).toBeVisible({ timeout: 45_000 });
-    await expect(page.getByTestId('hub-archive-execution')).toBeVisible({ timeout: 25_000 });
+    await page.keyboard.press('Escape').catch(() => undefined);
+    const dossier = page.getByTestId('execution-dashboard-dossier');
+    if (await dossier.isVisible().catch(() => false)) {
+        await closeExecutionDossierE2E(page).catch(() => undefined);
+    }
+    await expect(async () => {
+        await gotoLawyerHomeE2E(page);
+        await expect(page.getByTestId('hub-archive-execution')).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 90_000 });
     await ensureLawyerDashboard(page);
     await dismissProductivityBlockers(page);
     await dismissRepositoryIfBlocking(page);
@@ -55,17 +67,14 @@ async function resetExecutionWorkspace(page: Page): Promise<void> {
 
 async function openExecutionArchive(page: Page): Promise<void> {
     await dismissRepositoryIfBlocking(page);
-    await page.getByTestId('hub-archive-execution').scrollIntoViewIfNeeded();
-    await page.getByTestId('hub-archive-execution').click({ force: true });
-    await expect(page.getByTestId('execution-archive-shell')).toBeVisible({ timeout: 25_000 });
-    await expect(page.getByRole('heading', { name: /مخزن الأضابير التنفيذية/i })).toBeVisible({
-        timeout: 25_000,
-    });
+    await openExecutionArchiveFromHome(page);
 }
 
 async function expectExecutionArchiveReady(page: Page): Promise<void> {
     await expect(async () => {
-        await expect(page.getByTestId('execution-archive-shell')).toBeVisible({ timeout: 10_000 });
+        await expect(page.getByTestId('execution-archive-shell')).toHaveAttribute('aria-hidden', 'false', {
+            timeout: 10_000,
+        });
         await expect(page.getByTestId('execution-archive-search')).toBeVisible({ timeout: 10_000 });
         await expect(page.getByText(EXECUTION_ROW_TEXT).first()).toBeVisible({ timeout: 10_000 });
     }).toPass({ timeout: 30_000 });
@@ -73,10 +82,7 @@ async function expectExecutionArchiveReady(page: Page): Promise<void> {
 
 async function openFirstExecutionDossier(page: Page): Promise<void> {
     await expect(page.getByTestId('execution-dashboard-dossier')).toHaveCount(0, { timeout: 10_000 });
-    const row = page.getByText(EXECUTION_ROW_TEXT).first();
-    await row.scrollIntoViewIfNeeded();
-    await row.click();
-    await expect(page.getByTestId('execution-dashboard-dossier')).toBeVisible({ timeout: 25_000 });
+    await openExecutionDossierByRowText(page, EXECUTION_ROW_TEXT);
     await expect(page.getByText(/لم يتم العثور على بيانات التنفيذ/i)).toBeHidden({ timeout: 15_000 });
 }
 
@@ -131,36 +137,49 @@ test.describe('Execution Dashboard E2E', () => {
 
     test('لوحة الفلاتر تفتح من شريط البحث', async () => {
         await openExecutionArchive(page);
-        const panel = page.getByTestId('execution-archive-filters-panel');
+        const panel = page.getByTestId('execution-archive-shell').getByTestId('execution-archive-filters-panel');
         await expect(panel).toHaveAttribute('aria-hidden', 'true');
-        await page.getByTestId('execution-archive-filters-toggle').click();
-        await expect(panel).toHaveAttribute('aria-hidden', 'false');
-        await expect(page.getByTestId('execution-archive-filter-civil')).toBeVisible();
+        const filtersToggle = page
+            .getByTestId('execution-archive-shell')
+            .getByTestId('execution-archive-filters-toggle');
+        await expect(async () => {
+            if ((await panel.getAttribute('aria-hidden')) !== 'false') {
+                await clickNativeElement(filtersToggle);
+            }
+            await expect(panel).toHaveAttribute('aria-hidden', 'false', { timeout: 3_000 });
+        }).toPass({ timeout: 20_000 });
+        await expect(page.getByTestId('execution-archive-filter-civil')).toBeVisible({ timeout: 8_000 });
     });
 
     test('التبديل إلى الأرشيف يصفر البحث ويخفي زر الإضافة', async () => {
         await openExecutionArchive(page);
-        await page.getByTestId('execution-archive-search').fill('اختبار');
-        await page.getByTestId('executions-view-archived').click();
-        await expect(page.getByTestId('execution-archive-search')).toHaveValue('');
-        await expect(page.getByTestId('executions-add-new')).toBeHidden();
+        const shell = page.getByTestId('execution-archive-shell');
+        const archiveSearch = shell.getByTestId('execution-archive-search');
+        const archivedTab = shell.getByTestId('executions-view-archived');
+        await archiveSearch.fill('اختبار', { force: true });
+        await expect(async () => {
+            if ((await archivedTab.getAttribute('aria-pressed')) !== 'true') {
+                await clickNativeElement(archivedTab);
+            }
+            await expect(archivedTab).toHaveAttribute('aria-pressed', 'true');
+            await expect(archiveSearch).toHaveValue('');
+            await expect(page.getByTestId('executions-add-new')).toBeHidden();
+        }).toPass({ timeout: 20_000 });
     });
 
     test('إجراء الأرشفة يفتح نافذة التأكيد', async () => {
         await openExecutionArchive(page);
-        await page.getByTestId('execution-smart-card-archive').first().click();
-        const dialog = await expectExecutionArchiveConfirmDialog(page);
-        await dialog.getByRole('button', { name: /إلغاء/i }).click();
+        const dialog = await openExecutionArchiveConfirmFromCard(page);
+        await expect(page.getByTestId('execution-archive-confirm-cancel')).toBeVisible();
+        await page.getByTestId('execution-archive-confirm-cancel').click({ force: true });
         await expect(dialog).toBeHidden({ timeout: 8_000 });
     });
 
     test('إجراء السلة يفتح نافذة التأكيد', async () => {
         await openExecutionArchive(page);
-        await page.getByTestId('execution-smart-card-trash').first().click();
-        await expectExecutionTrashConfirmHeading(page);
-        await page.getByRole('button', { name: /إلغاء/i }).click();
-        await expect(page.getByRole('dialog', { name: /تأكيد النقل إلى سلة المهملات/i })).toBeHidden({
-            timeout: 8_000,
-        });
+        const trashDialog = await openExecutionTrashConfirmFromCard(page);
+        await expect(page.getByTestId('execution-trash-confirm-cancel')).toBeVisible();
+        await page.getByTestId('execution-trash-confirm-cancel').click({ force: true });
+        await expect(trashDialog).toBeHidden({ timeout: 8_000 });
     });
 });

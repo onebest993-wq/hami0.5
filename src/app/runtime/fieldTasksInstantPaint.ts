@@ -1,6 +1,5 @@
 /** كشف/إخفاء ستارة الميدان فوراً في الـ DOM — مستقل عن إطار React */
 
-const INSTANT_ROOT_ID = 'hami-field-tasks-instant-root';
 const LAYER_SELECTOR = '[data-field-tasks-root]';
 /** يمنع إغلاق الستارة بنقرة شبحية بعد pointerdown على الدوك */
 export const FIELD_TASKS_CLOSE_SUPPRESS_MS = 120;
@@ -18,11 +17,6 @@ export function isFieldTasksForceVisible(): boolean {
 
 export function clearFieldTasksForceVisible(): void {
     forceVisible = false;
-}
-
-export function isFieldTasksInstantPaintActive(): boolean {
-    if (typeof document === 'undefined') return false;
-    return Boolean(document.getElementById(INSTANT_ROOT_ID));
 }
 
 export function suppressFieldTasksClose(ms: number = FIELD_TASKS_CLOSE_SUPPRESS_MS): void {
@@ -58,8 +52,8 @@ function armBackdropInteract(root: HTMLElement): void {
 function snapWarmSheetTransform(root: HTMLElement): void {
     const sheet = root.querySelector('[data-testid="field-tasks-sheet"]');
     if (!(sheet instanceof HTMLElement)) return;
-    sheet.classList.remove('translate-y-full');
-    sheet.classList.add('translate-y-0', 'hami-field-tasks-sheet--snap');
+        sheet.classList.remove('translate-y-full');
+        sheet.classList.add('translate-y-0');
 }
 
 function applyLayerVisible(root: HTMLElement, visible: boolean): void {
@@ -94,7 +88,6 @@ export function revealFieldTasksWarmSheet(): boolean {
     forceVisible = true;
     suppressFieldTasksClose();
     applyLayerVisible(root, true);
-    clearFieldTasksInstantPaint();
     return true;
 }
 
@@ -104,16 +97,4 @@ export function concealFieldTasksWarmSheet(): void {
     if (typeof document === 'undefined') return;
     const root = document.querySelector(LAYER_SELECTOR);
     if (root instanceof HTMLElement) applyLayerVisible(root, false);
-    clearFieldTasksInstantPaint();
-}
-
-/** @deprecated الهيكل الفارغ لم يعد مسار الفتح — يبقى للتوافق البارد النادر */
-export function paintFieldTasksInstantSheet(): void {
-    if (typeof document === 'undefined') return;
-    if (revealFieldTasksWarmSheet()) return;
-}
-
-export function clearFieldTasksInstantPaint(): void {
-    if (typeof document === 'undefined') return;
-    document.getElementById(INSTANT_ROOT_ID)?.remove();
 }

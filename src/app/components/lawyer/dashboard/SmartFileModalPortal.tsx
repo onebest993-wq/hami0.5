@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { ErrorBoundary } from '@/app/components/ui/ErrorBoundary';
 import type { SmartFileModalProps } from '@/app/components/lawyer/smart-modal/smartFile/smartFileModalTypes';
-import { loadLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
 import { HUB_DOSSIER_Z_CLASS } from '@/app/components/lawyer/shared/hubZLayers';
+import { HAMI_OVERLAY_SAFE_INSETS_CLASS } from '@/app/utils/overlayPortal';
 import { loadSmartFileModalModule } from '@/app/runtime/smartFileModalLoader';
 import { createPreloadableLazyComponent } from '@/app/utils/lazy/preloadableLazy';
 import type { LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
+import { SmartFileModalBootChrome } from '@/app/components/lawyer/dashboard/SmartFileModalBootChrome';
+import type { FileData } from '@/app/components/lawyer/LawyerShared';
 
 type FileLike = SmartFileModalProps['file'] & { id?: unknown };
 
@@ -21,21 +23,26 @@ if (typeof window !== 'undefined') {
     void LazySmartFileModal.preload();
 }
 
-export function resolveFreshSmartFileModalFile(file: SmartFileModalProps['file']): SmartFileModalProps['file'] {
+/** اختيار أحدث صف من قائمة جاهزة — بلا قراءة قرص. */
+export function pickFreshSmartFileModalFile(
+    file: SmartFileModalProps['file'],
+    storedFiles: unknown[],
+): SmartFileModalProps['file'] {
     const targetId = String((file as FileLike | undefined)?.id ?? '').trim();
     if (!targetId) return file;
 
-    const storedFiles = loadLawsuitFilesRaw();
     const fresh = storedFiles.find(
         (entry) => String((entry as { id?: unknown } | undefined)?.id ?? '').trim() === targetId,
     );
-    return (fresh as SmartFileModalProps['file'] | undefined) ?? file;
+    if (!fresh) return file;
+    /* ادمج حتى لا تُمحى هوية الفتح (اختصاص/قاضي) إن كان صف القرص أنقص */
+    return { ...file, ...(fresh as SmartFileModalProps['file']) };
 }
 
 function LawsuitDossierCrashFallback({ onClose }: { onClose: () => void }) {
     return (
         <div
-            className={`fixed inset-0 ${HUB_DOSSIER_Z_CLASS} flex flex-col items-center justify-center gap-3 bg-slate-950 px-6 text-center pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]`}
+            className={`fixed inset-0 ${HUB_DOSSIER_Z_CLASS} flex flex-col items-center justify-center gap-3 bg-slate-950 px-6 text-center ${HAMI_OVERLAY_SAFE_INSETS_CLASS}`}
             role="alertdialog"
             aria-modal="true"
             aria-label="تعذّر فتح الإضبارة"
@@ -56,11 +63,39 @@ function LawsuitDossierCrashFallback({ onClose }: { onClose: () => void }) {
 
 /**
  * إضبارة الدعوى — portal + عزل أعطال.
- * غلاف BootChrome يبقى في طبقة الـ overlays فقط (Suspense واحد — بلا تكرار).
+ * أول إطار من ذاكرة المساحة؛ تحديث القرص بعد الظهور حتى لا يُحجب الفتح بقراءة SecureStore.
  */
 export function SmartFileModalPortal(props: SmartFileModalProps) {
-    const hydratedFile = resolveFreshSmartFileModalFile(props.file);
+    const [hydratedFile, setHydratedFile] = useState(props.file);
+    const [dossierPainted, setDossierPainted] = useState(false);
+
+    useEffect(() => {
+        setHydratedFile(props.file);
+        const targetId = String((props.file as FileLike | undefined)?.id ?? '').trim();
+        if (!targetId) return undefined;
+        let cancelled = false;
+        void import('@/app/utils/lawsuitFilesStorage')
+            .then((m) => {
+                if (cancelled) return;
+                setHydratedFile(pickFreshSmartFileModalFile(props.file, m.loadLawsuitFilesRaw()));
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [props.file]);
+
+    const surfaceActive = props.surfaceActive !== false;
+    const coverWhilePending = props.coverWhilePending !== false;
     const fileId = (hydratedFile as { id?: unknown } | undefined)?.id;
+    const onPaintedProp = props.onPainted;
+
+    const handlePainted = useCallback(() => {
+        setDossierPainted(true);
+        onPaintedProp?.();
+    }, [onPaintedProp]);
+
+    const showBootCover = coverWhilePending && surfaceActive && !dossierPainted;
 
     const layer = (
         <ErrorBoundary
@@ -70,11 +105,30 @@ export function SmartFileModalPortal(props: SmartFileModalProps) {
                 console.error('[LawsuitDossier] component stack:', errorInfo.componentStack);
             }}
         >
-            <LazySmartFileModal
-                key={`lawsuit-${String(fileId ?? 'unknown')}`}
-                {...props}
-                file={hydratedFile}
-            />
+            {showBootCover ? (
+                <SmartFileModalBootChrome
+                    file={hydratedFile as FileData}
+                    onClose={props.onClose}
+                />
+            ) : null}
+            <Suspense
+                fallback={
+                    showBootCover ? null : coverWhilePending ? (
+                        <SmartFileModalBootChrome
+                            file={hydratedFile as FileData}
+                            onClose={props.onClose}
+                        />
+                    ) : null
+                }
+            >
+                <LazySmartFileModal
+                    key={`lawsuit-${String(fileId ?? 'unknown')}`}
+                    {...props}
+                    file={hydratedFile}
+                    surfaceActive={surfaceActive}
+                    onPainted={handlePainted}
+                />
+            </Suspense>
         </ErrorBoundary>
     );
 

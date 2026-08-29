@@ -282,7 +282,7 @@ export const VerdictCardsPanel = ({
                                                 className={
                                                     sendToCassation.urgent
                                                         ? 'sm:w-[11.5rem] rounded-xl bg-red-500 text-white font-black px-4 py-3 text-sm hover:brightness-110 active:brightness-95 transition whitespace-normal break-words motion-safe:animate-pulse'
-                                                        : 'sm:w-[11.5rem] rounded-xl bg-[#E6C673] text-[#0B1021] font-black px-4 py-3 text-sm hover:brightness-110 active:brightness-95 transition whitespace-normal break-words shadow-[0_0_16px_rgba(230,198,115,0.15)]'
+                                                        : 'sm:w-[11.5rem] rounded-xl bg-[#E6C673] text-[#0B1021] font-black px-4 py-3 text-sm hover:brightness-110 active:brightness-95 transition whitespace-normal break-words'
                                                 }
                                             >
                                                 {sendToCassation.label}
@@ -292,7 +292,7 @@ export const VerdictCardsPanel = ({
                                             <button
                                                 type="button"
                                                 onClick={() => onOpenCassationFiling?.(sourceCardId)}
-                                                className="sm:w-[11.5rem] rounded-xl border-2 border-[#E6C673]/55 bg-[#E6C673]/12 px-4 py-3 text-[#E6C673] font-black text-sm hover:bg-[#E6C673]/22 transition whitespace-normal break-words shadow-[0_0_16px_rgba(230,198,115,0.15)]"
+                                                className="sm:w-[11.5rem] rounded-xl border-2 border-[#E6C673]/55 bg-[#E6C673]/12 px-4 py-3 text-[#E6C673] font-black text-sm hover:bg-[#E6C673]/22 transition whitespace-normal break-words"
                                             >
                                                 تسجيل طعن تمييزي
                                             </button>

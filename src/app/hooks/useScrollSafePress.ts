@@ -6,7 +6,7 @@ type ScrollSafePressOptions = {
     disabled?: boolean;
     slopPx?: number;
     onPress?: () => void;
-    onPointerDown?: () => void;
+    onPointerDown?: (event: React.PointerEvent) => void;
 };
 
 /**
@@ -32,7 +32,7 @@ export function useScrollSafePress({
             if (disabled || event.button !== 0) return;
             originRef.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
             scrolledRef.current = false;
-            onPointerDownSideEffect?.();
+            onPointerDownSideEffect?.(event);
         },
         [disabled, onPointerDownSideEffect],
     );

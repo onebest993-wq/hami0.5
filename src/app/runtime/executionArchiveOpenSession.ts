@@ -2,7 +2,7 @@
  * تسخين فتح مخزن التنفيذ — prefetch فقط، لا يُحجب التركيب في MainView.
  * (حجب MainView بـ Promise.all + soft-settle 6s كان سبب الهيكل المعلّق ~7ث والوميض بعده)
  */
-import { loadExecutionArchiveHubModule } from '@/app/runtime/hubArchiveLoader';
+import { loadExecutionArchiveHubModule, prefetchExecutionArchiveContent } from '@/app/runtime/hubArchiveLoader';
 
 let openEpoch = 0;
 let openPromise: Promise<boolean> | null = null;
@@ -30,6 +30,10 @@ export function ensureExecutionArchiveOpenReady(): Promise<boolean> {
 }
 
 export function prefetchExecutionArchiveOpen(): void {
+    void import('@/app/components/lawyer/dashboard/ExecutionArchiveInstantChrome').catch(
+        () => undefined,
+    );
+    prefetchExecutionArchiveContent();
     void ensureExecutionArchiveOpenReady();
 }
 

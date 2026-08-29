@@ -1,14 +1,13 @@
 /**
  * Policy for /api/security/wife-sign — allowlist only same-origin /api/* (no bootstrap oracle abuse).
  */
+import { isWifeBootstrapApiPath, isWifeUnsignedApiPath } from '@/app/security/wifePublicApi.ts';
 
-const BLOCKED_WIFE_SIGN_PATHS = new Set<string>([
-  '/api/security/wife-sign',
-  '/api/auth/login',
-  '/api/auth/logout',
-  '/api/auth/refresh',
-  '/api/auth/session',
-]);
+function normalizeWifeSignPath(pathname: string): string {
+  const stripped = pathname.trim().split('?')[0] ?? '/';
+  if (stripped.length > 1 && stripped.endsWith('/')) return stripped.replace(/\/+$/, '');
+  return stripped || '/';
+}
 
 /** @returns canonical pathname if allowed; null if rejected */
 export function resolveAllowedWifeSignTarget(request: Request, targetUrl: string): string | null {
@@ -27,12 +26,14 @@ export function resolveAllowedWifeSignTarget(request: Request, targetUrl: string
 
   const pathname = resolved.pathname;
   if (!pathname.startsWith('/api/')) return null;
-  if (BLOCKED_WIFE_SIGN_PATHS.has(pathname)) return null;
+  if (isWifeUnsignedApiPath(pathname)) return null;
+  if (isBlockedWifeSignPath(pathname)) return null;
 
   const query = resolved.searchParams.toString();
   return query ? `${pathname}?${query}` : pathname;
 }
 
 export function isBlockedWifeSignPath(pathname: string): boolean {
-  return BLOCKED_WIFE_SIGN_PATHS.has(pathname);
+  const normalized = normalizeWifeSignPath(pathname);
+  return isWifeBootstrapApiPath(normalized);
 }

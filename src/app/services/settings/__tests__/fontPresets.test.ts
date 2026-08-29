@@ -17,7 +17,7 @@ describe('font presets', () => {
         expect(normalizeFontSizePx(19)).toBe(18);
     });
 
-    it('يُطبّع الإعدادات المحفوظة عند التحميل', () => {
+    it('يُثبّت حجم الخط على الافتراضي (متوسط/16px) عند التحميل', () => {
         const migrated = migrateLawyerSettings({
             version: SETTINGS_SCHEMA_VERSION,
             appearance: {
@@ -30,7 +30,7 @@ describe('font presets', () => {
             performance: LAWYER_SETTINGS_V2_DEFAULTS.performance,
             homeLayout: LAWYER_SETTINGS_V2_DEFAULTS.homeLayout,
         });
-        expect(migrated.appearance.fontPreset).toBe('large');
-        expect(migrated.appearance.fontSize).toBe(18);
+        expect(migrated.appearance.fontPreset).toBe('medium');
+        expect(migrated.appearance.fontSize).toBe(16);
     });
 });

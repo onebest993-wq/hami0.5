@@ -1,9 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useQuantumTasks } from '../useQuantumTasks';
-import { releaseExpiredFieldCurtainPins } from '@/app/components/lawyer/dashboard/tasksManager/utils';
 import type { LegalTask } from '@/app/types/TaskEngine';
+import { releaseExpiredFieldCurtainPins } from '@/app/components/lawyer/dashboard/tasksManager/utils';
 import { startOfLocalDay } from '@/app/utils/nlpParser';
+import { legalTaskStub as task } from '@/app/services/tasks/__tests__/legalTaskStub';
 import {
     persistTaskVoiceAttachment,
     removeTaskVoiceAttachment,
@@ -17,29 +18,6 @@ vi.mock('@/app/services/tasks/taskVoiceAttachment', async (importOriginal) => {
         removeTaskVoiceAttachment: vi.fn(),
     };
 });
-
-function task(partial: Partial<LegalTask> & Pick<LegalTask, 'id' | 'title'>): LegalTask {
-    return {
-        id: partial.id,
-        rawText: partial.title,
-        title: partial.title,
-        location: partial.location ?? null,
-        parsedDate: partial.parsedDate ?? null,
-        reminderAt: null,
-        isFatalDeadline: partial.isFatalDeadline ?? false,
-        linkedCaseId: null,
-        status: 'pending',
-        pinnedToFieldCurtain: partial.pinnedToFieldCurtain ?? false,
-        fieldCurtainPinnedAt: partial.fieldCurtainPinnedAt ?? null,
-        completedAt: partial.completedAt ?? null,
-        subTasks: partial.subTasks ?? [],
-        documentRequirements: [],
-        expenses: [],
-        voiceRef: partial.voiceRef ?? null,
-        voiceTranscript: partial.voiceTranscript ?? null,
-        voiceDurationSec: partial.voiceDurationSec ?? null,
-    };
-}
 
 describe('useQuantumTasks', () => {
     beforeEach(() => {
@@ -234,5 +212,61 @@ describe('useQuantumTasks', () => {
             new Date(),
         );
         expect(kept!.pinnedToFieldCurtain).toBe(true);
+    });
+
+    it('reopenTask يعيد مهمة الأرشيف إلى اليوم الحالي', () => {
+        const lastWeek = startOfLocalDay(new Date());
+        lastWeek.setDate(lastWeek.getDate() - 8);
+        const { result } = renderHook(() =>
+            useQuantumTasks([
+                task({
+                    id: 'arch-1',
+                    title: 'مهمة أرشيف',
+                    parsedDate: lastWeek,
+                }),
+            ]),
+        );
+
+        expect(result.current.tasks[0]!.status).toBe('completed');
+        expect(result.current.tasks[0]!.completedAt).not.toBeNull();
+
+        act(() => {
+            result.current.reopenTask('arch-1');
+        });
+
+        const reopened = result.current.tasks.find((t) => t.id === 'arch-1');
+        expect(reopened?.completedAt).toBeNull();
+        expect(reopened?.status).toBe('pending');
+        expect(reopened?.parsedDate?.toDateString()).toBe(new Date().toDateString());
+    });
+
+    it('updateTask cannot rewrite id and clamps title', () => {
+        const { result } = renderHook(() => useQuantumTasks([]));
+        act(() => {
+            result.current.addTask('مهمة أصلية');
+        });
+        const originalId = result.current.tasks[0]!.id;
+
+        act(() => {
+            result.current.updateTask(originalId, {
+                id: 'forged-id',
+                title: 'x'.repeat(800),
+            } as Partial<LegalTask>);
+        });
+
+        expect(result.current.tasks[0]!.id).toBe(originalId);
+        expect(result.current.tasks[0]!.title.length).toBeLessThanOrEqual(500);
+    });
+
+    it('addWeeklyLocationBundle clamps oversized location', () => {
+        const { result } = renderHook(() => useQuantumTasks([]));
+        act(() => {
+            result.current.addWeeklyLocationBundle(
+                startOfLocalDay(new Date(2026, 4, 18)),
+                `محكمة ${'ر'.repeat(400)}`,
+                'متابعة',
+            );
+        });
+        expect(result.current.tasks[0]!.location!.length).toBeLessThanOrEqual(200);
     });
 });

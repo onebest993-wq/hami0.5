@@ -1,9 +1,8 @@
 /**
  * مسار التنفيذ فقط — بلا منطق دعاوى/جزائي (يُدار في useLawsuitArchivePortalController).
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { ArchivePortalProps } from '@/app/types/common';
-import type { ExecutionArchiveFilter } from '../components/ExecutionArchiveToolbar';
 import {
     EXECUTION_DOSSIER_STATUS_LABELS,
     EXECUTION_JURISDICTION_LABELS,
@@ -12,64 +11,61 @@ import {
     filterExecutionArchiveFiles,
     getExecutionArchiveBasePool,
     type ExecutionDossierStatusFilter,
+    type ExecutionJurisdictionFilter,
     type ExecutionPerspectiveFilter,
     type ExecutionViewMode,
 } from '../executionArchiveFilterUtils';
-import type { LawsuitViewMode } from './lawsuitLifecycleTypes';
-import type { LawsuitJurisdictionTab } from '@/app/domain/lawsuit/lawsuitJurisdiction';
-import type { LooseArchiveFile } from '../types';
+import type { ArchiveEnrichedRow, LooseArchiveFile } from '../types';
 import { computeExecutionArchiveEnrichedFiles } from '../executionArchiveEnrichment';
-import { mergedPreviewTimelineEvents } from '../utils';
 
-export type { LawsuitViewMode } from './lawsuitLifecycleTypes';
-
-export type UseArchivePortalControllerParams = Pick<
+type UseArchivePortalControllerParams = Pick<
     ArchivePortalProps,
-    | 'files'
-    | 'onPermanentlyDeleteExecutions'
-    | 'onMoveExecutionToTrash'
-    | 'onRestoreExecutionFromTrash'
-    | 'onArchiveExecution'
-    | 'onRestoreArchivedExecution'
+    'files' | 'onPermanentlyDeleteExecutions'
 >;
 
-const LAWSUIT_PORTAL_STUB = {
-    dossierSearchOpen: false,
-    setDossierSearchOpen: (_open: boolean | ((prev: boolean) => boolean)) => undefined,
-    dossierSearchQuery: '',
-    setDossierSearchQuery: (_query: string) => undefined,
-    lawsuitJurisdictionTab: 'all' as const,
-    setLawsuitJurisdictionTab: (_value: LawsuitJurisdictionTab) => undefined,
-    viewingCriminal: false,
-    dossierViewMode: 'grid' as const,
-    setDossierViewMode: (_mode: 'grid' | 'list') => undefined,
-    criminalDeleteTarget: null as { id: string; title: string } | null,
-    setCriminalDeleteTarget: (_target: { id: string; title: string } | null) => undefined,
-    lawsuitViewMode: 'active' as LawsuitViewMode,
-    setLawsuitViewMode: (_mode: LawsuitViewMode) => undefined,
-    lawsuitTrashConfirmTarget: null as LooseArchiveFile | null,
-    setLawsuitTrashConfirmTarget: (_file: LooseArchiveFile | null) => undefined,
-    lawsuitTrashedCount: 0,
-    unifiedArchivedCount: 0,
-    filteredLawsuitFiles: [] as unknown[],
-    filteredCriminalCases: [] as Record<string, unknown>[],
-    showLawsuitCardsInGrid: false,
-    showCriminalCardsInGrid: false,
-    showDossierToolbar: false,
-    hasLawsuitLifecycle: false,
+export type ExecutionArchivePortalState = {
+    searchQuery: string;
+    setSearchQuery: Dispatch<SetStateAction<string>>;
+    filterType: ExecutionJurisdictionFilter;
+    setFilterType: Dispatch<SetStateAction<ExecutionJurisdictionFilter>>;
+    perspectiveFilter: ExecutionPerspectiveFilter;
+    setPerspectiveFilter: Dispatch<SetStateAction<ExecutionPerspectiveFilter>>;
+    dossierStatusFilter: ExecutionDossierStatusFilter;
+    setDossierStatusFilter: Dispatch<SetStateAction<ExecutionDossierStatusFilter>>;
+    executionPreviewFile: LooseArchiveFile | null;
+    setExecutionPreviewFile: Dispatch<SetStateAction<LooseArchiveFile | null>>;
+    executionViewMode: ExecutionViewMode;
+    setExecutionViewMode: Dispatch<SetStateAction<ExecutionViewMode>>;
+    executionArchivedCount: number;
+    trashConfirmTarget: LooseArchiveFile | null;
+    setTrashConfirmTarget: Dispatch<SetStateAction<LooseArchiveFile | null>>;
+    archiveConfirmTarget: LooseArchiveFile | null;
+    setArchiveConfirmTarget: Dispatch<SetStateAction<LooseArchiveFile | null>>;
+    selectedTrashIds: Set<string>;
+    setSelectedTrashIds: Dispatch<SetStateAction<Set<string>>>;
+    permanentDeleteOpen: boolean;
+    setPermanentDeleteOpen: Dispatch<SetStateAction<boolean>>;
+    confirmPermanentDelete: () => void;
+    beginPermanentDeleteForIds: (ids: Array<string | number>) => void;
+    permanentIdsRef: MutableRefObject<Array<string | number>>;
+    executionTrashedCountTotal: number;
+    executionJurisdictionCountsForView: Record<ExecutionJurisdictionFilter, number>;
+    toggleTrashSelect: (id: string | number) => void;
+    getTitle: () => string;
+    filteredExecutionFiles: LooseArchiveFile[];
+    enrichedFiles: ArchiveEnrichedRow[];
+    selectAllTrashedInView: () => void;
+    beginPermanentDeleteFlow: () => void;
+    executionFilterSummary: string;
 };
 
 export function useArchivePortalController({
     files: filesProp,
     onPermanentlyDeleteExecutions,
-    onMoveExecutionToTrash,
-    onRestoreExecutionFromTrash,
-    onArchiveExecution,
-    onRestoreArchivedExecution,
-}: UseArchivePortalControllerParams) {
+}: UseArchivePortalControllerParams): ExecutionArchivePortalState {
     const files = Array.isArray(filesProp) ? filesProp : [];
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterType, setFilterType] = useState<ExecutionArchiveFilter>('all');
+    const [filterType, setFilterType] = useState<ExecutionJurisdictionFilter>('all');
     const [perspectiveFilter, setPerspectiveFilter] = useState<ExecutionPerspectiveFilter>('all');
     const [dossierStatusFilter, setDossierStatusFilter] =
         useState<ExecutionDossierStatusFilter>('all');
@@ -81,11 +77,6 @@ export function useArchivePortalController({
     const [selectedTrashIds, setSelectedTrashIds] = useState<Set<string>>(new Set());
     const [permanentDeleteOpen, setPermanentDeleteOpen] = useState(false);
     const permanentIdsRef = useRef<Array<string | number>>([]);
-
-    const previewTimelineEvents = useMemo(
-        () => mergedPreviewTimelineEvents(executionPreviewFile),
-        [executionPreviewFile],
-    );
 
     const executionActivePool = useMemo(
         () => getExecutionArchiveBasePool(files as LooseArchiveFile[], 'active'),
@@ -119,7 +110,6 @@ export function useArchivePortalController({
 
     const executionArchivedCount = executionArchivedPool.length;
     const executionTrashedCountTotal = executionTrashPool.length;
-    const executionTrashedCountForFilter = executionTrashCountByJurisdiction[filterType];
 
     const executionJurisdictionCountsForView =
         executionViewMode === 'trash'
@@ -130,12 +120,10 @@ export function useArchivePortalController({
 
     useEffect(() => {
         if (executionViewMode !== 'trash') setSelectedTrashIds(new Set());
-    }, [executionViewMode]);
-
-    useEffect(() => {
         setSearchQuery('');
         setFilterType('all');
         setPerspectiveFilter('all');
+        setDossierStatusFilter('all');
     }, [executionViewMode]);
 
     useEffect(() => {
@@ -154,11 +142,11 @@ export function useArchivePortalController({
         });
     }, []);
 
-    const getTitle = () => {
+    const getTitle = useCallback(() => {
         if (executionViewMode === 'trash') return 'سلة مهملات الإضابير التنفيذية';
         if (executionViewMode === 'archived') return 'مخزن أرشيف الإضابير التنفيذية';
         return 'مخزن الأضابير التنفيذية';
-    };
+    }, [executionViewMode]);
 
     const filteredExecutionFiles = useMemo(
         () =>
@@ -214,14 +202,6 @@ export function useArchivePortalController({
         permanentIdsRef.current = [];
     }, [onPermanentlyDeleteExecutions]);
 
-    const hasExecutionLifecycle = Boolean(
-        onMoveExecutionToTrash ||
-            onArchiveExecution ||
-            onRestoreExecutionFromTrash ||
-            onRestoreArchivedExecution ||
-            onPermanentlyDeleteExecutions,
-    );
-
     const executionFilterSummary = useMemo(() => {
         const parts: string[] = [];
         if (dossierStatusFilter !== 'all') {
@@ -233,7 +213,6 @@ export function useArchivePortalController({
     }, [dossierStatusFilter, filterType, perspectiveFilter]);
 
     return {
-        ...LAWSUIT_PORTAL_STUB,
         searchQuery,
         setSearchQuery,
         filterType,
@@ -258,8 +237,6 @@ export function useArchivePortalController({
         confirmPermanentDelete,
         beginPermanentDeleteForIds,
         permanentIdsRef,
-        previewTimelineEvents,
-        executionTrashedCountForFilter,
         executionTrashedCountTotal,
         executionJurisdictionCountsForView,
         toggleTrashSelect,
@@ -268,7 +245,6 @@ export function useArchivePortalController({
         enrichedFiles,
         selectAllTrashedInView,
         beginPermanentDeleteFlow,
-        hasExecutionLifecycle,
         executionFilterSummary,
     };
 }

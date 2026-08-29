@@ -11,24 +11,13 @@ export type BootSurfacePaintV1 = {
     cardBg: string;
     glassBase: string;
     glassOpacity: string;
+    glassPanelBg?: string;
     theme: string;
     wallpaper: '0' | '1';
     homeContainerBorder?: '0' | '1';
+    colorMode?: 'light' | 'dark';
+    shape?: string;
 };
-
-function readWallpaperFromBootStorage(): string | null {
-    if (typeof localStorage === 'undefined') return null;
-    try {
-        const legacy = localStorage.getItem('lawyer_wallpaper');
-        return legacy?.startsWith('data:') ? legacy : null;
-    } catch {
-        return null;
-    }
-}
-
-function cssWallpaperUrl(src: string): string {
-    return `url("${src.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}")`;
-}
 
 export function applyBootSurfacePaint(cache: BootSurfacePaintV1): void {
     if (typeof document === 'undefined') return;
@@ -40,20 +29,23 @@ export function applyBootSurfacePaint(cache: BootSurfacePaintV1): void {
     root.style.setProperty('--hami-card-surface-bg', cache.cardBg);
     root.style.setProperty('--hami-glass-base', cache.glassBase);
     root.style.setProperty('--glass-opacity', cache.glassOpacity);
+    if (cache.glassPanelBg) {
+        root.style.setProperty('--hami-glass-panel-bg', cache.glassPanelBg);
+    }
     root.dataset.hamiTheme = cache.theme;
     root.dataset.hamiWallpaper = cache.wallpaper;
     root.dataset.hamiHomeContainerBorder = cache.homeContainerBorder ?? '1';
+    root.dataset.hamiColorMode = cache.colorMode === 'light' ? 'light' : 'dark';
+    if (cache.shape) {
+        root.dataset.hamiShape = cache.shape;
+    }
 
     const paint = cache.boardBg || cache.surfaceBg || '#0a0f1c';
     root.style.backgroundColor = paint;
     document.body.style.backgroundColor = paint;
 
-    if (cache.wallpaper === '1') {
-        const wp = readWallpaperFromBootStorage();
-        if (wp) {
-            root.style.setProperty('--hami-wallpaper-image', cssWallpaperUrl(wp));
-        }
-    } else {
+    /* ألوان صلبة أولاً — الصورة تُحقن تحت الغطاء بعد فك ترميزها، لا بعد الكشف */
+    if (cache.wallpaper !== '1') {
         root.style.removeProperty('--hami-wallpaper-image');
     }
 }
@@ -96,9 +88,12 @@ function parseBootSurfacePaintRaw(raw: string | null): BootSurfacePaintV1 | null
             cardBg: parsed.cardBg ?? parsed.surfaceBg,
             glassBase: parsed.glassBase ?? parsed.surfaceBg,
             glassOpacity: parsed.glassOpacity ?? '0.92',
+            glassPanelBg: parsed.glassPanelBg,
             theme: parsed.theme ?? 'gold',
             wallpaper: parsed.wallpaper === '1' ? '1' : '0',
             homeContainerBorder: parsed.homeContainerBorder === '0' ? '0' : '1',
+            colorMode: parsed.colorMode === 'light' ? 'light' : 'dark',
+            shape: typeof parsed.shape === 'string' && parsed.shape ? parsed.shape : undefined,
         };
     } catch {
         return null;
@@ -147,9 +142,15 @@ export function persistBootSurfacePaintFromDom(): void {
             root.style.getPropertyValue('--glass-opacity').trim() ||
             getComputedStyle(root).getPropertyValue('--glass-opacity').trim() ||
             '0.92',
+        glassPanelBg:
+            root.style.getPropertyValue('--hami-glass-panel-bg').trim() ||
+            getComputedStyle(root).getPropertyValue('--hami-glass-panel-bg').trim() ||
+            undefined,
         theme: root.dataset.hamiTheme ?? 'gold',
         wallpaper: root.dataset.hamiWallpaper === '1' ? '1' : '0',
         homeContainerBorder: root.dataset.hamiHomeContainerBorder === '0' ? '0' : '1',
+        colorMode: root.dataset.hamiColorMode === 'light' ? 'light' : 'dark',
+        shape: root.dataset.hamiShape || undefined,
     };
 
     try {

@@ -23,12 +23,7 @@ import {
     DEFENDANT_BAIL_TEMPLATE,
     DETENTION_DECISION_TEMPLATE,
 } from './proceduralRequestTypes';
-
-function resetStore() {
-    SecureStoreService.deleteItemSync('hami:criminal:store');
-    useCriminalStore.setState({ casesById: {} });
-    useCriminalStore.getState().resetDraft();
-}
+import { resetCriminalStore as resetStore } from './__tests__/criminalStoreTestHelpers';
 
 /**
  * بَذرة إضبارة جنحة جاهزة بِكامل الحقول الإلزامية + متهم واحد + مشتكي واحد.

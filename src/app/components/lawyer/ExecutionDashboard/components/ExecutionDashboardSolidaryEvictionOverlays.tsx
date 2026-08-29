@@ -1,11 +1,10 @@
-// @ts-nocheck
 import React, { Suspense } from 'react';
-import {
-    EXEC_OVERLAY_LAZY_FALLBACK,
-    LazyExecutionSolidaryAndEvictionFollowupModalsContainer,
-} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell';
+import { LazyExecutionSolidaryAndEvictionFollowupModalsContainer } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistryOverlays';
+import { ExecutionNamedOverlayInstantFrame } from './executionOverlayInstantPresets';
+import type { ExecutionSolidaryAndEvictionFollowupModalsContainerProps } from './ExecutionSolidaryAndEvictionFollowupModalsContainer';
 
-export type ExecutionDashboardSolidaryEvictionOverlaysProps = Record<string, unknown>;
+export type ExecutionDashboardSolidaryEvictionOverlaysProps =
+    ExecutionSolidaryAndEvictionFollowupModalsContainerProps;
 
 /** modals التضامن/إخلاء — chunk lazy منفصل */
 export function ExecutionDashboardSolidaryEvictionOverlays(
@@ -28,7 +27,52 @@ export function ExecutionDashboardSolidaryEvictionOverlays(
     }
 
     return (
-        <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+        <Suspense
+            fallback={
+                <ExecutionNamedOverlayInstantFrame
+                    title={
+                        showSolidaryCoerciveTargetModal
+                            ? 'تحديد المطلوب ضده'
+                            : showEvictionExpenseModal
+                              ? 'مصاريف التخلية'
+                              : showEvictionLawyerFeeModal
+                                ? 'أتعاب المحامي'
+                                : 'مهلة السكن'
+                    }
+                    onClose={() => {
+                        if (showSolidaryCoerciveTargetModal) {
+                            if (typeof props.onCloseSolidaryCoerciveTargetModal === 'function') {
+                                props.onCloseSolidaryCoerciveTargetModal();
+                            } else {
+                                props.setShowSolidaryCoerciveTargetModal?.(false);
+                            }
+                            return;
+                        }
+                        if (showEvictionExpenseModal) {
+                            if (typeof props.onCloseEvictionExpenseModal === 'function') {
+                                props.onCloseEvictionExpenseModal();
+                            } else {
+                                props.setShowEvictionExpenseModal?.(false);
+                            }
+                            return;
+                        }
+                        if (showEvictionLawyerFeeModal) {
+                            if (typeof props.onCloseEvictionLawyerFeeModal === 'function') {
+                                props.onCloseEvictionLawyerFeeModal();
+                            } else {
+                                props.setShowEvictionLawyerFeeModal?.(false);
+                            }
+                            return;
+                        }
+                        if (typeof props.onCloseEvictionResidentialGraceModal === 'function') {
+                            props.onCloseEvictionResidentialGraceModal();
+                        } else {
+                            props.setShowEvictionResidentialGraceModal?.(false);
+                        }
+                    }}
+                />
+            }
+        >
             <LazyExecutionSolidaryAndEvictionFollowupModalsContainer {...props} />
         </Suspense>
     );

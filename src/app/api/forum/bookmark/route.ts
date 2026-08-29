@@ -4,7 +4,7 @@ import { checkForumActionRateLimit } from '../../../services/forum/forumRateLimi
 import { assertForumPostGroupAccess } from '../../../services/forum/forumGroupMutationGate.ts';
 // ملاحظة: الحفظ الشخصي (Bookmark) لا يحتاج فحص الحظر —
 // المحظور يستطيع القراءة فمن المنطقي أن يحتفظ بقائمة شخصية.
-import { requireForumAuth, assertForumWriteAllowed, jsonResponse } from '../_auth.ts';
+import { requireForumAuth, assertForumWriteAllowed, jsonResponse, forumCatchJsonResponse } from '../_auth.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object';
@@ -54,8 +54,6 @@ export async function POST(request: Request): Promise<Response> {
         const result = await ForumRepository.toggleBookmark(postId, auth.userId);
         return jsonResponse(200, { ok: true, ...result });
     } catch (err) {
-        const message = err instanceof Error ? err.message : 'Internal server error';
-        const status = message.includes('الانضمام للمجموعة') ? 403 : message.includes('غير موجود') ? 404 : 500;
-        return jsonResponse(status, { ok: false, error: message });
+        return forumCatchJsonResponse(err);
     }
 }

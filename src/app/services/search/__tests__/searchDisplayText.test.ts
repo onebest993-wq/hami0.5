@@ -11,6 +11,11 @@ describe('searchDisplayText', () => {
         expect(sanitizeSearchDisplayText('قرار ⭐ محكمة')).toBe('قرار محكمة');
     });
 
+    it('يزيل HTML وتجاوز الاتجاه من نص العرض', () => {
+        expect(sanitizeSearchDisplayText('<img src=x onerror=alert(1)>دعوى')).toBe('دعوى');
+        expect(sanitizeSearchDisplayText('يمين\u202Eيسار')).toBe('يمينيسار');
+    });
+
     it('يترجم أنواع الأحداث الإنجليزية إلى عربية', () => {
         expect(searchEventTypeLabel('appointment')).toBe('موعد');
         expect(searchEventTypeLabel('decision')).toBe('قرار');

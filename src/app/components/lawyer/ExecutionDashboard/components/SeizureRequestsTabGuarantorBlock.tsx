@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield } from '@/app/components/ui/lucideIcons';
+import { Shield } from '@/app/components/ui/icons/Shield';
 import { InlineActionGate } from './InlineActionGate';
 import type { InlineActionGateKey } from '../types';
 import type { ExecutionFile } from '@/app/types/execution';
@@ -9,12 +9,13 @@ import {
 import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import { GuarantorWorkspaceWrapper } from './GuarantorWorkspaceWrapper';
 import { SeizureRequestBlock } from './SeizureRequestBlock';
+import type { DecisionRow } from './useSeizureRequestsTabModel.types';
 
 export function SeizureRequestsTabGuarantorBlock(props: {
     executionCoerciveButtonDisabled: boolean;
     coerciveUiLocked: boolean;
     isHistoricalMode: boolean;
-    findLatestGuarantorDecision: any;
+    findLatestGuarantorDecision: DecisionRow | null;
     decisions: Record<string, unknown>[];
     executionData: ExecutionFile | null;
     resolvedExecutionId: string;
@@ -58,7 +59,7 @@ export function SeizureRequestsTabGuarantorBlock(props: {
     return (
         <SeizureRequestBlock
             disabled={executionCoerciveButtonDisabled || coerciveUiLocked || isHistoricalMode}
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-[12px] font-bold text-slate-100 backdrop-blur-xl transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:-translate-y-0.5 hover:border-amber-400/35 hover:shadow-[0_18px_48px_rgba(0,0,0,0.45),0_0_0_1px_rgba(230,198,115,0.08)] disabled:opacity-40"
+            className="w-full rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-[12px] font-bold text-slate-100 transition-all hover:border-amber-400/35 disabled:opacity-40"
             onClick={() => {
                 if (executionCoerciveButtonDisabled || coerciveUiLocked || isHistoricalMode)
                     return;
@@ -125,7 +126,7 @@ export function SeizureRequestsTabGuarantorBlock(props: {
                                 setGuarantorExistingWarningOpen(false);
                                 setInlineActionGateKey('guarantor_request');
                             }}
-                            className="rounded-xl border border-amber-400/55 bg-gradient-to-r from-amber-900/40 to-amber-800/30 py-2.5 text-[11px] font-extrabold text-amber-100 hover:from-amber-800/50 hover:to-amber-700/35"
+                            className="rounded-xl border border-amber-400/55 bg-amber-950/40 py-2.5 text-[11px] font-extrabold text-amber-100 hover:bg-amber-900/50"
                         >
                             أتفهم الأمر
                         </button>

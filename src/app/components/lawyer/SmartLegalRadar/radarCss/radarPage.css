@@ -1,0 +1,91 @@
+/**
+ * رادار المواعيد — رموز السطح الكحلي
+ */
+.hami-radar-page {
+    --radar-bg-main: #0a0f1c;
+    --radar-bg-card: color-mix(in srgb, #ffffff 3.5%, #0a0f1c);
+    --radar-bg-elevated: #0a0f1c;
+    --radar-bg-card-hover: color-mix(in srgb, #ffffff 6%, #0a0f1c);
+    --radar-border: rgba(255, 255, 255, 0.08);
+    --radar-text-primary: #f4f4f5;
+    --radar-text-secondary: rgba(244, 244, 245, 0.52);
+    --radar-accent-pearl: #f4f4f5;
+    --radar-accent-pearl-muted: #e6c673;
+    --radar-btn-text: #f4f4f5;
+    --radar-border-accent: rgba(255, 255, 255, 0.1);
+    color: var(--radar-text-primary);
+}
+
+.hami-radar-dark-surface {
+    background-color: var(--radar-bg-main);
+}
+
+.hami-radar-card-surface {
+    background-color: var(--radar-bg-card);
+    border-color: var(--radar-border);
+}
+
+.hami-radar-elevated-surface {
+    background-color: var(--radar-bg-elevated);
+    border-color: var(--radar-border);
+}
+
+.hami-radar-text-primary {
+    color: var(--radar-text-primary);
+}
+
+.hami-radar-text-secondary {
+    color: var(--radar-text-secondary);
+}
+
+.hami-radar-page :is(input, textarea, select) {
+    color: var(--radar-text-primary);
+    color-scheme: dark;
+}
+
+.hami-radar-page :is(input, textarea)::placeholder {
+    color: color-mix(in srgb, var(--radar-text-secondary) 78%, transparent);
+}
+
+.hami-radar-glass-panel {
+    border-color: var(--radar-border);
+}
+
+.hami-radar-pearl-surface {
+    color: #f4f4f5 !important;
+    background-color: #0a0f1c;
+    box-shadow: none;
+}
+
+.hami-radar-pearl-surface:hover,
+.hami-radar-pearl-surface:active {
+    background-color: #12182b;
+}
+
+.hami-radar-pearl-surface svg {
+    color: #e6c673 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hami-radar-event-card,
+    .hami-radar-calendar-collapse,
+    .hami-radar-calendar-collapse[data-open='1'],
+    .hami-radar-week-strip__day:active,
+    .hami-radar-month-nav__today-btn:active,
+    .hami-radar-add-btn:active {
+        transition: none;
+        transform: none;
+    }
+}
+
+html[data-hami-reduce-motion='1'] .hami-radar-event-card,
+html[data-hami-animations='0'] .hami-radar-event-card,
+html[data-hami-lite='1'] .hami-radar-event-card,
+html[data-hami-reduce-motion='1'] .hami-radar-calendar-collapse,
+html[data-hami-animations='0'] .hami-radar-calendar-collapse,
+html[data-hami-lite='1'] .hami-radar-calendar-collapse,
+html[data-hami-reduce-motion='1'] .hami-radar-calendar-collapse[data-open='1'],
+html[data-hami-animations='0'] .hami-radar-calendar-collapse[data-open='1'],
+html[data-hami-lite='1'] .hami-radar-calendar-collapse[data-open='1'] {
+    transition: none;
+}

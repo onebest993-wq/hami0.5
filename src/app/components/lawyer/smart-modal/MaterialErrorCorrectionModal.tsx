@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { X, AlertTriangle, Edit3 } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
+import { AlertTriangle } from '@/app/components/ui/icons/AlertTriangle';
+import { Edit3 } from '@/app/components/ui/icons/Edit3';
 
 interface MaterialErrorCorrectionModalProps {
     isOpen: boolean;
@@ -26,8 +28,8 @@ export const MaterialErrorCorrectionModal = ({ isOpen, onClose, onConfirm, corre
     const color = isAmbiguity ? 'blue' : 'amber';
 
     return (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']" dir="rtl">
-            <div className={`bg-[#1A1E2E] border border-${color}-500/40 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl shadow-${color}-900/40`}>
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/62 backdrop-blur-sm p-4 font-['Tajawal']" dir="rtl">
+            <div className={`bg-[#1A1E2E] border border-${color}-500/40 rounded-2xl w-full max-w-lg overflow-hidden shadow-lg shadow-${color}-900/40`}>
                 <div className={`bg-gradient-to-r from-${color}-600 to-${color}-700 p-4 text-white flex justify-between items-center`}>
                     <h3 className="font-bold text-sm flex items-center gap-2">
                         {icon}

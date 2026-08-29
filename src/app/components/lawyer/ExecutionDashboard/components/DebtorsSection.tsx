@@ -160,7 +160,7 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
 
     return (
         <>
-            <div className="mx-3 mt-3.5 space-y-1.5">
+            <div className="mx-3 mt-2 space-y-1.5">
                 <div className="space-y-1.5">
                     {debtorBrowserTabsMode &&
                     (liabilityGroupTabsMode

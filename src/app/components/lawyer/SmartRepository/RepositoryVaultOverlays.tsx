@@ -1,11 +1,15 @@
 import React, { lazy, memo, Suspense } from 'react';
-import { Loader2 } from '@/app/components/ui/lucideIcons';
+import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import { VoiceRecorderErrorBoundary } from '@/app/components/lawyer/ActionModals/VoiceRecorderErrorBoundary';
 import type { useSmartVault } from '@/app/components/lawyer/hooks/useSmartVault';
 import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
 import { RepositoryScannerPanel, RepositoryVoiceRecorder } from './RepositoryLazyPanels';
 import { saveVoiceNoteToNotepad } from '@/app/components/lawyer/dashboard/notepadVoiceSave';
-import { REPOSITORY_ACTION_CATEGORY } from '@/app/services/vaultCustomCategories';
+import {
+    mergeScannedDocForFeed,
+    resolveScannedDocCategory,
+    shouldSwitchVaultFilterForNewScan,
+} from './commitScannedVaultDoc';
 
 const LazyVaultUploadMetaSheet = lazy(() =>
     import('@/app/components/lawyer/SmartVaultModal/VaultUploadMetaSheet').then((m) => ({
@@ -27,7 +31,11 @@ const LazyVaultDocViewer = lazy(() =>
 
 function OverlayFallback() {
     return (
-        <div className="flex items-center justify-center py-10" aria-busy="true">
+        <div
+            className="flex items-center justify-center py-10"
+            aria-busy="true"
+            data-testid="vault-overlay-lazy-fallback"
+        >
             <Loader2 size={28} className="text-[#E6C673] animate-spin" />
         </div>
     );
@@ -39,6 +47,7 @@ type VaultOverlayApi = Pick<
     | 'customCategories'
     | 'addVaultCategory'
     | 'setActiveFilter'
+    | 'activeFilter'
     | 'prependVaultDoc'
     | 'pendingUpload'
     | 'uploadQueueCount'
@@ -83,25 +92,16 @@ export const RepositoryVaultOverlays = memo(function RepositoryVaultOverlays({
                     onClose={onCloseScanner}
                     onSaved={(result) => {
                         const roomId = getDefaultRoomId?.() ?? null;
-                        const category =
-                            result.doc.customCategory?.trim() || REPOSITORY_ACTION_CATEGORY.scan;
-                        const doc =
-                            roomId && !result.doc.roomId
-                                ? {
-                                      ...result.doc,
-                                      roomId,
-                                      customCategory: category,
-                                      updatedAt: new Date().toISOString(),
-                                  }
-                                : result.doc.customCategory
-                                  ? result.doc
-                                  : { ...result.doc, customCategory: category };
+                        const category = resolveScannedDocCategory(result.doc);
+                        const doc = mergeScannedDocForFeed(result.doc, roomId, category);
                         if (doc !== result.doc && vault.currentUserId) {
                             void SmartVaultDB.updateDoc(doc, vault.currentUserId).catch(() => undefined);
                         }
                         vault.prependVaultDoc(doc);
                         vault.addVaultCategory(category);
-                        vault.setActiveFilter(category);
+                        if (shouldSwitchVaultFilterForNewScan(vault.activeFilter, category)) {
+                            vault.setActiveFilter(category);
+                        }
                     }}
                     onViewDoc={(doc) => {
                         onCloseScanner();

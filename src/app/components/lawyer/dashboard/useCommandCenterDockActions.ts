@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { SmartToast } from '@/app/components/ui/SmartToast';
+import { SmartToast } from '@/app/components/ui/smartToastBus';
 import {
     CALENDAR_DOCK_FEATURE,
     openCalendarFromDock,
@@ -13,15 +13,13 @@ import {
     hubShellFeature,
     openHubArchiveFromShell,
 } from '@/app/services/hub/hubShellNavigation';
-import { isRealSignedIn } from '@/app/services/auth/shellAuth';
-import { prefetchHubArchiveIntent } from '@/app/hooks/lawyerDashboard/lawyerDashboardIntentPrefetch';
+import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
 import { prefetchDockWidgetIntentImmediate } from '@/app/hooks/lawyerDashboard/dockShellPrefetchGate';
 import { FORUM_SHELL_FEATURE } from '@/app/services/forum/forumShellNavigation';
 import {
     HAMI_DISMISS_OVERLAYS_EVENT,
     dismissTransientOverlays,
 } from '@/app/utils/bodyScrollLock';
-import type { CommandCenterNote } from '../commandCenterTypes';
 import type { HomeWidgetId } from '@/app/services/settings/homeLayout';
 import type { HomeDockQuickSheetMode } from './HomeDockQuickSheet';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
@@ -43,7 +41,6 @@ export type CommandCenterDockActionsOptions = {
     onOpenRepository?: (opts?: { tab?: 'notepad' | 'vault'; scanner?: boolean; notepadMode?: 'list' | 'create' }) => void;
     onOpenFieldTasksSheet?: () => void;
     onOpenCommunity?: () => void;
-    onAddNote?: (note: CommandCenterNote) => void | Promise<void>;
     onOpenArchive?: (id: string) => void;
     onOpenVault?: () => void;
     secretaryAlerts?: SecretaryAlert[];
@@ -83,7 +80,8 @@ export function useCommandCenterDockActions({
 
     const requireSignedIn = useCallback(
         (feature: string): boolean => {
-            if (isRealSignedIn(userId)) return true;
+            // ضيف محلي مسموح للأقسام المحلية — المنتدى يُفتح مغلقاً داخل الشاشة
+            if (hasLocalAppSession(userId)) return true;
             SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${feature}`);
             return false;
         },
@@ -172,7 +170,7 @@ export function useCommandCenterDockActions({
                     });
                 case 'forum':
                     return run(() => {
-                        if (!requireSignedIn(FORUM_SHELL_FEATURE)) return;
+                        /* الضيف يفتح الشاشة مغلقة — بلا إشعار toast */
                         if (onOpenCommunity) onOpenCommunity();
                         else SmartToast.info(FORUM_SHELL_FEATURE);
                     });
@@ -188,7 +186,9 @@ export function useCommandCenterDockActions({
                             onSignedOut: () => undefined,
                             onOpen: (id) => {
                                 dismissTransientOverlays();
-                                prefetchHubArchiveIntent(id);
+                                void import('@/app/hooks/lawyerDashboard/lawyerDashboardIntentPrefetch')
+                                    .then((m) => m.prefetchHubArchiveIntent(id))
+                                    .catch(() => undefined);
                                 onOpenArchive?.(id);
                             },
                         });

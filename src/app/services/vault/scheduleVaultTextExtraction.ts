@@ -36,7 +36,7 @@ export function scheduleVaultTextExtraction(doc: SmartVaultDoc, afterPersist?: P
             upsertVaultLocalIndexDocImmediate(updated);
             mergeVaultDocsWarmCache(doc.authorId, [updated]);
             notifySmartVaultDocsUpdated(doc.authorId, [updated]);
-            await SmartVaultDB.saveDoc(updated);
+            await SmartVaultDB.saveDoc(updated, doc.authorId);
         } catch {
             /* فشل صامت — التنبيهات الهيكلية تكفي */
         } finally {

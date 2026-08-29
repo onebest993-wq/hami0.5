@@ -1,9 +1,19 @@
-// @ts-nocheck
 import React from 'react';
-import { motion } from 'motion/react';
-import { DollarSign, FileText, History, Wallet, X } from '@/app/components/ui/lucideIcons';
+import { FileText } from '@/app/components/ui/icons/FileText';
+import { X } from '@/app/components/ui/icons/X';
 import type { ExecutionFile } from '@/app/types/execution';
 import { buildExecutionClaimBreakdown } from '@/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_TOUCH_TARGET,
+    execModalKeyboardPadStyle,
+} from '../executionModalMobileShell';
+import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
+import {
+    FinancialLedgerClaimBreakdownBlock,
+    FinancialLedgerMovementsBlock,
+    FinancialLedgerUnifiedArchiveBlock,
+} from './FinancialLedgerSectionBlocks';
 
 type FinancialLedgerEntry = {
     id: string;
@@ -128,25 +138,24 @@ export const FinancialLedgerSection: React.FC<FinancialLedgerSectionProps> = ({
           ]
         : claimBreakdown;
     const displayedClaimTotal = displayedClaimBreakdown.reduce((s, r) => s + r.amount, 0);
+    const keyboardInset = useMobileKeyboardInset(true, true);
 
     return (
         <div
-            className="fixed inset-0 z-[260] flex items-center justify-center bg-black/70 p-3 backdrop-blur-sm"
+            className={`fixed inset-0 z-[260] flex items-center justify-center bg-black/70 p-3 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
+            style={execModalKeyboardPadStyle(keyboardInset)}
             onClick={onClose}
             role="presentation"
         >
-            <motion.div
-                initial={{ scale: 0.96, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-                onClick={(e) => e.stopPropagation()}
-                className="flex max-h-[min(88vh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[#E6C673]/25 bg-[#0A1122]/88 shadow-2xl shadow-black/40 backdrop-blur-xl"
+            <div
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                className="flex max-h-[min(88dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[#E6C673]/25 bg-[#0A0F1C] shadow-md"
             >
                 <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white"
+                        className={`rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white ${EXEC_MODAL_TOUCH_TARGET}`}
                         aria-label="إغلاق"
                     >
                         <X size={20} />
@@ -158,231 +167,32 @@ export const FinancialLedgerSection: React.FC<FinancialLedgerSectionProps> = ({
                 </div>
 
                 <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
-                    <div className="space-y-2">
-                        <h4 className="mb-2 flex items-center justify-end gap-2 text-xs font-semibold text-slate-200">
-                            <DollarSign size={14} className="text-[#E6C673]/90" />
-                            مكوّنات الدين (بيانات الإضبارة)
-                        </h4>
+                    <FinancialLedgerClaimBreakdownBlock
+                        displayedClaimBreakdown={displayedClaimBreakdown}
+                        displayedClaimTotal={displayedClaimTotal}
+                        principalDebtAmount={principalDebtAmount}
+                        parsedLawyerFees={parsedLawyerFees}
+                        totalExecutionExpenses={totalExecutionExpenses}
+                        isEvictionExecutionModule={isEvictionExecutionModule}
+                        evictionCaseExpenses={evictionCaseExpenses}
+                        judicialCustodianSalariesExpenseIqd={judicialCustodianSalariesExpenseIqd}
+                        shouldCalculateExecutionFee={shouldCalculateExecutionFee}
+                        calculatedExecutionFee={calculatedExecutionFee}
+                        evictionLawyerFeeRequested={executionData?.eviction_lawyer_fee_requested}
+                    />
 
-                        {displayedClaimBreakdown.length > 0 ? (
-                            <div className="space-y-2 rounded-lg border border-amber-500/25 bg-amber-950/15 p-3">
-                                <p className="text-[10px] font-semibold text-amber-200/90 text-right">
-                                    تفصيل المطالبات (مصدر المبالغ)
-                                </p>
-                                {displayedClaimBreakdown.map((row) => (
-                                    <div
-                                        key={row.claimType}
-                                        className="flex flex-row-reverse items-center justify-between gap-2 rounded-lg border border-white/8 bg-black/25 px-2.5 py-2"
-                                    >
-                                        <span className="text-right text-sm text-slate-300">{row.label}</span>
-                                        <span className="shrink-0 text-sm font-bold tabular-nums text-amber-200/95">
-                                            {row.amount.toLocaleString('ar-IQ')}
-                                        </span>
-                                    </div>
-                                ))}
-                                <div className="flex flex-row-reverse items-center justify-between gap-2 border-t border-amber-500/20 pt-2">
-                                    <span className="text-sm font-bold text-amber-200">مجموع المطالبات</span>
-                                    <span className="shrink-0 text-base font-black tabular-nums text-amber-100">
-                                        {displayedClaimTotal.toLocaleString('ar-IQ')}
-                                    </span>
-                                </div>
-                            </div>
-                        ) : principalDebtAmount > 0 ? (
-                            <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-500/20 bg-slate-900/40 p-3 flex-row-reverse">
-                                <span className="text-right text-sm text-slate-300">أصل الدين / المحكوم به</span>
-                                <span className="shrink-0 text-base font-bold tabular-nums text-amber-200/95">
-                                    {principalDebtAmount.toLocaleString('ar-IQ')}
-                                </span>
-                            </div>
-                        ) : null}
+                    {hasUnifiedArchive && unifiedSnap ? (
+                        <FinancialLedgerUnifiedArchiveBlock
+                            unifiedSnap={unifiedSnap}
+                            archiveLawyerFees={archiveLawyerFees}
+                            archiveExpenses={archiveExpenses}
+                            formatUnifiedLedgerDate={formatUnifiedLedgerDate}
+                        />
+                    ) : null}
 
-                        {parsedLawyerFees > 0 && (
-                            <div className="flex flex-row-reverse items-center justify-between gap-2 rounded-lg border border-emerald-500/25 bg-emerald-950/30 p-3">
-                                <div className="min-w-0 flex-1 text-right">
-                                    <span className="block text-sm font-medium text-slate-200">
-                                        أتعاب المحاماة المحكوم بها
-                                    </span>
-                                    <span className="mt-0.5 block text-[10px] leading-relaxed text-slate-500">
-                                        المصدر: بيانات الإضبارة / الحكم (يتحمّله المدين)
-                                    </span>
-                                </div>
-                                <span className="shrink-0 text-base font-bold tabular-nums text-emerald-200/90">
-                                    {parsedLawyerFees.toLocaleString('ar-IQ')}
-                                </span>
-                            </div>
-                        )}
-
-                        {totalExecutionExpenses > 0 && (
-                            <div className="flex flex-row-reverse items-center justify-between gap-2 rounded-lg border border-violet-500/20 bg-violet-950/25 p-3">
-                                <div className="min-w-0 flex-1 text-right">
-                                    <span className="block text-sm font-medium text-slate-200">
-                                        الرسوم والمصاريف التنفيذية
-                                    </span>
-                                    <span className="mt-0.5 block text-[10px] leading-relaxed text-slate-500">
-                                        المصدر: سجل التنفيذ والمديرية
-                                    </span>
-                                </div>
-                                <span className="shrink-0 text-base font-bold tabular-nums text-violet-200/90">
-                                    {totalExecutionExpenses.toLocaleString('ar-IQ')}
-                                </span>
-                            </div>
-                        )}
-
-                        {isEvictionExecutionModule &&
-                            evictionCaseExpenses.map((ex) => (
-                                <div
-                                    key={ex.id}
-                                    className="flex flex-row-reverse items-center justify-between gap-2 rounded-lg border border-cyan-500/25 bg-cyan-950/20 p-3"
-                                >
-                                    <div className="min-w-0 flex-1 text-right">
-                                        <span className="block text-sm font-medium text-slate-200">
-                                            مصاريف إضبارة تخلية
-                                        </span>
-                                        <span className="mt-0.5 block text-[10px] leading-relaxed text-slate-500">
-                                            {ex.note || 'بدون بيان'}
-                                            {ex.date ? ` · ${ex.date}` : ''}
-                                        </span>
-                                    </div>
-                                    <span className="shrink-0 text-base font-bold tabular-nums text-cyan-200/90">
-                                        {ex.amount.toLocaleString('ar-IQ')}
-                                    </span>
-                                </div>
-                            ))}
-
-                        {isEvictionExecutionModule && judicialCustodianSalariesExpenseIqd > 0 && (
-                            <div className="flex flex-row-reverse items-center justify-between gap-2 rounded-lg border border-amber-500/25 bg-amber-950/15 p-3">
-                                <div className="min-w-0 flex-1 text-right">
-                                    <span className="block text-sm font-medium text-slate-200">أجور الحارس القاضي</span>
-                                    <span className="mt-0.5 block text-[10px] leading-relaxed text-slate-500">
-                                        مبلغ مُستخرج من حقل الراتب في بطاقة الحارس — يُدْرَج ضمن مصاريف الإضبارة
-                                    </span>
-                                </div>
-                                <span className="shrink-0 text-base font-bold tabular-nums text-amber-200/90">
-                                    {judicialCustodianSalariesExpenseIqd.toLocaleString('ar-IQ')}
-                                </span>
-                            </div>
-                        )}
-
-                        {shouldCalculateExecutionFee &&
-                            calculatedExecutionFee > 0 &&
-                            (!isEvictionExecutionModule || executionData?.eviction_lawyer_fee_requested) && (
-                                <div className="space-y-2 rounded-lg border border-orange-500/30 bg-orange-950/25 p-3">
-                                    <div className="flex flex-row-reverse items-center justify-between gap-2">
-                                        <div className="min-w-0 flex-1 text-right">
-                                            <span className="block text-sm font-medium text-orange-200">
-                                                رسم التحصيل (٣٪)
-                                            </span>
-                                            <span className="mt-0.5 block text-[10px] text-orange-200/70">
-                                                وفق المدة الإخبارية
-                                            </span>
-                                        </div>
-                                        <span className="shrink-0 text-base font-bold tabular-nums text-orange-300">
-                                            +{calculatedExecutionFee.toLocaleString('ar-IQ')}
-                                        </span>
-                                    </div>
-                                </div>
-                            )}
-                    </div>
-
-                    {hasUnifiedArchive && unifiedSnap && (
-                        <div className="space-y-2 border-t border-white/10 pt-4">
-                            <h4 className="mb-1 flex items-center justify-end gap-2 text-xs font-semibold text-slate-200">
-                                <Wallet size={14} className="text-[#E6C673]/90" />
-                                أرشيف الوعاء الموحّد (إدارة الأموال)
-                            </h4>
-                            <p className="mb-2 text-[10px] leading-relaxed text-slate-500 text-right">
-                                بنود أضافها المحامي في الوعاء (باستثناء ما يطابق مكوّنات الإضبارة المعروضة أعلاه).
-                            </p>
-
-                            {archiveLawyerFees.map((row) => (
-                                <div
-                                    key={row.id}
-                                    className="flex flex-row-reverse items-start justify-between gap-2 rounded-lg border border-emerald-500/20 bg-emerald-950/20 p-3"
-                                >
-                                    <div className="min-w-0 flex-1 text-right">
-                                        <span className="block text-[10px] font-medium text-emerald-200/80">
-                                            أتعاب — بند في الوعاء
-                                        </span>
-                                        <span className="mt-0.5 block text-sm text-slate-200">{row.label}</span>
-                                        <span className="mt-1 block text-[10px] text-slate-500">
-                                            تاريخ التسجيل: {formatUnifiedLedgerDate(row.at)}
-                                        </span>
-                                    </div>
-                                    <span className="shrink-0 text-sm font-bold tabular-nums text-emerald-200/95">
-                                        {row.amount.toLocaleString('ar-IQ')}
-                                    </span>
-                                </div>
-                            ))}
-
-                            {archiveExpenses.map((row) => (
-                                <div
-                                    key={row.id}
-                                    className="flex flex-row-reverse items-start justify-between gap-2 rounded-lg border border-sky-500/20 bg-sky-950/20 p-3"
-                                >
-                                    <div className="min-w-0 flex-1 text-right">
-                                        <span className="block text-[10px] font-medium text-sky-200/80">
-                                            مصاريف إضبارة
-                                        </span>
-                                        <span className="mt-0.5 block text-sm text-slate-200">{row.reason}</span>
-                                        <span className="mt-1 block text-[10px] text-slate-500">
-                                            تاريخ التسجيل: {formatUnifiedLedgerDate(row.at)}
-                                        </span>
-                                    </div>
-                                    <span className="shrink-0 text-sm font-bold tabular-nums text-sky-200/95">
-                                        {row.amount.toLocaleString('ar-IQ')}
-                                    </span>
-                                </div>
-                            ))}
-
-                            {unifiedSnap.payments.length > 0 && (
-                                <div className="space-y-2">
-                                    <p className="text-[10px] font-semibold text-slate-400 text-right">
-                                        دفعات مُسجَّلة في الوعاء
-                                    </p>
-                                    {unifiedSnap.payments.map((p) => (
-                                        <div
-                                            key={p.id}
-                                            className="flex flex-row-reverse items-center justify-between gap-2 rounded-lg border border-amber-500/20 bg-amber-950/15 p-2.5"
-                                        >
-                                            <div className="min-w-0 flex-1 text-right text-[11px] text-slate-300">
-                                                {p.kind === 'full' ? 'تسديد كامل' : 'تسوية'} — متبقي{' '}
-                                                {p.balanceAfter.toLocaleString('ar-IQ')} د.ع
-                                                <span className="mt-0.5 block text-[10px] text-slate-500">
-                                                    {formatUnifiedLedgerDate(p.at)}
-                                                </span>
-                                            </div>
-                                            <span className="shrink-0 text-sm font-bold tabular-nums text-amber-200/90">
-                                                −{p.amount.toLocaleString('ar-IQ')}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {hasFinancialLedger && (
-                        <div className="space-y-2 border-t border-white/10 pt-4">
-                            <h4 className="mb-1 flex items-center justify-end gap-2 text-xs font-semibold text-slate-200">
-                                <History size={14} className="text-[#E6C673]/90" />
-                                حركات اللوحة العامة
-                            </h4>
-                            <ul className="space-y-1.5">
-                                {financialLedger.map((e) => (
-                                    <li
-                                        key={e.id}
-                                        className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] text-slate-400 text-right"
-                                    >
-                                        <span className="text-slate-200">{e.description}</span>
-                                        <span className="mx-1 text-slate-500">—</span>
-                                        <span className="font-mono tabular-nums text-[#E6C673]/90">
-                                            {e.amount.toLocaleString('ar-IQ')}
-                                        </span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
+                    {hasFinancialLedger ? (
+                        <FinancialLedgerMovementsBlock financialLedger={financialLedger} />
+                    ) : null}
 
                     {!claimBreakdown.length &&
                         !principalDebtAmount &&
@@ -396,7 +206,7 @@ export const FinancialLedgerSection: React.FC<FinancialLedgerSectionProps> = ({
                             </p>
                         )}
                 </div>
-            </motion.div>
+            </div>
         </div>
     );
 };

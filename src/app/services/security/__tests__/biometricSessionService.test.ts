@@ -40,12 +40,18 @@ import {
     hasBiometricSessionEnrollment,
     probeBiometricSession,
     reconcileBiometricSessionLockEnabled,
+    resolveBiometricSessionHint,
     verifyBiometricSessionUnlock,
 } from '@/app/services/security/biometricSessionService';
+import {
+    isBiometricWorkspaceUnlocked,
+    resetBiometricWorkspaceGateForTests,
+} from '@/app/services/security/biometricWorkspaceGate';
 
 describe('biometricSessionService', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        resetBiometricWorkspaceGateForTests();
         isCapacitorNativePlatform.mockReturnValue(false);
         isWebAuthnLockSupported.mockReturnValue(false);
         hasNativeBiometricEnrollment.mockReturnValue(false);
@@ -66,6 +72,7 @@ describe('biometricSessionService', () => {
         registerNativeBiometric.mockResolvedValue(true);
 
         await expect(enrollBiometricSessionLock()).resolves.toEqual({ status: 'enrolled' });
+        expect(isBiometricWorkspaceUnlocked()).toBe(true);
     });
 
     it('reconcile يعيد reset عند علم بلا enrollment', () => {
@@ -84,5 +91,17 @@ describe('biometricSessionService', () => {
         clearBiometricSessionEnrollment();
         expect(clearStoredBiometricCredential).toHaveBeenCalled();
         expect(clearNativeBiometricEnrollment).toHaveBeenCalled();
+        expect(isBiometricWorkspaceUnlocked()).toBe(false);
+    });
+
+    it('تلميح القفل يذكر فتح المكتب', async () => {
+        isCapacitorNativePlatform.mockReturnValue(true);
+        probeNativeBiometricAvailability.mockResolvedValue({
+            pluginLoaded: true,
+            hardwareAvailable: true,
+        });
+        hasNativeBiometricEnrollment.mockReturnValue(true);
+        const availability = await probeBiometricSession();
+        expect(resolveBiometricSessionHint(availability, true)).toContain('فتح المكتب');
     });
 });

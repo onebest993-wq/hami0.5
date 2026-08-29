@@ -30,16 +30,15 @@ vi.mock('@/app/components/lawyer/NotificationPanel/hooks/useNotificationActions'
     useNotificationActions: () => ({
         handleTap: vi.fn(),
         handleScan: vi.fn(),
-        handleClientRequest: vi.fn(),
     }),
 }));
 
 describe('useNotificationPanel', () => {
-    it('resets active tab to forum when panel session key changes', () => {
+    it('resets active tab to forum when panel reopens after close', () => {
         const { result, rerender } = renderHook(
-            ({ sessionKey }: { sessionKey: number }) =>
-                useNotificationPanel(true, 'user-1', sessionKey, vi.fn(), vi.fn()),
-            { initialProps: { sessionKey: 1 } },
+            ({ isOpen }: { isOpen: boolean }) =>
+                useNotificationPanel(isOpen, 'user-1', vi.fn(), vi.fn()),
+            { initialProps: { isOpen: true } },
         );
 
         act(() => {
@@ -47,7 +46,8 @@ describe('useNotificationPanel', () => {
         });
         expect(result.current.activeTab).toBe('system');
 
-        rerender({ sessionKey: 2 });
+        rerender({ isOpen: false });
+        rerender({ isOpen: true });
         expect(result.current.activeTab).toBe('forum');
     });
 });

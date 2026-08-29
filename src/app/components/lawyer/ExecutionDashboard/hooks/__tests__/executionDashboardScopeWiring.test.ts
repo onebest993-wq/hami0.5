@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { EXECUTION_SHELL_OVERLAY_PROP_KEYS } from '../executionShellOverlayPropKeys';
 import { EXECUTION_PHONE_BODY_PROP_KEYS } from '../executionPhoneBodyPropKeys';
 import { EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS } from '../../followupSnapshotFieldKeys';
-import { assignExecutionDashboardChunkScope } from '../assignExecutionDashboardChunkScope';
+import { assignExecutionDashboardChunkScope } from './assignExecutionDashboardChunkScopeForTests';
 import { pickExecutionShellOverlayProps } from '../pickExecutionShellOverlayProps';
 import { pickExecutionPhoneBodyProps } from '../pickExecutionPhoneBodyProps';
 import { EXECUTION_PHONE_BODY_SCOPE_READ_KEYS } from '../pickExecutionPhoneBodyScopeReadBag';

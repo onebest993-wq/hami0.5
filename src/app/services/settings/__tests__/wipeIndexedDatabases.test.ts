@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     APPLICATION_WIPE_IDB_NAMES,
     deleteIndexedDatabase,
@@ -8,6 +8,11 @@ import {
 describe('wipeIndexedDatabases', () => {
     beforeEach(() => {
         vi.restoreAllMocks();
+        vi.unstubAllGlobals();
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
     });
 
     it('lists all sensitive IDB names required for cryptographic wipe completeness', () => {
@@ -43,5 +48,27 @@ describe('wipeIndexedDatabases', () => {
         });
         await wipeApplicationIndexedDatabases(['db-a', 'db-b']);
         expect(deleted).toEqual(['db-a', 'db-b']);
+    });
+
+    it('rejects instead of reporting a false success when deletion fails', async () => {
+        vi.stubGlobal('indexedDB', {
+            deleteDatabase: () => {
+                const req: {
+                    onsuccess: (() => void) | null;
+                    onerror: (() => void) | null;
+                    onblocked: (() => void) | null;
+                    error: Error;
+                } = {
+                    onsuccess: null,
+                    onerror: null,
+                    onblocked: null,
+                    error: new Error('denied'),
+                };
+                queueMicrotask(() => req.onerror?.());
+                return req;
+            },
+        });
+
+        await expect(deleteIndexedDatabase('blocked-db')).rejects.toThrow('denied');
     });
 });

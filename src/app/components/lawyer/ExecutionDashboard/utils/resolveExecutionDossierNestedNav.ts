@@ -1,7 +1,6 @@
 /** هل زر الرجوع سيُغلق طبقة داخلية قبل مغادرة إضبارة التنفيذ؟ */
 export function resolveExecutionDossierNestedNav(input: {
     showExecutionTrashModal: boolean;
-    showVisitationCalendarModal: boolean;
     showUnifiedSeizureLogModal: boolean;
     propertySeizureRequestModalOpen: boolean;
     movableSeizureRequestModalOpen: boolean;
@@ -16,7 +15,6 @@ export function resolveExecutionDossierNestedNav(input: {
 }): boolean {
     return (
         input.showExecutionTrashModal ||
-        input.showVisitationCalendarModal ||
         input.showUnifiedSeizureLogModal ||
         input.propertySeizureRequestModalOpen ||
         input.movableSeizureRequestModalOpen ||

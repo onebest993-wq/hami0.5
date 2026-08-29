@@ -54,6 +54,9 @@ export function EntryCardInlineEditor({
                 className={REPO_COMPOSE_TITLE}
                 data-testid="repository-note-title"
                 aria-label="عنوان المسودة"
+                enterKeyHint="next"
+                autoComplete="off"
+                autoCapitalize="sentences"
             />
             {editorReady ? (
                 <Suspense fallback={<p className="text-xs text-white/45 py-2">جاري تجهيز المحرر…</p>}>

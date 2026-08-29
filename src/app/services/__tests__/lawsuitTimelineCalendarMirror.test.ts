@@ -87,7 +87,7 @@ describe('lawsuitTimelineCalendarMirror', () => {
         });
 
         expect(first[0].timeline?.find((e) => e.id === LAWSUIT_CAL_APPT.judgmentDate('first'))?.title).toBe(
-            'تاريخ الحكم البدائي'
+            'تاريخ الحكم'
         );
         expect(appeal[1].timeline?.find((e) => e.id === LAWSUIT_CAL_APPT.judgmentDate('appeal'))?.title).toBe(
             'تاريخ الحكم الاستئنافي'
@@ -97,7 +97,7 @@ describe('lawsuitTimelineCalendarMirror', () => {
         );
 
         expect(first[0].timeline?.find((e) => e.id === LAWSUIT_CAL_APPT.appealDeadline('first'))?.title).toBe(
-            'آخر موعد طعن على الحكم البدائي'
+            'آخر موعد طعن على الحكم'
         );
         expect(
             appeal[1].timeline?.find((e) => e.id === LAWSUIT_CAL_APPT.appealDeadline('appeal')),

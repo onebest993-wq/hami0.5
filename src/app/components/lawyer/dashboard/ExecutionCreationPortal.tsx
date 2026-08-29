@@ -1,7 +1,9 @@
-import React, { Suspense, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { LazyExecutionCreationView, prefetchExecutionCreationView } from '@/app/utils/lazyComponents';
 import { ExecutionCreationBootShell } from '@/app/components/lawyer/dashboard/ExecutionCreationBootShell';
+import { PreloadableOverlayGate } from '@/app/components/lawyer/ExecutionDashboard/preloadableOverlayGate';
+import { LazyExecutionCreationView } from '@/app/runtime/executionCreationViewLazy';
+import type { ExecutionArchiveFile } from '@/app/types/common';
 
 type ExecutionCreationPortalProps = {
     isOpen: boolean;
@@ -13,15 +15,21 @@ type ExecutionCreationPortalProps = {
 export function ExecutionCreationPortal({ isOpen, onClose, onSave }: ExecutionCreationPortalProps) {
     useEffect(() => {
         if (!isOpen) return;
-        prefetchExecutionCreationView();
+        void LazyExecutionCreationView.preload();
     }, [isOpen]);
 
     if (!isOpen) return null;
 
     const layer = (
-        <Suspense fallback={<ExecutionCreationBootShell onClose={onClose} />}>
-            <LazyExecutionCreationView isOpen={isOpen} onClose={onClose} onSave={onSave} />
-        </Suspense>
+        <PreloadableOverlayGate
+            lazy={LazyExecutionCreationView}
+            lazyProps={{
+                isOpen,
+                onClose,
+                onSave: onSave as (fileData: ExecutionArchiveFile) => void,
+            }}
+            fallback={<ExecutionCreationBootShell onClose={onClose} />}
+        />
     );
 
     return typeof document !== 'undefined' ? createPortal(layer, document.body) : layer;

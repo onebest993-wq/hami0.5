@@ -6,11 +6,25 @@ vi.mock('@/app/runtime/nativePlatform', () => ({
     isCapacitorNativePlatform: () => isCapacitorNativePlatform(),
 }));
 
+vi.mock('@/app/runtime/nativePrivacyGuard', () => ({
+    syncNativePrivacyGuardFromSettings: vi.fn(async () => true),
+    applyNativePrivacyGuard: vi.fn(async () => true),
+}));
+
+vi.mock('@/app/services/settings/settingsSnapshot', () => ({
+    getLawyerSettingsSnapshot: () => ({
+        security: { privacyBlur: true, screenshotDeterrent: true },
+    }),
+}));
+
+vi.mock('@/app/runtime/nativeSensitivePrompt', () => ({
+    isNativeSensitivePromptActive: () => false,
+}));
+
 import { bindPrivacyBlur } from '@/app/runtime/privacyBlurRuntime';
 
 describe('privacyBlurRuntime', () => {
     beforeEach(() => {
-        vi.useFakeTimers();
         vi.clearAllMocks();
         document.body.innerHTML = '';
         document.body.style.filter = '';
@@ -19,7 +33,6 @@ describe('privacyBlurRuntime', () => {
     });
 
     afterEach(() => {
-        vi.useRealTimers();
         Object.defineProperty(document, 'hidden', { configurable: true, value: false });
     });
 
@@ -35,15 +48,12 @@ describe('privacyBlurRuntime', () => {
         expect(document.body.style.filter).toBe('none');
     });
 
-    it('يُظهر درع الخصوصية على الأصلي بعد تأخير قصير عند الخلفية', () => {
+    it('يُظهر درع الخصوصية فوراً على الأصلي عند الخلفية', () => {
         isCapacitorNativePlatform.mockReturnValue(true);
         const unbind = bindPrivacyBlur(true);
 
         Object.defineProperty(document, 'hidden', { configurable: true, value: true });
         document.dispatchEvent(new Event('visibilitychange'));
-        expect(document.getElementById('hami-privacy-blur-shield')).toBeNull();
-
-        vi.advanceTimersByTime(130);
         const shield = document.getElementById('hami-privacy-blur-shield');
         expect(shield).toBeTruthy();
         expect(shield?.style.visibility).toBe('visible');

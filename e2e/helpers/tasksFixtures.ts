@@ -236,9 +236,6 @@ export async function resetTasksE2EPageState(page: Page): Promise<void> {
 export async function waitForFieldTasksSheetReady(page: Page, timeout = 50_000) {
     const sheet = page.getByTestId('field-tasks-sheet');
     await expect(async () => {
-        await expect(page.getByTestId('field-tasks-sheet-loading'))
-            .toBeHidden({ timeout: 8_000 })
-            .catch(() => undefined);
         await expect(sheet).toBeVisible({ timeout: 8_000 });
         await expect(sheet).toHaveAttribute('data-field-tasks-hydrated', 'true', { timeout: 8_000 });
     }).toPass({ timeout });
@@ -288,9 +285,7 @@ export async function openFieldTasksFromDock(page: Page) {
 
     await expect(async () => {
         await clickDockTasks();
-        await expect(
-            page.getByTestId('field-tasks-sheet').or(page.getByTestId('field-tasks-sheet-loading')),
-        ).toBeVisible({ timeout: 8_000 });
+        await expect(page.getByTestId('field-tasks-sheet')).toBeVisible({ timeout: 8_000 });
     }).toPass({ timeout: 35_000 });
 
     try {

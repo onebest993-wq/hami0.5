@@ -56,10 +56,9 @@ export function filterAuthenticCalendarEvents(events: CalendarEvent[]): Calendar
 /**
  * 🛡️ الفلتر النهائي للبطاقة العامة — WHITELIST صارم
  *
- * يقبل التنبيه فقط إن كان مصدره **واحد** من 4 نقاط دخول صريحة:
+ * يقبل التنبيه فقط إن كان مصدره **واحد** من 3 نقاط دخول صريحة:
  *  1. calendar:* (تنبيه من CalendarDB) — لا يأتي من Sniffer (field_*)
- *  2. request:* (طلب موكل من Supabase) — نشاط وارد
- *  3. (مسموح) تنبيه field-task مع fieldTaskInjected = true (مهمة ميدان مع موعد محدد)
+ *  2. (مسموح) تنبيه field-task مع fieldTaskInjected = true (مهمة ميدان مع موعد محدد)
  *
  * يُرفض كل ما عداه (lawsuit/criminal/execution/threading/urgent/financial direct producers)
  * — لأنها produce تنبيهات «مستنتجة» (status / ركود / مهل قانونية) لم يطلبها المستخدم.
@@ -67,7 +66,7 @@ export function filterAuthenticCalendarEvents(events: CalendarEvent[]): Calendar
  * كذلك يُطبَّق فلتر «المستقبل بدقة» على التنبيهات الزمنية:
  *  - HEARING / DEADLINE / EXECUTION → dueAt يجب أن يكون **بعد اليوم بدقة**
  *  - calendar:* → كذلك (يستبعد الماضي واليوم)
- *  - TASK / URGENT / REQUEST → تنبيهات حالة لا تحتاج تاريخاً مستقبلياً
+ *  - TASK / URGENT → تنبيهات حالة لا تحتاج تاريخاً مستقبلياً
  */
 export function isAuthenticSecretaryAlert(alert: SecretaryAlert): boolean {
     const id = alert.id ?? '';
@@ -75,7 +74,6 @@ export function isAuthenticSecretaryAlert(alert: SecretaryAlert): boolean {
     // 1. WHITELIST صارم للمصادر
     const allowedPrefix =
         id.startsWith('calendar:') ||
-        id.startsWith('request:') ||
         (id.startsWith('field-task:') && Boolean(alert.fieldTaskInjected));
     if (!allowedPrefix) return false;
 

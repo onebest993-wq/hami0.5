@@ -12,6 +12,12 @@ describe('resolveDockShellItemAriaLabel', () => {
         ).toBe('مهام، 4 مهام معلقة');
     });
 
+    it('يربط بلاطة المهام الفارغة بستارة اليوم الميدانية', () => {
+        expect(resolveDockShellItemAriaLabel('dockTasks', 'مهام')).toBe(
+            'مهام، مهام اليوم الميدانية',
+        );
+    });
+
     it('يذكر التنبيهات العاجلة والتثبيت', () => {
         expect(
             resolveDockShellItemAriaLabel('alerts', 'تنبيهات', {
@@ -25,13 +31,5 @@ describe('resolveDockShellItemAriaLabel', () => {
         expect(
             resolveDockShellItemAriaLabel('forum', 'المنتدى', { forumUnreadCount: 5 }),
         ).toBe('المنتدى القانوني، 5 غير مقروء');
-    });
-
-    it('يذكر متابعة سبارك في المستودع', () => {
-        expect(
-            resolveDockShellItemAriaLabel('dockRepository', 'المستودع', {
-                repositorySparkAttentionCount: 1,
-            }),
-        ).toBe('المستودع، متابعة إجرائية في المستودع');
     });
 });

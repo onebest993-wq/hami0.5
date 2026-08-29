@@ -175,3 +175,22 @@ export const useCriminalStore = create<CriminalStoreState>()(
 );
 
 installCriminalStorePersistMergeListener(useCriminalStore.setState);
+
+if (
+    typeof window !== 'undefined' &&
+    import.meta.env.VITE_SHELL_AUTH_OPEN === 'true' &&
+    !import.meta.env.VITEST
+) {
+    const w = window as Window & {
+        __hamiE2eCriminalStore?: {
+            rehydrate: () => Promise<void>;
+            caseIds: () => string[];
+        };
+    };
+    w.__hamiE2eCriminalStore = {
+        rehydrate: async () => {
+            await useCriminalStore.persist.rehydrate();
+        },
+        caseIds: () => Object.keys(useCriminalStore.getState().casesById ?? {}),
+    };
+}

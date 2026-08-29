@@ -8,35 +8,21 @@ import {
     PETITION_ORDER_MANUAL_OPTION,
     JUDICIAL_ACKNOWLEDGMENT_PRIMARY,
 } from './constants';
-import type { UrgentActionsFormProps, UrgentActionFormData, UrgentPartyEntry } from './urgentActionsFormTypes';
+import type { UrgentActionsFormProps, UrgentActionFormData } from './urgentActionsFormTypes';
 import { buildUrgentActionsSubmitPayload, validateUrgentActionsForm } from './buildUrgentActionsSubmitPayload';
 import { resolveUrgentPartyLabels } from './resolveUrgentPartyLabels';
+import { useUrgentActionsFormParties } from './useUrgentActionsFormParties';
 
 export type { UrgentActionsFormProps } from './urgentActionsFormTypes';
 
 export function useUrgentActionsForm(props: UrgentActionsFormProps) {
     const { onClose, onSave, initialActionType } = props;
-
-    const isMountedRef = useRef(true);
-    const rafIdsRef = useRef<number[]>([]);
     const closeRequestedRef = useRef(false);
-
     const selectedPathway: PathwayType = 'state_order';
+    const parties = useUrgentActionsFormParties();
 
     const [selectedSubActionType, setSelectedSubActionType] = useState<string>('');
     const [customSpecificActionType, setCustomSpecificActionType] = useState<string>('');
-
-    const [party1List, setParty1List] = useState<UrgentPartyEntry[]>([
-        { name: '', type: 'person', phone: '', address: '', isRepresented: false },
-    ]);
-    const [party2List, setParty2List] = useState<UrgentPartyEntry[]>([
-        { name: '', type: 'person', address: '', isRepresented: false, isClient: false },
-    ]);
-    const party1EndRef = useRef<HTMLDivElement | null>(null);
-    const party2EndRef = useRef<HTMLDivElement | null>(null);
-    const ordinalNames = ['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس'];
-    const ordinalOf = (index: number) => ordinalNames[index] ?? String(index + 1);
-
     const [formData, setFormData] = useState<UrgentActionFormData>({
         actionType: 'state_order',
         requestNumber: '',
@@ -59,14 +45,6 @@ export function useUrgentActionsForm(props: UrgentActionsFormProps) {
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
-        return () => {
-            isMountedRef.current = false;
-            rafIdsRef.current.forEach((id) => cancelAnimationFrame(id));
-            rafIdsRef.current = [];
-        };
-    }, []);
-
-    useEffect(() => {
         if (!initialActionType) return;
         if (initialActionType === 'acknowledgment') {
             setSelectedSubActionType(JUDICIAL_ACKNOWLEDGMENT_PRIMARY);
@@ -84,80 +62,6 @@ export function useUrgentActionsForm(props: UrgentActionsFormProps) {
         }));
     }, [initialActionType]);
 
-    const addParty1 = () => {
-        setParty1List((prev) => [
-            ...prev,
-            { name: '', type: 'person', phone: '', address: '', isRepresented: false },
-        ]);
-        const rafId = requestAnimationFrame(() => {
-            if (!isMountedRef.current) return;
-            party1EndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
-        rafIdsRef.current.push(rafId);
-    };
-
-    const removeParty1 = (index: number) => {
-        setParty1List((prev) => {
-            if (prev.length <= 1) return prev;
-            return prev.filter((_, i) => i !== index);
-        });
-    };
-
-    const updateParty1 = <K extends keyof UrgentPartyEntry>(
-        index: number,
-        field: K,
-        value: UrgentPartyEntry[K],
-    ) => {
-        setParty1List((prev) => {
-            const next = [...prev];
-            next[index] = { ...next[index], [field]: value };
-            return next;
-        });
-    };
-
-    const addParty2 = () => {
-        setParty2List((prev) => [
-            ...prev,
-            { name: '', type: 'person', address: '', isRepresented: false, isClient: false },
-        ]);
-        const rafId = requestAnimationFrame(() => {
-            if (!isMountedRef.current) return;
-            party2EndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
-        rafIdsRef.current.push(rafId);
-    };
-
-    const removeParty2 = (index: number) => {
-        setParty2List((prev) => {
-            if (prev.length <= 1) return prev;
-            return prev.filter((_, i) => i !== index);
-        });
-    };
-
-    const updateParty2 = <K extends keyof UrgentPartyEntry>(
-        index: number,
-        field: K,
-        value: UrgentPartyEntry[K],
-    ) => {
-        setParty2List((prev) => {
-            const next = [...prev];
-            next[index] = { ...next[index], [field]: value };
-            return next;
-        });
-    };
-
-    const setPartyRepresented = (side: 'party1' | 'party2', index: number, nextValue: boolean) => {
-        if (side === 'party1') {
-            setParty1List((prev) => prev.map((p, i) => (i === index ? { ...p, isRepresented: nextValue } : p)));
-            if (nextValue) setParty2List((prev) => prev.map((p) => ({ ...p, isRepresented: false, isClient: false })));
-            return;
-        }
-        setParty2List((prev) =>
-            prev.map((p, i) => (i === index ? { ...p, isRepresented: nextValue, isClient: nextValue } : p)),
-        );
-        if (nextValue) setParty1List((prev) => prev.map((p) => ({ ...p, isRepresented: false })));
-    };
-
     const resolvedSpecificActionTypeLive = useMemo(() => {
         if (selectedSubActionType === 'other' || selectedSubActionType === PETITION_ORDER_MANUAL_OPTION) {
             return customSpecificActionType.trim();
@@ -165,19 +69,18 @@ export function useUrgentActionsForm(props: UrgentActionsFormProps) {
         return String(selectedSubActionType || formData.specificActionType || '').trim();
     }, [selectedSubActionType, customSpecificActionType, formData.specificActionType]);
 
-    const isIqrar = useMemo(() => isIqrarRequest(resolvedSpecificActionTypeLive), [resolvedSpecificActionTypeLive]);
-    const isIqrarContext = isIqrar;
-
+    const isIqrarContext = useMemo(
+        () => isIqrarRequest(resolvedSpecificActionTypeLive),
+        [resolvedSpecificActionTypeLive],
+    );
     const partyLabels = useMemo(
         () => resolveUrgentPartyLabels(resolvedSpecificActionTypeLive),
         [resolvedSpecificActionTypeLive],
     );
-
     const guidancePathwayForCopy = useMemo(
         () => resolveStoredPathwayType(resolvedSpecificActionTypeLive),
         [resolvedSpecificActionTypeLive],
     );
-
     const procedureDetailsGuidance = useMemo(
         () => getProcedureDetailsGuidance(guidancePathwayForCopy, selectedSubActionType, customSpecificActionType),
         [guidancePathwayForCopy, selectedSubActionType, customSpecificActionType],
@@ -192,46 +95,19 @@ export function useUrgentActionsForm(props: UrgentActionsFormProps) {
     const isRespondentClient = useMemo(() => {
         if (isIqrarContext) return false;
         if (selectedPathway !== 'state_order' || party2Hidden) return false;
-        return party2List.some((p) => !!p.isRepresented);
-    }, [isIqrarContext, party2Hidden, party2List, selectedPathway]);
-
-    const partyCardTitle = (side: 'party1' | 'party2', index: number) => {
-        const list = side === 'party1' ? party1List : party2List;
-        if (index === 0 && list.length === 1) return '';
-        return ordinalOf(index);
-    };
-
-    const isParty1Client = party1List.some((p) => p.isRepresented);
-    const isParty2Client = party2List.some((p) => p.isRepresented);
-
-    const toggleSideClient = (side: 'party1' | 'party2', next: boolean) => {
-        if (side === 'party1') {
-            if (next) {
-                setPartyRepresented('party1', 0, true);
-                return;
-            }
-            const idx = party1List.findIndex((p) => p.isRepresented);
-            if (idx >= 0) setPartyRepresented('party1', idx, false);
-            return;
-        }
-        if (next) {
-            setPartyRepresented('party2', 0, true);
-            return;
-        }
-        const idx = party2List.findIndex((p) => p.isRepresented);
-        if (idx >= 0) setPartyRepresented('party2', idx, false);
-    };
+        return parties.party2List.some((p) => !!p.isRepresented);
+    }, [isIqrarContext, party2Hidden, parties.party2List, selectedPathway]);
 
     useEffect(() => {
         if (!party2Hidden) return;
-        setParty2List((prev) => prev.map((p) => ({ ...p, isRepresented: false, isClient: false })));
-    }, [party2Hidden]);
+        parties.clearParty2ClientMarks();
+    }, [party2Hidden, parties.clearParty2ClientMarks]);
 
     const submitContext = useMemo(
         () => ({
             formData,
-            party1List,
-            party2List,
+            party1List: parties.party1List,
+            party2List: parties.party2List,
             selectedSubActionType,
             customSpecificActionType,
             party2Hidden,
@@ -239,8 +115,8 @@ export function useUrgentActionsForm(props: UrgentActionsFormProps) {
         }),
         [
             formData,
-            party1List,
-            party2List,
+            parties.party1List,
+            parties.party2List,
             selectedSubActionType,
             customSpecificActionType,
             party2Hidden,
@@ -251,11 +127,9 @@ export function useUrgentActionsForm(props: UrgentActionsFormProps) {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         e.stopPropagation();
-
         const errors = validateUrgentActionsForm(submitContext);
         setValidationErrors(errors);
         if (Object.keys(errors).length > 0) return;
-
         onSave(buildUrgentActionsSubmitPayload(submitContext));
     };
 
@@ -275,28 +149,28 @@ export function useUrgentActionsForm(props: UrgentActionsFormProps) {
         setSelectedSubActionType,
         customSpecificActionType,
         setCustomSpecificActionType,
-        party1List,
-        party2List,
-        party1EndRef,
-        party2EndRef,
+        party1List: parties.party1List,
+        party2List: parties.party2List,
+        party1EndRef: parties.party1EndRef,
+        party2EndRef: parties.party2EndRef,
         formData,
         validationErrors,
-        addParty1,
-        removeParty1,
-        updateParty1,
-        addParty2,
-        removeParty2,
-        updateParty2,
+        addParty1: parties.addParty1,
+        removeParty1: parties.removeParty1,
+        updateParty1: parties.updateParty1,
+        addParty2: parties.addParty2,
+        removeParty2: parties.removeParty2,
+        updateParty2: parties.updateParty2,
         resolvedSpecificActionTypeLive,
         isIqrarContext,
         partyLabels,
         procedureDetailsGuidance,
         party2Hidden,
         isRespondentClient,
-        partyCardTitle,
-        isParty1Client,
-        isParty2Client,
-        toggleSideClient,
+        partyCardTitle: parties.partyCardTitle,
+        isParty1Client: parties.isParty1Client,
+        isParty2Client: parties.isParty2Client,
+        toggleSideClient: parties.toggleSideClient,
         handleSubmit,
         updateField,
         safeClose,

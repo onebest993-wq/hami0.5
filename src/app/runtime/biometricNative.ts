@@ -4,6 +4,7 @@ import { loadBiometricAuthPlugin } from '@/app/runtime/nativeCapacitorPluginRegi
 
 const RETRY_MS = 200;
 const MAX_ATTEMPTS = 40;
+const BIOMETRIC_PROBE_TIMEOUT_MS = 6_000;
 /** اسم التسجيل الأصلي في @aparajita/capacitor-biometric-auth */
 export const BIOMETRIC_PLUGIN_NAME = 'BiometricAuthNative';
 
@@ -11,6 +12,30 @@ type BiometricPlugin = NonNullable<Awaited<ReturnType<typeof loadBiometricAuthPl
 
 function delay(ms: number): Promise<void> {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function isBiometricAuthTimeoutError(err: unknown): boolean {
+    return String((err as { message?: unknown } | null)?.message ?? err ?? '').includes(
+        'biometric_auth_timeout',
+    );
+}
+
+function withBiometricCallTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+    return new Promise((resolve, reject) => {
+        const timer = window.setTimeout(() => {
+            reject(Object.assign(new Error('biometric_auth_timeout'), { code: 'timeout' }));
+        }, ms);
+        promise.then(
+            (value) => {
+                window.clearTimeout(timer);
+                resolve(value);
+            },
+            (error) => {
+                window.clearTimeout(timer);
+                reject(error);
+            },
+        );
+    });
 }
 
 export function isBiometricTimingError(err: unknown): boolean {
@@ -53,10 +78,10 @@ async function acquireReadyBiometricPlugin(): Promise<BiometricPlugin | null> {
                 continue;
             }
 
-            await plugin.checkBiometry();
+            await withBiometricCallTimeout(plugin.checkBiometry(), BIOMETRIC_PROBE_TIMEOUT_MS);
             return plugin;
         } catch (err) {
-            if (!isBiometricTimingError(err)) {
+            if (!isBiometricTimingError(err) && !isBiometricAuthTimeoutError(err)) {
                 return null;
             }
             if (attempt >= MAX_ATTEMPTS - 1) {

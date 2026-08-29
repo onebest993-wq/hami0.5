@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
-import { SettingRow, Toggle, SelectRow } from '@/app/components/lawyer/HamiSettings/settings-ui';
-import { WifiOff } from '@/app/components/ui/lucideIcons';
+import { SettingRow, Toggle, SelectRow } from '@/app/components/lawyer/HamiSettings/settings-ui/index';
+import { WifiOff } from '@/app/components/ui/icons/WifiOff';
 
 describe('settings-ui Toggle', () => {
     it('يبدّل الحالة ويوقف انتشار النقرة', () => {
@@ -14,7 +14,7 @@ describe('settings-ui Toggle', () => {
             </div>,
         );
 
-        fireEvent.pointerDown(screen.getByTestId('settings-toggle-test'));
+        fireEvent.click(screen.getByTestId('settings-toggle-test'));
         expect(onChange).toHaveBeenCalledTimes(1);
         expect(onChange).toHaveBeenCalledWith(true);
         expect(onParentClick).not.toHaveBeenCalled();
@@ -41,7 +41,26 @@ describe('settings-ui SettingRow', () => {
             />,
         );
 
-        fireEvent.pointerDown(screen.getByText('قفل بيومتري'));
+        const label = screen.getByText('قفل بيومتري');
+        fireEvent.pointerDown(label);
+        expect(onChange).toHaveBeenCalledTimes(1);
+        expect(onChange).toHaveBeenCalledWith(true);
+        fireEvent.click(label);
+        expect(onChange).toHaveBeenCalledTimes(1);
+    });
+
+    it('ينشّط المفتاح بنقرة فقط إن لم يسبقها pointerdown', () => {
+        const onChange = vi.fn();
+        render(
+            <SettingRow
+                icon={WifiOff}
+                label="قفل بيومتري"
+                action={<Toggle checked={false} onChange={onChange} testId="settings-toggle-test" />}
+            />,
+        );
+
+        fireEvent.click(screen.getByText('قفل بيومتري'));
+        expect(onChange).toHaveBeenCalledTimes(1);
         expect(onChange).toHaveBeenCalledWith(true);
     });
 });
@@ -66,7 +85,7 @@ describe('settings-ui SelectRow', () => {
         expect(screen.getByRole('radiogroup')).toHaveClass('hami-setting-glass-inner');
         expect(screen.getByTestId('lock-5')).toHaveAttribute('aria-checked', 'true');
 
-        fireEvent.pointerDown(screen.getByTestId('lock-15'));
+        fireEvent.click(screen.getByTestId('lock-15'));
         expect(onChange).toHaveBeenCalledWith('15');
     });
 });

@@ -4,7 +4,7 @@ import { uploadProfileMedia, profileMediaErrorMessage } from '@/app/services/pro
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { EditDraft } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 import type { LawyerProfileData } from '@/app/services/lawyer-cloud';
-import { getActions, getGallery } from '@/app/components/lawyer/RoyalLawyerProfile/utils/profileSections';
+import { getActions, getGallery } from '@/app/services/profile/profileSections';
 
 type UseProfileMediaUploadArgs = {
     userId: string;

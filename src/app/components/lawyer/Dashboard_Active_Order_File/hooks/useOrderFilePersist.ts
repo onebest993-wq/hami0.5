@@ -7,10 +7,14 @@ type UseOrderFilePersistArgs = {
     userId: string | null;
     caseEvents: CaseEvent[];
     setCaseEvents: React.Dispatch<React.SetStateAction<CaseEvent[]>>;
-    setCaseData: React.Dispatch<React.SetStateAction<any>>;
+    setCaseData: React.Dispatch<React.SetStateAction<Record<string, unknown>>>;
     onCaseUpdated?: (caseId: string, patch: Record<string, unknown>) => void;
 };
 
+/**
+ * عند وجود onCaseUpdated (مرآة قائمة المستعجل) تكون الكتابة للقرص عبر saveState فقط —
+ * وإلا نستخدم patchCase المباشر. يمنع سباق patchCase(900ms) + saveState(500ms).
+ */
 export function useOrderFilePersist({
     caseId,
     userId,
@@ -22,18 +26,28 @@ export function useOrderFilePersist({
     const pendingEventsSyncRef = useRef(false);
     const persistPatchTimerRef = useRef<number | null>(null);
     const persistPatchQueueRef = useRef<Record<string, unknown>>({});
+    const listOwnsPersist = Boolean(onCaseUpdated);
+    const flushPersistPatchRef = useRef<(patch: Record<string, unknown>) => Promise<void>>(async () => undefined);
 
     const flushPersistPatch = useCallback(
         async (patch: Record<string, unknown>) => {
-            if (!caseId || !userId || !Object.keys(patch).length) return;
+            if (!caseId || !Object.keys(patch).length) return;
+            if (listOwnsPersist) {
+                onCaseUpdated?.(caseId, patch);
+                setCaseData((prev) => ({ ...(prev || {}), ...patch }));
+                return;
+            }
+            if (!userId) return;
             await UrgentActionsDB.patchCase(userId, caseId, patch);
         },
-        [caseId, userId],
+        [caseId, userId, listOwnsPersist, onCaseUpdated, setCaseData],
     );
+    flushPersistPatchRef.current = flushPersistPatch;
 
     const persistPatch = useCallback(
         (patch: Record<string, unknown>) => {
             if (!caseId) return;
+            if (listOwnsPersist) return;
             persistPatchQueueRef.current = { ...persistPatchQueueRef.current, ...patch };
             if (persistPatchTimerRef.current) window.clearTimeout(persistPatchTimerRef.current);
             persistPatchTimerRef.current = window.setTimeout(() => {
@@ -43,16 +57,18 @@ export function useOrderFilePersist({
                 void flushPersistPatch(queued);
             }, 900);
         },
-        [caseId, flushPersistPatch],
+        [caseId, flushPersistPatch, listOwnsPersist],
     );
 
     const persistAndMerge = useCallback(
         (patch: Record<string, unknown>) => {
-            void persistPatch(patch);
             if (caseId) onCaseUpdated?.(caseId, patch);
-            setCaseData((prev: any) => ({ ...(prev || {}), ...patch }));
+            setCaseData((prev) => ({ ...(prev || {}), ...patch }));
+            if (!listOwnsPersist) {
+                void persistPatch(patch);
+            }
         },
-        [caseId, onCaseUpdated, persistPatch, setCaseData],
+        [caseId, listOwnsPersist, onCaseUpdated, persistPatch, setCaseData],
     );
 
     const appendCaseEvent = useCallback(
@@ -84,6 +100,11 @@ export function useOrderFilePersist({
     useEffect(() => {
         if (!pendingEventsSyncRef.current) return;
         pendingEventsSyncRef.current = false;
+        if (listOwnsPersist && caseId) {
+            onCaseUpdated?.(caseId, { events: caseEvents });
+            setCaseData((prev) => ({ ...(prev || {}), events: caseEvents }));
+            return;
+        }
         persistPatchQueueRef.current = { ...persistPatchQueueRef.current, events: caseEvents };
         if (persistPatchTimerRef.current) window.clearTimeout(persistPatchTimerRef.current);
         persistPatchTimerRef.current = window.setTimeout(() => {
@@ -92,11 +113,19 @@ export function useOrderFilePersist({
             persistPatchQueueRef.current = {};
             void flushPersistPatch(queued);
         }, 900);
-    }, [caseEvents, flushPersistPatch]);
+    }, [caseEvents, caseId, flushPersistPatch, listOwnsPersist, onCaseUpdated, setCaseData]);
 
     useEffect(() => {
         return () => {
-            if (persistPatchTimerRef.current) window.clearTimeout(persistPatchTimerRef.current);
+            if (persistPatchTimerRef.current) {
+                window.clearTimeout(persistPatchTimerRef.current);
+                persistPatchTimerRef.current = null;
+            }
+            const queued = persistPatchQueueRef.current;
+            persistPatchQueueRef.current = {};
+            if (Object.keys(queued).length) {
+                void flushPersistPatchRef.current(queued);
+            }
         };
     }, []);
 

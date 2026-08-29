@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
 import { fileHasSpecificDeliveryClaim } from '@/app/utils/executionDossierHeaderFields';
+import { toastAfterExecutionPersist } from '../helpers/toastAfterExecutionPersist';
 
 function resolveInstrumentDocNumber(file: ExecutionFile | null | undefined, fallback = ''): string {
     if (!file) return String(fallback ?? '').trim();
@@ -40,7 +41,7 @@ export function useDossierMeta(
     evictionFullAddressField: string,
     evictionPremisesUseRaw: string | undefined,
     isEvictionExecutionModule: boolean,
-    persistExecutionMerge: (patch: Record<string, unknown>) => void,
+    persistExecutionMerge: (patch: Record<string, unknown>) => boolean | void,
     showToast: (msg: string, type: 'success' | 'error' | 'warning' | 'info') => void,
 ) {
     const [showEditDossierMetaModal, setShowEditDossierMetaModal] = useState(false);
@@ -125,8 +126,9 @@ export function useDossierMeta(
               }
             : {};
 
+        let persisted: boolean | void;
         if (isEvictionExecutionModule) {
-            persistExecutionMerge({
+            persisted = persistExecutionMerge({
                 ...base,
                 property_number: dossierMetaDraft.property_number,
                 district: dossierMetaDraft.district,
@@ -139,11 +141,15 @@ export function useDossierMeta(
                 ...specificDeliveryPatch,
             });
         } else {
-            persistExecutionMerge({ ...base, ...specificDeliveryPatch });
+            persisted = persistExecutionMerge({ ...base, ...specificDeliveryPatch });
+        }
+        if (
+            !toastAfterExecutionPersist(persisted, showToast, 'تم حفظ بيانات الإضبارة')
+        ) {
+            return;
         }
         setShowEditDossierMetaModal(false);
         setDossierMetaDraft(null);
-        showToast('تم حفظ بيانات الإضبارة', 'success');
     }, [dossierMetaDraft, executionData, isEvictionExecutionModule, persistExecutionMerge, showToast]);
 
     return useMemo(

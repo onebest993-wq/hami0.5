@@ -26,11 +26,7 @@ npm run dev
 # مطلوبة (موجودة مسبقاً)
 VITE_SUPABASE_URL=your_url
 VITE_SUPABASE_ANON_KEY=your_key
-VITE_GEMINI_API_KEY=your_gemini_key
 
-# اختيارية (للميزات المتقدمة)
-VITE_OPENAI_API_KEY=your_openai_key
-VITE_PINECONE_API_KEY=your_pinecone_key
 ```
 
 **ملاحظة:** المفاتيح موجودة مسبقاً في supabase/info.tsx

@@ -1,5 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-import { readSupabasePrivilegedKey } from '../security/supabasePrivilegedEnv.ts';
+import { getSupabaseAdminClient } from '../security/supabaseAdminClient.ts';
 import {
     isStoragePathOwnedByUser,
     resolveUploadBucket,
@@ -12,12 +11,8 @@ import {
     type ProfileCustomBlock,
 } from '@/app/services/profile/profilePageCustomization';
 
-function getAdmin() {
-    const supabaseUrl = (process.env.SUPABASE_URL ?? '').trim();
-    const serviceRoleKey = readSupabasePrivilegedKey();
-    if (!supabaseUrl || !serviceRoleKey) return null;
-    return createClient(supabaseUrl, serviceRoleKey);
-}
+/* كل صورة في المعرض تمرّ من هنا؛ ملفّ بعشرين صورة كان يبني عشرين عميلاً */
+const getAdmin = getSupabaseAdminClient;
 
 async function signOwnedPath(
     path: string | undefined,

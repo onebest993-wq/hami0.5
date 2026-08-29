@@ -8,6 +8,10 @@
 <uses-permission android:name="android.permission.USE_FINGERPRINT" />
 <!-- التقاط مرفقات الخزنة -->
 <uses-permission android:name="android.permission.CAMERA" />
+<!-- تسجيل الملاحظات الصوتية -->
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
 <!-- تحديد موقع المكتب في الملف المهني -->
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-feature android:name="android.hardware.camera" android:required="false" />
+<uses-feature android:name="android.hardware.microphone" android:required="false" />

@@ -6,7 +6,7 @@ import {
     DOSSIER_ACTION_TITLE_MAP,
     validateDossierActionPayload,
 } from '../executionDashboardDossierAction';
-import type { DossierActionPayload } from '../../components/DossierActionsModal';
+import type { DossierActionPayload } from '../../../components/DossierActionTypes';
 
 describe('executionDashboardDossierAction', () => {
     it('maps action titles in Arabic', () => {

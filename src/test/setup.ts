@@ -12,10 +12,21 @@ import path from 'node:path';
 // Cleanup after each test
 afterEach(() => {
   cleanup();
+  process.env.NODE_ENV = 'test';
+  try {
+    localStorage.removeItem('hami_local_only');
+  } catch {
+    /* ignore */
+  }
+  try {
+    delete document.documentElement.dataset.hamiLocalOnly;
+  } catch {
+    /* ignore */
+  }
 });
 
 /**
- * وحدات مثل storageCache وRateLimitService تبدأ مؤقّت تنظيف دوري عند استيرادها،
+ * وحدات مثل storageCache تبدأ مؤقّت تنظيف دوري عند استيرادها،
  * وتُنهيه على حدث pagehide. لا يُطلق jsdom ذلك الحدث أبداً، فيبقى المؤقّت حيّاً
  * في كل ملف اختبار يستوردها ولو بشكل غير مباشر — وتتراكم مؤقّتات تُبقي حلقة
  * الأحداث مشغولة فيعجز vitest عن الخروج بعد انتهاء المجموعة.

@@ -14,6 +14,8 @@ on:
       - 'e2e/helpers/execution*.ts'
       - 'scripts/execution-*.mjs'
       - 'scripts/run-execution-e2e.mjs'
+      - 'docs/execution-validation-gate.md'
+      - 'execution-coverage-matrix.md'
       - '.github/workflows/execution-gate.yml'
   pull_request:
     paths:
@@ -24,6 +26,8 @@ on:
       - 'e2e/helpers/execution*.ts'
       - 'scripts/execution-*.mjs'
       - 'scripts/run-execution-e2e.mjs'
+      - 'docs/execution-validation-gate.md'
+      - 'execution-coverage-matrix.md'
       - '.github/workflows/execution-gate.yml'
   workflow_dispatch:
 

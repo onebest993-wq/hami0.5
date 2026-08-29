@@ -1,7 +1,10 @@
 import React, { memo } from 'react';
-import { Eye, Fingerprint, WifiOff } from '@/app/components/ui/lucideIcons';
+import { Eye } from '@/app/components/ui/icons/Eye';
+import { EyeOff } from '@/app/components/ui/icons/EyeOff';
+import { Fingerprint } from '@/app/components/ui/icons/Fingerprint';
+import { WifiOff } from '@/app/components/ui/icons/WifiOff';
 import { AUTO_LOCK_OPTIONS } from '@/app/services/settings';
-import { SettingCard, SettingRow, Toggle, SelectRow } from '../settings-ui';
+import { SettingCard, SettingRow, SelectRow } from '../settings-ui/index';
 import { AsyncSettingToggle } from '../AsyncSettingToggle';
 import { useSecuritySection } from './useSecuritySection';
 
@@ -13,11 +16,11 @@ export const SecuritySection = memo(function SecuritySection() {
 
             {vm.security.localOnlyMode ? (
                 <div
-                    className="mb-4 px-4 py-3 rounded-2xl border border-amber-500/25 bg-amber-500/10 text-center"
+                    className="mb-2.5 px-3.5 py-2.5 rounded-xl border border-amber-500/20 bg-amber-500/[0.08]"
                     data-testid="settings-local-only-banner"
                 >
-                    <p className="text-xs font-bold text-amber-200/95">قطع الاتصال مفعّل</p>
-                    <p className="text-xs text-amber-100/80 mt-1">كل العمل محلي — لا مزامنة ولا اتصال خارجي</p>
+                    <p className="text-[13px] font-medium text-amber-100/90">قطع الاتصال مفعّل</p>
+                    <p className="text-[11px] text-amber-100/55 mt-0.5">كل العمل محلي — لا مزامنة ولا اتصال خارجي</p>
                 </div>
             ) : null}
 
@@ -56,15 +59,28 @@ export const SecuritySection = memo(function SecuritySection() {
                     onChange={vm.setAutoLockMinutes}
                 />
                 <SettingRow
+                    icon={EyeOff}
+                    label="ضبابية الخصوصية"
+                    subLabel="تمويه عند الإخفاء وتغطية شاشة المهام على الهاتف"
+                    action={
+                        <AsyncSettingToggle
+                            label="ضبابية الخصوصية"
+                            testId="settings-toggle-security-privacyBlur"
+                            checked={vm.security.privacyBlur}
+                            onCommit={vm.togglePrivacyBlur}
+                        />
+                    }
+                />
+                <SettingRow
                     icon={Eye}
                     label="حماية لقطة الشاشة"
-                    subLabel="يمنع لقطة الشاشة وتسجيل الشاشة على الجهاز"
                     isLast
                     action={
-                        <Toggle
+                        <AsyncSettingToggle
+                            label="حماية لقطة الشاشة"
                             testId="settings-toggle-security-screenshotDeterrent"
                             checked={vm.security.screenshotDeterrent}
-                            onChange={(v) => vm.patchSecurity({ screenshotDeterrent: v })}
+                            onCommit={vm.toggleScreenshotDeterrent}
                         />
                     }
                 />

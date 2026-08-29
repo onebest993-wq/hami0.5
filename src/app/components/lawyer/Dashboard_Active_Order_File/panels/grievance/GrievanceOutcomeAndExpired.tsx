@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import { formatDateText } from '../../utils/formatters';
 import type { GrievanceLifecyclePanelProps } from '../GrievanceLifecyclePanelProps';
 
@@ -35,7 +35,7 @@ export function GrievanceOutcomeAndExpired(props: GrievanceLifecyclePanelProps) 
                                                                     setGrievanceExpiredConfirmed(false);
                                                                     setGrievanceDetailsConfirmed(false);
                                                                     const p1 =
-                                                                        String((caseData as any)?.firstHearingDate ?? '')
+                                                                        String(caseData?.firstHearingDate ?? '')
                                                                             .trim()
                                                                             .match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? '';
                                                                     setPhase2FirstHearingDate((prev) => {

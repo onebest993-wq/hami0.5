@@ -3,9 +3,10 @@ name: Quality Gate
 # قبل هذا الملف لم يكن هناك CI: مجلد .github/workflows كان فارغاً على القرص،
 # فكل بوّابات المستودع كانت تعمل فقط إن تذكّر إنسان تشغيلها يدوياً.
 #
-# المِسنَنات تسمح بالإرث المتراكم وتمنع الزيادة. خطوط الأساس عند الإنشاء:
-#   أخطاء أنواع 299 | أخطاء لنت 242 | ملفات @ts-nocheck 195
-#   استيرادات مكسورة 4 | اختبارات فاشلة 216 من 6,063
+# المِسنَنات تسمح بالإرث المتراكم وتمنع الزيادة. الأرقام الحيّة في .audit/*.json
+# لا هنا: تعليق يحمل رقماً يتقادم بعد أول إصلاح ثم يكذب على من يقرأه.
+# الاتجاه منذ إنشاء البوّابة: استيرادات مكسورة 4 ← 0، @ts-nocheck 195 ← 183،
+# أخطاء لنت 242 ← 204، اختبارات فاشلة 216 ← 185.
 
 on:
   push:
@@ -64,11 +65,61 @@ jobs:
       - name: Cold entry surface stays light
         run: npm run guard:cold-entry
 
+      # استيراد واحد من محور بدل ورقة أعاد محرّك القضايا الجزائية إلى مقطع شبكة
+      # الأرشيف مرّتين. الوزن يُقاس على المصدر فيسقط في المراجعة لا على جهاز المحامي.
+      - name: Heavy screen static closures stay within budget
+        run: npm run guard:screen-closure
+
+      # حارس الوحدات الميتة يقرأ الاستيرادات وحدها، والاختبارات البنيوية تقرأ الملفّات
+      # بمسار نصّي. فحذف ملفٍّ «لا يستورده أحد» كسر إحدى عشرة مجموعة اختبار مرّة.
+      - name: String-path file references still resolve
+        run: npm run guard:source-paths
+
+      # Tailwind يمسح سطحاً معلَناً؛ توسيعه بلا قصد يجرّ أصنافاً ميتة إلى ورقة الأنماط
+      - name: Tailwind scan surface stays bounded
+        run: npm run guard:tailwind-source
+
+      # `declare const __X__` يُرضي المصرِّف، فلو غاب الاسم عن define سقط في
+      # الإنتاج وحده بـReferenceError. الحارس يربط الثلاثة: حَقْن وتصريح واستعمال.
+      - name: Injected build constants contract holds
+        run: npm run guard:injected-globals
+
+      # حارس مكتوب لا يستدعيه أحد كان عطلاً حقيقياً هنا؛ هذه الخطوة تجعل تكراره مستحيلاً
+      - name: Every guard is wired to a workflow and to gate:wave0
+        run: npm run guard:ci-covers-guards
+
+      # احتياطي التطوير المودَع لا يُستورد إلا من جسره؛ الالتفاف حوله يعني
+      # مخاطبة مشروع التطوير في الإنتاج وشحن مفتاحه إلى كل مستخدم.
+      - name: Committed Supabase dev fallback stays behind its bridge
+        run: npm run guard:supabase-info-boundary
+
+      # ملف بيئة أو مفتاح متعقَّب في Git لا يُلغى بحذفه لاحقاً — يبقى في التاريخ
+      - name: No secrets tracked in the repository
+        run: npm run guard:tracked-secrets
+
+      # رؤوس الأمن مكتوبة مرّتين (Vercel وNetlify)؛ انحرافهما يعني منصّة محميّة وأخرى مكشوفة
+      - name: Security headers stay in sync across hosts
+        run: npm run guard:security-headers
+
+      # `window.confirm` يوقف خيط WebView كاملاً داخل الغلاف الأصلي، و`vh` يقيس
+      # أطول حالة للنافذة فيدفع آخر زرّ تحت شريط المتصفح على الهاتف.
+      - name: Execution UI stays mobile-safe (no window.confirm)
+        run: npm run guard:execution-window-confirm
+
+      - name: Execution modals use dvh and lock body scroll
+        run: npm run guard:execution-modal-mobile
+
       # مِسنَنتان تمنعان عودة ما نُظّف: وحدة لا يصلها أحد، ومنطق مكتوب مرّتين.
       # التكرار هو ما جعل محرّك جدول المشاهدة نسختين متباعدتين، إحداهما تحمل
       # إصلاحاً والأخرى تحمل العيب، وكلتاهما تدّعي الحقيقة نفسها.
       - name: No new unreachable modules
         run: npm run guard:dead-modules
+
+      # الحارس أعلاه يسأل عن الملفّ لا عن التصدير، فبقي «lazyComponents» أخضر وفيه
+      # ٤٠ تصديراً بلا مستهلك من ٦٣ — ومنها ضلعٌ إلى محمِّل المنتدى أغلق دائرة من
+      # ستّة ملفّات، وسطرُ استيراد لم يُستعمل قطّ. هذا يسأل عن التصدير.
+      - name: No new exports without a consumer
+        run: npm run guard:dead-exports
 
       - name: No newly duplicated logic
         run: npm run guard:duplicate-logic
@@ -77,6 +128,11 @@ jobs:
       # أن صار التثبيت الصارم نظيفاً؛ هذا الحارس يمنع عودته أو عودة تعارض جديد.
       - name: No undeclared peer dependency conflicts
         run: npm run guard:peer-conflicts
+
+      # ثغرة في اعتماد إنتاجي تصل إلى جهاز المستخدم؛ الحد `high` لأن الأدنى منه
+      # ضجيج متغيّر يوميّاً يُدرَّب الفريق على تجاهله فيسقط معه ما يستحق الوقوف.
+      - name: No high-severity vulnerabilities in shipped dependencies
+        run: npm audit --omit=dev --audit-level=high
 
       # هذان الحارسان كانا مكتوبَين ولا يعملان: لا CI يستدعيهما ولا أمر npm.
       # وقد كشفا فور تشغيلهما أن مسار إنتاج Netlify يفتح الواجهة بلا تسجيل دخول.
@@ -117,6 +173,14 @@ jobs:
       - name: No server secrets or admin chunks in the client bundle
         run: npm run guard:dist-secrets
 
+      - name: HQ production build succeeds
+        env:
+          VITE_SUPABASE_URL: https://ci-hami-gate.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjaS1oYW1pLWdhdGUifQ.ci-hami-quality-gate-anon-key
+          VITE_SHELL_AUTH_OPEN: 'false'
+          VITE_BFF_AUTH: 'true'
+        run: npm run build:hq:vercel
+
       - name: Cold entry dist preloads stay allowlisted
         run: npm run guard:cold-entry:dist
 
@@ -124,6 +188,9 @@ jobs:
       # نصف التطبيق إلى المسار الحرج دون أن يظهر ذلك في أي فحص مصدر.
       - name: Boot critical path stays light
         run: npm run guard:boot-critical-weight
+
+      - name: Lawyer Inner first-tab closure stays light
+        run: npm run guard:lawyer-inner-weight
 
       - name: Bundle size budgets hold
         run: npm run health:bundle

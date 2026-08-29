@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
 import { computeSeizureMatrix } from '@/app/utils/seizureMatrix';
 import { SPECIAL_REQUEST_MANUAL_MODE } from '@/app/components/lawyer/ExecutionDashboard/components/requestsTabConstants';
-import type { DossierActionType } from '@/app/components/lawyer/ExecutionDashboard/components/DossierActionsModal';
+import type { DossierActionType } from '@/app/components/lawyer/ExecutionDashboard/components/DossierActionTypes';
 import type { AlimonyBeneficiaryProfile } from '@/app/utils/alimonyBeneficiaryDeathUtils';
 import type { InlineActionGateKey } from '@/app/components/lawyer/ExecutionDashboard/types';
 import { useFollowupSpecialRequestInit } from './useFollowupSpecialRequestInit';
@@ -86,7 +86,6 @@ export function useExecutionFollowupController({
     const [evictionExpenseAmount, setEvictionExpenseAmount] = useState('');
     const [evictionExpenseNote, setEvictionExpenseNote] = useState('');
     const [showHeirsNotificationModal, setShowHeirsNotificationModal] = useState(false);
-    const [showVisitationCalendarModal, setShowVisitationCalendarModal] = useState(false);
     const [heirNoticeDateDrafts, setHeirNoticeDateDrafts] = useState<Record<string, string>>({});
     const [heirSummonsDatePickerOpenByHeir, setHeirSummonsDatePickerOpenByHeir] = useState<
         Record<string, boolean>
@@ -264,8 +263,6 @@ export function useExecutionFollowupController({
         setEvictionExpenseNote,
         showHeirsNotificationModal,
         setShowHeirsNotificationModal,
-        showVisitationCalendarModal,
-        setShowVisitationCalendarModal,
         heirNoticeDateDrafts,
         setHeirNoticeDateDrafts,
         heirSummonsDatePickerOpenByHeir,

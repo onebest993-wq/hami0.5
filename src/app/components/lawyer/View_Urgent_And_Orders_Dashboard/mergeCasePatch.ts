@@ -1,6 +1,7 @@
 import {
     computeUrgentCaseStatus,
     isUrgentCaseClosed,
+    isUrgentJudgeDecisionValue,
     type UrgentCase,
 } from '../Component_Urgent_Card';
 
@@ -13,10 +14,13 @@ export function mergeUrgentCasePatch(c: UrgentCase, patch: Record<string, unknow
             : patch.notificationDate instanceof Date
               ? patch.notificationDate
               : c.notificationDate ?? null;
-    const judgeDecision =
-        patch.judgeDecision === 'accepted' || patch.judgeDecision === 'rejected'
+    const judgeDecision = Object.prototype.hasOwnProperty.call(patch, 'judgeDecision')
+        ? isUrgentJudgeDecisionValue(patch.judgeDecision)
             ? patch.judgeDecision
-            : c.judgeDecision ?? null;
+            : patch.judgeDecision === null
+              ? null
+              : (c.judgeDecision ?? null)
+        : (c.judgeDecision ?? null);
     const deadlineDays =
         typeof patch.deadlineDays === 'number' && Number.isFinite(patch.deadlineDays) && patch.deadlineDays > 0
             ? patch.deadlineDays

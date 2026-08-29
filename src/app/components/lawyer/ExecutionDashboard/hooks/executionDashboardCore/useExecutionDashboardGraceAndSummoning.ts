@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** مهلة قانونية + إحضار جبري + رسوم التحصيل — تجميع hooks موجودة */
 import { useEffect, useMemo } from 'react';
 import type { Debtor, ExecutionFile } from '@/app/types/execution';

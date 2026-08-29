@@ -1,22 +1,32 @@
-import { RequestSigningService } from './RequestSigningService';
 import { supabase } from '@/app/lib/supabase-client';
 import { readCsrfTokenFromDocument } from '@/app/security/csrfSession';
-import { getOrCreateDeviceId } from '@/app/security/deviceId';
 import { fetchKvProxyGuarded, isKvProxyUrl } from './kvProxyGuard';
 import { assertNetworkAllowed } from '@/app/services/settings/localOnlyGuard';
 import { isSameOriginApiBlocked } from '@/app/runtime/sameOriginApiProbe';
-import {
-    readDevMockAccessToken,
-} from '@/app/utils/authStorage';
-import { isBffAuthEnabled, fetchBffWifeSignedHeaders } from '@/app/utils/bffAuthClient';
+import { readClientAccessTokenFallback } from '@/app/services/auth/localSigningToken';
+/*
+ * الورقتان لا المحور. الاستيراد من `bffAuthClient` كان يُغلق دائرة ثابتة: هذا
+ * الملفّ ← المحور ← هذا الملفّ. والدالّتان لا تسكنان المحور أصلاً — إحداهما إعادة
+ * تصدير من `bffAuthFlags`، والأخرى نُقلت إلى `bffWifeSign` ولا تحتاج هذا العميل.
+ */
+import { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
 import { SecureFetchError } from '@/app/services/SecureFetchError';
+import { captureWifeNativeFetch } from '@/app/security/wifeNativeFetch';
+import { isWifeBootstrapApiPath, isWifeUnsignedApiPath } from '@/app/security/wifePublicApi';
+import {
+    isNetworkFeatureProtectedPath,
+    noteProtectedPathForbidden,
+    resolveDeniedNetworkFeatureResponse,
+} from './secureApiNetworkFeatures';
+import { attachWifeClientHeaders } from './secureApiWifeSigning';
 
 export { SecureFetchError } from '@/app/services/SecureFetchError';
 
 type NativeFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
-const WIFE_NATIVE_FETCH = Symbol.for('WIFE_NATIVE_FETCH');
-const WHITELISTED_ROUTES = ['/api/public'] as const;
+function isWhitelistedRoute(pathname: string): boolean {
+    return isWifeUnsignedApiPath(pathname);
+}
 
 let authPauseUntil = 0;
 const AUTH_PAUSE_MS = 30_000;
@@ -33,17 +43,65 @@ function isAuthPaused(): boolean {
     return Date.now() < authPauseUntil;
 }
 
+function shouldRetryHqAuthOnce(pathname: string): boolean {
+    /* إعادة 401 لمسارات المقر تضاعف سجل المتصفح — الجلسة تُجهَّز قبل التركيب */
+    if (pathname.startsWith('/api/admin/')) return false;
+    return (
+        pathname.startsWith('/api/auth/lawyer-verification') ||
+        pathname.startsWith('/api/forum/stats') ||
+        pathname.startsWith('/api/forum/ban') ||
+        pathname.startsWith('/api/forum/reports')
+    );
+}
+
+function shouldMarkAuthFailure(pathname: string): boolean {
+    if (isWifeBootstrapApiPath(pathname) || isWifeUnsignedApiPath(pathname)) return false;
+    if (pathname === '/api/security/csrf' || pathname === '/api/security/wife-sign') return false;
+    /* مقر القيادة يعيد المحاولة بنبضه — إيقاف 30ث كان يُظهر «بلا جلسة» ثم يتصل بعد التأخير */
+    if (pathname.startsWith('/api/admin/')) return false;
+    return true;
+}
+
+/** بعد إقلاع جلسة المقر/الدخول — لا تُحبس الشبكة بسبب 401 سابق */
+export function clearSecureApiAuthPause(): void {
+    clearAuthPause();
+}
+
+/** للاختبارات فقط */
+export function resetAuthPauseForTests(): void {
+    clearAuthPause();
+}
+
 function getNativeFetch(): NativeFetch {
-    const g = globalThis as unknown as Record<string | symbol, unknown>;
-    const existing = g[WIFE_NATIVE_FETCH];
-    if (typeof existing === 'function') return existing as NativeFetch;
-    const f = globalThis.fetch.bind(globalThis) as NativeFetch;
-    g[WIFE_NATIVE_FETCH] = f;
-    return f;
+    return captureWifeNativeFetch();
 }
 
 function normalizeMethod(method: string | undefined): string {
     return (method ?? 'GET').toUpperCase();
+}
+
+async function awaitWithAbort<T>(promise: Promise<T>, signal: AbortSignal | null | undefined): Promise<T> {
+    if (!signal) return promise;
+    if (signal.aborted) {
+        const aborted = new DOMException('Aborted', 'AbortError');
+        throw aborted;
+    }
+    return await new Promise<T>((resolve, reject) => {
+        const onAbort = () => {
+            reject(new DOMException('Aborted', 'AbortError'));
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
+        promise.then(
+            (value) => {
+                signal.removeEventListener('abort', onAbort);
+                resolve(value);
+            },
+            (error) => {
+                signal.removeEventListener('abort', onAbort);
+                reject(error);
+            },
+        );
+    });
 }
 
 function mergeHeaders(a: HeadersInit | undefined, b: HeadersInit): HeadersInit {
@@ -62,10 +120,6 @@ function resolveUrl(url: string): URL {
     return new URL(url, base);
 }
 
-function isWhitelistedRoute(pathname: string): boolean {
-    return WHITELISTED_ROUTES.some((route) => pathname.startsWith(route));
-}
-
 function isApiRoute(pathname: string): boolean {
     return pathname.startsWith('/api/');
 }
@@ -76,72 +130,14 @@ function isSameOriginApiRoute(resolved: URL): boolean {
 }
 
 /**
- * يُعيد access token الحالي للمستخدم من جلسة Supabase.
- * يُستخدم لتوقيع طلبات API الداخلية + استدعاءات Edge Functions المحمية.
+ * توكن التوقيع: جلسة Supabase الحيّة، ثم المخزَّن محلياً (قبل اكتمال getSession)،
+ * ثم جلسة الشِل/الضيف عند فتح الواجهة محلياً. لا يخلط HMAC العميل مع BFF.
  */
 export async function getCurrentAccessToken(): Promise<string | null> {
     const { data } = await supabase.auth.getSession();
-    let token = data.session?.access_token?.trim() ?? '';
-    if (!token) {
-        token = readDevMockAccessToken() ?? '';
-    }
-    return token || null;
-}
-
-function formDataToStableString(body: FormData): string {
-    const rows: Array<{ key: string; value: string }> = [];
-    body.forEach((value, key) => {
-        if (typeof value === 'string') {
-            rows.push({ key, value });
-            return;
-        }
-        rows.push({
-            key,
-            value: `[File:${value.name}:${value.size}:${value.type}]`,
-        });
-    });
-    rows.sort((a, b) => (a.key === b.key ? a.value.localeCompare(b.value) : a.key.localeCompare(b.key)));
-    return JSON.stringify(rows);
-}
-
-async function bodyToSign(body: BodyInit | null | undefined): Promise<string> {
-    if (typeof body === 'string') return body;
-    if (body === null || body === undefined) return '';
-    if (body instanceof URLSearchParams) return body.toString();
-    if (body instanceof FormData) return formDataToStableString(body);
-    if (body instanceof Blob) return await body.text();
-    if (body instanceof ArrayBuffer) return new TextDecoder().decode(body);
-    if (ArrayBuffer.isView(body)) {
-        return new TextDecoder().decode(body);
-    }
-    return '';
-}
-
-function bytesToHex(bytes: Uint8Array): string {
-    return Array.from(bytes)
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
-}
-
-function pickFormDataFile(body: FormData): File | null {
-    const direct = body.get('file');
-    if (direct instanceof File) return direct;
-    for (const value of body.values()) {
-        if (value instanceof File) return value;
-    }
-    return null;
-}
-
-async function sha256HexFromFile(file: File): Promise<string> {
-    const data = await file.arrayBuffer();
-    const digest = await crypto.subtle.digest('SHA-256', data);
-    return bytesToHex(new Uint8Array(digest));
-}
-
-async function sha256HexFromString(input: string): Promise<string> {
-    const bytes = new TextEncoder().encode(input);
-    const digest = await crypto.subtle.digest('SHA-256', bytes);
-    return bytesToHex(new Uint8Array(digest));
+    const live = data.session?.access_token?.trim() ?? '';
+    if (live) return live;
+    return readClientAccessTokenFallback();
 }
 
 function tryParseJson(text: string): unknown {
@@ -156,6 +152,20 @@ function resolveFetchTimeoutMs(body: BodyInit | null | undefined): number {
     if (body instanceof FormData) return 120_000;
     if (body instanceof Blob && body.size > 512_000) return 120_000;
     return 12_000;
+}
+
+function isCsrfSafeMethod(method: string): boolean {
+    return method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+}
+
+async function ensureCsrfBeforeMutatingWifeRequest(
+    method: string,
+    pathname: string,
+    signal: AbortSignal | null | undefined,
+): Promise<void> {
+    if (isCsrfSafeMethod(method) || pathname === '/api/security/csrf') return;
+    const { ensureCsrfSessionReady } = await import('@/app/security/ensureCsrfSessionReady');
+    await awaitWithAbort(ensureCsrfSessionReady(), signal);
 }
 
 export class SecureAPIClient {
@@ -175,106 +185,99 @@ export class SecureAPIClient {
 
         const method = normalizeMethod(options.method);
         const wireBody = options.body;
-        const shouldSign = isSameOriginApiRoute(resolved);
+        const shouldSign =
+            isSameOriginApiRoute(resolved) &&
+            !isWifeUnsignedApiPath(pathname) &&
+            !isWifeBootstrapApiPath(pathname);
+        if (shouldSign && isAuthPaused()) {
+            throw new SecureFetchError('unauthenticated', 401, '', resolved.toString());
+        }
         if (shouldSign && isSameOriginApiBlocked()) {
             throw new SecureFetchError('api_unavailable', 503, '', resolved.toString());
         }
+        const deniedLocal = shouldSign ? resolveDeniedNetworkFeatureResponse(pathname) : null;
+        if (deniedLocal) {
+            return deniedLocal;
+        }
         let nextHeaders: HeadersInit = mergeHeaders(options.headers, { Accept: 'application/json' });
 
-        if (shouldSign) {
-            const token = await getCurrentAccessToken();
-            const bffMode = isBffAuthEnabled();
-            const hasClientToken = Boolean(token?.trim()) && !isAuthPaused();
-
-            if (!bffMode && !hasClientToken) {
-                throw new SecureFetchError('unauthenticated', 401, '', resolved.toString());
-            }
-            if (bffMode && !hasClientToken && isAuthPaused()) {
-                throw new SecureFetchError('unauthenticated', 401, '', resolved.toString());
-            }
-
-            let contentHash: string | undefined;
-            let signingPayload: string;
-            if (wireBody instanceof FormData) {
-                const file = pickFormDataFile(wireBody);
-                if (file) {
-                    contentHash = await sha256HexFromFile(file);
-                    signingPayload = contentHash;
-                } else {
-                    const stable = await bodyToSign(wireBody);
-                    contentHash = await sha256HexFromString(stable);
-                    signingPayload = contentHash;
-                }
-            } else {
-                signingPayload = await bodyToSign(wireBody);
-            }
-
-            let signedHeaders: Record<string, string>;
-            if (bffMode && !hasClientToken) {
-                signedHeaders = await fetchBffWifeSignedHeaders({
-                    method,
-                    url: resolved.toString(),
-                    body: signingPayload,
-                    contentHash,
-                });
-            } else {
-                signedHeaders = await RequestSigningService.createSignedHeaders(
-                    method,
-                    resolved.toString(),
-                    signingPayload,
-                    token!,
-                    contentHash,
-                );
-            }
-
-            const merged = new Headers(nextHeaders);
-            if (hasClientToken && !merged.has('Authorization') && !merged.has('authorization')) {
-                merged.set('Authorization', `Bearer ${token}`);
-            }
-            Object.entries(signedHeaders).forEach(([k, v]) => merged.set(k, v));
-            merged.set('x-wife-device-id', getOrCreateDeviceId());
-            nextHeaders = merged;
-        }
-
-        if (shouldSign || !isWhitelistedRoute(pathname)) {
-            const merged = new Headers(nextHeaders);
-            const csrfValue = readCsrfTokenFromDocument();
-            if (csrfValue && !merged.has('x-csrf-token') && !merged.has('X-CSRF-Token')) {
-                merged.set('x-csrf-token', csrfValue);
-            }
-            nextHeaders = merged;
-        }
-
-        const nextOptions: RequestInit = {
-            ...options,
-            body: wireBody,
-            headers: nextHeaders,
-            credentials: shouldSign ? 'include' : options.credentials,
-        };
-
         const FETCH_TIMEOUT_MS = resolveFetchTimeoutMs(wireBody);
-        if (typeof window === 'undefined') {
-            return await nativeFetch(endpoint, nextOptions);
-        }
-
-        const controller = new AbortController();
+        const useTimeout = typeof window !== 'undefined';
+        const controller = useTimeout ? new AbortController() : null;
         let didTimeout = false;
-        const timeoutId = window.setTimeout(() => {
-            didTimeout = true;
-            controller.abort();
-        }, FETCH_TIMEOUT_MS);
-        const upstreamSignal = options.signal;
-        if (upstreamSignal) {
-            if (upstreamSignal.aborted) controller.abort();
-            else upstreamSignal.addEventListener('abort', () => controller.abort(), { once: true });
+        let timeoutId: number | undefined;
+        if (controller) {
+            timeoutId = window.setTimeout(() => {
+                didTimeout = true;
+                controller.abort();
+            }, FETCH_TIMEOUT_MS);
+            const upstreamSignal = options.signal;
+            if (upstreamSignal) {
+                if (upstreamSignal.aborted) controller.abort();
+                else upstreamSignal.addEventListener('abort', () => controller.abort(), { once: true });
+            }
         }
 
         try {
-            const fetchInit = { ...nextOptions, signal: controller.signal };
-            if (isKvProxyUrl(endpoint)) {
-                return await fetchKvProxyGuarded(endpoint, fetchInit, nativeFetch);
+            if (shouldSign) {
+                try {
+                    await ensureCsrfBeforeMutatingWifeRequest(method, pathname, controller?.signal);
+                    nextHeaders = await attachWifeClientHeaders({
+                        resolvedUrl: resolved.toString(),
+                        method,
+                        wireBody,
+                        nextHeaders,
+                        token: await awaitWithAbort(getCurrentAccessToken(), controller?.signal),
+                        bffMode: isBffAuthEnabled(),
+                        authPaused: isAuthPaused(),
+                        signal: controller?.signal,
+                    });
+                } catch (signErr) {
+                    if (
+                        signErr instanceof SecureFetchError &&
+                        signErr.status === 401 &&
+                        shouldMarkAuthFailure(pathname)
+                    ) {
+                        markAuthFailure();
+                    }
+                    throw signErr;
+                }
             }
-            return await nativeFetch(endpoint, fetchInit);
+
+            if (shouldSign || !isWhitelistedRoute(pathname)) {
+                const merged = new Headers(nextHeaders);
+                const csrfValue = readCsrfTokenFromDocument();
+                if (csrfValue && !merged.has('x-csrf-token') && !merged.has('X-CSRF-Token')) {
+                    merged.set('x-csrf-token', csrfValue);
+                }
+                nextHeaders = merged;
+            }
+
+            const nextOptions: RequestInit = {
+                ...options,
+                body: wireBody,
+                headers: nextHeaders,
+                credentials: isSameOriginApiRoute(resolved) ? 'include' : options.credentials,
+                signal: controller?.signal ?? options.signal,
+            };
+
+            if (!controller) {
+                return await nativeFetch(endpoint, nextOptions);
+            }
+
+            const fetchInit = { ...nextOptions, signal: controller.signal };
+            let response: Response;
+            if (isKvProxyUrl(endpoint)) {
+                response = await fetchKvProxyGuarded(endpoint, fetchInit, nativeFetch);
+            } else {
+                response = await nativeFetch(endpoint, fetchInit);
+            }
+            if (shouldSign && response.status === 403 && isNetworkFeatureProtectedPath(pathname)) {
+                const clone = response.clone();
+                const bodyText = await clone.text().catch(() => '');
+                noteProtectedPathForbidden(pathname, response, bodyText);
+            }
+            return response;
         } catch (err) {
             if (err instanceof DOMException && err.name === 'AbortError') {
                 if (!didTimeout) {
@@ -287,7 +290,7 @@ export class SecureAPIClient {
             }
             throw err;
         } finally {
-            window.clearTimeout(timeoutId);
+            if (timeoutId !== undefined) window.clearTimeout(timeoutId);
         }
     }
 
@@ -297,11 +300,24 @@ export class SecureAPIClient {
         _legacyContext?: unknown,
     ): Promise<T> {
         const resolved = resolveUrl(endpoint);
-        const response = await this.fetchSecureResponse(endpoint, options, _legacyContext);
+        if (isAuthPaused()) {
+            throw new SecureFetchError('unauthenticated', 401, '', resolved.toString());
+        }
+        const pathname = resolved.pathname;
+        let response = await this.fetchSecureResponse(endpoint, options, _legacyContext);
+        if (!response.ok && response.status === 401 && shouldRetryHqAuthOnce(pathname)) {
+            try {
+                const { ensureCsrfSessionReady } = await import('@/app/security/ensureCsrfSessionReady');
+                await ensureCsrfSessionReady({ force: true });
+            } catch {
+                /* الجلسة المحلية أفضل جهد */
+            }
+            response = await this.fetchSecureResponse(endpoint, options, _legacyContext);
+        }
         const text = await response.text().catch(() => '');
 
         if (!response.ok) {
-            if (response.status === 401) {
+            if (response.status === 401 && shouldMarkAuthFailure(pathname)) {
                 markAuthFailure();
             }
             if (response.status === 429) {

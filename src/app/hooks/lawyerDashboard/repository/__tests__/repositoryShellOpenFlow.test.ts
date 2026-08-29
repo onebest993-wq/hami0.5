@@ -7,8 +7,6 @@ const mocks = vi.hoisted(() => ({
     warmOnOpenMock: vi.fn(),
     warmDataCacheMock: vi.fn(),
     prefetchHubMock: vi.fn(),
-    loadHubMock: vi.fn(() => Promise.resolve({})),
-    prefetchOverlayMock: vi.fn(),
 }));
 
 vi.mock('react-dom', () => ({
@@ -31,13 +29,20 @@ vi.mock('@/app/runtime/repositoryInstantPaint', () => ({
     concealRepositoryWarmShell: vi.fn(),
 }));
 
+vi.mock('@/app/hooks/lawyerDashboard/lawyerDashboardNav', () => ({
+    persistRepositorySessionOpen: vi.fn(),
+}));
+
+vi.mock('@/app/runtime/repositoryHubLoader', () => ({
+    prefetchRepositoryHubModule: mocks.prefetchHubMock,
+}));
+
 vi.mock('@/app/hooks/lawyerDashboard/repository/repositoryLazyImports', async (importOriginal) => {
     const actual = await importOriginal<
         typeof import('@/app/hooks/lawyerDashboard/repository/repositoryLazyImports')
     >();
     return {
         ...actual,
-        prefetchRepositoryHubAndOverlay: mocks.prefetchOverlayMock,
         loadRepositoryIntentWarm: vi.fn(() =>
             Promise.resolve({
                 warmRepositoryOnOpen: mocks.warmOnOpenMock,
@@ -73,7 +78,7 @@ describe('repositoryShellOpenFlow', () => {
 
         expect(mocks.clearPerfMock).toHaveBeenCalled();
         expect(mocks.markPerfMock).toHaveBeenCalledWith('open-request');
-        expect(mocks.prefetchOverlayMock).toHaveBeenCalled();
+        expect(mocks.prefetchHubMock).toHaveBeenCalled();
         expect(armRepositoryHost).toHaveBeenCalled();
         expect(setIsRepositoryOpen).toHaveBeenCalledWith(true);
 
@@ -96,6 +101,7 @@ describe('repositoryShellOpenFlow', () => {
             setIsRepositoryOpen,
             setFocusNoteId: vi.fn(),
             setVaultOpenScanner: vi.fn(),
+            setRepositoryHostMounted: vi.fn(),
         });
 
         expect(concealRepositoryWarmShell).toHaveBeenCalled();

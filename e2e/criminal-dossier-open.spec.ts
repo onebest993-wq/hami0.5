@@ -23,9 +23,9 @@ test.describe('الإضبارة الجنائية', () => {
         await dismissProductivityBlockers(page);
 
         await openCriminalDossierFromWorkspace(page);
-        await expect(
-            page.getByTestId(CRIMINAL_E2E_TEST_IDS.dossier).getByRole('button', { name: 'متهم E2E' }),
-        ).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.dossier)).toContainText('متهم E2E', {
+            timeout: 15_000,
+        });
         await expect(page.getByRole('button', { name: 'القرارات' })).toBeVisible();
     });
 
@@ -34,7 +34,8 @@ test.describe('الإضبارة الجنائية', () => {
         await dismissProductivityBlockers(page);
 
         await openCriminalDossierFromWorkspace(page);
-        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.exit)).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.dossier)).toBeVisible({ timeout: 20_000 });
+        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.exit)).toBeVisible({ timeout: 20_000 });
         await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.back)).toBeHidden();
         await page.getByTestId(CRIMINAL_E2E_TEST_IDS.exit).click({ timeout: 15_000 });
 
@@ -47,7 +48,8 @@ test.describe('الإضبارة الجنائية', () => {
         await dismissProductivityBlockers(page);
 
         await openCriminalDossierFromWorkspace(page);
-        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.exit)).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.dossier)).toBeVisible({ timeout: 20_000 });
+        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.exit)).toBeVisible({ timeout: 20_000 });
         await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.back)).toBeHidden();
 
         await page.getByTestId(CRIMINAL_E2E_TEST_IDS.headerTrash).click({ timeout: 15_000 });

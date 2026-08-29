@@ -16,12 +16,12 @@ describe('world-class profile close honesty', () => {
         expect(hook).not.toMatch(/setProfileHostMounted\]\s*=\s*useState\(true\)/);
     });
 
-    it('P2: يمسح host ويغلق التبويب عند غياب هوية حقيقية', () => {
+    it('P2: يمسح host ويغلق التبويب عند غياب جلسة محلية', () => {
         const hook = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardProfileTab.ts'),
             'utf8',
         );
-        expect(hook).toMatch(/isRealSignedIn\(userId\)/);
+        expect(hook).toMatch(/hasLocalAppSession\(userId\)/);
         expect(hook).toMatch(/setProfileHostMounted\(false\)/);
         expect(hook).toMatch(/tab === 'profile' \? 'home'/);
     });
@@ -74,6 +74,14 @@ describe('world-class profile close honesty', () => {
         expect(warmBlock).toBeTruthy();
         expect(warmBlock).toContain('prefetchProfileAfterBootReveal');
         expect(warmBlock).not.toMatch(/\barmProfileHost\s*\(/);
+        expect(hook).toContain('PROFILE_LIVE_SHELL_READY_EVENT');
+        expect(hook).toMatch(/onDashboardInteractive\([\s\S]*armProfileHost\(\)/);
+        const signedInWarm = hook.match(
+            /جلسة محلية: تسخين[\s\S]*?useLayoutEffect\(\(\) => \{[\s\S]*?\}, \[userId\]\);/,
+        )?.[0];
+        expect(signedInWarm).toBeTruthy();
+        expect(signedInWarm).not.toMatch(/\barmProfileHost\s*\(/);
+        expect(hook).toContain("addEventListener('pageshow'");
     });
 
     it('P4: sanitizeProfileMediaUrl على الهيدر والصورة', () => {

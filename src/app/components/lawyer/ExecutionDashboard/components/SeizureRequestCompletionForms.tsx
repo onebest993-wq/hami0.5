@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatNumberInput } from '@/app/utils/execution/amountInput';
 import { normalizeDigitsOnly } from './seizureRequestsTabHelpers';
+import type { AssetBlockShowToast } from './SeizureRequestsTabAssetCompletions';
 
 export type PropertyCompletionDraft = {
     propertyNumber: string;
@@ -64,7 +65,7 @@ export function SeizurePropertyCompletionForm(props: {
     draft: PropertyCompletionDraft;
     onDraftChange: (draft: PropertyCompletionDraft) => void;
     onSave: (draft: PropertyCompletionDraft) => void;
-    showToast: (message: string, type: 'success' | 'error' | 'warning' | 'info', options?: any) => void;
+    showToast: AssetBlockShowToast;
 }) {
     const { draft, onDraftChange, onSave, showToast } = props;
 
@@ -119,7 +120,7 @@ export function SeizureVehicleCompletionForm(props: {
     draft: VehicleCompletionDraft;
     onDraftChange: (draft: VehicleCompletionDraft) => void;
     onSave: (draft: VehicleCompletionDraft) => void;
-    showToast: (message: string, type: 'success' | 'error' | 'warning' | 'info', options?: any) => void;
+    showToast: AssetBlockShowToast;
 }) {
     const { draft, onDraftChange, onSave, showToast } = props;
 

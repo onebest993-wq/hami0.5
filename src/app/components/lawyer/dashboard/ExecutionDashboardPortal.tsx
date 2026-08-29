@@ -1,11 +1,13 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import { ExecutionDashboardBootChrome } from '@/app/components/lawyer/dashboard/ExecutionDashboardBootChrome';
 import { ErrorBoundary } from '@/app/components/ui/ErrorBoundary';
-import { loadExecutionDashboardModule } from '@/app/runtime/executionDashboardLoader';
+import { loadExecutionDashboardModule } from '@/app/runtime/executionDashboardModuleLoad';
 import { createPreloadableLazyComponent } from '@/app/utils/lazy/preloadableLazy';
 import type { LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
+import { HAMI_OVERLAY_SAFE_INSETS_CLASS } from '@/app/utils/overlayPortal';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 
 const LazyExecutionDashboard = createPreloadableLazyComponent(() =>
     loadExecutionDashboardModule().then((mod) => {
@@ -35,11 +37,12 @@ type ExecutionDashboardPortalProps = {
 function ExecutionDossierCrashFallback({ onExitToHome }: { onExitToHome: () => void }) {
     return (
         <div
-            className="fixed inset-0 z-[230] flex flex-col items-center justify-center gap-3 bg-slate-950 px-6 text-center pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+            className={`fixed inset-0 z-[230] flex flex-col items-center justify-center gap-3 bg-slate-950 px-6 text-center ${HAMI_OVERLAY_SAFE_INSETS_CLASS}`}
             role="alertdialog"
             aria-modal="true"
             aria-label="تعذّر فتح الإضبارة"
             data-testid="execution-dossier-error-fallback"
+            data-error-message=""
         >
             <p className="text-sm font-bold text-red-300">تعذّر تحميل الإضبارة التنفيذية</p>
             <p className="max-w-sm text-xs text-white/45">يمكنك الإغلاق والمحاولة مجدداً دون فقدان باقي التطبيق.</p>
@@ -62,6 +65,13 @@ export function ExecutionDashboardPortal({
     onUpdate,
     open = true,
 }: ExecutionDashboardPortalProps) {
+    useBodyScrollLock(open);
+    useEffect(() => {
+        if (!open) return;
+        void import('@/app/runtime/deferredFeatureStyles')
+            .then((m) => m.ensureDeferredExecutionDossierStylesLoaded())
+            .catch(() => undefined);
+    }, [open]);
     /** لا keep-alive في DOM — التركيب المخفي كان يومض عند فتح إضبارة الدعوى */
     if (!open) return null;
 
@@ -69,10 +79,23 @@ export function ExecutionDashboardPortal({
         <div
             className="fixed inset-0 z-[230]"
             data-testid="execution-dashboard-portal-open"
+            data-hami-overlay-safe="1"
+            aria-label="إضبارة تنفيذ"
         >
             <ErrorBoundary
+                key={file.id}
                 fallback={<ExecutionDossierCrashFallback onExitToHome={onExitToHome} />}
                 onError={(error, errorInfo) => {
+                    const msg = error instanceof Error ? error.message : String(error);
+                    try {
+                        const w = window as unknown as { __HAMI_EXEC_DOSSIER_CRASH?: string };
+                        w.__HAMI_EXEC_DOSSIER_CRASH = msg;
+                        document
+                            .querySelector('[data-testid="execution-dossier-error-fallback"]')
+                            ?.setAttribute('data-error-message', msg);
+                    } catch {
+                        /* ignore */
+                    }
                     console.error('[ExecutionDossier] crash:', error);
                     console.error('[ExecutionDossier] stack:', errorInfo.componentStack);
                 }}
@@ -89,6 +112,7 @@ export function ExecutionDashboardPortal({
                         key={`exec-${file.id}`}
                         file={file}
                         onClose={onClose}
+                        onExitToHome={onExitToHome}
                         onUpdate={onUpdate}
                     />
                 </Suspense>

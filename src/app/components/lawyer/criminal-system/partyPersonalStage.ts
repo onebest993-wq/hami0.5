@@ -38,25 +38,13 @@ export function personalStageLabel(stage: DefendantPersonalStage): string {
     return 'سقوط — وفاة';
 }
 
-export function personalStageBadgeClass(stage: DefendantPersonalStage): string {
-    if (stage === 'lawsuit_dropped_death' || stage === 'lawsuit_dropped') {
-        return 'border-red-950/80 bg-red-950/50 text-red-100';
-    }
-    if (stage === 'referred_to_trial') return 'border-sky-500/50 bg-sky-500/15 text-sky-100';
-    if (stage === 'convicted') return 'border-emerald-600/50 bg-emerald-600/20 text-emerald-100';
-    if (stage === 'acquitted' || stage === 'released_temporary') {
-        return 'border-slate-500/40 bg-slate-700/40 text-slate-300';
-    }
-    return 'border-slate-600/50 bg-slate-800/50 text-slate-400';
-}
-
 /** مراحل لا تُستدعي انشطار مسار الإضبارة — الوفاة/سقوط الدعوى تُعرض كبطاقة مقفلة فقط. */
 const NON_PATH_SPLIT_PERSONAL_STAGES: DefendantPersonalStage[] = [
     'lawsuit_dropped_death',
     'lawsuit_dropped',
 ];
 
-export function isPathSplitPersonalStage(stage: DefendantPersonalStage | undefined): boolean {
+function isPathSplitPersonalStage(stage: DefendantPersonalStage | undefined): boolean {
     const s = stage ?? defaultPersonalStage();
     return !NON_PATH_SPLIT_PERSONAL_STAGES.includes(s);
 }

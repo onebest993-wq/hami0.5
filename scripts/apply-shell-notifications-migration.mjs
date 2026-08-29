@@ -26,6 +26,11 @@ const migrations = [
         version: '028',
         name: 'lawyer_shell_inbox_rebuild_from_events',
     },
+    {
+        file: join('supabase', 'migrations', '20260828121500_ensure_lawyer_shell_notifications.sql'),
+        version: '20260828121500',
+        name: 'ensure_lawyer_shell_notifications',
+    },
 ];
 
 for (const m of migrations) {

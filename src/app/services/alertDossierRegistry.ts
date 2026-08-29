@@ -174,7 +174,10 @@ export function buildDossierRegistry(params: {
         isActive(module, entityId) {
             if (!entityId?.trim()) return true;
             const mod = (module ?? 'manual') as CalendarSourceModule;
-            if (mod === 'manual' || mod === 'task' || mod === 'note') return true;
+            // التقويم مصدر الحقيقة لمهل Threading والمهام/الملاحظات — ليست في سجل الإضابير.
+            if (mod === 'manual' || mod === 'task' || mod === 'note' || mod === 'threading') {
+                return true;
+            }
             return activeKeys.has(`${mod}:${entityId}`);
         },
         resolve(module, entityId) {

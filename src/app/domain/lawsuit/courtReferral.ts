@@ -1,6 +1,6 @@
-export type CourtReferralAcceptance = 'pending' | 'accepted' | 'rejected';
+type CourtReferralAcceptance = 'pending' | 'accepted' | 'rejected';
 
-export type CourtReferralStageFields = {
+type CourtReferralStageFields = {
     court?: string;
     referredToCourt?: string;
     courtReferralDate?: string;
@@ -10,7 +10,7 @@ export type CourtReferralStageFields = {
     courtReferralDecisionDate?: string;
 };
 
-export type CourtReferralDisplay = {
+type CourtReferralDisplay = {
     displayCourt: string;
     previousCourt: string | null;
     isPending: boolean;

@@ -5,35 +5,37 @@ import path from 'node:path';
 const root = process.cwd();
 
 describe('boot cold section close honesty', () => {
-    it('index يسخّن Shell + Gate + ttfi-mark + LD بعد App/React وقبل createRoot', () => {
+    it('mountApplication لا يحجب createRoot على Shell/Gate — يُحمَّلان من bootCriticalPreload', () => {
         const mount = fs.readFileSync(path.join(root, 'src/boot/mountApplication.ts'), 'utf8');
-        const promiseAllIdx = mount.indexOf('Promise.all');
-        const createRootIdx = mount.indexOf('createRoot(rootElement)');
+        const mountFn = mount.slice(mount.indexOf('async function mountApplication'));
+        const promiseAllIdx = mountFn.indexOf('Promise.all');
+        const createRootIdx = mountFn.indexOf('createRoot(rootElement)');
         expect(promiseAllIdx).toBeGreaterThan(-1);
         expect(createRootIdx).toBeGreaterThan(promiseAllIdx);
-        for (const needle of [
-            "import('@/app/AppRuntimeShell')",
-            "import('@/app/bootstrap/LawyerDashboardGate')",
-            "import('@/app/bootstrap/dashboardInteractiveMark')",
-            'preloadLawyerDashboardChunk',
-        ]) {
-            const idx = mount.indexOf(needle);
-            expect(idx, needle).toBeGreaterThan(promiseAllIdx);
-            expect(idx, needle).toBeLessThan(createRootIdx);
-        }
+        const promiseAll =
+            mountFn.match(/Promise\.all\(\[([\s\S]*?)\]\)/)?.[1] ?? '';
+        expect(promiseAll).not.toContain("import('@/app/runtime/appRuntimeShellLoader')");
+        expect(promiseAll).not.toContain("import('@/app/runtime/lawyerDashboardGateLoader')");
+        expect(promiseAll).not.toContain('preloadLawyerDashboardChunk');
+        expect(mountFn).not.toContain('preloadHomeDockBootChunk');
+        const preload = fs.readFileSync(path.join(root, 'src/boot/bootCriticalPreload.ts'), 'utf8');
+        expect(preload).toContain('loadAppRuntimeShellModule');
+        expect(preload).toContain('loadLawyerDashboardGateModule');
     });
 
     it('مهام الخلفية الثقيلة بعد mountApplication لا قبل interactive', () => {
         const index = fs.readFileSync(path.join(root, 'src/index.tsx'), 'utf8');
-        expect(index).toContain("import('@/boot/mountApplication')");
-        expect(index).toContain('startApplicationBoot');
+        expect(index).not.toContain("import('@/boot/mountApplication')");
+        const preload = fs.readFileSync(path.join(root, 'src/boot/bootCriticalPreload.ts'), 'utf8');
+        expect(preload).toContain('startApplicationBoot');
         const mount = fs.readFileSync(path.join(root, 'src/boot/mountApplication.ts'), 'utf8');
         expect(mount).toContain('runBackgroundBootTasks');
         expect(mount).toMatch(/startApplicationBoot[\s\S]*runBackgroundBootTasks/);
+        expect(mount).toContain('discardPendingLawyerDashboardHeaderIntent');
         expect(mount).toContain("import('@/app/bootstrap/deferredBoot')");
     });
 
-    it('QuantumShell رقيق — Provider بعد mark داخل InnerRuntime', () => {
+    it('QuantumShell رقيق — FullBoot بلا QuantumTasksProvider ساكن', () => {
         const shell = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardQuantumShell.tsx'),
             'utf8',
@@ -42,16 +44,38 @@ describe('boot cold section close honesty', () => {
             path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardInner.tsx'),
             'utf8',
         );
-        const runtime = fs.readFileSync(
-            path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardInnerRuntime.tsx'),
+        const stem = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/LawyerDashboard.tsx'),
             'utf8',
         );
         expect(shell).not.toMatch(/import\s*\{[^}]*QuantumTasksProvider/);
         expect(shell).not.toMatch(/<QuantumTasksProvider/);
-        expect(inner).toContain('markDashboardInteractiveOnce');
-        expect(inner).toContain("from '@/app/bootstrap/dashboardInteractiveMark'");
+        expect(stem).not.toContain('markDashboardInteractiveOnce');
+        expect(stem).not.toContain("from '@/app/bootstrap/dashboardInteractiveMark'");
+        expect(inner).not.toContain('markDashboardInteractiveOnce');
+        expect(
+            fs.existsSync(
+                path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMinimalBootPath.tsx'),
+            ),
+        ).toBe(false);
+        const gridGate = fs.readFileSync(
+            path.join(root, 'src/app/bootstrap/homeMainGridPaintGate.ts'),
+            'utf8',
+        );
+        expect(gridGate).toContain('markDashboardInteractiveOnce');
         expect(inner).not.toMatch(/import\s*\{[^}]*QuantumTasksProvider/);
-        expect(runtime).toMatch(/<QuantumTasksProvider/);
+        const fullBoot = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardFullBootPath.tsx'),
+            'utf8',
+        );
+        expect(fullBoot).not.toMatch(/import\s*\{[^}]*QuantumTasksProvider/);
+        expect(fullBoot).not.toMatch(/<QuantumTasksProvider/);
+        expect(fullBoot).toContain('primeQuantumTasksBootMetrics');
+        expect(
+            fs.existsSync(
+                path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardInnerRuntime.tsx'),
+            ),
+        ).toBe(false);
     });
 
     it('vite: modulePreload يحمّل vendor-react و boot-runtime فقط (vendor-misc عند الطلب)', () => {

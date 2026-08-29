@@ -1,15 +1,14 @@
-import { requireWifeUser, type WifeAuthResult } from '../security/bffAuth.ts';
-import { isPlatformAdminUserId } from '../security/roleResolver.ts';
-import { wifeJsonResponse } from '../security/wifeSecurityHeaders.ts';
+import type { WifeAuthResult } from '../security/bffAuth.ts';
+import { requireTrustedHeadquartersAdmin } from '../security/requireTrustedHeadquartersAdmin.ts';
 
-export async function requirePlatformAdmin(request: Request): Promise<WifeAuthResult> {
-  const auth = await requireWifeUser(request);
-  if (auth.ok === false) return auth;
-  if (!(await isPlatformAdminUserId(auth.userId))) {
-    return {
-      ok: false as const,
-      response: wifeJsonResponse(403, { ok: false, error: 'Unauthorized Access' }),
-    };
+/** طفرات مكتبة القوانين من مقر القيادة عن بعد — نفس بوابة الحظر/الأدوار (Wife + مدير + جهاز OTP). */
+export async function requirePlatformAdmin(
+  request: Request,
+  options?: { stepUp?: boolean },
+): Promise<WifeAuthResult> {
+  const gate = await requireTrustedHeadquartersAdmin(request, options);
+  if (!gate.ok) {
+    return { ok: false as const, response: gate.response };
   }
-  return auth;
+  return { ok: true as const, userId: gate.userId };
 }

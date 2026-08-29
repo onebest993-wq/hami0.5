@@ -18,7 +18,7 @@ export function JudgeStateOrderIntervention(props: JudgeDecisionLifecyclePanelPr
                                                     type="button"
                                                     onClick={() => void registerOpponentIntervention()}
                                                     disabled={isFinalized}
-                                                    className="w-full min-h-[40px] px-3 py-2 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] text-white/80 hover:text-white text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+                                                    className="w-full min-h-[44px] px-3 py-2 rounded-lg border border-white/10 bg-transparent hover:bg-white/[0.06] text-white/80 hover:text-white text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
                                                 >
                                                     تسجيل تدخل الخصم والتحويل لمسار وجاهي
                                                 </button>

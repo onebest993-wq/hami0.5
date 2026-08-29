@@ -1,0 +1,27 @@
+{
+  "verifiedAt": "2026-08-25T19:10:55.113Z",
+  "startedAt": "2026-08-25T18:59:19.632Z",
+  "command": "release:check:lawsuits:worldclass",
+  "axes": [
+    {
+      "axis": "release:lawsuits (unit+desktop+cloud+boot)",
+      "status": "passed"
+    },
+    {
+      "axis": "mobile E2E",
+      "status": "passed"
+    },
+    {
+      "axis": "perf gate (TTFI)",
+      "status": "passed"
+    },
+    {
+      "axis": "cloud live E2E (staging)",
+      "status": "skipped",
+      "reason": "missing staging credentials"
+    }
+  ],
+  "engineeringWorldclass": true,
+  "productionWorldclass": false,
+  "manualSoakRequired": true
+}

@@ -1,6 +1,6 @@
 /**
- * تحميل عميل منتدى Supabase المميّز — خادم فقط (@vite-ignore).
- * لا يستورد العميل supabaseAdmin / privileged env بشكل ثابت.
+ * تحميل عميل منتدى Supabase المميّز — خادم فقط.
+ * مسار Vite قابل للتحليل (بدون تعليق تجاهل على مسار نسبي غامض كان يعلّق الطلب).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -16,9 +16,8 @@ export function isForumSupabaseConfigured(): boolean {
 export async function loadForumSupabaseAdmin(): Promise<ForumSupabaseAdmin | null> {
   if (typeof window !== 'undefined') return null;
   try {
-    const spec = '@/app/services/forum/supabaseAdmin.ts';
-    const mod = await import(/* @vite-ignore */ spec);
-    return mod.getForumSupabaseAdmin() as ForumSupabaseAdmin | null;
+    const mod = await import('@/app/api/security/supabaseAdminClient.ts');
+    return mod.getSupabaseAdminClient();
   } catch {
     return null;
   }

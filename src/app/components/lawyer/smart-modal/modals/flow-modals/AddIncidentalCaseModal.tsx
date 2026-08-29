@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Briefcase } from '@/app/components/ui/lucideIcons';
+import { Briefcase } from '@/app/components/ui/icons/Briefcase';
 import type { AffiliationSide, Party, ThirdPartyEntryMode } from '../../../LawyerShared';
 import { groupPartiesBySide, affiliationSideLabel } from '../../smartFile/incidentalCaseLinking';
 import { MoroccanGlassShell } from '../../smartFile/moroccanGlassShell';
@@ -53,22 +53,28 @@ export const AddIncidentalCaseModal = ({
     const { plaintiffs, defendants } = groupPartiesBySide(stageParties);
     const affiliationParties = affiliationSide === 'plaintiff' ? plaintiffs : affiliationSide === 'defendant' ? defendants : [];
 
+    // إعادة تهيئة النموذج عند فتح الحافة فقط (false→true) — لا تُمسَح أثناء التحرير عند تغيّر isAppeal/editData
+    const wasOpenRef = React.useRef(false);
     React.useEffect(() => {
-        if (isOpen) {
-            setSpawnConfirm(null);
-            if (editMode && editData) {
-                setType(editData.type || (isAppeal ? 'joinder_appeal' : 'joined'));
-                setPartyName(editData.partyName || '');
-                setDetails(editData.details || '');
-                setThirdPartyEntryMode(editData.thirdPartyEntryMode || '');
-                setAffiliationSide(editData.affiliationSide || '');
-            } else {
-                setType(isAppeal ? 'joinder_appeal' : '');
-                setPartyName('');
-                setDetails('');
-                setThirdPartyEntryMode('');
-                setAffiliationSide('');
-            }
+        if (!isOpen) {
+            wasOpenRef.current = false;
+            return;
+        }
+        if (wasOpenRef.current) return;
+        wasOpenRef.current = true;
+        setSpawnConfirm(null);
+        if (editMode && editData) {
+            setType(editData.type || (isAppeal ? 'joinder_appeal' : 'joined'));
+            setPartyName(editData.partyName || '');
+            setDetails(editData.details || '');
+            setThirdPartyEntryMode(editData.thirdPartyEntryMode || '');
+            setAffiliationSide(editData.affiliationSide || '');
+        } else {
+            setType(isAppeal ? 'joinder_appeal' : '');
+            setPartyName('');
+            setDetails('');
+            setThirdPartyEntryMode('');
+            setAffiliationSide('');
         }
     }, [isOpen, isAppeal, editMode, editData]);
 
@@ -148,7 +154,7 @@ export const AddIncidentalCaseModal = ({
     return (
         <MoroccanGlassShell onOverlayClick={onClose} maxWidth={isThirdParty ? 'max-w-2xl' : 'max-w-xl'}>
             <SmartModalHeader icon={Briefcase} title={title} onClose={onClose} />
-            <div className={`${T.body} max-h-[82vh] md:min-h-[28rem] md:space-y-6`}>
+            <div className={`${T.body} max-h-[82vh] md:min-h-[28rem] md:space-y-4`}>
                 <div>
                     <label className={T.label}>نوع الإجراء</label>
                     <select value={type} onChange={(e) => handleTypeChange(e.target.value)} className={T.select}>

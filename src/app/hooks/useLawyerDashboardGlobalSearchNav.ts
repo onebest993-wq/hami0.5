@@ -13,6 +13,7 @@ export type UseLawyerDashboardGlobalSearchNavParams = {
     userId: string | null;
     files: FileData[];
     executionFiles: ExecutionFile[];
+    criminalCases?: unknown[];
     /** إغلاق موحّد من bag — sessionKey + persist + scroll */
     closeGlobalSearch: () => void;
     openNotifications: () => void;
@@ -39,6 +40,8 @@ export function useLawyerDashboardGlobalSearchNav(params: UseLawyerDashboardGlob
     filesRef.current = params.files;
     const executionFilesRef = useRef(params.executionFiles);
     executionFilesRef.current = params.executionFiles;
+    const criminalCasesRef = useRef(params.criminalCases ?? []);
+    criminalCasesRef.current = params.criminalCases ?? [];
     const onNavigateToCaseRef = useRef(params.onNavigateToCase);
     onNavigateToCaseRef.current = params.onNavigateToCase;
     const userIdRef = useRef(params.userId);
@@ -68,6 +71,7 @@ export function useLawyerDashboardGlobalSearchNav(params: UseLawyerDashboardGlob
                 userId: userIdRef.current,
                 files: filesRef.current,
                 executionFiles: executionFilesRef.current,
+                criminalCases: criminalCasesRef.current,
                 closeGlobalSearch,
                 openNotifications,
                 openProfileTab,

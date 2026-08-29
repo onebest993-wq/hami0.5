@@ -1,79 +1,51 @@
-import React, { memo } from 'react';
-import { User } from '@/app/components/ui/lucideIcons';
-import { SmartDialog } from '@/app/components/ui/SmartDialog';
-import { SmartToast } from '@/app/components/ui/SmartToast';
-import { buildHamiSupportWhatsAppUrl } from '@/app/constants/supportContacts';
-import { SettingCard, SettingRow } from '../settings-ui';
+import React, { memo, useState } from 'react';
+import { isRealSignedIn } from '@/app/services/auth/shellAuth';
+import { useLawyerSettingsReset } from '@/app/context/LawyerSettingsContext';
+import { SettingCard } from '../settings-ui/index';
+import { AccountLegalDocumentSheet } from './AccountLegalDocumentSheet';
+import { AccountSessionRows, AccountSupportRows } from './AccountSessionRows';
+import { useAccountSectionActions } from './useAccountSectionActions';
+import type { AccountLegalDocumentId } from './accountLegalContent';
 
 export type AccountSectionProps = {
     onClose: () => void;
-    onLogout?: () => void;
+    onLogout?: (options?: { skipLocalPurge?: boolean }) => void | Promise<void>;
+    userId?: string | null;
 };
 
 export const AccountSection = memo(function AccountSection({
     onClose,
     onLogout,
+    userId,
 }: AccountSectionProps) {
-    const openExternal = (url: string, label: string) => {
-        const opened = window.open(url, '_blank', 'noopener,noreferrer');
-        if (!opened) {
-            window.location.assign(url);
-        }
-        SmartToast.success(label);
-    };
-
-    const requestLogout = async () => {
-        if (!onLogout) return;
-        const ok = await SmartDialog.confirm('ستُنهى جلسة تسجيل الدخول على هذا الجهاز.', {
-            title: 'تسجيل الخروج؟',
-            confirmText: 'خروج',
-            cancelText: 'إلغاء',
-        });
-        if (!ok) return;
-        onClose();
-        onLogout();
-    };
+    const [openLegalDocument, setOpenLegalDocument] = useState<AccountLegalDocumentId | null>(null);
+    const signedIn = isRealSignedIn(userId);
+    const resetToDefaults = useLawyerSettingsReset();
+    const actions = useAccountSectionActions(onClose, onLogout, resetToDefaults);
 
     return (
         <div data-testid="settings-section-account" data-settings-interactive="true">
             <SettingCard>
-                <SettingRow
-                    icon={User}
-                    label="الدعم الفني"
-                    action={
-                        <button
-                            type="button"
-                            onClick={() =>
-                                openExternal(
-                                    buildHamiSupportWhatsAppUrl('مرحباً، أحتاج دعماً فنياً في تطبيق حامي'),
-                                    'تم فتح واتساب',
-                                )
-                            }
-                            className="text-[#25D366] text-xs font-bold hover:text-[#3fe07a] min-h-[44px] px-2 touch-manipulation inline-flex items-center"
-                        >
-                            واتساب
-                        </button>
-                    }
+                <AccountSupportRows
+                    openSupportLink={actions.openSupportLink}
+                    onOpenLegalDocument={setOpenLegalDocument}
                 />
-                {onLogout ? (
-                    <SettingRow
-                        icon={User}
-                        label="تسجيل الخروج"
-                        isLast
-                        action={
-                            <button
-                                type="button"
-                                onClick={() => void requestLogout()}
-                                data-testid="settings-account-logout"
-                                aria-label="تسجيل الخروج"
-                                className="text-rose-400 text-xs font-bold min-h-[44px]"
-                            >
-                                خروج
-                            </button>
-                        }
-                    />
-                ) : null}
+                <AccountSessionRows
+                    signedIn={signedIn}
+                    onLogout={onLogout}
+                    logoutPending={actions.logoutPending}
+                    deletePhase={actions.deletePhase}
+                    deleteCountdown={actions.deleteCountdown}
+                    cancelDeleteCountdown={actions.cancelDeleteCountdown}
+                    requestLogin={actions.requestLogin}
+                    requestLogout={actions.requestLogout}
+                    requestDeleteAccount={actions.requestDeleteAccount}
+                />
             </SettingCard>
+            <AccountLegalDocumentSheet
+                documentId={openLegalDocument}
+                onClose={() => setOpenLegalDocument(null)}
+            />
         </div>
     );
 });

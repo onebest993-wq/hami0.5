@@ -10,7 +10,9 @@
  */
 
 import React from 'react';
-import { X, Trash2, CheckCircle } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
+import { CheckCircle } from '@/app/components/ui/icons/CheckCircle';
 import type { TimelineEvent } from '@/app/types/execution';
 import type { ExecutionFile } from '@/app/types/execution';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
@@ -82,20 +84,20 @@ export const ExecutionTrashModal: React.FC<ExecutionTrashModalProps> = ({
 
     return (
         <div
-            className={`fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
+            className={`fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
             dir="rtl"
             onClick={onClose}
             role="presentation"
         >
             <div
-                className={`flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0B1120] shadow-2xl shadow-black/50 ${EXEC_MODAL_TRASH_SHELL_MAX}`}
+                className={`flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0B1120] shadow-md ${EXEC_MODAL_TRASH_SHELL_MAX}`}
                 onClick={(e) => e.stopPropagation()}
                 role="dialog"
                 aria-label="سلة مهملات الإضبارة"
             >
                 {/* Header */}
                 <div
-                    className={`sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-gradient-to-l from-slate-950/90 to-[#0B1120] p-3 ${EXEC_MODAL_HEADER_SAFE_TOP}`}
+                    className={`sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-[#0B1120] p-3 ${EXEC_MODAL_HEADER_SAFE_TOP}`}
                 >
                     <button
                         type="button"

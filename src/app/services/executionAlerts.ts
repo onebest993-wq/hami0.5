@@ -18,7 +18,7 @@
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { composeRichAlert } from '@/app/services/alertRichContext';
 import type { DossierRegistry } from '@/app/services/alertDossierRegistry';
-import { parseYmdToTs, dayDiff } from '@/app/services/executionAlerts.helpers';
+import { parseYmdToTs, dayDiff, calendarDaysUntil } from '@/app/services/executionAlerts.helpers';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -95,13 +95,13 @@ export function buildExecutionAlerts(
             );
         }
 
-        // 2) executive_detention_until — قبل 2-7 أيام
+        // 2) executive_detention_until — خلال ٧ أيام تقويمية حتى نهاية يوم الانتهاء
         const detentionUntil = safeStr(f.executive_detention_until);
         const detentionReminderSent = f.executive_detention_reminder_sent === true;
         if (detentionUntil && !detentionReminderSent) {
             const ts = parseYmdToTs(detentionUntil);
             if (ts != null) {
-                const days = dayDiff(ts, nowTs);
+                const days = calendarDaysUntil(ts, nowTs);
                 if (days >= 0 && days <= 7) {
                     pushAlert(
                         out,

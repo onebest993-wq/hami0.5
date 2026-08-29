@@ -21,6 +21,15 @@ describe('contentSecurityPolicy', () => {
     expect(csp).not.toContain('upgrade-insecure-requests');
   });
 
+  it('e2e-preview CSP keeps production script-src without HTTPS upgrade (WebKit preview)', () => {
+    const csp = buildContentSecurityPolicy('e2e-preview');
+    const scriptSrc = csp.split(';').find((d) => d.trim().startsWith('script-src')) ?? '';
+    expect(scriptSrc).toContain("'self'");
+    expect(scriptSrc).not.toContain('unsafe-eval');
+    expect(csp).toContain('http://127.0.0.1:*');
+    expect(csp).not.toContain('upgrade-insecure-requests');
+  });
+
   it('resolveCspMode maps development correctly', () => {
     expect(resolveCspMode('development', 'development')).toBe('development');
     expect(resolveCspMode('production', 'production')).toBe('production');

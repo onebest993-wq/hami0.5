@@ -1,29 +1,22 @@
 import React from 'react';
+import { EXECUTION_PARTY_FRAME_BASE } from '@/app/components/lawyer/ExecutionDashboard/executionDossierVisualLite';
 
 type PartyCardVariant = 'creditor' | 'debtor';
 
 const VARIANT = {
     creditor: {
-        card: 'border-emerald-500/30 ring-emerald-500/12 hover:ring-emerald-500/22',
-        badge: 'border-emerald-400/45 bg-[#0B1120]/95 text-emerald-300 shadow-emerald-950/40',
-        panelBorder: 'border-emerald-500/15',
-        headerFocus: 'focus-visible:ring-emerald-500/40',
+        card: 'border-emerald-500/20 hover:border-emerald-500/32',
+        badge: 'border-emerald-400/35 bg-[#0B1120] text-emerald-300/95',
+        panelBorder: 'border-emerald-500/12',
+        headerFocus: 'focus-visible:ring-emerald-500/35',
     },
     debtor: {
-        card: 'border-rose-500/30 ring-rose-500/12 hover:ring-rose-500/22',
-        badge: 'border-rose-400/45 bg-[#0B1120]/95 text-rose-300 shadow-rose-950/40',
-        panelBorder: 'border-rose-500/15',
-        headerFocus: 'focus-visible:ring-rose-500/40',
+        card: 'border-rose-500/20 hover:border-rose-500/32',
+        badge: 'border-rose-400/35 bg-[#0B1120] text-rose-300/95',
+        panelBorder: 'border-rose-500/12',
+        headerFocus: 'focus-visible:ring-rose-500/35',
     },
 } as const;
-
-const WOOD_GRAIN_STYLE: React.CSSProperties = {
-    backgroundImage:
-        'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 55%, rgba(0,0,0,0) 100%),' +
-        'repeating-linear-gradient(45deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 1px, transparent 1px, transparent 16px),' +
-        'repeating-linear-gradient(135deg, rgba(255,255,255,0.028) 0px, rgba(255,255,255,0.028) 1px, transparent 1px, transparent 16px)',
-    backgroundBlendMode: 'overlay',
-};
 
 export type ExecutionPartyCardFrameProps = {
     variant: PartyCardVariant;
@@ -68,16 +61,15 @@ export const ExecutionPartyCardFrame = React.memo(function ExecutionPartyCardFra
 
     return (
         <div
-            className={`relative isolate w-full overflow-visible rounded-2xl border bg-[#0B1120]/38 text-right shadow-[0_10px_32px_rgba(0,0,0,0.38)] ring-1 transition-[border-color,box-shadow] duration-150 ${v.card} ${className}`}
+            className={`${EXECUTION_PARTY_FRAME_BASE} ${v.card} ${className}`}
             dir="rtl"
-            style={WOOD_GRAIN_STYLE}
         >
             <div
                 className="pointer-events-none absolute left-1/2 top-0 z-20 flex -translate-x-1/2 -translate-y-1/2 justify-center"
                 aria-hidden
             >
                 <span
-                    className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-3 py-0.5 text-[11px] font-extrabold leading-none shadow-md backdrop-blur-md ${v.badge}`}
+                    className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 text-[10px] font-bold leading-none ${v.badge}`}
                 >
                     {roleLabel}
                     {badgeExtra}
@@ -90,7 +82,7 @@ export const ExecutionPartyCardFrame = React.memo(function ExecutionPartyCardFra
                 aria-label={expandAriaLabel}
                 onClick={handleHeaderClick}
                 onKeyDown={handleHeaderKeyDown}
-                className={`relative z-[2] flex w-full cursor-pointer flex-col items-center justify-center gap-0.5 px-3 pb-1.5 pt-2.5 text-center outline-none focus-visible:ring-2 ${v.headerFocus}`}
+                className={`relative z-[2] flex min-h-[44px] w-full cursor-pointer flex-col items-center justify-center gap-0.5 px-2.5 pb-1 pt-2 text-center outline-none focus-visible:ring-2 ${v.headerFocus}`}
             >
                 <div className="pointer-events-none flex w-full flex-col items-center justify-center [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_textarea]:pointer-events-auto [&_select]:pointer-events-auto [&_a]:pointer-events-auto [&_[role=button]]:pointer-events-auto">
                     {children}

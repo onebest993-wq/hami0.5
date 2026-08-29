@@ -23,6 +23,7 @@ vi.mock('../security/bffAuth.ts', async (importOriginal) => {
   return {
     ...actual,
     requireWifeUser: (...args: unknown[]) => requireWifeUserMock(...args),
+    requireWifeCloudWrite: (...args: unknown[]) => requireWifeUserMock(...args),
   };
 });
 
@@ -150,5 +151,27 @@ describe('upload route security checkpoints', () => {
     }
     expect(body.ok).toBe(true);
     expect(body.downloadUrl).toBe('https://example.test/signed');
+  });
+
+  it('returns 200 for forum-media .enc even when magic-bytes validator would fail', async () => {
+    (validateFileBuffer as unknown as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    const bytes = new Uint8Array([0x11, 0x22, 0x33, 0x44]);
+    const file = new File([bytes], '1_photo.jpg.enc', { type: 'application/octet-stream' });
+    Object.defineProperty(file, 'arrayBuffer', {
+      configurable: true,
+      value: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    });
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('category', 'forum-media');
+    const req = {
+      method: 'POST',
+      url: 'http://127.0.0.1/api/upload',
+      headers: new Headers({ 'x-wife-content-hash': 'a'.repeat(64) }),
+      formData: async () => fd,
+    } as unknown as Request;
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect(validateFileBuffer).not.toHaveBeenCalled();
   });
 });

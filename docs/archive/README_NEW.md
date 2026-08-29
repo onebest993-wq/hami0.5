@@ -10,7 +10,7 @@
 - ✅ **ملفات الدعاوى** (مدني/شرعي/جزائي) - 3 مراحل (بداءة/استئناف/تمييز)
 - ✅ **ملفات التنفيذ** (منفصلة تماماً عن الدعاوى)
 - ✅ **حاسبات قانونية** (نفقة/ميراث/مزادات)
-- ✅ **ذكاء اصطناعي** (Gemini + OpenAI)
+- ✅ **تنبيهات إجرائية محلية**
 - ✅ **واجهة Royal** (كحلي وذهبي)
 - ✅ **يعمل offline** (مع مزامنة تلقائية)
 
@@ -30,9 +30,6 @@ npm install
 SUPABASE_URL=your_project_url
 SUPABASE_ANON_KEY=your_anon_key
 
-# AI (اختياري)
-GEMINI_API_KEY=your_gemini_key
-OPENAI_API_KEY=your_openai_key
 ```
 
 ### 3. التشغيل
@@ -178,11 +175,6 @@ npm run test:coverage
 1. تأكد من تسجيل الدخول
 2. افحص Console للأخطاء
 3. تأكد من إنشاء الجداول في Supabase
-
-### مشكلة: الذكاء الاصطناعي لا يعمل
-**الحل:**
-1. تأكد من إضافة `GEMINI_API_KEY` في `.env`
-2. فعّل Generative Language API في Google Cloud
 
 ### مشكلة: Offline mode لا يعمل
 **الحل:**

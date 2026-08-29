@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { hexToRgba, resolveSettingsShellStyle } from '../settingsShellStyle';
-import { LAWYER_THEME_TOKENS } from '@/app/services/settings';
+import { resolveSettingsShellStyle } from '../settingsShellStyle';
+import { hexToRgba, LAWYER_THEME_TOKENS } from '@/app/services/settings';
 import type { AppSettingsState } from '@/app/services/settings';
 
 const baseAppearance = {

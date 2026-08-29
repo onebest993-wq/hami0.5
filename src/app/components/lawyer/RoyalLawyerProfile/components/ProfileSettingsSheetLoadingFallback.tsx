@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
 
 type ProfileSettingsSheetLoadingFallbackProps = {
     onClose?: () => void;
@@ -21,7 +22,14 @@ export function ProfileSettingsSheetLoadingFallback({
             onClose();
         };
         window.addEventListener('keydown', onKey, true);
-        return () => window.removeEventListener('keydown', onKey, true);
+        const unregisterNativeBack = registerNativeBackHandler(() => {
+            onClose();
+            return true;
+        });
+        return () => {
+            window.removeEventListener('keydown', onKey, true);
+            unregisterNativeBack();
+        };
     }, [onClose]);
 
     return createPortal(
@@ -32,13 +40,19 @@ export function ProfileSettingsSheetLoadingFallback({
             aria-label="استوديو الصفحة"
             data-testid="profile-settings-sheet-loading"
         >
-            <button
-                type="button"
-                className="absolute inset-0 bg-[#010308]/72 backdrop-blur-[14px]"
-                aria-label="إغلاق"
-                onClick={onClose}
+            <div
+                className="absolute inset-0 bg-[#010308]/70"
+                aria-hidden
+                onPointerDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }}
+                onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }}
             />
-            <div className="relative w-full max-h-[min(92dvh,720px)] rounded-t-[28px] border-t border-x border-[#E6C673]/14 bg-[#080D18]/96 overflow-hidden pb-[max(12px,env(safe-area-inset-bottom))]">
+            <div className="relative w-full max-w-[min(100%,32.5rem)] mx-auto max-h-[min(92dvh,720px)] rounded-t-[28px] border-t border-x border-white/[0.06] bg-[#0a0f1c] overflow-hidden pb-[max(12px,env(safe-area-inset-bottom))] ps-[max(0px,env(safe-area-inset-left))] pe-[max(0px,env(safe-area-inset-right))]">
                 <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mt-3 mb-4" aria-hidden />
                 <div className="px-5 pb-3">
                     <div className="h-6 w-36 rounded-lg bg-white/[0.06] animate-pulse mx-auto" aria-hidden />

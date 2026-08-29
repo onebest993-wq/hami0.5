@@ -1,4 +1,4 @@
-import type { FinanceRecord, Transaction, TransactionDocument, TransactionTask } from './types';
+import type { Transaction, TransactionDocument, TransactionTask } from './types';
 import { mirrorTransactionsThreadingLocalSync } from '@/app/services/transactions/transactionsThreadingMirror';
 import { InMemoryTransactionsThreadingRepository, type TransactionsThreadingRepository } from './repository';
 
@@ -26,7 +26,7 @@ export class PersistentTransactionsThreadingRepository implements TransactionsTh
     seed?: {
       transactions?: Transaction[];
       tasks?: TransactionTask[];
-      financeRecords?: FinanceRecord[];
+      financeRecords?: unknown[];
       documents?: TransactionDocument[];
     },
   ) {
@@ -41,16 +41,11 @@ export class PersistentTransactionsThreadingRepository implements TransactionsTh
     const remote = {
       transactions: Array.isArray(state.transactions) ? (state.transactions as Transaction[]) : [],
       tasks: Array.isArray(state.tasks) ? (state.tasks as TransactionTask[]) : [],
-      financeRecords: Array.isArray(state.financeRecords) ? (state.financeRecords as FinanceRecord[]) : [],
       documents: Array.isArray(state.documents) ? (state.documents as TransactionDocument[]) : [],
     };
 
     const current = this.inner.dump();
-    const hasLocal =
-        current.transactions.length > 0 ||
-        current.tasks.length > 0 ||
-        current.financeRecords.length > 0 ||
-        current.documents.length > 0;
+    const hasLocal = current.transactions.length > 0 || current.tasks.length > 0 || current.documents.length > 0;
 
     if (!hasLocal) {
       this.inner.replace(remote);
@@ -60,7 +55,7 @@ export class PersistentTransactionsThreadingRepository implements TransactionsTh
     this.inner.replace({
       transactions: mergeById(current.transactions, remote.transactions),
       tasks: mergeById(current.tasks, remote.tasks),
-      financeRecords: mergeById(current.financeRecords, remote.financeRecords),
+      financeRecords: [],
       documents: mergeById(current.documents, remote.documents),
     });
   }
@@ -149,35 +144,6 @@ export class PersistentTransactionsThreadingRepository implements TransactionsTh
   async deleteTask(id: string): Promise<void> {
     void this.kickHydrate();
     await this.inner.deleteTask(id);
-    this.persistMutation();
-  }
-
-  async listFinanceRecords(transactionId: string): Promise<FinanceRecord[]> {
-    void this.kickHydrate();
-    return await this.inner.listFinanceRecords(transactionId);
-  }
-
-  async getFinanceRecord(id: string): Promise<FinanceRecord | undefined> {
-    void this.kickHydrate();
-    return await this.inner.getFinanceRecord(id);
-  }
-
-  async saveFinanceRecord(record: FinanceRecord): Promise<void> {
-    void this.kickHydrate();
-    await this.inner.saveFinanceRecord(record);
-    this.persistMutation();
-  }
-
-  async updateFinanceRecord(id: string, updates: Partial<FinanceRecord>): Promise<FinanceRecord> {
-    void this.kickHydrate();
-    const r = await this.inner.updateFinanceRecord(id, updates);
-    this.persistMutation();
-    return r;
-  }
-
-  async deleteFinanceRecord(id: string): Promise<void> {
-    void this.kickHydrate();
-    await this.inner.deleteFinanceRecord(id);
     this.persistMutation();
   }
 

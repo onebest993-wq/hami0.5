@@ -47,7 +47,6 @@ async function gotoDashboard(page: Page) {
 async function tapHubArchiveTransaction(page: Page) {
     const trigger = page.getByTestId('hub-archive-transaction');
     const hub = page.getByTestId('transactions-hub');
-    const loading = page.getByTestId('transactions-hub-loading');
 
     await scrollHomeGridToTransactionTile(page);
     await dismissTransactionsBlockers(page);
@@ -62,21 +61,15 @@ async function tapHubArchiveTransaction(page: Page) {
             await trigger.click({ force: true, timeout: 8_000 });
         }
 
-        const opened =
-            (await hub.isVisible().catch(() => false)) ||
-            (await loading.isVisible().catch(() => false));
-        if (!opened) {
+        if (!(await hub.isVisible().catch(() => false))) {
             await trigger.evaluate((el) => {
                 (el as HTMLButtonElement).click();
             });
         }
 
-        await expect(loading.or(hub)).toBeVisible({ timeout: 12_000 });
+        await expect(hub).toBeVisible({ timeout: 12_000 });
     }).toPass({ timeout: 30_000 });
 
-    if (await loading.isVisible().catch(() => false)) {
-        await expect(loading).toBeHidden({ timeout: 35_000 });
-    }
     await expect(hub).toBeVisible({ timeout: 15_000 });
 }
 
@@ -92,14 +85,14 @@ export async function ensureTransactionsDashboard(page: Page): Promise<void> {
 }
 
 async function waitForTransactionsListReady(page: Page) {
-    const list = page.getByTestId('transactions-list-screen');
-    const loading = page.getByTestId('transactions-hub-loading');
+    const hub = page.getByTestId('transactions-hub');
+    await expect(hub).toBeVisible({ timeout: 20_000 });
     await expect(async () => {
-        if (await list.isVisible()) return;
-        if (await loading.isVisible().catch(() => false)) {
-            await expect(loading).toBeHidden({ timeout: 12_000 });
+        const details = hub.getByTestId('transactions-details-screen');
+        if (await details.isVisible().catch(() => false)) {
+            await details.getByTestId('transactions-back').click({ force: true });
         }
-        await expect(list).toBeVisible();
+        await expect(hub.getByTestId('transactions-list-screen')).toBeVisible({ timeout: 5_000 });
     }).toPass({ timeout: 45_000 });
 }
 
@@ -167,7 +160,20 @@ export async function ensureE2eTransactionInHub(page: Page): Promise<void> {
     await seedLawyerFiles(page);
     await ensureTransactionsDashboard(page);
     await openTransactionsFromHome(page);
-    await expect(page.getByText(E2E_TX_TITLE)).toBeVisible({ timeout: 20_000 });
+    const hub = page.getByTestId('transactions-hub');
+    await expect(hub).toBeVisible({ timeout: 15_000 });
+    const card = hub.getByTestId(`transactions-card-${E2E_TX_ID}`);
+    await expect(card).toBeVisible({ timeout: 20_000 });
+    await expect(card).toBeEnabled({ timeout: 8_000 });
+}
+
+/** يفتح تفاصيل معاملة E2E بعد انتهاء حاجز نقرة الشبح */
+export async function openE2eTransactionDetails(page: Page): Promise<void> {
+    const hub = page.getByTestId('transactions-hub');
+    const card = hub.getByTestId(`transactions-card-${E2E_TX_ID}`);
+    await expect(card).toBeEnabled({ timeout: 8_000 });
+    await card.click();
+    await expect(page.getByTestId('transactions-details-screen')).toBeVisible({ timeout: 10_000 });
 }
 
 export async function expectTransactionsAddSheetClosed(page: Page) {

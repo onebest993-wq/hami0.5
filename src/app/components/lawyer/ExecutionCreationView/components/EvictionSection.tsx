@@ -6,10 +6,12 @@ interface EvictionSectionProps {
     evictionDistrict: string;
     evictionPropertyType: string;
     evictionFullAddress: string;
+    evictionPremisesUse: 'commercial' | 'residential';
     onPropertyNumberChange: (v: string) => void;
     onDistrictChange: (v: string) => void;
     onPropertyTypeChange: (v: string) => void;
     onFullAddressChange: (v: string) => void;
+    onPremisesUseChange: (v: 'commercial' | 'residential') => void;
 }
 
 export const EvictionSection: React.FC<EvictionSectionProps> = ({
@@ -17,10 +19,12 @@ export const EvictionSection: React.FC<EvictionSectionProps> = ({
     evictionDistrict,
     evictionPropertyType,
     evictionFullAddress,
+    evictionPremisesUse,
     onPropertyNumberChange,
     onDistrictChange,
     onPropertyTypeChange,
     onFullAddressChange,
+    onPremisesUseChange,
 }) => (
     <div className={`${ecg.subCard} animate-fade-in`}>
         <h4 className={`${ecg.subCardTitle} text-[#E6C673] border-b border-white/8 pb-2 mb-3`}>
@@ -66,6 +70,39 @@ export const EvictionSection: React.FC<EvictionSectionProps> = ({
                     placeholder="مثال: دار سكنية، محل تجاري، طابق أرضي..."
                     dir="rtl"
                 />
+            </div>
+            <div className="sm:col-span-2">
+                <label className={ecg.labelGold} htmlFor="execution-creation-eviction-premises-residential">
+                    استعمال العقار
+                </label>
+                <div
+                    className={ecg.choiceRow}
+                    role="group"
+                    aria-label="استعمال العقار"
+                    data-testid="execution-creation-eviction-premises-use"
+                >
+                    <button
+                        id="execution-creation-eviction-premises-residential"
+                        type="button"
+                        onClick={() => onPremisesUseChange('residential')}
+                        aria-pressed={evictionPremisesUse === 'residential'}
+                        className={`${ecg.choiceBtn} ${
+                            evictionPremisesUse === 'residential' ? ecg.choiceBtnActive : ecg.choiceBtnIdle
+                        }`}
+                    >
+                        سكني
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onPremisesUseChange('commercial')}
+                        aria-pressed={evictionPremisesUse === 'commercial'}
+                        className={`${ecg.choiceBtn} ${
+                            evictionPremisesUse === 'commercial' ? ecg.choiceBtnActive : ecg.choiceBtnIdle
+                        }`}
+                    >
+                        تجاري
+                    </button>
+                </div>
             </div>
             <div className="sm:col-span-2">
                 <label className={ecg.labelGold}>

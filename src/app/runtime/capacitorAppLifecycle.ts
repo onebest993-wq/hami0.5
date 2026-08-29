@@ -1,45 +1,25 @@
 import { isAndroidNativeShell, isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import { applyNativeResumeFastPath } from '@/app/runtime/nativeResumeFastPath';
+import { dispatchNativeBack } from '@/app/runtime/nativeBackStack';
+import { publishHamiAppState } from '@/app/runtime/appStateEvents';
+import { wireOverlayEdgeBackGesture } from '@/app/runtime/overlayEdgeBackGesture';
 
-export type NativeBackHandler = () => boolean;
-
-/** مكدس LIFO — آخر مسجّل يُستهلك أولاً (تجنّب سباق الطبقات المتداخلة) */
-const nativeBackHandlers: NativeBackHandler[] = [];
-
-/** تسجيل معالج رجوع أندرويد — يُرجع true إذا استُوعب الحدث */
-export function registerNativeBackHandler(handler: NativeBackHandler): () => void {
-    nativeBackHandlers.push(handler);
-    return () => {
-        const idx = nativeBackHandlers.lastIndexOf(handler);
-        if (idx >= 0) nativeBackHandlers.splice(idx, 1);
-    };
-}
-
-/** للاختبارات — محاكاة زر الرجوع */
-export function consumeNativeBackForTests(): boolean {
-    return dispatchNativeBack();
-}
-
-/** للاختبارات — إفراغ المكدس */
-export function resetNativeBackHandlersForTests(): void {
-    nativeBackHandlers.length = 0;
-}
-
-function dispatchNativeBack(): boolean {
-    for (let i = nativeBackHandlers.length - 1; i >= 0; i -= 1) {
-        const handler = nativeBackHandlers[i];
-        if (handler?.()) return true;
-    }
-    return false;
-}
+export type { NativeBackHandler } from '@/app/runtime/nativeBackStack';
+export {
+    registerNativeBackHandler,
+    consumeNativeBackForTests,
+    resetNativeBackHandlersForTests,
+} from '@/app/runtime/nativeBackStack';
 
 function applyAppActiveDataset(isActive: boolean): void {
     if (typeof document === 'undefined') return;
     document.documentElement.dataset.hamiAppActive = isActive ? '1' : '0';
+    publishHamiAppState(isActive);
 }
 
 /** App plugin — زر الرجوع + حالة foreground/background */
 export async function wireCapacitorAppLifecycle(): Promise<void> {
+    wireOverlayEdgeBackGesture();
     if (!isCapacitorNativePlatform()) return;
 
     try {
@@ -56,6 +36,19 @@ export async function wireCapacitorAppLifecycle(): Promise<void> {
             applyAppActiveDataset(isActive);
             if (isActive) applyNativeResumeFastPath();
         });
+
+        void App.addListener('appUrlOpen', ({ url }) => {
+            if (!url) return;
+            void import('@/app/services/auth/passwordRecoveryGate').then((m) => {
+                m.applyAuthDeepLink(url);
+            });
+        });
+
+        const launched = await App.getLaunchUrl();
+        if (launched?.url) {
+            const { applyAuthDeepLink } = await import('@/app/services/auth/passwordRecoveryGate');
+            applyAuthDeepLink(launched.url);
+        }
 
         const state = await App.getState();
         applyAppActiveDataset(state.isActive);

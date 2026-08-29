@@ -1,4 +1,4 @@
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import type { CaseStage } from '../../LawyerShared';
 import { isAwaitingOpponentAppeal } from './judgmentTypes';
 import {
@@ -13,7 +13,7 @@ import {
 import { normalizeLegacyCassationRemandStages } from './appealStageTransition';
 import { repairAbsentObjectionAppealStages } from './absentObjectionAppealRepair';
 import { isPersonalStatusFile } from '@/app/components/lawyer/personal-status/personalStatusValidation';
-import { isPersonalStatusCoreStage } from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
+import { isPersonalStatusCoreStage } from '@/app/components/lawyer/personal-status/personalStatusAppealStageHelpers';
 
 /** يستنتج مرحلة العمل الفعّالة من حالة المراحل عند غياب activeStageIndex على الملف. */
 export function inferActiveStageIndexFromStages(stages: CaseStage[]): number | null {
@@ -53,7 +53,7 @@ function resolvePersonalStatusFallbackIndex(stages: CaseStage[], stagesLength: n
 }
 
 /** توحيد سجلات المراحل القديمة عند فتح الإضبارة */
-export function normalizeLegacyLawsuitStages(stages: CaseStage[]): CaseStage[] {
+function normalizeLegacyLawsuitStages(stages: CaseStage[]): CaseStage[] {
     const remanded = normalizeLegacyCassationRemandStages(stages);
     return repairAbsentObjectionAppealStages(remanded);
 }
@@ -79,16 +79,23 @@ export function buildInitialStagesFromFile(file: Record<string, unknown> | null 
                 }
             }
             const patched = [...stages];
+            const fileJudge =
+                (typeof file?.judge === 'string' ? file.judge : '') ||
+                (typeof (file?.details as Record<string, unknown> | undefined)?.judge === 'string'
+                    ? String((file?.details as Record<string, unknown>).judge)
+                    : '');
+            const fileStageName =
+                typeof file?.currentStage === 'string' && file.currentStage.trim()
+                    ? file.currentStage.trim()
+                    : '';
+            const activeStageName = String(active.stageName ?? active.name ?? '').trim();
             let normalizedActive = {
                 ...active,
                 caseNo: active.caseNo || (typeof file?.caseNo === 'string' ? file.caseNo : ''),
                 court: active.court || (typeof file?.court === 'string' ? file.court : ''),
-                judge:
-                    active.judge ||
-                    (typeof file?.judge === 'string' ? file.judge : '') ||
-                    (typeof (file?.details as Record<string, unknown> | undefined)?.judge === 'string'
-                        ? String((file?.details as Record<string, unknown>).judge)
-                        : ''),
+                judge: active.judge || fileJudge,
+                stageName: activeStageName || fileStageName,
+                name: String(active.name ?? '').trim() || activeStageName || fileStageName,
                 docType: active.docType || (typeof file?.docType === 'string' ? file.docType : ''),
                 claimValue: active.claimValue || (typeof file?.claimValue === 'string' ? file.claimValue : ''),
                 parties: resolvedParties,

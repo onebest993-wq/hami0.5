@@ -1,7 +1,7 @@
 /** فتح مركز المعاملات من لوحة المحامي */
 export const TRANSACTIONS_SHELL_FEATURE = 'مركز المعاملات';
 
-export type OpenTransactionsShellInput = {
+type OpenTransactionsShellInput = {
     signedIn: boolean;
     onOpen: () => void;
     onSignedOut?: () => void;

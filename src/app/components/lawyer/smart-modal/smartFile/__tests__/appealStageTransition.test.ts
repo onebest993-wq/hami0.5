@@ -166,6 +166,29 @@ describe('appealStageTransition', () => {
         expect(next.incidentalCases?.some((c) => c.type === 'joinder_appeal')).toBe(true);
     });
 
+    it('leaves absent-objection case number empty when not entered', () => {
+        const firstInstance = { ...baseStage, caseNo: '111/ب/2026' } as CaseStage;
+        const { updatedStages } = applyAppealStageTransition([firstInstance], 0, firstInstance, {
+            appealType: 'اعتراض على الحكم الغيابي',
+            appellant: 'المدعى عليه',
+            filingDate: '2026-03-01',
+            newCaseNumber: '',
+        });
+        expect(updatedStages[1]?.caseNo).toBe('');
+        expect(updatedStages[1]?.isUnderObjection).toBe(true);
+    });
+
+    it('keeps an entered absent-objection case number', () => {
+        const firstInstance = { ...baseStage, caseNo: '111/ب/2026' } as CaseStage;
+        const { updatedStages } = applyAppealStageTransition([firstInstance], 0, firstInstance, {
+            appealType: 'اعتراض على الحكم الغيابي',
+            appellant: 'المدعى عليه',
+            filingDate: '2026-03-01',
+            newCaseNumber: '111/ب/اعتراضية/2026',
+        });
+        expect(updatedStages[1]?.caseNo).toBe('111/ب/اعتراضية/2026');
+    });
+
     it('hides opponent appeal button on locked or appeal stages', () => {
         expect(
             shouldShowOpponentAppealRegisterButton(

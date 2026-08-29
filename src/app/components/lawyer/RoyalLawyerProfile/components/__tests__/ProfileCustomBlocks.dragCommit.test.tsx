@@ -38,6 +38,7 @@ describe('ProfileCustomBlocks drag commit', () => {
         );
 
         const canvas = container.querySelector('[data-profile-blocks-canvas]') as HTMLDivElement;
+        expect(canvas.getAttribute('data-testid')).toBe('profile-custom-blocks');
         const handle = container.querySelector('.profile-block-drag-handle') as HTMLButtonElement;
         expect(canvas).toBeTruthy();
         expect(handle).toBeTruthy();
@@ -71,7 +72,57 @@ describe('ProfileCustomBlocks drag commit', () => {
         expect(moved?.order).toBe(2);
     });
 
-    it('لا يبدأ السحب على اللمس إلا من المقبض وبعد تجاوز العتبة', () => {
+    it('لمس المقبض يبدأ السحب فوراً حتى بزر -1 ودون عتبة 10px', () => {
+        const onBlocksLayoutChange = vi.fn();
+        const { container } = render(
+            <ProfileCustomBlocks blocks={blocks} editable onBlocksLayoutChange={onBlocksLayoutChange} />,
+        );
+
+        const canvas = container.querySelector('[data-profile-blocks-canvas]') as HTMLDivElement;
+        const handle = container.querySelector('.profile-block-drag-handle') as HTMLButtonElement;
+        Object.defineProperty(canvas, 'setPointerCapture', {
+            value: () => {
+                throw new Error('InvalidStateError');
+            },
+            configurable: true,
+        });
+        Object.defineProperty(canvas, 'releasePointerCapture', { value: vi.fn(), configurable: true });
+        Object.defineProperty(canvas, 'hasPointerCapture', { value: () => false, configurable: true });
+        Object.defineProperty(handle, 'setPointerCapture', { value: vi.fn(), configurable: true });
+        Object.defineProperty(handle, 'releasePointerCapture', { value: vi.fn(), configurable: true });
+        Object.defineProperty(handle, 'hasPointerCapture', { value: () => false, configurable: true });
+        Object.defineProperty(canvas, 'getBoundingClientRect', {
+            value: () => ({
+                width: 400,
+                height: 400,
+                top: 0,
+                left: 0,
+                right: 400,
+                bottom: 400,
+                x: 0,
+                y: 0,
+                toJSON() {},
+            }),
+            configurable: true,
+        });
+
+        fireEvent.pointerDown(handle, {
+            pointerId: 11,
+            clientX: 100,
+            clientY: 100,
+            button: -1,
+            pointerType: 'touch',
+        });
+        fireEvent.pointerCancel(document, { pointerId: 11, pointerType: 'touch' });
+        fireEvent.pointerMove(document, { pointerId: 11, clientX: 104, clientY: 108, pointerType: 'touch' });
+        fireEvent.pointerUp(document, { pointerId: 11, clientX: 104, clientY: 108, pointerType: 'touch' });
+
+        expect(onBlocksLayoutChange).toHaveBeenCalledTimes(1);
+        const next = onBlocksLayoutChange.mock.calls[0]![0] as ProfileCustomBlock[];
+        expect(next.find((b) => b.id === 'a')?.order).toBe(2);
+    });
+
+    it('لا يبدأ السحب باللمس من هيكل الحاوية — المقبض فقط', () => {
         const onBlocksLayoutChange = vi.fn();
         const { container } = render(
             <ProfileCustomBlocks blocks={blocks} editable onBlocksLayoutChange={onBlocksLayoutChange} />,

@@ -1,7 +1,12 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { Archive, ChevronDown, LayoutGrid, List, Search, SlidersHorizontal, Trash2 } from '@/app/components/ui/lucideIcons';
+import { Archive } from '@/app/components/ui/icons/Archive';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
+import { LayoutGrid } from '@/app/components/ui/icons/LayoutGrid';
+import { List } from '@/app/components/ui/icons/List';
+import { Search } from '@/app/components/ui/icons/Search';
+import { SlidersHorizontal } from '@/app/components/ui/icons/SlidersHorizontal';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import type { LawsuitJurisdictionTab } from '@/app/domain/lawsuit/lawsuitJurisdiction';
-import { prefetchCriminalDashboard } from '@/app/utils/lazyComponentsIntent';
 import {
     ARCHIVE_GLASS_ACTIVE_COMPACT,
     ARCHIVE_SEGMENT_BTN_ACTIVE,
@@ -11,10 +16,13 @@ import {
 
 export type ArchiveDossierViewMode = 'grid' | 'compact';
 
-/** توافق أسماء قديمة — الاختصاص فقط بلا مستعجل */
-export type LawsuitWorkspaceFilterChip = LawsuitJurisdictionTab;
+function prefetchCriminalListPath(): void {
+    void import('@/app/utils/lazyComponentsIntent')
+        .then((m) => m.prefetchCriminalListPath())
+        .catch(() => undefined);
+}
 
-export type LawsuitLifecycleViewMode = 'active' | 'archived' | 'trash';
+type LawsuitLifecycleViewMode = 'active' | 'archived' | 'trash';
 
 const JURISDICTION_TABS: { id: LawsuitJurisdictionTab; label: string; full: string }[] = [
     { id: 'all', label: 'الكل', full: 'كل الاختصاصات' },
@@ -33,17 +41,11 @@ export type ArchiveDossierToolbarProps = {
     showJurisdictionTabs: boolean;
     jurisdictionTab: LawsuitJurisdictionTab;
     onJurisdictionTabChange: (value: LawsuitJurisdictionTab) => void;
-    /** @deprecated */
-    searchOpen?: boolean;
-    /** @deprecated */
-    onToggleSearch?: () => void;
     searchQuery: string;
     onSearchQueryChange: (value: string) => void;
     searchPlaceholder?: string;
     viewMode: ArchiveDossierViewMode;
     onViewModeChange: (mode: ArchiveDossierViewMode) => void;
-    /** @deprecated */
-    showUrgentChip?: boolean;
     /** دمج النشطة/الأرشيف داخل لوحة الفلتر بجانب البحث */
     lifecycleViewMode?: LawsuitLifecycleViewMode;
     onLifecycleViewModeChange?: (mode: LawsuitLifecycleViewMode) => void;
@@ -100,9 +102,9 @@ export const ArchiveDossierToolbar: React.FC<ArchiveDossierToolbarProps> = ({
     }, [filtersOpen]);
 
     return (
-        <div dir="rtl" ref={rootRef} className="relative w-full px-4 sm:px-5 py-2 border-b border-white/[0.06]">
+        <div dir="rtl" ref={rootRef} className="relative w-full px-4 sm:px-5 py-1.5 border-b border-white/[0.06]">
             <div
-                className="flex h-11 w-full items-stretch overflow-hidden rounded-2xl border border-white/12 bg-white/[0.035] backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                className="flex h-11 w-full items-stretch overflow-hidden rounded-xl border border-white/12 bg-[#0B1021]/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
                 role="search"
             >
                 {showFilterButton ? (
@@ -131,7 +133,7 @@ export const ArchiveDossierToolbar: React.FC<ArchiveDossierToolbarProps> = ({
                 <label className="relative flex min-w-0 flex-1 items-center">
                     <span className="sr-only">بحث في الإضابير</span>
                     <Search
-                        className="pointer-events-none absolute right-3 text-white/40"
+                        className="pointer-events-none absolute start-3 text-white/40"
                         size={15}
                         aria-hidden
                     />
@@ -140,7 +142,9 @@ export const ArchiveDossierToolbar: React.FC<ArchiveDossierToolbarProps> = ({
                         value={searchQuery}
                         onChange={(e) => onSearchQueryChange(e.target.value)}
                         placeholder={searchPlaceholder}
-                        className="h-full w-full bg-transparent pr-9 pl-3 text-sm text-white placeholder:text-white/35 outline-none focus:bg-white/[0.03]"
+                        autoComplete="off"
+                        enterKeyHint="search"
+                        className="h-full w-full bg-transparent ps-9 pe-3 text-sm text-white placeholder:text-white/35 outline-none focus:bg-white/[0.03] appearance-none [&::-webkit-search-decoration]:hidden [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-results-button]:hidden [&::-webkit-search-results-decoration]:hidden"
                     />
                 </label>
 
@@ -154,7 +158,7 @@ export const ArchiveDossierToolbar: React.FC<ArchiveDossierToolbarProps> = ({
                         title="عرض شبكي"
                         aria-pressed={viewMode === 'grid'}
                         onClick={() => onViewModeChange('grid')}
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors touch-manipulation ${
+                        className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-colors touch-manipulation ${
                             viewMode === 'grid'
                                 ? ARCHIVE_GLASS_ACTIVE_COMPACT
                                 : 'text-white/45 hover:bg-white/[0.06] hover:text-white'
@@ -167,7 +171,7 @@ export const ArchiveDossierToolbar: React.FC<ArchiveDossierToolbarProps> = ({
                         title="عرض مضغوط"
                         aria-pressed={viewMode === 'compact'}
                         onClick={() => onViewModeChange('compact')}
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors touch-manipulation ${
+                        className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-colors touch-manipulation ${
                             viewMode === 'compact'
                                 ? ARCHIVE_GLASS_ACTIVE_COMPACT
                                 : 'text-white/45 hover:bg-white/[0.06] hover:text-white'
@@ -181,7 +185,7 @@ export const ArchiveDossierToolbar: React.FC<ArchiveDossierToolbarProps> = ({
             {filtersOpen ? (
                 <div
                     id={panelId}
-                    className="absolute inset-x-4 sm:inset-x-5 top-[calc(100%-0.25rem)] z-40 rounded-2xl border border-white/12 bg-[#0B1021]/96 p-3 shadow-[0_20px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl"
+                    className="absolute inset-x-4 sm:inset-x-5 top-[calc(100%-0.25rem)] z-40 rounded-2xl border border-white/12 bg-[#0B1021] p-2.5 shadow-[0_10px_28px_rgba(0,0,0,0.28)]"
                     role="dialog"
                     aria-label="فلاتر المخزن"
                 >
@@ -201,7 +205,7 @@ export const ArchiveDossierToolbar: React.FC<ArchiveDossierToolbarProps> = ({
                                     aria-selected={lifecycleViewMode === 'active'}
                                     data-testid="lawsuits-view-active"
                                     onClick={() => onLifecycleViewModeChange?.('active')}
-                                    className={`min-h-[40px] rounded-xl px-3 text-[11px] font-bold touch-manipulation ${
+                                    className={`min-h-[44px] rounded-xl px-3 text-[11px] font-bold touch-manipulation ${
                                         lifecycleViewMode === 'active'
                                             ? ARCHIVE_SEGMENT_BTN_ACTIVE
                                             : ARCHIVE_SEGMENT_BTN_INACTIVE
@@ -215,7 +219,7 @@ export const ArchiveDossierToolbar: React.FC<ArchiveDossierToolbarProps> = ({
                                     aria-selected={lifecycleViewMode === 'archived'}
                                     data-testid="lawsuits-view-archived"
                                     onClick={() => onLifecycleViewModeChange?.('archived')}
-                                    className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-xl px-3 text-[11px] font-bold touch-manipulation ${
+                                    className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-[11px] font-bold touch-manipulation ${
                                         lifecycleViewMode === 'archived'
                                             ? 'bg-amber-950/45 text-amber-100 border border-amber-500/30'
                                             : ARCHIVE_SEGMENT_BTN_INACTIVE
@@ -229,28 +233,26 @@ export const ArchiveDossierToolbar: React.FC<ArchiveDossierToolbarProps> = ({
                                         </span>
                                     ) : null}
                                 </button>
-                                {(trashedCount > 0 || lifecycleViewMode === 'trash') && (
-                                    <button
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={lifecycleViewMode === 'trash'}
-                                        data-testid="lawsuits-trash-toggle"
-                                        onClick={() => onLifecycleViewModeChange?.('trash')}
-                                        className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-xl px-3 text-[11px] font-bold touch-manipulation ${
-                                            lifecycleViewMode === 'trash'
-                                                ? 'bg-rose-950/50 text-rose-100 border border-rose-500/30'
-                                                : ARCHIVE_SEGMENT_BTN_INACTIVE
-                                        }`}
-                                    >
-                                        <Trash2 size={13} aria-hidden />
-                                        السلة
-                                        {lifecycleViewMode !== 'trash' && trashedCount > 0 ? (
-                                            <span className="min-w-[1.1rem] h-4 rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white inline-flex items-center justify-center">
-                                                {trashedCount > 9 ? '9+' : trashedCount}
-                                            </span>
-                                        ) : null}
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={lifecycleViewMode === 'trash'}
+                                    data-testid="lawsuits-trash-toggle"
+                                    onClick={() => onLifecycleViewModeChange?.('trash')}
+                                    className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-[11px] font-bold touch-manipulation ${
+                                        lifecycleViewMode === 'trash'
+                                            ? 'bg-rose-950/50 text-rose-100 border border-rose-500/30'
+                                            : ARCHIVE_SEGMENT_BTN_INACTIVE
+                                    }`}
+                                >
+                                    <Trash2 size={13} aria-hidden />
+                                    السلة
+                                    {lifecycleViewMode !== 'trash' && trashedCount > 0 ? (
+                                        <span className="min-w-[1.1rem] h-4 rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white inline-flex items-center justify-center">
+                                            {trashedCount > 9 ? '9+' : trashedCount}
+                                        </span>
+                                    ) : null}
+                                </button>
                             </div>
                         </div>
                     ) : null}
@@ -282,12 +284,12 @@ export const ArchiveDossierToolbar: React.FC<ArchiveDossierToolbarProps> = ({
                                             }
                                             onClick={() => onJurisdictionTabChange(tab.id)}
                                             onPointerEnter={() => {
-                                                if (isCriminal) prefetchCriminalDashboard();
+                                                if (isCriminal) prefetchCriminalListPath();
                                             }}
                                             onFocus={() => {
-                                                if (isCriminal) prefetchCriminalDashboard();
+                                                if (isCriminal) prefetchCriminalListPath();
                                             }}
-                                            className={`min-h-[40px] rounded-xl px-3 text-[11px] font-bold touch-manipulation ${
+                                            className={`min-h-[44px] rounded-xl px-3 text-[11px] font-bold touch-manipulation ${
                                                 isActive
                                                     ? isCriminal
                                                         ? ARCHIVE_SEGMENT_BTN_CRIMINAL_ACTIVE

@@ -1,3 +1,14 @@
+/**
+ * HandlerCluster stubs — عقد stub → real
+ *
+ * 1) قبل اكتمال تحميل جسور `ExecutionDashboardHandlerCluster*Bridge`،
+ *    يُستبدل كل معالِج ناقص بـ Proxy يُبلّغ عبر `registerExecutionHandlerStubNotifier`
+ *    (toast «جاري تجهيز الأدوات») بدل انهيار "X is not a function".
+ * 2) عند جاهزية الجسر، يُنشَر الـ cluster الحقيقي عبر
+ *    `usePublishHandlerClusterWhenFingerprintChanges` ويستبدل stubs.
+ * 3) لا تُحذف stubs قبل ضمان تحميل الجسور — نافذة السباق جزء من عقد التشغيل.
+ * 4) أسماء Vite `execution-handler-cluster-*` يجب أن تبقى متطابقة مع ملفات الجسور.
+ */
 /** Placeholders until execution-core-handlers loads — must never fail silently. */
 const HANDLER_STUB_BRAND = Symbol.for('hami.executionHandlerStub');
 
@@ -159,12 +170,6 @@ function buildStubCluster(): Record<string, unknown> {
 
 export const EXECUTION_HANDLER_CLUSTER_STUBS: Record<string, unknown> = buildStubCluster();
 
-export function isExecutionHandlerClusterStub(cluster: Record<string, unknown>): boolean {
-    return cluster === EXECUTION_HANDLER_CLUSTER_STUBS;
-}
-
 export function isExecutionHandlerStubLeaf(value: unknown): boolean {
     return typeof value === 'function' && (value as { [HANDLER_STUB_BRAND]?: boolean })[HANDLER_STUB_BRAND] === true;
 }
-
-export { HANDLER_STUB_BRAND };

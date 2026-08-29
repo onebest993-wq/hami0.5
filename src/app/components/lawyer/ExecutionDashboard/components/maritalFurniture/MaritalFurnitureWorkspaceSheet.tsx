@@ -1,7 +1,8 @@
 import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
-import { X } from '@/app/components/ui/lucideIcons';
-import { EXEC_MODAL_BACKDROP_STRONG } from '@/app/components/lawyer/execution/executionModalStack';
+import { X } from '@/app/components/ui/icons/X';
+import { EXEC_MODAL_BACKDROP_STRONG } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
+import { useExecutionOverlayDismiss } from '@/app/components/lawyer/ExecutionDashboard/useExecutionOverlayDismiss';
 import { MARITAL_FURNITURE_WORKSPACE_Z } from './maritalFurnitureModuleConstants';
 
 export type MaritalFurnitureWorkspaceSheetProps = {
@@ -17,6 +18,7 @@ export function MaritalFurnitureWorkspaceSheet({
     headerActions,
     children,
 }: MaritalFurnitureWorkspaceSheetProps) {
+    useExecutionOverlayDismiss(open, onClose);
     if (!open || typeof document === 'undefined') return null;
 
     return createPortal(
@@ -30,11 +32,11 @@ export function MaritalFurnitureWorkspaceSheet({
             onClick={onClose}
         >
             <div
-                className="mt-auto flex h-[min(96dvh,100%)] w-full max-w-lg flex-col self-center overflow-hidden rounded-t-3xl border border-[#E6C673]/25 bg-[#0B1120] shadow-2xl sm:my-auto sm:h-[min(92dvh,820px)] sm:rounded-3xl pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+                className="mt-auto flex h-[min(96dvh,100%)] w-full max-w-lg flex-col self-center overflow-hidden rounded-t-3xl border border-[#E6C673]/25 bg-[#0B1120] shadow-lg sm:my-auto sm:h-[min(92dvh,820px)] sm:rounded-3xl pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
                 onClick={(e) => e.stopPropagation()}
                 dir="rtl"
             >
-                <div className="flex shrink-0 items-center gap-2 border-b border-white/10 bg-[#0A0F1C]/95 px-3 py-3 backdrop-blur-md flex-row-reverse">
+                <div className="flex shrink-0 items-center gap-2 border-b border-white/10 bg-[#0A0F1C] px-3 py-3 flex-row-reverse">
                     <button
                         type="button"
                         data-testid="marital-furniture-close"

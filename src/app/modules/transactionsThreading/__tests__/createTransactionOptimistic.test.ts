@@ -10,9 +10,7 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
 vi.mock('@/app/modules/transactionsThreading/persistentRepository', () => ({
     PersistentTransactionsThreadingRepository: vi.fn().mockImplementation(() => ({
         saveTransaction: vi.fn(async () => undefined),
-        listTransactions: vi.fn(async () => []),
         listTasks: vi.fn(async () => []),
-        listFinanceRecords: vi.fn(async () => []),
         listDocuments: vi.fn(async () => []),
     })),
 }));

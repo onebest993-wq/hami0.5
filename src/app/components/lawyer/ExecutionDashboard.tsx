@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Orchestrator رفيع — يحمّل useExecutionDashboardView في chunk منفصل */
 import React from 'react';
 import { ExecutionDashboardView } from './ExecutionDashboard/hooks/useExecutionDashboardView';

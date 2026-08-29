@@ -83,7 +83,7 @@ export function GrievanceFiledDetailsSection(props: GrievanceLifecyclePanelProps
                                                                                 !!grievanceFilingDateChronologyError ||
                                                                                 !!grievanceFirstHearingDateChronologyError
                                                                             }
-                                                                            className={`${URGENT_DOSSIER_BTN_PRIMARY} min-h-[40px] py-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
+                                                                            className={`${URGENT_DOSSIER_BTN_PRIMARY} text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
                                                                         >
                                                                             تثبيت بيانات التظلم
                                                                         </button>

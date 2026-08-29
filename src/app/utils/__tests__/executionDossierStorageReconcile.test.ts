@@ -115,6 +115,26 @@ describe('executionDossierStorageReconcile', () => {
         expect(index.some((r) => r.id === EXEC_ID)).toBe(false);
     });
 
+    it('does not seed a blob from a tombstoned index row', () => {
+        markExecutionDossierTombstone(EXEC_ID);
+        SecureStoreService.setItemSync(
+            EXECUTION_FILES_STORAGE_KEY,
+            JSON.stringify([
+                {
+                    id: EXEC_ID,
+                    fileNumber: 'ghost',
+                    directorate: 'محذوفة',
+                    debtors: [{ name: 'مدين' }],
+                    updatedAt: '2026-06-25T08:00:00.000Z',
+                },
+            ]),
+        );
+
+        const result = reconcileExecutionDossierStorage();
+        expect(result.blobsHealed).toBe(0);
+        expect(SecureStoreService.getItemSync(executionStorageKey(EXEC_ID))).toBeNull();
+    });
+
     it('heals index from owner-scoped blob key when legacy is empty', () => {
         setLiveAuthUserId('e2e-owner-1');
         const scopedKey = `${executionStorageKey(EXEC_ID)}:u:e2e-owner-1`;

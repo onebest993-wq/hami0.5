@@ -1,7 +1,9 @@
+import { isPlainDocumentSurface } from '@/boot/plainDocumentPath';
 import {
     STATIC_BOOT_SHELL_FADE_MS,
     STATIC_BOOT_SHELL_ID,
 } from '@/app/bootstrap/bootStaticShell.constants';
+import { flushPendingBootTypography } from '@/app/bootstrap/bootTypographyFlush';
 
 /** إزالة هيكل الإقلاع الثابت (HTML/CSS) بعد جاهزية اللوحة */
 export { STATIC_BOOT_SHELL_ID, STATIC_BOOT_SHELL_FADE_MS } from '@/app/bootstrap/bootStaticShell.constants';
@@ -29,16 +31,17 @@ export function hasStaticBootShell(): boolean {
  * الطبقة الثابتة = خلفية صلبة فقط حتى كشف اللوحة.
  */
 export function shouldHideBootSuspenseFallback(): boolean {
-    return hasStaticBootShell();
+    return isPlainDocumentSurface() || hasStaticBootShell();
 }
 
 export function shouldMountReactBootOverlay(): boolean {
+    if (isPlainDocumentSurface()) return false;
     if (readBootRevealDoneSync()) return false;
     if (hasStaticBootShell()) return false;
     return true;
 }
 
-export type RemoveStaticBootShellOptions = {
+type RemoveStaticBootShellOptions = {
     instant?: boolean;
     /** إزالة قسرية — أخطاء الإقلاع أو استئناف أصلي بعد جلسة مكتملة */
     force?: boolean;
@@ -56,22 +59,31 @@ export function removeStaticBootShell(opts?: RemoveStaticBootShellOptions): void
     }
     const root = document.documentElement;
     const shell = document.getElementById(STATIC_BOOT_SHELL_ID);
-    const surface =
-        root.style.getPropertyValue('--hami-board-surface-bg').trim() ||
-        root.style.getPropertyValue('--hami-surface-bg').trim() ||
-        getComputedStyle(root).getPropertyValue('--hami-board-surface-bg').trim() ||
-        getComputedStyle(root).getPropertyValue('--hami-surface-bg').trim() ||
-        '#0a0f1c';
-    document.body.style.backgroundColor = surface || '#0a0f1c';
+    if (isPlainDocumentSurface()) {
+        document.body.style.backgroundColor = '#ffffff';
+    } else {
+        const surface =
+            root.style.getPropertyValue('--hami-board-surface-bg').trim() ||
+            root.style.getPropertyValue('--hami-surface-bg').trim() ||
+            getComputedStyle(root).getPropertyValue('--hami-board-surface-bg').trim() ||
+            getComputedStyle(root).getPropertyValue('--hami-surface-bg').trim() ||
+            '#0a0f1c';
+        document.body.style.backgroundColor = surface || '#0a0f1c';
+    }
 
     if (!shell) {
         root.classList.remove('hami-boot-static-active');
+        flushPendingBootTypography(root, { ignoreLock: true });
         return;
     }
 
     if (shell.classList.contains('hami-boot-cinematic--exiting')) return;
 
-    const instant = opts?.instant === true || readBootRevealDoneSync();
+    /* حجم القراءة النهائي تحت الغطاء — لا قفزة بعد الكشف */
+    flushPendingBootTypography(root, { ignoreLock: true });
+
+    /* لا قصّ فوري لأن الجلسة مكتملة — ذلك يفتح إطاراً أسود عند Reload */
+    const instant = opts?.instant === true;
 
     if (instant) {
         shell.remove();

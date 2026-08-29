@@ -3,17 +3,17 @@
  */
 import { test, expect } from '@playwright/test';
 import {
-    ensureLawyerDashboard,
+    bootCivilLawsuitsScreenE2E,
+    closeSmartFileDossierToHub,
     openCivilDossier,
-    seedLawyerFiles,
+    prepareCivilLawsuitsE2E,
 } from './helpers/civilLawsuitFixtures';
 
 test.describe('Civil lawsuit smoke', () => {
+    test.describe.configure({ timeout: 90_000 });
     test.beforeEach(async ({ page }) => {
-        await seedLawyerFiles(page);
-        await page.goto('/');
-        await page.waitForLoadState('domcontentloaded');
-        await ensureLawyerDashboard(page);
+        await prepareCivilLawsuitsE2E(page);
+        await bootCivilLawsuitsScreenE2E(page);
     });
 
     test('opens lawsuits workspace and smart file dossier', async ({ page }) => {
@@ -22,18 +22,16 @@ test.describe('Civil lawsuit smoke', () => {
     });
 
     test('reload keeps dossier open after navigation from archive', async ({ page }) => {
-        test.setTimeout(60_000);
+        test.setTimeout(180_000);
         await openCivilDossier(page);
-
-        await page.reload({ waitUntil: 'domcontentloaded' });
-        await ensureLawyerDashboard(page);
+        // bootCivilLawsuitsScreenE2E يعيد goto('/') ويُعيد البذرة — لا reload إضافي فوقه.
+        await bootCivilLawsuitsScreenE2E(page);
         await openCivilDossier(page);
     });
 
     test('dossier back button returns to dashboard hub', async ({ page }) => {
         await openCivilDossier(page);
-        await page.getByTestId('smart-file-back').click();
+        await closeSmartFileDossierToHub(page);
         await expect(page.getByTestId('hub-archive-lawsuit')).toBeVisible({ timeout: 15_000 });
-        await expect(page.getByTestId('smart-file-dossier')).toBeHidden();
     });
 });

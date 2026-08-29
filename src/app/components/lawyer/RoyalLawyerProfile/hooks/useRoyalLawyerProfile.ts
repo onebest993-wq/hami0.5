@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useCallback, useRef, useState } from 'react';
-import { useAuthUser } from '@/app/context/AuthContext';
+import { useMemo, useCallback, useRef, useLayoutEffect } from 'react';
+import { useAuthUser } from '@/app/context/authHooks';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { resolveLawyerDisplayName } from '@/app/services/profile/resolveLawyerDisplayName';
 import { clearLiveProfileAppearance } from '@/app/services/profile/profileThemeRuntime';
-import { getActions, getGallery } from '@/app/components/lawyer/RoyalLawyerProfile/utils/profileSections';
+import { getActions, getGallery } from '@/app/services/profile/profileSections';
 import type { RoyalLawyerProfileProps } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 import type { ProfilePageCustomization } from '@/app/services/profile/profilePageCustomization';
 import { useProfileLoader } from './useProfileLoader';
@@ -12,6 +12,15 @@ import { useProfileMediaUpload } from './useProfileMediaUpload';
 import { useProfileStudioSettings } from './useProfileStudioSettings';
 import { useProfileScreenEscape } from './useProfileScreenEscape';
 import { useProfileLifecycle } from './useProfileLifecycle';
+import { useProfileLeaveAndGallery } from './useProfileLeaveAndGallery';
+import { useOwnDisplayNamePolicy } from './useOwnDisplayNamePolicy';
+import {
+    consumeProfileCoverCustomization,
+    consumeProfileCoverEdit,
+    consumeProfileCoverStudio,
+    subscribeProfileCoverIntents,
+    resetProfileCoverIntents,
+} from '@/app/components/lawyer/dashboard/profile/profileCoverIntents';
 
 export function useRoyalLawyerProfile(options: RoyalLawyerProfileProps = {}) {
     const user = useAuthUser();
@@ -23,6 +32,8 @@ export function useRoyalLawyerProfile(options: RoyalLawyerProfileProps = {}) {
     /** تخطيط الكتل أثناء التحرير — يُمرَّر عند الحفظ التلقائي بالمغادرة */
     const pendingEditCustomizationRef = useRef<ProfilePageCustomization | null>(null);
     const invalidateUploadsRef = useRef<() => void>(() => {});
+    const closeGalleryOnPersistRef = useRef<() => void>(() => {});
+    const lastResetUserIdRef = useRef<string | null>(null);
 
     const { profile, setProfile, profileRef, loading, loadError, reloadProfile, customization } =
         useProfileLoader(
@@ -31,6 +42,7 @@ export function useRoyalLawyerProfile(options: RoyalLawyerProfileProps = {}) {
             isOwnProfile,
             (userMeta ?? {}) as Record<string, unknown>,
             options.displayNameHint,
+            options.screenActive !== false,
         );
 
     const {
@@ -52,8 +64,16 @@ export function useRoyalLawyerProfile(options: RoyalLawyerProfileProps = {}) {
         profile,
         setProfile,
         profileRef,
-        onEditPersistStart: () => invalidateUploadsRef.current(),
+        onEditPersistStart: () => {
+            invalidateUploadsRef.current();
+            closeGalleryOnPersistRef.current();
+        },
     });
+
+    const displayNamePolicy = useOwnDisplayNamePolicy(
+        isOwnProfile && options.screenActive !== false,
+        isEditing ? 1 : 0,
+    );
 
     const { uploading, avatarRef, galleryRef, uploadImage, invalidateUploads } = useProfileMediaUpload({
         userId,
@@ -81,14 +101,26 @@ export function useRoyalLawyerProfile(options: RoyalLawyerProfileProps = {}) {
         cancelEdit();
     }, [cancelEdit, invalidateUploads]);
 
-    useEffect(() => {
-        cancelEditSafe();
-        /* soft: بلا flushSync — الاستدعاء من useEffect يُطلق تحذير React */
-        closeSettings({ force: true, soft: true });
-        pendingEditCustomizationRef.current = null;
-        /* مزامنة فورية — الـ import الديناميكي كان يصفّر مظهراً أحدث بعد تبديل الملف */
-        clearLiveProfileAppearance();
-    }, [profileUserId, cancelEditSafe, closeSettings]);
+    const cancelEditSafeRef = useRef(cancelEditSafe);
+    cancelEditSafeRef.current = cancelEditSafe;
+    const closeSettingsRef = useRef(closeSettings);
+    closeSettingsRef.current = closeSettings;
+
+    useLayoutEffect(() => {
+        const prev = lastResetUserIdRef.current;
+        const switched = prev !== null && prev !== profileUserId;
+        const first = prev === null;
+        lastResetUserIdRef.current = profileUserId;
+        if (switched) {
+            resetProfileCoverIntents();
+            cancelEditSafeRef.current();
+            closeSettingsRef.current({ force: true, soft: true });
+            pendingEditCustomizationRef.current = null;
+            clearLiveProfileAppearance();
+            return;
+        }
+        if (first) clearLiveProfileAppearance();
+    }, [profileUserId]);
 
     const header = isEditing && draft ? draft.header : profile?.header;
     const actions = isEditing
@@ -98,7 +130,11 @@ export function useRoyalLawyerProfile(options: RoyalLawyerProfileProps = {}) {
           : [];
     const gallery = isEditing ? (draft?.gallery ?? []) : profile ? getGallery(profile.sections) : [];
 
-    const displayName = resolveLawyerDisplayName(header?.name, userId, (userMeta ?? {}) as Record<string, unknown>);
+    const displayName = resolveLawyerDisplayName(
+        (isOwnProfile && displayNamePolicy?.fullName) || header?.name,
+        userId,
+        (userMeta ?? {}) as Record<string, unknown>,
+    );
     const initials = displayName.charAt(0) || 'ح';
 
     const { isShellReady } = useProfileLifecycle({
@@ -109,53 +145,26 @@ export function useRoyalLawyerProfile(options: RoyalLawyerProfileProps = {}) {
         perfOpenEpoch: options.perfOpenEpoch,
     });
 
-    const leaveInFlightRef = useRef(false);
-    const [galleryViewerOpen, setGalleryViewerOpen] = useState(false);
-    const galleryViewerOpenRef = useRef(false);
-    const closeGalleryViewerRef = useRef<(() => void) | null>(null);
-
     const setPendingEditCustomization = useCallback((next: ProfilePageCustomization | null) => {
         pendingEditCustomizationRef.current = next;
     }, []);
 
-    const closeGalleryViewer = useCallback(() => {
-        closeGalleryViewerRef.current?.();
-    }, []);
-
-    const registerCloseGalleryViewer = useCallback((close: (() => void) | null) => {
-        closeGalleryViewerRef.current = close;
-    }, []);
-
-    const onGalleryViewerOpenChange = useCallback((open: boolean) => {
-        galleryViewerOpenRef.current = open;
-        setGalleryViewerOpen(open);
-    }, []);
-
-    const handleBackSafe = useCallback(() => {
-        if (leaveInFlightRef.current) return;
-        if (galleryViewerOpenRef.current) {
-            closeGalleryViewer();
-            return;
-        }
-        if (settingsOpen) {
-            if (!closeSettings()) return;
-            return;
-        }
-        const shouldSaveEdit = isEditing;
-        const override = shouldSaveEdit ? pendingEditCustomizationRef.current ?? undefined : undefined;
-        if (shouldSaveEdit) {
-            leaveInFlightRef.current = true;
-            void saveProfile(override)
-                .then((ok) => {
-                    if (ok) options.onBack?.();
-                })
-                .finally(() => {
-                    leaveInFlightRef.current = false;
-                });
-            return;
-        }
-        options.onBack?.();
-    }, [closeGalleryViewer, settingsOpen, closeSettings, isEditing, saveProfile, options]);
+    const {
+        galleryViewerOpen,
+        galleryViewerOpenRef,
+        closeGalleryViewer,
+        onGalleryViewerOpenChange,
+        onRegisterCloseGalleryViewer,
+        handleBackSafe,
+    } = useProfileLeaveAndGallery({
+        settingsOpen,
+        closeSettings,
+        isEditing,
+        saveProfile,
+        pendingEditCustomizationRef,
+        onBack: options.onBack,
+    });
+    closeGalleryOnPersistRef.current = closeGalleryViewer;
 
     useProfileScreenEscape({
         enabled: Boolean(options.isScreenMode && options.onBack && options.screenActive !== false),
@@ -174,6 +183,18 @@ export function useRoyalLawyerProfile(options: RoyalLawyerProfileProps = {}) {
         startEdit();
         return true;
     }, [settingsOpen, closeSettings, startEdit]);
+
+    useLayoutEffect(() => {
+        if (options.screenActive === false) return undefined;
+        const consume = () => {
+            if (consumeProfileCoverEdit()) startEditSafe();
+            if (consumeProfileCoverStudio()) openSettings();
+            const pendingCustom = consumeProfileCoverCustomization();
+            if (pendingCustom) void saveCustomization(pendingCustom, { silent: true });
+        };
+        consume();
+        return subscribeProfileCoverIntents(consume);
+    }, [options.screenActive, startEditSafe, openSettings, saveCustomization]);
 
     const publicFields = useMemo(
         () => ({
@@ -227,7 +248,8 @@ export function useRoyalLawyerProfile(options: RoyalLawyerProfileProps = {}) {
         paintReady: !loading,
         contentReady: isShellReady && !loadError,
         onGalleryViewerOpenChange,
-        onRegisterCloseGalleryViewer: registerCloseGalleryViewer,
+        onRegisterCloseGalleryViewer,
         committedGalleryPaths,
+        displayNamePolicy,
     };
 }

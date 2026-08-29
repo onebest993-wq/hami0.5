@@ -1,5 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import { bindNotificationOsTapBridge } from '@/app/services/notifications/bindNotificationOsTapBridge';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { resolveAlertNavigation } from '@/app/services/alertNavigation';
 import { parseWorkspaceRoute } from '@/app/workspace/workspaceRoutes';
@@ -22,8 +23,12 @@ import {
     openRepositoryFromShell,
     REPOSITORY_SHELL_FEATURE,
 } from '@/app/services/repository/repositoryShellNavigation';
-import { SPARK_REPOSITORY_SESSION_ROUTE } from '@/app/spark/engine/homeSparkRoutes';
-import { isRealSignedIn } from '@/app/services/auth/shellAuth';
+import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
+import { requestOpenExecutionVisitationWorkspace } from '@/app/runtime/executionVisitationOpenIntent';
+import { HOME_HUB_CARD_FEATURE } from '@/app/services/alerts/homeHubCardLogic';
+import { requestOpenLawyerForum } from '@/app/runtime/forumOpenIntent';
+import { collectInboxPostIds, resolveNotificationOwnedNavigate } from '@/app/services/notifications/notificationOwnedNavigate';
+import { useNotificationStore } from '@/app/stores/notificationStore';
 
 import { getQuantumPendingSnapshot } from '@/app/utils/quantumTasksMetrics';
 
@@ -47,9 +52,6 @@ export type UseLawyerDashboardNavigationParams = {
     executionFiles: ExecutionFile[];
     setActiveTab: Dispatch<SetStateAction<LawyerDashboardTab>>;
     setShowCommunity: Dispatch<SetStateAction<boolean>>;
-    setCommunityDeepLink: Dispatch<
-        SetStateAction<{ postId?: string; openComments?: boolean } | null>
-    >;
     setArchiveType: Dispatch<SetStateAction<LawyerArchiveOverlay>>;
     setActiveFile: Dispatch<SetStateAction<FileData | ExecutionFile | null>>;
     setShowNotifications: Dispatch<SetStateAction<boolean>>;
@@ -72,7 +74,6 @@ export function useLawyerDashboardNavigation({
     executionFiles,
     setActiveTab,
     setShowCommunity,
-    setCommunityDeepLink,
     setArchiveType,
     setActiveFile,
     setShowNotifications,
@@ -90,53 +91,78 @@ export function useLawyerDashboardNavigation({
 }: UseLawyerDashboardNavigationParams) {
     const handleNotificationRouting = useCallback(
         (path: string, payload: Record<string, unknown> | null) => {
-            if (path === 'schedule') {
-                openScheduleTab();
-                return;
-            }
-            if (path === 'case_details') {
-                const caseId = payload && typeof payload.caseId === 'string' ? payload.caseId : null;
-                if (caseId) {
-                    if (!isRealSignedIn(userId)) return;
-                    const lawsuitTarget = files.find((f) => String(f.id) === caseId);
-                    const executionTarget = executionFiles.find((f) => String(f.id) === caseId);
-                    if (executionTarget) {
-                        openExecutionDossierWithContract(() => {
-                            setActiveFile(coerceExecutionFilePreserveId(executionTarget));
-                        });
-                        SmartToast.info(`جاري فتح القضية...`);
-                    } else if (lawsuitTarget) {
-                        openLawsuitDossierWithContract(() => {
-                            setActiveFile(coerceActiveFileTarget(lawsuitTarget));
-                        });
-                        SmartToast.info(`جاري فتح القضية...`);
-                    }
-                } else {
+            const decision = resolveNotificationOwnedNavigate({
+                path,
+                payload,
+                signedIn: hasLocalAppSession(userId),
+                lawsuitCases: files,
+                executionCases: executionFiles,
+                inboxPostIds: collectInboxPostIds(useNotificationStore.getState().notifications),
+            });
+            switch (decision.kind) {
+                case 'schedule':
+                    openScheduleTab(
+                        decision.eventId || decision.date
+                            ? { eventId: decision.eventId, date: decision.date }
+                            : undefined,
+                    );
+                    return;
+                case 'open-execution': {
+                    const executionTarget = executionFiles.find((f) => String(f.id ?? '') === decision.id);
+                    if (!executionTarget) return;
+                    openExecutionDossierWithContract(() => {
+                        setActiveFile(coerceExecutionFilePreserveId(executionTarget));
+                    });
+                    SmartToast.info(`جاري فتح القضية...`);
+                    return;
+                }
+                case 'open-lawsuit': {
+                    const lawsuitTarget = files.find((f) => String(f.id) === decision.id);
+                    if (!lawsuitTarget || !isFileData(lawsuitTarget)) return;
+                    openLawsuitDossierWithContract(() => {
+                        setActiveFile(coerceActiveFileTarget(lawsuitTarget));
+                    });
+                    SmartToast.info(`جاري فتح القضية...`);
+                    return;
+                }
+                case 'execution-home':
+                    warmExecutionWorkspaceIntent();
+                    setArchiveType('execution');
+                    setActiveTab('home');
+                    return;
+                case 'lawsuit-home':
+                    prefetchArchivePortalIntent();
                     setArchiveType('all');
+                    setActiveTab('home');
+                    return;
+                case 'community': {
+                    const postId = decision.postId;
+                    requestOpenLawyerForum(postId);
+                    return;
                 }
-            } else if (path === 'community') {
-                setShowCommunity(true);
-                if (payload && typeof payload.postId === 'string') {
-                    setCommunityDeepLink({ postId: payload.postId, openComments: false });
-                }
-            } else if (path === 'scan_document') {
-                openVaultModal({ scanner: true });
-            } else if (path === 'vault') {
-                openVaultModal();
+                case 'scan':
+                    openVaultModal({ scanner: true });
+                    return;
+                case 'vault':
+                    openVaultModal();
+                    return;
+                default:
+                    return;
             }
         },
         [
             executionFiles,
             files,
+            openScheduleTab,
             openVaultModal,
             setActiveFile,
             setActiveTab,
             setArchiveType,
-            setCommunityDeepLink,
-            setShowCommunity,
             userId,
         ],
     );
+
+    useEffect(() => bindNotificationOsTapBridge(handleNotificationRouting), [handleNotificationRouting]);
 
     const openSecretaryAlert = useCallback(
         (a: SecretaryAlert) => {
@@ -167,17 +193,13 @@ export function useLawyerDashboardNavigation({
                             nav.noteId ?? (a.entityId ? String(a.entityId) : undefined),
                     });
                     return;
-                case 'client_requests':
-                    setArchiveType('client_requests');
-                    setActiveTab('home');
-                    return;
                 case 'transactions': {
                     const txId = nav.entityId ?? a.entityId;
                     if (txId) {
                         const txFile = files.find(
                             (file) => String(file.id) === String(txId) && file.type === 'transaction',
                         );
-                        if (txFile && isFileData(txFile) && isRealSignedIn(userId)) {
+                        if (txFile && isFileData(txFile) && hasLocalAppSession(userId)) {
                             openLawsuitDossierWithContract(() => setActiveFile(txFile));
                             return;
                         }
@@ -196,7 +218,10 @@ export function useLawyerDashboardNavigation({
                     return;
                 }
                 case 'open_lawsuit': {
-                    if (!isRealSignedIn(userId)) return;
+                    if (!hasLocalAppSession(userId)) {
+                        SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${HOME_HUB_CARD_FEATURE}`);
+                        return;
+                    }
                     const f = files.find((file) => String(file.id) === nav.entityId);
                     if (f && isFileData(f)) {
                         openLawsuitDossierWithContract(() => setActiveFile(f));
@@ -206,9 +231,15 @@ export function useLawyerDashboardNavigation({
                     return;
                 }
                 case 'open_execution': {
-                    if (!isRealSignedIn(userId)) return;
+                    if (!hasLocalAppSession(userId)) {
+                        SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${HOME_HUB_CARD_FEATURE}`);
+                        return;
+                    }
                     const ex = executionFiles.find((file) => String(file.id ?? '') === nav.entityId);
                     if (ex) {
+                        if (nav.openVisitationWorkspace) {
+                            requestOpenExecutionVisitationWorkspace(String(ex.id ?? ''));
+                        }
                         openExecutionDossierWithContract(() => {
                             setActiveFile(coerceExecutionFilePreserveId(ex));
                         });
@@ -254,9 +285,9 @@ export function useLawyerDashboardNavigation({
                 openScheduleTab();
                 return;
             }
-            if (routePath === SPARK_REPOSITORY_SESSION_ROUTE) {
+            if (routePath === 'repository:session') {
                 openRepositoryFromShell({
-                    signedIn: isRealSignedIn(userId),
+                    signedIn: hasLocalAppSession(userId),
                     onSignedOut: () =>
                         SmartToast.error(
                             `يرجى تسجيل الدخول أولاً لاستخدام ${REPOSITORY_SHELL_FEATURE}`,
@@ -282,7 +313,7 @@ export function useLawyerDashboardNavigation({
                     return;
                 }
                 case 'lawsuit': {
-                    if (!isRealSignedIn(userId)) return;
+                    if (!hasLocalAppSession(userId)) return;
                     const f = files.find((file) => String(file.id) === parsed.id);
                     if (f && isFileData(f)) {
                         openLawsuitDossierWithContract(() => setActiveFile(f));
@@ -292,7 +323,7 @@ export function useLawyerDashboardNavigation({
                     return;
                 }
                 case 'execution': {
-                    if (!isRealSignedIn(userId)) return;
+                    if (!hasLocalAppSession(userId)) return;
                     const ex = executionFiles.find((file) => String(file.id ?? '') === parsed.id);
                     if (ex) {
                         openExecutionDossierWithContract(() => {
@@ -310,7 +341,7 @@ export function useLawyerDashboardNavigation({
                     openUrgentInLawsuitsWorkspace(parsed.id);
                     return;
                 case 'transaction': {
-                    if (!isRealSignedIn(userId)) return;
+                    if (!hasLocalAppSession(userId)) return;
                     const f = files.find((file) => String(file.id) === parsed.id);
                     if (f && isFileData(f)) {
                         openLawsuitDossierWithContract(() => setActiveFile(f));
@@ -355,3 +386,5 @@ export function useLawyerDashboardNavigation({
         navigateWorkspaceRoute,
     };
 }
+
+export type LawyerDashboardNavigationBag = ReturnType<typeof useLawyerDashboardNavigation>;

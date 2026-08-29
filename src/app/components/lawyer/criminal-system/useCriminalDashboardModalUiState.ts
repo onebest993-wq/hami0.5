@@ -5,7 +5,7 @@ import type { TrialDeposition } from './trialDepositionsEngine';
 import type { VerdictCard } from './verdictCardsEngine';
 import type { ProceduralNavTarget } from './proceduralContainersEngine';
 
-export type CriminalDashboardIdentityEdit =
+type CriminalDashboardIdentityEdit =
     | null
     | {
           mode: 'party';
@@ -30,7 +30,7 @@ export type CriminalDashboardForfeitureModal = {
     forfeitureNote: string;
 } | null;
 
-export type UseCriminalDashboardModalUiStateParams = {
+type UseCriminalDashboardModalUiStateParams = {
     id: string;
 };
 

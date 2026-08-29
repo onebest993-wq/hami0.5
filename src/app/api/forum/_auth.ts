@@ -1,7 +1,16 @@
 import { recordWifeRejection } from '../security/wifeSecurityMonitor.ts';
 import { requireWifeUser } from '../security/bffAuth.ts';
 import { extractUserTokenFromRequest } from '../security/wifeValidator.ts';
-import { canAccessLawyerForumUserId, isForumModeratorUserId } from '../security/roleResolver.ts';
+import { canAccessLawyerForumUserId, isForumModeratorUserId, isPlatformAdminUserId } from '../security/roleResolver.ts';
+import { isUserFrozenLive } from '../security/wifeUserStatus.ts';
+import {
+    ACCOUNT_FROZEN_CODE,
+    accountFrozenUserMessage,
+    FORUM_BANNED_CODE,
+    forumBannedUserMessage,
+} from '../security/accountRestrictionCopy.ts';
+import { wifeJsonResponse } from '../security/wifeSecurityHeaders.ts';
+import { canManageForumAdmin } from './adminAuth.ts';
 
 /** محامٍ ضيف للعرض التجريبي — محظور في الإنتاج إلا بتصريح صريح */
 export const DEMO_GUEST_USER_ID = 'guest-lawyer-1';
@@ -55,12 +64,60 @@ export function rejectDemoGuestForumRead(userId: string, request?: Request): Res
     });
 }
 
+async function requireLawyerForumVerification(userId: string): Promise<Response | null> {
+    try {
+        const { kvGet } = await import('../security/kvStoreAdmin.ts');
+        const raw = await kvGet(`lawyer-verification:${userId}`);
+        if (raw && typeof raw === 'object') {
+            const status = (raw as { status?: string }).status;
+            if (status === 'pending' || status === 'rejected' || status !== 'active') {
+                return jsonResponse(403, {
+                    ok: false,
+                    error:
+                        status === 'rejected'
+                            ? 'تم رفض توثيق الحساب — راجع الإدارة'
+                            : 'حسابك قيد التدقيق — المنتدى يُفتح بعد اعتماد البيانات',
+                    code: 'FORUM_VERIFICATION_REQUIRED',
+                });
+            }
+            return null;
+        }
+        return jsonResponse(403, {
+            ok: false,
+            error: 'يلزم توثيق الحساب قبل استخدام المنتدى',
+            code: 'FORUM_VERIFICATION_REQUIRED',
+        });
+    } catch {
+        return jsonResponse(503, {
+            ok: false,
+            error: 'تعذّر التحقق من حالة التوثيق — حاول لاحقاً',
+            code: 'FORUM_VERIFICATION_UNAVAILABLE',
+        });
+    }
+}
+
 export async function requireForumAuth(request: Request): Promise<
     | { ok: false; response: Response }
     | { ok: true; userId: string; token: string; isAdmin: boolean }
 > {
     const auth = await requireWifeUser(request);
     if (auth.ok === false) return auth;
+
+    if (!(await isPlatformAdminUserId(auth.userId)) && (await isUserFrozenLive(auth.userId))) {
+        recordWifeRejection({
+            reason: 'account_frozen',
+            request,
+            userId: auth.userId,
+        });
+        return {
+            ok: false as const,
+            response: jsonResponse(403, {
+                ok: false,
+                error: accountFrozenUserMessage(),
+                code: ACCOUNT_FROZEN_CODE,
+            }),
+        };
+    }
 
     if (isDemoGuestUserId(auth.userId)) {
         const guestDenied = rejectDemoGuestForumRead(auth.userId, request);
@@ -79,6 +136,15 @@ export async function requireForumAuth(request: Request): Promise<
                 }),
             };
         }
+
+        /*
+         * مدير المنصّة ليس محامياً يمرّ بتوثيق KYC — بلاغات المقر كانت تُرفض
+         * بـ FORUM_VERIFICATION_REQUIRED رغم جلسة الإدارة الحية.
+         */
+        if (!(await isPlatformAdminUserId(auth.userId))) {
+            const kycDenied = await requireLawyerForumVerification(auth.userId);
+            if (kycDenied) return { ok: false as const, response: kycDenied };
+        }
     }
 
     const userToken = extractUserTokenFromRequest(request) ?? '';
@@ -87,10 +153,38 @@ export async function requireForumAuth(request: Request): Promise<
 }
 
 export function jsonResponse(status: number, body: Record<string, unknown>): Response {
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-    });
+    return wifeJsonResponse(status, body);
+}
+
+/** إحصاءات/بلاغات/حظر — Wife + منتدى + توثيق + مشرف. الضيف التجريبي ممنوع دائماً. */
+export async function requireForumAdminAuth(request: Request): Promise<
+    | { ok: false; response: Response }
+    | { ok: true; userId: string; token: string; isAdmin: boolean }
+> {
+    const auth = await requireForumAuth(request);
+    if ('response' in auth) return auth;
+    if (isDemoGuestUserId(auth.userId)) {
+        recordWifeRejection({
+            reason: 'forum_guest_admin_denied',
+            request,
+            userId: auth.userId,
+        });
+        return {
+            ok: false as const,
+            response: jsonResponse(403, {
+                ok: false,
+                error: 'الوصول إلى المنتدى مقتصر على حسابات المحامين المفعلة',
+                code: 'FORUM_ACCESS_DENIED',
+            }),
+        };
+    }
+    if (!(await canManageForumAdmin(auth.userId))) {
+        return {
+            ok: false as const,
+            response: jsonResponse(403, { ok: false, error: 'غير مصرح لك' }),
+        };
+    }
+    return auth;
 }
 
 /**
@@ -119,7 +213,11 @@ export async function requireForumAuthAndUnbanned(request: Request): Promise<
         });
         return {
             ok: false as const,
-            response: jsonResponse(403, { ok: false, error: 'حسابك محظور من المنتدى' }),
+            response: jsonResponse(403, {
+                ok: false,
+                error: forumBannedUserMessage(),
+                code: FORUM_BANNED_CODE,
+            }),
         };
     }
     return auth;
@@ -133,4 +231,37 @@ export function assertForumWriteAllowed(
     const denied = rejectDemoGuestForumWrite(userId, request);
     if (denied) return { ok: false as const, response: denied };
     return { ok: true as const };
+}
+
+export const FORUM_GENERIC_500 = 'تعذّر إتمام العملية — حاول لاحقاً';
+
+function isUnsafeForumErrorMessage(message: string): boolean {
+    if (!message) return true;
+    if (
+        /PGRST|permission denied|column |relation |violates|duplicate key|JWT|postgres|undefined|syntax error|null value/i.test(
+            message,
+        )
+    ) {
+        return true;
+    }
+    return !/[\u0600-\u06FF]/.test(message);
+}
+
+/** أخطاء المنتدى للعميل: عربي معروف يمرّ، تفاصيل Postgres لا. */
+export function forumCatchJsonResponse(err: unknown): Response {
+    const message = err instanceof Error ? err.message.trim() : '';
+    if (isUnsafeForumErrorMessage(message)) {
+        return jsonResponse(500, { ok: false, error: FORUM_GENERIC_500 });
+    }
+    let status = 400;
+    if (message.includes('صلاحية') || message.includes('الانضمام للمجموعة') || message.includes('لا يمكنك')) {
+        status = 403;
+    } else if (message.includes('أفضل إجابة')) {
+        status = 409;
+    } else if (message.includes('مقفل')) {
+        status = 423;
+    } else if (message.includes('غير موجود')) {
+        status = 404;
+    }
+    return jsonResponse(status, { ok: false, error: message.slice(0, 180) });
 }

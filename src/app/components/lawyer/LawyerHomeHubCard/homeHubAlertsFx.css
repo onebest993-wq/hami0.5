@@ -1,0 +1,413 @@
+/* Home Hub alerts / radar feed — مقطع lawyer-home-hub-alerts-feed */
+
+.hami-hub-radar__icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(230, 198, 115, 0.1);
+  color: rgba(230, 198, 115, 0.75);
+}
+
+.hami-hub-radar__row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.2rem;
+  direction: rtl;
+}
+
+.hami-hub-radar__open {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.35rem 0.55rem;
+  border: none;
+  border-radius: 0.75rem;
+  background: transparent;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  direction: rtl;
+  text-align: right;
+  touch-action: manipulation;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.hami-hub-radar__details {
+  flex: 0 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  max-width: 38%;
+  min-width: 0;
+}
+
+.hami-hub-radar__headline {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.hami-hub-radar__title-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 0.9375em;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.96);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hami-hub-radar__headline-sep {
+  flex-shrink: 0;
+  font-size: 0.625em;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.22);
+}
+
+.hami-hub-radar__place {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 46%;
+  font-size: 0.75em;
+  font-weight: 700;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.52);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hami-hub-radar__date {
+  font-size: 0.8125em;
+  font-weight: 800;
+  line-height: 1.3;
+  color: #e6c673;
+  white-space: nowrap;
+}
+
+.hami-hub-radar__date--expired {
+  color: rgba(255, 170, 150, 0.92);
+}
+
+.hami-hub-radar__meta-sep {
+  font-size: 0.625em;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.22);
+}
+
+.hami-hub-radar__source {
+  font-size: 0.75em;
+  font-weight: 700;
+  line-height: 1.3;
+  color: rgba(180, 210, 240, 0.88);
+  white-space: nowrap;
+}
+
+.hami-hub-radar__open:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hami-hub-radar__open:hover .hami-hub-radar__title-text {
+  color: rgba(230, 198, 115, 0.95);
+}
+
+.hami-hub-radar__dismiss {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  min-width: 44px;
+  min-height: 44px;
+  border: none;
+  border-radius: 0.65rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.28);
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+.hami-hub-radar__dismiss:hover {
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.hami-hub-radar__icon--urgent {
+  background: rgba(239, 68, 68, 0.14);
+  color: rgba(252, 165, 165, 0.9);
+}
+
+.hami-hub-alerts-list {
+  list-style: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.hami-hub-alert-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.2rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.2rem;
+  direction: rtl;
+}
+
+.hami-hub-alert-row--critical {
+  border-color: rgba(239, 68, 68, 0.22);
+}
+
+.hami-hub-alert-row--normal {
+  border-color: rgba(56, 189, 248, 0.16);
+}
+
+.hami-hub-alert-row__open {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.35rem 0.55rem;
+  border: none;
+  border-radius: 0.75rem;
+  background: transparent;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  direction: rtl;
+  text-align: right;
+  touch-action: manipulation;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.hami-hub-alert-row__headline {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.hami-hub-alert-row__title-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 0.875em;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.96);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hami-hub-alert-row__headline-sep {
+  flex-shrink: 0;
+  font-size: 0.625em;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.22);
+}
+
+.hami-hub-alert-row__place {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 46%;
+  font-size: 0.75em;
+  font-weight: 700;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.52);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hami-hub-alert-row__details {
+  flex: 0 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  max-width: 42%;
+  min-width: 0;
+}
+
+.hami-hub-alert-row__chip {
+  font-size: 0.75em;
+  font-weight: 800;
+  line-height: 1.3;
+  color: #e6c673;
+  white-space: nowrap;
+}
+
+.hami-hub-alert-row__meta-sep {
+  font-size: 0.625em;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.22);
+}
+
+.hami-hub-alert-row__source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.6875em;
+  font-weight: 700;
+  line-height: 1.3;
+  color: rgba(180, 210, 240, 0.88);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hami-hub-alert-row__open:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hami-hub-alert-row__open:hover .hami-hub-alert-row__title-text {
+  color: rgba(230, 198, 115, 0.95);
+}
+
+.hami-hub-alert-row__actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.1rem;
+  flex-shrink: 0;
+}
+
+.hami-hub-alert-row__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  min-width: 44px;
+  min-height: 44px;
+  border: none;
+  border-radius: 0.65rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.28);
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+.hami-hub-alert-row__action:hover {
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.hami-hub-alert-row__action--pinned {
+  color: rgba(251, 191, 36, 0.9);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+
+.hami-hub-alerts-panel {
+  min-height: 0;
+  flex: 1 1 auto;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.hami-hub-alerts-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 0;
+  max-height: inherit;
+  overflow: hidden;
+}
+
+.hami-hub-alerts-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  contain: layout style;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.hami-hub-horizon-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  flex-shrink: 0;
+  padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px);
+}
+
+/* معاينة ثابتة: بطاقتان فقط — الباقي في حاوية «البقية» */
+.hami-hub-alerts-feed__scroll {
+  flex-shrink: 0;
+  max-height: calc((52px * 2 + 0.35rem) * var(--hami-content-scale, 1));
+  overflow: hidden;
+}
+
+.hami-hub-horizon-row .hami-hub-horizon-tabs--compact {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+.hami-hub-horizon-tabs--compact {
+  width: 100%;
+  justify-content: stretch;
+}
+
+.hami-hub-horizon-tabs--compact button {
+  flex: 1;
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+html[data-hami-reduce-motion='1'] .hami-hub-radar__open,
+html[data-hami-animations='0'] .hami-hub-radar__open,
+html[data-hami-lite='1'] .hami-hub-radar__open,
+html[data-hami-reduce-motion='1'] .hami-hub-alert-row__open,
+html[data-hami-animations='0'] .hami-hub-alert-row__open,
+html[data-hami-lite='1'] .hami-hub-alert-row__open,
+html[data-hami-reduce-motion='1'] .hami-hub-tab-more-trigger,
+html[data-hami-animations='0'] .hami-hub-tab-more-trigger,
+html[data-hami-lite='1'] .hami-hub-tab-more-trigger {
+  transition: none;
+}

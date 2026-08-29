@@ -1,6 +1,6 @@
-import { SmartToast } from '@/app/components/ui/SmartToast';
+﻿import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
-import { isRealSignedIn } from '@/app/services/auth/shellAuth';
+import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
 import { voiceNoteTitleFromMeta } from '@/app/services/voice/voiceNoteCodec';
 import {
     isVoiceBlobWithinLimit,
@@ -22,7 +22,7 @@ export async function saveVoiceNoteToNotepad(
         saveNote: (note: GlobalNote) => void | Promise<void>;
     },
 ): Promise<string | number | null> {
-    if (!isRealSignedIn(opts.userId)) {
+    if (!hasLocalAppSession(opts.userId)) {
         SmartToast.error('يرجى تسجيل الدخول أولاً لاستخدام التسجيل الصوتي');
         return null;
     }

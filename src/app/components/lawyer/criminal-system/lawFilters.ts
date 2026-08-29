@@ -157,9 +157,9 @@ export const LAW_FILTERS: Record<string, LawFilterEntry> = {
 
 export const LAW_FILTER_GENERAL_KEYS = Object.keys(LAW_FILTERS);
 
-export const LEGAL_CODES_PROCEDURE_FILTER_PIN_KEY = "hami_legal_codes_procedure_filter_pin";
+const LEGAL_CODES_PROCEDURE_FILTER_PIN_KEY = "hami_legal_codes_procedure_filter_pin";
 
-export type ProcedureFilterPin = {
+type ProcedureFilterPin = {
     general: string;
     sub: string | null;
 };

@@ -5,7 +5,6 @@ import {
 } from '@/app/components/lawyer/CommunityScreen/forumEscapeStack';
 
 const base: ForumEscapeSnapshot = {
-    fullscreenImage: null,
     profileView: false,
     pendingDeletePostId: null,
     editingPostId: null,
@@ -22,12 +21,6 @@ const base: ForumEscapeSnapshot = {
 };
 
 describe('resolveForumEscapeAction', () => {
-    it('يغلق صورة ملء الشاشة أولاً', () => {
-        expect(
-            resolveForumEscapeAction({ ...base, fullscreenImage: 'https://x/img.png', isSearchOpen: true }),
-        ).toBe('close-fullscreen-image');
-    });
-
     it('يغلق الملف الشخصي قبل البحث', () => {
         expect(resolveForumEscapeAction({ ...base, profileView: true, isSearchOpen: true })).toBe(
             'close-profile',

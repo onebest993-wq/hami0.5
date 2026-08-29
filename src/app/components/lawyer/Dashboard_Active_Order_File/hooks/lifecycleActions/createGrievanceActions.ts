@@ -149,8 +149,8 @@ export function createGrievanceActions(
         const hasGrievanceHearings = hearings.some((h) => h.stage === 'grievance');
         setGrievanceError(
             !hasGrievanceHearings
-                ? '⚠️ يجب إضافة جلسة تظلم واختيار (ختام المرافعة) قبل حفظ وإنهاء المرحلة.'
-                : '⚠️ لإدخال قرار التظلم، يجب إضافة جلسة جديدة واختيار (ختام المرافعة).',
+                ? 'يجب إضافة جلسة تظلم واختيار (ختام المرافعة) قبل حفظ وإنهاء المرحلة.'
+                : 'لإدخال قرار التظلم، يجب إضافة جلسة جديدة واختيار (ختام المرافعة).',
         );
         return;
     }
@@ -178,7 +178,7 @@ export function createGrievanceActions(
             return;
         }
         if (/^\d{4}-\d{2}-\d{2}$/.test(endDateValue) && todayYmdValue <= endDateValue) {
-            setGrievanceError('⏳ لا يمكن إغلاق مرحلة التظلم قبل انقضاء المدة المحددة.');
+            setGrievanceError('لا يمكن إغلاق مرحلة التظلم قبل انقضاء المدة المحددة.');
             return;
         }
     }
@@ -206,7 +206,7 @@ export function createGrievanceActions(
 
     void persistPatch(patch);
     if (caseId) onCaseUpdated?.(caseId, patch);
-    setCaseData((prev: any) => ({ ...(prev || {}), ...patch }));
+    setCaseData((prev) => ({ ...(prev || {}), ...patch }));
 
     if (grievanceData.outcome === 'filed') {
         appendCaseEvent(
@@ -230,7 +230,7 @@ const persistGrievanceOutcomeDraft = (next: 'filed' | 'expired') => {
     const patch: Record<string, unknown> = { grievanceOutcomeDraft: next };
     void persistPatch(patch);
     if (caseId) onCaseUpdated?.(caseId, patch);
-    setCaseData((prev: any) => ({ ...(prev || {}), ...patch }));
+    setCaseData((prev) => ({ ...(prev || {}), ...patch }));
 };
 
 const confirmGrievanceTiming = async () => {
@@ -251,7 +251,7 @@ const confirmGrievanceTiming = async () => {
     setGrievanceTimingConfirmed(true);
     const endDateValue = String(grievanceLegalEndDate || '').trim();
     const notif = String(
-        grievanceData.rejectionNotificationDate || (caseData as any)?.notificationDate || '',
+        grievanceData.rejectionNotificationDate || caseData?.notificationDate || '',
     ).trim();
     const patch: Record<string, unknown> = {
         grievanceLegalEndDate: endDateValue || null,
@@ -260,7 +260,7 @@ const confirmGrievanceTiming = async () => {
     if (notif) patch.rejectionNotificationDate = notif;
     void persistPatch(patch);
     if (caseId) onCaseUpdated?.(caseId, patch);
-    setCaseData((prev: any) => ({ ...(prev || {}), ...patch }));
+    setCaseData((prev) => ({ ...(prev || {}), ...patch }));
     appendCaseEvent(
         `تثبيت التوقيت القانوني للتظلم — التبليغ: ${formatDateText(notif) || '—'} | الانتهاء: ${formatDateText(endDateValue) || '—'}`,
         'action',
@@ -318,7 +318,7 @@ const clearGrievance = async (e?: React.SyntheticEvent) => {
         e.preventDefault();
         e.stopPropagation();
     }
-    const ok = await requestConfirm('⚠️ تحذير: سيتم مسح كافة توقيتات وجلسات التظلم وإعادتك للبداية. هل أنت متأكد؟');
+    const ok = await requestConfirm('تحذير: سيتم مسح كافة توقيتات وجلسات التظلم وإعادتك للبداية. هل أنت متأكد؟');
     if (!ok) return;
     const nextHearings = hearings.filter((h) => h.stage !== 'grievance');
     setHearings(nextHearings);

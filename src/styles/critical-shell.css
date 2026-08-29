@@ -1,15 +1,11 @@
 /**
- * CSS حرج — يُحمَّل متزامناً من index.html
- * lawyerHomeFx الكامل في deferred-app.css
+ * CSS حرج — يُحمَّل متزامناً من index.tsx
+ * lawyerHomeFx-critical هنا؛ الإضافات المؤجّلة عبر deferred-app.css
+ * Android FX: virtual:hami-critical-native-android (dev + VITE_BUILD_NATIVE فقط)
  */
 @import './app-screen.css';
 @import './mobile-gpu-safety.css';
 @import '../app/components/lawyer/dashboard/lawyerHomeFx-critical.css';
-@import '../app/components/lawyer/dashboard/lawyerHomeFx-android.css';
-@import '../app/components/lawyer/CommunityScreen/forumPlumChrome.css';
-@import '../app/components/lawyer/RoyalLawyerProfile/profileChrome.css';
-@import '../app/components/lawyer/LawyerHomeHubCard/homeHubCardFx.css';
-@import '../app/components/lawyer/SmartLegalRadar/radarFormCritical.css';
 @import '../app/components/lawyer/appLockOverlay.css';
 @import './critical-lawyer-utils.css';
 
@@ -24,16 +20,23 @@
     --hami-pearl: #fff9ee;
     --hami-font-size: 16px;
     --hami-user-font-scale: 1;
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+    color-scheme: dark;
 }
 
 html {
-    font-size: calc(16px * var(--hami-user-font-scale, 1));
+    /* ثابت — مقياس القراءة عبر --hami-font-size على النص فقط، لا rem التخطيط */
+    font-size: 16px;
+    color-scheme: dark;
+    background-color: var(--hami-board-surface-bg, #0a0f1c);
 }
 
 body {
     background-color: var(--hami-board-surface-bg, var(--hami-surface-bg, #0a0f1c));
     color: #fff;
     font-family: 'Tajawal', 'Cairo', system-ui, sans-serif;
+    font-size: var(--hami-font-size, 16px);
 }
 
 /** خلفية اللوحة — تتبع CSS vars من الإقلاع بلا وميض */

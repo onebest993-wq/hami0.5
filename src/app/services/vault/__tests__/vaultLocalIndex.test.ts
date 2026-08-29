@@ -1,4 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
 import {
     normalizeVaultDocForLocalPersist,
@@ -75,14 +77,37 @@ describe('vaultLocalIndex', () => {
         expect(readVaultLocalIndexSync()[0]?.id).toBe('doc-fast');
     });
 
-    it('reads from localStorage mirror on cold start', () => {
-        const existing = [baseDoc({ id: 'mirror-doc', title: 'مرآة' })];
-        if (typeof localStorage !== 'undefined') {
-            localStorage.setItem('hami:smartvault:mirror:v1', JSON.stringify(existing));
-        }
+    /*
+     * كانت المرآة الصريحة مسار القراءة الدائم — نسخةٌ من أسماء المستندات على القرص
+     * بلا تشفير. صارت ترحيلاً لمرّة: تُقرأ لئلّا يفقد جهازٌ مُحدَّثٌ فهرسه، ثم تُمحى.
+     * فالاختبار يُثبّت الأمرين معاً؛ القراءة وحدها تُبقي الثقب مفتوحاً بضمانةٍ خضراء.
+     */
+    it('يُرحّل المرآة الصريحة القديمة مرّة واحدة ثم يمحوها', () => {
         resetVaultLocalIndexForTests();
+        const existing = [baseDoc({ id: 'mirror-doc', title: 'مرآة' })];
+        localStorage.setItem('hami:smartvault:mirror:v1', JSON.stringify(existing));
+
         const docs = readVaultLocalIndexSync();
         expect(docs.some((d) => d.id === 'mirror-doc')).toBe(true);
+        expect(localStorage.getItem('hami:smartvault:mirror:v1')).toBeNull();
+    });
+
+    it('لا يكتب الفهرس نصّاً صريحاً في localStorage', () => {
+        resetVaultLocalIndexForTests();
+        upsertVaultLocalIndexDocImmediate(baseDoc({ id: 'doc-secret', title: 'شكوى جناية — المتهم فلان' }));
+
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key) continue;
+            expect(localStorage.getItem(key) ?? '').not.toContain('المتهم فلان');
+        }
+    });
+
+    it('flush ينتظر setItem ولا يعامل مهلة كنجاح', async () => {
+        const src = readFileSync(join(process.cwd(), 'src/app/services/vault/vaultLocalIndex.ts'), 'utf8');
+        expect(src).toContain('await SecureStoreService.setItem(VAULT_LOCAL_KEY, payload)');
+        expect(src).not.toMatch(/PERSIST_FLUSH_TIMEOUT/);
+        expect(src).not.toMatch(/Promise\.race\(\[/);
     });
 
     it('schedules lightweight persist without blocking', async () => {

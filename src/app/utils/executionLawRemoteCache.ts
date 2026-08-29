@@ -1,7 +1,7 @@
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { EXECUTION_LAW_CANONICAL_NAME } from '@/app/constants/iraqiLawCatalog';
 import type { ExecutionLawArticle } from '@/data/executionLaws';
-import { loadExecutionLawSeedData, prefetchExecutionLawSeedData } from '@/data/executionLawsLoader';
+import { loadExecutionLawSeedData, peekExecutionLawSeedDataCached, prefetchExecutionLawSeedData } from '@/data/executionLawsLoader';
 import { resolveExecutionLawLeaf } from '@/data/executionLawHierarchy';
 import { normalizeArabicDigits } from '@/app/utils/articleNumberRange';
 import { mergeLocalTitlesIntoExecutionArticles } from '@/app/utils/executionLawArticleUtils';
@@ -29,10 +29,10 @@ let cachedArticles: ExecutionLawArticle[] | null = null;
 let inflight: Promise<ExecutionLawArticle[]> | null = null;
 let backgroundSyncInflight = false;
 
-const EXECUTION_LOCAL_CACHE_KEY = 'execution-law';
+export const EXECUTION_LAW_LOCAL_CACHE_KEY = 'execution-law';
 
 function hydrateExecutionFromDeviceStorage(): ExecutionLawArticle[] | null {
-    const stored = readLegalReferenceCache<ExecutionLawArticle>(EXECUTION_LOCAL_CACHE_KEY);
+    const stored = readLegalReferenceCache<ExecutionLawArticle>(EXECUTION_LAW_LOCAL_CACHE_KEY);
     if (!stored || stored.length === 0) return null;
     cachedArticles = stored;
     return stored;
@@ -40,7 +40,7 @@ function hydrateExecutionFromDeviceStorage(): ExecutionLawArticle[] | null {
 
 function scheduleBackgroundExecutionLawSync(): void {
     if (!canReachPublishedLawCatalog()) return;
-    if (backgroundSyncInflight || !isLegalReferenceCacheStale(EXECUTION_LOCAL_CACHE_KEY)) return;
+    if (backgroundSyncInflight || !isLegalReferenceCacheStale(EXECUTION_LAW_LOCAL_CACHE_KEY)) return;
     backgroundSyncInflight = true;
 
     scheduleIdleWork(
@@ -52,7 +52,7 @@ function scheduleBackgroundExecutionLawSync(): void {
                     const mapped = mapRemoteRowsToExecutionArticles(rows);
                     if (mapped.length > 0) {
                         cachedArticles = mergeLocalTitlesIntoExecutionArticles(mapped, localSeed);
-                        writeLegalReferenceCache(EXECUTION_LOCAL_CACHE_KEY, cachedArticles);
+                        writeLegalReferenceCache(EXECUTION_LAW_LOCAL_CACHE_KEY, cachedArticles);
                     }
                 } catch {
                     /* keep local snapshot */
@@ -65,9 +65,16 @@ function scheduleBackgroundExecutionLawSync(): void {
     );
 }
 
+export function peekExecutionLawArticlesCached(): ExecutionLawArticle[] | null {
+    if (Array.isArray(cachedArticles) && cachedArticles.length > 0) return cachedArticles;
+    const fromDevice = hydrateExecutionFromDeviceStorage();
+    if (fromDevice && fromDevice.length > 0) return fromDevice;
+    return peekExecutionLawSeedDataCached();
+}
+
 export function hasExecutionLawArticlesCached(): boolean {
-    if (Array.isArray(cachedArticles) && cachedArticles.length > 0) return true;
-    return hydrateExecutionFromDeviceStorage() != null;
+    const peeked = peekExecutionLawArticlesCached();
+    return peeked != null && peeked.length > 0;
 }
 
 /** تحميل مسبق عند hover على tile المرجع — يشمل JSON المحلي */
@@ -146,7 +153,7 @@ export async function loadExecutionLawArticlesRemote(): Promise<ExecutionLawArti
         const bundledMapped = mapRemoteRowsToExecutionArticles(bundledRows);
         if (bundledMapped.length > 0) {
             cachedArticles = mergeLocalTitlesIntoExecutionArticles(bundledMapped, localSeed);
-            writeLegalReferenceCache(EXECUTION_LOCAL_CACHE_KEY, cachedArticles);
+            writeLegalReferenceCache(EXECUTION_LAW_LOCAL_CACHE_KEY, cachedArticles);
             scheduleBackgroundExecutionLawSync();
             return cachedArticles;
         }
@@ -156,7 +163,7 @@ export async function loadExecutionLawArticlesRemote(): Promise<ExecutionLawArti
             const mapped = mapRemoteRowsToExecutionArticles(rows);
             if (mapped.length > 0) {
                 cachedArticles = mergeLocalTitlesIntoExecutionArticles(mapped, localSeed);
-                writeLegalReferenceCache(EXECUTION_LOCAL_CACHE_KEY, cachedArticles);
+                writeLegalReferenceCache(EXECUTION_LAW_LOCAL_CACHE_KEY, cachedArticles);
                 return cachedArticles;
             }
         } catch {
@@ -165,7 +172,7 @@ export async function loadExecutionLawArticlesRemote(): Promise<ExecutionLawArti
 
         cachedArticles = localSeed;
         if (cachedArticles.length > 0) {
-            writeLegalReferenceCache(EXECUTION_LOCAL_CACHE_KEY, cachedArticles);
+            writeLegalReferenceCache(EXECUTION_LAW_LOCAL_CACHE_KEY, cachedArticles);
         }
         return cachedArticles;
     })();
@@ -181,7 +188,7 @@ export function invalidateExecutionLawRemoteCache(): void {
     cachedArticles = null;
     inflight = null;
     backgroundSyncInflight = false;
-    clearLegalReferenceCache(EXECUTION_LOCAL_CACHE_KEY);
+    clearLegalReferenceCache(EXECUTION_LAW_LOCAL_CACHE_KEY);
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(EXECUTION_LAW_CACHE_INVALIDATED_EVENT));
     }

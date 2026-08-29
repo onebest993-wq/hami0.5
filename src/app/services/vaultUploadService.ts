@@ -2,6 +2,13 @@ import { uuidv4 } from '@/app/services/lawyer-cloud';
 import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { inferDocType, inferTags, resolveVaultMediaKind } from '@/app/services/vault/vaultDocUtils';
+import { assertVaultStoragePathOwner } from '@/app/services/vault/vaultOwnership';
+import {
+    isAllowedVaultImageMeta,
+    isScriptableVaultMedia,
+    sanitizeVaultPlainNote,
+    sanitizeVaultPreviewUrl,
+} from '@/app/services/vault/vaultPreviewUrlSafety';
 import {
     buildVaultIdbPath,
     getVaultBlob,
@@ -23,13 +30,39 @@ export const VAULT_MAX_FILE_SIZE = 50 * 1024 * 1024;
 const SCAN_TAG = 'مسح ضوئي';
 
 export function isVaultImageFile(file: File): boolean {
-    return inferDocType(file.type || '', file.name) === 'image';
+    return isAllowedVaultImageMeta(file.type || '', file.name);
 }
 
 export function isVaultPdfFile(file: File): boolean {
     const mime = (file.type || '').toLowerCase();
     const name = file.name.toLowerCase();
+    if (isScriptableVaultMedia(mime, name)) return false;
     return mime === 'application/pdf' || name.endsWith('.pdf');
+}
+
+async function assertVaultPdfMagic(file: File): Promise<void> {
+    const buf = new Uint8Array(await file.slice(0, 1024).arrayBuffer());
+    const head = Array.from(buf, (b) => String.fromCharCode(b)).join('');
+    if (!head.includes('%PDF')) {
+        throw new Error('نوع الملف غير مدعوم');
+    }
+}
+
+function vaultDocStorageOwned(doc: SmartVaultDoc): boolean {
+    const path = doc.storagePath?.trim() || '';
+    const author = (doc.authorId || '').trim();
+    if (!path) return true;
+    if (!author) return false;
+    try {
+        assertVaultStoragePathOwner(path, author);
+    } catch {
+        return false;
+    }
+    if (isVaultIdbStoragePath(path)) {
+        const parsed = parseVaultIdbPath(path);
+        if (parsed && parsed.userId !== author) return false;
+    }
+    return true;
 }
 
 export type VaultUploadKind = 'image' | 'pdf';
@@ -132,6 +165,12 @@ export async function saveFileToVault(
 ): Promise<SaveVaultFileResult> {
     if (!userId.trim()) throw new Error('user required');
     if (file.size > VAULT_MAX_FILE_SIZE) throw new Error('file too large');
+    if (!isVaultImageFile(file) && !isVaultPdfFile(file)) {
+        throw new Error('نوع الملف غير مدعوم');
+    }
+    if (isVaultPdfFile(file)) {
+        await assertVaultPdfMagic(file);
+    }
     const normalized = normalizeVaultUploadFile(file);
     const docId = uuidv4();
     const uploadResult = uploadVaultFileWithFallback(userId, normalized, { docId });
@@ -157,7 +196,7 @@ export async function saveFileToVault(
         signedUrl: uploadResult.signedUrl,
         isProcessing: false,
         aiSummary: options?.aiSummary ?? null,
-        lawyerNote: options?.lawyerNote ?? null,
+        lawyerNote: sanitizeVaultPlainNote(options?.lawyerNote),
         customCategory: options?.customCategory ?? null,
         boundDossierId: null,
     };
@@ -165,7 +204,7 @@ export async function saveFileToVault(
     upsertVaultLocalIndexDocImmediate(doc);
     mergeVaultDocsWarmCache(userId, [doc]);
     notifySmartVaultDocsUpdated(userId, [doc]);
-    await SmartVaultDB.saveDoc(doc);
+    await SmartVaultDB.saveDoc(doc, userId);
     const persistTask = scheduleVaultBlobPersist(uploadResult.persistTask, normalized.name);
     void import('@/app/services/vault/scheduleVaultTextExtraction').then(({ scheduleVaultTextExtraction }) => {
         scheduleVaultTextExtraction(doc, persistTask);
@@ -173,21 +212,51 @@ export async function saveFileToVault(
     return { doc, localOnly: uploadResult.localOnly, persistTask };
 }
 
+export async function blobFromScanImageSource(
+    image: string | Blob,
+): Promise<{ blob: Blob; fallbackDataUrl?: string }> {
+    if (typeof Blob !== 'undefined' && image instanceof Blob) {
+        if (image.size > VAULT_MAX_FILE_SIZE) throw new Error('file too large');
+        if (!isAllowedVaultImageMeta(image.type || 'image/jpeg', 'scan.jpg')) {
+            throw new Error('invalid scan source');
+        }
+        return { blob: image };
+    }
+    const source = String(image);
+    if (source.startsWith('data:')) {
+        if (!sanitizeVaultPreviewUrl(source)) throw new Error('invalid data url');
+        const comma = source.indexOf(',');
+        if (comma < 0) throw new Error('invalid data url');
+        const header = source.slice(0, comma);
+        const payload = source.slice(comma + 1);
+        const mime = /data:([^;]+)/.exec(header)?.[1] || 'image/jpeg';
+        if (!isAllowedVaultImageMeta(mime, 'scan.jpg')) throw new Error('invalid data url');
+        const binary = atob(payload);
+        if (binary.length > VAULT_MAX_FILE_SIZE) throw new Error('file too large');
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        return { blob: new Blob([bytes], { type: mime }), fallbackDataUrl: source };
+    }
+    throw new Error('invalid scan source');
+}
+
 export async function saveScannedImageToVault(
     userId: string,
-    imageDataUrl: string,
+    image: string | Blob,
     options?: { aiSummary?: string | null; lawyerNote?: string | null; title?: string; customCategory?: string | null },
 ): Promise<SaveVaultFileResult> {
-    const blob = await (await fetch(imageDataUrl)).blob();
-    const file = new File([blob], `scan_${Date.now()}.jpg`, { type: 'image/jpeg' });
+    const { blob, fallbackDataUrl } = await blobFromScanImageSource(image);
+    const file = new File([blob], `scan_${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' });
     const title = options?.title?.trim() || `${SCAN_TAG} ${new Date().toLocaleDateString('ar-IQ')}`;
     const baseTags = inferTags(title);
     const tags = baseTags.includes(SCAN_TAG) ? baseTags : [...baseTags, SCAN_TAG];
 
     if (!userId.trim()) throw new Error('user required');
+    if (file.size > VAULT_MAX_FILE_SIZE) throw new Error('file too large');
+    if (!isVaultImageFile(file)) throw new Error('نوع الملف غير مدعوم');
 
     const docId = uuidv4();
-    const uploadResult = uploadVaultFileWithFallback(userId, file, { docId, fallbackDataUrl: imageDataUrl });
+    const uploadResult = uploadVaultFileWithFallback(userId, file, { docId, fallbackDataUrl });
     const doc: SmartVaultDoc = {
         id: docId,
         title,
@@ -200,17 +269,17 @@ export async function saveScannedImageToVault(
         fileName: file.name,
         mimeType: 'image/jpeg',
         storagePath: uploadResult.storagePath,
-        signedUrl: uploadResult.signedUrl ?? imageDataUrl,
+        signedUrl: uploadResult.signedUrl ?? fallbackDataUrl ?? null,
         isProcessing: false,
         aiSummary: options?.aiSummary ?? null,
-        lawyerNote: options?.lawyerNote ?? null,
+        lawyerNote: sanitizeVaultPlainNote(options?.lawyerNote),
         customCategory: options?.customCategory ?? null,
         boundDossierId: null,
     };
     upsertVaultLocalIndexDocImmediate(doc);
     mergeVaultDocsWarmCache(userId, [doc]);
     notifySmartVaultDocsUpdated(userId, [doc]);
-    await SmartVaultDB.saveDoc(doc);
+    await SmartVaultDB.saveDoc(doc, userId);
     const persistTask = scheduleVaultBlobPersist(uploadResult.persistTask, file.name);
     void import('@/app/services/vault/scheduleVaultTextExtraction').then(({ scheduleVaultTextExtraction }) => {
         scheduleVaultTextExtraction(doc, persistTask);
@@ -246,6 +315,7 @@ export type VaultDocViewerKind = 'image' | 'pdf' | 'audio' | 'file';
 export { resolveVaultMediaKind as resolveVaultDocViewerKind } from '@/app/services/vault/vaultDocUtils';
 
 export async function resolveVaultDocBlob(doc: SmartVaultDoc): Promise<Blob | null> {
+    if (!vaultDocStorageOwned(doc)) return null;
     const path = doc.storagePath?.trim() || '';
     if (isVaultIdbStoragePath(path)) {
         const parsed = parseVaultIdbPath(path);
@@ -255,8 +325,8 @@ export async function resolveVaultDocBlob(doc: SmartVaultDoc): Promise<Blob | nu
         return getVaultBlob(parsed.userId, parsed.docId);
     }
 
-    const cached = doc.signedUrl?.trim() || '';
-    if (cached.startsWith('data:') || cached.startsWith('blob:')) {
+    const cached = sanitizeVaultPreviewUrl(doc.signedUrl);
+    if (cached && (cached.startsWith('data:') || cached.startsWith('blob:'))) {
         try {
             const response = await fetch(cached);
             const blob = await response.blob();
@@ -270,8 +340,11 @@ export async function resolveVaultDocBlob(doc: SmartVaultDoc): Promise<Blob | nu
 }
 
 export async function resolveVaultDocUrl(doc: SmartVaultDoc): Promise<string | null> {
+    if (!vaultDocStorageOwned(doc)) return null;
     const path = doc.storagePath?.trim() || '';
-    const cached = doc.signedUrl?.trim() || '';
+    const author = (doc.authorId || '').trim();
+
+    const cached = sanitizeVaultPreviewUrl(doc.signedUrl);
     const isPdfDoc =
         doc.type === 'pdf' ||
         (doc.mimeType || '').toLowerCase() === 'application/pdf' ||
@@ -291,6 +364,7 @@ export async function resolveVaultDocUrl(doc: SmartVaultDoc): Promise<string | n
     if (isVaultIdbStoragePath(path)) {
         const parsed = parseVaultIdbPath(path);
         if (parsed) {
+            if (author && parsed.userId !== author) return null;
             const memoryBlob = peekVaultBlob(parsed.userId, parsed.docId);
             if (memoryBlob) {
                 try {
@@ -308,18 +382,18 @@ export async function resolveVaultDocUrl(doc: SmartVaultDoc): Promise<string | n
     }
 
     if (path.startsWith('local:vault:')) {
-        return doc.signedUrl?.trim() || null;
+        return cached;
     }
 
     if (path && !path.startsWith('local:')) {
         try {
-            const remote = await SmartVaultDB.getSignedUrl(path);
+            const remote = sanitizeVaultPreviewUrl(await SmartVaultDB.getSignedUrl(path));
             if (remote) return remote;
         } catch {
             // fall through to cached signedUrl
         }
     }
-    return doc.signedUrl?.trim() || null;
+    return cached;
 }
 
 const VAULT_VIEW_RESOLVE_TIMEOUT_MS = 14_000;
@@ -373,6 +447,7 @@ export type VaultDocViewPayload = {
 export async function resolveVaultDocForViewing(
     doc: SmartVaultDoc,
 ): Promise<VaultDocViewPayload | null> {
+    if (!vaultDocStorageOwned(doc)) return null;
     prefetchVaultBlobStore();
 
     let { blob, url } = await Promise.race([
@@ -394,22 +469,19 @@ export async function resolveVaultDocForViewing(
     }
 
     if (!url) {
-        const cached = doc.signedUrl?.trim() || '';
-        if (cached.startsWith('https://') || cached.startsWith('http://')) {
-            url = cached;
-        }
+        url = sanitizeVaultPreviewUrl(doc.signedUrl);
     }
 
     const path = doc.storagePath?.trim() || '';
     if (!url && path && !isVaultIdbStoragePath(path) && !path.startsWith('local:')) {
         try {
-            const remote = await SmartVaultDB.getSignedUrl(path);
-            if (remote) url = remote;
+            url = sanitizeVaultPreviewUrl(await SmartVaultDB.getSignedUrl(path));
         } catch {
             /* fall through */
         }
     }
 
+    url = sanitizeVaultPreviewUrl(url);
     if (!url) return null;
 
     const kind = resolveVaultMediaKind(doc);
@@ -423,6 +495,9 @@ export async function resolveVaultDocForViewing(
 const PDF_VIEWER_PREP_TIMEOUT_MS = 12_000;
 
 export async function toVaultPdfViewerUrl(url: string): Promise<string> {
+    if (!sanitizeVaultPreviewUrl(url)) {
+        throw new Error('unsafe vault preview url');
+    }
     const prepare = async (): Promise<string> => {
         if (url.startsWith('http://') || url.startsWith('https://')) {
             return url;
@@ -469,9 +544,10 @@ export async function downloadVaultDocToDevice(
     doc: SmartVaultDoc,
     opts?: { fileUrl?: string | null; fileBlob?: Blob | null },
 ): Promise<void> {
+    const safeFileUrl = sanitizeVaultPreviewUrl(opts?.fileUrl);
     const blob =
         opts?.fileBlob ??
-        (opts?.fileUrl ? await fetch(opts.fileUrl).then((r) => r.blob()).catch(() => null) : null) ??
+        (safeFileUrl ? await fetch(safeFileUrl).then((r) => r.blob()).catch(() => null) : null) ??
         (await resolveVaultDocBlob(doc));
     if (!blob) throw new Error('vault download unavailable');
     const url = URL.createObjectURL(blob);

@@ -1,8 +1,8 @@
-﻿import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ProfileHeroSection } from '@/app/components/lawyer/RoyalLawyerProfile/components/ProfileHeroSection';
 
-vi.mock('@/app/runtime/profileSettingsSheetLoader', () => ({
+vi.mock('@/app/utils/lazyComponentsIntent', () => ({
     prefetchProfileSettingsSheet: vi.fn(),
 }));
 
@@ -12,12 +12,8 @@ vi.mock('@/app/components/lawyer/RoyalLawyerProfile/components/ProfileFloatingPo
     ),
 }));
 
-vi.mock('@/app/components/shared/MoroccanGlassOverlay', () => ({
-    MoroccanGlassFrame: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
-
 describe('ProfileHeroSection avatar fallback', () => {
-    it('┘è╪╣╪▒╪╢ ╪د┘╪ص╪▒┘ ╪د┘╪ث┘ê┘ ╪╣┘╪» ┘╪┤┘ ╪▒╪د╪ذ╪╖ ╪د┘╪╡┘ê╪▒╪ر', () => {
+    it('يظهر الحرف الأول عند فشل رابط الصورة', () => {
         render(
             <ProfileHeroSection
                 isEditing={false}
@@ -25,19 +21,18 @@ describe('ProfileHeroSection avatar fallback', () => {
                 draft={null}
                 setDraft={vi.fn()}
                 header={{
-                    name: '╪│╪د╪▒╪ر',
+                    name: 'سعد',
                     title: '',
                     coverImage: '',
                     profileImage: 'https://cdn.example/broken.jpg',
                 }}
-                initials="╪│"
-                displayNamePublic="╪│╪د╪▒╪ر"
+                initials="س"
+                displayNamePublic="سعد"
                 syndicateIdPublic=""
                 showSyndicate={false}
                 metaItems={[]}
                 uploading={null}
                 avatarRef={{ current: null }}
-                ornatePattern={false}
                 forumFollow={null}
                 startEdit={vi.fn()}
                 openSettings={vi.fn()}
@@ -47,6 +42,6 @@ describe('ProfileHeroSection avatar fallback', () => {
         const img = document.querySelector('img');
         expect(img).toBeTruthy();
         fireEvent.error(img!);
-        expect(screen.getByText('╪│')).toBeTruthy();
+        expect(screen.getByText('س')).toBeTruthy();
     });
 });

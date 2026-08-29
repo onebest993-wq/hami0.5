@@ -30,13 +30,13 @@ export function makePublicRightComplainant(): CriminalComplainant {
 }
 
 /** مشتكون عاديون (غير الحق العام) في الإضبارة. */
-export function filterPrivateComplainants(complainants: CriminalComplainant[]): CriminalComplainant[] {
+function filterPrivateComplainants(complainants: CriminalComplainant[]): CriminalComplainant[] {
     return (Array.isArray(complainants) ? complainants : []).filter(
         (c) => !isPublicRightComplainantName(c.fullName),
     );
 }
 
-export function caseHasPublicRightComplainant(caseRecord: {
+function caseHasPublicRightComplainant(caseRecord: {
     isPublicProsecutionComplainant?: boolean;
     complainants?: CriminalComplainant[];
 }): boolean {

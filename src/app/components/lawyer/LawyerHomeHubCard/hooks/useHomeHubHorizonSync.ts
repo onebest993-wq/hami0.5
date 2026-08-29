@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { pickDefaultHorizonFilter, type AlertTimeHorizon } from '@/app/services/alertTimeClassification';
 import { syncHorizonFilterIfEmpty } from '@/app/stores/neuralAlertsStore';
 
-export type UseHomeHubHorizonSyncParams = {
+type UseHomeHubHorizonSyncParams = {
     carouselTotal: number;
     horizonCounts: Record<AlertTimeHorizon, number>;
     activeFilter: AlertTimeHorizon;

@@ -1,0 +1,763 @@
+{
+  "generated": "2026-08-29T13:10:47.136Z",
+  "totalRouteFiles": 98,
+  "public": [
+    {
+      "method": "GET",
+      "path": "/api/public/bff"
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/healthz"
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/readyz"
+    }
+  ],
+  "bootstrap": [
+    {
+      "method": "GET",
+      "path": "/api/admin/otp/csrf"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/otp/dev-unlock",
+      "body": {
+        "targetUserId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/otp/request",
+      "body": {
+        "targetUserId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/otp/status"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/otp/verify",
+      "body": {
+        "targetUserId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/verify"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/forgot-password",
+      "body": {}
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "body": {}
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "body": {}
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/otp/channels"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/otp/complete",
+      "body": {}
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/otp/preview",
+      "body": {}
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/otp/request",
+      "body": {}
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/refresh",
+      "body": {}
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/resend-confirmation",
+      "body": {}
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/session"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/signup",
+      "body": {}
+    },
+    {
+      "method": "POST",
+      "path": "/api/security/wife-sign",
+      "body": {
+        "probe": true
+      }
+    }
+  ],
+  "protected": [
+    {
+      "method": "POST",
+      "path": "/api/account/delete",
+      "body": {
+        "confirmation": "WRONG",
+        "version": 1
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/account"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/account",
+      "body": {
+        "targetUserId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/audit"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/ban",
+      "body": {
+        "targetUserId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/consultations"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/consultations",
+      "body": {
+        "postId": "p1"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/devices"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/devices",
+      "body": {
+        "action": "revoke",
+        "deviceId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/notify",
+      "body": {
+        "targetUserId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/role",
+      "body": {
+        "targetUserId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/stats"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users"
+    },
+    {
+      "method": "POST",
+      "path": "/api/audit/log",
+      "body": {
+        "probe": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/account-gate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/display-name"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/display-name",
+      "body": {}
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/lawyer-verification"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/lawyer-verification",
+      "body": {}
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/lawyer-verification",
+      "body": {}
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/public-verified-badge"
+    },
+    {
+      "method": "GET",
+      "path": "/api/calendar/tombstones"
+    },
+    {
+      "method": "POST",
+      "path": "/api/calendar/tombstones",
+      "body": {
+        "probe": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/case-share/criminal-ownership",
+      "body": {
+        "action": "create",
+        "recipientId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/case-share/detail"
+    },
+    {
+      "method": "GET",
+      "path": "/api/case-share"
+    },
+    {
+      "method": "POST",
+      "path": "/api/case-share",
+      "body": {
+        "action": "create",
+        "recipientId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/execution-files/delete",
+      "body": {
+        "probe": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/execution-files/list"
+    },
+    {
+      "method": "POST",
+      "path": "/api/execution-files/upsert",
+      "body": {
+        "probe": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/forum/ban"
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/ban",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/forum/bookmark"
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/bookmark",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/comment-report",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/comment-upvote",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/comment",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/delete",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/forum/follow"
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/follow",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/groups/join",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/groups/leave",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/forum/groups"
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/groups",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/lock",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/forum/mute"
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/mute",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/forum/notifications"
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/notifications",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/forum/notifications/stream"
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/pin",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/forum/post-follow"
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/post-follow",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/forum/posts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/posts",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/report",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/forum/reports"
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/reports",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/forum/stats"
+    },
+    {
+      "method": "GET",
+      "path": "/api/forum/status"
+    },
+    {
+      "method": "POST",
+      "path": "/api/forum/update",
+      "body": {
+        "postId": "p1",
+        "content": "probe",
+        "title": "t"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/global-notes/delete",
+      "body": {
+        "probe": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/global-notes/list"
+    },
+    {
+      "method": "POST",
+      "path": "/api/global-notes/upsert",
+      "body": {
+        "probe": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/kv-proxy",
+      "body": {
+        "action": "get",
+        "key": "user:probe:cases:1"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/laws/add",
+      "body": {
+        "law_name": "قانون التنفيذ",
+        "confirm": true,
+        "articles": []
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/laws/clear",
+      "body": {
+        "law_name": "قانون التنفيذ",
+        "confirm": true,
+        "articles": []
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/laws/import-bundle",
+      "body": {
+        "law_name": "قانون التنفيذ",
+        "confirm": true,
+        "articles": []
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/laws/list",
+      "body": {
+        "law_name": "قانون التنفيذ",
+        "confirm": true,
+        "articles": []
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/lawsuit-files/delete",
+      "body": {
+        "probe": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/lawsuit-files/list"
+    },
+    {
+      "method": "POST",
+      "path": "/api/lawsuit-files/upsert",
+      "body": {
+        "probe": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/append",
+      "body": {
+        "item": {},
+        "items": [],
+        "ids": []
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/fcm-register",
+      "body": {
+        "item": {},
+        "items": [],
+        "ids": []
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/list"
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/merge",
+      "body": {
+        "item": {},
+        "items": [],
+        "ids": []
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/read-state",
+      "body": {
+        "item": {},
+        "items": [],
+        "ids": []
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/wipe",
+      "body": {
+        "item": {},
+        "items": [],
+        "ids": []
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/csrf"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/security/csrf"
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/wife-session"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/security/wife-session"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/cloud-sync"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/cloud-sync",
+      "body": {
+        "app_data": {
+          "probe": true
+        }
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/settings/cloud-sync",
+      "body": {
+        "app_data": {
+          "probe": true
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/wipe",
+      "body": {
+        "confirmation": "WRONG",
+        "version": 1
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/task-help/accept",
+      "body": {
+        "probe": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/task-help/complete",
+      "body": {
+        "probe": true
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/task-help/create",
+      "body": {
+        "probe": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/task-help/list"
+    },
+    {
+      "method": "POST",
+      "path": "/api/task-help/note",
+      "body": {
+        "probe": true
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/timeline-events"
+    },
+    {
+      "method": "POST",
+      "path": "/api/timeline-events",
+      "body": {
+        "executionFileId": "probe-exec",
+        "event": {
+          "id": "1",
+          "title": "t"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/upload/remove",
+      "body": {
+        "paths": [
+          "guest-lawyer-1/vault/x.pdf"
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/upload",
+      "body": {}
+    },
+    {
+      "method": "POST",
+      "path": "/api/upload/signed-url",
+      "body": {
+        "path": "guest-lawyer-1/vault/x.pdf"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/work-checkpoints"
+    },
+    {
+      "method": "POST",
+      "path": "/api/work-checkpoints",
+      "body": {
+        "encrypted_data": "x",
+        "data_signature": "y"
+      }
+    }
+  ]
+}

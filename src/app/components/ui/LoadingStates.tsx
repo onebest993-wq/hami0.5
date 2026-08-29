@@ -11,8 +11,12 @@
  */
 
 import React from 'react';
-import { motion } from 'motion/react';
-import { Loader2, FileText, Scale, Gavel, Clock } from '@/app/components/ui/lucideIcons';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { Loader2 } from '@/app/components/ui/icons/Loader2';
+import { FileText } from '@/app/components/ui/icons/FileText';
+import { Scale } from '@/app/components/ui/icons/Scale';
+import { Gavel } from '@/app/components/ui/icons/Gavel';
+import { Clock } from '@/app/components/ui/icons/Clock';
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // TYPES

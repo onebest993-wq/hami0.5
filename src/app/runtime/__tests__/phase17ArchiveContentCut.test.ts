@@ -28,10 +28,10 @@ describe('phase-17 ArchivePortal content first-paint', () => {
         expect(lawsuitSurface).toContain('LawsuitArchiveChrome');
         expect(lawsuitChrome).not.toContain('ExecutionArchiveFileGrid');
         expect(lawsuitChrome).not.toContain('ExecutionArchiveToolbar');
-        expect(lawsuitChrome).toContain('LawsuitArchiveGridFallback');
-        expect(lawsuitChrome).toMatch(
-            /Suspense fallback=\{LawsuitArchiveGridFallback\}[\s\S]{0,80}LazyLawsuitArchiveFileGrid/,
-        );
+        expect(lawsuitChrome).toContain("from './components/LawsuitArchiveFileGrid'");
+        expect(lawsuitChrome).toContain('LazyLawsuitArchiveTrashDialogs');
+        expect(lawsuitChrome).not.toContain('LawsuitArchiveGridFallback');
+        expect(lawsuitChrome).not.toContain('LazyLawsuitArchiveFileGrid');
     });
 
     it('hubArchiveLoader يسخّن LawsuitArchiveFileGrid مع مسار الدعاوى', () => {
@@ -53,7 +53,7 @@ describe('phase-17 ArchivePortal content first-paint', () => {
         expect(src).not.toContain('useExecutionArchiveCardLiveRevision');
         expect(src).toContain('testId="lawsuit-archive-grid"');
         expect(src).toContain('data-testid="lawsuit-archive-empty"');
-        expect(src).toContain('testIdPrefix="lawsuit-card"');
+        expect(src).toContain('testIdPrefix={LAWSUIT_VAULT_TEST_IDS.lawsuitFilePrefix}');
     });
 
     it('lawsuitWorkspaceWarm يستدعي prefetch المحتوى بلا جسر جزائي فوري', () => {
@@ -84,12 +84,13 @@ describe('phase-17 ArchivePortal content first-paint', () => {
         expect(grid).not.toContain("from '@/app/utils/lazyComponents'");
         expect(executionController).not.toContain("from '@/app/utils/lazyComponents'");
         expect(lawsuitController).not.toContain("from '@/app/utils/lazyComponents'");
-        expect(grid).toContain("from '@/app/utils/lazyComponentsIntent'");
+        expect(grid).not.toContain("from '@/app/utils/lazyComponentsIntent'");
         const dossierState = readFileSync(
             join(root, 'src/app/components/lawyer/ArchivePortal/hooks/useLawsuitArchivePortalDossierState.ts'),
             'utf8',
         );
-        expect(dossierState).toContain("from '@/app/utils/lazyComponentsIntent'");
+        expect(dossierState).toContain("import('@/app/utils/lazyComponentsIntent')");
+        expect(dossierState).not.toContain("from '@/app/utils/lazyComponentsIntent'");
         expect(lawsuitController).not.toContain("from '@/app/utils/lazyComponentsIntent'");
         expect(executionController).not.toContain("from '@/app/utils/lazyComponentsIntent'");
         expect(utils).not.toContain('criminalStageUtils');

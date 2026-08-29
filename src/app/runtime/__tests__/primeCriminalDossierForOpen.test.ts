@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { readLawyerDashboardMainViewSurface } from './readLawyerDashboardMainViewSurface';
 
 const root = path.resolve(__dirname, '../../../..');
 
@@ -9,16 +10,13 @@ describe('primeCriminalDossierForOpen', () => {
         const overlaysPath = path.join(root, 'src/app/hooks/useLawyerDashboardOverlays.ts');
         const source = fs.readFileSync(overlaysPath, 'utf8');
         expect(source).toContain('setCriminalDashboardCaseId');
-        expect(source).toContain('prefetchCriminalDashboard');
+        expect(source).toContain('openCriminalDossierWithContract');
         expect(source).not.toContain('setTimeout(openLayer, 180)');
     });
 
     it('criminal dossier mounts on MainView؛ OverlaysHost محذوف', () => {
-        const mainPath = path.join(
-            root,
-            'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx',
-        );
-        const mainSource = fs.readFileSync(mainPath, 'utf8');
+        
+        const mainSource = readLawyerDashboardMainViewSurface();
         expect(mainSource).toContain('LawyerDashboardCriminalOverlayEntry');
         expect(mainSource).toContain('criminalLive');
         expect(() =>

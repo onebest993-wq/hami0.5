@@ -1,6 +1,5 @@
-import React from 'react';
-import { motion } from 'motion/react';
-import { Scale } from '@/app/components/ui/lucideIcons';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { Scale } from '@/app/components/ui/icons/Scale';
 import {
     REPOSITORY_DOCUMENT_TYPES,
     REPOSITORY_SORT_OPTIONS,
@@ -12,14 +11,12 @@ import {
 } from '../repositoryListFilters';
 import {
     FORUM_DROPDOWN_PANEL,
-    FORUM_FILTER_CHIP_IDLE,
-    FORUM_FILTER_CHIP_ICON_IDLE,
-    FORUM_FILTER_CHIP_ICON_SELECTED,
-    FORUM_FILTER_CHIP_SELECTED,
+    FORUM_FILTER_CLEAR_BTN,
     FORUM_FILTER_SECTION_LABEL,
     FORUM_TEXT_MUTED,
     FORUM_TEXT_PRIMARY,
 } from '../forumPlumTheme';
+import { ForumFilterChip } from './ForumFilterChip';
 
 interface RepositoryFilterPanelProps {
     sortBy: RepositorySortKey;
@@ -44,12 +41,10 @@ export const RepositoryFilterPanel = ({
         onSortChange(value);
         onClose();
     };
-
     const handleType = (value: string) => {
         onTypeChange(value);
         onClose();
     };
-
     const handleTag = (tag: string) => {
         onTagChange(selectedTag === tag ? null : tag);
         onClose();
@@ -76,28 +71,16 @@ export const RepositoryFilterPanel = ({
                 <section>
                     <p className={`${FORUM_FILTER_SECTION_LABEL} mb-2`}>ترتيب العرض</p>
                     <div className="grid grid-cols-1 gap-2">
-                        {REPOSITORY_SORT_OPTIONS.map(({ value, label, icon: Icon }) => {
-                            const isSelected = sortBy === value;
-                            return (
-                                <button
-                                    key={value}
-                                    type="button"
-                                    onClick={() => handleSort(value)}
-                                    className={`rounded-xl px-3 py-2.5 flex items-center gap-2 border text-right transition-all ${
-                                        isSelected ? FORUM_FILTER_CHIP_SELECTED : FORUM_FILTER_CHIP_IDLE
-                                    }`}
-                                >
-                                    <span
-                                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                                            isSelected ? FORUM_FILTER_CHIP_ICON_SELECTED : FORUM_FILTER_CHIP_ICON_IDLE
-                                        }`}
-                                    >
-                                        <Icon size={16} />
-                                    </span>
-                                    <span className="text-[12px] font-bold leading-tight">{label}</span>
-                                </button>
-                            );
-                        })}
+                        {REPOSITORY_SORT_OPTIONS.map(({ value, label, icon }) => (
+                            <ForumFilterChip
+                                key={value}
+                                label={label}
+                                selected={sortBy === value}
+                                icon={icon}
+                                dense
+                                onSelect={() => handleSort(value)}
+                            />
+                        ))}
                     </div>
                 </section>
 
@@ -111,36 +94,24 @@ export const RepositoryFilterPanel = ({
                                     onTagChange(null);
                                     onClose();
                                 }}
-                                className="text-[10px] text-[#9AA3B2] hover:text-[#C9A86C] transition-colors"
+                                className={FORUM_FILTER_CLEAR_BTN}
                             >
                                 إظهار الكل
                             </button>
                         ) : null}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        {REPOSITORY_TOPIC_FILTERS.map((label) => {
-                            const isSelected = selectedTag === label;
-                            const Icon = REPOSITORY_TOPIC_ICONS[label] ?? Scale;
-                            return (
-                                <button
-                                    key={label}
-                                    type="button"
-                                    onClick={() => handleTag(label)}
-                                    className={`rounded-xl px-3 py-2.5 flex items-center gap-2 border text-right transition-all ${
-                                        isSelected ? FORUM_FILTER_CHIP_SELECTED : FORUM_FILTER_CHIP_IDLE
-                                    }`}
-                                >
-                                    <span
-                                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                                            isSelected ? FORUM_FILTER_CHIP_ICON_SELECTED : FORUM_FILTER_CHIP_ICON_IDLE
-                                        }`}
-                                    >
-                                        <Icon size={15} />
-                                    </span>
-                                    <span className="text-[11px] font-bold leading-tight">{label}</span>
-                                </button>
-                            );
-                        })}
+                        {REPOSITORY_TOPIC_FILTERS.map((label) => (
+                            <ForumFilterChip
+                                key={label}
+                                label={label}
+                                selected={selectedTag === label}
+                                icon={REPOSITORY_TOPIC_ICONS[label] ?? Scale}
+                                iconSize={15}
+                                dense
+                                onSelect={() => handleTag(label)}
+                            />
+                        ))}
                     </div>
                 </section>
 
@@ -148,39 +119,23 @@ export const RepositoryFilterPanel = ({
                     <div className="flex items-center justify-between mb-2">
                         <p className={FORUM_FILTER_SECTION_LABEL}>نوع المستند</p>
                         {selectedType !== 'الكل' ? (
-                            <button
-                                type="button"
-                                onClick={() => handleType('الكل')}
-                                className="text-[10px] text-[#9AA3B2] hover:text-[#C9A86C] transition-colors"
-                            >
+                            <button type="button" onClick={() => handleType('الكل')} className={FORUM_FILTER_CLEAR_BTN}>
                                 إظهار الكل
                             </button>
                         ) : null}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        {REPOSITORY_DOCUMENT_TYPES.map((type) => {
-                            const isSelected = selectedType === type;
-                            const Icon = REPOSITORY_TYPE_ICONS[type] ?? REPOSITORY_TYPE_ICONS['أخرى'];
-                            return (
-                                <button
-                                    key={type}
-                                    type="button"
-                                    onClick={() => handleType(type)}
-                                    className={`rounded-xl px-3 py-2.5 flex items-center gap-2 border text-right transition-all ${
-                                        isSelected ? FORUM_FILTER_CHIP_SELECTED : FORUM_FILTER_CHIP_IDLE
-                                    }`}
-                                >
-                                    <span
-                                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                                            isSelected ? FORUM_FILTER_CHIP_ICON_SELECTED : FORUM_FILTER_CHIP_ICON_IDLE
-                                        }`}
-                                    >
-                                        <Icon size={15} />
-                                    </span>
-                                    <span className="text-[11px] font-bold leading-tight">{type}</span>
-                                </button>
-                            );
-                        })}
+                        {REPOSITORY_DOCUMENT_TYPES.map((type) => (
+                            <ForumFilterChip
+                                key={type}
+                                label={type}
+                                selected={selectedType === type}
+                                icon={REPOSITORY_TYPE_ICONS[type] ?? REPOSITORY_TYPE_ICONS['أخرى']}
+                                iconSize={15}
+                                dense
+                                onSelect={() => handleType(type)}
+                            />
+                        ))}
                     </div>
                 </section>
             </div>

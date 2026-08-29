@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useCallback, useRef, useState } from 'react';
-import { Mic, Save } from '@/app/components/ui/lucideIcons';
+import { Mic } from '@/app/components/ui/icons/Mic';
+import { Save } from '@/app/components/ui/icons/Save';
 import type { DossierNoteContext } from '@/app/services/dossier-notes/smartLawLinker';
 import { dossierNoteTimestampLabel } from '@/app/services/dossier-notes/dossierNoteTimestamp';
 import {

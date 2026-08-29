@@ -28,7 +28,7 @@ const loaderReturn = {
     } as ProfilePageCustomization,
 };
 
-vi.mock('@/app/context/AuthContext', () => ({
+vi.mock('@/app/context/authHooks', () => ({
     useAuthUser: () => ({
         id: 'viewer-1',
         email: 'viewer@test.local',
@@ -44,7 +44,16 @@ vi.mock('../useProfileLoader', () => ({
     useProfileLoader: vi.fn(() => loaderReturn),
 }));
 
+vi.mock('@/app/services/profile/displayNameCorrectionClient', () => ({
+    fetchOwnDisplayNamePolicy: vi.fn(async () => null),
+    submitDisplayNameCorrection: vi.fn(),
+    DisplayNameCorrectionError: class extends Error {},
+}));
+
 const saveProfileMock = vi.fn(async () => true);
+const startEdit = vi.fn();
+const openSettings = vi.fn();
+const saveCustomization = vi.fn(async () => true);
 const editSessionState = {
     isEditing: false,
 };
@@ -56,7 +65,7 @@ vi.mock('../useProfileEditSession', () => ({
         draft: null,
         setDraft,
         saving: false,
-        startEdit: vi.fn(),
+        startEdit,
         cancelEdit,
         saveProfile: saveProfileMock,
         ensureEditDraft: vi.fn(),
@@ -80,9 +89,9 @@ vi.mock('../useProfileStudioSettings', () => ({
     useProfileStudioSettings: () => ({
         settingsOpen: false,
         savingSettings: false,
-        openSettings: vi.fn(),
+        openSettings,
         closeSettings: vi.fn(),
-        saveCustomization: vi.fn(),
+        saveCustomization,
         registerStudioDiscard: vi.fn(),
     }),
 }));
@@ -96,12 +105,19 @@ vi.mock('../useProfileLifecycle', () => ({
 }));
 
 import { useRoyalLawyerProfile } from '../useRoyalLawyerProfile';
+import {
+    queueProfileCoverCustomization,
+    queueProfileCoverEdit,
+    resetProfileCoverIntentsForTests,
+} from '@/app/components/lawyer/dashboard/profile/profileCoverIntents';
 
 describe('useRoyalLawyerProfile', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        resetProfileCoverIntentsForTests();
         editSessionState.isEditing = false;
         saveProfileMock.mockResolvedValue(true);
+        saveCustomization.mockResolvedValue(true);
     });
 
     it('isOwnProfile=true للمشاهد نفسه', () => {
@@ -158,5 +174,31 @@ describe('useRoyalLawyerProfile', () => {
 
         expect(saveProfileMock).toHaveBeenCalled();
         expect(onBack).toHaveBeenCalled();
+    });
+
+    it('نية تعديل الغطاء تُطبَّق عند أول تركيب ولا يلغيها أثر الهوية', () => {
+        queueProfileCoverEdit();
+        renderHook(() => useRoyalLawyerProfile({ screenActive: true }));
+        expect(startEdit).toHaveBeenCalledTimes(1);
+        expect(cancelEdit).not.toHaveBeenCalled();
+    });
+
+    it('لا تُستهلك نوايا الغطاء بينما الشاشة غير نشطة', () => {
+        queueProfileCoverEdit();
+        renderHook(() => useRoyalLawyerProfile({ screenActive: false }));
+        expect(startEdit).not.toHaveBeenCalled();
+    });
+
+    it('تخصيص الغطاء (للجميع) يُحفظ بعد الاعتماد', async () => {
+        const pending = {
+            ...loaderReturn.customization,
+            privacy: { ...loaderReturn.customization.privacy, pageAccess: 'followers' as const },
+        };
+        queueProfileCoverCustomization(pending);
+        renderHook(() => useRoyalLawyerProfile({ screenActive: true }));
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(saveCustomization).toHaveBeenCalledWith(pending, { silent: true });
     });
 });

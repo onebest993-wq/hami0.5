@@ -84,6 +84,12 @@ describe('pickRicherLedgerStore', () => {
         const merged = pickRicherLedgerStore(stateStore, cached);
         expect(merged.pendingSettlement).toBeNull();
     });
+
+    it('does not resurrect garnishment from cache after the live store cleared it', () => {
+        const stateStore = { ...emptyStore(), garnishment: false };
+        const cached = { ...emptyStore(), garnishment: true };
+        expect(pickRicherLedgerStore(stateStore, cached).garnishment).toBe(false);
+    });
 });
 
 describe('freezeLedgerForCollection', () => {

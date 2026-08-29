@@ -15,6 +15,7 @@ import {
     resolveProceduralDefendantIds,
 } from './criminalProceduralPartyUtils';
 import { rejectCriminalCaseMutation } from './criminalCaseMutationGuard';
+import { scheduleRevokeCriminalCaseShares } from '@/app/services/caseShare/caseShareDossierRevocation';
 import { isMergedDossierCase } from './criminalCaseMutationPolicy';
 import {
     resolveOfficialCaseNumber,
@@ -141,8 +142,9 @@ export function createCriminalMergeDraftActions(set: SetFn, get: GetFn) {
     return {
         ...createCriminalConcludeStageActions(set, get),
         ...createCriminalSeveranceDraftActions(set, get),
-        mergeCases: (parentCaseId, childCaseId, mergeReason) => {
-            const casesById = get().casesById;
+        mergeCases: (parentCaseId: string, childCaseId: string, mergeReason: string) => {
+            const snapshot = get();
+            const casesById = snapshot.casesById;
             const parentEntry = findCaseInStore(casesById, parentCaseId);
             const childEntry = findCaseInStore(casesById, childCaseId);
             if (!parentEntry) {
@@ -157,6 +159,16 @@ export function createCriminalMergeDraftActions(set: SetFn, get: GetFn) {
                     'تعذّر تنفيذ الضم: الإضبارة المراد ضمها غير موجودة في النظام.',
                 );
             }
+            const parentDenied = rejectCriminalCaseMutation(
+                parentEntry.record,
+                snapshot.sessionOwnerLawyerId,
+            );
+            if (parentDenied) throw new MergeValidationError('ownership_denied', parentDenied);
+            const childDenied = rejectCriminalCaseMutation(
+                childEntry.record,
+                snapshot.sessionOwnerLawyerId,
+            );
+            if (childDenied) throw new MergeValidationError('ownership_denied', childDenied);
             const { updatedParent, frozenChild } = prepareMergedCaseTransaction(
                 parentEntry.record,
                 childEntry.record,
@@ -178,38 +190,47 @@ export function createCriminalMergeDraftActions(set: SetFn, get: GetFn) {
                 };
             });
         },
-        severJuvenileDefendantToJuvenileCourt: (caseId, defendantId, date, details) => {
+        severJuvenileDefendantToJuvenileCourt: (
+            caseId: string,
+            defendantId: string,
+            date: string,
+            details: string,
+        ) => {
+            const snapshot = get();
+            const source = snapshot.casesById[caseId];
+            if (!source) return null;
+            if (rejectCriminalCaseMutation(source, snapshot.sessionOwnerLawyerId)) return null;
+            if (source.isArchived) return null;
+
+            const defId = String(defendantId ?? '').trim();
+            const cleanDate = String(date ?? '').trim();
+            const cleanDetails = String(details ?? '').trim();
+            if (!defId || !cleanDate || !cleanDetails) return null;
+
+            const sourceDefendants = Array.isArray(source.defendants) ? source.defendants : [];
+            const juvenile = sourceDefendants.find((d) => d.id === defId);
+            if (!juvenile) return null;
+            if (!Boolean(juvenile.isJuvenile)) return null;
+
+            const event: TimelineEvent = {
+                id: createId(),
+                date: cleanDate,
+                type: 'decision',
+                category: 'تفريق دعوى المتهم الحدث ومسار محكمة الأحداث',
+                title: 'تفريق دعوى الحدث',
+                description: `تم تفريق دعوى المتهم الحدث (${String(juvenile.fullName ?? '').trim() || '—'}) لمسار محكمة الأحداث (جنح/جنايات حسب التصنيف). ${cleanDetails}`,
+                defendantIds: [defId],
+            };
+
             set((state) => {
-                const source = state.casesById[caseId];
-                if (!source) return state;
-                if (source.isArchived) return state;
-
-                const defId = String(defendantId ?? '').trim();
-                const cleanDate = String(date ?? '').trim();
-                const cleanDetails = String(details ?? '').trim();
-                if (!defId || !cleanDate || !cleanDetails) return state;
-
-                const sourceDefendants = Array.isArray(source.defendants) ? source.defendants : [];
-                const juvenile = sourceDefendants.find((d) => d.id === defId);
-                if (!juvenile) return state;
-                if (!Boolean(juvenile.isJuvenile)) return state;
-
-                const event: TimelineEvent = {
-                    id: createId(),
-                    date: cleanDate,
-                    type: 'decision',
-                    category: 'تفريق دعوى المتهم الحدث ومسار محكمة الأحداث',
-                    title: 'تفريق دعوى الحدث',
-                    description: `تم تفريق دعوى المتهم الحدث (${String(juvenile.fullName ?? '').trim() || '—'}) لمسار محكمة الأحداث (جنح/جنايات حسب التصنيف). ${cleanDetails}`,
-                    defendantIds: [defId],
-                };
-
+                const current = state.casesById[caseId];
+                if (!current) return state;
                 return {
                     casesById: {
                         ...state.casesById,
                         [caseId]: {
-                            ...source,
-                            timelineEvents: [...(Array.isArray(source.timelineEvents) ? source.timelineEvents : []), event],
+                            ...current,
+                            timelineEvents: [...(Array.isArray(current.timelineEvents) ? current.timelineEvents : []), event],
                         },
                     },
                 };
@@ -219,6 +240,8 @@ export function createCriminalMergeDraftActions(set: SetFn, get: GetFn) {
         },
         createCaseFromDraft: () => {
             const stateBefore = get();
+            const owner = String(stateBefore.sessionOwnerLawyerId ?? '').trim();
+            if (!owner) return null;
             const role = String(stateBefore.draft?.basics?.role ?? '').trim();
             const syncedDraft = syncDraftOfficeRepresentation(stateBefore.draft);
             const incoming = String(syncedDraft.basics?.ourRepresentation ?? '').trim();
@@ -231,13 +254,18 @@ export function createCriminalMergeDraftActions(set: SetFn, get: GetFn) {
             const nowDate = new Date().toISOString().slice(0, 10);
 
             const caseId = createId();
+            let created = false;
             set((state) => {
+                const sessionOwner = String(state.sessionOwnerLawyerId ?? '').trim();
+                if (!sessionOwner) return state;
                 const seededCase = seedCriminalCaseFromDraftSnapshot(
                     preparedSnapshot,
                     caseId,
                     nowDate,
-                    state.sessionOwnerLawyerId,
+                    sessionOwner,
                 );
+                if (!seededCase) return state;
+                created = true;
                 return {
                     draft: nextDraft,
                     casesById: {
@@ -246,13 +274,14 @@ export function createCriminalMergeDraftActions(set: SetFn, get: GetFn) {
                     },
                 };
             });
-            return caseId;
+            return created ? caseId : null;
         },
-        deleteCase: (id) => {
+        deleteCase: (id: string): boolean => {
             const snapshot = get();
             const target = snapshot.casesById[id];
-            if (!target) return;
-            if (rejectCriminalCaseMutation(target, snapshot.sessionOwnerLawyerId)) return;
+            if (!target) return false;
+            if (rejectCriminalCaseMutation(target, snapshot.sessionOwnerLawyerId)) return false;
+            if (target.isArchived || isMergedDossierCase(target)) return false;
             set((state) => {
                 const current = state.casesById[id];
                 if (!current) return state;
@@ -261,12 +290,15 @@ export function createCriminalMergeDraftActions(set: SetFn, get: GetFn) {
                 delete next[id];
                 return { casesById: next };
             });
+            if (get().casesById[id]) return false;
+            scheduleRevokeCriminalCaseShares(snapshot.sessionOwnerLawyerId, id);
             // 🧹 حذف كل أحداث التقويم المربوطة بهذه الإضبارة (حتى لا تبقى يتيمة)
             void removeAllCriminalBridgedCalendarEvents(id).catch((err) => {
                 if (import.meta.env.DEV) {
                     console.warn('[criminal] فشل تنظيف أحداث التقويم بعد حذف الإضبارة', id, err);
                 }
             });
+            return true;
         },
         resetDraft: () => set({ draft: makeInitialDraft() }),
     };

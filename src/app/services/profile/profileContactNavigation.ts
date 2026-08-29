@@ -35,12 +35,12 @@ export function resolveLocationMode(action: ProfileAction): ProfileLocationMode 
     return isLatLngPair(action.value) ? 'gps' : 'manual';
 }
 
-export function isIosDevice(): boolean {
+function isIosDevice(): boolean {
     if (typeof navigator === 'undefined') return false;
     return /iPad|iPhone|iPod/i.test(navigator.userAgent);
 }
 
-export function isMobileDevice(): boolean {
+function isMobileDevice(): boolean {
     if (typeof navigator === 'undefined') return false;
     return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
@@ -84,8 +84,20 @@ function buildMapsCoordinateTarget(lat: number, lng: number): string {
 }
 
 /** يفتح روابط tel/mailto عبر معالج النظام — احتياطي عند عدم استخدام <a href> */
+const NATIVE_CONTACT_PROTOCOLS = new Set(['https:', 'tel:', 'mailto:']);
+
+function isAllowedNativeContactUrl(url: string): boolean {
+    try {
+        const parsed = new URL(url);
+        return NATIVE_CONTACT_PROTOCOLS.has(parsed.protocol);
+    } catch {
+        return false;
+    }
+}
+
 export function openNativeScheme(url: string): void {
     if (typeof window === 'undefined') return;
+    if (!isAllowedNativeContactUrl(url)) return;
 
     // mailto/tel يعملان أفضل عبر location.assign على الموبايل وWebView
     if (url.startsWith('mailto:') || url.startsWith('tel:') || isMobileDevice()) {
@@ -118,16 +130,6 @@ export function buildProfileContactTarget(action: ProfileAction): string | null 
             if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
             return `mailto:${email}`;
         }
-        case 'whatsapp': {
-            let digits = normalizeAsciiDigits(raw).replace(/\D/g, '');
-            if (digits.startsWith('0')) {
-                digits = `964${digits.slice(1)}`;
-            } else if (/^7\d{9}$/.test(digits)) {
-                digits = `964${digits}`;
-            }
-            if (digits.length < 8) return null;
-            return `https://wa.me/${digits}`;
-        }
         case 'website': {
             const rawHost = raw.replace(/^https?:\/\//i, '').split('/')[0]?.split('?')[0] ?? '';
             if (/^\d+$/.test(rawHost)) return null;
@@ -136,7 +138,8 @@ export function buildProfileContactTarget(action: ProfileAction): string | null 
             if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
             try {
                 const parsed = new URL(url);
-                if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+                /* تنقّل المستخدم — HTTPS فقط (HTTP عرضة لاعتراض الوسيط) */
+                if (parsed.protocol !== 'https:') return null;
                 const host = parsed.hostname.toLowerCase();
                 if (!host.includes('.') || /^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return null;
                 if (!/^[a-z0-9.-]+$/i.test(host)) return null;
@@ -166,11 +169,11 @@ export function openProfileContact(action: ProfileAction): ProfileContactOpenRes
     switch (action.type) {
         case 'call':
         case 'email':
-        case 'whatsapp':
         case 'location':
             openNativeScheme(target);
             break;
         case 'website':
+            if (!isAllowedNativeContactUrl(target)) return 'invalid';
             window.open(target, '_blank', 'noopener,noreferrer');
             break;
         default:
@@ -182,8 +185,6 @@ export function openProfileContact(action: ProfileAction): ProfileContactOpenRes
 
 export function contactValuePlaceholder(type: ProfileAction['type']): string {
     switch (type) {
-        case 'whatsapp':
-            return '9647XXXXXXXX';
         case 'call':
             return '07XXXXXXXX';
         case 'email':

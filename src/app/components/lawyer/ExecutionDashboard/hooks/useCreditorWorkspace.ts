@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { resolvePartyStoredName } from '@/app/utils/executionPartyNormalize';
+import type { AdditionalExecutionCreditor, Party } from '@/app/types/execution';
 
 export function useCreditorWorkspace(
-    effectiveCreditors: any[],
-    additionalCreditorsPm: any[],
+    effectiveCreditors: Party[],
+    additionalCreditorsPm: AdditionalExecutionCreditor[],
 ) {
     const creditorWorkspaceEntries = useMemo(() => {
         const out: Array<{
@@ -11,7 +12,7 @@ export function useCreditorWorkspace(
             c: Record<string, unknown>;
             isPmCreditor: boolean;
             ecIndex: number;
-            pmCreditor?: any;
+            pmCreditor?: AdditionalExecutionCreditor;
         }> = [];
         effectiveCreditors.forEach((c, i) => {
             out.push({

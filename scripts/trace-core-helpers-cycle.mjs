@@ -40,7 +40,7 @@ function viteChunk(id) {
   if (id.includes('executionDashboardLazyShellUi') || id.includes('DebtorFinancialProgressBar')) {
     return 'execution-helpers';
   }
-  if (id.includes('executionModalStack')) return 'execution-helpers';
+  if (id.includes('executionDashboardConstants')) return 'execution-helpers';
   if (
     id.includes('executorApprovalWorkflow') ||
     id.includes('publicationNoticeDebtor') ||

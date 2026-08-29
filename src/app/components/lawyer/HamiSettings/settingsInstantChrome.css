@@ -1,0 +1,138 @@
+/**
+ * كروم مركز الإعدادات — شريط ضيق، تبويبات مكبسلة، بلا تمدد على الشاشات العريضة.
+ */
+
+.hami-settings-header {
+    position: relative;
+    z-index: 2;
+    background: #0b1021 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-inline-start: max(1rem, env(safe-area-inset-left, 0px));
+    padding-inline-end: max(1rem, env(safe-area-inset-right, 0px));
+}
+
+.hami-settings-scroll-panel {
+    min-width: 0;
+    padding-inline-start: max(1.25rem, env(safe-area-inset-left, 0px));
+    padding-inline-end: max(1.25rem, env(safe-area-inset-right, 0px));
+}
+
+.hami-settings-header--glass::before {
+    content: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.hami-settings-header-inner {
+    position: relative;
+    z-index: 1;
+}
+
+.hami-settings-title {
+    margin: 0;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    color: rgba(255, 255, 255, 0.96);
+}
+
+.hami-settings-close {
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.78);
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.hami-settings-close:active {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.hami-settings-close:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--hami-settings-accent, #e6c673) 45%, transparent);
+}
+
+.hami-settings-tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 0.15rem;
+    width: min(100%, 22.5rem);
+    margin-inline: auto;
+    padding: 0.2rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.045);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.hami-settings-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.hami-settings-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0.35rem 0.35rem;
+    border: none;
+    border-radius: 0.55rem;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0;
+}
+
+.hami-settings-tab-icon {
+    width: 14px;
+    height: 14px;
+    opacity: 0.7;
+    flex-shrink: 0;
+}
+
+.hami-settings-tab-label {
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+.hami-settings-tab--active {
+    color: #f4ead0;
+    background: color-mix(in srgb, var(--hami-settings-accent, #e6c673) 14%, transparent);
+    box-shadow: none;
+}
+
+.hami-settings-tab--active .hami-settings-tab-icon {
+    opacity: 1;
+    color: var(--hami-settings-accent, #e6c673);
+}
+
+html[data-hami-native='1']:not([data-hami-platform='ios']) .hami-settings-header--glass::before,
+html[data-hami-native='1']:not([data-hami-platform='ios']) .hami-settings-tabs,
+html[data-hami-native='1']:not([data-hami-platform='ios']) .hami-settings-close {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-settings-header--glass::before,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-settings-tabs,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-settings-close,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-settings-tab--active {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+}

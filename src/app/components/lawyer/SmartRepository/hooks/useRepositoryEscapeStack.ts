@@ -1,5 +1,10 @@
 import { useEffect } from 'react';
 import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
+import {
+    dismissAllRepositoryChrome,
+    dismissTopRepositoryChrome,
+} from './repositoryChromeDismiss';
+import { consumeVoiceRecorderEscape } from '@/app/components/lawyer/ActionModals/voiceRecorderEscapeBridge';
 
 type UseRepositoryEscapeStackParams = {
     enabled: boolean;
@@ -19,7 +24,7 @@ type UseRepositoryEscapeStackParams = {
     onCloseModal: () => void;
 };
 
-/** Escape/Cap متدرّج: مسجّل → رفع ملف → معاينة → تعديل → ماسح → إنشاء بطاقة → إغلاق المستودع */
+/** Escape/Cap متدرّج: مسجّل → رفع → معاينة → تعديل → ماسح → كروم (قوائم) → إنشاء بطاقة → إغلاق المستودع */
 export function useRepositoryEscapeStack({
     enabled,
     composing,
@@ -38,11 +43,14 @@ export function useRepositoryEscapeStack({
     onCloseModal,
 }: UseRepositoryEscapeStackParams) {
     useEffect(() => {
-        if (!enabled) return;
+        if (!enabled) {
+            dismissAllRepositoryChrome();
+            return;
+        }
 
         const consumeBackStack = (): boolean => {
             if (showVoiceRecorder) {
-                onCloseVoice?.();
+                if (!consumeVoiceRecorderEscape()) onCloseVoice?.();
                 return true;
             }
             if (pendingUploadOpen && !pendingUploadSaving) {
@@ -61,10 +69,12 @@ export function useRepositoryEscapeStack({
                 onCloseScanner();
                 return true;
             }
+            if (dismissTopRepositoryChrome()) return true;
             if (composing) {
                 onResetComposer();
                 return true;
             }
+            dismissAllRepositoryChrome();
             onCloseModal();
             return true;
         };

@@ -14,7 +14,7 @@ import { useCriminalRequestModalOpeners } from './useCriminalRequestModalOpeners
 import { useCriminalRequestCommitFlow } from './useCriminalRequestCommitFlow';
 import type { CreateLawyerRequestInput } from './lawyerRequestsEngine';
 
-export type CriminalRequestsModalControllerParams = {
+type CriminalRequestsModalControllerParams = {
     id: string;
     lawyerRequests: LawyerRequest[];
     defendants: CriminalDefendant[];

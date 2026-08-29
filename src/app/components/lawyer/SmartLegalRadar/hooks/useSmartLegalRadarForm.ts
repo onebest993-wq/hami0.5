@@ -1,9 +1,8 @@
 import { useState, useCallback, useRef } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { prefetchRadarEventForm } from '@/app/runtime/radarWidgetLoader';
 import { prefetchCalendarCloudModule } from '@/app/services/calendar/calendarCloudRuntime';
-import { EMPTY_FORM } from '@/app/components/lawyer/SmartLegalRadar/utils';
-import type { EventFormData } from '@/app/components/lawyer/SmartLegalRadar/utils';
+import { EMPTY_FORM, mapEventFormToCalendarFields, type EventFormData } from '@/app/components/lawyer/SmartLegalRadar/eventFormModel';
+import { storedCalendarIdFromUnified } from '@/app/components/lawyer/SmartLegalRadar/calendarFocusIds';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 import type { CalendarEvent } from '@/app/services/lawyer-cloud';
 
@@ -13,7 +12,7 @@ type UseSmartLegalRadarFormParams = {
     customEvents: CalendarEvent[];
     addEvent: (event: Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>) => Promise<CalendarEvent | null>;
     updateEvent: (event: CalendarEvent) => Promise<CalendarEvent | null>;
-    deleteEvent: (eventId: string) => Promise<void>;
+    deleteEvent: (eventId: string) => Promise<boolean>;
 };
 
 export function useSmartLegalRadarForm({
@@ -31,7 +30,7 @@ export function useSmartLegalRadarForm({
     const saveInFlightRef = useRef(false);
 
     const openAddForm = useCallback(() => {
-        prefetchRadarEventForm();
+        if (saveInFlightRef.current) return;
         prefetchCalendarCloudModule();
         setEditingEvent(null);
         setFormData({ ...EMPTY_FORM, date: selectedDate, time: '' });
@@ -39,6 +38,7 @@ export function useSmartLegalRadarForm({
     }, [selectedDate]);
 
     const openEditForm = useCallback((event: UnifiedEvent) => {
+        if (saveInFlightRef.current) return;
         if (event.bridge?.sourceEventId?.startsWith('field_')) {
             SmartToast.info('هذا التاريخ مكتشف تلقائياً من إضبارته — حرّره من المصدر الأصلي');
             return;
@@ -74,39 +74,25 @@ export function useSmartLegalRadarForm({
         setSaving(true);
         try {
             if (editingEvent && editingEvent.source === 'calendar') {
-                const calId = editingEvent.id.replace('cal_', '');
+                const calId = storedCalendarIdFromUnified(editingEvent.id);
                 const existing = customEvents.find((e) => e.id === calId);
-                if (existing) {
-                    await updateEvent({
-                        ...existing,
-                        title: data.title.trim(),
-                        date: data.date,
-                        time: data.time || undefined,
-                        type: data.type,
-                        location: data.location.trim() || undefined,
-                        notes: data.notes.trim() || undefined,
-                        clientName: data.clientName.trim() || undefined,
-                        clientPhone: data.clientPhone.trim() || undefined,
-                        reminderMinutesBefore:
-                            data.time && data.reminderMinutesBefore
-                                ? data.reminderMinutesBefore
-                                : null,
-                    });
+                if (!existing) {
+                    SmartToast.error('فشل حفظ الموعد');
+                    return;
+                }
+                const updated = await updateEvent({
+                    ...existing,
+                    ...mapEventFormToCalendarFields(data),
+                });
+                if (!updated) {
+                    SmartToast.error('فشل حفظ الموعد');
+                    return;
                 }
                 SmartToast.success('تم تحديث الموعد');
             } else {
                 const created = await addEvent({
                     userId: effectiveUserId,
-                    title: data.title.trim(),
-                    date: data.date,
-                    time: data.time || undefined,
-                    type: data.type,
-                    location: data.location.trim() || undefined,
-                    notes: data.notes.trim() || undefined,
-                    clientName: data.clientName.trim() || undefined,
-                    clientPhone: data.clientPhone.trim() || undefined,
-                    reminderMinutesBefore:
-                        data.time && data.reminderMinutesBefore ? data.reminderMinutesBefore : null,
+                    ...mapEventFormToCalendarFields(data),
                 });
                 if (!created) {
                     SmartToast.error('فشل حفظ الموعد');
@@ -138,10 +124,16 @@ export function useSmartLegalRadarForm({
                 SmartToast.info('يمكن حذف المواعيد المخصصة فقط');
                 return;
             }
+            if (saveInFlightRef.current) return;
+            saveInFlightRef.current = true;
             setSaving(true);
             try {
-                const calId = event.id.replace('cal_', '');
-                await deleteEvent(calId);
+                const calId = storedCalendarIdFromUnified(event.id);
+                const removed = await deleteEvent(calId);
+                if (!removed) {
+                    SmartToast.error('فشل حذف الموعد');
+                    return;
+                }
                 SmartToast.success('تم حذف الموعد');
                 if (editingEvent?.id === event.id) {
                     setShowForm(false);
@@ -150,6 +142,7 @@ export function useSmartLegalRadarForm({
             } catch {
                 SmartToast.error('فشل حذف الموعد');
             } finally {
+                saveInFlightRef.current = false;
                 setSaving(false);
             }
         },

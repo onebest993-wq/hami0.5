@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C — دفع حدث للسجل الزمني مع دمج/تخزين/مزامنة Supabase */
 import { useCallback, useMemo, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';

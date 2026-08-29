@@ -1,15 +1,5 @@
 export const FORUM_MEDIA_BUCKET = 'forum-media';
-const SIGNED_URL_TTL_SEC = 60 * 60;
 const COMMENT_POLL_MS = 4_000;
-
-let supabasePromise = null;
-
-async function getSupabaseClient() {
-    if (!supabasePromise) {
-        supabasePromise = import('./supabaseClient.js').then((mod) => mod.supabase);
-    }
-    return supabasePromise;
-}
 
 export function isForumMediaAttachment(attachment) {
     if (!attachment || typeof attachment !== 'object') return false;
@@ -55,16 +45,6 @@ export async function createForumMediaSignedUrl(storagePath) {
     if (!path) return null;
 
     try {
-        const supabase = await getSupabaseClient();
-        const { data, error } = await supabase.storage
-            .from(FORUM_MEDIA_BUCKET)
-            .createSignedUrl(path, SIGNED_URL_TTL_SEC);
-        if (!error && data?.signedUrl) return data.signedUrl;
-    } catch {
-        /* fallback to BFF */
-    }
-
-    try {
         const { SecureAPIClient } = await import('@/app/services/SecureAPIClient');
         const res = await SecureAPIClient.fetchSecure(
             '/api/upload/signed-url',
@@ -98,29 +78,9 @@ export async function resolveEncryptedForumImageUrl(attachment) {
 }
 
 export async function uploadEncryptedForumImage(userId, file) {
+    void userId;
     const encryptedBlob = await encryptForumImageFile(file);
-    const storagePath = buildForumMediaStoragePath(userId, file.name);
     const uploadName = `${Date.now()}_${sanitizeFileName(file.name)}.enc`;
-
-    try {
-        const supabase = await getSupabaseClient();
-        const { error } = await supabase.storage.from(FORUM_MEDIA_BUCKET).upload(storagePath, encryptedBlob, {
-            contentType: 'application/octet-stream',
-            upsert: false,
-        });
-        if (!error) {
-            return {
-                type: 'image',
-                name: file.name,
-                mimeType: file.type || 'image/jpeg',
-                storagePath,
-                bucket: FORUM_MEDIA_BUCKET,
-                encrypted: true,
-            };
-        }
-    } catch {
-        /* fallback to BFF */
-    }
 
     const { SecureAPIClient } = await import('@/app/services/SecureAPIClient');
     const formData = new FormData();
@@ -140,7 +100,11 @@ export async function uploadEncryptedForumImage(userId, file) {
         throw new Error(message);
     }
 
-    const path = typeof body.path === 'string' ? body.path : storagePath;
+    const path = typeof body.path === 'string' ? body.path.trim() : '';
+    if (!path) {
+        throw new Error('تعذر رفع الصورة المشفرة');
+    }
+
     return {
         type: 'image',
         name: file.name,

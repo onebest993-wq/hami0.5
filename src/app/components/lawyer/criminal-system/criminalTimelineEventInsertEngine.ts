@@ -23,7 +23,7 @@ import {
 } from './juvenileInvestigationRules';
 import { resolveCurrentJourneyNodeId } from './stageJourney';
 
-export type TimelineEventInsertResult =
+type TimelineEventInsertResult =
     | { ok: true; nextCase: CriminalCase }
     | { ok: false; reason: 'blocked' | 'invalid_event' };
 

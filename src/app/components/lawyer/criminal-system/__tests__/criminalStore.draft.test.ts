@@ -37,8 +37,27 @@ describe('criminalStore', () => {
         const d1 = s.draft.defendants[0]?.id ?? '';
         s.setDefendantField(d1, 'fullName', 'متهم مالك');
         const caseId = useCriminalStore.getState().createCaseFromDraft();
-        const saved = useCriminalStore.getState().casesById[caseId];
+        const saved = useCriminalStore.getState().casesById[caseId!];
         expect(saved?.ownerLawyerId).toBe('lawyer-e2e-owner');
+    });
+
+    it('refuses createCaseFromDraft when session owner is empty (no orphan)', () => {
+        resetCriminalStore();
+        useCriminalStore.setState({ sessionOwnerLawyerId: null });
+        seedDraftForNewCase('مرحلة التحقيق');
+        const before = { ...useCriminalStore.getState().casesById };
+        const caseId = useCriminalStore.getState().createCaseFromDraft();
+        expect(caseId).toBeNull();
+        expect(useCriminalStore.getState().casesById).toEqual(before);
+    });
+
+    it('refuses createCaseFromDraft when session owner is blank string', () => {
+        resetCriminalStore();
+        useCriminalStore.setState({ sessionOwnerLawyerId: '   ' });
+        seedDraftForNewCase('مرحلة التحقيق');
+        const beforeKeys = Object.keys(useCriminalStore.getState().casesById);
+        expect(useCriminalStore.getState().createCaseFromDraft()).toBeNull();
+        expect(Object.keys(useCriminalStore.getState().casesById)).toEqual(beforeKeys);
     });
 
     it('claimUnownedCasesForSession no longer silently stamps legacy orphans', () => {

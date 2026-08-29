@@ -1,4 +1,4 @@
-import { HOME_HUB_PINS_VISIBLE_MAX } from '@/app/services/alerts/homeHubCarouselVirtual';
+import { HOME_HUB_PINS_VISIBLE_MAX } from '@/app/services/alerts/homeHubPinsVirtual';
 
 export function splitHomeHubPins<T>(pins: T[]): {
     preview: T[];

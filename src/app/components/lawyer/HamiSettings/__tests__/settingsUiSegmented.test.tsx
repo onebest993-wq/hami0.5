@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
-import { Segmented } from '@/app/components/lawyer/HamiSettings/settings-ui';
+import { Segmented } from '@/app/components/lawyer/HamiSettings/settings-ui/index';
 
 describe('Segmented', () => {
     it('يستخدم radiogroup و aria-checked', () => {

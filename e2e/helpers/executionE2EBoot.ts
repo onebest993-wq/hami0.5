@@ -1,10 +1,10 @@
 /**
  * إقلاع موحّد لاختبارات E2E — التنفيذ (يتبع executionDashboard.spec.ts)
  */
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
-import { ensureLawyerDashboard, seedLawyerFiles } from './civilLawsuitFixtures';
-import { bootToLawyerHome, collectFatalBootPageErrors } from './bootFixtures';
+import { seedLawyerFiles } from './civilLawsuitFixtures';
+import { gotoLawyerHomeE2E, collectFatalBootPageErrors } from './bootFixtures';
 import { dismissProductivityBlockers, prepareProductivityE2E } from './productivityE2EFixtures';
 import { seedExecutionStorageForFile } from './executionStorageFixtures';
 
@@ -12,6 +12,59 @@ export type ExecutionE2EBootOptions = {
     executionFile: Record<string, unknown>;
     collectPageErrors?: boolean;
 };
+
+type ExecDossierCrashWindow = Window & { __HAMI_EXEC_DOSSIER_CRASH?: string };
+
+/**
+ * نقرة أصلية موثوقة مع useScrollSafePress:
+ * pointerdown→pointerup يستدعي onPress مرة، وclick يُبتلع عبر handledRef.
+ * Playwright pointermove بعد scroll كان يُحسب سحباً فيفشل فتح الأرشيف على preview.
+ */
+export async function clickNativeElement(locator: Locator): Promise<void> {
+    await locator.evaluate((el) => {
+        const target = el as HTMLElement;
+        target.scrollIntoView({ block: 'center', inline: 'center' });
+        const rect = target.getBoundingClientRect();
+        const x = rect.left + Math.max(rect.width / 2, 1);
+        const y = rect.top + Math.max(rect.height / 2, 1);
+        const common = {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            clientX: x,
+            clientY: y,
+            button: 0,
+            pointerId: 1,
+            pointerType: 'mouse',
+            isPrimary: true,
+        };
+        target.dispatchEvent(new PointerEvent('pointerdown', { ...common, buttons: 1 }));
+        target.dispatchEvent(new PointerEvent('pointerup', { ...common, buttons: 0 }));
+        target.click();
+    });
+}
+
+export async function clickHubArchiveTileNative(page: Page, testId: string): Promise<void> {
+    const tile = page.getByTestId(testId);
+    await expect(tile).toBeVisible({ timeout: 25_000 });
+    await expect(tile).toBeEnabled({ timeout: 10_000 });
+    await clickNativeElement(tile);
+}
+
+async function expectNoExecutionDossierCrash(page: Page): Promise<void> {
+    const fallback = page.getByTestId('execution-dossier-error-fallback');
+    if (!(await fallback.isVisible().catch(() => false))) return;
+    const msg = await page
+        .evaluate(() => {
+            const w = window as unknown as ExecDossierCrashWindow;
+            const attr = document
+                .querySelector('[data-testid="execution-dossier-error-fallback"]')
+                ?.getAttribute('data-error-message');
+            return w.__HAMI_EXEC_DOSSIER_CRASH || attr || '';
+        })
+        .catch(() => '');
+    throw new Error(`تعذّر تحميل الإضبارة التنفيذية${msg ? `: ${msg}` : ''}`);
+}
 
 /** يُجهّز الجلسة ويعيد أخطاء الصفحة الحرجة إن طُلب جمعها */
 export async function bootExecutionLawyerShell(
@@ -27,31 +80,59 @@ export async function bootExecutionLawyerShell(
     await seedLawyerFiles(page);
     await seedExecutionStorageForFile(page, options.executionFile);
 
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByTestId('lawyer-dashboard-ready')).toBeVisible({ timeout: 60_000 });
-    await ensureLawyerDashboard(page);
-    await bootToLawyerHome(page);
+    await expect(async () => {
+        await gotoLawyerHomeE2E(page);
+    }).toPass({ timeout: 90_000 });
     await dismissProductivityBlockers(page);
 
     return collectFatalBootPageErrors(pageErrors);
 }
 
 export async function openExecutionArchiveFromHome(page: Page): Promise<void> {
-    await page.getByTestId('hub-archive-execution').scrollIntoViewIfNeeded();
-    await page.getByTestId('hub-archive-execution').click({ timeout: 25_000 });
-    await expect(page.getByTestId('execution-archive-shell')).toBeVisible({ timeout: 25_000 });
+    const shell = page.getByTestId('execution-archive-shell');
+    await expect(async () => {
+        await dismissProductivityBlockers(page);
+        await clickHubArchiveTileNative(page, 'hub-archive-execution');
+        await expect(shell).toHaveAttribute('aria-hidden', 'false', { timeout: 8_000 });
+        await expect(shell).toHaveAttribute('data-open', 'true');
+        await expect(shell).not.toHaveAttribute('inert');
+        await expect(shell).toBeVisible({ timeout: 8_000 });
+        await expect(page.getByRole('heading', { name: /مخزن الأضابير التنفيذية/i })).toBeVisible({
+            timeout: 8_000,
+        });
+    }).toPass({ timeout: 45_000 });
 }
 
 export async function openExecutionDossierByRowText(page: Page, rowPattern: RegExp): Promise<void> {
-    const row = page.getByText(rowPattern).first();
-    await expect(row).toBeVisible({ timeout: 25_000 });
-    await row.click();
-    await expect(page.getByTestId('execution-dashboard-dossier')).toBeVisible({ timeout: 25_000 });
-    await expect(page.getByTestId('execution-followup-memo')).toBeVisible({ timeout: 25_000 });
+    const memo = page.getByTestId('execution-followup-memo');
+    await expect(async () => {
+        await expectNoExecutionDossierCrash(page);
+        if (await memo.isVisible().catch(() => false)) return;
+
+        // بطاقة الأرشيف قد تكون في DOM ومغطاة/خارج الشاشة — لا نعتمد على isVisible فقط
+        const card = page
+            .getByTestId('execution-archive-shell')
+            .getByTestId('execution-archive-card')
+            .filter({ hasText: rowPattern })
+            .first();
+        await expect(card).toBeAttached({ timeout: 15_000 });
+        await card.scrollIntoViewIfNeeded().catch(() => undefined);
+
+        const openSurface = card.getByTestId('execution-archive-card-open').first();
+        if ((await openSurface.count()) > 0) {
+            await clickNativeElement(openSurface);
+        } else {
+            await clickNativeElement(card);
+        }
+        await expect(memo).toBeVisible({ timeout: 12_000 });
+    }).toPass({ timeout: 60_000 });
+    await expectNoExecutionDossierCrash(page);
 }
 
 export async function openExecutionFollowupModal(page: Page): Promise<void> {
-    await page.getByTestId('execution-followup-memo').click({ timeout: 15_000 });
+    const memo = page.getByTestId('execution-followup-memo');
+    await expect(memo).toBeVisible({ timeout: 15_000 });
+    await clickNativeElement(memo);
     await expect(page.getByTestId('execution-followup-modal')).toBeVisible({ timeout: 20_000 });
 }
 

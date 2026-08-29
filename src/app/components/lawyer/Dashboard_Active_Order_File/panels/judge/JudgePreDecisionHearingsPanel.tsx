@@ -1,5 +1,6 @@
 import React from 'react';
-import { Calendar, Plus } from '@/app/components/ui/lucideIcons';
+import { Calendar } from '@/app/components/ui/icons/Calendar';
+import { Plus } from '@/app/components/ui/icons/Plus';
 import { DatePickerField } from '../../components/DatePickerField';
 import {
     isPreDecisionCloseNotes,
@@ -60,7 +61,7 @@ export function JudgePreDecisionHearingsPanel(props: JudgeDecisionLifecyclePanel
                                                                 إضافة جلسة
                                                             </button>
                                                         )}
-                                                    </div>
+            </div>
                                                     {showPreDecisionHearings ? (
                                                         <div className="mt-4 border border-blue-500/20 bg-black/20 rounded-lg p-3 space-y-2">
                                                             <div className="text-white/60 text-xs mb-1">تاريخ المرافعة الأول</div>
@@ -91,7 +92,7 @@ export function JudgePreDecisionHearingsPanel(props: JudgeDecisionLifecyclePanel
                                                         {hasSessions && isAdjourned ? (
                                                             <div className="border border-amber-500/25 bg-amber-500/10 rounded-lg px-3 py-2 text-amber-100 text-xs font-bold">
                                 لإدخال قرار القاضي، أضف جلسة واختر ختام المرافعة
-                            </div>
+                                                            </div>
                                                         ) : null}
                                                     </div>
 
@@ -290,6 +291,6 @@ export function JudgePreDecisionHearingsPanel(props: JudgeDecisionLifecyclePanel
                                                             </div>
                                                         </div>
                                                     )}
-                                                </div>
+        </div>
     );
 }

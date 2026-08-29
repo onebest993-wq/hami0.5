@@ -8,7 +8,7 @@ import type { CriminalDashboardTab } from './criminalDashboardTabChrome';
 import type { CriminalDashboardConfirmAction } from './useCriminalDashboardModalUiState';
 import { useCriminalDashboardProceduralData } from './useCriminalDashboardProceduralData';
 
-export type UseCriminalDashboardTrashProceduralHandlersParams = {
+type UseCriminalDashboardTrashProceduralHandlersParams = {
     id: string;
     criminalCase: CriminalCase;
     editingRequestId: string | null;

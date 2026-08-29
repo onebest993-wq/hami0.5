@@ -3,15 +3,16 @@ import {
     getSaturdayOfWeekContaining,
     isDateInWorkWeek,
     isDeferredSnoozedTask,
-    isWeeklyAgendaDayVisible,
     isWeeklyPastDayCompact,
     finalizePastWeekTasks,
     promoteDueSnoozedTasks,
     partitionAgendaPendingTasks,
     buildPostponeTaskPatch,
+    applyReopenTask,
+    isTaskArchivedToHistory,
 } from '@/app/components/lawyer/dashboard/tasksManager/utils';
 import { WORK_WEEK, WORK_WEEK_LAST_OFFSET } from '@/app/components/lawyer/dashboard/tasksManager/constants';
-import type { LegalTask } from '@/app/types/TaskEngine';
+import { legalTaskStub } from '@/app/services/tasks/__tests__/legalTaskStub';
 import { addDays, startOfLocalDay } from '@/app/utils/nlpParser';
 import {
     blockTasksOverlayEscape,
@@ -57,42 +58,17 @@ describe('tasksManager/utils — work week', () => {
 describe('weekly agenda visibility', () => {
     const now = localDate(2026, 7, 1);
 
-    it('يبقي كل أيام الأسبوع ظاهرة حتى الفارغة والمنتهية', () => {
+    it('يختزل اليوم المنتهي إن وُجدت مهام، ولا يختزل المستقبل الفارغ', () => {
         const past = addDays(now, -1);
-        expect(isWeeklyAgendaDayVisible(past, 0, now, null, 'tue')).toBe(true);
-        expect(isWeeklyAgendaDayVisible(past, 2, now, null, 'tue')).toBe(true);
         expect(isWeeklyPastDayCompact(past, 2, now)).toBe(true);
-    });
-
-    it('يبقي اليوم الحالي والمستقبل حتى لو فارغاً', () => {
-        expect(isWeeklyAgendaDayVisible(now, 0, now, null, 'wed')).toBe(true);
+        expect(isWeeklyPastDayCompact(past, 0, now)).toBe(false);
         const future = addDays(now, 1);
-        expect(isWeeklyAgendaDayVisible(future, 0, now, null, 'thu')).toBe(true);
         expect(isWeeklyPastDayCompact(future, 0, now)).toBe(false);
     });
 });
 
-function archivedTask(parsedDate: Date): LegalTask {
-    return {
-        id: 't1',
-        rawText: 'مهمة',
-        title: 'مهمة',
-        location: null,
-        parsedDate,
-        reminderAt: null,
-        isFatalDeadline: false,
-        linkedCaseId: null,
-        status: 'pending',
-        completedAt: null,
-        pinnedToFieldCurtain: false,
-        fieldCurtainPinnedAt: null,
-        subTasks: [],
-        documentRequirements: [],
-        expenses: [],
-        voiceRef: null,
-        voiceTranscript: null,
-        voiceDurationSec: null,
-    };
+function archivedTask(parsedDate: Date) {
+    return legalTaskStub({ id: 't1', title: 'مهمة', parsedDate });
 }
 
 describe('buildPostponeTaskPatch', () => {
@@ -126,23 +102,8 @@ describe('finalizePastWeekTasks', () => {
 });
 
 describe('snoozed backlog tasks', () => {
-    function snoozedTask(reminderAt: Date): LegalTask {
-        return {
-            id: 's1',
-            rawText: 'مؤجلة',
-            title: 'مؤجلة',
-            location: null,
-            parsedDate: null,
-            reminderAt,
-            isFatalDeadline: false,
-            linkedCaseId: null,
-            status: 'pending',
-            completedAt: null,
-            pinnedToFieldCurtain: false,
-            subTasks: [],
-            documentRequirements: [],
-            expenses: [],
-        };
+    function snoozedTask(reminderAt: Date) {
+        return legalTaskStub({ id: 's1', title: 'مؤجلة', reminderAt });
     }
 
     it('isDeferredSnoozedTask يميز المؤجلة في أسبوع لاحق', () => {
@@ -182,28 +143,8 @@ describe('tasksEscapeCoordinator', () => {
 });
 
 describe('partitionAgendaPendingTasks', () => {
-    function baseTask(partial: Partial<LegalTask> & Pick<LegalTask, 'id' | 'title'>): LegalTask {
-        return {
-            id: partial.id,
-            rawText: partial.title,
-            title: partial.title,
-            location: null,
-            parsedDate: null,
-            reminderAt: null,
-            isFatalDeadline: false,
-            linkedCaseId: null,
-            status: 'pending',
-            completedAt: null,
-            pinnedToFieldCurtain: false,
-            fieldCurtainPinnedAt: null,
-            subTasks: [],
-            documentRequirements: [],
-            expenses: [],
-            voiceRef: null,
-            voiceTranscript: null,
-            voiceDurationSec: null,
-            ...partial,
-        };
+    function baseTask(partial: Parameters<typeof legalTaskStub>[0]) {
+        return legalTaskStub(partial);
     }
 
     it('يمرّ مرة واحدة: أسبوع + بعيدة + حتمية', () => {
@@ -226,5 +167,33 @@ describe('partitionAgendaPendingTasks', () => {
         expect(part.weeklyDayBlocks[2]?.tasks.map((t) => t.id)).toEqual(['w1']);
         expect(part.distantTasks.map((t) => t.id)).toContain('d1');
         expect(part.fatalTasks.map((t) => t.id)).toEqual(['f1']);
+    });
+});
+
+describe('applyReopenTask', () => {
+    it('يعيد مهمة الأسبوع الحالي دون نقل تاريخها', () => {
+        const now = localDate(2026, 8, 5);
+        const task = { ...archivedTask(now), completedAt: now };
+        const next = applyReopenTask(task, now);
+        expect(next?.completedAt).toBeNull();
+        expect(next?.status).toBe('pending');
+        expect(next?.parsedDate?.getTime()).toBe(now.getTime());
+    });
+
+    it('ينقل مهمة الأرشيف إلى اليوم حتى لا تُغلق فوراً', () => {
+        const now = localDate(2026, 8, 5);
+        const lastWeek = localDate(2026, 7, 28);
+        const task = {
+            ...archivedTask(lastWeek),
+            completedAt: lastWeek,
+            status: 'completed' as const,
+        };
+        expect(isTaskArchivedToHistory(task, now)).toBe(true);
+        const next = applyReopenTask(task, now);
+        expect(next).not.toBeNull();
+        expect(next?.completedAt).toBeNull();
+        expect(next?.status).toBe('pending');
+        expect(next?.parsedDate?.getTime()).toBe(startOfLocalDay(now).getTime());
+        expect(isTaskArchivedToHistory(next!, now)).toBe(false);
     });
 });

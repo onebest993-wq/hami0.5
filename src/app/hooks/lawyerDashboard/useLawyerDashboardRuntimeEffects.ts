@@ -5,7 +5,7 @@ import { CALENDAR_SOURCE_PATCHED_EVENT } from '@/app/services/calendarBridge.typ
 import type { CalendarSourcePatchDetail } from '@/app/services/calendar/bridgePersistence/lite';
 import { buildCalendarDossierFingerprint } from '@/app/services/calendar/calendarDossierFingerprint';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
-import { isRealSignedIn, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
+import { hasLocalAppSession, isRealSignedIn, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
 import { STORAGE_KEYS } from '@/app/utils/constants';
 import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
 import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
@@ -22,7 +22,6 @@ function loadDashboardPostInteractiveWarm() {
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { GlobalNote, ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
-import type { LegalCase } from '@/app/stores/caseStore';
 import type { LegalTask } from '@/app/types/TaskEngine';
 
 export type UseLawyerDashboardRuntimeEffectsParams = {
@@ -39,8 +38,6 @@ export type UseLawyerDashboardRuntimeEffectsParams = {
     searchIndexVersion: number;
     showLawsuitsWorkspace: boolean;
     lawsuitsDossierSection: 'all' | 'civil' | 'personal' | 'criminal';
-    storeCases: LegalCase[];
-    hydrateCasesFromLawsuitFiles: (mapped: LegalCase[]) => void;
     refreshAppAlerts: () => void;
     reloadLawsuitFiles: () => void;
     reloadExecutionFiles: () => void;
@@ -66,8 +63,6 @@ export function useLawyerDashboardRuntimeEffects({
     searchIndexVersion,
     showLawsuitsWorkspace,
     lawsuitsDossierSection,
-    storeCases,
-    hydrateCasesFromLawsuitFiles,
     refreshAppAlerts,
     reloadLawsuitFiles,
     reloadExecutionFiles,
@@ -230,7 +225,7 @@ export function useLawyerDashboardRuntimeEffects({
     useEffect(() => {
         if (!backgroundRuntimeEnabled) return;
         const uid = resolveCalendarUserId(user?.id ?? authUser?.id ?? null);
-        if (!isRealSignedIn(uid)) return;
+        if (!hasLocalAppSession(uid)) return;
         let cancelIdle: () => void = () => undefined;
         const timerId = window.setTimeout(() => {
             cancelIdle = scheduleIdleWork(() => {
@@ -319,7 +314,7 @@ export function useLawyerDashboardRuntimeEffects({
             .then((m) => {
                 if (cancelled || !m.consumeOpenCriminalCasesListRequest()) return;
                 void import('@/app/utils/lazyComponentsIntent')
-                    .then((mod) => mod.prefetchCriminalDashboard())
+                    .then((mod) => mod.prefetchCriminalListPath())
                     .catch(() => undefined);
                 setLawsuitsDossierSection('criminal');
                 setLawsuitsWorkspaceTab('civil');
@@ -338,11 +333,12 @@ export function useLawyerDashboardRuntimeEffects({
         void import('@/app/utils/lazyComponentsIntent')
             .then((m) => {
                 if (cancelled) return;
-                m.warmLawsuitWorkspace();
+                /* secondary default false — لا SmartFile/NewCase/جزائي على كل فتح */
+                m.warmLawsuitWorkspace({ includeSecondary: false });
                 if (lawsuitsDossierSection !== 'criminal') return;
                 cancelIdle = scheduleIdleWork(() => {
                     void import('@/app/utils/lazyComponentsIntent')
-                        .then((mod) => mod.prefetchCriminalDashboard())
+                        .then((mod) => mod.prefetchCriminalListPath())
                         .catch(() => undefined);
                 }, 1_500);
             })
@@ -354,19 +350,23 @@ export function useLawyerDashboardRuntimeEffects({
     }, [lawsuitsDossierSection, showLawsuitsWorkspace]);
 
     useEffect(() => {
-        if (files.length === 0 || storeCases.length > 0) return;
+        if (files.length === 0) return;
         let cancelled = false;
         let cancelTask: (() => void) | undefined;
         void Promise.all([
             import('@/app/bootstrap/staggeredBootOrchestrator'),
             import('@/app/components/lawyer/LawyerDashboardParts/utils'),
+            import('@/app/stores/caseStore'),
         ])
-            .then(([boot, utils]) => {
+            .then(([boot, utils, store]) => {
                 if (cancelled) return;
+                if (store.useCaseStore.getState().cases.length > 0) return;
                 cancelTask = boot.enqueueStaggeredBootTask(
                     'case-store-hydrate',
                     () => {
-                        hydrateCasesFromLawsuitFiles(utils.mapLawsuitFilesToLegalCases(files));
+                        store.useCaseStore
+                            .getState()
+                            .hydrateCasesFromLawsuitFiles(utils.mapLawsuitFilesToLegalCases(files));
                     },
                     'deferred',
                 );
@@ -376,5 +376,5 @@ export function useLawyerDashboardRuntimeEffects({
             cancelled = true;
             cancelTask?.();
         };
-    }, [files, hydrateCasesFromLawsuitFiles, storeCases.length]);
+    }, [files]);
 }

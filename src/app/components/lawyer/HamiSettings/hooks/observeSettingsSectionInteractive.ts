@@ -41,13 +41,17 @@ export function observeSettingsSectionInteractive({
     tryMark();
     if (isDone()) return () => undefined;
 
+    rafId = requestAnimationFrame(tryMark);
+
     const shell = document.querySelector(SETTINGS_SHELL_SELECTOR);
+    const panel = document.querySelector('[data-testid="settings-section-panel"]');
+    const root = panel ?? shell;
     const obs =
-        shell &&
+        root &&
         new MutationObserver(() => {
             scheduleTry();
         });
-    obs?.observe(shell, { childList: true, subtree: true });
+    obs?.observe(root, { childList: true, subtree: true });
 
     const onVisibility = () => {
         if (!document.hidden) scheduleTry();

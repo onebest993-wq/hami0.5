@@ -36,6 +36,7 @@ export function DecisionCardFollowupShortcuts({
     evictionPoliceReady,
     personalStatusCourtCoerciveBlocked,
 }: DecisionCardFollowupShortcutsProps) {
+    return (
                     <div className="space-y-2">
                         {canOpenHeirsEntry && heirsParty ? (
                             <button
@@ -118,4 +119,5 @@ export function DecisionCardFollowupShortcuts({
                         ) : null}
 
                     </div>
+    );
 }

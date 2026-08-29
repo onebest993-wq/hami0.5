@@ -38,7 +38,7 @@ export function resolveAbsentObjectionAppealRights(
         if (clientRole === 'objector') {
             return {
                 action: 'self_appeal',
-                hint: 'موكلك (المعترض) خسر الاعتراض — تأييد الحكم الغيابي. المدعي الأصلي ربح دعواه الأصلية. يحق لموكلك الطعن بالاستئناف أو التمييز.',
+                hint: 'موكلك (المعترض) خسر الاعتراض — تأييد الحكم الغيابي. المدعي الأصلي ربح دعواه. يحق لموكلك الطعن المقرر قانوناً.',
             };
         }
         return {
@@ -57,7 +57,7 @@ export function resolveAbsentObjectionAppealRights(
         if (clientRole === 'objected') {
             return {
                 action: 'self_appeal',
-                hint: 'موكلك (المعترض عليه) خسر الاعتراض — تعديل الحكم. المدعي الأصلي خسر دعواه الأصلية. يحق لموكلك الطعن.',
+                hint: 'موكلك (المعترض عليه) خسر الاعتراض — تعديل الحكم. المدعي الأصلي خسر دعواه الأصلية. يحق لموكلك الطعن المقرر قانوناً.',
             };
         }
         return {
@@ -74,4 +74,30 @@ export function resolveAbsentObjectionAppealRights(
     }
 
     return { action: 'none', hint: '' };
+}
+
+/** منطوق الحفظ بعد قرار الاعتراض — تأييد أو تعديل، انتظار أو طعن. */
+export function resolveAbsentObjectionWaitDecisionText(
+    judgmentType: string,
+    action: FirstInstanceAppealRights['action'],
+): string | null {
+    if (action === 'wait_opponent') {
+        if (judgmentType === 'رد الدعوى كلياً') {
+            return 'تعديل الحكم الغيابي — بانتظار طعن المعترض عليه';
+        }
+        if (judgmentType === 'رد الدعوى جزئياً') {
+            return 'تعديل جزئي للحكم الغيابي — بانتظار طعن الطرف الآخر';
+        }
+        return 'تأييد الحكم الغيابي — بانتظار طعن المعترض';
+    }
+    if (action === 'self_appeal') {
+        if (judgmentType === 'رد الدعوى كلياً') {
+            return 'تعديل الحكم الغيابي — يحق لموكلك الطعن';
+        }
+        if (judgmentType === 'رد الدعوى جزئياً') {
+            return 'تعديل جزئي للحكم الغيابي — يحق لموكلك الطعن';
+        }
+        return 'تأييد الحكم الغيابي — يحق لموكلك الطعن';
+    }
+    return null;
 }

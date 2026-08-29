@@ -1,6 +1,12 @@
 import React from 'react';
-import { motion } from 'motion/react';
-import { BadgeCheck, CalendarClock, ChevronDown, ChevronUp, Handshake, X, XCircle } from '@/app/components/ui/lucideIcons';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { BadgeCheck } from '@/app/components/ui/icons/BadgeCheck';
+import { CalendarClock } from '@/app/components/ui/icons/CalendarClock';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
+import { ChevronUp } from '@/app/components/ui/icons/ChevronUp';
+import { Handshake } from '@/app/components/ui/icons/Handshake';
+import { X } from '@/app/components/ui/icons/X';
+import { XCircle } from '@/app/components/ui/icons/XCircle';
 import { formatIqdDisplay } from '../utils';
 import type { SettlementDuePhase } from '../utils';
 import type { UnifiedLedgerStore } from '../types';

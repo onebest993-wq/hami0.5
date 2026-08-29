@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown } from '@/app/components/ui/lucideIcons';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
 import { ExecutionInlineAccordion } from './ExecutionInlineAccordion';
 import { useSeizedPropertyWorkflowPanelState } from './seizedPropertyWorkflow/useSeizedPropertyWorkflowPanelState';
 import type { SeizedPropertyWorkflowPanelProps } from './seizedPropertyWorkflow/seizedPropertyWorkflowTypes';

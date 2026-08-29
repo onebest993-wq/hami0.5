@@ -27,7 +27,7 @@ describe('wave7d BFF auth unify honesty', () => {
         expect(hits).toEqual([]);
     });
 
-    it('مسارات forum/upload/kv/requests/case-share/csrf/comms تستخدم requireWifeUser أو requireForumAuth', () => {
+    it('مسارات forum/upload/kv/case-share/csrf تستخدم requireWifeUser أو requireForumAuth', () => {
         const samples = [
             'src/app/api/forum/ban/route.ts',
             'src/app/api/forum/stats/route.ts',
@@ -35,16 +35,16 @@ describe('wave7d BFF auth unify honesty', () => {
             'src/app/api/forum/reports/route.ts',
             'src/app/api/upload/route.ts',
             'src/app/api/kv-proxy/route.ts',
-            'src/app/api/requests/list/route.ts',
             'src/app/api/case-share/route.ts',
             'src/app/api/security/csrf/route.ts',
-            'src/app/api/comms-dispatcher/route.ts',
             'src/app/api/security/wife-session/route.ts',
         ];
         for (const rel of samples) {
             const t = fs.readFileSync(path.join(root, rel), 'utf8');
             expect(
-                t.includes('requireWifeUser') || t.includes('requireForumAuth'),
+                t.includes('requireWifeUser') ||
+                    t.includes('requireForumAuth') ||
+                    t.includes('requireTrustedHeadquartersAdmin'),
                 rel,
             ).toBe(true);
         }

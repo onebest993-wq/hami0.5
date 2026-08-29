@@ -1,5 +1,10 @@
 // 🔒 SAFE LOCALSTORAGE WRAPPER - مع error handling
 import SecureStoreService from '@/app/services/SecureStoreService';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+    writeSecureAndClearLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 /**
  * Safe localStorage setItem with error handling
@@ -7,14 +12,13 @@ import SecureStoreService from '@/app/services/SecureStoreService';
 export function safeSetItem(key: string, value: any): boolean {
     try {
         const serialized = JSON.stringify(value);
-        SecureStoreService.setItemSync(key, serialized);
+        writeSecureAndClearLegacySync(key, serialized);
         return true;
     } catch (error) {
         if (error instanceof Error) {
             // QuotaExceededError
             if (error.name === 'QuotaExceededError') {
                 console.error('❌ LocalStorage ممتلئ! لا يمكن الحفظ.', error);
-                // يمكن إضافة toast notification هنا
             } else {
                 console.error('❌ خطأ في حفظ البيانات:', error.message);
             }
@@ -28,7 +32,7 @@ export function safeSetItem(key: string, value: any): boolean {
  */
 export function safeGetItem<T>(key: string, defaultValue: T | null = null): T | null {
     try {
-        const item = SecureStoreService.getItemSync(key);
+        const item = readSecureOrDrainLegacySync(key);
         if (item === null) return defaultValue;
         return JSON.parse(item) as T;
     } catch (error) {
@@ -43,6 +47,7 @@ export function safeGetItem<T>(key: string, defaultValue: T | null = null): T | 
 export function safeRemoveItem(key: string): boolean {
     try {
         SecureStoreService.deleteItemSync(key);
+        clearLegacyPlaintextMirror(key);
         return true;
     } catch (error) {
         console.error(`❌ خطأ في حذف ${key}:`, error);
@@ -56,7 +61,10 @@ export function safeRemoveItem(key: string): boolean {
 export function safeClear(): boolean {
     try {
         const keys = SecureStoreService.listKeysSync();
-        keys.forEach((k) => SecureStoreService.deleteItemSync(k));
+        keys.forEach((k) => {
+            SecureStoreService.deleteItemSync(k);
+            clearLegacyPlaintextMirror(k);
+        });
         return true;
     } catch (error) {
         console.error('❌ خطأ في مسح التخزين:', error);
@@ -102,7 +110,7 @@ export function safeBatchSet(items: Record<string, any>): boolean {
     try {
         for (const [key, value] of Object.entries(items)) {
             const serialized = JSON.stringify(value);
-            SecureStoreService.setItemSync(key, serialized);
+            writeSecureAndClearLegacySync(key, serialized);
         }
         return true;
     } catch (error) {

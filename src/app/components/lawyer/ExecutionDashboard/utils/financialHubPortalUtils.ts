@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { ExecutionFile } from '@/app/types/execution';
 
 export const MONTHLY_SETTLEMENT_DEFAULT_TASK_TITLE = '⚠️ نكس التسوية الشهرية';
@@ -26,7 +25,7 @@ export type GhuramaaDistributionArgs = {
 };
 
 export function buildGhuramaaDistributionMergePatch(input: {
-    executionData: Record<string, unknown> | null | undefined;
+    executionData: ExecutionFile | Record<string, unknown> | null | undefined;
     creditors: unknown[];
     args: GhuramaaDistributionArgs;
 }): Record<string, unknown> {

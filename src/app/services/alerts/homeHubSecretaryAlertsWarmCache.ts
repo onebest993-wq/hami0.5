@@ -1,4 +1,5 @@
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
+import { patchDashboardFrame1Snapshot } from '@/app/bootstrap/dashboardFrame1Snapshot';
 
 let warmed: { lawyerId: string; alerts: SecretaryAlert[] } | null = null;
 
@@ -9,6 +10,9 @@ export function writeHomeHubSecretaryAlertsCache(lawyerId: string | null, alerts
         return;
     }
     warmed = { lawyerId, alerts: Array.isArray(alerts) ? alerts : [] };
+    patchDashboardFrame1Snapshot(lawyerId, {
+        secretaryAlertCount: warmed.alerts.length,
+    });
 }
 
 export function peekHomeHubSecretaryAlertsCache(lawyerId: string | null): SecretaryAlert[] | null {

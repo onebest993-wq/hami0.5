@@ -11,11 +11,11 @@ import {
 } from './investigationDefendantPurge';
 import { resolveCurrentJourneyNodeId } from './stageJourney';
 
-export type InvestigationMutationResult =
+type InvestigationMutationResult =
     | { ok: true; nextCase: CriminalCase }
     | { ok: false; reason: 'blocked' | 'not_found' | 'invalid' | 'unknown_defendant' };
 
-export type InvestigationLetterCompletionPayload = {
+type InvestigationLetterCompletionPayload = {
     responseNotes?: string;
     receivedDate?: string;
 };
@@ -120,7 +120,7 @@ export function applyInvestigationLogUpdate(
     };
 }
 
-export type InvestigationLetterCompletionResult =
+type InvestigationLetterCompletionResult =
     | { ok: true; nextCase: CriminalCase }
     | { ok: false; error: string };
 
@@ -168,7 +168,7 @@ export function applyCompleteInvestigationLetter(
     };
 }
 
-export type InvestigationExhibitLifecycleResult =
+type InvestigationExhibitLifecycleResult =
     | { ok: true; nextCase: CriminalCase }
     | { ok: false; error: string };
 

@@ -13,4 +13,5 @@ export * from './criminalSync';
 export * from './auxiliarySync';
 export * from './prune';
 export * from './orchestrator';
+export * from './visitationCalendarSync';
 

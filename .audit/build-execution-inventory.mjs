@@ -60,7 +60,7 @@ const NAME_CONCEPTS = [
     /guarantor/i,
     /executor/i,
     /^foc/i,
-    /dossier/i,
+    /executionDossier/i,
 ];
 
 /** وحدات يعتبر استيرادها انتماءً للقسم */
@@ -165,7 +165,9 @@ for (const abs of allFiles) {
         ({ lines, src } = countLines(abs));
     } else {
         ({ lines, src } = countLines(abs));
-        byImport = IMPORT_MARKERS.some((m) => src.includes(m));
+        /* سكربتات المستودع تدخل بالاسم فقط — ذكر ExecutionDashboard في تعليق لا يجعل السكربت «تنفيذاً». */
+        byImport =
+            !rel.startsWith('scripts/') && IMPORT_MARKERS.some((m) => src.includes(m));
     }
 
     if (!byDir && !byName && !byImport) continue;
@@ -222,4 +224,8 @@ console.log('');
 console.log('module'.padEnd(26) + 'files'.padStart(7) + 'lines'.padStart(9) + 'tests'.padStart(7) + 'nocheck'.padStart(9));
 for (const [m, v] of Object.entries(byModule).sort()) {
     console.log(m.padEnd(26) + String(v.files).padStart(7) + String(v.lines).padStart(9) + String(v.tests).padStart(7) + String(v.nocheck).padStart(9));
+}
+const a1Nocheck = byModule['A1-core-hooks']?.nocheck ?? 0;
+if (a1Nocheck > 0) {
+    console.log(`\nnote: A1-core-hooks @ts-nocheck=${a1Nocheck} — tracked by guard:ts-nocheck; do not strip in bulk`);
 }

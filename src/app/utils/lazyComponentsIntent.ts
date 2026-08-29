@@ -82,9 +82,7 @@ export function prefetchCriminalDashboard(): void {
 
 export function prefetchLawyerHomeHubCard(): void {
     if (typeof window === 'undefined') return;
-    void loadLazyComponents().then((m) => {
-        m.prefetchLawyerHomeHubCard();
-    });
+    void import('@/app/runtime/homeHubCardLoader').then((m) => m.prefetchLawyerHomeHubCardModule());
 }
 
 export function prefetchNotificationPanel(): void {

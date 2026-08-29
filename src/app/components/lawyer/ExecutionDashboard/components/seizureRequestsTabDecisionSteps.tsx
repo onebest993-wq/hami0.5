@@ -6,8 +6,13 @@ import {
 import { isExecutorRowRejectedAndFinal } from '@/app/utils/executorSeizureDecisionQueue';
 import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 
-export function SeizureDecisionInlineActions(props: {
-    row: any;
+type SeizureDecisionStepRow = Record<string, unknown> & {
+    id?: string;
+    executorOutcome?: string;
+};
+
+function SeizureDecisionInlineActions(props: {
+    row: SeizureDecisionStepRow;
     requestKind: string;
     resolvedExecutionId: string;
     onOpenAppeals: (decisionId: string) => void;
@@ -50,7 +55,7 @@ export function SeizureDecisionInlineActions(props: {
 
 export function buildSeizureRequestSteps(args: {
     title: string;
-    row: any;
+    row: SeizureDecisionStepRow | null | undefined;
     requestKind: string;
     decisions: Record<string, unknown>[];
     resolvedExecutionId: string;
@@ -59,11 +64,11 @@ export function buildSeizureRequestSteps(args: {
 }): ExecutionInlineStep[] {
     const { title, row, requestKind, decisions, resolvedExecutionId, onOpenAppeals, extra } = args;
     const hasRow = Boolean(row?.id);
-    const rejected = hasRow ? isExecutorRowRejectedAndFinal(row) : false;
-    const approved = hasRow ? isExecutorRowApprovedWorkflowActive(row, decisions) : false;
+    const rejected = row ? isExecutorRowRejectedAndFinal(row) : false;
+    const approved = row ? isExecutorRowApprovedWorkflowActive(row, decisions) : false;
     const pending = hasRow
-        ? String(row.executorOutcome ?? 'pending') === 'pending' ||
-          String(row.executorOutcome ?? '') === ''
+        ? String(row?.executorOutcome ?? 'pending') === 'pending' ||
+          String(row?.executorOutcome ?? '') === ''
         : false;
     return [
         {

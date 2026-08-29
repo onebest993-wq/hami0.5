@@ -1,0 +1,13 @@
+deleted=10
+FAILS:
+OK:
+src/app/components/lawyer/criminal-system/components/JudicialDecisionsLedgerCardShared.tsx :: CassationResultMark
+src/app/components/lawyer/criminal-system/components/JudicialDecisionsLedgerCardShared.tsx :: CassationResultMarkProps
+src/app/components/lawyer/criminal-system/criminalDefendantLiteCore.ts :: countSeveranceSelectableDefendantsLite
+src/app/components/lawyer/criminal-system/criminalDefendantLiteCore.ts :: hasIdentifiedDefendantLite
+src/app/components/lawyer/criminal-system/criminalDefendantLiteCore.ts :: hasUnrevealedUnknownDefendantsLite
+src/app/components/lawyer/criminal-system/investigationDefendantPurge.ts :: resolveAcceptablePurgeDefendantIds
+src/app/components/lawyer/criminal-system/investigationTrackingEngine.ts :: EVIDENCE_TRACKING_CATEGORIES
+src/app/components/lawyer/criminal-system/investigationTrackingEngine.ts :: LETTER_TRACKING_CATEGORIES
+src/app/components/lawyer/criminal-system/juvenileInvestigationRules.ts :: judicialDecisionMatchesPartyScope
+src/app/components/lawyer/criminal-system/proceduralPathsEngine.ts :: PROCEDURAL_STEP_STATUS_OPTIONS

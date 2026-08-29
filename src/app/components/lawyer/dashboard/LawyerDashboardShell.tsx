@@ -18,6 +18,7 @@ import type { AppearanceSettings } from '@/app/services/settings/types';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import type { LawyerDashboardBackgroundServicesProps } from '@/app/components/lawyer/dashboard/LawyerDashboardBackgroundServices';
 import { AppLockOverlay } from '@/app/components/lawyer/AppLockOverlay';
+import { LawyerVerificationStatusBanner } from '@/app/components/lawyer/LawyerVerificationStatusBanner';
 import { inertProps } from '@/app/utils/inertProps';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 
@@ -55,6 +56,7 @@ export type LawyerDashboardShellProps = {
     }) => void;
     onNotesSynced: (merged: GlobalNote[]) => void;
     onLawsuitFilesSynced: (merged: FileData[]) => void;
+    onExecutionFilesSynced?: () => void;
     mergeNotesStores: (merged: GlobalNote[]) => void;
     syncExecutionFilesNowRef: React.MutableRefObject<() => void>;
     syncLawsuitFilesNowRef: React.MutableRefObject<() => void>;
@@ -65,7 +67,7 @@ export type LawyerDashboardShellProps = {
     requiresBiometricToUnlock: boolean;
     unlockWithBiometric: () => Promise<boolean>;
     unlockContinue: () => void;
-    onLogout: () => void;
+    onLogout: (options?: { skipLocalPurge?: boolean }) => void | Promise<void>;
     children: React.ReactNode;
 };
 
@@ -90,6 +92,7 @@ export function LawyerDashboardShell({
     onAlerts,
     onNotesSynced,
     onLawsuitFilesSynced,
+    onExecutionFilesSynced,
     mergeNotesStores,
     syncExecutionFilesNowRef,
     syncLawsuitFilesNowRef,
@@ -149,6 +152,7 @@ export function LawyerDashboardShell({
             data-testid="lawyer-dashboard-ready"
             data-hami-lawyer-dashboard=""
             data-hami-wallpaper={hasWallpaper ? '1' : '0'}
+            topInset={false}
             className="min-h-screen w-full text-right pb-0 relative overflow-x-hidden font-sans"
             style={shellCanvasStyle}
             statusBarColor={statusBarColor}
@@ -171,6 +175,7 @@ export function LawyerDashboardShell({
                             onAlerts={onAlerts}
                             onNotesSynced={onNotesSynced as LawyerDashboardBackgroundServicesProps['onNotesSynced']}
                             onLawsuitFilesSynced={onLawsuitFilesSynced}
+                            onExecutionFilesSynced={onExecutionFilesSynced}
                             mergeNotesStores={mergeNotesStores as LawyerDashboardBackgroundServicesProps['mergeNotesStores']}
                             syncExecutionFilesNowRef={syncExecutionFilesNowRef}
                             syncLawsuitFilesNowRef={syncLawsuitFilesNowRef}
@@ -192,6 +197,10 @@ export function LawyerDashboardShell({
                     aria-hidden={appLocked || undefined}
                     {...inertProps(appLocked)}
                 >
+                    <LawyerVerificationStatusBanner
+                        userId={user.id}
+                        userMetadata={(user.user_metadata ?? null) as Record<string, unknown> | null}
+                    />
                     {children}
                 </div>
             </div>

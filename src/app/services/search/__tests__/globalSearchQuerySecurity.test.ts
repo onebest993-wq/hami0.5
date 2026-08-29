@@ -21,6 +21,15 @@ describe('globalSearchQuerySecurity', () => {
         expect(clampGlobalSearchQuery(long)).toHaveLength(GLOBAL_SEARCH_MAX_QUERY_LENGTH);
     });
 
+    it('strips control characters from query', () => {
+        expect(clampGlobalSearchQuery('دعوى\u0000\u0007 سرية')).toBe('دعوى سرية');
+    });
+
+    it('strips bidi overrides and HTML tags from query', () => {
+        expect(clampGlobalSearchQuery('دعوى\u202Esecret')).toBe('دعوىsecret');
+        expect(clampGlobalSearchQuery('<b>دعوى</b>')).toBe('دعوى');
+    });
+
     it('clamps recent label length', () => {
         const long = 'ب'.repeat(GLOBAL_SEARCH_MAX_RECENT_LABEL_LENGTH + 20);
         expect(clampRecentSearchLabel(long)).toHaveLength(GLOBAL_SEARCH_MAX_RECENT_LABEL_LENGTH);

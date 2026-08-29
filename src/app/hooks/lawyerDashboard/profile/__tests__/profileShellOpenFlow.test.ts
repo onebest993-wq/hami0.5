@@ -6,8 +6,9 @@ const mocks = vi.hoisted(() => ({
     revealMock: vi.fn(() => true),
     dismissMock: vi.fn(),
     prefetchChunksMock: vi.fn(),
-    warmSideEffectsMock: vi.fn(),
-    warmOnOpenMock: vi.fn(),
+    hydrateSyncMock: vi.fn(),
+    concealSettingsMock: vi.fn(),
+    scheduleSyncMock: vi.fn((run: () => void) => run()),
 }));
 
 vi.mock('react-dom', () => ({
@@ -32,7 +33,20 @@ vi.mock('@/app/utils/bodyScrollLock', () => ({
 }));
 
 vi.mock('@/app/runtime/settingsInstantPaint', () => ({
-    concealSettingsWarmShell: vi.fn(),
+    concealSettingsWarmShell: mocks.concealSettingsMock,
+}));
+
+vi.mock('@/app/services/profile/profileWarmCache', () => ({
+    hydrateProfileWarmCachePeekSync: mocks.hydrateSyncMock,
+}));
+
+vi.mock('@/app/services/profile/profileShellSnap', () => ({
+    scheduleProfileShellReactSync: mocks.scheduleSyncMock,
+}));
+
+vi.mock('@/app/runtime/royalLawyerProfileLoader', () => ({
+    loadProfileHubModule: vi.fn(() => Promise.resolve([])),
+    prefetchProfileHubModule: vi.fn(),
 }));
 
 vi.mock('@/app/hooks/lawyerDashboard/profile/profileLazyImports', async (importOriginal) => {
@@ -51,14 +65,18 @@ vi.mock('@/app/hooks/lawyerDashboard/profile/profileLazyImports', async (importO
 });
 
 describe('profileShellOpenFlow', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.clearAllMocks();
         mocks.revealMock.mockReturnValue(true);
+        mocks.scheduleSyncMock.mockImplementation((run: () => void) => run());
         document.body.innerHTML = '';
+        const hub = await import('@/app/runtime/royalLawyerProfileLoader');
+        vi.mocked(hub.loadProfileHubModule).mockResolvedValue([] as never);
     });
 
-    it('commitProfileOpen يفتح الملف ويُسجّل perf فوراً', async () => {
+    it('commitProfileOpen يكشف فوراً قبل أي عمل ثقيل', async () => {
         document.body.innerHTML = '<div data-testid="lawyer-dashboard-profile-surface"></div>';
+        const hub = await import('@/app/runtime/royalLawyerProfileLoader');
         const { commitProfileOpen } = await import(
             '@/app/hooks/lawyerDashboard/profile/profileShellOpenFlow'
         );
@@ -74,17 +92,56 @@ describe('profileShellOpenFlow', () => {
             setProfileOpenEpoch: vi.fn((fn) => (typeof fn === 'function' ? fn(0) : fn)),
         });
 
+        expect(setActiveTab).toHaveBeenCalledWith('profile');
         expect(mocks.clearPerfMock).toHaveBeenCalled();
         expect(mocks.markPerfMock).toHaveBeenCalledWith('open-request');
-        expect(mocks.revealMock).toHaveBeenCalled();
-        expect(setActiveTab).toHaveBeenCalledWith('profile');
-        expect(mocks.dismissMock).toHaveBeenCalledWith('profile');
+        expect(openInFlightRef.current).toBe(true);
+        await Promise.resolve();
+        expect(openInFlightRef.current).toBe(false);
+
         await vi.waitFor(() => {
-            expect(mocks.prefetchChunksMock).toHaveBeenCalled();
+            expect(mocks.hydrateSyncMock).toHaveBeenCalledWith('lawyer-1');
+            expect(hub.loadProfileHubModule).toHaveBeenCalled();
+            expect(mocks.dismissMock).toHaveBeenCalledWith('profile');
         });
     });
 
-    it('commitProfileOpen يزامن React حتى لو كان snap مفتوحاً مسبقاً', async () => {
+    it('commitProfileOpen: hydrate ثم تبويب ثم reveal', async () => {
+        document.body.innerHTML = '<div data-testid="lawyer-dashboard-profile-surface"></div>';
+        const order: string[] = [];
+        mocks.revealMock.mockImplementation(() => {
+            order.push('reveal');
+            return true;
+        });
+        mocks.hydrateSyncMock.mockImplementation(() => {
+            order.push('hydrate');
+            return null;
+        });
+        const setActiveTab = vi.fn(() => {
+            order.push('tab');
+        });
+
+        const { commitProfileOpen } = await import(
+            '@/app/hooks/lawyerDashboard/profile/profileShellOpenFlow'
+        );
+
+        commitProfileOpen({
+            userId: 'lawyer-1',
+            openInFlightRef: { current: false },
+            setProfileHostMounted: vi.fn(),
+            setShowCommunity: vi.fn(),
+            setActiveTab,
+            setProfileOpenEpoch: vi.fn(),
+        });
+
+        expect(order.indexOf('hydrate')).toBeLessThan(order.indexOf('tab'));
+        expect(order.indexOf('tab')).toBeLessThan(order.indexOf('reveal'));
+        expect(setActiveTab).toHaveBeenCalledWith('profile');
+    });
+
+    it('commitProfileOpen يزامن React حتى لو hub معلّق', async () => {
+        const hub = await import('@/app/runtime/royalLawyerProfileLoader');
+        vi.mocked(hub.loadProfileHubModule).mockReturnValue(new Promise(() => undefined));
         document.body.innerHTML = '<div data-testid="lawyer-dashboard-profile-surface"></div>';
         const { commitProfileOpen } = await import(
             '@/app/hooks/lawyerDashboard/profile/profileShellOpenFlow'
@@ -101,6 +158,7 @@ describe('profileShellOpenFlow', () => {
         });
 
         expect(setActiveTab).toHaveBeenCalledWith('profile');
+        expect(mocks.revealMock).toHaveBeenCalled();
     });
 
     it('commitProfileOpen يتخطى إذا كان فتحاً قيد التنفيذ', async () => {
@@ -118,5 +176,58 @@ describe('profileShellOpenFlow', () => {
         });
 
         expect(mocks.clearPerfMock).not.toHaveBeenCalled();
+    });
+
+    it('commitProfileOpen يمنع النقر المزدوج في نفس الدورة', async () => {
+        document.body.innerHTML = '<div data-testid="lawyer-dashboard-profile-surface"></div>';
+        const { commitProfileOpen } = await import(
+            '@/app/hooks/lawyerDashboard/profile/profileShellOpenFlow'
+        );
+        const openInFlightRef = { current: false };
+        const setActiveTab = vi.fn();
+
+        commitProfileOpen({
+            userId: 'lawyer-1',
+            openInFlightRef,
+            setProfileHostMounted: vi.fn(),
+            setShowCommunity: vi.fn(),
+            setActiveTab,
+            setProfileOpenEpoch: vi.fn(),
+        });
+        expect(openInFlightRef.current).toBe(true);
+        commitProfileOpen({
+            userId: 'lawyer-1',
+            openInFlightRef,
+            setProfileHostMounted: vi.fn(),
+            setShowCommunity: vi.fn(),
+            setActiveTab,
+            setProfileOpenEpoch: vi.fn(),
+        });
+
+        expect(setActiveTab).toHaveBeenCalledTimes(1);
+        await Promise.resolve();
+        expect(openInFlightRef.current).toBe(false);
+    });
+
+    it('commitProfileOpen يفعّل التبويب فوراً — صفحة الفتح تغطي Suspense', async () => {
+        mocks.revealMock.mockReturnValue(false);
+        document.body.innerHTML = '<div data-testid="lawyer-dashboard-profile-surface"></div>';
+        const { commitProfileOpen } = await import(
+            '@/app/hooks/lawyerDashboard/profile/profileShellOpenFlow'
+        );
+        const setActiveTab = vi.fn();
+        const setProfileHostMounted = vi.fn();
+
+        commitProfileOpen({
+            userId: 'lawyer-1',
+            openInFlightRef: { current: false },
+            setProfileHostMounted,
+            setShowCommunity: vi.fn(),
+            setActiveTab,
+            setProfileOpenEpoch: vi.fn(),
+        });
+
+        expect(setProfileHostMounted).toHaveBeenCalledWith(true);
+        expect(setActiveTab).toHaveBeenCalledWith('profile');
     });
 });

@@ -5,6 +5,7 @@ import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { CRIMINAL_MODAL_Z } from './criminalModalPortal';
 import { CriminalDashboardBootChrome } from './CriminalDashboardBootChrome';
 import { LazyCriminalDashboardEntry } from './CriminalDashboardEntryLazy';
+import { HAMI_OVERLAY_SAFE_INSETS_CLASS } from '@/app/utils/overlayPortal';
 
 type CriminalDashboardPortalProps = {
     caseId: string;
@@ -18,7 +19,7 @@ type CriminalDashboardPortalProps = {
 function CriminalDossierCrashFallback({ onClose }: { onClose: () => void }) {
     return (
         <div
-            className="fixed inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950 px-6 text-center pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+            className={`fixed inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950 px-6 text-center ${HAMI_OVERLAY_SAFE_INSETS_CLASS}`}
             style={{ zIndex: CRIMINAL_MODAL_Z.shell + 10 }}
             role="alertdialog"
             aria-modal="true"
@@ -51,9 +52,9 @@ export function CriminalDashboardPortal({
     useBodyScrollLock(true);
 
     const layer = (
-        <ErrorBoundary fallback={<CriminalDossierCrashFallback onClose={onClose} />}>
+        <ErrorBoundary key={caseId} fallback={<CriminalDossierCrashFallback onClose={onClose} />}>
             <div
-                className="fixed inset-0 flex flex-col overflow-hidden bg-slate-900 print:bg-white pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
+                className={`fixed inset-0 flex flex-col overflow-hidden bg-slate-900 print:bg-white ${HAMI_OVERLAY_SAFE_INSETS_CLASS}`}
                 style={{ zIndex: CRIMINAL_MODAL_Z.shell }}
                 data-testid="criminal-dashboard-portal"
             >

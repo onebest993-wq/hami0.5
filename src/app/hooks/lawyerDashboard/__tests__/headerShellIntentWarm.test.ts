@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: vi.fn(() => false),
+    isNativeShellStampedOnDom: vi.fn(() => false),
 }));
 
-vi.mock('@/app/services/settings/settingsRuntime', () => ({
+vi.mock('@/app/services/settings/settingsSnapshot', () => ({
     getLawyerSettingsSnapshot: vi.fn(() => ({
         security: { localOnlyMode: false },
         performance: { prefetchScreens: true, litePerformance: false },
@@ -26,7 +27,7 @@ vi.mock('@/app/hooks/lawyerDashboard/globalSearchIntentWarm', () => ({
     warmGlobalSearchOnOpen: vi.fn(),
 }));
 
-vi.mock('@/app/hooks/lawyerDashboard/profileIntentWarm', () => ({
+vi.mock('@/app/runtime/profileShellPrime', () => ({
     warmProfileOnHover: vi.fn(),
     warmProfileOnOpen: vi.fn(),
 }));
@@ -66,14 +67,13 @@ vi.mock('@/app/runtime/royalLawyerProfileLoader', () => ({
     loadRoyalLawyerProfileWithData: vi.fn(() => Promise.resolve({})),
     prefetchRoyalLawyerProfile: vi.fn(),
     prefetchRoyalLawyerProfileChunk: vi.fn(),
+    prefetchProfileHubModule: vi.fn(),
+    loadProfileHubModule: vi.fn(() => Promise.resolve({})),
+    isProfileShellModuleResolved: vi.fn(() => false),
 }));
 
 vi.mock('@/app/runtime/profileBootHydrator', () => ({
     hydrateProfileShellForInstantOpenWithData: vi.fn(() => Promise.resolve(true)),
-}));
-
-vi.mock('@/app/runtime/profileHubLoader', () => ({
-    prefetchProfileHubModule: vi.fn(),
 }));
 
 vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
@@ -99,8 +99,8 @@ import { loadRoyalLawyerProfileWithData } from '@/app/runtime/royalLawyerProfile
 import { warmSettingsOnHover, warmSettingsOnOpen } from '@/app/hooks/lawyerDashboard/settingsIntentWarm';
 import { warmNotificationsOnHover, warmNotificationsOnOpen } from '@/app/hooks/lawyerDashboard/notificationIntentWarm';
 import { warmGlobalSearchOnHover, warmGlobalSearchOnOpen } from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
-import { warmProfileOnHover, warmProfileOnOpen } from '@/app/hooks/lawyerDashboard/profileIntentWarm';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
+import { warmProfileOnHover, warmProfileOnOpen } from '@/app/runtime/profileShellPrime';
+import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
 import {
     hydrateLawyerDashboardHeaderShellChunks,
     preloadLawyerDashboardHeaderShellChunks,

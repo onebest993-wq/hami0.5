@@ -1,37 +1,42 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const warmProfileDataCache = vi.fn(() => Promise.resolve(null));
-const hydrateProfileShellForInstantOpenWithData = vi.fn(() => Promise.resolve(true));
-const prefetchProfileSettingsSheetModule = vi.fn();
-const prefetchProfileTabModule = vi.fn();
-const prefetchRoyalLawyerProfileChunk = vi.fn();
-
-vi.mock('@/app/runtime/profileTabModuleLoader', () => ({
-    prefetchProfileTabModule: (...args: unknown[]) => prefetchProfileTabModule(...args),
+const mocks = vi.hoisted(() => ({
+    warmProfileDataCache: vi.fn(() => Promise.resolve(null)),
+    hydrateProfileWarmCachePeekSync: vi.fn(),
+    hydrateProfileShellForInstantOpenWithData: vi.fn(() => Promise.resolve(true)),
+    prefetchProfileSettingsSheetModule: vi.fn(),
+    prefetchProfileStudioChunk: vi.fn(),
+    prefetchRoyalLawyerProfileChunk: vi.fn(),
+    prefetchProfileCanvasFxCore: vi.fn(),
+    loadProfileHubModule: vi.fn(() => Promise.resolve({})),
 }));
 
 vi.mock('@/app/runtime/royalLawyerProfileLoader', () => ({
-    prefetchRoyalLawyerProfileChunk: (...args: unknown[]) => prefetchRoyalLawyerProfileChunk(...args),
+    prefetchRoyalLawyerProfileChunk: mocks.prefetchRoyalLawyerProfileChunk,
+    loadProfileHubModule: mocks.loadProfileHubModule,
+    prefetchProfileHubModule: vi.fn(),
+    isProfileShellModuleResolved: vi.fn(() => false),
 }));
 
 vi.mock('@/app/runtime/profileBootHydrator', () => ({
-    hydrateProfileShellForInstantOpenWithData: (...args: unknown[]) =>
-        hydrateProfileShellForInstantOpenWithData(...args),
+    hydrateProfileShellForInstantOpenWithData: mocks.hydrateProfileShellForInstantOpenWithData,
 }));
 
 vi.mock('@/app/services/profile/profileWarmCache', () => ({
-    prefetchProfileData: (...args: unknown[]) => warmProfileDataCache(...args),
-    hydrateProfileWarmCachePeekSync: vi.fn(),
+    prefetchProfileData: mocks.warmProfileDataCache,
+    hydrateProfileWarmCachePeekSync: mocks.hydrateProfileWarmCachePeekSync,
 }));
 
 vi.mock('@/app/components/lawyer/RoyalLawyerProfile/profileCanvasFxLoader', () => ({
-    prefetchProfileCanvasFxCore: vi.fn(),
-    prefetchProfileCanvasStudioFx: vi.fn(),
+    prefetchProfileCanvasFxCore: mocks.prefetchProfileCanvasFxCore,
 }));
 
 vi.mock('@/app/runtime/profileSettingsSheetLoader', () => ({
-    prefetchProfileSettingsSheetModule: (...args: unknown[]) =>
-        prefetchProfileSettingsSheetModule(...args),
+    prefetchProfileSettingsSheetModule: mocks.prefetchProfileSettingsSheetModule,
+}));
+
+vi.mock('@/app/runtime/profileSettingsStudioTabsLoader', () => ({
+    prefetchProfileStudioChunk: mocks.prefetchProfileStudioChunk,
 }));
 
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
@@ -45,48 +50,47 @@ vi.mock('@/app/services/settings/settingsSnapshot', () => ({
     })),
 }));
 
-import {
-    prefetchProfileCanvasFxCore,
-    prefetchProfileCanvasStudioFx,
-} from '@/app/components/lawyer/RoyalLawyerProfile/profileCanvasFxLoader';
-import { warmProfileOnHover, warmProfileOnOpen } from '@/app/hooks/lawyerDashboard/profileIntentWarm';
+import { warmProfileOnHover, warmProfileOnOpen } from '@/app/runtime/profileShellPrime';
 
-describe('profileIntentWarm', () => {
+describe('profileShellPrime warm aliases (ex-profileIntentWarm)', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
     });
 
-    it('warmProfileOnOpen يبدأ جلب البيانات فوراً ويؤجّل FX الأساسي بلا استوديو', async () => {
+    it('warmProfileOnOpen يبدأ جلب البيانات فوراً ويؤجّل FX الأساسي', async () => {
         warmProfileOnOpen('lawyer-1');
-        expect(prefetchProfileTabModule).toHaveBeenCalledTimes(1);
-        expect(prefetchRoyalLawyerProfileChunk).toHaveBeenCalledTimes(1);
-        expect(hydrateProfileShellForInstantOpenWithData).toHaveBeenCalledWith('lawyer-1', true);
-        expect(warmProfileDataCache).toHaveBeenCalledWith('lawyer-1');
-        expect(prefetchProfileCanvasFxCore).not.toHaveBeenCalled();
-        expect(prefetchProfileCanvasStudioFx).not.toHaveBeenCalled();
-        await Promise.resolve();
-        expect(prefetchProfileSettingsSheetModule).toHaveBeenCalled();
-        expect(prefetchProfileCanvasFxCore).toHaveBeenCalled();
-        expect(prefetchProfileCanvasStudioFx).not.toHaveBeenCalled();
+        await vi.waitFor(() => {
+            expect(mocks.prefetchRoyalLawyerProfileChunk).toHaveBeenCalled();
+            expect(mocks.hydrateProfileShellForInstantOpenWithData).toHaveBeenCalledWith(
+                'lawyer-1',
+                true,
+            );
+            expect(mocks.hydrateProfileWarmCachePeekSync).toHaveBeenCalledWith('lawyer-1');
+            expect(mocks.warmProfileDataCache).toHaveBeenCalledWith('lawyer-1');
+            expect(mocks.prefetchProfileCanvasFxCore).toHaveBeenCalled();
+        });
+        expect(mocks.prefetchProfileSettingsSheetModule).not.toHaveBeenCalled();
     });
 
-    it('warmProfileOnOpen لا يجلب البيانات عند document.hidden', async () => {
-        Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    it('warmProfileOnOpen لا يجلب FX عند تبويب مخفي', async () => {
+        vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
         warmProfileOnOpen('lawyer-1');
-        expect(warmProfileDataCache).not.toHaveBeenCalled();
-        await Promise.resolve();
-        expect(prefetchProfileCanvasFxCore).not.toHaveBeenCalled();
-        expect(prefetchProfileCanvasStudioFx).not.toHaveBeenCalled();
-        Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+        await vi.waitFor(() => {
+            expect(mocks.hydrateProfileShellForInstantOpenWithData).toHaveBeenCalled();
+            expect(mocks.warmProfileDataCache).toHaveBeenCalledWith('lawyer-1');
+        });
+        expect(mocks.prefetchProfileCanvasFxCore).not.toHaveBeenCalled();
     });
 
-    it('warmProfileOnHover ي prefetch الأساسي بلا استوديو ثقيل', () => {
+    it('warmProfileOnHover ي prefetch الأساسي', async () => {
         warmProfileOnHover('lawyer-2');
-        expect(prefetchProfileTabModule).toHaveBeenCalledTimes(1);
-        expect(prefetchRoyalLawyerProfileChunk).toHaveBeenCalledTimes(1);
-        expect(warmProfileDataCache).toHaveBeenCalledWith('lawyer-2');
-        expect(prefetchProfileSettingsSheetModule).toHaveBeenCalled();
-        expect(prefetchProfileCanvasFxCore).toHaveBeenCalled();
-        expect(prefetchProfileCanvasStudioFx).not.toHaveBeenCalled();
+        await vi.waitFor(() => {
+            expect(mocks.prefetchRoyalLawyerProfileChunk).toHaveBeenCalled();
+            expect(mocks.hydrateProfileWarmCachePeekSync).toHaveBeenCalledWith('lawyer-2');
+            expect(mocks.warmProfileDataCache).toHaveBeenCalledWith('lawyer-2');
+            expect(mocks.prefetchProfileCanvasFxCore).toHaveBeenCalled();
+        });
+        expect(mocks.prefetchProfileSettingsSheetModule).not.toHaveBeenCalled();
     });
 });

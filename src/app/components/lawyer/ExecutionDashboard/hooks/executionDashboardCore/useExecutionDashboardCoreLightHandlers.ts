@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** notes / appointment / payment — مُثبّتة على Core دون انتظار lazy light cluster */
 import { useExecutionDashboardCoreHandlerClusterLight } from './useExecutionDashboardCoreHandlerClusterLight';
 import {

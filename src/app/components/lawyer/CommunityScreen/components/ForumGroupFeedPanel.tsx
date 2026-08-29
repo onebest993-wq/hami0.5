@@ -1,8 +1,10 @@
-import React, { memo } from 'react';
-import { ArrowRight, LogOut, Shield, Users } from '@/app/components/ui/lucideIcons';
+import { memo } from 'react';
+import { ArrowRight } from '@/app/components/ui/icons/ArrowRight';
+import { LogOut } from '@/app/components/ui/icons/LogOut';
+import { Shield } from '@/app/components/ui/icons/Shield';
+import { Users } from '@/app/components/ui/icons/Users';
 import type { ForumGroup } from '@/app/services/forum/forumGroupTypes';
-import type { CommunityPost } from '@/app/services/lawyer-cloud';
-import { ForumPostList } from './ForumPostList';
+import { ForumPostList, type ForumPostListProps } from './ForumPostList';
 import {
     FORUM_ACCENT_CHIP,
     FORUM_PANEL,
@@ -15,9 +17,7 @@ type ForumGroupFeedPanelProps = {
     onBack: () => void;
     onLeave: () => void;
     leaving: boolean;
-} & Omit<React.ComponentProps<typeof ForumPostList>, 'visiblePosts'> & {
-    visiblePosts: CommunityPost[];
-};
+} & ForumPostListProps;
 
 export const ForumGroupFeedPanel = memo(function ForumGroupFeedPanel({
     group,
@@ -34,7 +34,7 @@ export const ForumGroupFeedPanel = memo(function ForumGroupFeedPanel({
                     <button
                         type="button"
                         onClick={onBack}
-                        className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/70 shrink-0"
+                        className="min-h-[44px] min-w-[44px] rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/70 shrink-0 touch-manipulation"
                         aria-label="رجوع للمجموعات"
                     >
                         <ArrowRight size={18} />
@@ -59,7 +59,7 @@ export const ForumGroupFeedPanel = memo(function ForumGroupFeedPanel({
                         type="button"
                         onClick={onLeave}
                         disabled={leaving}
-                        className={`shrink-0 inline-flex items-center gap-1 rounded-xl border px-2.5 py-2 text-[10px] font-bold ${FORUM_ACCENT_CHIP} disabled:opacity-60`}
+                        className={`shrink-0 inline-flex min-h-[44px] items-center gap-1 rounded-xl border px-2.5 py-2 text-[10px] font-bold touch-manipulation ${FORUM_ACCENT_CHIP} disabled:opacity-60`}
                     >
                         <LogOut size={12} />
                         {leaving ? '…' : 'مغادرة'}

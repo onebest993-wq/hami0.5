@@ -19,8 +19,12 @@ describe('wave7e admin-out-of-client honesty', () => {
             path.join(root, 'src/app/services/notifications/notificationServerBlob.ts'),
             'utf8',
         );
+        const kvIo = fs.readFileSync(
+            path.join(root, 'src/app/services/notifications/inbox/notificationServerKvIo.ts'),
+            'utf8',
+        );
         expect(t).not.toMatch(/from\s+['"][^'"]*kvStoreAdmin['"]/);
-        expect(t).toContain('loadKvStoreAdmin');
+        expect(kvIo).toContain('loadKvStoreAdmin');
     });
 
     it('حارسك dist-no-kv-admin-chunk موجود', () => {

@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { X, Plus, Trash2 } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
+import { Plus } from '@/app/components/ui/icons/Plus';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import type { ExecutionFile } from '@/app/types/execution';
 
 export type PartyDeathSavePayload =
@@ -100,7 +102,9 @@ export const PartyDeathReportModal: React.FC<PartyDeathReportModalProps> = ({
         const base = { heirs: seeded.length > 0 ? seeded : [{ id: makeRowId(), name: '', phone: '', address: '' }] };
         let cloned = base;
         try {
-            const sc = (globalThis as any).structuredClone as (<T>(x: T) => T) | undefined;
+            const sc = (globalThis as typeof globalThis & {
+                structuredClone?: <T>(value: T) => T;
+            }).structuredClone;
             cloned = sc ? sc(base) : (JSON.parse(JSON.stringify(base)) as typeof base);
         } catch {
             cloned = JSON.parse(JSON.stringify(base)) as typeof base;
@@ -183,7 +187,7 @@ export const PartyDeathReportModal: React.FC<PartyDeathReportModalProps> = ({
             <div
                 role="dialog"
                 aria-modal="true"
-                className="w-full max-w-sm rounded-xl border border-[#E6C673]/25 bg-[#0A0F1C] shadow-xl text-right flex flex-col max-h-[min(560px,90vh)]"
+                className="w-full max-w-sm rounded-xl border border-[#E6C673]/25 bg-[#0A0F1C] shadow-lg text-right flex flex-col max-h-[min(560px,90vh)]"
                 onClick={(e) => e.stopPropagation()}
                 dir="rtl"
             >

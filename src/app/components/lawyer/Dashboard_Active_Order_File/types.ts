@@ -37,8 +37,6 @@ export interface CassationDecision {
     decisionDate: string;
 }
 
-export type DeadlinePhase = 'inactive' | 'grievance-3days' | 'grievance-hearing' | 'cassation-7days' | 'final';
-
 export type CaseNote = {
     id: string;
     text: string;

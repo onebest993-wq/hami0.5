@@ -1,10 +1,9 @@
-// @ts-nocheck
 import { useExecutionDashboardJudicialCustodianRemove } from './useExecutionDashboardJudicialCustodianRemove';
 import { useExecutionDashboardPushTimelineEvent } from './useExecutionDashboardPushTimelineEvent';
 import { useExecutionDashboardPropertyInlineSaveContext } from './useExecutionDashboardPropertyInlineSaveContext';
 import { useExecutionDashboardMovableInlineSaveContext } from './useExecutionDashboardMovableInlineSaveContext';
 import { useExecutionDashboardSupabaseTimelineHydrate } from './useExecutionDashboardRuntimeSyncEffects';
-import { useExecutionAICopilot } from '../useExecutionAICopilot';
+import { useExecutionDecisionAppealSnapshot } from '../useExecutionDecisionAppealSnapshot';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 
 export function useExecutionDashboardCoreHandlerClusterFoundationCore(
@@ -27,7 +26,7 @@ export function useExecutionDashboardCoreHandlerClusterFoundationCore(
         pushSeizureAuctionCalendarAppointment,
     } = c as Record<string, unknown>;
 
-    const { firstActiveAppealDecisionId } = useExecutionAICopilot({
+    const { firstActiveAppealDecisionId } = useExecutionDecisionAppealSnapshot({
         decisionsStorageExecutionId,
         decisionsReloadEpoch,
     });

@@ -1,43 +1,11 @@
-import type { Dispatch as _Dispatch, SetStateAction as _SetStateAction } from 'react';
-import type { CaseStage as _CaseStage, Party as _Party, TimelineEvent as _TimelineEvent } from '../../../LawyerShared';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { validateJudgmentData as _validateJudgmentData } from '@/app/utils/validationUtils';
-import { logError as _logError } from '@/app/utils/errorHandler';
 import { debug } from '@/app/utils/debug';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import { applyStageTransition as _applyStageTransition } from '../../smartFile/stageTransition';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import {
-    applyAppealStageTransition as _applyAppealStageTransition,
     applyCassationRemand,
     cassationRemandSuccessMessage,
-    resolveCassationRemandTarget as _resolveCassationRemandTarget,
 } from '../../smartFile/appealStageTransition';
-import type { SmartFileParentData as _SmartFileParentData } from '../../smartFile/parentDataInit';
-import type {
-    AppealTransitionPayload as _AppealTransitionPayload,
-    CrossAppealPayload,
-    JudgmentPayload as _JudgmentPayload,
-    SmartFileAttachment as _SmartFileAttachment,
-    StageTransitionPayload as _StageTransitionPayload,
-} from '../../smartFile/judgmentTypes';
-import {
-    addDaysYmd as _addDaysYmd,
-    isSulhJudgmentType as _isSulhJudgmentType,
-    JUDGMENT_TYPE_PETITION_NULLIFIED_LEGACY as _JUDGMENT_TYPE_PETITION_NULLIFIED_LEGACY,
-    JUDGMENT_TYPE_WAIVER as _JUDGMENT_TYPE_WAIVER,
-    parseJudgmentDateInput as _parseJudgmentDateInput,
-    prependTimeline as _prependTimeline,
-    stageAttachments as _stageAttachments,
-    str as _str,
-} from '../../smartFile/judgmentTypes';
-import {
-    interpleaderClientAwaitingOpponentAppeal as _interpleaderClientAwaitingOpponentAppeal,
-    interpleaderOriginalClaimOutcome as _interpleaderOriginalClaimOutcome,
-    isInterpleaderJudgmentType as _isInterpleaderJudgmentType,
-    resolveInterpleaderDecisionText as _resolveInterpleaderDecisionText,
-    resolveLawyerJudgmentBucket as _resolveLawyerJudgmentBucket,
-} from '../../smartFile/interpleaderJudgmentEngine';
-import { resolveAppealDossierLayout as _resolveAppealDossierLayout, inferAppellantSideFromLawyer as _inferAppellantSideFromLawyer } from '../../smartFile/appealPartyEngine';
+import type { CrossAppealPayload } from '../../smartFile/judgmentTypes';
 import {
     markPartiesAsCrossAppellants,
     resolveCrossAppealEligibility,
@@ -61,14 +29,7 @@ export function useCrossAppealAndCassationActions(options: UseSmartFileJudgmentA
         parentData,
         saveToCloud,
         setStatus,
-        tempJudgmentData: _tempJudgmentData,
-        setTempJudgmentData: _setTempJudgmentData,
-        setShowAppealTransitionModal: _setShowAppealTransitionModal,
-        setShowAppealModal: _setShowAppealModal,
-        setShowObjectionRegistrationModal: _setShowObjectionRegistrationModal,
-        setShowJudgmentModal: _setShowJudgmentModal,
         setShowCrossAppealModal,
-        setShowTransitionModal: _setShowTransitionModal,
     } = options;
 
 const handleCrossAppeal = (crossAppealData: CrossAppealPayload) => {

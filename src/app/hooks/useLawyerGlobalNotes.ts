@@ -28,7 +28,7 @@ import { isLiveCloudSyncBucketEnabled } from '@/app/services/settings/cloudSyncB
 
 async function ensureSecureStoreReady(): Promise<void> {
     const m = await import('@/app/services/SecureStoreService');
-    await m.default.ensurePersistedReady();
+    await m.default.ensureKeysReady([STORAGE_KEYS.LAWYER_NOTES]);
 }
 
 async function readNotesDossierBackup(uid: string): Promise<unknown> {

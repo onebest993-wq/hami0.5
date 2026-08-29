@@ -1,7 +1,11 @@
 import { useEffect, type MutableRefObject } from 'react';
 import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
+import {
+    isProfileStudioChromeVisible,
+    isProfileStudioSheetVisible,
+} from '@/app/hooks/lawyerDashboard/profile/profileOpenSession';
 
-export type UseProfileScreenEscapeParams = {
+type UseProfileScreenEscapeParams = {
     enabled: boolean;
     settingsOpen: boolean;
     savingSettings?: boolean;
@@ -37,13 +41,15 @@ export function useProfileScreenEscape({
         if (!enabled) return;
 
         const isGalleryOpen = () => Boolean(galleryOpenRef?.current ?? galleryOpen);
+        const isStudioChromeOpen = () =>
+            settingsOpen || isProfileStudioChromeVisible();
 
         const consumeBackStack = (): boolean => {
             if (isGalleryOpen()) {
                 onCloseGallery?.();
                 return true;
             }
-            if (settingsOpen) {
+            if (isStudioChromeOpen()) {
                 /* أثناء الحفظ: استهلك الرجوع دون إغلاق حتى لا تُفقد وسائط الحفظ */
                 if (savingSettings) return true;
                 onCloseSettings();
@@ -55,8 +61,15 @@ export function useProfileScreenEscape({
 
         const onKey = (e: KeyboardEvent) => {
             if (e.key !== 'Escape') return;
-            /* المعرض/الاستوديو يملكان Escape عبر focus trap — لا تغادر الملف فوقهما */
-            if (isGalleryOpen() || settingsOpen) return;
+            if (isGalleryOpen()) return;
+            if (isStudioChromeOpen()) {
+                /* الورقة الظاهرة تملك الفخ؛ نية html بلا ورقة تُغلق هنا */
+                if (isProfileStudioSheetVisible()) return;
+                e.preventDefault();
+                e.stopPropagation();
+                if (!savingSettings) onCloseSettings();
+                return;
+            }
 
             e.preventDefault();
             e.stopPropagation();

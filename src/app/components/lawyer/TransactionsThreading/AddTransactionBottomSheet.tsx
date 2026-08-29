@@ -20,10 +20,6 @@ import {
 } from './transactionsGlassTheme';
 import { TransactionsHubSheet } from './TransactionsHubSheet';
 
-function prefetchTransactionsPersistModule(): void {
-    prefetchTransactionsCloudModule();
-}
-
 export const AddTransactionBottomSheet = memo(function AddTransactionBottomSheet({
     open,
     onOpenChange,
@@ -54,8 +50,8 @@ export const AddTransactionBottomSheet = memo(function AddTransactionBottomSheet
     );
 
     useEffect(() => {
-        if (keepMounted || open) prefetchTransactionsPersistModule();
-    }, [keepMounted, open]);
+        if (open) prefetchTransactionsCloudModule();
+    }, [open]);
 
     const submit = async () => {
         if (!canSubmit || isSubmitting) return;

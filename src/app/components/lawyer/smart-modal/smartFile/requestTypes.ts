@@ -16,6 +16,6 @@ export interface AttachmentShieldSummary {
     legalBasis?: string;
 }
 
-export type FastTrackPreset = { requestType: string };
+type FastTrackPreset = { requestType: string };
 
 export type OnAddFastTrackFn = (preset?: FastTrackPreset) => void;

@@ -8,15 +8,15 @@ import { kickoffBootShellSyncLite, getBootShellItemSync } from '@/boot/bootShell
 export async function runBootEntryPreamble(): Promise<void> {
     kickoffBootShellSyncLite();
 
+    void import('@/app/runtime/deferredAppStyles').then((m) => m.ensureDeferredAppStylesLoaded());
     void import('@/app/runtime/overlayLayerHygiene').then((m) => m.bindOverlayLayerHygiene());
-
-    if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-hami-native') === '1') {
-        void import('@/app/runtime/deferredGoogleFonts').then((m) => m.scheduleDeferredGoogleFonts());
-    }
 
     const bootPaintApplied = applyBootSurfacePaintFromStorage();
     const settingsSyncReady =
         getBootShellItemSync('lawyer_settings') !== null || getBootShellItemSync('lawyer_theme') !== null;
+
+    const chromeModPromise = import('@/app/bootstrap/homeBootChrome');
+    const warmModPromise = import('@/app/services/profile/warmBootLawyerProfile');
 
     const [
         applyMod,
@@ -32,16 +32,35 @@ export async function runBootEntryPreamble(): Promise<void> {
         import('@/app/bootstrap/bootReveal'),
     ]);
 
+    wallpaperMod.holdWallpaperCssImageUntilHomePainted();
+
     const SecureStoreService = secureStoreMod.default;
     SecureStoreService.kickoffBootShellSync();
+
+    const { warmBootLawyerProfile, BOOT_PROFILE_WARM_BUDGET_MS } = await warmModPromise;
+    const profileWarm = warmBootLawyerProfile(SecureStoreService);
 
     try {
         if (!bootPaintApplied || settingsSyncReady) {
             applyMod.applySettingsToDom(snapshotMod.getLawyerSettingsSnapshot());
         }
-        if (bootRevealMod.isBootRevealDone()) {
+        if (bootRevealMod.isBootRevealDone() && !document.getElementById('hami-static-boot')) {
             document.documentElement.dataset.hamiBootRevealed = '1';
         }
+        /* الكروم ينتظر التسخين داخلياً — لا نؤجّل بدء مقاطع المنزل حتى انتهاء IndexedDB */
+        const { prepareHomeBootChrome } = await chromeModPromise;
+        const chrome = prepareHomeBootChrome();
+        await Promise.race([
+            chrome,
+            new Promise<void>((resolve) => {
+                setTimeout(resolve, BOOT_PROFILE_WARM_BUDGET_MS);
+            }),
+        ]);
+        void profileWarm.then(() => {
+            void prepareHomeBootChrome();
+            void import('@/app/bootstrap/BootLaunchOrchestrator').then((m) => m.seedBootLaunchFrame1());
+        });
+        void import('@/app/bootstrap/BootLaunchOrchestrator').then((m) => m.seedBootLaunchFrame1());
     } catch {
         try {
             document.documentElement.dataset.hamiHomeContainerBorder = '1';
@@ -60,10 +79,24 @@ export async function runBootEntryPreamble(): Promise<void> {
         try {
             await SecureStoreService.ensureBootShellReady();
             const wallpaper = await applyMod.hydrateWallpaperFromSecureStore();
-            if (wallpaper) await wallpaperMod.ensureWallpaperDecoded(wallpaper);
+            if (wallpaper) {
+                await Promise.race([
+                    wallpaperMod.ensureWallpaperDecoded(wallpaper),
+                    new Promise<void>((resolve) => {
+                        setTimeout(resolve, 180);
+                    }),
+                ]);
+            }
+            wallpaperMod.releaseWallpaperCssImageHold();
             applyMod.applySettingsToDom(snapshotMod.getLawyerSettingsSnapshot());
+            wallpaperMod.scheduleAfterHomeMainGridPaint(() => {
+                wallpaperMod.releaseWallpaperCssImageHold();
+                if (typeof document !== 'undefined' && document.getElementById('hami-static-boot')) {
+                    applyMod.applySettingsToDom(snapshotMod.getLawyerSettingsSnapshot());
+                }
+            });
         } catch {
-            /* ignore */
+            wallpaperMod.releaseWallpaperCssImageHold();
         }
     };
 

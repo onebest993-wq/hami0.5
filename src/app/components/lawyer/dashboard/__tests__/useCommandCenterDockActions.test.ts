@@ -28,7 +28,7 @@ describe('useCommandCenterDockActions — المفكرة', () => {
         expect(onOpenFullNotepad).not.toHaveBeenCalled();
     });
 
-    it('يرفض فتح المفكرة للضيف', () => {
+    it('يفتح المفكرة للضيف المحلي', () => {
         const onOpenFullNotepad = vi.fn();
         const { result } = renderHook(() =>
             useCommandCenterDockActions({
@@ -41,7 +41,7 @@ describe('useCommandCenterDockActions — المفكرة', () => {
             result.current.resolveDockWidgetClick('dockNotepad', false)?.();
         });
 
-        expect(onOpenFullNotepad).not.toHaveBeenCalled();
+        expect(onOpenFullNotepad).toHaveBeenCalledTimes(1);
     });
 
     it('يفتح المفكرة للمستخدم المسجّل', () => {
@@ -85,6 +85,46 @@ describe('useCommandCenterDockActions — المخزن الذكي', () => {
         });
 
         expect(onOpenVault).toHaveBeenCalledTimes(1);
+    });
+
+    it('يفتح المستودع للمستخدم المسجّل', () => {
+        const onOpenRepository = vi.fn();
+        const { result } = renderHook(() =>
+            useCommandCenterDockActions({
+                userId: 'lawyer-1',
+                onOpenRepository,
+            }),
+        );
+
+        act(() => {
+            result.current.resolveDockWidgetClick('dockRepository', false)?.();
+        });
+
+        expect(onOpenRepository).toHaveBeenCalledWith({ tab: 'notepad' });
+    });
+
+    it('يرفض فتح المستودع بدون تسجيل دخول', () => {
+        const onOpenRepository = vi.fn();
+        const { result } = renderHook(() => useCommandCenterDockActions({ onOpenRepository }));
+
+        act(() => {
+            result.current.resolveDockWidgetClick('dockRepository', false)?.();
+        });
+
+        expect(onOpenRepository).not.toHaveBeenCalled();
+    });
+
+    it('يفتح ملاحظة سريعة في وضع الإنشاء', () => {
+        const onOpenRepository = vi.fn();
+        const { result } = renderHook(() =>
+            useCommandCenterDockActions({ userId: 'lawyer-1', onOpenRepository }),
+        );
+
+        act(() => {
+            result.current.resolveDockWidgetClick('dockQuickNote', false)?.();
+        });
+
+        expect(onOpenRepository).toHaveBeenCalledWith({ tab: 'notepad', notepadMode: 'create' });
     });
 });
 
@@ -144,7 +184,11 @@ describe('useCommandCenterDockActions — التقويم', () => {
     it('يرفض فتح التقويم بدون تسجيل دخول', () => {
         const onOpenCalendar = vi.fn();
         const { result } = renderHook(() =>
-            useCommandCenterDockActions({ onOpenCalendar, urgentAlertsCount: 2, secretaryAlerts: [{ id: 'a' } as never] }),
+            useCommandCenterDockActions({
+                onOpenCalendar,
+                urgentAlertsCount: 2,
+                secretaryAlerts: [{ id: 'a' } as never],
+            }),
         );
 
         act(() => {
@@ -173,6 +217,15 @@ describe('useCommandCenterDockActions — التقويم', () => {
         expect(onOpenCalendar).toHaveBeenCalledTimes(1);
         expect(result.current.hubDockSheet).toBeNull();
     });
+
+    it('لا يربط أيقونة أثناء وضع التحرير', () => {
+        const onOpenCalendar = vi.fn();
+        const { result } = renderHook(() =>
+            useCommandCenterDockActions({ userId: 'lawyer-1', onOpenCalendar }),
+        );
+
+        expect(result.current.resolveDockWidgetClick('dockCalendar', true)).toBeUndefined();
+    });
 });
 
 describe('useCommandCenterDockActions — المنتدى', () => {
@@ -180,7 +233,7 @@ describe('useCommandCenterDockActions — المنتدى', () => {
         vi.clearAllMocks();
     });
 
-    it('يرفض فتح المنتدى بدون تسجيل دخول', () => {
+    it('يفتح المنتدى مغلقاً بدون جلسة — بلا toast منع', () => {
         const onOpenCommunity = vi.fn();
         const { result } = renderHook(() =>
             useCommandCenterDockActions({ onOpenCommunity }),
@@ -190,10 +243,10 @@ describe('useCommandCenterDockActions — المنتدى', () => {
             result.current.resolveDockWidgetClick('forum', false)?.();
         });
 
-        expect(onOpenCommunity).not.toHaveBeenCalled();
+        expect(onOpenCommunity).toHaveBeenCalledTimes(1);
     });
 
-    it('يرفض فتح المنتدى للضيف', () => {
+    it('يفتح المنتدى للضيف لعرض الشاشة المغلقة', () => {
         const onOpenCommunity = vi.fn();
         const { result } = renderHook(() =>
             useCommandCenterDockActions({
@@ -206,7 +259,7 @@ describe('useCommandCenterDockActions — المنتدى', () => {
             result.current.resolveDockWidgetClick('forum', false)?.();
         });
 
-        expect(onOpenCommunity).not.toHaveBeenCalled();
+        expect(onOpenCommunity).toHaveBeenCalledTimes(1);
     });
 
     it('يفتح المنتدى للمستخدم المسجّل', async () => {
@@ -342,4 +395,3 @@ describe('useCommandCenterDockActions — hub tiles', () => {
         expect(onOpenArchive).toHaveBeenCalledWith('transaction');
     });
 });
-

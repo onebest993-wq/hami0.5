@@ -1,4 +1,3 @@
-// @ts-nocheck
 import {
     formatCreditorPartyDeathSummaryAr,
     parseCreditorPartyDeathPayload,
@@ -14,6 +13,7 @@ import {
     shouldShowDecisionHubBody,
     stripRedundantLeadingLinesFromHubBody,
 } from '../../utils';
+import type { ExecutionFile } from '@/app/types/execution';
 import type { Decision } from '../../types';
 import type { DecisionsDispatcherHubProps } from '../../engine/decisionsEngineTypes';
 
@@ -24,8 +24,10 @@ export function deriveDecisionCardTitleClean(decision: Decision): string {
     return base.replace(/^طلب\s+/, '');
 }
 
-function readExecutionData(dispatcherHub?: DecisionsDispatcherHubProps) {
-    return (dispatcherHub as { executionData?: unknown } | undefined)?.executionData;
+function readExecutionData(dispatcherHub?: DecisionsDispatcherHubProps): ExecutionFile | null | undefined {
+    const raw = (dispatcherHub as { executionData?: unknown } | undefined)?.executionData;
+    if (raw == null) return raw as null | undefined;
+    return raw as ExecutionFile;
 }
 
 export function deriveDecisionCardDebtorContext(
@@ -64,7 +66,11 @@ export function deriveDecisionCardDebtorContext(
                 (decision as { personalCoerciveDebtorKey?: string }).personalCoerciveDebtorKey ?? '',
             ).trim();
             if (scopedKey) {
-                return resolveDebtorDisplayNameForKey(execData, scopedKey, primaryDebtorKeyForCard);
+                return resolveDebtorDisplayNameForKey(
+                    execData as ExecutionFile,
+                    scopedKey,
+                    primaryDebtorKeyForCard,
+                );
             }
             const debtors = execData.debtors ?? execData.debtorList ?? [];
             if (Array.isArray(debtors) && debtors.length > 0) {

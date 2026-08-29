@@ -4,7 +4,7 @@ import { renderHook } from '@testing-library/react';
 import { useExecutionDashboardStayHandlers } from '../useExecutionDashboardStayHandlers';
 
 describe('useExecutionDashboardStayHandlers', () => {
-    it('composes lifecycle and apply handlers into one typed surface', () => {
+    it('composes lifecycle and apply handlers into one typed surface', async () => {
         const persistExecutionMerge = vi.fn();
         const showToast = vi.fn();
         const setTimelineEvents = vi.fn((updater: unknown) =>
@@ -34,6 +34,7 @@ describe('useExecutionDashboardStayHandlers', () => {
         expect(result.current.handleResumeExecution).toEqual(expect.any(Function));
 
         result.current.handleLiftStayOfExecution();
+        await Promise.resolve();
         expect(showToast).toHaveBeenCalledWith('تم رفع الاستئخار', 'success');
 
         const accepted = result.current.handleSpecialCasesStay({
@@ -42,6 +43,7 @@ describe('useExecutionDashboardStayHandlers', () => {
             next_hearing_date: '2026-08-01',
         });
         expect(accepted).toBe(true);
+        await Promise.resolve();
         expect(showToast).toHaveBeenCalledWith('تم تفعيل الاستئخار وتسجيل المهمة.', 'success');
     });
 

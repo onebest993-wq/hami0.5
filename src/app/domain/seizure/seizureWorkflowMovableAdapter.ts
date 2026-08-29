@@ -126,9 +126,9 @@ export function buildMovableWorkflowStepHistory(
 ): MovableWorkflowHistoryLine[] {
     return buildSeizureWorkflowStepHistory(
         stepIndex,
-        MOVABLE_PLUGIN,
         m,
         decisions,
+        MOVABLE_PLUGIN,
         movableId,
     );
 }

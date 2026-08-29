@@ -25,7 +25,7 @@ function resolveLiveLifecycleHandler(
 }
 
 export function useExecutionDashboardPhoneBodyLocalState(
-    scope: Record<string, any>,
+    scope: Record<string, unknown>,
     scopeRef?: React.MutableRefObject<Record<string, unknown>>,
 ) {
     // المفاتيح المسطّحة لحالة دورة حياة الإضبارة لم تَعُد تُنسَخ إلى الـ chunk scope —

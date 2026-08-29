@@ -140,6 +140,105 @@ describe('useExecutionDashboardPersistExecutionMerge ui-first', () => {
         expect(onUpdate).toHaveBeenCalledTimes(1);
     });
 
+    it('writes seized/financial patches to disk immediately', () => {
+        const file = makeFile();
+        const executionDataRef = { current: file as ExecutionFile | null };
+        const seizureDraftsByDecisionIdRef = { current: undefined };
+        const setExecutionStorageTick = vi.fn((updater: (n: number) => number) => updater(0));
+        const onUpdate = vi.fn();
+        const blobSpy = vi
+            .spyOn(dossierPersistence, 'persistExecutionDossierBlob')
+            .mockImplementation(() => true);
+        const flushSpy = vi
+            .spyOn(SecureStoreService, 'flushHeavyPersistPending')
+            .mockImplementation(() => undefined);
+
+        const { result } = renderHook(() =>
+            useExecutionDashboardPersistExecutionMerge({
+                executionId: 'ex-ui-first',
+                isUnifiedTabActive: false,
+                unifiedTabId: undefined,
+                onUpdate,
+                executionDataRef,
+                seizureDraftsByDecisionIdRef,
+                setExecutionStorageTick,
+            }),
+        );
+
+        let ok = false;
+        act(() => {
+            ok = result.current.persistExecutionMerge({
+                seizedAssets: [{ id: 'a1', type: 'حجز راتب موظف', details: { employer: 'وزارة' } }],
+                paidDebt: 250,
+            });
+        });
+
+        expect(ok).toBe(true);
+        expect(blobSpy).toHaveBeenCalledTimes(1);
+        expect(blobSpy).toHaveBeenCalledWith(
+            'ex-ui-first',
+            expect.objectContaining({
+                paidDebt: 250,
+                seizedAssets: [expect.objectContaining({ id: 'a1' })],
+            }),
+            { syncIndex: true },
+        );
+        expect(flushSpy).toHaveBeenCalled();
+        expect(onUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    it('writes coercive timeline patches to disk immediately', () => {
+        const file = makeFile();
+        const executionDataRef = { current: file as ExecutionFile | null };
+        const seizureDraftsByDecisionIdRef = { current: undefined };
+        const setExecutionStorageTick = vi.fn((updater: (n: number) => number) => updater(0));
+        const onUpdate = vi.fn();
+        const blobSpy = vi
+            .spyOn(dossierPersistence, 'persistExecutionDossierBlob')
+            .mockImplementation(() => true);
+        const flushSpy = vi
+            .spyOn(SecureStoreService, 'flushHeavyPersistPending')
+            .mockImplementation(() => undefined);
+
+        const { result } = renderHook(() =>
+            useExecutionDashboardPersistExecutionMerge({
+                executionId: 'ex-ui-first',
+                isUnifiedTabActive: false,
+                unifiedTabId: undefined,
+                onUpdate,
+                executionDataRef,
+                seizureDraftsByDecisionIdRef,
+                setExecutionStorageTick,
+            }),
+        );
+
+        const timelineEvents = [
+            {
+                id: 't1',
+                date: '2026-08-25',
+                timestamp: '2026-08-25T00:00:00.000Z',
+                title: 'طلب قوة تنفيذية',
+                description: 'police_force',
+                type: 'coercive' as const,
+            },
+        ];
+
+        let ok = false;
+        act(() => {
+            ok = result.current.persistExecutionMerge({ timelineEvents });
+        });
+
+        expect(ok).toBe(true);
+        expect(blobSpy).toHaveBeenCalledTimes(1);
+        expect(blobSpy).toHaveBeenCalledWith(
+            'ex-ui-first',
+            expect.objectContaining({ timelineEvents }),
+            { syncIndex: true },
+        );
+        expect(flushSpy).toHaveBeenCalled();
+        expect(onUpdate).toHaveBeenCalledTimes(1);
+    });
+
     it('drops stale deferred disk writes after a newer party-death persist', async () => {
         const file = makeFile();
         const executionDataRef = { current: file as ExecutionFile | null };

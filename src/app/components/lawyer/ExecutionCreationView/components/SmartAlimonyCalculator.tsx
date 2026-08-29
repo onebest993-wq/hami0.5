@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
-import { Brain, Scale, Sparkles } from '@/app/components/ui/lucideIcons';
+import { Brain } from '@/app/components/ui/icons/Brain';
+import { Scale } from '@/app/components/ui/icons/Scale';
+import { Sparkles } from '@/app/components/ui/icons/Sparkles';
 import { ecg } from './executionCreationGlassUi';
 import { formatMoneyIntegerDisplay, handleMoneyInputChange } from '@/app/utils/moneyInput';
 import {

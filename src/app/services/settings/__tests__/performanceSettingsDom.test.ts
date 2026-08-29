@@ -1,5 +1,10 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import { applyFontSizeToDom, applyHighContrastToDom, applySettingsToDom } from '../apply';
+import {
+    applyFontSizeToDom,
+    applyHighContrastToDom,
+    applySettingsToDom,
+    flushPendingBootTypography,
+} from '../apply';
 import { LAWYER_SETTINGS_V2_DEFAULTS } from '../defaults';
 import { shouldAllowIntentWarm } from '../settingsRuntime';
 import type { AppSettingsState } from '../types';
@@ -102,6 +107,28 @@ describe('performance settings → DOM + intent warm', () => {
         applyFontSizeToDom(18);
         expect(document.documentElement.style.getPropertyValue('--hami-font-size')).toBe('18px');
         expect(document.documentElement.style.getPropertyValue('--hami-user-font-scale')).toBe('1.125');
+    });
+
+    it('flushPendingBootTypography يطبّق الحجم المحفوظ بعد رفع قفل الإقلاع', () => {
+        document.documentElement.classList.add('hami-boot-static-active');
+        applyFontSizeToDom(18);
+        expect(document.documentElement.style.getPropertyValue('--hami-font-size')).toBe('16px');
+        expect(document.documentElement.dataset.hamiPendingFontPx).toBe('18');
+
+        document.documentElement.classList.remove('hami-boot-static-active');
+        flushPendingBootTypography();
+        expect(document.documentElement.style.getPropertyValue('--hami-font-size')).toBe('18px');
+        expect(document.documentElement.dataset.hamiPendingFontPx).toBeUndefined();
+    });
+
+    it('flushPendingBootTypography يطبّق الحجم تحت الغطاء عند ignoreLock', () => {
+        document.documentElement.classList.add('hami-boot-static-active');
+        applyFontSizeToDom(18);
+        expect(document.documentElement.style.getPropertyValue('--hami-font-size')).toBe('16px');
+        flushPendingBootTypography(document.documentElement, { ignoreLock: true });
+        expect(document.documentElement.style.getPropertyValue('--hami-font-size')).toBe('18px');
+        expect(document.documentElement.dataset.hamiPendingFontPx).toBeUndefined();
+        document.documentElement.classList.remove('hami-boot-static-active');
     });
 
     it('applyHighContrastToDom خفيف — بلا إعادة تطبيق كامل', () => {

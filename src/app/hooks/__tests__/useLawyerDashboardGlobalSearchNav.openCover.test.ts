@@ -21,6 +21,7 @@ vi.mock('@/app/services/auth/shellAuth', () => ({
         if (!id) return false;
         return id !== 'guest-lawyer-1' && id !== 'demo_user';
     },
+    hasLocalAppSession: (userId: string | null | undefined) => Boolean(userId?.trim()),
     resolveShellAuthUserId: (auth?: string | null, display?: string | null) =>
         auth?.trim() || display?.trim() || null,
 }));
@@ -83,6 +84,7 @@ describe('globalSearchNav — cover before close search', () => {
                 userId: 'lawyer-1',
                 files: [],
                 executionFiles: [],
+                criminalCases: [{ id: 'cr-1' }],
                 closeGlobalSearch,
                 openNotifications: vi.fn(),
                 openProfileTab: vi.fn(),

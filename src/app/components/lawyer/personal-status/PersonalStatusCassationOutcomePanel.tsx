@@ -1,4 +1,5 @@
-import { Check, Scale, X } from '@/app/components/ui/lucideIcons';
+import { Check } from '@/app/components/ui/icons/Check';
+import { X } from '@/app/components/ui/icons/X';
 
 type PersonalStatusCassationOutcomePanelProps = {
     onRatify: () => void;
@@ -6,41 +7,27 @@ type PersonalStatusCassationOutcomePanelProps = {
 };
 
 const RATIFY_BTN =
-    'group flex-1 min-w-[9rem] py-3 rounded-xl bg-gradient-to-l from-emerald-500/[0.18] via-emerald-400/[0.08] to-white/[0.04] backdrop-blur-md border border-emerald-400/32 text-emerald-100 font-bold text-xs shadow-[0_8px_28px_rgba(52,211,153,0.14),inset_0_1px_0_rgba(167,243,208,0.18)] hover:border-emerald-400/45 hover:from-emerald-500/[0.24] transition-all flex items-center justify-center gap-2';
+    'flex-1 min-w-[8rem] min-h-[44px] py-2 rounded-md bg-emerald-500/[0.1] border border-emerald-400/28 text-emerald-100 font-bold text-xs hover:bg-emerald-500/[0.14] transition-colors flex items-center justify-center gap-1.5';
 
 const QUASH_BTN =
-    'group flex-1 min-w-[9rem] py-3 rounded-xl bg-gradient-to-l from-rose-500/[0.16] via-rose-400/[0.08] to-white/[0.04] backdrop-blur-md border border-rose-400/32 text-rose-100 font-bold text-xs shadow-[0_8px_28px_rgba(244,63,94,0.12),inset_0_1px_0_rgba(254,205,211,0.16)] hover:border-rose-400/45 hover:from-rose-500/[0.22] transition-all flex items-center justify-center gap-2';
+    'flex-1 min-w-[8rem] min-h-[44px] py-2 rounded-md bg-rose-500/[0.08] border border-rose-400/28 text-rose-100 font-bold text-xs hover:bg-rose-500/[0.12] transition-colors flex items-center justify-center gap-1.5';
 
 export function PersonalStatusCassationOutcomePanel({
     onRatify,
     onQuash,
 }: PersonalStatusCassationOutcomePanelProps) {
     return (
-        <div
-            className="rounded-2xl border border-[#F0A8B4]/22 bg-gradient-to-br from-[#F5C6D0]/[0.10] via-white/[0.04] to-[#ECE8E2]/[0.03] backdrop-blur-xl p-4 shadow-[inset_0_1px_0_rgba(255,220,228,0.16)]"
-            data-testid="personal-status-cassation-outcome"
-        >
-            <div className="flex items-center gap-3 mb-2.5">
-                <div className="shrink-0 w-10 h-10 rounded-xl border border-[#F0A8B4]/28 bg-gradient-to-br from-[#F5C6D0]/[0.14] to-white/[0.05] flex items-center justify-center">
-                    <Scale size={17} className="text-[#FFD4DC]" strokeWidth={2} />
-                </div>
-                <div className="min-w-0 text-right">
-                    <p className="text-sm font-bold text-[#FFFEF9] leading-snug">
-                        قرار محكمة التمييز الاتحادية
-                    </p>
-                </div>
-            </div>
-            <div className="flex flex-wrap items-stretch gap-2.5">
+        <div className="p-2" data-testid="personal-status-cassation-outcome">
+            <p className="mb-2 text-right text-[12px] font-bold text-white/88">
+                قرار محكمة التمييز الاتحادية
+            </p>
+            <div className="flex flex-wrap items-stretch gap-2">
                 <button type="button" onClick={onRatify} className={RATIFY_BTN}>
-                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-400/25 group-hover:bg-emerald-500/15 transition-colors">
-                        <Check size={14} strokeWidth={2.5} />
-                    </span>
+                    <Check size={14} strokeWidth={2.5} />
                     تصديق القرار
                 </button>
                 <button type="button" onClick={onQuash} className={QUASH_BTN}>
-                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-rose-500/10 border border-rose-400/25 group-hover:bg-rose-500/15 transition-colors">
-                        <X size={14} strokeWidth={2.5} />
-                    </span>
+                    <X size={14} strokeWidth={2.5} />
                     نقض القرار
                 </button>
             </div>

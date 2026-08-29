@@ -6,10 +6,11 @@ import { useSmartFileConsolidationLinking } from './useSmartFileConsolidationLin
 import { buildSmartFileModalHandlers } from '../smartFile/buildSmartFileModalHandlers';
 import type { useSmartFileModalFlags } from './useSmartFileModalFlags';
 import type { SmartFileModalProps } from '../smartFile/smartFileModalTypes';
+import type { SaveToCloud } from './judgment/judgmentHookTypes';
 
 type ModalFlags = ReturnType<typeof useSmartFileModalFlags>;
 
-export type SmartFileModalProceduralLinkingBundleParams = {
+type SmartFileModalProceduralLinkingBundleParams = {
     file: SmartFileModalProps['file'];
     lawsuitFiles: SmartFileModalProps['lawsuitFiles'];
     onSpawnLinkedIncidentalCase: SmartFileModalProps['onSpawnLinkedIncidentalCase'];
@@ -24,7 +25,7 @@ export type SmartFileModalProceduralLinkingBundleParams = {
     displayStage?: CaseStage | undefined;
     parentData: Record<string, unknown>;
     setParentData: Dispatch<SetStateAction<Record<string, unknown>>>;
-    saveToCloud: () => void;
+    saveToCloud: SaveToCloud;
     setStatus: Dispatch<SetStateAction<string>>;
     isPaused: boolean;
     setIsPaused: Dispatch<SetStateAction<boolean>>;
@@ -42,7 +43,6 @@ export type SmartFileModalProceduralLinkingBundleParams = {
     handleUpdateCaseInfo: (...args: unknown[]) => void;
     handleQuickAction: (...args: unknown[]) => void;
     handleRegisterObjection: (...args: unknown[]) => void;
-    handleObjectionJudgment: (...args: unknown[]) => void;
     handleAbsentJudgmentNotification: (...args: unknown[]) => void;
     handleOpponentAbsentObjection: (...args: unknown[]) => void;
     handleRestoreEvent: (...args: unknown[]) => void;
@@ -89,7 +89,6 @@ export function useSmartFileModalProceduralLinkingBundle({
     handleUpdateCaseInfo,
     handleQuickAction,
     handleRegisterObjection,
-    handleObjectionJudgment,
     handleAbsentJudgmentNotification,
     handleOpponentAbsentObjection,
     handleRestoreEvent,
@@ -181,7 +180,6 @@ export function useSmartFileModalProceduralLinkingBundle({
             judge: String(file.judge ?? parentData.judge ?? '').trim() || undefined,
             docType: String(file.docType ?? parentData.docType ?? '').trim() || undefined,
         },
-        handleAddIncidentalCase: proceduralActions.handleAddIncidentalCase,
         onSpawnLinkedIncidentalCase,
         setShowIncidentalModal,
         setEditingIncidental,
@@ -194,6 +192,7 @@ export function useSmartFileModalProceduralLinkingBundle({
         onLinkWithExistingCase,
         onStartConsolidationNewCase,
         onConsolidateWithExisting,
+        showCaseLinkModal: modalFlags.showCaseLinkModal,
         setShowCaseLinkModal,
         setShowCaseConsolidationModal,
     });
@@ -215,7 +214,6 @@ export function useSmartFileModalProceduralLinkingBundle({
         handleResumeInterruptionConfirm: proceduralActions.handleResumeInterruptionConfirm,
         handleInterlocutoryAppealConfirm: proceduralActions.handleInterlocutoryAppealConfirm,
         handleRegisterObjection,
-        handleObjectionJudgment,
         handleAbsentJudgmentNotification,
         handleOpponentAbsentObjection,
         handleRestoreEvent,

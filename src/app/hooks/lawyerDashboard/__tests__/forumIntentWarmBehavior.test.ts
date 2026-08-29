@@ -1,15 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-const prefetchCommunityScreenModule = vi.fn();
 const warmForumPostsCache = vi.fn();
 const warmForumSocialCache = vi.fn();
 const shouldAllowIntentWarm = vi.fn(() => true);
 const isLitePerformanceActive = vi.fn(() => false);
 const hydrateCommunityShellForInstantOpen = vi.fn(async () => true);
-
-vi.mock('@/app/slices/community/public', () => ({
-    prefetchCommunityScreenModule: (...args: unknown[]) => prefetchCommunityScreenModule(...args),
-}));
+const canUseNetworkFeatures = vi.fn(() => true);
 
 vi.mock('@/app/services/forum/forumPostsWarmCache', () => ({
     warmForumPostsCache: (...args: unknown[]) => warmForumPostsCache(...args),
@@ -32,11 +28,16 @@ vi.mock('@/app/runtime/communityBootHydrator', () => ({
         hydrateCommunityShellForInstantOpen(...args),
 }));
 
+vi.mock('@/app/services/auth/lawyerAccountStatus', () => ({
+    canUseNetworkFeatures: (...args: unknown[]) => canUseNetworkFeatures(...args),
+}));
+
 describe('§29 Forum intent warm — سلوك ديناميكي', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         shouldAllowIntentWarm.mockReturnValue(true);
         isLitePerformanceActive.mockReturnValue(false);
+        canUseNetworkFeatures.mockReturnValue(true);
     });
 
     it('warmForumOnHover يسخّن الكاش دون استيراد ثابت لـ ForumApiService', async () => {
@@ -51,16 +52,16 @@ describe('§29 Forum intent warm — سلوك ديناميكي', () => {
 
         const mod = await import('@/app/hooks/lawyerDashboard/forumIntentWarm');
         mod.warmForumOnHover('user-1');
-        expect(prefetchCommunityScreenModule).toHaveBeenCalled();
-        expect(warmForumPostsCache).toHaveBeenCalled();
-        expect(warmForumSocialCache).toHaveBeenCalledWith('user-1');
+        await vi.waitFor(() => {
+            expect(warmForumPostsCache).toHaveBeenCalled();
+            expect(warmForumSocialCache).toHaveBeenCalledWith('user-1');
+        });
     });
 
     it('warmForumOnOpen في وضع lite يسخّن الوحدة دون تسخين منشورات كامل', async () => {
         isLitePerformanceActive.mockReturnValue(true);
         const mod = await import('@/app/hooks/lawyerDashboard/forumIntentWarm');
         mod.warmForumOnOpen('user-2');
-        expect(prefetchCommunityScreenModule).toHaveBeenCalled();
         expect(warmForumPostsCache).not.toHaveBeenCalled();
         expect(warmForumSocialCache).not.toHaveBeenCalled();
     });

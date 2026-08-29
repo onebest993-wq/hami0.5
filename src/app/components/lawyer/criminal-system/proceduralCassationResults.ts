@@ -68,12 +68,12 @@ export function isArrestOrSummonProceduralDecision(decision: Pick<JudicialDecisi
     return /استقدام|قبض/.test(key) && !/كفالة|إخلاء/.test(key);
 }
 
-export function isDetentionProceduralDecision(decision: Pick<JudicialDecision, 'title' | 'proceduralTemplate'>): boolean {
+function isDetentionProceduralDecision(decision: Pick<JudicialDecision, 'title' | 'proceduralTemplate'>): boolean {
     const key = normalizeProceduralRequestTemplate(decision.proceduralTemplate ?? decision.title);
     return isDetentionRequestTemplate(key) || /توقيف/.test(key);
 }
 
-export function isBailDenialProceduralDecision(decision: Pick<JudicialDecision, 'title' | 'proceduralTemplate'>): boolean {
+function isBailDenialProceduralDecision(decision: Pick<JudicialDecision, 'title' | 'proceduralTemplate'>): boolean {
     const key = normalizeProceduralRequestTemplate(decision.proceduralTemplate ?? decision.title);
     if (key === 'طلب إخلاء سبيل بكفالة / بتعهد' || key === 'قرار إخلاء سبيل بكفالة / تعهد') return true;
     return /كفالة|إخلاء سبيل/.test(key) && decision.requestOutcomeStatus === 'rejected';
@@ -91,7 +91,7 @@ function resolveAppellantDefendantIds(
 }
 
 /** فئات أحداث تُستمد من السجل القضائي — لا تُعرض في تبويب المسار الإجرائي. */
-export const JUDICIAL_LEDGER_MIRROR_TIMELINE_CATEGORIES = [
+const JUDICIAL_LEDGER_MIRROR_TIMELINE_CATEGORIES = [
     'نتيجة تمييزية — قرار إجرائي',
     'نتيجة تمييزية — إبطال قرار إجرائي',
     'توجيه تمييزي — قرار إجرائي',
@@ -130,7 +130,7 @@ function annulArrestSummonStatus(caseRecord: CriminalCase, defendantIds: string[
     return { ...caseRecord, defendants };
 }
 
-export type ProceduralCassationEffectsInput = {
+type ProceduralCassationEffectsInput = {
     result: CassationAppealResult;
     cassationDirectives?: string;
     date: string;

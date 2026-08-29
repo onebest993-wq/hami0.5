@@ -1,8 +1,8 @@
 import type { ProceduralItemLink } from './proceduralItemLink';
-import { createProceduralId } from './proceduralContainersIds';
 
 export type ProceduralActionStatus = 'in_progress' | 'done' | 'postponed';
 
+/** ربط سياقي اختياري — نص حر (جلسة، طلب، طرف…) */
 export type ProceduralContextRef = string;
 
 export type ProceduralNoteItem = {
@@ -12,7 +12,9 @@ export type ProceduralNoteItem = {
     body?: string;
     tags?: string[];
     isStarred?: boolean;
-    /** @deprecated — يُقرأ للترحيل؛ استخدم link */
+    /**
+     * @deprecated KEEP — يُقرأ في `proceduralContainersNormalize` + proceduralItemLink للبيانات القديمة؛ استخدم link.
+     */
     contextRef?: ProceduralContextRef;
     link?: ProceduralItemLink;
     contextNote?: string;
@@ -115,112 +117,10 @@ export type ProceduralSubItemPatch = {
     contextRef?: string;
 };
 
-const MAX_TAG_LEN = 48;
-const MAX_TAGS = 12;
-
-export function normalizeProceduralTags(raw: unknown): string[] | undefined {
-    if (!Array.isArray(raw)) return undefined;
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const item of raw) {
-        const t = String(item ?? '').trim();
-        if (!t || seen.has(t)) continue;
-        seen.add(t);
-        out.push(t.slice(0, MAX_TAG_LEN));
-        if (out.length >= MAX_TAGS) break;
-    }
-    return out.length ? out : undefined;
+export function isActionStatus(v: string): v is ProceduralActionStatus {
+    return v === 'in_progress' || v === 'done' || v === 'postponed';
 }
 
-/** نص مفصول بفواصل → وسوم */
-export function parseTagsInput(text: string): string[] | undefined {
-    const parts = String(text ?? '')
-        .split(/[,،]/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-    return normalizeProceduralTags(parts);
+export function actionStatusLabel(status: ProceduralActionStatus): string {
+    return ACTION_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
 }
-
-export function formatTagsInput(tags: string[] | undefined): string {
-    return Array.isArray(tags) ? tags.join('، ') : '';
-}
-
-export function cloneProceduralNoteItem(source: ProceduralNoteItem): ProceduralNoteItem {
-    return {
-        ...source,
-        type: 'note',
-        id: createProceduralId(),
-        tags: source.tags ? [...source.tags] : undefined,
-        link: source.link ? { ...source.link } : undefined,
-    };
-}
-
-export function cloneProceduralActionItem(source: ProceduralActionItem): ProceduralActionItem {
-    return {
-        ...source,
-        type: 'action',
-        id: createProceduralId(),
-        tags: source.tags ? [...source.tags] : undefined,
-        link: source.link ? { ...source.link } : undefined,
-    };
-}
-
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-export function normalizeFollowUpDate(raw: unknown, status: ProceduralActionStatus): string | undefined {
-    if (status !== 'in_progress') return undefined;
-    const v = String(raw ?? '').trim();
-    return ISO_DATE_RE.test(v) ? v : undefined;
-}
-
-/** تاريخ اليوم ISO — للمقارنة مع موعد المراجعة */
-export function todayIsoDate(): string {
-    return new Date().toISOString().slice(0, 10);
-}
-
-/** موعد المراجعة حلّ أو تأخّر (YYYY-MM-DD مقارنة lexicographic) */
-export function isFollowUpDueOrOverdue(followUpDate: string, todayIso = todayIsoDate()): boolean {
-    const d = String(followUpDate ?? '').trim();
-    if (!ISO_DATE_RE.test(d)) return false;
-    return todayIso >= d;
-}
-
-/** إدخال مستخلص لمركز المتابعة — بدون تغيير نموذج البيانات */
-export type ProceduralAttentionEntry = {
-    actionId: string;
-    parentId: string;
-    title: string;
-    followUpDate?: string;
-    pathLabel: string;
-};
-
-export type ProceduralAttentionBoard = {
-    overdue: ProceduralAttentionEntry[];
-    upcoming: ProceduralAttentionEntry[];
-    noDate: ProceduralAttentionEntry[];
-    total: number;
-};
-
-export function walkInProgressActions(
-    container: ProceduralContainer,
-    pathParts: string[],
-    sink: ProceduralAttentionEntry[],
-) {
-    const pathLabel = [...pathParts, container.title].join(' › ');
-    for (const item of container.subItems) {
-        if (item.type === 'action' && item.status === 'in_progress') {
-            const followUpDate = normalizeFollowUpDate(item.followUpDate, 'in_progress');
-            sink.push({
-                actionId: item.id,
-                parentId: container.id,
-                title: item.title,
-                followUpDate,
-                pathLabel,
-            });
-        } else if (item.type === 'container') {
-            walkInProgressActions(item.container, [...pathParts, container.title], sink);
-        }
-    }
-}
-
-/** تسطيح الشجرة وتصنيف إجراءات قيد المتابعة حسب موعد المراجعة */

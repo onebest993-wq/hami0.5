@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { createLawyerDashboardHeaderPrefetch } from '@/app/hooks/lawyerDashboard/lawyerDashboardHeaderPrefetch';
 
-vi.mock('@/app/hooks/lawyerDashboard/profileIntentWarm', () => ({
+vi.mock('@/app/runtime/profileShellPrime', () => ({
     warmProfileOnHover: vi.fn(),
     warmProfileOnOpen: vi.fn(),
 }));
@@ -22,12 +22,16 @@ vi.mock('@/app/hooks/lawyerDashboard/notificationIntentWarm', () => ({
     warmNotificationsOnOpen: vi.fn(),
 }));
 
-vi.mock('@/app/runtime/royalLawyerProfileLoader', () => ({
-    loadRoyalLawyerProfileModule: vi.fn(() => Promise.resolve({})),
-}));
-
 vi.mock('@/app/runtime/notificationPanelLoader', () => ({
     loadNotificationPanelModule: vi.fn(() => Promise.resolve({})),
+    isNotificationPanelModuleResolved: vi.fn(() => false),
+    hydrateNotificationPanelForInstantOpen: vi.fn(() => Promise.resolve(true)),
+    prefetchNotificationPanel: vi.fn(),
+}));
+
+vi.mock('@/app/runtime/notificationBootHydrator', () => ({
+    dispatchNotificationPrimeHost: vi.fn(),
+    hydrateNotificationShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
 }));
 
 vi.mock('@/app/runtime/hamiSettingsLoader', () => ({
@@ -49,10 +53,6 @@ vi.mock('@/app/hooks/lawyerDashboard/vaultIntentWarm', () => ({
     warmVaultOnHover: vi.fn(),
 }));
 
-vi.mock('@/app/components/lawyer/HamiSettings/settingsSectionRegistry', () => ({
-    preloadAllSettingsSectionComponents: vi.fn(() => Promise.resolve()),
-}));
-
 vi.mock('@/app/runtime/settingsBootHydrator', () => ({
     dispatchSettingsPrimeHost: vi.fn(),
 }));
@@ -61,17 +61,15 @@ vi.mock('@/app/runtime/profileBootHydrator', () => ({
     dispatchProfilePrimeHost: vi.fn(),
 }));
 
-vi.mock('@/app/runtime/profileHubLoader', () => ({
+vi.mock('@/app/runtime/royalLawyerProfileLoader', () => ({
+    loadRoyalLawyerProfileModule: vi.fn(() => Promise.resolve({})),
     prefetchProfileHubModule: vi.fn(),
     loadProfileHubModule: vi.fn(() => Promise.resolve([])),
-}));
-
-vi.mock('@/app/runtime/profileTabModuleLoader', () => ({
-    loadProfileTabModule: vi.fn(() => Promise.resolve({})),
+    isProfileShellModuleResolved: vi.fn(() => false),
 }));
 
 import { loadHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
-import { warmProfileOnHover, warmProfileOnOpen } from '@/app/hooks/lawyerDashboard/profileIntentWarm';
+import { warmProfileOnHover, warmProfileOnOpen } from '@/app/runtime/profileShellPrime';
 import { warmSettingsOnHover, primeSettingsShellForOpen } from '@/app/hooks/lawyerDashboard/settingsIntentWarm';
 import { warmNotificationsOnHover, warmNotificationsOnOpen } from '@/app/hooks/lawyerDashboard/notificationIntentWarm';
 import { loadNotificationPanelModule } from '@/app/runtime/notificationPanelLoader';
@@ -80,8 +78,7 @@ import { loadRoyalLawyerProfileModule } from '@/app/runtime/royalLawyerProfileLo
 import { warmGlobalSearchOnHover, warmGlobalSearchOnOpen } from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
 import { dispatchSettingsPrimeHost } from '@/app/runtime/settingsBootHydrator';
 import { dispatchProfilePrimeHost } from '@/app/runtime/profileBootHydrator';
-import { loadProfileHubModule } from '@/app/runtime/profileHubLoader';
-import { loadProfileTabModule } from '@/app/runtime/profileTabModuleLoader';
+import { loadProfileHubModule } from '@/app/runtime/royalLawyerProfileLoader';
 
 describe('createLawyerDashboardHeaderPrefetch', () => {
     beforeEach(() => {
@@ -113,9 +110,8 @@ describe('createLawyerDashboardHeaderPrefetch', () => {
         expect(primeProfileTabMount).toHaveBeenCalledTimes(1);
         expect(warmProfileOnOpen).not.toHaveBeenCalled();
         expect(loadRoyalLawyerProfileModule).not.toHaveBeenCalled();
-        expect(loadProfileHubModule).toHaveBeenCalledTimes(1);
-        expect(loadProfileTabModule).toHaveBeenCalledTimes(1);
         await vi.waitFor(() => {
+            expect(loadProfileHubModule).toHaveBeenCalledTimes(1);
             expect(dispatchProfilePrimeHost).toHaveBeenCalled();
         });
     });
@@ -133,7 +129,6 @@ describe('createLawyerDashboardHeaderPrefetch', () => {
         expect(warmProfileOnHover).not.toHaveBeenCalled();
         expect(primeProfileTabMount).not.toHaveBeenCalled();
         expect(loadProfileHubModule).not.toHaveBeenCalled();
-        expect(loadProfileTabModule).not.toHaveBeenCalled();
     });
 
     it('يسخّن الملف خفيفاً عند hover', async () => {
@@ -158,7 +153,7 @@ describe('createLawyerDashboardHeaderPrefetch', () => {
         await vi.waitFor(() => {
             expect(dispatchSettingsPrimeHost).toHaveBeenCalledTimes(1);
         });
-        expect(loadHamiSettingsModule).not.toHaveBeenCalled();
+        expect(loadHamiSettingsModule).toHaveBeenCalled();
         expect(warmSettingsOnHover).not.toHaveBeenCalled();
     });
 
@@ -176,18 +171,18 @@ describe('createLawyerDashboardHeaderPrefetch', () => {
         expect(primeSettingsShellForOpen).not.toHaveBeenCalled();
     });
 
-    it('يسخّن الإشعارات chunk عند pointer down — بلا warmOnOpen', async () => {
+    it('يسخّن الإشعارات عند pointer down عبر warmOnOpen + chunk', async () => {
         const prefetch = createLawyerDashboardHeaderPrefetch('lawyer-1');
 
         prefetch.onNotificationsPointerDown();
 
         await vi.waitFor(() => {
-            expect(warmNotificationsOnHover).toHaveBeenCalledTimes(1);
+            expect(warmNotificationsOnOpen).toHaveBeenCalledWith('lawyer-1');
         });
         await vi.waitFor(() => {
             expect(loadNotificationPanelModule).toHaveBeenCalledTimes(1);
         });
-        expect(warmNotificationsOnOpen).not.toHaveBeenCalled();
+        expect(warmNotificationsOnHover).not.toHaveBeenCalled();
     });
 
     it('يسخّن الإشعارات خفيفاً عند hover', async () => {

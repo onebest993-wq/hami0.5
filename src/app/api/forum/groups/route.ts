@@ -1,7 +1,7 @@
 import { sanitizePayload } from '../../security/sanitizer.ts';
 import { ForumGroupRepository } from '../../../services/forum/forumGroupRepository.ts';
 import type { CreateForumGroupInput } from '../../../services/forum/forumGroupTypes.ts';
-import { requireForumAuthAndUnbanned, jsonResponse, requireForumAuth } from '../_auth.ts';
+import { requireForumAuthAndUnbanned, jsonResponse, requireForumAuth, forumCatchJsonResponse } from '../_auth.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object';
@@ -17,8 +17,7 @@ export async function GET(request: Request): Promise<Response> {
         const groups = await ForumGroupRepository.listGroups(auth.userId, query);
         return jsonResponse(200, { ok: true, groups });
     } catch (err) {
-        const message = err instanceof Error ? err.message : 'Internal server error';
-        return jsonResponse(500, { ok: false, error: message });
+        return forumCatchJsonResponse(err);
     }
 }
 
@@ -69,7 +68,6 @@ export async function POST(request: Request): Promise<Response> {
         const group = await ForumGroupRepository.createGroup(auth.userId, input, auth.isAdmin);
         return jsonResponse(200, { ok: true, group });
     } catch (err) {
-        const message = err instanceof Error ? err.message : 'Internal server error';
-        return jsonResponse(500, { ok: false, error: message });
+        return forumCatchJsonResponse(err);
     }
 }

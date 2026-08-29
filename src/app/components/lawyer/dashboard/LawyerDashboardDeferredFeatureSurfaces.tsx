@@ -1,7 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { onBootContentReady } from '@/app/bootstrap/bootReveal';
 import { useLawyerDashboardTransactions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardTransactions';
-import { useLawyerDashboardProfileTab } from '@/app/hooks/lawyerDashboard/useLawyerDashboardProfileTab';
 import { useLawyerDashboardFieldTasks } from '@/app/hooks/lawyerDashboard/useLawyerDashboardFieldTasks';
 import { useLawyerDashboardGlobalSearch } from '@/app/hooks/lawyerDashboard/useLawyerDashboardGlobalSearch';
 import { useLawyerDashboardGlobalSearchNav } from '@/app/hooks/useLawyerDashboardGlobalSearchNav';
@@ -23,13 +22,6 @@ function DeferredFeatureSurfacesInner({
         setArchiveType: params.setArchiveType,
         setShowLawsuitsWorkspace: params.setShowLawsuitsWorkspace,
     });
-    const profile = useLawyerDashboardProfileTab({
-        userId: params.userId,
-        activeTab: params.activeTab,
-        setActiveTab: params.setActiveTab,
-        setShowCommunity: params.setShowCommunity,
-        closeSettings: params.closeSettings,
-    });
     const fieldTasks = useLawyerDashboardFieldTasks({
         userId: params.userId,
         setActiveTab: params.setActiveTab,
@@ -41,6 +33,7 @@ function DeferredFeatureSurfacesInner({
         userId: params.userId,
         files: params.files,
         executionFiles: params.executionFiles,
+        criminalCases: params.criminalCases,
         closeGlobalSearch: globalSearch.closeGlobalSearch,
         openNotifications: params.openNotifications,
         openProfileTab: params.openProfileTab,
@@ -61,7 +54,6 @@ function DeferredFeatureSurfacesInner({
 
     const bag: DeferredFeatureBag = {
         transactions,
-        profile,
         fieldTasks,
         globalSearch,
         globalSearchNav,
@@ -82,7 +74,8 @@ function DeferredFeatureSurfacesInner({
 
 /**
  * hooks للأسطح غير الرئيسية — بعد boot-content-ready (أو earlyArm/forceArm لجلسة مستعادة).
- * المنتدى خارج هذه الجزيرة (حي في orchestration مثل الإعدادات).
+ * الملف المهني حي في orchestration (مثل الإعدادات) — ليس هنا.
+ * المنتدى/التقويم/المستودع في PreDockFeatureSurfaces (بعد first-tab-open).
  * تُحمَّل كـ chunk منفصل حتى لا تذوب في LawyerDashboard stem.
  * لا تُسلَّح على interactive — كان ينافس أول طلاء المنزل وكشف الشعار.
  */

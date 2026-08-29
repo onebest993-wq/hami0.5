@@ -1,91 +1,63 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { SmartDialog } from '@/app/components/ui/SmartDialog';
-import {
-    buildBusinessBackupPayload,
-    decryptBusinessBackupText,
-    encryptBusinessBackupText,
-    importBusinessBackupEntries,
-    parseBusinessBackupFile,
-    EMPTY_BACKUP_PREVIEW,
-    type BusinessBackupPreview,
-    type PendingBusinessImport,
-} from '@/app/services/settings/businessBackup';
-import {
-    validateBusinessBackupImport,
-    validateBackupPassword,
-    BACKUP_PASSWORD_MIN_LENGTH,
-} from '@/app/services/settings/businessBackupSecurity';
-import {
-    mintSensitiveConfirmChallenge,
-    verifySensitiveSettingsAction,
-} from '@/app/services/settings/verifySensitiveSettingsAction';
+import { EMPTY_BACKUP_PREVIEW, type BusinessBackupPreview, type PendingBusinessImport } from '@/app/services/settings/businessBackupTypes';
 import { registerSettingsBackupUiGuard } from '@/app/components/lawyer/HamiSettings/settingsEscapeStack';
-import { exportTextFile } from '@/app/services/platform/exportTextFile';
+import { useSettingsSectionActive } from '../settingsSectionActiveContext';
+import { loadBusinessBackupEngine, prefetchBusinessBackupEngine } from './businessBackupEngine';
+import { runBusinessBackupExport } from './businessBackupExportFlow';
+import { importBusinessBackupEntries, prepareBusinessImportFile } from './businessBackupImportFlow';
+import { useBusinessBackupSelection } from './useBusinessBackupSelection';
 
 export function useBusinessBackup() {
+    const sectionActive = useSettingsSectionActive();
+    const sectionActiveRef = useRef(sectionActive);
+    sectionActiveRef.current = sectionActive;
     const importBusinessInputRef = useRef<HTMLInputElement>(null);
     const [backupPanelOpen, setBackupPanelOpen] = useState(false);
-    const [backupIncludeLawsuits, setBackupIncludeLawsuits] = useState(true);
-    const [backupIncludeExecution, setBackupIncludeExecution] = useState(true);
-    const [backupIncludeNotes, setBackupIncludeNotes] = useState(true);
-    const [backupIncludeVault, setBackupIncludeVault] = useState(false);
-    const [backupIncludeUrgent, setBackupIncludeUrgent] = useState(true);
-    const [backupIncludeUndated, setBackupIncludeUndated] = useState(true);
-    const [backupFrom, setBackupFrom] = useState('');
-    const [backupTo, setBackupTo] = useState('');
+    const selection = useBusinessBackupSelection();
+    const { buildSelection } = selection;
     const [backupPreview, setBackupPreview] = useState<BusinessBackupPreview>(EMPTY_BACKUP_PREVIEW);
     const [pendingBusinessImport, setPendingBusinessImport] = useState<PendingBusinessImport | null>(null);
-
-    const buildSelection = useCallback(
-        () => ({
-            includeLawsuits: backupIncludeLawsuits,
-            includeExecution: backupIncludeExecution,
-            includeNotes: backupIncludeNotes,
-            includeVault: backupIncludeVault,
-            includeUrgent: backupIncludeUrgent,
-            includeUndated: backupIncludeUndated,
-            from: backupFrom,
-            to: backupTo,
-        }),
-        [
-            backupFrom,
-            backupIncludeExecution,
-            backupIncludeLawsuits,
-            backupIncludeNotes,
-            backupIncludeUndated,
-            backupIncludeUrgent,
-            backupIncludeVault,
-            backupTo,
-        ],
-    );
+    const previewGenerationRef = useRef(0);
+    const exportInFlightRef = useRef(false);
 
     const refreshBackupPreview = useCallback(async () => {
+        const generation = ++previewGenerationRef.current;
         setBackupPreview((p) => ({ ...p, isLoading: true }));
         try {
-            const built = await buildBusinessBackupPayload(buildSelection());
+            const { backup, security } = await loadBusinessBackupEngine();
+            if (previewGenerationRef.current !== generation) return;
+            const built = await backup.buildBusinessBackupPayload(buildSelection(), {
+                materializeVaultBlobs: false,
+            });
+            if (previewGenerationRef.current !== generation) return;
             setBackupPreview({
                 isLoading: false,
                 keys: built.keys,
                 bytes: built.bytes,
                 counts: built.counts,
             });
-            if (built.bytes > 30_000_000) {
-                SmartToast.warning('حجم النسخة كبير جداً وقد يفشل التصدير على بعض الأجهزة');
+            if (built.bytes > security.MAX_BACKUP_PLAINTEXT_BYTES * 0.8) {
+                SmartToast.warning('حجم النسخة قريب من الحد الآمن للتصدير على الهاتف');
             }
         } catch {
+            if (previewGenerationRef.current !== generation) return;
             setBackupPreview((p) => ({ ...p, isLoading: false }));
             SmartToast.warning('تعذر تجهيز معاينة النسخة');
         }
     }, [buildSelection]);
 
     const toggleBackupPanel = useCallback(() => {
-        setBackupPanelOpen((prev) => !prev);
+        setBackupPanelOpen((prev) => {
+            if (prev) previewGenerationRef.current += 1;
+            else prefetchBusinessBackupEngine();
+            return !prev;
+        });
     }, []);
 
     const previewDebounceRef = useRef<number | null>(null);
     useEffect(() => {
-        if (!backupPanelOpen) return;
+        if (!sectionActive || !backupPanelOpen) return;
         if (previewDebounceRef.current !== null) window.clearTimeout(previewDebounceRef.current);
         previewDebounceRef.current = window.setTimeout(() => {
             previewDebounceRef.current = null;
@@ -96,173 +68,63 @@ export function useBusinessBackup() {
         };
     }, [
         backupPanelOpen,
-        backupFrom,
-        backupTo,
-        backupIncludeExecution,
-        backupIncludeLawsuits,
-        backupIncludeNotes,
-        backupIncludeUndated,
-        backupIncludeUrgent,
-        backupIncludeVault,
+        selection.backupFrom,
+        selection.backupTo,
+        selection.backupIncludeExecution,
+        selection.backupIncludeLawsuits,
+        selection.backupIncludeNotes,
+        selection.backupIncludeUndated,
+        selection.backupIncludeUrgent,
+        selection.backupIncludeVault,
         refreshBackupPreview,
+        sectionActive,
     ]);
 
+    useEffect(() => {
+        if (sectionActive) return;
+        previewGenerationRef.current += 1;
+        setPendingBusinessImport(null);
+        setBackupPreview((preview) =>
+            preview.isLoading ? { ...preview, isLoading: false } : preview,
+        );
+    }, [sectionActive]);
+
     const exportBusinessBackup = useCallback(async () => {
-        try {
-            const proceed = await SmartDialog.confirm(
-                'النسخة تحتوي بيانات قضايا وملاحظات حساسة. يجب حمايتها بكلمة مرور قبل التصدير.',
-                { title: 'تصدير نسخة البيانات؟', confirmText: 'متابعة', cancelText: 'إلغاء' },
-            );
-            if (!proceed) return;
-
-            const challenge = mintSensitiveConfirmChallenge('تصدير نسخة');
-            const verified = await verifySensitiveSettingsAction({
-                confirmPhrase: challenge.confirmPhrase,
-                title: 'تحقق قبل التصدير',
-                promptMessage: challenge.promptMessage,
-            });
-            if (!verified) return;
-
-            const password = await SmartDialog.prompt(
-                `أدخل كلمة مرور لحماية النسخة (${BACKUP_PASSWORD_MIN_LENGTH} أحرف على الأقل):`,
-                '',
-            );
-            const p = password?.trim() ?? '';
-            const passwordCheck = validateBackupPassword(p);
-            if (passwordCheck.ok === false) {
-                if (passwordCheck.reason === 'empty') {
-                    SmartToast.warning('كلمة المرور مطلوبة لحماية النسخة');
-                } else {
-                    SmartToast.warning(
-                        `كلمة المرور قصيرة جداً — الحد الأدنى ${BACKUP_PASSWORD_MIN_LENGTH} حرفاً`,
-                    );
-                }
-                return;
-            }
-
-            const built = await buildBusinessBackupPayload(buildSelection());
-            setBackupPreview({
-                isLoading: false,
-                keys: built.keys,
-                bytes: built.bytes,
-                counts: built.counts,
-            });
-            const plainText = JSON.stringify(built.payload, null, 2);
-            const payload = await encryptBusinessBackupText(plainText, p);
-            const outText = JSON.stringify(payload, null, 2);
-            const date = new Date().toISOString().slice(0, 10);
-            const filename = `hami-business-backup-${date}.protected.json`;
-            const result = await exportTextFile({
-                filename,
-                content: outText,
-                mimeType: 'application/json',
-                dialogTitle: 'حفظ نسخة احتياطية',
-            });
-            if (result === 'cancelled') return;
-            if (result === 'failed') {
-                SmartToast.warning('تعذر تصدير نسخة البيانات على هذا الجهاز');
-                return;
-            }
-            SmartToast.success(result === 'shared' ? 'اختر تطبيقاً لحفظ النسخة' : 'تم تصدير نسخة البيانات');
-        } catch {
-            SmartToast.warning('تعذر تصدير نسخة البيانات على هذا الجهاز');
-        }
+        await runBusinessBackupExport({
+            buildSelection,
+            setBackupPreview,
+            exportInFlightRef,
+        });
     }, [buildSelection]);
 
-    const importBusinessBackup = useCallback(async (entries: Array<[string, string]>): Promise<boolean> => {
-        try {
-            await importBusinessBackupEntries(entries);
-            SmartToast.success('تم استيراد البيانات');
-            return true;
-        } catch {
-            SmartToast.warning('تعذر استيراد البيانات');
-            return false;
-        }
-    }, []);
+    const importBusinessBackup = useCallback(importBusinessBackupEntries, []);
 
     const prepareBusinessImport = useCallback(async (file: File | null | undefined) => {
-        if (!file) return;
-        if (file.size > 25_000_000) {
-            SmartToast.warning('ملف النسخة كبير جداً');
-            return;
-        }
-        try {
-            const text = await file.text();
-            let parsedText = text;
-            let obj = JSON.parse(text) as {
-                kind?: unknown;
-                version?: unknown;
-                createdAt?: unknown;
-                kdf?: unknown;
-                salt?: unknown;
-                iv?: unknown;
-                ciphertext?: unknown;
-            };
-            if (obj?.kind === 'hami-business-backup-encrypted') {
-                const password = await SmartDialog.prompt('أدخل كلمة المرور لفك حماية النسخة:', '');
-                if (!password?.trim()) return;
-                try {
-                    parsedText = await decryptBusinessBackupText(obj, password.trim());
-                    obj = JSON.parse(parsedText) as typeof obj;
-                } catch {
-                    SmartToast.warning('كلمة المرور غير صحيحة أو الملف تالف');
-                    return;
-                }
-            }
-            const parsed = parseBusinessBackupFile(parsedText);
-            const validation = validateBusinessBackupImport(parsed.entries);
-            if (validation.ok === false) {
-                SmartToast.warning(validation.reason);
-                return;
-            }
-            setPendingBusinessImport({
-                fileName: file.name,
-                version: parsed.version,
-                createdAt: parsed.createdAt,
-                selection: parsed.selection,
-                range: parsed.range,
-                counts: parsed.counts,
-                keys: parsed.keys,
-                entries: parsed.entries,
-            });
-        } catch {
-            SmartToast.warning('ملف النسخة غير صالح');
-        } finally {
-            if (importBusinessInputRef.current) importBusinessInputRef.current.value = '';
-        }
+        await prepareBusinessImportFile({
+            file,
+            sectionActiveRef,
+            importBusinessInputRef,
+            setPendingBusinessImport,
+        });
     }, []);
 
     const dismissBackupUi = useCallback(() => {
+        previewGenerationRef.current += 1;
         setBackupPanelOpen(false);
         setPendingBusinessImport(null);
     }, []);
 
     useEffect(() => {
-        const open = backupPanelOpen || pendingBusinessImport != null;
+        const open = sectionActive && (backupPanelOpen || pendingBusinessImport != null);
         registerSettingsBackupUiGuard(open, open ? dismissBackupUi : null);
         return () => registerSettingsBackupUiGuard(false);
-    }, [backupPanelOpen, pendingBusinessImport, dismissBackupUi]);
+    }, [backupPanelOpen, pendingBusinessImport, dismissBackupUi, sectionActive]);
 
     return {
         importBusinessInputRef,
         backupPanelOpen,
         toggleBackupPanel,
-        backupIncludeLawsuits,
-        setBackupIncludeLawsuits,
-        backupIncludeExecution,
-        setBackupIncludeExecution,
-        backupIncludeNotes,
-        setBackupIncludeNotes,
-        backupIncludeVault,
-        setBackupIncludeVault,
-        backupIncludeUrgent,
-        setBackupIncludeUrgent,
-        backupIncludeUndated,
-        setBackupIncludeUndated,
-        backupFrom,
-        setBackupFrom,
-        backupTo,
-        setBackupTo,
+        ...selection,
         backupPreview,
         refreshBackupPreview,
         exportBusinessBackup,

@@ -45,7 +45,7 @@ const ALLOWLIST_STEMS = new Set([
     'DecisionsScopeFilterBar',
     'QuickActions',
     'dialog',
-    'ScheduleInstantShell',
+    'RadarOpenInstantChrome',
     'ForumMemberProfileOverlay',
     'AccountSection',
     'ForumMentionSuggestions',
@@ -82,6 +82,8 @@ const ALLOWLIST_STEMS = new Set([
     'legalDeadlineEngine',
     'ScheduleTabHost',
     'ProfileMediaFrame',
+    'storage-domain-keys',
+    'dossier-storage-keys',
 ]);
 
 function chunkStem(file) {

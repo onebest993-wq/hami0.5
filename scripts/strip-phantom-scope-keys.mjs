@@ -3,10 +3,14 @@
  * node scripts/strip-phantom-scope-keys.mjs
  */
 import fs from 'fs';
+import { SHELL_OVERLAY_PROP_KEYS_PATHS } from './lib/writeShellOverlayPropKeys.mjs';
 
 const hookPath = 'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardState.ts';
+if (!fs.existsSync(hookPath)) {
+    console.log('[spent] useExecutionDashboardState.ts — skip');
+    process.exit(0);
+}
 const keysPath = 'src/app/components/lawyer/ExecutionDashboard/hooks/executionPhoneBodyPropKeys.ts';
-const shellKeysPath = 'src/app/components/lawyer/ExecutionDashboard/hooks/executionShellOverlayPropKeys.ts';
 const phoneBodyPath =
     'src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBody.tsx';
 const chunkKeysPath = 'scripts/_chunk-scope-keys.json';
@@ -116,7 +120,14 @@ console.log(`Removing ${phantom.length} phantom keys:\n`, phantom.join(', '));
 hook = removeLinesWithKeys(hook, phantom, /^\s+([A-Za-z_][A-Za-z0-9_]*),$/);
 fs.writeFileSync(hookPath, hook);
 
-for (const filePath of [keysPath, shellKeysPath]) {
+for (const filePath of [
+    keysPath,
+    keysPath.replace(/\.ts$/, '.head.ts'),
+    keysPath.replace(/\.ts$/, '.tail.ts'),
+    SHELL_OVERLAY_PROP_KEYS_PATHS.BARREL,
+    SHELL_OVERLAY_PROP_KEYS_PATHS.HEAD,
+    SHELL_OVERLAY_PROP_KEYS_PATHS.TAIL,
+]) {
     if (!fs.existsSync(filePath)) continue;
     let text = fs.readFileSync(filePath, 'utf8');
     for (const k of phantom) {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Layers } from '@/app/components/ui/lucideIcons';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { Layers } from '@/app/components/ui/icons/Layers';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import { MoroccanGlassShell } from '../smartFile/moroccanGlassShell';
 import { SmartModalHeader, useSmartModalAccent } from '../smartFile/smartModalChrome';
 
@@ -132,7 +132,7 @@ export const CaseConsolidationModal = ({
     return (
         <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-3xl">
             <SmartModalHeader icon={Layers} title="توحيد الدعاوى" onClose={onClose} />
-            <div className={`${T.body} md:min-h-[31rem] md:space-y-6`}>
+            <div className={`${T.body} md:min-h-[31rem] md:space-y-4`}>
                 <div className={cardSecondary}>
                     <p className="text-[10px] text-white/50 mb-0.5">الدعوى الثانية</p>
                     <p

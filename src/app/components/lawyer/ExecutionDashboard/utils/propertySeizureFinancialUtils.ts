@@ -11,7 +11,6 @@ import {
     persistReconciledTrustStore,
     pickFirstPositiveIqd,
     resolveTotalOwedForStore,
-    seizureProceedsLedgerGapIqd,
     upsertTrustCollectPayment,
     type SeizureTrustCollectCreditResult,
 } from './seizureFinancialTrustLedgerUtils';
@@ -26,7 +25,7 @@ export function resolvePropertySaleProceedsIqd(p: SeizedProperty): number {
     );
 }
 
-export function propertyProceedsTrustPaymentId(propertyId: string): string {
+function propertyProceedsTrustPaymentId(propertyId: string): string {
     return `pay-property-proceeds-${String(propertyId || '').trim()}`;
 }
 
@@ -154,17 +153,4 @@ export function creditPropertyProceedsForExecution(
         totalOwedIqd: totals.totalOwedUnified,
         ledgerParams,
     });
-}
-
-/** للتحقق: هل رصيد الأمانات يغطي حصيلة عقار مباع؟ */
-export function propertyProceedsLedgerGapIqd(
-    executionId: string,
-    property: SeizedProperty
-): { expected: number; credited: number; gap: number } {
-    const expected = resolvePropertySaleProceedsIqd(property);
-    return seizureProceedsLedgerGapIqd(
-        executionId,
-        expected,
-        propertyProceedsTrustPaymentId(String(property.id || ''))
-    );
 }

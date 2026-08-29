@@ -20,11 +20,11 @@ import {
     resolveInvestigationDefendantsPartyMixLite,
 } from './criminalRequestsTabLitePrimitives';
 import { isLawyerRequestPending } from './lawyerRequestStatusMachine';
-import { resolveCassationRemandRetrialPivotDate } from './trialSessionsEngine';
-import type { TrialSession } from './trialSessionsEngine';
+import { resolveCassationRemandRetrialPivotDate } from './trialSessionsDisplay';
+import type { TrialSession } from './trialSessionsDisplay';
 import type { VerdictCard } from './verdictCardsEngine';
 
-export type UseCriminalDashboardRequestsTabDataParams = {
+type UseCriminalDashboardRequestsTabDataParams = {
     requestsTabActive: boolean;
     criminalCase: CriminalCase;
     defendants: CriminalDefendant[];

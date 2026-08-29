@@ -2,6 +2,32 @@
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import SecureStoreService from '@/app/services/SecureStoreService';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+    writeSecureAndClearLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
+import { logError, logErrorWithContext as logErrorCore } from '@/app/utils/errorLog';
+
+export { logError };
+
+export function logErrorWithContext(
+    context: string,
+    error: unknown,
+    additionalInfo?: Record<string, unknown>,
+): void {
+    logErrorCore(context, error, additionalInfo);
+    if (typeof window !== 'undefined' && (window as { Sentry?: { captureException: (e: unknown, ctx: unknown) => void } }).Sentry) {
+        try {
+            (window as { Sentry: { captureException: (e: unknown, ctx: unknown) => void } }).Sentry.captureException(
+                error,
+                { tags: { context }, extra: additionalInfo },
+            );
+        } catch (e) {
+            console.debug('[ErrorHandler] فشل إرسال الخطأ إلى Sentry:', e);
+        }
+    }
+}
 
 /**
  * Safe async handler wrapper
@@ -42,16 +68,6 @@ export function safeSync<T>(
             console.error('❌ خطأ:', err);
         }
         return { data: null, error: err };
-    }
-}
-
-/**
- * Log error with context
- */
-export function logError(context: string, error: unknown, details?: any) {
-    console.error(`❌ [${context}]`, error);
-    if (details) {
-        console.error('التفاصيل:', details);
     }
 }
 
@@ -103,37 +119,6 @@ export async function retryWithBackoff<T>(
 }
 
 /**
- * 🆕 V10.5: Log error with full context (for debugging)
- */
-export function logErrorWithContext(
-  context: string,
-  error: any,
-  additionalInfo?: Record<string, any>
-): void {
-  const errorData = {
-    message: error.message || error,
-    stack: error.stack,
-    timestamp: new Date().toISOString(),
-    context,
-    ...additionalInfo
-  };
-
-  console.error(`❌ [${context}]`, errorData);
-
-  // إرسال إلى Sentry إذا كان متاحاً
-  if (typeof window !== 'undefined' && (window as any).Sentry) {
-    try {
-      (window as any).Sentry.captureException(error, {
-        tags: { context },
-        extra: additionalInfo
-      });
-    } catch (e) {
-      console.debug('[ErrorHandler] فشل إرسال الخطأ إلى Sentry:', e);
-    }
-  }
-}
-
-/**
  * 🆕 V10.5: Handle async errors with Toast notification
  */
 export async function handleAsyncError<T>(
@@ -161,15 +146,16 @@ export function safeLocalStorage(operation: 'get' | 'set' | 'remove', key: strin
   try {
     switch (operation) {
       case 'get':
-        const item = SecureStoreService.getItemSync(key);
+        const item = readSecureOrDrainLegacySync(key);
         return item ? JSON.parse(item) : null;
       
       case 'set':
-        SecureStoreService.setItemSync(key, JSON.stringify(value));
+        writeSecureAndClearLegacySync(key, JSON.stringify(value));
         return true;
       
       case 'remove':
         SecureStoreService.deleteItemSync(key);
+        clearLegacyPlaintextMirror(key);
         return true;
       
       default:
@@ -187,7 +173,7 @@ export function safeLocalStorage(operation: 'get' | 'set' | 'remove', key: strin
         
         // إعادة المحاولة
         if (operation === 'set') {
-          SecureStoreService.setItemSync(key, JSON.stringify(value));
+          writeSecureAndClearLegacySync(key, JSON.stringify(value));
           return true;
         }
       } catch (retryError) {

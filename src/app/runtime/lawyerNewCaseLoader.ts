@@ -1,5 +1,11 @@
 import type { JurisdictionId } from '@/app/components/lawyer/LawyerNewCase/constants';
 import type { IncidentalSpawnContextEnriched } from '@/app/domain/lawsuit/incidentalSpawnPrefill';
+import {
+    consumePendingLawyerNewCaseJurisdiction as consumePendingJurisdiction,
+    getPendingLawyerNewCaseJurisdiction as getPendingJurisdiction,
+    resetLawyerNewCasePendingJurisdictionForTests,
+    setPendingLawyerNewCaseJurisdiction as setPendingJurisdiction,
+} from '@/app/runtime/lawyerNewCasePendingJurisdiction';
 
 type LawyerNewCaseModule = typeof import('@/app/components/lawyer/LawyerNewCase');
 
@@ -27,22 +33,19 @@ export function getCachedLawyerNewCase(): LawyerNewCaseComponent | null {
     return cachedLawyerNewCase;
 }
 
-export type LawyerNewCaseJurisdictionId = JurisdictionId;
-
-let pendingJurisdiction: JurisdictionId | null = null;
-
+/** يضبط الاختصاص المعلّق ويُنبّه مشتركي الـ cache (البوابة). */
 export function setPendingLawyerNewCaseJurisdiction(id: JurisdictionId | null): void {
-    pendingJurisdiction = id;
+    setPendingJurisdiction(id);
     notifyLawyerNewCaseListeners();
 }
 
 export function getPendingLawyerNewCaseJurisdiction(): JurisdictionId | null {
-    return pendingJurisdiction;
+    return getPendingJurisdiction();
 }
 
 export function consumePendingLawyerNewCaseJurisdiction(): JurisdictionId | null {
-    const value = pendingJurisdiction;
-    pendingJurisdiction = null;
+    const value = consumePendingJurisdiction();
+    if (value != null) notifyLawyerNewCaseListeners();
     return value;
 }
 
@@ -69,7 +72,7 @@ export function clearPendingIncidentalSpawnContext(): void {
 export function resetLawyerNewCaseModuleCacheForTests(): void {
     lawyerNewCasePromise = null;
     cachedLawyerNewCase = null;
-    pendingJurisdiction = null;
+    resetLawyerNewCasePendingJurisdictionForTests();
     pendingIncidentalSpawn = null;
     notifyLawyerNewCaseListeners();
 }

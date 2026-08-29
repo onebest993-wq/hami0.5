@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
-import { AlertCircle, Check, ChevronLeft, ChevronRight } from '@/app/components/ui/lucideIcons';
+import { AlertCircle } from '@/app/components/ui/icons/AlertCircle';
+import { Check } from '@/app/components/ui/icons/Check';
 import {
     PERSONAL_STATUS_FIELD,
     PERSONAL_STATUS_FIELD_ERROR,
@@ -14,7 +15,7 @@ import {
 
 export type PersonalFormStep = 'identity' | 'parties';
 
-export const PERSONAL_FORM_STEPS: ReadonlyArray<{ id: PersonalFormStep; label: string }> = [
+const PERSONAL_FORM_STEPS: ReadonlyArray<{ id: PersonalFormStep; label: string }> = [
     { id: 'identity', label: 'بيانات الدعوى' },
     { id: 'parties', label: 'الأطراف' },
 ];
@@ -30,7 +31,7 @@ export function PersonalFormStepRail({
 }) {
     return (
         <div className={PERSONAL_STATUS_TAB_BAR}>
-            <div className="flex gap-2 px-4 py-2">
+            <div className="flex gap-1.5 px-3 py-1.5">
                 {PERSONAL_FORM_STEPS.map((step, index) => {
                     const isActive = step.id === active;
                     const done = completion[step.id];
@@ -39,7 +40,7 @@ export function PersonalFormStepRail({
                             key={step.id}
                             type="button"
                             onClick={() => onChange(step.id)}
-                            className={`flex-1 min-w-0 rounded-xl px-3 py-2.5 text-right border transition-colors touch-manipulation ${
+                            className={`flex-1 min-w-0 rounded-lg px-2.5 py-2 text-right border transition-colors touch-manipulation ${
                                 isActive
                                     ? PERSONAL_STATUS_TAB_ACTIVE
                                     : done
@@ -119,33 +120,13 @@ export function PersonalStagePillRail({
     error?: string;
 }) {
     const scrollRef = useRef<HTMLDivElement>(null);
-    const scrollBy = (dir: -1 | 1) => {
-        scrollRef.current?.scrollBy({ left: dir * 140, behavior: 'smooth' });
-    };
 
     return (
-        <div className="space-y-2">
-            <div className="flex items-center justify-end gap-1">
-                <button
-                    type="button"
-                    onClick={() => scrollBy(1)}
-                    className="w-8 h-8 rounded-lg border border-white/10 bg-white/[0.04] flex items-center justify-center text-white/50 hover:text-white/80 touch-manipulation"
-                    aria-label="تمرير لليمين"
-                >
-                    <ChevronRight size={14} />
-                </button>
-                <button
-                    type="button"
-                    onClick={() => scrollBy(-1)}
-                    className="w-8 h-8 rounded-lg border border-white/10 bg-white/[0.04] flex items-center justify-center text-white/50 hover:text-white/80 touch-manipulation"
-                    aria-label="تمرير لليسار"
-                >
-                    <ChevronLeft size={14} />
-                </button>
-            </div>
+        <div className="space-y-1.5">
+            {/* سحب أفقي فقط — بلا أزرار تمرير */}
             <div
                 ref={scrollRef}
-                className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-1 -mx-1 px-1"
+                className="flex gap-1.5 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-0.5 -mx-0.5 px-0.5 touch-pan-x"
             >
                 {options.map((opt) => {
                     const active = value === opt;
@@ -154,7 +135,7 @@ export function PersonalStagePillRail({
                             key={opt}
                             type="button"
                             onClick={() => onChange(opt)}
-                            className={`snap-start shrink-0 max-w-[11rem] rounded-lg px-3 py-2 text-[11px] font-bold border transition-colors touch-manipulation ${
+                            className={`snap-start shrink-0 max-w-[10.5rem] min-h-[44px] rounded-md px-2.5 py-1.5 text-[11px] font-bold border transition-colors touch-manipulation ${
                                 active
                                     ? 'border-[#E6C673]/45 bg-[#E6C673]/10 text-[#E6C673]'
                                     : 'border-white/10 bg-white/[0.03] text-white/55 hover:border-white/15 hover:text-white/75'
@@ -211,7 +192,7 @@ export function PersonalLawSelector({
                             role="checkbox"
                             aria-checked={active}
                             onClick={() => onChange(id)}
-                            className={`flex items-center gap-2 w-full rounded-lg border px-2.5 py-2 text-[10px] font-medium text-right transition-all ${
+                            className={`flex min-h-[44px] items-center gap-2 w-full rounded-lg border px-2.5 py-2 text-[10px] font-medium text-right transition-all touch-manipulation ${
                                 active ? PERSONAL_STATUS_LAW_CHIP_ACTIVE : PERSONAL_STATUS_LAW_CHIP_IDLE
                             }`}
                         >

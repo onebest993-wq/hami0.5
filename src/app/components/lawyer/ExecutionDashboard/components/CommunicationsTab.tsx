@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle } from '@/app/components/ui/lucideIcons';
+import { CheckCircle } from '@/app/components/ui/icons/CheckCircle';
 import { LegalEntitySoftProceduresSection } from '@/app/components/lawyer/ExecutionDashboard/components/LegalEntitySoftProceduresSection';
 import { CommunicationAwaitingResultCard } from './communicationsTab/CommunicationAwaitingResultCard';
 import { CommunicationCreateForm } from './communicationsTab/CommunicationCreateForm';

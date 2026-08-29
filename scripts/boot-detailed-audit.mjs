@@ -87,9 +87,7 @@ async function measureColdBoot(deviceName, deviceProfile) {
     const poll = async () => {
         return page.evaluate(() => {
             const staticBoot = document.getElementById('hami-static-boot');
-            const wordmark = document.querySelector('[data-testid="hami-boot-wordmark"]');
             const stBoot = staticBoot ? getComputedStyle(staticBoot) : null;
-            const stWordmark = wordmark ? getComputedStyle(wordmark) : null;
             const homeGrid = document.querySelector('[data-testid="home-main-grid"]');
             const ready = document.querySelector('[data-testid="lawyer-dashboard-ready"]');
             const timeline = performance.getEntriesByName('hami:boot:dashboard-interactive', 'mark')[0];
@@ -97,7 +95,9 @@ async function measureColdBoot(deviceName, deviceProfile) {
             const start = performance.getEntriesByName('hami:boot:start', 'mark')[0];
             const origin = start?.startTime ?? 0;
             const fcp = performance.getEntriesByType('paint').find((e) => e.name === 'first-contentful-paint');
-            const wordmarkText = wordmark?.textContent?.trim() ?? '';
+            const silentCanvas =
+                staticBoot?.getAttribute('data-hami-boot-mode') === 'silent-canvas' &&
+                !document.querySelector('[data-testid="hami-boot-wordmark"]');
             return {
                 t: Math.round(performance.now()),
                 staticBootVisible:
@@ -105,12 +105,7 @@ async function measureColdBoot(deviceName, deviceProfile) {
                     stBoot?.display !== 'none' &&
                     stBoot?.visibility !== 'hidden' &&
                     Number(stBoot?.opacity ?? 1) > 0.05,
-                wordmarkVisible:
-                    !!wordmark &&
-                    stWordmark?.display !== 'none' &&
-                    stWordmark?.visibility !== 'hidden' &&
-                    Number(stWordmark?.opacity ?? 1) > 0.05,
-                wordmarkReady: wordmarkText === 'حامي',
+                silentCanvas,
                 homeGrid: !!homeGrid,
                 dashboardReady: !!ready,
                 ttfiMs: timeline ? Math.round(timeline.startTime - origin) : null,
@@ -141,8 +136,9 @@ async function measureColdBoot(deviceName, deviceProfile) {
 
     const resourceSummary = await page.evaluate(() => {
         const entries = performance.getEntriesByType('resource');
-        const bootJs = entries.find((e) => e.name.includes('hami-boot.js'));
-        const bootCss = entries.find((e) => e.name.includes('hami-boot-shell.css'));
+        // الأسماء مختومة بتجزئة المحتوى في البناء: hami-boot.<hash>.js
+        const bootJs = entries.find((e) => /\/hami-boot(\.[a-f0-9]+)?\.js(\?|$)/.test(e.name));
+        const bootCss = entries.find((e) => /\/hami-boot-shell(\.[a-f0-9]+)?\.css(\?|$)/.test(e.name));
         return {
             bootJsMs: bootJs ? Math.round(bootJs.duration) : null,
             bootCssMs: bootCss ? Math.round(bootCss.duration) : null,
@@ -152,11 +148,11 @@ async function measureColdBoot(deviceName, deviceProfile) {
     await context.close();
     await browser.close();
 
-    const firstWordmark = samples.find((s) => s.wordmarkVisible || s.wordmarkReady);
+    const firstSilent = samples.find((s) => s.silentCanvas && s.staticBootVisible);
     const firstGrid = samples.find((s) => s.homeGrid);
     const staticGone = samples.find((s) => s.dashboardReady && !s.staticBootVisible);
-    const blackGap = samples.filter(
-        (s) => !s.wordmarkVisible && !s.homeGrid && s.wallMs < 2000,
+    const earlyGap = samples.filter(
+        (s) => !s.staticBootVisible && !s.homeGrid && s.wallMs < 2000,
     );
 
     return {
@@ -165,11 +161,11 @@ async function measureColdBoot(deviceName, deviceProfile) {
         ttfiMs: final.ttfiMs,
         firstTabMs: final.firstTabMs,
         fcpMs: final.fcpMs,
-        wordmarkFirstSeenWallMs: firstWordmark?.wallMs ?? null,
+        silentCanvasFirstSeenWallMs: firstSilent?.wallMs ?? null,
         homeGridWallMs: firstGrid?.wallMs ?? null,
         staticBootRemovedWallMs: staticGone?.wallMs ?? null,
         ...resourceSummary,
-        maxBlackGapMs: blackGap.length ? Math.max(...blackGap.map((s) => s.wallMs)) : 0,
+        maxEarlyGapMs: earlyGap.length ? Math.max(...earlyGap.map((s) => s.wallMs)) : 0,
         sampleCount: samples.length,
     };
 }
@@ -240,7 +236,7 @@ try {
     const report = {
         measuredAt: new Date().toISOString(),
         environment: 'vite preview prod build (VITE_SHELL_AUTH_OPEN)',
-        bootMode: 'text-wordmark-only',
+        bootMode: 'silent-canvas',
         criticalPathGzipKb: 112,
         coldBoot: { desktop, mobile },
         resume: resumeDesktop,
@@ -261,13 +257,13 @@ try {
     fs.writeFileSync(outPath, JSON.stringify(report, null, 2));
 
     console.log('\n=== Hami Boot Detailed Audit ===\n');
-    console.log('Boot mode: text wordmark only (حامي)');
+    console.log('Boot mode: silent canvas (no wordmark)');
     console.log('\n--- Desktop cold boot ---');
     console.log('  Wall to complete:', desktop.wallToCompleteMs, 'ms');
     console.log('  TTFI:', desktop.ttfiMs, 'ms');
     console.log('  First tab open:', desktop.firstTabMs, 'ms');
     console.log('  FCP:', desktop.fcpMs, 'ms');
-    console.log('  Wordmark first seen:', desktop.wordmarkFirstSeenWallMs, 'ms');
+    console.log('  Silent canvas first seen:', desktop.silentCanvasFirstSeenWallMs, 'ms');
     console.log('  Home grid:', desktop.homeGridWallMs, 'ms');
     console.log('  Static boot removed:', desktop.staticBootRemovedWallMs, 'ms');
     console.log('\n--- Pixel 7 cold boot ---');

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { writeExecutorDecisionsUnionForExecution, mergeExecutorDecisionsUnionForPersist, pruneRedundantDecisionsStorageAliases, type ExecutorDecisionsPersistOptions } from '@/app/utils/executionDecisionsNamespace';
 import { isSeizureDecisionFollowupComplete } from '@/app/components/lawyer/DecisionsAndAppealsEngine/seizureFollowupComplete';
@@ -28,6 +27,7 @@ import {
 } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
 import { resolveAppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
+import type { ExecutionFile } from '@/app/types/execution';
 
 export type UseDecisionsAppealsEngineStorageParams = {
     executionId: string | undefined;
@@ -65,7 +65,7 @@ function normalizeDecisionsFromRaw(raw: Decision[], syncData: Record<string, unk
     if (syncData) {
         normalized = normalized.map((row) => {
             if (String(row.seizureRequestSavedAt || '').trim()) return row;
-            if (!isSeizureDecisionFollowupComplete(row, syncData)) return row;
+            if (!isSeizureDecisionFollowupComplete(row, syncData as unknown as ExecutionFile)) return row;
             const ts = String(row.resolvedAt || row.date || new Date().toISOString()).trim();
             return { ...row, seizureRequestSavedAt: ts || new Date().toISOString() };
         });
@@ -231,13 +231,17 @@ export function useDecisionsAppealsEngineStorage({
                     data,
                     { ...opts, extraIds: extra }
                 );
-                writeExecutorDecisionsUnionForExecution(targetId, rows, data);
+                writeExecutorDecisionsUnionForExecution(
+                    targetId,
+                    rows,
+                    data,
+                );
                 try {
                     pruneRedundantDecisionsStorageAliases(targetId, data);
                 } catch {
                     /* prune اختياري — لا يُلغي الحفظ الأساسي */
                 }
-                const normalized = normalizeDecisionsFromRaw(rows as Decision[], data);
+                const normalized = normalizeDecisionsFromRaw(rows as unknown as Decision[], data);
                 writeSessionCacheForCandidates(normalized, targetId);
                 return normalized;
             };
@@ -281,7 +285,11 @@ export function useDecisionsAppealsEngineStorage({
     );
 
     const domainVisibleDecisions = useMemo(
-        () => filterDecisionsForDomainContext(executionDomainContext, decisions),
+        () =>
+            filterDecisionsForDomainContext(
+                executionDomainContext,
+                decisions as unknown as Record<string, unknown>[],
+            ) as unknown as Decision[],
         [executionDomainContext, decisions]
     );
 

@@ -1,9 +1,3 @@
-import type { ComponentProps, ComponentType } from 'react';
-
-type NotificationPanelModule = typeof import('@/app/components/lawyer/NotificationPanel');
-type NotificationPanelProps = ComponentProps<NotificationPanelModule['NotificationPanel']>;
-export type NotificationPanelComponent = ComponentType<NotificationPanelProps>;
-
 import {
     markNotificationPanelModuleResolved,
     resetNotificationPanelModuleStateForTests,
@@ -14,17 +8,13 @@ export {
     resetNotificationPanelModuleStateForTests,
 } from '@/app/runtime/notificationPanelModuleState';
 
-let panelModulePromise: Promise<NotificationPanelModule> | null = null;
-let cachedNotificationPanel: NotificationPanelComponent | null = null;
+type NotificationPanelModule = typeof import('@/app/components/lawyer/NotificationPanel');
 
-export function getCachedNotificationPanel(): NotificationPanelComponent | null {
-    return cachedNotificationPanel;
-}
+let panelModulePromise: Promise<NotificationPanelModule> | null = null;
 
 /** للاختبارات */
 export function resetNotificationPanelModuleCacheForTests(): void {
     panelModulePromise = null;
-    cachedNotificationPanel = null;
     resetNotificationPanelModuleStateForTests();
 }
 
@@ -32,9 +22,6 @@ function ensurePanelModulePromise(): Promise<NotificationPanelModule> {
     if (!panelModulePromise) {
         panelModulePromise = import('@/app/components/lawyer/NotificationPanel')
             .then((mod) => {
-                if (mod?.NotificationPanel) {
-                    cachedNotificationPanel = mod.NotificationPanel;
-                }
                 markNotificationPanelModuleResolved();
                 return mod;
             })

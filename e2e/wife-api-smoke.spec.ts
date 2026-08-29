@@ -2,13 +2,18 @@
  * WIFE E2E smoke — يثبت أن المتصفح الحي يوقّع /api/* (wifeFetchGuard + SecureAPIClient).
  * Vitest alone cannot prove this; server may return 401/403 with fake token — we assert outbound headers.
  */
-import { test, expect } from '@playwright/test';
+import { test } from '@playwright/test';
 import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
 import {
+  assertWifeSignedHttpOutcome,
   assertWifeSignedRequest,
+  browserFetchStatus,
   installApiRequestCapture,
   seedWifeE2eSession,
   waitForApiCapture,
+  waitForSameOriginApiReady,
+  waitForWifeGuard,
+  waitForWifeSigningToken,
 } from './helpers/wifeApiCapture';
 
 test.describe('WIFE API smoke — browser signing', () => {
@@ -22,17 +27,12 @@ test.describe('WIFE API smoke — browser signing', () => {
     const captures = installApiRequestCapture(page);
     await page.goto('/');
     await ensureLawyerDashboard(page);
-    await page.waitForFunction(
-      () => {
-        const sym = Symbol.for('WIFE_FETCH_GUARD_INSTALLED');
-        return (globalThis as Record<symbol, unknown>)[sym] === true;
-      },
-      { timeout: 20_000 },
-    );
+    await waitForWifeGuard(page);
+    await waitForWifeSigningToken(page);
+    await waitForSameOriginApiReady(page);
 
-    await page.evaluate(async () => {
-      await fetch('/api/forum/status', { method: 'GET', credentials: 'same-origin' });
-    });
+    const status = await browserFetchStatus(page, '/api/forum/status');
+    assertWifeSignedHttpOutcome(status, 'forum/status');
 
     const hit = await waitForApiCapture(captures, (c) => c.url.includes('/api/forum/status'));
     assertWifeSignedRequest(hit);
@@ -42,6 +42,9 @@ test.describe('WIFE API smoke — browser signing', () => {
     const captures = installApiRequestCapture(page);
     await page.goto('/');
     await ensureLawyerDashboard(page);
+    await waitForWifeGuard(page);
+    await waitForWifeSigningToken(page);
+    await waitForSameOriginApiReady(page);
 
     const csrfHit = await waitForApiCapture(
       captures,
@@ -54,32 +57,25 @@ test.describe('WIFE API smoke — browser signing', () => {
       return;
     }
 
-    // Fallback: any protected /api call during boot must still be signed
-    const anySigned = captures.filter((c) => {
-      try {
-        assertWifeSignedRequest(c);
-        return true;
-      } catch {
-        return false;
-      }
+    await page.evaluate(async () => {
+      await fetch('/api/security/csrf', { credentials: 'same-origin' }).catch(() => undefined);
     });
-    expect(
-      anySigned.length,
-      'expected at least one WIFE-signed /api request after boot (csrf or forum)',
-    ).toBeGreaterThan(0);
+    const fallback = await waitForApiCapture(captures, (c) => c.url.includes('/api/security/csrf'));
+    assertWifeSignedRequest(fallback);
   });
 
-  test('opening legal forum triggers signed GET /api/forum/posts', async ({ page }) => {
+  test('protected forum GET is signed without depending on forum UI', async ({ page }) => {
     const captures = installApiRequestCapture(page);
     await page.goto('/');
     await ensureLawyerDashboard(page);
+    await waitForWifeGuard(page);
+    await waitForWifeSigningToken(page);
+    await waitForSameOriginApiReady(page);
 
-    await page.getByRole('button', { name: /المنتدى القانوني/i }).click({ timeout: 15_000 });
-
+    await browserFetchStatus(page, '/api/forum/posts?limit=5&offset=0');
     const postsHit = await waitForApiCapture(
       captures,
       (c) => c.method === 'GET' && c.url.includes('/api/forum/posts'),
-      30_000,
     );
     assertWifeSignedRequest(postsHit);
   });

@@ -1,10 +1,11 @@
-import { requireNotificationsAuth } from '../_auth.ts';
+import { NOTIFICATIONS_API_INTERNAL_ERROR, requireNotificationsAuth } from '../_auth.ts';
 import { sanitizePayload } from '../../security/sanitizer.ts';
 import { wifeJsonResponse } from '../../security/wifeSecurityHeaders.ts';
 import {
     markAllNotificationsReadServer,
     markNotificationReadServer,
 } from '@/app/services/notifications/notificationServerBlob';
+import { sanitizeNotificationEntityId } from '@/app/services/notifications/notificationNavigateSecurity';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object';
@@ -26,8 +27,7 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         if (payload.action === 'mark_read') {
-            const notificationId =
-                typeof payload.notificationId === 'string' ? payload.notificationId.trim() : '';
+            const notificationId = sanitizeNotificationEntityId(payload.notificationId);
             if (!notificationId) {
                 return wifeJsonResponse(400, { ok: false, error: 'notificationId مطلوب' });
             }
@@ -41,8 +41,7 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         return wifeJsonResponse(400, { ok: false, error: 'إجراء غير معروف' });
-    } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Internal read-state error';
-        return wifeJsonResponse(500, { ok: false, error: msg });
+    } catch {
+        return wifeJsonResponse(500, { ok: false, error: NOTIFICATIONS_API_INTERNAL_ERROR });
     }
 }

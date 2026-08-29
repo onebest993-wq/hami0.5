@@ -35,8 +35,38 @@ describe('ArchivePortal execution card snapshot', () => {
         expect(view.totalDemand).toBe(5_054_544);
         expect(view.statusLabel).toBe('');
         expect(view.dossierLifecycleStatus).toBe('active');
-        expect(view.dossierLifecycleBadge).toBe('🟢 نشطة');
+        expect(view.dossierLifecycleBadge).toBe('نشطة');
         expect(view.demandLabel).toBe('إجمالي المطلوب (تقدير)');
+        expect(view.syncedFromLedger).toBe(false);
+    });
+
+    it('uses index remaining without ledger decrypt', () => {
+        const file = {
+            id: 'exec-remain',
+            type: 'execution',
+            totalAmount: 5_000_000,
+            total_remaining_balance: 1_250_000,
+        } as LooseArchiveFile;
+        const view = resolveExecutionArchiveCardView(file);
+        expect(view.totalDemand).toBe(5_000_000);
+        expect(view.remainingDemand).toBe(1_250_000);
+        expect(view.demandLabel).toBe('متبقي الوعاء');
+        expect(view.syncedFromLedger).toBe(false);
+    });
+
+    it('treats index remaining 0 as paid-off, not as a missing hint', () => {
+        const file = {
+            id: 'exec-paid-off',
+            type: 'execution',
+            totalAmount: 5_000_000,
+            total_remaining_balance: 0,
+        } as LooseArchiveFile;
+        const view = resolveExecutionArchiveCardView(file);
+        expect(view.totalDemand).toBe(5_000_000);
+        expect(view.remainingDemand).toBe(0);
+        expect(view.demandLabel).toBe('متبقي الوعاء');
+        expect(view.syncedFromLedger).toBe(false);
+        expect(view.secondaryDemandLabel).toContain('الإجمالي');
     });
 
     it('joins multiple debtors', () => {

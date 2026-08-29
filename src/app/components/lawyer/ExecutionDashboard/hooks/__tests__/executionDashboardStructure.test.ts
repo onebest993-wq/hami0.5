@@ -46,7 +46,16 @@ describe('ExecutionDashboard structural splits', () => {
     });
 
     it('uses grouped handler cluster boundaries and lazy phone body inside the chunk host', () => {
-        const source = fs.readFileSync(chunkHostPath, 'utf8');
+        const source = [
+            fs.readFileSync(chunkHostPath, 'utf8'),
+            fs.readFileSync(
+                path.join(
+                    root,
+                    'src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardChunkHostClusters.tsx',
+                ),
+                'utf8',
+            ),
+        ].join('\n');
         expect(source).toContain('ExecutionDashboardHandlerClusterGroups');
         expect(source).toContain('LazyExecutionDashboardCoerciveHandlerClusterGroup');
         expect(source).toContain('LazyExecutionDashboardSeizureHandlerClusterGroup');
@@ -55,6 +64,18 @@ describe('ExecutionDashboard structural splits', () => {
         expect(source).not.toMatch(
             /import\s*\{\s*ExecutionDashboardPhoneBody\s*\}\s*from\s*'\.\/ExecutionDashboardPhoneBody'/,
         );
+    });
+
+    it('boot pipeline binds modal aliases via imported helper (no implicit global)', () => {
+        const impl = fs.readFileSync(
+            path.join(
+                root,
+                'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreBootPipelineImpl.ts',
+            ),
+            'utf8',
+        );
+        expect(impl).toMatch(/from\s+['"]\.\/bindExecutionDashboardBootModalAliases['"]/);
+        expect(impl).toContain('bindExecutionDashboardBootModalAliases(modals, setExecutionModal)');
     });
 
     it('keeps a thin direct view chain and preserves seizure cluster flags in the runtime surface', () => {
@@ -103,6 +124,10 @@ describe('ExecutionDashboard structural splits', () => {
             root,
             'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts',
         );
+        const residentSegmentPath = path.join(
+            root,
+            'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreDossierAndResidentSegment.ts',
+        );
         const partyLifecycleBridgePath = path.join(
             root,
             'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterCoercivePartyLifecycleBridge.tsx',
@@ -112,12 +137,15 @@ describe('ExecutionDashboard structural splits', () => {
             'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterPartyDeathBridge.tsx',
         );
         const coreSource = fs.readFileSync(corePath, 'utf8');
+        const residentSegment = fs.readFileSync(residentSegmentPath, 'utf8');
         const partyLifecycleBridge = fs.readFileSync(partyLifecycleBridgePath, 'utf8');
         const partyDeathBridge = fs.readFileSync(partyDeathBridgePath, 'utf8');
-        expect(coreSource).toContain('useExecutionDashboardPartyDeathOpeners(');
-        expect(coreSource).toContain('partyDeathHandlers');
+        expect(coreSource).toContain('useExecutionDashboardCoreDossierAndResidentSegment');
         expect(coreSource).toContain('loadPartyDeathHandlerCluster');
-        expect(coreSource).not.toContain('useExecutionDashboardPartyDeathHandlers(');
+        expect(residentSegment).toContain('useExecutionDashboardPartyDeathOpeners(');
+        expect(residentSegment).toContain('partyDeathHandlers');
+        expect(residentSegment).toContain('loadPartyDeathHandlerCluster');
+        expect(residentSegment).not.toContain('useExecutionDashboardPartyDeathHandlers(');
         expect(partyDeathBridge).toContain('useExecutionDashboardPartyDeathHandlers');
         expect(partyLifecycleBridge).not.toContain('useExecutionDashboardPartyDeathHandlers');
     });

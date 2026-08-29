@@ -1,0 +1,16 @@
+import fs from 'fs';
+const t = fs.readFileSync('src/app/components/lawyer/criminal-system/criminalStore.test.ts', 'utf8');
+const lines = t.split(/\r?\n/).length;
+const describes = (t.match(/\bdescribe\(/g) || []).length;
+const its = (t.match(/\bit\(/g) || []).length;
+const expects = (t.match(/\bexpect\(/g) || []).length;
+const called = (t.match(/toHaveBeenCalled/g) || []).length;
+const mocks = (t.match(/\bvi\.(fn|mock|spyOn)/g) || []).length;
+const persist = (t.match(/readPersisted|SecureStore|persist/gi) || []).length;
+console.log({ lines, describes, its, expects, called, mocks, persist });
+const titles = [...t.matchAll(/\bit\((['"`])([\s\S]*?)\1/g)].map((m) => m[2].replace(/\s+/g, ' ').slice(0, 100));
+console.log('sample titles (first 20):');
+titles.slice(0, 20).forEach((x, i) => console.log(i + 1, x));
+console.log('sample titles (last 10):');
+titles.slice(-10).forEach((x, i) => console.log(titles.length - 9 + i, x));
+console.log('total it titles', titles.length);

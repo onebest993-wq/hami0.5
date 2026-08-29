@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import { ValidationBanner } from '../../components/ValidationBanner';
 import { DatePickerField } from '../../components/DatePickerField';
 import { formatDateText, cassationDecisionText } from '../../utils/formatters';
@@ -39,7 +39,7 @@ export function CassationPhaseBody(props: CassationLifecyclePanelProps) {
     } = props;
 
     return (
-                                                <div ref={cassationFilingGateRef} className="space-y-6">
+                                                <div ref={cassationFilingGateRef} className="space-y-4">
                                                     {!!cassationError && <ValidationBanner text={cassationError} />}
                                                     {isFinalized && (
                                                         <div className="border border-amber-500/25 bg-amber-500/10 rounded-xl px-4 py-3 text-amber-100 text-sm space-y-2">
@@ -134,7 +134,7 @@ export function CassationPhaseBody(props: CassationLifecyclePanelProps) {
                                                                             )}
                                                                             {cassationFilingAfterDeadline ? (
                                                                                 <div className="mt-2 border border-amber-500/35 bg-amber-500/10 rounded-lg px-3 py-2 text-amber-100 text-xs font-bold">
-                                                                                    ⚠️ انتباه: تم تقديم الطعن خارج المدة القانونية المحددة
+                                                                                    انتباه: تم تقديم الطعن خارج المدة القانونية المحددة
                                                                                     {cassationLegalEndDate
                                                                                         ? ` (انتهاء المدة: ${formatDateText(cassationLegalEndDate)})`
                                                                                         : ''}
@@ -174,7 +174,7 @@ export function CassationPhaseBody(props: CassationLifecyclePanelProps) {
                                                                         }`}
                                                                     >
                                                                         <div className="text-white text-sm font-bold">
-                                                                            {cassationExpiredCanClose ? '✅ انقضت المدة القانونية. يمكن إغلاق الإضبارة.' : '⏳ لا يمكن تثبيت الانقضاء قبل انقضاء المدة القانونية.'}
+                                                                            {cassationExpiredCanClose ? 'انقضت المدة القانونية. يمكن إغلاق الإضبارة.' : 'لا يمكن تثبيت الانقضاء قبل انقضاء المدة القانونية.'}
                                                                         </div>
                                                                     </div>
                                                                     <div className="flex flex-col items-end gap-1">
@@ -193,7 +193,7 @@ export function CassationPhaseBody(props: CassationLifecyclePanelProps) {
                                                                                 }
                                                                                 className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                                                             >
-                                                                                ✔️ تأكيد انقضاء المدة
+                                                                                تأكيد انقضاء المدة
                                                                             </button>
                                                                         ) : null}
                                                                         {!cassationExpiredCanClose ? (

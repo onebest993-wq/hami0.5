@@ -1,39 +1,66 @@
 /** كشف/إخفاء مركز الإعدادات فوراً في الـ DOM — مستقل عن إطار React */
 
-const HOST_SELECTOR = '[data-testid="hami-settings-overlay-host"]';
-const ROOT_SELECTOR = '[data-settings-root]';
-const DASHBOARD_SELECTOR = '[data-hami-lawyer-dashboard]';
-const BRIDGE_ID = 'hami-settings-instant-bridge';
-const CHROME = '#0B1021';
-const INTERACT_CLASS = 'hami-settings-overlay-layer--interact';
-const CLOSE_GUARD_ATTR = 'data-settings-close-guard';
+import {
+    isSettingsShellSnappedOpen,
+    snapSettingsShellClose,
+    snapSettingsShellOpen,
+} from '@/app/services/settings/settingsShellSnap';
+import { blurFocusWithin } from '@/app/utils/inertProps';
+import {
+    detachSettingsInstantBridge,
+    ensureSettingsInstantChromeBridge,
+} from './settingsInstantPaintBridge';
+import {
+    applySettingsThemeChrome,
+} from './settingsInstantPaintChrome';
+import {
+    SETTINGS_GEAR_TRIGGER_SELECTOR,
+    SETTINGS_INSTANT_CHROME,
+    SETTINGS_OVERLAY_HOST_SELECTOR,
+} from './settingsInstantPaintConstants';
+import {
+    armSettingsOverlayInteraction,
+    isSettingsCloseGuarded,
+    resetSettingsOverlayInteractionState,
+    scheduleSettingsOverlayInteractionArm,
+    setSettingsCloseGuard,
+    SETTINGS_OVERLAY_INTERACT_CLASS,
+} from './settingsInstantPaintInteract';
+import { resolveSettingsOverlayLayer } from './settingsInstantPaintDom';
+import { suppressSettingsReopen } from './settingsInstantPaintReopen';
+import { armHubLayerEnter, clearHubLayerEnter } from '@/app/runtime/overlayHubLayerMotion';
+import { SETTINGS_HUB_LAYER } from '@/app/runtime/overlayHubLayerSpecs';
 
-/**
- * احتياطي قصير لحارس زر X إن لم يأتِ click إيماءة الفتح.
- * التسليح الأساسي فور pointerup+click — لا تأخير اصطناعي معتاد.
- */
-export const SETTINGS_INTERACT_ARM_MS = 64;
+export {
+    clearSettingsReopenSuppress,
+    isSettingsReopenSuppressed,
+    SETTINGS_REOPEN_SUPPRESS_MS,
+    suppressSettingsReopen,
+} from './settingsInstantPaintReopen';
+export { applySettingsOpaqueChrome } from './settingsInstantPaintChrome';
+export { hasSettingsOverlayHost } from './settingsInstantPaintDom';
+export {
+    armSettingsOverlayInteraction,
+    beginSettingsOpenGesture,
+    disarmSettingsOverlayInteraction,
+    isSettingsCloseGuarded,
+    isSettingsOpenGestureBlockingClose,
+    isSettingsOverlayInteractionArmed,
+    scheduleSettingsOverlayInteractionArm,
+    SETTINGS_INTERACT_ARM_MS,
+} from './settingsInstantPaintInteract';
 
 let forceVisible = false;
 /** ساعة كشف الطبقة في الـ DOM — قبل التزام React بـ open=true */
 let revealedAtMs: number | null = null;
-let prevThemeColor: string | null = null;
-let prevDashBg: string | null = null;
-let interactArmCleanup: (() => void) | null = null;
-/** يمنع إعادة فتح الإعدادات بنقرة إغلاق الشبحية (pointerdown يغلق → click يصيب الترس). */
-let reopenSuppressedUntil = 0;
-let reopenSuppressCleanup: (() => void) | null = null;
-/**
- * حد أقصى لكبح إعادة الفتح — الضغطة المتبقية على الترس تُبتلع ثم تُرفع الكبح؛
- * المهلة احتياط إن لم يصل حدث ترس (كان 280ms فيجمّد التبديل السريع).
- */
-export const SETTINGS_REOPEN_SUPPRESS_MS = 90;
-
-const SETTINGS_GEAR_TRIGGER_SELECTOR = '[data-testid="header-settings-trigger"]';
-let instantCloseHandler: (() => void) | null = null;
 
 export function isSettingsForceVisible(): boolean {
     return forceVisible;
+}
+
+/** React open أو كشف DOM الفوري (force / html snap) */
+export function isSettingsLayerOpen(reactOpen: boolean): boolean {
+    return reactOpen || forceVisible || isSettingsShellSnappedOpen();
 }
 
 export function clearSettingsForceVisible(): void {
@@ -45,306 +72,145 @@ export function getSettingsShellRevealedAt(): number | null {
     return revealedAtMs;
 }
 
-function clearReopenSuppressListeners(): void {
-    if (!reopenSuppressCleanup) return;
-    reopenSuppressCleanup();
-    reopenSuppressCleanup = null;
-}
-
-/**
- * كبح إعادة الفتح الشبحي بعد إغلاق حقيقي —
- * يبتلع pointerdown/click المتبقي على ترس الهيدر ثم يرفع الكبح؛ مهلة ≤90ms احتياط.
- */
-export function suppressSettingsReopen(ms: number = SETTINGS_REOPEN_SUPPRESS_MS): void {
-    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    const duration = Math.max(0, ms);
-    reopenSuppressedUntil = now + duration;
-    clearReopenSuppressListeners();
-
-    if (typeof window === 'undefined' || duration <= 0) return;
-
-    const clear = () => {
-        reopenSuppressedUntil = 0;
-        clearReopenSuppressListeners();
-    };
-
-    const swallowGearGhost = (event: Event) => {
-        const target = event.target;
-        if (!(target instanceof Element)) return;
-        if (!target.closest(SETTINGS_GEAR_TRIGGER_SELECTOR)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (typeof event.stopImmediatePropagation === 'function') {
-            event.stopImmediatePropagation();
-        }
-        clear();
-    };
-
-    window.addEventListener('pointerdown', swallowGearGhost, true);
-    window.addEventListener('click', swallowGearGhost, true);
-    const fallbackTimer = window.setTimeout(clear, duration);
-
-    reopenSuppressCleanup = () => {
-        window.removeEventListener('pointerdown', swallowGearGhost, true);
-        window.removeEventListener('click', swallowGearGhost, true);
-        window.clearTimeout(fallbackTimer);
-    };
-}
-
-export function isSettingsReopenSuppressed(): boolean {
-    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    return now < reopenSuppressedUntil;
-}
-
-export function clearSettingsReopenSuppress(): void {
-    reopenSuppressedUntil = 0;
-    clearReopenSuppressListeners();
-}
-
-/** يُسجَّل من useLawyerDashboardSettings — إغلاق فوري من DOM إن لزم */
-export function registerSettingsInstantCloseHandler(handler: (() => void) | null): void {
-    instantCloseHandler = handler;
-}
-
-export function isSettingsCloseGuarded(): boolean {
-    if (typeof document === 'undefined') return false;
-    return document.documentElement.hasAttribute(CLOSE_GUARD_ATTR);
-}
-
-function setCloseGuard(active: boolean): void {
+function restoreSettingsTriggerFocus(): void {
     if (typeof document === 'undefined') return;
-    if (active) document.documentElement.setAttribute(CLOSE_GUARD_ATTR, '1');
-    else document.documentElement.removeAttribute(CLOSE_GUARD_ATTR);
+    const trigger = document.querySelector(SETTINGS_GEAR_TRIGGER_SELECTOR);
+    if (!(trigger instanceof HTMLElement)) return;
+    trigger.focus({ preventScroll: true });
 }
 
-export function hasSettingsOverlayHost(): boolean {
-    if (typeof document === 'undefined') return false;
-    return Boolean(document.querySelector(HOST_SELECTOR));
+/** قبل aria-hidden/inert — يمنع تحذير «descendant retained focus» على زر الإغلاق */
+function releaseSettingsOverlayFocus(root: HTMLElement): boolean {
+    const active = typeof document !== 'undefined' ? document.activeElement : null;
+    const hadFocusInside = active instanceof HTMLElement && root.contains(active);
+    blurFocusWithin(root);
+    return hadFocusInside;
 }
 
-function resolveLayer(): HTMLElement | null {
-    if (typeof document === 'undefined') return null;
-    const host = document.querySelector(HOST_SELECTOR);
-    if (host instanceof HTMLElement) return host;
-    const bridge = document.getElementById(BRIDGE_ID);
-    if (bridge instanceof HTMLElement) return bridge;
-    const root = document.querySelector(ROOT_SELECTOR);
-    return root instanceof HTMLElement ? root : null;
-}
-
-function applyDashboardMask(active: boolean): void {
-    if (typeof document === 'undefined') return;
-    const dash = document.querySelector<HTMLElement>(DASHBOARD_SELECTOR);
-    if (!dash) return;
-    if (active) {
-        if (prevDashBg === null) {
-            prevDashBg = dash.style.backgroundColor;
-        }
-        dash.style.backgroundColor = CHROME;
-        return;
-    }
-    if (prevDashBg !== null) {
-        dash.style.backgroundColor = prevDashBg;
-        prevDashBg = null;
-    }
-}
-
-function applyThemeChrome(active: boolean): void {
-    if (typeof document === 'undefined') return;
-    let meta = document.querySelector('meta[name="theme-color"]');
-    if (active) {
-        if (!meta) {
-            meta = document.createElement('meta');
-            meta.setAttribute('name', 'theme-color');
-            document.head.appendChild(meta);
-        }
-        if (prevThemeColor === null) {
-            prevThemeColor = meta.getAttribute('content');
-        }
-        meta.setAttribute('content', CHROME);
-        document.documentElement.style.backgroundColor = CHROME;
-        document.body.style.backgroundColor = CHROME;
-        applyDashboardMask(true);
-        return;
-    }
-    if (meta && prevThemeColor != null) {
-        meta.setAttribute('content', prevThemeColor);
-    }
-    prevThemeColor = null;
-    document.documentElement.style.backgroundColor = '';
-    document.body.style.backgroundColor = '';
-    applyDashboardMask(false);
-}
-
-/**
- * يخفّي ثيم اللوحة فوراً (html/body/meta/dashboard) — قبل commit React.
- * يُستدعى عند الفتح حتى لو لم يُركَّب Host بعد.
- */
-export function applySettingsOpaqueChrome(): void {
-    applyThemeChrome(true);
-}
-
-function clearInteractArmSchedule(): void {
-    if (!interactArmCleanup) return;
-    interactArmCleanup();
-    interactArmCleanup = null;
-}
-
-export function isSettingsOverlayInteractionArmed(root?: HTMLElement | null): boolean {
-    if (isSettingsCloseGuarded()) return false;
-    const el = root ?? resolveLayer();
-    return Boolean(el?.classList.contains(INTERACT_CLASS));
-}
-
-/** يسمح بالإغلاق بعد انتهاء إيماءة الفتح */
-export function armSettingsOverlayInteraction(root?: HTMLElement | null): void {
-    clearInteractArmSchedule();
-    setCloseGuard(false);
-    const el = root ?? resolveLayer();
-    if (!el) return;
-    el.classList.add(INTERACT_CLASS);
-    el.style.setProperty('pointer-events', 'auto');
-}
-
-/** يمنع التفاعل (عند الإخفاء فقط — الطبقة الظاهرة تبقى قابلة للمس) */
-export function disarmSettingsOverlayInteraction(root?: HTMLElement | null): void {
-    clearInteractArmSchedule();
-    setCloseGuard(false);
-    const el = root ?? resolveLayer();
-    if (!el) return;
-    el.classList.remove(INTERACT_CLASS);
-    if (!el.classList.contains('hami-settings-overlay-layer--visible')) {
-        el.style.setProperty('pointer-events', 'none');
-    }
-}
-
-/**
- * حارس إغلاق على زر X فقط (CSS) حتى ينتهي click إيماءة فتح الترس —
- * Host/Shell يعيدان الاستدعاء: لا تُعاد الجدولة.
- */
-export function scheduleSettingsOverlayInteractionArm(root?: HTMLElement | null): void {
-    const el = root ?? resolveLayer();
-    if (!el) return;
-
-    if (el.classList.contains(INTERACT_CLASS) && !isSettingsCloseGuarded()) return;
-    if (interactArmCleanup) return;
-
-    el.classList.remove(INTERACT_CLASS);
-    el.style.setProperty('pointer-events', 'auto');
-    setCloseGuard(true);
-
-    if (typeof window === 'undefined') {
-        armSettingsOverlayInteraction(el);
-        return;
-    }
-
-    let settled = false;
-
-    const cleanupListeners = () => {
-        if (typeof window === 'undefined') return;
-        window.removeEventListener('pointerup', onPointerEnd, true);
-        window.removeEventListener('pointercancel', onPointerEnd, true);
-        window.removeEventListener('click', swallowGhostClick, true);
-        window.clearTimeout(fallbackTimer);
-    };
-
-    const armNow = () => {
-        if (settled) return;
-        settled = true;
-        cleanupListeners();
-        interactArmCleanup = null;
-        armSettingsOverlayInteraction(el);
-    };
-
-    const swallowGhostClick = (event: Event) => {
-        const target = event.target;
-        if (
-            target instanceof Element &&
-            target.closest('[data-testid="settings-shell-close"]')
-        ) {
-            event.preventDefault();
-            event.stopPropagation();
-            if (typeof event.stopImmediatePropagation === 'function') {
-                event.stopImmediatePropagation();
-            }
-        }
-        armNow();
-    };
-
-    const onPointerEnd = () => {
-        window.removeEventListener('pointerup', onPointerEnd, true);
-        window.removeEventListener('pointercancel', onPointerEnd, true);
-        window.addEventListener('click', swallowGhostClick, true);
-    };
-
-    window.addEventListener('pointerup', onPointerEnd, true);
-    window.addEventListener('pointercancel', onPointerEnd, true);
-    const fallbackTimer = window.setTimeout(armNow, SETTINGS_INTERACT_ARM_MS);
-
-    interactArmCleanup = () => {
-        settled = true;
-        cleanupListeners();
-        setCloseGuard(false);
-        interactArmCleanup = null;
-    };
-}
-
-function applyLayerVisible(root: HTMLElement, visible: boolean): void {
+function applyLayerVisible(
+    root: HTMLElement,
+    visible: boolean,
+    options: { restoreTrigger?: boolean } = {},
+): void {
     if (visible) {
         root.style.setProperty('visibility', 'visible');
         root.style.setProperty('pointer-events', 'auto');
         root.style.setProperty('opacity', '1');
-        root.style.setProperty('background-color', CHROME);
+        root.style.setProperty('background-color', SETTINGS_INSTANT_CHROME);
         root.classList.add('hami-settings-overlay-layer--visible');
-        root.classList.remove(INTERACT_CLASS);
         root.setAttribute('data-open', 'true');
         root.removeAttribute('aria-hidden');
         root.removeAttribute('inert');
         revealedAtMs =
             typeof performance !== 'undefined' ? performance.now() : Date.now();
-        applyThemeChrome(true);
-    } else {
-        clearInteractArmSchedule();
-        setCloseGuard(false);
-        root.style.setProperty('visibility', 'hidden');
-        root.style.setProperty('pointer-events', 'none');
-        root.style.setProperty('opacity', '0');
-        root.classList.remove('hami-settings-overlay-layer--visible');
-        root.classList.remove(INTERACT_CLASS);
-        root.setAttribute('data-open', 'false');
-        root.setAttribute('aria-hidden', 'true');
-        root.setAttribute('inert', '');
-        revealedAtMs = null;
-        applyThemeChrome(false);
+        applySettingsThemeChrome(true);
+        return;
+    }
+
+    resetSettingsOverlayInteractionState();
+    const hadFocusInside = releaseSettingsOverlayFocus(root);
+    root.style.setProperty('visibility', 'hidden');
+    root.style.setProperty('pointer-events', 'none');
+    root.style.setProperty('opacity', '0');
+    root.classList.remove('hami-settings-overlay-layer--visible');
+    root.classList.remove(SETTINGS_OVERLAY_INTERACT_CLASS);
+    root.setAttribute('data-open', 'false');
+    root.setAttribute('aria-hidden', 'true');
+    root.setAttribute('inert', '');
+    revealedAtMs = null;
+    applySettingsThemeChrome(false);
+    if (options.restoreTrigger && hadFocusInside) {
+        restoreSettingsTriggerFocus();
     }
 }
 
-/** إزالة جسر طلاء قديم إن وُجد (لم نعد نزرعه) */
-export function removeSettingsInstantBridge(): void {
-    if (typeof document === 'undefined') return;
-    document.getElementById(BRIDGE_ID)?.remove();
+let chromeHandoffRaf = 0;
+
+function cancelChromeHandoff(): void {
+    if (!chromeHandoffRaf || typeof window === 'undefined') return;
+    window.cancelAnimationFrame(chromeHandoffRaf);
+    chromeHandoffRaf = 0;
 }
 
 /**
- * طلاء فوري: يكشف Host الحقيقي فقط — بلا جسر هيكل ملوّن.
- * إن لم يوجد Host يعيد false؛ المستدعي يركّب عبر flushSync ثم يعيد المحاولة.
+ * الجسر طلاء فقط. إن بقي فوق الـ Host يمنع اللمس (كان z-index فلكي + pointer-events:auto).
+ * يُزال فور وجود الطبقة الحقيقية — لا حد 120 إطاراً يتركه معلّقاً.
  */
-export function paintSettingsInstantChrome(): boolean {
+export function dismissSettingsInstantBridgeIfHostReady(): boolean {
     if (typeof document === 'undefined') return false;
+    const host = document.querySelector(SETTINGS_OVERLAY_HOST_SELECTOR);
+    if (!(host instanceof HTMLElement)) return false;
+    const wasArmed = !isSettingsCloseGuarded();
+    applyLayerVisible(host, true);
     removeSettingsInstantBridge();
-
-    const existingHost = document.querySelector(HOST_SELECTOR);
-    if (!(existingHost instanceof HTMLElement)) return false;
-
-    forceVisible = true;
-    applyLayerVisible(existingHost, true);
-    scheduleSettingsOverlayInteractionArm(existingHost);
+    if (wasArmed) {
+        armSettingsOverlayInteraction(host);
+    }
     return true;
 }
 
-/** كشف طبقة الإعدادات الدافئة فوراً (قبل أي setState ثقيل) */
-export function revealSettingsWarmShell(): boolean {
-    return paintSettingsInstantChrome();
+function scheduleSettingsChromeHandoff(): void {
+    if (typeof window === 'undefined') return;
+    cancelChromeHandoff();
+    let ticks = 0;
+
+    const tick = () => {
+        chromeHandoffRaf = 0;
+        if (!forceVisible) {
+            removeSettingsInstantBridge();
+            return;
+        }
+        if (dismissSettingsInstantBridgeIfHostReady()) return;
+        if (++ticks > 120) {
+            removeSettingsInstantBridge();
+            const host = document.querySelector(SETTINGS_OVERLAY_HOST_SELECTOR);
+            if (host instanceof HTMLElement) {
+                applyLayerVisible(host, true);
+                armSettingsOverlayInteraction(host);
+            }
+            return;
+        }
+        chromeHandoffRaf = window.requestAnimationFrame(tick);
+    };
+
+    chromeHandoffRaf = window.requestAnimationFrame(tick);
+}
+
+/** إزالة جسر الكروم الفوري بعد تسليم Host الحقيقي */
+export function removeSettingsInstantBridge(): void {
+    cancelChromeHandoff();
+    detachSettingsInstantBridge();
+}
+
+/**
+ * طلاء فوري في لمسة الترس:
+ * Host موجود → كشف الطبقة الحقيقية كوحدة واحدة.
+ * وإلا جسر كروم حتى يُركَّب Host — بلا إعادة تخطيط offsetHeight.
+ */
+export function paintSettingsInstantChrome(): boolean {
+    if (typeof document === 'undefined') return false;
+    setSettingsCloseGuard(true);
+    snapSettingsShellOpen();
+    forceVisible = true;
+    applySettingsThemeChrome(true);
+    armHubLayerEnter(SETTINGS_HUB_LAYER, () => {
+        const host = document.querySelector(SETTINGS_OVERLAY_HOST_SELECTOR);
+        return host instanceof HTMLElement ? host : null;
+    });
+
+    const existingHost = document.querySelector(SETTINGS_OVERLAY_HOST_SELECTOR);
+    if (existingHost instanceof HTMLElement) {
+        cancelChromeHandoff();
+        removeSettingsInstantBridge();
+        applyLayerVisible(existingHost, true);
+        scheduleSettingsOverlayInteractionArm(existingHost);
+        return true;
+    }
+
+    ensureSettingsInstantChromeBridge();
+    scheduleSettingsOverlayInteractionArm();
+    scheduleSettingsChromeHandoff();
+    return true;
 }
 
 export type ConcealSettingsWarmShellOptions = {
@@ -360,16 +226,18 @@ export function concealSettingsWarmShell(
     options: ConcealSettingsWarmShellOptions = {},
 ): void {
     forceVisible = false;
+    cancelChromeHandoff();
+    clearHubLayerEnter(SETTINGS_HUB_LAYER);
+    snapSettingsShellClose();
     if (options.suppressReopen) {
         suppressSettingsReopen();
     }
-    const root = resolveLayer();
-    if (root) applyLayerVisible(root, false);
+    const root = resolveSettingsOverlayLayer();
+    if (root) applyLayerVisible(root, false, { restoreTrigger: options.suppressReopen === true });
     else {
-        clearInteractArmSchedule();
-        setCloseGuard(false);
+        resetSettingsOverlayInteractionState();
         revealedAtMs = null;
-        applyThemeChrome(false);
+        applySettingsThemeChrome(false);
     }
     removeSettingsInstantBridge();
 }

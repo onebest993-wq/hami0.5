@@ -20,8 +20,15 @@ describe('notificationNavigateSecurity', () => {
             evil: '<script>',
             tab: 'x'.repeat(200),
             caseId: '42',
+            eventId: 'ev-9',
+            date: '2026-08-10',
         });
-        expect(out).toEqual({ postId: 'post-1', caseId: '42' });
+        expect(out).toEqual({
+            postId: 'post-1',
+            caseId: '42',
+            eventId: 'ev-9',
+            date: '2026-08-10',
+        });
         expect(out.evil).toBeUndefined();
         expect(out.tab).toBeUndefined();
     });
@@ -29,5 +36,19 @@ describe('notificationNavigateSecurity', () => {
     it('يرفض الحمولة غير الكائنية', () => {
         expect(sanitizeNotificationActionPayload(null)).toEqual({});
         expect(sanitizeNotificationActionPayload('bad' as unknown as Record<string, unknown>)).toEqual({});
+    });
+
+    it('يرفض javascript: ومعرّفات HTML ويُبقي رقم إضبارة عربي', () => {
+        const out = sanitizeNotificationActionPayload({
+            postId: 'javascript:alert(1)',
+            fileId: '<script>',
+            caseNo: '1/ك/2024',
+            date: '2026-13-40',
+            eventId: 'ev-ok',
+        });
+        expect(out.postId).toBeUndefined();
+        expect(out.fileId).toBeUndefined();
+        expect(out.date).toBeUndefined();
+        expect(out).toEqual({ caseNo: '1/ك/2024', eventId: 'ev-ok' });
     });
 });

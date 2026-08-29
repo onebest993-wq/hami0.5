@@ -22,15 +22,29 @@ describe('warm TTFI LD preload scheduling honesty', () => {
         expect(beforeCoreAwait).not.toContain('LawyerDashboardInnerRuntime');
         expect(beforeCoreAwait).not.toContain('LawyerDashboardHomeTab');
         const preload = fs.readFileSync(path.join(root, 'src/boot/bootCriticalPreload.ts'), 'utf8');
-        expect(preload).toContain("import('@/app/components/lawyer/dashboard/LawyerDashboardInnerRuntime')");
+        expect(preload).toContain('kickoffFirstTabPreload');
+        expect(preload).not.toContain('prefetchLawyerDashboardMinimalBoot');
+        expect(preload).not.toContain('LawyerDashboardMainView');
+        expect(preload).toContain('prefetchLawyerDashboardInner');
+        expect(preload).not.toMatch(/kickoffFirstTabPreload[\s\S]*LawyerDashboardQuantumShell/);
+        expect(preload).not.toContain('deferInnerRuntimePreloadAfterBoot');
+        expect(preload).not.toContain('innerRuntimeLoader');
+        expect(preload).toContain('onBootContentReady');
     });
 
-    it('index.tsx يبدأ preloadLawyerDashboardChunk عبر bootCriticalPreload', () => {
+    it('index.tsx يبدأ stem اللوحة عبر shouldPreloadLawyerDashboardBoard ثم preload عبر bootCriticalPreload', () => {
         const index = fs.readFileSync(path.join(root, 'src/index.tsx'), 'utf8');
         expect(index).toContain('kickoffBootCriticalPreload');
+        expect(index).toContain("import('@/app/runtime/lawyerDashboardLoader')");
+        expect(index).toContain('loadLawyerDashboardModule');
+        expect(index).toContain('shouldPreloadLawyerDashboardBoard');
+        const stemIdx = index.indexOf("import('@/app/runtime/lawyerDashboardLoader')");
+        const kickIdx = index.indexOf('kickoffBootCriticalPreload()');
+        expect(kickIdx).toBeGreaterThan(stemIdx);
         const preload = fs.readFileSync(path.join(root, 'src/boot/bootCriticalPreload.ts'), 'utf8');
-        expect(preload).toContain("import('@/app/bootstrap/lawyerDashboardChunk')");
+        expect(preload).toContain("from '@/app/bootstrap/lawyerDashboardChunk'");
         expect(preload).toContain('preloadLawyerDashboardChunk');
+        expect(preload).toContain('shouldPreloadLawyerDashboardBoard');
     });
 
     it('mountApplication لا يحجب createRoot على preload اللوحة', () => {
@@ -47,26 +61,34 @@ describe('warm TTFI LD preload scheduling honesty', () => {
         );
     });
 
-    it('LawyerDashboardGate يبدأ preloadLawyerDashboardChunk عند تقييم الوحدة', () => {
+    it('LawyerDashboardGate يسخّن اللوحة فقط عند shouldPreloadLawyerDashboardBoard', () => {
         const gate = fs.readFileSync(
             path.join(root, 'src/app/bootstrap/LawyerDashboardGate.tsx'),
             'utf8',
         );
         expect(gate).toContain('preloadLawyerDashboardChunk');
-        expect(gate).toMatch(/typeof window[\s\S]*preloadLawyerDashboardChunk\(\)/);
+        expect(gate).toContain('shouldPreloadLawyerDashboardBoard');
+        expect(gate).toContain('prefetchLawyerAuthLane');
+        expect(gate).toContain('LawyerAuthLaneHost');
+        expect(gate).not.toContain('useLawyerDashboardAuth');
+        expect(gate).toMatch(/shouldPreloadLawyerDashboardBoard\(\)[\s\S]*preloadLawyerDashboardChunk/);
     });
 
-    it('AppResolvedRuntime و AppRuntimeShell يبدآن تحميل Shell/Gate عند تقييم الوحدة', () => {
+    it('AppResolvedRuntime و AppRuntimeShell يبدآن تحميل Shell/Gate عبر loaders', () => {
         const resolved = fs.readFileSync(
             path.join(root, 'src/app/AppResolvedRuntime.tsx'),
             'utf8',
         );
+        expect(resolved).toContain('LazyGlobalErrorBoundary');
+        expect(resolved).not.toMatch(/import \{ GlobalErrorBoundary \}/);
         const shell = fs.readFileSync(path.join(root, 'src/app/AppRuntimeShell.tsx'), 'utf8');
-        expect(resolved).toContain('appRuntimeShellPromise');
-        expect(shell).toContain('lawyerDashboardGatePromise');
+        expect(resolved).toContain('loadAppRuntimeShellModule');
+        expect(resolved).toContain('getAppRuntimeShellModuleSync');
+        expect(shell).toContain('loadLawyerDashboardGateModule');
+        expect(shell).toContain('getLawyerDashboardGateModuleSync');
     });
 
-    it('LawyerDashboardInner يمرّر مباشرة إلى Runtime/MainView بلا Suspense waterfall', () => {
+    it('LawyerDashboardInner يُعلِن مسار Minimal→Full بلا hop InnerRuntime؛ FullBoot يحمل orchestration', () => {
         const inner = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardInner.tsx'),
             'utf8',
@@ -75,35 +97,84 @@ describe('warm TTFI LD preload scheduling honesty', () => {
             path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardQuantumShell.tsx'),
             'utf8',
         );
-        const runtime = fs.readFileSync(
-            path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardInnerRuntime.tsx'),
+        expect(
+            fs.existsSync(
+                path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardInnerRuntime.tsx'),
+            ),
+        ).toBe(false);
+        expect(
+            fs.existsSync(path.join(root, 'src/app/runtime/innerRuntimeLoader.ts')),
+        ).toBe(false);
+        const fullHost = fs.readFileSync(
+            path.join(
+                root,
+                'src/app/components/lawyer/dashboard/LawyerDashboardFullOrchestrationHost.tsx',
+            ),
             'utf8',
         );
-        expect(inner).toContain("from '@/app/bootstrap/dashboardInteractiveMark'");
+        const fullBoot = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardFullBootPath.tsx'),
+            'utf8',
+        );
+        const stem = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/LawyerDashboard.tsx'),
+            'utf8',
+        );
+        expect(stem).not.toContain('markDashboardInteractiveOnce');
+        expect(inner).not.toContain("from '@/app/bootstrap/dashboardInteractiveMark'");
         expect(inner).not.toContain("from '@/app/bootstrap/bootMetrics'");
-        expect(inner).toContain('markDashboardInteractiveOnce');
-        expect(inner).toContain('LawyerDashboardInnerRuntime');
-        expect(inner).not.toMatch(/\blazy\s*\(/);
-        expect(inner).not.toMatch(/<Suspense/);
-        expect(inner).toMatch(
+        expect(inner).not.toContain('markDashboardInteractiveOnce');
+        expect(inner).toContain('LawyerDashboardFullBootPath');
+        expect(inner).not.toContain('LawyerDashboardStemInstantBridge');
+        expect(inner).not.toContain('loadLawyerDashboardMinimalBoot');
+        expect(inner).not.toContain('getLawyerDashboardMinimalBootSync');
+        expect(inner).not.toContain('loadLawyerDashboardInnerRuntime');
+        expect(inner).not.toContain('useLayoutEffect');
+        expect(inner).not.toContain('PROFILE_PROMOTE_SHELL_EVENT');
+        expect(inner).not.toContain('warmLawyerDashboardFirstTabChunks');
+        expect(inner).not.toContain('LazyLawyerDashboardFullBootPath');
+        expect(inner).not.toMatch(
             /import\s*\{[^}]*LawyerDashboardInnerRuntime[^}]*\}\s*from\s*'\.\/LawyerDashboardInnerRuntime'/,
         );
+        expect(
+            fs.existsSync(path.join(root, 'src/app/runtime/minimalBootLoader.ts')),
+        ).toBe(false);
+        expect(
+            fs.existsSync(path.join(root, 'src/app/runtime/minimalHomeSurfaceLoader.ts')),
+        ).toBe(false);
+        expect(
+            fs.existsSync(
+                path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMinimalBootPath.tsx'),
+            ),
+        ).toBe(false);
         expect(inner).not.toContain('CriminalDashboardBridgeProvider');
         expect(inner).not.toContain('useLawyerDashboardCore');
         expect(inner).not.toMatch(/import\s*\{[^}]*QuantumTasksProvider/);
         expect(inner).not.toMatch(/<QuantumTasksProvider/);
         expect(shell).not.toMatch(/import\s*\{[^}]*QuantumTasksProvider/);
         expect(shell).not.toMatch(/<QuantumTasksProvider/);
-        expect(runtime).toMatch(/import\s*\{[^}]*QuantumTasksProvider/);
-        expect(runtime).toMatch(/<QuantumTasksProvider/);
-        expect(runtime).toContain('LawyerSettingsProvider');
-        expect(runtime).toMatch(
-            /import \{ LawyerDashboardMainView \} from '\.\/LawyerDashboardMainView'/,
-        );
-        expect(runtime).not.toMatch(/lazyWithRetry\s*\(/);
+        expect(fullBoot).not.toMatch(/import\s*\{[^}]*QuantumTasksProvider/);
+        expect(fullBoot).not.toMatch(/<QuantumTasksProvider/);
+        expect(fullBoot).toContain('primeQuantumTasksBootMetrics');
+        expect(inner).toContain('LawyerSettingsBootProvider');
+        expect(inner).not.toContain('LawyerSettingsProvider');
+        expect(fullBoot).not.toContain('LawyerSettingsProvider');
+        expect(fullBoot).not.toContain('LawyerDashboardHomeFirstPaint');
+        expect(fullHost).toContain('LawyerDashboardMainView');
+        expect(fullHost).toContain('useLawyerDashboardCoreOrchestration');
         const preload = fs.readFileSync(path.join(root, 'src/boot/bootCriticalPreload.ts'), 'utf8');
-        expect(preload).toContain('LawyerDashboardMainView');
-        expect(preload).toContain('LawyerHomeHubCard');
+        expect(preload).not.toContain('LawyerDashboardMainView');
+        expect(preload).toContain('prefetchLawyerDashboardInner');
+        expect(preload).not.toContain('prefetchLawyerDashboardMinimalBoot');
+        const firstTabWarm = fs.readFileSync(
+            path.join(root, 'src/app/runtime/lawyerDashboardFirstTabWarm.ts'),
+            'utf8',
+        );
+        expect(firstTabWarm).toContain('LawyerDashboardMainView');
+        expect(firstTabWarm).toContain('warmLawyerDashboardFullBootChunks');
+        expect(preload).not.toContain('deferInnerRuntimePreloadAfterBoot');
+        expect(preload).not.toContain('innerRuntimeLoader');
+        expect(preload).not.toMatch(/import\('@\/app\/components\/lawyer\/LawyerHomeHubCard'\)/);
         const index = fs.readFileSync(path.join(root, 'src/index.tsx'), 'utf8');
         expect(index).toContain('kickoffBootCriticalPreload');
         const viteCfg = fs.readFileSync(path.join(root, 'vite.config.mts'), 'utf8');

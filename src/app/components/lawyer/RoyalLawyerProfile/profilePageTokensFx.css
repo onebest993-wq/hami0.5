@@ -7,14 +7,6 @@
     --profile-block-text-color: #ffffff;
 }
 
-[data-lawyer-profile-root] .hami-profile-section-label {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.2em;
-    color: color-mix(in srgb, var(--profile-accent-ink) 70%, transparent);
-}
-
 [data-lawyer-profile-root] .hami-profile-accent-text {
     color: var(--profile-accent-ink);
 }
@@ -47,25 +39,6 @@
     );
 }
 
-[data-lawyer-profile-root] .hami-profile-accent-btn-solid {
-    background: linear-gradient(
-        to left,
-        var(--profile-accent),
-        color-mix(in srgb, var(--profile-accent) 82%, #000)
-    );
-    color: var(--profile-accent-on-solid);
-    box-shadow: 0 8px 24px color-mix(in srgb, var(--profile-accent) 35%, transparent);
-}
-
-[data-lawyer-profile-root] .hami-profile-identity-line {
-    background: linear-gradient(
-        to right,
-        transparent,
-        color-mix(in srgb, var(--profile-accent) 60%, transparent),
-        transparent
-    );
-}
-
 [data-lawyer-profile-root] .hami-profile-input {
     width: 100%;
     background: rgba(0, 0, 0, 0.3);
@@ -92,23 +65,39 @@
 }
 
 [data-lawyer-profile-root] .hami-profile-camera-btn {
-    background: rgba(10, 12, 18, 0.72);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    position: absolute;
+    left: -6px;
+    bottom: -6px;
+    z-index: 30;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
     box-shadow: none;
+    color: #fff;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+[data-lawyer-profile-root] .hami-profile-camera-btn__glyph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 999px;
+    background: rgba(10, 12, 18, 0.82);
+    border: 1px solid color-mix(in srgb, var(--profile-accent) 32%, rgba(255, 255, 255, 0.18));
 }
 
 [data-lawyer-profile-root] .hami-profile-camera-btn:disabled {
     opacity: 0.45;
-}
-
-[data-lawyer-profile-root] .hami-profile-ambient-glow {
-    background: radial-gradient(
-        ellipse 90% 60% at 50% -10%,
-        color-mix(in srgb, var(--profile-accent) 14%, transparent),
-        transparent
-    );
 }
 

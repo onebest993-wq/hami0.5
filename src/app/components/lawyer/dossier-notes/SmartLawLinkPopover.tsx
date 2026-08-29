@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
 import type { ResolvedSmartLawArticle } from '@/app/services/dossier-notes/smartLawArticleResolver';
 import { lawLabelForId, type SmartLawId } from '@/app/services/dossier-notes/smartLawLinker';
 

@@ -1,0 +1,112 @@
+import type React from 'react';
+import type { CoerciveSeizureToolsSectionProps } from './CoerciveSeizureToolsSection';
+import type { EvictionProceduresSectionProps } from './EvictionProceduresSection';
+import type { EvictionTimelineActionId } from '@/app/utils/executionModuleStrategies';
+import type { EncroachmentCaseExpenseRow } from '@/app/utils/encroachmentRemovalRequests';
+import type { InlineActionGateKey } from '../types';
+import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
+import type { EvictionFieldProceduresPanelProps } from '@/app/components/lawyer/execution/evictionField';
+
+export interface CoerciveTabProps {
+    coerciveUiLocked: boolean;
+    isEvictionExecutionModule: boolean;
+    executionData: ExecutionFile | null | undefined;
+    gracePeriodEnded: boolean;
+    daysRemainingInGracePeriod: number;
+    executionStatus: string;
+    debtorAttendedVoluntarily: boolean;
+    lawyerStartedPostNoticeExecution: boolean;
+    registerDebtorVoluntaryAttendance: () => void;
+    openExecutionSeizuresTab: () => void;
+    EXEC_OVERLAY_LAZY_FALLBACK: React.ReactNode;
+    LazyEvictionFieldProceduresPanel: React.ComponentType<EvictionFieldProceduresPanelProps>;
+    evictionProcedureLocked: boolean;
+    evictionProcedureLockHint: string;
+    activeTimelineEvents: TimelineEvent[];
+    evictionPremisesUseResolved: string;
+    showResidentialEvictionGraceControl: boolean;
+    residentialGracePeriodSaved?: boolean;
+    openEvictionResidentialGraceModal: (opts?: { edit?: boolean }) => void;
+    showResidentialGraceEarlyEndRequest: boolean;
+    showBreakInventoryRequest?: boolean;
+    /** الخروج الميداني والقوة الجبرية — بعد انتهاء/إنهاء المهلة السكنية */
+    showEvictionFieldworkRequests?: boolean;
+    evictionHeirsNotificationDateYmd: string;
+    handleEvictionHeirsNotificationDateChange: (ymd: string) => void;
+    handleIssueHeirsExecutionNoticeMemo: () => void;
+    appendEvictionProcedure: (procedure: {
+        actionId: EvictionTimelineActionId;
+        title: string;
+        description: string;
+    }) => void;
+    tryOpenPendingBreakInventoryLedger: () => boolean;
+    tryOpenPendingCustodianDetails: () => boolean;
+    saveJudicialCustodianDetails?: (input: {
+        decisionId: string;
+        name: string;
+        salary: string;
+    }) => void;
+    openPoliceAssistanceDetails?: (input: { decisionId: string; requestTitle: string }) => void;
+    savePoliceAssistance?: (input: {
+        decisionId: string;
+        agencyName: string;
+        linkToTasks: boolean;
+    }) => void;
+    saveBreakInventoryLedger?: EvictionProceduresSectionProps['saveBreakInventoryLedger'];
+    finalizeBreakInventoryRequest?: EvictionProceduresSectionProps['finalizeBreakInventoryRequest'];
+    isMaritalFurnitureClaim?: boolean;
+    maritalFurnitureItems?: EvictionProceduresSectionProps['maritalFurnitureItems'];
+    saveMaritalFurnitureDeliveryInventory?: EvictionProceduresSectionProps['saveMaritalFurnitureDeliveryInventory'];
+    onOpenDecisionsModal?: EvictionProceduresSectionProps['onOpenDecisionsModal'];
+    expandProcedureKey?: EvictionProceduresSectionProps['expandProcedureKey'];
+    onExpandProcedureConsumed?: EvictionProceduresSectionProps['onExpandProcedureConsumed'];
+    followupEmployeeFinancialSalaryOnlyCoercive: boolean;
+    followupMonetaryCoerciveLimitedOnly: boolean;
+    hideCoerciveGraceNoticeBanner?: boolean;
+    hideCoerciveFinancialBanners?: boolean;
+    hideCoerciveSeizureSalaryAndProperty?: boolean;
+    hideEncroachmentEvictionProcedureItems?: boolean;
+    showEncroachmentRemovalRequestCards?: boolean;
+    showSpecificDeliverySurveyorCard?: boolean;
+    showSpecificDeliveryConversionCard?: boolean;
+    showSpecificDeliveryBreakInventoryCard?: boolean;
+    showSpecificDeliveryFieldProcedures?: boolean;
+    showGenericFieldProcedureCards?: boolean;
+    isSpecificDeliveryModule?: boolean;
+    hideEvictionCustodianProcedure?: boolean;
+    specificDeliveryFinancialized?: boolean;
+    specificDeliveryItemName?: string;
+    specificDeliveryItemNature?: string | null;
+    specificDeliveryItems?: import('@/app/utils/specificDeliveryItemsUtils').SpecificDeliveryItem[] | null;
+    debtAmount?: number | null;
+    totalAmount?: number | null;
+    specificDeliveryConvertedAmount?: number | null;
+    onSpecificDeliveryFinancialized?: (amount: number, itemId?: string) => void;
+    onSpecificDeliveryItemDeclaredDestroyed?: (itemId: string) => void;
+    onEncroachmentExpenseRecorded?: (row: EncroachmentCaseExpenseRow) => void;
+    onSpecificDeliveryExpenseRecorded?: (
+        row: import('@/app/utils/specificDeliveryPropertyExpertRequest').SpecificDeliveryCaseExpenseRow
+    ) => void;
+    executionCoerciveButtonDisabled: boolean;
+    inlineActionGateKey: InlineActionGateKey | null;
+    setInlineActionGateKey: (key: InlineActionGateKey | null) => void;
+    handleCoerciveAction: (type: string) => void;
+    handleEndGracePeriod: () => void;
+    appendEvictionExecutorRequest: EvictionProceduresSectionProps['appendEvictionExecutorRequest'];
+    decisionsStorageExecutionId: string | undefined;
+    showToast: EvictionProceduresSectionProps['showToast'];
+    EVICTION_TIMELINE_ACTION_IDS: EvictionProceduresSectionProps['EVICTION_TIMELINE_ACTION_IDS'];
+    activeDebtorIsEmployee: boolean;
+    activeDebtorIsDeceased?: boolean;
+    activeCoerciveActions: string[];
+    followupSalarySeizureLabel: string;
+    followupGarnishmentAmountPreview: string | number | null | undefined;
+    hideFollowupCoerciveTab?: boolean;
+    isHistoricalMode?: boolean;
+    /** نوع المطالبة — يُستخدم كاحتياط لإظهار بطاقات إزالة التجاوز */
+    claimType?: string | null;
+    saveCoerciveAction?: CoerciveSeizureToolsSectionProps['saveCoerciveAction'];
+    pushTimelineEvent?: CoerciveSeizureToolsSectionProps['pushTimelineEvent'];
+    nextTimelineId?: () => string;
+    persistExecutionMerge?: (patch: Record<string, unknown>) => void;
+}

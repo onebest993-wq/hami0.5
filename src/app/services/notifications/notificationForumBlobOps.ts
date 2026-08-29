@@ -96,7 +96,3 @@ export function mergeLegacyForumIntoModels(
     }
     return next;
 }
-
-export function isForumModel(n: NotificationModel): boolean {
-    return deriveNotificationCategory(n) === 'forum';
-}

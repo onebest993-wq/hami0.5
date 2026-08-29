@@ -1,24 +1,24 @@
-import React, { useEffect, useState, memo, lazy, Suspense } from 'react';
+import React, { useEffect, useState, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { BookOpen, ChevronDown, X } from '@/app/components/ui/lucideIcons';
+import { BookOpen } from '@/app/components/ui/icons/BookOpen';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
+import { X } from '@/app/components/ui/icons/X';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 import { prefetchCivilLawArticles } from '@/app/utils/civilLawRemoteCache';
 import { SMART_FILE_FULLSCREEN_PANEL_OVERLAY_CLASS } from '../smartFile/smartFileOverlayZ';
+import { SMART_MODAL_MOTION_PANEL_ENTER } from '../smartFile/smartModalMotionClasses';
 import { registerSmartFileInlineOverlay } from '../smartFile/smartFileInlineOverlayRegistry';
 import { COMPACT_HUB_TRIGGER_SKY } from '../smartFile/compactHubTrigger';
-
-const LazyCivilLawReferencePanel = lazy(() =>
-    import('./CivilLawReferencePanel').then((m) => ({ default: m.CivilLawReferencePanel })),
-);
+import { CivilLawReferencePanel } from './CivilLawReferencePanel';
 
 const GLASS_TRIGGER =
-    'w-full min-h-[72px] px-3 rounded-xl border border-sky-400/22 bg-[#0A0F1C]/40 backdrop-blur-md hover:bg-[#0A0F1C]/55 hover:border-sky-400/38 flex flex-col items-center justify-center gap-1 transition-all text-center shadow-[0_4px_24px_rgba(0,0,0,0.25)]';
+    'w-full min-h-[44px] px-3 py-2 rounded-xl border border-white/[0.10] bg-[#0A0F1C] hover:bg-[#12182a] hover:border-white/[0.16] flex flex-col items-center justify-center gap-1 transition-colors text-center';
 
 const GLASS_OVERLAY = SMART_FILE_FULLSCREEN_PANEL_OVERLAY_CLASS;
 const GLASS_SHELL =
-    'w-full h-full flex flex-col bg-[#0A0F1C]/92 backdrop-blur-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]';
+    `w-full h-full flex flex-col bg-[#080C16] overflow-hidden ${SMART_MODAL_MOTION_PANEL_ENTER} pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]`;
 const GLASS_HEADER =
-    'relative px-5 sm:px-8 py-4 border-b border-sky-400/15 bg-gradient-to-l from-sky-400/10 via-transparent to-transparent flex justify-between items-center shrink-0';
+    'relative px-4 sm:px-6 py-2.5 border-b border-white/[0.07] bg-[#0A0F1C] flex justify-between items-center shrink-0';
 
 export interface CivilLawReferenceHubProps {
     readOnly?: boolean;
@@ -53,6 +53,11 @@ export const CivilLawReferenceHub = memo(function CivilLawReferenceHub({
         };
     }, [panelOpen]);
 
+    const openPanel = () => {
+        prefetchCivilLawArticles(['civil_procedure', 'evidence']);
+        setPanelOpen(true);
+    };
+
     const panel =
         panelOpen && typeof document !== 'undefined'
             ? createPortal(
@@ -84,7 +89,7 @@ export const CivilLawReferenceHub = memo(function CivilLawReferenceHub({
                               <div className="flex-1 text-center min-w-0 px-2">
                                   <h2
                                       id="civil-law-reference-title"
-                                      className="text-sm sm:text-base font-bold text-sky-100"
+                                      className="text-sm font-bold text-white/90"
                                   >
                                       المرجع القانوني للدعوى المدنية
                                   </h2>
@@ -94,15 +99,7 @@ export const CivilLawReferenceHub = memo(function CivilLawReferenceHub({
                               </div>
                               <span className="w-9 shrink-0" aria-hidden />
                           </div>
-                          <Suspense
-                              fallback={
-                                  <div className="flex-1 flex items-center justify-center text-white/45 text-sm">
-                                      جاري تحميل المرجع القانوني…
-                                  </div>
-                              }
-                          >
-                              <LazyCivilLawReferencePanel />
-                          </Suspense>
+                          <CivilLawReferencePanel />
                       </div>
                   </div>,
                   document.body,
@@ -123,14 +120,15 @@ export const CivilLawReferenceHub = memo(function CivilLawReferenceHub({
             <button
                 type="button"
                 data-testid={CIVIL_LAWSUIT_TEST_IDS.civilLawReferenceOpen}
-                onClick={() => setPanelOpen(true)}
+                onPointerDown={() => prefetchCivilLawArticles(['civil_procedure', 'evidence'])}
+                onClick={openPanel}
                 className={compact ? COMPACT_HUB_TRIGGER_SKY : `${GLASS_TRIGGER} mb-2`}
             >
                 <div className="flex items-center gap-1.5 min-w-0">
-                    <BookOpen size={14} className="text-sky-300 shrink-0" aria-hidden />
-                    <span className="font-bold text-sky-200 text-[11px] truncate">المرجع القانوني</span>
+                    <BookOpen size={14} className="text-white/55 shrink-0" aria-hidden />
+                    <span className="font-bold text-white/85 text-[11px] truncate">المرجع القانوني</span>
                 </div>
-                <ChevronDown size={14} className="text-sky-300/50 shrink-0" aria-hidden />
+                <ChevronDown size={14} className="text-white/35 shrink-0" aria-hidden />
             </button>
         </div>
     );

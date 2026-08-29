@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { FOLLOWUP_SCENARIO_CATALOG } from '../followupScenarioDefinitions';
-import { resolveFollowupScenario } from '../followupScenarioResolver';
+import { FOLLOWUP_SCENARIO_CATALOG } from './support/followupScenarioDefinitions';
+import { resolveFollowupScenario } from './support/followupScenarioResolver';
 
 describe('followupScenarioMatrix', () => {
     it('catalog has minimum coverage breadth', () => {

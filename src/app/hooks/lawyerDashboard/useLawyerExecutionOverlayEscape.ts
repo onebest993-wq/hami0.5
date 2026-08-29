@@ -1,15 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
-import { runExecutionDossierBackFromRegistryOrStore } from '@/app/components/lawyer/ExecutionDashboard/utils/executionDossierBackHandlerRegistry';
+import { hasExecutionArchiveTrashDialogsLayer } from '@/app/components/lawyer/ArchivePortal/executionArchiveTrashDialogsLayer';
+import { hasExecutionArchivePreviewLayer } from '@/app/components/lawyer/ArchivePortal/executionArchivePreviewLayer';
 
-type UseLawyerExecutionOverlayEscapeParams = {
-    archiveOpen: boolean;
-    executionFileOpen: boolean;
-    executionCreateOpen?: boolean;
-    onCloseArchive: () => void;
-    onCloseExecutionFile: () => void;
-    onCloseExecutionCreate?: () => void;
-};
+type ExecutionDossierBackModule =
+    typeof import('@/app/components/lawyer/ExecutionDashboard/utils/executionDossierBackHandlerRegistry');
 
 type ExecutionDashboardStoreMod = typeof import('@/app/stores/executionDashboardStore');
 
@@ -27,6 +22,12 @@ function warmExecutionDashboardStore(): void {
         .catch(() => null as unknown as ExecutionDashboardStoreMod);
 }
 
+function warmExecutionDossierBackModule(): Promise<ExecutionDossierBackModule> {
+    return import(
+        '@/app/components/lawyer/ExecutionDashboard/utils/executionDossierBackHandlerRegistry'
+    );
+}
+
 function hasExecutionDashboardModalStateOpen(): boolean {
     const getState = executionStoreMod?.useExecutionDashboardStore?.getState;
     if (!getState) return false;
@@ -42,6 +43,15 @@ function hasNestedBlockingDialog(): boolean {
     const dialogNodes = document.querySelectorAll('[role="dialog"], [role="alertdialog"]');
     return dialogNodes.length > 0;
 }
+
+export type UseLawyerExecutionOverlayEscapeParams = {
+    archiveOpen: boolean;
+    executionFileOpen: boolean;
+    executionCreateOpen?: boolean;
+    onCloseArchive: () => void;
+    onCloseExecutionFile: () => void;
+    onCloseExecutionCreate?: () => void;
+};
 
 export function resolveExecutionOverlayBackAction(input: {
     archiveOpen: boolean;
@@ -63,14 +73,23 @@ export function useLawyerExecutionOverlayEscape({
     onCloseExecutionFile,
     onCloseExecutionCreate,
 }: UseLawyerExecutionOverlayEscapeParams): void {
+    const backModuleRef = useRef<ExecutionDossierBackModule | null>(null);
+
     useEffect(() => {
         if (!archiveOpen && !executionFileOpen && !executionCreateOpen) return;
 
-        if (executionFileOpen) warmExecutionDashboardStore();
+        if (executionFileOpen || archiveOpen) {
+            warmExecutionDashboardStore();
+            void warmExecutionDossierBackModule().then((m) => {
+                backModuleRef.current = m;
+            });
+        }
 
         const closeTopLayer = (): boolean => {
             if (executionFileOpen) {
-                if (runExecutionDossierBackFromRegistryOrStore()) return true;
+                if (backModuleRef.current?.runExecutionDossierBackFromRegistryOrStore()) {
+                    return true;
+                }
                 if (hasExecutionDashboardModalStateOpen() || hasNestedBlockingDialog()) {
                     return false;
                 }
@@ -89,6 +108,9 @@ export function useLawyerExecutionOverlayEscape({
                 return true;
             }
             if (action === 'close-archive') {
+                if (hasExecutionArchiveTrashDialogsLayer() || hasExecutionArchivePreviewLayer()) {
+                    return false;
+                }
                 onCloseArchive();
                 return true;
             }

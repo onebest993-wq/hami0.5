@@ -30,5 +30,7 @@ export function getLegalRoleTitle(baseRole: string, count: number): string {
         if (r.includes("طالب تدخل")) return "طالبو تدخل";
         return r + "ون"; // Default fallback
     }
-};
+
+    return r;
+}
 

@@ -6,7 +6,7 @@ import {
 
 describe('filterActionsForVisitor (P0)', () => {
     const actions = [
-        { id: 'a1', label: 'واتساب' },
+        { id: 'a1', label: 'موقع' },
         { id: 'a2', label: 'هاتف' },
         { id: 'a3', label: 'بريد' },
     ];

@@ -10,7 +10,7 @@ function startOfLocalDay(d: Date = new Date()): Date {
     return x;
 }
 
-function getSaturdayOfWeekContaining(ref: Date): Date {
+export function getSaturdayOfWeekContaining(ref: Date): Date {
     const d = startOfLocalDay(ref);
     const dow = d.getDay();
     const daysFromSat = (dow - 6 + 7) % 7;
@@ -21,6 +21,20 @@ function getSaturdayOfWeekContaining(ref: Date): Date {
 
 export function isTaskMarkedDone(task: LegalTask): boolean {
     return task.completedAt != null;
+}
+
+/** يوم المهمة في الأجندة — تاريخ المهمة أو يوم الإنجاز للمهام بلا تاريخ */
+export function getTaskAgendaDay(task: LegalTask): Date | null {
+    if (task.parsedDate) return startOfLocalDay(task.parsedDate);
+    if (task.completedAt) return startOfLocalDay(task.completedAt);
+    return null;
+}
+
+/** بعد انتهاء يوم المهمة: بطاقة للمعاينة فقط */
+export function isTaskAgendaReadOnly(task: LegalTask, now = new Date()): boolean {
+    const taskDay = getTaskAgendaDay(task);
+    if (!taskDay) return false;
+    return startOfLocalDay(taskDay).getTime() < startOfLocalDay(now).getTime();
 }
 
 export function isTaskInCurrentAgendaWeek(task: LegalTask, now = new Date()): boolean {

@@ -24,7 +24,6 @@ export function isSmartFileNestedOverlayOpen(portal: SmartFileModalsPortalProps 
         portal.showPauseResumeModal ||
         portal.showInterlocutoryModal ||
         portal.showObjectionRegistrationModal ||
-        portal.showObjectionJudgmentModal ||
         portal.showAbsentJudgmentNotificationModal ||
         portal.showOpponentAbsentObjectionModal ||
         portal.showJudgmentModal ||

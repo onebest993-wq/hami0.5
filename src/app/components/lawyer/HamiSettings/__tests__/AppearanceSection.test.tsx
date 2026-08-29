@@ -4,6 +4,7 @@ import React from 'react';
 import { AppearanceSection } from '@/app/components/lawyer/HamiSettings/appearance/AppearanceSection';
 
 const patchAppearance = vi.fn();
+const patchPerformance = vi.fn();
 const setBlockCustomizePanelOpen = vi.fn();
 
 vi.mock('@/app/components/lawyer/HamiSettings/appearance/useAppearanceSection', () => ({
@@ -12,6 +13,7 @@ vi.mock('@/app/components/lawyer/HamiSettings/appearance/useAppearanceSection', 
             theme: 'gold',
             shape: 'rounded',
             fontSize: 16,
+            fontPreset: 'medium',
             glassOpacity: 0.5,
             backgroundPatternOpacity: 0.3,
             homeContainerBorder: true,
@@ -33,7 +35,6 @@ vi.mock('@/app/components/lawyer/HamiSettings/appearance/useAppearanceSection', 
         activeTheme: 'gold',
         activeThemeKey: 'gold',
         activeThemeToken: { name: 'ذهبي', primary: '#E6C673', bg: '#0A0F1C' },
-        themeToken: { name: 'ذهبي', primary: '#E6C673', bg: '#0A0F1C' },
         visibleThemeKeys: ['gold'],
         hiddenThemeCount: 19,
         selectTheme: vi.fn(),
@@ -86,24 +87,37 @@ vi.mock('@/app/components/lawyer/HamiSettings/appearance/useAppearanceSection', 
         removeWallpaper: vi.fn(),
         previewBaseColor: '#0A0F1C',
         patchAppearance,
-        patchPerformance: vi.fn(),
+        patchPerformance,
     }),
 }));
 
 describe('AppearanceSection', () => {
     beforeEach(() => vi.clearAllMocks());
 
-    it('يعرض قسم المنظر', () => {
+    it('يعرض مفتاح تقليل الحركة داخل فصل الواجهة', () => {
         render(<AppearanceSection />);
-        expect(screen.getByTestId('settings-section-appearance')).toBeInTheDocument();
+        expect(screen.getByTestId('settings-toggle-appearance-reduceMotion')).toBeInTheDocument();
     });
 
-    it('يعرض مفتاح تقليل الحركة المربوط', () => {
+    it('يعرض صفوف الخط والتباين والأداء الخفيف', () => {
         render(<AppearanceSection />);
-        const toggle = screen.getByTestId('settings-toggle-appearance-reduceMotion');
-        expect(toggle).toHaveAttribute('aria-checked', 'false');
-        fireEvent.pointerDown(toggle);
-        expect(patchAppearance).toHaveBeenCalledWith({ reduceMotion: true });
+        expect(screen.getByTestId('settings-font-preset-medium')).toBeInTheDocument();
+        expect(screen.getByTestId('settings-toggle-appearance-highContrast')).toBeInTheDocument();
+        expect(screen.getByTestId('settings-lite-auto')).toBeInTheDocument();
+    });
+
+    it('يُرقّع حجم الخط مع الـ preset معاً', () => {
+        render(<AppearanceSection />);
+        fireEvent.click(screen.getByTestId('settings-font-preset-large'));
+        expect(patchAppearance).toHaveBeenCalledWith({ fontPreset: 'large', fontSize: 18 });
+    });
+
+    it('يُرقّع التباين العالي والأداء الخفيف', () => {
+        render(<AppearanceSection />);
+        fireEvent.click(screen.getByTestId('settings-toggle-appearance-highContrast'));
+        expect(patchAppearance).toHaveBeenCalledWith({ highContrast: true });
+        fireEvent.click(screen.getByTestId('settings-lite-on'));
+        expect(patchPerformance).toHaveBeenCalledWith({ litePerformance: 'on' });
     });
 
     it('يفتح تخصيص القسم فوراً عند pointerDown', () => {
@@ -114,5 +128,16 @@ describe('AppearanceSection', () => {
         const arg = setBlockCustomizePanelOpen.mock.calls[0]?.[0];
         expect(typeof arg).toBe('function');
         expect(arg(false)).toBe(true);
+    });
+
+    it('لا يركّب صورة الخلفية حتى فتح الفصل', async () => {
+        render(<AppearanceSection />);
+        expect(screen.queryByTestId('settings-wallpaper-upload')).toBeNull();
+        const wallpaper = screen.getByTestId('appearance-chapter-wallpaper');
+        fireEvent.pointerDown(wallpaper);
+        fireEvent.click(wallpaper);
+        expect(
+            await screen.findByTestId('settings-wallpaper-upload', {}, { timeout: 8_000 }),
+        ).toBeInTheDocument();
     });
 });

@@ -24,7 +24,7 @@ function tabBtn(active: boolean): string {
     ].join(' ');
 }
 
-export interface PersonalStatusLawReferencePanelProps {
+interface PersonalStatusLawReferencePanelProps {
     applicableLaw: PersonalApplicableLaw | '' | undefined;
 }
 

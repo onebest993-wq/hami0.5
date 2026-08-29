@@ -3,8 +3,8 @@ import {
     FOLLOWUP_ACTION_REGISTRY,
     FOLLOWUP_REGISTRY_ACTION_IDS,
     registryIdForHiddenPersonalKey,
-} from '../followupActionRegistry';
-import { resolveFollowupHiddenActions } from '../resolveFollowupHiddenActions';
+} from './support/followupActionRegistry';
+import { resolveFollowupHiddenActions } from './support/resolveFollowupHiddenActions';
 
 describe('followupActionRegistry', () => {
     it('covers all hidden personal and guarantor catalog keys', () => {
@@ -71,5 +71,15 @@ describe('resolveFollowupHiddenActions', () => {
         expect(snapshot.breakInventoryVisible).toBe(true);
         expect(snapshot.hasAnyHiddenContent).toBe(true);
         expect(snapshot.registryActionIds).toContain('hidden:break_inventory');
+    });
+
+    it('treats alimony claim type as personal guarantor claim', () => {
+        const snapshot = resolveFollowupHiddenActions({
+            claimType: 'نفقة',
+            isEmployee: true,
+            financialCenterTotalIqd: 400_000,
+            guarantorFollowupActive: false,
+        });
+        expect(snapshot.hiddenGuarantorKeys.length).toBeGreaterThan(0);
     });
 });

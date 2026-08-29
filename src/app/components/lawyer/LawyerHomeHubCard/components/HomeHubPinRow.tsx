@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { Pin } from '@/app/components/ui/lucideIcons';
+import { Pin } from '@/app/components/ui/icons/Pin';
+import { useScrollSafePress } from '@/app/hooks/useScrollSafePress';
 import {
     resolveHomeHubPinNavigateAriaLabel,
     resolveHomeHubPinUnpinAriaLabel,
@@ -7,11 +8,9 @@ import {
 import { clusterPinDisplayMeta } from '@/app/workspace/clusterPinDisplay';
 import { workspacePinVisual } from '@/app/workspace/workspacePinVisuals';
 import type { ClusterPinView } from '@/app/workspace/types';
+import { HUB_CONTENT_BUTTON_A11Y } from '../homeHub/homeHubA11y';
 
-const HUB_CONTENT_BUTTON_A11Y =
-    'outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1C]';
-
-export type HomeHubPinRowProps = {
+type HomeHubPinRowProps = {
     view: ClusterPinView;
     onNavigate: (routePath: string) => void;
     onUnpin: (id: string, type: ClusterPinView['pin']['type']) => void;
@@ -34,6 +33,12 @@ export const HomeHubPinRow = memo(function HomeHubPinRow({
         relatedCount: related.length,
     });
     const unpinLabel = resolveHomeHubPinUnpinAriaLabel(meta.headline);
+    const openPress = useScrollSafePress({
+        onPress: () => onNavigate(pin.routePath),
+    });
+    const unpinPress = useScrollSafePress({
+        onPress: () => onUnpin(pin.id, pin.type),
+    });
 
     return (
         <div
@@ -43,9 +48,9 @@ export const HomeHubPinRow = memo(function HomeHubPinRow({
         >
             <button
                 type="button"
-                onClick={() => onNavigate(pin.routePath)}
                 aria-label={navigateLabel}
                 className={`flex-1 min-w-0 text-right min-h-[44px] rounded-lg touch-manipulation ${HUB_CONTENT_BUTTON_A11Y}`}
+                {...openPress}
             >
                 <p className="text-[11px] font-bold text-white/85 truncate">{meta.headline}</p>
                 <p className="text-[9px] text-white/40 truncate">
@@ -56,15 +61,12 @@ export const HomeHubPinRow = memo(function HomeHubPinRow({
             </button>
             <button
                 type="button"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onUnpin(pin.id, pin.type);
-                }}
                 className={`min-w-[44px] min-h-[44px] flex items-center justify-center border shrink-0 touch-manipulation ${visual.button} ${visual.accent} ${HUB_CONTENT_BUTTON_A11Y}`}
                 title={unpinLabel}
                 aria-label={unpinLabel}
+                {...unpinPress}
             >
-                <Pin size={11} className="fill-current" />
+                <Pin size={11} className="fill-current" aria-hidden />
             </button>
         </div>
     );

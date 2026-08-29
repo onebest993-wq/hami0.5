@@ -1,6 +1,7 @@
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import { listLinkableDossiers, type DossierKind } from './repositoryDossierRegistry';
+import { stripRepositoryHtml } from './stripRepositoryHtml';
 
 export type DossierNoteRef = {
     id: string;
@@ -13,12 +14,8 @@ export type DossierNoteRef = {
     isPinned?: boolean;
 };
 
-function stripHtml(text: string): string {
-    return text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
 function excerptFromBody(body: string, max = 120): string {
-    const plain = stripHtml(body);
+    const plain = stripRepositoryHtml(body);
     if (plain.length <= max) return plain;
     return `${plain.slice(0, max)}…`;
 }

@@ -57,7 +57,7 @@ export function openExecutionDossierWithContract(
     commit();
 }
 
-/** تسخين نموذج الإنشاء — fire-and-forget؛ BootShell يغطي إن لم يكتمل */
+/** تسخين نموذج الإنشاء — fire-and-forget؛ الهيكل الهندسي يغطي إن لم يكتمل */
 export function prepareExecutionCreationOpen(): void {
     if (typeof window === 'undefined') return;
     void loadExecutionCreationLoader()

@@ -5,6 +5,7 @@ import {
     markSettingsPerfPhase,
     reportSettingsPerf,
 } from '@/app/services/settings/settingsPerfMetrics';
+import { SETTINGS_INTERACTIVE_FALLBACK_MS } from '@/app/services/settings/settingsPerfBudget';
 import { observeSettingsSectionInteractive } from '@/app/components/lawyer/HamiSettings/hooks/observeSettingsSectionInteractive';
 
 export function useSettingsLifecycle(
@@ -45,7 +46,7 @@ export function useSettingsLifecycle(
         });
 
         /* احتياطي — لا يبقى open→interactive معلّقاً إن تأخّر القسم (S1/S9) */
-        const fallback = window.setTimeout(markInteractiveNow, 1_200);
+        const fallback = window.setTimeout(markInteractiveNow, SETTINGS_INTERACTIVE_FALLBACK_MS);
 
         return () => {
             stopObserve();

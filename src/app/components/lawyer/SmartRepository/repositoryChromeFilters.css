@@ -1,0 +1,207 @@
+.hami-repository-search-deck {
+    min-height: 2.75rem;
+    contain: layout style;
+}
+
+.hami-repository-search-deck__row {
+    min-height: 2.75rem;
+}
+
+.hami-repository-filter-popover {
+    min-width: 15rem;
+    max-width: min(92vw, 17rem);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #121826;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+    padding: 0.35rem;
+    touch-action: pan-y;
+    transform-origin: top right;
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+    transition:
+        opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+}
+
+.hami-repository-filter-popover--visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
+.hami-repository-filter-popover--hidden {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hami-repository-filter-popover {
+        transition: opacity 0.12s ease;
+        transform: none;
+    }
+
+    .hami-repository-filter-popover--visible,
+    .hami-repository-filter-popover--hidden {
+        transform: none;
+    }
+}
+
+.hami-repository-view-segment {
+    display: inline-flex;
+    align-items: stretch;
+    position: relative;
+    z-index: 2;
+    height: 2.75rem;
+    padding: 0;
+    gap: 0;
+    border-radius: 0.75rem;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    pointer-events: auto;
+}
+
+.hami-repository-view-segment--disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.hami-repository-view-segment__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0 0.55rem;
+    border-radius: 0.75rem;
+    border: 0;
+    color: rgba(255, 255, 255, 0.4);
+    background: transparent;
+    /* بلا transition — WebKit يعتبر الزر غير مستقر أثناء نقر التخطيط */
+    transition: none;
+}
+
+.hami-repository-view-segment__btn:hover {
+    color: rgba(255, 255, 255, 0.72);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.hami-repository-view-segment__btn--active {
+    color: #e6c673;
+    background: rgba(230, 198, 115, 0.12);
+}
+
+.hami-repository-view-segment__btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.hami-repository-filter-deck {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    touch-action: pan-y;
+}
+
+.hami-repository-filter-deck::-webkit-scrollbar {
+    display: none;
+}
+
+.hami-repository-filter-popover .hami-repository-filter-deck__heading {
+    padding: 0.2rem 0.45rem 0.05rem;
+    font-size: 9px;
+}
+
+.hami-repository-filter-popover .hami-repository-filter-deck__row {
+    min-height: 44px;
+    padding: 0 0.55rem;
+    border-radius: 0.75rem;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.hami-repository-filter-popover .hami-repository-filter-deck__count {
+    font-size: 9px;
+}
+
+.hami-repository-filter-deck__heading {
+    margin: 0;
+    padding: 0.35rem 0.5rem 0.125rem;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.38);
+}
+
+.hami-repository-filter-deck__list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.hami-repository-filter-deck__row {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0 0.75rem;
+    border-radius: 0.75rem;
+    border: 0;
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 12px;
+    font-weight: 500;
+    text-align: right;
+    transition:
+        color 100ms ease,
+        background-color 100ms ease,
+        border-color 100ms ease;
+}
+
+.hami-repository-filter-deck__row:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.hami-repository-filter-deck__row--active {
+    background: rgba(230, 198, 115, 0.14);
+    color: #e6c673;
+}
+
+.hami-repository-filter-deck__row--add {
+    justify-content: flex-start;
+    gap: 0.5rem;
+    margin-top: 0.15rem;
+}
+
+.hami-repository-filter-deck__label {
+    flex: 1;
+    min-width: 0;
+    text-align: right;
+}
+
+.hami-repository-filter-deck__count {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 500;
+}
+

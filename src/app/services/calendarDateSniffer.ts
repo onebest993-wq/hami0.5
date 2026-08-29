@@ -11,7 +11,7 @@
  * - تواريخ النظام (createdAt / updatedAt / trashedAt …) مستبعَدة.
  * - المسارات الكنسية (timeline[]، tasks[]، trials[]، steps[] …) مستبعَدة لأنها مزامنة صراحةً.
  */
-import { normalizeDateToYmd } from './calendarBridge';
+import { normalizeDateToYmd } from '@/app/services/calendar/bridge/core';
 import type { CalendarSourceModule } from './calendarBridge.types';
 import type { CalendarEventType } from '@/app/services/calendar/calendarTypes';
 
@@ -78,7 +78,7 @@ const CANONICAL_PATH_PATTERNS: RegExp[] = [
 const STRUCTURAL_SKIP_KEYS = new Set<string>([
     'id', 'userId', 'ownerId', 'lawyerId', 'caseId', 'fileId',
     'avatar', 'avatarUrl', 'photo', 'photoUrl', 'imageUrl',
-    'phone', 'phoneNumber', 'mobile', 'whatsapp', 'email',
+    'phone', 'phoneNumber', 'mobile', 'email',
     'address', 'postalCode', 'iban', 'accountNumber',
 ]);
 

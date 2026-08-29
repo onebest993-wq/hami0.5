@@ -9,7 +9,7 @@ describe('appearanceBlockCatalog', () => {
         expect(APPEARANCE_BLOCK_SCOPE_IDS).not.toContain('dockShell');
     });
 
-    it('يسمّي بطاقة التنبيهات بالبطاقة الذكية', () => {
-        expect(appearanceBlockLabel('alerts')).toBe('البطاقة الذكية');
+    it('يسمّي بطاقة التنبيهات بالبطاقة', () => {
+        expect(appearanceBlockLabel('alerts')).toBe('البطاقة');
     });
 });

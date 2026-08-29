@@ -3,7 +3,7 @@ import { formatDateText } from '../../utils/formatters';
 import { maxYmd } from '../../utils/ymd';
 import type { UseOrderFileLifecycleDerivedArgs } from './types';
 
-export type GrievancePhase = { effectiveJudgeDecision: string | null; effectiveJudgeDecisionDate: string; effectiveRejectionNotificationDate: string; judgePhaseComplete: boolean; showGrievanceLifecycle: boolean };
+type GrievancePhase = { effectiveJudgeDecision: string | null; effectiveJudgeDecisionDate: string; effectiveRejectionNotificationDate: string; judgePhaseComplete: boolean; showGrievanceLifecycle: boolean };
 
 export function useGrievanceWizardDerived(args: UseOrderFileLifecycleDerivedArgs, phase: GrievancePhase) {
     const {
@@ -58,7 +58,7 @@ const grievanceLegalEndDateChronologyError = useMemo(() => {
     const end = String(grievanceLegalEndDate || '').trim();
     const minD = grievanceLegalEndMinYmd;
     if (!end || !minD) return null;
-    if (end < minD) return '⚠️ تاريخ انتهاء المدة يجب ألا يسبق التبليغ أو تاريخ القرار أو تقديم الطلب';
+    if (end < minD) return 'تاريخ انتهاء المدة يجب ألا يسبق التبليغ أو تاريخ القرار أو تقديم الطلب';
     return null;
 }, [grievanceLegalEndDate, grievanceLegalEndMinYmd]);
 const grievanceTimingGateReady = useMemo(() => {
@@ -101,7 +101,7 @@ const grievanceLockedSummaryText = useMemo(() => {
     if (!grievanceDecisionLocked) return '';
     const tokens: string[] = [];
     if (!hasIntervention) {
-        tokens.push(`📌 التبليغ: ${formatDateText(grievanceData.rejectionNotificationDate) || '—'}`);
+        tokens.push(`التبليغ: ${formatDateText(grievanceData.rejectionNotificationDate) || '—'}`);
     }
     tokens.push(`الانتهاء: ${formatDateText(grievanceLegalEndDate) || '—'}`);
     if (grievanceData.outcome === 'expired') {

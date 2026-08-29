@@ -28,7 +28,10 @@ export function formatInvestigationCourtHeaderTitle(
     return custom;
 }
 
-/** @deprecated لا تفريق تلقائي عند الحفظ — إضبارة واحدة للجميع. */
+/**
+ * @deprecated ALIAS_ONLY — كان يفرّق تلقائياً؛ الآن يعيد false دائماً (إضبارة واحدة).
+ * يُبقى لاختبارات juvenileMixedCaseSplitEngine فقط — لا مسار migrate يقرأه.
+ */
 export function shouldAutoSplitJuvenileMixedDraft(
     _defendants: CriminalDefendant[],
     _stage: string,

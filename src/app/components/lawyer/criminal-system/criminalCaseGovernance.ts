@@ -1,6 +1,4 @@
-import type { DefendantPersonalStage } from '@/app/types/criminal';
-import type { CriminalCase, CriminalDefendant, StageConclusion } from './criminalStore';
-import { defaultPersonalStage } from './partyPersonalStage';
+import type { CriminalCase, StageConclusion } from './criminalStore';
 
 /** يطبّع نطاق المتهمين المستهدفين من القرار — أولوية targetDefendantIds. */
 export function normalizeDecisionTargetIds(conclusion: StageConclusion): string[] {
@@ -20,36 +18,8 @@ export function scopeStageConclusionTargets(conclusion: StageConclusion): StageC
     };
 }
 
-/**
- * يحدّث personalStage للمتهمين المحددين فقط — البقية دون تغيير.
- */
-export function applyPersonalStageToTargets(
-    caseRecord: CriminalCase,
-    targetDefendantIds: string[],
-    personalStage: DefendantPersonalStage,
-    patch?: Partial<Pick<CriminalDefendant, 'status' | 'isPartyRecordLocked'>>,
-): CriminalCase {
-    const idSet = new Set(
-        (Array.isArray(targetDefendantIds) ? targetDefendantIds : [])
-            .map((x) => String(x ?? '').trim())
-            .filter(Boolean),
-    );
-    if (!idSet.size) return caseRecord;
-    return {
-        ...caseRecord,
-        defendants: (caseRecord.defendants ?? []).map((d) => {
-            if (!idSet.has(d.id)) return d;
-            return {
-                ...d,
-                personalStage,
-                ...patch,
-            };
-        }),
-    };
-}
-
 /** هل يجب تطبيق أثر القرار على كل المتهمين عند غياب النطاق؟ */
-export function conclusionAppliesToAllWhenUnscoped(decisionType: StageConclusion['decisionType']): boolean {
+function conclusionAppliesToAllWhenUnscoped(decisionType: StageConclusion['decisionType']): boolean {
     return (
         decisionType === 'conviction' ||
         decisionType === 'closing' ||
@@ -71,11 +41,3 @@ export function resolvePersonalStageTargets(
     return [];
 }
 
-export function allDefendantsAtPersonalStage(
-    defendants: CriminalCase['defendants'],
-    stage: DefendantPersonalStage,
-): boolean {
-    const list = Array.isArray(defendants) ? defendants : [];
-    if (!list.length) return false;
-    return list.every((d) => (d.personalStage ?? defaultPersonalStage()) === stage);
-}

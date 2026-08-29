@@ -1,161 +1,37 @@
 import { create } from 'zustand';
-import type { FinanceRecord, Transaction, TransactionDocument, TransactionTask } from './types';
-import { FinanceRecordType, TransactionStatus, TransactionTaskStatus, type TransactionDocumentOwnerTag } from './types';
-import { PersistentTransactionsThreadingRepository } from './persistentRepository';
-import { InMemoryTransactionsThreadingRepository, type TransactionsThreadingRepository } from './repository';
-import { TransactionsThreadingService } from './service';
-import { peekTransactionsThreadingState } from '@/app/services/transactions/transactionsThreadingMirror';
-import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
-    groupThreadingSeedForStore,
-    type ThreadingRepositorySeed,
-} from './transactionsThreadingStoreSeed';
+    TransactionStatus,
+    TransactionTaskStatus,
+    type Transaction,
+    type TransactionDocument,
+    type TransactionDocumentOwnerTag,
+    type TransactionTask,
+} from './types';
+import {
+    collectTaskCascadeIds,
+    documentListUnchanged,
+    findTaskInState,
+    removeTasksFromMap,
+    taskListUnchanged,
+    transactionListUnchanged,
+    upsertDocumentMap,
+    upsertTaskMap,
+} from './transactionsThreadingStoreMaps';
+import {
+    bindTransactionsUser,
+    boundUserId,
+    registerTransactionsThreadingStoreBridge,
+    repo,
+    rollbackOptimisticTransaction,
+    service,
+    syncThreadingToCalendar,
+} from './transactionsThreadingStoreRuntime';
+import { createApplyOptimisticTask } from './transactionsThreadingStoreOptimistic';
 
-let repo: TransactionsThreadingRepository = new InMemoryTransactionsThreadingRepository({
-  transactions: [],
-  tasks: [],
-  financeRecords: [],
-  documents: [],
-});
-let service = new TransactionsThreadingService(repo);
-let boundUserId: string | null = null;
+export { ensureTransactionsUserBound } from './transactionsThreadingStoreRuntime';
 
-type StoreSlice = Pick<
-    TransactionsThreadingState,
-    'userId' | 'transactions' | 'tasksByTransactionId' | 'financeByTransactionId' | 'documentsByTransactionId'
->;
-
-let patchStore: ((patch: Partial<StoreSlice>) => void) | null = null;
-let patchStoreFn: ((fn: (state: StoreSlice) => Partial<StoreSlice>) => void) | null = null;
-
-function findTaskInState(
-  tasksByTransactionId: Record<string, TransactionTask[]>,
-  taskId: string,
-): TransactionTask | undefined {
-  for (const list of Object.values(tasksByTransactionId)) {
-    const found = list.find((t) => t.id === taskId);
-    if (found) return found;
-  }
-  return undefined;
-}
-
-function upsertTaskMap(
-  map: Record<string, TransactionTask[]>,
-  task: TransactionTask,
-): Record<string, TransactionTask[]> {
-  const list = map[task.transactionId] ?? [];
-  const idx = list.findIndex((t) => t.id === task.id);
-  const next = idx === -1 ? [...list, task] : list.map((t, i) => (i === idx ? task : t));
-  return { ...map, [task.transactionId]: next };
-}
-
-function removeTasksFromMap(
-  map: Record<string, TransactionTask[]>,
-  transactionId: string,
-  ids: Set<string>,
-): Record<string, TransactionTask[]> {
-  return {
-    ...map,
-    [transactionId]: (map[transactionId] ?? []).filter((t) => !ids.has(t.id)),
-  };
-}
-
-function upsertFinanceMap(
-  map: Record<string, FinanceRecord[]>,
-  record: FinanceRecord,
-): Record<string, FinanceRecord[]> {
-  const list = map[record.transactionId] ?? [];
-  const idx = list.findIndex((r) => r.id === record.id);
-  const next = idx === -1 ? [...list, record] : list.map((r, i) => (i === idx ? record : r));
-  return { ...map, [record.transactionId]: next };
-}
-
-function upsertDocumentMap(
-  map: Record<string, TransactionDocument[]>,
-  doc: TransactionDocument,
-): Record<string, TransactionDocument[]> {
-  const list = map[doc.transactionId] ?? [];
-  const idx = list.findIndex((d) => d.id === doc.id);
-  const next = idx === -1 ? [...list, doc] : list.map((d, i) => (i === idx ? doc : d));
-  return { ...map, [doc.transactionId]: next };
-}
-
-function reseedStoreFromMirrorIfEmpty(userId: string): void {
-    const state = useTransactionsThreadingStore.getState();
-    if (state.transactions.length > 0) return;
-
-    const mirrored = peekTransactionsThreadingState(userId);
-    if (!mirrored) return;
-
-    const seed: ThreadingRepositorySeed = {
-        transactions: mirrored.transactions as Transaction[],
-        tasks: mirrored.tasks as TransactionTask[],
-        financeRecords: mirrored.financeRecords as FinanceRecord[],
-        documents: mirrored.documents as TransactionDocument[],
-    };
-    repo = new PersistentTransactionsThreadingRepository(userId, seed);
-    service = new TransactionsThreadingService(repo);
-    const grouped = groupThreadingSeedForStore(seed);
-    patchStore?.({
-        userId,
-        transactions: grouped.transactions,
-        tasksByTransactionId: grouped.tasksByTransactionId,
-        financeByTransactionId: grouped.financeByTransactionId,
-        documentsByTransactionId: grouped.documentsByTransactionId,
-    });
-}
-
-function bindTransactionsUser(next: string): void {
-    if (boundUserId === next) {
-        reseedStoreFromMirrorIfEmpty(next);
-        return;
-    }
-
-    boundUserId = next;
-    const mirrored = peekTransactionsThreadingState(next);
-    const seed: ThreadingRepositorySeed | undefined = mirrored
-        ? {
-              transactions: mirrored.transactions as Transaction[],
-              tasks: mirrored.tasks as TransactionTask[],
-              financeRecords: mirrored.financeRecords as FinanceRecord[],
-              documents: mirrored.documents as TransactionDocument[],
-          }
-        : undefined;
-
-    repo = new PersistentTransactionsThreadingRepository(next, seed);
-    service = new TransactionsThreadingService(repo);
-
-    const grouped = seed ? groupThreadingSeedForStore(seed) : null;
-    patchStore?.({
-        userId: next,
-        transactions: grouped?.transactions ?? [],
-        tasksByTransactionId: grouped?.tasksByTransactionId ?? {},
-        financeByTransactionId: grouped?.financeByTransactionId ?? {},
-        documentsByTransactionId: grouped?.documentsByTransactionId ?? {},
-    });
-}
-
-/** ربط فوري للمستخدم — قبل أي إضافة/حفظ */
-export function ensureTransactionsUserBound(userId: string): void {
-    const next = userId?.trim();
-    if (!next) return;
-    bindTransactionsUser(next);
-}
-
-function rollbackOptimisticTransaction(txId: string): void {
-    patchStoreFn?.((state) => ({
-        transactions: state.transactions.filter((item) => item.id !== txId),
-    }));
-    SmartToast.error('تعذر حفظ المعاملة — حاول مرة أخرى');
-}
-
-function syncThreadingToCalendar(): void {
-    const lawyerId = boundUserId ?? useTransactionsThreadingStore.getState().userId;
-    if (!lawyerId) return;
-    void import('@/app/hooks/useIncrementalCalendarSync')
-        .then((m) => m.bumpThreadingCalendarSync(lawyerId))
-        .catch(() => undefined);
-}
+let refreshTransactionsInflight: Promise<void> | null = null;
+const refreshDataInflight = new Map<string, Promise<void>>();
 
 interface TransactionsThreadingState {
   userId: string | null;
@@ -163,7 +39,6 @@ interface TransactionsThreadingState {
 
   transactions: Transaction[];
   tasksByTransactionId: Record<string, TransactionTask[]>;
-  financeByTransactionId: Record<string, FinanceRecord[]>;
   documentsByTransactionId: Record<string, TransactionDocument[]>;
 
   refreshTransactions: () => Promise<void>;
@@ -184,16 +59,6 @@ interface TransactionsThreadingState {
   updateTask: (taskId: string, updates: { title?: string; deadline?: string | null }) => Promise<TransactionTask>;
   deleteTaskCascade: (taskId: string) => Promise<void>;
 
-  addFinanceRecord: (input: {
-    transactionId: string;
-    type: FinanceRecordType;
-    amount: number;
-    description: string;
-    date?: string;
-  }) => Promise<FinanceRecord>;
-  updateFinanceRecord: (recordId: string, updates: { type: FinanceRecordType; amount: number; description: string; date?: string }) => Promise<FinanceRecord>;
-  deleteFinanceRecord: (recordId: string) => Promise<void>;
-
   addDocument: (input: {
     transactionId: string;
     title: string;
@@ -204,14 +69,33 @@ interface TransactionsThreadingState {
   deleteDocument: (docId: string) => Promise<void>;
 
   setTransactionStatus: (transactionId: string, status: TransactionStatus) => Promise<Transaction>;
-  setTransactionAgreedFees: (transactionId: string, agreedFees: number) => Promise<Transaction>;
   setTransactionArchived: (transactionId: string, archived: boolean) => Promise<Transaction>;
   setTransactionDeleted: (transactionId: string, deleted: boolean) => Promise<Transaction>;
 }
 
 export const useTransactionsThreadingStore = create<TransactionsThreadingState>((set, get) => {
-  patchStore = (patch) => set(patch);
-  patchStoreFn = (fn) => set((state) => ({ ...state, ...fn(state) }));
+  registerTransactionsThreadingStoreBridge({
+    patchStore: (patch) => set(patch),
+    patchStoreFn: (fn) => set((state) => ({ ...state, ...fn(state) })),
+    readTransactionCount: () => get().transactions.length,
+    readFallbackUserId: () => get().userId,
+  });
+
+  const commitTransaction = async (transactionId: string, run: () => Promise<Transaction>) => {
+    const tx = await run();
+    set((state) => ({
+      transactions: state.transactions.map((item) => (item.id === transactionId ? tx : item)),
+    }));
+    syncThreadingToCalendar();
+    return tx;
+  };
+
+  const applyOptimisticTask = createApplyOptimisticTask({
+    getTaskMap: () => get().tasksByTransactionId,
+    patchTaskMap: (updater) => set((state) => ({ tasksByTransactionId: updater(state.tasksByTransactionId) })),
+    syncThreadingToCalendar,
+  });
+
 
   return {
   userId: null,
@@ -223,25 +107,46 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
 
   transactions: [],
   tasksByTransactionId: {},
-  financeByTransactionId: {},
   documentsByTransactionId: {},
 
   refreshTransactions: async () => {
-    const transactions = await service.listTransactions();
-    set({ transactions });
+    if (refreshTransactionsInflight) return refreshTransactionsInflight;
+    refreshTransactionsInflight = (async () => {
+      const transactions = await service.listTransactions();
+      const prev = get().transactions;
+      if (transactionListUnchanged(prev, transactions)) return;
+      set({ transactions });
+    })().finally(() => {
+      refreshTransactionsInflight = null;
+    });
+    return refreshTransactionsInflight;
   },
 
   /** مهام + مستمسكات فقط — المالية لم تعد على واجهة التفاصيل */
   refreshTransactionData: async (transactionId) => {
-    const [tasks, documents] = await Promise.all([
-      service.listTasks(transactionId),
-      service.listDocuments(transactionId),
-    ]);
-
-    set((state) => ({
-      tasksByTransactionId: { ...state.tasksByTransactionId, [transactionId]: tasks },
-      documentsByTransactionId: { ...state.documentsByTransactionId, [transactionId]: documents },
-    }));
+    const existing = refreshDataInflight.get(transactionId);
+    if (existing) return existing;
+    const pending = (async () => {
+      const [tasks, documents] = await Promise.all([
+        service.listTasks(transactionId),
+        service.listDocuments(transactionId),
+      ]);
+      const state = get();
+      if (
+        taskListUnchanged(state.tasksByTransactionId[transactionId], tasks) &&
+        documentListUnchanged(state.documentsByTransactionId[transactionId], documents)
+      ) {
+        return;
+      }
+      set({
+        tasksByTransactionId: { ...state.tasksByTransactionId, [transactionId]: tasks },
+        documentsByTransactionId: { ...state.documentsByTransactionId, [transactionId]: documents },
+      });
+    })().finally(() => {
+      refreshDataInflight.delete(transactionId);
+    });
+    refreshDataInflight.set(transactionId, pending);
+    return pending;
   },
 
   createTransaction: async (input) => {
@@ -276,65 +181,29 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
     return task;
   },
 
-  updateTaskStatus: async (taskId, status) => {
-    const prev = findTaskInState(get().tasksByTransactionId, taskId);
-    if (prev) {
-      const optimistic: TransactionTask = {
+  updateTaskStatus: async (taskId, status) =>
+    applyOptimisticTask(
+      taskId,
+      (prev) => ({
         ...prev,
         status,
         completedAt:
           status === TransactionTaskStatus.Done ? prev.completedAt ?? new Date().toISOString() : null,
-      };
-      set((state) => ({
-        tasksByTransactionId: upsertTaskMap(state.tasksByTransactionId, optimistic),
-      }));
-    }
-    try {
-      const task = await service.updateTaskStatus(taskId, status);
-      set((state) => ({
-        tasksByTransactionId: upsertTaskMap(state.tasksByTransactionId, task),
-      }));
-      syncThreadingToCalendar();
-      return task;
-    } catch (err) {
-      if (prev) {
-        set((state) => ({
-          tasksByTransactionId: upsertTaskMap(state.tasksByTransactionId, prev),
-        }));
-      }
-      throw err;
-    }
-  },
+      }),
+      () => service.updateTaskStatus(taskId, status),
+    ),
 
-  completeTask: async (taskId, officialReference) => {
-    const prev = findTaskInState(get().tasksByTransactionId, taskId);
-    if (prev) {
-      const optimistic: TransactionTask = {
+  completeTask: async (taskId, officialReference) =>
+    applyOptimisticTask(
+      taskId,
+      (prev) => ({
         ...prev,
         status: TransactionTaskStatus.Done,
         completedAt: prev.completedAt ?? new Date().toISOString(),
         officialReference: officialReference ?? prev.officialReference,
-      };
-      set((state) => ({
-        tasksByTransactionId: upsertTaskMap(state.tasksByTransactionId, optimistic),
-      }));
-    }
-    try {
-      const task = await service.completeTask(taskId, officialReference ?? null);
-      set((state) => ({
-        tasksByTransactionId: upsertTaskMap(state.tasksByTransactionId, task),
-      }));
-      syncThreadingToCalendar();
-      return task;
-    } catch (err) {
-      if (prev) {
-        set((state) => ({
-          tasksByTransactionId: upsertTaskMap(state.tasksByTransactionId, prev),
-        }));
-      }
-      throw err;
-    }
-  },
+      }),
+      () => service.completeTask(taskId, officialReference ?? null),
+    ),
 
   updateTask: async (taskId, updates) => {
     const task = await service.updateTask(taskId, updates);
@@ -349,23 +218,7 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
     const existing = findTaskInState(get().tasksByTransactionId, taskId) ?? (await repo.getTask(taskId));
     if (!existing) return;
     const transactionId = existing.transactionId;
-    const tasks = get().tasksByTransactionId[transactionId] ?? [];
-    const childrenByParent = new Map<string, string[]>();
-    for (const t of tasks) {
-      if (!t.parentTaskId) continue;
-      const arr = childrenByParent.get(t.parentTaskId) ?? [];
-      arr.push(t.id);
-      childrenByParent.set(t.parentTaskId, arr);
-    }
-    const toDelete = new Set<string>();
-    const stack = [taskId];
-    while (stack.length) {
-      const id = stack.pop()!;
-      if (toDelete.has(id)) continue;
-      toDelete.add(id);
-      const kids = childrenByParent.get(id) ?? [];
-      for (const k of kids) stack.push(k);
-    }
+    const toDelete = collectTaskCascadeIds(taskId, get().tasksByTransactionId[transactionId] ?? []);
 
     set((state) => ({
       tasksByTransactionId: removeTasksFromMap(state.tasksByTransactionId, transactionId, toDelete),
@@ -380,40 +233,6 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
       await get().refreshTransactionData(transactionId);
       throw err;
     }
-  },
-
-  addFinanceRecord: async (input) => {
-    const record = await service.addFinanceRecord(input);
-    set((state) => ({
-      financeByTransactionId: upsertFinanceMap(state.financeByTransactionId, record),
-    }));
-    syncThreadingToCalendar();
-    return record;
-  },
-
-  updateFinanceRecord: async (recordId, updates) => {
-    const record = await service.updateFinanceRecord(recordId, updates);
-    set((state) => ({
-      financeByTransactionId: upsertFinanceMap(state.financeByTransactionId, record),
-    }));
-    syncThreadingToCalendar();
-    return record;
-  },
-
-  deleteFinanceRecord: async (recordId) => {
-    const existing = await repo.getFinanceRecord(recordId);
-    await service.deleteFinanceRecord(recordId);
-    if (existing) {
-      set((state) => ({
-        financeByTransactionId: {
-          ...state.financeByTransactionId,
-          [existing.transactionId]: (state.financeByTransactionId[existing.transactionId] ?? []).filter(
-            (r) => r.id !== recordId,
-          ),
-        },
-      }));
-    }
-    syncThreadingToCalendar();
   },
 
   addDocument: async (input) => {
@@ -439,40 +258,14 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
     }
   },
 
-  setTransactionStatus: async (transactionId, status) => {
-    const tx = await service.setTransactionStatus(transactionId, status);
-    set((state) => ({
-      transactions: state.transactions.map((item) => (item.id === transactionId ? tx : item)),
-    }));
-    syncThreadingToCalendar();
-    return tx;
-  },
+  setTransactionStatus: async (transactionId, status) =>
+    commitTransaction(transactionId, () => service.setTransactionStatus(transactionId, status)),
 
-  setTransactionAgreedFees: async (transactionId, agreedFees) => {
-    const tx = await service.setTransactionAgreedFees(transactionId, agreedFees);
-    set((state) => ({
-      transactions: state.transactions.map((item) => (item.id === transactionId ? tx : item)),
-    }));
-    return tx;
-  },
+  setTransactionArchived: async (transactionId, archived) =>
+    commitTransaction(transactionId, () => service.setTransactionArchived(transactionId, archived)),
 
-  setTransactionArchived: async (transactionId, archived) => {
-    const tx = await service.setTransactionArchived(transactionId, archived);
-    set((state) => ({
-      transactions: state.transactions.map((item) => (item.id === transactionId ? tx : item)),
-    }));
-    syncThreadingToCalendar();
-    return tx;
-  },
-
-  setTransactionDeleted: async (transactionId, deleted) => {
-    const tx = await service.setTransactionDeleted(transactionId, deleted);
-    set((state) => ({
-      transactions: state.transactions.map((item) => (item.id === transactionId ? tx : item)),
-    }));
-    syncThreadingToCalendar();
-    return tx;
-  },
+  setTransactionDeleted: async (transactionId, deleted) =>
+    commitTransaction(transactionId, () => service.setTransactionDeleted(transactionId, deleted)),
 };
 });
 

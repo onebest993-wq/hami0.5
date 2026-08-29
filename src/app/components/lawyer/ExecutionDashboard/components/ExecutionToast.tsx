@@ -10,9 +10,11 @@
  */
 
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import { createPortal } from 'react-dom';
-import { X, CheckCircle, AlertCircle } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
+import { CheckCircle } from '@/app/components/ui/icons/CheckCircle';
+import { AlertCircle } from '@/app/components/ui/icons/AlertCircle';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -96,7 +98,7 @@ export const ExecutionToast: React.FC<ExecutionToastProps> = ({
                     dir="rtl"
                 >
                     <div
-                        className={`backdrop-blur-2xl rounded-2xl p-4 shadow-2xl border ${styles.container}`}
+                        className={`rounded-2xl p-3 shadow-md border ${styles.container}`}
                     >
                         <div className="flex flex-col gap-2">
                             <div className="flex items-start gap-3">

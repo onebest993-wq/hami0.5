@@ -155,7 +155,7 @@ export function MovableSeizureInitInlineCard({
                     });
                     if (result) setSavedMovable(result);
                 }}
-                className="w-full rounded-xl bg-gradient-to-l from-sky-500 to-sky-700 py-2.5 text-[11px] font-black text-white disabled:opacity-40"
+                className="w-full rounded-xl bg-sky-600 py-2.5 text-[11px] font-black text-white disabled:opacity-40"
                 disabled={
                     !String(desc || '').trim() ||
                     !String(loc || '').trim() ||

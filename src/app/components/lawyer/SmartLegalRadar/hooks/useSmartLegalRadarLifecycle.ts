@@ -3,16 +3,15 @@ import {
     markCalendarPerfPhase,
     reportCalendarPerf,
 } from '@/app/services/calendar/calendarPerfMetrics';
-import { prefetchRadarWidgets } from '@/app/runtime/radarWidgetLoader';
 import { readLocalCalendarSnapshotSync } from '@/app/services/calendar/calendarLocalSnapshot';
 import { getCachedCalendarEvents } from '@/app/services/calendar/calendarEventsCache';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
 
 export function useSmartLegalRadarLifecycle(
     userId: string,
-    _syncing: boolean,
     eventCount: number,
-) {
+    screenActive = true,
+): void {
     const hadLocalCacheRef = useRef(
         (() => {
             const uid = resolveCalendarUserId(userId || null);
@@ -24,10 +23,6 @@ export function useSmartLegalRadarLifecycle(
     const reportedRef = useRef(false);
 
     useEffect(() => {
-        prefetchRadarWidgets();
-    }, [userId]);
-
-    useEffect(() => {
         reportedRef.current = false;
         const uid = resolveCalendarUserId(userId || null);
         const mem = getCachedCalendarEvents(uid);
@@ -36,6 +31,10 @@ export function useSmartLegalRadarLifecycle(
     }, [userId]);
 
     useEffect(() => {
+        if (!screenActive) {
+            reportedRef.current = false;
+            return;
+        }
         if (reportedRef.current) return;
         reportedRef.current = true;
         markCalendarPerfPhase('first-paint');
@@ -45,27 +44,5 @@ export function useSmartLegalRadarLifecycle(
             eventCount,
             hadLocalCache: hadLocalCacheRef.current,
         });
-    }, [userId, eventCount]);
-
-    /* احتياطي — لا يبقى open→interactive معلّقاً إن تأخرت الجاهزية (C1/C9) */
-    useEffect(() => {
-        if (reportedRef.current) return;
-
-        const markInteractiveFallback = () => {
-            if (reportedRef.current) return;
-            reportedRef.current = true;
-            markCalendarPerfPhase('first-paint');
-            markCalendarPerfPhase('interactive');
-            reportCalendarPerf({
-                userId,
-                eventCount,
-                hadLocalCache: hadLocalCacheRef.current,
-            });
-        };
-
-        const fallback = window.setTimeout(markInteractiveFallback, 1_200);
-        return () => window.clearTimeout(fallback);
-    }, [eventCount, userId]);
-
-    return { isShellReady: true, hadLocalCache: hadLocalCacheRef.current };
+    }, [screenActive, userId, eventCount]);
 }

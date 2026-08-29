@@ -31,6 +31,24 @@ describe('resolveSettingsEscapeAction', () => {
         ).toBe('dismiss-backup-ui');
     });
 
+    it('يغلق ورقة تخصيص المنظر قبل إغلاق الإعدادات', () => {
+        expect(
+            resolveSettingsEscapeAction({
+                smartDialogOpen: false,
+                appearanceCustomizeOpen: true,
+            }),
+        ).toBe('dismiss-appearance-customize');
+    });
+
+    it('يغلق ورقة الشروط/النبذة قبل إغلاق الإعدادات', () => {
+        expect(
+            resolveSettingsEscapeAction({
+                smartDialogOpen: false,
+                accountLegalDocumentOpen: true,
+            }),
+        ).toBe('dismiss-account-legal-document');
+    });
+
     it('يغلق الإعدادات عند عدم وجود حوار أو حارس', () => {
         expect(resolveSettingsEscapeAction({ smartDialogOpen: false })).toBe('close-settings');
     });

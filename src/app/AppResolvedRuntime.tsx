@@ -1,18 +1,41 @@
 import React, { Suspense, useEffect, useLayoutEffect, type ReactElement } from 'react';
 
 import { AuthProvider } from './context/AuthContext';
-import { GlobalErrorBoundary } from './components/shared/GlobalErrorBoundary';
 import { isBootRevealDone } from '@/app/bootstrap/bootReveal';
 import { shouldHideBootSuspenseFallback, shouldMountReactBootOverlay } from '@/app/bootstrap/bootStaticShell';
+import {
+    getAppRuntimeShellModuleSync,
+    loadAppRuntimeShellModule,
+} from '@/app/runtime/appRuntimeShellLoader';
+import { qa } from '@/app/qa/qaAttr';
+import {
+    isPlainDocumentSurface,
+    whenPlainDocumentCoverClears,
+} from '@/boot/plainDocumentPath';
 
 const APP_RUNTIME_READY_EVENT = 'hami:app-runtime-ready';
 
+const LazyGlobalErrorBoundary = React.lazy(() =>
+    import('./components/shared/GlobalErrorBoundary').then((m) => ({
+        default: m.GlobalErrorBoundary,
+    })),
+);
+
 /** يبدأ عند تقييم الوحدة — يطوي انتظار React.lazy الأول */
-const appRuntimeShellPromise = import('./AppRuntimeShell').then((m) => ({
+const appRuntimeShellPromise = loadAppRuntimeShellModule().then((m) => ({
     default: m.AppRuntimeShell,
 }));
-
 const LazyAppRuntimeShell = React.lazy(() => appRuntimeShellPromise);
+
+function AppRuntimeShellEntry(): ReactElement {
+    const sync = getAppRuntimeShellModuleSync();
+    if (sync) return <sync.AppRuntimeShell />;
+    return (
+        <Suspense fallback={<AppRuntimeSuspenseFallback />}>
+            <LazyAppRuntimeShell />
+        </Suspense>
+    );
+}
 
 const LazyHamiBootOverlay = React.lazy(() =>
     import('@/app/bootstrap/HamiBootOverlay').then((m) => ({
@@ -29,13 +52,13 @@ const VITE_STALE_IMPORT_RELOAD_KEY = 'hami:vite-stale-import-reload';
  */
 function AppRuntimeSuspenseFallback(): React.ReactElement {
     if (shouldHideBootSuspenseFallback()) {
-        return <div className="min-h-screen w-full" aria-hidden data-testid="app-runtime-static-shell-cover" />;
+        return <div className="min-h-screen w-full" aria-hidden {...qa('app-runtime-static-shell-cover')} />;
     }
     if (isBootRevealDone() || !shouldMountReactBootOverlay()) {
         return (
             <div
                 className="min-h-screen w-full hami-board-canvas-bg"
-                data-testid="app-runtime-warm-fallback"
+                {...qa('app-runtime-warm-fallback')}
                 aria-busy="true"
                 aria-label="جاري التحميل"
             />
@@ -46,7 +69,7 @@ function AppRuntimeSuspenseFallback(): React.ReactElement {
             fallback={
                 <div
                     className="min-h-screen w-full hami-board-canvas-bg"
-                    data-testid="app-runtime-overlay-fallback"
+                    {...qa('app-runtime-overlay-fallback')}
                     aria-busy="true"
                     aria-label="حامي"
                 />
@@ -57,10 +80,25 @@ function AppRuntimeSuspenseFallback(): React.ReactElement {
     );
 }
 
+function AppRuntimeTree(): ReactElement {
+    return (
+        <AuthProvider>
+            <AppRuntimeShellEntry />
+        </AuthProvider>
+    );
+}
+
 export function AppResolvedRuntime(): ReactElement {
     useLayoutEffect(() => {
-        document.documentElement.dataset.hamiAppRuntimeReady = '1';
-        window.dispatchEvent(new Event(APP_RUNTIME_READY_EVENT));
+        const markReady = () => {
+            document.documentElement.dataset.hamiAppRuntimeReady = '1';
+            window.dispatchEvent(new Event(APP_RUNTIME_READY_EVENT));
+        };
+        if (isPlainDocumentSurface()) {
+            return whenPlainDocumentCoverClears(markReady);
+        }
+        markReady();
+        return undefined;
     }, []);
 
     useEffect(() => {
@@ -71,8 +109,10 @@ export function AppResolvedRuntime(): ReactElement {
                 import('./utils/debug'),
             ]).then(([production, constants, debugModule]) => {
                 production.initializeProduction();
-                production.logBuildInfo();
-                debugModule.debug.log('✅ [App] System Ready');
+                if (!isPlainDocumentSurface()) {
+                    production.logBuildInfo();
+                    debugModule.debug.log('✅ [App] System Ready');
+                }
                 constants.clearCacheIfNeeded();
             });
 
@@ -84,20 +124,23 @@ export function AppResolvedRuntime(): ReactElement {
             }
         };
 
-        if (typeof requestIdleCallback !== 'undefined') {
-            requestIdleCallback(runDeferredAppBoot, { timeout: 1500 });
-        } else {
-            window.setTimeout(runDeferredAppBoot, 0);
+        if (isPlainDocumentSurface()) {
+            return whenPlainDocumentCoverClears(runDeferredAppBoot);
         }
+
+        if (typeof requestIdleCallback !== 'undefined') {
+            const idleId = requestIdleCallback(runDeferredAppBoot, { timeout: 1500 });
+            return () => cancelIdleCallback(idleId);
+        }
+        const timer = window.setTimeout(runDeferredAppBoot, 0);
+        return () => window.clearTimeout(timer);
     }, []);
 
     return (
-        <GlobalErrorBoundary>
-            <AuthProvider>
-                <Suspense fallback={<AppRuntimeSuspenseFallback />}>
-                    <LazyAppRuntimeShell />
-                </Suspense>
-            </AuthProvider>
-        </GlobalErrorBoundary>
+        <Suspense fallback={<AppRuntimeTree />}>
+            <LazyGlobalErrorBoundary>
+                <AppRuntimeTree />
+            </LazyGlobalErrorBoundary>
+        </Suspense>
     );
 }

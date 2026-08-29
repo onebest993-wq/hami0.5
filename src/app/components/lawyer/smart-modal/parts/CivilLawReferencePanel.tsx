@@ -1,11 +1,12 @@
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { Search } from '@/app/components/ui/lucideIcons';
+import { Search } from '@/app/components/ui/icons/Search';
 import {
     CIVIL_LAW_CANONICAL_NAMES,
     type CivilLawCodeType,
 } from '@/app/constants/iraqiLawCatalog';
 import {
     CIVIL_LAW_CACHE_INVALIDATED_EVENT,
+    getCachedCivilLawArticles,
     loadCivilLawArticles,
     prefetchCivilLawArticles,
     type CivilLawArticle,
@@ -34,8 +35,8 @@ const TAB_OPTIONS: ReadonlyArray<{ id: CivilLawCodeType; label: string }> = [
 
 type CivilLawReferenceVisualVariant = 'civil' | 'personal';
 
-const CIVIL_FILTER_BTN_ACTIVE = 'border-sky-400/35 bg-sky-500/15 text-sky-200';
-const CIVIL_FILTER_BTN_IDLE = 'border-white/10 text-slate-400 hover:text-slate-200';
+const CIVIL_FILTER_BTN_ACTIVE = 'border-[#E6C673]/35 bg-[#E6C673]/15 text-[#E6C673]';
+const CIVIL_FILTER_BTN_IDLE = 'border-white/10 text-white/45 hover:text-white/75';
 const PERSONAL_FILTER_BTN_ACTIVE = 'border-[#C4A574]/35 bg-[#C4A574]/10 text-[#C4A574]';
 const PERSONAL_FILTER_BTN_IDLE = 'border-white/[0.08] text-white/45 hover:text-white/65';
 
@@ -75,7 +76,7 @@ const CivilLawArticleCard = memo(function CivilLawArticleCard({
     const cardClass =
         visualVariant === 'personal'
             ? 'rounded-lg border border-white/[0.07] bg-[#1a181a] p-3.5 text-right'
-            : 'rounded-2xl border border-slate-700/40 bg-slate-900/35 p-4 text-right backdrop-blur-sm';
+            : 'rounded-xl border border-white/[0.07] bg-white/[0.03] p-3 text-right';
     const titleAccent =
         visualVariant === 'personal' ? 'text-[#C4A574]' : 'text-[#E6C673]/90';
     const bodyClass =
@@ -112,8 +113,12 @@ export function CivilLawReferencePanel({
     const [branchId, setBranchId] = useState<string | null>(null);
     const [nodeId, setNodeId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [articles, setArticles] = useState<CivilLawArticle[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [articles, setArticles] = useState<CivilLawArticle[]>(
+        () => getCachedCivilLawArticles(forcedTab ?? 'civil_procedure') ?? [],
+    );
+    const [loading, setLoading] = useState(
+        () => !(getCachedCivilLawArticles(forcedTab ?? 'civil_procedure')?.length),
+    );
     const [loadError, setLoadError] = useState<string | null>(null);
 
     const taxonomy = getCivilLawTaxonomy(activeTab);
@@ -123,8 +128,15 @@ export function CivilLawReferencePanel({
 
     const loadArticles = useCallback(() => {
         let cancelled = false;
-        setLoading(true);
-        setLoadError(null);
+        const cached = getCachedCivilLawArticles(activeTab);
+        if (cached && cached.length > 0) {
+            setArticles(cached);
+            setLoading(false);
+            setLoadError(null);
+        } else {
+            setLoading(true);
+            setLoadError(null);
+        }
         void loadCivilLawArticles(activeTab)
             .then((rows) => {
                 if (cancelled) return;
@@ -132,6 +144,7 @@ export function CivilLawReferencePanel({
             })
             .catch((e) => {
                 if (cancelled) return;
+                if (cached && cached.length > 0) return;
                 setArticles([]);
                 setLoadError(
                     e instanceof Error ? e.message : 'تعذر تحميل المواد من قاعدة البيانات.',
@@ -204,7 +217,7 @@ export function CivilLawReferencePanel({
             ? 'w-full rounded-lg border border-white/[0.08] bg-[#1a181a] py-2.5 pr-10 pl-3 text-sm text-white/88 outline-none focus:border-[#C4A574]/35'
             : 'w-full rounded-xl border border-white/10 bg-white/[0.04] py-2.5 pr-10 pl-3 text-sm text-white outline-none focus:border-[#E6C673]/30';
     const taxonomyPathClass =
-        visualVariant === 'personal' ? 'text-white/50' : 'text-sky-200/80';
+        visualVariant === 'personal' ? 'text-white/50' : 'text-white/45';
 
     return (
         <div

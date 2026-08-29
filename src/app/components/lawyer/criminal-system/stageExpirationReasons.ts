@@ -6,7 +6,10 @@ export const STAGE_EXPIRATION_REASONS = [
     { value: 'custom_manual', label: 'سبب آخر (إدخال يدوي)' },
 ] as const;
 
-/** @deprecated — بيانات قديمة محفوظة للتوافق */
+/**
+ * @deprecated KEEP — قيمة انقضاء قديمة في السجلات المحفوظة.
+ * تُقبل في isStageExpirationReason / stageExpirationReasonLabel و ExpirationReasonFields (عرض فقط، لا خيار جديد).
+ */
 export const LEGACY_DECRIMINALIZATION_REASON = 'decriminalization';
 
 export type StageExpirationReason = (typeof STAGE_EXPIRATION_REASONS)[number]['value'];
@@ -18,7 +21,7 @@ export function isStageExpirationReason(value: string): value is StageExpiration
     );
 }
 
-export function stageExpirationReasonLabel(
+function stageExpirationReasonLabel(
     value: StageExpirationReason | typeof LEGACY_DECRIMINALIZATION_REASON | string,
     customDetail?: string,
 ): string {

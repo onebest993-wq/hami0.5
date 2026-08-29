@@ -2,20 +2,8 @@ import type { CSSProperties } from 'react';
 import type { AppearanceSettings } from '@/app/services/settings/types';
 import { resolveLawyerDashboardCanvasBg } from '@/app/services/settings/boardSurfaceResolve';
 import { resolveWallpaperSrc } from '@/app/services/settings/apply';
+import { hexToRgba } from '@/app/services/settings/glassSurfacePaint';
 import { resolvePatternOverlayStyle } from '@/app/services/settings/surfaceAppearance';
-
-export function hexToRgba(hex: string, alpha: number): string {
-    const h = (hex || '').trim();
-    const a = Math.min(1, Math.max(0, alpha));
-    const m = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(h);
-    if (!m) return `rgba(0,0,0,${a})`;
-    const raw = m[1];
-    const full = raw.length === 3 ? raw.split('').map((c) => c + c).join('') : raw;
-    const r = parseInt(full.slice(0, 2), 16);
-    const g = parseInt(full.slice(2, 4), 16);
-    const b = parseInt(full.slice(4, 6), 16);
-    return `rgba(${r},${g},${b},${a})`;
-}
 
 export function buildLawyerDashboardSurface({
     appearance,

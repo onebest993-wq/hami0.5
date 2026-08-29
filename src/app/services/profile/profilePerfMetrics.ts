@@ -83,13 +83,6 @@ export function getProfileOpenToInteractiveMs(): number | null {
     return Math.round(interactive.startTime - open.startTime);
 }
 
-export function reportProfilePerfIfDev(context?: ProfilePerfReportContext | string): void {
-    if (!import.meta.env.DEV) return;
-    const snapshot = getProfilePerfSnapshot();
-    if (snapshot.openToInteractiveMs == null && snapshot.openToFirstPaintMs == null) return;
-    debug.log('[ProfilePerf]', snapshot, context ?? '');
-}
-
 export function reportProfilePerf(context: ProfilePerfReportContext = {}): void {
     const snapshot = getProfilePerfSnapshot();
     if (snapshot.openToInteractiveMs == null) return;

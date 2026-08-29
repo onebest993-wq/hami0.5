@@ -19,5 +19,5 @@ describe('archive portal module graph', () => {
             '@/app/components/lawyer/ArchivePortal/ArchivePortalLawsuitEntry.tsx'
         );
         expect(lawsuitEntry.ArchivePortal).toBeTypeOf('function');
-    });
+    }, 60_000);
 });

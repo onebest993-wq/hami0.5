@@ -5,6 +5,13 @@
 export const ACCESS_COOKIE_NAME = 'hami_access_token';
 export const REFRESH_COOKIE_NAME = 'hami_refresh_token';
 
+/**
+ * Node adapters copy the real `Cookie` header here because undici may drop
+ * `Cookie` on `new Request()`. Adapters MUST strip any client-supplied value
+ * first and set this only from IncomingMessage.cookie.
+ */
+export const INCOMING_COOKIE_FALLBACK_HEADER = 'x-hami-incoming-cookie';
+
 export const ACCESS_COOKIE_MAX_AGE_SEC = 60 * 60;
 export const REFRESH_COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 7;
 
@@ -15,7 +22,14 @@ export function isSecureRequest(request: Request): boolean {
     );
 }
 
-function parseCookieHeader(cookieHeader: string | null): Record<string, string> {
+export function readIncomingCookieHeader(request: Request): string | null {
+    const direct = request.headers.get('cookie')?.trim();
+    if (direct) return direct;
+    const fallback = request.headers.get(INCOMING_COOKIE_FALLBACK_HEADER)?.trim();
+    return fallback || null;
+}
+
+export function parseCookieHeader(cookieHeader: string | null): Record<string, string> {
     const out: Record<string, string> = {};
     if (!cookieHeader) return out;
     for (const part of cookieHeader.split(';')) {
@@ -46,6 +60,14 @@ export function parseRefreshCookie(cookieHeader: string | null): string | null {
     } catch {
         return raw;
     }
+}
+
+export function readAccessTokenFromRequest(request: Request): string | null {
+    return parseAccessCookie(readIncomingCookieHeader(request));
+}
+
+export function readRefreshTokenFromRequest(request: Request): string | null {
+    return parseRefreshCookie(readIncomingCookieHeader(request));
 }
 
 function buildSetCookie(name: string, value: string, maxAgeSec: number, secure: boolean): string {

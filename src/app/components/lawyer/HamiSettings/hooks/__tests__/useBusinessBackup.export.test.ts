@@ -46,6 +46,7 @@ describe('useBusinessBackup — export', () => {
         vi.clearAllMocks();
         buildPayload.mockResolvedValue({
             payload: { kind: 'hami-business-backup', version: 2 },
+            text: '{"kind":"hami-business-backup","version":2}',
             keys: 2,
             bytes: 100,
             counts: {},
@@ -70,7 +71,9 @@ describe('useBusinessBackup — export', () => {
 
     it('يصدّر نسخة محمية عند إدخال كلمة مرور صالحة', async () => {
         confirm.mockResolvedValueOnce(true);
-        prompt.mockResolvedValueOnce('secret12chars');
+        prompt
+            .mockResolvedValueOnce('secret12chars')
+            .mockResolvedValueOnce('secret12chars');
 
         const { result } = renderHook(() => useBusinessBackup());
 

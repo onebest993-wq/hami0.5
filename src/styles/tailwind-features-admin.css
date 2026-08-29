@@ -1,0 +1,12 @@
+@import './theme.css';
+@import 'tailwindcss' source(none);
+
+/**
+ * Tailwind لشاشة الإدارة فقط — لا يُمزج مع أضابير المحامي.
+ */
+@source '../app/components/AdminDashboard.tsx';
+@source '../app/components/admin/**';
+@source not '../app/**/*.test.{ts,tsx,js,jsx}';
+@source not '../app/**/__tests__/**';
+
+@plugin 'tailwindcss-animate';

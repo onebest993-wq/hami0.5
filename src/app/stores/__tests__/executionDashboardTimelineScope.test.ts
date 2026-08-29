@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { TimelineEvent } from '@/app/types/execution';
-import { makeInabaSubFileId } from '@/app/stores/executionDashboardStore';
 import {
     filterTimelineEventsForInabaDossier,
     filterTimelineEventsForParentDossier,
+    makeInabaSubFileId,
     timelineEventBelongsToInabaDossier,
-} from '@/app/stores/executionDashboardStore';
+    timelineEventBelongsToParentDossier,
+} from '@/app/domain/execution/dossier/ExecutionDossierScope';
+import * as storeScope from '@/app/stores/executionDashboardStore';
 
 describe('execution dashboard timeline dossier scope', () => {
     const parentId = 'parent-42';
@@ -39,5 +41,21 @@ describe('execution dashboard timeline dossier scope', () => {
     it('keeps legacy untagged events on parent dossier view', () => {
         const legacy = { id: 'legacy-2', title: 'حدث أم قديم', type: 'other' } as TimelineEvent;
         expect(filterTimelineEventsForParentDossier([legacy], parentId)).toHaveLength(1);
+    });
+
+    it('excludes events tagged to a different parentExecutionId from parent view', () => {
+        const foreign = {
+            id: 'foreign-1',
+            title: 'حدث ملف آخر',
+            metadata: { parentExecutionId: 'other-parent' },
+        } as TimelineEvent;
+        expect(timelineEventBelongsToParentDossier(foreign, parentId)).toBe(false);
+        expect(filterTimelineEventsForParentDossier([foreign], parentId)).toHaveLength(0);
+    });
+
+    it('store re-exports the same domain filter helpers', () => {
+        expect(storeScope.filterTimelineEventsForInabaDossier).toBe(filterTimelineEventsForInabaDossier);
+        expect(storeScope.filterTimelineEventsForParentDossier).toBe(filterTimelineEventsForParentDossier);
+        expect(storeScope.timelineEventBelongsToParentDossier).toBe(timelineEventBelongsToParentDossier);
     });
 });

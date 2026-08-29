@@ -1,10 +1,15 @@
+import {
+    clearSecureJsonValue,
+    readSecureJsonRawSync,
+    writeSecureJsonValue,
+} from '@/app/services/storage/syncSecureJson';
+
 const STORAGE_KEY = 'hami-calendar-reminder-fired-v1';
 const MAX_ENTRIES = 200;
 
 function readEntries(): string[] {
-    if (typeof localStorage === 'undefined') return [];
     try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = readSecureJsonRawSync(STORAGE_KEY);
         if (!raw) return [];
         const parsed = JSON.parse(raw) as unknown;
         return Array.isArray(parsed) ? parsed.filter((k) => typeof k === 'string') : [];
@@ -14,12 +19,7 @@ function readEntries(): string[] {
 }
 
 function writeEntries(entries: string[]): void {
-    if (typeof localStorage === 'undefined') return;
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(-MAX_ENTRIES)));
-    } catch {
-        /* ignore quota */
-    }
+    writeSecureJsonValue(STORAGE_KEY, entries.slice(-MAX_ENTRIES));
 }
 
 export function isCalendarReminderFired(key: string): boolean {
@@ -33,10 +33,5 @@ export function markCalendarReminderFired(key: string): void {
 }
 
 export function clearCalendarReminderFiredForTests(): void {
-    if (typeof localStorage === 'undefined') return;
-    try {
-        localStorage.removeItem(STORAGE_KEY);
-    } catch {
-        /* ignore */
-    }
+    clearSecureJsonValue(STORAGE_KEY);
 }

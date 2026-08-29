@@ -2,9 +2,7 @@ import { storageCache } from '@/app/utils/storageCache';
 import type { LocalPaymentRow } from '@/app/components/lawyer/FinancialOperationsCenter/types';
 import {
     computeTotalOwedUnifiedFromStore,
-    emptyStore,
     notifyUnifiedLedgerUpdated,
-    parseUnifiedLedgerFromStorage,
     recomputeUnifiedLedgerPaymentSnapshots,
     storageKey,
     type UnifiedLedgerStore,
@@ -105,17 +103,4 @@ export function upsertTrustCollectPayment(input: {
     nextStore = recomputeUnifiedLedgerPaymentSnapshots(nextStore, input.totalOwed);
     const paymentRow = nextStore.payments.find((p) => String(p.id || '') === input.paymentId);
     return { store: nextStore, created, updated, paymentRow, unchanged: false };
-}
-
-export function seizureProceedsLedgerGapIqd(
-    executionId: string,
-    expected: number,
-    paymentId: string
-): { expected: number; credited: number; gap: number } {
-    const exId = String(executionId || '').trim();
-    if (!exId || expected <= 0) return { expected, credited: 0, gap: expected };
-    const store = parseUnifiedLedgerFromStorage(storageCache.get(storageKey(exId))) ?? emptyStore();
-    const row = (store.payments || []).find((p) => String(p.id || '') === paymentId);
-    const credited = row ? Math.trunc(Number(row.amount) || 0) : 0;
-    return { expected, credited, gap: Math.max(0, expected - credited) };
 }

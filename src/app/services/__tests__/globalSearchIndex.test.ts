@@ -2,7 +2,7 @@
  * اختبارات تغطية فهرس البحث الشامل.
  *
  * يتحقّق من:
- *  s1) lawsuit stages[].timeline + stages[].tasks + incidentalCases مُفهرسة بعمق
+ *  s1) نصوص lawsuit stages تُطوى في وثيقة الملف (بدون صف لكل حدث)
  *  s2) criminal: كل defendants/complainants كـ party entries مستقلّة + notes
  *  s2b) criminal proceduralTimeline يُفهرس كأحداث إجرائية
  */
@@ -11,7 +11,7 @@ import { buildGlobalSearchIndex } from '../globalSearchIndex';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 
 describe('buildGlobalSearchIndex (تغطية موسّعة)', () => {
-    it('s1) يفهرس lawsuit stages[].timeline events بعمق', () => {
+    it('s1) يطوي نصوص المراحل داخل وثيقة الملف', () => {
         const file: FileData = {
             id: 1,
             type: 'lawsuit',
@@ -75,41 +75,17 @@ describe('buildGlobalSearchIndex (تغطية موسّعة)', () => {
         });
 
         const titles = index.map((e) => e.title);
-        expect(titles).toContain('جلسة مرافعة كبرى');
-        expect(titles).toContain('قرار رد الدفع الشكلي');
-        expect(titles).toContain('تحضير مذكرة الإثبات');
-        expect(titles).toContain('قضية ثالث منضم');
+        expect(titles).toContain('أحمد محمود');
+        expect(titles).not.toContain('جلسة مرافعة كبرى');
+        expect(titles).not.toContain('قرار رد الدفع الشكلي');
 
-        // كل entry يحمل navigate للملف الأصلي مع stageIndex + eventId لـ deep-link دقيق
-        const ev = index.find((e) => e.title === 'جلسة مرافعة كبرى')!;
-        expect(ev.navigate).toEqual({
-            type: 'file',
-            fileId: 1,
-            stageIndex: 0,
-            eventId: 'ev1',
-        });
-
-        // قرار: نفس المرحلة لكن eventId مختلف
-        const decision = index.find((e) => e.title === 'قرار رد الدفع الشكلي')!;
-        expect(decision.navigate).toEqual({
-            type: 'file',
-            fileId: 1,
-            stageIndex: 0,
-            eventId: 'ev2',
-        });
-
-        // مهمة المرحلة: نفس stageIndex، eventId = task.id
-        const task = index.find((e) => e.title === 'تحضير مذكرة الإثبات')!;
-        expect(task.navigate).toEqual({
-            type: 'file',
-            fileId: 1,
-            stageIndex: 0,
-            eventId: 't1',
-        });
-
-        // البحث بكلمة من details يجب أن يُطابق (_searchStr يحتوي عليها)
-        const evHasShahed = ev._searchStr.includes('شاهد');
-        expect(evHasShahed).toBe(true);
+        const fileEntry = index.find((e) => e.id === 'file-1');
+        expect(fileEntry?.navigate).toEqual({ type: 'file', fileId: 1 });
+        expect(fileEntry?._searchStr).toContain('شاهد');
+        expect(fileEntry?._searchStr).toMatch(/مرافعه/);
+        expect(fileEntry?._searchStr).toMatch(/الاثبات/);
+        expect(fileEntry?._searchStr).toMatch(/منضم/);
+        expect(index.filter((e) => e.navigate.type === 'file' && e.navigate.fileId === 1)).toHaveLength(1);
     });
 
     it('s2) يفهرس كل defendants و complainants كـ party entries مستقلّة', () => {
@@ -230,7 +206,6 @@ describe('buildGlobalSearchIndex (تغطية موسّعة)', () => {
                 repositoryDocs: [],
                 threadingTransactions: [],
                 threadingTasks: [],
-                threadingFinance: [],
                 communityPosts: [],
             },
         });

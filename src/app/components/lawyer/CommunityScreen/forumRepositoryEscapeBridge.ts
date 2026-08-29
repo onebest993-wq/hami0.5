@@ -48,13 +48,18 @@ export function setForumRepositoryEscape(
     next: ForumRepositoryEscapeSnapshot,
     nextHandlers: ForumRepositoryEscapeHandlers,
 ): void {
+    const same =
+        snapshot.isUploadModalOpen === next.isUploadModalOpen &&
+        snapshot.previewOpen === next.previewOpen &&
+        snapshot.deleteOpen === next.deleteOpen;
     snapshot = next;
     handlers = nextHandlers;
-    emit();
+    if (!same) emit();
 }
 
 export function resetForumRepositoryEscape(): void {
+    const alreadyEmpty = snapshot === emptySnapshot && handlers === noopHandlers;
     snapshot = emptySnapshot;
     handlers = noopHandlers;
-    emit();
+    if (!alreadyEmpty) emit();
 }

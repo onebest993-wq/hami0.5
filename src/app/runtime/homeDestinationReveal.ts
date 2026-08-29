@@ -23,11 +23,6 @@ function readHomeDestinationRevealedSession(): boolean {
     }
 }
 
-/** للواجهة: تخطّي أنيميشن الكشف عند العودة من أقسام */
-export function isHomeDestinationRevealedInSession(): boolean {
-    return readHomeDestinationRevealedSession();
-}
-
 function markHomeDestinationRevealedSession(): void {
     if (typeof window === 'undefined') return;
     try {
@@ -40,7 +35,8 @@ function markHomeDestinationRevealedSession(): void {
 let lazyIslandsPromise: Promise<void> | null = null;
 
 /**
- * prefetch للجزر lazy (منتدى، dock، overlays) — لا يحجب الشبكة الرئيسية.
+ * prefetch للجزر lazy (منتدى + overlays) — لا يحجب الشبكة الرئيسية.
+ * شريط القيادة الحي: DockHalfTile عبر commandHub (LegalCommandCenterDock محذوف).
  */
 export function whenHomeDestinationReady(
     timeoutMs = getHomeDestinationRevealTimeoutMs(),
@@ -52,7 +48,6 @@ export function whenHomeDestinationReady(
         lazyIslandsPromise = Promise.race([
             Promise.all([
                 import('@/app/runtime/deferredAppStyles').then((m) => m.ensureDeferredAppStylesLoaded()),
-                import('@/app/bootstrap/homeDockBootGate').then((m) => m.waitForHomeDockBootChunk()),
                 import('@/app/components/lawyer/dashboard/HomeForumSignalsIsland'),
                 import('@/app/components/lawyer/dashboard/CommandCenterOverlays'),
             ]).then(() => undefined),
@@ -78,23 +73,28 @@ export function resetHomeDestinationRevealForTests(): void {
 }
 
 /**
- * الشبكة الرئيسية تُرسم فوراً — prefetch للجزر lazy بالخلفية.
+ * الشبكة الرئيسية تُرسم فوراً — prefetch للجزر lazy بعد content-ready حتى لا تزاحم الهاب.
  */
-export function useHomeDestinationReveal(visible: boolean): boolean {
+export function useHomeDestinationReveal(visible: boolean): void {
     const reduceMotion = useReduceMotion();
 
     useLayoutEffect(() => {
         if (!visible) return undefined;
         if (reduceMotion || readHomeDestinationRevealedSession()) return undefined;
 
-        void whenHomeDestinationReady();
-        return undefined;
+        let cancelled = false;
+        void import('@/app/bootstrap/bootReveal').then((boot) => {
+            boot.onBootContentReady(() => {
+                if (!cancelled) void whenHomeDestinationReady();
+            });
+        });
+        return () => {
+            cancelled = true;
+        };
     }, [visible, reduceMotion]);
-
-    return visible;
 }
 
-/** جزر lazy (منتدى/overlays) — تُحمّل بعد الشبكة */
+/** جزر lazy (منتدى/overlays) — بعد content-ready حتى لا تزاحم أول طلاء */
 export function useHomeLazyIslandsReveal(visible: boolean): boolean {
     const reduceMotion = useReduceMotion();
     const [ready, setReady] = useState(
@@ -109,8 +109,12 @@ export function useHomeLazyIslandsReveal(visible: boolean): boolean {
         }
 
         let cancelled = false;
-        void whenHomeDestinationReady().then(() => {
-            if (!cancelled) setReady(true);
+        void import('@/app/bootstrap/bootReveal').then((boot) => {
+            boot.onBootContentReady(() => {
+                void whenHomeDestinationReady().then(() => {
+                    if (!cancelled) setReady(true);
+                });
+            });
         });
         return () => {
             cancelled = true;

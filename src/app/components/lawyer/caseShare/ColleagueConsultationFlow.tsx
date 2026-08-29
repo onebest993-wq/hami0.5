@@ -1,12 +1,19 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Send, X, Shield, UserCheck, ChevronLeft, Loader2 } from '@/app/components/ui/lucideIcons';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Send } from '@/app/components/ui/icons/Send';
+import { X } from '@/app/components/ui/icons/X';
+import { Shield } from '@/app/components/ui/icons/Shield';
+import { UserCheck } from '@/app/components/ui/icons/UserCheck';
+import { ChevronLeft } from '@/app/components/ui/icons/ChevronLeft';
+import { Loader2 } from '@/app/components/ui/icons/Loader2';
+import { RefreshCw } from '@/app/components/ui/icons/RefreshCw';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { useAuthSafe } from '@/app/context/AuthContext';
-import type { DossierShareSource, CaseShareVisibleFields, NetworkColleague } from '@/app/services/caseShare/caseShareTypes';
-import {
-    defaultConsultVisibleFields,
+import { useAuthSafe } from '@/app/context/authHooks';
+import type {
+    DossierShareSource,
+    CaseShareVisibleFields,
+    NetworkColleague,
 } from '@/app/services/caseShare/caseShareTypes';
+import { defaultConsultVisibleFields } from '@/app/services/caseShare/caseShareTypes';
 import { normalizeExecutionConsultCatalog } from '@/app/services/caseShare/caseShareCatalogBuilder';
 import { buildMaskedView } from '@/app/services/caseShare/caseShareMasking';
 import { CaseShareApiService } from '@/app/services/caseShare/caseShareApiService';
@@ -17,6 +24,9 @@ import {
     formatCaseShareSession,
     type CaseShareSessionMinutes,
 } from '@/app/services/caseShare/caseShareSession';
+import { HUB_DOSSIER_CONSULT_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
+import { LV_INSET, LV_INSET_HOVER } from '@/app/components/lawyer/lawyerShared/lawsuitVisualLite';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 
 type Step = 'target' | 'privacy' | 'confirm';
 
@@ -26,50 +36,13 @@ type ColleagueConsultationFlowProps = {
     source?: DossierShareSource;
 };
 
-function ConsultDossierSummary({ source }: { source: DossierShareSource }) {
-    const meta = source.executionMeta;
-    if (!meta) {
-        return (
-            <div className="mb-4 rounded-xl border border-[#E6C673]/20 bg-[#E6C673]/5 px-3 py-3 text-right">
-                <p className="text-[10px] font-semibold text-white/45 mb-1">بيانات الإضبارة</p>
-                <p className="text-sm font-bold text-white truncate">{source.title}</p>
-            </div>
-        );
-    }
+const btnPrimary =
+    'min-h-[44px] flex-1 rounded-xl bg-[#E6C673] text-[#0A0F1C] text-sm font-bold disabled:opacity-40 touch-manipulation';
+const btnGhost =
+    `min-h-[44px] rounded-xl border border-white/12 px-3 text-sm font-bold text-white/65 touch-manipulation ${LV_INSET} ${LV_INSET_HOVER}`;
 
-    const directorate = meta.directorate || source.courtLabel?.trim() || '—';
-    const fileRef = meta.fileNumber
-        ? `${meta.fileNumber}${meta.fileYear ? `/${meta.fileYear}` : ''}`
-        : source.caseNumbers[0] ?? '—';
-
-    const rows: Array<{ label: string; value: string; accent?: boolean }> = [
-        { label: 'مديرية التنفيذ', value: directorate },
-        { label: 'رقم الإضبارة', value: fileRef, accent: true },
-    ];
-    if (meta?.claimType) rows.push({ label: 'نوع المطالبة', value: meta.claimType });
-    if (meta?.documentType) rows.push({ label: 'نوع السند', value: meta.documentType });
-    if (meta?.lifecycleStatus) rows.push({ label: 'حالة الإضبارة', value: meta.lifecycleStatus });
-    if (meta?.docNumber) rows.push({ label: 'رقم السند', value: meta.docNumber });
-
-    return (
-        <div className="mb-4 rounded-xl border border-[#E6C673]/20 bg-[#E6C673]/5 px-3 py-3 text-right">
-            <p className="text-[10px] font-semibold text-white/45 mb-2">بيانات الإضبارة</p>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                {rows.map((row) => (
-                    <div key={row.label} className="min-w-0">
-                        <p className="text-[9px] text-white/40">{row.label}</p>
-                        <p
-                            className={`truncate text-[12px] font-bold ${
-                                row.accent ? 'text-[#E6C673] tabular-nums' : 'text-white'
-                            }`}
-                        >
-                            {row.value}
-                        </p>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
+function stopBubble(e: React.SyntheticEvent) {
+    e.stopPropagation();
 }
 
 export const ColleagueConsultationFlow = memo(function ColleagueConsultationFlow({
@@ -77,12 +50,18 @@ export const ColleagueConsultationFlow = memo(function ColleagueConsultationFlow
     onClose,
     source,
 }: ColleagueConsultationFlowProps) {
+    useBodyScrollLock(open);
+
     const { user } = useAuthSafe();
     const userId = user?.id ?? null;
     const ownerName = user?.user_metadata?.fullName || user?.email?.split('@')[0] || 'محامٍ';
+    const dossierId = source?.dossierId ?? null;
+    const dossierModule = source?.module;
+    const loadGenRef = useRef(0);
 
     const [step, setStep] = useState<Step>('target');
     const [loadingColleagues, setLoadingColleagues] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [colleagues, setColleagues] = useState<NetworkColleague[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [fields, setFields] = useState<CaseShareVisibleFields>(() =>
@@ -105,17 +84,53 @@ export const ColleagueConsultationFlow = memo(function ColleagueConsultationFlow
         if (!open) return;
         setStep('target');
         setSelectedId(null);
-        setFields(defaultConsultVisibleFields(source?.module));
+        setLoadError(null);
+        setFields(defaultConsultVisibleFields(dossierModule));
         setSessionMinutes(DEFAULT_CASE_SHARE_SESSION_MINUTES);
-    }, [open, source?.module, source?.dossierId]);
+    }, [open, dossierModule, dossierId]);
+
+    const reloadColleagues = useCallback(() => {
+        if (!userId) {
+            setLoadError('سجّل الدخول لعرض شبكة المتابعة');
+            setColleagues([]);
+            setLoadingColleagues(false);
+            return;
+        }
+        const gen = ++loadGenRef.current;
+        setLoadingColleagues(true);
+        setLoadError(null);
+        void CaseShareApiService.listNetworkColleagues(userId)
+            .then((list) => {
+                if (loadGenRef.current !== gen) return;
+                setColleagues(list);
+            })
+            .catch(() => {
+                if (loadGenRef.current !== gen) return;
+                setLoadError('تعذّر تحميل الشبكة — أعد المحاولة');
+                setColleagues([]);
+            })
+            .finally(() => {
+                if (loadGenRef.current === gen) setLoadingColleagues(false);
+            });
+    }, [userId]);
 
     useEffect(() => {
-        if (!open || !source || !userId) return;
-        setLoadingColleagues(true);
-        void CaseShareApiService.listNetworkColleagues(userId)
-            .then(setColleagues)
-            .finally(() => setLoadingColleagues(false));
-    }, [open, source, userId]);
+        if (!open || !dossierId) return;
+        reloadColleagues();
+    }, [open, dossierId, reloadColleagues]);
+
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', onKey, true);
+        return () => window.removeEventListener('keydown', onKey, true);
+    }, [open, onClose]);
 
     const selectedColleague = colleagues.find((c) => c.id === selectedId) ?? null;
 
@@ -149,8 +164,12 @@ export const ColleagueConsultationFlow = memo(function ColleagueConsultationFlow
             });
             SmartToast.success(`تم إرسال طلب الاستشارة إلى ${selectedColleague.name}`);
             onClose();
-        } catch {
-            SmartToast.error('تعذّر إرسال طلب الاستشارة');
+        } catch (err) {
+            const message =
+                err instanceof Error && err.message === 'RECIPIENT_NOT_IN_NETWORK'
+                    ? 'المستلم ليس في شبكة المتابعة'
+                    : 'تعذّر إرسال طلب الاستشارة';
+            SmartToast.error(message);
         } finally {
             setSubmitting(false);
         }
@@ -160,225 +179,218 @@ export const ColleagueConsultationFlow = memo(function ColleagueConsultationFlow
 
     if (!source) {
         return (
-            <AnimatePresence>
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[120] bg-black/65 backdrop-blur-sm flex items-center justify-center p-6"
-                    onClick={onClose}
-                >
-                    <p className="text-white/60 text-sm" onClick={(e) => e.stopPropagation()}>
-                        افتح إضبارة لإرسال طلب استشارة
-                    </p>
-                </motion.div>
-            </AnimatePresence>
+            <div
+                className={`fixed inset-0 ${HUB_DOSSIER_CONSULT_Z_CLASS} bg-black/70 flex items-center justify-center p-6`}
+                data-testid="colleague-consultation-layer"
+                onClick={onClose}
+            >
+                <p className="text-white/60 text-sm" onClick={stopBubble}>
+                    افتح إضبارة لإرسال طلب استشارة
+                </p>
+            </div>
         );
     }
 
+    const stepHint =
+        step === 'target'
+            ? 'اختر زميلاً من شبكتك'
+            : step === 'privacy'
+              ? 'ما يظهر للزميل'
+              : 'تأكيد الإرسال';
+
     return (
-        <AnimatePresence>
-            <motion.div
-                key="consult-backdrop"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[120] bg-black/65 backdrop-blur-sm"
+        <div
+            className={`fixed inset-0 ${HUB_DOSSIER_CONSULT_Z_CLASS}`}
+            data-testid="colleague-consultation-layer"
+            role="presentation"
+        >
+            <button
+                type="button"
+                aria-label="إغلاق"
+                className="absolute inset-0 bg-black/70 touch-manipulation"
                 onClick={onClose}
             />
-            <motion.div
-                key="consult-sheet"
-                initial={{ y: '100%' }}
-                animate={{ y: 0 }}
-                exit={{ y: '100%' }}
-                transition={{ type: 'spring', stiffness: 420, damping: 38 }}
-                className="fixed inset-x-0 bottom-0 z-[121] max-h-[88dvh] rounded-t-[24px] bg-[#0A0F1C] border border-[#E6C673]/20 shadow-2xl flex flex-col"
-                dir="rtl"
-                role="dialog"
-                aria-label="استشارة زميل مختار"
-            >
-                <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mt-3 mb-2" />
 
-                <div className="px-5 pb-3 flex items-center justify-between border-b border-white/10">
-                    <div className="min-w-0 flex-1">
-                        <h3 className="text-white font-bold text-sm flex items-center gap-2">
-                            <Send size={16} className="text-[#E6C673] shrink-0" />
-                            استشارة زميل مختار
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="استشارة زميل"
+                dir="rtl"
+                className="absolute inset-x-0 bottom-0 max-h-[min(82vh,82dvh)] flex flex-col rounded-t-2xl border border-[#E6C673]/18 bg-[#0A0F1C] shadow-2xl"
+                onClick={stopBubble}
+                onPointerDown={stopBubble}
+            >
+                <div className="mx-auto mt-2.5 mb-1 h-1 w-9 shrink-0 rounded-full bg-white/20" />
+
+                <div className="flex items-center gap-2 border-b border-white/[0.07] px-4 pb-2.5 shrink-0">
+                    <div className="min-w-0 flex-1 text-right">
+                        <h3 className="flex items-center gap-1.5 text-[13px] font-bold text-white">
+                            <Send size={14} className="text-[#E6C673] shrink-0" />
+                            استشارة زميل
                         </h3>
-                        {selectedColleague && step !== 'target' ? (
-                            <p className="text-white/45 text-[11px] mt-0.5 truncate">
-                                إلى: {selectedColleague.name}
-                            </p>
-                        ) : (
-                            <p className="text-white/45 text-[11px] mt-0.5 truncate">{source.title}</p>
-                        )}
+                        <p className="truncate text-[10px] text-white/40 mt-0.5">
+                            {selectedColleague && step !== 'target'
+                                ? selectedColleague.name
+                                : source.title}
+                            {' · '}
+                            {stepHint}
+                        </p>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="w-9 h-9 rounded-full bg-white/5 text-white/50 flex items-center justify-center shrink-0"
+                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-white/45 hover:bg-white/5 hover:text-white touch-manipulation"
                         aria-label="إغلاق"
                     >
                         <X size={18} />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-5 py-4 overscroll-contain">
+                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3 touch-pan-y">
                     {step === 'target' ? (
-                        <>
-                            <ConsultDossierSummary source={source} />
-                            <p className="text-white/55 text-xs mb-3">
-                                اختر زميلاً من شبكة المتابعة — من تتابعه أو يتابعك
-                            </p>
+                        <div className="space-y-2">
                             {loadingColleagues ? (
-                                <div className="py-12 flex justify-center text-[#E6C673]">
-                                    <Loader2 className="animate-spin" />
+                                <div className="flex justify-center py-10 text-[#E6C673]" aria-busy="true">
+                                    <Loader2 size={22} className="animate-spin" />
                                 </div>
                             ) : colleagues.length === 0 ? (
-                                <div className="py-10 text-center text-white/45 text-sm">
-                                    لا يوجد زملاء في شبكة المتابعة — تابع محامياً من المنتدى أولاً
+                                <div className="space-y-3 py-6 text-center">
+                                    <p className="text-sm text-white/50 leading-relaxed">
+                                        {loadError ??
+                                            'لا زملاء في الشبكة بعد — تابع محامياً من المنتدى ثم حدّث.'}
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={reloadColleagues}
+                                        className={`${btnGhost} mx-auto inline-flex items-center justify-center gap-1.5 px-4`}
+                                    >
+                                        <RefreshCw size={14} />
+                                        تحديث
+                                    </button>
                                 </div>
                             ) : (
-                                <div className="space-y-2">
-                                    {colleagues.map((c) => (
-                                        <button
-                                            key={c.id}
-                                            type="button"
-                                            onClick={() => setSelectedId(c.id)}
-                                            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl border transition-colors ${
-                                                selectedId === c.id
-                                                    ? 'border-[#E6C673]/40 bg-[#E6C673]/10'
-                                                    : 'border-white/10 bg-white/[0.03]'
-                                            }`}
-                                        >
-                                            <span className="w-9 h-9 rounded-full bg-[#E6C673]/12 border border-[#E6C673]/25 flex items-center justify-center text-[#E6C673] text-xs font-bold">
-                                                {c.name.slice(0, 1)}
+                                colleagues.map((c) => (
+                                    <button
+                                        key={c.id}
+                                        type="button"
+                                        onClick={() => setSelectedId(c.id)}
+                                        className={`w-full min-h-[44px] flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-right touch-manipulation transition-colors ${
+                                            selectedId === c.id
+                                                ? 'border-[#E6C673]/35 bg-[#E6C673]/10'
+                                                : `border-white/10 ${LV_INSET} ${LV_INSET_HOVER}`
+                                        }`}
+                                    >
+                                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E6C673]/25 bg-[#E6C673]/10 text-[11px] font-bold text-[#E6C673]">
+                                            {c.name.slice(0, 1)}
+                                        </span>
+                                        <span className="min-w-0 flex-1">
+                                            <span className="block truncate text-[13px] font-bold text-white">
+                                                {c.name}
                                             </span>
-                                            <span className="flex-1 text-right">
-                                                <span className="block text-white text-sm font-bold">{c.name}</span>
-                                                <span className="block text-white/40 text-[10px]">
-                                                    {c.relation === 'both'
-                                                        ? 'متابعة متبادلة'
-                                                        : c.relation === 'following'
-                                                          ? 'تتابعه'
-                                                          : 'يتابعك'}
-                                                </span>
+                                            <span className="block text-[10px] text-white/40">
+                                                {c.relation === 'both'
+                                                    ? 'متابعة متبادلة'
+                                                    : c.relation === 'following'
+                                                      ? 'تتابعه'
+                                                      : 'يتابعك'}
                                             </span>
-                                            {selectedId === c.id ? (
-                                                <UserCheck size={16} className="text-[#E6C673]" />
-                                            ) : null}
-                                        </button>
-                                    ))}
-                                </div>
+                                        </span>
+                                        {selectedId === c.id ? (
+                                            <UserCheck size={15} className="text-[#E6C673] shrink-0" />
+                                        ) : null}
+                                    </button>
+                                ))
                             )}
-                        </>
+                        </div>
                     ) : null}
 
                     {step === 'privacy' ? (
-                        <>
-                            <ConsultDossierSummary source={source} />
-                            <p className="text-[#E6C673] text-xs font-bold mb-3 flex items-center gap-1.5">
-                                <Shield size={14} />
-                                ما يظهر للزميل من أقسام الإضبارة
+                        <div className="space-y-3">
+                            <p className="flex items-center gap-1.5 text-[11px] font-bold text-[#E6C673]">
+                                <Shield size={13} />
+                                أقسام المشاركة
                             </p>
-                            <p className="text-white/45 text-[10px] mb-3 leading-relaxed">
-                                كل الأقسام مخفية افتراضاً — فعّل «الكل» أو «اختيار» لكل قسم تريد مشاركته. يمكن
-                                إخفاء عناصر جزئياً من السجل أو الملاحظات أو المستندات وغيرها.
-                            </p>
-
                             <ColleagueShareCatalogPicker
                                 catalog={shareCatalog}
                                 fields={fields}
                                 onChange={setFields}
                             />
-
                             <CaseShareSessionClockSlider
                                 value={sessionMinutes}
                                 onChange={setSessionMinutes}
                             />
-
-                            <div className="mt-4 pt-3 border-t border-white/10 space-y-2">
-                                <label className="text-white text-sm font-bold">ملخص موجّه للزميل (اختياري)</label>
-                                <textarea
-                                    value={fields.text_masking ?? ''}
-                                    onChange={(e) =>
-                                        setFields((f) => ({ ...f, text_masking: e.target.value }))
-                                    }
-                                    placeholder="اكتب ملخص المشكلة القانونية دون تفاصيل حساسة..."
-                                    className="w-full h-20 rounded-xl bg-[#131620] border border-white/10 px-3 py-2 text-white text-sm resize-none outline-none focus:border-[#E6C673]/35"
-                                />
-                            </div>
-                        </>
+                            <textarea
+                                value={fields.text_masking ?? ''}
+                                onChange={(e) =>
+                                    setFields((f) => ({ ...f, text_masking: e.target.value }))
+                                }
+                                placeholder="ملخص موجّه للزميل (اختياري)"
+                                className="h-16 w-full resize-none rounded-xl border border-white/10 bg-[#131620] px-3 py-2 text-sm text-white outline-none focus:border-[#E6C673]/30"
+                            />
+                        </div>
                     ) : null}
 
                     {step === 'confirm' && preview ? (
-                        <div className="space-y-3 text-sm">
-                            <ConsultDossierSummary source={source} />
-                            <p className="text-white/55 text-xs">
-                                معاينة ما سيراه {selectedColleague?.name}
+                        <div className="space-y-2 text-sm">
+                            <p className="text-[11px] text-white/45">
+                                معاينة · {formatCaseShareSession(sessionMinutes)}
                             </p>
-                            <p className="text-[#E6C673]/80 text-[11px]">
-                                مدة الجلسة: {formatCaseShareSession(sessionMinutes)}
-                            </p>
-
-                            <div className="rounded-xl border border-[#E6C673]/25 bg-[#E6C673]/5 p-4 space-y-2">
-                                <p className="text-white font-bold">{preview.title}</p>
-                                {!isExecution && preview.court ? (
-                                    <p className="text-white/50 text-xs">المحكمة: {preview.court}</p>
-                                ) : null}
-                                {!isExecution && preview.parties.length ? (
-                                    <p className="text-white/50 text-xs">
-                                        الأطراف: {preview.parties.join(' · ')}
-                                    </p>
-                                ) : null}
-                                {preview.caseNumbers.length && fields.case_numbers ? (
-                                    <p className="text-white/50 text-xs">
-                                        الأرقام: {preview.caseNumbers.join(' · ')}
-                                    </p>
-                                ) : null}
+                            <div className="rounded-xl border border-[#E6C673]/20 bg-[#E6C673]/[0.06] p-3 space-y-1.5">
+                                <p className="font-bold text-white text-[13px]">{preview.title}</p>
                                 {preview.narrative ? (
-                                    <p className="text-white/60 text-xs leading-relaxed whitespace-pre-wrap">
+                                    <p className="text-[11px] text-white/55 leading-relaxed whitespace-pre-wrap">
                                         {preview.narrative}
                                     </p>
                                 ) : null}
                             </div>
-
                             {(preview.visibleCatalog ?? []).length ? (
                                 (preview.visibleCatalog ?? []).map((section) => (
                                     <div
                                         key={section.key}
-                                        className="rounded-xl border border-white/10 bg-white/[0.03] p-3"
+                                        className="rounded-xl border border-white/10 px-3 py-2"
                                     >
-                                        <p className="text-[#E6C673] text-xs font-bold mb-2">{section.title}</p>
-                                        <ul className="space-y-1">
+                                        <p className="mb-1 text-[11px] font-bold text-[#E6C673]">
+                                            {section.title}
+                                        </p>
+                                        <ul className="space-y-0.5">
                                             {section.items.map((item) => (
-                                                <li key={item.id} className="text-white/70 text-[11px] truncate">
+                                                <li
+                                                    key={item.id}
+                                                    className="truncate text-[11px] text-white/65"
+                                                >
                                                     • {item.label}
-                                                    {item.preview ? (
-                                                        <span className="text-white/35"> — {item.preview}</span>
-                                                    ) : null}
                                                 </li>
                                             ))}
                                         </ul>
                                     </div>
                                 ))
                             ) : (
-                                <p className="text-white/40 text-xs text-center py-4">
-                                    لم تُفعَّل أي أقسام للمشاركة — سيصل للزميل الملخص فقط
+                                <p className="py-3 text-center text-[11px] text-white/40">
+                                    الملخص فقط — لم تُفعَّل أقسام
                                 </p>
                             )}
                         </div>
                     ) : null}
                 </div>
 
-                <div className="px-5 py-4 border-t border-white/10 flex gap-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                <div className="flex gap-2 border-t border-white/[0.07] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shrink-0">
                     {step !== 'target' ? (
                         <button
                             type="button"
                             onClick={() => setStep(step === 'confirm' ? 'privacy' : 'target')}
-                            className="px-4 py-2.5 rounded-xl border border-white/15 text-white/60 text-sm font-bold flex items-center gap-1"
+                            className={`${btnGhost} inline-flex items-center gap-1`}
                         >
-                            <ChevronLeft size={16} /> رجوع
+                            <ChevronLeft size={15} /> رجوع
+                        </button>
+                    ) : colleagues.length > 0 ? (
+                        <button
+                            type="button"
+                            onClick={reloadColleagues}
+                            disabled={loadingColleagues}
+                            className={`${btnGhost} inline-flex items-center gap-1.5`}
+                            aria-label="تحديث القائمة"
+                        >
+                            <RefreshCw size={14} className={loadingColleagues ? 'animate-spin' : ''} />
                         </button>
                     ) : null}
                     <button
@@ -389,13 +401,13 @@ export const ColleagueConsultationFlow = memo(function ColleagueConsultationFlow
                             else if (step === 'privacy') setStep('confirm');
                             else void handleSend();
                         }}
-                        className="flex-1 py-2.5 rounded-xl bg-[#E6C673] text-[#0A0F1C] font-bold text-sm disabled:opacity-40 flex items-center justify-center gap-2"
+                        className={`${btnPrimary} inline-flex items-center justify-center gap-2`}
                     >
-                        {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
-                        {step === 'confirm' ? 'إرسال الطلب' : 'التالي'}
+                        {submitting ? <Loader2 size={15} className="animate-spin" /> : null}
+                        {step === 'confirm' ? 'إرسال' : 'التالي'}
                     </button>
                 </div>
-            </motion.div>
-        </AnimatePresence>
+            </div>
+        </div>
     );
 });

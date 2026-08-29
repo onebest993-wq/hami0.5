@@ -153,9 +153,11 @@ export function resolveForcedBringNeedsOutcomeUi(input: {
     outcome?: string | null;
     appealBlocksFieldwork?: boolean;
     appealCycleSuperseded?: boolean;
+    requestEffectivelyEnforced?: boolean;
 }): boolean {
     if (input.appealBlocksFieldwork) return false;
     if (input.appealCycleSuperseded) return false;
+    if (input.requestEffectivelyEnforced) return false;
     if (!input.forcedApproved || input.forcedPending) return false;
     const o = String(input.outcome ?? '').trim();
     return o !== 'brought' && o !== 'absconded' && o !== 'dismissed';

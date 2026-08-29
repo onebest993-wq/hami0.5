@@ -15,13 +15,13 @@ describe('lawyerProfileFx-android.css', () => {
     });
 
     it('strips blur/glow and uses short elevation', () => {
-        expect(css).toContain('hami-profile-ambient-glow');
-        expect(css).toContain('hami-profile-hero-aurora');
         expect(css).toContain('backdrop-filter: none');
         expect(css).toContain('--hami-profile-android-elev');
         expect(css).toContain('hami-profile-portrait-ring');
-        expect(css).toContain('hami-profile-accent-btn-solid');
+        expect(css).toContain('hami-profile-accent-btn');
         expect(css).toContain('display: none');
+        expect(css).not.toContain('hami-profile-hero-aurora');
+        expect(css).not.toContain('hami-profile-ambient-glow');
     });
 
     it('flattens studio interaction demos and locks profile overscroll', () => {

@@ -8,13 +8,34 @@ import {
 import { getDynamicPartyLabels } from '../utils/partyLabels';
 import type { JudgeDecision } from '../types';
 
-export type OrderFilePartyEntry = Record<string, unknown> & {
+type OrderFilePartyEntry = Record<string, unknown> & {
     name: string;
     isRepresented?: boolean;
+    isClient?: boolean;
 };
 
-export type UseOrderFilePartyWorkspaceArgs = {
-    caseData: any;
+/** Minimal case shape for party workspace — avoids `any` without inventing a full UrgentCase. */
+type OrderFilePartyCaseData = {
+    allParty1?: unknown;
+    allParty2?: unknown;
+    representedParty?: unknown;
+    party1Name?: unknown;
+    party1Phone?: unknown;
+    party2Name?: unknown;
+    party2Address?: unknown;
+    specificActionType?: unknown;
+    defenderEntryPhase?: unknown;
+    khulasatAlTalab?: unknown;
+    khulasa?: unknown;
+    finalityReason?: unknown;
+    archived?: unknown;
+    status?: unknown;
+    phase?: unknown;
+    requestSubject?: unknown;
+};
+
+type UseOrderFilePartyWorkspaceArgs = {
+    caseData: OrderFilePartyCaseData | null | undefined;
     judgeDecision: JudgeDecision;
     guaranteeSubmitted: boolean;
     resolvedWorkspaceRequestType: string;
@@ -24,6 +45,14 @@ export type UseOrderFilePartyWorkspaceArgs = {
     isUrgentLawsuit: boolean;
     isUrgentJustice: boolean;
 };
+
+function asPartyRows(value: unknown): OrderFilePartyEntry[] {
+    if (!Array.isArray(value)) return [];
+    return value.map((row) => {
+        const r = row && typeof row === 'object' ? (row as Record<string, unknown>) : {};
+        return { ...r, name: String(r.name ?? '').trim() } as OrderFilePartyEntry;
+    });
+}
 
 export function useOrderFilePartyWorkspace({
     caseData,
@@ -36,8 +65,8 @@ export function useOrderFilePartyWorkspace({
     isUrgentLawsuit,
     isUrgentJustice,
 }: UseOrderFilePartyWorkspaceArgs) {
-    const rawParty1Entries = Array.isArray(caseData?.allParty1) ? (caseData.allParty1 as any[]) : [];
-    const rawParty2Entries = Array.isArray(caseData?.allParty2) ? (caseData.allParty2 as any[]) : [];
+    const rawParty1Entries = asPartyRows(caseData?.allParty1);
+    const rawParty2Entries = asPartyRows(caseData?.allParty2);
     const legacyRepresentedSide =
         caseData?.representedParty === 'client' || caseData?.representedParty === 'opponent'
             ? caseData.representedParty
@@ -48,7 +77,7 @@ export function useOrderFilePartyWorkspace({
     const party1Entries: OrderFilePartyEntry[] = (
         rawParty1Entries.length
             ? rawParty1Entries
-            : [{ name: caseData?.party1Name ?? '', phone: caseData?.party1Phone ?? '' }]
+            : [{ name: String(caseData?.party1Name ?? ''), phone: caseData?.party1Phone ?? '' }]
     ).map((p, index) => ({
         ...p,
         name: String(p?.name ?? '').trim(),
@@ -61,7 +90,7 @@ export function useOrderFilePartyWorkspace({
     const party2Entries: OrderFilePartyEntry[] = (
         rawParty2Entries.length
             ? rawParty2Entries
-            : [{ name: caseData?.party2Name ?? '', address: caseData?.party2Address ?? '' }]
+            : [{ name: String(caseData?.party2Name ?? ''), address: caseData?.party2Address ?? '' }]
     ).map((p, index) => ({
         ...p,
         name: String(p?.name ?? '').trim(),
@@ -71,7 +100,7 @@ export function useOrderFilePartyWorkspace({
                 : !party2HasRepresentedFlag && legacyRepresentedSide === 'opponent' && index === 0,
     }));
 
-    const isDefendantClient = party2Entries.some((p) => !!(p as any)?.isClient || !!(p as any)?.isRepresented);
+    const isDefendantClient = party2Entries.some((p) => !!p.isClient || !!p.isRepresented);
     const representedSide =
         party1Entries.some((p) => !!p?.isRepresented) && !party2Entries.some((p) => !!p?.isRepresented)
             ? 'client'
@@ -81,7 +110,7 @@ export function useOrderFilePartyWorkspace({
 
     const defenderEntryPhase = useMemo(() => {
         if (!isDefendantClient || !isStateOrder) return 1;
-        const v = Number((caseData as any)?.defenderEntryPhase);
+        const v = Number(caseData?.defenderEntryPhase);
         return v === 2 || v === 3 ? v : 1;
     }, [caseData, isDefendantClient, isStateOrder]);
 
@@ -97,7 +126,7 @@ export function useOrderFilePartyWorkspace({
     }, [caseData?.specificActionType]);
 
     const khulasaText = useMemo(() => {
-        return String((caseData as any)?.khulasatAlTalab ?? (caseData as any)?.khulasa ?? '').trim();
+        return String(caseData?.khulasatAlTalab ?? caseData?.khulasa ?? '').trim();
     }, [caseData]);
 
     const partyLabels = useMemo(
@@ -110,14 +139,14 @@ export function useOrderFilePartyWorkspace({
         judgeDecision.requiresGuarantee &&
         !guaranteeSubmitted;
 
-    const finalityReason = String((caseData as any)?.finalityReason || '').trim();
+    const finalityReason = String(caseData?.finalityReason || '').trim();
     const isFinalityNoGrievance = finalityReason === 'no_grievance';
     const isFinalityTerminatedRequest = finalityReason === 'terminated_request';
     const isFinalized =
         !!caseData?.archived ||
-        (caseData as any)?.status === 'completed' ||
-        (caseData as any)?.status === 'closed' ||
-        (caseData as any)?.phase === 'completed';
+        caseData?.status === 'completed' ||
+        caseData?.status === 'closed' ||
+        caseData?.phase === 'completed';
 
     const workspaceTypeDetail = useMemo(() => {
         const raw = String(caseData?.specificActionType ?? resolvedWorkspaceRequestType ?? '').trim();
@@ -128,7 +157,7 @@ export function useOrderFilePartyWorkspace({
         ];
         if (leafOptions.includes(raw)) return raw;
         if (!raw || raw === URGENT_PETITION_PRIMARY || raw === JUDICIAL_ACKNOWLEDGMENT_PRIMARY) {
-            const fallback = String((caseData as any)?.requestSubject ?? '').trim();
+            const fallback = String(caseData?.requestSubject ?? '').trim();
             return fallback || '—';
         }
         if (raw.includes('/')) {

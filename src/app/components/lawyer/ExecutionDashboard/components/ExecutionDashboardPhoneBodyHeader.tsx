@@ -1,12 +1,14 @@
 import React from 'react';
-import { Trash2 } from '@/app/components/ui/lucideIcons';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import type { DossierLifecycleStatus } from '@/app/types/execution';
-import { ExecutionDossierHeaderNavButtons } from './ExecutionDossierHeaderNavButtons';
 import { ColleagueConsultationHeaderButton } from '@/app/components/lawyer/caseShare/ColleagueConsultationHeaderButton';
 import {
-    LazyDossierLifecyclePanel,
-    prefetchExecutionOverlayModals,
-} from '../executionDashboardLazyRegistry';
+    EXECUTION_DOSSIER_CONSULT_BTN,
+    EXECUTION_DOSSIER_PHONE_HEADER_GRID,
+    EXECUTION_DOSSIER_PHONE_HEADER_SHELL,
+    EXECUTION_DOSSIER_TRASH_BTN,
+} from '@/app/components/lawyer/ExecutionDashboard/executionDossierVisualLite';
+import { LazyDossierLifecyclePanel } from '../executionDashboardLazyRegistryShell';
 import { prefetchExecutionDossierActionsOverlay } from '../executionDashboardOverlayPrefetch';
 import {
     dossierLifecycleLabelAr,
@@ -14,6 +16,7 @@ import {
     dossierLifecycleTriggerTextClass,
 } from '../helpers';
 import type { DossierLifecyclePopStyle } from '../orchestrators/executionOrchestratorSliceTypes';
+import { ExecutionDossierHeaderNavButtons } from './ExecutionDossierHeaderNavButtons';
 
 export type ExecutionDashboardPhoneBodyHeaderProps = {
     handleDossierBack: () => void;
@@ -39,7 +42,6 @@ export type ExecutionDashboardPhoneBodyHeaderProps = {
     trashedCaseNotes: unknown[];
     trashedCaseTasks: unknown[];
     setShowExecutionTrashModal: (open: boolean) => void;
-    sparkNudgeSlot?: React.ReactNode;
 };
 
 export function ExecutionDashboardPhoneBodyHeader({
@@ -66,14 +68,13 @@ export function ExecutionDashboardPhoneBodyHeader({
     trashedCaseNotes,
     trashedCaseTasks,
     setShowExecutionTrashModal,
-    sparkNudgeSlot,
 }: ExecutionDashboardPhoneBodyHeaderProps) {
     const trashCount =
         trashedTimelineEvents.length + trashedCaseNotes.length + trashedCaseTasks.length;
 
     return (
-        <div className="bg-gradient-to-r from-slate-800/40 via-slate-700/20 to-slate-800/40 backdrop-blur-xl border-t border-white/10 border-b border-black/50 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] rounded-xl mx-2 mt-2">
-            <div className="grid w-full grid-cols-[4.75rem_minmax(0,1fr)_2.25rem_2.25rem] items-center gap-1.5 px-2.5 py-2">
+        <div className={EXECUTION_DOSSIER_PHONE_HEADER_SHELL}>
+            <div className={EXECUTION_DOSSIER_PHONE_HEADER_GRID}>
                 <ExecutionDossierHeaderNavButtons
                     onBack={handleDossierBack}
                     onExit={handleDossierExit}
@@ -81,14 +82,9 @@ export function ExecutionDashboardPhoneBodyHeader({
                 />
 
                 <div
-                    className="relative flex min-w-0 items-center justify-center justify-self-center ps-10"
+                    className="relative flex min-w-0 items-center justify-center justify-self-center"
                     ref={dossierLifecyclePopoverRef as React.Ref<HTMLDivElement>}
                 >
-                    {sparkNudgeSlot ? (
-                        <div className="absolute right-0 top-1/2 z-[55] -translate-y-1/2 shrink-0">
-                            {sparkNudgeSlot}
-                        </div>
-                    ) : null}
                     <button
                         type="button"
                         onPointerEnter={() => prefetchExecutionDossierActionsOverlay()}
@@ -103,17 +99,17 @@ export function ExecutionDashboardPhoneBodyHeader({
                                 return next;
                             });
                         }}
-                        className={`inline-flex h-9 max-w-full items-center justify-center gap-1.5 rounded-xl px-2 transition-all hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/45 ${dossierLifecycleTriggerTextClass(dossierStatusDraft)}`}
+                        className={`inline-flex h-9 min-h-[44px] max-w-full items-center justify-center gap-1.5 rounded-lg px-2 transition-colors hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/45 touch-manipulation ${dossierLifecycleTriggerTextClass(dossierStatusDraft)}`}
                         aria-expanded={dossierLifecyclePanelOpen}
                         aria-haspopup="dialog"
                         aria-label={`الإضبارة التنفيذية — ${dossierLifecycleLabelAr(dossierStatusDraft)}`}
                         title="تغيير حالة الإضبارة — اضغط للقائمة"
                     >
-                        <span className="truncate text-sm font-semibold tracking-tight sm:text-[15px]">
+                        <span className="truncate text-[12px] font-semibold tracking-tight">
                             الإضبارة التنفيذية
                         </span>
                         <span
-                            className={`h-2 w-2 shrink-0 rounded-full ring-2 ring-white/15 shadow-[0_0_8px_rgba(255,255,255,0.2)] ${dossierLifecycleTriggerDotClass(dossierStatusDraft)}`}
+                            className={`h-2 w-2 shrink-0 rounded-full ring-2 ring-white/15 ${dossierLifecycleTriggerDotClass(dossierStatusDraft)}`}
                             aria-hidden
                         />
                     </button>
@@ -147,24 +143,27 @@ export function ExecutionDashboardPhoneBodyHeader({
                 <ColleagueConsultationHeaderButton
                     iconOnly
                     iconSize={15}
-                    className="inline-flex h-9 w-9 items-center justify-center justify-self-center rounded-xl border border-[#E6C673]/30 bg-[#E6C673]/10 px-0 text-[#E6C673] transition-all hover:bg-[#E6C673]/16"
+                    className={EXECUTION_DOSSIER_CONSULT_BTN}
                 />
 
                 <button
                     type="button"
-                    onPointerEnter={() => prefetchExecutionOverlayModals()}
+                    onPointerEnter={() => {
+                        void import('../executionDashboardLazyRegistryOverlays')
+                            .then((m) => {
+                                m.prefetchExecutionOverlayModals();
+                            })
+                            .catch(() => undefined);
+                    }}
                     onClick={() => setShowExecutionTrashModal(true)}
-                    className="group relative inline-flex h-9 w-9 items-center justify-center justify-self-end rounded-xl border border-white/8 bg-hami-navy/45 text-slate-400 backdrop-blur-md transition-all duration-200 hover:border-amber-500/30 hover:bg-amber-500/8 hover:text-amber-200/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                    data-testid="execution-dossier-trash"
+                    className={EXECUTION_DOSSIER_TRASH_BTN}
                     title="سلة مهملات الإضبارة (السجل والملاحظات)"
                     aria-label="سلة مهملات الإضبارة"
                 >
-                    <Trash2
-                        size={16}
-                        strokeWidth={1.75}
-                        className="transition-transform duration-200 group-hover:scale-105"
-                    />
+                    <Trash2 size={16} strokeWidth={1.75} />
                     {trashCount > 0 ? (
-                        <span className="absolute -top-1 -left-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-amber-500/35 bg-amber-950/90 px-1 text-[9px] font-bold tabular-nums text-amber-200/95 shadow-[0_0_10px_-2px_rgba(230,198,115,0.45)]">
+                        <span className="absolute -top-1 -left-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-amber-500/35 bg-amber-950/90 px-1 text-[9px] font-bold tabular-nums text-amber-200/95">
                             {trashCount}
                         </span>
                     ) : null}

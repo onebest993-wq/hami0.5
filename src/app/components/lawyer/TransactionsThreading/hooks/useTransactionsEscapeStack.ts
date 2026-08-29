@@ -6,9 +6,9 @@ import {
     resolveTransactionsEscapeAction,
     type TransactionsDetailsEscapeSnapshot,
     type TransactionsEscapeSnapshot,
-} from '@/app/components/lawyer/TransactionsThreading/transactionsEscapeStack';
+} from '../transactionsEscapeStack';
 
-export type UseTransactionsEscapeStackParams = TransactionsEscapeSnapshot & {
+type UseTransactionsEscapeStackParams = TransactionsEscapeSnapshot & {
     enabled?: boolean;
     onBack: () => void;
     onCloseListAddSheet: () => void;

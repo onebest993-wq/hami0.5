@@ -4,6 +4,8 @@ export type CloudSyncStatusMessageInput = {
     anyBucketEnabled: boolean;
     cloudBuildEnabled: boolean;
     signedIn: boolean;
+    /** حساب مسجّل لكن قيد التدقيق / مرفوض */
+    verificationBlocked?: boolean;
     isOnline: boolean;
     isSyncing: boolean;
     lastSyncTime: number | null;
@@ -56,6 +58,13 @@ export function resolveCloudSyncStatusMessage(input: CloudSyncStatusMessageInput
     }
 
     if (!input.signedIn) {
+        if (input.verificationBlocked) {
+            return {
+                text: 'متوقفة — الحساب قيد التدقيق أو غير معتمد',
+                tone: 'warning',
+                canSyncNow: false,
+            };
+        }
         return {
             text: 'متوقفة — غير مسجّل الدخول',
             tone: 'warning',

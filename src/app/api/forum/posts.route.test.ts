@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 
 const savePostMock = vi.fn();
+const createPostMock = vi.fn();
 const deletePostAuthorizedMock = vi.fn();
 const togglePinMock = vi.fn();
 const isBannedMock = vi.fn();
@@ -10,6 +11,7 @@ const getPostByIdMock = vi.fn();
 vi.mock('../../services/forum/forumRepository.ts', () => ({
     ForumRepository: {
         savePost: (...args: unknown[]) => savePostMock(...args),
+        createPost: (...args: unknown[]) => createPostMock(...args),
         deletePostAuthorized: (...args: unknown[]) => deletePostAuthorizedMock(...args),
         togglePin: (...args: unknown[]) => togglePinMock(...args),
         isBanned: (...args: unknown[]) => isBannedMock(...args),
@@ -105,6 +107,7 @@ describe('forum posts route POST create', () => {
             isAdmin: false,
         });
         savePostMock.mockImplementation(async (post: CommunityPost) => post);
+        createPostMock.mockImplementation(async (post: CommunityPost) => post);
     });
 
     it('يزيل isPinned/isLocked/upvoterIds/comments قبل الحفظ', async () => {
@@ -115,7 +118,7 @@ describe('forum posts route POST create', () => {
             }),
         );
         expect(res.status).toBe(200);
-        const saved = savePostMock.mock.calls[0]?.[0] as CommunityPost;
+        const saved = createPostMock.mock.calls[0]?.[0] as CommunityPost;
         expect(saved.isPinned).toBeUndefined();
         expect(saved.isLocked).toBeUndefined();
         expect(saved.upvoterIds).toEqual([]);
@@ -131,7 +134,7 @@ describe('forum posts route POST create', () => {
             }),
         );
         expect(res.status).toBe(403);
-        expect(savePostMock).not.toHaveBeenCalled();
+        expect(createPostMock).not.toHaveBeenCalled();
     });
 });
 

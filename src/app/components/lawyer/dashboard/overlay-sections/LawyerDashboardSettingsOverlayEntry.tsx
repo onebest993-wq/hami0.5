@@ -1,15 +1,30 @@
+/**
+ * الإعدادات — يُركَّب من FullBootPath (فوق HomeFirstPaint) بلا Suspense/InstantShell.
+ * Host يضم المحتوى sync — فتح الترس يرسم مركز الإعدادات الحقيقي فوراً.
+ */
 import React from 'react';
 import { HamiSettingsHost } from '@/app/components/lawyer/HamiSettings/HamiSettingsHost';
 import { resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
-import type { LawyerDashboardOverlaysBundleProps } from '../lawyerDashboardOverlaysBundles';
 
-/**
- * الإعدادات — Entry sync على MainView (بلا Suspense)؛ Host دافئ من orchestration.
- */
+type LawyerDashboardSettingsOverlayEntryProps = {
+    shell: {
+        userId: string;
+        authUserId?: string | null;
+        onLogout: (options?: { skipLocalPurge?: boolean }) => void | Promise<void>;
+    };
+    overlays: {
+        showSettings: boolean;
+        settingsHostMounted: boolean;
+        settingsSessionKey: number;
+        closeSettings: () => void;
+        resetSettingsShell: () => void;
+    };
+};
+
 export function LawyerDashboardSettingsOverlayEntry({
     shell,
     overlays,
-}: Pick<LawyerDashboardOverlaysBundleProps, 'shell' | 'overlays'>) {
+}: LawyerDashboardSettingsOverlayEntryProps) {
     const { userId, authUserId, onLogout } = shell;
     const {
         showSettings,

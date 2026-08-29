@@ -45,3 +45,34 @@ describe('ImageFocusPicker zoom commit', () => {
         expect(zoomCalls.some((c) => c[0]?.imageZoom === 128)).toBe(false);
     });
 });
+
+describe('ImageFocusPicker touch pan', () => {
+    it('يلتزم البؤرة بعد سحب لمس بزر -1', () => {
+        const onChange = vi.fn();
+        render(<ImageFocusPicker block={block} src="https://cdn.example/a.jpg" onChange={onChange} />);
+        const picker = screen.getByTestId('image-focus-picker');
+        Object.defineProperty(picker, 'getBoundingClientRect', {
+            value: () => ({
+                width: 100,
+                height: 180,
+                top: 0,
+                left: 0,
+                right: 100,
+                bottom: 180,
+                x: 0,
+                y: 0,
+                toJSON() {},
+            }),
+        });
+        fireEvent.pointerDown(picker, {
+            pointerId: 4,
+            clientX: 20,
+            clientY: 36,
+            button: -1,
+            pointerType: 'touch',
+        });
+        fireEvent.pointerMove(picker, { pointerId: 4, clientX: 80, clientY: 144, pointerType: 'touch' });
+        fireEvent.pointerUp(picker, { pointerId: 4, clientX: 80, clientY: 144, pointerType: 'touch' });
+        expect(onChange).toHaveBeenCalledWith({ imageFocusX: 80, imageFocusY: 80 });
+    });
+});

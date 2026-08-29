@@ -6,9 +6,11 @@ export function isCriminalCaseVisibleToLawyer(
     lawyerId: string | null | undefined,
 ): boolean {
     const uid = String(lawyerId ?? '').trim();
-    if (!uid) return true;
+    // بلا جلسة: لا تُعرض أي إضبارة (fail-closed) — كان fail-open ويكشف كل الجهاز
+    if (!uid) return false;
     const owner = String(caseRecord?.ownerLawyerId ?? '').trim();
-    if (!owner) return true; // تراثي بلا مالك — يُعرض حتى يُختَم عند الإنشاء/التعديل
+    // يتيم بلا مالك: لا يُدرَج في الأرشيف لأي محامٍ — التملّك فقط عند فتح صريح
+    if (!owner) return false;
     return owner === uid;
 }
 
@@ -21,7 +23,7 @@ export function canMutateCriminalCaseForLawyer(
     lawyerId: string | null | undefined,
 ): boolean {
     const uid = String(lawyerId ?? '').trim();
-    if (!uid) return true;
+    if (!uid) return false;
     const owner = String(caseRecord?.ownerLawyerId ?? '').trim();
     if (!owner) return false;
     return owner === uid;
@@ -34,7 +36,7 @@ export function filterCriminalCasesForLawyer(
 ): CriminalCase[] {
     const list = Array.isArray(cases) ? cases : [];
     const uid = String(lawyerId ?? '').trim();
-    if (!uid) return list;
+    if (!uid) return [];
     return list.filter((c) => isCriminalCaseVisibleToLawyer(c, uid));
 }
 
@@ -56,6 +58,23 @@ export function claimOrphanCriminalCaseOwnership(
     const uid = String(lawyerId ?? '').trim();
     if (!uid || !isOrphanCriminalCase(caseRecord)) return null;
     return { ...caseRecord, ownerLawyerId: uid };
+}
+
+/**
+ * عند فتح/حقن إضبارة: يتيم → ختم المالك للجلسة؛ غير مرئي لغيره → null.
+ * لا يُستدعى على قائمة الأرشيف (تلك تستخدم isCriminalCaseVisibleToLawyer فقط).
+ */
+export function resolveCriminalCaseForSessionOpen<T extends Pick<CriminalCase, 'ownerLawyerId'>>(
+    caseRecord: T,
+    lawyerId: string | null | undefined,
+): T | null {
+    const uid = String(lawyerId ?? '').trim();
+    if (!uid) return null;
+    if (isOrphanCriminalCase(caseRecord)) {
+        return claimOrphanCriminalCaseOwnership(caseRecord as CriminalCase, uid) as T | null;
+    }
+    if (!isCriminalCaseVisibleToLawyer(caseRecord, uid)) return null;
+    return caseRecord;
 }
 
 /**

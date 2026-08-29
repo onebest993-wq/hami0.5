@@ -1,4 +1,4 @@
-import { requireNotificationsAuth } from '../_auth.ts';
+import { NOTIFICATIONS_API_INTERNAL_ERROR, requireNotificationsAuth } from '../_auth.ts';
 import { wifeJsonResponse } from '../../security/wifeSecurityHeaders.ts';
 import { wipeShellNotificationsServer } from '@/app/services/notifications/notificationServerBlob';
 
@@ -14,8 +14,7 @@ export async function POST(request: Request): Promise<Response> {
 
         const ok = await wipeShellNotificationsServer(userId);
         return wifeJsonResponse(200, { ok });
-    } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Internal wipe error';
-        return wifeJsonResponse(500, { ok: false, error: msg });
+    } catch {
+        return wifeJsonResponse(500, { ok: false, error: NOTIFICATIONS_API_INTERNAL_ERROR });
     }
 }

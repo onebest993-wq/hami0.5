@@ -1,23 +1,22 @@
+import { isExplicitDevUnlock } from '@/app/services/auth/devUnlockSession';
 import { GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
 
 /** معرّفات لا تُعدّ جلسة Supabase/BFF حقيقية في بوابات الواجهة (إنتاج) */
 export const SHELL_NON_AUTH_USER_IDS = new Set<string>([GUEST_LAWYER_ID, 'demo_user']);
 
 /**
- * فتح ميزات الواجهة بدون Supabase حقيقي.
- * - DEV/اختبار: مفعّل افتراضياً
- * - إنتاج: مغلق ما لم يُطلَب صراحةً بـVITE_SHELL_AUTH_OPEN=true
- *
- * كان الإنتاج يُفتح ضمنياً كلّما لم يساوِ VITE_BFF_AUTH القيمة 'true' بالضبط، فكان
- * نسيان متغيّر بيئة واحد يكفي لإلغاء تسجيل الدخول عن لوحة المحامي كاملةً.
- * الإغلاق لا يحبس أحداً: مع إطفاء BFF يقرأ authBoot جلسة Supabase المحفوظة.
+ * فتح ميزات الواجهة بدون تسجيل دخول حقيقي.
+ * - مفتوح فقط عند VITE_SHELL_AUTH_OPEN=true صراحةً (E2E / قياس boot)
+ * - غير مضبوط أو false → بوابة الدخول تظهر (fail-closed)
  */
 export function isShellAuthBypassed(): boolean {
     const flag = import.meta.env.VITE_SHELL_AUTH_OPEN;
-    if (flag === 'false') return false;
     if (flag === 'true') return true;
-    // غير الإنتاج (dev/vitest): مفتوح افتراضياً — يعتمد PROD لا DEV (stubEnv)
-    return import.meta.env.PROD !== true;
+    /* زر «الدخول كمطور» — DEV فقط؛ يفتح قيود الواجهة لهذه المرحلة */
+    if (isExplicitDevUnlock()) return true;
+    if (flag === 'false') return false;
+    // الافتراضي دائماً مغلق — حتى في التطوير — حتى تظهر شاشة الدخول قبل الواجهة
+    return false;
 }
 
 export function isShellDemoUserId(userId: string | null | undefined): boolean {
@@ -26,12 +25,22 @@ export function isShellDemoUserId(userId: string | null | undefined): boolean {
     return SHELL_NON_AUTH_USER_IDS.has(id);
 }
 
-/** مستخدم مسموح له باستخدام بوابات الواجهة */
+/** مستخدم مسموح له باستخدام بوابات الواجهة الشبكية (منتدى/سحابة) */
 export function isRealSignedIn(userId: string | null | undefined): boolean {
     const id = userId?.trim();
     if (!id) return isShellAuthBypassed();
     if (isShellAuthBypassed()) return true;
     return !isShellDemoUserId(id);
+}
+
+/**
+ * جلسة محلية صالحة (ضيف صريح أو حساب حقيقي).
+ * المستودع/التقويم/المهام/الأرشيف تعمل للضيف — المنتدى يبقى على isRealSignedIn.
+ */
+export function hasLocalAppSession(userId: string | null | undefined): boolean {
+    const id = userId?.trim();
+    if (!id) return isShellAuthBypassed();
+    return true;
 }
 
 /** أول معرّف متاح للفحص (يفضّل auth ثم user العرض) */

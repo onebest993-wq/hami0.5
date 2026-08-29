@@ -1,6 +1,7 @@
 /**
  * ستارة المهام — إظهار بنواة المنتدى/المستودع:
  * visibility + opacity (لا display:none) حتى تبقى الطبقة مُركَّبة وجاهزة.
+ * لا content-visibility:hidden على الطبقة المخفية — يكسر الكشف اللحظي (layout يجب أن يبقى جاهزاً).
  */
 
 .hami-field-tasks-layer {
@@ -21,12 +22,56 @@
     transition: none;
 }
 
+.hami-field-tasks-sheet-motion {
+    transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hami-field-tasks-sheet-motion.hami-field-tasks-sheet--animating {
+    will-change: transform;
+    box-shadow: none;
+}
+
 .hami-field-tasks-sheet--snap {
     transition: none !important;
 }
 
+.hami-field-tasks-scroller {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    scrollbar-width: none;
+}
+
+.hami-field-tasks-scroller::-webkit-scrollbar {
+    display: none;
+}
+
+.hami-field-tasks-list-item {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 7.5rem;
+}
+
+html[data-hami-lite='1'] .hami-field-tasks-sheet-motion {
+    transition-duration: 120ms;
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .hami-field-tasks-layer {
-        transition: none;
+    .hami-field-tasks-layer,
+    .hami-field-tasks-sheet-motion {
+        transition: none !important;
     }
+
+    .hami-field-tasks-sheet-motion.hami-field-tasks-sheet--animating {
+        will-change: auto;
+    }
+}
+
+.hami-field-tasks-swipe-handle {
+    touch-action: pan-y;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.hami-field-tasks-sheet--dragging {
+    transition: none !important;
 }

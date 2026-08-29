@@ -2,12 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import {
     HOME_HUB_CARD_FEATURE,
     HOME_HUB_FULLY_EMPTY_COPY,
-    buildCalendarAlertIdSet,
     computeHomeHubAlertsTabCount,
     computeHomeHubAlertsTabBadgeOffPanel,
     countUniqueHomeHubUrgentItems,
-    filterRadarEventsExcludingCalendarAlerts,
-    filterHomeHubRadarEvents,
     filterHomeHubUrgentRadarEvents,
     computeHomeHubHorizonTabCounts,
     formatHomeHubTabBadgeCount,
@@ -21,17 +18,20 @@ import {
     resolveHomeHubShellReady,
     isSafeHomeHubNavigateRoute,
     HOME_HUB_ALERTS_EMPTY_COPY,
+    reconcileHomeHubPanelAfterCounts,
+    resolveHomeHubInitialPending,
+    resolveHomeHubShowInitialLoad,
 } from '@/app/services/alerts/homeHubCardLogic';
 
 describe('homeHubCardLogic', () => {
     it('uses Arabic feature label', () => {
-        expect(HOME_HUB_CARD_FEATURE).toBe('البطاقة الذكية');
+        expect(HOME_HUB_CARD_FEATURE).toBe('بطاقة التنبيهات');
     });
 
     it('defaults to pins when only pins exist', () => {
-        expect(resolveDefaultHomeHubPanel(0, 0, 3)).toBe('pins');
-        expect(resolveDefaultHomeHubPanel(2, 0, 3)).toBe('alerts');
-        expect(resolveDefaultHomeHubPanel(0, 2, 0)).toBe('secretary');
+        expect(resolveDefaultHomeHubPanel(0, 3)).toBe('pins');
+        expect(resolveDefaultHomeHubPanel(2, 3)).toBe('alerts');
+        expect(resolveDefaultHomeHubPanel(0, 0)).toBe('alerts');
     });
 
     it('off-panel alerts badge ignores radar cache and upcoming raw counts', () => {
@@ -70,20 +70,8 @@ describe('homeHubCardLogic', () => {
         expect(countUniqueHomeHubUrgentItems(secretaryUrgent, radar)).toBe(3);
     });
 
-    it('dedupes radar events already shown as calendar alerts', () => {
-        const ids = buildCalendarAlertIdSet([
-            { id: 'calendar:ev-1' } as never,
-            { id: 'lawsuit:1' } as never,
-        ]);
-        const filtered = filterRadarEventsExcludingCalendarAlerts(
-            [{ id: 'ev-1' }, { id: 'ev-2' }],
-            ids,
-        );
-        expect(filtered.map((e) => e.id)).toEqual(['ev-2']);
-    });
-
     it('dedupes radar field-task rows when injected alert exists', () => {
-        const filtered = filterHomeHubRadarEvents(
+        const filtered = filterHomeHubUrgentRadarEvents(
             [
                 { id: 'ev-1', sourceEntityId: 'task-9' },
                 { id: 'ev-2', sourceEntityId: 'task-8' },
@@ -119,14 +107,14 @@ describe('homeHubCardLogic', () => {
     });
 
     it('hides mirrored judgment dates from home hub radar', () => {
-        const filtered = filterRadarEventsExcludingCalendarAlerts(
+        const filtered = filterHomeHubUrgentRadarEvents(
             [
                 { id: 'appt_judgment_stage-1' },
                 { id: 'hami_bridge_lawsuit_1783156902323_appt_judgment_stage_1783189537629' },
                 { id: 'appt_appeal_deadline_stage-1' },
                 { id: 'ev-2' },
             ],
-            new Set<string>(),
+            [],
         );
         expect(filtered.map((e) => e.id)).toEqual(['appt_appeal_deadline_stage-1', 'ev-2']);
     });
@@ -251,6 +239,13 @@ describe('homeHubCardLogic', () => {
         expect(isSafeHomeHubNavigateRoute('repository:session')).toBe(true);
         expect(isSafeHomeHubNavigateRoute('javascript:alert(1)')).toBe(false);
         expect(isSafeHomeHubNavigateRoute('')).toBe(false);
+        expect(isSafeHomeHubNavigateRoute('https://evil.example/phish')).toBe(false);
+        expect(isSafeHomeHubNavigateRoute('workspace:lawsuit:<img src=x>')).toBe(false);
+        expect(isSafeHomeHubNavigateRoute('workspace:lawsuit:http://evil.example')).toBe(false);
+        expect(isSafeHomeHubNavigateRoute('data:text/html,phish')).toBe(false);
+        expect(isSafeHomeHubNavigateRoute('vbscript:msgbox(1)')).toBe(false);
+        expect(isSafeHomeHubNavigateRoute('java\nscript:alert(1)')).toBe(false);
+        expect(isSafeHomeHubNavigateRoute('workspace:schedule:calendar')).toBe(true);
     });
 
     it('guardedHomeHubNavigateRoute يرفض مساراً غير آمن', () => {
@@ -273,8 +268,7 @@ describe('homeHubCardLogic', () => {
     });
 
     it('resolveNextHomeHubPanel يُبدّل التبويب', () => {
-        expect(resolveNextHomeHubPanel('alerts')).toBe('secretary');
-        expect(resolveNextHomeHubPanel('secretary')).toBe('pins');
+        expect(resolveNextHomeHubPanel('alerts')).toBe('pins');
         expect(resolveNextHomeHubPanel('pins')).toBe('alerts');
     });
 
@@ -318,6 +312,66 @@ describe('homeHubCardLogic', () => {
                 pinsCount: 2,
                 hubFullyEmpty: false,
                 hadRadarCache: false,
+            }),
+        ).toBe(true);
+    });
+
+    it('reconcileHomeHubPanelAfterCounts يصحّح التثبيت المتأخر بلا سرقة اختيار المستخدم', () => {
+        expect(
+            reconcileHomeHubPanelAfterCounts({
+                userChose: true,
+                badgeCountsSettled: true,
+                panelInit: true,
+                hubPanel: 'alerts',
+                alertsTabCount: 0,
+                pinsCount: 2,
+            }),
+        ).toBeNull();
+        expect(
+            reconcileHomeHubPanelAfterCounts({
+                userChose: false,
+                badgeCountsSettled: true,
+                panelInit: false,
+                hubPanel: 'alerts',
+                alertsTabCount: 0,
+                pinsCount: 2,
+            }),
+        ).toEqual({ nextPanel: 'pins', markInit: true });
+        expect(
+            reconcileHomeHubPanelAfterCounts({
+                userChose: false,
+                badgeCountsSettled: true,
+                panelInit: true,
+                hubPanel: 'alerts',
+                alertsTabCount: 0,
+                pinsCount: 1,
+            }),
+        ).toEqual({ nextPanel: 'pins', markInit: false });
+    });
+
+    it('resolveHomeHubInitialPending / showInitialLoad يفصلان الانتظار عن الهيكل', () => {
+        expect(
+            resolveHomeHubInitialPending({
+                alertsLoading: true,
+                alertsPanelActive: true,
+                radarLoading: true,
+                hasCarouselAlerts: false,
+                hasUrgentRadar: false,
+                pinCountForState: 0,
+                alertsError: null,
+                hadSecretaryCache: false,
+                hadRadarCachePeek: false,
+            }),
+        ).toBe(true);
+        expect(
+            resolveHomeHubShowInitialLoad({
+                alertsLoading: false,
+                hasCarouselAlerts: false,
+                hasUrgentRadar: false,
+                alertsError: null,
+                hadSecretaryCache: false,
+                alertsPanelActive: true,
+                radarLoading: true,
             }),
         ).toBe(true);
     });

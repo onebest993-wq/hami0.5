@@ -1,5 +1,4 @@
-import type { UrgentCase } from './types';
-import type { UrgentCaseStorageRow } from './types';
+import type { UrgentCase, UrgentCaseStorageRow } from './types';
 
 /** يحوّل UrgentCase إلى صف قابل للتخزين في localStorage / KV */
 export function serializeCaseForStorage(c: UrgentCase): Record<string, unknown> {

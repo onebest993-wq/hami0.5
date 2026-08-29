@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown } from '@/app/components/ui/lucideIcons';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
 import { CommunicationContextPanel } from '../CommunicationContextPanel';
 import type { CommunicationDisplayContext } from '../communicationDecisionModel';
 import { STATUS_TONE_CLASS } from '../communicationDecisionModel';

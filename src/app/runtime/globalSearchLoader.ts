@@ -2,22 +2,25 @@ import type { ComponentProps, ComponentType } from 'react';
 
 type GlobalSearchOverlayModule = typeof import('@/app/components/lawyer/GlobalSearchOverlay/index');
 type GlobalSearchOverlayProps = ComponentProps<GlobalSearchOverlayModule['GlobalSearchOverlay']>;
-export type GlobalSearchOverlayComponent = ComponentType<GlobalSearchOverlayProps>;
+type GlobalSearchOverlayComponent = ComponentType<GlobalSearchOverlayProps>;
 
 import {
     markGlobalSearchOverlayModuleResolved,
     resetGlobalSearchOverlayModuleStateForTests,
 } from '@/app/runtime/globalSearchModuleState';
-import { prefetchFuseModule } from '@/app/services/globalSearchFuse';
 
 export {
     isGlobalSearchOverlayModuleResolved,
     resetGlobalSearchOverlayModuleStateForTests,
 } from '@/app/runtime/globalSearchModuleState';
 
+type GlobalSearchOverlayHostModule =
+    typeof import('@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayHost');
+
 let overlayModulePromise: Promise<GlobalSearchOverlayModule> | null = null;
 let cachedGlobalSearchOverlay: GlobalSearchOverlayComponent | null = null;
 let dashboardEntryPrefetchPromise: Promise<unknown> | null = null;
+let overlayHostPromise: Promise<GlobalSearchOverlayHostModule> | null = null;
 
 export function getCachedGlobalSearchOverlay(): GlobalSearchOverlayComponent | null {
     return cachedGlobalSearchOverlay;
@@ -28,6 +31,7 @@ export function resetGlobalSearchOverlayModuleCacheForTests(): void {
     overlayModulePromise = null;
     cachedGlobalSearchOverlay = null;
     dashboardEntryPrefetchPromise = null;
+    overlayHostPromise = null;
     resetGlobalSearchOverlayModuleStateForTests();
 }
 
@@ -67,16 +71,45 @@ export function prefetchGlobalSearchDashboardEntryChunk(): void {
 /** Fuse + worker — ثقيل؛ يُؤجَّل بعد ظهور الـ shell أو idle. Motion يُحمَّل مع الواجهة. */
 export function prefetchGlobalSearchSearchEngine(): void {
     if (typeof window === 'undefined') return;
-    prefetchFuseModule();
+    void import('@/app/services/globalSearchFuse').then((m) => {
+        m.prefetchFuseModule();
+    });
     void import('@/app/services/search/globalSearchIndexWorkerClient').then((m) =>
         m.prefetchGlobalSearchIndexWorker(),
     );
 }
 
-/** تحميل مسبق لـ chunk واجهة البحث فقط — خفيف للإقلاع ومسار الفتح. */
+/** قشرة الطلاء الفوري فقط — لا تسحب Host/Overlay بعد الإقلاع. */
+export function prefetchGlobalSearchInstantPaintCover(): void {
+    if (typeof window === 'undefined') return;
+    void import('@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchInstantPaintCover').catch(
+        () => undefined,
+    );
+}
+
+function ensureOverlayHostPromise(): Promise<GlobalSearchOverlayHostModule> {
+    if (!overlayHostPromise) {
+        overlayHostPromise = import(
+            '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayHost'
+        ).catch((err) => {
+            overlayHostPromise = null;
+            throw err;
+        });
+    }
+    return overlayHostPromise;
+}
+
+/** Host (يسحب الواجهة) — مسار الفتح، لا Entry اللوحة. */
+export function loadGlobalSearchOverlayHost(): Promise<GlobalSearchOverlayHostModule> {
+    return ensureOverlayHostPromise();
+}
+
+/** مقطع الواجهة الكامل — عند نية الفتح (hover/ضغط)، لا بعد interactive. */
 export function prefetchGlobalSearchOverlayChunk(): void {
     if (typeof window === 'undefined') return;
+    prefetchGlobalSearchInstantPaintCover();
     prefetchGlobalSearchDashboardEntryChunk();
+    void ensureOverlayHostPromise().catch(() => undefined);
     void ensureOverlayModulePromise().catch(() => undefined);
 }
 

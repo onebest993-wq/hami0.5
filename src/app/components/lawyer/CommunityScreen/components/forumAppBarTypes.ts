@@ -1,0 +1,33 @@
+import type { MutableRefObject } from 'react';
+import type { ForumSectionId } from './ForumSectionSwitch';
+import type { RepositorySortKey } from '../repositoryListFilters';
+
+export type ForumAppBarProps = {
+    onBack?: () => void;
+    forumSurfaceOpen?: boolean;
+    activeSection: ForumSectionId;
+    onSectionChange: (section: ForumSectionId) => void;
+    onSectionIntent?: (section: ForumSectionId) => void;
+    onSearchOpen: () => void;
+    onNavigateToPost?: (postId: string) => void;
+    userId?: string | null;
+    selectedFilterIndex: number;
+    onFilterSelect: (index: number) => void;
+    repositorySearchTerm: string;
+    onRepositorySearchTermChange: (value: string) => void;
+    repositorySortBy: RepositorySortKey;
+    onRepositorySortChange: (value: RepositorySortKey) => void;
+    repositorySelectedType: string;
+    onRepositoryTypeChange: (value: string) => void;
+    repositorySelectedTag: string | null;
+    onRepositoryTagChange: (tag: string | null) => void;
+    groupsSearchQuery?: string;
+    onGroupsSearchQueryChange?: (value: string) => void;
+    followingCount?: number;
+    onOpenFollowing?: () => void;
+    forumFeedScope?: 'all' | 'following';
+    onForumFeedScopeChange?: (scope: 'all' | 'following') => void;
+    notificationStreamActive?: boolean;
+    onAppBarDropdownChange?: (open: boolean) => void;
+    closeAppBarDropdownsRef?: MutableRefObject<(() => void) | null>;
+};

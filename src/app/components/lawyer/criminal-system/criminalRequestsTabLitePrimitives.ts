@@ -34,40 +34,9 @@ export function resolveInvestigationDefendantsPartyMixLite(
     return 'adults_only';
 }
 
-export function parseEventDateKeyLite(date: string): number {
+function parseEventDateKeyLite(date: string): number {
     const parsed = Date.parse(String(date ?? '').trim());
     return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function pickPreferredCurrentJourneyNode(currents: JourneyNode[]): JourneyNode | null {
-    const trial = currents.find(
-        (n) => (n.stage === 'misdemeanor' || n.stage === 'felony') && !n.isCassationFilterNode,
-    );
-    if (trial) return trial;
-    const cassation = currents.find((n) => n.stage === 'cassation' || n.isCassationFilterNode === true);
-    if (cassation) return cassation;
-    return currents[0] ?? null;
-}
-
-export function getCurrentJourneyNodeLite(
-    nodes: JourneyNode[] | undefined,
-    branchId?: string,
-): JourneyNode | null {
-    const list = Array.isArray(nodes) ? nodes : [];
-    const currents = list.filter((n) => n.status === 'current');
-    const normalizedBranchId = String(branchId ?? '').trim();
-    if (normalizedBranchId && currents.length) {
-        return (
-            currents.find((n) => n.branchId === normalizedBranchId) ??
-            pickPreferredCurrentJourneyNode(currents) ??
-            currents[0] ??
-            null
-        );
-    }
-    if (currents.length > 1) {
-        return pickPreferredCurrentJourneyNode(currents) ?? currents[0] ?? null;
-    }
-    return currents[0] ?? list[list.length - 1] ?? null;
 }
 
 function nodeIdsInBranch(nodes: JourneyNode[], branchId: string): Set<string> {

@@ -1,28 +1,32 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';import {
-    Scale,
-    Megaphone,
-    Users,
-    ScrollText,
-    RotateCcw,
-    AlertTriangle,
-    ArrowLeftRight,
-    GitMerge,
-    Link2,
-    Mail,
-    type LucideIcon,
-} from '@/app/components/ui/lucideIcons';
-import { HUB_DOSSIER_ACTIONS_MENU_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
+import { useSheetSwipeDismiss } from '@/app/hooks/useSheetSwipeDismiss';
 import type { SmartFileParentData } from '../smartFile/parentDataInit';
 import { useSmartFileModalTheme } from '../smartFile/smartFileModalTheme';
+import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 import type { CaseStage } from '../../LawyerShared';
 import {
     canRequestCassationCorrection,
     findCassationStageIndex,
 } from '../smartFile/extraordinaryAppealGateway';
 import { isCassationStageName } from '../smartFile/judgmentTypes';
+import { AlertTriangle } from '@/app/components/ui/icons/AlertTriangle';
+import { ArrowLeftRight } from '@/app/components/ui/icons/ArrowLeftRight';
+import { GitMerge } from '@/app/components/ui/icons/GitMerge';
+import { Link2 } from '@/app/components/ui/icons/Link2';
+import { Mail } from '@/app/components/ui/icons/Mail';
+import { Megaphone } from '@/app/components/ui/icons/Megaphone';
+import { RotateCcw } from '@/app/components/ui/icons/RotateCcw';
+import { Scale } from '@/app/components/ui/icons/Scale';
+import { ScrollText } from '@/app/components/ui/icons/ScrollText';
+import { Users } from '@/app/components/ui/icons/Users';
+import type { LucideIcon } from '@/app/components/ui/lucideIcons';
+import { HUB_DOSSIER_ACTIONS_MENU_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
+import { LV_OVERLAY_SCRIM } from '@/app/components/lawyer/lawyerShared/lawsuitVisualLite';
 import { prefetchLegalActionsModalChunks } from '../prefetchLegalActionsModalChunks';
+
 const EXTRAORDINARY_APPEAL_TYPES = {
     retrial: 'إعادة المحاكمة',
     cassation_correction: 'تصحيح القرار التمييزي',
@@ -49,7 +53,6 @@ type ActionItem = {
     key: string;
     label: string;
     icon: LucideIcon;
-    iconClass: string;
     onClick: () => void;
     danger?: boolean;
 };
@@ -63,33 +66,103 @@ const SectionBlock = ({
     children: React.ReactNode;
     sectionTitleClass: string;
 }) => (
-    <section className="mb-3 last:mb-0">
+    <section className="mb-2.5 last:mb-0">
         <h4 className={sectionTitleClass}>{title}</h4>
-        <div className="space-y-1.5">{children}</div>
+        <div className="space-y-1">{children}</div>
     </section>
 );
 
 const ActionRow = ({
     label,
     icon: Icon,
-    iconClass,
     onClick,
     danger,
     actionRowClass,
     actionRowIconClass,
     labelClass,
+    isPearl,
 }: Omit<ActionItem, 'key'> & {
     actionRowClass: string;
     actionRowIconClass: string;
     labelClass: string;
+    isPearl: boolean;
 }) => (
     <button type="button" onClick={onClick} className={actionRowClass}>
-        <div className={`${actionRowIconClass} ${iconClass}`}>
-            <Icon size={17} strokeWidth={1.75} />
-        </div>
+        {isPearl ? (
+            <div className={actionRowIconClass}>
+                <Icon size={15} strokeWidth={1.75} aria-hidden />
+            </div>
+        ) : (
+            <Icon size={16} className={actionRowIconClass} strokeWidth={1.9} aria-hidden />
+        )}
         <span className={labelClass}>{label}</span>
     </button>
 );
+
+const CLICK_SUPPRESS_AFTER_DRAG_PX = 12;
+
+function LegalActionsSwipeHandle({
+    enabled,
+    barClassName,
+    onClose,
+    onOffsetChange,
+}: {
+    enabled: boolean;
+    barClassName: string;
+    onClose: () => void;
+    onOffsetChange: (px: number) => void;
+}) {
+    const reduceMotion = useReduceMotion();
+    const skipClickRef = useRef(false);
+
+    const handleOffsetChange = useCallback(
+        (px: number) => {
+            if (px > CLICK_SUPPRESS_AFTER_DRAG_PX) skipClickRef.current = true;
+            onOffsetChange(px);
+        },
+        [onOffsetChange],
+    );
+
+    const swipe = useSheetSwipeDismiss(
+        () => {
+            skipClickRef.current = true;
+            onClose();
+        },
+        {
+            enabled,
+            follow: enabled && !reduceMotion,
+            onOffsetChange: handleOffsetChange,
+        },
+    );
+
+    return (
+        <div
+            className="shrink-0 flex flex-col items-center justify-center min-h-[44px] min-w-[44px] w-full touch-none touch-manipulation"
+            data-testid={CIVIL_LAWSUIT_TEST_IDS.legalActionsSwipeHandle}
+            role="button"
+            tabIndex={enabled ? 0 : -1}
+            aria-label="اسحب للأسفل لإغلاق القائمة"
+            onKeyDown={(event) => {
+                if (!enabled) return;
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                onClose();
+            }}
+            onClick={() => {
+                if (!enabled) return;
+                if (skipClickRef.current) {
+                    skipClickRef.current = false;
+                    return;
+                }
+                onClose();
+            }}
+            {...swipe}
+        >
+            <div className={barClassName} aria-hidden />
+        </div>
+    );
+}
+
 export const LegalActionsMenu = ({
     isOpen,
     onClose,
@@ -108,6 +181,16 @@ export const LegalActionsMenu = ({
 }: LegalActionsMenuProps) => {
     const T = useSmartFileModalTheme();
     const isPearl = T.variant === 'personal-pearl';
+    const reduceMotion = useReduceMotion();
+    const [dragY, setDragY] = useState(0);
+
+    useEffect(() => {
+        if (!isOpen) setDragY(0);
+    }, [isOpen]);
+
+    const handleSwipeOffset = useCallback((px: number) => {
+        setDragY(px);
+    }, []);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -117,17 +200,20 @@ export const LegalActionsMenu = ({
     const actionRowProps = {
         actionRowClass: T.actionRow,
         actionRowIconClass: T.actionRowIcon,
-        labelClass: `flex-1 text-[14px] font-semibold ${
-            isPearl ? 'text-[#FFFEF9]/90 group-hover:text-[#FFFEF9]' : 'text-white/85 group-hover:text-white'
+        labelClass: `flex-1 text-[13px] font-bold ${
+            isPearl ? 'text-[#FFFEF9]/90' : 'text-white/80'
         }`,
+        isPearl,
     };
     const actionRowDangerProps = {
         actionRowClass: T.actionRowDanger,
         actionRowIconClass: T.actionRowIconDanger,
-        labelClass: 'flex-1 text-[14px] font-semibold text-rose-200/90 group-hover:text-rose-100',
+        labelClass: 'flex-1 text-[13px] font-bold text-rose-200/90',
+        isPearl,
     };
 
-    const isAppeal = currentStageName.includes('استئناف') || currentStageName.includes('Appeal');    const incidentalLabel = isAppeal ? 'شخص ثالث' : 'دعوى حادثة';
+    const isAppeal = currentStageName.includes('استئناف') || currentStageName.includes('Appeal');
+    const incidentalLabel = isAppeal ? 'شخص ثالث' : 'دعوى حادثة';
 
     const wrap = (fn: () => void) => () => {
         fn();
@@ -155,7 +241,6 @@ export const LegalActionsMenu = ({
             key: 'notification',
             label: 'حالة التبليغ القضائي',
             icon: Megaphone,
-            iconClass: 'text-sky-400/90',
             onClick: wrap(onNotification),
         });
     }
@@ -164,14 +249,12 @@ export const LegalActionsMenu = ({
             key: 'incidental',
             label: incidentalLabel,
             icon: Users,
-            iconClass: 'text-purple-400/90',
             onClick: wrap(() => onAction('incidental')),
         },
         {
             key: 'interlocutory',
             label: 'تمييز القرارات',
             icon: ScrollText,
-            iconClass: 'text-indigo-400/90',
             onClick: wrap(() => onAction('interlocutory_appeal')),
         },
     );
@@ -183,7 +266,6 @@ export const LegalActionsMenu = ({
                 key: 'retrial',
                 label: EXTRAORDINARY_APPEAL_TYPES.retrial,
                 icon: RotateCcw,
-                iconClass: 'text-blue-400/90',
                 onClick: wrap(() => setShowExtraordinaryAppealModal(EXTRAORDINARY_APPEAL_TYPES.retrial)),
             });
         }
@@ -192,7 +274,6 @@ export const LegalActionsMenu = ({
                 key: 'cassation_correction',
                 label: EXTRAORDINARY_APPEAL_TYPES.cassation_correction,
                 icon: AlertTriangle,
-                iconClass: 'text-orange-400/90',
                 onClick: wrap(() =>
                     setShowExtraordinaryAppealModal(EXTRAORDINARY_APPEAL_TYPES.cassation_correction),
                 ),
@@ -207,7 +288,6 @@ export const LegalActionsMenu = ({
                 key: 'transfer',
                 label: 'إحالة لعدم الاختصاص',
                 icon: ArrowLeftRight,
-                iconClass: 'text-violet-400/90',
                 onClick: wrap(() => setShowTransferJurisdictionModal(true)),
             });
         }
@@ -216,7 +296,6 @@ export const LegalActionsMenu = ({
                 key: 'consolidation',
                 label: 'توحيد الدعاوى',
                 icon: GitMerge,
-                iconClass: 'text-purple-400/90',
                 onClick: wrap(() => setShowCaseConsolidationModal(true)),
             });
         }
@@ -229,7 +308,6 @@ export const LegalActionsMenu = ({
                 key: 'case_link',
                 label: 'ربط الدعوى',
                 icon: Link2,
-                iconClass: 'text-sky-400/90',
                 onClick: wrap(() => setShowCaseLinkModal(true)),
             });
         }
@@ -238,7 +316,6 @@ export const LegalActionsMenu = ({
                 key: 'correspondence',
                 label: 'المخاطبات',
                 icon: Mail,
-                iconClass: 'text-amber-400/90',
                 onClick: wrap(() => setShowCorrespondenceModal(true)),
             });
         }
@@ -250,72 +327,88 @@ export const LegalActionsMenu = ({
                 <>
                     <motion.div
                         key="legal-actions-backdrop"
-                        initial={{ opacity: 0 }}
+                        initial={reduceMotion ? false : { opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        exit={{ opacity: 0, pointerEvents: 'none' }}
+                        exit={reduceMotion ? undefined : { opacity: 0, pointerEvents: 'none' }}
+                        transition={reduceMotion ? { duration: 0 } : undefined}
                         onClick={onClose}
-                        className={`pointer-events-auto ${isPearl ? `fixed inset-0 bg-[#131211]/82 backdrop-blur-[4px] ${HUB_DOSSIER_ACTIONS_MENU_Z_CLASS}` : `fixed inset-0 bg-[#020309]/90 backdrop-blur-[7px] ${HUB_DOSSIER_ACTIONS_MENU_Z_CLASS}`}`}
+                        className={`pointer-events-auto fixed inset-0 ${HUB_DOSSIER_ACTIONS_MENU_Z_CLASS} ${isPearl ? 'bg-[#131211]/72' : LV_OVERLAY_SCRIM}`}
                     />
                     <motion.div
                         key="legal-actions-sheet"
-                        initial={{ y: '100%' }}
-                        animate={{ y: 0 }}
-                        exit={{ y: '100%' }}
-                        transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+                        initial={reduceMotion ? false : { y: '100%' }}
+                        animate={{ y: dragY }}
+                        exit={reduceMotion ? undefined : { y: '100%' }}
+                        transition={
+                            reduceMotion || dragY > 0
+                                ? { duration: 0 }
+                                : { type: 'spring', damping: 28, stiffness: 320 }
+                        }
                         className={T.sheet}
                         dir="rtl"
+                        data-testid={CIVIL_LAWSUIT_TEST_IDS.legalActionsSheet}
                     >
-                        <div className={T.sheetHandle} />
+                        <LegalActionsSwipeHandle
+                            enabled
+                            barClassName={T.sheetHandle}
+                            onClose={onClose}
+                            onOffsetChange={handleSwipeOffset}
+                        />
                         <h3 className={T.sheetTitle}>
-                            <Scale size={18} strokeWidth={1.75} className={T.headerIcon} />
+                            {!isPearl ? (
+                                <Scale size={16} className="text-[#E6C673] shrink-0" strokeWidth={1.9} aria-hidden />
+                            ) : null}
                             إجراءات الدعوى القانونية
                         </h3>
 
-                        <SectionBlock title="الإجراءات الأساسية" sectionTitleClass={T.sectionTitle}>
-                            {coreActions.map(({ key, danger, ...item }) => (
-                                <ActionRow
-                                    key={key}
-                                    {...item}
-                                    {...(danger ? actionRowDangerProps : actionRowProps)}
-                                />
-                            ))}
-                        </SectionBlock>
-
-                        {extraordinaryActions.length > 0 && (
-                            <SectionBlock title="الطعون الاستثنائية" sectionTitleClass={T.sectionTitle}>
-                                {extraordinaryActions.map(({ key, danger, ...item }) => (
+                        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y scrollbar-hide">
+                            <SectionBlock title="الإجراءات الأساسية" sectionTitleClass={T.sectionTitle}>
+                                {coreActions.map(({ key, danger, ...item }) => (
                                     <ActionRow
                                         key={key}
+                                        danger={danger}
                                         {...item}
                                         {...(danger ? actionRowDangerProps : actionRowProps)}
                                     />
                                 ))}
                             </SectionBlock>
-                        )}
 
-                        {proceduralActions.length > 0 && (
-                            <SectionBlock title="المناورات الإجرائية" sectionTitleClass={T.sectionTitle}>
-                                {proceduralActions.map(({ key, danger, ...item }) => (
-                                    <ActionRow
-                                        key={key}
-                                        {...item}
-                                        {...(danger ? actionRowDangerProps : actionRowProps)}
-                                    />
-                                ))}
-                            </SectionBlock>
-                        )}
+                            {extraordinaryActions.length > 0 && (
+                                <SectionBlock title="الطعون الاستثنائية" sectionTitleClass={T.sectionTitle}>
+                                    {extraordinaryActions.map(({ key, danger, ...item }) => (
+                                        <ActionRow
+                                            key={key}
+                                            {...item}
+                                            {...(danger ? actionRowDangerProps : actionRowProps)}
+                                        />
+                                    ))}
+                                </SectionBlock>
+                            )}
 
-                        {linkAndCommsActions.length > 0 && (
-                            <SectionBlock title="الربط والمراسلات" sectionTitleClass={T.sectionTitle}>
-                                {linkAndCommsActions.map(({ key, danger, ...item }) => (
-                                    <ActionRow
-                                        key={key}
-                                        {...item}
-                                        {...(danger ? actionRowDangerProps : actionRowProps)}
-                                    />
-                                ))}
-                            </SectionBlock>
-                        )}
+                            {proceduralActions.length > 0 && (
+                                <SectionBlock title="المناورات الإجرائية" sectionTitleClass={T.sectionTitle}>
+                                    {proceduralActions.map(({ key, danger, ...item }) => (
+                                        <ActionRow
+                                            key={key}
+                                            {...item}
+                                            {...(danger ? actionRowDangerProps : actionRowProps)}
+                                        />
+                                    ))}
+                                </SectionBlock>
+                            )}
+
+                            {linkAndCommsActions.length > 0 && (
+                                <SectionBlock title="الربط والمراسلات" sectionTitleClass={T.sectionTitle}>
+                                    {linkAndCommsActions.map(({ key, danger, ...item }) => (
+                                        <ActionRow
+                                            key={key}
+                                            {...item}
+                                            {...(danger ? actionRowDangerProps : actionRowProps)}
+                                        />
+                                    ))}
+                                </SectionBlock>
+                            )}
+                        </div>
                     </motion.div>
                 </>
             )}

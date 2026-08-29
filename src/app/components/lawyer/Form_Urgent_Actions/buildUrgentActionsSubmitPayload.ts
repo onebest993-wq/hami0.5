@@ -7,7 +7,7 @@ import {
 } from './constants';
 import type { UrgentActionFormData, UrgentPartyEntry } from './urgentActionsFormTypes';
 
-export type UrgentSubmitContext = {
+type UrgentSubmitContext = {
     formData: UrgentActionFormData;
     party1List: UrgentPartyEntry[];
     party2List: UrgentPartyEntry[];

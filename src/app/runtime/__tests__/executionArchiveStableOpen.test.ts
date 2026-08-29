@@ -1,18 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { readLawyerDashboardMainViewSurface } from './readLawyerDashboardMainViewSurface';
 
 const root = process.cwd();
 
 describe('execution archive open — keep-alive sync', () => {
     it('MainView يركّب Entry sync + InstantChrome keep-alive بلا بوابة armed', () => {
-        const main = readFileSync(
-            join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
-            'utf8',
-        );
+        const main = readLawyerDashboardMainViewSurface();
         expect(main).toContain('ExecutionArchiveInstantChrome');
         expect(main).toContain('LawyerDashboardExecutionOverlayEntry');
-        expect(main).not.toContain('LazyExecutionOverlayEntry');
+        expect(main).toContain('LazyExecutionOverlayEntry');
         expect(main).toContain('executionArchiveHostMounted');
         expect(main).toContain('open={executionArchiveOpen}');
         expect(main).not.toContain('executionEntryArmed');

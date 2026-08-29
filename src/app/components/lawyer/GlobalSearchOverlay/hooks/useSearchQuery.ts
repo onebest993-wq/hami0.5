@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, startTransition } from 'react';
 import type Fuse from 'fuse.js';
 import { normalizeArabic } from '@/app/components/lawyer/LawyerShared';
-import { TIMING, PERFORMANCE } from '@/app/utils/constants';
+import { PERFORMANCE } from '@/app/utils/constants';
+import { GLOBAL_SEARCH_QUERY_DEBOUNCE_MS } from '@/app/components/lawyer/GlobalSearchOverlay/constants';
 import { clampGlobalSearchQuery } from '@/app/services/search/globalSearchQuerySecurity';
 import {
     groupSearchResults,
@@ -18,12 +19,17 @@ import {
     peekGlobalSearchDraftQuery,
     takeGlobalSearchDraftQuery,
 } from '@/app/runtime/globalSearchDraftQuery';
+import {
+    resolveGlobalSearchUiState,
+    type GlobalSearchUiState,
+} from '@/app/components/lawyer/GlobalSearchOverlay/utils/searchUiState';
 
 export interface UseSearchQueryReturn {
     query: string;
     setQuery: React.Dispatch<React.SetStateAction<string>>;
     debouncedQuery: string;
     isSearching: boolean;
+    searchUiState: GlobalSearchUiState;
     results: GroupedSearchResults | null;
 }
 
@@ -66,8 +72,17 @@ export function useSearchQuery(
     }, [initialQuery, searchSessionKey]);
 
     useEffect(() => {
-        const timer = setTimeout(() => setDebouncedQuery(query), TIMING.SEARCH_DEBOUNCE);
-        return () => clearTimeout(timer);
+        const timer = window.setTimeout(() => {
+            startTransition(() => {
+                setDebouncedQuery((prev) => {
+                    const prevNorm = prev.trim();
+                    const nextNorm = query.trim();
+                    if (prevNorm === nextNorm) return prev;
+                    return query;
+                });
+            });
+        }, GLOBAL_SEARCH_QUERY_DEBOUNCE_MS);
+        return () => window.clearTimeout(timer);
     }, [query]);
 
     const results = useMemo<GroupedSearchResults | null>(() => {
@@ -89,5 +104,16 @@ export function useSearchQuery(
 
     const isSearching = Boolean(query.trim() && query.trim() !== debouncedQuery.trim());
 
-    return { query, setQuery, debouncedQuery, isSearching, results };
+    const searchUiState = useMemo(
+        () =>
+            resolveGlobalSearchUiState({
+                query,
+                debouncedQuery,
+                isLoadingIndex,
+                results,
+            }),
+        [query, debouncedQuery, isLoadingIndex, results],
+    );
+
+    return { query, setQuery, debouncedQuery, isSearching, searchUiState, results };
 }

@@ -12,10 +12,7 @@ import type { PersonalApplicableLaw } from '@/app/components/lawyer/personal-sta
 import { PS_PAGE } from '@/app/components/lawyer/personal-status/personalStatusPearlTheme';
 import { derivePersonalStatusDossierFlags } from '@/app/components/lawyer/personal-status/usePersonalStatusDossierDerivedState';
 import { buildPersonalStatusHeaderFormData } from '@/app/components/lawyer/personal-status/buildPersonalStatusDossierProps';
-import { ArrowRightLeft } from '@/app/components/ui/lucideIcons';
 import { CaseLinkUnlinkButton } from '@/app/components/lawyer/smart-modal/parts/CaseLinkUnlinkButton';
-import { SparkLawsuitNudgeSlot } from '@/app/spark/ui/SparkLawsuitNudgeSlot';
-import { SparkVaultDocOpenBridge } from '@/app/spark/ui/SparkVaultDocOpenBridge';
 
 export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
     const {
@@ -65,7 +62,6 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
         activeStageIndex,
         setShowAppealModal,
         setShowJudgmentModal,
-        setShowIncidentalModal,
         handleCassationDecision,
         isCaseLinkViewOnly,
         onOpenLinkedFile,
@@ -91,6 +87,7 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
     const flags = derivePersonalStatusDossierFlags({
         status,
         isViewingArchived,
+        isCaseLinkViewOnly: Boolean(isCaseLinkViewOnly),
         displayStage,
         viewingStageIndex,
         activeStageIndex,
@@ -110,9 +107,9 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
     });
 
     return (
-        <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-[#101018]">
+        <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-[#0B1021]">
             <div
-                className={`flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y scrollbar-hide px-2.5 pb-4 sm:px-3 sm:pb-5 print:overflow-visible ${PS_PAGE}`}
+                className={`flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y scrollbar-hide px-2 pb-2 print:overflow-visible ${PS_PAGE}`}
                 onTouchStart={onTouchStart}
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
@@ -124,26 +121,6 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
                         interruptionData={interruptionData}
                     />
 
-                    <SparkLawsuitNudgeSlot
-                        file={file}
-                        parentData={parentData}
-                        displayStage={displayStage}
-                        stages={stages}
-                        displayTimeline={displayTimeline}
-                        status={status}
-                        disabled={interactionLocked}
-                        onAbsentJudgmentNotification={onAbsentJudgmentNotification}
-                        onOpponentAbsentObjection={onOpponentAbsentObjection}
-                        onAbandonmentRenewal={() => setShowAbandonmentRenewalModal(true)}
-                        onAttachDocument={() => setShowDocModal(true)}
-                        onOpenAppeal={() => setShowAppealModal(true)}
-                        onResumeInterruption={() => setShowResumeInterruptionModal(true)}
-                        onResumePause={() => setShowPauseResumeModal(true)}
-                        onReviewPetitionVoid={() => setShowJudgmentModal(true)}
-                        onReviewIncidental={() => setShowIncidentalModal(true)}
-                    />
-                    <SparkVaultDocOpenBridge enabled={!interactionLocked} />
-
                     <PersonalStatusIdentityFolio
                         formData={headerFormData}
                         caseType={String(file?.type ?? displayStage?.type ?? 'غير محدد')}
@@ -153,23 +130,14 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
 
                     {!isCaseLinkViewOnly && internalCaseLink && onOpenLinkedFile ? (
                         <div
-                            className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/[0.10] bg-white/[0.03] px-2.5 py-2 backdrop-blur-sm print:hidden"
+                            className="mb-1.5 flex flex-wrap items-center gap-1.5 border-b border-white/[0.07] pb-1.5 print:hidden"
                             dir="rtl"
                         >
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <span
-                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#F0A8B4]/22 bg-[#F5C6D0]/[0.10]"
-                                >
-                                    <ArrowRightLeft size={14} className="text-[#FFD4DC]" aria-hidden />
-                                </span>
-                                <div className="min-w-0 text-right">
-                                    <p className="text-[8px] font-bold tracking-wide text-[#9894A0]">
-                                        إضبارة مربوطة
-                                    </p>
-                                    <p className="text-[11px] font-bold text-[#FFFEF9] truncate">
-                                        {internalCaseLink.peerCaseNo || '—'}
-                                    </p>
-                                </div>
+                            <div className="min-w-0 flex-1 text-right">
+                                <p className="text-[10px] font-bold text-white/40">إضبارة مربوطة</p>
+                                <p className="text-[12px] font-semibold text-white/88 truncate">
+                                    {internalCaseLink.peerCaseNo || '—'}
+                                </p>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
                                 <button
@@ -186,7 +154,7 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
                                             onOpenLinkedFile(internalCaseLink.peerFileId);
                                         }
                                     }}
-                                    className="rounded-lg border border-[#F0A8B4]/28 bg-[#F5C6D0]/[0.10] px-3 py-1.5 text-[10px] font-bold text-[#FFFEF9] hover:bg-[#F5C6D0]/[0.16] transition-colors touch-manipulation min-h-[36px]"
+                                    className="rounded-md border border-white/[0.12] bg-white/[0.04] px-3 py-1.5 text-[10px] font-bold text-white/85 hover:bg-white/[0.07] transition-colors touch-manipulation min-h-[44px]"
                                 >
                                     اطلاع
                                 </button>
@@ -199,7 +167,7 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
                                         onConfirm={onUnlinkCaseLink}
                                         compact
                                         label="فك الربط"
-                                        className="flex items-center justify-center gap-1 rounded-lg border border-rose-400/28 bg-rose-500/10 px-2.5 py-1.5 text-[10px] font-bold text-rose-100 hover:bg-rose-500/15 touch-manipulation min-h-[36px]"
+                                        className="flex items-center justify-center gap-1 rounded-lg border border-rose-400/28 bg-rose-500/10 px-2.5 py-1.5 text-[10px] font-bold text-rose-100 hover:bg-rose-500/15 touch-manipulation min-h-[44px]"
                                     />
                                 ) : null}
                             </div>
@@ -211,8 +179,8 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
                                     key={link.id}
                                     className="inline-flex min-w-[10rem] max-w-xs flex-col rounded-lg border border-dashed border-white/[0.14] bg-white/[0.03] px-3 py-1.5 text-right"
                                 >
-                                    <p className="text-[8px] font-bold text-[#9894A0]">دعوى مربوطة</p>
-                                    <p className="text-[11px] font-bold text-[#FFFEF9] truncate">
+                                    <p className="text-[11px] font-bold text-[#C9B89A]">دعوى مربوطة</p>
+                                    <p className="text-[13px] font-bold text-[#FFFEF9] truncate">
                                         {link.peerCaseNo}
                                     </p>
                                 </div>
@@ -225,13 +193,25 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
                             <PersonalStatusWaitingSections
                                 timeline={displayTimeline}
                                 attachments={displayStage?.attachments ?? []}
-                                onAddNote={() => handleQuickAction('note')}
-                                onAddDocument={() => handleQuickAction('document')}
-                                onEditNote={handleEditEvent}
-                                onEditAttachment={(attachment) => {
-                                    setEditingAttachment(attachment as unknown as Record<string, unknown>);
-                                    setShowAttachmentModal(true);
-                                }}
+                                onAddNote={
+                                    interactionLocked ? undefined : () => handleQuickAction('note')
+                                }
+                                onAddDocument={
+                                    interactionLocked
+                                        ? undefined
+                                        : () => handleQuickAction('document')
+                                }
+                                onEditNote={interactionLocked ? undefined : handleEditEvent}
+                                onEditAttachment={
+                                    interactionLocked
+                                        ? undefined
+                                        : (attachment) => {
+                                              setEditingAttachment(
+                                                  attachment as unknown as Record<string, unknown>,
+                                              );
+                                              setShowAttachmentModal(true);
+                                          }
+                                }
                             />
                         ) : null
                     ) : null}
@@ -240,18 +220,26 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
                         p={p}
                         displayTimeline={displayTimeline}
                         isViewingArchived={isViewingArchived}
+                        interactionLocked={interactionLocked}
                         displayStage={displayStage}
                         quickActionsVariant={quickActionsVariant as 'full' | 'notes-only'}
                         showWorkToolbar={
-                            !isViewingArchived && !flags.isCassationStage && flags.showWorkSections && !flags.isWaitingView
+                            !interactionLocked &&
+                            !flags.isCassationStage &&
+                            flags.showWorkSections &&
+                            !flags.isWaitingView
                         }
-                        onOpenLegalActions={() => setIsActionsMenuOpen(true)}
+                        onOpenLegalActions={
+                            interactionLocked ? () => undefined : () => setIsActionsMenuOpen(true)
+                        }
                         applicableLaw={file.applicableLaw as PersonalApplicableLaw | '' | undefined}
                         caseFlow={{
-                            onInterrupt: handleInterruptionToggle,
-                            onPause: () => setShowPauseModal(true),
-                            onResume: () => setShowPauseResumeModal(true),
-                            onAbandon: handleAbandonment,
+                            onInterrupt: interactionLocked ? undefined : handleInterruptionToggle,
+                            onPause: interactionLocked ? undefined : () => setShowPauseModal(true),
+                            onResume: interactionLocked
+                                ? undefined
+                                : () => setShowPauseResumeModal(true),
+                            onAbandon: interactionLocked ? undefined : handleAbandonment,
                             flowStage: displayStage,
                             isPaused,
                             isInterrupted,
@@ -279,10 +267,14 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
                         isPleadingsClosed={displayStage?.isPleadingsClosed}
                         showCloseJudgment={flags.showCloseJudgment}
                         onClosePleadings={
-                            !displayStage?.isPleadingsClosed ? handleClosePleadings : undefined
+                            interactionLocked || displayStage?.isPleadingsClosed
+                                ? undefined
+                                : handleClosePleadings
                         }
                         onReopenPleadings={
-                            displayStage?.isPleadingsClosed ? handleReopenPleadings : undefined
+                            interactionLocked || !displayStage?.isPleadingsClosed
+                                ? undefined
+                                : handleReopenPleadings
                         }
                         onOpenJudgment={() => setShowJudgmentModal(true)}
                     />
@@ -291,8 +283,8 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
 
             {flags.showStageFooterBar ? (
                 <PersonalStatusStageFooterBar
-                    showAbsentJudgmentFooter={showAbsentJudgmentFooter}
-                    showPetitionVoidFooter={showPetitionVoidFooter}
+                    showAbsentJudgmentFooter={flags.showAbsentJudgmentFooter}
+                    showPetitionVoidFooter={flags.showPetitionVoidFooter}
                     absentJudgmentFooterPanel={absentJudgmentFooterPanel}
                     petitionVoidFooterPanel={petitionVoidFooterPanel}
                 />

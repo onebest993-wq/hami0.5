@@ -1,0 +1,202 @@
+/** Phase C Slice 27a — summons profile + subsequent notice + statute toasts */
+import type { Debtor } from '@/app/types/execution';
+import { useDebtorSummonsProfile } from '../useDebtorSummonsProfile';
+import { useSubsequentNoticeFlow } from '../useSubsequentNoticeFlow';
+import {
+    useExecutionDashboardExecutionFeeExemptionToast,
+} from './useExecutionDashboardRuntimeSyncEffects';
+import { useExecutionDashboardStatuteWarning } from './useExecutionDashboardStatuteWarning';
+import type { ExecutionDashboardCorePersistHandlerPipelineInput } from './executionDashboardCorePersistHandlerPipelineInput';
+import type { ExecutionCoercionOrchestratorSlice } from '../../orchestrators/executionCoercionOrchestratorTypes';
+
+export function useExecutionDashboardCorePersistSummonsNoticeSegment(
+    p: ExecutionDashboardCorePersistHandlerPipelineInput,
+) {
+    const {
+        effectiveDebtors,
+        financialPrincipalAmount,
+        financialLawyerFeesAmount,
+        claimType,
+        isNonFinancialClaim,
+        debtorBrowserTabsMode,
+        effectiveFollowupDebtorEntry,
+        activeWorkspaceDebtorForFollowup,
+        executionData,
+        executionId,
+        decisionsReloadEpoch,
+        isEvictionExecutionModule,
+        unifiedCollectionApproved,
+        notificationCount,
+        forcedAttendanceIssued,
+        coercionOrchestrator,
+        isEvictionGraceExpiredNow,
+        isGracePeriodExpiredNow,
+        debtorNotificationDate,
+        manualGraceCalendarExtra,
+        lawyerStartedPostNoticeExecution,
+        noticeVoluntaryPeriodEndOptimistic,
+        voluntaryEndOptimistic,
+        isEvictionGraceEffectivelyExpired,
+        activeCoerciveActions,
+        activeDebtorNoticeScope,
+        debtorSummonsMarkerLocal,
+        monetaryExecutionStrictPathFlag,
+        isAlimonyClaim,
+        executionExtras,
+        unifiedSummonsTargetDebtorKey,
+        activeDebtorIsDeceased,
+        primaryDebtorKeyResolved,
+        debtorNotifiedForEvictionGrace,
+        remaining,
+        daysSinceNoticeCalculated,
+        executionFeeInjected,
+        showToast,
+        statuteStatus,
+        showStatuteWarning,
+        setShowStatuteWarning,
+    } = p;
+
+    const debtorSummonsProfileBundle = useDebtorSummonsProfile(
+        effectiveDebtors as { occupation?: string; isEmployee?: boolean; employmentType?: string }[],
+        financialPrincipalAmount,
+        financialLawyerFeesAmount,
+        claimType,
+        isNonFinancialClaim,
+        debtorBrowserTabsMode,
+        (effectiveFollowupDebtorEntry ?? activeWorkspaceDebtorForFollowup ?? null) as {
+            d: { occupation?: string };
+            isPrimary?: boolean;
+        } | null,
+    );
+
+    const {
+        debtorOccupation,
+        isDebtorGovernmentEmployee,
+        isDebtorFreelancer,
+        isDebtorRetired,
+        debtorSummonsProfile,
+        followupDebtorSummonsProfile,
+        followupIsDebtorGovernmentEmployee,
+        followupIsDebtorRetired,
+        showSalaryCaptureForEmployee,
+    } = debtorSummonsProfileBundle;
+
+    const subsequentNoticeFlow = useSubsequentNoticeFlow(
+        executionData,
+        executionId,
+        decisionsReloadEpoch,
+        debtorSummonsProfile,
+        followupDebtorSummonsProfile,
+        isEvictionExecutionModule,
+        isDebtorGovernmentEmployee,
+        isDebtorRetired,
+        followupIsDebtorGovernmentEmployee,
+        followupIsDebtorRetired,
+        unifiedCollectionApproved,
+        notificationCount,
+        forcedAttendanceIssued,
+        coercionOrchestrator.summoningRound,
+        isEvictionGraceExpiredNow,
+        isGracePeriodExpiredNow,
+        coercionOrchestrator.debtorAttendedVoluntarily,
+        coercionOrchestrator.voluntaryAttendanceCount,
+        debtorNotificationDate ?? null,
+        manualGraceCalendarExtra,
+        lawyerStartedPostNoticeExecution,
+        noticeVoluntaryPeriodEndOptimistic,
+        voluntaryEndOptimistic,
+        isEvictionGraceEffectivelyExpired,
+        effectiveDebtors as Debtor[],
+        activeCoerciveActions as string[],
+        coercionOrchestrator.forcedPathAttendanceSecured,
+        coercionOrchestrator.debtorForcedToAttend,
+        coercionOrchestrator.investigationMemoIssued,
+        coercionOrchestrator.debtorArrested,
+        activeDebtorNoticeScope as { absenceBadgeDismissed?: boolean; [key: string]: unknown },
+        debtorSummonsMarkerLocal ?? null,
+        monetaryExecutionStrictPathFlag,
+        isAlimonyClaim,
+        debtorBrowserTabsMode,
+        activeWorkspaceDebtorForFollowup as { d: Debtor; isPrimary?: boolean; key?: string } | null,
+        executionExtras as { perDebtorGarnishments?: Record<string, unknown>; [key: string]: unknown },
+        unifiedSummonsTargetDebtorKey,
+        activeDebtorIsDeceased,
+        primaryDebtorKeyResolved,
+        debtorNotifiedForEvictionGrace,
+    );
+
+    const {
+        earnerForcedActionUnlocked,
+        followupEarnerForcedActionUnlocked,
+        baseSubsequentNoticeUnlocked,
+        evictionSubsequentNoticeUnlocked,
+        subsequentNoticeUnlocked,
+        anyExecutorDecisionResolvedForMemoBadge,
+        primaryDebtorTaklifActive,
+        primaryMemoNoticeBadge,
+        primaryDebtorNoticeYmdResolved,
+        showDebtorUnservedMemoBadge,
+        primaryDebtorAbsenceBadge,
+        showDebtorSummonsAttendanceBadge,
+        noticeKindGoalStrictBinding,
+        employeeAssignmentTabEnabled,
+        resolvedEmployeeSummonsAssignment,
+        showEmployeeAssignmentCoerciveBlock,
+        employeeFinancialSalaryOnlyCoercive,
+        monetaryCoerciveLimitedOnly,
+        followupEmployeeFinancialSalaryOnlyCoercive,
+        followupMonetaryCoerciveLimitedOnly,
+        followupGarnishmentAmountPreview,
+    } = subsequentNoticeFlow;
+
+    useExecutionDashboardExecutionFeeExemptionToast({
+        debtorNotificationDate: debtorNotificationDate ?? null,
+        daysSinceNoticeCalculated,
+        remaining,
+        executionFeeInjected,
+        showToast,
+        dossierScopeId: executionId || executionData?.id,
+    });
+
+    useExecutionDashboardStatuteWarning(
+        statuteStatus as { isCritical?: boolean } | null | undefined,
+        showStatuteWarning,
+        setShowStatuteWarning,
+        isAlimonyClaim,
+    );
+
+    return {
+        debtorSummonsProfileBundle,
+        debtorOccupation,
+        isDebtorGovernmentEmployee,
+        isDebtorFreelancer,
+        isDebtorRetired,
+        debtorSummonsProfile,
+        followupDebtorSummonsProfile,
+        followupIsDebtorGovernmentEmployee,
+        followupIsDebtorRetired,
+        showSalaryCaptureForEmployee,
+        subsequentNoticeFlow,
+        earnerForcedActionUnlocked,
+        followupEarnerForcedActionUnlocked,
+        baseSubsequentNoticeUnlocked,
+        evictionSubsequentNoticeUnlocked,
+        subsequentNoticeUnlocked,
+        anyExecutorDecisionResolvedForMemoBadge,
+        primaryDebtorTaklifActive,
+        primaryMemoNoticeBadge,
+        primaryDebtorNoticeYmdResolved,
+        showDebtorUnservedMemoBadge,
+        primaryDebtorAbsenceBadge,
+        showDebtorSummonsAttendanceBadge,
+        noticeKindGoalStrictBinding,
+        employeeAssignmentTabEnabled,
+        resolvedEmployeeSummonsAssignment,
+        showEmployeeAssignmentCoerciveBlock,
+        employeeFinancialSalaryOnlyCoercive,
+        monetaryCoerciveLimitedOnly,
+        followupEmployeeFinancialSalaryOnlyCoercive,
+        followupMonetaryCoerciveLimitedOnly,
+        followupGarnishmentAmountPreview,
+    };
+}

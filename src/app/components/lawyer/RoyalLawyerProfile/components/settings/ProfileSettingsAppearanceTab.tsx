@@ -27,8 +27,8 @@ export function ProfileSettingsAppearanceTab({
             aria-disabled={disabled || undefined}
         >
             <div>
-                <p className="text-[11px] font-bold text-white/55 mb-2 px-1 tracking-wide">
-                    لون التمييز والخلفية
+                <p className="text-[11px] font-bold text-white/50 mb-2 px-1">
+                    لون التمييز
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                     {PROFILE_ACCENT_COLORS.map((c) => (
@@ -43,7 +43,7 @@ export function ProfileSettingsAppearanceTab({
                                     appearance: { ...p.appearance, accentColor: c.id },
                                 }))
                             }
-                            data-selected={draft.appearance.accentColor === c.id}
+                            data-selected={draft.appearance.accentColor === c.id ? 'true' : 'false'}
                             className="profile-settings-color-swatch min-h-[44px]"
                             style={{ '--accent-swatch-hex': c.hex } as React.CSSProperties}
                         >
@@ -72,7 +72,7 @@ export function ProfileSettingsAppearanceTab({
                                     appearance: { ...p.appearance, material: m.id },
                                 }))
                             }
-                            data-selected={draft.appearance.material === m.id}
+                            data-selected={draft.appearance.material === m.id ? 'true' : 'false'}
                             className="profile-settings-material-chip min-h-[44px]"
                         >
                             {m.label}
@@ -91,7 +91,7 @@ export function ProfileSettingsAppearanceTab({
                             key={frame.id}
                             type="button"
                             data-testid={`profile-portrait-frame-${frame.id}`}
-                            data-selected={portraitFrame === frame.id}
+                            data-selected={portraitFrame === frame.id ? 'true' : 'false'}
                             disabled={disabled}
                             onClick={() =>
                                 onDraftChange((p) => ({

@@ -1,15 +1,19 @@
 import { useMemo } from 'react';
+import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
+
+type CaseNoteLogRow = NonNullable<ExecutionFile['caseNotesLog']>[number];
+type CaseTaskPending = NonNullable<ExecutionFile['caseTasksPending']>[number];
 
 export function useCaseTasksAndNotes(
-    timelineEvents: any[],
-    activeCaseNotesLog: any[],
-    caseTasksPending: any[],
-    caseNotesLog: any[],
+    timelineEvents: TimelineEvent[],
+    activeCaseNotesLog: CaseNoteLogRow[],
+    caseTasksPending: CaseTaskPending[],
+    caseNotesLog: CaseNoteLogRow[],
 ) {
     const completedTaskTitles = useMemo(() => {
         const out = new Set<string>();
         for (const ev of timelineEvents) {
-            const title = String((ev as any)?.title || '').trim();
+            const title = String(ev?.title || '').trim();
             if (!title.startsWith('✅ إنجاز مهمة:')) continue;
             const taskTitle = title.replace(/^✅\s*إنجاز\s*مهمة:\s*/u, '').trim();
             if (taskTitle) out.add(taskTitle);
@@ -18,10 +22,10 @@ export function useCaseTasksAndNotes(
     }, [timelineEvents]);
 
     const savedNotesSplit = useMemo(() => {
-        const doneTasks: typeof activeCaseNotesLog = [];
-        const notes: typeof activeCaseNotesLog = [];
+        const doneTasks: CaseNoteLogRow[] = [];
+        const notes: CaseNoteLogRow[] = [];
         for (const n of activeCaseNotesLog) {
-            const t = String((n as any)?.title || '').trim();
+            const t = String(n?.title || '').trim();
             if (t && completedTaskTitles.has(t)) doneTasks.push(n);
             else notes.push(n);
         }
@@ -36,7 +40,7 @@ export function useCaseTasksAndNotes(
     const activeGraceTasks = useMemo(
         () =>
             activeCaseTasksPendingAll.filter((t) =>
-                /انتهاء المهلة/.test(String((t as any)?.title || '').trim())
+                /انتهاء المهلة/.test(String(t?.title || '').trim())
             ),
         [activeCaseTasksPendingAll]
     );
@@ -44,7 +48,7 @@ export function useCaseTasksAndNotes(
     const activeCaseTasksPending = useMemo(
         () =>
             activeCaseTasksPendingAll.filter(
-                (t) => !/انتهاء المهلة/.test(String((t as any)?.title || '').trim())
+                (t) => !/انتهاء المهلة/.test(String(t?.title || '').trim())
             ),
         [activeCaseTasksPendingAll]
     );

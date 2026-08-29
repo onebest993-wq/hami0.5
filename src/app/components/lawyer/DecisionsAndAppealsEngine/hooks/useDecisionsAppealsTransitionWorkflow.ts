@@ -24,9 +24,9 @@ export function useDecisionsAppealsTransitionWorkflow(params: DecisionsAppealsMu
         (
             decision: Decision,
             patch: Partial<Decision>,
-            timelineTitle: string,
-            timelineDescription: string,
-            tone: 'emerald' | 'rose' | 'amber' | 'slate'
+            timelineTitle = '',
+            timelineDescription = '',
+            tone: 'emerald' | 'rose' | 'amber' | 'slate' = 'slate',
         ) => {
             const nowIso = new Date().toISOString();
             const logEntry = {

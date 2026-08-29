@@ -1,6 +1,7 @@
 /**
  * قانون التنفيذ العراقي رقم 45 لسنة 1980 — أنواع + فلترة وبحث (بدون JSON ثقيل).
  * مواد JSON → loadExecutionLawSeedData() في executionLawsLoader.ts
+ * لا يُعاد تصدير البذور/المحمل من هنا حتى لا يسحبها أي مستورد للفلاتر.
  */
 import {
     ALL_EXECUTION_ARTICLES_SCOPE,
@@ -9,6 +10,7 @@ import {
     type ExecutionLawLeafFilter,
     type ExecutionLawParentScope,
 } from './executionLawHierarchy';
+import { normalizeLawSearchText } from './executionLawSearchNormalize';
 
 export type {
     ExecutionLawParentId,
@@ -32,8 +34,7 @@ export {
     ALL_EXECUTION_ARTICLES_SCOPE,
 } from './executionLawHierarchy';
 
-export { executionArticles } from './executionLawsSeeds';
-export { loadExecutionLawSeedData, prefetchExecutionLawSeedData } from './executionLawsLoader';
+export { normalizeLawSearchText } from './executionLawSearchNormalize';
 
 export interface ExecutionLawArticle {
     number: number;
@@ -42,18 +43,6 @@ export interface ExecutionLawArticle {
     parentId: ExecutionLawParentId;
     leafId: ExecutionLawLeafId;
     leafLabel: string;
-}
-
-export function normalizeLawSearchText(s: string): string {
-    return s
-        .trim()
-        .toLowerCase()
-        .normalize('NFC')
-        .replace(/[\u0623\u0625\u0622\u0671]/g, 'ا')
-        .replace(/\u0629/g, 'ه')
-        .replace(/\u0649/g, 'ي')
-        .replace(/\u064A/g, 'ي')
-        .replace(/[\u064B-\u0652]/g, '');
 }
 
 const AR_DIGIT_MAP: Record<string, string> = {

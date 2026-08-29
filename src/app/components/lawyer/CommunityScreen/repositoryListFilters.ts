@@ -1,24 +1,22 @@
 import type { LucideIcon } from '@/app/components/ui/lucideIcons';
-import {
-    ArrowLeftRight,
-    ArrowDownAZ,
-    BookOpen,
-    Building2,
-    Clock,
-    Clock3,
-    CreditCard,
-    FilePen,
-    FileText,
-    FolderOpen,
-    Gavel,
-    Home,
-    Landmark,
-    Scale,
-    ScrollText,
-    Shield,
-    Sparkles,
-    Users,
-} from '@/app/components/ui/lucideIcons';
+import { ArrowLeftRight } from '@/app/components/ui/icons/ArrowLeftRight';
+import { ArrowDownAZ } from '@/app/components/ui/icons/ArrowDownAZ';
+import { BookOpen } from '@/app/components/ui/icons/BookOpen';
+import { Building2 } from '@/app/components/ui/icons/Building2';
+import { Clock } from '@/app/components/ui/icons/Clock';
+import { Clock3 } from '@/app/components/ui/icons/Clock3';
+import { CreditCard } from '@/app/components/ui/icons/CreditCard';
+import { FilePen } from '@/app/components/ui/icons/FilePen';
+import { FileText } from '@/app/components/ui/icons/FileText';
+import { FolderOpen } from '@/app/components/ui/icons/FolderOpen';
+import { Gavel } from '@/app/components/ui/icons/Gavel';
+import { Home } from '@/app/components/ui/icons/Home';
+import { Landmark } from '@/app/components/ui/icons/Landmark';
+import { Scale } from '@/app/components/ui/icons/Scale';
+import { ScrollText } from '@/app/components/ui/icons/ScrollText';
+import { Shield } from '@/app/components/ui/icons/Shield';
+import { Sparkles } from '@/app/components/ui/icons/Sparkles';
+import { Users } from '@/app/components/ui/icons/Users';
 import { FORUM_TOPIC_FILTERS } from './forumFilters';
 
 export const REPOSITORY_DOCUMENT_TYPES = ['الكل', 'عقد', 'قرار حكم', 'عريضة', 'بحث قانوني', 'أخرى'] as const;

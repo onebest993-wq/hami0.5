@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell } from '@/app/components/ui/lucideIcons';
+import { Bell } from '@/app/components/ui/icons/Bell';
 import type { ExecutionFile } from '@/app/types/execution';
 import {
     formatGuarantorIqdForDisplay,
@@ -29,7 +29,7 @@ export type GuarantorFollowupStandaloneCardProps = {
     }) => void;
 };
 
-export type GuarantorFollowupCardToolbarProps = {
+type GuarantorFollowupCardToolbarProps = {
     expanded: boolean;
     onExpandedChange: (expanded: boolean) => void;
     onBeforeToggle?: () => void;
@@ -38,7 +38,7 @@ export type GuarantorFollowupCardToolbarProps = {
     handleGuarantorRequestFromFollowup: () => void;
 };
 
-export const GuarantorFollowupCardToolbar: React.FC<GuarantorFollowupCardToolbarProps> = ({
+const GuarantorFollowupCardToolbar: React.FC<GuarantorFollowupCardToolbarProps> = ({
     expanded,
     onExpandedChange,
     onBeforeToggle,
@@ -132,7 +132,7 @@ export const GuarantorFollowupStandaloneCard: React.FC<GuarantorFollowupStandalo
             className={
                 embedded
                     ? 'relative overflow-visible'
-                    : 'relative overflow-visible rounded-2xl border border-white/10 bg-[#0A0F1C]/55 px-3 py-3 shadow-[0_10px_32px_rgba(0,0,0,0.32)]'
+                    : 'relative overflow-visible rounded-2xl border border-white/10 bg-[#0A0F1C]/55 px-3 py-3 shadow-sm'
             }
         >
             {!hideChrome ? (

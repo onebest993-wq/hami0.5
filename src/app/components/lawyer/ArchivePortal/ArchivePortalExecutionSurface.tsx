@@ -8,10 +8,6 @@ export function ArchivePortalExecutionSurface(props: ArchivePortalProps) {
     const portal = useArchivePortalController({
         files: props.files,
         onPermanentlyDeleteExecutions: props.onPermanentlyDeleteExecutions,
-        onMoveExecutionToTrash: props.onMoveExecutionToTrash,
-        onRestoreExecutionFromTrash: props.onRestoreExecutionFromTrash,
-        onArchiveExecution: props.onArchiveExecution,
-        onRestoreArchivedExecution: props.onRestoreArchivedExecution,
     });
     return (
         <ExecutionArchiveChrome

@@ -1,173 +1,21 @@
-import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { useGlobalSearch } from '@/app/components/lawyer/GlobalSearchOverlay/useGlobalSearch';
+import React from 'react';
 import type { GlobalSearchOverlayProps } from '@/app/components/lawyer/GlobalSearchOverlay/types';
 import { GlobalSearchErrorBoundary } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchErrorBoundary';
-import { useGlobalSearchOverlayChrome } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useGlobalSearchOverlayChrome';
-import { useSearchScanIndex } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useSearchScanIndex';
 import { GlobalSearchRuntimeProvider } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/GlobalSearchRuntimeProvider';
-import { isSearchHeaderBusy } from '@/app/components/lawyer/GlobalSearchOverlay/utils/searchHeaderBusy';
-import { useGlobalSearchLifecycle } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useGlobalSearchLifecycle';
+import { useGlobalSearchOverlayShell } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useGlobalSearchOverlayShell';
 import { GlobalSearchOverlayStaticShell } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayStaticShell';
-import type { GlobalSearchOverlayShellContentProps } from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchOverlayShellTypes';
-import {
-    filterGroupedResultsByScope,
-    type GlobalSearchScopeId,
-} from '@/app/components/lawyer/GlobalSearchOverlay/searchScopes';
 
 export type { GlobalSearchOverlayProps, GlobalSearchNavigate } from '@/app/components/lawyer/GlobalSearchOverlay/types';
 
-function GlobalSearchOverlayInner({
-    open = true,
-    keepWarm = false,
-    onExitComplete,
-    onClose,
-    onNavigate,
-    files,
-    executionFiles,
-    globalNotes,
-    notifications,
-    criminalCases = [],
-    userId,
-    initialQuery = '',
-    indexVersion = 0,
-    searchSessionKey = 0,
-    headless = false,
-    onShellContent,
-    shellOverlayRef,
-    shellInputRef,
-    focusArmed = true,
-}: GlobalSearchOverlayProps) {
-    useGlobalSearchLifecycle(open);
-
-    const [searchScope, setSearchScope] = useState<GlobalSearchScopeId>('all');
-
-    useEffect(() => {
-        if (!open) setSearchScope('all');
-    }, [open]);
-
-    const {
-        query,
-        setQuery,
-        isSearching,
-        isLoadingIndex,
-        isEnrichingIndex,
-        results,
-        recentSearches,
-        handleResultClick,
-        clearRecent,
-        pinLookup,
-    } = useGlobalSearch(onClose, onNavigate, {
-        files,
-        executionFiles,
-        globalNotes,
-        notifications,
-        criminalCases,
-        userId,
-        initialQuery,
-        indexVersion,
-        searchSessionKey,
-    });
-
-    const scopedResults = useMemo(
-        () => filterGroupedResultsByScope(results, searchScope),
-        [results, searchScope],
-    );
-
-    const {
-        overlayRef,
-        inputRef,
-        activeIndex,
-        setActiveIndex,
-        flatResults,
-        pick,
-        onKeyDownCapture,
-        keyboardInset,
-        resultsMaxHeight,
-    } = useGlobalSearchOverlayChrome(open, scopedResults, onClose, handleResultClick, {
-        overlayRef: shellOverlayRef,
-        inputRef: shellInputRef,
-        keyboardInsetEnabled: open,
-    });
-
-    const scanIndexForPreview = useSearchScanIndex(files, executionFiles, criminalCases, pinLookup);
-
-    const showEmptyState = !query.trim();
-    const headerBusy = isSearchHeaderBusy(query, isSearching, isLoadingIndex);
-
-    const shellContent = useMemo<GlobalSearchOverlayShellContentProps>(
-        () => ({
-            onKeyDownCapture,
-            keyboardInset,
-            resultsMaxHeight,
-            query,
-            setQuery,
-            showEmptyState,
-            headerBusy,
-            isEnrichingIndex,
-            recentSearches,
-            clearRecent,
-            isSearching,
-            isLoadingIndex,
-            results: scopedResults,
-            flatResults,
-            pick,
-            pinLookup,
-            scanIndexForPreview,
-            activeIndex,
-            setActiveIndex,
-            searchScope,
-            onSearchScopeChange: setSearchScope,
-        }),
-        [
-            onKeyDownCapture,
-            focusArmed,
-            keyboardInset,
-            resultsMaxHeight,
-            query,
-            setQuery,
-            showEmptyState,
-            headerBusy,
-            isEnrichingIndex,
-            recentSearches,
-            clearRecent,
-            isSearching,
-            isLoadingIndex,
-            scopedResults,
-            flatResults,
-            pick,
-            pinLookup,
-            scanIndexForPreview,
-            activeIndex,
-            setActiveIndex,
-            searchScope,
-        ],
-    );
-
-    useLayoutEffect(() => {
-        if (!headless || !onShellContent) return;
-        onShellContent(shellContent);
-    }, [headless, onShellContent, shellContent]);
-
-    const shellProps = {
-        open,
-        keepWarm,
-        onExitComplete,
-        onClose,
-        overlayRef,
-        inputRef,
-        focusArmed,
-        ...shellContent,
-    };
+function GlobalSearchOverlayInner(props: GlobalSearchOverlayProps) {
+    const { mounted, shellProps } = useGlobalSearchOverlayShell(props);
+    const { headless = false } = props;
 
     /*
      * StaticShell دائماً — فتح = visibility/تركيب بلا Motion spring
      * (يمنع وميض الخلفية/اللوحة عند أول فتح بارد).
      */
-    if (!open && !keepWarm) {
-        return null;
-    }
-
-    if (headless) {
+    if (!mounted || headless) {
         return null;
     }
 
@@ -191,8 +39,6 @@ export function GlobalSearchOverlay(props: GlobalSearchOverlayProps) {
     return (
         <GlobalSearchRuntimeProvider
             overlayOpen={open}
-            /* فهرس فقط عند الفتح — لا CPU/RAM على keepAlive المغلق */
-            warmIndex={open}
             files={files}
             executionFiles={executionFiles}
             lawsuitLifecycleIndex={lawsuitLifecycleIndex}

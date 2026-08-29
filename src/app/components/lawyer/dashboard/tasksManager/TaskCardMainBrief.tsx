@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPinned } from '@/app/components/ui/lucideIcons';
+import { MapPinned } from '@/app/components/ui/icons/MapPinned';
 import { TASKS_INNER_GLASS } from './tasksBoucleTheme';
 
 export type TaskCardMainBriefProps = {

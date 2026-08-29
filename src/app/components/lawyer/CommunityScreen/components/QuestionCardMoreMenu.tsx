@@ -1,20 +1,11 @@
-﻿import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import type { LucideIcon } from 'lucide-react';
-import {
-    BellRing,
-    Copy,
-    Flag,
-    FolderOpen,
-    Lock,
-    MoreHorizontal,
-    Pencil,
-    Pin,
-    Trash2,
-    Unlock,
-    VolumeX,
-} from 'lucide-react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { MoreHorizontal } from '@/app/components/ui/icons/MoreHorizontal';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { FORUM_APP_BAR_ICON, FORUM_DROPDOWN_PANEL, FORUM_TEXT_APRICOT, FORUM_TEXT_PRIMARY } from '../forumPlumTheme';
+import {
+    buildQuestionCardMoreMenuItems,
+    type QuestionCardMoreMenuItem,
+} from '../questionCardMoreMenuItems';
 
 export type QuestionCardMoreMenuProps = {
     post: CommunityPost;
@@ -35,15 +26,6 @@ export type QuestionCardMoreMenuProps = {
     onEdit: (postId: string) => void;
     onDelete: (postId: string) => void;
     onReport: (postId: string) => void;
-};
-
-type MenuItem = {
-    id: string;
-    label: string;
-    icon: LucideIcon;
-    onClick: () => void;
-    destructive?: boolean;
-    active?: boolean;
 };
 
 export function QuestionCardMoreMenu({
@@ -69,7 +51,6 @@ export function QuestionCardMoreMenu({
     const [open, setOpen] = useState(false);
     const rootRef = useRef<HTMLDivElement>(null);
     const menuId = useId();
-    const authorId = post.authorId || post.author_id || '';
     const canSaveToVault =
         Boolean(onSaveToVault && currentUserId && post.attachment) &&
         (post.attachment?.type === 'image' || post.attachment?.type === 'document');
@@ -91,90 +72,31 @@ export function QuestionCardMoreMenu({
         };
     }, [close, open]);
 
-    const items: MenuItem[] = [];
-
-    if (onCopyPostText) {
-        items.push({
-            id: 'copy',
-            label: '┘╪│╪« ┘╪╡ ╪د┘┘à┘╪┤┘ê╪▒',
-            icon: Copy,
-            onClick: () => onCopyPostText(post.id),
-        });
-    }
-    if (canSaveToVault) {
-        items.push({
-            id: 'vault',
-            label: '╪ص┘╪╕ ╪د┘┘à╪▒┘┘é ┘┘è ╪د┘┘à╪│╪ز┘ê╪»╪╣',
-            icon: FolderOpen,
-            onClick: () => onSaveToVault!(post.id),
-        });
-    }
-    if (onToggleThreadFollow && currentUserId) {
-        items.push({
-            id: 'thread-follow',
-            label: isThreadFollowing ? '╪ح┘è┘é╪د┘ ╪ز┘╪ذ┘è┘ç╪د╪ز ╪د┘┘┘é╪د╪┤' : '╪ز┘╪ذ┘è┘ç╪د╪ز ╪د┘┘┘é╪د╪┤',
-            icon: BellRing,
-            onClick: () => onToggleThreadFollow(post.id),
-            active: isThreadFollowing,
-        });
-    }
-    if (canLockUnlock && onToggleLock) {
-        items.push({
-            id: 'lock',
-            label: isLocked ? '┘╪ز╪ص ╪د┘┘┘é╪د╪┤' : '┘é┘┘ ╪د┘┘┘é╪د╪┤',
-            icon: isLocked ? Lock : Unlock,
-            onClick: () => onToggleLock(post.id),
-            active: isLocked,
-        });
-    }
-    if (isOwner) {
-        items.push({
-            id: 'edit',
-            label: '╪ز╪╣╪»┘è┘ ╪د┘┘à┘╪┤┘ê╪▒',
-            icon: Pencil,
-            onClick: () => onEdit(post.id),
-        });
-    }
-    if (isAdmin) {
-        items.push({
-            id: 'pin',
-            label: isPinned ? '╪ح┘╪║╪د╪ة ╪د┘╪ز╪س╪ذ┘è╪ز' : '╪ز╪س╪ذ┘è╪ز ╪د┘┘à┘╪┤┘ê╪▒',
-            icon: Pin,
-            onClick: () => onTogglePin(post.id),
-            active: isPinned,
-        });
-    }
-    if (!isOwner && !isAnonymous && onMuteUser) {
-        items.push({
-            id: 'mute',
-            label: '┘â╪ز┘à ┘ç╪░╪د ╪د┘┘à╪ص╪د┘à┘è',
-            icon: VolumeX,
-            onClick: () => onMuteUser(authorId),
-        });
-    }
-
-    const destructiveItems: MenuItem[] = [];
-    if (isOwner || isAdmin) {
-        destructiveItems.push({
-            id: 'delete',
-            label: isAdmin && !isOwner ? '╪ص╪░┘ (╪ح╪»╪د╪▒╪ر)' : '╪ص╪░┘ ╪د┘┘à┘╪┤┘ê╪▒',
-            icon: Trash2,
-            onClick: () => onDelete(post.id),
-            destructive: true,
-        });
-    } else {
-        destructiveItems.push({
-            id: 'report',
-            label: '╪ح╪ذ┘╪د╪║ ╪╣┘ ╪د┘┘à┘╪┤┘ê╪▒',
-            icon: Flag,
-            onClick: () => onReport(post.id),
-            destructive: true,
-        });
-    }
+    const { items, destructiveItems } = buildQuestionCardMoreMenuItems({
+        post,
+        currentUserId,
+        isOwner,
+        isAdmin,
+        isAnonymous,
+        isPinned,
+        isLocked,
+        isThreadFollowing,
+        canLockUnlock,
+        canSaveToVault,
+        onToggleLock,
+        onCopyPostText,
+        onSaveToVault,
+        onToggleThreadFollow,
+        onMuteUser,
+        onTogglePin,
+        onEdit,
+        onDelete,
+        onReport,
+    });
 
     if (items.length === 0 && destructiveItems.length === 0) return null;
 
-    const runItem = (item: MenuItem, event: React.MouseEvent) => {
+    const runItem = (item: QuestionCardMoreMenuItem, event: React.MouseEvent) => {
         event.stopPropagation();
         item.onClick();
         close();
@@ -184,7 +106,7 @@ export function QuestionCardMoreMenu({
         <div ref={rootRef} className="relative shrink-0" data-testid="forum-post-more-menu">
             <button
                 type="button"
-                aria-label="╪«┘è╪د╪▒╪د╪ز ╪د┘┘à┘╪┤┘ê╪▒"
+                aria-label="خيارات المنشور"
                 aria-haspopup="menu"
                 aria-expanded={open}
                 aria-controls={menuId}
@@ -192,7 +114,7 @@ export function QuestionCardMoreMenu({
                     event.stopPropagation();
                     setOpen((value) => !value);
                 }}
-                className={`${FORUM_APP_BAR_ICON} text-[#9AA3B2] hover:text-[#C9A86C]`}
+                className={`${FORUM_APP_BAR_ICON} text-[#9AA3B2] hover:text-[#E6C673]`}
             >
                 <MoreHorizontal size={20} />
             </button>
@@ -213,7 +135,7 @@ export function QuestionCardMoreMenu({
                                 onClick={(event) => runItem(item, event)}
                                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[44px] text-right text-sm transition-colors touch-manipulation ${
                                     item.active
-                                        ? `${FORUM_TEXT_APRICOT} bg-[#C9A86C]/10`
+                                        ? `${FORUM_TEXT_APRICOT} bg-[#E6C673]/10`
                                         : `${FORUM_TEXT_PRIMARY} hover:bg-white/[0.06]`
                                 }`}
                             >

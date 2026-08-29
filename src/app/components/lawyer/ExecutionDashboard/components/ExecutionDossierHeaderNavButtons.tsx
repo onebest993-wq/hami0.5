@@ -7,8 +7,6 @@ export type ExecutionDossierHeaderNavButtonsProps = {
     onBack?: () => void;
     onExit: () => void;
     nestedNavigation?: boolean;
-    /** @deprecated استخدم nestedNavigation */
-    showBack?: boolean;
 };
 
 /** زرّ رجوع تدريجي + زرّ مغادرة نهائية — موحّد لكل إضابير التنفيذ */
@@ -16,10 +14,8 @@ export function ExecutionDossierHeaderNavButtons({
     onBack,
     onExit,
     nestedNavigation = false,
-    showBack,
 }: ExecutionDossierHeaderNavButtonsProps) {
-    const nestedNav = showBack === false ? false : nestedNavigation;
-    const nav = resolveDossierHeaderNavVisibility(nestedNav);
+    const nav = resolveDossierHeaderNavVisibility(nestedNavigation);
 
     return (
         <DossierHeaderNavButtons

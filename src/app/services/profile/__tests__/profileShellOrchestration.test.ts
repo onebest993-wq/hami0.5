@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { closeOverlaysBeforeProfileOpen } from '@/app/services/profile/profileShellOrchestration';
+import { closeOverlaysBeforeProfileOpen } from '@/app/services/profile/profileShellPolicy';
 
 describe('closeOverlaysBeforeProfileOpen', () => {
     it('يغلق overlays المتنافسة', () => {

@@ -1,6 +1,5 @@
 /**
  * Android WebView — الملف الشخصي بدون banding / وهج نيون / blur مكلف.
- * الويب يحتفظ بالزجاج والـ aurora والظلال الناعمة.
  * البوابة: data-hami-native + data-hami-platform=android
  */
 
@@ -16,28 +15,17 @@ html[data-hami-native='1'][data-hami-platform='android'] {
 }
 
 /* ── طبقات وهج / ضباب — مصدر banding على Adreno/Mali ── */
-html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-root] .hami-profile-ambient-glow,
-html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-root] .hami-profile-hero-aurora {
-    display: none !important;
-    filter: none !important;
-    opacity: 0 !important;
-    background: none !important;
-}
-
-/* زخرفة مغربية ثابتة — تُلغى من React على Android؛ احتياط CSS */
 html[data-hami-native='1'][data-hami-platform='android']
     [data-lawyer-profile-root]
     [data-profile-moroccan-overlay] {
     display: none !important;
 }
 
-/* خلفية الصفحة: لون صلب + غسلة خفيفة بلا تدرجات متعددة */
 html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-root] {
     background-color: var(--profile-page-bg, #020408) !important;
     background-image: none !important;
 }
 
-/* طبقة خامة الصفحة — تُخفى على Android (غسلة جوزية + banding عمودي) */
 html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-root] [data-profile-page-texture] {
     display: none !important;
 }
@@ -103,14 +91,7 @@ html[data-hami-native='1'][data-hami-platform='android']
     animation: none !important;
 }
 
-/* أزرار التمييز — بلا وهج لوني طويل */
-html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-root] .hami-profile-accent-btn-solid {
-    background: var(--profile-accent, #e6c673) !important;
-    background-image: none !important;
-    box-shadow: var(--hami-profile-android-elev) !important;
-    filter: none !important;
-}
-
+/* أزرار التمييز — بلا تدرج نيون */
 html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-root] .hami-profile-accent-btn {
     background: color-mix(
         in srgb,
@@ -159,12 +140,6 @@ html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-ro
 }
 
 /* إيقاف الحركات عند الإخفاء/السكون */
-html[data-hami-native='1'][data-hami-platform='android']
-    [data-lawyer-profile-root][data-profile-page-hidden='true']
-    .hami-profile-ambient-glow,
-html[data-hami-native='1'][data-hami-platform='android']
-    [data-lawyer-profile-root][data-profile-page-hidden='true']
-    .hami-profile-hero-aurora,
 html[data-hami-native='1'][data-hami-platform='android']
     [data-lawyer-profile-root][data-profile-page-hidden='true']
     [data-profile-page-texture] {
@@ -369,7 +344,3 @@ html[data-hami-native='1'][data-hami-platform='android'] .profile-image-frame-wr
     box-shadow: var(--hami-profile-android-elev);
 }
 
-html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-root] .hami-profile-hero-aurora {
-    display: none !important;
-    filter: none !important;
-}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LazyCoerciveTab } from '../../executionDashboardLazyShell';
+import { LazyCoerciveTab } from '../../executionDashboardLazyRegistryShell';
 import { buildFollowupModalSnapshotInput } from '../buildFollowupModalSnapshotInput';
 
 describe('buildFollowupModalSnapshotInput', () => {

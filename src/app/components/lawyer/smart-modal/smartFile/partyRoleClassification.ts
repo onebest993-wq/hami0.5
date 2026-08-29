@@ -1,6 +1,6 @@
 import type { Party } from '../../LawyerShared';
 
-export type PartySideBucket = 'plaintiff' | 'defendant' | 'third' | 'unknown';
+type PartySideBucket = 'plaintiff' | 'defendant' | 'third' | 'unknown';
 
 export function isThirdPartyRole(role: string): boolean {
     const r = String(role ?? '').trim();
@@ -62,7 +62,7 @@ export function hasAbsentObjectionPartyRoles(
 
 /** الجانب الأصلي في الدعوى (مدعي/مدعى عليه) — من القوسين أو من صفة الاعتراض */
 export function resolveAbsentObjectionOriginalSide(
-    party: Pick<Party, 'role'>,
+    party: Pick<Party, 'role'> | { role?: string },
 ): 'المدعي' | 'المدعى عليه' | null {
     const role = String(party.role ?? '').trim();
     const fromParens = extractParentheticalUnderlyingSide(role);

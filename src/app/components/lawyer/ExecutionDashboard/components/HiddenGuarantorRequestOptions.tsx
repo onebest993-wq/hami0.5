@@ -1,16 +1,16 @@
-// @ts-nocheck
 import React from 'react';
-import { Building2, Send, Shield, Wallet, Package } from '@/app/components/ui/lucideIcons';
-import type { ExecutionFile } from '@/app/types/execution';
-import { InlineActionGate } from './InlineActionGate';
-import type { InlineActionGateKey } from '../types';
+import { HiddenGuarantorRequestDetailPanel } from './HiddenGuarantorRequestDetailPanel';
 import {
     listHiddenGuarantorCatalog,
     resolveHiddenGuarantorRequests,
-    type HiddenFollowupVisibilityInput,
-    type HiddenGuarantorContext,
     type HiddenGuarantorRequestKey,
 } from './hiddenFollowupRequestsUtils';
+import type { InlineActionGateKey } from '../types';
+import {
+    GUARANTOR_ICONS,
+    seizureKindForKey,
+    type HiddenGuarantorRequestOptionsProps,
+} from './HiddenGuarantorRequestOptions.support';
 import { resolveAmountGuarantorRequestVisible } from '@/app/slices/financial/specialtyPublic';
 import {
     findGuarantorSeizureRowFromDecisions,
@@ -30,55 +30,15 @@ import {
     isExecutorRowRejectedAndFinal,
 } from '@/app/utils/executorSeizureDecisionQueue';
 import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
-import type { ExecutionDomainContext } from '@/app/utils/executionDomainIsolation';
+import {
+    HiddenFollowupBackButton,
+    HiddenFollowupCatalogGrid,
+    HiddenFollowupCatalogPickerButton,
+    HiddenFollowupDecisionsFollowupButton,
+    resolveHiddenFollowupLockedReason,
+} from './hiddenFollowup/shared';
 
-const GUARANTOR_ICONS: Record<
-    HiddenGuarantorRequestKey,
-    React.ComponentType<{ size?: number; className?: string }>
-> = {
-    guarantor_request: Shield,
-    guarantor_seizure_salary: Wallet,
-    guarantor_seizure_property: Building2,
-    guarantor_seizure_movable: Package,
-};
-
-function gateKeyForGuarantor(key: HiddenGuarantorRequestKey): InlineActionGateKey {
-    if (key === 'guarantor_request') return 'hidden_guarantor_amount';
-    if (key === 'guarantor_seizure_salary') return 'hidden_guarantor_salary';
-    if (key === 'guarantor_seizure_property') return 'hidden_guarantor_property';
-    return 'hidden_guarantor_movable';
-}
-
-function seizureKindForKey(
-    key: HiddenGuarantorRequestKey
-): 'salary' | 'property' | 'movable' | null {
-    if (key === 'guarantor_seizure_salary') return 'salary';
-    if (key === 'guarantor_seizure_property') return 'property';
-    if (key === 'guarantor_seizure_movable') return 'movable';
-    return null;
-}
-
-export interface HiddenGuarantorRequestOptionsProps {
-    executionId: string;
-    flags: HiddenFollowupVisibilityInput;
-    guarantorCtx: HiddenGuarantorContext;
-    domainContext?: ExecutionDomainContext | null;
-    executionData: ExecutionFile | null;
-    /** عند التضمين من قائمة موحّدة — يُعرض لوحة التفاصيل فقط */
-    embeddedSelectedKey?: HiddenGuarantorRequestKey;
-    coerciveUiLocked: boolean;
-    isHistoricalMode: boolean;
-    handleGuarantorRequestFromFollowup: () => void;
-    requestGuarantorSeizure: (
-        kind: 'salary' | 'movable' | 'property',
-        opts?: { inline?: boolean }
-    ) => void;
-    onOpenDecisions: (opts?: {
-        tab?: 'current' | 'previous' | 'appeals';
-        decisionId?: string | null;
-    }) => void;
-    showToast: (message: string, type?: 'success' | 'error' | 'warning' | 'info') => void;
-}
+export type { HiddenGuarantorRequestOptionsProps } from './HiddenGuarantorRequestOptions.support';
 
 export const HiddenGuarantorRequestOptions: React.FC<HiddenGuarantorRequestOptionsProps> = ({
     executionId,
@@ -176,7 +136,8 @@ export const HiddenGuarantorRequestOptions: React.FC<HiddenGuarantorRequestOptio
 
     const submitDisabledReason = React.useMemo(() => {
         if (!selectedCatalog) return '';
-        if (isHistoricalMode || coerciveUiLocked) return 'الوضع مقفل — لا يمكن إرسال طلب جديد.';
+        const locked = resolveHiddenFollowupLockedReason(isHistoricalMode, coerciveUiLocked);
+        if (locked) return locked;
         if (selectedCatalog.key === 'guarantor_request') {
             if (guarantorActive) return 'يوجد كفيل ضامن نشط.';
             if (!guarantorCtx.activeDebtorIsEmployee && !amountEligible && !flags.hideAllGuarantorPresence) {
@@ -270,18 +231,15 @@ export const HiddenGuarantorRequestOptions: React.FC<HiddenGuarantorRequestOptio
                         requestKind="guarantor_request"
                     />
                 ) : approved ? (
-                    <button
-                        type="button"
+                    <HiddenFollowupDecisionsFollowupButton
+                        label="متابعة إكمال الكفيل في القرارات"
                         onClick={() =>
                             onOpenDecisions({
                                 tab: 'current',
                                 decisionId,
                             })
                         }
-                        className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 py-2 text-[10px] font-bold text-emerald-100 hover:bg-emerald-500/15"
-                    >
-                        متابعة إكمال الكفيل في القرارات
-                    </button>
+                    />
                 ) : undefined,
             },
         ];
@@ -323,18 +281,15 @@ export const HiddenGuarantorRequestOptions: React.FC<HiddenGuarantorRequestOptio
                         requestKind="seizure"
                     />
                 ) : approved ? (
-                    <button
-                        type="button"
+                    <HiddenFollowupDecisionsFollowupButton
+                        label="متابعة إكمال الحجز في القرارات"
                         onClick={() =>
                             onOpenDecisions({
                                 tab: 'current',
                                 decisionId,
                             })
                         }
-                        className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 py-2 text-[10px] font-bold text-emerald-100 hover:bg-emerald-500/15"
-                    >
-                        متابعة إكمال الحجز في القرارات
-                    </button>
+                    />
                 ) : undefined,
             },
         ];
@@ -344,88 +299,23 @@ export const HiddenGuarantorRequestOptions: React.FC<HiddenGuarantorRequestOptio
     if (!selectedCatalog) return null;
 
     const detailPanel = (
-        <div className="rounded-xl border border-white/10 bg-black/20 p-3 space-y-3">
-            <p className="text-[9px] text-slate-400 text-right">{selectedResolved?.statusLabel}</p>
-
-            {guarantorExistingWarningOpen ? (
-                <div className="rounded-2xl border border-amber-500/40 bg-amber-950/20 p-3 text-right">
-                    <p className="text-[11px] font-black text-amber-200">
-                        يوجد كفيل ضامن مُسجَّل في الإضبارة
-                    </p>
-                    <p className="mt-1 text-[10px] leading-relaxed text-amber-100/85">
-                        أكمل الطلب فقط إذا كنت تريد استبدال الكفيل الحالي.
-                    </p>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setGuarantorExistingWarningOpen(false);
-                                handleGuarantorRequestFromFollowup();
-                            }}
-                            className="rounded-xl border border-amber-400/55 bg-gradient-to-r from-amber-900/40 to-amber-800/30 py-2.5 text-[11px] font-extrabold text-amber-100"
-                        >
-                            أتفهم — متابعة
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setGuarantorExistingWarningOpen(false)}
-                            className="rounded-xl border border-white/10 bg-white/5 py-2.5 text-[11px] font-bold text-slate-200"
-                        >
-                            إلغاء
-                        </button>
-                    </div>
-                </div>
-            ) : null}
-
-            {!openGuarantorRow || selectedCatalog.key !== 'guarantor_request' ? (
-                <div className="relative">
-                    <button
-                        type="button"
-                        disabled={Boolean(submitDisabledReason)}
-                        onClick={() => {
-                            if (submitDisabledReason) {
-                                showToast(submitDisabledReason, 'warning');
-                                return;
-                            }
-                            if (
-                                selectedCatalog.key === 'guarantor_request' &&
-                                executionData?.guarantor_followup?.details_saved === true
-                            ) {
-                                setGuarantorExistingWarningOpen(true);
-                                return;
-                            }
-                            setInlineGateKey(gateKeyForGuarantor(selectedCatalog.key));
-                        }}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-700/70 py-2.5 text-[11px] font-bold text-white transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                        <Send size={13} />
-                        {selectedCatalog.key === 'guarantor_request'
-                            ? 'إرسال طلب الكفيل'
-                            : 'إرسال طلب الحجز'}
-                    </button>
-                    {inlineGateKey === gateKeyForGuarantor(selectedCatalog.key) ? (
-                        <InlineActionGate
-                            gateKey={gateKeyForGuarantor(selectedCatalog.key)}
-                            activeKey={inlineGateKey}
-                            onConfirm={runSubmit}
-                            onCancel={() => setInlineGateKey(null)}
-                        />
-                    ) : null}
-                </div>
-            ) : null}
-
-            {selectedCatalog.key === 'guarantor_request' &&
-            openGuarantorRow &&
-            guarantorRequestSteps.length > 0 ? (
-                <ExecutionInlineAccordion steps={guarantorRequestSteps} />
-            ) : null}
-
-            {selectedCatalog.key !== 'guarantor_request' &&
-            guarantorSeizureRow &&
-            seizureSteps.length > 0 ? (
-                <ExecutionInlineAccordion steps={seizureSteps} />
-            ) : null}
-        </div>
+        <HiddenGuarantorRequestDetailPanel
+            statusLabel={selectedResolved?.statusLabel}
+            guarantorExistingWarningOpen={guarantorExistingWarningOpen}
+            setGuarantorExistingWarningOpen={setGuarantorExistingWarningOpen}
+            handleGuarantorRequestFromFollowup={handleGuarantorRequestFromFollowup}
+            openGuarantorRow={openGuarantorRow}
+            selectedKey={selectedCatalog.key}
+            submitDisabledReason={submitDisabledReason}
+            showToast={showToast}
+            executionDetailsSaved={executionData?.guarantor_followup?.details_saved === true}
+            setInlineGateKey={setInlineGateKey}
+            inlineGateKey={inlineGateKey}
+            runSubmit={runSubmit}
+            guarantorRequestSteps={guarantorRequestSteps}
+            guarantorSeizureRow={guarantorSeizureRow}
+            seizureSteps={seizureSteps}
+        />
     );
 
     if (embeddedSelectedKey) {
@@ -435,31 +325,22 @@ export const HiddenGuarantorRequestOptions: React.FC<HiddenGuarantorRequestOptio
     return (
         <div className="space-y-3 border-t border-white/8 pt-3">
             {!selectedKey ? (
-                <div className="grid grid-cols-2 gap-2">
+                <HiddenFollowupCatalogGrid>
                     {catalog.map((item) => {
                         const Icon = GUARANTOR_ICONS[item.key];
                         return (
-                            <button
+                            <HiddenFollowupCatalogPickerButton
                                 key={item.key}
-                                type="button"
+                                label={item.shortLabel}
+                                Icon={Icon}
                                 onClick={() => setSelectedKey(item.key)}
-                                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[10px] font-bold text-slate-300 transition-all hover:border-emerald-500/35 hover:bg-emerald-950/25 hover:text-emerald-100"
-                            >
-                                <Icon size={16} className="shrink-0 opacity-70" />
-                                <span className="leading-tight text-right flex-1">{item.shortLabel}</span>
-                            </button>
+                            />
                         );
                     })}
-                </div>
+                </HiddenFollowupCatalogGrid>
             ) : (
                 <>
-                    <button
-                        type="button"
-                        onClick={() => setSelectedKey(null)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[9px] font-bold text-slate-300 hover:text-emerald-100"
-                    >
-                        رجوع
-                    </button>
+                    <HiddenFollowupBackButton onClick={() => setSelectedKey(null)} />
                     {detailPanel}
                 </>
             )}

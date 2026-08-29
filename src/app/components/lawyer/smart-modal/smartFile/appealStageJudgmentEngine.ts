@@ -1,5 +1,5 @@
 import type { CaseStage } from '../../LawyerShared';
-import { resolveClientMarkedParty } from './interpleaderJudgmentEngine';
+import { resolveClientMarkedParty } from './clientMarkedParty';
 import {
     isAppellantAppealRole,
     isAppelleeAppealRole,
@@ -7,7 +7,7 @@ import {
 import { isAppealStageName, isCassationStageName } from './judgmentTypes';
 import { isCassationCorrectionStageName } from './extraordinaryAppealGateway';
 
-export type ClientAppealRole = 'appellant' | 'appellee' | null;
+type ClientAppealRole = 'appellant' | 'appellee' | null;
 export type AppealClientOutcome = 'win' | 'loss' | 'partial' | 'unknown';
 export type CassationClientOutcome = 'win' | 'loss' | 'remand_favorable' | 'remand_adverse' | 'unknown';
 
@@ -56,7 +56,7 @@ export function resolveAppealStageClientOutcome(
     return 'unknown';
 }
 
-export function findPriorAppealStageIndex(stages: CaseStage[], fromIndex: number): number {
+function findPriorAppealStageIndex(stages: CaseStage[], fromIndex: number): number {
     for (let i = fromIndex - 1; i >= 0; i--) {
         const stage = stages[i];
         if (!stage) continue;
@@ -65,7 +65,7 @@ export function findPriorAppealStageIndex(stages: CaseStage[], fromIndex: number
     return -1;
 }
 
-export function extractAppealJudgmentTypeFromStage(stage: CaseStage | undefined | null): string | null {
+function extractAppealJudgmentTypeFromStage(stage: CaseStage | undefined | null): string | null {
     if (!stage) return null;
     const fromMeta = stage.appealMetadata?.priorJudgmentType;
     if (fromMeta && String(fromMeta).trim()) return String(fromMeta).trim();
@@ -149,7 +149,7 @@ function stageLabel(stage: CaseStage | undefined | null): string {
 }
 
 /** قرار التمييز المُصدَّق — من الحكم النهائي أو السجل الزمني */
-export function extractCassationJudgmentTypeFromStage(
+function extractCassationJudgmentTypeFromStage(
     stage: CaseStage | undefined | null,
 ): string | null {
     if (!stage) return null;
@@ -178,7 +178,7 @@ export function extractCassationJudgmentTypeFromStage(
     return null;
 }
 
-export function findCassationStageIndexBeforeCorrection(
+function findCassationStageIndexBeforeCorrection(
     stages: CaseStage[],
     correctionStageIndex: number,
 ): number {

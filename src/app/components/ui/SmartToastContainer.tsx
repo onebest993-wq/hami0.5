@@ -1,7 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle, AlertCircle, Info, Sparkles, X } from '@/app/components/ui/lucideIcons';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
+import { CheckCircle } from '@/app/components/ui/icons/CheckCircle';
+import { AlertCircle } from '@/app/components/ui/icons/AlertCircle';
+import { Info } from '@/app/components/ui/icons/Info';
+import { Sparkles } from '@/app/components/ui/icons/Sparkles';
+import { X } from '@/app/components/ui/icons/X';
 import { subscribeSmartToast, type ToastEvent } from '@/app/components/ui/smartToastBus';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 

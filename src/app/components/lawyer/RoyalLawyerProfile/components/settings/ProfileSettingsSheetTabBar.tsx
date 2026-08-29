@@ -1,7 +1,9 @@
 import React, { memo, useRef } from 'react';
-import { Palette, Layers } from '@/app/components/ui/lucideIcons';
+import { Palette } from '@/app/components/ui/icons/Palette';
+import { Layers } from '@/app/components/ui/icons/Layers';
 import type { ProfileSettingsTab } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileSettingsSheetState';
 import { prefetchProfileStudioMainTab } from '@/app/runtime/profileSettingsStudioTabsLoader';
+import { isPrimaryDragPointer } from '@/app/components/lawyer/RoyalLawyerProfile/utils/profilePointerDrag';
 
 const TAB_META: { id: ProfileSettingsTab; label: string; icon: React.ElementType }[] = [
     { id: 'appearance', label: 'المظهر', icon: Palette },
@@ -26,7 +28,7 @@ export const ProfileSettingsSheetTabBar = memo(function ProfileSettingsSheetTabB
     const armedByTouchRef = useRef<ProfileSettingsTab | null>(null);
 
     return (
-        <div className="shrink-0 px-6 pb-3">
+        <div className="shrink-0 px-4 pb-2">
             <div
                 className="profile-settings-luxury-card p-1 flex gap-1"
                 role="tablist"
@@ -50,7 +52,7 @@ export const ProfileSettingsSheetTabBar = memo(function ProfileSettingsSheetTabB
                             className="profile-settings-tab flex items-center justify-center gap-1 min-h-[44px] touch-manipulation"
                             style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
                             onPointerDown={(event) => {
-                                if (event.button !== 0) return;
+                                if (!isPrimaryDragPointer(event)) return;
                                 event.stopPropagation();
                                 if (!active) prefetchProfileStudioMainTab(t.id);
                                 if (event.pointerType === 'touch' || event.pointerType === 'pen') {

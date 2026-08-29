@@ -8,7 +8,6 @@ import {
 } from '@/app/utils/executorSeizureDecisionQueue';
 import {
     isExecutiveDetentionPeriodActive,
-    isForcedBringCycleResolved,
     isPersonalCoerciveCycleClosed,
     isTravelBanLaneSettled,
     isTravelBanRequestWithdrawn,
@@ -409,7 +408,7 @@ export function isCreditorOtherPartyOptionAccessible(input: {
 }
 
 /** هل يظهر هذا الخيار الآن لوكيل الدائن (وليس مجرد أنه مسموح نظرياً بنوع المطالبة) */
-export function isCreditorOtherPartyOptionLiveNow(input: {
+function isCreditorOtherPartyOptionLiveNow(input: {
     entryId: string;
     hasRequest: boolean;
     mirrorWorkflow: CreditorMirrorWorkflowContext;
@@ -443,9 +442,4 @@ export function isCreditorOtherPartyOptionLiveNow(input: {
     }
 
     return false;
-}
-
-/** للاختبار — هل دورة الإحضار الجبري مكتملة */
-export function isForcedBringMirrorSettled(ed: ExecutionFile | null | undefined): boolean {
-    return isForcedBringCycleResolved(ed);
 }

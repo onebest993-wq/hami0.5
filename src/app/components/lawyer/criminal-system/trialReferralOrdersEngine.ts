@@ -9,7 +9,7 @@ import {
 } from './stageJourney';
 
 /** أوامر زر الإحالة في محكمة الموضوع — خياران فقط حسب المرحلة. */
-export const TRIAL_REFERRAL_ORDER_ACTION_IDS = [
+const TRIAL_REFERRAL_ORDER_ACTION_IDS = [
     'return_investigation_deficiency',
     'misdemeanor_to_felony_jurisdiction',
     'felony_to_misdemeanor_jurisdiction',
@@ -18,7 +18,7 @@ export const TRIAL_REFERRAL_ORDER_ACTION_IDS = [
 export type TrialReferralOrderActionId = (typeof TRIAL_REFERRAL_ORDER_ACTION_IDS)[number];
 
 /** كل تحوّلات المسار عبر قرار ختامي (ما عدا إحالة التحقيق الأولى refer_*). */
-export const PROCEDURAL_STAGE_ROUTE_ACTION_IDS = [
+const PROCEDURAL_STAGE_ROUTE_ACTION_IDS = [
     'return_investigation_deficiency',
     'misdemeanor_to_felony_jurisdiction',
     'felony_to_misdemeanor_jurisdiction',
@@ -39,7 +39,7 @@ export function isProceduralStageRouteActionId(v: string): v is ProceduralStageR
     return (PROCEDURAL_STAGE_ROUTE_ACTION_IDS as readonly string[]).includes(v);
 }
 
-export function proceduralRouteRequiresCourtFields(actionId: ProceduralTransitionActionId): boolean {
+function proceduralRouteRequiresCourtFields(actionId: ProceduralTransitionActionId): boolean {
     return (
         actionId === 'misdemeanor_to_felony_jurisdiction' ||
         actionId === 'felony_to_misdemeanor_jurisdiction' ||
@@ -108,7 +108,7 @@ export function getTrialCourtReferralOrderOptions(caseStage: CaseStage): Procedu
     });
 }
 
-export function proceduralRouteOrderTitle(actionId: ProceduralTransitionActionId, caseStage: CaseStage): string {
+function proceduralRouteOrderTitle(actionId: ProceduralTransitionActionId, caseStage: CaseStage): string {
     const opt = findTransitionOption(caseStage, actionId);
     return opt?.menuLabel ?? actionId;
 }
@@ -149,6 +149,3 @@ export function buildProceduralRouteLawyerRequest(
     };
 }
 
-export function trialReferralOrderTitle(actionId: TrialReferralOrderActionId, caseStage: CaseStage): string {
-    return proceduralRouteOrderTitle(actionId, caseStage);
-}

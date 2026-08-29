@@ -53,6 +53,16 @@ export interface UseFocCollectionActionsParams {
         remaining: number;
     }) => void;
     onAfterCollectionRequestSubmitted?: () => void;
+    onEvictionLedgerActivated?: () => void;
+    evictionLedgerActivatedPersisted?: boolean;
+}
+
+/** أول تفعيل لوعاء التخلية من الاستحصال — يُبلَّغ الأب لفتح تبويب الأصول والسجل الزمني */
+export function shouldNotifyParentEvictionLedgerActivated(
+    isEvictionFundsModule: boolean,
+    alreadyActivated: boolean,
+): boolean {
+    return Boolean(isEvictionFundsModule) && !alreadyActivated;
 }
 
 export interface UseFocCollectionActionsResult {
@@ -89,6 +99,8 @@ export function useFocCollectionActions(
         setDebtEditOpen,
         onManualDebtTotalsUpdated,
         onAfterCollectionRequestSubmitted,
+        onEvictionLedgerActivated,
+        evictionLedgerActivatedPersisted,
     } = params;
 
     const openDebtEditModal = useCallback(() => {
@@ -225,6 +237,8 @@ export function useFocCollectionActions(
                 ? freezeLedgerForCollection(current, executionId, ledgerTotalParams)
                 : current;
         const frozenTotal = computeTotalOwedUnifiedFromStore(frozen, ledgerTotalParams);
+        const alreadyActivated =
+            Boolean(frozen.evictionLedgerActivated) || Boolean(evictionLedgerActivatedPersisted);
         persist({
             ...frozen,
             collectionRequestActive: true,
@@ -232,6 +246,9 @@ export function useFocCollectionActions(
             evictionLedgerActivated: isEvictionFundsModule ? true : frozen.evictionLedgerActivated,
         });
         if (isEvictionFundsModule) setIsEvictionCollectionRequested(true);
+        if (shouldNotifyParentEvictionLedgerActivated(isEvictionFundsModule, alreadyActivated)) {
+            onEvictionLedgerActivated?.();
+        }
         recordFinancialTimelineNote(
             '📨 طلب استحصال — الوعاء الموحّد',
             `تم تقديم طلب استحصال بإجمالي ${Math.max(submitTotal, frozenTotal).toLocaleString('ar-IQ')} د.ع — المتبقي ${submitRemaining.toLocaleString('ar-IQ')} د.ع.`,
@@ -245,6 +262,8 @@ export function useFocCollectionActions(
         ledgerTotalParams,
         notify,
         onAfterCollectionRequestSubmitted,
+        onEvictionLedgerActivated,
+        evictionLedgerActivatedPersisted,
         persist,
         recordFinancialTimelineNote,
         setIsEvictionCollectionRequested,

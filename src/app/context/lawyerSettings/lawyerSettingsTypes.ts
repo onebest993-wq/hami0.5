@@ -12,6 +12,8 @@ export type LawyerSettingsContextValue = {
     setCurrentShape: (s: ShapeKey) => void;
     pushAllowed: boolean;
     resetToDefaults: () => void;
+    /** لقطة إقلاع فقط — Ensure يركّب الـ Provider الكامل فوقها عند الحاجة */
+    isBootOnly?: boolean;
 };
 
 export type LawyerSettingsActionsValue = {

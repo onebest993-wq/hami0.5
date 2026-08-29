@@ -11,11 +11,6 @@ import {
     normalizeProceduralRequestTemplate,
 } from './proceduralRequestTypes';
 
-/** أهلية المشتكي لقرارات تقييد الحرية — فقط المشتكي المتقابل (متهم ضمنياً). */
-export function isAccusedComplainantParty(party: CriminalActionParty): boolean {
-    return party.source === 'complainant' && party.isAccusedAsComplainant === true;
-}
-
 export function isDefendantTargetRequestTemplate(template: string | undefined): boolean {
     const key = normalizeProceduralRequestTemplate(String(template ?? '').trim());
     return (
@@ -58,7 +53,7 @@ export function filterPartiesForRequestTemplate(
     return alive;
 }
 
-export type ResolveAutoRequestPartyInput = {
+type ResolveAutoRequestPartyInput = {
     isUnknownPerpetrator: boolean;
     isDefense: boolean;
     complainantsCount: number;

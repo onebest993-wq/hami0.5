@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C — تبليغ المدين (مذكرة أولى + تبليغات لاحقة) */
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { ExecutionFile, EvictionSubsequentSummonsMeta, TimelineEvent } from '@/app/types/execution';

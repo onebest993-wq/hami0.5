@@ -1,10 +1,11 @@
 import React, { Suspense, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import type { Dispatch, ElementType, SetStateAction } from 'react';
-import { X } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
 import type { TimelineEvent } from '@/app/types/execution';
-import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { EXEC_MODAL_Z } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
+import { EXEC_OVERLAY_INNER_SILENT_FALLBACK } from '../executionDashboardLazyShellUi';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import {
     EXEC_MODAL_BACKDROP_SAFE_PAD,
@@ -58,7 +59,7 @@ export const ExecutionFullTimelineModalContainer: React.FC<
     debtorBrowserTabsMode,
     activeTimelineEventsDebtorScoped,
     activeTimelineEvents,
-    EXEC_OVERLAY_LAZY_FALLBACK,
+    EXEC_OVERLAY_LAZY_FALLBACK: _EXEC_OVERLAY_LAZY_FALLBACK,
     PremiumTimelineAuditLog,
     History,
     toggleTimelineEventPin,
@@ -169,7 +170,7 @@ export const ExecutionFullTimelineModalContainer: React.FC<
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className={`fixed inset-0 flex flex-col overflow-hidden bg-slate-950/75 p-0 backdrop-blur-2xl sm:p-3 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
+                    className={`fixed inset-0 flex flex-col overflow-hidden bg-slate-950/85 p-0 sm:p-3 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
                     style={{ zIndex: EXEC_MODAL_Z.timelineFullModal }}
                     onClick={(e) => {
                         if (e.target === e.currentTarget) closeTimelineModal();
@@ -180,7 +181,7 @@ export const ExecutionFullTimelineModalContainer: React.FC<
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 16 }}
-                        className={`mx-auto flex min-h-0 w-full max-w-lg flex-col overflow-hidden border border-white/10 bg-[#0A0F1C] shadow-2xl sm:rounded-2xl ${EXEC_MODAL_SHELL_HEIGHT_CLASS}`}
+                        className={`mx-auto flex min-h-0 w-full max-w-lg flex-col overflow-hidden border border-white/10 bg-[#0A0F1C] shadow-lg sm:rounded-2xl ${EXEC_MODAL_SHELL_HEIGHT_CLASS}`}
                         onClick={(e) => e.stopPropagation()}
                         dir="rtl"
                     >
@@ -228,7 +229,7 @@ export const ExecutionFullTimelineModalContainer: React.FC<
                                 <div className="space-y-6">
                                     <div className="space-y-2">
                                         <p className="text-xs font-black text-slate-200">المواعيد النشطة</p>
-                                        <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                                        <Suspense fallback={EXEC_OVERLAY_INNER_SILENT_FALLBACK}>
                                             <PremiumTimelineAuditLog
                                                 events={appointmentsSplit.active}
                                                 onTogglePin={toggleTimelineEventPin}
@@ -240,7 +241,7 @@ export const ExecutionFullTimelineModalContainer: React.FC<
                                     </div>
                                     <div className="space-y-2">
                                         <p className="text-xs font-black text-slate-200">المواعيد المنتهية</p>
-                                        <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                                        <Suspense fallback={EXEC_OVERLAY_INNER_SILENT_FALLBACK}>
                                             <PremiumTimelineAuditLog
                                                 events={appointmentsSplit.ended}
                                                 onTogglePin={toggleTimelineEventPin}
@@ -252,7 +253,7 @@ export const ExecutionFullTimelineModalContainer: React.FC<
                                     </div>
                                 </div>
                             ) : (
-                                <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                                <Suspense fallback={EXEC_OVERLAY_INNER_SILENT_FALLBACK}>
                                     <PremiumTimelineAuditLog
                                         events={scopedEvents}
                                         onTogglePin={toggleTimelineEventPin}

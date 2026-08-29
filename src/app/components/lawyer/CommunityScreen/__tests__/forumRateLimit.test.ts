@@ -1,5 +1,5 @@
-﻿import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { checkForumRateLimit } from '../forumRateLimit';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { checkForumRateLimit, peekForumRateLimit } from '../forumRateLimit';
 
 // ┘╪│╪ز╪«╪»┘à mock localStorage ╪د┘╪░┘è ┘è┘ê┘╪▒┘ç setup.ts ┘ê┘┘à╪│╪ص┘ç ┘é╪ذ┘ ┘â┘ ╪د╪«╪ز╪ذ╪د╪▒
 beforeEach(() => {
@@ -14,7 +14,21 @@ describe('checkForumRateLimit (client)', () => {
     describe('post action', () => {
         it('┘╪د ┘è┘╪▒╪╢ ╪د┘╪ز╪╕╪د╪▒╪د┘ï ╪ذ┘è┘ ╪د┘┘à┘╪┤┘ê╪▒╪د╪ز', () => {
             expect(checkForumRateLimit('post', 'user-1').allowed).toBe(true);
-            expect(checkForumRateLimit('post', 'user-1').allowed).toBe(true);
+            expect(checkForumRateLimit('post', 'user-1').allowed).toBe(false);
+        });
+
+        it('يرفض معرّف مستخدم فارغ', () => {
+            expect(checkForumRateLimit('post', '').allowed).toBe(false);
+            expect(checkForumRateLimit('post', '   ').allowed).toBe(false);
+        });
+    });
+
+    describe('peekForumRateLimit', () => {
+        it('reads without consuming the quota', () => {
+            expect(peekForumRateLimit('report', 'user-1', { postId: 'post-1' }).allowed).toBe(true);
+            expect(peekForumRateLimit('report', 'user-1', { postId: 'post-1' }).allowed).toBe(true);
+            expect(checkForumRateLimit('report', 'user-1', { postId: 'post-1' }).allowed).toBe(true);
+            expect(peekForumRateLimit('report', 'user-1', { postId: 'post-1' }).allowed).toBe(false);
         });
     });
 

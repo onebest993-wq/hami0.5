@@ -1,13 +1,18 @@
-// @ts-nocheck
-import type { SecretaryAlert, SecretaryAlertType, SecretaryAlertTarget } from '@/app/services/SecretaryOrchestrator';
+import type { SecretaryAlertType, SecretaryAlertTarget } from '@/app/services/SecretaryOrchestrator';
 import type { CalendarAlertSource } from '@/app/services/SecretaryOrchestrator';
 import { isInjectedFieldTaskAlert } from '@/app/services/fieldTaskAlerts';
 
-function isFieldTaskAlert(alert: SecretaryAlert): boolean {
-    if (isInjectedFieldTaskAlert(alert)) return true;
+type FutureActionAlertHint = {
+    type: SecretaryAlertType;
+    target: SecretaryAlertTarget;
+    calendarSource?: CalendarAlertSource;
+};
+
+function isFieldTaskAlert(alert: FutureActionAlertHint): boolean {
+    if (isInjectedFieldTaskAlert({ id: '', calendarSource: alert.calendarSource })) return true;
     if (alert.calendarSource?.module === 'task') return true;
     if (alert.target === 'schedule' && alert.type === 'DEADLINE') return true;
-    if (alert.type === 'TASK' && alert.target !== 'client_requests') return true;
+    if (alert.type === 'TASK') return true;
     return false;
 }
 
@@ -23,15 +28,11 @@ function isHearingLikeAlert(alert: {
 }
 
 /** نص الزر السفلي للمواعيد القادمة فقط */
-export function suggestedFutureActionForAlert(alert: {
-    type: SecretaryAlertType;
-    target: SecretaryAlertTarget;
-    calendarSource?: CalendarAlertSource;
-}): string {
+export function suggestedFutureActionForAlert(alert: FutureActionAlertHint): string {
     if (isHearingLikeAlert(alert)) {
         return '⚖️ تحضير دفوع الجلسة';
     }
-    if (isInjectedFieldTaskAlert(alert)) {
+    if (isInjectedFieldTaskAlert({ id: '', calendarSource: alert.calendarSource })) {
         return '📋 استعراض وإنجاز المهمة الميدانية';
     }
     if (isFieldTaskAlert(alert)) {
@@ -52,8 +53,6 @@ export function suggestedFutureActionForAlert(alert: {
             return 'فتح ملف المعاملة';
         case 'notepad':
             return 'فتح المستودع الذكي';
-        case 'client_requests':
-            return 'مراجعة الطلب';
         default:
             return 'فتح الموعد';
     }

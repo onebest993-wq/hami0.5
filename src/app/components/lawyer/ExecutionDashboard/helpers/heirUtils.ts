@@ -46,7 +46,7 @@ export function heirsDetailsIncludeClient(heirsDetails: unknown): boolean {
 /**
  * حساب درجة اكتمال صف الوريث
  */
-export function heirRowCompletenessScore(h: HeirDetailRow): number {
+function heirRowCompletenessScore(h: HeirDetailRow): number {
     return (/\S/.test(String(h.phone || '').trim()) ? 2 : 0) +
         (/\S/.test(String(h.address || '').trim()) ? 1 : 0);
 }

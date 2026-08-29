@@ -1,5 +1,7 @@
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { countFieldDaySheetTasksLite } from '@/app/services/tasks/fieldCurtainDayCountLite';
+import { peekBootSessionUserIdSync } from '@/boot/peekBootSessionUserId';
+import { patchDashboardFrame1Snapshot } from '@/app/bootstrap/dashboardFrame1Snapshot';
 
 type Listener = () => void;
 
@@ -14,8 +16,8 @@ const fingerprintListeners = new Set<Listener>();
 function buildTasksFingerprint(tasks: LegalTask[]): string {
     return tasks
         .map((t) => {
-            const ymd = t.parsedDate?.toISOString().slice(0, 10) ?? '';
-            const rem = t.reminderAt?.toISOString().slice(0, 10) ?? '';
+            const ymd = t.parsedDate?.getTime() ?? '';
+            const rem = t.reminderAt?.getTime() ?? '';
             const done = t.completedAt?.getTime() ?? '';
             const subs = t.subTasks.map((s) => `${s.id}:${s.isCompleted ? 1 : 0}`).join(',');
             const loc = t.location ?? '';
@@ -49,6 +51,11 @@ export function publishQuantumTasksMetrics(tasks: LegalTask[], pending: LegalTas
 
     if (countChanged) notifyCountListeners();
     if (fingerprintChanged) notifyFingerprintListeners();
+    if (countChanged) {
+        patchDashboardFrame1Snapshot(peekBootSessionUserIdSync(), {
+            pendingFieldTasksCount: nextCount,
+        });
+    }
 }
 
 export function getQuantumTasksSnapshot(): LegalTask[] {
@@ -61,6 +68,23 @@ export function getQuantumPendingSnapshot(): LegalTask[] {
 
 export function getPendingFieldTasksCountSnapshot(): number {
     return pendingFieldCount;
+}
+
+/** شارة من لقطة الإقلاع إن لم تُقرأ المهام من القرص بعد */
+export function seedPendingFieldCountFromSnapshot(count: number): void {
+    if (pendingFieldCount > 0) return;
+    const next = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+    if (next <= 0 || next === pendingFieldCount) return;
+    pendingFieldCount = next;
+    notifyCountListeners();
+}
+
+/** بلا نشر على القرص — غياب ملف المهام لا يصفّر لقطة الإقلاع */
+export function resetQuantumTasksMetricsMemory(): void {
+    tasksSnapshot = [];
+    pendingSnapshot = [];
+    pendingFieldCount = 0;
+    tasksFingerprint = '';
 }
 
 export function getQuantumTasksFingerprint(): string {

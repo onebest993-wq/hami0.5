@@ -10,10 +10,6 @@ vi.mock('@/app/runtime/deferredAppStyles', () => ({
     ensureDeferredAppStylesLoaded: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock('@/app/bootstrap/homeDockBootGate', () => ({
-    waitForHomeDockBootChunk: vi.fn(() => Promise.resolve()),
-}));
-
 vi.mock('@/app/components/lawyer/dashboard/HomeForumSignalsIsland', () => ({
     default: () => null,
 }));

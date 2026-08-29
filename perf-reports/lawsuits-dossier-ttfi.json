@@ -1,0 +1,32 @@
+{
+  "label": "lawsuits-dossier-ttfi",
+  "device": "mobile",
+  "deviceProfile": "Pixel 7",
+  "throttle": "none",
+  "samples": 2,
+  "url": "http://localhost:8080",
+  "measuredAt": "2026-08-25T20:10:28.949Z",
+  "marks": {
+    "navigationMs": 172,
+    "hubToArchiveMs": 399,
+    "archiveShellMs": 326,
+    "dossierOpenMs": 3391,
+    "totalMs": 6215
+  },
+  "runs": [
+    {
+      "navigationMs": 184,
+      "hubToArchiveMs": 157,
+      "archiveShellMs": 453,
+      "dossierOpenMs": 3433,
+      "totalMs": 6652
+    },
+    {
+      "navigationMs": 159,
+      "hubToArchiveMs": 640,
+      "archiveShellMs": 198,
+      "dossierOpenMs": 3349,
+      "totalMs": 5778
+    }
+  ]
+}

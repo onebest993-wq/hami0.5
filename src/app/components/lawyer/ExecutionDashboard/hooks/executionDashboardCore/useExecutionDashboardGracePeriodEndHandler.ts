@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C — تفعيل التنفيذ الجبري بعد انتهاء مهلة الرضا */
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { TimelineEvent } from '@/app/types/execution';

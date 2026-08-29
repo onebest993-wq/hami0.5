@@ -134,7 +134,7 @@ export function createCassationActions(
 
     if (cassationData.outcome === 'expired') {
         if (!cassationExpiredCanClose) {
-            setCassationError('⏳ لا يمكن تثبيت الانقضاء قبل تجاوز تاريخ انتهاء مدة الطعن القانونية.');
+            setCassationError('لا يمكن تثبيت الانقضاء قبل تجاوز تاريخ انتهاء مدة الطعن القانونية.');
             return;
         }
         if (!cassationExpiredConfirmed) {
@@ -152,7 +152,7 @@ export function createCassationActions(
         };
         void persistPatch(expiredPatch);
         if (caseId) onCaseUpdated?.(caseId, expiredPatch);
-        setCaseData((prev: any) => ({ ...(prev || {}), ...expiredPatch }));
+        setCaseData((prev) => ({ ...(prev || {}), ...expiredPatch }));
         appendCaseEvent('انقضاء مدة الطعن التمييزي دون تقديم', 'system');
         setActiveLifecycleStep(null);
         setEditCassation(false);
@@ -175,7 +175,7 @@ export function createCassationActions(
     const filing = String(cassationData.filingDate || '').trim();
     const decisionDate = String(cassationDecision.decisionDate || '').trim();
     if (filing && decisionDate && decisionDate < filing) {
-        setCassationDecisionError('⚠️ تاريخ قرار التمييز يجب أن يكون بعد/مساوٍ لتاريخ تقديم الطعن');
+        setCassationDecisionError('تاريخ قرار التمييز يجب أن يكون بعد/مساوٍ لتاريخ تقديم الطعن');
         return;
     }
 
@@ -190,7 +190,7 @@ export function createCassationActions(
     };
     void persistPatch(filedPatch);
     if (caseId) onCaseUpdated?.(caseId, filedPatch);
-    setCaseData((prev: any) => ({ ...(prev || {}), ...filedPatch }));
+    setCaseData((prev) => ({ ...(prev || {}), ...filedPatch }));
     appendCaseEvent(
         `تسجيل الطعن التمييزي (${partyLabel(computedCassationFiledBy)}) بتاريخ ${formatDateText(cassationData.filingDate)}، رقم ${String(cassationData.fileNumber || '').trim() || '—'}`,
         'action',

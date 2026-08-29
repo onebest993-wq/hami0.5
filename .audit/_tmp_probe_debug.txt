@@ -1,0 +1,30 @@
+DEBUG UrgentActionsBasicInfoSection
+def=src/app/components/lawyer/Form_Urgent_Actions/UrgentActionsBasicInfoSection.tsx
+owners=["src/app/components/lawyer/Form_Urgent_Actions/UrgentActionsBasicInfoSection.tsx","src/app/components/lawyer/Form_Urgent_Actions.tsx"]
+others=["src/app/components/lawyer/Form_Urgent_Actions.tsx"]
+
+DEBUG GLASS_BODY
+def=src/app/components/lawyer/smart-modal/parts/sessionHubGlassTheme.ts
+owners=["src/app/components/lawyer/smart-modal/parts/sessionHubGlassTheme.ts"]
+others=[]
+
+DEBUG CourtReferralAcceptance
+def=src/app/domain/lawsuit/courtReferral.ts
+owners=["src/app/domain/lawsuit/courtReferral.ts"]
+others=[]
+
+DEBUG UrgentActionsBasicInfoSection
+def=src/app/components/lawyer/Form_Urgent_Actions/UrgentActionsBasicInfoSection.tsx
+owners=["src/app/components/lawyer/Form_Urgent_Actions/UrgentActionsBasicInfoSection.tsx","src/app/components/lawyer/Form_Urgent_Actions.tsx"]
+others=["src/app/components/lawyer/Form_Urgent_Actions.tsx"]
+
+DEBUG UrgentActionsBasicInfoSection
+def=src/app/components/lawyer/Form_Urgent_Actions/UrgentActionsBasicInfoSection.tsx
+owners=["src/app/components/lawyer/Form_Urgent_Actions/UrgentActionsBasicInfoSection.tsx","src/app/components/lawyer/Form_Urgent_Actions.tsx"]
+others=["src/app/components/lawyer/Form_Urgent_Actions.tsx"]
+
+DEBUG UrgentActionsBasicInfoSection
+def=src/app/components/lawyer/Form_Urgent_Actions/UrgentActionsBasicInfoSection.tsx
+owners=["src/app/components/lawyer/Form_Urgent_Actions/UrgentActionsBasicInfoSection.tsx","src/app/components/lawyer/Form_Urgent_Actions.tsx"]
+others=["src/app/components/lawyer/Form_Urgent_Actions.tsx"]
+

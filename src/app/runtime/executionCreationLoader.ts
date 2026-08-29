@@ -1,6 +1,6 @@
 /**
  * تسخين سطح إنشاء التنفيذ (بوابة + نموذج) — يُستدعى من hover/فتح الأرشيف/زر الجديد.
- * يخزّن المكوّن بعد التحميل لرسم مباشر بلا «جاري تجهيز النموذج».
+ * نفس وحدة preloadable التي يرسمها Portal — إن اكتمل التسخين يُتخطى Suspense.
  */
 type ExecutionCreationViewModule = typeof import('@/app/components/lawyer/ExecutionCreationView.tsx');
 type ExecutionCreationPortalModule =
@@ -20,7 +20,14 @@ export function resetExecutionCreationViewLoaderForTests(): void {
     surfaceReady = false;
 }
 
+function preloadCreationViewLazy(): void {
+    void import('@/app/runtime/executionCreationViewLazy')
+        .then((m) => m.LazyExecutionCreationView.preload())
+        .catch(() => undefined);
+}
+
 function ensureViewModule(): Promise<ExecutionCreationViewModule> {
+    preloadCreationViewLazy();
     if (!viewPromise) {
         viewPromise = import('@/app/components/lawyer/ExecutionCreationView.tsx')
             .then((mod) => {
@@ -73,14 +80,25 @@ export function prefetchExecutionCreationPortalModule(): void {
     void ensurePortalModule().catch(() => undefined);
 }
 
-/** بوابة + نموذج بالتوازي — يمنع waterfall عند أول فتح لـ «إضبارة جديدة» */
+/** بوابة + نموذج + مدخل الطبقة بالتوازي — يمنع waterfall عند أول فتح لـ «إضبارة جديدة» */
 export function prefetchExecutionCreationSurface(): void {
     if (typeof window === 'undefined') return;
     void ensurePortalModule().catch(() => undefined);
+    void import(
+        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardExecutionCreateOverlayEntry'
+    ).catch(() => undefined);
     void ensureViewModule()
         .then(() => {
             surfaceReady = true;
         })
+        .catch(() => undefined);
+    void import(
+        '@/app/components/lawyer/ExecutionCreationView/components/instrumentDetailsSectionLazy'
+    )
+        .then((m) => m.prefetchInstrumentDetailsSection())
+        .catch(() => undefined);
+    void import('@/app/components/lawyer/ExecutionCreationView/components/partiesSectionLazy')
+        .then((m) => m.prefetchPartiesSection())
         .catch(() => undefined);
 }
 

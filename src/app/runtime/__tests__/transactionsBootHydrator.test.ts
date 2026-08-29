@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const hydrateTransactionsShellForInstantOpen = vi.fn(() => Promise.resolve(true));
 const prefetchTransactionsHubModule = vi.fn();
-const warmTransactionsOnHover = vi.fn();
 
 vi.mock('@/app/runtime/transactionsHubLoader', () => ({
     hydrateTransactionsShellForInstantOpen: (...args: unknown[]) =>
@@ -11,15 +10,12 @@ vi.mock('@/app/runtime/transactionsHubLoader', () => ({
     prefetchTransactionsHubModule: (...args: unknown[]) => prefetchTransactionsHubModule(...args),
 }));
 
-vi.mock('@/app/hooks/lawyerDashboard/transactionsIntentWarm', () => ({
-    warmTransactionsOnHover: (...args: unknown[]) => warmTransactionsOnHover(...args),
-}));
-
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: vi.fn(() => false),
+    isNativeShellStampedOnDom: vi.fn(() => false),
 }));
 
-vi.mock('@/app/services/settings/settingsRuntime', () => ({
+vi.mock('@/app/services/settings/settingsSnapshot', () => ({
     getLawyerSettingsSnapshot: vi.fn(() => ({
         security: { localOnlyMode: false },
         performance: { prefetchScreens: true, litePerformance: false },
@@ -55,7 +51,7 @@ describe('transactionsBootHydrator', () => {
             (await import('@/app/runtime/transactionsHubLoader')).isTransactionsHubModuleResolved,
         ).mockReturnValue(false);
         vi.mocked(
-            (await import('@/app/services/settings/settingsRuntime')).getLawyerSettingsSnapshot,
+            (await import('@/app/services/settings/settingsSnapshot')).getLawyerSettingsSnapshot,
         ).mockReturnValue({
             security: { localOnlyMode: false },
             performance: { prefetchScreens: true, litePerformance: false },

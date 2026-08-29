@@ -11,7 +11,6 @@ function baseReadyView(
         shellProps: {} as never,
         notificationPanel: {
             isOpen: false,
-            panelSessionKey: 0,
             userId: 'lawyer-1',
             onClose: () => undefined,
             onNavigate: (() => undefined) as never,
@@ -20,14 +19,13 @@ function baseReadyView(
         headerProps: {
             shouldShow: true,
             unreadCount: 0,
-            onProfileClick: () => undefined,
             onSearchClick: () => undefined,
             onNotificationsClick: () => undefined,
             onSettingsClick: () => undefined,
         },
         homeTabProps: { visible: true, active: true } as never,
         scheduleTabProps: { visible: false, active: false } as never,
-        profileTab: { visible: false, sessionKey: 0, onBack: () => undefined },
+        profileTab: { visible: false, onBack: () => undefined },
         tabStackHidden: false,
         scheduleHostMounted: false,
         profileHostMounted: false,
@@ -36,6 +34,8 @@ function baseReadyView(
         } as never,
         postInteractiveRuntimeProps: {} as never,
         deferredFeatureSurfacesProps: {} as never,
+        preDockFeatureSurfacesProps: {} as never,
+        navigationSurfacesProps: {} as never,
         ...overrides,
     };
 }
@@ -191,5 +191,47 @@ describe('patchLawyerDashboardHeaderOverlayOpen', () => {
         expect(patched.notificationPanel.isOpen).toBe(true);
         expect(patched.headerProps.unreadCount).toBe(3);
         expect(patched.overlaysBundle).toBe(view.overlaysBundle);
+    });
+
+    it('يبقي شبكة الرئيسية ظاهرة عندما التبويب ملف (لا invisible بعد إغلاق الـ snap)', () => {
+        const view = baseReadyView({
+            homeTabProps: { visible: true, active: true } as never,
+        });
+        const mask = {
+            isCriminalDossierOpen: false,
+            archiveType: null,
+            showLawsuitsWorkspace: false,
+            showTransactions: false,
+            isNotepadOpen: false,
+            showSettings: false,
+            showCommunity: false,
+            activeFile: null,
+            showDocs: false,
+        };
+        const patched = patchLawyerDashboardHeaderOverlayOpen(view, {
+            showSettings: false,
+            showGlobalSearch: false,
+            searchHostMounted: false,
+            showNotifications: false,
+            notificationsUnreadCount: 0,
+            activeTab: 'profile',
+            tabStackMask: mask,
+            headerVisibility: {
+                showSettings: false,
+                isNewCaseModalOpen: false,
+                isNotepadOpen: false,
+                showCommunity: false,
+                activeTab: 'profile',
+                activeFile: null,
+                archiveType: null,
+                showLawsuitsWorkspace: false,
+                showTransactions: false,
+                showTasksManager: false,
+                showDocs: false,
+                isCriminalDossierOpen: false,
+            },
+        });
+
+        expect(patched.homeTabProps.visible).toBe(true);
     });
 });

@@ -64,4 +64,53 @@ describe('AppearanceBlockCustomizePanel selection', () => {
         fireEvent.click(forum);
         expect(forum).toHaveAttribute('aria-selected', 'true');
     });
+
+    it('صف إطار الحاويات يبدّل عند الضغط على النص لا المفتاح فقط', () => {
+        const setContainerBorder = vi.fn();
+        const customize = {
+            blocks: ['alerts'] as const,
+            blockLabel: (id: string) => id,
+            selectedCount: 1,
+            isAllSelected: false,
+            toggleSelectAll: vi.fn(),
+            toggleBlock: vi.fn(),
+            isSelected: () => true,
+            effective: {
+                cardThemeKey: 'gold',
+                patternThemeKey: 'gold',
+                backgroundPreset: 'none',
+                patternIntensity: 'medium',
+                glassTransparency: 'medium',
+                containerBorder: true,
+                glassOpacity: 0.5,
+                patternOpacity: 0.3,
+                shapeKey: 'rounded',
+            },
+            hasCustomOverride: false,
+            setCardTheme: vi.fn(),
+            setPatternTheme: vi.fn(),
+            setBackgroundPreset: vi.fn(),
+            setPatternIntensity: vi.fn(),
+            setGlassTransparency: vi.fn(),
+            setContainerBorder,
+            setShape: vi.fn(),
+            resetBlock: vi.fn(),
+            appearance: {
+                theme: 'gold',
+                shape: 'rounded',
+                glassOpacity: 0.5,
+                backgroundPatternOpacity: 0.3,
+                homeContainerBorder: true,
+                backgroundPreset: 'none',
+            },
+        } as unknown as AppearanceBlockCustomize;
+
+        render(<AppearanceBlockCustomizePanel customize={customize} themePrimary="#E6C673" />);
+        fireEvent.pointerDown(screen.getByTestId('appearance-block-container-border-row'));
+        expect(setContainerBorder).toHaveBeenCalledWith(false);
+
+        setContainerBorder.mockClear();
+        fireEvent.click(screen.getByTestId('settings-toggle-appearance-block-containerBorder'));
+        expect(setContainerBorder).toHaveBeenCalledWith(false);
+    });
 });

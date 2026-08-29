@@ -1,11 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { motion } from 'motion/react';
-import { X, DollarSign, CheckCircle, AlertCircle } from '@/app/components/ui/lucideIcons';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { X } from '@/app/components/ui/icons/X';
+import { DollarSign } from '@/app/components/ui/icons/DollarSign';
+import { CheckCircle } from '@/app/components/ui/icons/CheckCircle';
+import { AlertCircle } from '@/app/components/ui/icons/AlertCircle';
 import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,
-} from '@/app/components/lawyer/execution/executionModalStack';
+} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 
 interface PaymentCalculatorProps {
     isOpen: boolean;

@@ -20,7 +20,7 @@ export type ExecutionDossierLifecycleActionsCoreInput = {
     seizedAssetsSnapshotRef: MutableRefObject<SeizedAsset[]>;
     setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
     nextTimelineId: () => string;
-    persistExecutionMerge: (patch: Record<string, unknown>) => void;
+    persistExecutionMerge: (patch: Record<string, unknown>) => boolean | void;
     reconcileDossierLifecycle: (fileId: string, file?: ExecutionFile | null) => void;
     showToast: (message: string, type: 'success' | 'warning' | 'info') => void;
 };
@@ -104,12 +104,16 @@ export function useExecutionDossierLifecycleActionsOrchestrator({
             setTimelineEvents((prev) => {
                 const next = [ev, ...prev];
                 queueMicrotask(() => {
-                    persistExecutionMerge({
+                    const persisted = persistExecutionMerge({
                         dossier_lifecycle_status: status,
                         dossier_status_reason: status === 'active' ? '' : r,
                         dossier_status_date: status === 'active' ? '' : d,
                         timelineEvents: next,
                     });
+                    if (persisted === false) {
+                        showToast('تعذّر حفظ الحالة — أعد المحاولة', 'warning');
+                        return;
+                    }
                     const execId = String(baseEx?.id ?? executionId ?? '');
                     if (execId && execId !== 'undefined') {
                         void import('@/app/services/timelineEventsSupabase')
@@ -122,6 +126,7 @@ export function useExecutionDossierLifecycleActionsOrchestrator({
                             )
                             .catch(() => {});
                     }
+                    showToast('تم حفظ الحالة وتسجيلها في السجل الزمني.', 'success');
                 });
                 return next;
             });
@@ -137,7 +142,6 @@ export function useExecutionDossierLifecycleActionsOrchestrator({
                 setDossierReasonDraft('');
                 setDossierDateDraft('');
             }
-            showToast('تم حفظ الحالة وتسجيلها في السجل الزمني.', 'success');
             return true;
         },
         [

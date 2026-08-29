@@ -2,6 +2,7 @@ import type { LegalTask } from '@/app/types/TaskEngine';
 import { normalizeDateToYmd } from '@/app/services/calendar/bridge/lite';
 import { fieldTaskHasExplicitUserDate } from '@/app/services/calendarAuthenticity';
 import { collectStageLegalCalendarSpecs } from '@/app/services/lawsuitTimelineCalendarMirror';
+import { resolveNextExecutionVisitation } from '@/app/services/calendar/dossierSync/visitationCalendarSync';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
     return Boolean(v) && typeof v === 'object' && !Array.isArray(v);
@@ -66,6 +67,8 @@ function executionFileFingerprint(file: Record<string, unknown>): string {
         if (!isRecord(t)) continue;
         parts.push(`t:${t.id}:${readStr(t, 'dueDate')}:${t.isCompleted ? '1' : '0'}`);
     }
+    const visit = resolveNextExecutionVisitation(file);
+    parts.push(`v:${visit?.date ?? ''}:${visit?.time ?? ''}:${visit?.location ?? ''}`);
     return parts.join(';');
 }
 

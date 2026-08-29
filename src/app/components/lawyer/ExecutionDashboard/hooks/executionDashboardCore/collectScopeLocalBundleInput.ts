@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C Slice 23 — تجميع local bundle input من مجموعات */
 export function collectScopeLocalBundleInput(g: {
     timeline: Record<string, unknown>;

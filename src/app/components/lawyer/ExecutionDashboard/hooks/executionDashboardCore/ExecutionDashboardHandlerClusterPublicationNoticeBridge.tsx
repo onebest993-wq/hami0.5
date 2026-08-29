@@ -18,7 +18,7 @@ export function ExecutionDashboardHandlerClusterPublicationNoticeBridge({
     input,
     onCluster,
 }: ExecutionDashboardHandlerClusterPublicationNoticeBridgeProps) {
-    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads) as any;
+    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads);
 
     const publicationNoticeHandlers = useExecutionDashboardPublicationNoticeHandlers({
         executionActionsGridLocked: c.executionActionsGridLocked,

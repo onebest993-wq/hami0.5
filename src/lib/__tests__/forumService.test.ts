@@ -1,20 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const createSignedUrl = vi.fn();
-const upload = vi.fn();
 const encryptData = vi.fn();
 const decryptData = vi.fn();
-
-vi.mock('@/lib/supabaseClient.js', () => ({
-    supabase: {
-        storage: {
-            from: vi.fn(() => ({
-                createSignedUrl: (...args: unknown[]) => createSignedUrl(...args),
-                upload: (...args: unknown[]) => upload(...args),
-            })),
-        },
-    },
-}));
 
 vi.mock('@/app/services/CryptoService', () => ({
     CryptoService: {
@@ -32,16 +19,30 @@ vi.mock('@/app/services/forumApiService', () => ({
     },
 }));
 
+const fetchSecure = vi.fn();
+const fetchSecureResponse = vi.fn();
+
+vi.mock('@/app/services/SecureAPIClient', () => ({
+    SecureAPIClient: {
+        fetchSecure: (...args: unknown[]) => fetchSecure(...args),
+        fetchSecureResponse: (...args: unknown[]) => fetchSecureResponse(...args),
+    },
+}));
+
 describe('forumService', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         encryptData.mockResolvedValue('cipher-text');
         decryptData.mockResolvedValue(btoa('img-bytes'));
-        createSignedUrl.mockResolvedValue({
-            data: { signedUrl: 'https://signed.example/enc' },
-            error: null,
+        fetchSecure.mockResolvedValue({ downloadUrl: 'https://bff.example/enc' });
+        fetchSecureResponse.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                ok: true,
+                path: 'user-1/forum-media/1_photo.jpg.enc',
+                downloadUrl: 'https://bff.example/enc',
+            }),
         });
-        upload.mockResolvedValue({ error: null });
         vi.stubGlobal('fetch', vi.fn(async () => ({
             ok: true,
             text: async () => 'cipher-text',
@@ -65,7 +66,7 @@ describe('forumService', () => {
         expect(path).toMatch(/^user-1\/images\/\d+_photo\.jpg\.enc$/);
     });
 
-    it('uploadEncryptedForumImage يرفع blob مشفر إلى forum-media', async () => {
+    it('uploadEncryptedForumImage يرفع عبر /api/upload الموقّع لا التخزين المباشر', async () => {
         const { uploadEncryptedForumImage, FORUM_MEDIA_BUCKET } = await import('@/lib/forumService.js');
         const file = new File(['pixels'], 'photo.jpg', { type: 'image/jpeg' });
         Object.defineProperty(file, 'arrayBuffer', {
@@ -74,23 +75,30 @@ describe('forumService', () => {
         const attachment = await uploadEncryptedForumImage('user-1', file);
 
         expect(encryptData).toHaveBeenCalled();
-        expect(upload).toHaveBeenCalled();
+        expect(fetchSecureResponse).toHaveBeenCalledWith(
+            '/api/upload',
+            expect.objectContaining({ method: 'POST' }),
+        );
         expect(attachment).toMatchObject({
             type: 'image',
             bucket: FORUM_MEDIA_BUCKET,
             encrypted: true,
             name: 'photo.jpg',
+            storagePath: 'user-1/forum-media/1_photo.jpg.enc',
         });
     });
 
-    it('resolveEncryptedForumImageUrl يفك التشفير بعد createSignedUrl', async () => {
+    it('resolveEncryptedForumImageUrl يفك التشفير بعد signed-url عبر BFF', async () => {
         const { resolveEncryptedForumImageUrl } = await import('@/lib/forumService.js');
         const url = await resolveEncryptedForumImageUrl({
             storagePath: 'user-1/images/x.enc',
             mimeType: 'image/jpeg',
         });
 
-        expect(createSignedUrl).toHaveBeenCalledWith('user-1/images/x.enc', expect.any(Number));
+        expect(fetchSecure).toHaveBeenCalledWith(
+            '/api/upload/signed-url',
+            expect.objectContaining({ method: 'POST' }),
+        );
         expect(decryptData).toHaveBeenCalledWith('cipher-text');
         expect(url).toBe('blob:decrypted');
     });

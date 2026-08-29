@@ -30,6 +30,8 @@ describe('vaultDocUtils', () => {
     it('infers doc type from mime or extension', () => {
         expect(inferDocType('image/jpeg', 'photo.jpg')).toBe('image');
         expect(inferDocType('application/pdf', 'file.pdf')).toBe('pdf');
+        expect(inferDocType('image/svg+xml', 'logo.svg')).not.toBe('image');
+        expect(inferDocType('image/png', 'scan.png')).toBe('image');
     });
 
     it('infers Arabic tags from title', () => {
@@ -50,6 +52,13 @@ describe('vaultDocUtils', () => {
         expect(vaultDocMatchesSearch(baseDoc(), 'عقد')).toBe(true);
         expect(vaultDocMatchesSearch(baseDoc({ lawyerNote: 'ملاحظة سرية' }), 'سرية')).toBe(true);
         expect(vaultDocMatchesSearch(baseDoc(), 'xyz')).toBe(false);
+    });
+
+    it('folds Arabic alef and Indic digits in vault search', () => {
+        expect(vaultDocMatchesSearch(baseDoc({ title: 'عقد أحمد' }), 'احمد')).toBe(true);
+        expect(
+            vaultDocMatchesSearch(baseDoc({ title: 'مستند', fileName: 'ملف-٢٠٢٤.pdf' }), '2024'),
+        ).toBe(true);
     });
 
     it('filters by category and search', () => {

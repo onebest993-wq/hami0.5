@@ -4,8 +4,16 @@ import {
     setProfileWarmCache,
     invalidateProfileWarmCache,
     hydrateProfileWarmCachePeekSync,
+    subscribeProfileWarmCache,
 } from '@/app/services/profile/profileWarmCache';
 import type { LawyerProfileData } from '@/app/services/lawyer-cloud';
+import SecureStoreService from '@/app/services/SecureStoreService';
+import { getLawyerProfileLocalKey } from '@/app/services/profile/profileLocalKey';
+import { DEFAULT_LAWYER_PROFILE } from '@/app/services/cloud/lawyerProfileTypes';
+import {
+    setLawyerProfileBootWarmPending,
+    resetLawyerProfileBootWarmPendingForTests,
+} from '@/app/services/profile/profileBootWarmPending';
 
 const sampleProfile = (): LawyerProfileData => ({
     header: {
@@ -32,6 +40,7 @@ const sampleProfile = (): LawyerProfileData => ({
 describe('profileWarmCache', () => {
     beforeEach(() => {
         invalidateProfileWarmCache();
+        resetLawyerProfileBootWarmPendingForTests();
     });
 
     it('يخزّن نسخة مُنقّاة من الملف', () => {
@@ -50,9 +59,52 @@ describe('profileWarmCache', () => {
     });
 
     it('hydrateProfileWarmCachePeekSync يبني بذرة من userMeta عند غياب المحلي', () => {
-        const peeked = hydrateProfileWarmCachePeekSync('lawyer-peek', { full_name: 'أحمدع' }, 'lawyer-peek');
+        const peeked = hydrateProfileWarmCachePeekSync(
+            'lawyer-peek',
+            { full_name: 'أحمدع', avatar_url: 'https://cdn.example/a.jpg' },
+            'lawyer-peek',
+        );
         expect(peeked?.header.name).toBeTruthy();
+        expect(peeked?.header.profileImage).toBe('https://cdn.example/a.jpg');
         expect(peekProfileWarmCache('lawyer-peek')?.header.name).toBe(peeked?.header.name);
+    });
+
+    it('يرقّي الملف المحلي الأغنى ولا يزرع بذرة JWT القصيرة', () => {
+        const uid = 'lawyer-upgrade';
+        hydrateProfileWarmCachePeekSync(uid, { name: 'أحمد' }, uid);
+        expect(peekProfileWarmCache(uid)).toBeUndefined();
+        SecureStoreService.setItemSync(
+            getLawyerProfileLocalKey(uid),
+            JSON.stringify({
+                ...DEFAULT_LAWYER_PROFILE,
+                header: { ...DEFAULT_LAWYER_PROFILE.header, name: 'أحمد مهدي' },
+            }),
+        );
+        hydrateProfileWarmCachePeekSync(uid, { name: 'أحمد' }, uid);
+        expect(peekProfileWarmCache(uid)?.header.name).toBe('أحمد مهدي');
+    });
+
+    it('لا يستبدل اسم ملف محفوظ باسم جلسة مختلف تماماً', () => {
+        const uid = 'lawyer-keep-saved';
+        setProfileWarmCache(uid, {
+            ...DEFAULT_LAWYER_PROFILE,
+            header: { ...DEFAULT_LAWYER_PROFILE.header, name: 'أحمد' },
+        });
+        hydrateProfileWarmCachePeekSync(uid, { fullName: 'اختبار' }, uid);
+        expect(peekProfileWarmCache(uid)?.header.name).toBe('أحمد');
+    });
+
+    it('لا يزرع بذرة من حقل JWT القصير name', () => {
+        const uid = 'lawyer-jwt-short';
+        expect(hydrateProfileWarmCachePeekSync(uid, { name: 'أحمد' }, uid)).toBeNull();
+        expect(peekProfileWarmCache(uid)).toBeUndefined();
+    });
+
+    it('لا يزرع بذرة جلسة قصيرة أثناء تسخين الملف المحلي', () => {
+        const uid = 'lawyer-pending';
+        setLawyerProfileBootWarmPending(true);
+        expect(hydrateProfileWarmCachePeekSync(uid, { name: 'أحمد' }, uid)).toBeNull();
+        expect(peekProfileWarmCache(uid)).toBeUndefined();
     });
 
     it('يُخفّي الحقول الحساسة للزائر عند peek', () => {
@@ -107,5 +159,15 @@ describe('profileWarmCache', () => {
         expect(emptyViewer?.header.phone).toBe('');
         /* بلا options يبقى مسار المالك الداخلي كاملاً */
         expect(peekProfileWarmCache('lawyer-1')?.header.phone).toBe('07501234567');
+    });
+
+    it('يُخطر المشتركين عند الكتابة', () => {
+        const seen: string[] = [];
+        const unsub = subscribeProfileWarmCache((id) => {
+            seen.push(id);
+        });
+        setProfileWarmCache('lawyer-1', sampleProfile());
+        expect(seen).toContain('lawyer-1');
+        unsub();
     });
 });

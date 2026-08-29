@@ -3,7 +3,7 @@ import type { JourneyNode } from '@/app/types/criminal';
 import { resolveRecordJourneyStage, resolveRecordJourneyStageLabel } from '../casePhaseFilterEngine';
 import { journeyStageBadgeClass } from '../journeyStageVisuals';
 
-export type JourneyStageRecordRef = {
+type JourneyStageRecordRef = {
     date?: string;
     requestDate?: string;
     issuedAt?: string;

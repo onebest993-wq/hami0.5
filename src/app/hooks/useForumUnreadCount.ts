@@ -5,6 +5,7 @@ import {
 } from '@/app/services/forum/forumNotificationEvents';
 import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import { resolveForumUnreadPollMs } from '@/app/components/lawyer/CommunityScreen/communityFeedPolicy';
+import { canReachProtectedServerNetwork } from '@/app/services/secureApiNetworkFeatures';
 
 export type ForumUnreadCountState = {
     count: number;
@@ -19,7 +20,7 @@ export function useForumUnreadCount(userId: string | null, enabled = true): Foru
 
     const refresh = useCallback(
         async (opts?: { silent?: boolean }) => {
-            if (!userId) {
+            if (!userId || !canReachProtectedServerNetwork(userId)) {
                 setCount(0);
                 setIsLoading(false);
                 emitForumUnreadCount(0);
@@ -83,7 +84,7 @@ export function useForumUnreadCount(userId: string | null, enabled = true): Foru
             void refresh({ silent: true });
         },
         resolveForumUnreadPollMs(streamRunning),
-        enabled && Boolean(userId),
+        enabled && Boolean(userId) && canReachProtectedServerNetwork(userId),
     );
 
     useEffect(() => {

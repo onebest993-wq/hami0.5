@@ -17,9 +17,20 @@ describe('wifeSignPolicy', () => {
         expect(resolveAllowedWifeSignTarget(req, '/admin/secret')).toBeNull();
     });
 
-    it('blocks bootstrap oracle paths', () => {
+    it('blocks bootstrap oracle paths and unsigned public probes', () => {
         expect(isBlockedWifeSignPath('/api/security/wife-sign')).toBe(true);
+        expect(isBlockedWifeSignPath('/api/admin/otp/csrf')).toBe(true);
+        expect(isBlockedWifeSignPath('/api/admin/otp/dev-unlock')).toBe(true);
         expect(isBlockedWifeSignPath('/api/auth/login')).toBe(true);
+        expect(isBlockedWifeSignPath('/api/auth/signup')).toBe(true);
+        expect(isBlockedWifeSignPath('/api/auth/forgot-password')).toBe(true);
+        expect(isBlockedWifeSignPath('/api/auth/resend-confirmation')).toBe(true);
+        expect(isBlockedWifeSignPath('/api/auth/otp/request')).toBe(true);
+        expect(isBlockedWifeSignPath('/api/auth/otp/complete')).toBe(true);
+        expect(isBlockedWifeSignPath('/api/auth/otp/channels')).toBe(true);
+        expect(isBlockedWifeSignPath('/api/auth/otp/preview')).toBe(true);
+        expect(isBlockedWifeSignPath('/api/security/wife-session')).toBe(false);
         expect(resolveAllowedWifeSignTarget(req, '/api/security/wife-sign')).toBeNull();
+        expect(resolveAllowedWifeSignTarget(req, '/api/public/healthz')).toBeNull();
     });
 });

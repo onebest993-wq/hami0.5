@@ -1,10 +1,14 @@
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
+import { canUseServerBackedNetworkFeatures } from '@/app/services/auth/lawyerAccountStatus';
 import SecureStoreService from '@/app/services/SecureStoreService';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 import type { NotificationModel } from '@/app/infrastructure/NotificationRepository';
 import type { ForumNotification } from '@/app/services/forum/forumTypes';
 import {
-    extractForumNotificationsFromModels,
     mergeLegacyForumIntoModels,
     parseNotificationBlob,
 } from '@/app/services/notifications/notificationForumBlobOps';
@@ -36,7 +40,7 @@ function isValidForumNotification(value: unknown): value is ForumNotification {
 
 function loadMergedLegacyIds(userId: string): Set<string> {
     try {
-        const raw = SecureStoreService.getItemSync(mergedIdsKey(userId));
+        const raw = readSecureOrDrainLegacySync(mergedIdsKey(userId));
         if (!raw) return new Set();
         const parsed = JSON.parse(raw) as string[];
         return new Set(Array.isArray(parsed) ? parsed : []);
@@ -47,7 +51,9 @@ function loadMergedLegacyIds(userId: string): Set<string> {
 
 function saveMergedLegacyIds(userId: string, ids: Set<string>): void {
     try {
-        SecureStoreService.setItemSync(mergedIdsKey(userId), JSON.stringify([...ids].slice(-500)));
+        const key = mergedIdsKey(userId);
+        SecureStoreService.setItemSync(key, JSON.stringify([...ids].slice(-500)));
+        clearLegacyPlaintextMirror(key);
     } catch {
         /* ignore */
     }
@@ -55,7 +61,7 @@ function saveMergedLegacyIds(userId: string, ids: Set<string>): void {
 
 function getMigrationFlag(userId: string): string | null {
     try {
-        return SecureStoreService.getItemSync(migrationFlagKey(userId));
+        return readSecureOrDrainLegacySync(migrationFlagKey(userId));
     } catch {
         return null;
     }
@@ -63,14 +69,16 @@ function getMigrationFlag(userId: string): string | null {
 
 function setMigrationFlag(userId: string, value: '1' | 'partial'): void {
     try {
-        SecureStoreService.setItemSync(migrationFlagKey(userId), value);
+        const key = migrationFlagKey(userId);
+        SecureStoreService.setItemSync(key, value);
+        clearLegacyPlaintextMirror(key);
     } catch {
         /* ignore */
     }
 }
 
 async function loadLegacyPrefixForumNotifications(userId: string): Promise<ForumNotification[]> {
-    if (!isKvProxyNetworkEnabled()) return [];
+    if (!isKvProxyNetworkEnabled() || !canUseServerBackedNetworkFeatures(userId)) return [];
     try {
         const res = await SecureAPIClient.fetchSecure<{ values?: unknown[] }>('/api/kv-proxy', {
             method: 'POST',
@@ -86,7 +94,7 @@ async function loadLegacyPrefixForumNotifications(userId: string): Promise<Forum
 
 function loadLegacyGlobalLocalForum(userId: string): Set<string> {
     try {
-        const raw = SecureStoreService.getItemSync(LEGACY_GLOBAL_FORUM_LOCAL);
+        const raw = readSecureOrDrainLegacySync(LEGACY_GLOBAL_FORUM_LOCAL);
         if (!raw) return new Set();
         const parsed: unknown = JSON.parse(raw);
         if (!Array.isArray(parsed)) return new Set();
@@ -102,7 +110,7 @@ function loadLegacyGlobalLocalForum(userId: string): Set<string> {
 }
 
 async function deleteLegacyPrefixKeysOnce(userId: string): Promise<void> {
-    if (!isKvProxyNetworkEnabled()) return;
+    if (!isKvProxyNetworkEnabled() || !canUseServerBackedNetworkFeatures(userId)) return;
     await SecureAPIClient.fetchSecure('/api/kv-proxy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -149,7 +157,7 @@ export async function migrateLegacyForumKvToBlobIfNeeded(
     let localLegacy: ForumNotification[] = [];
     if (localLegacyIds.size > 0) {
         try {
-            const raw = SecureStoreService.getItemSync(LEGACY_GLOBAL_FORUM_LOCAL);
+            const raw = readSecureOrDrainLegacySync(LEGACY_GLOBAL_FORUM_LOCAL);
             const parsed: unknown = raw ? JSON.parse(raw) : [];
             if (Array.isArray(parsed)) {
                 localLegacy = filterUnmergedLegacy(
@@ -179,13 +187,6 @@ export async function migrateLegacyForumKvToBlobIfNeeded(
     setMigrationFlag(userId, deleted ? '1' : 'partial');
 
     return true;
-}
-
-export function listForumFromBlobModels(
-    models: NotificationModel[],
-    userId: string,
-): ForumNotification[] {
-    return extractForumNotificationsFromModels(models, userId);
 }
 
 export async function retryLegacyPrefixCleanupIfPartial(userId: string): Promise<boolean> {

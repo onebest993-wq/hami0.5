@@ -24,6 +24,16 @@ vi.mock('@/app/services/SupabaseService', () => ({
   },
 }));
 
+vi.mock('@/app/services/settings/lawyerWorkCloudGate', () => ({
+  isLawyerWorkCloudLive: () => true,
+  isWorkLocalKvMaterial: () => false,
+}));
+
+vi.mock('@/app/services/settings/cloudSyncBucket', () => ({
+  isLiveCloudSyncBucketEnabled: () => true,
+  isCloudSyncBucketEnabled: () => true,
+}));
+
 // Mock localStorage
 const localStorageMock = (() => {
   let store: Record<string, string> = {};

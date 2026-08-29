@@ -17,5 +17,11 @@ export async function expectHomeMainShell(page: Page) {
     await expect(page.getByTestId('home-main-zone')).toBeVisible();
     await expect(page.getByTestId('home-main-grid')).toBeVisible();
     await expect(page.getByTestId('home-hub-card')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('home-hub-card')).toHaveAttribute('data-hub-boot-settling', '0', {
+        timeout: 12_000,
+    });
+    await expect(page.getByTestId('home-hub-tab-alerts')).toBeVisible();
+    await expect(page.getByTestId('home-hub-tab-pins')).toBeVisible();
     await expect(page.getByTestId('home-dock-dockRepository')).toBeVisible();
+    await expect(page.getByTestId('home-dock-forum')).toBeVisible({ timeout: 15_000 });
 }

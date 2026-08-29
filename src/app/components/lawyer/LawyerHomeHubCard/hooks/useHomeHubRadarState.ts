@@ -13,11 +13,10 @@ import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import type { CalendarRadarEvent } from '@/app/workspace/types';
 import { useCalendarRadar48h } from '@/app/workspace/useCalendarRadar48h';
 
-export type UseHomeHubRadarStateResult = {
+type UseHomeHubRadarStateResult = {
     /** مواعيد اليوم/غداً لعرض تبويب «عاجل» (بدون إخفاء التقويم) */
     radarUrgent: CalendarRadarEvent[];
     radarLoading: boolean;
-    hasUrgentRadar: boolean;
 };
 
 export function useHomeHubRadarState(
@@ -59,6 +58,5 @@ export function useHomeHubRadarState(
     return {
         radarUrgent,
         radarLoading,
-        hasUrgentRadar: radarUrgent.length > 0,
     };
 }

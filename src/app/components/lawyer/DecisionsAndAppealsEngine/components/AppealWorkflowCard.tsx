@@ -52,7 +52,7 @@ function AppealWorkflowCard({
         <div
             id={`hami-appeal-card-${decision.id}`}
             className={`${DECISION_GLASS_CARD} flex flex-col gap-3 p-3 sm:p-4 ${
-                appealCardRank === 0 ? 'ring-1 ring-amber-400/30 shadow-[0_0_24px_rgba(251,191,36,0.08)]' : ''
+                appealCardRank === 0 ? 'ring-1 ring-amber-400/30' : ''
             }`}
             dir="rtl"
         >

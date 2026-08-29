@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Calendar } from '@/app/components/ui/lucideIcons';
+import { Calendar } from '@/app/components/ui/icons/Calendar';
 
 export type SummonsDateAccent = 'gold' | 'indigo' | 'violet' | 'amber' | 'cyan' | 'emerald';
 

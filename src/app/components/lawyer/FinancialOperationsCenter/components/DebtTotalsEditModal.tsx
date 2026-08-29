@@ -1,8 +1,10 @@
 import React from 'react';
-import { motion } from 'motion/react';
-import { X, PencilLine } from '@/app/components/ui/lucideIcons';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { X } from '@/app/components/ui/icons/X';
+import { PencilLine } from '@/app/components/ui/icons/PencilLine';
 import { FocModalPortal } from './FocModalPortal';
 import { formatIqdDisplay, formatNumberInput, parseAmount } from '../utils';
+import { FOC_MODAL_ACTION_BTN, FOC_MODAL_CLOSE_BTN } from '../constants';
 
 export interface DebtTotalsEditModalProps {
     open: boolean;
@@ -44,7 +46,7 @@ export const DebtTotalsEditModal: React.FC<DebtTotalsEditModalProps> = ({
                 initial={{ scale: 0.96, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.96, opacity: 0 }}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
                 className="w-full max-w-md rounded-2xl bg-[#0A1122]/90 backdrop-blur-xl border border-white/10 p-5 space-y-4 shadow-2xl"
                 dir="rtl"
             >
@@ -56,7 +58,7 @@ export const DebtTotalsEditModal: React.FC<DebtTotalsEditModalProps> = ({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="p-2 rounded-full hover:bg-white/10 text-slate-400"
+                        className={FOC_MODAL_CLOSE_BTN}
                         aria-label="إغلاق"
                     >
                         <X size={18} />
@@ -121,7 +123,7 @@ export const DebtTotalsEditModal: React.FC<DebtTotalsEditModalProps> = ({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-xl border border-white/10 py-2.5 text-[11px] font-bold text-slate-400 hover:bg-white/[0.04]"
+                        className={`rounded-xl border border-white/10 py-2.5 text-[11px] font-bold text-slate-400 hover:bg-white/[0.04] ${FOC_MODAL_ACTION_BTN}`}
                     >
                         إلغاء
                     </button>
@@ -137,7 +139,7 @@ export const DebtTotalsEditModal: React.FC<DebtTotalsEditModalProps> = ({
                             remainingParsed < 0 ||
                             invalidRemaining
                         }
-                        className="rounded-xl bg-gradient-to-l from-[#E6C673] to-amber-700 py-2.5 text-[11px] font-black text-[#0A0F1C] disabled:opacity-40 disabled:cursor-not-allowed"
+                        className={`rounded-xl bg-gradient-to-l from-[#E6C673] to-amber-700 py-2.5 text-[11px] font-black text-[#0A0F1C] disabled:opacity-40 disabled:cursor-not-allowed ${FOC_MODAL_ACTION_BTN}`}
                     >
                         حفظ التعديل
                     </button>

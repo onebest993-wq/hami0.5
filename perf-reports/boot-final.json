@@ -1,0 +1,49 @@
+{
+  "url": "http://127.0.0.1:4173/",
+  "device": "Pixel 7",
+  "throttle": "slow-mobile",
+  "measuredAt": "2026-08-09T19:01:42.564Z",
+  "wallClockMs": 9833,
+  "timeline": [
+    {
+      "phase": "start",
+      "ms": 0
+    },
+    {
+      "phase": "static-shell-visible",
+      "ms": 0
+    },
+    {
+      "phase": "app-render",
+      "ms": 2930
+    },
+    {
+      "phase": "shell-visible",
+      "ms": null
+    },
+    {
+      "phase": "overlay-removed",
+      "ms": null
+    },
+    {
+      "phase": "dashboard-chunk-loaded",
+      "ms": 8319
+    },
+    {
+      "phase": "dashboard-interactive",
+      "ms": 8318
+    },
+    {
+      "phase": "first-tab-open",
+      "ms": 8575
+    }
+  ],
+  "ttfiMs": 8318,
+  "probeTtfiMs": 8318,
+  "overlayRemovedMs": null,
+  "firstTabOpenMs": 8575,
+  "staticShellMs": 0,
+  "chunkLoadedMs": 8319,
+  "fcpMs": 772,
+  "domContentLoadedMs": 928
+}

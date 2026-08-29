@@ -1,0 +1,180 @@
+import React, { Suspense } from 'react';
+import { getPendingCassationAppealForResult } from './judicialDecisionsEngine';
+import { LazyCriminalDashboardRequestsTab } from './criminalDashboardLazyRegistry';
+import { CriminalDashboardLazySurfaceFallback } from './criminalDashboardRuntimeShells';
+import { CRIMINAL_DOSSIER_TEST_IDS } from './criminalDossierTestIds';
+import type { CriminalDashboardDossierBodyProps } from './criminalDashboardDossierBodyProps';
+
+/**
+ * تبويب الطلبات/القرارات — مستخرَج من CriminalDashboardDossierBody.
+ * يقبل حقيبة الإضبارة كاملة ويأخذ ما يحتاجه فقط.
+ */
+export function CriminalDossierRequestsPanel(props: CriminalDashboardDossierBodyProps) {
+    const {
+        id,
+        decisionsKindFilter,
+        setDecisionsKindFilter,
+        isInvestigationPhase,
+        showTrialsTab,
+        trialSessionsTabLabel,
+        switchDashboardTab,
+        setTrialSessionAddModalOpen,
+        openAdultJudicialDecisionModal,
+        openJuvenileJudicialDecisionModal,
+        openLawyerMotionModal,
+        canCreateDecisionsOrRequests,
+        decisionsScopeFilter,
+        setDecisionsScopeFilter,
+        effectiveDecisionsScope,
+        defendants,
+        effectiveUiStage,
+        caseStage,
+        criminalCase,
+        isDecisionsTabMaterialReadOnly,
+        criminalCaseUserRole,
+        sendToCassationOnVerdictCard,
+        updateVerdictCardDraft,
+        patchVerdictCardOrdinaryAppeal,
+        recordVerdictCardCassationResult,
+        patchVerdictCardCorrectionAppeal,
+        recordVerdictAbsentiaPublication,
+        recordVerdictAbsentiaObjection,
+        setVerdictCassationFilingCard,
+        sortedLawyerRequestsForNode,
+        trialSessions,
+        activeJourneyBranch,
+        isHistoricalNodeView,
+        selectedJourneyNode,
+        verdictCards,
+        isTimelineArchiveReadOnly,
+        isDashboardReadOnly,
+        isFrozen,
+        trialSessionAddModalOpen,
+        addTrialSession,
+        updateTrialSession,
+        documentTrialSessionPreparatoryDecision,
+        postponeTrialSession,
+        registerInitialTrialHearingDate,
+        openStageFinalDecisionFromTrialSession,
+        openAppealModal,
+        handleInterventionCassation,
+        handleCassationCorrection,
+        handleDeclareJudgmentFinal,
+        currentAccusationArticle,
+        showLegalToast,
+        allParties,
+        stageJourney,
+        isInvestigationDossierSealed,
+        crimeType,
+        activeLegalArticle,
+        setCassationResultContext,
+        handleRequestOrderProceedingsBlockChange,
+        addRequestMargin,
+        toggleRequestStar,
+        getProceduralRefsForRequest,
+        navigateToProceduralItem,
+        handleMoveDecisionToTrash,
+        handleMoveRequestToTrash,
+        openRequestQuickFinalizeModal,
+        primaryDefendant,
+        autoConcernedPartyId,
+        openQuickBailFromDecision,
+        extendDetentionOnDecision,
+        documentDetentionReleaseOnDecision,
+        updateOrderEnforcementOnDecision,
+        visibleLawyerRequestsCount,
+        visibleJudicialDecisionsCount,
+        setVisibleJudicialDecisionsCount,
+        decisionsPageSize,
+    } = props;
+
+    return (
+        <div
+            key="criminal-tab-requests"
+            data-testid={CRIMINAL_DOSSIER_TEST_IDS.requestsPanel}
+            className="flex flex-col w-full"
+        >
+            <Suspense fallback={<CriminalDashboardLazySurfaceFallback minHeightClass="min-h-[320px]" />}>
+                <LazyCriminalDashboardRequestsTab
+                    id={id}
+                    decisionsKindFilter={decisionsKindFilter}
+                    setDecisionsKindFilter={setDecisionsKindFilter}
+                    isInvestigationPhase={isInvestigationPhase}
+                    showTrialsTab={showTrialsTab}
+                    trialSessionsTabLabel={trialSessionsTabLabel}
+                    switchDashboardTab={switchDashboardTab}
+                    setTrialSessionAddModalOpen={setTrialSessionAddModalOpen}
+                    openAdultJudicialDecisionModal={openAdultJudicialDecisionModal}
+                    openJuvenileJudicialDecisionModal={openJuvenileJudicialDecisionModal}
+                    openLawyerMotionModal={openLawyerMotionModal}
+                    canCreateDecisionsOrRequests={canCreateDecisionsOrRequests}
+                    decisionsScopeFilter={decisionsScopeFilter}
+                    setDecisionsScopeFilter={setDecisionsScopeFilter}
+                    effectiveDecisionsScope={effectiveDecisionsScope}
+                    defendants={defendants}
+                    effectiveUiStage={effectiveUiStage}
+                    caseStage={caseStage}
+                    criminalCase={criminalCase}
+                    isDecisionsTabMaterialReadOnly={isDecisionsTabMaterialReadOnly}
+                    criminalCaseUserRole={criminalCaseUserRole}
+                    sendToCassationOnVerdictCard={sendToCassationOnVerdictCard}
+                    updateVerdictCardDraft={updateVerdictCardDraft}
+                    patchVerdictCardOrdinaryAppeal={patchVerdictCardOrdinaryAppeal}
+                    recordVerdictCardCassationResult={recordVerdictCardCassationResult}
+                    patchVerdictCardCorrectionAppeal={patchVerdictCardCorrectionAppeal}
+                    recordVerdictAbsentiaPublication={recordVerdictAbsentiaPublication}
+                    recordVerdictAbsentiaObjection={recordVerdictAbsentiaObjection}
+                    openVerdictCassationFilingCard={setVerdictCassationFilingCard}
+                    sortedLawyerRequestsForNode={sortedLawyerRequestsForNode}
+                    trialSessions={trialSessions}
+                    activeJourneyBranch={activeJourneyBranch}
+                    isHistoricalNodeView={isHistoricalNodeView}
+                    selectedJourneyNode={selectedJourneyNode}
+                    verdictCards={verdictCards}
+                    isTimelineArchiveReadOnly={isTimelineArchiveReadOnly}
+                    isDashboardReadOnly={isDashboardReadOnly}
+                    isFrozen={isFrozen}
+                    trialSessionAddModalOpen={trialSessionAddModalOpen}
+                    addTrialSession={addTrialSession}
+                    updateTrialSession={updateTrialSession}
+                    documentTrialSessionPreparatoryDecision={documentTrialSessionPreparatoryDecision}
+                    postponeTrialSession={postponeTrialSession}
+                    registerInitialTrialHearingDate={registerInitialTrialHearingDate}
+                    openStageFinalDecisionFromTrialSession={openStageFinalDecisionFromTrialSession}
+                    openAppealModal={openAppealModal}
+                    handleInterventionCassation={handleInterventionCassation}
+                    handleCassationCorrection={handleCassationCorrection}
+                    handleDeclareJudgmentFinal={handleDeclareJudgmentFinal}
+                    getPendingCassationAppealForResult={getPendingCassationAppealForResult}
+                    currentAccusationArticle={currentAccusationArticle}
+                    showLegalToast={showLegalToast}
+                    allParties={allParties}
+                    stageJourney={stageJourney}
+                    isInvestigationDossierSealed={isInvestigationDossierSealed}
+                    crimeType={crimeType}
+                    activeLegalArticle={activeLegalArticle}
+                    setCassationResultContext={setCassationResultContext}
+                    handleRequestOrderProceedingsBlockChange={handleRequestOrderProceedingsBlockChange}
+                    addRequestMargin={addRequestMargin}
+                    toggleRequestStar={toggleRequestStar}
+                    getProceduralRefsForRequest={getProceduralRefsForRequest}
+                    navigateToProceduralItem={navigateToProceduralItem}
+                    handleMoveDecisionToTrash={handleMoveDecisionToTrash}
+                    handleMoveRequestToTrash={handleMoveRequestToTrash}
+                    openRequestQuickFinalizeModal={openRequestQuickFinalizeModal}
+                    criminalCaseForInvestigationPurge={isInvestigationPhase ? criminalCase : undefined}
+                    primaryDefendant={primaryDefendant}
+                    autoConcernedPartyId={autoConcernedPartyId}
+                    openQuickBailFromDecision={openQuickBailFromDecision}
+                    extendDetentionOnDecision={extendDetentionOnDecision}
+                    documentDetentionReleaseOnDecision={documentDetentionReleaseOnDecision}
+                    updateOrderEnforcementOnDecision={updateOrderEnforcementOnDecision}
+                    visibleLawyerRequestsCount={visibleLawyerRequestsCount}
+                    visibleJudicialDecisionsCount={visibleJudicialDecisionsCount}
+                    setVisibleJudicialDecisionsCount={setVisibleJudicialDecisionsCount}
+                    decisionsPageSize={decisionsPageSize}
+                />
+            </Suspense>
+        </div>
+    );
+}

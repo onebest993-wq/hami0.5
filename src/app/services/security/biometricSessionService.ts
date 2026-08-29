@@ -15,6 +15,10 @@ import {
     registerBiometricCredential,
     verifyBiometricUnlock,
 } from '@/app/services/security/webAuthnLock';
+import {
+    clearBiometricWorkspaceUnlock,
+    markBiometricWorkspaceUnlocked,
+} from '@/app/services/security/biometricWorkspaceGate';
 
 export type BiometricChannel = 'native' | 'web' | 'none';
 
@@ -77,13 +81,13 @@ export function resolveBiometricSessionHint(
 ): string {
     if (availability.channel === 'native') {
         if (!availability.pluginLoaded) {
-            return 'التطبيق المثبّت قديم — نفّذ: npm run cap:build:android ثم cap:install:android';
+            return 'ميزة القفل غير متاحة في هذا التثبيت — حدّث التطبيق أو أعد تثبيته';
         }
         if (!availability.hardwareAvailable) {
             return 'سجّل بصمة أو Face ID في إعدادات الهاتف أولاً، ثم أعد المحاولة';
         }
         return lockEnabled
-            ? 'مفعّل — يُقفل عند العودة من الخلفية وبعد الخمول'
+            ? 'مفعّل — يُقفل عند فتح المكتب، والعودة من الخلفية، وبعد الخمول'
             : 'جاهز — اضغط المفتاح وتحقق ببصمتك';
     }
 
@@ -100,7 +104,10 @@ export async function enrollBiometricSessionLock(): Promise<BiometricEnrollOutco
 
     if (channel === 'native') {
         const nativeRegistered = await registerNativeBiometric();
-        if (nativeRegistered === true) return { status: 'enrolled' };
+        if (nativeRegistered === true) {
+            markBiometricWorkspaceUnlocked();
+            return { status: 'enrolled' };
+        }
         if (nativeRegistered === false) return { status: 'cancelled' };
         return { status: 'unavailable' };
     }
@@ -108,7 +115,11 @@ export async function enrollBiometricSessionLock(): Promise<BiometricEnrollOutco
     if (channel === 'web') {
         try {
             const registered = await registerBiometricCredential();
-            return registered ? { status: 'enrolled' } : { status: 'failed' };
+            if (registered) {
+                markBiometricWorkspaceUnlocked();
+                return { status: 'enrolled' };
+            }
+            return { status: 'failed' };
         } catch (err) {
             if (isBiometryUserCancelError(err)) return { status: 'cancelled' };
             return { status: 'failed' };
@@ -141,6 +152,7 @@ export async function verifyBiometricSessionUnlock(): Promise<boolean | null> {
 export function clearBiometricSessionEnrollment(): void {
     clearStoredBiometricCredential();
     clearNativeBiometricEnrollment();
+    clearBiometricWorkspaceUnlock();
     void clearNativeBiometricOnDisable();
 }
 

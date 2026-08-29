@@ -1,0 +1,5 @@
+/**
+ * Android WebView glass — حرج على البناء الأصلي فقط.
+ * ويب الإنتاج لا يحمّله (virtual:hami-critical-native-android).
+ */
+@import '../app/components/lawyer/dashboard/lawyerHomeFx-android.css';

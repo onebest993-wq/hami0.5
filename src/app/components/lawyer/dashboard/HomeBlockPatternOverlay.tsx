@@ -43,6 +43,8 @@ const COMPACT_HUB_BLOCK_IDS = new Set<string>([
 
     'forum',
 
+    'alerts',
+
 ]);
 
 

@@ -1,9 +1,7 @@
 import type { JourneyNode, SeveranceReason } from '@/app/types/criminal';
-import type { TimelineEvent } from './criminalCaseModel';
-import type { CriminalCase, Statement } from './criminalStore';
+import type { CriminalCase } from './criminalStore';
 import { resolveOfficialCaseNumber } from './criminalCaseReferenceUtils';
 import { buildInitialStageJourney } from './stageJourney';
-import { parseEventDateKey } from './stageJourney';
 
 export type { SeveranceReason } from '@/app/types/criminal';
 
@@ -43,30 +41,8 @@ export function severanceReasonLabel(reason: SeveranceReason, detail?: string): 
     return '—';
 }
 
-export function isAbscondingSeverance(reason: SeveranceReason | undefined): boolean {
+function isAbscondingSeverance(reason: SeveranceReason | undefined): boolean {
     return reason === 'defendant_absconding';
-}
-
-function eventOnOrBeforeCutoff(itemDate: string, cutoff: string): boolean {
-    const cut = parseEventDateKey(cutoff);
-    const t = parseEventDateKey(itemDate);
-    if (!cut) return true;
-    return t <= cut;
-}
-
-export function filterInheritedTimelineEvents(
-    parentEvents: TimelineEvent[],
-    severedAt: string,
-): TimelineEvent[] {
-    const list = Array.isArray(parentEvents) ? parentEvents : [];
-    const cutoff = String(severedAt ?? '').trim();
-    return list.filter((ev) => eventOnOrBeforeCutoff(String(ev.date ?? ''), cutoff));
-}
-
-export function filterInheritedStatements(parentStatements: Statement[], severedAt: string): Statement[] {
-    const list = Array.isArray(parentStatements) ? parentStatements : [];
-    const cutoff = String(severedAt ?? '').trim();
-    return list.filter((st) => eventOnOrBeforeCutoff(String(st.date ?? ''), cutoff));
 }
 
 /** مسار إجرائي للإضبارة الابنة المفرّقة بحق هارب. */
@@ -105,7 +81,7 @@ export function buildAbscondingSeveranceJourney(severedAt: string): JourneyNode[
     ];
 }
 
-export function buildSubstantiveSeveranceJourney(): JourneyNode[] {
+function buildSubstantiveSeveranceJourney(): JourneyNode[] {
     return buildInitialStageJourney();
 }
 
@@ -155,11 +131,4 @@ export function resolveCriminalCaseForDisplay(
     const parent = casesById[String(raw.parentCaseId)];
     if (!parent) return raw;
     return materializeSeveredChildView(parent, raw);
-}
-
-export function isInheritedTimelineEvent(
-    eventId: string,
-    displayCase: CriminalCase & { _inheritedTimelineIds?: Set<string> },
-): boolean {
-    return Boolean(displayCase._inheritedTimelineIds?.has(eventId));
 }

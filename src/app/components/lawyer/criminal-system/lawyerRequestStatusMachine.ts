@@ -1,7 +1,7 @@
 import type { LawyerRequest } from './criminalStore';
 import { formatLawyerRequestStatusLabel } from './criminalStageUtils';
 
-export type LawyerRequestStatus = LawyerRequest['status'];
+type LawyerRequestStatus = LawyerRequest['status'];
 
 export function isLawyerRequestExecuted(status: LawyerRequestStatus): boolean {
     return status === 'executed';
@@ -23,10 +23,6 @@ export function isLawyerRequestPending(
 
 export function isLawyerRequestFinalStatus(status: LawyerRequestStatus): status is 'approved' | 'rejected' {
     return status === 'approved' || status === 'rejected';
-}
-
-export function isLawyerRequestMotionWorkflow(status: LawyerRequestStatus): boolean {
-    return status === 'pending' || isLawyerRequestFinalStatus(status);
 }
 
 export function buildRequestFatalLockMessage(status: 'approved' | 'rejected'): string {

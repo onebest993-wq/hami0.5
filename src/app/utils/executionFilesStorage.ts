@@ -5,6 +5,11 @@ import {
     EXECUTION_FILES_STORAGE_KEYS_LEGACY,
 } from '@/app/services/dossierPersistence/dossierStorageKeys';
 import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+    writeSecureAndClearLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
+import {
     __resetExecutionFilesStorageOwnerLiteForTests,
     getActiveExecutionFilesStorageOwnerLite,
     normalizeExecutionFilesStorageOwnerId,
@@ -18,6 +23,9 @@ export {
 } from '@/app/services/dossierPersistence/dossierStorageKeys';
 
 const OWNER_MIGRATION_FLAG = 'hami:execution:files-owner-migrated:v1';
+/** حجر صحي للفهرس العام — لا يُسند تلقائياً لأول حساب يسجّل دخولاً */
+const LEGACY_INDEX_QUARANTINE_OWNER = '__quarantined__';
+const LEGACY_INDEX_QUARANTINE_KEY = `${EXECUTION_FILES_STORAGE_KEY}:${LEGACY_INDEX_QUARANTINE_OWNER}`;
 
 let executionFilesCacheRaw: string | null = null;
 let executionFilesCacheParsed: unknown[] | null = null;
@@ -50,25 +58,47 @@ function clearExecutionFilesCache(): void {
     executionFilesCacheParsed = null;
 }
 
+/** يُبطِل كاش الفهرس — مطلوب بعد زرع متباعد في E2E/تشخيص */
+export function invalidateExecutionFilesRawCache(): void {
+    clearExecutionFilesCache();
+}
+
 /** مفتاح التخزين الأساسي للمالك الحالي (أو العام عند غياب المالك — اختبارات/إقلاع مبكر) */
 export function resolveExecutionFilesStorageKey(userId?: string | null): string {
     return resolveExecutionFilesStorageKeyLite(userId);
 }
 
 function writeExecutionFilesSerializedToKey(key: string, serialized: string): void {
-    const existing = SecureStoreService.getItemSync(key);
+    const existing = readSecureOrDrainLegacySync(key);
     if (existing && shouldRejectDossierWipe(key, serialized, existing)) return;
-    SecureStoreService.setItemSync(key, serialized);
+    writeSecureAndClearLegacySync(key, serialized);
+}
+
+/** تفريغ قسري بعد ترحيل ناجح — wipe-guard يرفض كتابة [] فوق بيانات غير فارغة */
+function forceClearExecutionFilesKey(key: string): void {
+    try {
+        SecureStoreService.deleteItemSync(key);
+    } catch {
+        /* ignore */
+    }
+    clearLegacyPlaintextMirror(key);
+}
+
+function clearLegacyExecutionIndexKeys(): void {
+    forceClearExecutionFilesKey(EXECUTION_FILES_STORAGE_KEY);
+    EXECUTION_FILES_STORAGE_KEYS_LEGACY.forEach((legacyKey) => {
+        forceClearExecutionFilesKey(legacyKey);
+    });
 }
 
 function readLegacyRows(): unknown[] | null {
-    const primary = SecureStoreService.getItemSync(EXECUTION_FILES_STORAGE_KEY);
+    const primary = readSecureOrDrainLegacySync(EXECUTION_FILES_STORAGE_KEY);
     const parsedPrimary = parseExecutionFilesRaw(primary);
     if (parsedPrimary?.length) return parsedPrimary;
 
     for (const k of EXECUTION_FILES_STORAGE_KEYS_LEGACY) {
         try {
-            const raw = SecureStoreService.getItemSync(k);
+            const raw = readSecureOrDrainLegacySync(k);
             const parsed = parseExecutionFilesRaw(raw);
             if (parsed?.length) return parsed;
         } catch {
@@ -79,31 +109,85 @@ function readLegacyRows(): unknown[] | null {
 }
 
 /**
- * ترحيل لمرة واحدة من المفتاح العام إلى مفتاح المالك — يمنع مشاركة الإضابير بين حسابين.
- * أول حساب حقيقي يسجّل دخولاً بعد الترقية يحصل على البيانات القديمة.
+ * ترحيل آمن من المفتاح العام: يُحجَر في quarantine بدل إسناده تلقائياً لأول حساب.
+ * الاستيراد الصريح عبر claimQuarantinedExecutionFilesIndex.
  */
 function maybeMigrateLegacyIndexToOwner(ownerId: string): void {
-    const claimed = SecureStoreService.getItemSync(OWNER_MIGRATION_FLAG)?.trim();
-    if (claimed) return;
+    const claimed = readSecureOrDrainLegacySync(OWNER_MIGRATION_FLAG)?.trim();
+    if (claimed === ownerId) return;
+    // حساب آخر استورد الفهرس سابقاً — لا تُعاد الهجرة
+    if (claimed && claimed !== LEGACY_INDEX_QUARANTINE_OWNER) return;
 
     const ownerKey = `${EXECUTION_FILES_STORAGE_KEY}:${ownerId}`;
-    const existingOwner = parseExecutionFilesRaw(SecureStoreService.getItemSync(ownerKey));
+    const existingOwner = parseExecutionFilesRaw(readSecureOrDrainLegacySync(ownerKey));
     if (existingOwner && existingOwner.length > 0) {
-        SecureStoreService.setItemSync(OWNER_MIGRATION_FLAG, ownerId);
+        writeSecureAndClearLegacySync(OWNER_MIGRATION_FLAG, ownerId);
         return;
     }
+
+    // محجور مسبقاً — انتظار استيراد صريح
+    if (claimed === LEGACY_INDEX_QUARANTINE_OWNER) return;
 
     const legacy = readLegacyRows();
     if (legacy && legacy.length > 0) {
         const serialized = JSON.stringify(legacy);
-        writeExecutionFilesSerializedToKey(ownerKey, serialized);
-        // إفراغ المفتاح العام حتى لا يُعاد ترحيله لحساب لاحق
-        writeExecutionFilesSerializedToKey(EXECUTION_FILES_STORAGE_KEY, '[]');
-        EXECUTION_FILES_STORAGE_KEYS_LEGACY.forEach((legacyKey) => {
-            writeExecutionFilesSerializedToKey(legacyKey, '[]');
-        });
+        writeExecutionFilesSerializedToKey(LEGACY_INDEX_QUARANTINE_KEY, serialized);
+        clearLegacyExecutionIndexKeys();
+        writeSecureAndClearLegacySync(OWNER_MIGRATION_FLAG, LEGACY_INDEX_QUARANTINE_OWNER);
+        return;
     }
-    SecureStoreService.setItemSync(OWNER_MIGRATION_FLAG, ownerId);
+
+    writeSecureAndClearLegacySync(OWNER_MIGRATION_FLAG, ownerId);
+}
+
+/** هل يوجد فهرس تنفيذ محجور بانتظار استيراد صريح؟ */
+export function hasQuarantinedExecutionFilesIndex(): boolean {
+    const claimed = readSecureOrDrainLegacySync(OWNER_MIGRATION_FLAG)?.trim();
+    if (claimed === LEGACY_INDEX_QUARANTINE_OWNER) {
+        const rows = parseExecutionFilesRaw(readSecureOrDrainLegacySync(LEGACY_INDEX_QUARANTINE_KEY));
+        return Boolean(rows && rows.length > 0);
+    }
+    // ترحيل/استيراد لمالك حقيقي اكتمل — بقايا المفتاح العام ليست حجراً
+    if (claimed) return false;
+    const legacy = readLegacyRows();
+    return Boolean(legacy && legacy.length > 0);
+}
+
+/**
+ * استيراد صريح للفهرس المحجور إلى مالك الجلسة الحالية.
+ * لا يُستدعى تلقائياً عند bind.
+ */
+export function claimQuarantinedExecutionFilesIndex(userId?: string | null): boolean {
+    const ownerId =
+        normalizeExecutionFilesStorageOwnerId(userId) ||
+        getActiveExecutionFilesStorageOwnerLite();
+    if (!ownerId) return false;
+
+    const claimed = readSecureOrDrainLegacySync(OWNER_MIGRATION_FLAG)?.trim();
+    if (claimed && claimed !== LEGACY_INDEX_QUARANTINE_OWNER && claimed !== ownerId) {
+        return false;
+    }
+
+    const quarantined = parseExecutionFilesRaw(readSecureOrDrainLegacySync(LEGACY_INDEX_QUARANTINE_KEY));
+    let rows: unknown[] | null = quarantined;
+    // بعد اكتمال الترحيل لمالك: لا تُسحب بقايا المفتاح العام مرة أخرى كـ«استيراد»
+    if (claimed === ownerId) {
+        if (!rows || rows.length === 0) return false;
+    } else {
+        rows = rows?.length ? rows : readLegacyRows();
+    }
+    if (!rows || rows.length === 0) return false;
+
+    const ownerKey = `${EXECUTION_FILES_STORAGE_KEY}:${ownerId}`;
+    const existingOwner = parseExecutionFilesRaw(readSecureOrDrainLegacySync(ownerKey)) || [];
+    const merged = mergeExecutionFilesById(existingOwner, rows);
+    const serialized = JSON.stringify(merged);
+    writeExecutionFilesSerializedToKey(ownerKey, serialized);
+    forceClearExecutionFilesKey(LEGACY_INDEX_QUARANTINE_KEY);
+    clearLegacyExecutionIndexKeys();
+    writeSecureAndClearLegacySync(OWNER_MIGRATION_FLAG, ownerId);
+    clearExecutionFilesCache();
+    return true;
 }
 
 /**
@@ -117,6 +201,10 @@ export function bindExecutionFilesStorageOwner(userId: string | null | undefined
     clearExecutionFilesCache();
     if (ownerId) {
         maybeMigrateLegacyIndexToOwner(ownerId);
+        // جهاز بحساب واحد: لا تترك الحجر معلّقاً بعد bind (E2E/إقلاع بدون hydrate منفصل)
+        if (hasQuarantinedExecutionFilesIndex() && !deviceHasOtherOwnedExecutionIndexes(ownerId)) {
+            claimQuarantinedExecutionFilesIndex(ownerId);
+        }
     }
     return resolveExecutionFilesStorageKey();
 }
@@ -133,6 +221,7 @@ export async function hydrateExecutionFilesStorageForOwner(
         EXECUTION_FILES_STORAGE_KEY,
         ...EXECUTION_FILES_STORAGE_KEYS_LEGACY,
         OWNER_MIGRATION_FLAG,
+        LEGACY_INDEX_QUARANTINE_KEY,
     ];
     if (owner) {
         warmKeys.push(`${EXECUTION_FILES_STORAGE_KEY}:${owner}`);
@@ -141,10 +230,30 @@ export async function hydrateExecutionFilesStorageForOwner(
 
     clearExecutionFilesCache();
     const key = bindExecutionFilesStorageOwner(userId);
+    // جهاز بحساب واحد: اسمح باستيراد الحجر تلقائياً. أجهزة متعددة الحسابات تبقى محجورة.
+    if (owner && hasQuarantinedExecutionFilesIndex() && !deviceHasOtherOwnedExecutionIndexes(owner)) {
+        claimQuarantinedExecutionFilesIndex(owner);
+    }
     await SecureStoreService.getItem(key);
     clearExecutionFilesCache();
     const rows = loadExecutionFilesRaw();
     return { key, rows };
+}
+
+function deviceHasOtherOwnedExecutionIndexes(exceptOwnerId: string): boolean {
+    const prefix = `${EXECUTION_FILES_STORAGE_KEY}:`;
+    try {
+        for (const key of SecureStoreService.listKeysSync()) {
+            if (!key.startsWith(prefix)) continue;
+            if (key === LEGACY_INDEX_QUARANTINE_KEY) continue;
+            if (key === `${prefix}${exceptOwnerId}`) continue;
+            const rows = parseExecutionFilesRaw(readSecureOrDrainLegacySync(key));
+            if (rows && rows.length > 0) return true;
+        }
+    } catch {
+        /* ignore */
+    }
+    return false;
 }
 
 export function getActiveExecutionFilesStorageOwner(): string | null {
@@ -159,7 +268,7 @@ export function __resetExecutionFilesStorageOwnerForTests(): void {
 
 export function loadExecutionFilesRaw(): unknown[] {
     const primaryKey = resolveExecutionFilesStorageKey();
-    const primary = SecureStoreService.getItemSync(primaryKey);
+    const primary = readSecureOrDrainLegacySync(primaryKey);
     if (primary && primary === executionFilesCacheRaw && executionFilesCacheParsed) {
         return cloneExecutionFiles(executionFilesCacheParsed);
     }
@@ -178,7 +287,7 @@ export function loadExecutionFilesRaw(): unknown[] {
     if (!getActiveExecutionFilesStorageOwnerLite()) {
         for (const k of EXECUTION_FILES_STORAGE_KEYS_LEGACY) {
             try {
-                const raw = SecureStoreService.getItemSync(k);
+                const raw = readSecureOrDrainLegacySync(k);
                 const parsed = parseExecutionFilesRaw(raw);
                 if (!parsed) continue;
                 saveExecutionFilesRawImmediate(parsed);
@@ -201,7 +310,7 @@ export function findExecutionFileRawById(id: string): unknown | null {
     if (!targetId) return null;
 
     const primaryKey = resolveExecutionFilesStorageKey();
-    const primary = SecureStoreService.getItemSync(primaryKey);
+    const primary = readSecureOrDrainLegacySync(primaryKey);
     let rows: unknown[] | null = null;
     if (primary && primary === executionFilesCacheRaw && executionFilesCacheParsed) {
         rows = executionFilesCacheParsed;

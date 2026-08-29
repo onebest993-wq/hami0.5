@@ -1,4 +1,4 @@
-import type { Statement } from './criminalStore';
+﻿import type { Statement } from './criminalStore';
 import type { TrialDeposition, TrialDepositionComparison, TrialDepositionLinkKind } from './trialDepositionsEngine';
 import { resolveTrialDepositionPersonName } from './trialDepositionsEngine';
 import { resolveStatementPersonName } from './statementGiverDisplay';
@@ -41,9 +41,9 @@ export function parseLinkableEntryId(raw: string): { kind: TrialDepositionLinkKi
 export function resolveLinkableEntryLabel(entry: LinkableStatementEntry): string {
     if (entry.kind === 'statement') {
         const name = resolveStatementPersonName(entry.record);
-        return `${name} · ${entry.record.date}`;
+        return `${name} ┬╖ ${entry.record.date}`;
     }
-    return `${resolveTrialDepositionPersonName(entry.record)} · ${entry.record.date}`;
+    return `${resolveTrialDepositionPersonName(entry.record)} ┬╖ ${entry.record.date}`;
 }
 
 export function resolveComparisonLinkedEntry(
@@ -85,6 +85,6 @@ export function linkedEntryDate(entry: LinkableStatementEntry): string {
 }
 
 export function phaseLabelForEntry(entry: LinkableStatementEntry): string {
-    if (entry.phase === 'investigation') return 'التحقيق الابتدائي';
-    return 'محكمة الموضوع';
+    if (entry.phase === 'investigation') return '╪د┘╪ز╪ص┘é┘è┘é ╪د┘╪د╪ذ╪ز╪»╪د╪خ┘è';
+    return '┘à╪ص┘â┘à╪ر ╪د┘┘à┘ê╪╢┘ê╪╣';
 }

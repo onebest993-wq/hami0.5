@@ -10,11 +10,13 @@ vi.mock('../loadForumSupabaseAdmin', () => ({
 }));
 
 import { ForumMuteRepository } from '../forumMuteRepository';
+import SecureStoreService from '@/app/services/SecureStoreService';
 
 const MUTER = 'muter-1';
 
 beforeEach(() => {
     window.localStorage.clear();
+    SecureStoreService.deleteItemSync(`hami:forum:muted-users:v1:${MUTER}`);
     vi.clearAllMocks();
 });
 

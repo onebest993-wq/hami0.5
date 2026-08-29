@@ -1,129 +1,207 @@
-/** يُطلق بعد أول إطار مُرسم لشبكة الرئيسية — بوابة إزالة #hami-static-boot */
+/**
+ * بوابة إقلاع المنزل — المالك الوحيد لإزالة #hami-static-boot بعد الشبكة الحية.
+ * الاستيراد الثابت من HomeMainGrid ممنوع؛ الشبكة تعلن عبر homeMainGridPaintAnnounce فقط.
+ */
 import {
     BOOT_REVEAL_DONE_EVENT,
-    getBootRevealMinMs,
-    isBootRevealDone,
     markBootRevealDone,
+    notifyBootContentReady,
 } from '@/app/bootstrap/bootReveal';
+import { HOME_MAIN_GRID_PAINTED_EVENT } from '@/app/bootstrap/bootEventNames';
+import { markDashboardInteractiveOnce } from '@/app/bootstrap/dashboardInteractiveMark';
+import { markLawyerDashboardFirstTabOpenOnce } from '@/app/bootstrap/lawyerDashboardFirstTabMark';
 import { removeStaticBootShell } from '@/app/bootstrap/bootStaticShell';
+import { hasAuthGateSurface, findLiveHomeMainGrid, isWorthyBootSurface } from '@/app/bootstrap/bootWorthySurface';
+import {
+    announceHomeMainGridPainted,
+    isHomeGridRevealReady,
+    isHomeMainGridPainted,
+    resetHomeMainGridPaintAnnounceForTests,
+    scheduleHomeMainGridPainted,
+} from '@/app/bootstrap/homeMainGridPaintAnnounce';
 
-export const HOME_MAIN_GRID_PAINTED_EVENT = 'hami:home-main-grid-painted';
+export {
+    HOME_MAIN_GRID_PAINTED_EVENT,
+    announceHomeMainGridPainted,
+    isHomeMainGridPainted,
+    scheduleHomeMainGridPainted,
+};
 
-let homeMainGridPainted = false;
-
-export function isHomeMainGridPainted(): boolean {
-    return homeMainGridPainted;
-}
+/** توافق اختبارات قديمة */
+export const notifyHomeMainGridPainted = announceHomeMainGridPainted;
 
 export function resetHomeMainGridPaintGateForTests(): void {
-    homeMainGridPainted = false;
-    if (typeof window !== 'undefined') {
-        window.__hamiHomeMainGridPainted__ = false;
+    resetHomeMainGridPaintAnnounceForTests();
+    bootSideEffectsDone = false;
+    watchdogArmed = false;
+    if (watchdogTimer != null) {
+        window.clearTimeout(watchdogTimer);
+        watchdogTimer = null;
     }
+    stopDashboardSurfaceWatch();
 }
 
-function readBootSplashElapsedMs(): number {
-    if (typeof performance === 'undefined') return 0;
-    const mark = performance.getEntriesByName('hami:boot:start', 'mark')[0];
-    if (mark && typeof mark.startTime === 'number') {
-        return Math.max(0, performance.now() - mark.startTime);
-    }
-    return 0;
-}
+let bootSideEffectsDone = false;
+let gateInstalled = false;
+let watchdogArmed = false;
+let watchdogTimer: number | null = null;
+let uncoverKickTimer: number | null = null;
+let uncoverObserver: MutationObserver | null = null;
 
-function finalizeBootShellRemoval(): void {
-    removeStaticBootShell({ instant: true });
-    if (!isBootRevealDone()) {
-        markBootRevealDone();
-        try {
-            window.dispatchEvent(new Event(BOOT_REVEAL_DONE_EVENT));
-        } catch {
-            /* ignore */
-        }
-    }
-}
+/** سقف انتظار CSS بعد شبكة حية — لا قصّ بعد 800ms بلا أنماط (كان فراغاً ذهبياً) */
+const DEFERRED_STYLE_HANG_MS = 8_000;
 
-function scheduleBootShellRemovalAfterStablePaint(): void {
-    const minHoldMs = getBootRevealMinMs();
-    const elapsed = readBootSplashElapsedMs();
-    const delayMs = Math.max(0, minHoldMs - elapsed);
+/** فتيل أمان للتعليق — لا يكشف سطحاً ناقصاً. الكشف السعيد = شبكة حية فوراً. */
+export const BOOT_UNCOVER_WATCHDOG_MS = 8_000;
 
-    const afterPaintFrames = () => {
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                finalizeBootShellRemoval();
-            });
-        });
-    };
-
-    if (delayMs > 0) {
-        window.setTimeout(afterPaintFrames, delayMs);
-    } else {
-        afterPaintFrames();
-    }
-}
-
-/**
- * يُستدعى من HomeTab بعد commit الشبكة — إطاران + حد أدنى للشعار قبل القص.
- */
-export function notifyHomeMainGridPainted(): void {
-    if (typeof window === 'undefined' || homeMainGridPainted) return;
-    homeMainGridPainted = true;
-    window.__hamiHomeMainGridPainted__ = true;
+function uncoverBootShell(): void {
+    /* تلاشي قصير فوق الواجهة النهائية — القصّ الفوري كان يُظهر رعشة الإطار الأول */
+    removeStaticBootShell();
+    markBootRevealDone();
     try {
-        window.dispatchEvent(new Event(HOME_MAIN_GRID_PAINTED_EVENT));
+        window.dispatchEvent(new Event(BOOT_REVEAL_DONE_EVENT));
     } catch {
         /* ignore */
     }
-    scheduleBootShellRemovalAfterStablePaint();
 }
 
-function gridHasPaintableSize(grid: HTMLElement): boolean {
-    const rect = grid.getBoundingClientRect();
-    return rect.width > 0 || rect.height > 0;
+function waitForDeferredStylesThenUncover(): void {
+    void import('@/app/runtime/deferredAppStyles')
+        .then(async (m) => {
+            if (m.isDeferredAppStylesLoaded()) {
+                uncoverBootShell();
+                return;
+            }
+            await Promise.race([
+                m.ensureDeferredAppStylesLoaded(),
+                new Promise<void>((resolve) => {
+                    window.setTimeout(resolve, DEFERRED_STYLE_HANG_MS);
+                }),
+            ]);
+            uncoverBootShell();
+        })
+        .catch(() => uncoverBootShell());
 }
 
-const MAX_GRID_PAINT_ATTEMPTS = 12;
+/** إزالة الغطاء idempotent — الحدث مرة واحدة عبر bootSideEffectsDone */
+
+function finishBootShellRemoval(): void {
+    notifyBootContentReady();
+    waitForDeferredStylesThenUncover();
+}
+
+function finalizeBootShellRemoval(): void {
+    finishBootShellRemoval();
+    void import('@/app/bootstrap/BootLaunchOrchestrator')
+        .then((m) => {
+            m.beforeBootShellReveal();
+        })
+        .catch(() => undefined);
+}
+
+function runBootSideEffectsAfterGridPaint(): void {
+    if (typeof window === 'undefined' || bootSideEffectsDone) return;
+    if (!isHomeMainGridPainted() && window.__hamiHomeMainGridPainted__ !== true) return;
+    bootSideEffectsDone = true;
+    markLawyerDashboardFirstTabOpenOnce();
+    markDashboardInteractiveOnce();
+    finalizeBootShellRemoval();
+}
+
+function canAnnounceHappyPathUncover(): boolean {
+    if (hasAuthGateSurface()) return true;
+    const grid = findLiveHomeMainGrid();
+    if (!grid) return false;
+    return isHomeGridRevealReady(grid);
+}
+
+function armUncoverWatchdog(): void {
+    if (watchdogArmed) return;
+    watchdogArmed = true;
+    watchdogTimer = window.setTimeout(() => {
+        watchdogTimer = null;
+        if (isHomeMainGridPainted() || window.__hamiHomeMainGridPainted__ === true) return;
+        if (!document.getElementById('hami-static-boot')) return;
+        /* فتيل أخير: سطح حي مكتمل بلا طبقة FirstPaint — لا هيكل ناقص */
+        if (canAnnounceHappyPathUncover() || isWorthyBootSurface() || hasAuthGateSurface()) {
+            announceHomeMainGridPainted();
+        }
+    }, BOOT_UNCOVER_WATCHDOG_MS);
+}
 
 /**
- * يُجدول الإشعار بعد أول paint فعلي للعقدة — مع إعادة محاولة إذا كان الحجم صفراً مؤقتاً.
+ * كشف السطح عند تغيّر DOM — لا استطلاع 50ms.
+ * ركلة واحدة setTimeout(0) بعد الإطار الحالي + MutationObserver + فتيل 8 ثوانٍ.
  */
-export function scheduleHomeMainGridPainted(grid: HTMLElement | null): void {
-    if (typeof window === 'undefined' || homeMainGridPainted) return;
-    if (!(grid instanceof HTMLElement) || !grid.isConnected) return;
+function stopDashboardSurfaceWatch(): void {
+    if (uncoverKickTimer != null) {
+        window.clearTimeout(uncoverKickTimer);
+        uncoverKickTimer = null;
+    }
+    if (uncoverObserver) {
+        uncoverObserver.disconnect();
+        uncoverObserver = null;
+    }
+}
 
-    let attempts = 0;
-    const tryNotify = () => {
-        if (homeMainGridPainted) return;
-        attempts += 1;
-        const live = document.querySelector('[data-testid="home-main-grid"]');
-        if (!(live instanceof HTMLElement) || !live.isConnected) {
-            if (attempts < MAX_GRID_PAINT_ATTEMPTS) {
-                requestAnimationFrame(tryNotify);
-            }
+function watchDashboardSurfaceUncover(): void {
+    if (typeof window === 'undefined') return;
+    const tick = () => {
+        if (isHomeMainGridPainted() || window.__hamiHomeMainGridPainted__ === true) {
+            stopDashboardSurfaceWatch();
             return;
         }
-        if (gridHasPaintableSize(live) || attempts >= MAX_GRID_PAINT_ATTEMPTS) {
-            notifyHomeMainGridPainted();
+        const splash = document.getElementById('hami-static-boot');
+        if (!splash || !splash.parentNode) {
+            stopDashboardSurfaceWatch();
             return;
         }
-        requestAnimationFrame(tryNotify);
+        if (canAnnounceHappyPathUncover()) {
+            stopDashboardSurfaceWatch();
+            announceHomeMainGridPainted();
+            return;
+        }
+        if (document.querySelector('[data-hami-lawyer-dashboard]')) {
+            armUncoverWatchdog();
+        }
     };
 
-    requestAnimationFrame(tryNotify);
-}
+    stopDashboardSurfaceWatch();
+    tick();
+    if (isHomeMainGridPainted() || window.__hamiHomeMainGridPainted__ === true) return;
+    const splash = document.getElementById('hami-static-boot');
+    if (!splash || !splash.parentNode) return;
 
-export function waitForHomeMainGridPainted(timeoutMs = 8_000): Promise<void> {
-    if (typeof window === 'undefined' || homeMainGridPainted) return Promise.resolve();
+    uncoverKickTimer = window.setTimeout(tick, 0);
 
-    return new Promise((resolve) => {
-        const done = () => {
-            window.clearTimeout(timer);
-            window.removeEventListener(HOME_MAIN_GRID_PAINTED_EVENT, onPaint);
-            resolve();
-        };
-        const onPaint = () => done();
-        window.addEventListener(HOME_MAIN_GRID_PAINTED_EVENT, onPaint, { once: true });
-        const timer = window.setTimeout(done, timeoutMs);
+    if (typeof MutationObserver === 'undefined') return;
+    const root = document.documentElement;
+    uncoverObserver = new MutationObserver(tick);
+    uncoverObserver.observe(root, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: [
+            'data-hami-lawyer-dashboard',
+            'data-hami-auth-gate',
+            'data-testid',
+            'data-hub-boot-settling',
+            'data-hub-state',
+            'data-identity-settled',
+            'hidden',
+        ],
     });
 }
+
+/** يُستدعى من مسار الإقلاع مرة واحدة — يربط الإعلان بإزالة الغطاء */
+export function installHomeMainGridPaintGate(): void {
+    if (typeof window === 'undefined' || gateInstalled) return;
+    gateInstalled = true;
+    window.addEventListener(HOME_MAIN_GRID_PAINTED_EVENT, runBootSideEffectsAfterGridPaint);
+    /* إن سبق الإعلان قبل التركيب (سباق إطار) */
+    runBootSideEffectsAfterGridPaint();
+    watchDashboardSurfaceUncover();
+    window.addEventListener('hami:app-runtime-ready', watchDashboardSurfaceUncover);
+}
+
+installHomeMainGridPaintGate();

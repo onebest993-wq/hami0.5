@@ -221,13 +221,13 @@ export const TrialDepositionModal = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[236] bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden">
-            <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-[236] bg-black/62 backdrop-blur-sm p-4 flex items-center justify-center print:hidden">
+            <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden shadow-lg max-h-[90vh] flex flex-col">
                 <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50 flex justify-between items-center">
                     <div className="text-white font-black text-sm">
                         {editingId ? 'تعديل إفادة محكمة الموضوع' : 'إضافة إلى سجل الإفادات — محكمة الموضوع'}
                     </div>
-                    <button type="button" onClick={onClose} className="text-white/60 text-xs font-bold">
+                    <button type="button" onClick={onClose} className="min-h-[44px] min-w-[44px] px-3 text-white/60 text-xs font-bold touch-manipulation">
                         إغلاق
                     </button>
                 </div>
@@ -380,7 +380,7 @@ export const TrialDepositionModal = ({
                         type="button"
                         onClick={handleSave}
                         disabled={!canSave}
-                        className="rounded-xl bg-[#E6C673] text-[#0B1021] px-4 py-2 text-sm font-black disabled:opacity-40"
+                        className="min-h-[44px] px-4 rounded-xl bg-[#E6C673] text-[#0B1021] text-sm font-black disabled:opacity-40 touch-manipulation hover:brightness-110 active:brightness-95 transition"
                     >
                         حفظ الإفادة
                     </button>

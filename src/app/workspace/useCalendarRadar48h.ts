@@ -9,6 +9,7 @@ import { calendarEventToTimestamp } from '@/app/utils/calendarDateTime';
 import { addBaghdadDays, baghdadDayRange, todayBaghdadYmd } from '@/app/utils/baghdadTime';
 import { peekHomeHubRadarCache } from '@/app/services/alerts/homeHubRadarWarmCache';
 import { isUserAuthoredBridgedCalendarEvent } from '@/app/services/calendarAuthenticity';
+import { HAMI_APP_STATE_EVENT, type HamiAppStateDetail } from '@/app/runtime/appStateEvents';
 import {
     formatRadarDeadlineLabel,
     formatRadarDateLabel,
@@ -78,10 +79,12 @@ export function useCalendarRadar48h(lawyerId: string | null): {
     const hasLoadedOnceRef = useRef(false);
     // رمز جلب: يُرفع عند كل استدعاء، ويُتجاهَل أي رد سابق إذا تغيّر
     const fetchTokenRef = useRef(0);
+    const deferredWhileHiddenRef = useRef(false);
 
     const fetchEvents = useCallback(() => {
         if (!lawyerId) {
             fetchTokenRef.current += 1;
+            deferredWhileHiddenRef.current = false;
             setRaw([]);
             setLoading(false);
             hasLoadedOnceRef.current = false;
@@ -94,6 +97,12 @@ export function useCalendarRadar48h(lawyerId: string | null): {
         } else if (!hasLoadedOnceRef.current) {
             setLoading(true);
         }
+        if (typeof document !== 'undefined' && document.hidden) {
+            deferredWhileHiddenRef.current = true;
+            setLoading(false);
+            return;
+        }
+        deferredWhileHiddenRef.current = false;
         const token = ++fetchTokenRef.current;
         void CalendarDB.getEvents(lawyerId)
             .then((list) => {
@@ -122,8 +131,21 @@ export function useCalendarRadar48h(lawyerId: string | null): {
     useEffect(() => {
         if (typeof window === 'undefined' || !lawyerId) return undefined;
         const onUpdate = () => fetchEvents();
+        const flushDeferred = () => {
+            if (!document.hidden && deferredWhileHiddenRef.current) fetchEvents();
+        };
+        const onAppState = (event: Event) => {
+            const active = (event as CustomEvent<HamiAppStateDetail>).detail?.isActive;
+            if (active) flushDeferred();
+        };
         window.addEventListener(CALENDAR_UPDATED_EVENT, onUpdate);
-        return () => window.removeEventListener(CALENDAR_UPDATED_EVENT, onUpdate);
+        document.addEventListener('visibilitychange', flushDeferred);
+        window.addEventListener(HAMI_APP_STATE_EVENT, onAppState);
+        return () => {
+            window.removeEventListener(CALENDAR_UPDATED_EVENT, onUpdate);
+            document.removeEventListener('visibilitychange', flushDeferred);
+            window.removeEventListener(HAMI_APP_STATE_EVENT, onAppState);
+        };
     }, [lawyerId, fetchEvents]);
 
     const events = useMemo(() => {

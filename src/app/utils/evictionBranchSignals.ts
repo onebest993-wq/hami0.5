@@ -6,7 +6,6 @@ import { EVICTION_TIMELINE_ACTION_IDS } from '@/app/utils/executionModuleStrateg
 import type { EvictionAppealSyncBranch, EvictionAppealSyncView } from '@/app/utils/evictionAppealSync';
 import {
     getGoverningEvictionProcedureRowForBranch,
-    isEvictionProcedureRowActive,
     isEvictionProcedureRowWorkflowComplete,
 } from '@/app/utils/executorSeizureDecisionQueue';
 
@@ -76,17 +75,4 @@ export function resolveBreakInventoryWorkflowComplete(
     if (syncWorkflowComplete) return true;
     const row = getGoverningEvictionProcedureRowForBranch(decisions, 'Lock Breaking & Inventory');
     return Boolean(row && isEvictionProcedureRowWorkflowComplete(row));
-}
-
-/** نشاط جبري حديث عبر قرارات المنفذ (ليس السجل الزمني فقط) */
-export function hasActiveEvictionProcedureDecisions(
-    allDecisions: Record<string, unknown>[],
-): boolean {
-    if (!Array.isArray(allDecisions) || allDecisions.length === 0) return false;
-    return allDecisions.some((row) => {
-        if (String((row as { requestKind?: string }).requestKind || '') !== 'eviction_procedure') {
-            return false;
-        }
-        return isEvictionProcedureRowActive(row, allDecisions);
-    });
 }

@@ -13,23 +13,14 @@ import {
     type WallpaperEditorTransform,
 } from '@/app/services/settings/wallpaperEditorRender';
 
+import { validateWallpaperFile } from './wallpaperFileValidate';
+
 type PatchAppearance = (partial: Partial<AppSettingsState['appearance']>) => void;
 
 export type WallpaperEditorDraft = {
     file: File;
     previewUrl: string;
 };
-
-function validateWallpaperFile(file: File): string | null {
-    const mime = String(file.type || '').toLowerCase();
-    const name = String(file.name || '').toLowerCase();
-    const looksLikeImage =
-        mime.startsWith('image/') ||
-        /\.(jpe?g|png|webp|gif|bmp|heic|heif|avif)$/i.test(name);
-    if (!looksLikeImage) return 'يرجى اختيار ملف صورة (JPG / PNG / WebP)';
-    if (file.size > 8_000_000) return 'الصورة كبيرة جداً — الحد 8 ميغابايت';
-    return null;
-}
 
 export function useAppearanceWallpaperControls(
     appearance: AppSettingsState['appearance'],
@@ -93,7 +84,7 @@ export function useAppearanceWallpaperControls(
             try {
                 const img = await loadWallpaperImageFromUrl(editorDraft.previewUrl);
                 const canvas = renderWallpaperCanvas(img, transform);
-                const dataUrl = canvasToWallpaperDataUrl(canvas);
+                const dataUrl = await canvasToWallpaperDataUrl(canvas);
                 await applyLiveWallpaper(dataUrl);
                 if (!persistWallpaper(dataUrl)) {
                     SmartToast.error('تعذر حفظ الصورة — مساحة التخزين ممتلئة');

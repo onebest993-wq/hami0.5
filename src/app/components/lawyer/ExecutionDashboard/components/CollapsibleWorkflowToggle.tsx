@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown } from '@/app/components/ui/lucideIcons';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
 
 type CollapsibleWorkflowToggleProps = {
     title: string;

@@ -1,5 +1,7 @@
 import React from 'react';
-import { Plus, UserPlus, Users } from '@/app/components/ui/lucideIcons';
+import { Plus } from '@/app/components/ui/icons/Plus';
+import { UserPlus } from '@/app/components/ui/icons/UserPlus';
+import { Users } from '@/app/components/ui/icons/Users';
 import PartyCard, { type PartyCardProps } from './PartyCard';
 import { ecg } from './executionCreationGlassUi';
 import { ExecutionCreationSection } from './ExecutionCreationSection';
@@ -43,7 +45,7 @@ interface AdditionalDebtor {
     name: string;
     phone: string;
     address: string;
-    occupation: 'موظف' | 'كاسب';
+    occupation: 'موظف' | 'كاسب' | 'معنوي';
     isClient: boolean;
     isSolidaryLiability?: boolean;
 }
@@ -151,7 +153,7 @@ export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
 
     return (
         <ExecutionCreationSection title="أطراف الإضبارة">
-            <div className={ecg.partyGroup} data-spark-focus="creditors">
+            <div className={ecg.partyGroup}>
                 <div className="flex flex-col gap-1 p-1">
                     {creditors.map((creditor, index) => (
                         <PartyCard
@@ -197,7 +199,6 @@ export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
                             <div
                                 key={debtor.id}
                                 className="border-b border-white/5 last:border-b-0"
-                                {...(index === 0 ? { 'data-spark-focus': 'debtor-address' } : {})}
                             >
                                 <PartyCard
                                     party={debtor}

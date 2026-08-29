@@ -1,18 +1,14 @@
-// @ts-nocheck
 import React from 'react';
-import {
-    Building2,
-    ChevronRight,
-    Gavel,
-    Hammer,
-    Package,
-    Plane,
-    Scale,
-    Shield,
-    ShieldAlert,
-    UserX,
-    Wallet,
-} from '@/app/components/ui/lucideIcons';
+import { Building2 } from '@/app/components/ui/icons/Building2';
+import { Gavel } from '@/app/components/ui/icons/Gavel';
+import { Hammer } from '@/app/components/ui/icons/Hammer';
+import { Package } from '@/app/components/ui/icons/Package';
+import { Plane } from '@/app/components/ui/icons/Plane';
+import { Scale } from '@/app/components/ui/icons/Scale';
+import { Shield } from '@/app/components/ui/icons/Shield';
+import { ShieldAlert } from '@/app/components/ui/icons/ShieldAlert';
+import { UserX } from '@/app/components/ui/icons/UserX';
+import { Wallet } from '@/app/components/ui/icons/Wallet';
 import { HiddenGuarantorRequestOptions } from './HiddenGuarantorRequestOptions';
 import { HiddenBreakInventoryRequestOptions } from './HiddenBreakInventoryRequestOptions';
 import { HiddenPersonalCoerciveRequestOptions } from './HiddenPersonalCoerciveRequestOptions';
@@ -29,6 +25,12 @@ import {
 import type { HiddenGuarantorRequestOptionsProps } from './HiddenGuarantorRequestOptions';
 import type { HiddenPersonalCoerciveRequestOptionsProps } from './HiddenPersonalCoerciveRequestOptions';
 import type { ExecutionDomainContext } from '@/app/utils/executionDomainIsolation';
+import {
+    HiddenFollowupBackButton,
+    HiddenFollowupCatalogGrid,
+    HiddenFollowupCatalogPickerButton,
+    HiddenFollowupEmptyState,
+} from './hiddenFollowup/shared';
 
 export interface HiddenFollowupRequestOptionsProps {
     executionId: string;
@@ -149,12 +151,7 @@ export const HiddenFollowupRequestOptions: React.FC<HiddenFollowupRequestOptions
 
     if (!hasContent) {
         return (
-            <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-4 text-center">
-                <p className="text-[10px] leading-relaxed text-slate-400">
-                    لا توجد طلبات مخفية في هذا المسار حالياً — كل الإجراءات ظاهرة في تبويباتها
-                    المعتادة.
-                </p>
-            </div>
+            <HiddenFollowupEmptyState message="لا توجد طلبات مخفية في هذا المسار حالياً — كل الإجراءات ظاهرة في تبويباتها المعتادة." />
         );
     }
 
@@ -164,33 +161,27 @@ export const HiddenFollowupRequestOptions: React.FC<HiddenFollowupRequestOptions
                 <p className="text-[9px] font-bold text-emerald-300/80">
                     اختر نوع الطلب — تظهر تفاصيله بعد الضغط
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <HiddenFollowupCatalogGrid>
                     {pickerButtons.map(({ id, label, Icon, selection: nextSelection }) => (
-                        <button
+                        <HiddenFollowupCatalogPickerButton
                             key={id}
-                            type="button"
+                            label={label}
+                            Icon={Icon}
                             onClick={() => setSelection(nextSelection)}
-                            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[10px] font-bold text-slate-300 transition-all hover:border-emerald-500/35 hover:bg-emerald-950/25 hover:text-emerald-100"
-                        >
-                            <Icon size={16} className="shrink-0 opacity-75" />
-                            <span className="flex-1 text-right leading-tight">{label}</span>
-                        </button>
+                        />
                     ))}
-                </div>
+                </HiddenFollowupCatalogGrid>
             </div>
         );
     }
 
     return (
         <div className="space-y-3">
-            <button
-                type="button"
+            <HiddenFollowupBackButton
                 onClick={() => setSelection(null)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[9px] font-bold text-slate-300 transition-all hover:border-emerald-400/25 hover:text-emerald-100"
-            >
-                <ChevronRight size={14} className="opacity-70" />
-                رجوع إلى قائمة الطلبات
-            </button>
+                label="رجوع إلى قائمة الطلبات"
+                withChevron
+            />
 
             {activeButton ? (
                 <p className="text-[11px] font-bold text-emerald-100/95">{activeButton.label}</p>

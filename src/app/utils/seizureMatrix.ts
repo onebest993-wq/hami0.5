@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Debtor, ExecutionFile } from '@/app/types/execution';
 import { isDebtorRowEmployee } from '@/app/stores';
 
@@ -152,18 +151,32 @@ export function computeSeizureMatrix(input: SeizureMatrixInput): SeizureMatrixRe
     }
 
     if (remaining <= TIER_SOFT_MAX) {
-        return finalizeMatrixResult(
+        const optedIn = Boolean(input.lawyerSoftOptIn);
+        const buttons = optedIn ? rule2OptInButtons(input.debtorJob) : ALL_BUTTONS_OFF;
+        const result = finalizeMatrixResult(
             {
                 ruleId: 'rule_2_soft',
                 remainingBalanceIqd: remaining,
                 hideSeizureTab: false,
-                requiresSoftActivationModal: false,
-                showTabContentButtons: true,
-                allSeizureDisabled: false,
-                buttons: rule2OptInButtons(input.debtorJob),
+                requiresSoftActivationModal: !optedIn,
+                showTabContentButtons: optedIn,
+                allSeizureDisabled: !optedIn,
+                buttons,
             },
             input.debtorJob
         );
+        if (!optedIn) {
+            return {
+                ...result,
+                progressiveDisclosure: {
+                    showAdditionalExpand: false,
+                    additionalButtons: [],
+                    showMaximumExpand: false,
+                    maximumButtons: [],
+                },
+            };
+        }
+        return result;
     }
 
     if (remaining <= TIER1_MAX) {

@@ -2,12 +2,13 @@ import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { GlobalSearchEntry } from '@/app/services/globalSearchIndex';
 import { resolveFileSearchLifecycle, type SearchLifecycle } from '@/app/services/searchLifecycle';
 import { normalizeArabic } from '@/app/components/lawyer/LawyerShared';
-import SecureStoreService from '@/app/services/SecureStoreService';
 import { storageCache } from '@/app/utils/storageCache';
+import { readSecureOrDrainLegacySync } from '@/app/services/storage/readSecureOrDrainLegacySync';
 import {
     executionDocumentsStorageKey,
     executionStorageKey,
 } from '@/app/utils/executionStorageKeys';
+import { readExecutionDossierBlobScanningScopes } from '@/app/utils/executionDossierBlobPersistence';
 
 function norm(text: string): string {
     return normalizeArabic(text).toLowerCase();
@@ -21,12 +22,27 @@ function readStorageJson(key: string): unknown {
     try {
         const cached = storageCache.get(key);
         if (cached != null) return cached;
-        const raw = SecureStoreService.getItemSync(key);
+        const raw = readSecureOrDrainLegacySync(key);
         if (!raw) return null;
         return JSON.parse(raw) as unknown;
     } catch {
         return null;
     }
+}
+
+/**
+ * بلوب الإضبارة للفهرسة — عبر القارئ المدرك لنطاق المستخدم.
+ *
+ * الكتابة تُقيّد مفتاح البلوب الرئيسي بـ`:u:<uid>`، والقراءة هنا كانت بالمفتاح
+ * الحرّ `execution_<id>`. فما دامت الجلسة قائمة تُغطّي الذاكرة المؤقتة الفرق،
+ * لكنها تخلو بعد أول إعادة تحميل: فيعود `getItemSync` فارغاً، ويصمت البحث
+ * العميق عن كل أحداث السجل الزمني رغم وجودها على القرص. القارئ المقيّد يجرّب
+ * مفتاح المستخدم أولاً ثم يمسح النطاقات المرئية له.
+ */
+function readDossierPayload(id: string): Record<string, unknown> | null {
+    const cached = storageCache.get(executionStorageKey(id));
+    if (cached && typeof cached === 'object') return cached as Record<string, unknown>;
+    return readExecutionDossierBlobScanningScopes(id);
 }
 
 type EntryDraft = Omit<GlobalSearchEntry, 'lifecycle'>;
@@ -43,7 +59,11 @@ export function buildExecutionDeepSearchEntries(
         const lifecycle = resolveFileSearchLifecycle(f);
         const fileLabel = f.caseNo || f.parties?.[0]?.name || id;
 
-        const payload = readStorageJson(executionStorageKey(id));
+        const payload = readDossierPayload(id);
+        const haystackParts: string[] = [];
+        let firstTitle = '';
+        let firstSnippet = '';
+
         if (payload && typeof payload === 'object') {
             const rec = payload as Record<string, unknown>;
             const events = Array.isArray(rec.timelineEvents) ? rec.timelineEvents : [];
@@ -54,20 +74,11 @@ export function buildExecutionDeepSearchEntries(
                 const title = String(ev.title ?? '').trim();
                 if (!title) continue;
                 const desc = String(ev.description ?? ev.details ?? '').trim();
-                out.push(
-                    stamp(
-                        {
-                            id: `ex-timeline-${id}-${ev.id ?? title}`,
-                            category: 'execution',
-                            title,
-                            subtitle: `سجل زمني — ${fileLabel}`,
-                            snippet: desc || undefined,
-                            _searchStr: blob([title, desc, String(ev.type ?? ''), fileLabel]),
-                            navigate: { type: 'file', fileId: f.id },
-                        },
-                        lifecycle,
-                    ),
-                );
+                haystackParts.push(title, desc, String(ev.type ?? ''));
+                if (!firstTitle) {
+                    firstTitle = title;
+                    firstSnippet = desc;
+                }
             }
 
             const notesLog = Array.isArray(rec.caseNotesLog) ? rec.caseNotesLog : [];
@@ -77,20 +88,11 @@ export function buildExecutionDeepSearchEntries(
                 if (n.isDeleted || n.trashedAt) continue;
                 const text = String(n.text ?? n.content ?? '').trim();
                 if (!text) continue;
-                out.push(
-                    stamp(
-                        {
-                            id: `ex-note-${id}-${n.id ?? text.slice(0, 20)}`,
-                            category: 'note',
-                            title: text.slice(0, 80),
-                            subtitle: `ملاحظة تنفيذ — ${fileLabel}`,
-                            snippet: text,
-                            _searchStr: blob([text, fileLabel]),
-                            navigate: { type: 'file', fileId: f.id },
-                        },
-                        lifecycle,
-                    ),
-                );
+                haystackParts.push(text);
+                if (!firstTitle) {
+                    firstTitle = text.slice(0, 80);
+                    firstSnippet = text;
+                }
             }
         }
 
@@ -102,21 +104,28 @@ export function buildExecutionDeepSearchEntries(
                 if (d.trashedAt) continue;
                 const name = String(d.name ?? d.originalFileName ?? '').trim();
                 if (!name) continue;
-                out.push(
-                    stamp(
-                        {
-                            id: `ex-doc-${id}-${d.id ?? name}`,
-                            category: 'vault',
-                            title: name,
-                            subtitle: `مستند إضبارة تنفيذ — ${fileLabel}`,
-                            _searchStr: blob([name, String(d.folderId ?? ''), fileLabel]),
-                            navigate: { type: 'file', fileId: f.id },
-                        },
-                        lifecycle,
-                    ),
-                );
+                haystackParts.push(name, String(d.folderId ?? ''));
+                if (!firstTitle) firstTitle = name;
             }
         }
+
+        if (haystackParts.length === 0) continue;
+
+        const haystack = haystackParts.join(' ');
+        out.push(
+            stamp(
+                {
+                    id: `ex-deep-${id}`,
+                    category: 'execution',
+                    title: firstTitle || fileLabel,
+                    subtitle: `إضبارة تنفيذ — ${fileLabel}`,
+                    snippet: firstSnippet || undefined,
+                    _searchStr: blob([haystack.slice(0, 8_000), fileLabel]),
+                    navigate: { type: 'file', fileId: f.id },
+                },
+                lifecycle,
+            ),
+        );
     }
 
     return out;

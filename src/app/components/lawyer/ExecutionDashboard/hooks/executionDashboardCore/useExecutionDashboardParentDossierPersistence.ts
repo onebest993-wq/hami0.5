@@ -1,10 +1,9 @@
-// @ts-nocheck
 /** Phase C Slice 17 — دمج/حفظ الإضبارة الأم + فتح تحرير بياناتها */
 import { useCallback } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
 import { executionStorageKey } from '@/app/utils/executionStorageKeys';
 import { storageCache } from '@/app/utils/storageCache';
-import { useExecutionDashboardStore } from '@/app/stores';
+import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 import { useDossierMeta } from '../useDossierMeta';
 
 export type UseExecutionDashboardParentDossierPersistenceParams = {

@@ -14,8 +14,6 @@ const unused = [
     'solidaryCoerciveActionPending',
     'alimonyBeneficiaryDeathModalOpen',
     'alimonyBeneficiaryDeathModalProfile',
-    'showVisitationCalendarModal',
-    'setShowVisitationCalendarModal',
     'heirSummonsDatePickerOpenByHeir',
     'setLawyerFeeDisburseMode',
     'policeAssistanceModalOpen',

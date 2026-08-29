@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X } from '@/app/components/ui/lucideIcons';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { X } from '@/app/components/ui/icons/X';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import type { ExtraordinaryAppealModalProps } from '../smartFile/modalFormTypes';
+import { SMART_MODAL_MOTION_ZOOM_ENTER } from '../smartFile/smartModalMotionClasses';
 import { GLASS_CLOSE } from '../smartFile/moroccanGlassShell';
 
 
@@ -27,7 +28,7 @@ export const ExtraordinaryAppealModal = ({ isOpen, onClose, onConfirm, type, cur
 
     return (
         <div className="fixed inset-0 z-[250] flex items-center justify-center bg-[#05060D]/65 backdrop-blur-[3px] p-4 font-['Tajawal']" dir="rtl">
-            <div className="rounded-2xl border border-white/[0.1] bg-[#0A0F1C]/80 backdrop-blur-2xl shadow-[0_24px_80px_rgba(0,0,0,0.65)] w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className={`rounded-2xl border border-white/[0.1] bg-[#0A0F1C]/80 backdrop-blur-sm shadow-[0_8px_22px_rgba(0,0,0,0.22)] w-full max-w-sm overflow-hidden ${SMART_MODAL_MOTION_ZOOM_ENTER}`}>
                 <div className="relative px-4 py-4 border-b border-white/[0.08] bg-gradient-to-l from-[#E6C673]/10 via-transparent to-transparent flex justify-between items-center">
                     <h3 className="font-bold text-sm text-white/95">
                         تسجيل طعن استثنائي

@@ -1,6 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useRepositoryEscapeStack } from '../useRepositoryEscapeStack';
+import {
+    registerRepositoryChromeDismiss,
+    resetRepositoryChromeDismissStackForTests,
+} from '../repositoryChromeDismiss';
+import {
+    registerVoiceRecorderEscape,
+    resetVoiceRecorderEscapeForTests,
+} from '@/app/components/lawyer/ActionModals/voiceRecorderEscapeBridge';
 
 let nativeBackHandler: (() => boolean) | null = null;
 
@@ -20,6 +28,8 @@ function pressEscape() {
 describe('useRepositoryEscapeStack', () => {
     beforeEach(() => {
         nativeBackHandler = null;
+        resetRepositoryChromeDismissStackForTests();
+        resetVoiceRecorderEscapeForTests();
     });
 
     it('يغلق المستودع عند عدم وجود طبقات فرعية', () => {
@@ -131,6 +141,72 @@ describe('useRepositoryEscapeStack', () => {
         );
         expect(nativeBackHandler?.()).toBe(true);
         expect(onCloseVoice).toHaveBeenCalledTimes(1);
+        expect(onCloseModal).not.toHaveBeenCalled();
+    });
+
+    it('يغلق قائمة الكروم قبل المستودع', () => {
+        const onCloseModal = vi.fn();
+        const closeChrome = vi.fn(() => true);
+        registerRepositoryChromeDismiss(closeChrome);
+        renderHook(() =>
+            useRepositoryEscapeStack({
+                enabled: true,
+                composing: false,
+                scannerOpen: false,
+                showVoiceRecorder: false,
+                onResetComposer: vi.fn(),
+                onCloseScanner: vi.fn(),
+                onCloseModal,
+            }),
+        );
+        pressEscape();
+        expect(closeChrome).toHaveBeenCalledTimes(1);
+        expect(onCloseModal).not.toHaveBeenCalled();
+    });
+
+    it('المسجّل الصوتي يسبق قائمة الكروم', () => {
+        const onCloseVoice = vi.fn();
+        const onCloseModal = vi.fn();
+        const closeChrome = vi.fn(() => true);
+        registerRepositoryChromeDismiss(closeChrome);
+        renderHook(() =>
+            useRepositoryEscapeStack({
+                enabled: true,
+                composing: false,
+                scannerOpen: false,
+                showVoiceRecorder: true,
+                onResetComposer: vi.fn(),
+                onCloseScanner: vi.fn(),
+                onCloseVoice,
+                onCloseModal,
+            }),
+        );
+        pressEscape();
+        expect(onCloseVoice).toHaveBeenCalledTimes(1);
+        expect(closeChrome).not.toHaveBeenCalled();
+        expect(onCloseModal).not.toHaveBeenCalled();
+    });
+
+    it('أثناء التسجيل: جسر المسجّل يستهلك Escape دون إغلاق الطبقة', () => {
+        const onCloseVoice = vi.fn();
+        const onCloseModal = vi.fn();
+        const stopRecording = vi.fn(() => true);
+        registerVoiceRecorderEscape(stopRecording);
+        renderHook(() =>
+            useRepositoryEscapeStack({
+                enabled: true,
+                composing: false,
+                scannerOpen: false,
+                showVoiceRecorder: true,
+                onResetComposer: vi.fn(),
+                onCloseScanner: vi.fn(),
+                onCloseVoice,
+                onCloseModal,
+            }),
+        );
+        pressEscape();
+        expect(stopRecording).toHaveBeenCalledTimes(1);
+        expect(onCloseVoice).not.toHaveBeenCalled();
         expect(onCloseModal).not.toHaveBeenCalled();
     });
 });

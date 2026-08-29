@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Lock, Plus, UserRound, Users, X } from '@/app/components/ui/lucideIcons';
+import { Lock } from '@/app/components/ui/icons/Lock';
+import { Plus } from '@/app/components/ui/icons/Plus';
+import { UserRound } from '@/app/components/ui/icons/UserRound';
+import { Users } from '@/app/components/ui/icons/Users';
+import { X } from '@/app/components/ui/icons/X';
 import {
     countAliveAlimonyBeneficiaries,
     type AlimonyBeneficiaryProfile,
@@ -139,7 +143,7 @@ export const AlimonyBeneficiaryDeathModal: React.FC<AlimonyBeneficiaryDeathModal
 
     return (
         <div
-            className="fixed inset-0 z-[196] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4"
+            className="fixed inset-0 z-[196] flex items-center justify-center bg-slate-950/90 backdrop-blur-sm p-4"
             role="presentation"
             onClick={onClose}
         >

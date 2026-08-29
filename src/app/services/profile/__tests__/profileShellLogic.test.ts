@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
     resolveProfileShellReady,
     shouldPersistProfileLocally,
-} from '@/app/services/profile/profileShellLogic';
+} from '@/app/services/profile/profileShellPolicy';
 
-describe('resolveProfileShellReady', () => {
+describe('profileShellPolicy — جاهزية القشرة', () => {
     it('false أثناء التحميل بدون كاش', () => {
         expect(
             resolveProfileShellReady({
@@ -42,5 +44,20 @@ describe('shouldPersistProfileLocally', () => {
         expect(shouldPersistProfileLocally('lawyer-1', 'lawyer-2')).toBe(false);
         expect(shouldPersistProfileLocally(null, 'lawyer-1')).toBe(false);
         expect(shouldPersistProfileLocally('  ', 'lawyer-1')).toBe(false);
+    });
+});
+
+describe('أغلفة profileShell* الميتة', () => {
+    const dir = resolve(process.cwd(), 'src/app/services/profile');
+
+    it('لا تبقى ملفات re-export بعد توحيد السياسة', () => {
+        for (const name of [
+            'profileShellLogic.ts',
+            'profileShellNavigation.ts',
+            'profileShellOrchestration.ts',
+            'profileStudioAccessLogic.ts',
+        ]) {
+            expect(existsSync(resolve(dir, name)), name).toBe(false);
+        }
     });
 });

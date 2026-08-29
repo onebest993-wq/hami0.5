@@ -2,9 +2,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useLawyerDashboardHomeTab } from '@/app/hooks/lawyerDashboard/useLawyerDashboardHomeTab';
 
-vi.mock('@/app/runtime/homeHubLoader', () => ({
-    prefetchLawyerHomeTabModule: vi.fn(),
-    loadLawyerHomeTabModule: vi.fn(() => Promise.resolve({})),
+vi.mock('@/app/runtime/homeHubCardLoader', () => ({
+    prefetchLawyerHomeHubCardModule: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock('@/app/services/alerts/homeHubPerfMetrics', async (importOriginal) => {

@@ -1,4 +1,4 @@
-import type { DossierActionPayload, DossierActionType } from '../../components/DossierActionsModal';
+import type { DossierActionPayload, DossierActionType } from '../../components/DossierActionTypes';
 
 export const DOSSIER_ACTION_TITLE_MAP: Record<DossierActionType, string> = {
     delegation: 'طلب الإنابة التنفيذية',

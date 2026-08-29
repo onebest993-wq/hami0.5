@@ -11,7 +11,7 @@ export function isLawyerRequestJudgeOrder(decision: JudicialDecision): boolean {
 }
 
 /**
- * @deprecated استخدم isPriorStageRecordAppealsSealed — يُبقى للتوافق مع الاختبارات القديمة.
+ * @deprecated ALIAS_ONLY — غلاف فوق isPriorStageRecordAppealsSealed؛ يُبقى لاختبارات requestActionEngine القديمة.
  */
 export function isPriorStageLawyerRequestOrderSealed(
     decision: JudicialDecision,

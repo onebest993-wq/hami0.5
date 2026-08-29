@@ -2,10 +2,6 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useFollowupModalPersistNavigation } from '@/app/components/lawyer/ExecutionDashboard/hooks/useFollowupModalPersistNavigation';
 
-vi.mock('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell', () => ({
-    prefetchExecutionFollowupAllTabs: vi.fn(),
-}));
-
 vi.mock('@/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch', () => ({
     prefetchExecutionFollowupOverlay: vi.fn(),
 }));

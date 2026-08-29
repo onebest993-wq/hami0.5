@@ -54,8 +54,10 @@ describe('execution create identity contract', () => {
         );
         expect(src).toContain("String(newFile.id ?? '').trim()");
         expect(src).toContain('submitId || storageKeys.generateExecutionDossierId()');
+        expect(src).toContain('executionFilesRef.current.filter');
         expect(src).not.toMatch(
             /const dossierId = storageKeys\.generateExecutionDossierId\(\);\s*\n\s*const fileWithId/,
         );
+        expect(src).not.toMatch(/let nextList: ExecutionFile\[\] = \[\];\s*\n\s*setExecutionFiles/);
     });
 });

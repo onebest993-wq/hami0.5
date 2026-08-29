@@ -109,7 +109,8 @@ export async function dispatchFollowedUserNewDocument(params: {
     );
 }
 
-export async function dispatchGroupNewPostNotification(params: {
+/** استخدام داخلي فقط ضمن هذا الملف — لا export علني (لا مستهلكين خارجيين). */
+async function dispatchGroupNewPostNotification(params: {
     post: CommunityPost;
     authorName: string;
 }): Promise<void> {

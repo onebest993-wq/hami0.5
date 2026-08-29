@@ -1,5 +1,6 @@
 import { markBootPhase } from '@/app/bootstrap/bootMetrics';
 import { removeStaticBootShell } from '@/app/bootstrap/bootStaticShell';
+import '@/app/bootstrap/homeMainGridPaintGate';
 import {
     getBootRevealMaxMs,
     isDemoShellAuthBuild,
@@ -8,6 +9,33 @@ import {
 import { loadAppModule } from '@/boot/appModule';
 
 const APP_RUNTIME_READY_EVENT = 'hami:app-runtime-ready';
+
+/**
+ * العطل الفادح يصل هنا وقد بقي مرئياً للمستخدم وحده.
+ *
+ * الإبلاغ المباشر غير مضمون: قد يكون سبب العطل نفسه هو تعذّر تحميل chunk، وقد
+ * تُغلق الصفحة قبل أن يغادر الطلب. فيُكتب أولاً في الصندوق الأسود الذي يقرأه
+ * أول إقلاع ناجح، ثم يُحاول الإرسال الفوري كإضافة لا كاعتماد.
+ */
+function reportFatalBootError(e: unknown, errText: string): void {
+    try {
+        localStorage.setItem(
+            'hami:boot-failure:last',
+            JSON.stringify({
+                title: 'fatal-mount',
+                detail: errText.slice(0, 2000),
+                at: new Date().toISOString(),
+                native: document.documentElement.getAttribute('data-hami-native') === '1' ? 1 : 0,
+                url: location.pathname || '/',
+            }),
+        );
+    } catch {
+        /* التخزين محظور — يبقى الإرسال الفوري وحده */
+    }
+    void import('@/app/observability/sentryClient')
+        .then((m) => m.sentryCaptureException(e, { source: 'mountApplication', phase: 'fatal-mount' }))
+        .catch(() => undefined);
+}
 
 function renderFatalBootError(e: unknown): void {
     console.error('❌ [System] Fatal Boot Error:', e);
@@ -31,6 +59,7 @@ function renderFatalBootError(e: unknown): void {
     const errText =
         e instanceof Error ? (e.stack ?? e.message) : typeof e === 'string' ? e : String(e);
     pre.textContent = errText;
+    reportFatalBootError(e, errText);
     if (/clientEnv|VITE_SUPABASE/i.test(errText)) {
         const hint = document.createElement('p');
         hint.style.cssText =
@@ -199,27 +228,19 @@ async function mountApplication(): Promise<void> {
         });
 
         /**
-         * لا تحميل مسبق للوحة هنا: كل ما يسبق هذا الـawait يزاحم React وجذر
-         * التطبيق على نطاق الهاتف. المرحلة الثقيلة يملكها kickoffBootHeavyPreload
-         * وتنطلق بعد وصول المسار الحرج.
+         * Shell + Gate يُحمَّلان من kickoffBootCriticalPreload بالتوازي من t=0.
+         * لا نحجب createRoot عليهما — GateEntry يتجاوز Suspense عند الجاهزية.
          */
         const [appMod, ReactMod, ReactDOMMod] = await withBootTimeout(
-            Promise.all([
-                loadAppModule(),
-                import('react'),
-                import('react-dom/client'),
-            ]),
+            Promise.all([loadAppModule(), import('react'), import('react-dom/client')]),
             20_000,
             'core module load',
         );
 
-        void import('@/app/AppRuntimeShell');
-        void import('@/app/bootstrap/LawyerDashboardGate');
-        void import('@/app/bootstrap/dashboardInteractiveMark');
-        void import('@/app/bootstrap/lawyerDashboardChunk').then((m) => {
-            void m.preloadLawyerDashboardChunk();
-        });
-        void import('@/app/bootstrap/homeDockBootGate').then((m) => m.preloadHomeDockBootChunk());
+        void import('@/app/runtime/appRuntimeShellLoader').then((m) => m.loadAppRuntimeShellModule());
+        void import('@/app/runtime/lawyerDashboardGateLoader').then((m) =>
+            m.loadLawyerDashboardGateModule(),
+        );
 
         const rootElement = document.getElementById('root');
         if (!rootElement) throw new Error('Root element missing');
@@ -235,11 +256,12 @@ async function mountApplication(): Promise<void> {
                 : React.createElement(App),
         );
 
+        markBootPhase('app-render');
+
         void clientEnvPromise.catch((envError: unknown) => {
             renderFatalBootError(envError);
         });
 
-        markBootPhase('app-render');
         await waitForAppRuntimeReady();
         if (isDemoShellAuthBuild()) {
             applyInstantDemoBootFoundation();
@@ -260,7 +282,14 @@ async function mountApplication(): Promise<void> {
     }
 }
 
+let applicationBootStarted = false;
+
 export function startApplicationBoot(): void {
+    if (applicationBootStarted) return;
+    applicationBootStarted = true;
+    void import('@/app/hooks/lawyerDashboard/lawyerDashboardHeaderIntentBridge')
+        .then((m) => m.discardPendingLawyerDashboardHeaderIntent())
+        .catch(() => undefined);
     void mountApplication().finally(() => {
         runBackgroundBootTasks();
     });

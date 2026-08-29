@@ -10,37 +10,45 @@ import {
     seedExecutionWithPersistedDecision,
     mirrorPersistedDecisionKeysToIndexedDb,
 } from './helpers/executionStorageFixtures';
+import { openExecutionArchiveFromHome, openExecutionDossierByRowText, clickNativeElement } from './helpers/executionE2EBoot';
 
-async function openPersistedExecutionDossier(page: Page) {
-    const archiveOpen = await page
-        .getByRole('heading', { name: /مخزن الأضابير التنفيذية/i })
-        .isVisible()
-        .catch(() => false);
-    if (!archiveOpen) {
-        await page.getByTestId('hub-archive-execution').click({ timeout: 25_000 });
-        await expect(page.getByRole('heading', { name: /مخزن الأضابير التنفيذية/i })).toBeVisible({
-            timeout: 25_000,
-        });
+async function openPersistedExecutionDossier(page: Page, fromHome = false) {
+    if (fromHome) {
+        await openExecutionArchiveFromHome(page);
+    } else {
+        const archiveOpen = await page
+            .getByTestId('execution-archive-shell')
+            .getAttribute('aria-hidden')
+            .then((v) => v === 'false')
+            .catch(() => false);
+        if (!archiveOpen) {
+            await openExecutionArchiveFromHome(page);
+        }
     }
-    await page.getByText(/بلوب حيّ E2E|2026\/تنفيذ\/880/).first().click({ timeout: 20_000 });
+    await openExecutionDossierByRowText(page, /بلوب حيّ E2E|2026\/تنفيذ\/880/);
+    await expect(page.getByTestId('execution-dashboard-portal-open')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(/لم يتم العثور على بيانات التنفيذ/i)).toBeHidden({ timeout: 20_000 });
 }
 
 async function openDecisionsHubOnDossier(page: Page) {
-    await page.getByRole('button', { name: 'القرارات والطعون' }).click({ timeout: 20_000 });
+    const decisions = page.getByTestId('execution-open-decisions');
+    await expect(decisions).toBeVisible({ timeout: 20_000 });
+    await clickNativeElement(decisions);
     await expect(page.getByRole('heading', { name: 'مركز القرارات والطعون' })).toBeVisible({
         timeout: 20_000,
     });
     await expect(page.getByText('جاري تحميل القرارات…')).toBeHidden({ timeout: 30_000 }).catch(() => undefined);
-    await page.getByRole('tab', { name: 'القرارات السابقة' }).click({ timeout: 15_000 });
+    await clickNativeElement(page.getByRole('tab', { name: 'القرارات السابقة' }));
     await page.evaluate(() => window.dispatchEvent(new Event('hami-decisions-reload')));
     await expect(page.getByText('جاري تحميل القرارات…')).toBeHidden({ timeout: 30_000 }).catch(() => undefined);
 }
 
 async function expectPersistedDecisionCard(page: Page) {
     const card = page.locator(`#hami-decision-card-${E2E_DECISION_PERSIST_CARD_ID}`);
-    await expect(card).toBeVisible({ timeout: 25_000 });
-    await expect(card.getByText('قرار E2E ثابت')).toBeVisible({ timeout: 10_000 });
+    await expect(async () => {
+        await expect(card).toBeVisible({ timeout: 8_000 });
+        await expect(card.getByText('قرار E2E ثابت')).toBeVisible({ timeout: 5_000 });
+    }).toPass({ timeout: 45_000 });
 }
 
 test.describe('Decisions storage persist', () => {
@@ -67,7 +75,9 @@ test.describe('Decisions storage persist', () => {
         await mirrorPersistedDecisionKeysToIndexedDb(page);
         await bootToLawyerHome(page);
         await dismissProductivityBlockers(page);
-        await openPersistedExecutionDossier(page);
+        await expect(async () => {
+            await openPersistedExecutionDossier(page, true);
+        }).toPass({ timeout: 90_000 });
         await openDecisionsHubOnDossier(page);
         await expectPersistedDecisionCard(page);
     });

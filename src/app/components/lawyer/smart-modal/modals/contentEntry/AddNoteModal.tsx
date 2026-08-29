@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
-import { FileText } from '@/app/components/ui/lucideIcons';
+import { FileText } from '@/app/components/ui/icons/FileText';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { DossierFastNoteComposer } from '@/app/components/lawyer/dossier-notes/DossierFastNoteComposer';
 import { DossierNotesVault, type DossierVaultNote } from '@/app/components/lawyer/dossier-notes/DossierNotesVault';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { AddNoteModalProps } from '../../smartFile/modalFormTypes';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../../smartFile/civilLawsuitTestIds';
+import {
+    confirmSmartFileDestructiveAction,
+    SMART_FILE_DELETE_NOTE_MESSAGE,
+} from '../../smartFile/smartFileDestructiveConfirm';
 import { MoroccanGlassShell } from '../../smartFile/moroccanGlassShell';
 import { useSmartFileModalTheme } from '../../smartFile/smartFileModalTheme';
 import { SmartModalHeader } from './shared';
@@ -76,7 +80,7 @@ export const AddNoteModal = ({
         <MoroccanGlassShell
             onOverlayClick={onClose}
             overlayTestId={CIVIL_LAWSUIT_TEST_IDS.noteModal}
-            maxWidth="max-w-4xl"
+            maxWidth="max-w-xl"
         >
             <SmartModalHeader
                 T={T}
@@ -84,26 +88,31 @@ export const AddNoteModal = ({
                 title={browseOnly ? 'ملاحظات الإضبارة — للاطلاع' : isEditing ? 'تعديل ملاحظة' : 'ملاحظات الإضبارة'}
                 onClose={onClose}
             />
-            <div
-                className={
-                    browseOnly
-                        ? 'p-3 sm:p-4'
-                        : T.useMoroccanCorners
-                        ? 'grid grid-cols-1 gap-3 p-3 sm:gap-4 sm:p-4 md:grid-cols-2 md:items-start'
-                        : T.body
-                }
-            >
+            <div className={browseOnly ? 'p-3 sm:p-3.5' : T.body}>
                 <div
                     className={
                         browseOnly
-                            ? 'max-h-[min(72dvh,640px)] overflow-y-auto overscroll-contain rounded-[20px] border border-white/[0.08] bg-black/10 p-2.5 sm:p-3'
-                            : 'order-2 max-h-[28vh] overflow-y-auto overscroll-contain rounded-[20px] border border-white/[0.08] bg-black/10 p-2.5 sm:p-3 md:order-1 md:max-h-[min(68dvh,560px)]'
+                            ? 'max-h-[min(52dvh,420px)] overflow-y-auto overscroll-contain rounded-xl border border-white/[0.08] bg-white/[0.03] p-2'
+                            : 'max-h-[min(36vh,280px)] overflow-y-auto overscroll-contain rounded-xl border border-white/[0.08] bg-white/[0.03] p-2'
                     }
                 >
                     <DossierNotesVault
                         notes={savedNotes}
                         onEdit={browseOnly ? undefined : handleVaultEdit}
-                        onDelete={browseOnly ? undefined : onDeleteNote}
+                        onDelete={
+                            browseOnly || !onDeleteNote
+                                ? undefined
+                                : (id) => {
+                                      if (
+                                          !confirmSmartFileDestructiveAction(
+                                              SMART_FILE_DELETE_NOTE_MESSAGE,
+                                          )
+                                      ) {
+                                          return;
+                                      }
+                                      onDeleteNote(id);
+                                  }
+                        }
                         variant="repo"
                         heading="مخزن الملاحظات"
                         emptyLabel={
@@ -115,7 +124,7 @@ export const AddNoteModal = ({
                     />
                 </div>
                 {!browseOnly ? (
-                <div className="order-1 min-w-0 border-b border-white/[0.08] pb-3 md:order-2 md:border-b-0 md:border-r md:pb-0 md:pr-4">
+                <div className="min-w-0 border-t border-white/[0.08] pt-3">
                     <p className="mb-2.5 text-xs font-bold text-[#E6C673]/85">
                         {isEditing ? 'تعديل الملاحظة' : 'ملاحظة جديدة'}
                     </p>

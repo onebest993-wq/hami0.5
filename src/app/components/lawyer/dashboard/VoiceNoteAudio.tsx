@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { parseVoiceNoteRef, isVoiceNoteRef } from '@/app/services/voice/voiceNoteCodec';
 import { isVoiceNoteBody } from '@/app/components/lawyer/dashboard/notepadNoteUtils';
 import { getVoiceObjectUrl } from '@/app/services/voice/voiceNoteStorage';
+import { MAX_VOICE_DATA_URL_CHARS } from '@/app/services/tasks/taskInputGuard';
 
 type VoiceNoteAudioProps = {
     body: string;
@@ -34,7 +35,15 @@ export function VoiceNoteAudio({ body, className = 'w-full h-9', preload = 'none
                 setSrc(url);
                 return;
             }
+            if (/^(javascript:|https?:)/i.test(trimmed)) {
+                setSrc(null);
+                return;
+            }
             if (trimmed.startsWith('data:audio') || trimmed.startsWith('blob:audio')) {
+                if (trimmed.startsWith('data:') && trimmed.length > MAX_VOICE_DATA_URL_CHARS) {
+                    setSrc(null);
+                    return;
+                }
                 setSrc(trimmed);
                 return;
             }

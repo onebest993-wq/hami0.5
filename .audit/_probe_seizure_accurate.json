@@ -1,0 +1,1714 @@
+{
+  "seizureNamedCount": 9,
+  "seizureNamedFiles": [
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureHeavyBridge.tsx",
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogAssetModalBridge.tsx",
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogResolutionBridge.tsx",
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureAssetModal.ts",
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureCoercive.ts",
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureFollowup.ts",
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureFollowupRequests.ts",
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureHeavy.ts",
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureResolution.ts"
+  ],
+  "absorbedIntoSeizureCount": 345,
+  "estimatedSeizureChunkSourceKb": 1549.8,
+  "crossChunkStops": [
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterFoundationCore.ts",
+      "cluster": "foundation"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterFoundationCore.ts",
+      "cluster": "foundation"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterFoundation.ts",
+      "cluster": "foundation"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/handlerClusterContextShared.ts",
+      "cluster": "shared"
+    }
+  ],
+  "byPeelKb": {
+    "other-absorbed": 1220.6,
+    "decision-queue": 131.2,
+    "seizure-resolution": 62.4,
+    "seizure-assets": 58.4,
+    "seizure-financial-utils": 24.9,
+    "seizure-named-core": 21.9,
+    "seizure-followup-logic": 21.2,
+    "domain-seizure": 4.6,
+    "seizure-inline": 4.5
+  },
+  "byPeel": {
+    "seizure-named-core": {
+      "kb": 21.9,
+      "files": [
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureFollowup.ts",
+          "kb": 8.1
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureCoercive.ts",
+          "kb": 7
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureHeavyBridge.tsx",
+          "kb": 3.1
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureHeavy.ts",
+          "kb": 2.2
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureFollowupRequests.ts",
+          "kb": 1.5
+        }
+      ]
+    },
+    "seizure-assets": {
+      "kb": 58.4,
+      "files": [
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSeizedPropertyModals.ts",
+          "kb": 15.7
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSeizureAssetModalHandlers.ts",
+          "kb": 11.1
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSeizureAssetModalSaveHandlers.ts",
+          "kb": 9.9
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardAuctionSessionResult.ts",
+          "kb": 7.7
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureAssetModal.ts",
+          "kb": 7.3
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSavePublicationDetails.ts",
+          "kb": 3.5
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogAssetModalBridge.tsx",
+          "kb": 3.2
+        }
+      ]
+    },
+    "seizure-resolution": {
+      "kb": 62.4,
+      "files": [
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureLedgerSync.ts",
+          "kb": 8.1
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardThirdPartyReceiveHandlers.ts",
+          "kb": 7.5
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealGrievanceResolution.ts",
+          "kb": 6.5
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/thirdPartyFundsReceivedOutcomeUtils.ts",
+          "kb": 6
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSeizureReleaseHandlers.ts",
+          "kb": 4.1
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureDisplayUtils.ts",
+          "kb": 3.9
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureTabUtils.ts",
+          "kb": 3.9
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardStandaloneMarkMutations.ts",
+          "kb": 3.5
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardStandaloneMarkSave.ts",
+          "kb": 3.1
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureResolution.ts",
+          "kb": 3
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardStandaloneMarkHandlers.ts",
+          "kb": 2.9
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSalarySeizurePatch.ts",
+          "kb": 2.8
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogResolutionBridge.tsx",
+          "kb": 2.6
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSalarySeizurePatch.ts",
+          "kb": 2.2
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardThirdPartyReceive.ts",
+          "kb": 1.7
+        },
+        {
+          "f": "src/app/utils/execution/isSalarySeizureAsset.ts",
+          "kb": 0.7
+        }
+      ]
+    },
+    "other-absorbed": {
+      "kb": 1220.6,
+      "files": [
+        {
+          "f": "src/app/services/SecureStoreService.ts",
+          "kb": 34.8
+        },
+        {
+          "f": "src/app/services/CryptoService.ts",
+          "kb": 20.3
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistry.ts",
+          "kb": 20.1
+        },
+        {
+          "f": "src/app/utils/followupSpecializationVisibility.ts",
+          "kb": 18.2
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionCreationView/hooks/useAlimonyCalculator.ts",
+          "kb": 16.5
+        },
+        {
+          "f": "src/app/components/lawyer/smart-modal/parts/civilLawTaxonomy.ts",
+          "kb": 15.7
+        },
+        {
+          "f": "src/app/utils/executionDossierBlobPersistence.ts",
+          "kb": 15
+        },
+        {
+          "f": "src/app/services/settings/backgroundPresets.ts",
+          "kb": 14.4
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/creditorAppealEnforcement.ts",
+          "kb": 14
+        },
+        {
+          "f": "src/app/utils/creditorPartyDeathPersistence.ts",
+          "kb": 13.9
+        },
+        {
+          "f": "src/app/utils/executionDecisionsNamespaceWrite.ts",
+          "kb": 13.9
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealProceedingsManual.ts",
+          "kb": 13.5
+        },
+        {
+          "f": "src/app/utils/executorApprovalWorkflow.ts",
+          "kb": 13.4
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels.ts",
+          "kb": 12.4
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveActionSeizureSave.ts",
+          "kb": 11.7
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/executionDashboardHandlerClusterBridgeLazy.tsx",
+          "kb": 11.7
+        },
+        {
+          "f": "src/app/utils/specificDeliveryItemsUtils.ts",
+          "kb": 11.7
+        },
+        {
+          "f": "src/app/utils/timelineSmartDisplay.ts",
+          "kb": 11.3
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealProceedingsCatalog.ts",
+          "kb": 11.1
+        },
+        {
+          "f": "src/app/services/settings/homeWidgetPlacements.ts",
+          "kb": 11
+        },
+        {
+          "f": "src/app/utils/timelineDedup.ts",
+          "kb": 10.9
+        },
+        {
+          "f": "src/app/utils/executionFilesStorage.ts",
+          "kb": 10.7
+        },
+        {
+          "f": "src/app/utils/maritalFurniture.ts",
+          "kb": 10.4
+        },
+        {
+          "f": "src/app/infrastructure/persistence/LocalStorageRepository.ts",
+          "kb": 10.2
+        },
+        {
+          "f": "src/app/components/lawyer/FinancialOperationsCenter/unifiedLedgerLite.ts",
+          "kb": 10.1
+        },
+        {
+          "f": "src/app/types/execution/seizure.ts",
+          "kb": 10
+        },
+        {
+          "f": "src/app/stores/executionDashboardStore/subFileActions.ts",
+          "kb": 9.6
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealDates.ts",
+          "kb": 9.6
+        },
+        {
+          "f": "src/app/services/dossierPersistence/dossierPersistenceService.ts",
+          "kb": 9.5
+        },
+        {
+          "f": "src/app/utils/storageCache.ts",
+          "kb": 9.4
+        },
+        {
+          "f": "src/data/executionLawHierarchy.ts",
+          "kb": 9.2
+        },
+        {
+          "f": "src/app/services/SecureAPIClient.ts",
+          "kb": 8.8
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealWorkflowActors.ts",
+          "kb": 8.5
+        },
+        {
+          "f": "src/app/utils/residentialGraceTimeline.ts",
+          "kb": 8.5
+        },
+        {
+          "f": "src/app/services/settings/homeLayout.ts",
+          "kb": 8.4
+        },
+        {
+          "f": "src/app/services/secureStorageKeys.ts",
+          "kb": 8.2
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealsHubCatalog.ts",
+          "kb": 8.1
+        },
+        {
+          "f": "src/app/utils/executionModuleStrategies.ts",
+          "kb": 8
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionCreationView/hooks/executionFormClaimAmounts.ts",
+          "kb": 7.8
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveActionNewRequest.ts",
+          "kb": 7.7
+        },
+        {
+          "f": "src/app/utils/executionDomainIsolationGates.ts",
+          "kb": 7.7
+        },
+        {
+          "f": "src/app/utils/partyDisplayName.ts",
+          "kb": 7.5
+        },
+        {
+          "f": "src/app/stores/executionDashboardStore/fileActions.ts",
+          "kb": 7.1
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/decisionHubPipeline.tsx",
+          "kb": 7.1
+        },
+        {
+          "f": "src/app/utils/executionLawRemoteCache.ts",
+          "kb": 7
+        },
+        {
+          "f": "src/app/services/dossierPersistence/dossierWipeGuard.ts",
+          "kb": 6.9
+        },
+        {
+          "f": "src/app/utils/executionStateMachineChrono.ts",
+          "kb": 6.8
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/creditorAppealExecutorFollowup.ts",
+          "kb": 6.8
+        },
+        {
+          "f": "src/app/services/settings/notificationSettings.ts",
+          "kb": 6.8
+        },
+        {
+          "f": "src/app/utils/executorRequestAppealSync.ts",
+          "kb": 6.5
+        },
+        {
+          "f": "src/app/stores/executionDashboardStore/inabaView.ts",
+          "kb": 6.3
+        },
+        {
+          "f": "src/app/utils/resolveSpecificDeliveryUiPhase.ts",
+          "kb": 6.3
+        },
+        {
+          "f": "src/app/services/settings/settingsSnapshot.ts",
+          "kb": 6.3
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/helpers/seizureRegistryBridge.ts",
+          "kb": 6.2
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/helpers/heirUtils.ts",
+          "kb": 6.2
+        },
+        {
+          "f": "src/app/services/settings/surfaceAppearance.ts",
+          "kb": 6.2
+        },
+        {
+          "f": "src/app/services/auth/lawyerVerificationStore.ts",
+          "kb": 6.2
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/seizureSalaryRequestFlow.ts",
+          "kb": 6.1
+        },
+        {
+          "f": "src/app/utils/executionStateMachineStatus.ts",
+          "kb": 6.1
+        },
+        {
+          "f": "src/app/stores/executionDashboardStore/lifecycleActions.ts",
+          "kb": 6
+        },
+        {
+          "f": "src/app/utils/bundledIraqiLawLoader.ts",
+          "kb": 6
+        },
+        {
+          "f": "src/app/utils/authStorage.ts",
+          "kb": 6
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/creditorAppealGate.ts",
+          "kb": 6
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/creditorAppealWaiveCassation.ts",
+          "kb": 6
+        },
+        {
+          "f": "src/app/utils/executionStorageKeysLite.ts",
+          "kb": 5.9
+        },
+        {
+          "f": "src/app/types/execution/party.ts",
+          "kb": 5.9
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveActionRouting.ts",
+          "kb": 5.7
+        },
+        {
+          "f": "src/app/services/dossierPersistence/protectedStorageKeys.ts",
+          "kb": 5.7
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/manualExecutorAppealFilePatches.ts",
+          "kb": 5.7
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/helpers/seizureUtils.ts",
+          "kb": 5.6
+        },
+        {
+          "f": "src/app/utils/unifiedFundsLedgerStorage.ts",
+          "kb": 5.6
+        },
+        {
+          "f": "src/app/components/admin/lawStructure.ts",
+          "kb": 5.6
+        },
+        {
+          "f": "src/app/stores/executionDashboardStore.ts",
+          "kb": 5.5
+        },
+        {
+          "f": "src/app/observability/sentryClient.ts",
+          "kb": 5.5
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch.ts",
+          "kb": 5.4
+        },
+        {
+          "f": "src/app/services/secureStoreRecovery.ts",
+          "kb": 5.3
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveAction.ts",
+          "kb": 5.2
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/collectSeizureHeavyHandlerClusterContext.ts",
+          "kb": 5.1
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId.ts",
+          "kb": 5.1
+        },
+        {
+          "f": "src/app/runtime/sameOriginApiProbe.ts",
+          "kb": 5
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/creditorAppealDebtorAgentUi.ts",
+          "kb": 5
+        },
+        {
+          "f": "src/app/services/securePersistStorage.ts",
+          "kb": 4.9
+        },
+        {
+          "f": "src/app/utils/consoleHygiene.ts",
+          "kb": 4.9
+        },
+        {
+          "f": "src/app/services/storageSchema/storageSchemaMigrations.ts",
+          "kb": 4.9
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appealRequestOrigin.ts",
+          "kb": 4.9
+        },
+        {
+          "f": "src/app/utils/followupSpecializationTypes.ts",
+          "kb": 4.9
+        },
+        {
+          "f": "src/app/utils/executionDecisionAppealActive.ts",
+          "kb": 4.9
+        },
+        {
+          "f": "src/app/stores/executionDashboardStore/unificationActions.ts",
+          "kb": 4.7
+        },
+        {
+          "f": "src/app/utils/executionClaimIsolation.ts",
+          "kb": 4.7
+        },
+        {
+          "f": "src/app/utils/lazy/lazyWithRetry.ts",
+          "kb": 4.7
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoerciveActionHandlers.ts",
+          "kb": 4.6
+        },
+        {
+          "f": "src/app/utils/executionStateMachineUiMeta.ts",
+          "kb": 4.6
+        },
+        {
+          "f": "src/app/services/secureApiWifeSigning.ts",
+          "kb": 4.6
+        },
+        {
+          "f": "src/app/services/settings/localOnlyUrlPolicy.ts",
+          "kb": 4.6
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/manualExecutorDeadlineEnforcement.ts",
+          "kb": 4.6
+        },
+        {
+          "f": "src/app/domain/execution/dossier/ExecutionDossierScope.ts",
+          "kb": 4.5
+        },
+        {
+          "f": "src/app/types/execution/executionFileGuarantor.ts",
+          "kb": 4.5
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/executionFollowupTabPrefetch.ts",
+          "kb": 4.4
+        },
+        {
+          "f": "src/app/runtime/backgroundInterval.ts",
+          "kb": 4.4
+        },
+        {
+          "f": "src/app/services/forum/repositoryDocsTombstonesLite.ts",
+          "kb": 4.4
+        },
+        {
+          "f": "src/app/observability/sentrySanitize.ts",
+          "kb": 4.4
+        },
+        {
+          "f": "src/app/utils/executionYmdCalendar.ts",
+          "kb": 4.4
+        },
+        {
+          "f": "src/app/utils/lazy/staleChunkError.ts",
+          "kb": 4.3
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoerciveActionBridge.ts",
+          "kb": 4.2
+        },
+        {
+          "f": "src/app/utils/executionDomainIsolationVisibility.ts",
+          "kb": 4.2
+        },
+        {
+          "f": "src/app/utils/executionDossierTombstones.ts",
+          "kb": 4.2
+        },
+        {
+          "f": "src/app/stores/executionDashboardStore/debtorEmployment.ts",
+          "kb": 4.1
+        },
+        {
+          "f": "src/app/stores/executionDashboardStore/debtorEntityKind.ts",
+          "kb": 4.1
+        },
+        {
+          "f": "src/app/utils/executionDecisionsNamespaceResolve.ts",
+          "kb": 4.1
+        },
+        {
+          "f": "src/data/executionLaws.ts",
+          "kb": 4.1
+        },
+        {
+          "f": "src/utils/supabase/clientEnv.ts",
+          "kb": 4.1
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealActorFiling.ts",
+          "kb": 4.1
+        },
+        {
+          "f": "src/app/utils/executionDomainIsolationClaimModules.ts",
+          "kb": 4
+        },
+        {
+          "f": "src/app/services/dossierPersistence/dossierBackupStore.ts",
+          "kb": 4
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/manualExecutorArchiveReconcile.ts",
+          "kb": 4
+        },
+        {
+          "f": "src/app/utils/followupSpecializationMerge.ts",
+          "kb": 3.9
+        },
+        {
+          "f": "src/app/services/auth/devUnlockSession.ts",
+          "kb": 3.9
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/helpers/dossierLifecycleUtils.ts",
+          "kb": 3.8
+        },
+        {
+          "f": "src/app/services/notes/globalNotesTombstones.ts",
+          "kb": 3.8
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/unifiedSeizureLogFooterNavigation.ts",
+          "kb": 3.7
+        },
+        {
+          "f": "src/app/utils/executionDeviceStorageScope.ts",
+          "kb": 3.7
+        },
+        {
+          "f": "src/app/components/ui/smartDialogBus.ts",
+          "kb": 3.7
+        },
+        {
+          "f": "src/app/utils/executionDossierBlobKeyLite.ts",
+          "kb": 3.7
+        },
+        {
+          "f": "src/app/utils/executionDomainIsolationContext.ts",
+          "kb": 3.7
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/manualExecutorGrievanceOutcome.ts",
+          "kb": 3.7
+        },
+        {
+          "f": "src/app/infrastructure/persistence/executionDashboardStorePersist.ts",
+          "kb": 3.6
+        },
+        {
+          "f": "src/app/utils/executionDomainIsolationTypes.ts",
+          "kb": 3.6
+        },
+        {
+          "f": "src/app/utils/executionDecisionsNamespaceRead.ts",
+          "kb": 3.6
+        },
+        {
+          "f": "src/app/constants/iraqiLawBundleRegistry.ts",
+          "kb": 3.6
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionCreationView/hooks/executionFormClaimTypes.ts",
+          "kb": 3.6
+        },
+        {
+          "f": "src/app/services/RequestSigningService.ts",
+          "kb": 3.6
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealProceedingsActors.ts",
+          "kb": 3.6
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/manualExecutorPurgeArtifacts.ts",
+          "kb": 3.6
+        },
+        {
+          "f": "src/app/components/lawyer/FinancialOperationsCenter/settlementSalaryExclusion.ts",
+          "kb": 3.5
+        },
+        {
+          "f": "src/app/types/execution/formAndUi.ts",
+          "kb": 3.5
+        },
+        {
+          "f": "src/app/services/persistenceFailureSignal.ts",
+          "kb": 3.4
+        },
+        {
+          "f": "src/app/services/storageSchema/storageSchemaVersion.ts",
+          "kb": 3.4
+        },
+        {
+          "f": "src/app/services/settings/localOnlyGuard.ts",
+          "kb": 3.4
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/manualExecutorAppealActors.ts",
+          "kb": 3.4
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/executionPhoneBodyExecutionDataMerge.ts",
+          "kb": 3.3
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveActionTypes.ts",
+          "kb": 3.3
+        },
+        {
+          "f": "src/app/utils/executionDecisionsNamespaceKeys.ts",
+          "kb": 3.3
+        },
+        {
+          "f": "src/app/types/execution/timeline.ts",
+          "kb": 3.3
+        },
+        {
+          "f": "src/app/services/settings/types.ts",
+          "kb": 3.3
+        },
+        {
+          "f": "src/app/utils/executionDecisionsNamespaceMigrate.ts",
+          "kb": 3.2
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionCreationView/hooks/executionFormDebtorCaps.ts",
+          "kb": 3.2
+        },
+        {
+          "f": "src/app/services/auth/lawyerAccountStatus.ts",
+          "kb": 3.2
+        },
+        {
+          "f": "src/app/components/lawyer/FinancialOperationsCenter/debtorAgentSeizedItems.ts",
+          "kb": 3.1
+        },
+        {
+          "f": "src/app/services/vault/vaultDocsTombstonesLite.ts",
+          "kb": 3.1
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSettlementLedger.ts",
+          "kb": 3
+        },
+        {
+          "f": "src/app/constants/iraqiLawCatalog.ts",
+          "kb": 3
+        },
+        {
+          "f": "src/app/services/settings/lawyerThemeTokens.ts",
+          "kb": 3
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/handlerClusterPublishUtils.ts",
+          "kb": 2.9
+        },
+        {
+          "f": "src/app/runtime/mobileRuntimePolicy.ts",
+          "kb": 2.9
+        },
+        {
+          "f": "src/app/services/dossierPersistence/protectedBackupService.ts",
+          "kb": 2.9
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/followupModalOpen.ts",
+          "kb": 2.8
+        },
+        {
+          "f": "src/app/runtime/devicePerformanceTier.ts",
+          "kb": 2.8
+        },
+        {
+          "f": "src/data/executionLawsLoader.ts",
+          "kb": 2.8
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionCreationView/hooks/executionFormDebtorShares.ts",
+          "kb": 2.8
+        },
+        {
+          "f": "src/app/services/kvProxyGuard.ts",
+          "kb": 2.8
+        },
+        {
+          "f": "src/app/utils/lazy/preloadableLazy.tsx",
+          "kb": 2.7
+        },
+        {
+          "f": "src/app/utils/executionStorageBundleDelete.ts",
+          "kb": 2.7
+        },
+        {
+          "f": "src/app/types/execution/core.ts",
+          "kb": 2.7
+        },
+        {
+          "f": "src/app/utils/legalReferenceLocalCache.ts",
+          "kb": 2.6
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/decisionTextUtils.ts",
+          "kb": 2.6
+        },
+        {
+          "f": "src/app/services/secureApiNetworkFeatures.ts",
+          "kb": 2.6
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/manualExecutorDisplayLabels.ts",
+          "kb": 2.6
+        },
+        {
+          "f": "src/app/services/settings/homeLayoutDockControls.ts",
+          "kb": 2.6
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/executionCoreHandlersPrefetch.ts",
+          "kb": 2.5
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/expertCommitteeUtils.ts",
+          "kb": 2.5
+        },
+        {
+          "f": "src/app/utils/executionDomainIsolationRead.ts",
+          "kb": 2.5
+        },
+        {
+          "f": "src/app/security/csrfSession.ts",
+          "kb": 2.5
+        },
+        {
+          "f": "src/app/services/storageSchema/runStorageSchemaBoot.ts",
+          "kb": 2.4
+        },
+        {
+          "f": "src/app/utils/executionStorageCacheOps.ts",
+          "kb": 2.4
+        },
+        {
+          "f": "src/data/executionLawsSeeds.ts",
+          "kb": 2.4
+        },
+        {
+          "f": "src/app/services/auth/shellAuth.ts",
+          "kb": 2.4
+        },
+        {
+          "f": "src/app/stores/executionDashboardStore/modalUiActions.ts",
+          "kb": 2.3
+        },
+        {
+          "f": "src/app/services/plaintextFallbackSignal.ts",
+          "kb": 2.3
+        },
+        {
+          "f": "src/app/services/dossierPersistence/corruptStorageSignal.ts",
+          "kb": 2.3
+        },
+        {
+          "f": "src/app/utils/executionDecisionsNamespaceMerge.ts",
+          "kb": 2.3
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/decisionCardGlassShell.ts",
+          "kb": 2.3
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/executorAppealEntryState.ts",
+          "kb": 2.3
+        },
+        {
+          "f": "src/app/utils/debtorEntityKindUtils.ts",
+          "kb": 2.2
+        },
+        {
+          "f": "src/app/utils/debtorAgentRepresentationUtils.ts",
+          "kb": 2.2
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/manualExecutorLedger.ts",
+          "kb": 2.2
+        },
+        {
+          "f": "src/app/infrastructure/persistence/zustandPersistFoundation.ts",
+          "kb": 2.1
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/helpers/dateUtils.ts",
+          "kb": 2.1
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/followupLegacyTabNormalization.ts",
+          "kb": 2.1
+        },
+        {
+          "f": "src/app/services/auth/localGuestSession.ts",
+          "kb": 2.1
+        },
+        {
+          "f": "src/app/utils/executionPartyNormalize.ts",
+          "kb": 2
+        },
+        {
+          "f": "src/app/infrastructure/persistence/storageDomains.ts",
+          "kb": 2
+        },
+        {
+          "f": "src/app/utils/executionLawArticleUtils.ts",
+          "kb": 2
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionCreationView/hooks/executionFormPartySplit.ts",
+          "kb": 2
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/executorAppealFinality.ts",
+          "kb": 2
+        },
+        {
+          "f": "src/app/components/lawyer/FinancialOperationsCenter/settlementGuarantorGate.ts",
+          "kb": 1.9
+        },
+        {
+          "f": "src/app/utils/executionFilesStorageOwnerLite.ts",
+          "kb": 1.9
+        },
+        {
+          "f": "src/app/utils/bffWifeSign.ts",
+          "kb": 1.9
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/manualExecutorAppealRow.ts",
+          "kb": 1.9
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/manualExecutorEnforcementState.ts",
+          "kb": 1.9
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealActorLabels.ts",
+          "kb": 1.9
+        },
+        {
+          "f": "src/app/services/settings/defaults.ts",
+          "kb": 1.9
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/useUnifiedSeizureLogFooterBridge.ts",
+          "kb": 1.8
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/helpers/executionAgentPrivilege.ts",
+          "kb": 1.8
+        },
+        {
+          "f": "src/app/utils/executorDecisionRowApproval.ts",
+          "kb": 1.8
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/seizureWorkflowDossierUtils.ts",
+          "kb": 1.8
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils.ts",
+          "kb": 1.8
+        },
+        {
+          "f": "src/app/types/execution/executionFile.ts",
+          "kb": 1.8
+        },
+        {
+          "f": "src/app/utils/executionDecisionsNamespaceStore.ts",
+          "kb": 1.8
+        },
+        {
+          "f": "src/app/runtime/lawyerDashboardLoader.ts",
+          "kb": 1.8
+        },
+        {
+          "f": "src/app/services/auth/localSigningToken.ts",
+          "kb": 1.8
+        },
+        {
+          "f": "src/lib/supabaseClient.js",
+          "kb": 1.8
+        },
+        {
+          "f": "src/app/security/wifeRequestSigningShared.ts",
+          "kb": 1.8
+        },
+        {
+          "f": "src/app/services/settings/builtInBehavior.ts",
+          "kb": 1.8
+        },
+        {
+          "f": "src/app/stores/executionDashboardStore/inabaIds.ts",
+          "kb": 1.7
+        },
+        {
+          "f": "src/app/utils/partyDeathCaseScope.ts",
+          "kb": 1.7
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionCreationView/hooks/executionFormEntityKind.ts",
+          "kb": 1.7
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealProceedingsTypes.ts",
+          "kb": 1.7
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealMethodsInference.ts",
+          "kb": 1.7
+        },
+        {
+          "f": "src/app/utils/guestLawyerSession.ts",
+          "kb": 1.7
+        },
+        {
+          "f": "src/app/utils/executionStateMachine.ts",
+          "kb": 1.6
+        },
+        {
+          "f": "src/app/utils/debug.ts",
+          "kb": 1.6
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/decisionPresentation.ts",
+          "kb": 1.6
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealPipelineRow.ts",
+          "kb": 1.6
+        },
+        {
+          "f": "src/app/utils/execution/amountInputCore.ts",
+          "kb": 1.5
+        },
+        {
+          "f": "src/app/security/deviceId.ts",
+          "kb": 1.5
+        },
+        {
+          "f": "src/app/constants/personalStatusLawCatalog.ts",
+          "kb": 1.5
+        },
+        {
+          "f": "src/app/utils/executionDomainIsolation.ts",
+          "kb": 1.4
+        },
+        {
+          "f": "src/app/utils/executionDecisionsNamespace.ts",
+          "kb": 1.4
+        },
+        {
+          "f": "src/app/security/wifePublicApi.ts",
+          "kb": 1.4
+        },
+        {
+          "f": "src/app/services/auth/devMockLawyerAuth.ts",
+          "kb": 1.4
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId.ts",
+          "kb": 1.3
+        },
+        {
+          "f": "src/app/stores/executionDashboardStore/initialState.ts",
+          "kb": 1.3
+        },
+        {
+          "f": "src/app/types/execution/document.ts",
+          "kb": 1.3
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/manualExecutorIdentity.ts",
+          "kb": 1.3
+        },
+        {
+          "f": "src/app/slices/financial/specialtyPublic.ts",
+          "kb": 1.2
+        },
+        {
+          "f": "src/app/utils/liveAuthUserId.ts",
+          "kb": 1.2
+        },
+        {
+          "f": "src/app/utils/executionEvictionActionIds.ts",
+          "kb": 1.1
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealTypes.ts",
+          "kb": 1.1
+        },
+        {
+          "f": "src/utils/supabase/devFallbackConfig.ts",
+          "kb": 1.1
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/decisionSortOrder.ts",
+          "kb": 1.1
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/helpers/buildInitialExecutorSeizureDetails.ts",
+          "kb": 1
+        },
+        {
+          "f": "src/app/utils/execution/amountInput.ts",
+          "kb": 1
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/helpers/index.ts",
+          "kb": 1
+        },
+        {
+          "f": "src/app/utils/executionStorageKeys.ts",
+          "kb": 1
+        },
+        {
+          "f": "src/app/services/dossierPersistence/dossierStorageKeys.ts",
+          "kb": 1
+        },
+        {
+          "f": "src/app/utils/executorDecisionTitles.ts",
+          "kb": 1
+        },
+        {
+          "f": "src/app/slices/financial/ledgerPublic.ts",
+          "kb": 0.9
+        },
+        {
+          "f": "src/app/types/execution/alimony.ts",
+          "kb": 0.9
+        },
+        {
+          "f": "src/app/services/dossierPersistence/dossierPersistenceTypes.ts",
+          "kb": 0.9
+        },
+        {
+          "f": "src/app/security/wifeNativeFetch.ts",
+          "kb": 0.9
+        },
+        {
+          "f": "src/app/utils/articleNumberRange.ts",
+          "kb": 0.9
+        },
+        {
+          "f": "src/app/types/admin-types.ts",
+          "kb": 0.9
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/executionDashboardShellOverlaysLazy.tsx",
+          "kb": 0.8
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/helpers/domUtils.ts",
+          "kb": 0.8
+        },
+        {
+          "f": "src/app/types/execution/coercive.ts",
+          "kb": 0.8
+        },
+        {
+          "f": "src/app/utils/bffJsonResponse.ts",
+          "kb": 0.8
+        },
+        {
+          "f": "src/app/services/settings/resolveThemeMode.ts",
+          "kb": 0.8
+        },
+        {
+          "f": "src/app/stores/executionDashboardStore/selectors.ts",
+          "kb": 0.7
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/executionFollowupModalLazy.tsx",
+          "kb": 0.7
+        },
+        {
+          "f": "src/app/utils/bffCryptoSession.ts",
+          "kb": 0.7
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/decisionGraphUtils.ts",
+          "kb": 0.7
+        },
+        {
+          "f": "src/app/utils/executionWipeKeyPrefixes.ts",
+          "kb": 0.7
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/decisionCardFormatting.ts",
+          "kb": 0.7
+        },
+        {
+          "f": "src/app/utils/localYmd.ts",
+          "kb": 0.6
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionCreationView/hooks/executionFormMoney.ts",
+          "kb": 0.6
+        },
+        {
+          "f": "src/app/utils/otherPartyManualTrackDecisionSource.ts",
+          "kb": 0.6
+        },
+        {
+          "f": "src/app/security/csrfConstants.ts",
+          "kb": 0.6
+        },
+        {
+          "f": "src/utils/supabase/info.ts",
+          "kb": 0.6
+        },
+        {
+          "f": "src/app/utils/executorDecisionStorageRead.ts",
+          "kb": 0.5
+        },
+        {
+          "f": "src/app/types/execution.ts",
+          "kb": 0.5
+        },
+        {
+          "f": "src/app/services/secureFetchErrors.ts",
+          "kb": 0.5
+        },
+        {
+          "f": "src/app/observability/sentryBuildPolicy.ts",
+          "kb": 0.5
+        },
+        {
+          "f": "src/app/services/SecureFetchError.ts",
+          "kb": 0.5
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/index.ts",
+          "kb": 0.4
+        },
+        {
+          "f": "src/app/services/settings/homeLayoutDefaults.ts",
+          "kb": 0.4
+        },
+        {
+          "f": "src/app/utils/specialFollowupDecisionQueue.ts",
+          "kb": 0.3
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/helpers/progressBars.tsx",
+          "kb": 0.3
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils.ts",
+          "kb": 0.3
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/creditorAppealPolicy.ts",
+          "kb": 0.3
+        },
+        {
+          "f": "src/app/components/ui/SmartDialog.tsx",
+          "kb": 0.2
+        },
+        {
+          "f": "src/app/stores/executionDashboardStore/remainingBalance.ts",
+          "kb": 0.2
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/executorRequestEnforceability.ts",
+          "kb": 0.2
+        },
+        {
+          "f": "src/app/utils/bffAuthFlags.ts",
+          "kb": 0.2
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealProceedings.ts",
+          "kb": 0.2
+        },
+        {
+          "f": "src/app/domain/interfaces/IPersistenceRepository.ts",
+          "kb": 0.2
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealCassationResultLabels.ts",
+          "kb": 0.2
+        },
+        {
+          "f": "src/app/utils/quantumTasksStorageKey.ts",
+          "kb": 0.2
+        },
+        {
+          "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appealEngineCore.ts",
+          "kb": 0.1
+        },
+        {
+          "f": "src/app/lib/supabase-client.ts",
+          "kb": 0
+        },
+        {
+          "f": "src/lib/supabase.ts",
+          "kb": 0
+        }
+      ]
+    },
+    "seizure-followup-logic": {
+      "kb": 21.2,
+      "files": [
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardFollowupSeizureInits.ts",
+          "kb": 7.3
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSeizureRowPatch.ts",
+          "kb": 5.5
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardFollowupSeizureHandlers.ts",
+          "kb": 4.9
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSeizureRequestSubmit.ts",
+          "kb": 3.6
+        }
+      ]
+    },
+    "seizure-inline": {
+      "kb": 4.5,
+      "files": [
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/seizureInlineFocusUtils.ts",
+          "kb": 2.9
+        },
+        {
+          "f": "src/app/domain/seizure/seizureInlineFocusSession.ts",
+          "kb": 1.6
+        }
+      ]
+    },
+    "decision-queue": {
+      "kb": 131.2,
+      "files": [
+        {
+          "f": "src/app/utils/executorSeizureDecisionQueueReadResolve.ts",
+          "kb": 19.6
+        },
+        {
+          "f": "src/app/utils/executorSeizureDecisionQueueTypes.ts",
+          "kb": 17.3
+        },
+        {
+          "f": "src/app/utils/executorSeizureDecisionQueuePatch.ts",
+          "kb": 15.9
+        },
+        {
+          "f": "src/app/utils/executorSeizureDecisionQueueReadGoverningPersonal.ts",
+          "kb": 11.7
+        },
+        {
+          "f": "src/app/utils/executorSeizureDecisionQueueAppendCoercive.ts",
+          "kb": 11.3
+        },
+        {
+          "f": "src/app/utils/executorSeizureDecisionQueueAppendSeizure.ts",
+          "kb": 11
+        },
+        {
+          "f": "src/app/utils/executorSeizureDecisionQueueReadGoverningEviction.ts",
+          "kb": 10.6
+        },
+        {
+          "f": "src/app/utils/executorSeizureDecisionQueueAppendEviction.ts",
+          "kb": 10.1
+        },
+        {
+          "f": "src/app/utils/executorSeizureDecisionQueueRead.ts",
+          "kb": 5.9
+        },
+        {
+          "f": "src/app/utils/executorSeizureDecisionQueueAppendSpecial.ts",
+          "kb": 5.7
+        },
+        {
+          "f": "src/app/utils/executorSeizureDecisionQueueReadGoverningHub.ts",
+          "kb": 5.2
+        },
+        {
+          "f": "src/app/utils/executorSeizureDecisionQueue.ts",
+          "kb": 4.4
+        },
+        {
+          "f": "src/app/utils/executorSeizureDecisionQueueReadGoverning.ts",
+          "kb": 1.5
+        },
+        {
+          "f": "src/app/utils/executorSeizureDecisionQueueAppend.ts",
+          "kb": 0.9
+        }
+      ]
+    },
+    "seizure-financial-utils": {
+      "kb": 24.9,
+      "files": [
+        {
+          "f": "src/app/utils/alimonyFinancialBreakdown.ts",
+          "kb": 7
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/movableSeizureFinancialUtils.ts",
+          "kb": 5.8
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/thirdPartySeizureFinancialUtils.ts",
+          "kb": 5.2
+        },
+        {
+          "f": "src/app/components/lawyer/ExecutionDashboard/utils/seizureFinancialTrustLedgerUtils.ts",
+          "kb": 4
+        },
+        {
+          "f": "src/app/types/execution/financial.ts",
+          "kb": 2.8
+        }
+      ]
+    },
+    "domain-seizure": {
+      "kb": 4.6,
+      "files": [
+        {
+          "f": "src/app/domain/seizure/seizureBasicRequestService.ts",
+          "kb": 2.9
+        },
+        {
+          "f": "src/app/domain/seizure/seizureWorkflowStatus.ts",
+          "kb": 1.7
+        }
+      ]
+    }
+  },
+  "topModules": [
+    {
+      "f": "src/app/services/SecureStoreService.ts",
+      "kb": 34.8,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/services/CryptoService.ts",
+      "kb": 20.3,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistry.ts",
+      "kb": 20.1,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueueReadResolve.ts",
+      "kb": 19.6,
+      "peel": "decision-queue",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/followupSpecializationVisibility.ts",
+      "kb": 18.2,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueueTypes.ts",
+      "kb": 17.3,
+      "peel": "decision-queue",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionCreationView/hooks/useAlimonyCalculator.ts",
+      "kb": 16.5,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueuePatch.ts",
+      "kb": 15.9,
+      "peel": "decision-queue",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSeizedPropertyModals.ts",
+      "kb": 15.7,
+      "peel": "seizure-assets",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/smart-modal/parts/civilLawTaxonomy.ts",
+      "kb": 15.7,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executionDossierBlobPersistence.ts",
+      "kb": 15,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/services/settings/backgroundPresets.ts",
+      "kb": 14.4,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/creditorAppealEnforcement.ts",
+      "kb": 14,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/creditorPartyDeathPersistence.ts",
+      "kb": 13.9,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executionDecisionsNamespaceWrite.ts",
+      "kb": 13.9,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealProceedingsManual.ts",
+      "kb": 13.5,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorApprovalWorkflow.ts",
+      "kb": 13.4,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels.ts",
+      "kb": 12.4,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveActionSeizureSave.ts",
+      "kb": 11.7,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/executionDashboardHandlerClusterBridgeLazy.tsx",
+      "kb": 11.7,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueueReadGoverningPersonal.ts",
+      "kb": 11.7,
+      "peel": "decision-queue",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/specificDeliveryItemsUtils.ts",
+      "kb": 11.7,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueueAppendCoercive.ts",
+      "kb": 11.3,
+      "peel": "decision-queue",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/timelineSmartDisplay.ts",
+      "kb": 11.3,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSeizureAssetModalHandlers.ts",
+      "kb": 11.1,
+      "peel": "seizure-assets",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealProceedingsCatalog.ts",
+      "kb": 11.1,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueueAppendSeizure.ts",
+      "kb": 11,
+      "peel": "decision-queue",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/services/settings/homeWidgetPlacements.ts",
+      "kb": 11,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/timelineDedup.ts",
+      "kb": 10.9,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executionFilesStorage.ts",
+      "kb": 10.7,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueueReadGoverningEviction.ts",
+      "kb": 10.6,
+      "peel": "decision-queue",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/maritalFurniture.ts",
+      "kb": 10.4,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/infrastructure/persistence/LocalStorageRepository.ts",
+      "kb": 10.2,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/FinancialOperationsCenter/unifiedLedgerLite.ts",
+      "kb": 10.1,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueueAppendEviction.ts",
+      "kb": 10.1,
+      "peel": "decision-queue",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/types/execution/seizure.ts",
+      "kb": 10,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSeizureAssetModalSaveHandlers.ts",
+      "kb": 9.9,
+      "peel": "seizure-assets",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/stores/executionDashboardStore/subFileActions.ts",
+      "kb": 9.6,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealDates.ts",
+      "kb": 9.6,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/services/dossierPersistence/dossierPersistenceService.ts",
+      "kb": 9.5,
+      "peel": "other-absorbed",
+      "cluster": "absorbed"
+    }
+  ]
+}

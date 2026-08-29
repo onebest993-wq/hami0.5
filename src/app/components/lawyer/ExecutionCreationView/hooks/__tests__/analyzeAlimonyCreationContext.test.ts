@@ -18,7 +18,6 @@ describe('analyzeAlimonyCreationContext', () => {
 
         expect(analysis.findings.some((f) => f.severity === 'critical')).toBe(true);
         expect(analysis.coherenceScore).toBe(0);
-        expect(analysis.sparkBrief.length).toBeGreaterThan(5);
         expect(analysis.synthesis).toContain('تعارض');
         expect(analysis.recommendations.length).toBeGreaterThan(0);
         expect(analysis.recommendations[0].rationale.length).toBeGreaterThan(10);

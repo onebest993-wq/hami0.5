@@ -18,7 +18,7 @@ type OpenersOrchestratorKeys =
     | 'setReqSeizureSelectedDefendantIds' | 'setReqSeizureDraftsByDefendant' | 'setReqIsStarred'
     | 'setReqDraftAttachments' | 'setIsRequestsModalOpen' | 'setRequestMarginModalOpen';
 
-export type CriminalRequestModalOpenersParams = Pick<CriminalRequestsOrchestratorSlice, OpenersOrchestratorKeys> & {
+type CriminalRequestModalOpenersParams = Pick<CriminalRequestsOrchestratorSlice, OpenersOrchestratorKeys> & {
     autoRequestPartyId: string | null;
     autoConcernedPartyId: string | null;
     activeLegalArticle: string;

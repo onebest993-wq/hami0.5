@@ -16,12 +16,10 @@ export function useExecutionArchiveCardLiveRevision(enabled: boolean): number {
         for (const eventName of LEDGER_EVENTS) {
             window.addEventListener(eventName, bump);
         }
-        window.addEventListener('focus', bump);
         return () => {
             for (const eventName of LEDGER_EVENTS) {
                 window.removeEventListener(eventName, bump);
             }
-            window.removeEventListener('focus', bump);
         };
     }, [enabled]);
 

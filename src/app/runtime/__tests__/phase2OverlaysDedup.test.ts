@@ -1,15 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readLawyerDashboardMainViewSurface } from './readLawyerDashboardMainViewSurface';
 
 const root = process.cwd();
 
 describe('Phase 2 — lawyer overlays de-dupe (after Phase 4)', () => {
     it('MainView يركّب execution/lawsuits/criminal خارج Host مع keep-alive للدعاوى', () => {
-        const src = readFileSync(
-            join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
-            'utf8',
-        );
+        const src = readLawyerDashboardMainViewSurface();
         expect(src).toContain('LawyerDashboardExecutionOverlayEntry');
         expect(src).toContain('LawyerDashboardLawsuitsOverlayEntry');
         expect(src).toContain('LawyerDashboardCriminalOverlayEntry');
@@ -40,11 +38,11 @@ describe('Phase 2 — lawyer overlays de-dupe (after Phase 4)', () => {
         ).toThrow();
     });
 
-    it('notesBootSettled يُمرَّر من workspace إلى data bundle', () => {
+    it('notesBootSettled لا يُمرَّر إلى overlays — الخلاصة لا تعتمد عليه', () => {
         const src = readFileSync(
             join(root, 'src/app/hooks/lawyerDashboard/buildLawyerDashboardOverlaysBundleProps.ts'),
             'utf8',
         );
-        expect(src).toContain('notesBootSettled: workspace.notesBootSettled');
+        expect(src).not.toContain('notesBootSettled');
     });
 });

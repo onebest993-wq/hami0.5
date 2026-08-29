@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
 import type { PersonalApplicableLaw } from '@/app/components/lawyer/personal-status/personalStatusValidation';
 import { PersonalStatusLawReferencePanel } from '@/app/components/lawyer/personal-status/PersonalStatusLawReferencePanel';
 import { personalPearlHubTheme } from '@/app/components/lawyer/personal-status/personalStatusPearlTheme';

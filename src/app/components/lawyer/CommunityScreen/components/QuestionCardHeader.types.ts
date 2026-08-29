@@ -1,0 +1,35 @@
+import type { CommunityPost } from '@/app/services/lawyer-cloud';
+
+export type QuestionCardHeaderProps = {
+    post: CommunityPost;
+    displayName: string;
+    isAnonymous: boolean;
+    isAdmin: boolean;
+    isFollowing: boolean;
+    canFollow: boolean;
+    followerCount: number;
+    postCount: number;
+    isEdited: boolean;
+    editCount: number;
+    isOwner: boolean;
+    isPinned: boolean;
+    isLocked: boolean;
+    canLockUnlock: boolean;
+    isThreadFollowing: boolean;
+    currentUserId: string | null;
+    showUserPopup: boolean;
+    setShowUserPopup: (open: boolean) => void;
+    showEditInfo: boolean;
+    setShowEditInfo: (open: boolean | ((v: boolean) => boolean)) => void;
+    onFollow: (targetUserId: string) => void;
+    onOpenProfile?: (userId: string, displayName?: string) => void;
+    onToggleLock?: (postId: string) => void;
+    onCopyPostText?: (postId: string) => void;
+    onSaveToVault?: (postId: string) => void;
+    onToggleThreadFollow?: (postId: string) => void;
+    onMuteUser?: (userId: string) => void;
+    onTogglePin: (postId: string) => void;
+    onEdit: (postId: string) => void;
+    onDelete: (postId: string) => void;
+    onReport: (postId: string) => void;
+};

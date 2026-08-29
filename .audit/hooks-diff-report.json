@@ -1,0 +1,106 @@
+{
+  "currentFiles": {
+    "src/app/components/lawyer/DecisionsHub.stability.test.tsx": [
+      {
+        "line": 11,
+        "message": "React Hook \"useState\" is called in function \"_Parent\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      },
+      {
+        "line": 12,
+        "message": "React Hook \"React.useEffect\" is called in function \"_Parent\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      }
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodySecondarySections.tsx": [
+      {
+        "line": 181,
+        "message": "React Hook \"useMemo\" is called conditionally. React Hooks must be called in the exact same order in every component render."
+      },
+      {
+        "line": 189,
+        "message": "React Hook \"useMemo\" is called conditionally. React Hooks must be called in the exact same order in every component render."
+      }
+    ],
+    "src/app/components/lawyer/dashboard/quickNoteDraft.ts": [
+      {
+        "line": 23,
+        "message": "React Hook \"useTestDraftStore\" is called in function \"loadQuickNoteDraft\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      },
+      {
+        "line": 41,
+        "message": "React Hook \"useTestDraftStore\" is called in function \"saveQuickNoteDraft\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      }
+    ],
+    "src/app/services/caseShare/caseShareLocalStore.ts": [
+      {
+        "line": 30,
+        "message": "React Hook \"useInMemoryTestStore\" is called in function \"loadCaseShareRecords\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      },
+      {
+        "line": 46,
+        "message": "React Hook \"useInMemoryTestStore\" is called in function \"saveCaseShareRecords\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      },
+      {
+        "line": 60,
+        "message": "React Hook \"useInMemoryTestStore\" is called in function \"clearCaseShareRecords\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      }
+    ],
+    "src/app/services/vaultBlobStore.ts": [
+      {
+        "line": 123,
+        "message": "React Hook \"useMemoryStore\" is called in function \"openDbFresh\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      },
+      {
+        "line": 179,
+        "message": "React Hook \"useMemoryStore\" is called in function \"getDb\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      },
+      {
+        "line": 317,
+        "message": "React Hook \"useMemoryStore\" is called in function \"writeVaultBlobRow\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      },
+      {
+        "line": 414,
+        "message": "React Hook \"useMemoryStore\" is called in function \"putVaultBlobVerified\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      },
+      {
+        "line": 452,
+        "message": "React Hook \"useMemoryStore\" is called in function \"getVaultBlob\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      },
+      {
+        "line": 511,
+        "message": "React Hook \"useMemoryStore\" is called in function \"deleteVaultBlob\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      },
+      {
+        "line": 545,
+        "message": "React Hook \"useMemoryStore\" is called in function \"deleteVaultBlobVerified\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      },
+      {
+        "line": 580,
+        "message": "React Hook \"useMemoryStore\" is called in function \"clearAllVaultBlobs\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      }
+    ],
+    "src/app/services/voice/voiceNoteStorage.ts": [
+      {
+        "line": 49,
+        "message": "React Hook \"useMemoryStore\" is called in function \"putVoiceBlob\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      },
+      {
+        "line": 58,
+        "message": "React Hook \"useMemoryStore\" is called in function \"getVoiceBlob\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      },
+      {
+        "line": 71,
+        "message": "React Hook \"useMemoryStore\" is called in function \"deleteVoiceBlob\" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word \"use\"."
+      }
+    ]
+  },
+  "baselineCrashFiles": [
+    "src/app/components/lawyer/DecisionsHub.stability.test.tsx",
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodySecondarySections.tsx",
+    "src/app/components/lawyer/dashboard/quickNoteDraft.ts",
+    "src/app/services/caseShare/caseShareLocalStore.ts",
+    "src/app/services/vaultBlobStore.ts",
+    "src/app/services/voice/voiceNoteStorage.ts"
+  ],
+  "newFiles": [],
+  "totalCurrent": 20
+}

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { LegalTask } from '@/app/types/TaskEngine';
+import { legalTaskStub as task } from '@/app/services/tasks/__tests__/legalTaskStub';
 import {
     getPendingFieldTasksCountSnapshot,
     getQuantumPendingSnapshot,
@@ -8,25 +8,6 @@ import {
     subscribePendingFieldTasksCount,
     subscribeQuantumTasksFingerprint,
 } from '../quantumTasksMetrics';
-
-function task(partial: Partial<LegalTask> & Pick<LegalTask, 'id' | 'title'>): LegalTask {
-    return {
-        id: partial.id,
-        rawText: partial.title,
-        title: partial.title,
-        location: partial.location ?? null,
-        parsedDate: partial.parsedDate ?? null,
-        reminderAt: null,
-        isFatalDeadline: partial.isFatalDeadline ?? false,
-        linkedCaseId: null,
-        status: partial.status ?? 'pending',
-        completedAt: partial.completedAt ?? null,
-        pinnedToFieldCurtain: partial.pinnedToFieldCurtain ?? false,
-        subTasks: partial.subTasks ?? [],
-        documentRequirements: [],
-        expenses: [],
-    };
-}
 
 describe('quantumTasksMetrics', () => {
     afterEach(() => {

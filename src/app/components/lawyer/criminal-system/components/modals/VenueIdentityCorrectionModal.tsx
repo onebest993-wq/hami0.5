@@ -179,12 +179,12 @@ export const VenueIdentityCorrectionModal = ({
 
     return (
         <div
-            className="fixed inset-0 z-[240] bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden"
+            className="fixed inset-0 z-[240] bg-black/62 backdrop-blur-sm p-4 flex items-center justify-center print:hidden"
             dir="rtl"
             role="dialog"
             aria-modal="true"
         >
-            <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden shadow-2xl">
+            <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden shadow-lg">
                 <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50 flex items-center justify-between gap-3">
                     <div className="text-white font-black text-sm whitespace-normal break-words">
                         تعديل بيانات الترويسة
@@ -192,7 +192,7 @@ export const VenueIdentityCorrectionModal = ({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="text-white/60 hover:text-white transition text-xs font-bold px-2 py-1 rounded-md hover:bg-slate-700/60"
+                        className="min-h-[44px] min-w-[44px] px-3 text-white/60 hover:text-white transition text-xs font-bold rounded-md hover:bg-slate-700/60 touch-manipulation"
                     >
                         إغلاق
                     </button>
@@ -303,7 +303,7 @@ export const VenueIdentityCorrectionModal = ({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-black text-white/80 hover:text-white hover:bg-slate-800/30 transition"
+                            className="min-h-[44px] px-4 rounded-xl border border-slate-700 bg-slate-900 text-sm font-black text-white/80 hover:text-white hover:bg-slate-800/30 transition touch-manipulation"
                         >
                             إلغاء
                         </button>

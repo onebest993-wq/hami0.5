@@ -6,12 +6,14 @@ import {
     isOverlayThemeActive,
     type OverlayLayerVisibleClasses,
 } from '@/app/runtime/overlayController';
+import { blurFocusWithin } from '@/app/utils/inertProps';
+import { armHubLayerEnter, clearHubLayerEnter } from '@/app/runtime/overlayHubLayerMotion';
+import { REPOSITORY_HUB_LAYER } from '@/app/runtime/overlayHubLayerSpecs';
 
 const MODAL_SELECTOR = '[data-testid="smart-repository-modal"]';
-const INSTANT_SELECTOR = '[data-testid="smart-repository-instant-shell"]';
 const REPOSITORY_THEME = {
     htmlAttr: 'data-hami-repository-open',
-    themeColor: '#050810',
+    themeColor: '#0A0F1C',
 } as const;
 
 const REPOSITORY_LAYER_CLASSES: OverlayLayerVisibleClasses = {
@@ -26,13 +28,17 @@ const REPOSITORY_LAYER_CLASSES: OverlayLayerVisibleClasses = {
 function resolveLayer(): HTMLElement | null {
     if (typeof document === 'undefined') return null;
     const modal = document.querySelector(MODAL_SELECTOR);
-    if (modal instanceof HTMLElement) return modal;
-    const instant = document.querySelector(INSTANT_SELECTOR);
-    return instant instanceof HTMLElement ? instant : null;
+    return modal instanceof HTMLElement ? modal : null;
 }
 
 function applyLayerVisible(root: HTMLElement, visible: boolean): void {
     applyOverlayLayerVisible(root, visible, REPOSITORY_LAYER_CLASSES);
+    if (visible) {
+        root.removeAttribute('inert');
+    } else {
+        blurFocusWithin(root);
+        root.setAttribute('inert', '');
+    }
     applyOverlayThemeChrome(REPOSITORY_THEME, visible);
 }
 
@@ -49,6 +55,12 @@ export function paintRepositoryInstantChrome(): boolean {
         applyRepositoryOpaqueChrome();
         return false;
     }
+    armHubLayerEnter(REPOSITORY_HUB_LAYER, () => {
+        const modal = document.querySelector(MODAL_SELECTOR);
+        if (!(modal instanceof HTMLElement)) return null;
+        if (modal.getAttribute('aria-hidden') === 'true') return null;
+        return modal;
+    });
     applyLayerVisible(layer, true);
     return true;
 }
@@ -56,6 +68,7 @@ export function paintRepositoryInstantChrome(): boolean {
 /** إخفاء فوري للطبقة الدافئة */
 export function concealRepositoryWarmShell(): void {
     if (typeof document === 'undefined') return;
+    clearHubLayerEnter(REPOSITORY_HUB_LAYER);
     const layer = resolveLayer();
     if (layer) applyLayerVisible(layer, false);
     else applyOverlayThemeChrome(REPOSITORY_THEME, false);

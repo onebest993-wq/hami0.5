@@ -1,8 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronRight, X } from '@/app/components/ui/lucideIcons';
+import { ChevronRight } from '@/app/components/ui/icons/ChevronRight';
+import { X } from '@/app/components/ui/icons/X';
 import { useLawyerSettingsAppearance } from '@/app/context/LawyerSettingsContext';
-import { SETTINGS_SHELL_CHROME } from '../settingsShellStyle';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
+import { registerAppearanceCustomizeGuard } from '../settingsEscapeStack';
+import { useSettingsOverlayKeyboard } from '../hooks/useSettingsOverlayKeyboard';
+import { SettingsNestedSheetFrame } from '../SettingsNestedSheetFrame';
 import { AppearanceBlockCustomizePanel } from './AppearanceBlockCustomizePanel';
 import type { AppearanceBlockCustomize } from './useAppearanceBlockCustomize';
 
@@ -27,9 +31,16 @@ export function AppearanceBlockCustomizeSheet({
 }) {
     const appearance = useLawyerSettingsAppearance();
     const shellDir = appearance.language === 'en' ? 'ltr' : 'rtl';
+    const reduceMotion = useReduceMotion();
+    const panelRef = useRef<HTMLDivElement>(null);
+    const keyboardInset = useSettingsOverlayKeyboard(open, panelRef, reduceMotion);
 
     useEffect(() => {
-        if (!open) return;
+        if (!open) {
+            registerAppearanceCustomizeGuard(false);
+            return;
+        }
+        registerAppearanceCustomizeGuard(true, onClose);
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 event.preventDefault();
@@ -38,26 +49,26 @@ export function AppearanceBlockCustomizeSheet({
             }
         };
         window.addEventListener('keydown', onKeyDown, true);
-        return () => window.removeEventListener('keydown', onKeyDown, true);
+        return () => {
+            window.removeEventListener('keydown', onKeyDown, true);
+            registerAppearanceCustomizeGuard(false);
+        };
     }, [onClose, open]);
 
     if (!open || typeof document === 'undefined') {
         return null;
     }
 
-    const portalRoot = resolveSheetPortalRoot();
-
     return createPortal(
-        <div
-            className="hami-appearance-block-customize-sheet flex flex-col font-sans"
-            style={{ backgroundColor: SETTINGS_SHELL_CHROME }}
-            data-testid="appearance-block-customize-sheet"
+        <SettingsNestedSheetFrame
+            testId="appearance-block-customize-sheet"
+            extraRootClassName="hami-appearance-block-customize-sheet"
             dir={shellDir}
-            role="dialog"
-            aria-modal="true"
-            aria-label="تخصيص قسم"
+            label="تخصيص قسم"
+            onClose={onClose}
+            panelRef={panelRef}
         >
-            <header className="shrink-0 flex items-center gap-3 px-4 pt-[max(0.65rem,env(safe-area-inset-top))] pb-3 border-b border-white/[0.06]">
+            <header className="hami-settings-sheet-header shrink-0 flex items-center gap-3 pb-3 border-b border-white/[0.06]">
                 <button
                     type="button"
                     onPointerDown={(event) => {
@@ -98,10 +109,16 @@ export function AppearanceBlockCustomizeSheet({
                 </button>
             </header>
 
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-hide px-4 py-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+            <div
+                className="hami-settings-sheet-body flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-contain scrollbar-hide py-4"
+                data-keyboard-inset={keyboardInset}
+                style={{
+                    paddingBottom: `calc(max(1.5rem, env(safe-area-inset-bottom, 0px)) + ${keyboardInset}px)`,
+                }}
+            >
                 <AppearanceBlockCustomizePanel customize={customize} themePrimary={themePrimary} />
             </div>
-        </div>,
-        portalRoot,
+        </SettingsNestedSheetFrame>,
+        resolveSheetPortalRoot(),
     );
 }

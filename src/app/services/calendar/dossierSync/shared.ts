@@ -4,6 +4,7 @@
  */
 import type { LegalTask } from '@/app/types/TaskEngine';
 import type { CalendarSourceModule } from '@/app/services/calendarBridge.types';
+import { CALENDAR_BACKGROUND_SYNC_FAILED_EVENT } from '@/app/services/calendarBridge.types';
 import {
     QUANTUM_TASKS_STORAGE_KEY,
     deserializeQuantumTasks,
@@ -133,6 +134,11 @@ export function criminalCaseNumber(caseRecord: Record<string, unknown>): string 
 
 export function dispatchCalendarUpdated(): void {
     dispatchCalendarUpdatedEvent();
+}
+
+export function dispatchCalendarBackgroundSyncFailed(): void {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent(CALENDAR_BACKGROUND_SYNC_FAILED_EVENT));
 }
 
 export function moduleLabelArSafe(module: CalendarSourceModule): string {

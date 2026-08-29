@@ -1,17 +1,8 @@
-import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
-import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
 import { profileBootHydratorState as profileBootState } from '@/app/runtime/profileBootHydratorState';
 
 function loadProfileHubLoader() {
-    return import('@/app/runtime/profileHubLoader');
-}
-
-function prefetchProfileHubModuleNow(): void {
-    void loadProfileHubLoader()
-        .then((m) => m.prefetchProfileHubModule())
-        .catch(() => undefined);
+    return import('@/app/runtime/royalLawyerProfileLoader');
 }
 
 function warmProfileData(userId?: string | null): void {
@@ -30,26 +21,19 @@ export const PROFILE_SHELL_HYDRATED_EVENT = 'hami:profile-shell-hydrated';
 export const PROFILE_PRIME_HOST_EVENT = 'hami:profile-prime-host';
 
 async function profilePrefetchAllowed(): Promise<boolean> {
-    try {
-        const { getLawyerSettingsSnapshot } = await import('@/app/services/settings/settingsRuntime');
-        const s = getLawyerSettingsSnapshot();
-        if (s.security.localOnlyMode) return false;
-        if (s.performance.prefetchScreens === false) return false;
-        if (isLitePerformanceActive(s.performance.litePerformance)) return false;
-    } catch {
-        /* ignore */
-    }
-    return true;
-}
-
-async function hydrateDelayMs(): Promise<number> {
-    if (!(await profilePrefetchAllowed())) return -1;
-    return 0;
+    const { isSectionBackgroundPrefetchAllowed } = await import('@/app/runtime/sectionPrefetchPolicy');
+    return isSectionBackgroundPrefetchAllowed();
 }
 
 function dispatchHydratedOnce(): void {
     if (typeof window === 'undefined') return;
     window.dispatchEvent(new Event(PROFILE_SHELL_HYDRATED_EVENT));
+}
+
+function prefetchPageExtrasAfterHub(): void {
+    void import('@/app/runtime/profilePageExtrasPrefetch')
+        .then((m) => m.prefetchProfileCustomBlocksChunk())
+        .catch(() => undefined);
 }
 
 export function dispatchProfilePrimeHost(): void {
@@ -58,20 +42,32 @@ export function dispatchProfilePrimeHost(): void {
 }
 
 /**
- * تسخين فوري بعد رفع حاجز الإقلاع — hub + بيانات فقط.
- * ورقة الاستوديو تُحمَّل عند نية الفتح (زر الاستوديو / openSettings).
+ * تسخين بيانات بعد رفع حاجز الإقلاع — بلا مقطع Royal.
+ * الشجرة تُحمَّل عند نية الفتح (prime / pointerdown).
  */
 export function prefetchProfileAfterBootReveal(userId?: string | null): void {
     if (typeof window === 'undefined' || profileBootState.coldBootPrefetchStarted) return;
     void profilePrefetchAllowed().then((ok) => {
         if (!ok || profileBootState.coldBootPrefetchStarted) return;
         profileBootState.coldBootPrefetchStarted = true;
-        void ensureDeferredFeatureStylesLoaded();
-        void import('@/app/runtime/profileShellPrime')
-            .then((m) => m.primeProfileForBoot())
-            .catch(() => undefined);
-        void hydrateProfileShellForInstantOpenWithData(userId, false).catch(() => undefined);
+        warmProfileData(userId);
     });
+}
+
+/**
+ * بعد تفاعل اللوحة — حمّل مقطع Host/Royal قبل النقرة.
+ * الإقلاع يسخّن بيانات فقط حتى لا ينافس أول رسم.
+ */
+export function prefetchProfileHubAfterInteractive(): void {
+    if (typeof window === 'undefined') return;
+    void import('@/app/components/lawyer/dashboard/profile/ProfileTabHost').catch(() => undefined);
+    void loadProfileHubLoader()
+        .then((hub) => {
+            hub.prefetchProfileHubModule();
+            return hub.loadProfileHubModule();
+        })
+        .then(() => prefetchPageExtrasAfterHub())
+        .catch(() => undefined);
 }
 
 /**
@@ -87,6 +83,7 @@ export function hydrateProfileShellForInstantOpenWithData(
         const hub = await loadProfileHubLoader();
         if (hub.isProfileShellModuleResolved()) {
             hub.prefetchProfileHubModule();
+            prefetchPageExtrasAfterHub();
             if (userId?.trim()) {
                 warmProfileData(userId);
             }
@@ -106,6 +103,7 @@ export function hydrateProfileShellForInstantOpenWithData(
             .hydrateProfileShellForInstantOpen()
             .then((ok) => {
                 if (ok) {
+                    prefetchPageExtrasAfterHub();
                     if (userId?.trim()) {
                         warmProfileData(userId);
                     }
@@ -131,7 +129,6 @@ export function bindProfileBootHydrator(userId?: string | null): () => void {
     if (typeof window === 'undefined' || profileBootState.bootHydratorArmed) return () => undefined;
     profileBootState.bootHydratorArmed = true;
 
-    let cancelIdle: (() => void) | undefined;
     const uid = userId?.trim() || undefined;
 
     const onBootRevealDone = () => {
@@ -140,17 +137,7 @@ export function bindProfileBootHydrator(userId?: string | null): () => void {
 
     const scheduleHydrate = () => {
         prefetchProfileAfterBootReveal(uid);
-        void hydrateDelayMs().then((delay) => {
-            if (delay < 0) return;
-            cancelIdle?.();
-            cancelIdle = scheduleIdleWork(
-                () => {
-                    prefetchProfileHubModuleNow();
-                    void hydrateProfileShellForInstantOpenWithData(uid);
-                },
-                { minDelayMs: delay, timeoutMs: 4_000 },
-            );
-        });
+        prefetchProfileHubAfterInteractive();
     };
 
     window.addEventListener(BOOT_REVEAL_DONE_EVENT, onBootRevealDone, { once: true });
@@ -166,8 +153,6 @@ export function bindProfileBootHydrator(userId?: string | null): () => void {
 
     return () => {
         profileBootState.bootHydratorArmed = false;
-        cancelIdle?.();
-        cancelIdle = undefined;
         window.removeEventListener(BOOT_REVEAL_DONE_EVENT, onBootRevealDone);
         window.removeEventListener('hami:dashboard-interactive', scheduleHydrate);
     };

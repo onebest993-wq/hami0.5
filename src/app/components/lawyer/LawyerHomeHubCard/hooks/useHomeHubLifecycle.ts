@@ -1,25 +1,37 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { resolveHomeHubShellReady } from '@/app/services/alerts/homeHubCardLogic';
 import {
     markHomeHubPerfPhase,
     reportHomeHubPerf,
 } from '@/app/services/alerts/homeHubPerfMetrics';
-import {
-    peekHomeHubSecretaryAlertsCache,
-} from '@/app/services/alerts/homeHubSecretaryAlertsWarmCache';
-import {
-    peekHomeHubRadarCache,
-    readHomeHubRadarCache,
-} from '@/app/services/alerts/homeHubRadarWarmCache';
 
-export type UseHomeHubLifecycleParams = {
+type UseHomeHubLifecycleParams = {
     lawyerId: string | null;
     alertsLoading: boolean;
     hubFullyEmpty: boolean;
     alertsTabCount: number;
     pinsCount: number;
     radarLoading: boolean;
+    hadRadarCache: boolean;
+    hadAlertsCache: boolean;
 };
+
+function markHomeHubInteractiveAndReport(input: {
+    lawyerId: string | null;
+    alertsTabCount: number;
+    pinsCount: number;
+    hadRadarCache: boolean;
+    hadAlertsCache: boolean;
+}): void {
+    markHomeHubPerfPhase('interactive');
+    reportHomeHubPerf({
+        userId: input.lawyerId ?? undefined,
+        alertsTabCount: input.alertsTabCount,
+        pinsCount: input.pinsCount,
+        hadRadarCache: input.hadRadarCache,
+        hadAlertsCache: input.hadAlertsCache,
+    });
+}
 
 export function useHomeHubLifecycle({
     lawyerId,
@@ -28,51 +40,17 @@ export function useHomeHubLifecycle({
     alertsTabCount,
     pinsCount,
     radarLoading,
+    hadRadarCache,
+    hadAlertsCache,
 }: UseHomeHubLifecycleParams) {
-    const [hadRadarCache, setHadRadarCache] = useState(() =>
-        Boolean(lawyerId && (peekHomeHubRadarCache(lawyerId)?.length ?? 0) > 0),
-    );
-    const [hadAlertsCache, setHadAlertsCache] = useState(() =>
-        Boolean(lawyerId && (peekHomeHubSecretaryAlertsCache(lawyerId)?.length ?? 0) > 0),
-    );
+    const firstPaintRef = useRef(false);
     const reportedRef = useRef(false);
 
     useEffect(() => {
-        reportedRef.current = false;
-        if (!lawyerId) {
-            setHadRadarCache(false);
-            setHadAlertsCache(false);
-            return;
-        }
-
-        const syncSecretaryCache = () => {
-            const secretaryCached = peekHomeHubSecretaryAlertsCache(lawyerId);
-            setHadAlertsCache(Boolean(secretaryCached && secretaryCached.length > 0));
-        };
-
-        syncSecretaryCache();
-
-        const cached = peekHomeHubRadarCache(lawyerId);
-        if (cached && cached.length > 0) {
-            setHadRadarCache(true);
-        } else {
-            let cancelled = false;
-            void readHomeHubRadarCache(lawyerId).then((events) => {
-                if (!cancelled && events.length > 0) setHadRadarCache(true);
-            });
-            return () => {
-                cancelled = true;
-            };
-        }
-
-        return undefined;
-    }, [lawyerId]);
-
-    useEffect(() => {
-        if (!lawyerId || alertsLoading) return;
-        const secretaryCached = peekHomeHubSecretaryAlertsCache(lawyerId);
-        setHadAlertsCache(Boolean(secretaryCached && secretaryCached.length > 0));
-    }, [alertsLoading, lawyerId]);
+        if (firstPaintRef.current) return;
+        firstPaintRef.current = true;
+        markHomeHubPerfPhase('first-paint');
+    }, []);
 
     const isShellReady = resolveHomeHubShellReady({
         alertsLoading,
@@ -87,10 +65,8 @@ export function useHomeHubLifecycle({
     useEffect(() => {
         if (!isShellReady || reportedRef.current) return;
         reportedRef.current = true;
-        markHomeHubPerfPhase('first-paint');
-        markHomeHubPerfPhase('interactive');
-        reportHomeHubPerf({
-            userId: lawyerId ?? undefined,
+        markHomeHubInteractiveAndReport({
+            lawyerId,
             alertsTabCount,
             pinsCount,
             hadRadarCache,
@@ -105,10 +81,12 @@ export function useHomeHubLifecycle({
         const markInteractiveFallback = () => {
             if (reportedRef.current) return;
             reportedRef.current = true;
-            markHomeHubPerfPhase('first-paint');
-            markHomeHubPerfPhase('interactive');
-            reportHomeHubPerf({
-                userId: lawyerId ?? undefined,
+            if (!firstPaintRef.current) {
+                firstPaintRef.current = true;
+                markHomeHubPerfPhase('first-paint');
+            }
+            markHomeHubInteractiveAndReport({
+                lawyerId,
                 alertsTabCount,
                 pinsCount,
                 hadRadarCache,
@@ -120,5 +98,5 @@ export function useHomeHubLifecycle({
         return () => window.clearTimeout(fallback);
     }, [alertsTabCount, hadAlertsCache, hadRadarCache, lawyerId, pinsCount]);
 
-    return { isShellReady, hadRadarCache, hadAlertsCache };
+    return { isShellReady };
 }

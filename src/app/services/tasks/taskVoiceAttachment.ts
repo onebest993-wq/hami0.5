@@ -6,6 +6,11 @@ import {
     persistVoiceRecording,
 } from '@/app/services/voice/voiceRecordingLimits';
 import { deleteVoiceBlob } from '@/app/services/voice/voiceNoteStorage';
+import {
+    clampTaskText,
+    isAllowedTaskVoiceRef,
+    MAX_VOICE_TRANSCRIPT_LENGTH,
+} from '@/app/services/tasks/taskInputGuard';
 
 export type TaskVoiceFields = {
     voiceRef: string | null;
@@ -46,9 +51,13 @@ export async function persistTaskVoiceAttachment(
     const storageKey = taskVoiceStorageKey(taskId);
     try {
         const { body: voiceRef } = await persistVoiceRecording(storageKey, payload.blob);
+        if (!isAllowedTaskVoiceRef(voiceRef)) return null;
+        const transcript = payload.transcript
+            ? clampTaskText(payload.transcript, MAX_VOICE_TRANSCRIPT_LENGTH) || null
+            : null;
         return {
             voiceRef,
-            voiceTranscript: payload.transcript?.trim() || null,
+            voiceTranscript: transcript,
             voiceDurationSec: payload.durationSeconds,
         };
     } catch {

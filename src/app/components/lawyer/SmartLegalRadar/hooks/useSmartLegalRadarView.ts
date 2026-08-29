@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
-import { todayYmd } from '@/app/components/lawyer/SmartLegalRadar/utils';
-import { prefetchRadarCalendarGrid } from '@/app/runtime/radarWidgetLoader';
+import {
+    selectedDateAfterMonthShift,
+    todayYmd,
+} from '@/app/components/lawyer/SmartLegalRadar/radarCalendarMath';
 
 export function useSmartLegalRadarView(initialDate?: string) {
     const today = new Date();
@@ -19,22 +21,18 @@ export function useSmartLegalRadarView(initialDate?: string) {
     }, [initialDate]);
 
     const prevMonth = useCallback(() => {
-        if (viewMonth === 0) {
-            setViewYear((y) => y - 1);
-            setViewMonth(11);
-        } else {
-            setViewMonth((m) => m - 1);
-        }
-    }, [viewMonth]);
+        const next = selectedDateAfterMonthShift(selectedDate, viewYear, viewMonth, -1);
+        setViewYear(next.year);
+        setViewMonth(next.month);
+        setSelectedDate(next.selectedDate);
+    }, [selectedDate, viewYear, viewMonth]);
 
     const nextMonth = useCallback(() => {
-        if (viewMonth === 11) {
-            setViewYear((y) => y + 1);
-            setViewMonth(0);
-        } else {
-            setViewMonth((m) => m + 1);
-        }
-    }, [viewMonth]);
+        const next = selectedDateAfterMonthShift(selectedDate, viewYear, viewMonth, 1);
+        setViewYear(next.year);
+        setViewMonth(next.month);
+        setSelectedDate(next.selectedDate);
+    }, [selectedDate, viewYear, viewMonth]);
 
     const goToToday = useCallback(() => {
         const now = new Date();
@@ -53,7 +51,6 @@ export function useSmartLegalRadarView(initialDate?: string) {
     );
 
     const toggleFullMonth = useCallback(() => {
-        prefetchRadarCalendarGrid();
         setShowFullMonth((v) => !v);
     }, []);
 

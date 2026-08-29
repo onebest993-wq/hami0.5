@@ -1,6 +1,7 @@
 import React from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { CalendarClock, Handshake } from '@/app/components/ui/lucideIcons';
+import { AnimatePresence, motion } from '@/app/motion/overlayMotionRuntime';
+import { CalendarClock } from '@/app/components/ui/icons/CalendarClock';
+import { Handshake } from '@/app/components/ui/icons/Handshake';
 import { BTN_SETTLEMENT_APPLY } from '../constants';
 import { formatIqdDisplay, formatNumberInput, parseAmount } from '../utils';
 

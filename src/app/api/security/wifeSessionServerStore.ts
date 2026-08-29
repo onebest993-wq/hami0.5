@@ -1,4 +1,7 @@
+import { toBase64Url } from '@/app/security/wifeRequestSigningShared.ts';
 import { getSupabaseAdminClient } from './supabaseAdminClient.ts';
+import { wifeRedisJson } from './wifeRedisRest.ts';
+import { getWifeEnv, hasWifeRedisConfig, isWifeProduction } from './wifeStoreEnv.ts';
 
 const DEFAULT_WIFE_SESSION_TABLE = 'wife_session_store';
 const WIFE_SESSION_TTL_MS = 30 * 60 * 1000;
@@ -22,25 +25,12 @@ type WifeSessionStoreRow = {
 
 const memoryStore = new Map<string, WifeSessionRecord>();
 
-function getEnv(name: string): string {
-  const raw = process.env[name];
-  return typeof raw === 'string' ? raw.trim() : '';
-}
-
-function isProduction(): boolean {
-  return getEnv('NODE_ENV').toLowerCase() === 'production';
-}
-
 function isTestRuntime(): boolean {
-  return getEnv('VITEST') === 'true';
+  return getWifeEnv('VITEST') === 'true';
 }
 
 function allowMemoryFallback(): boolean {
-  return !isProduction() || isTestRuntime();
-}
-
-function hasRedisConfig(): boolean {
-  return Boolean(getEnv('WIFE_REDIS_REST_URL') && getEnv('WIFE_REDIS_REST_TOKEN'));
+  return !isWifeProduction() || isTestRuntime();
 }
 
 function redisKey(sessionId: string): string {
@@ -77,11 +67,6 @@ function toIssuedSession(record: WifeSessionRecord): IssuedWifeSession {
   };
 }
 
-function toBase64Url(bytes: Uint8Array): string {
-  const binary = Array.from(bytes, (b) => String.fromCharCode(b)).join('');
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
 function randomSecret(bytesLength: number): string {
   const bytes = new Uint8Array(bytesLength);
   crypto.getRandomValues(bytes);
@@ -89,50 +74,31 @@ function randomSecret(bytesLength: number): string {
 }
 
 async function redisGetValue(key: string): Promise<string | null> {
-  if (!hasRedisConfig()) return null;
-  const redisUrl = getEnv('WIFE_REDIS_REST_URL');
-  const redisToken = getEnv('WIFE_REDIS_REST_TOKEN');
-  const endpoint = `${redisUrl.replace(/\/+$/, '')}/get/${key}`;
-  const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${redisToken}` } });
+  if (!hasWifeRedisConfig()) return null;
+  const res = await wifeRedisJson(`/get/${key}`);
   if (!res.ok) return null;
-  const body = (await res.json().catch(() => null)) as { result?: unknown } | null;
-  return typeof body?.result === 'string' && body.result ? body.result : null;
+  return typeof res.result === 'string' && res.result ? res.result : null;
 }
 
 async function redisSetValue(key: string, value: string, ttlMs: number): Promise<boolean> {
-  if (!hasRedisConfig()) return false;
-  const redisUrl = getEnv('WIFE_REDIS_REST_URL');
-  const redisToken = getEnv('WIFE_REDIS_REST_TOKEN');
-  const endpoint =
-    `${redisUrl.replace(/\/+$/, '')}/set/${key}/${encodeURIComponent(value)}` +
-    `?PX=${Math.max(60_000, ttlMs)}`;
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${redisToken}` },
-  });
+  if (!hasWifeRedisConfig()) return false;
+  const res = await wifeRedisJson(
+    `/set/${key}/${encodeURIComponent(value)}?PX=${Math.max(60_000, ttlMs)}`,
+    'POST',
+  );
   return res.ok;
 }
 
 async function redisDeleteKey(key: string): Promise<void> {
-  if (!hasRedisConfig()) return;
-  const redisUrl = getEnv('WIFE_REDIS_REST_URL');
-  const redisToken = getEnv('WIFE_REDIS_REST_TOKEN');
-  const endpoint = `${redisUrl.replace(/\/+$/, '')}/del/${key}`;
-  await fetch(endpoint, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${redisToken}` },
-  });
+  if (!hasWifeRedisConfig()) return;
+  await wifeRedisJson(`/del/${key}`, 'POST');
 }
 
 async function redisListKeys(pattern: string): Promise<string[]> {
-  if (!hasRedisConfig()) return [];
-  const redisUrl = getEnv('WIFE_REDIS_REST_URL');
-  const redisToken = getEnv('WIFE_REDIS_REST_TOKEN');
-  const endpoint = `${redisUrl.replace(/\/+$/, '')}/keys/${pattern}`;
-  const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${redisToken}` } });
+  if (!hasWifeRedisConfig()) return [];
+  const res = await wifeRedisJson(`/keys/${pattern}`);
   if (!res.ok) return [];
-  const body = (await res.json().catch(() => null)) as { result?: unknown } | null;
-  return Array.isArray(body?.result) ? body.result.filter((key): key is string => typeof key === 'string') : [];
+  return Array.isArray(res.result) ? res.result.filter((key): key is string => typeof key === 'string') : [];
 }
 
 function findReusableMemorySession(subject: string, deviceId: string, nowMs: number): WifeSessionRecord | null {
@@ -149,7 +115,7 @@ function findReusableMemorySession(subject: string, deviceId: string, nowMs: num
 }
 
 async function persistSession(record: WifeSessionRecord): Promise<boolean> {
-  if (hasRedisConfig()) {
+  if (hasWifeRedisConfig()) {
     try {
       const ttlMs = Math.max(60_000, record.expiresAtMs - Date.now());
       const sessionStored = await redisSetValue(redisKey(record.sessionId), JSON.stringify(record), ttlMs);
@@ -165,7 +131,7 @@ async function persistSession(record: WifeSessionRecord): Promise<boolean> {
   const admin = getSupabaseAdminClient();
   if (admin) {
     try {
-      const table = getEnv('WIFE_SESSION_TABLE') || DEFAULT_WIFE_SESSION_TABLE;
+      const table = getWifeEnv('WIFE_SESSION_TABLE') || DEFAULT_WIFE_SESSION_TABLE;
       const { error } = await admin.from(table).upsert(
         {
           session_id: record.sessionId,
@@ -191,7 +157,7 @@ async function readSession(sessionId: string): Promise<WifeSessionRecord | null>
   const nowMs = Date.now();
   pruneMemory(nowMs);
 
-  if (hasRedisConfig()) {
+  if (hasWifeRedisConfig()) {
     try {
       const raw = await redisGetValue(redisKey(sessionId));
       if (raw) {
@@ -219,7 +185,7 @@ async function readSession(sessionId: string): Promise<WifeSessionRecord | null>
   const admin = getSupabaseAdminClient();
   if (admin) {
     try {
-      const table = getEnv('WIFE_SESSION_TABLE') || DEFAULT_WIFE_SESSION_TABLE;
+      const table = getWifeEnv('WIFE_SESSION_TABLE') || DEFAULT_WIFE_SESSION_TABLE;
       const query = await admin
         .from(table)
         .select('session_id, subject, secret, device_id, expires_at_ms')
@@ -251,7 +217,7 @@ async function readReusableSessionBySubjectDevice(subject: string, deviceId: str
   const nowMs = Date.now();
   pruneMemory(nowMs);
 
-  if (hasRedisConfig()) {
+  if (hasWifeRedisConfig()) {
     try {
       const indexedSessionId = await redisGetValue(redisSubjectDeviceKey(subject, normalizedDeviceId));
       if (indexedSessionId?.trim()) {
@@ -268,7 +234,7 @@ async function readReusableSessionBySubjectDevice(subject: string, deviceId: str
   const admin = getSupabaseAdminClient();
   if (admin) {
     try {
-      const table = getEnv('WIFE_SESSION_TABLE') || DEFAULT_WIFE_SESSION_TABLE;
+      const table = getWifeEnv('WIFE_SESSION_TABLE') || DEFAULT_WIFE_SESSION_TABLE;
       const query = await admin
         .from(table)
         .select('session_id, subject, secret, device_id, expires_at_ms')
@@ -302,7 +268,7 @@ async function listSessionsForSubject(subject: string): Promise<WifeSessionRecor
   pruneMemory(nowMs);
   const dedup = new Map<string, WifeSessionRecord>();
 
-  if (hasRedisConfig()) {
+  if (hasWifeRedisConfig()) {
     try {
       const keys = await redisListKeys(redisSubjectDevicePattern(subject));
       for (const key of keys) {
@@ -321,7 +287,7 @@ async function listSessionsForSubject(subject: string): Promise<WifeSessionRecor
   const admin = getSupabaseAdminClient();
   if (admin) {
     try {
-      const table = getEnv('WIFE_SESSION_TABLE') || DEFAULT_WIFE_SESSION_TABLE;
+      const table = getWifeEnv('WIFE_SESSION_TABLE') || DEFAULT_WIFE_SESSION_TABLE;
       const query = await admin
         .from(table)
         .select('session_id, subject, secret, device_id, expires_at_ms')
@@ -370,7 +336,7 @@ async function deleteSession(sessionId: string): Promise<void> {
   const existing = await readSession(sessionId).catch(() => null);
   memoryStore.delete(sessionId);
 
-  if (hasRedisConfig()) {
+  if (hasWifeRedisConfig()) {
     try {
       await redisDeleteKey(redisKey(sessionId));
       if (existing) {
@@ -384,7 +350,7 @@ async function deleteSession(sessionId: string): Promise<void> {
   const admin = getSupabaseAdminClient();
   if (admin) {
     try {
-      const table = getEnv('WIFE_SESSION_TABLE') || DEFAULT_WIFE_SESSION_TABLE;
+      const table = getWifeEnv('WIFE_SESSION_TABLE') || DEFAULT_WIFE_SESSION_TABLE;
       await admin.from(table).delete().eq('session_id', sessionId);
     } catch {
       /* best effort */
@@ -398,6 +364,7 @@ export type IssuedWifeSession = {
   expiresAtMs: number;
 };
 
+/** يُستخدم لاختبار الإبطال ولجلسات قديمة في المخزن. الإنتاج لم يعد يُصدر سراً عبر GET. */
 export async function issueWifeSessionForSubject(
   subject: string,
   deviceId: string,
@@ -443,17 +410,6 @@ export async function invalidateWifeSessionsForSubject(subject: string): Promise
   if (!subject.trim()) return;
   const records = await listSessionsForSubject(subject.trim());
   await deleteSessions(records);
-}
-
-export async function invalidateWifeSessionsForSubjectDevice(subject: string, deviceId: string): Promise<void> {
-  if (!subject.trim()) return;
-  const normalizedDeviceId = normalizeDeviceId(deviceId);
-  const records = await listSessionsForSubject(subject.trim());
-  await deleteSessions(
-    normalizedDeviceId
-      ? records.filter((record) => record.deviceId === normalizedDeviceId)
-      : records.filter((record) => !record.deviceId),
-  );
 }
 
 export function resetWifeSessionStoreForTests(): void {

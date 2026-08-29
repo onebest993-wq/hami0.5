@@ -1,59 +1,49 @@
-import { useMemo, useState } from 'react';
-import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
+import React, { memo } from 'react';
+import './../homeHubAlertsFx.css';
+import { HomeHubEmptyState } from '@/app/components/lawyer/dashboard/HomeHubEmptyState';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import type { AlertTimeHorizon } from '@/app/services/alertTimeClassification';
+import type { CalendarRadarEvent, WorkspacePinnedItem } from '@/app/workspace/types';
 import {
     HOME_HUB_ALERTS_EMPTY_COPY,
+    HOME_HUB_ALERTS_ERROR_COPY,
     HOME_HUB_FULLY_EMPTY_COPY,
     type HomeHubAlertsEmptyState,
 } from '@/app/services/alerts/homeHubCardLogic';
-import {
-    HorizonFilterTabs,
-    HOME_HUB_ALERT_HORIZONS,
-} from '../../NeuralAlertsCard/HorizonFilterTabs';
 import type { SmartAlert } from '../../NeuralAlertsCard/types';
-import type { CalendarRadarEvent } from '@/app/workspace/types';
-import {
-    splitHomeHubUrgentOverflow,
-    splitHomeHubUpcomingOverflow,
-} from '../homeHub/homeHubTabOverflow';
 import { HomeHubAlertsLoadingSkeleton } from './HomeHubAlertsLoadingSkeleton';
-import { HomeHubEmptyState } from './HomeHubRadarSection';
-import { HomeHubAlertsList } from './HomeHubAlertsList';
-import { HomeHubAlertsMoreOverlay } from './HomeHubAlertsMoreOverlay';
-import { HomeHubTabMoreTrigger } from './HomeHubTabMoreTrigger';
-import { HomeHubUrgentMoreOverlay } from './HomeHubUrgentMoreOverlay';
-import { HomeHubUrgentTabContent } from './HomeHubUrgentTabContent';
+import { HomeHubAlertsPrimaryBody } from './HomeHubAlertsPrimaryBody';
 
-export type HomeHubAlertsPanelProps = {
+type HomeHubAlertsPanelProps = {
     hasCarouselAlerts: boolean;
     horizonCounts: Record<AlertTimeHorizon, number>;
     activeFilter: AlertTimeHorizon;
     onFilterChange: (filter: AlertTimeHorizon) => void;
     alertsEmptyState: HomeHubAlertsEmptyState;
-    alertsError: string | null;
     hasAlerts: boolean;
     carouselAlerts: SmartAlert[];
     sourceById: Map<string, SecretaryAlert>;
     onDismissAlert?: (alertId: string) => void;
     onOpenEntity: (alert: SecretaryAlert) => void;
-    onAcceptedConvertToCase?: (alert: SecretaryAlert) => void;
-    onResolved?: (alert: SecretaryAlert) => void;
-    alertsLayoutKey: string;
     radarEvents: CalendarRadarEvent[];
     onNavigate: (routePath: string) => void;
     onDismissRadar?: (eventId: string) => void;
     hubFullyEmpty?: boolean;
     hubInitialPending?: boolean;
+    onTogglePin: (item: WorkspacePinnedItem) => void;
+    isPinned: (id: string, type: WorkspacePinnedItem['type']) => boolean;
 };
 
-export function HomeHubAlertsPanel({
+/**
+ * صدفة لوحة التنبيهات — فارغة/خطأ/تحميل sync.
+ * الجسم الغني sync في نفس مقطع التنبيهات؛ أوراق «المزيد» تبقى كسولة.
+ */
+export const HomeHubAlertsPanel = memo(function HomeHubAlertsPanel({
     hasCarouselAlerts,
     horizonCounts,
     activeFilter,
     onFilterChange,
     alertsEmptyState,
-    alertsError,
     hasAlerts,
     carouselAlerts,
     sourceById,
@@ -64,28 +54,13 @@ export function HomeHubAlertsPanel({
     onDismissRadar,
     hubFullyEmpty = false,
     hubInitialPending = false,
+    onTogglePin,
+    isPinned,
 }: HomeHubAlertsPanelProps) {
-    const keyboardInset = useMobileKeyboardInset(true);
-    const [urgentOverlayOpen, setUrgentOverlayOpen] = useState(false);
-    const [upcomingOverlayOpen, setUpcomingOverlayOpen] = useState(false);
-
     const hasRadar = radarEvents.length > 0;
-    const isUrgentTab = activeFilter === 'urgent';
-    const tabHasListedItems = isUrgentTab ? hasRadar || hasAlerts : hasAlerts;
-
-    const urgentSplit = useMemo(
-        () => splitHomeHubUrgentOverflow(radarEvents, carouselAlerts),
-        [radarEvents, carouselAlerts],
-    );
-    const upcomingSplit = useMemo(() => splitHomeHubUpcomingOverflow(carouselAlerts), [carouselAlerts]);
-
-    const overflowCount = isUrgentTab ? urgentSplit.overflowCount : upcomingSplit.overflowCount;
-
     const hasAnyHorizonContent = horizonCounts.urgent > 0 || horizonCounts.upcoming > 0;
-
     const showLoadingSkeleton =
         hubInitialPending || (alertsEmptyState === 'loading' && !hasCarouselAlerts && !hasRadar);
-
     const showPrimaryAlerts = alertsEmptyState !== 'error' && !showLoadingSkeleton;
 
     return (
@@ -100,102 +75,27 @@ export function HomeHubAlertsPanel({
             <div className="hami-hub-alerts-stack">
                 {alertsEmptyState === 'error' ? (
                     <p className="text-[10px] text-red-300/90 leading-relaxed py-4" role="alert">
-                        {alertsError}
+                        {HOME_HUB_ALERTS_ERROR_COPY}
                     </p>
                 ) : showLoadingSkeleton ? (
                     <HomeHubAlertsLoadingSkeleton />
                 ) : showPrimaryAlerts && hasAnyHorizonContent ? (
-                    <>
-                        <div className="hami-hub-horizon-row">
-                            <HorizonFilterTabs
-                                counts={horizonCounts}
-                                activeFilter={activeFilter}
-                                onChange={onFilterChange}
-                                horizons={HOME_HUB_ALERT_HORIZONS}
-                                compact
-                            />
-                            <HomeHubTabMoreTrigger
-                                count={overflowCount}
-                                onClick={() =>
-                                    isUrgentTab ? setUrgentOverlayOpen(true) : setUpcomingOverlayOpen(true)
-                                }
-                                ariaLabel={
-                                    isUrgentTab
-                                        ? `عرض ${overflowCount} تنبيهات عاجلة إضافية`
-                                        : `عرض ${overflowCount} مواعيد قادمة إضافية`
-                                }
-                                testId={
-                                    isUrgentTab
-                                        ? 'home-hub-urgent-more-trigger'
-                                        : 'home-hub-alerts-more-trigger'
-                                }
-                            />
-                        </div>
-
-                        <div
-                            className="hami-hub-alerts-feed"
-                            data-testid="home-hub-alerts-feed"
-                            style={
-                                keyboardInset > 0
-                                    ? {
-                                          paddingBottom: `max(${keyboardInset}px, env(safe-area-inset-bottom, 0px))`,
-                                      }
-                                    : undefined
-                            }
-                        >
-                            {tabHasListedItems ? (
-                                isUrgentTab ? (
-                                    <HomeHubUrgentTabContent
-                                        split={urgentSplit}
-                                        sourceById={sourceById}
-                                        onDismissAlert={onDismissAlert}
-                                        onOpenEntity={onOpenEntity}
-                                        onNavigate={onNavigate}
-                                        onDismissRadar={onDismissRadar}
-                                    />
-                                ) : (
-                                    <HomeHubAlertsList
-                                        split={upcomingSplit}
-                                        sourceById={sourceById}
-                                        onDismissAlert={onDismissAlert}
-                                        onOpenEntity={onOpenEntity}
-                                    />
-                                )
-                            ) : (
-                                <HomeHubEmptyState
-                                    message={HOME_HUB_ALERTS_EMPTY_COPY['empty-filter']}
-                                    compact
-                                />
-                            )}
-                        </div>
-
-                        <HomeHubUrgentMoreOverlay
-                            open={urgentOverlayOpen}
-                            radarEvents={urgentSplit.overflowRadar}
-                            carouselAlerts={urgentSplit.overflowAlerts}
-                            sourceById={sourceById}
-                            onClose={() => setUrgentOverlayOpen(false)}
-                            onNavigate={onNavigate}
-                            onDismissRadar={onDismissRadar}
-                            onDismissAlert={onDismissAlert}
-                            onOpenEntity={onOpenEntity}
-                        />
-                        <HomeHubAlertsMoreOverlay
-                            open={upcomingOverlayOpen}
-                            carouselAlerts={upcomingSplit.overflowAlerts}
-                            sourceById={sourceById}
-                            onClose={() => setUpcomingOverlayOpen(false)}
-                            onDismissAlert={onDismissAlert}
-                            onOpenEntity={onOpenEntity}
-                        />
-                    </>
-                ) : showPrimaryAlerts && !hasAnyHorizonContent ? (
-                    <HomeHubEmptyState
-                        message={hubFullyEmpty ? HOME_HUB_FULLY_EMPTY_COPY : HOME_HUB_ALERTS_EMPTY_COPY.empty}
-                        testId={hubFullyEmpty ? 'home-hub-fully-empty' : 'home-hub-alerts-empty'}
-                        compact
+                    <HomeHubAlertsPrimaryBody
+                        horizonCounts={horizonCounts}
+                        activeFilter={activeFilter}
+                        onFilterChange={onFilterChange}
+                        hasAlerts={hasAlerts}
+                        carouselAlerts={carouselAlerts}
+                        sourceById={sourceById}
+                        onDismissAlert={onDismissAlert}
+                        onOpenEntity={onOpenEntity}
+                        radarEvents={radarEvents}
+                        onNavigate={onNavigate}
+                        onDismissRadar={onDismissRadar}
+                        onTogglePin={onTogglePin}
+                        isPinned={isPinned}
                     />
-                ) : alertsEmptyState === 'empty' ? (
+                ) : showPrimaryAlerts ? (
                     <HomeHubEmptyState
                         message={hubFullyEmpty ? HOME_HUB_FULLY_EMPTY_COPY : HOME_HUB_ALERTS_EMPTY_COPY.empty}
                         testId={hubFullyEmpty ? 'home-hub-fully-empty' : 'home-hub-alerts-empty'}
@@ -205,4 +105,4 @@ export function HomeHubAlertsPanel({
             </div>
         </div>
     );
-}
+});

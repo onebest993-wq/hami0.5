@@ -1,7 +1,5 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { prefetchCriminalDashboardTab } from './criminalDashboardLazyRegistry';
-import { type CriminalDashboardTab } from './criminalDashboardTabChrome';
-import { isTrialCaseStage, resolveCaseStageFromRecord } from './criminalStageRuntimeCore';
+﻿import { useEffect, useMemo } from 'react';
+import { resolveCriminalDashboardStageFlags } from './resolveCriminalDashboardStageFlags';
 import { useCriminalDashboardStoreBindings } from './useCriminalDashboardStoreBindings';
 import { useCriminalDashboardCaseFacts } from './useCriminalDashboardCaseFacts';
 import { resolveCriminalDashboardHeaderTitle } from './criminalDashboardHeaderTitle';
@@ -17,7 +15,6 @@ import { useCriminalRequestQuickFinalizeController } from './orchestrators/useCr
 import { useCriminalBootOrchestrator } from './orchestrators/useCriminalBootOrchestrator';
 import { useCriminalJourneyFilterOrchestrator } from './orchestrators/useCriminalJourneyFilterOrchestrator';
 import { useCriminalJourneyStageAccessOrchestrator } from './orchestrators/useCriminalJourneyStageAccessOrchestrator';
-import { useCriminalToastOrchestrator } from './orchestrators/useCriminalToastOrchestrator';
 import { useCriminalDecisionsOrchestrator } from './orchestrators/useCriminalDecisionsOrchestrator';
 import { useCriminalStageCloserOrchestrator } from './orchestrators/useCriminalStageCloserOrchestrator';
 import { useCriminalStageCloserSubmit } from './orchestrators/useCriminalStageCloserSubmit';
@@ -25,13 +22,17 @@ import { useCriminalRequestsOrchestrator } from './orchestrators/useCriminalRequ
 import { useCriminalRequestsModalController } from './useCriminalRequestsModalController';
 import { useCriminalDashboardModalUiState } from './useCriminalDashboardModalUiState';
 import { useCriminalDashboardDossierBodyProps } from './useCriminalDashboardDossierBodyProps';
-import type { CriminalDashboardModalsHostProps } from './criminalDashboardModalsHostProps';
 import { assembleCriminalDashboardModalsHostProps } from './assembleCriminalDashboardModalsHostProps';
+import {
+    assembleCriminalDashboardOrchestrationResult,
+    type CriminalDashboardOrchestrationResult,
+} from './assembleCriminalDashboardOrchestrationResult';
 import { useCriminalMissingCaseRecovery } from './useCriminalMissingCaseRecovery';
 import { useCriminalDashboardShellPrefetch } from './useCriminalDashboardShellPrefetch';
 import { computeCriminalDashboardForceModalsHost } from './computeCriminalDashboardForceModalsHost';
-import type { CriminalDashboardDossierBodyProps } from './CriminalDashboardDossierBody';
-import type { CriminalCase, CriminalStoreState } from './criminalStore';
+import { useCriminalDashboardTabSwitch } from './useCriminalDashboardTabSwitch';
+import { useCriminalDashboardInlineSeverance } from './useCriminalDashboardInlineSeverance';
+import { useCriminalDashboardLegalToast } from './useCriminalDashboardLegalToast';
 
 export type CriminalDashboardOrchestrationInput = {
     id: string;
@@ -40,21 +41,7 @@ export type CriminalDashboardOrchestrationInput = {
     onOpenCase?: (id: string) => void;
 };
 
-export type CriminalDashboardOrchestrationResult = {
-    isCaseHydrating: boolean;
-    isMissingCase: boolean;
-    missingRecoveryDone: boolean;
-    criminalCase: CriminalCase | undefined;
-    legalToast: string;
-    dossierBodyProps: CriminalDashboardDossierBodyProps;
-    modalsHostProps: CriminalDashboardModalsHostProps;
-    modalsHostMounted: boolean;
-    forceModalsHost: boolean;
-    isInlineSeveranceFormOpen: boolean;
-    pendingSeveranceContext: CriminalStoreState['pendingSeveranceContext'];
-    closeInlineSeveranceForm: () => void;
-    setIsInlineSeveranceFormOpen: (open: boolean) => void;
-};
+export type { CriminalDashboardOrchestrationResult };
 
 export function useCriminalDashboardResolvedOrchestration({
     id,
@@ -141,13 +128,15 @@ export function useCriminalDashboardResolvedOrchestration({
 
     const { missingRecoveryDone } = useCriminalMissingCaseRecovery(id, isMissingCase);
 
-    const stage = criminalCase?.basics.stage ?? '';
-    const caseStage = criminalCase ? resolveCaseStageFromRecord(criminalCase) : 'investigation';
-    const isInvestigationPhase = caseStage === 'investigation';
-    const isTrialPhase = isTrialCaseStage(caseStage);
-    const isCassationStage = stage === 'cassation_court';
-    const isTrialCourtStage = caseStage === 'misdemeanor' || caseStage === 'felony';
-    const isInvestigationLocked = Boolean(criminalCase?.isInvestigationLocked);
+    const {
+        stage,
+        caseStage,
+        isInvestigationPhase,
+        isTrialPhase,
+        isCassationStage,
+        isTrialCourtStage,
+        isInvestigationLocked,
+    } = resolveCriminalDashboardStageFlags(criminalCase);
 
     const headerTitle = useMemo(
         () => resolveCriminalDashboardHeaderTitle(criminalCase, stage, caseStage, isInvestigationPhase, isTrialCourtStage),
@@ -365,24 +354,19 @@ export function useCriminalDashboardResolvedOrchestration({
         setForfeitureModal,
     } = modalUiState;
 
-    const openInlineSeveranceForm = useCallback(() => {
-        if (!resumePendingSeveranceForm()) return;
-        setIsInlineSeveranceFormOpen(true);
-    }, [resumePendingSeveranceForm]);
+    const { openInlineSeveranceForm, closeInlineSeveranceForm } = useCriminalDashboardInlineSeverance({
+        resumePendingSeveranceForm,
+        stashPendingSeveranceForm,
+        setIsInlineSeveranceFormOpen,
+    });
 
-    const closeInlineSeveranceForm = useCallback(() => {
-        stashPendingSeveranceForm();
-        setIsInlineSeveranceFormOpen(false);
-    }, [stashPendingSeveranceForm]);
-
-    const [activeTab, setActiveTab] = useState<CriminalDashboardTab>('requests');
-    // مزامنة فورية — startTransition كان يؤجّل التمييز فيبدو أن التبويب «لا يعمل»
-    const switchDashboardTab = useCallback((tab: CriminalDashboardTab) => {
-        setActiveTab(tab);
-        prefetchCriminalDashboardTab(tab);
-    }, []);
-    const statementsTabActive = activeTab === 'statements';
-    const requestsTabActive = activeTab === 'requests';
+    const {
+        activeTab,
+        setActiveTab,
+        switchDashboardTab,
+        statementsTabActive,
+        requestsTabActive,
+    } = useCriminalDashboardTabSwitch();
 
     /** مجموعات/قوائم القضية المشتقّة (إفادات، أدلة أخرى، طلبات مرتّبة، جلسات، بطاقات حكم) — hook منفصل. */
     const {
@@ -457,35 +441,10 @@ export function useCriminalDashboardResolvedOrchestration({
         investigationDefendantsPartyMix,
     });
 
-    const { legalToast, setLegalToast } = useCriminalToastOrchestrator();
-    const legalToastTimerRef = useRef<number | null>(null);
-
-    const clearLegalToastTimer = useCallback(() => {
-        if (legalToastTimerRef.current === null) return;
-        window.clearTimeout(legalToastTimerRef.current);
-        legalToastTimerRef.current = null;
-    }, []);
-
-    const showLegalToast = useCallback(
-        (message: string, durationMs = 5000) => {
-            setLegalToast(message);
-            clearLegalToastTimer();
-            if (!message || durationMs <= 0) return;
-            legalToastTimerRef.current = window.setTimeout(() => {
-                legalToastTimerRef.current = null;
-                setLegalToast('');
-            }, durationMs);
-        },
-        [clearLegalToastTimer, setLegalToast],
+    const { legalToast, showLegalToast, handleClaimCaseOwnership } = useCriminalDashboardLegalToast(
+        id,
+        claimCriminalCaseOwnership,
     );
-
-    const handleClaimCaseOwnership = useCallback(() => {
-        const err = claimCriminalCaseOwnership(id);
-        if (err) showLegalToast(err);
-        else showLegalToast('تم تملّك الإضبارة — يمكنك التعديل الآن.');
-    }, [claimCriminalCaseOwnership, id, showLegalToast]);
-
-    useEffect(() => () => clearLegalToastTimer(), [clearLegalToastTimer]);
 
     /**
      * حالة مودال الطلبات (قضائية + محامي) — orchestrator منفصل.
@@ -978,7 +937,7 @@ export function useCriminalDashboardResolvedOrchestration({
 
     const { modalsHostMounted } = useCriminalDashboardShellPrefetch(forceModalsHost);
 
-    return {
+    return assembleCriminalDashboardOrchestrationResult({
         isCaseHydrating,
         isMissingCase,
         missingRecoveryDone,
@@ -992,5 +951,5 @@ export function useCriminalDashboardResolvedOrchestration({
         pendingSeveranceContext,
         closeInlineSeveranceForm,
         setIsInlineSeveranceFormOpen,
-    };
+    });
 }

@@ -2,76 +2,23 @@ import type { TransactionsThreadingRepository } from './repository';
 import { createThreadingId } from './ids';
 import {
   sanitizeTransactionCreateFields,
+  sanitizeTransactionDocumentOwnerTag,
   sanitizeTransactionDocumentTitle,
   sanitizeTransactionDocumentType,
-  sanitizeTransactionFinanceAmount,
-  sanitizeTransactionFinanceDescription,
   sanitizeTransactionOfficialReference,
   sanitizeTransactionTaskNotes,
   sanitizeTransactionTaskTitle,
 } from '@/app/services/transactions/transactionsInputSecurity';
 import {
-  FinanceRecordType,
   TransactionStatus,
   TransactionTaskStatus,
-  type FinanceRecord,
   type Transaction,
   type TransactionDocument,
   type TransactionDocumentOwnerTag,
   type TransactionTask,
-  type TransactionTaskNode,
 } from './types';
 
-export function buildTaskTree(flatTasks: TransactionTask[]): TransactionTaskNode[] {
-  const nodeById = new Map<string, TransactionTaskNode>();
-  for (const task of flatTasks) {
-    nodeById.set(task.id, { ...task, children: [] });
-  }
-
-  const roots: TransactionTaskNode[] = [];
-
-  const isCycle = (childId: string, parentId: string) => {
-    const visited = new Set<string>([childId]);
-    let cursor: TransactionTaskNode | undefined = nodeById.get(parentId);
-    while (cursor) {
-      if (visited.has(cursor.id)) return true;
-      visited.add(cursor.id);
-      cursor = cursor.parentTaskId ? nodeById.get(cursor.parentTaskId) : undefined;
-    }
-    return false;
-  };
-
-  for (const node of nodeById.values()) {
-    if (!node.parentTaskId) {
-      roots.push(node);
-      continue;
-    }
-
-    const parent = nodeById.get(node.parentTaskId);
-    if (!parent) {
-      roots.push({ ...node, parentTaskId: null });
-      continue;
-    }
-
-    if (isCycle(node.id, parent.id)) {
-      roots.push({ ...node, parentTaskId: null });
-      continue;
-    }
-
-    parent.children.push(node);
-  }
-
-  const sortByCreatedAt = (a: TransactionTaskNode, b: TransactionTaskNode) =>
-    a.createdAt.localeCompare(b.createdAt);
-
-  const sortDeep = (nodes: TransactionTaskNode[]) => {
-    nodes.sort(sortByCreatedAt);
-    for (const n of nodes) sortDeep(n.children);
-  };
-
-  sortDeep(roots);
-  return roots;
-}
+export { buildTaskTree } from './taskTree';
 
 export class TransactionsThreadingService {
   constructor(
@@ -88,9 +35,15 @@ export class TransactionsThreadingService {
       targetDepartment: input.targetDepartment,
     });
     return {
-      ...input,
-      ...sanitized,
       id: this.idFactory(),
+      title: sanitized.title,
+      clientName: sanitized.clientName,
+      targetDepartment: sanitized.targetDepartment,
+      status:
+        input.status === TransactionStatus.Paused || input.status === TransactionStatus.Completed
+          ? input.status
+          : TransactionStatus.Active,
+      agreedFees: 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -100,11 +53,6 @@ export class TransactionsThreadingService {
     await this.repo.saveTransaction(transaction);
   }
 
-  async createTransaction(input: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>): Promise<Transaction> {
-    const tx = this.buildTransaction(input);
-    await this.persistTransaction(tx);
-    return tx;
-  }
 
   async addTask(input: {
     transactionId: string;
@@ -155,7 +103,7 @@ export class TransactionsThreadingService {
     const existing = await this.repo.getTask(taskId);
     if (!existing) throw new Error('Task not found');
     const next: Partial<TransactionTask> = {};
-    if (typeof updates.title === 'string') next.title = updates.title.trim();
+    if (typeof updates.title === 'string') next.title = sanitizeTransactionTaskTitle(updates.title);
     if (updates.deadline !== undefined) next.deadline = updates.deadline;
     const updated = await this.repo.updateTask(taskId, next);
     await this.repo.updateTransaction(existing.transactionId, { updatedAt: this.now() });
@@ -188,12 +136,6 @@ export class TransactionsThreadingService {
     return this.repo.updateTransaction(transactionId, { status, updatedAt: this.now() });
   }
 
-  async setTransactionAgreedFees(transactionId: string, agreedFees: number): Promise<Transaction> {
-    const tx = await this.repo.getTransaction(transactionId);
-    if (!tx) throw new Error('Transaction not found');
-    return this.repo.updateTransaction(transactionId, { agreedFees, updatedAt: this.now() });
-  }
-
   async setTransactionArchived(transactionId: string, archived: boolean): Promise<Transaction> {
     const tx = await this.repo.getTransaction(transactionId);
     if (!tx) throw new Error('Transaction not found');
@@ -220,56 +162,6 @@ export class TransactionsThreadingService {
     return this.repo.listTasks(transactionId);
   }
 
-  async listFinanceRecords(transactionId: string): Promise<FinanceRecord[]> {
-    return this.repo.listFinanceRecords(transactionId);
-  }
-
-  async addFinanceRecord(input: {
-    transactionId: string;
-    type: FinanceRecordType;
-    amount: number;
-    description: string;
-    date?: string;
-  }): Promise<FinanceRecord> {
-    const tx = await this.repo.getTransaction(input.transactionId);
-    if (!tx) throw new Error('Transaction not found');
-
-    const record: FinanceRecord = {
-      id: this.idFactory(),
-      transactionId: input.transactionId,
-      type: input.type,
-      amount: sanitizeTransactionFinanceAmount(input.amount),
-      description: sanitizeTransactionFinanceDescription(input.description),
-      date: input.date ?? this.now(),
-    };
-
-    await this.repo.saveFinanceRecord(record);
-    await this.repo.updateTransaction(input.transactionId, { updatedAt: this.now() });
-    return record;
-  }
-
-  async updateFinanceRecord(
-    id: string,
-    updates: { type?: FinanceRecordType; amount?: number; description?: string; date?: string },
-  ): Promise<FinanceRecord> {
-    const existing = await this.repo.getFinanceRecord(id);
-    if (!existing) throw new Error('Finance record not found');
-    const next: Partial<FinanceRecord> = {};
-    if (updates.type) next.type = updates.type;
-    if (typeof updates.amount === 'number') next.amount = updates.amount;
-    if (typeof updates.description === 'string') next.description = updates.description.trim();
-    if (typeof updates.date === 'string') next.date = updates.date;
-    const updated = await this.repo.updateFinanceRecord(id, next);
-    await this.repo.updateTransaction(updated.transactionId, { updatedAt: this.now() });
-    return updated;
-  }
-
-  async deleteFinanceRecord(id: string): Promise<void> {
-    const existing = await this.repo.getFinanceRecord(id);
-    await this.repo.deleteFinanceRecord(id);
-    if (existing) await this.repo.updateTransaction(existing.transactionId, { updatedAt: this.now() });
-  }
-
   async listDocuments(transactionId: string): Promise<TransactionDocument[]> {
     return this.repo.listDocuments(transactionId);
   }
@@ -289,7 +181,7 @@ export class TransactionsThreadingService {
       transactionId: input.transactionId,
       type: sanitizeTransactionDocumentType(input.type),
       title: sanitizeTransactionDocumentTitle(input.title),
-      ownerTag: input.ownerTag,
+      ownerTag: sanitizeTransactionDocumentOwnerTag(input.ownerTag),
       uploadedAt: input.uploadedAt ?? this.now(),
     };
 

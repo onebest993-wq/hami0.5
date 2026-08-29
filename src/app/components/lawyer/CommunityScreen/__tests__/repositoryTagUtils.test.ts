@@ -62,6 +62,17 @@ describe('community tag matching', () => {
         expect(repositoryDocMatchesSearch(doc, 'بحث')).toBe(false);
     });
 
+    it('repositoryDocMatchesSearch يطوي الهمزات والأرقام الهندية', () => {
+        const doc = {
+            title: 'مذكرة أحمد ٢٠٢٥',
+            description: 'وصف',
+            type: 'بحث' as const,
+            tags: [],
+        };
+        expect(repositoryDocMatchesSearch(doc, 'احمد')).toBe(true);
+        expect(repositoryDocMatchesSearch(doc, '2025')).toBe(true);
+    });
+
     it('بدون تصنيف مختار يُظهر الكل', () => {
         expect(communityTagMatchesFilter(['#مدني'], null)).toBe(true);
         expect(repositoryDocMatchesTag(['#مدني'], null)).toBe(true);

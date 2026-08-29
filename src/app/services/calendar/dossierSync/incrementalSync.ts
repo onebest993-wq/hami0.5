@@ -184,7 +184,7 @@ export function syncExecutionTimelineAppointment(p: {
 export function syncExecutionTaskDue(p: {
     userId?: string | null;
     executionId: string | number;
-    task: { id: string; title: string; dueDate?: string; trashedAt?: string | null };
+    task: { id: string; title: string; dueDate?: string; trashedAt?: string | null; pinned?: boolean };
     caseNo?: string;
     clientName?: string;
 }): void {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizePayload } from './sanitizer.ts';
+import { isJsonObjectRecord, sanitizePayload } from './sanitizer.ts';
 
 describe('sanitizePayload', () => {
   it('strips script tags and keeps safe text', () => {
@@ -34,10 +34,28 @@ describe('sanitizePayload', () => {
     expect(output.nested.text).toBe('ok');
   });
 
-  it('preserves non-string primitive values and null/undefined safely', () => {
+    it('preserves non-string primitive values and null/undefined safely', () => {
     expect(sanitizePayload(123)).toBe(123);
     expect(sanitizePayload(true)).toBe(true);
     expect(sanitizePayload(null)).toBe(null);
     expect(sanitizePayload(undefined)).toBe(undefined);
+  });
+
+  it('drops prototype-pollution keys and does not pollute Object.prototype', () => {
+    const poisoned = JSON.parse('{"__proto__":{"polluted":true},"ok":"yes","constructor":{"pro":1}}') as Record<
+      string,
+      unknown
+    >;
+    const output = sanitizePayload(poisoned) as Record<string, unknown>;
+    expect(output.ok).toBe('yes');
+    expect(Object.prototype.hasOwnProperty.call(output, '__proto__')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(output, 'constructor')).toBe(false);
+    expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
+  });
+
+  it('rejects arrays as JSON object records', () => {
+    expect(isJsonObjectRecord([])).toBe(false);
+    expect(isJsonObjectRecord(null)).toBe(false);
+    expect(isJsonObjectRecord({ a: 1 })).toBe(true);
   });
 });

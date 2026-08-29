@@ -1,5 +1,5 @@
 import React, { useLayoutEffect } from 'react';
-import { ensureWallpaperDecoded } from '@/app/services/settings/wallpaperPaintReady';
+import { ensureWallpaperDecoded, scheduleAfterHomeMainGridPaint } from '@/app/services/settings/wallpaperPaintReady';
 
 type DashboardWallpaperLayerProps = {
     src?: string | null;
@@ -26,8 +26,7 @@ export function DashboardWallpaperLayer({ src, enabled }: DashboardWallpaperLaye
         }
 
         let cancelled = false;
-        void (async () => {
-            await ensureWallpaperDecoded(src);
+        scheduleAfterHomeMainGridPaint(() => {
             if (cancelled) return;
             const next = cssWallpaperUrl(src);
             const current = root.style.getPropertyValue('--hami-wallpaper-image');
@@ -35,12 +34,12 @@ export function DashboardWallpaperLayer({ src, enabled }: DashboardWallpaperLaye
                 root.style.setProperty('--hami-wallpaper-image', next);
             }
             root.dataset.hamiWallpaper = '1';
-        })();
+            void ensureWallpaperDecoded(src);
+        });
 
         return () => {
             cancelled = true;
-            root.style.removeProperty('--hami-wallpaper-image');
-            root.dataset.hamiWallpaper = '0';
+            /* لا تُمسح صورة الإقلاع عند StrictMode/إعادة التركيب — يمنع وميض أسود */
         };
     }, [enabled, src]);
 

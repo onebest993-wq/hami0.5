@@ -1,3 +1,5 @@
+import { readSecureJsonRawSync, writeSecureJsonValue } from '@/app/services/storage/syncSecureJson';
+
 const STORAGE_KEY = 'hami:smartvault:custom-categories:v1';
 const BLOCKED_CUSTOM_CATEGORIES = new Set(['المنتدى']);
 
@@ -101,9 +103,9 @@ export function countRepositoryCategoryItems(
 
 
 function sanitizeCategoryName(name: string): string {
-    const trimmed = name.trim();
-    if (trimmed === 'بطاقة') return REPOSITORY_ACTION_CATEGORY.note;
-    return trimmed;
+    const stripped = name.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+    if (stripped === 'بطاقة') return REPOSITORY_ACTION_CATEGORY.note;
+    return stripped;
 }
 
 function isVisibleCustomCategory(name: string): boolean {
@@ -137,7 +139,7 @@ function storageKey(userId: string): string {
 export function loadCustomCategories(userId: string): string[] {
     if (!userId.trim()) return [];
     try {
-        const raw = localStorage.getItem(storageKey(userId));
+        const raw = readSecureJsonRawSync(storageKey(userId));
         if (!raw) return [];
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
@@ -152,7 +154,7 @@ export function loadCustomCategories(userId: string): string[] {
 export function saveCustomCategories(userId: string, categories: string[]): void {
     if (!userId.trim()) return;
     const unique = getVisibleVaultCustomCategories(categories);
-    localStorage.setItem(storageKey(userId), JSON.stringify(unique));
+    writeSecureJsonValue(storageKey(userId), unique);
 }
 
 export function addCustomCategory(userId: string, name: string): string[] {

@@ -1,0 +1,6 @@
+{
+  "status": "closed",
+  "closedAt": "2026-08-26",
+  "remainingOver1000": [],
+  "note": "AdminLawEntry host + useAdminLawEntry + adminLawEntryApi/Types all ≤1000. Visual JSX unchanged."
+}

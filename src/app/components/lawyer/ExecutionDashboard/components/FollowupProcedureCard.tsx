@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { ChevronDown } from '@/app/components/ui/lucideIcons';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
 import { InlineActionGate } from './InlineActionGate';
 import { RequestLifecycleBadgeSlot, RequestLifecyclePanel } from './RequestLifecycleBadge';
 import type { InlineActionGateKey } from '../types';
 import type { ExecutorRequestLifecycleSummary } from '@/app/utils/executorRequestLifecycle';
 
 const HEADER_BTN =
-    'w-full text-right rounded-2xl px-4 py-3.5 transition-all border backdrop-blur-xl bg-[#0A1122]/70 border-white/5 hover:border-[#E6C673]/35';
+    'w-full text-right rounded-2xl px-4 py-3.5 transition-colors border bg-[#0A1122]/80 border-white/5 hover:border-[#E6C673]/35';
 
 export type FollowupProcedureConfirmOpts = { resubmit?: boolean };
 

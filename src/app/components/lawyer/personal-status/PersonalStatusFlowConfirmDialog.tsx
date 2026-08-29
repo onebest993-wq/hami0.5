@@ -1,9 +1,10 @@
 import React from 'react';
-import { AlertTriangle, X } from '@/app/components/ui/lucideIcons';
+import { AlertTriangle } from '@/app/components/ui/icons/AlertTriangle';
+import { X } from '@/app/components/ui/icons/X';
 import { createPortal } from 'react-dom';
 import { personalPearlModalTheme } from './personalStatusPearlTheme';
 
-export type PersonalStatusFlowConfirmProps = {
+type PersonalStatusFlowConfirmProps = {
     isOpen: boolean;
     title: string;
     message: string;

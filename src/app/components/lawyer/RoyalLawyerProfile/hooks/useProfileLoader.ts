@@ -2,18 +2,21 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { LawyerProfileData } from '@/app/services/lawyer-cloud';
 import { fetchLawyerProfile } from '@/app/services/profile/profileCloudLoader';
 import { LAWYER_PROFILE_UPDATED } from '@/app/services/profile/profileEvents';
-import { resolveLawyerDisplayName } from '@/app/services/profile/resolveLawyerDisplayName';
 import {
     normalizeProfilePageCustomization,
     type ProfilePageCustomization,
 } from '@/app/services/profile/profilePageCustomization';
-import { redactProfileForVisitorView } from '@/app/services/profile/profileVisitorView';
 import {
     peekProfileWarmCache,
     setProfileWarmCache,
     hydrateProfileWarmCachePeekSync,
 } from '@/app/services/profile/profileWarmCache';
+import { isProfilePaintReady } from '@/app/services/profile/profileSparseDetect';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import {
+    seedFirstPaintProfile,
+    normalizeLoadedProfile as normalizeLoadedProfileData,
+} from './normalizeLoadedProfile';
 
 export function useProfileLoader(
     profileUserId: string,
@@ -21,59 +24,47 @@ export function useProfileLoader(
     isOwnProfile: boolean,
     userMeta: Record<string, unknown> | undefined,
     displayNameHint?: string,
+    screenActive = true,
 ) {
     const cachePeekOptions = useMemo(
         () => ({ viewerId: isOwnProfile ? profileUserId : viewerId }),
         [isOwnProfile, profileUserId, viewerId],
     );
 
-    const warmCachedProfile = profileUserId
-        ? (() => {
-              hydrateProfileWarmCachePeekSync(
-                  profileUserId,
-                  userMeta,
-                  isOwnProfile ? profileUserId : viewerId,
-              );
-              return peekProfileWarmCache(profileUserId, cachePeekOptions);
-          })()
-        : undefined;
+    const normalizeOpts = useMemo(
+        () => ({
+            isOwnProfile,
+            profileUserId,
+            userMeta,
+            displayNameHint,
+        }),
+        [isOwnProfile, profileUserId, userMeta, displayNameHint],
+    );
+
+    const normalizeLoadedProfile = useCallback(
+        (data: LawyerProfileData): LawyerProfileData =>
+            normalizeLoadedProfileData(data, normalizeOpts),
+        [normalizeOpts],
+    );
+
+    const warmCachedProfile = seedFirstPaintProfile(
+        profileUserId,
+        userMeta,
+        isOwnProfile,
+        viewerId,
+        cachePeekOptions,
+    );
     const [profile, setProfile] = useState<LawyerProfileData | null>(() => warmCachedProfile ?? null);
     /** جاهزية الشل: وجود كاش/ملف — لا نربط loading باسم الهيدر (يُحلّ عبر resolveLawyerDisplayName) */
     const [loading, setLoading] = useState(() => !warmCachedProfile);
     const [loadError, setLoadError] = useState(false);
-    const profileRef = useRef<LawyerProfileData | null>(null);
+    const profileRef = useRef<LawyerProfileData | null>(warmCachedProfile ?? null);
     const loadGenerationRef = useRef(0);
     const profileUserIdRef = useRef(profileUserId);
 
     useEffect(() => {
         profileRef.current = profile;
     }, [profile]);
-
-    const applyViewerScope = useCallback(
-        (data: LawyerProfileData): LawyerProfileData => {
-            return isOwnProfile ? data : redactProfileForVisitorView(data);
-        },
-        [isOwnProfile],
-    );
-
-    const normalizeLoadedProfile = useCallback(
-        (data: LawyerProfileData): LawyerProfileData => {
-            const next = applyViewerScope({ ...data, header: { ...data.header } });
-            if (isOwnProfile) {
-                if (!next.header.name?.trim() || next.header.name.trim() === 'محامٍ تجريبي') {
-                    next.header.name = resolveLawyerDisplayName(
-                        next.header.name,
-                        profileUserId,
-                        userMeta ?? {},
-                    );
-                }
-            } else if (displayNameHint?.trim() && !next.header.name?.trim()) {
-                next.header.name = displayNameHint.trim();
-            }
-            return next;
-        },
-        [applyViewerScope, isOwnProfile, profileUserId, userMeta, displayNameHint],
-    );
 
     const loadProfile = useCallback(async () => {
         const generation = ++loadGenerationRef.current;
@@ -82,7 +73,19 @@ export function useProfileLoader(
             setProfile(normalizeLoadedProfile(cached));
             setLoading(false);
             setLoadError(false);
-        } else {
+            /* كاش غني فقط: لا نحجب interactive بانتظار الشبكة — إعادة تحقق في idle */
+            if (isProfilePaintReady(cached)) {
+                await new Promise<void>((resolve) => {
+                    const run = () => resolve();
+                    if (typeof requestIdleCallback === 'function') {
+                        requestIdleCallback(run, { timeout: 1_200 });
+                    } else {
+                        window.setTimeout(run, 32);
+                    }
+                });
+                if (generation !== loadGenerationRef.current) return;
+            }
+        } else if (!profileRef.current) {
             setLoading(true);
             setLoadError(false);
         }
@@ -101,7 +104,7 @@ export function useProfileLoader(
             }
         } catch {
             if (generation !== loadGenerationRef.current) return;
-            if (!cached) {
+            if (!cached && !profileRef.current) {
                 setLoadError(true);
                 SmartToast.error('تعذر تحميل الملف الشخصي');
             }
@@ -125,19 +128,55 @@ export function useProfileLoader(
         }
     }, [profileUserId, userMeta, isOwnProfile, viewerId, cachePeekOptions, normalizeLoadedProfile]);
 
+    /** عند كشف التبويب: أعد تطبيق الكاش — keepAlive قد رُكّب قبل دفء البيانات */
+    useLayoutEffect(() => {
+        if (!screenActive || !profileUserId) return;
+        hydrateProfileWarmCachePeekSync(
+            profileUserId,
+            userMeta,
+            isOwnProfile ? profileUserId : viewerId,
+        );
+        const cached = peekProfileWarmCache(profileUserId, cachePeekOptions);
+        if (!cached) return;
+        setProfile((prev) => {
+            if (prev?.header?.name?.trim() && prev.header.profileImage) return prev;
+            return normalizeLoadedProfile(cached);
+        });
+        setLoading(false);
+        setLoadError(false);
+    }, [
+        screenActive,
+        profileUserId,
+        userMeta,
+        isOwnProfile,
+        viewerId,
+        cachePeekOptions,
+        normalizeLoadedProfile,
+    ]);
+
     useEffect(() => {
         const userChanged = profileUserIdRef.current !== profileUserId;
         profileUserIdRef.current = profileUserId;
 
         if (userChanged) {
             const cached = profileUserId ? peekProfileWarmCache(profileUserId, cachePeekOptions) : undefined;
-            setProfile(cached ? normalizeLoadedProfile(cached) : null);
-            setLoading(!cached);
+            const next = cached
+                ? normalizeLoadedProfile(cached)
+                : seedFirstPaintProfile(
+                      profileUserId,
+                      userMeta,
+                      isOwnProfile,
+                      viewerId,
+                      cachePeekOptions,
+                  ) ?? null;
+            profileRef.current = next;
+            setProfile(next);
+            setLoading(!next);
             setLoadError(false);
         }
 
         void loadProfile();
-    }, [profileUserId, loadProfile, cachePeekOptions, normalizeLoadedProfile]);
+    }, [profileUserId, loadProfile, cachePeekOptions, normalizeLoadedProfile, userMeta, isOwnProfile, viewerId]);
 
     useEffect(() => {
         const onUpdated = (e: Event) => {

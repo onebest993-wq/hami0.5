@@ -1,0 +1,204 @@
+/* Notification Panel — layer / instant-open / popups host */
+
+.hami-incoming-notification-popups-host {
+  top: calc(var(--hami-lawyer-header-safe-top, env(safe-area-inset-top, 0px)) + 0.75rem);
+  padding-inline-start: max(0px, env(safe-area-inset-left, 0px));
+  padding-inline-end: max(0px, env(safe-area-inset-right, 0px));
+}
+
+.hami-incoming-notification-popup-ttl {
+  transform: scaleX(1);
+  animation: hami-incoming-popup-ttl 6.5s linear forwards;
+}
+
+@keyframes hami-incoming-popup-ttl {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hami-incoming-notification-popup-ttl {
+    animation: none;
+    transform: scaleX(0);
+  }
+}
+
+@media (min-width: 640px) {
+  .hami-notif-root {
+    padding-top: var(--hami-lawyer-header-safe-top, env(safe-area-inset-top, 0px));
+  }
+}
+
+/* طبقة keep-alive — فوق هيدر المحامي z-100؛ التعتيم على زر الخلفية لا على الطبقة */
+.hami-notif-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  opacity: 0;
+  background-color: transparent;
+  transition: none;
+}
+
+html[data-hami-native='1'] .hami-notif-layer,
+html.hami-native-shell .hami-notif-layer {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.hami-notif-layer--visible {
+  opacity: 1;
+}
+
+.hami-notif-layer:not(.hami-notif-layer--visible) {
+  pointer-events: none !important;
+  visibility: hidden;
+}
+
+[data-notification-root][data-open='false'],
+[data-notification-root][aria-hidden='true'] {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/*
+ * مصدر الحقيقة البصرية (مثل الإعدادات): html[data-hami-notifications-open]
+ * يكشف الطبقة قبل commit React — فتح لحظي على Android.
+ */
+html[data-hami-notifications-open='1'] [data-notification-root],
+html[data-hami-notifications-open='1'] .hami-notif-layer,
+html[data-hami-notifications-closing='1'] [data-notification-root],
+html[data-hami-notifications-closing='1'] .hami-notif-layer {
+  visibility: visible !important;
+  opacity: 1 !important;
+  background-color: transparent !important;
+}
+
+html[data-hami-notifications-open='1'] [data-notification-root],
+html[data-hami-notifications-open='1'] .hami-notif-layer {
+  pointer-events: auto !important;
+}
+
+html[data-hami-notifications-closing='1'] [data-notification-root],
+html[data-hami-notifications-closing='1'] .hami-notif-layer {
+  pointer-events: none !important;
+}
+
+html[data-hami-notifications-open='1'] .hami-lawyer-header {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/*
+ * لا content-visibility:hidden: كان يعيد تخطيط الرئيسية عند الإغلاق.
+ */
+html[data-hami-notifications-open='1'] [data-hami-lawyer-dashboard] {
+  pointer-events: none !important;
+}
+
+html[data-hami-native='1'][data-hami-notifications-open='1'] [data-hami-lawyer-dashboard] {
+  pointer-events: none !important;
+}
+
+html[data-hami-overlay-unfreeze='1'][data-hami-notifications-open='1'] [data-hami-lawyer-dashboard] {
+  pointer-events: none !important;
+}
+
+html[data-hami-overlay-unfreeze='1'][data-hami-notifications-open='1'] .hami-lawyer-header {
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+}
+
+html:not([data-hami-notifications-open='1']):not([data-hami-notifications-closing='1']) [data-notification-root],
+html:not([data-hami-notifications-open='1']):not([data-hami-notifications-closing='1']) .hami-notif-layer,
+html:not([data-hami-notifications-open='1']):not([data-hami-notifications-closing='1']) #hami-notifications-instant-bridge {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+html[data-hami-notifications-open='1'] .hami-notif-root,
+html[data-hami-notifications-closing='1'] .hami-notif-root {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+html[data-hami-notifications-open='1'] .hami-notif-overlay-btn {
+  opacity: 1;
+}
+
+html[data-hami-notifications-open='1'][data-hami-notif-enter='1'] .hami-notif-overlay-btn {
+  opacity: 0.38;
+  transition: none !important;
+}
+
+html[data-hami-notifications-closing='1'] .hami-notif-overlay-btn {
+  opacity: 0;
+}
+
+html[data-hami-notifications-open='1'] .hami-notif-sheet-track {
+  will-change: transform;
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html[data-hami-notifications-open='1']:not([data-hami-notif-enter='1']) .hami-notif-sheet-track {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+}
+
+@media (max-width: 639px) {
+  html:not([data-hami-notifications-open='1']) .hami-notif-sheet-track,
+  html[data-hami-notifications-closing='1'] .hami-notif-sheet-track,
+  html[data-hami-notifications-open='1'][data-hami-notif-enter='1'] .hami-notif-sheet-track {
+    transform: translate3d(0, 28%, 0);
+  }
+}
+
+@media (min-width: 640px) {
+  html:not([data-hami-notifications-open='1']) .hami-notif-sheet-track,
+  html[data-hami-notifications-closing='1'] .hami-notif-sheet-track,
+  html[data-hami-notifications-open='1'][data-hami-notif-enter='1'] .hami-notif-sheet-track {
+    transform: translate3d(0, 16px, 0);
+    opacity: 0;
+  }
+}
+
+html[data-hami-notifications-open='1'][data-hami-notif-enter='1'] .hami-notif-sheet-track {
+  transition: none !important;
+}
+
+html[data-hami-notifications-closing='1'] .hami-notif-sheet-track {
+  will-change: transform;
+  transition: transform 200ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+html[data-hami-notifications-open='1'] .hami-notif-overlay-btn,
+html[data-hami-notifications-closing='1'] .hami-notif-overlay-btn {
+  transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html[data-hami-notif-dismiss-locked='1'] .hami-notif-overlay-btn,
+html[data-hami-notif-dismiss-locked='1'] [aria-label='إغلاق الإشعارات'] {
+  pointer-events: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-hami-notifications-open='1'] .hami-notif-sheet-track,
+  html[data-hami-notifications-closing='1'] .hami-notif-sheet-track,
+  html[data-hami-notifications-open='1'] .hami-notif-overlay-btn,
+  html[data-hami-notifications-closing='1'] .hami-notif-overlay-btn {
+    transition: none !important;
+  }
+}
+
+html[data-hami-reduce-motion='1'] .hami-notif-sheet-track,
+html[data-hami-animations='0'] .hami-notif-sheet-track,
+html[data-hami-lite='1'] .hami-notif-sheet-track,
+html[data-hami-reduce-motion='1'] .hami-notif-overlay-btn,
+html[data-hami-animations='0'] .hami-notif-overlay-btn,
+html[data-hami-lite='1'] .hami-notif-overlay-btn {
+  transition: none !important;
+}

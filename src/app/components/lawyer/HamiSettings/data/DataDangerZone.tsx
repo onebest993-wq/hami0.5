@@ -1,13 +1,14 @@
 import React from 'react';
-import { RotateCcw } from '@/app/components/ui/lucideIcons';
+import { RotateCcw } from '@/app/components/ui/icons/RotateCcw';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
     mintSensitiveConfirmChallenge,
     verifySensitiveSettingsAction,
 } from '@/app/services/settings/verifySensitiveSettingsAction';
-import { SettingRow } from '../settings-ui';
+import { SettingRow } from '../settings-ui/index';
 import type { useLocalDataClear } from '../hooks/useLocalDataClear';
+import { ExecutionIndexQuarantineRow } from './ExecutionIndexQuarantineRow';
 
 type WipeVm = ReturnType<typeof useLocalDataClear>;
 
@@ -38,6 +39,7 @@ export function DataDangerZone({
 
     return (
         <>
+            <ExecutionIndexQuarantineRow />
             <SettingRow
                 icon={RotateCcw}
                 label="مسح كل البيانات"
@@ -60,7 +62,7 @@ export function DataDangerZone({
                             disabled={wipe.wipePhase === 'wiping'}
                             onClick={() => void wipe.requestFullWipe()}
                             data-testid="settings-wipe-start"
-                            className="text-rose-400 text-xs font-bold disabled:opacity-40 min-h-[44px]"
+                            className="text-rose-400 text-xs font-bold disabled:opacity-40 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
                         >
                             {wipe.wipePhase === 'wiping' ? 'جاري المسح…' : 'مسح'}
                         </button>
@@ -75,7 +77,8 @@ export function DataDangerZone({
                     <button
                         type="button"
                         onClick={() => void confirmReset()}
-                        className="text-rose-400 text-xs font-bold min-h-[44px]"
+                        data-testid="settings-reset-start"
+                        className="text-rose-400 text-xs font-bold min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
                     >
                         إعادة ضبط
                     </button>

@@ -22,7 +22,7 @@ export function ExecutionDashboardHandlerClusterCoerciveFoundationBridge({
     input,
     onCluster,
 }: Props) {
-    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads) as any;
+    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads);
     const { pushTimelineEventBinding, pushTimelineEvent } =
         useExecutionDashboardCoreHandlerClusterCoerciveFoundation(c);
 

@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import {
-    fetchVaultDocsDeduped,
+    peekVaultDocsWarmCache,
     SMART_VAULT_DOCS_UPDATED_EVENT,
-} from '@/app/services/vault/vaultDocsWarmCache';
-import { peekVaultDocsWarmCache } from '@/app/services/vault/vaultDocsWarmState';
+} from '@/app/services/vault/vaultDocsWarmState';
 
 /** وثائق الخزنة للمسح العنقودي — تُحدَّث من الكاش الدافئ دون حجب الواجهة */
 export function useVaultDocsForClusterScan(
@@ -31,7 +30,8 @@ export function useVaultDocsForClusterScan(
         };
 
         syncFromCache();
-        void fetchVaultDocsDeduped(uid)
+        void import('@/app/services/vault/vaultDocsWarmCache')
+            .then((m) => m.fetchVaultDocsDeduped(uid))
             .then((docs) => {
                 if (!cancelled) setVaultDocs(docs);
             })

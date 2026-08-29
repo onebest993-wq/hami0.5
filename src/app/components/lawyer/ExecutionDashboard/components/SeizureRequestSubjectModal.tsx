@@ -1,10 +1,12 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
 import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,
-} from '@/app/components/lawyer/execution/executionModalStack';
+} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
+import { EXEC_MODAL_CLOSE_BTN_CLASS } from '@/app/components/lawyer/ExecutionDashboard/executionModalMobileShell';
+import { useExecutionOverlayDismiss } from '@/app/components/lawyer/ExecutionDashboard/useExecutionOverlayDismiss';
 
 export type SeizureRequestSubjectModalTone = 'amber' | 'sky';
 
@@ -52,6 +54,7 @@ export function SeizureRequestSubjectModal({
     onSubjectDraftChange,
     onSubmit,
 }: SeizureRequestSubjectModalProps) {
+    useExecutionOverlayDismiss(open, onClose);
     if (!open || typeof document === 'undefined') return null;
 
     const styles = TONE_STYLES[tone];
@@ -66,7 +69,7 @@ export function SeizureRequestSubjectModal({
             }}
         >
             <div
-                className={`w-full max-w-md rounded-3xl bg-[#0B1120] shadow-2xl shadow-black/50 ${styles.border}`}
+                className={`w-full max-w-md rounded-3xl bg-[#0B1120] shadow-lg shadow-black/30 ${styles.border}`}
                 onClick={(e) => e.stopPropagation()}
                 dir="rtl"
             >
@@ -74,7 +77,7 @@ export function SeizureRequestSubjectModal({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white"
+                        className={EXEC_MODAL_CLOSE_BTN_CLASS}
                         aria-label="إغلاق"
                     >
                         <X size={18} />
@@ -95,7 +98,7 @@ export function SeizureRequestSubjectModal({
                     <button
                         type="button"
                         onClick={onSubmit}
-                        className={`w-full rounded-2xl px-4 py-3 text-[12px] font-black ${styles.submit}`}
+                        className={`w-full touch-manipulation min-h-[44px] rounded-2xl px-4 py-3 text-[12px] font-black ${styles.submit}`}
                     >
                         إرسال إلى المنفذ
                     </button>

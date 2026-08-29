@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import { ErrorBoundary } from '@/app/components/ui/ErrorBoundary';
 
 export function SettingsErrorBoundary({
@@ -10,11 +10,17 @@ export function SettingsErrorBoundary({
     onShellReset?: () => void;
     children: React.ReactNode;
 }) {
+    const shellResetOnceRef = useRef(false);
+
+    const handleError = useCallback(() => {
+        if (shellResetOnceRef.current) return;
+        shellResetOnceRef.current = true;
+        onShellReset?.();
+    }, [onShellReset]);
+
     return (
         <ErrorBoundary
-            onError={() => {
-                onShellReset?.();
-            }}
+            onError={handleError}
             fallback={
                 <div
                     className="fixed inset-0 z-[150] flex flex-col items-center justify-center px-6 bg-[#010308]/95"

@@ -6,7 +6,6 @@ vi.mock('@/app/hooks/useReduceMotion', () => ({ useReduceMotion: () => true }));
 
 const baseState = {
     editOpen: false,
-    editTarget: null,
     editTitle: '',
     editDeadlineDate: '',
     deleteOpen: false,

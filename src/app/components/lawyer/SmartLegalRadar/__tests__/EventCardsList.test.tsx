@@ -3,10 +3,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { EventCardsList, EVENT_LIST_EXPAND_THRESHOLD } from '@/app/components/lawyer/SmartLegalRadar/EventCardsList';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 
-vi.mock('@/app/hooks/useReduceMotion', () => ({
-    useReduceMotion: () => true,
-}));
-
 function makeEvent(id: string): UnifiedEvent {
     return {
         id,
@@ -41,5 +37,24 @@ describe('EventCardsList', () => {
         await waitFor(() => {
             expect(screen.getAllByTestId(/radar-event-card-/)).toHaveLength(events.length);
         });
+    });
+
+    it('يميّز البطاقة عند تمرير معرّف CalendarDB الخام', () => {
+        const events = [makeEvent('cal_evt-9'), makeEvent('cal_evt-8')];
+        render(
+            <EventCardsList
+                events={events}
+                highlightEventId="evt-9"
+                onEdit={vi.fn()}
+                onDelete={vi.fn()}
+            />,
+        );
+        expect(screen.getByTestId('radar-event-card-cal_evt-9')).toHaveAttribute(
+            'data-highlighted',
+            '1',
+        );
+        expect(screen.getByTestId('radar-event-card-cal_evt-8')).not.toHaveAttribute(
+            'data-highlighted',
+        );
     });
 });

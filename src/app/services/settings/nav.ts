@@ -1,19 +1,22 @@
-import type { FontSize } from '@/app/types/common';
-import type { SettingsNavItem } from './types';
+import type { SettingsNavItem, SettingsSectionId } from './types';
 
-/** أقسام الإعدادات المعروضة — فقط ما يطابق التطبيق ويُستخدم فعلياً. */
+export type { SettingsSectionId };
+
+/** أقسام الإعدادات — الأخف أولاً، المنظر ثانياً (كان الأول). */
+export const SETTINGS_DEFAULT_SECTION: SettingsSectionId = 'security';
+
 export const SETTINGS_NAV: SettingsNavItem[] = [
-    {
-        id: 'appearance',
-        label: 'المنظر',
-        labelEn: 'Appearance',
-        keywords: ['لون', 'ثيم', 'خلفية', 'شكل', 'خط', 'حركة', 'theme', 'wallpaper', 'motion'],
-    },
     {
         id: 'security',
         label: 'الأمان',
         labelEn: 'Security',
         keywords: ['خصوصية', 'بصمة', 'قفل', 'تمويه', 'biometric', 'blur'],
+    },
+    {
+        id: 'appearance',
+        label: 'المنظر',
+        labelEn: 'Appearance',
+        keywords: ['لون', 'ثيم', 'خلفية', 'شكل', 'خط', 'theme', 'wallpaper'],
     },
     {
         id: 'data',
@@ -35,7 +38,7 @@ export const FONT_PRESETS = [
     { id: 'large' as const, label: 'كبير', px: 18 },
 ] as const;
 
-export type FontPresetId = (typeof FONT_PRESETS)[number]['id'];
+type FontPresetId = (typeof FONT_PRESETS)[number]['id'];
 
 /** يُطبّق ثلاثة أحجام فقط — يُحوّل «واضح»/20px إلى كبير/18px. */
 export function normalizeFontSizePx(px: unknown): number {
@@ -54,9 +57,6 @@ export function normalizeFontPreset(preset: unknown, fontSize?: unknown): FontPr
     return FONT_PRESETS.find((p) => p.px === px)?.id ?? 'medium';
 }
 
-/** نوع الإعدادات — يستبعد xlarge بعد التطبيع. */
-export type SettingsFontPreset = Exclude<FontSize, 'xlarge'>;
-
 export const AUTO_LOCK_OPTIONS = [
     { value: 0, label: 'معطّل' },
     { value: 1, label: 'دقيقة' },
@@ -66,38 +66,9 @@ export const AUTO_LOCK_OPTIONS = [
     { value: 60, label: 'ساعة' },
 ] as const;
 
-export const IRAQ_COURTS_SAMPLE = [
-    '',
-    'محكمة التمييز',
-    'محكمة الاستئناف',
-    'محكمة بداءة',
-    'محكمة الأحوال الشخصية',
-    'محكمة التنفيذ',
-];
-
-/** @deprecated kept for migration — no longer shown in settings UI */
-export const EXTENDED_THEMES = [
-    { id: 'gold', color: '#E6C673', name: 'ذهبي ملكي' },
-    { id: 'navy', color: '#3B82F6', name: 'كحلي قضائي' },
-] as const;
-
 export const SHAPE_OPTIONS = [
     { id: 'pill', label: 'كبسولة' },
     { id: 'rounded', label: 'مستدير' },
     { id: 'square', label: 'حاد' },
     { id: 'circle', label: 'دائري' },
 ] as const;
-
-export const IRAQ_GOVERNORATES = [
-    '',
-    'بغداد',
-    'البصرة',
-    'نينوى',
-    'أربيل',
-    'النجف',
-    'كربلاء',
-    'ذي قار',
-    'الأنبار',
-    'كركوك',
-    'ديالى',
-];

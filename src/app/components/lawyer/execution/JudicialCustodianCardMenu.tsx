@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreVertical, Pencil, Trash2 } from '@/app/components/ui/lucideIcons';
+import { MoreVertical } from '@/app/components/ui/icons/MoreVertical';
+import { Pencil } from '@/app/components/ui/icons/Pencil';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
 
 const MENU_MIN_W = 160;
 const PORTAL_Z = 25000;

@@ -1,6 +1,7 @@
-import {
-    ArrowUp, MessageCircle, Link2, Bookmark,
-} from '@/app/components/ui/lucideIcons';
+import { ArrowUp } from '@/app/components/ui/icons/ArrowUp';
+import { MessageCircle } from '@/app/components/ui/icons/MessageCircle';
+import { Link2 } from '@/app/components/ui/icons/Link2';
+import { Bookmark } from '@/app/components/ui/icons/Bookmark';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { canUpvotePost } from '../communityPermissions';
 import {
@@ -74,8 +75,9 @@ export function QuestionCardFooter({
                 }}
                 className={`group/c ${FORUM_INTERACT_BTN} px-2.5 sm:px-3 min-w-0 shrink-0`}
                 title="التعليقات"
+                data-testid="forum-comment-open"
             >
-                <MessageCircle size={20} className={`${FORUM_INTERACT_ICON} group-hover/c:text-[#8A4D5C] shrink-0`} />
+                <MessageCircle size={20} className={`${FORUM_INTERACT_ICON} group-hover/c:text-[#E6C673] shrink-0`} />
                 <span className={`${FORUM_INTERACT_LABEL} group-hover/c:text-[#E6E0E4] truncate`}>
                     <span className="tabular-nums">{commentCount}</span>
                     <span className="hidden sm:inline"> تعليق</span>
@@ -92,7 +94,7 @@ export function QuestionCardFooter({
                 title="مشاركة"
                 aria-label="مشاركة"
             >
-                <Link2 size={20} className={`${FORUM_INTERACT_ICON} group-hover/s:text-[#8A4D5C]`} />
+                <Link2 size={20} className={`${FORUM_INTERACT_ICON} group-hover/s:text-[#E6C673]`} />
                 <span className={`${FORUM_INTERACT_LABEL} group-hover/s:text-[#E6E0E4]`}>مشاركة</span>
             </button>
 

@@ -65,4 +65,13 @@ describe('TransactionDetailsDialogs', () => {
         expect(screen.getByText('تحديث الموكل')).toBeInTheDocument();
         expect(screen.getByText('نص التقرير')).toBeInTheDocument();
     });
+
+    it('حوار الإنهاء لا يذكر مالية أو أرشفة', () => {
+        render(<TransactionDetailsDialogs {...baseProps} completeOpen />);
+
+        expect(screen.getByText('إنهاء المعاملة')).toBeInTheDocument();
+        expect(screen.getByText('بعد الإنهاء لن تتمكن من إضافة مهام أو مستمسكات أو تعديل الحالات.')).toBeInTheDocument();
+        expect(screen.queryByText(/حركات مالية/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/بعد الأرشفة/)).not.toBeInTheDocument();
+    });
 });

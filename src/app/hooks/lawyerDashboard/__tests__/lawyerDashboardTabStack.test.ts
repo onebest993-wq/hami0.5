@@ -46,6 +46,15 @@ describe('shouldMaskLawyerDashboardTabStack', () => {
         ).toBe(false);
     });
 
+    it('does not mask home when a lawsuit dossier overlay is open (keep painted)', () => {
+        expect(
+            shouldMaskLawyerDashboardTabStack({
+                ...base,
+                activeFile: { id: 'ls-1', type: 'lawsuit' } as never,
+            }),
+        ).toBe(false);
+    });
+
     it('does not mask home when lawsuits workspace is open (overlay above painted home)', () => {
         expect(
             shouldMaskLawyerDashboardTabStack({

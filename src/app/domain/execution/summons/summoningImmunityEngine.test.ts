@@ -134,6 +134,9 @@ describe('summoningImmunityEngine', () => {
     it('deriveMonetaryClaimNature from claim type', () => {
         expect(deriveMonetaryClaimNature('مشاهدة واستصحاب', null)).toBe('غير مالي');
         expect(deriveMonetaryClaimNature('استحصال دين مالي', null)).toBe('مالي');
+        expect(deriveMonetaryClaimNature('تسليم شيء معين', null)).toBe('غير مالي');
+        expect(deriveMonetaryClaimNature('إزالة تجاوز', null)).toBe('غير مالي');
+        expect(deriveMonetaryClaimNature('أثاث زوجية', null)).toBe('غير مالي');
     });
 
     it('deriveEmploymentType from occupation', () => {

@@ -2,8 +2,12 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell', () => ({
+vi.mock('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShellUi', () => ({
     EXEC_OVERLAY_LAZY_FALLBACK: <div>lazy fallback</div>,
+    EXEC_OVERLAY_INNER_SILENT_FALLBACK: <div data-testid="execution-overlay-inner-paint-slot" />,
+}));
+
+vi.mock('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistryOverlays', () => ({
     LazyDossierMetaEditSection: (props: Record<string, unknown>) => (
         <button
             type="button"

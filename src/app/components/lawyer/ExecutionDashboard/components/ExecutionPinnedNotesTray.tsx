@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { ChevronDown, Clock, Pin, Trash2 } from '@/app/components/ui/lucideIcons';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
+import { Clock } from '@/app/components/ui/icons/Clock';
+import { Pin } from '@/app/components/ui/icons/Pin';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import type { ExecutionFile } from '@/app/types/execution';
 import { formatArTaskDate } from './notesTasksModalUi';
 import { TaskStepDisplayRow } from './TaskStepDisplayRow';
@@ -97,8 +99,8 @@ export const ExecutionPinnedNotesTray: React.FC<ExecutionPinnedNotesTrayProps> =
         <div
             className={
                 isDock
-                    ? 'max-h-72 min-w-[280px] space-y-2 overflow-y-auto rounded-2xl border border-amber-500/25 bg-[#0A0F1C]/72 p-3 shadow-[0_16px_48px_-8px_rgba(0,0,0,0.75)] backdrop-blur-2xl'
-                    : 'mt-2 max-h-64 space-y-2 overflow-y-auto rounded-xl border border-white/8 bg-white/[0.02] p-2 backdrop-blur-md'
+                    ? 'max-h-72 min-w-[280px] space-y-2 overflow-y-auto rounded-2xl border border-amber-500/25 bg-[#0A0F1C] p-3 shadow-sm'
+                    : 'mt-2 max-h-64 space-y-2 overflow-y-auto rounded-xl border border-white/8 bg-[#0B1120]/80 p-2'
             }
         >
             {pinnedTasks.map((t) => (
@@ -158,27 +160,18 @@ export const ExecutionPinnedNotesTray: React.FC<ExecutionPinnedNotesTrayProps> =
                         e.stopPropagation();
                         setOpen((v) => !v);
                     }}
-                    className="pointer-events-auto absolute left-1.5 top-1.5 flex h-7 min-w-7 items-center justify-center gap-0.5 rounded-full border border-orange-400/40 bg-orange-500/20 px-1.5 text-[10px] font-black text-orange-50 shadow-[0_0_14px_-2px_rgba(249,115,22,0.55)] backdrop-blur-md transition-all hover:bg-orange-500/30"
+                    className="pointer-events-auto absolute left-1.5 top-1.5 flex h-7 min-w-7 items-center justify-center gap-0.5 rounded-full border border-orange-400/40 bg-orange-500/20 px-1.5 text-[10px] font-black text-orange-50 transition-colors hover:bg-orange-500/30"
                     aria-expanded={open}
                     aria-label={open ? 'إخفاء المثبّت' : 'عرض المثبّت'}
                 >
                     <Pin size={11} className="fill-current shrink-0" />
                     <span>{count}</span>
                 </button>
-                <AnimatePresence initial={false}>
-                    {open && (
-                        <motion.div
-                            initial={{ opacity: 0, y: -8, scale: 0.96 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -6, scale: 0.97 }}
-                            transition={{ duration: 0.22, ease: 'easeOut' }}
-                            className="pointer-events-auto absolute left-0 top-[calc(100%+6px)] z-40"
-                            style={{ transformOrigin: 'top left' }}
-                        >
-                            {list}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                {open ? (
+                    <div className="pointer-events-auto absolute left-0 top-[calc(100%+6px)] z-40">
+                        {list}
+                    </div>
+                ) : null}
             </div>
         );
     }
@@ -196,19 +189,7 @@ export const ExecutionPinnedNotesTray: React.FC<ExecutionPinnedNotesTrayProps> =
                     className={`shrink-0 text-amber-300/80 transition-transform ${open ? 'rotate-180' : ''}`}
                 />
             </button>
-            <AnimatePresence initial={false}>
-                {open && (
-                    <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.22, ease: 'easeOut' }}
-                        className="overflow-hidden"
-                    >
-                        {list}
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {open ? <div className="overflow-hidden">{list}</div> : null}
         </div>
     );
 };

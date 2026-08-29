@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * مصدر واحد لمزامنة سريان أي طلب منفّذ مع مركز القرارات والطعون.
  */
@@ -16,8 +15,8 @@ import {
 } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
 import {
     isExecutorRowEffectivelyApproved,
-    readExecutorDecisionsArray,
-} from '@/app/utils/executorSeizureDecisionQueue';
+} from '@/app/utils/executorDecisionRowApproval';
+import { readExecutorDecisionsArray } from '@/app/utils/executorDecisionStorageRead';
 
 export type ExecutorRequestAppealSyncView = {
     governingRow: Record<string, unknown> | null;
@@ -87,7 +86,7 @@ export function resolveExecutorRequestAppealSyncFromRow(
         appealLegallyFinal: appealFinal,
         needsExecutor: String(governingRow.executorOutcome ?? 'pending') === 'pending',
         appealPerspective: perspective,
-        allDecisions: allDecisions as Decision[],
+        allDecisions: allDecisions as unknown as Decision[],
     });
     const cycleSuperseded = isExecutorRequestAppealCycleSupersededFromRecord(
         governingRow,
@@ -97,7 +96,7 @@ export function resolveExecutorRequestAppealSyncFromRow(
         ? null
         : resolveExecutorRequestFollowupBlockFromRecord(
               governingRow,
-              allDecisions as Decision[],
+              allDecisions,
               perspective
           );
     const approvedRow = isExecutorRowEffectivelyApproved(governingRow);

@@ -4,4 +4,5 @@ export const EXECUTION_DOSSIER_TEST_IDS = {
     back: 'execution-dashboard-back',
     close: 'execution-dashboard-close',
     followupMemo: 'execution-followup-memo',
+    decisions: 'execution-open-decisions',
 } as const;

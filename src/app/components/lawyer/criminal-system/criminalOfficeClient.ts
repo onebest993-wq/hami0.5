@@ -3,11 +3,11 @@ import { legacyRoleFromRepresentation } from './criminalStageUtils';
 import { isDefendantIdentityUnknown, pruneEmptyDefendantShells } from './criminalUnknownDefendant';
 import { makeEmptyDefendant } from './criminalDefendantFactory';
 
-export function hasComplainantOfficeClient(complainants: CriminalComplainant[] | undefined): boolean {
+function hasComplainantOfficeClient(complainants: CriminalComplainant[] | undefined): boolean {
     return (Array.isArray(complainants) ? complainants : []).some((c) => c.isOfficeClient === true);
 }
 
-export function hasDefendantOfficeClient(defendants: CriminalDefendant[] | undefined): boolean {
+function hasDefendantOfficeClient(defendants: CriminalDefendant[] | undefined): boolean {
     return (Array.isArray(defendants) ? defendants : []).some(
         (d) => d.isOfficeClient === true && !isDefendantIdentityUnknown(d),
     );

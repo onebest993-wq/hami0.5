@@ -11,10 +11,6 @@ import {
     migrateWorkspacePersistState,
     normalizeWorkspacePersistSlice,
 } from '@/app/infrastructure/persistence/workspaceStorePersist';
-import {
-    migrateLegalMarketplacePersistState,
-    normalizeLegalMarketplacePersistSlice,
-} from '@/app/infrastructure/persistence/legalMarketplaceStorePersist';
 import { defaultPersistWipeGuard } from '@/app/services/securePersistStorage';
 
 describe('foundation store persist — caseStore', () => {
@@ -89,35 +85,6 @@ describe('foundation store persist — workspaceStore', () => {
             0,
         );
         expect(normalized.pinnedItems).toHaveLength(0);
-    });
-});
-
-describe('foundation store persist — legalMarketplaceStore', () => {
-    it('sanitizes wallet and requests', () => {
-        const normalized = normalizeLegalMarketplacePersistSlice({
-            escrowWallet: -5,
-            lawyerWallet: 'bad',
-            requests: [
-                {
-                    id: 'r1',
-                    clientName: 'عميل',
-                    type: 'استشارة',
-                    description: 'وصف',
-                    urgency: 'urgent',
-                    status: 'new',
-                    createdAt: 'الآن',
-                    createdAtMs: 1,
-                    lawyerId: 'l1',
-                    price: 1000,
-                    requestKind: 'Consultation',
-                },
-                { id: '' },
-            ],
-        });
-        expect(normalized.escrowWallet).toBe(0);
-        expect(normalized.lawyerWallet).toBe(0);
-        expect(normalized.requests).toHaveLength(1);
-        expect(normalized.requests[0]?.price).toBe(1000);
     });
 });
 

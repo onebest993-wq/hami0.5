@@ -39,10 +39,13 @@ export function FollowupTabKeepAlivePanel({
             <Suspense
                 fallback={
                     <div
-                        className="min-h-[8rem] animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.03]"
-                        aria-busy="true"
-                        aria-label="جاري تحميل محتوى التبويب"
-                    />
+                        className="space-y-1.5"
+                        aria-hidden
+                        data-testid="execution-followup-tab-paint-slot"
+                    >
+                        <div className="h-11 min-h-[44px] rounded-lg border border-white/8 bg-white/[0.04]" />
+                        <div className="h-11 min-h-[44px] rounded-lg border border-white/8 bg-white/[0.04]" />
+                    </div>
                 }
             >
                 {children}

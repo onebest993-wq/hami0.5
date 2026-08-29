@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
-import { GLOBAL_SEARCH_RESULTS_MAX_HEIGHT } from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchOverlayLayout';
 import type {
     GlobalSearchEntry,
     GlobalSearchNavigate,
@@ -13,7 +12,6 @@ import { useSearchKeyboard } from '@/app/components/lawyer/GlobalSearchOverlay/h
 export function useGlobalSearchOverlayChrome(
     overlayOpen: boolean,
     results: GroupedSearchResults | null,
-    onClose: () => void,
     onNavigatePick: (navigate: GlobalSearchNavigate, label: string) => void,
     options?: {
         overlayRef?: RefObject<HTMLDivElement | null>;
@@ -57,16 +55,12 @@ export function useGlobalSearchOverlayChrome(
     );
 
     const { onKeyDownCapture } = useSearchKeyboard(
-        overlayOpen,
         overlayRef,
         flatResults,
         activeIndex,
         setActiveIndex,
-        onClose,
         pick,
     );
-
-    const resultsMaxHeight = GLOBAL_SEARCH_RESULTS_MAX_HEIGHT;
 
     return {
         overlayRef: overlayRef as RefObject<HTMLDivElement>,
@@ -77,6 +71,5 @@ export function useGlobalSearchOverlayChrome(
         pick,
         onKeyDownCapture,
         keyboardInset,
-        resultsMaxHeight,
     };
 }

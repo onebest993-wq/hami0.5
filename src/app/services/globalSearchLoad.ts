@@ -5,70 +5,40 @@ import {
 } from '@/app/services/lawyer-cloud';
 import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
 import type { RepositoryDocument, SmartVaultDoc } from '@/app/services/vault/vaultTypes';
-import type { LegalTask } from '@/app/types/TaskEngine';
-import type { Transaction, TransactionTask, FinanceRecord } from '@/app/modules/transactionsThreading/types';
+import type { Transaction, TransactionTask } from '@/app/modules/transactionsThreading/types';
 import { fetchCommunityPosts } from '@/app/services/forum/communityCloudLoader';
 import { invalidateGlobalSearchFuseCache } from '@/app/services/globalSearchFuse';
 import { invalidateGlobalSearchIndexCache } from '@/app/services/globalSearchIndexRuntime';
 import { invalidateProfileLineCache } from '@/app/services/globalSearchProfileCache';
 import { invalidateFileSearchSliceCache } from '@/app/services/search/globalSearchFileSliceCache';
-import { resetGlobalSearchWarmState } from '@/app/services/globalSearchWarm';
+import { resetGlobalSearchWarmState } from '@/app/services/globalSearchWarmState';
+import {
+    clearCachedGlobalSearchExtras,
+    emptyGlobalSearchExtras,
+    getCachedGlobalSearchExtras,
+    peekGlobalSearchExtrasCacheUserId,
+    setCachedGlobalSearchExtras,
+    type GlobalSearchExtras,
+    type GlobalSearchExtrasLoadOptions,
+} from '@/app/services/globalSearchExtrasCache';
 
-export type GlobalSearchExtras = {
-    quantumTasks: LegalTask[];
-    calendarEvents: CalendarEvent[];
-    urgentCases: unknown[];
-    vaultDocs: SmartVaultDoc[];
-    repositoryDocs: RepositoryDocument[];
-    threadingTransactions: Transaction[];
-    threadingTasks: TransactionTask[];
-    threadingFinance: FinanceRecord[];
-    communityPosts: CommunityPost[];
-};
+export type { GlobalSearchExtras, GlobalSearchExtrasLoadOptions };
+export { emptyGlobalSearchExtras, getCachedGlobalSearchExtras };
 
-export type GlobalSearchExtrasLoadOptions = {
-    includeCommunityPosts?: boolean;
-};
+function shouldIncludeCommunityPosts(options?: GlobalSearchExtrasLoadOptions): boolean {
+    return options?.includeCommunityPosts !== false;
+}
 
-const emptyExtras = (): GlobalSearchExtras => ({
-    quantumTasks: [],
-    calendarEvents: [],
-    urgentCases: [],
-    vaultDocs: [],
-    repositoryDocs: [],
-    threadingTransactions: [],
-    threadingTasks: [],
-    threadingFinance: [],
-    communityPosts: [],
-});
-
-let resolvedExtrasCache: {
-    userId: string;
-    data: GlobalSearchExtras;
-    includeCommunityPosts: boolean;
-} | null = null;
 let inflightExtras: {
     userId: string;
     includeCommunityPosts: boolean;
     promise: Promise<GlobalSearchExtras>;
 } | null = null;
 
-function shouldIncludeCommunityPosts(options?: GlobalSearchExtrasLoadOptions): boolean {
-    return options?.includeCommunityPosts !== false;
-}
-
-export function getCachedGlobalSearchExtras(
-    userId: string | null,
-    options?: GlobalSearchExtrasLoadOptions,
-): GlobalSearchExtras | null {
-    if (!userId || resolvedExtrasCache?.userId !== userId) return null;
-    if (shouldIncludeCommunityPosts(options) && !resolvedExtrasCache.includeCommunityPosts) return null;
-    return resolvedExtrasCache.data;
-}
-
 export function invalidateGlobalSearchExtrasCache(userId?: string | null): void {
-    if (userId && resolvedExtrasCache?.userId !== userId) return;
-    resolvedExtrasCache = null;
+    const cachedUser = peekGlobalSearchExtrasCacheUserId();
+    if (userId && cachedUser != null && cachedUser !== userId) return;
+    clearCachedGlobalSearchExtras(userId);
     if (!userId || inflightExtras?.userId === userId) inflightExtras = null;
     invalidateGlobalSearchIndexCache();
     invalidateGlobalSearchFuseCache();
@@ -129,9 +99,6 @@ async function fetchGlobalSearchExtras(
             ? (threadingState.transactions as Transaction[])
             : [],
         threadingTasks: Array.isArray(threadingState?.tasks) ? (threadingState.tasks as TransactionTask[]) : [],
-        threadingFinance: Array.isArray(threadingState?.financeRecords)
-            ? (threadingState.financeRecords as FinanceRecord[])
-            : [],
         communityPosts,
     };
 }
@@ -141,10 +108,13 @@ export async function loadGlobalSearchExtras(
     userId: string | null,
     options?: GlobalSearchExtrasLoadOptions,
 ): Promise<GlobalSearchExtras> {
-    if (!userId) return emptyExtras();
+    if (!userId) return emptyGlobalSearchExtras();
     const includeCommunityPosts = shouldIncludeCommunityPosts(options);
 
-    const cached = getCachedGlobalSearchExtras(userId, options);
+    const cached = getCachedGlobalSearchExtras(
+        userId,
+        includeCommunityPosts ? { includeCommunityPosts: true } : undefined,
+    );
     if (cached) return cached;
 
     if (
@@ -156,7 +126,7 @@ export async function loadGlobalSearchExtras(
 
     const promise = fetchGlobalSearchExtras(userId, options)
         .then((data) => {
-            resolvedExtrasCache = { userId, data, includeCommunityPosts };
+            setCachedGlobalSearchExtras(userId, data, includeCommunityPosts);
             return data;
         })
         .finally(() => {

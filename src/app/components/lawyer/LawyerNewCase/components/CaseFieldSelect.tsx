@@ -1,6 +1,6 @@
 import React, { forwardRef, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown } from '@/app/components/ui/lucideIcons';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
 import { ncFieldClass } from '../newCaseGlassTheme';
 
 export type CaseFieldSelectProps = {
@@ -89,7 +89,7 @@ export const CaseFieldSelect = forwardRef<HTMLButtonElement, CaseFieldSelectProp
             ref={listRef}
             role="listbox"
             aria-label={ariaLabel}
-            className="fixed z-[260] max-h-[min(280px,50dvh)] overflow-y-auto overscroll-y-contain rounded-xl border border-white/[0.12] bg-[#121826] shadow-2xl py-1 touch-manipulation"
+            className="fixed z-[260] max-h-[min(280px,50dvh)] overflow-y-auto overscroll-y-contain rounded-xl border border-white/[0.12] bg-[#121826] shadow-lg py-1 touch-manipulation"
             style={{ top: position.top, left: position.left, width: position.width }}
         >
             {options.map((option) => (

@@ -10,9 +10,11 @@ import {
 } from './personalStatusStageDisplay';
 import { shouldShowAbsentJudgmentFooter } from '@/app/components/lawyer/smart-modal/smartFile/absentJudgmentFlow';
 
-export type PersonalStatusDossierDerivedInput = {
+type PersonalStatusDossierDerivedInput = {
     status: string;
     isViewingArchived: boolean;
+    /** اطّلاع على إضبارة مربوطة — يقفل التعديل مثل الأرشيف مع إخفاء تذييلات الحكم/الطعن */
+    isCaseLinkViewOnly?: boolean;
     displayStage?: CaseStage | null;
     viewingStageIndex: number;
     activeStageIndex: number;
@@ -27,6 +29,7 @@ export function derivePersonalStatusDossierFlags(input: PersonalStatusDossierDer
     const {
         status,
         isViewingArchived,
+        isCaseLinkViewOnly = false,
         displayStage,
         viewingStageIndex,
         activeStageIndex,
@@ -36,16 +39,22 @@ export function derivePersonalStatusDossierFlags(input: PersonalStatusDossierDer
         showOpponentAppealBtnEffectiveFromLayout,
     } = input;
 
+    const interactionLocked = isViewingArchived || isCaseLinkViewOnly;
+
     const isCassationStage = isCassationStageName(displayStage?.stageName);
     const isWaitingView =
-        !isViewingArchived && !isCassationStage && Boolean(displayStage?.isPleadingsClosed);
+        !interactionLocked && !isCassationStage && Boolean(displayStage?.isPleadingsClosed);
 
-    const showAbsentJudgmentFooter =
-        showAbsentJudgmentFooterFromLayout ?? shouldShowAbsentJudgmentFooter(displayStage);
-    const showPetitionVoidFooter = showPetitionVoidFooterFromLayout ?? false;
+    // case-link view-only: force judgment/appeal/void footers off (mirror civil SmartFileMainPanel)
+    const showAbsentJudgmentFooter = isCaseLinkViewOnly
+        ? false
+        : (showAbsentJudgmentFooterFromLayout ?? shouldShowAbsentJudgmentFooter(displayStage));
+    const showPetitionVoidFooter = isCaseLinkViewOnly
+        ? false
+        : (showPetitionVoidFooterFromLayout ?? false);
 
     const showPersonalOpponentAppeal =
-        !isViewingArchived &&
+        !interactionLocked &&
         viewingStageIndex === activeStageIndex &&
         (
             showOpponentAppealBtnEffectiveFromLayout
@@ -72,27 +81,36 @@ export function derivePersonalStatusDossierFlags(input: PersonalStatusDossierDer
             )
         );
 
+    const hasJudgmentDecision = Boolean(String(displayStage?.finalDecision ?? '').trim());
+
     const showWorkSections =
-        !isViewingArchived && !isCassationStage && !displayStage?.isPleadingsClosed;
-    const showPleadingControls = !isViewingArchived && !isCassationStage;
+        !interactionLocked && !isCassationStage && !displayStage?.isPleadingsClosed;
+    const showPleadingControls = !interactionLocked && !isCassationStage;
+    /*
+     * بعد إدخال نتيجة الحكم (بما فيها الاعتراض الغيابي) لا تُعرض «محجوزة/فتح المرافعة» —
+     * إما لوحة طعن الخصم أو انتظار، لا إعادة فتح المرافعة.
+     */
     const showPersonalPleadingFooter =
         showPleadingControls &&
+        !(displayStage?.isPleadingsClosed && hasJudgmentDecision) &&
         !showPersonalOpponentAppeal &&
         !showAbsentJudgmentFooter &&
         !showPetitionVoidFooter;
 
     const showCloseJudgment =
         showPleadingControls &&
+        !hasJudgmentDecision &&
         (!displayStage?.isPleadingsClosed ||
             Boolean(displayStage?.isUnderObjection) ||
             isAbsentObjectionStageName(displayStage?.stageName));
 
+    // archived still shows stage footer shell; case-link view-only does not (footers forced off)
     const showStageFooterBar =
         isViewingArchived || showAbsentJudgmentFooter || showPetitionVoidFooter;
 
     const showCassationOutcomePanel = shouldShowPersonalStatusCassationOutcomePanel({
         stage: displayStage,
-        isViewingArchived,
+        isViewingArchived: interactionLocked,
         viewingStageIndex,
         activeStageIndex,
     });

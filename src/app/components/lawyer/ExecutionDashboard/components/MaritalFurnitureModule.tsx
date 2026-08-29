@@ -36,6 +36,8 @@ export const MaritalFurnitureModule: React.FC<
             >
                 <MaritalFurnitureWorkspaceBody {...state} />
             </MaritalFurnitureWorkspaceSheet>
+
+            {state.sectionConfirmDialog}
         </>
     );
 };

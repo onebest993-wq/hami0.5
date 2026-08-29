@@ -11,7 +11,7 @@ import type { CriminalDashboardConfirmAction } from './useCriminalDashboardModal
 import { StatementLogCard } from './components/StatementLogCard';
 import { OtherEvidenceLogCard } from './components/OtherEvidenceLogCard';
 
-export type UseCriminalDashboardEvidenceCardRenderersParams = {
+type UseCriminalDashboardEvidenceCardRenderersParams = {
     id: string;
     stageJourney: JourneyNode[];
     complainants: CriminalComplainant[];

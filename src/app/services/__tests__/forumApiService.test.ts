@@ -196,6 +196,7 @@ describe('ForumApiService.withFallback', () => {
         it('يستخدم API عند نجاح الاستدعاء ويدمج مع المحلي', async () => {
             const apiPosts = [makePost('p1'), makePost('p2')];
             lawyerCloudMocks.listPosts.mockResolvedValueOnce([]);
+            lawyerCloudMocks.persistPostsBatch.mockResolvedValueOnce(undefined);
             (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
                 ok: true,
                 posts: apiPosts,
@@ -209,6 +210,24 @@ describe('ForumApiService.withFallback', () => {
                 { method: 'GET' },
             );
             expect(lawyerCloudMocks.listPosts).toHaveBeenCalled();
+        });
+
+        it('لا يمسح منشورات محلية غائبة عن استجابة الخادم', async () => {
+            lawyerCloudMocks.listPosts.mockResolvedValueOnce([makePost('local-only')]);
+            lawyerCloudMocks.persistPostsBatch.mockResolvedValueOnce(undefined);
+            (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+                ok: true,
+                posts: [makePost('remote-1')],
+                total: 1,
+            });
+            const res = await ForumApiService.listPostsPaginated(20, 0);
+            expect(res.posts.map((p) => p.id).sort()).toEqual(['local-only', 'remote-1']);
+            expect(lawyerCloudMocks.persistPostsBatch).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({ id: 'local-only' }),
+                    expect.objectContaining({ id: 'remote-1' }),
+                ]),
+            );
         });
 
         it('يستخدم fallback عند فشل عام (شبكة/500)', async () => {
@@ -315,37 +334,36 @@ describe('ForumApiService.withFallback', () => {
     });
 
     describe('createPost', () => {
-        it('يحفظ محلياً أولاً ثم يُزامِن مع API', async () => {
+        it('ينشر عبر الخادم ثم يحفظ مرآة محلية', async () => {
             const post = makePost('new-1');
             const savedFromServer = { ...post, isPinned: false };
-            lawyerCloudMocks.addCommunityPost.mockResolvedValueOnce(undefined);
+            lawyerCloudMocks.savePost.mockResolvedValueOnce(undefined);
             (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
                 ok: true,
                 post: savedFromServer,
             });
             const result = await ForumApiService.createPost(post);
             expect(result.id).toBe('new-1');
-            expect(lawyerCloudMocks.addCommunityPost).toHaveBeenCalledBefore(
-                SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>,
-            );
+            expect(SecureAPIClient.fetchSecure).toHaveBeenCalled();
+            expect(lawyerCloudMocks.savePost).toHaveBeenCalled();
+            expect(lawyerCloudMocks.addCommunityPost).not.toHaveBeenCalled();
         });
 
-        it('يُرجع المنشور المحلي عند فشل API بعد الحفظ المحلي', async () => {
+        it('يرمي عند فشل API ولا يُظهر المنشور كمنشور رسمي', async () => {
             const post = makePost('new-2');
             (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('5xx'));
-            lawyerCloudMocks.addCommunityPost.mockResolvedValueOnce(undefined);
-            const result = await ForumApiService.createPost(post);
-            /* معرّف خادم جديد دائماً — لا يُعاد استخدام id العميل */
-            expect(result.id).not.toBe('new-2');
-            expect(result.authorId).toBe(post.authorId);
-            expect(result.content).toBe(post.content.trim());
-            expect(lawyerCloudMocks.addCommunityPost).toHaveBeenCalledTimes(1);
-            const saved = lawyerCloudMocks.addCommunityPost.mock.calls[0][0];
-            expect(saved.id).toBe(result.id);
-            expect(saved.authorId).toBe(post.authorId);
+            await expect(ForumApiService.createPost(post)).rejects.toThrow();
+            expect(lawyerCloudMocks.addCommunityPost).not.toHaveBeenCalled();
         });
 
-        it('لا يعيد تجهيز المرفق إذا كان لديه storagePath محلي ثابت', async () => {
+        it('يرفع المرفق المحلي إلى السحابة قبل النشر', async () => {
+            prepareForumAttachmentForPublish.mockResolvedValueOnce({
+                type: 'image',
+                name: 'scan.png',
+                mimeType: 'image/png',
+                storagePath: 'user-1/forum-media/scan.png',
+                bucket: 'forum-media',
+            });
             const post = makePost('new-3', {
                 attachment: {
                     type: 'image',
@@ -354,8 +372,17 @@ describe('ForumApiService.withFallback', () => {
                     storagePath: 'idb:forum:stable-scan',
                 },
             });
-            const savedFromServer = { ...post };
-            lawyerCloudMocks.addCommunityPost.mockResolvedValueOnce(undefined);
+            const savedFromServer = {
+                ...post,
+                attachment: {
+                    type: 'image',
+                    name: 'scan.png',
+                    mimeType: 'image/png',
+                    storagePath: 'user-1/forum-media/scan.png',
+                    bucket: 'forum-media',
+                },
+            };
+            lawyerCloudMocks.savePost.mockResolvedValueOnce(undefined);
             (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
                 ok: true,
                 post: savedFromServer,
@@ -363,12 +390,8 @@ describe('ForumApiService.withFallback', () => {
 
             const result = await ForumApiService.createPost(post);
 
-            expect(result.attachment).toEqual(post.attachment);
-            expect(prepareForumAttachmentForPublish).not.toHaveBeenCalled();
-            expect(lawyerCloudMocks.addCommunityPost).toHaveBeenCalledTimes(1);
-            const saved = lawyerCloudMocks.addCommunityPost.mock.calls[0][0];
-            expect(saved.attachment?.storagePath).toBe('idb:forum:stable-scan');
-            expect(saved.attachment?.name).toBe('scan.png');
+            expect(prepareForumAttachmentForPublish).toHaveBeenCalled();
+            expect(result.attachment?.storagePath).toBe('user-1/forum-media/scan.png');
         });
     });
 

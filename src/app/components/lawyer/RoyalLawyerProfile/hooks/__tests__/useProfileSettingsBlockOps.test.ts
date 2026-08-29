@@ -168,4 +168,31 @@ describe('useProfileSettingsBlockOps upload gens', () => {
         expect(SmartToast.success).not.toHaveBeenCalled();
         expect(result.current.draft.customBlocks.some((b) => b.id === imageId)).toBe(false);
     });
+
+    it('رفع صورة الكتلة المفتوحة دون triggerBlockImage', async () => {
+        vi.mocked(uploadProfileMedia).mockResolvedValue({
+            displayUrl: 'https://cdn/from-expanded.jpg',
+            source: 'local',
+        });
+
+        const { result } = renderHook(() => useHarness());
+
+        await act(async () => {
+            result.current.ops.addBlock('image');
+        });
+        const imageId = result.current.ops.imageBlocks[0]?.id;
+        expect(imageId).toBeTruthy();
+        expect(result.current.ops.expandedBlockId).toBe(imageId);
+
+        await act(async () => {
+            await result.current.ops.onBlockImageSelected(
+                new File(['i'], 'i.jpg', { type: 'image/jpeg' }),
+            );
+        });
+
+        expect(result.current.draft.customBlocks.find((b) => b.id === imageId)?.imageUrl).toBe(
+            'https://cdn/from-expanded.jpg',
+        );
+        expect(SmartToast.success).toHaveBeenCalledWith('تم رفع الصورة');
+    });
 });

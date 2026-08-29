@@ -1,5 +1,4 @@
 import type { ForumNotification } from '@/app/services/forum/forumTypes';
-import { loadKvStoreAdmin } from '@/app/api/security/loadKvStoreAdmin';
 import { mapForumNotificationToModel } from '@/app/services/notifications/forumNotificationMapper';
 import {
     dismissForumNotificationInModels,
@@ -26,14 +25,23 @@ function withServerTimestamp(notif: ForumNotification): ForumNotification {
 /** NotificationDB على الخادم — blob موحّد + طابع زمني خادمي. */
 export const ServerNotificationDB = {
     async getNotifications(userId: string): Promise<ForumNotification[]> {
-        await cleanupLegacyForumPrefixServer(userId).catch(() => undefined);
-        const models = await readNotificationBlobServer(userId);
-        return extractForumNotificationsFromModels(models, userId);
+        try {
+            await cleanupLegacyForumPrefixServer(userId).catch(() => undefined);
+            const models = await readNotificationBlobServer(userId);
+            return extractForumNotificationsFromModels(models, userId);
+        } catch {
+            /* KV/Supabase غير متاح في التطوير — لا نكسر SSE */
+            return [];
+        }
     },
 
     async getUnreadCount(userId: string): Promise<number> {
-        const rows = await this.getNotifications(userId);
-        return rows.filter((n) => !n.read).length;
+        try {
+            const rows = await this.getNotifications(userId);
+            return rows.filter((n) => !n.read).length;
+        } catch {
+            return 0;
+        }
     },
 
     async markAsRead(notificationId: string, userId: string): Promise<void> {
@@ -59,6 +67,9 @@ export const ServerNotificationDB = {
         const models = await readNotificationBlobServer(stamped.userId);
         const next = upsertForumIntoModels(models, stamped);
         await saveNotificationBlobServer(stamped.userId, next);
+        void import('@/app/services/notifications/fcm/fcmInboxDispatch.server').then((m) =>
+            m.dispatchFcmForForumNotification(stamped),
+        );
     },
 
     async updateNotification(
@@ -83,14 +94,3 @@ export const ServerNotificationDB = {
         await upsertNotificationModelsServer(userId, models);
     },
 };
-
-export async function countLegacyPrefixKeysServer(userId: string): Promise<number> {
-    try {
-        const kv = await loadKvStoreAdmin();
-        if (!kv) return -1;
-        const values = await kv.kvGetByPrefix(`notifications:${userId}:`);
-        return Array.isArray(values) ? values.length : 0;
-    } catch {
-        return -1;
-    }
-}

@@ -1,5 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, FileText, ImageIcon, Mic, Plus, Scan } from '@/app/components/ui/lucideIcons';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useRepositoryChromeDismiss } from './hooks/useRepositoryChromeDismiss';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
+import { FileText } from '@/app/components/ui/icons/FileText';
+import { ImageIcon } from '@/app/components/ui/icons/ImageIcon';
+import { Mic } from '@/app/components/ui/icons/Mic';
+import { Plus } from '@/app/components/ui/icons/Plus';
+import { Scan } from '@/app/components/ui/icons/Scan';
 import { REPO_ADD_MENU_BTN, REPO_ADD_MENU_ITEM, REPO_ADD_MENU_PANEL } from './smartRepositoryTheme';
 
 type RepositoryAddMenuProps = {
@@ -28,9 +34,12 @@ export function RepositoryAddMenu({
 }: RepositoryAddMenuProps) {
     const [open, setOpen] = useState(false);
     const rootRef = useRef<HTMLDivElement>(null);
+    const closeMenu = useCallback(() => setOpen(false), []);
+    useRepositoryChromeDismiss(open, closeMenu);
 
     useEffect(() => {
         if (!open) return;
+        void import('@/app/components/lawyer/SmartVaultModal/VaultUploadMetaSheet');
         const onDoc = (e: MouseEvent) => {
             if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
         };

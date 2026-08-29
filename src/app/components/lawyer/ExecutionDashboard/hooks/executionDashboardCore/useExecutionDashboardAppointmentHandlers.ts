@@ -1,8 +1,8 @@
-// @ts-nocheck
 /** Phase C — حفظ/تعديل مواعيد الإضبارة + مزامنة التقويم */
 import { useCallback, useMemo, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import { CalendarBridge, normalizeDateToYmd } from '@/app/services/calendarBridge';
+import { toastAfterExecutionPersist } from '../../helpers/toastAfterExecutionPersist';
 
 export type UseExecutionDashboardAppointmentHandlersParams = {
     appointmentPurpose: string;
@@ -14,7 +14,7 @@ export type UseExecutionDashboardAppointmentHandlersParams = {
     executionData: ExecutionFile | null | undefined;
     file: ExecutionFile | null | undefined;
     nextTimelineId: () => string;
-    persistExecutionMerge: (patch: Record<string, unknown>) => void;
+    persistExecutionMerge: (patch: Record<string, unknown>) => boolean | void;
     showToast: (message: string, type?: string, opts?: Record<string, unknown>) => void;
     setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
     setAppointmentPurpose: Dispatch<SetStateAction<string>>;
@@ -103,8 +103,11 @@ export function useExecutionDashboardAppointmentHandlers({
                     : ev,
             );
             setTimelineEvents(nextTimeline);
-            persistExecutionMerge({ timelineEvents: nextTimeline });
-            showToast('تم تعديل الموعد بنجاح', 'success');
+            toastAfterExecutionPersist(
+                persistExecutionMerge({ timelineEvents: nextTimeline }),
+                showToast,
+                'تم تعديل الموعد بنجاح',
+            );
         } else {
             const newEvent: TimelineEvent = {
                 id: syncedTimelineId,
@@ -117,8 +120,11 @@ export function useExecutionDashboardAppointmentHandlers({
             };
             const nextTimeline = [newEvent, ...(timelineEventsRef.current || [])];
             setTimelineEvents(nextTimeline);
-            persistExecutionMerge({ timelineEvents: nextTimeline });
-            showToast('تم حفظ الموعد بنجاح', 'success');
+            toastAfterExecutionPersist(
+                persistExecutionMerge({ timelineEvents: nextTimeline }),
+                showToast,
+                'تم حفظ الموعد بنجاح',
+            );
         }
 
         const execYmd = normalizeDateToYmd(dateOnly) ?? dateOnly;

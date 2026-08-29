@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
     computePastAlimonyDuration,
-    computePastAlimonyDurationMonths,
     computePastAlimonyAmount,
     diffDaysBetween,
     resolveAlimonyCalculatorInsights,
@@ -9,7 +8,7 @@ import {
     type AlimonyPastLawSystem,
 } from '../useAlimonyCalculator';
 
-const JAAFARI = 'الفقه الجعfري' satisfies AlimonyPastLawSystem;
+const JAAFARI = 'الفقه الجعفري' satisfies AlimonyPastLawSystem;
 const LAW_1959: AlimonyPastLawSystem = 'قانون الأحوال الشخصية 1959';
 
 describe('diffDaysBetween', () => {
@@ -50,14 +49,6 @@ describe('computePastAlimonyDuration', () => {
         expect(computePastAlimonyDuration('2026-06-01', '2026-06-01', LAW_1959).billableDays).toBe(
             0,
         );
-    });
-});
-
-describe('computePastAlimonyDurationMonths (compat)', () => {
-    it('mirrors computePastAlimonyDuration', () => {
-        const r = computePastAlimonyDurationMonths('2020-01-01', '2026-06-01', LAW_1959);
-        expect(r.billableMonths).toBe(12);
-        expect(r.pastYearCapApplied).toBe(true);
     });
 });
 

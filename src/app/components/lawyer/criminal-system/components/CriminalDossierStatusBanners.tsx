@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { PendingSeveranceResumeBar } from './PendingSeveranceResumeBar';
 
-export type InAbsentiaBannerItem = {
+type InAbsentiaBannerItem = {
     id: string;
     name: string;
     isExpired?: boolean;

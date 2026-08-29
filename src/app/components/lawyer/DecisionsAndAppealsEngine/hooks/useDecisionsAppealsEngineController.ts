@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { newEventId } from '../utils';
 import { useDecisionDispatcher } from '@/app/hooks/useDecisionDispatcher';
 import { useDecisionsAppealsEngineStorage } from '../hooks/useDecisionsAppealsEngineStorage';
@@ -47,9 +46,9 @@ export function useDecisionsAppealsEngineController({
 
     const ui = useDecisionsAppealsHubUiState({
         isHistoricalMode,
-        bootHubTab,
-        decisionsScrollToIdOnBoot,
-        appealsScrollToIdOnBoot,
+        bootHubTab: bootHubTab ?? undefined,
+        decisionsScrollToIdOnBoot: decisionsScrollToIdOnBoot ?? undefined,
+        appealsScrollToIdOnBoot: appealsScrollToIdOnBoot ?? undefined,
         domainVisibleDecisionsLength: storage.domainVisibleDecisions.length,
         setDecisions: storage.setDecisions,
         persistDecisionsToStorage: storage.persistDecisionsToStorage,

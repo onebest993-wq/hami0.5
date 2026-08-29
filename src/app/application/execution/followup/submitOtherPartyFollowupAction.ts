@@ -4,7 +4,7 @@ import { appendSpecialFollowupRequest } from '@/app/utils/specialFollowupDecisio
 import { DECISIONS_RELOAD_EVENT } from '@/app/utils/executorSeizureDecisionQueue';
 import {
     buildOtherPartyActionLogEntry,
-    prependOtherPartyActionLog,
+    persistOtherPartyActionLogEntry,
 } from '@/app/application/execution/followup/otherPartyActionLogPersist';
 
 export type SubmitOtherPartyFollowupActionInput = {
@@ -38,8 +38,22 @@ export function submitOtherPartyFollowupAction(
     }
 
     if (input.isRepresentingDebtor) {
-        input.showToast?.('تم تسجيل التحرك في السجل الزمني.', 'success');
-        return { ok: true };
+        const logEntry = buildOtherPartyActionLogEntry({
+            date: d,
+            content,
+        });
+        const persisted = persistOtherPartyActionLogEntry(
+            input.persistExecutionMerge,
+            input.existingLog,
+            logEntry,
+        );
+        input.showToast?.(
+            persisted
+                ? 'تم تسجيل التحرك في السجل الزمني.'
+                : 'تعذّر حفظ التحرك — أعد المحاولة',
+            persisted ? 'success' : 'warning',
+        );
+        return persisted ? { ok: true, logEntryId: logEntry.id } : { ok: false };
     }
 
     const decisionId = appendSpecialFollowupRequest({
@@ -66,11 +80,11 @@ export function submitOtherPartyFollowupAction(
         content,
         decisionRowId: decisionId,
     });
-    const mergedLog = prependOtherPartyActionLog(input.existingLog, logEntry);
-    const persisted =
-        typeof input.persistExecutionMerge === 'function'
-            ? input.persistExecutionMerge({ other_party_actions_log: mergedLog }) !== false
-            : false;
+    const persisted = persistOtherPartyActionLogEntry(
+        input.persistExecutionMerge,
+        input.existingLog,
+        logEntry,
+    );
 
     dispatchDecisionsReload();
 

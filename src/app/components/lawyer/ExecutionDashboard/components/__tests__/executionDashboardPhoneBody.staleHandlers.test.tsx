@@ -5,14 +5,6 @@ import { ExecutionDashboardPhoneBody } from '../ExecutionDashboardPhoneBody';
 import { ExecutionPhoneBodyScopeProvider } from '../../hooks/executionPhoneBodyScope';
 import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 
-vi.mock('../ExecutionDashboardSparkNudgeBridge', () => ({
-    ExecutionDashboardSparkNudgeBridge: () => null,
-}));
-
-vi.mock('@/app/spark/ui/SparkVaultDocOpenBridge', () => ({
-    SparkVaultDocOpenBridge: () => null,
-}));
-
 vi.mock('../ExecutionDashboardPhoneBodySecondarySections', () => ({
     ExecutionDashboardPhoneBodySecondarySections: (props: {
         safeOpenAppointmentModal?: () => void;
@@ -37,10 +29,6 @@ vi.mock('../ExecutionDashboardPhoneBodyTertiaryPanels', () => ({
     ExecutionDashboardPhoneBodyTertiaryPanels: () => null,
 }));
 
-vi.mock('../ExecutionDashboardPhoneBodyDeferredPanels', () => ({
-    ExecutionDashboardPhoneBodyDeferredPanels: () => null,
-}));
-
 vi.mock('../../hooks/useExecutionDashboardPhoneBodyMountStages', () => ({
     useExecutionDashboardPhoneBodyMountStages: () => ({
         secondaryStageReady: true,
@@ -49,100 +37,108 @@ vi.mock('../../hooks/useExecutionDashboardPhoneBodyMountStages', () => ({
     }),
 }));
 
-vi.mock('../../executionDashboardLazyRegistry', async (importOriginal) => {
-    const React = await import('react');
-    const actual = await importOriginal<typeof import('../../executionDashboardLazyRegistry')>();
-    const NullComponent = () => null;
-    const ForwardedDebtorsSection = React.forwardRef(
-        (
-            props: {
-                openEditParty?: (kind: 'creditor' | 'debtor', index: number) => void;
-            },
-            ref: _ref,
-        ) => (
-            <button
-                type="button"
-                onClick={() => props.openEditParty?.('debtor', 0)}
-            >
-                debtor edit trigger
-            </button>
-        ),
-    );
-    return {
-        ...actual,
-        LazyColleagueConsultationHeaderButton: NullComponent,
-        LazyCoerciveTab: NullComponent,
-        LazyCommunicationsTab: NullComponent,
-        LazyDashboardHeaderSection: (props: { openEditDossierMeta?: () => void }) => (
-            <button type="button" onClick={props.openEditDossierMeta}>
-                dossier edit trigger
-            </button>
-        ),
-        LazyActionGridSection: (props: {
-            onOpenAppointmentModal?: () => void;
-            onOpenNotesModal?: () => void;
-        }) => (
-            <>
-                <button type="button" onClick={props.onOpenAppointmentModal}>
-                    إضافة موعد
+const { patchLazyRegistry } = vi.hoisted(() => {
+    const patchLazyRegistry = async (
+        importOriginal: () => Promise<Record<string, unknown>>,
+    ): Promise<Record<string, unknown>> => {
+        const React = await import('react');
+        const actual = await importOriginal();
+        const NullComponent = () => null;
+        const ForwardedDebtorsSection = React.forwardRef(
+            (
+                props: {
+                    openEditParty?: (kind: 'creditor' | 'debtor', index: number) => void;
+                },
+                _ref: unknown,
+            ) => (
+                <button
+                    type="button"
+                    onClick={() => props.openEditParty?.('debtor', 0)}
+                >
+                    debtor edit trigger
                 </button>
-                <button type="button" onClick={props.onOpenNotesModal}>
-                    ملاحظات
+            ),
+        );
+        return {
+            ...actual,
+            LazyCoerciveTab: NullComponent,
+            LazyCommunicationsTab: NullComponent,
+            LazyDashboardHeaderSection: (props: { openEditDossierMeta?: () => void }) => (
+                <button type="button" onClick={props.openEditDossierMeta}>
+                    dossier edit trigger
                 </button>
-            </>
-        ),
-        LazyDebtorsSection: ForwardedDebtorsSection,
-        LazyDossierControlsTab: NullComponent,
-        LazyDossierSwitcher: NullComponent,
-        LazyDossierMetaEditSection: NullComponent,
-        LazyFinancialTab: NullComponent,
-        LazyOtherPartyTab: NullComponent,
-        LazyPartiesSection: (props: {
-            openEditParty?: (
-                kind: 'creditor' | 'debtor',
-                index: number,
-                opts?: { party?: { id?: string } },
-            ) => void;
-        }) => (
-            <button
-                type="button"
-                onClick={() => props.openEditParty?.('creditor', 0, { party: { id: 'cred-1' } })}
-            >
-                creditor edit trigger
-            </button>
-        ),
-        LazyPartyEditModal: NullComponent,
-        LazyPermanentDeleteConfirmDialog: NullComponent,
-        LazyPersonalTab: NullComponent,
-        LazyRequestsTab: NullComponent,
-        LazySeizureRequestsTab: NullComponent,
-        LazyTimelineSection: NullComponent,
-        LazyPersonalCoerciveFollowupPanel: NullComponent,
-        LazyEmployeeAssignmentCoerciveFollowupBlock: NullComponent,
-        LazyEvictionFieldProceduresPanel: NullComponent,
-        LazyOtherPartyActionsLog: NullComponent,
-        LazyExecutionTrashModal: NullComponent,
-        LazyTimelineEditModal: NullComponent,
-        LazyExecutionHeirsQuickViewModal: NullComponent,
-        LazyExecutionTransferFileNumberModal: NullComponent,
-        LazyDossierActionsModal: NullComponent,
-        LazyLinkedDossierTimelineModal: NullComponent,
-        LazyAlimonyBeneficiaryDeathModal: NullComponent,
-        LazyExecutorApprovedDateTimeModal: NullComponent,
-        LazyExecutorBreakInventoryFurnitureModal: NullComponent,
-        LazyExecutorJudicialCustodianModal: NullComponent,
-        LazyExecutorWorkflowConfirmModal: NullComponent,
-        LazyPoliceAssistanceDetailsModal: NullComponent,
-        LazyPartyDeathReportModal: NullComponent,
-        LazyRealEstateSeizurePostApprovalModal: NullComponent,
-        LazyGuarantorDetailsPostApprovalModal: NullComponent,
-        prefetchExecutionTrashOverlay: vi.fn(),
-        prefetchExecutionNotesAndAppointmentModals: vi.fn(),
-        prefetchExecutionDecisionsModalContainer: vi.fn(),
-        prefetchExecutionFinancialHubPortal: vi.fn(),
-        prefetchUnifiedSeizureLogHost: vi.fn(),
+            ),
+            LazyActionGridSection: (props: {
+                onOpenAppointmentModal?: () => void;
+                onOpenNotesModal?: () => void;
+            }) => (
+                <>
+                    <button type="button" onClick={props.onOpenAppointmentModal}>
+                        إضافة موعد
+                    </button>
+                    <button type="button" onClick={props.onOpenNotesModal}>
+                        ملاحظات
+                    </button>
+                </>
+            ),
+            LazyDebtorsSection: ForwardedDebtorsSection,
+            LazyDossierControlsTab: NullComponent,
+            LazyDossierMetaEditSection: NullComponent,
+            LazyFinancialTab: NullComponent,
+            LazyOtherPartyTab: NullComponent,
+            LazyPartiesSection: (props: {
+                openEditParty?: (
+                    kind: 'creditor' | 'debtor',
+                    index: number,
+                    opts?: { party?: { id?: string } },
+                ) => void;
+            }) => (
+                <button
+                    type="button"
+                    onClick={() => props.openEditParty?.('creditor', 0, { party: { id: 'cred-1' } })}
+                >
+                    creditor edit trigger
+                </button>
+            ),
+            LazyPartyEditModal: NullComponent,
+            LazyPermanentDeleteConfirmDialog: NullComponent,
+            LazyPersonalTab: NullComponent,
+            LazyRequestsTab: NullComponent,
+            LazySeizureRequestsTab: NullComponent,
+            LazyTimelineSection: NullComponent,
+            LazyPersonalCoerciveFollowupPanel: NullComponent,
+            LazyEmployeeAssignmentCoerciveFollowupBlock: NullComponent,
+            LazyEvictionFieldProceduresPanel: NullComponent,
+            LazyOtherPartyActionsLog: NullComponent,
+            LazyExecutionTrashModal: NullComponent,
+            LazyTimelineEditModal: NullComponent,
+            LazyExecutionHeirsQuickViewModal: NullComponent,
+            LazyExecutionTransferFileNumberModal: NullComponent,
+            LazyDossierActionsModal: NullComponent,
+            LazyLinkedDossierTimelineModal: NullComponent,
+            LazyAlimonyBeneficiaryDeathModal: NullComponent,
+            LazyExecutorApprovedDateTimeModal: NullComponent,
+            LazyExecutorBreakInventoryFurnitureModal: NullComponent,
+            LazyExecutorJudicialCustodianModal: NullComponent,
+            LazyExecutorWorkflowConfirmModal: NullComponent,
+            LazyPoliceAssistanceDetailsModal: NullComponent,
+            LazyPartyDeathReportModal: NullComponent,
+            LazyRealEstateSeizurePostApprovalModal: NullComponent,
+            LazyGuarantorDetailsPostApprovalModal: NullComponent,
+            prefetchExecutionNotesAndAppointmentModals: vi.fn(),
+            prefetchExecutionDocumentVault: vi.fn(),
+            prefetchExecutionDecisionsModalContainer: vi.fn(),
+            prefetchExecutionFinancialHubPortal: vi.fn(),
+            prefetchUnifiedSeizureLogHost: vi.fn(),
+        };
     };
+    return { patchLazyRegistry };
 });
+
+vi.mock('../../executionDashboardLazyRegistryShell', (importOriginal) => patchLazyRegistry(importOriginal));
+vi.mock('../../executionDashboardLazyRegistryOverlays', (importOriginal) =>
+    patchLazyRegistry(importOriginal),
+);
 
 describe('ExecutionDashboardPhoneBody stale handler recovery', () => {
     beforeEach(() => {

@@ -12,7 +12,7 @@ type CaseStatus = ReturnType<typeof useSmartFileModalCaseStatus>;
 type ModalFlags = ReturnType<typeof useSmartFileModalFlags>;
 type DomainActions = ReturnType<typeof useSmartFileModalDomainActions>;
 
-export type BuildSmartFileOrchestratorLayoutInput = {
+type BuildSmartFileOrchestratorLayoutInput = {
     onClose: SmartFileModalProps['onClose'];
     file: FileData;
     onOpenLinkedFile?: SmartFileModalProps['onOpenLinkedFile'];
@@ -91,7 +91,6 @@ export function buildSmartFileOrchestratorLayout(input: BuildSmartFileOrchestrat
         handleCorrespondenceResponse: actions.handleCorrespondenceResponse,
         handleResumeAbandonment: actions.handleResumeAbandonment,
         handleResume: actions.handleResume,
-        handleToggleClient: actions.handleToggleClient,
         handleInterruptionToggle: actions.handleInterruptionToggle,
         handleOpenPauseModal: actions.handleOpenPauseModal,
         handleOpenPauseResume: actions.handleOpenPauseResume,

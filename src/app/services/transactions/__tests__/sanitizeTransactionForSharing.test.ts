@@ -4,9 +4,8 @@ import {
     resanitizeShareDraft,
     sanitizeTemplateForSharing,
     sanitizeTransactionForSharing,
-    scrubPiiMultiline,
-    scrubPiiText,
 } from '@/app/services/transactions/sanitizeTransactionForSharing';
+import { scrubPiiMultiline, scrubPiiText } from '@/app/services/transactions/scrubTransactionSharePii';
 import {
     parseProcedureGuideDataLine,
     PROCEDURE_GUIDE_ACTION_MARKER,

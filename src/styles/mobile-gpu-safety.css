@@ -33,18 +33,3 @@ html[data-hami-lite='1'] .will-change-transform,
 html[data-hami-lite='1'] .will-change-opacity {
     will-change: auto !important;
 }
-
-/* أثناء السكون (0 FPS) — أوقف الرسوم المتحركة الخلفية */
-html[data-hami-render-idle='1'] .hami-sovereign-aurora,
-html[data-hami-render-idle='1'] .hami-sovereign-shine::after,
-html[data-hami-render-idle='1'] .hami-sovereign-breathe,
-html[data-hami-render-idle='1'] .hami-sovereign-float,
-html[data-hami-render-idle='1'] .hami-home-shimmer::after,
-html[data-hami-render-idle='1'] .hami-home-pulse-ring {
-    animation-play-state: paused !important;
-}
-
-html[data-hami-render-idle='1'] [data-hami-lawyer-dashboard] *,
-html[data-hami-render-idle='1'] [data-lawyer-profile-root] * {
-    animation-play-state: paused !important;
-}

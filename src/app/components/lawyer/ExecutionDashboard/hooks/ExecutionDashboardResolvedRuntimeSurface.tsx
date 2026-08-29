@@ -1,9 +1,10 @@
 import React, { Suspense, lazy, useMemo } from 'react';
 import { ColleagueConsultationProvider } from '@/app/components/lawyer/caseShare/ColleagueConsultationContext';
 import { extractExecutionShareSource } from '@/app/services/caseShare/caseShareExtractors';
-import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { EXEC_MODAL_Z } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 import { ExecutionDashboardRootFrame } from '../components/ExecutionDashboardRootFrame';
 import { ExecutionDashboardChunkHost } from '../components/ExecutionDashboardChunkHost';
+import type { ExecutionDashboardChunkHostProps } from '../components/ExecutionDashboardChunkHost.types';
 import { useExecutionDashboardCore } from './useExecutionDashboardCore';
 import type { ExecutionDashboardRuntimeAssemblyResult } from './executionDashboardCore/buildExecutionDashboardRuntimeAssemblyResult';
 // Core هو المالك الوحيد للتجميع — Surface يستهلك vm الجاهز فقط (لا double-hook).
@@ -16,6 +17,8 @@ const LazyExecutionToast = lazy(() =>
 
 type ExecutionDashboardResolvedRuntimeSurfaceProps = {
     vm: ReturnType<typeof useExecutionDashboardCore>;
+    paintFile?: ExecutionDashboardChunkHostProps['paintFile'];
+    onExitToHome?: () => void;
 };
 
 type CoreAssembledRuntimeVm = ExecutionDashboardRuntimeAssemblyResult &
@@ -27,16 +30,25 @@ type CoreAssembledRuntimeVm = ExecutionDashboardRuntimeAssemblyResult &
 export const ExecutionDashboardResolvedRuntimeSurface = React.memo(
     function ExecutionDashboardResolvedRuntimeSurface({
         vm,
+        paintFile,
+        onExitToHome,
     }: ExecutionDashboardResolvedRuntimeSurfaceProps) {
         const runtimeVm = vm as unknown as CoreAssembledRuntimeVm;
 
-        const colleagueShareSource = useMemo(
-            () => extractExecutionShareSource(vm.viewExecutionData),
-            [vm.viewExecutionData],
-        );
+        const colleagueShareSource = useMemo(() => {
+            const file = vm.viewExecutionData;
+            if (!file || typeof file !== 'object') return undefined;
+            try {
+                return extractExecutionShareSource(file);
+            } catch {
+                return undefined;
+            }
+        }, [vm.viewExecutionData]);
 
         const chunkHostProps = useMemo(
             () => ({
+                paintFile,
+                onExitToHome,
                 phoneBodyReady: runtimeVm.phoneBodyReady,
                 shellOverlaysReady: runtimeVm.shellOverlaysReady,
                 phoneBodyScopeRef: runtimeVm.phoneBodyScopeRef,
@@ -92,6 +104,8 @@ export const ExecutionDashboardResolvedRuntimeSurface = React.memo(
                 onPartyDeathHandlerClusterReady: runtimeVm.onPartyDeathHandlerClusterReady,
             }),
             [
+                paintFile,
+                onExitToHome,
                 runtimeVm.phoneBodyReady,
                 runtimeVm.shellOverlaysReady,
                 runtimeVm.phoneBodyScopeRef,

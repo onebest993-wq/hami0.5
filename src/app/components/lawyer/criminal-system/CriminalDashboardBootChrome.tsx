@@ -44,8 +44,8 @@ export function CriminalDashboardBootChrome({
                                 الإضبارة الجزائية
                             </span>
                         </div>
-                        <span className="inline-flex h-9 w-9 shrink-0" aria-hidden />
-                        <span className="inline-flex h-9 w-9 shrink-0" aria-hidden />
+                        <span className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0" aria-hidden />
+                        <span className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0" aria-hidden />
                     </div>
                 </div>
             ) : null}

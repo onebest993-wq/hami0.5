@@ -12,6 +12,12 @@ export function getTimeBucket(iso: string, now: Date): TimeBucket {
     return 'older';
 }
 
+export const EMPTY_NOTIFICATION_TIME_GROUPS: Record<TimeBucket, NotificationModel[]> = {
+    today: [],
+    yesterday: [],
+    older: [],
+};
+
 export function groupNotificationsByTime(
     items: NotificationModel[],
     now: Date = new Date(),

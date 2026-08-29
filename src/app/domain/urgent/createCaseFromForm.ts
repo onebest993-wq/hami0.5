@@ -25,7 +25,7 @@ function resolveRepresentedParty(data: UrgentFormSavePayload): 'client' | 'oppon
     return null;
 }
 
-export type CreateCaseFromFormOptions = {
+type CreateCaseFromFormOptions = {
     now?: Date;
     msPerDay?: number;
 };

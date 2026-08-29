@@ -7,26 +7,36 @@ import {
     mirrorCalendarEventsToLocalStorage,
     clearCalendarEventsLocalStorageMirror,
 } from '@/app/services/calendar/calendarLocalSnapshot';
+import { BOOT_SHELL_WARM_KEYS } from '@/app/services/dossierPersistence/protectedStorageKeys';
 
 const USER = 'lawyer-test-1';
 
+const secureMem = vi.hoisted(() => new Map<string, string>());
+
 vi.mock('@/app/services/SecureStoreService', () => ({
     default: {
-        getItemSync: vi.fn(() => null),
+        getItemSync: vi.fn((key: string) => secureMem.get(key) ?? null),
+        setItemSync: vi.fn((key: string, value: string) => {
+            secureMem.set(key, value);
+            return true;
+        }),
     },
 }));
 
 describe('calendarLocalSnapshot', () => {
     beforeEach(() => {
+        secureMem.clear();
         localStorage.clear();
-        vi.mocked(SecureStoreService.getItemSync).mockReturnValue(null);
+        vi.mocked(SecureStoreService.getItemSync).mockClear();
+        vi.mocked(SecureStoreService.setItemSync).mockClear();
     });
 
     afterEach(() => {
         localStorage.clear();
+        secureMem.clear();
     });
 
-    it('يقرأ أحداث المستخدم من localStorage فوراً', () => {
+    it('يرحّل أحداث المستخدم من localStorage ثم يمحو المرآة', () => {
         localStorage.setItem(
             CALENDAR_LOCAL_STORAGE_KEY,
             JSON.stringify([
@@ -55,6 +65,8 @@ describe('calendarLocalSnapshot', () => {
         expect(events).toHaveLength(1);
         expect(events[0]?.id).toBe('ev-1');
         expect(hasLocalCalendarSnapshot(USER)).toBe(true);
+        expect(localStorage.getItem(CALENDAR_LOCAL_STORAGE_KEY)).toBeNull();
+        expect(secureMem.get(CALENDAR_LOCAL_STORAGE_KEY)).toBeTruthy();
     });
 
     it('يستبعد الأحداث المحذوفة (tombstones)', () => {
@@ -81,6 +93,8 @@ describe('calendarLocalSnapshot', () => {
 
         expect(readLocalCalendarSnapshotSync(USER)).toHaveLength(0);
         expect(hasLocalCalendarSnapshot(USER)).toBe(false);
+        expect(localStorage.getItem('hami:calendar:tombstones:v1')).toBeNull();
+        expect(secureMem.get('hami:calendar:tombstones:v1')).toBeTruthy();
     });
 
     it('يقرأ من SecureStore sync cache عند غياب localStorage', () => {
@@ -95,20 +109,25 @@ describe('calendarLocalSnapshot', () => {
                 updatedAt: '2026-01-01T00:00:00.000Z',
             },
         ]);
-        vi.mocked(SecureStoreService.getItemSync).mockImplementation((key: string) => {
-            if (key === CALENDAR_LOCAL_STORAGE_KEY) return payload;
-            return null;
-        });
+        secureMem.set(CALENDAR_LOCAL_STORAGE_KEY, payload);
 
         const events = readLocalCalendarSnapshotSync(USER);
         expect(events).toHaveLength(1);
         expect(events[0]?.id).toBe('ev-secure');
     });
 
-    it('mirrorCalendarEventsToLocalStorage يكتب مرآة للّقطة الفورية', () => {
-        const payload = JSON.stringify([{ id: 'ev-m', userId: USER, title: 'x', date: '2026-06-01', type: 'custom', createdAt: '', updatedAt: '' }]);
+    it('مفتاح التقويم وشواهد القبر في قشرة الإقلاع — رادار الرئيسية يقرأ لقطة متزامنة', () => {
+        expect([...BOOT_SHELL_WARM_KEYS]).toContain(CALENDAR_LOCAL_STORAGE_KEY);
+        expect([...BOOT_SHELL_WARM_KEYS]).toContain('hami:calendar:tombstones:v1');
+    });
+
+    it('mirrorCalendarEventsToLocalStorage يمحو المرآة الصريحة ولا يكتبها', () => {
+        const payload = JSON.stringify([
+            { id: 'ev-m', userId: USER, title: 'x', date: '2026-06-01', type: 'custom', createdAt: '', updatedAt: '' },
+        ]);
+        localStorage.setItem(CALENDAR_LOCAL_STORAGE_KEY, payload);
         mirrorCalendarEventsToLocalStorage(payload);
-        expect(localStorage.getItem(CALENDAR_LOCAL_STORAGE_KEY)).toBe(payload);
+        expect(localStorage.getItem(CALENDAR_LOCAL_STORAGE_KEY)).toBeNull();
         clearCalendarEventsLocalStorageMirror();
         expect(localStorage.getItem(CALENDAR_LOCAL_STORAGE_KEY)).toBeNull();
     });

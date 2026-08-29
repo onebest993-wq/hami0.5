@@ -34,6 +34,28 @@ export function buildLinkedCaseLookup(
 /**
  * نسخة O(1) lookup عبر Map. تستخدمها مسارات الـ batched (buildClusterScanIndex).
  */
+function clientNameFromPartyList(list: unknown): string {
+    if (!Array.isArray(list)) return '';
+    const hit = list.find(
+        (p) => Boolean(p) && typeof p === 'object' && (p as Record<string, unknown>).isClient,
+    );
+    return hit && typeof hit === 'object' ? safeStr((hit as Record<string, unknown>).name) : '';
+}
+
+function resolveExecutionClientName(execution: Record<string, unknown>): string {
+    const represented = safeStr(execution.representedParty).toLowerCase();
+    const fromDebtors = clientNameFromPartyList(execution.debtors);
+    const fromCreditors = clientNameFromPartyList(execution.creditors);
+    if (represented === 'debtor' || represented === 'مدين') {
+        if (fromDebtors) return fromDebtors;
+    }
+    if (represented === 'creditor' || represented === 'دائن') {
+        if (fromCreditors) return fromCreditors;
+    }
+    return fromDebtors || fromCreditors || safeStr(execution.creditor) || safeStr(execution.clientName);
+}
+
+/** نسخة O(1) lookup عبر Map — تُستخدم في المسارات المجمّعة. */
 export function resolveLinkedCaseMetaFromIndex(
     linkedId: string | null | undefined,
     index: LinkedCaseLookupIndex,
@@ -60,7 +82,7 @@ export function resolveLinkedCaseMetaFromIndex(
     if (execution) {
         return {
             caseNumber: safeStr(execution.caseNo) || safeStr(execution.fileNumber) || safeStr(execution.caseNumber),
-            clientName: safeStr(execution.creditor) || safeStr(execution.clientName),
+            clientName: resolveExecutionClientName(execution),
         };
     }
 

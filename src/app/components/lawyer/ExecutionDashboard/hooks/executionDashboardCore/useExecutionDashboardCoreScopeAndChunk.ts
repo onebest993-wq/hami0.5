@@ -1,45 +1,26 @@
 /** Phase C Slice 24 — scope orchestration + modal scope + lazy chunk */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
 import { useExecutionDashboardCoreScopeRuntimeBindings } from './useExecutionDashboardCoreScopeRuntimeBindings';
-import { buildExecutionDashboardModalScope } from './buildExecutionDashboardModalScope';
+import { buildExecutionDashboardModalScope, type ExecutionModalFlags } from './buildExecutionDashboardModalScope';
 import { buildFollowupModalSnapshotInput } from '../buildFollowupModalSnapshotInput';
 import { useExecutionDashboardLazyChunkSetup } from '../useExecutionDashboardLazyChunkSetup';
 import { pickExecutionPhoneBodyProps } from '../pickExecutionPhoneBodyProps';
 import { pickExecutionShellOverlayProps } from '../pickExecutionShellOverlayProps';
 import { buildExecutionDashboardDirectFollowupScopeSnapshot } from './buildExecutionDashboardDirectFollowupScopeSnapshot';
 import { hasSelectedScopeDeltaForLazySync } from './executionScopeLazySyncDelta';
-import type { ExecutionModalFlags } from './buildExecutionDashboardModalScope';
 import {
     getCachedExecutionDashboardBaseScopeBuilder,
     loadAndCacheExecutionDashboardBaseScopeBuilder,
 } from './executionDashboardBaseScopeCache';
-
-const executionDashboardCoreScopeSourcesOverlayImport = () =>
-    import('./executionDashboardCoreScopeSourcesOverlayLazy');
+import { pickExecutionModalFlags } from './pickExecutionModalFlags';
+import { useExecutionDashboardOverlayScopeLoad } from './useExecutionDashboardOverlayScopeLoad';
+import {
+    fingerprintExecutionModalFlags,
+    type BaseScopeBuilder,
+} from './useExecutionDashboardCoreScopeAndChunk.types';
+import { useExecutionDashboardCoreScopeOverlaySignals } from './useExecutionDashboardCoreScopeOverlaySignals';
 
 const EMPTY_BASE_SCOPE: Record<string, unknown> = Object.freeze({});
-
-/** نوع محلي — لا يستورد executionDashboardCoreScopeSourceGroups حتى لا يُسحب إلى الـ chunk الرئيسي */
-type BaseScopeBuilderInput = {
-    scopeRuntimeBindings: Record<string, unknown>;
-    assemblyHandlers: Record<string, unknown>;
-    handlerCluster: Record<string, unknown>;
-    scopeLocalFlat: Record<string, unknown>;
-    scopeRestFlat: Record<string, unknown>;
-    specificDeliveryConvertedAmount: number | null;
-    specificDeliveryFinancialized: boolean;
-    executionModalFlags: Record<string, unknown>;
-    executionModalSetters: Record<string, unknown>;
-};
-
-type BaseScopeBuilder = (input: BaseScopeBuilderInput) => Record<string, unknown>;
-
-function fingerprintExecutionModalFlags(flags: ExecutionModalFlags): string {
-    return Object.values(flags)
-        .map((value) => (value ? '1' : '0'))
-        .join('');
-}
 
 export function useExecutionDashboardCoreScopeAndChunk(p: {
     scopeRuntimeInput: Record<string, unknown>;
@@ -67,34 +48,7 @@ export function useExecutionDashboardCoreScopeAndChunk(p: {
     >[0];
     const { executionModalSetters } = buildExecutionDashboardModalScope(modalScopeParams);
     const executionModalFlags = useMemo(
-        (): ExecutionModalFlags => ({
-            showUnifiedExecutionModal: modalScopeParams.showUnifiedExecutionModal,
-            showDecisionsModal: modalScopeParams.showDecisionsModal,
-            showDocumentsModal: modalScopeParams.showDocumentsModal,
-            showTimelineModal: modalScopeParams.showTimelineModal,
-            showCoerciveModal: modalScopeParams.showCoerciveModal,
-            showNotificationModal: modalScopeParams.showNotificationModal,
-            showUnifiedSummonsModal: modalScopeParams.showUnifiedSummonsModal,
-            showPaymentModal: modalScopeParams.showPaymentModal,
-            showSeizedAssetsModal: modalScopeParams.showSeizedAssetsModal,
-            showNotesModal: modalScopeParams.showNotesModal,
-            showAppointmentModal: modalScopeParams.showAppointmentModal,
-            showPaymentCalculator: modalScopeParams.showPaymentCalculator,
-            showSettlementCalculator: modalScopeParams.showSettlementCalculator,
-            showPauseModal: modalScopeParams.showPauseModal,
-            showLedgerModal: modalScopeParams.showLedgerModal,
-            showEditDossierMetaModal: modalScopeParams.showEditDossierMetaModal,
-            showEvictionExpenseModal: modalScopeParams.showEvictionExpenseModal,
-            showEvictionLawyerFeeModal: modalScopeParams.showEvictionLawyerFeeModal,
-            showEvictionResidentialGraceModal: modalScopeParams.showEvictionResidentialGraceModal,
-            showGuarantorDetailsModal: modalScopeParams.showGuarantorDetailsModal,
-            showHeirsNotificationModal: modalScopeParams.showHeirsNotificationModal,
-            showLinkedDossierTimeline: modalScopeParams.showLinkedDossierTimeline,
-            showRealEstateSeizureModal: modalScopeParams.showRealEstateSeizureModal,
-            showSolidaryCoerciveTargetModal: modalScopeParams.showSolidaryCoerciveTargetModal,
-            showStayOfExecutionModal: modalScopeParams.showStayOfExecutionModal,
-            showTransferFileNumberChangeModal: modalScopeParams.showTransferFileNumberChangeModal,
-        }),
+        (): ExecutionModalFlags => pickExecutionModalFlags(modalScopeParams),
         [
             modalScopeParams.showUnifiedExecutionModal,
             modalScopeParams.showDecisionsModal,
@@ -159,108 +113,12 @@ export function useExecutionDashboardCoreScopeAndChunk(p: {
         ],
     );
 
-    const overlayUrgent = useMemo(() => {
-        const local = p.scopeLocalFlat;
-        const rest = p.scopeRestFlat;
-        return Boolean(
-            local.showExecutionFinancialHub ||
-                local.showUnifiedSeizureLogModal ||
-                local.movableSeizureRequestModalOpen ||
-                local.propertySeizureRequestModalOpen ||
-                rest.showExecutionFinancialHub ||
-                rest.showUnifiedSeizureLogModal ||
-                rest.movableSeizureRequestModalOpen ||
-                rest.propertySeizureRequestModalOpen,
-        );
-    }, [
-        p.scopeLocalFlat.showExecutionFinancialHub,
-        p.scopeLocalFlat.showUnifiedSeizureLogModal,
-        p.scopeLocalFlat.movableSeizureRequestModalOpen,
-        p.scopeLocalFlat.propertySeizureRequestModalOpen,
-        p.scopeRestFlat.showExecutionFinancialHub,
-        p.scopeRestFlat.showUnifiedSeizureLogModal,
-        p.scopeRestFlat.movableSeizureRequestModalOpen,
-        p.scopeRestFlat.propertySeizureRequestModalOpen,
-    ]);
-
-    const shellOverlayStateToken = useMemo(() => {
-        const local = p.scopeLocalFlat as Record<string, unknown>;
-        const rest = p.scopeRestFlat as Record<string, unknown>;
-        const unifiedModalTab = String(local.unifiedModalTab ?? rest.unifiedModalTab ?? '');
-        const executionDebtorTabIndex = String(
-            local.executionDebtorTabIndex ?? rest.executionDebtorTabIndex ?? '',
-        );
-        const followupSolidaryDebtorIndex = String(
-            local.followupSolidaryDebtorIndex ?? rest.followupSolidaryDebtorIndex ?? '',
-        );
-        const savedNotesSplit = (local.savedNotesSplit ?? rest.savedNotesSplit) as
-            | { notes?: unknown[] }
-            | undefined;
-        const savedNotesCount = Array.isArray(savedNotesSplit?.notes)
-            ? String(savedNotesSplit.notes.length)
-            : '0';
-        return `${unifiedModalTab}|${executionDebtorTabIndex}|${followupSolidaryDebtorIndex}|notes:${savedNotesCount}`;
-    }, [
-        p.scopeLocalFlat.unifiedModalTab,
-        p.scopeRestFlat.unifiedModalTab,
-        p.scopeLocalFlat.executionDebtorTabIndex,
-        p.scopeRestFlat.executionDebtorTabIndex,
-        p.scopeLocalFlat.followupSolidaryDebtorIndex,
-        p.scopeRestFlat.followupSolidaryDebtorIndex,
-        p.scopeLocalFlat.savedNotesSplit,
-        p.scopeRestFlat.savedNotesSplit,
-    ]);
-
-    const overlayIntentUrgent = useMemo(() => {
-        const local = p.scopeLocalFlat as Record<string, unknown>;
-        const rest = p.scopeRestFlat as Record<string, unknown>;
-        return Boolean(
-            executionModalFlags.showEditDossierMetaModal ||
-                local.showEditDossierMetaModal ||
-                rest.showEditDossierMetaModal ||
-                local.showExecutionTrashModal ||
-                rest.showExecutionTrashModal ||
-                local.editPartyTarget ||
-                rest.editPartyTarget ||
-                local.timelineEditDraft ||
-                rest.timelineEditDraft ||
-                local.heirsQuickView ||
-                rest.heirsQuickView ||
-                local.permanentDeleteTimelineId ||
-                rest.permanentDeleteTimelineId,
-        );
-    }, [
-        executionModalFlags.showEditDossierMetaModal,
-        p.scopeLocalFlat.showEditDossierMetaModal,
-        p.scopeRestFlat.showEditDossierMetaModal,
-        p.scopeLocalFlat.showExecutionTrashModal,
-        p.scopeRestFlat.showExecutionTrashModal,
-        p.scopeLocalFlat.editPartyTarget,
-        p.scopeRestFlat.editPartyTarget,
-        p.scopeLocalFlat.timelineEditDraft,
-        p.scopeRestFlat.timelineEditDraft,
-        p.scopeLocalFlat.heirsQuickView,
-        p.scopeRestFlat.heirsQuickView,
-        p.scopeLocalFlat.permanentDeleteTimelineId,
-        p.scopeRestFlat.permanentDeleteTimelineId,
-    ]);
-
-    const dossierScopeId = useMemo(() => {
-        const local = p.scopeLocalFlat as Record<string, unknown>;
-        const rest = p.scopeRestFlat as Record<string, unknown>;
-        return String(
-            local.executionId ??
-                rest.executionId ??
-                (local.executionData as { id?: string })?.id ??
-                (rest.executionData as { id?: string })?.id ??
-                '',
-        );
-    }, [
-        p.scopeLocalFlat.executionId,
-        p.scopeRestFlat.executionId,
-        (p.scopeLocalFlat as { executionData?: { id?: string } }).executionData?.id,
-        (p.scopeRestFlat as { executionData?: { id?: string } }).executionData?.id,
-    ]);
+    const { overlayUrgent, shellOverlayStateToken, overlayIntentUrgent, dossierScopeId } =
+        useExecutionDashboardCoreScopeOverlaySignals({
+            scopeLocalFlat: p.scopeLocalFlat,
+            scopeRestFlat: p.scopeRestFlat,
+            executionModalFlags,
+        });
 
     const executionModalFlagsFingerprint = useMemo(
         () => fingerprintExecutionModalFlags(executionModalFlags),
@@ -403,49 +261,16 @@ export function useExecutionDashboardCoreScopeAndChunk(p: {
         ],
     );
 
-    useEffect(() => {
-        let cancelled = false;
-        const loadFingerprint = overlayScopeLoadFingerprint;
-        const loadOverlay = () => {
-            if (lastAppliedOverlayFingerprintRef.current === loadFingerprint) {
-                return;
-            }
-            void executionDashboardCoreScopeSourcesOverlayImport()
-                .then(({ buildExecutionDashboardCoreDeferredOverlayChunkScopeSources }) => {
-                    if (cancelled) return;
-                    if (lastAppliedOverlayFingerprintRef.current === loadFingerprint) {
-                        return;
-                    }
-                    const nextPatch = buildExecutionDashboardCoreDeferredOverlayChunkScopeSources(
-                        scopeSourcesBuildInputRef.current,
-                    );
-                    if (
-                        !hasSelectedScopeDeltaForLazySync(overlayPatchRef.current, nextPatch)
-                    ) {
-                        lastAppliedOverlayFingerprintRef.current = loadFingerprint;
-                        return;
-                    }
-                    overlayPatchRef.current = nextPatch;
-                    lastAppliedOverlayFingerprintRef.current = loadFingerprint;
-                    setOverlayPatchEpoch((epoch) => epoch + 1);
-                })
-                .catch(() => {});
-        };
-
-        if (overlayUrgent || overlayAnyModalOpen || overlayIntentUrgent) {
-            loadOverlay();
-            return () => {
-                cancelled = true;
-            };
-        }
-
-        // الوحدة تُسخَّن مسبقاً في deep warm — الانتظار هنا مجرد فسحة للـ first paint
-        const cancelIdleLoad = scheduleIdleWork(loadOverlay, 240);
-        return () => {
-            cancelled = true;
-            cancelIdleLoad();
-        };
-    }, [overlayUrgent, overlayAnyModalOpen, overlayIntentUrgent, overlayScopeLoadFingerprint]);
+    useExecutionDashboardOverlayScopeLoad({
+        overlayUrgent,
+        overlayAnyModalOpen,
+        overlayIntentUrgent,
+        overlayScopeLoadFingerprint,
+        lastAppliedOverlayFingerprintRef,
+        overlayPatchRef,
+        scopeSourcesBuildInputRef,
+        setOverlayPatchEpoch,
+    });
 
     const shellModalFlags = useMemo(
         () => ({

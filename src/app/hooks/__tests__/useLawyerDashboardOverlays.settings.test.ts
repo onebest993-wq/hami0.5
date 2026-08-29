@@ -1,6 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useLawyerDashboardSettings } from '@/app/hooks/lawyerDashboard/useLawyerDashboardSettings';
+import {
+    resetSettingsOpenWarmForTests,
+    useLawyerDashboardSettings,
+} from '@/app/hooks/lawyerDashboard/useLawyerDashboardSettings';
+import { resetDashboardInteractiveForTests } from '@/app/bootstrap/bootMetrics';
+import { LAWYER_SETTINGS_OPEN_KEY } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 
 vi.mock('@/app/components/ui/SmartToast', () => ({
     SmartToast: { error: vi.fn(), info: vi.fn(), success: vi.fn() },
@@ -27,22 +32,52 @@ vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
     },
 }));
 
+vi.mock('@/app/runtime/settingsOverlayEntryLoader', () => ({
+    prefetchSettingsOverlayEntry: vi.fn(),
+    loadSettingsOverlayEntry: vi.fn(() => Promise.resolve({})),
+}));
+
 vi.mock('@/app/hooks/lawyerDashboard/settingsIntentWarm', () => ({
     warmSettingsOnHover: vi.fn(),
     warmSettingsOnOpen: vi.fn(),
     primeSettingsShellForOpen: vi.fn(),
 }));
 
-/** @deprecated — استخدم useLawyerDashboardSettings.test.ts */
+/** @deprecated — العقد الكامل في useLawyerDashboardSettings.test.ts */
 describe('useLawyerDashboardOverlays — الإعدادات (legacy)', () => {
-    beforeEach(() => vi.clearAllMocks());
+    beforeEach(async () => {
+        vi.clearAllMocks();
+        resetSettingsOpenWarmForTests();
+        resetDashboardInteractiveForTests();
+        try {
+            sessionStorage.removeItem(LAWYER_SETTINGS_OPEN_KEY);
+        } catch {
+            /* ignore */
+        }
+        const paint = await import('@/app/runtime/settingsInstantPaint');
+        paint.clearSettingsReopenSuppress();
+        const snap = await import('@/app/services/settings/settingsShellSnap');
+        snap.resetSettingsShellSnapForTests();
+    });
+
+    async function flushOpenFrame() {
+        await act(async () => {
+            await new Promise<void>((resolve) => {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        setTimeout(resolve, 0);
+                    });
+                });
+            });
+        });
+    }
 
     it('يُعاد توجيه الاختبار إلى useLawyerDashboardSettings', async () => {
         const { result } = renderHook(() => useLawyerDashboardSettings('lawyer-1'));
-        await act(async () => {
+        act(() => {
             result.current.openSettings();
-            await Promise.resolve();
         });
+        await flushOpenFrame();
         expect(result.current.showSettings).toBe(true);
         expect(result.current.settingsHostMounted).toBe(true);
     });

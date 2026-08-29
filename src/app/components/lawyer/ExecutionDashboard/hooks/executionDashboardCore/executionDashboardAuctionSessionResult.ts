@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { MutableRefObject } from 'react';
 import type { ExecutionFile, SeizedMovable, SeizedProperty } from '@/app/types/execution';
 import type { TimelineEvent } from '@/app/types/execution';
@@ -50,11 +49,13 @@ export function saveSeizedPropertyAuctionSessionResult(
 
     const entityId = String(seizedPropertyAuctionResultPropertyId || '').trim();
     if (!entityId) return;
-    const prev =
+    type AuctionEntity = SeizedMovable | SeizedProperty;
+    const prev = (
         entityKind === 'movable'
-            ? ((executionDataRef.current?.seizedMovables || []) as SeizedMovable[])
-            : ((executionDataRef.current?.seizedProperties || []) as SeizedProperty[]);
-    const idx = prev.findIndex((x) => String((x as any).id) === entityId);
+            ? (executionDataRef.current?.seizedMovables || [])
+            : (executionDataRef.current?.seizedProperties || [])
+    ) as AuctionEntity[];
+    const idx = prev.findIndex((x) => String(x.id) === entityId);
     if (idx < 0) {
         showToast(
             entityKind === 'movable'
@@ -66,13 +67,19 @@ export function saveSeizedPropertyAuctionSessionResult(
     }
 
     const nowIso = new Date().toISOString();
-    const cur = prev[idx] as any;
+    const cur = prev[idx];
     const next = [...prev];
 
     const header =
         entityKind === 'movable'
-            ? `وصف المال المنقول: ${String(cur.movableDescription || '').trim()}\nالمكان: ${String(cur.movableLocation || '').trim()}\nالحارس القضائي: ${String(cur.judicialCustodianName || '').trim()}`
-            : `رقم العقار: ${String(cur.propertyNumber || '').trim()}\nالجنس: ${String(cur.propertyGender || '').trim()}`;
+            ? (() => {
+                  const m = cur as SeizedMovable;
+                  return `وصف المال المنقول: ${String(m.movableDescription || '').trim()}\nالمكان: ${String(m.movableLocation || '').trim()}\nالحارس القضائي: ${String(m.judicialCustodianName || '').trim()}`;
+              })()
+            : (() => {
+                  const p = cur as SeizedProperty;
+                  return `رقم العقار: ${String(p.propertyNumber || '').trim()}\nالجنس: ${String(p.propertyGender || '').trim()}`;
+              })();
 
     let title = '';
     let desc = '';
@@ -128,8 +135,12 @@ export function saveSeizedPropertyAuctionSessionResult(
         };
     }
 
-    next[idx] = { ...cur, ...(patch as any) } as any;
-    persistExecutionMerge(entityKind === 'movable' ? { seizedMovables: next } : { seizedProperties: next });
+    next[idx] = { ...cur, ...patch } as AuctionEntity;
+    persistExecutionMerge(
+        entityKind === 'movable'
+            ? { seizedMovables: next as SeizedMovable[] }
+            : { seizedProperties: next as SeizedProperty[] },
+    );
     pushTimelineEvent({
         id: nextTimelineId(),
         date: nowIso.slice(0, 10),

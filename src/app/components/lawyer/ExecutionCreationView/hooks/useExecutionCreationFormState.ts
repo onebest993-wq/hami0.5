@@ -49,6 +49,11 @@ export interface ExecutionCreationFormState {
     shariaIssuingCourt: string;
     setShariaIssuingCourt: Dispatch<SetStateAction<string>>;
 
+    lastProcedureDate: string;
+    setLastProcedureDate: Dispatch<SetStateAction<string>>;
+    notificationDate: string;
+    setNotificationDate: Dispatch<SetStateAction<string>>;
+
     classification: string;
     setClassification: Dispatch<SetStateAction<string>>;
     claimType: string;
@@ -90,6 +95,7 @@ export interface ExecutionCreationFormState {
     evictionFullAddress: string;
     setEvictionFullAddress: Dispatch<SetStateAction<string>>;
     evictionPremisesUse: 'commercial' | 'residential';
+    setEvictionPremisesUse: Dispatch<SetStateAction<'commercial' | 'residential'>>;
     specificDeliveryItems: SpecificDeliveryItem[];
     setSpecificDeliveryItems: Dispatch<SetStateAction<SpecificDeliveryItem[]>>;
 
@@ -117,8 +123,12 @@ export interface ExecutionCreationFormState {
 
     dowryReason: 'طلاق' | 'وفاة';
     setDowryReason: Dispatch<SetStateAction<'طلاق' | 'وفاة'>>;
+    monthlyAlimonyAmount: string;
+    setMonthlyAlimonyAmount: Dispatch<SetStateAction<string>>;
     guardianshipDetails: string;
     setGuardianshipDetails: Dispatch<SetStateAction<string>>;
+    iddahAlimonyAmount: string;
+    setIddahAlimonyAmount: Dispatch<SetStateAction<string>>;
 
     shariaDeedDetails: string;
     setShariaDeedDetails: Dispatch<SetStateAction<string>>;
@@ -129,6 +139,7 @@ export interface ExecutionCreationFormState {
     setLawyerFeesAmount: Dispatch<SetStateAction<string>>;
 
     clientFeesAmount: string;
+    setClientFeesAmount: Dispatch<SetStateAction<string>>;
 
     alimonyBeneficiary: 'زوجة فقط' | 'أولاد فقط' | 'زوجة وأولاد';
     setAlimonyBeneficiary: Dispatch<SetStateAction<'زوجة فقط' | 'أولاد فقط' | 'زوجة وأولاد'>>;
@@ -150,8 +161,11 @@ export interface ExecutionCreationFormState {
     setAlimonyPastStartDate: Dispatch<SetStateAction<string>>;
     pastWifeAlimonyAmount: string;
     setPastWifeAlimonyAmount: Dispatch<SetStateAction<string>>;
+    pastChildrenAlimonyAmount: string;
+    setPastChildrenAlimonyAmount: Dispatch<SetStateAction<string>>;
 
     claimAmount: string;
+    setClaimAmount: Dispatch<SetStateAction<string>>;
 }
 
 /**
@@ -195,6 +209,9 @@ export function useExecutionCreationFormState(isOpen: boolean): ExecutionCreatio
     const [shariaIssueDate, setShariaIssueDate] = useState('');
     const [shariaIssuingCourt, setShariaIssuingCourt] = useState('');
 
+    const [lastProcedureDate, setLastProcedureDate] = useState('');
+    const [notificationDate, setNotificationDate] = useState('');
+
     const [classification, setClassification] = useState('');
     const [claimType, setClaimType] = useState('');
     const [activeClaimTypes, setActiveClaimTypes] = useState<string[]>([]);
@@ -228,7 +245,7 @@ export function useExecutionCreationFormState(isOpen: boolean): ExecutionCreatio
     const [evictionPropertyType, setEvictionPropertyType] = useState('');
     const [evictionFullAddress, setEvictionFullAddress] = useState('');
     /** تجاري: لا مهلة تخلية سكنية طويلة | سكني: مهلة المنفذ حتى 90 يوماً */
-    const [evictionPremisesUse] = useState<'commercial' | 'residential'>('residential');
+    const [evictionPremisesUse, setEvictionPremisesUse] = useState<'commercial' | 'residential'>('residential');
     const [specificDeliveryItems, setSpecificDeliveryItems] = useState<SpecificDeliveryItem[]>([]);
 
     const [dueDate, setDueDate] = useState('');
@@ -249,14 +266,16 @@ export function useExecutionCreationFormState(isOpen: boolean): ExecutionCreatio
     const [isDocumentBlocked, setIsDocumentBlocked] = useState(false);
 
     const [dowryReason, setDowryReason] = useState<'طلاق' | 'وفاة'>('طلاق');
+    const [monthlyAlimonyAmount, setMonthlyAlimonyAmount] = useState('');
     const [guardianshipDetails, setGuardianshipDetails] = useState('');
+    const [iddahAlimonyAmount, setIddahAlimonyAmount] = useState('');
 
     const [shariaDeedDetails, setShariaDeedDetails] = useState('');
 
     const [includeLawyerFees, setIncludeLawyerFees] = useState(false);
     const [lawyerFeesAmount, setLawyerFeesAmount] = useState('');
 
-    const [clientFeesAmount] = useState('');
+    const [clientFeesAmount, setClientFeesAmount] = useState('');
 
     const [alimonyBeneficiary, setAlimonyBeneficiary] = useState<
         'زوجة فقط' | 'أولاد فقط' | 'زوجة وأولاد'
@@ -271,7 +290,8 @@ export function useExecutionCreationFormState(isOpen: boolean): ExecutionCreatio
     >('قانون الأحوال الشخصية 1959');
     const [alimonyPastStartDate, setAlimonyPastStartDate] = useState('');
     const [pastWifeAlimonyAmount, setPastWifeAlimonyAmount] = useState('');
-    const [claimAmount] = useState('');
+    const [pastChildrenAlimonyAmount, setPastChildrenAlimonyAmount] = useState('');
+    const [claimAmount, setClaimAmount] = useState('');
 
     useEffect(() => {
         if (!isOpen) {
@@ -315,6 +335,10 @@ export function useExecutionCreationFormState(isOpen: boolean): ExecutionCreatio
         setShariaIssueDate,
         shariaIssuingCourt,
         setShariaIssuingCourt,
+        lastProcedureDate,
+        setLastProcedureDate,
+        notificationDate,
+        setNotificationDate,
         classification,
         setClassification,
         claimType,
@@ -350,6 +374,7 @@ export function useExecutionCreationFormState(isOpen: boolean): ExecutionCreatio
         evictionFullAddress,
         setEvictionFullAddress,
         evictionPremisesUse,
+        setEvictionPremisesUse,
         specificDeliveryItems,
         setSpecificDeliveryItems,
         dueDate,
@@ -372,8 +397,12 @@ export function useExecutionCreationFormState(isOpen: boolean): ExecutionCreatio
         setIsDocumentBlocked,
         dowryReason,
         setDowryReason,
+        monthlyAlimonyAmount,
+        setMonthlyAlimonyAmount,
         guardianshipDetails,
         setGuardianshipDetails,
+        iddahAlimonyAmount,
+        setIddahAlimonyAmount,
         shariaDeedDetails,
         setShariaDeedDetails,
         includeLawyerFees,
@@ -381,6 +410,7 @@ export function useExecutionCreationFormState(isOpen: boolean): ExecutionCreatio
         lawyerFeesAmount,
         setLawyerFeesAmount,
         clientFeesAmount,
+        setClientFeesAmount,
         alimonyBeneficiary,
         setAlimonyBeneficiary,
         alimonyLawsuitDate,
@@ -399,6 +429,9 @@ export function useExecutionCreationFormState(isOpen: boolean): ExecutionCreatio
         setAlimonyPastStartDate,
         pastWifeAlimonyAmount,
         setPastWifeAlimonyAmount,
+        pastChildrenAlimonyAmount,
+        setPastChildrenAlimonyAmount,
         claimAmount,
+        setClaimAmount,
     };
 }

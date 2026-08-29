@@ -45,7 +45,6 @@ export function scheduleDashboardSurfaceWarmAfterInteractive(
         void import('@/app/runtime/hubArchiveLoader')
             .then((m) => m.loadExecutionArchiveHubModule())
             .catch(() => undefined);
-        void import('@/app/components/lawyer/dashboard/LawsuitsWorkspaceHost').catch(() => undefined);
     };
 
     if (typeof requestIdleCallback !== 'undefined') {

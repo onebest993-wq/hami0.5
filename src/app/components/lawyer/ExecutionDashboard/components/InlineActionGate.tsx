@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Send } from '@/app/components/ui/lucideIcons';
+import { AlertTriangle } from '@/app/components/ui/icons/AlertTriangle';
+import { Send } from '@/app/components/ui/icons/Send';
 import type { InlineActionGateKey } from '../types';
 
 export type InlineActionGateMode = 'initial' | 'resubmit_warning';
@@ -77,7 +78,7 @@ export const InlineActionGate = React.memo(function InlineActionGate({
     if (isResubmit) {
         return (
             <div
-                className="border-t border-amber-500/25 bg-slate-950/85 px-3 py-3 backdrop-blur-xl z-20"
+                className="border-t border-amber-500/25 bg-slate-950/85 px-3 py-3 z-20"
                 dir="rtl"
                 role="presentation"
                 onClick={(e) => e.stopPropagation()}
@@ -122,7 +123,7 @@ export const InlineActionGate = React.memo(function InlineActionGate({
     if (!children) {
         return (
             <div
-                className="border-t border-amber-500/20 bg-slate-950/90 px-4 py-4 backdrop-blur-xl z-20"
+                className="border-t border-amber-500/20 bg-slate-950/90 px-4 py-4 z-20"
                 dir="rtl"
                 role="presentation"
                 onClick={(e) => e.stopPropagation()}
@@ -143,7 +144,7 @@ export const InlineActionGate = React.memo(function InlineActionGate({
 
     return (
         <div
-            className="absolute inset-0 z-20 flex flex-col overflow-hidden rounded-2xl bg-slate-950/60 backdrop-blur-xl"
+            className="absolute inset-0 z-20 flex flex-col overflow-hidden rounded-2xl bg-slate-950/60"
             role="presentation"
             onClick={(e) => e.stopPropagation()}
             dir="rtl"

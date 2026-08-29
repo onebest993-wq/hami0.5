@@ -1,8 +1,8 @@
 import type { DockItemId, HomeCustomizableId, HomeHubTileId, HomeScrollBlockId } from './homeLayout';
 import type { HomeWidgetId } from './homeWidgetPlacements';
 
-export const HOME_SCROLL_BLOCK_LABELS: Record<HomeScrollBlockId, string> = {
-    alerts: 'البطاقة الذكية',
+const HOME_SCROLL_BLOCK_LABELS: Record<HomeScrollBlockId, string> = {
+    alerts: 'البطاقة',
     hub: 'مركز القيادة',
     forum: 'المنتدى القانوني',
 };
@@ -13,7 +13,7 @@ export const HOME_HUB_TILE_LABELS: Record<HomeHubTileId, string> = {
     hubTransaction: 'معاملات',
 };
 
-export const DOCK_ITEM_LABELS: Record<DockItemId, string> = {
+const DOCK_ITEM_LABELS: Record<DockItemId, string> = {
     dockRepository: 'المستودع',
     dockCalendar: 'التقويم',
     dockTasks: 'مهام',
@@ -21,8 +21,8 @@ export const DOCK_ITEM_LABELS: Record<DockItemId, string> = {
 };
 
 /** تسميات مختصرة موحّدة داخل الشريط السفلي */
-export const DOCK_SHELL_SHORT_LABELS: Partial<Record<HomeWidgetId, string>> = {
-    alerts: 'البطاقة الذكية',
+const DOCK_SHELL_SHORT_LABELS: Partial<Record<HomeWidgetId, string>> = {
+    alerts: 'البطاقة',
     forum: 'المنتدى',
     hubExecution: 'تنفيذ',
     hubLawsuit: 'دعاوى',
@@ -31,7 +31,7 @@ export const DOCK_SHELL_SHORT_LABELS: Partial<Record<HomeWidgetId, string>> = {
 };
 
 export const HOME_WIDGET_LABELS: Record<HomeWidgetId, string> = {
-    alerts: 'البطاقة الذكية',
+    alerts: 'البطاقة',
     hubExecution: 'تنفيذ',
     hubLawsuit: 'دعاوى',
     hubTransaction: 'معاملات',
@@ -55,24 +55,3 @@ export const HOME_BLOCK_LABELS: Record<HomeCustomizableId, string> = {
     ...HOME_WIDGET_LABELS,
     dockShell: 'حاوية الشريط السفلي',
 };
-
-export const HOME_BLOCK_SIZE_LABELS = {
-    compact: 'مضغوط',
-    normal: 'عادي',
-    large: 'كبير',
-} as const;
-
-export const HOME_BLOCK_SHAPE_LABELS = {
-    pill: 'كبسولة',
-    rounded: 'مستدير',
-    sharp: 'حاد',
-    circle: 'دائري',
-} as const;
-
-export const HOME_BLOCK_PATTERN_LABELS = {
-    glass: 'زجاجي',
-    solid: 'صلب',
-    gradient: 'تدرج',
-    rim: 'إطار ذهبي',
-    minimal: 'بسيط',
-} as const;

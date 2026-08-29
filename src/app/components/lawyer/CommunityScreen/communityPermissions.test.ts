@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CommunityComment, CommunityPost } from '@/app/services/lawyer-cloud';
 import {
+    canAddComment,
     canDeleteComment,
     canDeletePost,
     canEditComment,
@@ -59,6 +60,15 @@ describe('communityPermissions', () => {
     it('allows only admin to pin', () => {
         expect(canPinPost(true)).toBe(true);
         expect(canPinPost(false)).toBe(false);
+    });
+
+    it('blocks adding comments when locked, banned, or signed out', () => {
+        const open = post();
+        const locked = post({ isLocked: true });
+        expect(canAddComment(open, 'u1', false)).toBe(true);
+        expect(canAddComment(locked, 'u1', false)).toBe(false);
+        expect(canAddComment(open, 'u1', true)).toBe(false);
+        expect(canAddComment(open, null, false)).toBe(false);
     });
 
     it('blocks self-upvote', () => {

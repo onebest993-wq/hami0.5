@@ -11,10 +11,18 @@ const DYNAMIC = path.join(
     ROOT,
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoreDynamicScope.ts',
 );
+if (!fs.existsSync(DYNAMIC)) {
+    console.log('[spent] buildExecutionDashboardCoreDynamicScope.ts — skip');
+    process.exit(0);
+}
 const COERCIVE_BAG = path.join(
     ROOT,
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoerciveScopeBag.ts',
 );
+if (!fs.existsSync(COERCIVE_BAG)) {
+    console.log('[spent] coercive scope bag — skip');
+    process.exit(0);
+}
 
 function extractBalancedBlock(src, openBraceIdx) {
     let depth = 0;

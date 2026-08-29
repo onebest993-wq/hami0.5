@@ -13,6 +13,9 @@ describe('scheduleShellSnap', () => {
       <div data-testid="lawyer-dashboard-home-surface" class="hami-dashboard-home-stack-cover is-active"></div>
       <div data-testid="lawyer-dashboard-schedule-surface" class="hami-dashboard-tab-preserve"></div>
     `;
+        performance.clearMarks?.('hami:calendar:open-request');
+        performance.clearMarks?.('hami:calendar:first-paint');
+        performance.clearMarks?.('hami:calendar:interactive');
     });
 
     afterEach(() => {
@@ -24,6 +27,8 @@ describe('scheduleShellSnap', () => {
         expect(snapScheduleShellOpen()).toBe(true);
         expect(isScheduleShellSnappedOpen()).toBe(true);
         expect(document.documentElement.getAttribute('data-hami-schedule-open')).toBe('1');
+        expect(performance.getEntriesByName('hami:calendar:open-request', 'mark').length).toBeGreaterThan(0);
+        expect(performance.getEntriesByName('hami:calendar:interactive', 'mark').length).toBeGreaterThan(0);
     });
 
     it('يزيل العلم عند الإغلاق', () => {
@@ -33,10 +38,23 @@ describe('scheduleShellSnap', () => {
         expect(document.documentElement.hasAttribute('data-hami-schedule-open')).toBe(false);
     });
 
-    it('يرجع false إن لم يُركَّب سطح التقويم بعد', () => {
+    it('يضع العلم حتى بلا سطح تقويم مركّب — الستارة لا تنتظر Host', () => {
         document.body.innerHTML = `<div data-testid="lawyer-dashboard-home-surface"></div>`;
         expect(snapScheduleShellOpen()).toBe(false);
-        expect(isScheduleShellSnappedOpen()).toBe(false);
+        expect(isScheduleShellSnappedOpen()).toBe(true);
+        expect(document.documentElement.getAttribute('data-hami-schedule-open')).toBe('1');
+    });
+
+    it('يطلق حدث snap ليستمع MainView ويركب InstantChrome', () => {
+        const spy = vi.fn();
+        window.addEventListener('hami:schedule-shell-snap', spy);
+        snapScheduleShellOpen();
+        expect(spy).toHaveBeenCalled();
+        const detail = (spy.mock.calls[0][0] as CustomEvent).detail;
+        expect(detail.open).toBe(true);
+        snapScheduleShellClose();
+        expect((spy.mock.calls.at(-1)?.[0] as CustomEvent).detail.open).toBe(false);
+        window.removeEventListener('hami:schedule-shell-snap', spy);
     });
 
     it('scheduleShellReactSync يعمل بعد إطار رسم واحد', async () => {

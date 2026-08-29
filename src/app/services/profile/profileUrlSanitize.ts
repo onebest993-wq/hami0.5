@@ -68,6 +68,8 @@ export function sanitizeProfileMediaUrl(raw: string | undefined): string | undef
         const url = new URL(trimmed);
         if (url.protocol !== 'https:' && url.protocol !== 'http:') return undefined;
         if (url.username || url.password) return undefined;
+        /* SVG كـ <img> يمكن أن ينفّذ سكربتات في محركات قديمة — ارفض المسار */
+        if (/\.svgz?$/i.test(url.pathname)) return undefined;
         return url.href;
     } catch {
         return undefined;

@@ -1,11 +1,12 @@
 /**
- * تأكيد قسم التنفيذ — بديل Capacitor-safe لـ window.confirm (الموجة 7).
- * نفس أنماط المحاضر الموجودة؛ لا تغيير بصري عن حوارات التنفيذ القياسية.
+ * تأكيد قسم التنفيذ — بديل Capacitor-safe لـ window.confirm.
+ * سطح مسطّح متناسق مع نموذج الإنشاء (ذهب / كحلي).
  */
 import React from 'react';
-import { motion } from 'motion/react';
-import { X } from '@/app/components/ui/lucideIcons';
-import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { X } from '@/app/components/ui/icons/X';
+import { EXEC_MODAL_Z } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
+import { ecg } from '@/app/components/lawyer/ExecutionCreationView/components/executionCreationGlassUi';
 
 export interface ExecutionSectionConfirmDialogProps {
     open: boolean;
@@ -28,37 +29,40 @@ export const ExecutionSectionConfirmDialog: React.FC<ExecutionSectionConfirmDial
 
     return (
         <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-xl flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/55 flex items-center justify-center p-4"
             style={{ zIndex: EXEC_MODAL_Z.nestedOverFollowUpPortal }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="execution-section-confirm-title"
+            data-testid="execution-section-confirm-dialog"
         >
             <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
+                initial={{ scale: 0.98, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="backdrop-blur-3xl bg-slate-900/40 border border-emerald-500/20 rounded-3xl p-6 max-w-md w-full shadow-2xl shadow-emerald-500/10"
+                transition={{ duration: 0.15 }}
+                className={`${ecg.modalPanel} max-w-md`}
             >
-                <div className="flex justify-between items-center mb-4">
-                    <h3 id="execution-section-confirm-title" className="text-lg font-bold text-emerald-200">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                    <h3
+                        id="execution-section-confirm-title"
+                        className="min-w-0 truncate text-right text-[13px] font-bold text-[#E6C673]"
+                    >
                         تأكيد
                     </h3>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-lg min-h-[44px] min-w-[44px]"
+                        className={ecg.modalClose}
                         aria-label="إغلاق"
                     >
-                        <X size={22} />
+                        <X size={18} />
                     </button>
                 </div>
-                <p className="text-gray-300 text-sm text-right leading-relaxed mb-6">{message}</p>
-                <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="px-4 py-2.5 rounded-xl border border-slate-600/50 text-slate-300 text-sm font-bold min-h-[44px]"
-                    >
+                <p className="mb-5 whitespace-pre-line text-right text-sm leading-relaxed text-slate-300">
+                    {message}
+                </p>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button type="button" onClick={onClose} className={ecg.modalBtnGhost}>
                         {cancelLabel}
                     </button>
                     <button
@@ -67,7 +71,8 @@ export const ExecutionSectionConfirmDialog: React.FC<ExecutionSectionConfirmDial
                             onConfirm();
                             onClose();
                         }}
-                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 text-white text-sm font-bold min-h-[44px]"
+                        className={ecg.modalBtnPrimary}
+                        data-testid="execution-section-confirm-accept"
                     >
                         {confirmLabel}
                     </button>

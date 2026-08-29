@@ -2,10 +2,11 @@
  * Phase-2: تسخين خفيف لمسار Instant إضبارة الدعوى (portal + BootChrome).
  * عند interactive فقط يُضاف phased الخفيف إن سُمح — لا keepAlive.
  */
-import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
+import {
+    isSectionBackgroundPrefetchAllowed,
+    sectionBackgroundHydrateDelayMs,
+} from '@/app/runtime/sectionPrefetchPolicy';
 import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
 import { prefetchSmartFileModalPhased } from '@/app/runtime/smartFileModalLoader';
 import { prefetchSmartFileModalPortal } from '@/app/components/lawyer/dashboard/smartFileModalPortalLazy';
@@ -16,21 +17,11 @@ let bootHydratorArmed = false;
 let coldBootPrefetchStarted = false;
 
 function smartFilePrefetchAllowed(): boolean {
-    try {
-        const s = getLawyerSettingsSnapshot();
-        if (s.security.localOnlyMode) return false;
-        if (s.performance.prefetchScreens === false) return false;
-        if (isLitePerformanceActive(s.performance.litePerformance)) return false;
-    } catch {
-        /* ignore */
-    }
-    return true;
+    return isSectionBackgroundPrefetchAllowed();
 }
 
 function hydrateDelayMs(): number {
-    if (!smartFilePrefetchAllowed()) return -1;
-    if (isCapacitorNativePlatform()) return 80;
-    return 0;
+    return sectionBackgroundHydrateDelayMs();
 }
 
 function dispatchHydratedOnce(): void {

@@ -23,8 +23,10 @@ function task(id: string, parentTaskId: string | null = null): TransactionTask {
 }
 
 describe('taskThreadUtils', () => {
-    it('nextTaskStatus يدور عبر STATUS_CYCLE', () => {
+    it('nextTaskStatus يدور عبر STATUS_CYCLE ويتخطى المعطّل عند النقر', () => {
         expect(nextTaskStatus(TransactionTaskStatus.Pending)).toBe(TransactionTaskStatus.InProgress);
+        expect(nextTaskStatus(TransactionTaskStatus.InProgress)).toBe(TransactionTaskStatus.Done);
+        expect(nextTaskStatus(TransactionTaskStatus.Blocked)).toBe(TransactionTaskStatus.Done);
         expect(nextTaskStatus(TransactionTaskStatus.Done)).toBe(STATUS_CYCLE[0]);
     });
 

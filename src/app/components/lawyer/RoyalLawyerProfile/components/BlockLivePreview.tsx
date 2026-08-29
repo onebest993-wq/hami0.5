@@ -3,7 +3,7 @@ import type { ProfileCustomBlock } from '@/app/services/profile/profilePageCusto
 import { inferProfileBlockKind } from '@/app/services/profile/profilePageCustomization';
 import { ProfileCustomBlockView } from './ProfileCustomBlockView';
 
-export type BlockLivePreviewProps = {
+type BlockLivePreviewProps = {
     block: ProfileCustomBlock;
     /** تفاعلات الحركة تبقى مطفأة — المعاينة تعرض الإطار/الخامة/الصورة كما على الصفحة */
     interactive?: boolean;

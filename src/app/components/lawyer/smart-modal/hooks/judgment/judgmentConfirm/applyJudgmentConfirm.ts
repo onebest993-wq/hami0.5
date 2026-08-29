@@ -1,6 +1,6 @@
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { validateJudgmentData } from '@/app/utils/validationUtils';
-import { logError } from '@/app/utils/errorHandler';
+import { logError } from '@/app/utils/errorLog';
 import { debug } from '@/app/utils/debug';
 import type { JudgmentPayload } from '../../../smartFile/judgmentTypes';
 import { addDaysYmd, parseJudgmentDateInput, str } from '../../../smartFile/judgmentTypes';
@@ -8,9 +8,9 @@ import type { UseSmartFileJudgmentActionsOptions } from '../judgmentHookTypes';
 import type { JudgmentConfirmRuntime, JudgmentConfirmScope } from './judgmentConfirmTypes';
 import { dispatchJudgmentScenarios } from './dispatchJudgmentScenarios';
 import { syncAttachmentShieldOnJudgment } from './syncAttachmentShield';
-import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 import { buildLawsuitCalendarContext } from '../../procedural/lawsuitCalendarContext';
-import { mirrorStageLegalDatesToCalendar } from '@/app/services/lawsuitTimelineCalendarMirror';
+import { overlayMirrorStageLegalDatesToCalendar } from '@/app/services/lawsuitTimelineCalendarMirrorLazy';
 
 export function applyJudgmentConfirm(
     judgmentData: JudgmentPayload,
@@ -77,7 +77,11 @@ export function applyJudgmentConfirm(
             notes,
             nextStage,
             now: parseJudgmentDateInput(judgmentDate),
-            stageName: currentStage.stageName ?? '',
+            stageName:
+                str(judgmentData.stageName)
+                || currentStage.stageName
+                || currentStage.name
+                || '',
             addDays: (date: Date, days: number) => addDaysYmd(date, days),
             updatedStages: [...stages],
             handled: false,
@@ -91,9 +95,6 @@ export function applyJudgmentConfirm(
         dispatchJudgmentScenarios(scope, rt);
         syncAttachmentShieldOnJudgment(scope, rt);
 
-        const calCtx = buildLawsuitCalendarContext(parentData, resolveCalendarUserId());
-        rt.updatedStages = mirrorStageLegalDatesToCalendar(rt.updatedStages, activeStageIndex, calCtx);
-
         if (!rt.handled) {
             debug.error('❌ إجراء حكم غير معروف:', action);
             SmartToast.error('تعذّر حفظ الحكم — إجراء غير معروف');
@@ -105,16 +106,27 @@ export function applyJudgmentConfirm(
         const cloudParent = rt.nextCaseStatus
             ? { ...parentData, status: rt.nextCaseStatus }
             : parentData;
+        const calCtx = buildLawsuitCalendarContext(parentData, resolveCalendarUserId());
 
-        setStages(rt.updatedStages);
-        if (rt.remandNewActiveIndex !== null) {
-            setActiveStageIndex(rt.remandNewActiveIndex);
-            setViewingStageIndex(rt.remandNewActiveIndex);
-        }
-        if (rt.nextCaseStatus) {
-            setStatus(rt.nextCaseStatus);
-        }
-        saveToCloud(rt.updatedStages, cloudParent, cloudStageIndex, cloudStatus);
+        const persistStages = (nextStages: typeof rt.updatedStages) => {
+            setStages(nextStages);
+            if (rt.remandNewActiveIndex !== null) {
+                setActiveStageIndex(rt.remandNewActiveIndex);
+                setViewingStageIndex(rt.remandNewActiveIndex);
+            }
+            if (rt.nextCaseStatus) {
+                setStatus(rt.nextCaseStatus);
+            }
+            saveToCloud(nextStages, cloudParent, cloudStageIndex, cloudStatus);
+        };
+
+        persistStages(rt.updatedStages);
+        overlayMirrorStageLegalDatesToCalendar(
+            rt.updatedStages,
+            activeStageIndex,
+            calCtx,
+            persistStages,
+        );
         setShowJudgmentModal(false);
 
         debug.log('✅ تم حفظ قرار الحكم بنجاح');

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check } from '@/app/components/ui/lucideIcons';
+import { Check } from '@/app/components/ui/icons/Check';
 import type { ThemeKey } from '@/app/types/common';
 import { LAWYER_THEME_TOKENS } from '@/app/services/settings';
 import { resolveThemeSwatchStyle } from './themeSwatchStyle';

@@ -1,0 +1,42 @@
+/**
+ * حراسات وقت التشغيل — ليست هندسة أول إطار.
+ * تُحمَّل مع deferred-app بعد content-ready (لا CLS على الرئيسية).
+ */
+
+/**
+ * حماية الإطارات — يُفعّل تلقائياً عند هبوط FPS (framePacingGuard.ts)
+ * أو أثناء التمرير / إخفاء التبويب.
+ */
+html[data-hami-jank-guard='1'] *,
+html[data-hami-jank-guard='1'] *::before,
+html[data-hami-jank-guard='1'] *::after,
+html[data-hami-page-hidden='1'] [data-hami-lawyer-dashboard] *,
+html[data-hami-page-hidden='1'] [data-hami-lawyer-dashboard] *::before,
+html[data-hami-page-hidden='1'] [data-hami-lawyer-dashboard] *::after {
+    animation-play-state: paused !important;
+}
+
+html[data-hami-jank-guard='1'] *,
+html[data-hami-jank-guard='1'] *::before,
+html[data-hami-jank-guard='1'] *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html[data-hami-jank-guard='1'] .hami-wallpaper-layer {
+    filter: none !important;
+    transform: translateZ(0) !important;
+}
+
+.hami-home-scroll-root[data-hami-scrolling='1'] *,
+.hami-home-scroll-root[data-hami-scrolling='1'] *::before,
+.hami-home-scroll-root[data-hami-scrolling='1'] *::after {
+    animation-play-state: paused !important;
+    transition-duration: 0.01ms !important;
+}
+
+/* أثناء السكون (0 FPS) — أوقف الرسوم المتحركة الخلفية */
+html[data-hami-render-idle='1'] [data-hami-lawyer-dashboard] *,
+html[data-hami-render-idle='1'] [data-lawyer-profile-root] * {
+    animation-play-state: paused !important;
+}

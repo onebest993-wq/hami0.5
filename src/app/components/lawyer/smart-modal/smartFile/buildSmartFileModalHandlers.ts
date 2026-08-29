@@ -1,6 +1,6 @@
 import type { SmartFileModalsPortalProps } from '../layout/SmartFileModalsPortal';
 
-export type SmartFileModalHandlerSources = {
+type SmartFileModalHandlerSources = {
     handleUpdateCaseInfo: (...args: unknown[]) => void;
     handleAddTask: (...args: unknown[]) => void;
     handleAddDoc: (...args: unknown[]) => void;
@@ -17,7 +17,6 @@ export type SmartFileModalHandlerSources = {
     handleResumeInterruptionConfirm: (...args: unknown[]) => void;
     handleInterlocutoryAppealConfirm: (...args: unknown[]) => void;
     handleRegisterObjection: (...args: unknown[]) => void;
-    handleObjectionJudgment: (...args: unknown[]) => void;
     handleAbsentJudgmentNotification: (...args: unknown[]) => void;
     handleOpponentAbsentObjection: (...args: unknown[]) => void;
     handleRestoreEvent: (...args: unknown[]) => void;
@@ -67,7 +66,6 @@ export function buildSmartFileModalHandlers(
         handleResumeInterruptionConfirm: src.handleResumeInterruptionConfirm,
         handleInterlocutoryAppealConfirm: src.handleInterlocutoryAppealConfirm,
         handleRegisterObjection: src.handleRegisterObjection,
-        handleObjectionJudgment: src.handleObjectionJudgment,
         handleAbsentJudgmentNotification: src.handleAbsentJudgmentNotification,
         handleOpponentAbsentObjection: src.handleOpponentAbsentObjection,
         handleRestoreEvent: src.handleRestoreEvent,

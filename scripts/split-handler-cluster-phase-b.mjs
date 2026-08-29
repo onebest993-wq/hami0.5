@@ -6,6 +6,10 @@ const clusterPath = path.join(
     root,
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerCluster.ts',
 );
+if (!fs.existsSync(clusterPath)) {
+    console.log('[spent] useExecutionDashboardCoreHandlerCluster.ts — skip');
+    process.exit(0);
+}
 const coreDir = path.dirname(clusterPath);
 
 const src = fs.readFileSync(clusterPath, 'utf8');
@@ -263,7 +267,7 @@ export type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashb
 export function useExecutionDashboardCoreHandlerCluster(c: ExecutionDashboardCoreHandlerClusterInput) {
     const foundation = useExecutionDashboardCoreHandlerClusterFoundation(c);
     const {
-        executionCopilotDecisions,
+        executorDecisions,
         firstActiveAppealDecisionId,
         removeJudicialCustodianEntry,
         pushTimelineEventBinding,

@@ -5,7 +5,7 @@ vi.mock('@/app/services/security/biometricSessionService', () => ({
     verifyBiometricSessionUnlock: vi.fn(),
 }));
 
-vi.mock('@/app/services/settings/settingsRuntime', () => ({
+vi.mock('@/app/services/settings/settingsSnapshot', () => ({
     getLawyerSettingsSnapshot: vi.fn(() => ({
         security: { biometricLock: false },
     })),
@@ -45,11 +45,11 @@ describe('verifySensitiveSettingsAction', () => {
     });
 
     it('يستخدم BiometricSessionService عند تفعيل القفل', async () => {
-        const runtime = await import('@/app/services/settings/settingsRuntime');
+        const snapshot = await import('@/app/services/settings/settingsSnapshot');
         const biometric = await import('@/app/services/security/biometricSessionService');
-        vi.mocked(runtime.getLawyerSettingsSnapshot).mockReturnValue({
+        vi.mocked(snapshot.getLawyerSettingsSnapshot).mockReturnValue({
             security: { biometricLock: true },
-        } as ReturnType<typeof runtime.getLawyerSettingsSnapshot>);
+        } as ReturnType<typeof snapshot.getLawyerSettingsSnapshot>);
         vi.mocked(biometric.verifyBiometricSessionUnlock).mockResolvedValue(true);
 
         const ok = await verifySensitiveSettingsAction({ confirmPhrase: 'ignored' });

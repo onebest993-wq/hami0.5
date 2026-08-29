@@ -1,39 +1,22 @@
-import React, { memo, useEffect, useRef } from 'react';
-import { Camera, Phone, Shield } from '@/app/components/ui/lucideIcons';
-import type { ForumProfileFollowState } from '@/app/components/lawyer/RoyalLawyerProfile/types';
-import type { EditDraft } from '@/app/components/lawyer/RoyalLawyerProfile/types';
+import React, { memo } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import type { EditDraft, ForumProfileFollowState } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 import type { LawyerProfileHeader } from '@/app/services/lawyer-cloud';
 import type { ProfilePageAccess } from '@/app/services/profile/profilePageTypes';
 import { PROFILE_THEME } from '../profileThemeClasses';
 import { ProfileAvatarImage } from './ProfileAvatarImage';
 import { ProfileFloatingPortrait } from './ProfileFloatingPortrait';
 import { ProfileHeroActionRail } from './ProfileHeroActionRail';
-import { MoroccanGlassFrame } from '@/app/components/shared/MoroccanGlassOverlay';
-import { prefetchProfileSettingsSheet } from '@/app/utils/lazyComponents';
+import { ProfileHeroAvatarEditButton, ProfileHeroForumMetrics, ProfileHeroMetaChips } from './ProfileHeroMetaParts';
+import { ProfileHeroIdentityZone } from './ProfileHeroIdentityZone';
+import { prefetchProfileSettingsSheet } from '@/app/utils/lazyComponentsIntent';
+import { useArmedPointerAction } from '../hooks/useArmedPointerAction';
+import { useProfileHeroNameInputFocus } from '../hooks/useProfileHeroNameInputFocus';
+import { isPrimaryDragPointer } from '@/app/components/lawyer/RoyalLawyerProfile/utils/profilePointerDrag';
+import { AccreditedLawyerMark } from '@/app/components/shared/AccreditedLawyerMark';
+import type { DisplayNamePolicy } from '@/app/domain/profile/displayNameCorrection';
 
-function useArmedPointerAction(action: () => boolean | void) {
-    const armedRef = useRef(false);
-    return {
-        onClick: () => {
-            if (armedRef.current) {
-                armedRef.current = false;
-                return;
-            }
-            action();
-        },
-        onPointerDown: (event: React.PointerEvent) => {
-            if (event.button !== 0) return;
-            const ok = action();
-            /* لا تبتلع الـ click إن رُفض الفعل (مثلاً استوديو يحفظ) */
-            armedRef.current = ok !== false;
-        },
-        onPointerCancel: () => {
-            armedRef.current = false;
-        },
-    };
-}
-
-export type ProfileHeroSectionProps = {
+type ProfileHeroSectionProps = {
     isEditing: boolean;
     readOnly: boolean;
     draft: EditDraft | null;
@@ -43,10 +26,9 @@ export type ProfileHeroSectionProps = {
     displayNamePublic: string;
     syndicateIdPublic: string | undefined;
     showSyndicate: boolean | string | undefined;
-    metaItems: { icon: typeof Phone; label: string; value: string }[];
+    metaItems: { icon: LucideIcon; label: string; value: string }[];
     uploading: 'avatar' | 'gallery' | null;
     avatarRef: React.RefObject<HTMLInputElement | null>;
-    ornatePattern: boolean;
     forumFollow?: ForumProfileFollowState;
     pageAccess?: ProfilePageAccess;
     pageAccessBusy?: boolean;
@@ -54,8 +36,11 @@ export type ProfileHeroSectionProps = {
     profileViewAllowed?: boolean;
     startEdit: () => void;
     openSettings: () => void;
-    /** تبويب الملف من اللوحة — سياق العرض (شريط الرجوع؛ أدوات المالك تبقى ظاهرة) */
+    /** صفحة الفتح — صفّر التعديل من pointerdown قبل أن يُزال الغطاء */
+    armEditOnPointerDown?: boolean;
     isScreenMode?: boolean;
+    accredited?: boolean;
+    displayNamePolicy?: DisplayNamePolicy | null;
 };
 
 export const ProfileHeroSection = memo(function ProfileHeroSection({
@@ -71,7 +56,6 @@ export const ProfileHeroSection = memo(function ProfileHeroSection({
     metaItems,
     uploading,
     avatarRef,
-    ornatePattern,
     forumFollow,
     pageAccess,
     pageAccessBusy,
@@ -80,12 +64,25 @@ export const ProfileHeroSection = memo(function ProfileHeroSection({
     startEdit,
     openSettings,
     isScreenMode = false,
+    accredited = false,
+    displayNamePolicy = null,
+    armEditOnPointerDown = false,
 }: ProfileHeroSectionProps) {
-    const editPointer = useArmedPointerAction(startEdit);
-    const studioPointer = useArmedPointerAction(() => {
-        prefetchProfileSettingsSheet();
-        openSettings();
-    });
+    const studioPointer = useArmedPointerAction(
+        () => {
+            prefetchProfileSettingsSheet();
+            openSettings();
+        },
+        { armOnPointerDown: armEditOnPointerDown },
+    );
+    useProfileHeroNameInputFocus(isEditing, readOnly);
+    const initialsFace = (
+        <div
+            className={`w-full h-full flex items-center justify-center text-2xl font-bold ${PROFILE_THEME.avatarInitials}`}
+        >
+            {initials}
+        </div>
+    );
     const showForumSocial =
         forumFollow && (profileViewAllowed || pageAccess === 'followers');
     const hasForumMetrics = Boolean(
@@ -96,158 +93,69 @@ export const ProfileHeroSection = memo(function ProfileHeroSection({
     const showToolsPanel =
         !readOnly || (!isScreenMode && Boolean(showForumSocial && forumFollow));
 
-    useEffect(() => {
-        if (!isEditing || readOnly) return;
-        const frame = requestAnimationFrame(() => {
-            const input = document.getElementById('lawyer-profile-name-input') as HTMLInputElement | null;
-            if (!input) return;
-            input.focus({ preventScroll: true });
-            input.scrollIntoView({ block: 'center', behavior: 'auto' });
-        });
-        return () => cancelAnimationFrame(frame);
-    }, [isEditing, readOnly]);
-
     return (
-        <div className="hami-profile-hero-wrap px-4">
-            <div className="hami-profile-hero-card">
+        <div className="hami-profile-hero-wrap">
+            <div className="hami-profile-hero-identity-row">
                 <div className="hami-profile-hero-portrait-slot">
-                    <div className="relative">
-                        <ProfileFloatingPortrait>
-                            {header?.profileImage ? (
-                                <ProfileAvatarImage
-                                    src={header.profileImage}
-                                    fallback={
-                                        <div
-                                            className={`w-full h-full flex items-center justify-center text-4xl font-bold ${PROFILE_THEME.avatarInitials}`}
-                                        >
-                                            {initials}
-                                        </div>
-                                    }
-                                />
-                            ) : (
-                                <div
-                                    className={`w-full h-full flex items-center justify-center text-4xl font-bold ${PROFILE_THEME.avatarInitials}`}
-                                >
-                                    {initials}
-                                </div>
-                            )}
-                        </ProfileFloatingPortrait>
-                        {isEditing && !readOnly ? (
-                            <button
-                                type="button"
-                                disabled={uploading === 'avatar'}
-                                onClick={() => avatarRef.current?.click()}
-                                className={`absolute bottom-1 left-1 w-10 h-10 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center z-30 ${PROFILE_THEME.cameraBtn}`}
-                                aria-label="تغيير الصورة الشخصية"
-                                data-testid="lawyer-profile-avatar-camera"
-                            >
-                                <Camera size={16} strokeWidth={2} />
-                            </button>
-                        ) : null}
-                    </div>
-                </div>
-
-                <MoroccanGlassFrame
-                    profilePanel
-                    ornatePattern={ornatePattern}
-                    className="hami-profile-hero-panel"
-                    patternOpacity={0.09}
-                    clip={false}
-                >
-                    <div className="hami-profile-identity-zone">
-                        {isEditing && draft ? (
-                            <div className="hami-profile-identity hami-profile-identity--edit">
-                                <label className="hami-profile-identity__label" htmlFor="lawyer-profile-name-input">
-                                    الاسم المعروض
-                                </label>
-                                <input
-                                    id="lawyer-profile-name-input"
-                                    data-testid="lawyer-profile-name-input"
-                                    value={draft.header.name}
-                                    maxLength={80}
-                                    onChange={(e) => {
-                                        const name = e.target.value;
-                                        setDraft((prev) =>
-                                            prev
-                                                ? { ...prev, header: { ...prev.header, name } }
-                                                : prev,
-                                        );
-                                    }}
-                                    className={`hami-profile-identity__input ${PROFILE_THEME.input}`}
-                                    placeholder="الاسم الكامل"
-                                />
-                            </div>
-                        ) : (
-                            <div className="hami-profile-identity">
-                                <div className="hami-profile-identity__ambient" aria-hidden />
-                                <div className="hami-profile-identity__content">
-                                    <h1 className="hami-profile-identity__name" dir="auto">
-                                        <span className="hami-profile-identity__name-text">
-                                            {displayNamePublic}
-                                        </span>
-                                    </h1>
-                                    <div className="hami-profile-identity__rule" aria-hidden>
-                                        <span className="hami-profile-identity__rule-line" />
-                                        <span className="hami-profile-identity__rule-mark" />
-                                        <span className="hami-profile-identity__rule-line" />
-                                    </div>
-                                    {showSyndicate ? (
-                                        <div
-                                            className={`hami-profile-identity__badge border ${PROFILE_THEME.accentChip}`}
-                                        >
-                                            <Shield size={12} strokeWidth={2.2} aria-hidden />
-                                            <span>نقابة المحامين · {syndicateIdPublic}</span>
-                                        </div>
-                                    ) : null}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {!isEditing && metaItems.length > 0 ? (
-                        <div className="hami-profile-hero-meta">
-                            {metaItems.map((item) => (
-                                <span key={item.label} className="hami-profile-hero-meta-chip">
-                                    <item.icon size={12} className={`${PROFILE_THEME.accentIcon} shrink-0`} />
-                                    <span className="truncate max-w-[150px]">{item.value}</span>
-                                </span>
-                            ))}
-                        </div>
-                    ) : null}
-
-                    {!isEditing && showToolsPanel ? (
-                        <div className="hami-profile-hero-tools">
-                            {hasForumMetrics ? (
-                                <div className="hami-profile-forum-metrics hami-profile-forum-metrics--unified">
-                                    <div className="hami-profile-forum-metric">
-                                        <strong>{forumFollow!.followerCount ?? 0}</strong>
-                                        <span>متابعون</span>
-                                    </div>
-                                    <div className="hami-profile-forum-metric">
-                                        <strong>{forumFollow!.postCount ?? 0}</strong>
-                                        <span>منشورات المنتدى</span>
-                                    </div>
-                                </div>
-                            ) : null}
-                            <ProfileHeroActionRail
-                                readOnly={readOnly}
-                                forumFollow={forumFollow}
-                                showForumSocial={Boolean(showForumSocial)}
-                                pageAccess={pageAccess}
-                                pageAccessBusy={pageAccessBusy}
-                                onCyclePageAccess={onCyclePageAccess}
-                                onEditClick={editPointer.onClick}
-                                onEditPointerDown={editPointer.onPointerDown}
-                                onEditPointerCancel={editPointer.onPointerCancel}
-                                onStudioClick={studioPointer.onClick}
-                                onStudioPointerDown={studioPointer.onPointerDown}
-                                onStudioPointerCancel={studioPointer.onPointerCancel}
-                                onStudioWarm={prefetchProfileSettingsSheet}
+                    <ProfileFloatingPortrait>
+                        {header?.profileImage ? (
+                            <ProfileAvatarImage
+                                src={header.profileImage}
+                                fallback={initialsFace}
+                                priority
                             />
-                        </div>
+                        ) : (
+                            initialsFace
+                        )}
+                    </ProfileFloatingPortrait>
+                    {isEditing && !readOnly ? (
+                        <ProfileHeroAvatarEditButton uploading={uploading} avatarRef={avatarRef} />
                     ) : null}
-                </MoroccanGlassFrame>
+                    {accredited ? <AccreditedLawyerMark size="portrait" /> : null}
+                </div>
+                <ProfileHeroIdentityZone
+                    isEditing={isEditing}
+                    readOnly={readOnly}
+                    draft={draft}
+                    setDraft={setDraft}
+                    displayNamePublic={displayNamePublic}
+                    syndicateIdPublic={syndicateIdPublic}
+                    showSyndicate={showSyndicate}
+                    displayNamePolicy={displayNamePolicy}
+                />
             </div>
+
+            {!isEditing ? <ProfileHeroMetaChips metaItems={metaItems} /> : null}
+
+            {!isEditing && hasForumMetrics ? (
+                <ProfileHeroForumMetrics
+                    followerCount={forumFollow!.followerCount ?? 0}
+                    postCount={forumFollow!.postCount ?? 0}
+                />
+            ) : null}
+
+            {!isEditing && showToolsPanel ? (
+                <ProfileHeroActionRail
+                    readOnly={readOnly}
+                    forumFollow={forumFollow}
+                    showForumSocial={Boolean(showForumSocial)}
+                    pageAccess={pageAccess}
+                    pageAccessBusy={pageAccessBusy}
+                    onCyclePageAccess={onCyclePageAccess}
+                    onEditClick={() => {
+                        startEdit();
+                    }}
+                    onEditPointerDown={(event) => {
+                        if (!armEditOnPointerDown || !isPrimaryDragPointer(event)) return;
+                        startEdit();
+                    }}
+                    onEditPointerCancel={() => undefined}
+                    onStudioClick={studioPointer.onClick}
+                    onStudioPointerDown={studioPointer.onPointerDown}
+                    onStudioPointerCancel={studioPointer.onPointerCancel}
+                    onStudioWarm={prefetchProfileSettingsSheet}
+                />
+            ) : null}
         </div>
     );
 });

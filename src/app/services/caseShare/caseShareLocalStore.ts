@@ -1,5 +1,9 @@
 import type { CaseShareRecord } from './caseShareTypes';
 import SecureStoreService from '@/app/services/SecureStoreService';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 export const CASE_SHARE_LOCAL_KEY = 'hami:case-shares:v1';
 
@@ -13,16 +17,13 @@ function getTestStore(): CaseShareRecord[] {
     return g.__HAMI_CASE_SHARES;
 }
 
-async function migrateLegacyPlaintextLocalStorage(): Promise<void> {
-    if (typeof window === 'undefined') return;
+function parseShareRows(raw: string | null): CaseShareRecord[] {
+    if (!raw) return [];
     try {
-        const legacy = window.localStorage.getItem(CASE_SHARE_LOCAL_KEY);
-        if (!legacy) return;
-        await SecureStoreService.ensurePersistedReady();
-        await SecureStoreService.setItem(CASE_SHARE_LOCAL_KEY, legacy);
-        window.localStorage.removeItem(CASE_SHARE_LOCAL_KEY);
+        const parsed = JSON.parse(raw) as unknown;
+        return Array.isArray(parsed) ? (parsed as CaseShareRecord[]) : [];
     } catch {
-        /* silent — SecureStore may reject if crypto unavailable */
+        return [];
     }
 }
 
@@ -31,12 +32,9 @@ export async function loadCaseShareRecords(): Promise<CaseShareRecord[]> {
         return [...getTestStore()];
     }
     try {
-        await SecureStoreService.ensurePersistedReady();
-        await migrateLegacyPlaintextLocalStorage();
-        const raw = await SecureStoreService.getItem(CASE_SHARE_LOCAL_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw) as CaseShareRecord[];
-        return Array.isArray(parsed) ? parsed : [];
+        const drained = readSecureOrDrainLegacySync(CASE_SHARE_LOCAL_KEY);
+        const raw = drained ?? (await SecureStoreService.getItem(CASE_SHARE_LOCAL_KEY));
+        return parseShareRows(raw);
     } catch {
         return [];
     }
@@ -49,8 +47,9 @@ export async function saveCaseShareRecords(rows: CaseShareRecord[]): Promise<voi
         return;
     }
     try {
-        await SecureStoreService.ensurePersistedReady();
-        await SecureStoreService.setItem(CASE_SHARE_LOCAL_KEY, JSON.stringify(rows));
+        const payload = JSON.stringify(rows);
+        await SecureStoreService.setItem(CASE_SHARE_LOCAL_KEY, payload);
+        clearLegacyPlaintextMirror(CASE_SHARE_LOCAL_KEY);
     } catch {
         /* silent */
     }
@@ -66,11 +65,5 @@ export async function clearCaseShareRecords(): Promise<void> {
     } catch {
         /* silent */
     }
-    if (typeof window !== 'undefined') {
-        try {
-            window.localStorage.removeItem(CASE_SHARE_LOCAL_KEY);
-        } catch {
-            /* ignore */
-        }
-    }
+    clearLegacyPlaintextMirror(CASE_SHARE_LOCAL_KEY);
 }

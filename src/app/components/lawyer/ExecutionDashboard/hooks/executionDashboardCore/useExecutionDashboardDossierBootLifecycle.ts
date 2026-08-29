@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** boot URL، قرارات، lifecycle، store sync — موجة 13 */
 import { useEffect } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
@@ -9,13 +8,7 @@ import { reconcileDomainViolatingDecisions } from '@/app/utils/executionDomainRe
 import { isInabaSubFileId, useExecutionDashboardStore } from '@/app/stores';
 import { executionFileContentSignature } from '../useExecutionData';
 import { buildLegacyDecisionMigrationSources } from './executionDashboardDossierBootSync';
-import {
-    prefetchExecutionDashboardShell,
-    prefetchExecutionModalContainers,
-    prefetchExecutionOverlayModals,
-} from '../../executionDashboardLazyRegistry';
-import { prefetchExecutionFollowupOverlay } from '../../executionDashboardOverlayPrefetch';
-import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
+import { prefetchExecutionDashboardShell } from '../../executionDashboardLazyRegistryShell';
 
 export function useExecutionDashboardUrlDelegationSync(
     urlDelegationParentId: string | undefined,
@@ -166,14 +159,10 @@ export function useExecutionDashboardStoreFileSync({
 export function useExecutionDashboardShellPrefetch() {
     useEffect(() => {
         prefetchExecutionDashboardShell();
-        prefetchExecutionFollowupOverlay();
-        return () => {
-            // shell/followup prefetch is synchronous and idempotent.
-        };
     }, []);
 }
 
-/** يُحمّل بلوب الإضبارة المشفّر إلى ذاكرة القراءة المتزامنة قبل أول merge */
+/** يُحمّل بلوب الإضبارة إلى ذاكرة القراءة المتزامنة؛ يرحّل ciphertext قديماً إن وُجد */
 export function useExecutionDashboardDossierBlobWarm(executionId: string | undefined) {
     useEffect(() => {
         const id = String(executionId ?? '').trim();

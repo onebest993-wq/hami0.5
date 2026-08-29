@@ -1,20 +1,28 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { HAMI_APP_STATE_EVENT, type HamiAppStateDetail } from '@/app/runtime/appStateEvents';
 import { UrgentActionsDB } from '@/app/services/urgent-actions-db';
 import { normalizeLoadedCases, serializeCasesForStorage } from '@/app/domain/urgent';
-import type { UrgentCase } from '../../Component_Urgent_Card';
+import {
+    URGENT_MS_PER_DAY,
+    hasUrgentGrievanceLogged,
+    urgentDaysUntil,
+    urgentGrievanceDeadline,
+    type UrgentCase,
+} from '../../Component_Urgent_Card';
 
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
-const GRIEVANCE_DAYS = 3;
-
-function startOfDay(d: Date) {
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+function casesFromPeek(userId: string | null): UrgentCase[] {
+    if (!userId) return [];
+    const peek = UrgentActionsDB.peekState(userId);
+    return peek ? normalizeLoadedCases(peek.cases) : [];
 }
 
 export function useUrgentCasesStorage(userId: string | null) {
-    const [cases, setCases] = useState<UrgentCase[]>([]);
-    const [casesStorageReady, setCasesStorageReady] = useState(false);
+    const [cases, setCases] = useState<UrgentCase[]>(() => casesFromPeek(userId));
+    const [casesStorageReady, setCasesStorageReady] = useState(() =>
+        Boolean(userId && UrgentActionsDB.peekState(userId)),
+    );
 
-    const hasHydratedCasesRef = useRef(false);
+    const hasHydratedCasesRef = useRef(Boolean(userId && UrgentActionsDB.peekState(userId)));
     const persistTimerRef = useRef<number | null>(null);
     const pendingCasesPersistRef = useRef(false);
     const casesRef = useRef(cases);
@@ -33,15 +41,47 @@ export function useUrgentCasesStorage(userId: string | null) {
         void persistCases(casesRef.current);
     }, [userId, casesStorageReady, persistCases]);
 
+    const persistSnapshot = useCallback(
+        (nextCases: UrgentCase[]) => {
+            if (!userId || !hasHydratedCasesRef.current || !casesStorageReady) {
+                pendingCasesPersistRef.current = true;
+                return;
+            }
+            pendingCasesPersistRef.current = false;
+            if (persistTimerRef.current) {
+                window.clearTimeout(persistTimerRef.current);
+                persistTimerRef.current = null;
+            }
+            void persistCases(nextCases);
+        },
+        [userId, casesStorageReady, persistCases],
+    );
+
+    useLayoutEffect(() => {
+        if (!userId) {
+            hasHydratedCasesRef.current = false;
+            setCases([]);
+            setCasesStorageReady(false);
+            return;
+        }
+        const peek = UrgentActionsDB.peekState(userId);
+        if (!peek) {
+            hasHydratedCasesRef.current = false;
+            setCases([]);
+            setCasesStorageReady(false);
+            return;
+        }
+        setCases(normalizeLoadedCases(peek.cases));
+        hasHydratedCasesRef.current = true;
+        setCasesStorageReady(true);
+    }, [userId]);
+
     useEffect(() => {
         if (!userId) return;
         let cancelled = false;
-        hasHydratedCasesRef.current = false;
-        setCasesStorageReady(false);
 
         void (async () => {
             try {
-                UrgentActionsDB.invalidateCache(userId);
                 const state = await UrgentActionsDB.getState(userId);
                 if (cancelled) return;
                 const rawCases = Array.isArray(state?.cases) ? state!.cases : [];
@@ -64,25 +104,41 @@ export function useUrgentCasesStorage(userId: string | null) {
 
     useEffect(() => {
         if (!casesStorageReady || !hasHydratedCasesRef.current || !userId) return;
+        if (!pendingCasesPersistRef.current) return;
         if (persistTimerRef.current) window.clearTimeout(persistTimerRef.current);
         persistTimerRef.current = window.setTimeout(() => {
             persistTimerRef.current = null;
-            void persistCases(cases);
+            if (!pendingCasesPersistRef.current) return;
+            pendingCasesPersistRef.current = false;
+            void persistCases(casesRef.current);
         }, 500);
     }, [cases, userId, casesStorageReady, persistCases]);
 
     useEffect(() => {
-        const onPageHide = () => {
+        const flushNow = () => {
             if (!hasHydratedCasesRef.current || !casesStorageReady) return;
             if (persistTimerRef.current) {
                 window.clearTimeout(persistTimerRef.current);
                 persistTimerRef.current = null;
             }
+            pendingCasesPersistRef.current = false;
             flushPersistCases();
         };
+        const onPageHide = () => flushNow();
+        const onVisibility = () => {
+            if (document.visibilityState === 'hidden') flushNow();
+        };
+        const onNativeState = (event: Event) => {
+            const detail = (event as CustomEvent<HamiAppStateDetail>).detail;
+            if (detail && detail.isActive === false) flushNow();
+        };
         window.addEventListener('pagehide', onPageHide);
+        document.addEventListener('visibilitychange', onVisibility);
+        window.addEventListener(HAMI_APP_STATE_EVENT, onNativeState);
         return () => {
             window.removeEventListener('pagehide', onPageHide);
+            document.removeEventListener('visibilitychange', onVisibility);
+            window.removeEventListener(HAMI_APP_STATE_EVENT, onNativeState);
             if (persistTimerRef.current) {
                 window.clearTimeout(persistTimerRef.current);
                 persistTimerRef.current = null;
@@ -98,7 +154,7 @@ export function useUrgentCasesStorage(userId: string | null) {
         const runCleanup = () => {
             const snapshot = casesRef.current;
             const now = Date.now();
-            const threshold = now - 30 * MS_PER_DAY;
+            const threshold = now - 30 * URGENT_MS_PER_DAY;
             let changed = false;
 
             const afterCleanup = snapshot.filter((c) => {
@@ -117,17 +173,11 @@ export function useUrgentCasesStorage(userId: string | null) {
                 if (c.phase === 'completed' || c.status === 'completed') return c;
                 if (c.legalState !== 'Awaiting_Grievance') return c;
                 if (!c.notificationDate) return c;
-                const hasGrievanceLogged =
-                    c.grievanceOutcome === 'filed' ||
-                    c.grievanceDecision === 'confirmed' ||
-                    c.grievanceDecision === 'modified' ||
-                    c.grievanceDecision === 'canceled';
-                if (hasGrievanceLogged) return c;
+                if (hasUrgentGrievanceLogged(c)) return c;
                 const base = new Date(c.notificationDate);
-                const target = new Date(base.getTime() + GRIEVANCE_DAYS * MS_PER_DAY);
-                const daysLeft = Math.ceil((startOfDay(target) - startOfDay(new Date())) / MS_PER_DAY);
+                const daysLeft = urgentDaysUntil(urgentGrievanceDeadline(base));
                 if (daysLeft >= 0) return c;
-                if (c.grievanceOutcome === 'expired' && String((c as UrgentCase).phase) === 'completed') return c;
+                if (c.grievanceOutcome === 'expired' && c.phase === 'completed') return c;
                 changed = true;
                 return {
                     ...c,
@@ -152,7 +202,8 @@ export function useUrgentCasesStorage(userId: string | null) {
         setCases,
         casesStorageReady,
         pendingCasesPersistRef,
+        persistSnapshot,
         flushPersistCases,
-        msPerDay: MS_PER_DAY,
+        msPerDay: URGENT_MS_PER_DAY,
     };
 }

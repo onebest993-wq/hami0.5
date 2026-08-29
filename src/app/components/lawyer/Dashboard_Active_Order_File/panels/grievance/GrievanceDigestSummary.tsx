@@ -1,6 +1,6 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { ChevronDown } from '@/app/components/ui/lucideIcons';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
 import { formatDateText } from '../../utils/formatters';
 import type { GrievanceLifecyclePanelProps } from '../GrievanceLifecyclePanelProps';
 
@@ -89,7 +89,7 @@ export function GrievanceDigestSummary({
                                                                                     <div>
                                                                                         تاريخ جلسة التظلم الأولى:{` `}
                                                                                         {formatDateText(
-                                                                                            (caseData as any)?.grievanceFirstHearingDate ?? phase2FirstHearingDate,
+                                                                                            caseData?.grievanceFirstHearingDate ?? phase2FirstHearingDate,
                                                                                         ) || '—'}
                                                                                     </div>
                                                                                 </div>

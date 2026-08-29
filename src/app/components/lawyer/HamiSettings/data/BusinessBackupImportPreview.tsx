@@ -1,5 +1,5 @@
 import React from 'react';
-import type { PendingBusinessImport } from '@/app/services/settings/businessBackup';
+import type { PendingBusinessImport } from '@/app/services/settings/businessBackupTypes';
 
 function formatImportCounts(counts: Record<string, unknown> | null) {
     const c = (counts ?? {}) as Record<string, { items?: number; undated?: number; keys?: number }>;
@@ -72,14 +72,14 @@ export function BusinessBackupImportPreview({
                 <button
                     type="button"
                     onClick={onCancel}
-                    className="flex-1 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white/70 hover:text-white min-h-[44px]"
+                    className="flex-1 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white/70 hover:text-white min-h-[44px] min-w-[44px]"
                 >
                     إلغاء
                 </button>
                 <button
                     type="button"
                     onClick={onConfirm}
-                    className="flex-1 px-3 py-2 rounded-xl bg-[#E6C673] text-[#0B1021] text-xs font-bold min-h-[44px]"
+                    className="flex-1 px-3 py-2 rounded-xl bg-[#E6C673] text-[#0B1021] text-xs font-bold min-h-[44px] min-w-[44px]"
                 >
                     استيراد
                 </button>

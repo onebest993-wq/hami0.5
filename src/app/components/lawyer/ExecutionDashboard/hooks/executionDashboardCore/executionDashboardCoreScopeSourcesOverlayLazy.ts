@@ -1,4 +1,5 @@
 import { buildExecutionDashboardChunkScopeSources } from '../buildExecutionDashboardChunkScopeSources';
+import { spreadExecutionDashboardLazyChunkScopeOverlays } from '../executionDashboardLazyChunkScopeOverlays';
 import {
     buildExecutionDashboardCoreScopeSourceGroups,
     mergeExecutionDashboardCoreScopeSourceGroups,
@@ -26,9 +27,12 @@ export function buildExecutionDashboardCoreDeferredOverlayChunkScopeSources(
     input: ExecutionDashboardCoreDeferredChunkScopeSourcesInput,
 ): Record<string, unknown> {
     const scopeSourceGroups = buildExecutionDashboardCoreScopeSourceGroups(input);
-    return buildExecutionDashboardChunkScopeSources(
-        mergeExecutionDashboardCoreScopeSourceGroups(scopeSourceGroups, (groupKey) =>
-            EXECUTION_DASHBOARD_TERTIARY_OVERLAY_SCOPE_GROUPS.has(groupKey),
+    return {
+        ...buildExecutionDashboardChunkScopeSources(
+            mergeExecutionDashboardCoreScopeSourceGroups(scopeSourceGroups, (groupKey) =>
+                EXECUTION_DASHBOARD_TERTIARY_OVERLAY_SCOPE_GROUPS.has(groupKey),
+            ),
         ),
-    );
+        ...spreadExecutionDashboardLazyChunkScopeOverlays(),
+    };
 }

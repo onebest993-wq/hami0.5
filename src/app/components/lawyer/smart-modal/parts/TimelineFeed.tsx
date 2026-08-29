@@ -1,10 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import {
-    Search as SearchIcon,
-    Clock,
-    Trash2,
-    ChevronDown,
-} from '@/app/components/ui/lucideIcons';
+import { Search as SearchIcon } from '@/app/components/ui/icons/Search';
+import { Clock } from '@/app/components/ui/icons/Clock';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
 import type { TimelineEvent } from '../../LawyerShared';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 import {
@@ -18,7 +16,7 @@ import {
     type TimelineFeedCategory,
 } from '../smartFile/timelineFeedTaxonomy';
 import { resolveTimelineVisual } from '../smartFile/timelineEventVisuals';
-import { isSessionTimelineEvent, isOpponentProceedingsEvent } from '../smartFile/sessionRecordEngine';
+import { isSessionHubFocusEvent } from '../smartFile/sessionRecordEngine';
 
 type ExtendedTimelineEvent = TimelineEvent & {
     isPause?: boolean;
@@ -70,16 +68,11 @@ export const TimelineFeed = ({
         ? ''
         : isPersonal
         ? 'rounded-xl border border-white/[0.07] bg-[#141214]'
-        : 'rounded-xl border border-[#E6C673]/12 bg-[#0A0F1C]/40 backdrop-blur-xl';
+        : 'rounded-xl border border-[#E6C673]/12 bg-[#0A0F1C]/40';
     const accentIcon = isPearl ? 'text-white/35' : isPersonal ? 'text-[#C4A574]/45' : 'text-[#E6C673]/30';
-    const accentLine = isPearl
-        ? 'before:from-[#F0A8B4]/30 before:via-[#F0A8B4]/08'
-        : isPersonal
-        ? 'before:from-[#C4A574]/30 before:via-[#C4A574]/10'
-        : 'before:from-[#E6C673]/35 before:via-[#E6C673]/15';
 
     const searchBar = events.length > 0 ? (
-        <div className={`${isPearl ? 'mb-2 space-y-1.5' : `${shellClass} p-2.5 mb-4 space-y-2.5`} print:hidden`}>
+        <div className={`${isPearl ? 'mb-2 space-y-1.5' : `${shellClass} p-2 mb-3 space-y-2`} print:hidden`}>
             <div className="relative">
                 <SearchIcon
                     size={14}
@@ -92,7 +85,7 @@ export const TimelineFeed = ({
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="بحث في السجل الزمني..."
                     data-testid={CIVIL_LAWSUIT_TEST_IDS.timelineSearch}
-                    className={`w-full rounded-lg py-1.5 pr-9 pl-3 text-xs text-[#FFFEF9] outline-none placeholder:text-[#9894A0]/60 transition-all ${isPearl ? 'bg-[#F5C6D0]/[0.08] border border-[#F0A8B4]/22 focus:border-[#F0A8B4]/38 focus:bg-[#F5C6D0]/[0.12] backdrop-blur-sm' : 'bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-white/25 focus:border-[#E6C673]/35 focus:bg-white/[0.04]'}`}
+                    className={`w-full rounded-lg py-1.5 pr-9 pl-3 text-xs text-[#FFFEF9] outline-none placeholder:text-[#9894A0]/60 transition-colors ${isPearl ? 'bg-[#F5C6D0]/[0.08] border border-[#F0A8B4]/22 focus:border-[#F0A8B4]/38 focus:bg-[#F5C6D0]/[0.12]' : 'bg-white/[0.03] border border-white/[0.08] text-white placeholder:text-white/25 focus:border-[#E6C673]/35 focus:bg-white/[0.04]'}`}
                 />
             </div>
             {visibleCategories.length > 1 ? (
@@ -135,8 +128,8 @@ export const TimelineFeed = ({
                 {isPearl ? (
                     <p className="text-[10px] text-[#9894A0] py-0.5">لا إجراءات — استخدم أوامر يسار</p>
                 ) : (
-                <div className={`text-center py-12 ${shellClass}`}>
-                    <Clock size={32} className={`${accentIcon} mx-auto mb-3`} strokeWidth={1.5} />
+                <div className={`text-center py-5 ${shellClass}`}>
+                    <Clock size={22} className={`${accentIcon} mx-auto mb-2`} strokeWidth={1.5} />
                     <p className="text-white/30 text-sm">لا توجد إجراءات مسجلة حتى الآن</p>
                 </div>
                 )}
@@ -148,8 +141,8 @@ export const TimelineFeed = ({
         return (
             <>
                 {searchBar}
-                <div className={`text-center py-10 ${shellClass} border-dashed`}>
-                    <SearchIcon size={28} className={`${accentIcon} mx-auto mb-2`} strokeWidth={1.5} />
+                <div className={`text-center py-5 ${shellClass} border-dashed`}>
+                    <SearchIcon size={20} className={`${accentIcon} mx-auto mb-2`} strokeWidth={1.5} />
                     <p className="text-white/40 text-sm">لا نتائج لهذا التصنيف أو البحث</p>
                     <p className="text-white/20 text-xs mt-1">جرّب تصنيفاً آخر أو كلمات مختلفة</p>
                 </div>
@@ -160,7 +153,7 @@ export const TimelineFeed = ({
     return (
         <>
             {searchBar}
-            <div className={`${isPearl ? 'space-y-2' : 'space-y-3'} relative before:absolute before:right-3 before:top-4 before:bottom-0 before:w-px before:bg-gradient-to-b ${accentLine} before:to-transparent`}>
+            <div className="space-y-2">
                 {filteredEvents.map((event) => {
                     const ext = event as ExtendedTimelineEvent;
                     const visual = resolveTimelineVisual(
@@ -188,14 +181,13 @@ export const TimelineFeed = ({
                         ? getEvidentiaryBadge(event.evidentiaryWeight)
                         : null;
 
-                    const isSessionRecord =
-                        isSessionTimelineEvent(event) && !isOpponentProceedingsEvent(event);
-                    const isSessionClickable = Boolean(onEventClick && isSessionRecord);
-                    const isExpandable = simplifyCivilContent && hasDetails && !isSessionClickable;
-                    const isClickable = isSessionClickable || isExpandable;
+                    const isHearingJump =
+                        Boolean(onEventClick && isSessionHubFocusEvent(event));
+                    const isExpandable = simplifyCivilContent && hasDetails && !isHearingJump;
+                    const isClickable = isHearingJump || isExpandable;
 
                     const handleCardClick = () => {
-                        if (isSessionClickable) {
+                        if (isHearingJump) {
                             onEventClick?.(event);
                             return;
                         }
@@ -272,7 +264,7 @@ export const TimelineFeed = ({
                                                             e.stopPropagation();
                                                             onDelete(event.id);
                                                         }}
-                                                        className="p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:border-rose-500/30 text-white/30 hover:text-rose-400 transition-colors"
+                                                        className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:border-rose-500/30 text-white/30 hover:text-rose-400 transition-colors touch-manipulation"
                                                         title="حذف"
                                                     >
                                                         <Trash2 size={13} />
@@ -338,7 +330,7 @@ export const TimelineFeed = ({
                                                             e.stopPropagation();
                                                             onDelete(event.id);
                                                         }}
-                                                        className="p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:border-rose-500/30 text-white/30 hover:text-rose-400 transition-colors"
+                                                        className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:border-rose-500/30 text-white/30 hover:text-rose-400 transition-colors touch-manipulation"
                                                         title="حذف"
                                                     >
                                                         <Trash2 size={13} />

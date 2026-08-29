@@ -1,17 +1,30 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, lazy } from 'react';
 import type { SmartFileModalsPortalProps } from './smartFileModalsPortalTypes';
-import type { TimelineEvent } from '@/app/components/lawyer/LawyerShared';
-import {
-    AddAppointmentModal,
-    AddDocumentModal,
-    AddNoteModal,
-    AddPaymentModal,
-} from '../../modals/contentEntryModals';
+import type { TimelineEvent } from '@/app/components/lawyer/lawyerShared/stageTimelineTypes';
 import { LazyEditCaseInfoModal, LazyFastTrackModal, LazyAttachmentShieldModal } from '../../lazySmartFileModalChunks';
-import { AddIncidentalCaseModal } from '../../modals/flow-modals/AddIncidentalCaseModal';
 import type { SmartFileCaseFormData } from '../../smartFile/modalFormTypes';
 import { inferLawsuitTypeFromDocType } from '@/app/services/dossier-notes/dossierLawArticleTooltips';
-import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
+
+const LazyAddDocumentModal = lazy(() =>
+    import('../../modals/contentEntry/AddDocumentModal').then((m) => ({ default: m.AddDocumentModal })),
+);
+const LazyAddNoteModal = lazy(() =>
+    import('../../modals/contentEntry/AddNoteModal').then((m) => ({ default: m.AddNoteModal })),
+);
+const LazyAddPaymentModal = lazy(() =>
+    import('../../modals/contentEntry/AddPaymentModal').then((m) => ({ default: m.AddPaymentModal })),
+);
+const LazyAddAppointmentModal = lazy(() =>
+    import('../../modals/contentEntry/AddAppointmentModal').then((m) => ({
+        default: m.AddAppointmentModal,
+    })),
+);
+const LazyAddIncidentalCaseModal = lazy(() =>
+    import('../../modals/flow-modals/AddIncidentalCaseModal').then((m) => ({
+        default: m.AddIncidentalCaseModal,
+    })),
+);
 
 function visibleTimelineByType(
     timeline: TimelineEvent[] | undefined,
@@ -24,7 +37,7 @@ function visibleTimelineByType(
     );
 }
 
-/** نوافذ الإدخال السريع — تحميل مباشر (بدون lazy) لتفادي تجميد React */
+/** نوافذ الإدخال — lazy خلف show* مع prefetch عند فتح الإضبارة. */
 export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps) {
     const {
         showEditInfoModal,
@@ -84,7 +97,8 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                     </Suspense>
                 ) : null}
                 {showDocModal ? (
-                    <AddDocumentModal
+                    <Suspense fallback={null}>
+                    <LazyAddDocumentModal
                         key="add-doc"
                         isOpen={showDocModal}
                         onClose={() => {
@@ -99,9 +113,11 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                         onReplaceDocument={(event) => setEditingEvent(event)}
                         browseOnly={isCaseLinkViewOnly}
                     />
+                    </Suspense>
                 ) : null}
                 {showNoteModal ? (
-                    <AddNoteModal
+                    <Suspense fallback={null}>
+                    <LazyAddNoteModal
                         key="add-note"
                         isOpen={showNoteModal}
                         onClose={() => {
@@ -131,16 +147,21 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                         onDeleteNote={(id) => h.handleDeleteEvent(id)}
                         browseOnly={isCaseLinkViewOnly}
                     />
+                    </Suspense>
                 ) : null}
                 {showPaymentModal ? (
-                    <AddPaymentModal
+                    <Suspense fallback={null}>
+                    <LazyAddPaymentModal
                         key="add-payment"
                         isOpen={showPaymentModal}
                         onClose={() => setShowPaymentModal(false)}
                         onAdd={h.handleAddPayment}
                     />
+                    </Suspense>
                 ) : null}
-                <AddIncidentalCaseModal
+                {showIncidentalModal || editingIncidental ? (
+                    <Suspense fallback={null}>
+                    <LazyAddIncidentalCaseModal
                     key="add-incidental"
                     isOpen={showIncidentalModal}
                     onClose={() => {
@@ -152,7 +173,9 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                     currentStage={displayStage}
                     editMode={!!editingIncidental}
                     editData={editingIncidental ?? undefined}
-                />
+                    />
+                    </Suspense>
+                ) : null}
                 {showFastTrackModal ? (
                     <Suspense fallback={null}>
                     <LazyFastTrackModal
@@ -184,7 +207,8 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                     </Suspense>
                 ) : null}
                 {showApptModal ? (
-                    <AddAppointmentModal
+                    <Suspense fallback={null}>
+                    <LazyAddAppointmentModal
                         key="add-appt"
                         isOpen={showApptModal}
                         onClose={() => {
@@ -199,6 +223,7 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                         onEditAppointment={(event) => setEditingEvent(event)}
                         browseOnly={isCaseLinkViewOnly}
                     />
+                    </Suspense>
                 ) : null}
         </>
     );

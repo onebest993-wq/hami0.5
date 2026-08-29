@@ -1,28 +1,18 @@
-﻿/**
- * Distributed rate limiting for WIFE (Redis ظْ in-memory fallback).
+/**
+ * Distributed rate limiting for WIFE (Redis → in-memory fallback).
  */
 
+import { wifeRedisJson } from './wifeRedisRest.ts';
+import { hasWifeRedisConfig, isWifeProduction } from './wifeStoreEnv.ts';
+
 const DEFAULT_WINDOW_MS = 60_000;
-/** Default WIFE verify budget ظ¤ overridden per scope in wifeValidator.checkRateLimit */
+/** Default WIFE verify budget — overridden per scope in wifeValidator.checkRateLimit */
 export const DEFAULT_MAX_REQUESTS = 250;
 
 type WindowCounter = { count: number; resetAt: number };
 
 const memoryCounters = new Map<string, WindowCounter>();
 const MEMORY_MAX_KEYS = 20_000;
-
-function getEnv(name: string): string {
-  const raw = process.env[name];
-  return typeof raw === 'string' ? raw.trim() : '';
-}
-
-function isProduction(): boolean {
-  return getEnv('NODE_ENV').toLowerCase() === 'production';
-}
-
-function hasRedisConfig(): boolean {
-  return Boolean(getEnv('WIFE_REDIS_REST_URL') && getEnv('WIFE_REDIS_REST_TOKEN'));
-}
 
 function hashKeyMaterial(input: string): string {
   let hash = 2166136261;
@@ -51,30 +41,18 @@ async function consumeRedisSlot(
   maxRequests: number,
   windowMs: number,
 ): Promise<boolean> {
-  const redisUrl = getEnv('WIFE_REDIS_REST_URL');
-  const redisToken = getEnv('WIFE_REDIS_REST_TOKEN');
-  if (!redisUrl || !redisToken) throw new Error('Redis rate limit store is not configured.');
-
   const nowMs = Date.now();
   const windowStartMs = Math.floor(nowMs / windowMs) * windowMs;
   const key = buildRedisKey(scope, subjectKey, windowStartMs);
-  const base = redisUrl.replace(/\/+$/, '');
 
-  const incrRes = await fetch(`${base}/incr/${key}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${redisToken}` },
-  });
+  const incrRes = await wifeRedisJson(`/incr/${key}`, 'POST');
   if (!incrRes.ok) throw new Error(`Redis rate limit incr failed: ${incrRes.status}`);
 
-  const incrBody = (await incrRes.json().catch(() => null)) as { result?: unknown } | null;
-  const count = Number(incrBody?.result ?? 0);
+  const count = Number(incrRes.result ?? 0);
   if (!Number.isFinite(count) || count <= 0) return false;
 
   if (count === 1) {
-    void fetch(`${base}/pexpire/${key}/${windowMs}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${redisToken}` },
-    }).catch(() => undefined);
+    void wifeRedisJson(`/pexpire/${key}/${windowMs}`, 'POST').catch(() => undefined);
   }
 
   return count <= maxRequests;
@@ -98,22 +76,23 @@ function consumeMemorySlot(scope: string, subjectKey: string, maxRequests: numbe
  */
 export async function consumeRateLimitSlot(
   subjectKey: string,
-  options?: { scope?: string; maxRequests?: number; windowMs?: number },
+  options?: { scope?: string; maxRequests?: number; windowMs?: number; fallbackToMemory?: boolean },
 ): Promise<boolean> {
   const scope = options?.scope ?? 'wife';
   const maxRequests = options?.maxRequests ?? DEFAULT_MAX_REQUESTS;
   const windowMs = options?.windowMs ?? DEFAULT_WINDOW_MS;
   const hashedSubject = hashKeyMaterial(subjectKey);
+  const allowMemory = Boolean(options?.fallbackToMemory) || !isWifeProduction();
 
-  if (hasRedisConfig()) {
+  if (hasWifeRedisConfig()) {
     try {
       return await consumeRedisSlot(scope, hashedSubject, maxRequests, windowMs);
     } catch {
-      if (isProduction()) return false;
+      if (!allowMemory) return false;
     }
   }
 
-  if (isProduction()) return false;
+  if (!allowMemory) return false;
   return consumeMemorySlot(scope, hashedSubject, maxRequests, windowMs);
 }
 

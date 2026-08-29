@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import type { ExecutionFile } from '@/app/types/execution';
-import type { DossierActionPayload } from '../../../components/DossierActionsModal';
+import type { DossierActionPayload } from '../../../components/DossierActionTypes';
 import {
     useExecutionDashboardDossierControlsHandlers,
     type UseExecutionDashboardDossierControlsHandlersParams,

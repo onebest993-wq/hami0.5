@@ -1,631 +1,446 @@
-import React, { useState } from 'react';
-import { Users, ShieldAlert, BarChart3, Search, UserCheck, UserX, AlertTriangle, LogOut, PauseCircle, CheckCircle, XCircle, FileText, Filter, User, Library, Flag, Trash2, MessageSquare, type LucideIcon } from '@/app/components/ui/lucideIcons';
-import { PageWrapper, GlassCard } from './SharedComponents';
+import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import '@/styles/deferred-features-admin.css';
+import '@/styles/admin-hq-shell.css';
+import { Users } from '@/app/components/ui/icons/Users';
+import { BarChart3 } from '@/app/components/ui/icons/BarChart3';
+import { UserCheck } from '@/app/components/ui/icons/UserCheck';
+import { LogOut } from '@/app/components/ui/icons/LogOut';
+import { Library } from '@/app/components/ui/icons/Library';
+import { Flag } from '@/app/components/ui/icons/Flag';
+import { MessageSquare } from '@/app/components/ui/icons/MessageSquare';
+import type { LucideIcon } from '@/app/components/ui/lucideIcons';
+import { PageWrapper } from './SharedComponents';
 import { cn } from '@/app/components/ui/utils';
+import { AdminLawyerVerificationRequests } from '@/app/components/admin/AdminLawyerVerificationRequests';
+import { HeadquartersPanel } from '@/app/components/admin/HeadquartersPanel';
+import { HqCourtStatsPanel } from '@/app/components/admin/HqCourtStatsPanel';
+import { HqAuditLogPanel } from '@/app/components/admin/HqAuditLogPanel';
+import { HqTrustedDevicesPanel } from '@/app/components/admin/HqTrustedDevicesPanel';
+import { HqReportsInbox } from '@/app/components/admin/HqReportsInbox';
+import { HqForumAdminPanel } from '@/app/components/admin/HqForumAdminPanel';
+import { HqKeepAlivePane } from '@/app/components/admin/HqKeepAlivePane';
+import { useHeadquartersStatus } from '@/app/components/admin/useHeadquartersStatus';
+import { useHqTabKeepAlive } from '@/app/components/admin/useHqTabKeepAlive';
+import {
+    HQ_TAB_GROUPS,
+    HQ_TABS,
+    formatHqBadge,
+    isHqShortcutBlocked,
+    tabFromShortcut,
+    type AdminTabId,
+    type HqTabIconMap,
+} from '@/app/components/admin/hqTabs';
+import { hqCountOrDash, hqReportsTotalOrDash, isHqAdminLiveReady, toHqLiveOverview } from '@/app/components/admin/hqLiveOverview';
+import type {
+    HqForumPostKind,
+    HqForumTab,
+    HqJumpOpts,
+    HqReportFocus,
+    HqVerificationFilter,
+} from '@/app/components/admin/hqJump';
+import type { HqUserCreatedFilter, HqUserRoleFilter, HqUserStatusFilter } from '@/app/components/admin/hqUserFilters';
+import { endHeadquartersTrustedSession } from '@/app/services/admin/endHeadquartersTrustedSession';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { useApp } from '@/app/context/AppContext';
-import { SecureAPIClient } from '@/app/services/SecureAPIClient';
+
+const LazyAdminLawEntry = React.lazy(() =>
+  import('@/app/components/admin/AdminLawEntry').then((m) => ({ default: m.AdminLawEntry })),
+);
+
+const ADMIN_HOME_PATH = '/admin';
+const ADMIN_LIBRARY_PATH = '/admin/library';
+
+const HQ_TAB_ICONS: HqTabIconMap = {
+  monitor: BarChart3,
+  users: Users,
+  requests: UserCheck,
+  reports: Flag,
+  forum: MessageSquare,
+  laws: Library,
+};
+
+function normalizeAdminPath(pathname: string): string {
+  return pathname.replace(/\/+$/u, '') || '/';
+}
+
+function tabFromPathname(pathname: string): AdminTabId | null {
+  const path = normalizeAdminPath(pathname);
+  if (path === ADMIN_LIBRARY_PATH) return 'laws';
+  if (path === ADMIN_HOME_PATH) return null;
+  return null;
+}
+
+function pathForTab(tab: AdminTabId): string {
+  return tab === 'laws' ? ADMIN_LIBRARY_PATH : ADMIN_HOME_PATH;
+}
 
 interface AdminDashboardProps {
   onLogout: () => void;
-  /** فتح صفحة إدخال المكتبة القانونية الذكية (`src/app/admin/page.tsx`) */
-  onOpenLawLibrary?: () => void;
-}
-
-interface CourtStats {
-  lawsuits: number;
-  transactions: number;
+  /** تبويب ابتدائي عند الدخول الموحّد لمقر القيادة */
+  initialTab?: AdminTabId;
+  /** تطوير: واجهة فقط بلا نبض خادم */
+  skipLiveProbe?: boolean;
 }
 
 interface AdminTabProps {
   active: boolean;
   onClick: () => void;
+  onWarm?: () => void;
   icon: LucideIcon;
   alert?: boolean;
+  badge?: number | string;
   label: string;
+  shortcut?: string;
 }
 
-// Mock Data
-const PENDING_LAWYERS = [
-    { id: 1, name: 'سيف الدين الحديثي', unionId: '882910', city: 'بغداد', image: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=400' },
-    { id: 2, name: 'نور الهدى الربيعي', unionId: '102394', city: 'البصرة', image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=400' },
-];
+function HqHeaderPulse({
+  system,
+  sessionRequired,
+}: {
+  system: ReturnType<typeof useHeadquartersStatus>['system'];
+  sessionRequired?: boolean;
+}) {
+  const tone =
+    sessionRequired
+      ? 'text-amber-400'
+      : system === 'connected'
+        ? 'text-green-400'
+        : system === 'degraded'
+          ? 'text-amber-400'
+          : system === 'down'
+            ? 'text-red-400'
+            : 'text-gray-400';
+  const dot =
+    sessionRequired
+      ? 'bg-amber-400'
+      : system === 'connected'
+        ? 'bg-green-400 animate-pulse'
+        : system === 'degraded'
+          ? 'bg-amber-400 animate-pulse'
+          : system === 'down'
+            ? 'bg-red-400'
+            : 'bg-gray-500';
+  const label =
+    sessionRequired
+      ? 'بلا جلسة مقر'
+      : system === 'connected'
+        ? 'متصل بالنظام'
+        : system === 'degraded'
+          ? 'اتصال متقطع'
+          : system === 'down'
+            ? 'انقطع الاتصال'
+            : 'جاري التحقق...';
+  return (
+    <span className={cn('text-[10px] flex items-center gap-1', tone)}>
+      <span className={cn('w-1.5 h-1.5 rounded-full', dot)} />
+      {label}
+    </span>
+  );
+}
 
-const ALL_USERS = [
-    { id: 101, name: 'سمير جاسم', type: 'client', status: 'active', reports: 3 },
-    { id: 102, name: 'المحامي علي العبيدي', type: 'lawyer', status: 'active', reports: 0 },
-    { id: 103, name: 'حسين كاظم', type: 'client', status: 'banned', reports: 12 },
-];
+export const AdminDashboard = ({ onLogout, initialTab = 'monitor', skipLiveProbe = false }: AdminDashboardProps) => {
+  const [activeTab, setActiveTab] = useState<AdminTabId>(() => {
+    return tabFromPathname(window.location.pathname) ?? initialTab;
+  });
+  const [inspectUserId, setInspectUserId] = useState<string | null>(null);
+  const [usersStatusFilter, setUsersStatusFilter] = useState<HqUserStatusFilter>('all');
+  const [usersRoleFilter, setUsersRoleFilter] = useState<HqUserRoleFilter>('all');
+  const [usersCreatedFilter, setUsersCreatedFilter] = useState<HqUserCreatedFilter>('all');
+  const [verificationFilter, setVerificationFilter] = useState<HqVerificationFilter>('pending');
+  const [forumTab, setForumTab] = useState<HqForumTab>('stats');
+  const [forumPostKind, setForumPostKind] = useState<HqForumPostKind>('all');
+  const [reportFocus, setReportFocus] = useState<HqReportFocus>('all');
+  const [endingSession, setEndingSession] = useState(false);
+  const live = useHeadquartersStatus({ skipFetch: skipLiveProbe });
+  const liveReady = isHqAdminLiveReady(live, skipLiveProbe);
+  const { isMounted, warmTab } = useHqTabKeepAlive(activeTab, { allowWarm: liveReady });
+  const mainRef = useRef<HTMLDivElement>(null);
+  const liveOverview = toHqLiveOverview(live);
+  const pendingReportsDisplay = hqReportsTotalOrDash(live);
+  const pendingVerificationDisplay = hqCountOrDash(
+    live.pendingVerification,
+    live.contentGaps,
+    'pendingVerification',
+  );
 
-export const AdminDashboard = ({ onLogout, onOpenLawLibrary }: AdminDashboardProps) => {
-  const [activeTab, setActiveTab] = useState<'requests' | 'users' | 'monitor' | 'consultations' | 'reports' | 'forum'>('monitor');
-  const { courtStats, consultations } = useApp();
+  const selectTab = useCallback((tab: AdminTabId) => {
+    setActiveTab(tab);
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+    const target = pathForTab(tab);
+    if (normalizeAdminPath(window.location.pathname) !== target) {
+      window.history.pushState({ screen: 'admin', tab }, '', target);
+    }
+  }, []);
+
+  const clearInspectUser = useCallback(() => setInspectUserId(null), []);
+
+  const jumpTo = useCallback(
+    (tab: AdminTabId, opts?: HqJumpOpts) => {
+      if (tab === 'users') {
+        setUsersStatusFilter(opts?.userStatus ?? 'all');
+        setUsersRoleFilter(opts?.userRole ?? 'all');
+        setUsersCreatedFilter(opts?.userCreated ?? 'all');
+        if (opts?.userId) setInspectUserId(opts.userId);
+      }
+      if (tab === 'requests') {
+        setVerificationFilter(opts?.verificationStatus ?? 'pending');
+      }
+      if (tab === 'forum') {
+        setForumTab(opts?.forumTab ?? 'stats');
+        setForumPostKind(opts?.forumPostKind ?? 'all');
+      }
+      if (tab === 'reports') {
+        setReportFocus(opts?.reportFocus ?? 'all');
+      }
+      selectTab(tab);
+    },
+    [selectTab],
+  );
+
+  const openTab = useCallback(
+    (tab: AdminTabId) => {
+      if (tab === 'users') {
+        setUsersStatusFilter('all');
+        setUsersRoleFilter('all');
+        setUsersCreatedFilter('all');
+      }
+      if (tab === 'requests') setVerificationFilter('pending');
+      if (tab === 'forum') {
+        setForumTab('stats');
+        setForumPostKind('all');
+      }
+      if (tab === 'reports') setReportFocus('all');
+      selectTab(tab);
+    },
+    [selectTab],
+  );
+
+  const handleEndSession = useCallback(async () => {
+    if (endingSession) return;
+    setEndingSession(true);
+    try {
+      const { revoked } = await endHeadquartersTrustedSession();
+      if (!revoked) {
+        SmartToast.error('تعذّر إنهاء جلسة المقر على الخادم. أعد المحاولة من هنا حتى يُطلب الرمز في الدخول التالي.');
+        return;
+      }
+      onLogout();
+    } finally {
+      setEndingSession(false);
+    }
+  }, [endingSession, onLogout]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      const fromPath = tabFromPathname(window.location.pathname);
+      if (fromPath) {
+        setActiveTab(fromPath);
+        return;
+      }
+      if (normalizeAdminPath(window.location.pathname) === ADMIN_HOME_PATH) {
+        setActiveTab((prev) => (prev === 'laws' ? 'monitor' : prev));
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isHqShortcutBlocked(event.target)) return;
+      const next = tabFromShortcut(event.key);
+      if (!next) return;
+      event.preventDefault();
+      openTab(next);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [openTab]);
+
+  const badgeFor = (id: AdminTabId): number | string => {
+    if (id === 'requests') return pendingVerificationDisplay;
+    if (id === 'reports') return pendingReportsDisplay;
+    return 0;
+  };
 
   return (
     <PageWrapper>
-      {/* Admin Header */}
-      <div className="flex justify-between items-center p-5 bg-[#001020] border-b border-[#D4AF37]/20 sticky top-0 z-50">
-          <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[#D4AF37] flex items-center justify-center text-[#001830] font-black shadow-[0_0_15px_rgba(212,175,55,0.5)]">
+      <div className="hami-hq-shell">
+        <header className="hami-hq-header">
+          <div className="flex min-w-0 items-center gap-3">
+              <div className="hami-hq-mark">
                   AD
               </div>
-              <div>
-                  <h1 className="text-white font-bold text-lg">لوحة الإدارة المركزية</h1>
-                  <span className="text-[10px] text-green-400 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                      متصل بالنظام
-                  </span>
+              <div className="min-w-0">
+                  <h1 className="text-white font-bold text-lg leading-tight">مقر القيادة</h1>
+                  <HqHeaderPulse system={live.system} sessionRequired={live.sessionRequired} />
               </div>
           </div>
           <div className="flex items-center gap-2">
-              {onOpenLawLibrary && (
-                  <button
-                      type="button"
-                      onClick={onOpenLawLibrary}
-                      className="flex items-center gap-2 rounded-lg border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-2 text-xs font-semibold text-[#D4AF37] transition hover:bg-[#D4AF37]/20"
-                  >
-                      <Library className="w-4 h-4 shrink-0" />
-                      المكتبة القانونية الذكية
-                  </button>
-              )}
-              <button type="button" onClick={onLogout} className="p-2 hover:bg-white/5 rounded-lg text-red-400">
+              <button
+                type="button"
+                className={cn(
+                  'hami-hq-chip hidden sm:inline-flex',
+                  typeof pendingVerificationDisplay === 'number' &&
+                    pendingVerificationDisplay > 0 &&
+                    'hami-hq-chip-alert',
+                )}
+                onClick={() => jumpTo('requests', { verificationStatus: 'pending' })}
+              >
+                توثيق
+                <span className="tabular-nums">{pendingVerificationDisplay}</span>
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  'hami-hq-chip hidden sm:inline-flex',
+                  typeof pendingReportsDisplay === 'number' && pendingReportsDisplay > 0 && 'hami-hq-chip-alert',
+                )}
+                onClick={() => jumpTo('reports', { reportFocus: 'all' })}
+              >
+                بلاغات
+                <span className="tabular-nums">{pendingReportsDisplay}</span>
+              </button>
+              <p className="hq-hint">١–٦ للتنقّل</p>
+              <button
+                type="button"
+                onClick={() => void handleEndSession()}
+                disabled={endingSession}
+                className="hami-hq-logout"
+                aria-label="إنهاء الجلسة"
+                title="ينسى هذا الجهاز ويطلب الرمز في الدخول التالي للمقر"
+                data-testid="hq-end-session"
+              >
                   <LogOut className="w-5 h-5" />
+                  <span className="text-xs font-bold">إنهاء الجلسة</span>
               </button>
           </div>
-      </div>
+        </header>
 
-      <div className="flex flex-col md:flex-row min-h-[calc(100vh-80px)]">
-          {/* Sidebar */}
-          <div className="w-full md:w-24 flex md:flex-col justify-around md:justify-start items-center p-4 md:py-6 gap-6 bg-[#001020]/50 border-b md:border-b-0 md:border-l border-white/5 z-40">
-              <AdminTab active={activeTab === 'monitor'} onClick={() => setActiveTab('monitor')} icon={BarChart3} label="الإحصائيات" />
-              <AdminTab active={activeTab === 'consultations'} onClick={() => setActiveTab('consultations')} icon={FileText} label="الاستشارات" />
-              <AdminTab active={activeTab === 'requests'} onClick={() => setActiveTab('requests')} icon={UserCheck} alert label="التوثيق" />
-              <AdminTab active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={Users} label="المستخدمين" />
-              <AdminTab active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={Flag} alert label="البلاغات" />
-              <AdminTab active={activeTab === 'forum'} onClick={() => setActiveTab('forum')} icon={MessageSquare} label="المنتدى" />
+        <div className="hami-hq-body">
+          <nav className="hami-hq-rail" aria-label="أقسام مقر القيادة">
+              {HQ_TAB_GROUPS.map((group) => (
+                <div key={group.id} className="hami-hq-rail-group">
+                  <p className="hami-hq-rail-group-label">{group.label}</p>
+                  {HQ_TABS.filter((tab) => tab.group === group.id).map((tab) => {
+                    const badge = badgeFor(tab.id);
+                    return (
+                      <AdminTab
+                        key={tab.id}
+                        active={activeTab === tab.id}
+                        onClick={() => openTab(tab.id)}
+                        onWarm={() => warmTab(tab.id)}
+                        icon={HQ_TAB_ICONS[tab.id]}
+                        alert={typeof badge === 'number' && badge > 0}
+                        badge={badge}
+                        label={tab.label}
+                        shortcut={tab.shortcut}
+                      />
+                    );
+                  })}
+                </div>
+              ))}
+          </nav>
+
+          <div ref={mainRef} className="hami-hq-main">
+              {isMounted('monitor') ? (
+                <HqKeepAlivePane active={activeTab === 'monitor'}>
+                <div className="space-y-4">
+                  <HqCourtStatsPanel
+                    onJump={jumpTo}
+                    liveOverview={liveOverview}
+                    mail={live.mail}
+                    checking={live.system === 'checking'}
+                    gated={!liveReady}
+                  />
+                  <HqAuditLogPanel gated={!liveReady} />
+                  <HqTrustedDevicesPanel gated={!liveReady} />
+                </div>
+                </HqKeepAlivePane>
+              ) : null}
+              {isMounted('requests') ? (
+                <HqKeepAlivePane active={activeTab === 'requests'}>
+                <AdminLawyerVerificationRequests
+                  initialStatusFilter={verificationFilter}
+                  onInspectUser={(userId) => jumpTo('users', { userId })}
+                />
+                </HqKeepAlivePane>
+              ) : null}
+              {isMounted('users') ? (
+                <HqKeepAlivePane active={activeTab === 'users'}>
+                <HeadquartersPanel
+                  focusUserId={inspectUserId}
+                  onFocusConsumed={clearInspectUser}
+                  initialStatusFilter={usersStatusFilter}
+                  initialRoleFilter={usersRoleFilter}
+                  initialCreatedFilter={usersCreatedFilter}
+                  skipFetch={!liveReady}
+                />
+                </HqKeepAlivePane>
+              ) : null}
+              {isMounted('laws') ? (
+                <HqKeepAlivePane active={activeTab === 'laws'}>
+                  <div className="space-y-6">
+                      <div>
+                          <p className="hq-kicker">المكتبة</p>
+                          <h2 className="hq-title">المكتبة القانونية الذكية</h2>
+                          <p className="mt-1 text-sm text-white/45">
+                              أدخل النص الحرفي للمواد ليتم تخزينها في المكتبة والبحث داخل التطبيق.
+                          </p>
+                      </div>
+                      <Suspense
+                          fallback={
+                              <div className="hq-state">
+                                  جاري تحميل أدوات القوانين…
+                              </div>
+                          }
+                      >
+                          <LazyAdminLawEntry className="w-full shadow-2xl shadow-black/40" />
+                      </Suspense>
+                  </div>
+                </HqKeepAlivePane>
+              ) : null}
+              {isMounted('reports') ? (
+                <HqKeepAlivePane active={activeTab === 'reports'}>
+                  <HqReportsInbox initialFocus={reportFocus} />
+                </HqKeepAlivePane>
+              ) : null}
+              {isMounted('forum') ? (
+                <HqKeepAlivePane active={activeTab === 'forum'}>
+                  <HqForumAdminPanel
+                    initialForumTab={forumTab}
+                    initialPostKind={forumPostKind}
+                    onJumpReports={() => jumpTo('reports', { reportFocus: 'all' })}
+                    gated={!liveReady}
+                  />
+                </HqKeepAlivePane>
+              ) : null}
           </div>
-
-          {/* Main Content Area */}
-          <div className="flex-1 p-6 overflow-y-auto pb-24 md:pb-6">
-              
-              {/* TAB 1: Live Monitor */}
-              {activeTab === 'monitor' && (
-                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                      <h2 className="text-[#D4AF37] text-xl font-bold mb-4 flex items-center gap-2">
-                          <BarChart3 className="w-6 h-6" /> الإحصائيات الحية للمحافظات
-                      </h2>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {(Object.entries(courtStats) as [string, CourtStats][]).map(([court, stats]) => (
-                              <GlassCard key={court} className="p-5 border-t-4 border-t-[#D4AF37] relative overflow-hidden group">
-                                  <div className="absolute right-[-20px] bottom-[-20px] opacity-5 group-hover:opacity-10 transition-opacity">
-                                      <BarChart3 className="w-32 h-32 text-[#D4AF37]" />
-                                  </div>
-
-                                  <h3 className="text-white font-bold text-lg mb-4">{court}</h3>
-                                  
-                                  <div className="space-y-3">
-                                      <div className="flex justify-between items-center p-2 rounded bg-white/5">
-                                          <span className="text-gray-400 text-sm">دعاوى قضائية</span>
-                                          <span className="text-[#D4AF37] font-bold text-lg">{stats.lawsuits}</span>
-                                      </div>
-                                      <div className="flex justify-between items-center p-2 rounded bg-white/5">
-                                          <span className="text-gray-400 text-sm">معاملات رسمية</span>
-                                          <span className="text-blue-400 font-bold text-lg">{stats.transactions}</span>
-                                      </div>
-                                  </div>
-                              </GlassCard>
-                          ))}
-                      </div>
-                  </div>
-              )}
-
-              {/* TAB 2: Consultations Management (New) */}
-              {activeTab === 'consultations' && (
-                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                      <div className="flex justify-between items-center mb-4">
-                          <h2 className="text-[#D4AF37] text-xl font-bold flex items-center gap-2">
-                              <FileText className="w-6 h-6" /> مراقبة الاستشارات
-                          </h2>
-                          <div className="flex items-center gap-2 bg-[#001830] px-3 py-1.5 rounded-lg border border-white/10">
-                              <Filter className="w-4 h-4 text-gray-500" />
-                              <span className="text-xs text-gray-400">الكل</span>
-                          </div>
-                      </div>
-
-                      <div className="space-y-4">
-                          {consultations.length === 0 ? (
-                              <div className="text-center text-gray-500 py-10">لا توجد استشارات حالياً</div>
-                          ) : (
-                              consultations.map((post) => (
-                                  <GlassCard key={post.id} className="p-4 flex flex-col gap-2 relative">
-                                      <div className="flex justify-between">
-                                          <span className="text-white font-bold text-sm">{post.name}</span>
-                                          <span className="text-xs text-gray-500">{post.time}</span>
-                                      </div>
-                                      <p className="text-gray-300 text-sm">{post.content}</p>
-                                      
-                                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
-                                          <span className={cn("text-[10px] px-2 py-0.5 rounded", post.offers.length > 0 ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500")}>
-                                              {post.offers.length > 0 ? `تم الرد (${post.offers.length})` : 'لم يتم الرد (متوقفة)'}
-                                          </span>
-                                          <button type="button" className="text-red-400 text-xs hover:text-red-300">حذف المنشور</button>
-                                      </div>
-                                  </GlassCard>
-                              ))
-                          )}
-                      </div>
-                  </div>
-              )}
-
-              {/* TAB 3: Verification Requests */}
-              {activeTab === 'requests' && (
-                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                      <h2 className="text-[#D4AF37] text-xl font-bold mb-4 flex items-center gap-2">
-                          <ShieldAlert className="w-6 h-6" /> طلبات التوثيق ({PENDING_LAWYERS.length})
-                      </h2>
-                      
-                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                          {PENDING_LAWYERS.map((lawyer) => (
-                              <GlassCard key={lawyer.id} className="p-0 overflow-hidden flex flex-col md:flex-row">
-                                  {/* ID Image */}
-                                  <div className="w-full md:w-48 h-48 md:h-auto bg-gray-900 relative group cursor-zoom-in">
-                                      <img src={lawyer.image} alt="ID" className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition duration-500" />
-                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                          <Search className="w-8 h-8 text-white/50 group-hover:text-[#D4AF37] transition" />
-                                      </div>
-                                  </div>
-                                  
-                                  <div className="p-6 flex-1 flex flex-col justify-between">
-                                      <div>
-                                          <h3 className="text-white font-bold text-xl mb-1">{lawyer.name}</h3>
-                                          <div className="flex items-center gap-2 text-gray-400 text-sm mb-4">
-                                              <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-0.5 rounded border border-[#D4AF37]/20">محامي</span>
-                                              <span>• {lawyer.city}</span>
-                                          </div>
-                                          <div className="space-y-1 mb-6">
-                                              <p className="text-gray-500 text-xs">رقم هوية النقابة</p>
-                                              <p className="text-white font-mono text-lg tracking-widest border-b border-white/10 pb-1 inline-block">{lawyer.unionId}</p>
-                                          </div>
-                                      </div>
-                                      
-                                      <div className="flex gap-3">
-                                          <button type="button" className="flex-1 bg-[#D4AF37] hover:bg-[#FCEEA7] text-[#001830] py-2.5 rounded-lg font-bold transition flex items-center justify-center gap-2">
-                                              <CheckCircle className="w-4 h-4" /> قبول
-                                          </button>
-                                          <button type="button" className="flex-1 bg-red-500/10 hover:bg-red-500 hover:text-white text-red-500 border border-red-500/30 py-2.5 rounded-lg font-bold transition flex items-center justify-center gap-2">
-                                              <XCircle className="w-4 h-4" /> رفض
-                                          </button>
-                                      </div>
-                                  </div>
-                              </GlassCard>
-                          ))}
-                      </div>
-                  </div>
-              )}
-
-              {/* TAB 4: User Management */}
-              {activeTab === 'users' && (
-                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                      <h2 className="text-[#D4AF37] text-xl font-bold mb-4 flex items-center gap-2">
-                          <Users className="w-6 h-6" /> إدارة الحسابات
-                      </h2>
-                      
-                      <div className="relative mb-6">
-                          <Search className="absolute right-4 top-4 text-gray-500 w-5 h-5" />
-                          <input 
-                            type="text" 
-                            placeholder="ابحث عن اسم، رقم هاتف، أو بريد إلكتروني..." 
-                            className="w-full bg-[#001020] border border-[#D4AF37]/20 rounded-xl py-3 pr-12 text-white outline-none focus:border-[#D4AF37] transition-colors"
-                          />
-                      </div>
-
-                      <div className="space-y-4">
-                          {ALL_USERS.map((user) => (
-                              <GlassCard key={user.id} className="p-4 flex flex-col sm:flex-row justify-between items-center gap-4 hover:border-[#D4AF37]/30 transition group">
-                                  <div className="flex items-center gap-4 w-full sm:w-auto">
-                                      <div className={cn(
-                                          "w-12 h-12 rounded-full flex items-center justify-center border",
-                                          user.status === 'banned' ? "bg-red-500/10 border-red-500 text-red-500" : "bg-gray-800 border-gray-600 text-gray-400"
-                                      )}
-                                      >
-                                          {user.status === 'banned' ? <UserX className="w-6 h-6" /> : <User className="w-6 h-6" />}
-                                      </div>
-                                      <div>
-                                          <h3 className="text-white font-bold">{user.name}</h3>
-                                          <div className="flex items-center gap-2 mt-1">
-                                              <span className={cn("text-[10px] px-2 py-0.5 rounded border", user.type === 'lawyer' ? "bg-blue-500/10 text-blue-400 border-blue-500/30" : "bg-gray-700 text-gray-300 border-gray-600")}>
-                                                  {user.type === 'lawyer' ? 'محامي' : 'موكل'}
-                                              </span>
-                                              {user.reports > 0 && (
-                                                  <span className="text-[10px] text-red-400 flex items-center gap-1">
-                                                      <AlertTriangle className="w-3 h-3" /> {user.reports} بلاغات
-                                                  </span>
-                                              )}
-                                          </div>
-                                      </div>
-                                  </div>
-                                  
-                                  <div className="flex gap-2 w-full sm:w-auto">
-                                      {user.status === 'active' ? (
-                                          <>
-                                              <button type="button" className="flex-1 sm:flex-none px-4 py-2 bg-yellow-600/20 text-yellow-500 border border-yellow-600/50 rounded-lg text-sm font-bold hover:bg-yellow-600 hover:text-black transition flex items-center justify-center gap-2">
-                                                  <PauseCircle className="w-4 h-4" /> تجميد
-                                              </button>
-                                              <button type="button" className="flex-1 sm:flex-none px-4 py-2 bg-red-900/30 text-red-500 border border-red-500/50 rounded-lg text-sm font-bold hover:bg-red-600 hover:text-white transition flex items-center justify-center gap-2">
-                                                  <UserX className="w-4 h-4" /> حظر نهائي
-                                              </button>
-                                          </>
-                                      ) : (
-                                          <button type="button" className="w-full sm:w-auto px-6 py-2 bg-green-600/20 text-green-500 border border-green-600/50 rounded-lg text-sm font-bold hover:bg-green-600 hover:text-white transition flex items-center justify-center gap-2">
-                                              <CheckCircle className="w-4 h-4" /> رفع الحظر
-                                          </button>
-                                      )}
-                                  </div>
-                              </GlassCard>
-                          ))}
-                      </div>
-                  </div>
-              )}
-
-              {/* TAB 5: Reports Inbox */}
-              {activeTab === 'reports' && (
-                  <ReportsInbox />
-              )}
-
-              {/* TAB 6: Forum Management */}
-              {activeTab === 'forum' && (
-                  <ForumAdminPanel />
-              )}
-
-          </div>
+        </div>
       </div>
     </PageWrapper>
   );
 };
 
-const ReportsInbox = () => {
-    const [reportsData, setReportsData] = useState<{ id: string; postId: string; reporterId: string; reason: string; createdAt: string; status: string; post: { id: string; title: string; content: string; authorName?: string } | null }[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-    const fetchReports = React.useCallback(async () => {
-        setLoading(true);
-        try {
-            const data = await SecureAPIClient.fetchSecure<{ ok: boolean; reports: typeof reportsData }>(
-                '/api/forum/reports',
-                { method: 'GET' },
-            );
-            if (data.ok) {
-                setReportsData(data.reports);
-            }
-        } catch {
-            // silent
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    React.useEffect(() => {
-        fetchReports();
-    }, [fetchReports]);
-
-    const handleDismiss = async (reportId: string) => {
-        setActionLoading(reportId);
-        try {
-            await SecureAPIClient.fetchSecure('/api/forum/reports', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'dismiss', reportId }),
-            });
-            await fetchReports();
-        } catch {
-            // silent
-        } finally {
-            setActionLoading(null);
-        }
-    };
-
-    const handleDeletePost = async (postId: string, reportId: string) => {
-        setActionLoading(reportId);
-        try {
-            await SecureAPIClient.fetchSecure('/api/forum/reports', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'delete_post', postId, reportId }),
-            });
-            await fetchReports();
-        } catch {
-            // silent
-        } finally {
-            setActionLoading(null);
-        }
-    };
-
+const AdminTab = ({ active, onClick, onWarm, icon: Icon, alert, badge, label, shortcut }: AdminTabProps) => {
+    const countLabel = formatHqBadge(badge ?? (alert ? 1 : 0));
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-[#D4AF37] text-xl font-bold flex items-center gap-2">
-                    <Flag className="w-6 h-6" /> صندوق البلاغات
-                    {reportsData.length > 0 && (
-                        <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                            {reportsData.length}
-                        </span>
-                    )}
-                </h2>
-                <button type="button"
-                    onClick={fetchReports}
-                    className="text-xs text-gray-400 hover:text-white transition flex items-center gap-1"
-                >
-                    <Search className="w-3 h-3" /> تحديث
-                </button>
-            </div>
-
-            {loading ? (
-                <div className="text-center text-gray-500 py-10">جاري تحميل البلاغات...</div>
-            ) : reportsData.length === 0 ? (
-                <div className="text-center text-gray-500 py-16">
-                    <Flag className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                    <p>لا توجد بلاغات جديدة</p>
-                    <p className="text-xs text-gray-600 mt-1">جميع المنشورات آمنة حتى الآن</p>
-                </div>
-            ) : (
-                <div className="space-y-4">
-                    {reportsData.map((report) => (
-                        <GlassCard key={report.id} className="p-5 border-r-4 border-r-red-500/50">
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
-                                        <span className="text-sm font-bold text-white truncate">
-                                            {report.post?.title || 'منشور بدون عنوان'}
-                                        </span>
-                                    </div>
-
-                                    <p className="text-gray-400 text-xs mb-2 line-clamp-2">
-                                        {report.post?.content || 'المحتوى محذوف أو غير متاح'}
-                                    </p>
-
-                                    <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-500 mt-2">
-                                        <span className="bg-red-500/10 text-red-400 px-2 py-0.5 rounded">
-                                            🚨 {report.reason}
-                                        </span>
-                                        <span>
-                                            📅 {new Date(report.createdAt).toLocaleDateString('ar-IQ')}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-2 shrink-0">
-                                    <button type="button"
-                                        onClick={() => handleDeletePost(report.postId, report.id)}
-                                        disabled={actionLoading === report.id}
-                                        className="px-3 py-2 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg text-xs font-bold hover:bg-red-500 hover:text-white transition disabled:opacity-50 flex items-center gap-1"
-                                    >
-                                        <Trash2 className="w-3 h-3" /> حذف المنشور
-                                    </button>
-                                    <button type="button"
-                                        onClick={() => handleDismiss(report.id)}
-                                        disabled={actionLoading === report.id}
-                                        className="px-3 py-2 bg-gray-700/30 text-gray-400 border border-gray-600/30 rounded-lg text-xs font-bold hover:bg-gray-600 hover:text-white transition disabled:opacity-50 flex items-center gap-1"
-                                    >
-                                        <XCircle className="w-3 h-3" /> تجاهل
-                                    </button>
-                                </div>
-                            </div>
-                        </GlassCard>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-};
-
-const ForumAdminPanel = () => {
-    const [stats, setStats] = useState<{
-        totalPosts: number; totalComments: number; totalUpvotes: number;
-        totalReports: number; pendingReports: number; totalDocuments: number;
-        totalBannedUsers: number; topTags: { tag: string; count: number }[];
-    } | null>(null);
-    const [bannedUsers, setBannedUsers] = useState<{ userId: string; userName: string; reason: string; bannedAt: string; expiresAt?: string }[]>([]);
-    const [forumTab, setForumTab] = useState<'stats' | 'bans' | 'pins'>('stats');
-    const [loading, setLoading] = useState(true);
-    const [banReason, setBanReason] = useState('');
-    const [banUserId, setBanUserId] = useState('');
-    const [banUserName, setBanUserName] = useState('');
-
-    const fetchData = React.useCallback(async () => {
-        setLoading(true);
-        try {
-            const [statsData, bansData] = await Promise.all([
-                SecureAPIClient.fetchSecure<{ ok: boolean; stats: typeof stats }>('/api/forum/stats', { method: 'GET' }),
-                SecureAPIClient.fetchSecure<{ ok: boolean; bannedUsers: typeof bannedUsers }>('/api/forum/ban', { method: 'GET' }),
-            ]);
-            if (statsData.ok) setStats(statsData.stats);
-            if (bansData.ok) setBannedUsers(bansData.bannedUsers);
-        } catch {
-            // silent
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    React.useEffect(() => { fetchData(); }, [fetchData]);
-
-    const handleBan = async () => {
-        if (!banUserId.trim() || !banUserName.trim() || !banReason.trim()) {
-            SmartToast.warning('يرجى ملء جميع الحقول');
-            return;
-        }
-        try {
-            const data = await SecureAPIClient.fetchSecure<{ ok: boolean; error?: string }>('/api/forum/ban', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'ban', userId: banUserId, userName: banUserName, reason: banReason }),
-            });
-            if (data.ok) {
-                SmartToast.success('تم حظر المستخدم');
-                setBanUserId(''); setBanUserName(''); setBanReason('');
-                await fetchData();
-            } else {
-                SmartToast.error(data.error || 'فشل الحظر');
-            }
-        } catch {
-            SmartToast.error('فشل الاتصال بالخادم');
-        }
-    };
-
-    const handleUnban = async (userId: string) => {
-        try {
-            const data = await SecureAPIClient.fetchSecure<{ ok: boolean }>('/api/forum/ban', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'unban', userId }),
-            });
-            if (data.ok) {
-                SmartToast.success('تم رفع الحظر');
-                await fetchData();
-            }
-        } catch {
-            SmartToast.error('فشل الاتصال بالخادم');
-        }
-    };
-
-    return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-[#D4AF37] text-xl font-bold flex items-center gap-2">
-                    <MessageSquare className="w-6 h-6" /> إدارة المنتدى القانوني
-                </h2>
-                <button type="button" onClick={fetchData} className="text-xs text-gray-400 hover:text-white transition">🔄 تحديث</button>
-            </div>
-
-            <div className="flex gap-2 mb-4 border-b border-white/5 pb-2">
-                <button type="button" onClick={() => setForumTab('stats')} className={`px-4 py-2 rounded-lg text-xs font-bold transition ${forumTab === 'stats' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'text-gray-400 hover:text-white'}`}>
-                    الإحصائيات
-                </button>
-                <button type="button" onClick={() => setForumTab('bans')} className={`px-4 py-2 rounded-lg text-xs font-bold transition ${forumTab === 'bans' ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'text-gray-400 hover:text-white'}`}>
-                    الحظر
-                </button>
-            </div>
-
-            {loading ? (
-                <div className="text-center text-gray-500 py-10">جاري التحميل...</div>
-            ) : forumTab === 'stats' && stats ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <GlassCard className="p-4 text-center border-t-4 border-t-blue-500/50">
-                        <p className="text-2xl font-bold text-white">{stats.totalPosts}</p>
-                        <p className="text-xs text-gray-400 mt-1">إجمالي المنشورات</p>
-                    </GlassCard>
-                    <GlassCard className="p-4 text-center border-t-4 border-t-emerald-500/50">
-                        <p className="text-2xl font-bold text-white">{stats.totalComments}</p>
-                        <p className="text-xs text-gray-400 mt-1">إجمالي التعليقات</p>
-                    </GlassCard>
-                    <GlassCard className="p-4 text-center border-t-4 border-t-amber-500/50">
-                        <p className="text-2xl font-bold text-white">{stats.totalUpvotes}</p>
-                        <p className="text-xs text-gray-400 mt-1">إجمالي الإعجابات</p>
-                    </GlassCard>
-                    <GlassCard className="p-4 text-center border-t-4 border-t-red-500/50">
-                        <p className="text-2xl font-bold text-white">{stats.pendingReports}</p>
-                        <p className="text-xs text-gray-400 mt-1">بلاغات معلقة</p>
-                    </GlassCard>
-                    <GlassCard className="p-4 text-center border-t-4 border-t-purple-500/50">
-                        <p className="text-2xl font-bold text-white">{stats.totalDocuments}</p>
-                        <p className="text-xs text-gray-400 mt-1">مستندات قانونية</p>
-                    </GlassCard>
-                    <GlassCard className="p-4 text-center border-t-4 border-t-red-600/50">
-                        <p className="text-2xl font-bold text-white">{stats.totalBannedUsers}</p>
-                        <p className="text-xs text-gray-400 mt-1">مستخدمين محظورين</p>
-                    </GlassCard>
-                    <GlassCard className="p-4 col-span-2">
-                        <p className="text-xs text-gray-400 mb-2">الوسوم الأكثر شيوعاً</p>
-                        <div className="flex flex-wrap gap-1.5">
-                            {stats.topTags.slice(0, 8).map((t) => (
-                                <span key={t.tag} className="bg-white/5 text-white/70 px-2 py-0.5 rounded text-[11px]">
-                                    {t.tag} ({t.count})
-                                </span>
-                            ))}
-                            {stats.topTags.length === 0 && <span className="text-gray-500 text-xs">لا توجد وسوم</span>}
-                        </div>
-                    </GlassCard>
-                    <GlassCard className="p-4 col-span-2">
-                        <p className="text-xs text-gray-400 mb-2">إجمالي التقارير</p>
-                        <p className="text-2xl font-bold text-white">{stats.totalReports}</p>
-                        <p className="text-xs text-gray-400 mt-1">منذ بداية المنتدى</p>
-                    </GlassCard>
-                </div>
-            ) : forumTab === 'bans' ? (
-                <div className="space-y-4">
-                    <GlassCard className="p-5">
-                        <h3 className="text-white font-bold text-sm mb-4">حظر مستخدم</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                            <input
-                                value={banUserId}
-                                onChange={(e) => setBanUserId(e.target.value)}
-                                placeholder="معرف المستخدم (User ID)"
-                                className="h-11 bg-[#001830] rounded-xl px-4 text-white text-sm placeholder-gray-500 border border-white/10 focus:border-[#D4AF37]/50 focus:outline-none"
-                            />
-                            <input
-                                value={banUserName}
-                                onChange={(e) => setBanUserName(e.target.value)}
-                                placeholder="اسم المستخدم"
-                                className="h-11 bg-[#001830] rounded-xl px-4 text-white text-sm placeholder-gray-500 border border-white/10 focus:border-[#D4AF37]/50 focus:outline-none"
-                            />
-                            <input
-                                value={banReason}
-                                onChange={(e) => setBanReason(e.target.value)}
-                                placeholder="سبب الحظر"
-                                className="h-11 bg-[#001830] rounded-xl px-4 text-white text-sm placeholder-gray-500 border border-white/10 focus:border-[#D4AF37]/50 focus:outline-none"
-                            />
-                        </div>
-                        <button type="button"
-                            onClick={handleBan}
-                            className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold transition"
-                        >
-                            حظر
-                        </button>
-                    </GlassCard>
-
-                    <h3 className="text-white font-bold text-sm">المستخدمون المحظورون ({bannedUsers.length})</h3>
-                    {bannedUsers.length === 0 ? (
-                        <p className="text-gray-500 text-xs">لا يوجد مستخدمون محظورون</p>
-                    ) : (
-                        bannedUsers.map((b) => (
-                            <GlassCard key={b.userId} className="p-4 flex items-center justify-between">
-                                <div>
-                                    <p className="text-white font-bold text-sm">{b.userName}</p>
-                                    <p className="text-gray-400 text-xs">سبب الحظر: {b.reason}</p>
-                                    <p className="text-gray-500 text-[10px]">{new Date(b.bannedAt).toLocaleDateString('ar-IQ')}</p>
-                                </div>
-                                <button type="button"
-                                    onClick={() => handleUnban(b.userId)}
-                                    className="px-4 py-2 bg-green-600/20 text-green-500 border border-green-600/50 rounded-lg text-xs font-bold hover:bg-green-600 hover:text-white transition"
-                                >
-                                    رفع الحظر
-                                </button>
-                            </GlassCard>
-                        ))
-                    )}
-                </div>
-            ) : null}
-        </div>
-    );
-};
-
-const AdminTab = ({ active, onClick, icon: Icon, alert, label }: AdminTabProps) => (
-    <button type="button" 
+    <button
+        type="button"
         onClick={onClick}
-        className={cn(
-            "p-3 md:w-full md:flex md:items-center md:gap-3 md:px-4 rounded-xl transition-all relative group",
-            active 
-                ? "bg-[#D4AF37] text-[#001830] shadow-[0_0_15px_rgba(212,175,55,0.4)]" 
-                : "text-gray-400 hover:bg-white/5 hover:text-white"
-        )}
+        onPointerEnter={onWarm}
+        onFocus={onWarm}
+        aria-label={label}
+        aria-current={active ? 'page' : undefined}
+        aria-keyshortcuts={shortcut}
+        title={shortcut ? `${label} (${shortcut})` : label}
+        className="hami-hq-tab"
     >
-        <div className="relative">
-            <Icon className="w-6 h-6" />
-            {alert && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-[#001830]" />}
-        </div>
-        <span className="hidden md:block text-sm font-bold">{label}</span>
+        <span className="relative">
+            <Icon className="w-5 h-5 shrink-0" />
+            {countLabel ? <span className="hami-hq-tab-badge">{countLabel}</span> : null}
+        </span>
+        <span className="hami-hq-tab-label">{label}</span>
     </button>
-);
+    );
+};

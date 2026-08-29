@@ -1,6 +1,6 @@
 import { sanitizePayload } from '../../../security/sanitizer.ts';
 import { ForumGroupRepository } from '../../../../services/forum/forumGroupRepository.ts';
-import { requireForumAuthAndUnbanned, jsonResponse } from '../../_auth.ts';
+import { requireForumAuthAndUnbanned, jsonResponse, forumCatchJsonResponse } from '../../_auth.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object';
@@ -34,7 +34,6 @@ export async function POST(request: Request): Promise<Response> {
         await ForumGroupRepository.leaveGroup(groupId, auth.userId);
         return jsonResponse(200, { ok: true });
     } catch (err) {
-        const message = err instanceof Error ? err.message : 'Internal server error';
-        return jsonResponse(500, { ok: false, error: message });
+        return forumCatchJsonResponse(err);
     }
 }

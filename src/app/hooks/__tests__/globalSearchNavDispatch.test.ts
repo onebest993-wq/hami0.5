@@ -14,16 +14,34 @@ const lawsuitOpenMocks = vi.hoisted(() => ({
 vi.mock('@/app/runtime/executionOpenContract', () => openContractMocks);
 vi.mock('@/app/runtime/lawsuitOpenContract', () => lawsuitOpenMocks);
 
+const segmentLookupMocks = vi.hoisted(() => ({
+    findLawsuitFileAcrossSegments: vi.fn(() => null as null | { id: string; type: string; status: string }),
+}));
+
+vi.mock('@/app/domain/lawsuit/lawsuitSegmentStorage', () => ({
+    findLawsuitFileAcrossSegments: segmentLookupMocks.findLawsuitFileAcrossSegments,
+}));
+
 vi.mock('@/app/services/auth/shellAuth', () => ({
     isRealSignedIn: (userId: string | null | undefined) => {
         const id = userId?.trim();
         if (!id) return false;
         return id !== 'guest-lawyer-1' && id !== 'demo_user';
     },
+    hasLocalAppSession: (userId: string | null | undefined) => Boolean(userId?.trim()),
+}));
+
+const toastMocks = vi.hoisted(() => ({
+    error: vi.fn(),
+}));
+
+vi.mock('@/app/components/ui/SmartToast', () => ({
+    SmartToast: { error: toastMocks.error, success: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
 import {
     dispatchGlobalSearchNavigate,
+    GLOBAL_SEARCH_NAV_UNAVAILABLE,
     type GlobalSearchNavDispatchContext,
 } from '@/app/hooks/globalSearchNavDispatch';
 
@@ -58,15 +76,32 @@ describe('dispatchGlobalSearchNavigate', () => {
         vi.clearAllMocks();
     });
 
-    it('يغلق فقط عند غياب هوية حقيقية', () => {
+    it('الضيف يصل للإشعارات من نتيجة البحث', () => {
         const closeGlobalSearch = vi.fn();
         const openNotifications = vi.fn();
         const ctx = makeCtx({ userId: 'guest-lawyer-1', closeGlobalSearch, openNotifications });
 
         dispatchGlobalSearchNavigate({ type: 'notifications' } as never, ctx);
 
+        expect(openNotifications).toHaveBeenCalledTimes(1);
         expect(closeGlobalSearch).toHaveBeenCalledTimes(1);
-        expect(openNotifications).not.toHaveBeenCalled();
+    });
+
+    it('الضيف يفتح إضبارة التنفيذ من نتيجة البحث', () => {
+        const setActiveFile = vi.fn();
+        const closeGlobalSearch = vi.fn();
+        const ctx = makeCtx({
+            userId: 'guest-lawyer-1',
+            executionFiles: [{ id: 'ex-9', type: 'execution' } as never],
+            setActiveFile,
+            closeGlobalSearch,
+        });
+
+        dispatchGlobalSearchNavigate({ type: 'file', fileId: 'ex-9' } as never, ctx);
+
+        expect(openContractMocks.openExecutionDossierWithContract).toHaveBeenCalledTimes(1);
+        expect(setActiveFile).toHaveBeenCalled();
+        expect(closeGlobalSearch).toHaveBeenCalled();
     });
 
     it('يفتح الإشعارات ثم يغلق', () => {
@@ -119,5 +154,109 @@ describe('dispatchGlobalSearchNavigate', () => {
         expect(openContractMocks.openExecutionDossierWithContract).toHaveBeenCalledTimes(1);
         expect(setActiveFile).toHaveBeenCalled();
         expect(closeGlobalSearch).toHaveBeenCalled();
+    });
+
+    it('يرفض قضية جزائية غير مملوكة', () => {
+        const openCriminalCase = vi.fn();
+        const closeGlobalSearch = vi.fn();
+        const ctx = makeCtx({
+            criminalCases: [{ id: 'cr-1' }],
+            openCriminalCase,
+            closeGlobalSearch,
+        });
+
+        dispatchGlobalSearchNavigate({ type: 'criminal', criminalId: 'cr-9' } as never, ctx);
+
+        expect(openCriminalCase).not.toHaveBeenCalled();
+        expect(closeGlobalSearch).toHaveBeenCalledTimes(1);
+        expect(toastMocks.error).toHaveBeenCalledWith(GLOBAL_SEARCH_NAV_UNAVAILABLE);
+    });
+
+    it('يُظهر تعذّر الفتح ولا يغيّر التبويب عندما الملف غير موجود', () => {
+        const setActiveTab = vi.fn();
+        const closeGlobalSearch = vi.fn();
+        const ctx = makeCtx({ files: [], executionFiles: [], setActiveTab, closeGlobalSearch });
+
+        dispatchGlobalSearchNavigate({ type: 'file', fileId: 'missing' } as never, ctx);
+
+        expect(setActiveTab).not.toHaveBeenCalled();
+        expect(closeGlobalSearch).toHaveBeenCalledTimes(1);
+        expect(toastMocks.error).toHaveBeenCalledWith(GLOBAL_SEARCH_NAV_UNAVAILABLE);
+    });
+
+    it('يُظهر تعذّر الفتح ولا يختار قضية عندما السجل غير موجود', () => {
+        const selectCase = vi.fn();
+        const onNavigateToCase = vi.fn();
+        const closeGlobalSearch = vi.fn();
+        const ctx = makeCtx({ files: [], executionFiles: [], selectCase, onNavigateToCase, closeGlobalSearch });
+
+        dispatchGlobalSearchNavigate({ type: 'case', caseId: 'missing' } as never, ctx);
+
+        expect(selectCase).not.toHaveBeenCalled();
+        expect(onNavigateToCase).not.toHaveBeenCalled();
+        expect(closeGlobalSearch).toHaveBeenCalledTimes(1);
+        expect(toastMocks.error).toHaveBeenCalledWith(GLOBAL_SEARCH_NAV_UNAVAILABLE);
+    });
+
+    it('يفتح قضية جزائية مملوكة', () => {
+        const openCriminalCase = vi.fn();
+        const closeGlobalSearch = vi.fn();
+        const ctx = makeCtx({
+            criminalCases: [{ id: 'cr-1' }],
+            openCriminalCase,
+            closeGlobalSearch,
+        });
+
+        dispatchGlobalSearchNavigate({ type: 'criminal', criminalId: 'cr-1' } as never, ctx);
+
+        expect(openCriminalCase).toHaveBeenCalledWith('cr-1');
+        expect(closeGlobalSearch).toHaveBeenCalled();
+        expect(toastMocks.error).not.toHaveBeenCalled();
+    });
+
+    it('يفتح دعوى مؤرشفة من مقطع التخزين عندما لا تكون في files النشطة', () => {
+        segmentLookupMocks.findLawsuitFileAcrossSegments.mockReturnValueOnce({
+            id: 'arch-1',
+            type: 'lawsuit',
+            status: 'archived',
+        });
+        const setActiveFile = vi.fn();
+        const closeGlobalSearch = vi.fn();
+        const ctx = makeCtx({ files: [], setActiveFile, closeGlobalSearch });
+
+        dispatchGlobalSearchNavigate({ type: 'file', fileId: 'arch-1' } as never, ctx);
+
+        expect(lawsuitOpenMocks.openLawsuitDossierWithContract).toHaveBeenCalledTimes(1);
+        expect(setActiveFile).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 'arch-1', status: 'archived' }),
+        );
+        expect(closeGlobalSearch).toHaveBeenCalled();
+    });
+
+    it('يرفض التنقّل بلا جلسة محلية', () => {
+        const openNotifications = vi.fn();
+        const closeGlobalSearch = vi.fn();
+        const ctx = makeCtx({ userId: null, openNotifications, closeGlobalSearch });
+
+        dispatchGlobalSearchNavigate({ type: 'notifications' } as never, ctx);
+
+        expect(openNotifications).not.toHaveBeenCalled();
+        expect(closeGlobalSearch).toHaveBeenCalledTimes(1);
+        expect(toastMocks.error).toHaveBeenCalledWith(GLOBAL_SEARCH_NAV_UNAVAILABLE);
+    });
+
+    it('يرفض معرّف ملف بمخطط javascript', () => {
+        const setActiveFile = vi.fn();
+        const closeGlobalSearch = vi.fn();
+        const ctx = makeCtx({
+            executionFiles: [{ id: 'javascript:alert(1)', type: 'execution' } as never],
+            setActiveFile,
+            closeGlobalSearch,
+        });
+
+        dispatchGlobalSearchNavigate({ type: 'file', fileId: 'javascript:alert(1)' } as never, ctx);
+
+        expect(setActiveFile).not.toHaveBeenCalled();
+        expect(toastMocks.error).toHaveBeenCalledWith(GLOBAL_SEARCH_NAV_UNAVAILABLE);
     });
 });

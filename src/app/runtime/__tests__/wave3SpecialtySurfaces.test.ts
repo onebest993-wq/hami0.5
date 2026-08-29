@@ -26,16 +26,33 @@ describe('wave3 financial specialty + criminal surfaces', () => {
         expect(hits).toEqual([]);
     });
 
-    it('specialtyPublic و ledgerPublic و storePublic موجودة كعقود شريحة', () => {
+    it('specialtyPublic و ledgerPublic موجودان كعقدَي شريحة موصولَين', () => {
         expect(fs.existsSync(path.join(root, 'src/app/slices/financial/specialtyPublic.ts'))).toBe(true);
         expect(fs.existsSync(path.join(root, 'src/app/slices/financial/ledgerPublic.ts'))).toBe(true);
-        expect(fs.existsSync(path.join(root, 'src/app/slices/criminal/storePublic.ts'))).toBe(true);
     });
 
-    it('criminal/public يصدّر CriminalCase من storePublic لا من criminalStore مباشرة', () => {
-        const src = fs.readFileSync(path.join(root, 'src/app/slices/criminal/public.ts'), 'utf8');
-        expect(src).toContain("from '@/app/slices/criminal/storePublic'");
-        expect(src).not.toContain("from '@/app/components/lawyer/criminal-system/criminalStore'");
+    /*
+     * حُذف حدّ الشريحة الجزائية بكامله — `criminal/public.ts` و`criminal/storePublic.ts`:
+     * لم يستورد أحدٌ الأوّل، ولم يستورد الثاني إلا الأوّل. ومعهما ثمانية عقود
+     * `public.ts` أخرى في `slices/` بلا مستورد واحد. الباقي هنا ما تعبره شيفرة
+     * حقيقية، وهو المحروس أعلاه. حدٌّ لا يعبره أحد ليس حدّاً بل اسم ملفّ.
+     *
+     * الضمانة المقابلة الحيّة: لا شيء خارج `criminal-system` يستورد `criminalStore`
+     * مباشرة — وهذا يُقاس على الشيفرة الحيّة لا على عقد مُعلَن.
+     */
+    it('لا مستورد لـcriminalStore من خارج criminal-system', () => {
+        const outside: string[] = [];
+        for (const dir of ['src/app/components/lawyer/ExecutionDashboard', 'src/app/hooks', 'src/app/runtime']) {
+            const abs = path.join(root, dir);
+            if (!fs.existsSync(abs)) continue;
+            for (const file of walkTsFiles(abs)) {
+                const t = fs.readFileSync(file, 'utf8');
+                if (/from\s+'@\/app\/components\/lawyer\/criminal-system\/criminalStore'/.test(t)) {
+                    outside.push(path.relative(root, file));
+                }
+            }
+        }
+        expect(outside).toEqual([]);
     });
 
     it('FOC بالكامل لا يستورد مسارات ExecutionDashboard المباشرة', () => {

@@ -1,11 +1,13 @@
 import React, { memo, useState } from 'react';
-import { Plus, Check, Shield } from '@/app/components/ui/lucideIcons';
+import { Plus } from '@/app/components/ui/icons/Plus';
+import { Check } from '@/app/components/ui/icons/Check';
+import { Shield } from '@/app/components/ui/icons/Shield';
 import type { ForumGroup } from '@/app/services/forum/forumGroupTypes';
+import { ForumPublishFab } from './ForumPublishFab';
 import {
     FORUM_ACCENT_CHIP,
-    FORUM_FAB,
+    FORUM_CONTENT_COLUMN,
     FORUM_FEED_CARD,
-    FORUM_PUBLISH_FAB_SLOT,
     FORUM_TEXT_MUTED,
     FORUM_TEXT_PRIMARY,
 } from '../forumPlumTheme';
@@ -13,8 +15,6 @@ import {
 interface ForumGroupsDirectoryProps {
     groups: ForumGroup[];
     loading: boolean;
-    searchQuery: string;
-    onSearchQueryChange: (value: string) => void;
     onJoin: (groupId: string) => void;
     onOpenGroup: (groupId: string) => void;
     onCreateClick: () => void;
@@ -30,7 +30,7 @@ export const ForumGroupsDirectory = memo(function ForumGroupsDirectory({
     joiningGroupId,
 }: ForumGroupsDirectoryProps) {
     return (
-        <div className="px-4 pt-1 pb-28 space-y-4" data-testid="forum-groups-directory">
+        <div className={`${FORUM_CONTENT_COLUMN} pt-1 pb-28 space-y-4`} data-testid="forum-groups-directory">
             {loading ? (
                 <p className={`text-center text-sm py-10 ${FORUM_TEXT_MUTED}`}>جاري تحميل المجموعات…</p>
             ) : groups.length === 0 ? (
@@ -44,29 +44,32 @@ export const ForumGroupsDirectory = memo(function ForumGroupsDirectory({
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {groups.map((group) => (
-                        <GroupCard
+                    {groups.map((group, index) => (
+                        <div
                             key={group.id}
+                            style={
+                                index > 1
+                                    ? { contentVisibility: 'auto', containIntrinsicSize: '0 120px' }
+                                    : undefined
+                            }
+                        >
+                        <GroupCard
                             group={group}
                             joining={joiningGroupId === group.id}
                             onJoin={() => onJoin(group.id)}
                             onOpen={() => onOpenGroup(group.id)}
                         />
+                        </div>
                     ))}
                 </div>
             )}
 
-            <div className={FORUM_PUBLISH_FAB_SLOT}>
-                <button
-                    type="button"
-                    onClick={onCreateClick}
-                    className={`pointer-events-auto ${FORUM_FAB}`}
-                    data-testid="forum-create-group-fab"
-                >
-                    <Plus size={18} />
-                    <span>إنشاء مجموعة</span>
-                </button>
-            </div>
+            <ForumPublishFab
+                label="إنشاء مجموعة"
+                testId="forum-create-group-fab"
+                onClick={onCreateClick}
+                icon={<Plus size={18} />}
+            />
         </div>
     );
 });
@@ -117,14 +120,14 @@ function GroupCard({
                                 e.stopPropagation();
                                 setExpanded((v) => !v);
                             }}
-                            className="mt-1 text-[10px] text-[#C9A86C]/80"
+                            className="mt-1 text-[10px] text-[#E6C673]/80"
                         >
                             {expanded ? 'أقل' : 'المزيد'}
                         </button>
                     ) : null}
                 </div>
                 <div className={`shrink-0 rounded-xl px-2.5 py-1.5 text-center ${FORUM_ACCENT_CHIP}`}>
-                    <p className="text-sm font-black text-[#C9A86C]">{group.memberCount}</p>
+                    <p className="text-sm font-black text-[#E6C673]">{group.memberCount}</p>
                     <p className="text-[9px] text-[#9AA3B2]">عضو</p>
                 </div>
             </div>

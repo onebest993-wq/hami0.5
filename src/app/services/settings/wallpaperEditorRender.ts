@@ -1,7 +1,7 @@
 /** نسبة إطار الهاتف — تطابق غطاء لوحة المحامي */
 export const WALLPAPER_EDITOR_ASPECT = 9 / 19.5;
 
-export const WALLPAPER_EXPORT_WIDTH = 960;
+const WALLPAPER_EXPORT_WIDTH = 960;
 export const WALLPAPER_EXPORT_MAX_BYTES = 480_000;
 
 export type WallpaperEditorTransform = {
@@ -82,17 +82,53 @@ export function renderWallpaperCanvas(
     return canvas;
 }
 
-export function canvasToWallpaperDataUrl(canvas: HTMLCanvasElement): string {
-    let quality = 0.72;
-    let dataUrl = canvas.toDataURL('image/jpeg', quality);
-    while (dataUrl.length > WALLPAPER_EXPORT_MAX_BYTES && quality > 0.5) {
-        quality -= 0.04;
-        dataUrl = canvas.toDataURL('image/jpeg', quality);
-    }
-    if (dataUrl.length > WALLPAPER_EXPORT_MAX_BYTES) {
-        throw new Error('image too large');
-    }
-    return dataUrl;
+export function canvasToWallpaperDataUrl(canvas: HTMLCanvasElement): Promise<string> {
+    const minQuality = 0.5;
+    const maxQuality = 0.72;
+    let low = minQuality;
+    let high = maxQuality;
+
+    const yieldToMain = (): Promise<void> =>
+        new Promise((resolve) => {
+            const sched = (
+                globalThis as unknown as {
+                    scheduler?: { yield?: () => Promise<void> };
+                }
+            ).scheduler;
+            if (sched?.yield) {
+                void sched.yield().then(resolve, () => {
+                    setTimeout(resolve, 0);
+                });
+                return;
+            }
+            setTimeout(resolve, 0);
+        });
+
+    return (async () => {
+        let best = canvas.toDataURL('image/jpeg', high);
+        if (!best) throw new Error('canvas export failed');
+
+        if (best.length <= WALLPAPER_EXPORT_MAX_BYTES) {
+            return best;
+        }
+
+        for (let i = 0; i < 6; i++) {
+            await yieldToMain();
+            const mid = (low + high) / 2;
+            const candidate = canvas.toDataURL('image/jpeg', mid);
+            if (candidate.length <= WALLPAPER_EXPORT_MAX_BYTES) {
+                best = candidate;
+                low = mid;
+            } else {
+                high = mid;
+            }
+        }
+
+        if (best.length > WALLPAPER_EXPORT_MAX_BYTES) {
+            throw new Error('image too large');
+        }
+        return best;
+    })();
 }
 
 export async function loadWallpaperImageFromUrl(url: string): Promise<HTMLImageElement> {
@@ -102,18 +138,4 @@ export async function loadWallpaperImageFromUrl(url: string): Promise<HTMLImageE
         img.onerror = () => reject(new Error('image load failed'));
         img.src = url;
     });
-}
-
-export async function renderWallpaperDataUrlFromFile(
-    file: File,
-    transform: WallpaperEditorTransform,
-): Promise<string> {
-    const url = URL.createObjectURL(file);
-    try {
-        const img = await loadWallpaperImageFromUrl(url);
-        const canvas = renderWallpaperCanvas(img, transform);
-        return canvasToWallpaperDataUrl(canvas);
-    } finally {
-        URL.revokeObjectURL(url);
-    }
 }

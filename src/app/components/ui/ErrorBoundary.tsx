@@ -11,7 +11,10 @@
  */
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw, Home, FileText } from '@/app/components/ui/lucideIcons';
+import { AlertTriangle } from '@/app/components/ui/icons/AlertTriangle';
+import { RefreshCw } from '@/app/components/ui/icons/RefreshCw';
+import { Home } from '@/app/components/ui/icons/Home';
+import { FileText } from '@/app/components/ui/icons/FileText';
 import { sentryCaptureException } from '@/app/observability/sentryClient';
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•

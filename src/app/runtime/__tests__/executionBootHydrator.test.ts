@@ -11,9 +11,10 @@ vi.mock('@/app/runtime/executionDashboardLoader', () => ({
 
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: vi.fn(() => false),
+    isNativeShellStampedOnDom: vi.fn(() => false),
 }));
 
-vi.mock('@/app/services/settings/settingsRuntime', () => ({
+vi.mock('@/app/services/settings/settingsSnapshot', () => ({
     getLawyerSettingsSnapshot: vi.fn(() => ({
         security: { localOnlyMode: false },
         performance: { prefetchScreens: true, litePerformance: false },
@@ -44,7 +45,7 @@ describe('executionBootHydrator', () => {
         const mod = await import('@/app/runtime/executionBootHydrator');
         mod.resetExecutionBootHydratorForTests();
         vi.mocked(
-            (await import('@/app/services/settings/settingsRuntime')).getLawyerSettingsSnapshot,
+            (await import('@/app/services/settings/settingsSnapshot')).getLawyerSettingsSnapshot,
         ).mockReturnValue({
             security: { localOnlyMode: false },
             performance: { prefetchScreens: true, litePerformance: false },
@@ -62,13 +63,14 @@ describe('executionBootHydrator', () => {
         prefetchExecutionAfterBootReveal();
 
         expect(primeExecutionDossierSurface).toHaveBeenCalledTimes(1);
+        expect(primeExecutionDossierSurface).toHaveBeenCalledWith({ includeFeatureStyles: false });
         expect(prefetchExecutionDashboardChromeWarm).toHaveBeenCalledTimes(1);
         expect(onHydrated).toHaveBeenCalledTimes(1);
         window.removeEventListener(EXECUTION_CHROME_HYDRATED_EVENT, onHydrated);
     });
 
     it('يتخطى التسخين عند تعطيل prefetch', async () => {
-        const { getLawyerSettingsSnapshot } = await import('@/app/services/settings/settingsRuntime');
+        const { getLawyerSettingsSnapshot } = await import('@/app/services/settings/settingsSnapshot');
         vi.mocked(getLawyerSettingsSnapshot).mockReturnValue({
             security: { localOnlyMode: true },
             performance: { prefetchScreens: false, litePerformance: false },
@@ -94,6 +96,7 @@ describe('executionBootHydrator', () => {
         prefetchExecutionAfterBootReveal();
 
         expect(primeExecutionDossierSurface).toHaveBeenCalledTimes(1);
+        expect(primeExecutionDossierSurface).toHaveBeenCalledWith({ includeFeatureStyles: false });
         expect(prefetchExecutionDashboardChromeWarm).not.toHaveBeenCalled();
     });
 

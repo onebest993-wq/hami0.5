@@ -1,13 +1,11 @@
-import {
-    AtSign,
-    BadgeCheck,
-    MessageCircle,
-    FileText,
-    Sparkles,
-    Settings,
-    AlertTriangle,
-    type LucideIcon,
-} from '@/app/components/ui/lucideIcons';
+import { AtSign } from '@/app/components/ui/icons/AtSign';
+import { BadgeCheck } from '@/app/components/ui/icons/BadgeCheck';
+import { MessageCircle } from '@/app/components/ui/icons/MessageCircle';
+import { FileText } from '@/app/components/ui/icons/FileText';
+import { Sparkles } from '@/app/components/ui/icons/Sparkles';
+import { Settings } from '@/app/components/ui/icons/Settings';
+import { AlertTriangle } from '@/app/components/ui/icons/AlertTriangle';
+import type { LucideIcon } from '@/app/components/ui/lucideIcons';
 import type { NotificationTab, TimeBucket } from '@/app/components/lawyer/NotificationPanel/types';
 
 export type CategoryThemeKey = 'forum' | 'system' | 'document' | 'ai';

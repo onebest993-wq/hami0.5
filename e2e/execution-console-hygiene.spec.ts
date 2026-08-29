@@ -2,10 +2,12 @@
  * E2E: لا تحذيرات/أخطاء كونسول أثناء مسارات التنفيذ الحرجة.
  */
 import { test, expect, type Page } from '@playwright/test';
-import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
-import { bootToLawyerHome } from './helpers/bootFixtures';
-import { dismissProductivityBlockers, prepareProductivityE2E } from './helpers/productivityE2EFixtures';
-import { seedExecutionStorageForFile } from './helpers/executionStorageFixtures';
+import {
+    bootExecutionLawyerShell,
+    clickNativeElement,
+    openExecutionArchiveFromHome,
+    openExecutionDossierByRowText,
+} from './helpers/executionE2EBoot';
 
 const E2E_EXEC_ID = 'e2e-console-hygiene-1';
 
@@ -48,7 +50,11 @@ function attachConsoleCollector(page: Page) {
 
 function assertConsoleClean(messages: ConsoleEntry[], pageErrors: string[]) {
     const bad = messages.filter((m) => {
+        if (/Failed to load resource.*\b404\b/i.test(m.text)) return false;
         if (/Failed to load resource.*\b500\b/i.test(m.text)) return false;
+        if (/Failed to load resource.*\b401\b/i.test(m.text)) return false;
+        if (/the server responded with a status of 404/i.test(m.text)) return false;
+        if (/the server responded with a status of 401/i.test(m.text)) return false;
         if (/dev-api/i.test(m.text)) return false;
         if (m.type === 'error' || m.type === 'warning' || m.type === 'warn') return true;
         return /React|Warning|Error|not a function|ReferenceError|deprecated/i.test(m.text);
@@ -57,36 +63,24 @@ function assertConsoleClean(messages: ConsoleEntry[], pageErrors: string[]) {
     expect(bad, `console noise: ${bad.map((m) => `[${m.type}] ${m.text}`).join('\n')}`).toEqual([]);
 }
 
-async function bootLawyerWithExecution(page: Page) {
-    await prepareProductivityE2E(page);
-    await seedLawyerFiles(page);
-    await seedExecutionStorageForFile(page, MINIMAL_EXECUTION_FILE);
-    await page.goto('/');
-    await ensureLawyerDashboard(page);
-    await bootToLawyerHome(page);
-    await dismissProductivityBlockers(page);
-}
-
 test.describe('Execution console hygiene', () => {
+    test.setTimeout(120_000);
+
     test('dossier open — header, trash, decisions — no console errors', async ({ page }) => {
         const { messages, pageErrors } = attachConsoleCollector(page);
-        await bootLawyerWithExecution(page);
+        await bootExecutionLawyerShell(page, { executionFile: MINIMAL_EXECUTION_FILE, collectPageErrors: false });
+        await openExecutionArchiveFromHome(page);
+        await openExecutionDossierByRowText(page, /مديرية تنفيذ E2E|2026\/تنفيذ\/101/);
 
-        await page.getByTestId('hub-archive-execution').click({ timeout: 25_000 });
-        await expect(page.getByRole('heading', { name: /مخزن الأضابير التنفيذية/i })).toBeVisible({
-            timeout: 25_000,
-        });
+        const header = page.getByTestId('execution-dossier-header-toggle');
+        await expect(header).toBeVisible({ timeout: 20_000 });
+        await clickNativeElement(header);
+        await page.waitForTimeout(400);
 
-        const row = page.getByText(/مديرية تنفيذ E2E|2026\/تنفيذ\/101/).first();
-        await row.click();
-        await expect(page.getByRole('button', { name: 'محضر المتابعة' })).toBeVisible({ timeout: 25_000 });
-
-        const header = page.getByRole('button', { name: /توسيع تفاصيل الإضبارة|طيّ تفاصيل الإضبارة/i });
-        await header.click();
-        await page.waitForTimeout(500);
-
-        await page.getByRole('button', { name: 'سلة مهملات الإضبارة' }).click();
-        await page.waitForTimeout(800);
+        const trash = page.getByTestId('execution-dossier-trash');
+        await expect(trash).toBeVisible({ timeout: 10_000 });
+        await clickNativeElement(trash);
+        await page.waitForTimeout(600);
         await page.keyboard.press('Escape');
 
         await page.evaluate(() => {

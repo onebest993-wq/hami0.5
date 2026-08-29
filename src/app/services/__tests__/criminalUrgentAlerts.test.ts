@@ -4,15 +4,11 @@
  * يتحقّق من:
  *  c1) جلسة جزائية pending قادمة تُولّد HEARING alert بأولوية صحيحة
  *  c2) verdict_issued مع appealDeadline يُولّد DEADLINE alert
- *  c3) urgent case في حالة critical يُولّد URGENT alert موصول بـ buildUrgentAlerts (لم يعد dead code)
+ *  c3) حالة المستعجل لا تُولّد تنبيه URGENT في البطاقة (whitelist: calendar/field-task)
  *  c4) القضايا المؤرشفة لا تُولّد تنبيهات
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SecretaryOrchestrator } from '../SecretaryOrchestrator';
-
-vi.mock('@/app/services/ClientRequestService', () => ({
-    ClientRequestService: { getLawyerRequests: vi.fn().mockResolvedValue([]) },
-}));
 
 vi.mock('@/app/services/lawyer-cloud', () => ({
     CalendarDB: { getEvents: vi.fn().mockResolvedValue([]) },
@@ -150,8 +146,8 @@ describe('Criminal alerts (buildCriminalAlerts)', () => {
     });
 });
 
-describe('Urgent alerts (buildUrgentAlerts is no longer dead code)', () => {
-    it('c4) urgent case نشطة بمهلة قادمة تُنتج URGENT alert', async () => {
+describe('Urgent alerts (حالة المستعجل خارج whitelist البطاقة)', () => {
+    it('c4) urgent case نشطة لا تُنتج URGENT في البطاقة العامة', async () => {
         const inTwoDays = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
             .toISOString()
             .split('T')[0];
@@ -179,8 +175,6 @@ describe('Urgent alerts (buildUrgentAlerts is no longer dead code)', () => {
             notes: [],
         });
 
-        // buildUrgentAlerts قد لا يُنتج تنبيهاً بسبب فلاتر أعمق (registry / authenticity)
-        // المهم: لم يعد dead code — يُستدعى. هنا نتحقق فقط أن لا يكسر باقي النظام.
-        expect(Array.isArray(alerts)).toBe(true);
+        expect(alerts.some((a) => a.id.startsWith('urgent:'))).toBe(false);
     });
 });

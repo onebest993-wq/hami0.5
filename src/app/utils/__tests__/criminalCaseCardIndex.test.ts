@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    isCriminalCaseCardIndexStub,
     parseCriminalCardIndex,
     projectCriminalCaseCardIndexEntry,
     serializeCriminalCardIndex,
@@ -48,5 +49,10 @@ describe('criminalCaseCardIndex', () => {
         expect(parseCriminalCardIndex(raw)).toEqual(entries);
         expect(parseCriminalCardIndex('{bad')).toBeNull();
         expect(parseCriminalCardIndex(JSON.stringify({ v: 99, entries: [] }))).toBeNull();
+    });
+
+    it('detects projected entries as stubs (no createdAt)', () => {
+        const entry = projectCriminalCaseCardIndexEntry({ id: 'stub-1', ownerLawyerId: 'l1' });
+        expect(isCriminalCaseCardIndexStub(entry)).toBe(true);
     });
 });

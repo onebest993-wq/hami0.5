@@ -1,6 +1,7 @@
 import {
     LAWYER_WALLPAPER_CHROME_BG,
     LAWYER_THEME_TOKENS,
+    hexToRgba,
     resolveLawyerSurfaceBaseColor,
     resolveWallpaperSrc,
     type AppSettingsState,
@@ -8,15 +9,6 @@ import {
 
 /** سطح ثابت لمركز الإعدادات — لا يتبع ثيم اللوحة (يمنع وميض بني/ذهبي عند الفتح) */
 export const SETTINGS_SHELL_CHROME = LAWYER_WALLPAPER_CHROME_BG;
-
-export function hexToRgba(hex: string, alpha: number): string {
-    const raw = hex.replace('#', '');
-    const full = raw.length === 3 ? raw.split('').map((c) => c + c).join('') : raw;
-    const r = parseInt(full.slice(0, 2), 16);
-    const g = parseInt(full.slice(2, 4), 16);
-    const b = parseInt(full.slice(4, 6), 16);
-    return `rgba(${r},${g},${b},${alpha})`;
-}
 
 export function resolveSettingsShellStyle(appearance: AppSettingsState['appearance']) {
     const wallpaperSrc = resolveWallpaperSrc(appearance);

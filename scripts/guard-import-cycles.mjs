@@ -306,9 +306,13 @@ console.log(
         `   |   files  baseline ${base.filesInCycles}  ->  current ${summary.filesInCycles}`,
 );
 
-if (summary.filesInCycles > base.filesInCycles || summary.cycleGroups > base.cycleGroups) {
-    const baseMembers = new Set((base.groups ?? []).flat());
-    const added = groups.flat().filter((f) => !baseMembers.has(f));
+/** عضويّة لا عدداً: ملفٌّ يدخل دائرة وآخر يخرج يُبقي المجموع ثابتاً فيمرّ الانحدار */
+const baseMembers = new Set((base.groups ?? []).flat());
+const currentMembers = new Set(groups.flat());
+const added = [...currentMembers].filter((f) => !baseMembers.has(f)).sort();
+const left = [...baseMembers].filter((f) => !currentMembers.has(f)).sort();
+
+if (added.length > 0 || summary.cycleGroups > base.cycleGroups) {
     console.error('');
     console.error('FAIL — new import cycle(s) introduced.');
     if (added.length) {
@@ -319,9 +323,9 @@ if (summary.filesInCycles > base.filesInCycles || summary.cycleGroups > base.cyc
     process.exit(1);
 }
 
-if (summary.filesInCycles < base.filesInCycles) {
+if (left.length > 0) {
     console.log('');
-    console.log(`good: ${base.filesInCycles - summary.filesInCycles} module(s) left the cycles`);
+    console.log(`good: ${left.length} module(s) left the cycles`);
     console.log('run with --save to lock in the improvement');
 }
 

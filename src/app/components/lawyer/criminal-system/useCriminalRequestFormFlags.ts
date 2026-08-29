@@ -12,7 +12,7 @@ import { resolveEffectiveDefendantScopeIds } from './partyPersonalStage';
 import { isTimelineNextDateInvalid } from './criminalStageRuntimeCore';
 import type { CriminalRequestsOrchestratorSlice } from './orchestrators/criminalOrchestratorSliceTypes';
 
-export type CriminalRequestFormFlagsParams = Pick<
+type CriminalRequestFormFlagsParams = Pick<
     CriminalRequestsOrchestratorSlice,
     | 'reqStatus'
     | 'reqDate'

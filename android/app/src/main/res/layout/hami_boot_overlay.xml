@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/hami_boot_overlay"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/splash_background"
+    android:clickable="true"
+    android:contentDescription="@string/hami_boot_loading"
+    android:fitsSystemWindows="false"
+    android:focusable="true">
+
+    <ImageView
+        android:id="@+id/hami_boot_logo"
+        android:layout_width="288dp"
+        android:layout_height="288dp"
+        android:layout_gravity="center"
+        android:adjustViewBounds="true"
+        android:importantForAccessibility="no"
+        android:scaleType="fitCenter"
+        android:src="@drawable/hami_splash_logo_padded" />
+
+    <iq.hami.legal.boot.HamiBootProgressView
+        android:id="@+id/hami_boot_progress"
+        android:layout_width="168dp"
+        android:layout_height="3dp"
+        android:layout_gravity="center"
+        android:layout_marginTop="108dp" />
+</FrameLayout>

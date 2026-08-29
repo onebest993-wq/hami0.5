@@ -1,17 +1,21 @@
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
-import { syncNativeScreenshotGuard } from '@/app/runtime/screenshotDeterrentRuntime';
+import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
+import { applyNativePrivacyGuard, syncNativePrivacyGuardFromSettings } from '@/app/runtime/nativePrivacyGuard';
 
 let sessionDepth = 0;
 let restoreOnRelease = false;
 
-/** يُوقف FLAG_SECURE مؤقتاً أثناء الكاميرا — ref-counted للتداخل الآمن */
+/** يُوقف FLAG_SECURE مؤقتاً أثناء الكاميرا — الغطاء يبقى إن كانت الضبابية مفعّلة */
 export async function beginPrivacySensitiveSurface(): Promise<void> {
     sessionDepth += 1;
     if (sessionDepth > 1) return;
 
-    restoreOnRelease = getLawyerSettingsSnapshot().security.screenshotDeterrent;
+    const { privacyBlur, screenshotDeterrent } = getLawyerSettingsSnapshot().security;
+    restoreOnRelease = privacyBlur || screenshotDeterrent;
     if (restoreOnRelease) {
-        await syncNativeScreenshotGuard(false);
+        await applyNativePrivacyGuard({
+            recentsCover: privacyBlur,
+            windowSecure: false,
+        });
     }
 }
 
@@ -21,7 +25,7 @@ export async function endPrivacySensitiveSurface(): Promise<void> {
     if (sessionDepth > 0) return;
 
     if (restoreOnRelease) {
-        await syncNativeScreenshotGuard(true);
+        await syncNativePrivacyGuardFromSettings();
     }
     restoreOnRelease = false;
 }

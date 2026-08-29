@@ -23,6 +23,15 @@ function readVercelGlobalHeaders(): HeaderMap {
     return Object.fromEntries(globalBlock.headers.map(({ key, value }) => [key.toLowerCase(), value.trim()]));
 }
 
+function readVercelHqGlobalHeaders(): HeaderMap {
+    const config = JSON.parse(readFileSync(resolve(repoRoot, 'vercel-hq.json'), 'utf8')) as {
+        headers?: { source: string; headers: { key: string; value: string }[] }[];
+    };
+    const globalBlock = config.headers?.find((entry) => entry.source === '/(.*)');
+    if (!globalBlock) throw new Error('vercel-hq.json: missing the global header block');
+    return Object.fromEntries(globalBlock.headers.map(({ key, value }) => [key.toLowerCase(), value.trim()]));
+}
+
 function readNetlifyGlobalHeaders(): HeaderMap {
     const raw = readFileSync(resolve(repoRoot, 'public/_headers'), 'utf8');
     const result: HeaderMap = {};
@@ -59,10 +68,15 @@ function parseCspDirectives(csp: string): Record<string, string[]> {
 
 describe('deploy header parity', () => {
     const vercel = readVercelGlobalHeaders();
+    const vercelHq = readVercelHqGlobalHeaders();
     const netlify = readNetlifyGlobalHeaders();
 
     it('defines the same security headers on both platforms', () => {
         expect(Object.keys(vercel).sort()).toEqual(Object.keys(netlify).sort());
+    });
+
+    it('keeps headquarters host headers identical to the lawyer host', () => {
+        expect(vercelHq).toEqual(vercel);
     });
 
     it.each([

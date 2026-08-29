@@ -90,6 +90,7 @@ describe('ExecutionDashboardSeizedPropertyPortals', () => {
         render(<ExecutionDashboardSeizedPropertyPortals {...props} />);
 
         expect(screen.getByText('تسجيل تقرير الخبراء')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'إغلاق' }).className).toContain('min-h-[44px]');
         expect(screen.getByText(/مطلوب 3 خبراء/)).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: 'حفظ' }));

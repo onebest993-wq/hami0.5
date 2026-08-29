@@ -1,4 +1,4 @@
-// @ts-nocheck
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent, SeizedAsset, RealEstateSeizureAsset } from '@/app/types/execution';
 import type { ExecutionDashboardProps } from '../../types';
 import type { DebtorWorkspaceEntry } from '../useDebtorWorkspaceEntries';
@@ -6,6 +6,10 @@ import type {
     BreakInventoryFurnitureSavePayload,
     JudicialCustodianSavePayload,
 } from '@/app/utils/executorApprovalWorkflow';
+import type { EvictionEarnerFeeCollectionSM } from '@/app/utils/evictionEarnerFeeCollectionMachine';
+import type { ExecutionCoercionOrchestratorSlice } from '../../orchestrators/executionCoercionOrchestratorTypes';
+import type { ExecutionFollowupOrchestratorSlice } from '../../orchestrators/executionFollowupOrchestratorTypes';
+import type { OpenFollowupModalPersistedFn } from '../../utils/followupModalOpen';
 
 /** Phase C Slice 29 — typed input for persist / save / summons pipeline */
 export type ExecutionDashboardCorePersistHandlerPipelineInput = {
@@ -24,7 +28,7 @@ export type ExecutionDashboardCorePersistHandlerPipelineInput = {
     unifiedCollectionApproved: boolean;
     notificationCount: number;
     forcedAttendanceIssued: boolean;
-    coercionOrchestrator: Record<string, unknown>;
+    coercionOrchestrator: ExecutionCoercionOrchestratorSlice;
     isEvictionGraceExpiredNow: boolean;
     isGracePeriodExpiredNow: boolean;
     debtorNotificationDate: string | null | undefined;
@@ -68,51 +72,50 @@ export type ExecutionDashboardCorePersistHandlerPipelineInput = {
     paidCourtFees: number;
     paidDirectorateFees: number;
     paidClientFees: number;
-    earnerFeeCollectionSm: unknown;
-    followupOrchestrator: Record<string, unknown>;
-    openFollowupModalPersisted?: import('../../utils/followupModalOpen').OpenFollowupModalPersistedFn;
+    earnerFeeCollectionSm: EvictionEarnerFeeCollectionSM | unknown;
+    followupOrchestrator: ExecutionFollowupOrchestratorSlice;
+    openFollowupModalPersisted?: OpenFollowupModalPersistedFn;
     file: ExecutionDashboardProps['file'];
     currentFileId: string;
     isMaritalFurnitureClaim: boolean;
     nextTimelineId: () => string;
-    timelineEventsRef: { current: TimelineEvent[] };
-    persistExecutionMergeRef: { current: ((patch: unknown) => void) | undefined };
-    pushTimelineEventRef: {
-        current:
-            | ((event: TimelineEvent, options?: { mergePatch?: Record<string, unknown> }) => void)
-            | null
-            | undefined;
-    };
-    executionFileSnapshotRef: { current: ExecutionFile | null | undefined };
+    timelineEventsRef: MutableRefObject<TimelineEvent[]>;
+    persistExecutionMergeRef: MutableRefObject<((patch: Record<string, unknown>) => void) | null>;
+    pushTimelineEventRef: MutableRefObject<
+        | ((event: TimelineEvent, options?: { mergePatch?: Record<string, unknown> }) => void)
+        | null
+        | undefined
+    >;
+    executionFileSnapshotRef: MutableRefObject<ExecutionFile | null | undefined>;
     setShowDecisionsModal: (v: boolean) => void;
     showDecisionsModal: boolean;
-    setCaseTasksPending: (v: unknown[]) => void;
-    setTimelineEvents: (v: TimelineEvent[] | ((prev: TimelineEvent[]) => TimelineEvent[])) => void;
-    setExecutionReportPrompt: (v: unknown) => void;
-    setJudicialCustodianModalCtx: (v: unknown) => void;
+    setCaseTasksPending: Dispatch<SetStateAction<unknown[]>>;
+    setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
+    setExecutionReportPrompt: Dispatch<SetStateAction<unknown>>;
+    setJudicialCustodianModalCtx: Dispatch<SetStateAction<unknown>>;
     setJudicialCustodianModalOpen: (v: boolean) => void;
-    setCaseNotesLog: (v: unknown[]) => void;
+    setCaseNotesLog: Dispatch<SetStateAction<unknown[]>>;
     decisionsStorageExecutionId: string;
     openBreakInventoryCompletion: (payload: BreakInventoryFurnitureSavePayload) => void;
     openJudicialCustodianCompletion: (payload: JudicialCustodianSavePayload) => void;
     isUnifiedTabActive: boolean;
     unifiedTabId: string;
     onUpdate: ExecutionDashboardProps['onUpdate'];
-    executionDataRef: { current: ExecutionFile | null | undefined };
-    seizureDraftsByDecisionIdRef: { current: Record<string, unknown> };
-    setExecutionStorageTick: (fn: (n: number) => number) => void;
+    executionDataRef: MutableRefObject<ExecutionFile | null | undefined>;
+    seizureDraftsByDecisionIdRef: MutableRefObject<Record<string, unknown>>;
+    setExecutionStorageTick: Dispatch<SetStateAction<number>>;
     showExecutionTrashModal: boolean;
     setShowExecutionTrashModal: (v: boolean) => void;
-    caseNotesLogRef: { current: unknown[] };
-    caseTasksPendingRef: { current: unknown[] };
-    setPermanentDeleteTimelineId: (v: string | null) => void;
+    caseNotesLogRef: MutableRefObject<unknown[]>;
+    caseTasksPendingRef: MutableRefObject<unknown[]>;
+    setPermanentDeleteTimelineId: Dispatch<SetStateAction<string | null>>;
     viewExecutionData: ExecutionFile | null | undefined;
     isHistoricalMode: boolean;
     activeSubFileId: string | null;
     parentDossierId: string;
-    setSeizureDraftsByDecisionId: (v: Record<string, unknown>) => void;
-    seizedAssetsSnapshotRef: { current: SeizedAsset[] };
+    setSeizureDraftsByDecisionId: Dispatch<SetStateAction<Record<string, unknown>>>;
+    seizedAssetsSnapshotRef: MutableRefObject<SeizedAsset[]>;
     maritalFurnitureItemsForFollowup: unknown[];
-    setActiveCoerciveActions: (v: unknown[]) => void;
+    setActiveCoerciveActions: Dispatch<SetStateAction<unknown[]>>;
     isRepresentingDebtor?: boolean;
 };

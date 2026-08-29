@@ -1,4 +1,5 @@
 import { loadForumSupabaseAdmin } from './loadForumSupabaseAdmin';
+import { readSecureJsonRawSync, writeSecureJsonValue } from '@/app/services/storage/syncSecureJson';
 
 const LOCAL_KEY_PREFIX = 'hami:forum:muted-users:v1';
 
@@ -7,9 +8,8 @@ function localKey(muterId: string): string {
 }
 
 function loadLocalMutes(muterId: string): string[] {
-    if (typeof window === 'undefined') return [];
     try {
-        const raw = window.localStorage.getItem(localKey(muterId));
+        const raw = readSecureJsonRawSync(localKey(muterId));
         if (!raw) return [];
         const parsed = JSON.parse(raw) as unknown;
         return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
@@ -19,12 +19,7 @@ function loadLocalMutes(muterId: string): string[] {
 }
 
 function saveLocalMutes(muterId: string, ids: string[]): void {
-    if (typeof window === 'undefined') return;
-    try {
-        window.localStorage.setItem(localKey(muterId), JSON.stringify([...new Set(ids)]));
-    } catch {
-        /* quota */
-    }
+    writeSecureJsonValue(localKey(muterId), [...new Set(ids)]);
 }
 
 /**

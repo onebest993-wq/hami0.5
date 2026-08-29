@@ -11,8 +11,6 @@ interface NotificationTabsProps {
 const TABS: NotificationTab[] = ['forum', 'system'];
 
 export function NotificationTabs({ activeTab, onTabChange, tabCounts }: NotificationTabsProps) {
-    const activeIndex = Math.max(0, TABS.indexOf(activeTab));
-
     const onKeyDown = (event: React.KeyboardEvent) => {
         const idx = TABS.indexOf(activeTab);
         if (idx < 0) return;
@@ -33,11 +31,6 @@ export function NotificationTabs({ activeTab, onTabChange, tabCounts }: Notifica
                 aria-label="تصنيف الإشعارات"
                 onKeyDown={onKeyDown}
             >
-                <span
-                    className="hami-notif-tab-pill"
-                    data-active-index={activeIndex}
-                    aria-hidden
-                />
                 {TABS.map((tab) => {
                     const meta = TAB_META[tab];
                     const count = tabCounts[tab];
@@ -55,16 +48,16 @@ export function NotificationTabs({ activeTab, onTabChange, tabCounts }: Notifica
                             onClick={() => onTabChange(tab)}
                             data-testid={`notification-tab-${tab}`}
                             className={[
-                                'relative z-[1] flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm transition-colors touch-manipulation',
-                                active ? 'font-bold text-white' : 'text-white/50 active:text-white/75',
+                                'hami-notif-tab flex min-h-[44px] flex-1 items-center justify-center gap-2 touch-manipulation',
+                                active ? 'hami-notif-tab--active' : '',
                             ].join(' ')}
                         >
-                            <span className="relative z-[1]">{meta.label}</span>
+                            <span>{meta.label}</span>
                             {count > 0 ? (
                                 <span
                                     className={[
-                                        'relative z-[1] flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold',
-                                        active ? 'bg-[#E6C673] text-black' : 'bg-rose-500 text-white',
+                                        'flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold',
+                                        active ? 'bg-[#E6C673] text-[#0b1021]' : 'bg-white/12 text-white/80',
                                     ].join(' ')}
                                     aria-label={`${count} غير مقروء`}
                                 >

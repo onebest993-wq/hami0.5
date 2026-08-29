@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { normalizeArabic } from '@/app/components/lawyer/LawyerShared';
 import { effectiveCaseNumber, extractCaseRefsFromText, normalizeCaseKey } from './extractCaseRefs';
 import { isClusterPinEligibleType } from './types';
@@ -28,7 +27,7 @@ function clientNamesMatch(needle: string, recordClient: string, recordTitle: str
 
 function collectCaseKeys(caseNumber: string, ...textParts: string[]): Set<string> {
     const keys = new Set<string>();
-    const effective = effectiveCaseNumber(caseNumber, ...textParts);
+    const effective = effectiveCaseNumber(caseNumber, textParts[0] ?? '', ...textParts.slice(1));
     if (effective) {
         const k = normalizeCaseKey(effective);
         if (k.length >= MIN_CASE_LEN) keys.add(k);

@@ -21,7 +21,7 @@ const sampleProfile: LawyerProfileData = {
             type: 'actions',
             data: [
                 { id: 'phone', type: 'call', label: 'اتصال', value: '07700000000' },
-                { id: 'wa', type: 'whatsapp', label: 'واتساب', value: '07700000000' },
+                { id: 'mail', type: 'email', label: 'بريد', value: 'a@example.com' },
             ],
         },
         { id: 'gallery-1', type: 'gallery', data: ['https://example.com/one.jpg'] },
@@ -45,6 +45,7 @@ vi.mock('@/app/services/SecureStoreService', () => ({
         getItem: vi.fn(() => Promise.resolve(null)),
         setItemSync: vi.fn(),
         setItem: vi.fn(() => Promise.resolve()),
+        waitForPendingSetItem: vi.fn(() => Promise.resolve()),
     },
 }));
 

@@ -1,5 +1,10 @@
-import type { ThemeMode, ThemeKey } from '@/app/types/common';
-import type { AppSettingsState, SecuritySettings } from './types';
+import {
+    FONT_LAYOUT_BASE_PX,
+    resolveUserFontScale,
+} from '@/app/bootstrap/bootTypographyFlush';
+import { isBootTypographyLocked, lockBootTypographyVars } from '@/app/bootstrap/bootTypographyLock';
+import type { ThemeKey } from '@/app/types/common';
+import type { AppSettingsState } from './types';
 import { normalizeGlassOpacity } from './surfaceAppearance';
 import { applyLawyerThemeCssVars, LAWYER_THEME_TOKENS } from './lawyerThemeTokens';
 import { resolveBoardThemeKey, resolveCardThemeKey, resolvePatternThemeKey } from './themeResolve';
@@ -7,30 +12,25 @@ import { resolveLawyerBoardChromeBg } from './boardSurfaceResolve';
 import { LAWYER_WALLPAPER_CHROME_BG } from './surfaceApplyTarget';
 import { applyLitePerformanceDataset } from '@/app/runtime/devicePerformanceTier';
 import { persistBootSurfacePaintFromDom } from '@/app/services/settings/bootSurfacePaintCache';
-import { ensureWallpaperDecoded } from '@/app/services/settings/wallpaperPaintReady';
+import {
+    installLocalOnlyNetworkIsolation,
+    syncLocalOnlyFlagFromSettings,
+} from '@/app/services/settings/localOnlyNetworkIsolation';
+import { ensureWallpaperDecoded, isWallpaperCssImageHeld } from '@/app/services/settings/wallpaperPaintReady';
 import { syncDashboardBlockGlassPaint } from './syncDashboardBlockGlassPaint';
 import { opacityToGlassTransparency } from './glassTransparency';
 import { resolveGlassPanelBackground, tintHex } from './glassSurfacePaint';
+import { resolveThemeMode } from './resolveThemeMode';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { getLawyerSettingsSnapshot } from './settingsSnapshot';
 import {
     BUILTIN_COMPACT_MODE,
-    BUILTIN_NOTIFICATIONS_ENABLED,
-    BUILTIN_PUSH_ENABLED,
     BUILTIN_VIEW_MODE_DEFAULT,
     BUILTIN_WATERMARK_EXPORT,
-    isWithinBuiltInQuietHours,
     loadPersistedViewMode,
 } from './builtInBehavior';
 
-export function resolveThemeMode(themeMode: ThemeMode): 'light' | 'dark' {
-    if (themeMode === 'light') return 'light';
-    if (themeMode === 'dark') return 'dark';
-    if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches) {
-        return 'light';
-    }
-    return 'dark';
-}
+export { flushPendingBootTypography } from '@/app/bootstrap/bootTypographyFlush';
+export { resolveThemeMode } from './resolveThemeMode';
 
 const WALLPAPER_KEY = 'lawyer_wallpaper';
 
@@ -138,10 +138,6 @@ export function resolveWallpaperSrc(
     return loadPersistedWallpaper();
 }
 
-export function hasPersistedWallpaper(): boolean {
-    return Boolean(loadPersistedWallpaper());
-}
-
 /** لون سطح معتم — لا يُخلط مع transparent عند وجود صورة خلفية */
 const WALLPAPER_SOLID_SURFACE = LAWYER_WALLPAPER_CHROME_BG;
 
@@ -149,7 +145,7 @@ function cssWallpaperUrl(src: string): string {
     return `url("${src.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}")`;
 }
 
-export function applyWallpaperSurfaceVars(
+function applyWallpaperSurfaceVars(
     hasWallpaper: boolean,
     themeKey: ThemeKey,
     wallpaperSrc?: string | null,
@@ -160,13 +156,15 @@ export function applyWallpaperSurfaceVars(
         root.style.setProperty('--hami-surface-bg', WALLPAPER_SOLID_SURFACE);
         root.dataset.hamiWallpaper = '1';
         const src = wallpaperSrc ?? loadPersistedWallpaper();
-        if (src) {
+        if (src && !isWallpaperCssImageHeld()) {
             root.style.setProperty('--hami-wallpaper-image', cssWallpaperUrl(src));
         }
-    } else {
+    } else if (!isWallpaperCssImageHeld()) {
         root.style.setProperty('--hami-surface-bg', t.bg);
         root.dataset.hamiWallpaper = '0';
         root.style.removeProperty('--hami-wallpaper-image');
+    } else {
+        root.style.setProperty('--hami-surface-bg', t.bg);
     }
 }
 
@@ -192,21 +190,21 @@ export function applyHighContrastToDom(highContrast: boolean): void {
     root.classList.toggle('hami-high-contrast', highContrast);
 }
 
-export const FONT_LAYOUT_BASE_PX = 16;
-
-/** مقياس قراءة المستخدم — لا يُطبَّق على html/rem لتثبيت التخطيط. */
-export function resolveUserFontScale(fontSizePx: number): number {
-    const px = Number.isFinite(fontSizePx) ? fontSizePx : FONT_LAYOUT_BASE_PX;
-    return Number((px / FONT_LAYOUT_BASE_PX).toFixed(3));
-}
-
 /** حجم الخط فقط — بلا إعادة تطبيق الثيم/الزجاج. */
 export function applyFontSizeToDom(fontSize: number): void {
     if (typeof document === 'undefined') return;
-    const px = Number.isFinite(fontSize) ? fontSize : FONT_LAYOUT_BASE_PX;
     const root = document.documentElement;
+    if (isBootTypographyLocked(root)) {
+        lockBootTypographyVars(root);
+        root.dataset.hamiPendingFontPx = String(
+            Number.isFinite(fontSize) ? fontSize : FONT_LAYOUT_BASE_PX,
+        );
+        return;
+    }
+    const px = Number.isFinite(fontSize) ? fontSize : FONT_LAYOUT_BASE_PX;
     root.style.setProperty('--hami-font-size', `${px}px`);
     root.style.setProperty('--hami-user-font-scale', String(resolveUserFontScale(px)));
+    delete root.dataset.hamiPendingFontPx;
 }
 
 /** تقليل الحركة + animations dataset — خفيف. */
@@ -311,8 +309,14 @@ export function applySettingsToDom(settings: AppSettingsState) {
     const { appearance, performance } = settings;
 
     applyGlassSurfaceAppearanceToDom(settings);
-    root.style.setProperty('--hami-font-size', `${appearance.fontSize}px`);
-    root.style.setProperty('--hami-user-font-scale', String(resolveUserFontScale(appearance.fontSize)));
+    if (isBootTypographyLocked(root)) {
+        lockBootTypographyVars(root);
+        root.dataset.hamiPendingFontPx = String(appearance.fontSize);
+    } else {
+        root.style.setProperty('--hami-font-size', `${appearance.fontSize}px`);
+        root.style.setProperty('--hami-user-font-scale', String(resolveUserFontScale(appearance.fontSize)));
+        delete root.dataset.hamiPendingFontPx;
+    }
     applyAppearanceThemeToDom(settings);
     root.dataset.hamiShape = appearance.shape;
     const colorMode = resolveThemeMode(appearance.themeMode);
@@ -352,30 +356,14 @@ export function applySettingsToDom(settings: AppSettingsState) {
         root.classList.remove('hami-watermark-export');
     }
 
-    root.dataset.hamiLocalOnly = settings.security.localOnlyMode ? '1' : '0';
+    syncLocalOnlyFlagFromSettings(Boolean(settings.security.localOnlyMode));
     applyLitePerformanceDataset(settings.performance.litePerformance);
 
     persistBootSurfacePaintFromDom();
 }
 
-export function isWithinQuietHours(settings?: AppSettingsState, now = new Date()): boolean {
-    const s = settings ?? getLawyerSettingsSnapshot();
-    const q = s.notifications?.quietHours;
-    if (!q?.enabled) return isWithinBuiltInQuietHours(now);
-    const [sh, sm] = q.start.split(':').map(Number);
-    const [eh, em] = q.end.split(':').map(Number);
-    const mins = now.getHours() * 60 + now.getMinutes();
-    const start = sh * 60 + (sm || 0);
-    const end = eh * 60 + (em || 0);
-    if (start <= end) return mins >= start && mins < end;
-    return mins >= start || mins < end;
+if (typeof window !== 'undefined') {
+    installLocalOnlyNetworkIsolation();
 }
 
-export function shouldAllowPush(settings: AppSettingsState): boolean {
-    return shouldAllowPushFromSecurity(settings.security);
-}
-
-export function shouldAllowPushFromSecurity(security: SecuritySettings): boolean {
-    if (security.localOnlyMode) return false;
-    return BUILTIN_NOTIFICATIONS_ENABLED && BUILTIN_PUSH_ENABLED && !isWithinBuiltInQuietHours();
-}
+export { shouldAllowPush, shouldAllowPushFromSecurity } from './pushPolicy';

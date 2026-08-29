@@ -1,23 +1,21 @@
 import React, { useLayoutEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { Bell, Pin, X } from '@/app/components/ui/lucideIcons';
+import { AnimatePresence, motion } from '@/app/motion/overlayMotionRuntime';
+import { Bell } from '@/app/components/ui/icons/Bell';
+import { Pin } from '@/app/components/ui/icons/Pin';
+import { X } from '@/app/components/ui/icons/X';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import type { WorkspacePinnedItem } from '@/app/workspace/types';
-import { clusterPinDisplayMeta } from '@/app/workspace/clusterPinDisplay';
-import { workspacePinVisual } from '@/app/workspace/workspacePinVisuals';
 import { alertsForHorizon, classifySecretaryAlertsByHorizon } from '@/app/services/alertTimeClassification';
-import {
-    resolveHomeHubPinUnpinAriaLabel,
-    resolveHomeHubTabAriaLabel,
-} from '@/app/services/alerts/homeHubCardLogic';
+import { resolveHomeHubTabAriaLabel } from '@/app/services/alerts/homeHubCardLogic';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { HAMI_SHELL_CONTAINER } from './lawyerShellLayout';
 import type { HomeDockQuickSheetMode } from './HomeDockQuickSheet.types';
+import { HomeDockQuickSheetAlertsPanel } from './HomeDockQuickSheetAlertsPanel';
+import { HomeDockQuickSheetPinsPanel } from './HomeDockQuickSheetPinsPanel';
+
+import { HOME_DOCK_QUICK_SHEET_BUTTON_A11Y } from './HomeDockQuickSheet.a11y';
 
 export type { HomeDockQuickSheetMode } from './HomeDockQuickSheet.types';
-
-const DOCK_BUTTON_A11Y =
-    'outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1C]';
 
 type HomeDockQuickSheetProps = {
     mode: HomeDockQuickSheetMode;
@@ -124,7 +122,7 @@ export function HomeDockQuickSheet({
                                     type="button"
                                     onClick={onClose}
                                     aria-label="إغلاق المركز السريع"
-                                    className={`min-h-[44px] min-w-[44px] rounded-lg border border-white/10 flex items-center justify-center text-white/50 hover:text-white touch-manipulation ${DOCK_BUTTON_A11Y}`}
+                                    className={`min-h-[44px] min-w-[44px] rounded-lg border border-white/10 flex items-center justify-center text-white/50 hover:text-white touch-manipulation ${HOME_DOCK_QUICK_SHEET_BUTTON_A11Y}`}
                                 >
                                     <X size={16} aria-hidden />
                                 </button>
@@ -134,7 +132,7 @@ export function HomeDockQuickSheet({
                                 <div
                                     className="flex mx-3 mt-3 rounded-full border border-white/[0.08] bg-white/[0.04] p-0.5"
                                     role="tablist"
-                                    aria-label="البطاقة الذكية"
+                                    aria-label="البطاقة"
                                 >
                                     {(['alerts', 'pins'] as const).map((key) => {
                                         const active = panel === key;
@@ -151,7 +149,7 @@ export function HomeDockQuickSheet({
                                                 tabIndex={active ? 0 : -1}
                                                 onClick={() => setPanel(key)}
                                                 onKeyDown={(e) => handleTabKeyDown(e, key)}
-                                                className={`relative flex-1 flex items-center justify-center gap-1.5 min-h-[44px] py-1.5 rounded-full text-[10px] font-bold touch-manipulation ${DOCK_BUTTON_A11Y} ${
+                                                className={`relative flex-1 flex items-center justify-center gap-1.5 min-h-[44px] py-1.5 rounded-full text-[10px] font-bold touch-manipulation ${HOME_DOCK_QUICK_SHEET_BUTTON_A11Y} ${
                                                     active ? 'text-[#F5F0E6]' : 'text-white/45'
                                                 }`}
                                             >
@@ -179,114 +177,25 @@ export function HomeDockQuickSheet({
                             <div className="max-h-[min(52vh,420px)] overflow-y-auto px-3 py-3 space-y-3 overscroll-contain">
                                 <AnimatePresence mode="wait" initial={false}>
                                     {panel === 'alerts' ? (
-                                        <motion.div
-                                            key="dock-alerts"
-                                            id="dock-sheet-panel-alerts"
-                                            role="tabpanel"
-                                            aria-labelledby={showTabs ? 'dock-sheet-tab-alerts' : undefined}
-                                            {...panelMotion(1)}
-                                        >
-                                            {urgent.length > 0 ? (
-                                                <section className="mb-3">
-                                                    <p className="text-[10px] font-bold text-red-300/90 mb-2 px-1">
-                                                        حرجة — خلال 24 ساعة
-                                                    </p>
-                                                    <ul className="space-y-1">
-                                                        {urgent.map((alert) => (
-                                                            <li key={alert.id}>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        onOpenEntity(alert);
-                                                                        onClose();
-                                                                    }}
-                                                                    className={`w-full text-right rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 min-h-[44px] touch-manipulation ${DOCK_BUTTON_A11Y}`}
-                                                                >
-                                                                    <p className="text-[11px] font-bold text-white/90 truncate">{alert.title}</p>
-                                                                    <p className="text-[9px] text-red-200/70 truncate">{alert.summary ?? alert.dueAt ?? ''}</p>
-                                                                </button>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </section>
-                                            ) : null}
-                                            {near.length > 0 ? (
-                                                <section>
-                                                    <p className="text-[10px] font-bold text-amber-200/85 mb-2 px-1">
-                                                        متوسطة — خلال 3–4 أيام
-                                                    </p>
-                                                    <ul className="space-y-1">
-                                                        {near.map((alert) => (
-                                                            <li key={alert.id}>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        onOpenEntity(alert);
-                                                                        onClose();
-                                                                    }}
-                                                                    className={`w-full text-right rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 min-h-[44px] touch-manipulation ${DOCK_BUTTON_A11Y}`}
-                                                                >
-                                                                    <p className="text-[11px] font-bold text-white/90 truncate">{alert.title}</p>
-                                                                    <p className="text-[9px] text-amber-100/65 truncate">{alert.summary ?? alert.dueAt ?? ''}</p>
-                                                                </button>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </section>
-                                            ) : null}
-                                            {!hasAlerts ? (
-                                                <p className="text-center text-white/35 text-xs py-8">لا تنبيهات حرجة أو متوسطة</p>
-                                            ) : null}
-                                        </motion.div>
+                                        <HomeDockQuickSheetAlertsPanel
+                                            urgent={urgent}
+                                            near={near}
+                                            hasAlerts={hasAlerts}
+                                            showTabs={showTabs}
+                                            panelMotion={panelMotion(1)}
+                                            onOpenEntity={onOpenEntity}
+                                            onClose={onClose}
+                                        />
                                     ) : (
-                                        <motion.div
-                                            key="dock-pins"
-                                            id="dock-sheet-panel-pins"
-                                            role="tabpanel"
-                                            aria-labelledby={showTabs ? 'dock-sheet-tab-pins' : undefined}
-                                            {...panelMotion(-1)}
-                                        >
-                                            {hasPins ? (
-                                                <ul className="space-y-1">
-                                                    {dossierPins.slice(0, 10).map((pin) => {
-                                                        const meta = clusterPinDisplayMeta(pin);
-                                                        const visual = workspacePinVisual(pin.type);
-                                                        return (
-                                                            <li key={`${pin.type}:${pin.id}`}>
-                                                                <div className={`flex items-center gap-1.5 border border-white/[0.08] bg-white/[0.04] px-2 py-1.5 ${visual.shell}`}>
-                                                                    <span className={`shrink-0 inline-flex items-center justify-center min-w-[1.35rem] h-5 px-1 text-[9px] font-extrabold border ${visual.chip}`}>
-                                                                        {visual.shortLabel}
-                                                                    </span>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            onNavigateRoute(pin.routePath);
-                                                                            onClose();
-                                                                        }}
-                                                                        className={`flex-1 min-w-0 text-right min-h-[44px] touch-manipulation ${DOCK_BUTTON_A11Y}`}
-                                                                    >
-                                                                        <p className="text-[11px] font-bold text-white/90 truncate">{meta.headline}</p>
-                                                                        <p className="text-[9px] text-white/40 truncate">{meta.sectionLabel}</p>
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => onUnpin(pin.id, pin.type)}
-                                                                        aria-label={resolveHomeHubPinUnpinAriaLabel(meta.headline)}
-                                                                        className={`min-w-[44px] min-h-[44px] flex items-center justify-center border shrink-0 touch-manipulation ${visual.button} ${visual.accent} ${DOCK_BUTTON_A11Y}`}
-                                                                    >
-                                                                        <Pin size={11} className="fill-current" aria-hidden />
-                                                                    </button>
-                                                                </div>
-                                                            </li>
-                                                        );
-                                                    })}
-                                                </ul>
-                                            ) : (
-                                                <p className="text-center text-white/35 text-xs py-8">
-                                                    لا عناصر مثبّتة — استخدم زر التثبيت على البطاقات
-                                                </p>
-                                            )}
-                                        </motion.div>
+                                        <HomeDockQuickSheetPinsPanel
+                                            dossierPins={dossierPins}
+                                            hasPins={hasPins}
+                                            showTabs={showTabs}
+                                            panelMotion={panelMotion(-1)}
+                                            onNavigateRoute={onNavigateRoute}
+                                            onUnpin={onUnpin}
+                                            onClose={onClose}
+                                        />
                                     )}
                                 </AnimatePresence>
                             </div>

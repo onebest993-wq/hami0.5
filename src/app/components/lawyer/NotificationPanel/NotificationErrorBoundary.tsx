@@ -12,7 +12,7 @@ export function NotificationErrorBoundary({
         <ErrorBoundary
             fallback={
                 <div
-                    className="fixed inset-0 z-[100] flex flex-col justify-end sm:justify-center sm:items-center sm:px-4"
+                    className="fixed inset-0 z-[200] flex flex-col justify-end sm:justify-center sm:items-center sm:px-4"
                     role="alertdialog"
                     aria-label="خطأ في الإشعارات"
                 >

@@ -41,7 +41,6 @@ vi.mock('@/app/api/security/wifeValidator.ts', () => ({
   getVerifiedTokenSubject: vi.fn(async () => 'attacker-user-id'),
   isTokenAuthorized: vi.fn(async () => true),
   verifyWifeSignature: vi.fn(async () => true),
-  assertWifeSignatureRequest: vi.fn(async () => null),
   enforceTokenActorBinding: vi.fn(async () => true),
   wifeForbiddenResponse: () => new Response(JSON.stringify({ ok: false }), { status: 403 }),
   wifeUnauthorizedResponse: () => new Response(JSON.stringify({ ok: false }), { status: 401 }),
@@ -52,6 +51,7 @@ vi.mock('@/app/api/security/bffAuth.ts', async (importOriginal) => {
   return {
     ...actual,
     requireWifeUser: (...args: unknown[]) => requireWifeUserMock(...args),
+    requireWifeCloudWrite: (...args: unknown[]) => requireWifeUserMock(...args),
   };
 });
 
@@ -60,6 +60,7 @@ vi.mock('@/app/api/security/kvStoreAdmin.ts', () => ({
   kvSet: (...args: unknown[]) => kvSetMock(...args),
   kvDel: (...args: unknown[]) => kvDelMock(...args),
   kvGetByPrefix: (...args: unknown[]) => kvGetByPrefixMock(...args),
+  kvReadHqVerificationQueueByPrefix: vi.fn(async () => ({ rows: [], capped: false })),
 }));
 
 vi.mock('@/app/api/laws/lawsAdminAuth.ts', () => ({
@@ -89,6 +90,7 @@ vi.mock('@supabase/supabase-js', () => ({
 
 vi.mock('@/app/api/security/sanitizer.ts', () => ({
   sanitizePayload: (v: unknown) => v,
+  isJsonObjectRecord: (v: unknown) => Boolean(v) && typeof v === 'object' && !Array.isArray(v),
 }));
 
 import { POST as kvProxyPost } from '@/app/api/kv-proxy/route.ts';
@@ -99,12 +101,12 @@ import { POST as uploadRemovePost } from '@/app/api/upload/remove/route.ts';
 import { POST as adminBanPost } from '@/app/api/admin/ban/route.ts';
 import { POST as forumBanPost } from '@/app/api/forum/ban/route.ts';
 import { GET as timelineGet, POST as timelinePost } from '@/app/api/timeline-events/route.ts';
+import { GET as cloudSyncGet, POST as cloudSyncPost } from '@/app/api/settings/cloud-sync/route.ts';
 import { POST as auditLogPost } from '@/app/api/audit/log/route.ts';
-import { POST as requestsCreatePost } from '@/app/api/requests/create/route.ts';
-import { enforceTokenActorBinding } from '@/app/api/security/wifeValidator.ts';
 import { EXECUTION_LAW_CANONICAL_NAME } from '@/app/constants/iraqiLawCatalog';
 
 const ATTACKER = 'attacker-user-id';
+const ATTACKER_UUID = 'cccccccc-dddd-4eee-8fff-000000000001';
 const VICTIM = 'victim-user-id';
 
 function jsonReq(url: string, body: unknown, method = 'POST'): Request {
@@ -229,11 +231,34 @@ describe('💥 ROUTE WAVE 3 — Execution timeline isolation', () => {
     vi.clearAllMocks();
     process.env.SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
-    requireWifeUserMock.mockResolvedValue(wifeUserOk(ATTACKER));
+    requireWifeUserMock.mockResolvedValue(wifeUserOk(ATTACKER_UUID));
     supabaseFromMock.mockReturnValue({
       select: supabaseSelectMock,
       upsert: supabaseUpsertMock.mockResolvedValue({ error: null }),
     });
+  });
+
+  it('non-UUID subject GET returns empty rows without Postgres query', async () => {
+    requireWifeUserMock.mockResolvedValue(wifeUserOk(ATTACKER));
+    const res = await timelineGet(
+      new Request('http://127.0.0.1/api/timeline-events?executionFileId=victim-exec-99', { method: 'GET' }),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { rows?: unknown[] };
+    expect(body.rows).toEqual([]);
+    expect(supabaseFromMock).not.toHaveBeenCalled();
+  });
+
+  it('non-UUID subject POST is rejected (403)', async () => {
+    requireWifeUserMock.mockResolvedValue(wifeUserOk(ATTACKER));
+    const res = await timelinePost(
+      jsonReq('http://127.0.0.1/api/timeline-events', {
+        executionFileId: 'exec-1',
+        event: { id: 'ev-1', title: 'inject' },
+      }),
+    );
+    expect(res.status).toBe(403);
+    expect(supabaseUpsertMock).not.toHaveBeenCalled();
   });
 
   it('scopes timeline GET to authenticated user_id only', async () => {
@@ -243,7 +268,7 @@ describe('💥 ROUTE WAVE 3 — Execution timeline isolation', () => {
     );
     expect(res.status).toBe(200);
     expect(eq1).toHaveBeenCalledWith('execution_file_id', 'victim-exec-99');
-    expect(eq2).toHaveBeenCalledWith('user_id', ATTACKER);
+    expect(eq2).toHaveBeenCalledWith('user_id', ATTACKER_UUID);
   });
 
   it('writes timeline POST with auth user_id not body impersonation', async () => {
@@ -258,8 +283,66 @@ describe('💥 ROUTE WAVE 3 — Execution timeline isolation', () => {
     expect(res.status).toBe(200);
     expect(supabaseUpsertMock).toHaveBeenCalled();
     const row = supabaseUpsertMock.mock.calls[0]?.[0];
-    expect(row?.user_id).toBe(ATTACKER);
+    expect(row?.user_id).toBe(ATTACKER_UUID);
     expect(row?.user_id).not.toBe(VICTIM);
+    expect(supabaseUpsertMock.mock.calls[0]?.[1]).toEqual({
+      onConflict: 'user_id,execution_file_id,event_id',
+    });
+  });
+});
+
+describe('💥 ROUTE WAVE 3b — Cloud sync ownership (WIFE-005)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.SUPABASE_URL = 'https://example.supabase.co';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+    requireWifeUserMock.mockResolvedValue(wifeUserOk(ATTACKER_UUID));
+    supabaseUpsertMock.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({
+          data: { user_key: ATTACKER_UUID, app_data: { probe: true }, updated_at: '2026-01-01' },
+          error: null,
+        }),
+      }),
+    });
+    supabaseFromMock.mockReturnValue({
+      select: supabaseSelectMock,
+      upsert: supabaseUpsertMock,
+    });
+  });
+
+  it('POST ignores forged user_key in body', async () => {
+    const res = await cloudSyncPost(
+      jsonReq('http://127.0.0.1/api/settings/cloud-sync', {
+        user_key: VICTIM,
+        app_data: { lawyer_settings: { stolen: true } },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(supabaseUpsertMock).toHaveBeenCalledWith(
+      expect.objectContaining({ user_key: ATTACKER_UUID }),
+      { onConflict: 'user_key' },
+    );
+  });
+
+  it('403 non-UUID guest POST cloud-sync', async () => {
+    requireWifeUserMock.mockResolvedValue(wifeUserOk(ATTACKER));
+    const res = await cloudSyncPost(
+      jsonReq('http://127.0.0.1/api/settings/cloud-sync', { app_data: { lawyer_settings: {} } }),
+    );
+    expect(res.status).toBe(403);
+    expect(supabaseUpsertMock).not.toHaveBeenCalled();
+  });
+
+  it('GET non-UUID returns null app_data without Postgres', async () => {
+    requireWifeUserMock.mockResolvedValue(wifeUserOk(ATTACKER));
+    const res = await cloudSyncGet(
+      new Request('http://127.0.0.1/api/settings/cloud-sync', { method: 'GET' }),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { app_data?: unknown };
+    expect(body.app_data).toBeNull();
+    expect(supabaseFromMock).not.toHaveBeenCalled();
   });
 });
 
@@ -289,7 +372,14 @@ describe('💥 ROUTE WAVE 5 — Admin & forum moderation escalation', () => {
     isAdminRequestMock.mockResolvedValue(false);
     canManageForumAdminMock.mockResolvedValue(false);
     supabaseUpdateMock.mockReturnValue({ eq: supabaseEqMock.mockResolvedValue({ error: null }) });
-    supabaseFromMock.mockReturnValue({ update: supabaseUpdateMock });
+    supabaseFromMock.mockReturnValue({
+      update: supabaseUpdateMock,
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        })),
+      })),
+    });
   });
 
   it('403 admin/ban when requesterId spoofed to admin uuid', async () => {
@@ -341,31 +431,37 @@ describe('💥 ROUTE WAVE 6 — Audit spam & request impersonation', () => {
   it('audit log binds user_id to auth subject not payload', async () => {
     const res = await auditLogPost(
       jsonReq('http://127.0.0.1/api/audit/log', {
-        action: 'ADMIN_PURGE_ALL',
+        action: 'login_success',
         user_id: VICTIM,
         details: { forged: true },
       }),
     );
     expect(res.status).toBe(200);
     expect(supabaseInsertMock).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: ATTACKER, action: 'ADMIN_PURGE_ALL' }),
+      expect.objectContaining({ user_id: ATTACKER, action: 'login_success' }),
     );
   });
 
-  it('requests/create rejects lawyer_id mismatch via enforceTokenActorBinding mock', async () => {
-    vi.mocked(enforceTokenActorBinding).mockResolvedValueOnce(false);
-    const res = await requestsCreatePost(
-      jsonReq('http://127.0.0.1/api/requests/create', {
-        id: 'r-hijack',
-        client_id: ATTACKER,
-        lawyer_id: VICTIM,
-        title: 'steal',
-        encrypted_details: '',
-        data_signature: '',
-        status: 'open',
-        created_at: new Date().toISOString(),
+  it('rejects client-forged privilege audit actions', async () => {
+    const res = await auditLogPost(
+      jsonReq('http://127.0.0.1/api/audit/log', {
+        action: 'ADMIN_PURGE_ALL',
+        user_id: VICTIM,
+        details: { forged: true },
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(supabaseInsertMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects client-forged headquarters audit prefix', async () => {
+    const res = await auditLogPost(
+      jsonReq('http://127.0.0.1/api/audit/log', {
+        action: 'hq:user.freeze',
+        details: { forged: true },
       }),
     );
     expect(res.status).toBe(403);
+    expect(supabaseInsertMock).not.toHaveBeenCalled();
   });
 });

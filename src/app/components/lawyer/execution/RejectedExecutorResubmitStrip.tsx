@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send } from '@/app/components/ui/lucideIcons';
+import { Send } from '@/app/components/ui/icons/Send';
 
 /** شريط إعادة التقديم بعد رفض نهائي — الطلب القديم مُغلق والجديد يحل محله */
 export function RejectedExecutorResubmitStrip(props: {

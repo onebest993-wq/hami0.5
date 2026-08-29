@@ -16,6 +16,7 @@ export function useForumLifecycle(
     const hadLocalCacheRef = useRef(false);
 
     useEffect(() => {
+        if (!isOpen) return;
         const cached = peekForumPostsCache();
         if (cached && cached.length > 0) {
             hadLocalCacheRef.current = true;
@@ -33,12 +34,19 @@ export function useForumLifecycle(
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [isOpen]);
 
     const isShellReady = !loadingPosts || visiblePostCount > 0 || hadLocalCacheRef.current;
+    const markedThisOpenRef = useRef(false);
 
     useEffect(() => {
-        if (!isOpen || !isShellReady) return;
+        if (!isOpen) {
+            markedThisOpenRef.current = false;
+            return;
+        }
+        // الشريط يظهر قبل انتهاء تغذية المنشورات — التفاعل = السطح مفتوح وليس انتظار الشبكة
+        if (markedThisOpenRef.current) return;
+        markedThisOpenRef.current = true;
         markForumPerfPhase('first-paint');
         markForumPerfPhase('interactive');
         reportForumPerf({
@@ -46,7 +54,7 @@ export function useForumLifecycle(
             postCount: visiblePostCount,
             hadLocalCache: hadLocalCacheRef.current,
         });
-    }, [isOpen, isShellReady, userId, visiblePostCount]);
+    }, [isOpen, userId, visiblePostCount]);
 
     return { isShellReady, hadLocalCache: hadLocalCacheRef.current };
 }

@@ -9,7 +9,7 @@
  *  - الإضبارات الراكدة (لا نشاط منذ > 90 يوم) — بناءً على آخر history/notes
  */
 
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { composeRichAlert } from '@/app/services/alertRichContext';
 import type { DossierRegistry } from '@/app/services/alertDossierRegistry';

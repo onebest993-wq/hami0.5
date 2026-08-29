@@ -8,7 +8,7 @@ import { patchExecutorDecisionRowEverywhere } from '@/app/utils/executorSeizureD
 
 export type PropertyInlineSaveContext = {
     dossierId: string;
-    showToast: (msg: string, type?: 'success' | 'warning' | 'info') => void;
+    showToast: (msg: string, type?: 'success' | 'warning' | 'info' | 'error') => void;
     persistProperties: (next: SeizedProperty[]) => boolean;
     readProperties?: () => SeizedProperty[];
     pushTimeline: (event: {
@@ -30,9 +30,9 @@ export type PropertyInlineSaveContext = {
     }) => void;
 };
 
-const TIMELINE_SOURCE = 'محضر المتابعة — العقارات المحجوزة';
+export const TIMELINE_SOURCE = 'محضر المتابعة — العقارات المحجوزة';
 
-function headerFor(p: SeizedProperty): string {
+export function headerForProperty(p: SeizedProperty): string {
     return [
         `رقم العقار: ${String(p.propertyNumber || '').trim()}`,
         `المقاطعة: ${String(p.district || '').trim()}`,
@@ -54,7 +54,7 @@ function patchProperty(
     return next;
 }
 
-function persistPropertyPatch(
+export function persistPropertyPatch(
     properties: SeizedProperty[],
     propertyId: string,
     patch: Record<string, unknown>,
@@ -169,7 +169,7 @@ export function savePropertyExpertReportInline(
         return false;
     }
     const nowIso = new Date().toISOString();
-    const header = headerFor(cur);
+    const header = headerForProperty(cur);
     const desc = `${header}\nالسعر المقدر: ${Number(price).toLocaleString('ar-IQ')} د.ع\nتاريخ التقرير: ${reportYmd}\nالخبراء: ${expertNames.join('، ')}`;
     const next = persistPropertyPatch(
         properties,
@@ -219,7 +219,7 @@ export function savePropertyAuctionDateInline(
         return false;
     }
     const nowIso = new Date().toISOString();
-    const header = headerFor(cur);
+    const header = headerForProperty(cur);
     const desc = `${header}\nموعد المزايدة: ${date}`;
     const next = persistPropertyPatch(
         properties,
@@ -313,7 +313,7 @@ export function savePropertyAuctionResultInline(
     const cur = properties.find((x) => String(x.id) === propertyId);
     if (!cur) return false;
     const nowIso = new Date().toISOString();
-    const header = headerFor(cur);
+    const header = headerForProperty(cur);
     let title = '';
     let desc = '';
     let patch: Record<string, unknown> = {};
@@ -365,56 +365,6 @@ export function savePropertyAuctionResultInline(
         metadata: { seizedPropertyId: propertyId },
     });
     ctx.showToast('تم حفظ نتيجة المزايدة.', 'success');
-    return true;
-}
-
-export function savePropertyReauctionDefaultInline(
-    properties: SeizedProperty[],
-    propertyId: string,
-    decisionId: string,
-    notes: string,
-    ctx: PropertyInlineSaveContext
-): boolean {
-    const nowIso = new Date().toISOString();
-    const notesTrim = String(notes || '').trim();
-    const hit = properties.find((x) => String(x.id) === propertyId);
-    if (!hit) return false;
-    const next = persistPropertyPatch(
-        properties,
-        propertyId,
-        {
-            reauctionDefault: { recordedAtIso: nowIso, ...(notesTrim ? { notes: notesTrim } : {}) },
-            status: 'published',
-            initialAwardBuyerName: undefined,
-            initialAwardAmountIqd: null,
-            initialAwardRecordedAtIso: undefined,
-            noBiddersRecordedAtIso: undefined,
-            lastBidderOrBuyerName: undefined,
-            finalAwardAmountIqd: null,
-        },
-        ctx,
-    );
-    if (!next) return false;
-    if (decisionId) {
-        const header = headerFor(hit);
-        patchExecutorDecisionRowEverywhere(decisionId, {
-            seizureRequestSavedAt: nowIso,
-            seizureRequestDetails: `🔁 تسجيل النكول / إعادة المزايدة — عقار\n${header}${
-                notesTrim ? `\nالسبب/الملاحظات:\n${notesTrim}` : ''
-            }`,
-        });
-    }
-    ctx.pushTimeline({
-        id: ctx.nextTimelineId(),
-        date: nowIso.slice(0, 10),
-        timestamp: nowIso,
-        title: '🔁 تسجيل النكول / إعادة المزايدة — عقار',
-        description: `${headerFor(hit)}${notesTrim ? `\n${notesTrim}` : ''}`,
-        type: 'decision',
-        source: TIMELINE_SOURCE,
-        metadata: { seizedPropertyId: propertyId, decisionRowId: decisionId || undefined },
-    });
-    ctx.showToast('تم تسجيل النكول وإعادة فتح مسار المزايدة.', 'success');
     return true;
 }
 

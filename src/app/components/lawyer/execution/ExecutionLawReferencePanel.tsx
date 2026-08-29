@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { Search } from '@/app/components/ui/lucideIcons';
+import { Search } from '@/app/components/ui/icons/Search';
 import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 import {
     ALL_EXECUTION_ARTICLES_SCOPE,
@@ -18,11 +18,15 @@ import {
     EXECUTION_LAW_CACHE_INVALIDATED_EVENT,
     hasExecutionLawArticlesCached,
     loadExecutionLawArticlesRemote,
+    peekExecutionLawArticlesCached,
 } from '@/app/utils/executionLawRemoteCache';
 import {
     isArabicLooseHighlightMatch,
     splitTextByArabicLooseHighlight,
 } from '@/app/utils/executionLawArticleUtils';
+import {
+    EXEC_OVERLAY_INNER_SILENT_FALLBACK,
+} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShellUi';
 import {
     LAW_TAXONOMY_FILTER_BTN,
     LawTaxonomyFilterRail,
@@ -36,7 +40,7 @@ const LEAF_CHIP_ACTIVE = 'border-purple-500/35 bg-purple-900/40 text-purple-300'
 const LEAF_CHIP_IDLE = 'border-white/10 bg-transparent text-slate-400 hover:border-white/20 hover:text-slate-200';
 
 function filterBtnClass(active: boolean, activeClass: string, idleClass: string): string {
-    return [LAW_TAXONOMY_FILTER_BTN, active ? activeClass : idleClass].join(' ');
+    return [LAW_TAXONOMY_FILTER_BTN, 'min-h-[44px] touch-manipulation', active ? activeClass : idleClass].join(' ');
 }
 
 function getHighlightedText(text: string, highlight: string): React.ReactNode {
@@ -155,8 +159,12 @@ export const ExecutionLawReferencePanel: React.FC<{ executionType?: string }> = 
     );
     const [searchQuery, setSearchQuery] = useState('');
     const deferredSearchQuery = useDeferredValue(searchQuery);
-    const [articles, setArticles] = useState<ExecutionLawArticle[]>([]);
-    const [articlesLoading, setArticlesLoading] = useState(() => !hasExecutionLawArticlesCached());
+    const [articles, setArticles] = useState<ExecutionLawArticle[]>(
+        () => peekExecutionLawArticlesCached() ?? [],
+    );
+    const [articlesLoading, setArticlesLoading] = useState(
+        () => (peekExecutionLawArticlesCached()?.length ?? 0) === 0,
+    );
     const [articlesLoadError, setArticlesLoadError] = useState<string | null>(null);
 
     const loadArticles = useCallback(() => {
@@ -290,7 +298,7 @@ export const ExecutionLawReferencePanel: React.FC<{ executionType?: string }> = 
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="ابحث برقم المادة أو كلمة…"
-                        className="w-full rounded-xl border border-slate-600/40 bg-slate-900/60 py-2.5 pl-3 pr-10 text-right text-sm text-slate-100 placeholder:text-slate-500 focus:border-[#E6C673]/45 focus:outline-none focus:ring-1 focus:ring-[#E6C673]/25"
+                        className="w-full min-h-[44px] touch-manipulation rounded-xl border border-slate-600/40 bg-slate-900/60 py-2.5 pl-3 pr-10 text-right text-sm text-slate-100 placeholder:text-slate-500 focus:border-[#E6C673]/45 focus:outline-none focus:ring-1 focus:ring-[#E6C673]/25"
                         aria-label="بحث في مواد قانون التنفيذ"
                     />
                 </div>
@@ -380,7 +388,7 @@ export const ExecutionLawReferencePanel: React.FC<{ executionType?: string }> = 
                 className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 touch-pan-y [-webkit-overflow-scrolling:touch]"
             >
                 {articlesLoading && articles.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-slate-500">جاري تحميل مواد القانون…</p>
+                    EXEC_OVERLAY_INNER_SILENT_FALLBACK
                 ) : articlesLoadError && articles.length === 0 ? (
                     <p className="py-8 text-center text-sm text-rose-300/90">{articlesLoadError}</p>
                 ) : filtered.length === 0 ? (
@@ -397,8 +405,8 @@ export const ExecutionLawReferencePanel: React.FC<{ executionType?: string }> = 
                             />
                         ))}
                         {visibleArticleCount < filtered.length ? (
-                            <li className="py-2 text-center text-xs text-slate-500" aria-live="polite">
-                                جاري تحميل بقية المواد… ({visibleArticleCount}/{filtered.length})
+                            <li className="py-2" aria-busy="true" aria-live="polite">
+                                {EXEC_OVERLAY_INNER_SILENT_FALLBACK}
                             </li>
                         ) : null}
                     </ul>

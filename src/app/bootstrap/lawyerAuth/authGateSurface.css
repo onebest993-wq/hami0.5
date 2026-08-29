@@ -1,0 +1,310 @@
+/**
+ * سطح بوابة الدخول — زجاج ملكي على نفس خلفية الإقلاع (#0a0f1c).
+ * بلا كلمة «حامي»، بلا أنيميشن دخول.
+ */
+
+html[data-hami-auth-gate-active='1'] .hami-app-screen {
+    animation: none !important;
+}
+
+[data-hami-auth-gate] {
+    box-sizing: border-box;
+    min-height: 100dvh;
+    width: 100%;
+    display: flex;
+    align-items: safe center;
+    justify-content: safe center;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: max(1.5rem, env(safe-area-inset-top)) 1.5rem max(1.5rem, env(safe-area-inset-bottom));
+    background:
+        radial-gradient(ellipse 80% 50% at 50% 18%, rgba(230, 198, 115, 0.08), transparent 55%),
+        #0a0f1c;
+    color: #fff;
+    font-family: 'Tajawal', 'Cairo', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+[data-hami-auth-gate] .hami-auth-gate-panel {
+    width: 100%;
+    max-width: 26rem;
+}
+
+[data-hami-auth-gate] .hami-auth-gate-card {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 1.75rem 1.5rem 1.5rem;
+    border-radius: 1.25rem;
+    border: 1px solid rgba(230, 198, 115, 0.22);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
+        rgba(5, 6, 13, 0.88);
+    box-shadow:
+        0 24px 64px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    contain: layout;
+}
+
+[data-hami-auth-gate] .hami-auth-gate-card > form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    width: 100%;
+    margin: 0;
+}
+
+[data-hami-auth-gate] .hami-auth-gate-title {
+    margin: 0;
+    text-align: center;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    line-height: 1.3;
+    color: #e6c673;
+}
+
+[data-hami-auth-gate] .hami-auth-gate-hint {
+    margin: 0 0 0.35rem;
+    text-align: center;
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.68);
+}
+
+[data-hami-auth-gate] .hami-auth-gate-divider {
+    margin: 0.15rem 0 0;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.38);
+}
+
+[data-hami-auth-gate] .hami-auth-gate-btn {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+[data-hami-auth-gate] .hami-auth-gate-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+[data-hami-auth-gate] .hami-auth-gate-btn--primary {
+    border: none;
+    background: linear-gradient(180deg, #f0d48a, #e6c673);
+    color: #05060d;
+    font-weight: 800;
+    box-shadow: 0 8px 24px rgba(230, 198, 115, 0.22);
+}
+
+[data-hami-auth-gate] .hami-auth-gate-btn--secondary {
+    border: 1px solid rgba(230, 198, 115, 0.35);
+    background: rgba(230, 198, 115, 0.06);
+    color: #f7ebc4;
+    font-weight: 700;
+}
+
+[data-hami-auth-gate] .hami-auth-gate-btn--ghost {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+[data-hami-auth-gate] .hami-auth-gate-btn--ghost:hover {
+    color: #e6c673;
+    border-color: rgba(230, 198, 115, 0.35);
+}
+
+[data-hami-auth-gate] .hami-auth-gate-input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 48px;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(10, 15, 28, 0.85);
+    padding: 0.75rem 0.85rem;
+    color: #fff;
+    line-height: 1.4;
+    outline: none;
+}
+
+/* كلمة المرور LTR: مساحة صريحة لزر العين (لا تُلغى بـ padding المختصر أعلاه) */
+[data-hami-auth-gate] .hami-auth-gate-input.hami-auth-gate-input--password {
+    padding-inline-end: 3.25rem;
+}
+
+[data-hami-auth-gate] .hami-auth-gate-input:focus {
+    border-color: rgba(230, 198, 115, 0.55);
+    box-shadow: 0 0 0 3px rgba(230, 198, 115, 0.12);
+}
+
+/* اختيار الصورة: إخفاء نص المتصفح الإنجليزي داخل الحقل */
+[data-hami-auth-gate] .hami-auth-gate-file-hit {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-height: 48px;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(230, 198, 115, 0.35);
+    background: rgba(230, 198, 115, 0.06);
+    color: #f7ebc4;
+    font-size: 0.875rem;
+    font-weight: 700;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+[data-hami-auth-gate] .hami-auth-gate-file-hit-text {
+    pointer-events: none;
+}
+
+[data-hami-auth-gate] .hami-auth-gate-file-native {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    font-size: 0;
+    cursor: pointer;
+}
+
+[data-hami-auth-gate] .hami-auth-gate-id-preview {
+    display: block;
+    width: 100%;
+    max-height: 7.5rem;
+    margin-top: 0.5rem;
+    object-fit: contain;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(10, 15, 28, 0.85);
+}
+
+[data-hami-auth-gate] .hami-auth-gate-label {
+    display: block;
+}
+
+[data-hami-auth-gate] .hami-auth-gate-label-text {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+[data-hami-auth-gate] .hami-auth-gate-error {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #f87171;
+}
+
+[data-hami-legal-terms-gate] .hami-legal-terms-panel {
+    max-width: 26rem;
+    width: 100%;
+}
+
+[data-hami-legal-terms-gate] .hami-legal-terms-panel--document {
+    max-width: 36rem;
+}
+
+[data-hami-legal-terms-gate] .hami-legal-terms-card {
+    max-height: min(92dvh, 920px);
+    gap: 0.75rem;
+}
+
+[data-hami-legal-terms-gate] .hami-legal-terms-card--compact {
+    max-height: none;
+}
+
+[data-hami-legal-terms-gate] .hami-legal-terms-scroll {
+    flex: 1 1 auto;
+    min-height: 12rem;
+    max-height: min(52dvh, 420px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 0.75rem 0.85rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(10, 15, 28, 0.65);
+    text-align: start;
+}
+
+[data-hami-legal-terms-gate] .hami-legal-terms-section {
+    margin-bottom: 1rem;
+}
+
+[data-hami-legal-terms-gate] .hami-legal-terms-section:last-child {
+    margin-bottom: 0;
+}
+
+[data-hami-legal-terms-gate] .hami-legal-terms-section-title {
+    margin: 0 0 0.4rem;
+    font-size: 0.8125rem;
+    font-weight: 800;
+    line-height: 1.5;
+    color: #e6c673;
+}
+
+[data-hami-legal-terms-gate] .hami-legal-terms-paragraph {
+    margin: 0 0 0.45rem;
+    font-size: 0.75rem;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+[data-hami-legal-terms-gate] .hami-legal-terms-bullets {
+    margin: 0;
+    padding-inline-start: 1.1rem;
+    list-style: disc;
+}
+
+[data-hami-legal-terms-gate] .hami-legal-terms-bullets li {
+    margin-bottom: 0.35rem;
+    font-size: 0.75rem;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.68);
+}
+
+[data-hami-legal-terms-gate] .hami-legal-terms-declined {
+    gap: 1rem;
+}
+
+/* بوابة المقر فوق طبقات لوحة المحامي (portals على body) دون تغيير شكل البطاقة */
+[data-hami-hq-gate] {
+    position: relative;
+    z-index: 2147482000;
+    pointer-events: auto;
+    isolation: isolate;
+}
+
+html[data-hami-hq-surface='1'] .hami-settings-overlay-host,
+html[data-hami-hq-surface='1'] .hami-forum-overlay-layer,
+html[data-hami-hq-surface='1'] .hami-app-lock-overlay,
+html[data-hami-hq-surface='1'] [data-hami-overlay-portal] {
+    pointer-events: none !important;
+}

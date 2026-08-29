@@ -13,20 +13,23 @@ export function LawyerNewCaseSelectionInstantShell({
     mode = 'picker',
     onSelectJurisdiction,
     onJurisdictionPointerEnter,
+    onRetryLoad,
     dossierNewCaseElevated = false,
 }: {
     onClose: () => void;
-    mode?: 'loading' | 'picker';
+    mode?: 'loading' | 'picker' | 'error';
     onSelectJurisdiction?: (id: JurisdictionId) => void;
     onJurisdictionPointerEnter?: (id: JurisdictionId) => void;
+    onRetryLoad?: () => void;
     dossierNewCaseElevated?: boolean;
 }): React.ReactElement {
     const isLoading = mode === 'loading';
+    const isError = mode === 'error';
 
     return (
         <div
             className={`fixed inset-0 ${dossierNewCaseElevated ? HUB_DOSSIER_SPAWN_NEW_CASE_Z_CLASS : HUB_NESTED_OVERLAY_Z_CLASS} flex flex-col overflow-hidden bg-[#080c14] font-['Tajawal']`}
-            aria-busy="true"
+            aria-busy={isLoading}
             data-testid="lawyer-new-case-instant-shell"
         >
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-10%,rgba(230,198,115,0.07),transparent_52%)]" aria-hidden />
@@ -41,12 +44,26 @@ export function LawyerNewCaseSelectionInstantShell({
                     <HomeXIcon size={20} />
                 </button>
                 <h2 className="text-sm font-bold text-white/90">
-                    {isLoading ? 'إضبارة جديدة' : 'اختر التصنيف القضائي'}
+                    {isError ? 'تعذّر التحميل' : isLoading ? 'إضبارة جديدة' : 'اختر التصنيف القضائي'}
                 </h2>
                 <div className="w-9" aria-hidden />
             </div>
 
-            {isLoading ? (
+            {isError ? (
+                <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 pb-16 text-center">
+                    <p className="text-sm font-bold text-red-400">تعذّر تحميل نموذج الدعوى</p>
+                    <p className="text-white/45 text-[11px] leading-relaxed max-w-xs">
+                        تحقق من الاتصال ثم أعد المحاولة. إن استمر الخطأ، حدّث الصفحة (Ctrl+Shift+R).
+                    </p>
+                    <button
+                        type="button"
+                        onClick={onRetryLoad}
+                        className="min-h-[44px] rounded-xl px-4 py-2 border border-[#E6C673]/40 text-[#E6C673] text-xs font-bold touch-manipulation"
+                    >
+                        إعادة المحاولة
+                    </button>
+                </div>
+            ) : isLoading ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 pb-16">
                     <div
                         className="h-9 w-9 rounded-full border-2 border-[#E6C673]/25 border-t-[#E6C673] animate-spin"

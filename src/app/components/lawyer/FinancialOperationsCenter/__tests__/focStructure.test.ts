@@ -343,3 +343,24 @@ describe('FinancialOperationsCenter derived-values (ledger) extraction', () => {
         expect(mainFileSource).not.toMatch(localDeclarationPattern);
     });
 });
+
+describe('FinancialOperationsCenter guarantor + eviction parent wiring', () => {
+    it('يمرّر طلب الكفيل بعد إخلال التسوية ولا يتجاهل onGuarantorRequest', () => {
+        expect(mainFileSource).toContain('onGuarantorRequest={onGuarantorRequest}');
+        expect(mainFileSource).not.toMatch(/onGuarantorRequest: _onGuarantorRequest/);
+        const body = fs.readFileSync(
+            path.join(COMPONENTS_DIR, 'FocCreditorExpandedBody.tsx'),
+            'utf8',
+        );
+        expect(body).toContain('foc-amount-guarantor-request');
+        expect(body).toContain('طلب كفيل ضامن للمبلغ');
+    });
+
+    it('يبلّغ الأب عند أول تفعيل لوعاء التخلية من الاستحصال', () => {
+        expect(mainFileSource).toContain('onEvictionLedgerActivated,');
+        expect(mainFileSource).toContain('evictionLedgerActivatedPersisted,');
+        const collect = fs.readFileSync(COLLECTION_ACTIONS_HOOK_FILE, 'utf8');
+        expect(collect).toContain('shouldNotifyParentEvictionLedgerActivated');
+        expect(collect).toContain('onEvictionLedgerActivated?.()');
+    });
+});

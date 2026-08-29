@@ -2,36 +2,26 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NotificationModel } from '@/app/infrastructure/NotificationRepository';
 import { useNotificationStore } from '@/app/stores/notificationStore';
 import { areInAppNotificationsEnabled } from '@/app/services/settings/settingsRuntime';
-import { shouldShowChannelInApp } from '@/app/services/notifications/notificationAlertPolicy';
+import { HAMI_INBOX_NOTIFICATION_ARRIVED } from '@/app/runtime/inboxNotificationArrival';
+import {
+    HAMI_APP_STATE_EVENT,
+    type HamiAppStateDetail,
+} from '@/app/runtime/appStateEvents';
+import {
+    knownPopupIdsForUser,
+    rememberPopupNotificationId,
+} from '@/app/hooks/lawyerDashboard/incomingNotificationPopupMemory';
+import { announceIncomingNotificationArrival } from '@/app/hooks/lawyerDashboard/incomingNotificationPopupArrival';
+import {
+    INCOMING_POPUP_MAX_VISIBLE,
+    isEligibleInAppPopup,
+    mergeIncomingPopupQueue,
+    type IncomingNotificationPopup,
+} from '@/app/hooks/lawyerDashboard/incomingNotificationPopupModel';
 
-const MAX_VISIBLE = 2;
 const AUTO_DISMISS_MS = 6_500;
 
-const MAX_KNOWN_NOTIFICATION_IDS = 400;
-
-function rememberNotificationId(knownIds: Set<string>, id: string): void {
-    knownIds.add(id);
-    if (knownIds.size <= MAX_KNOWN_NOTIFICATION_IDS) return;
-    const trimmed = [...knownIds].slice(-MAX_KNOWN_NOTIFICATION_IDS);
-    knownIds.clear();
-    for (const entry of trimmed) knownIds.add(entry);
-}
-
-export type IncomingNotificationPopup = {
-    id: string;
-    title: string;
-    message: string;
-    createdAt: string;
-};
-
-function toPopup(n: NotificationModel): IncomingNotificationPopup {
-    return {
-        id: n.id,
-        title: n.title,
-        message: n.message,
-        createdAt: n.createdAt,
-    };
-}
+export type { IncomingNotificationPopup };
 
 export function useIncomingNotificationPopups(options: {
     userId: string;
@@ -41,10 +31,12 @@ export function useIncomingNotificationPopups(options: {
     const { userId, isPanelOpen, enabled = true } = options;
     const notifications = useNotificationStore((s) => s.notifications);
     const isLoading = useNotificationStore((s) => s.isLoading);
+    const hasHydratedOnce = useNotificationStore((s) => s.hasHydratedOnce);
 
     const [queue, setQueue] = useState<IncomingNotificationPopup[]>([]);
     const baselineReadyRef = useRef(false);
-    const knownIdsRef = useRef(new Set<string>());
+    const isPanelOpenRef = useRef(isPanelOpen);
+    isPanelOpenRef.current = isPanelOpen;
     const dismissTimersRef = useRef<Map<string, number>>(new Map());
 
     const clearTimer = useCallback((id: string) => {
@@ -72,71 +64,130 @@ export function useIncomingNotificationPopups(options: {
         [clearTimer, dismiss],
     );
 
+    const queueRef = useRef(queue);
+    queueRef.current = queue;
+
+    const enqueueFresh = useCallback(
+        (fresh: NotificationModel[]) => {
+            if (fresh.length === 0) return;
+            const newest = fresh[0];
+            if (newest) announceIncomingNotificationArrival(newest);
+            setQueue((prev) => mergeIncomingPopupQueue(prev, fresh, INCOMING_POPUP_MAX_VISIBLE));
+        },
+        [],
+    );
+
     useEffect(() => {
+        const timers = dismissTimersRef.current;
         return () => {
-            for (const t of dismissTimersRef.current.values()) {
-                window.clearTimeout(t);
-            }
-            dismissTimersRef.current.clear();
+            for (const t of timers.values()) window.clearTimeout(t);
+            timers.clear();
         };
     }, []);
 
     useEffect(() => {
         if (!userId) {
             baselineReadyRef.current = false;
-            knownIdsRef.current = new Set();
             setQueue([]);
             return;
         }
         baselineReadyRef.current = false;
-        knownIdsRef.current = new Set();
         setQueue([]);
     }, [userId]);
 
     useEffect(() => {
         if (!enabled || !areInAppNotificationsEnabled() || !userId) return;
-        if (!shouldShowChannelInApp('community')) return;
+        const known = knownPopupIdsForUser(userId);
 
         if (!baselineReadyRef.current) {
-            if (isLoading) return;
-            knownIdsRef.current = new Set();
-            for (const n of notifications) rememberNotificationId(knownIdsRef.current, n.id);
+            if (!hasHydratedOnce) return;
+            if (isLoading && notifications.length === 0) return;
+            if (known.size === 0) {
+                for (const n of notifications) rememberPopupNotificationId(known, n.id);
+                baselineReadyRef.current = true;
+                return;
+            }
             baselineReadyRef.current = true;
-            return;
         }
 
         if (isPanelOpen) {
             setQueue([]);
-            for (const n of notifications) rememberNotificationId(knownIdsRef.current, n.id);
+            for (const n of notifications) rememberPopupNotificationId(known, n.id);
             return;
         }
 
-        const fresh = notifications.filter((n) => !n.isRead && !knownIdsRef.current.has(n.id));
-        if (fresh.length === 0) return;
-
-        for (const n of fresh) rememberNotificationId(knownIdsRef.current, n.id);
-
-        setQueue((prev) => {
-            const existing = new Set(prev.map((p) => p.id));
-            const merged = [...prev];
-            for (const n of fresh) {
-                if (existing.has(n.id)) continue;
-                merged.unshift(toPopup(n));
-            }
-            return merged.slice(0, MAX_VISIBLE);
-        });
-    }, [enabled, isLoading, isPanelOpen, notifications, userId]);
+        const fresh = notifications.filter((n) => !known.has(n.id) && isEligibleInAppPopup(n));
+        for (const n of notifications) {
+            if (!known.has(n.id)) rememberPopupNotificationId(known, n.id);
+        }
+        enqueueFresh(fresh);
+    }, [enabled, enqueueFresh, hasHydratedOnce, isLoading, isPanelOpen, notifications, userId]);
 
     useEffect(() => {
+        if (!enabled || !userId) return;
+        const onArrived = (event: Event) => {
+            const n = (event as CustomEvent<NotificationModel>).detail;
+            if (!n?.id || isPanelOpenRef.current) return;
+            if (!baselineReadyRef.current || !isEligibleInAppPopup(n)) return;
+            const known = knownPopupIdsForUser(userId);
+            if (known.has(n.id)) return;
+            rememberPopupNotificationId(known, n.id);
+            enqueueFresh([n]);
+        };
+        window.addEventListener(HAMI_INBOX_NOTIFICATION_ARRIVED, onArrived);
+        return () => window.removeEventListener(HAMI_INBOX_NOTIFICATION_ARRIVED, onArrived);
+    }, [enabled, enqueueFresh, userId]);
+
+    useEffect(() => {
+        if (typeof document !== 'undefined' && document.hidden) {
+            for (const id of [...dismissTimersRef.current.keys()]) clearTimer(id);
+            return;
+        }
         for (const item of queue) {
-            if (!dismissTimersRef.current.has(item.id)) {
-                scheduleDismiss(item.id);
-            }
+            if (!dismissTimersRef.current.has(item.id)) scheduleDismiss(item.id);
         }
         for (const id of [...dismissTimersRef.current.keys()]) {
             if (!queue.some((q) => q.id === id)) clearTimer(id);
         }
     }, [clearTimer, queue, scheduleDismiss]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const pause = () => {
+            for (const id of [...dismissTimersRef.current.keys()]) clearTimer(id);
+        };
+
+        const resume = () => {
+            for (const item of queueRef.current) {
+                if (!dismissTimersRef.current.has(item.id)) scheduleDismiss(item.id);
+            }
+        };
+
+        const onVisibility = () => {
+            if (document.hidden) pause();
+            else resume();
+        };
+
+        const onPageHide = () => {
+            pause();
+        };
+
+        const onAppState = (event: Event) => {
+            const detail = (event as CustomEvent<HamiAppStateDetail>).detail;
+            if (detail?.isActive === false) pause();
+            else if (!document.hidden) resume();
+        };
+
+        document.addEventListener('visibilitychange', onVisibility);
+        window.addEventListener('pagehide', onPageHide);
+        window.addEventListener(HAMI_APP_STATE_EVENT, onAppState);
+        return () => {
+            document.removeEventListener('visibilitychange', onVisibility);
+            window.removeEventListener('pagehide', onPageHide);
+            window.removeEventListener(HAMI_APP_STATE_EVENT, onAppState);
+        };
+    }, [clearTimer, scheduleDismiss]);
 
     return { queue, dismiss };
 }

@@ -1,22 +1,31 @@
-import React, { memo } from 'react';
-import { flushSync } from 'react-dom';
-import { Clock } from '@/app/components/ui/lucideIcons';
+import React, { Suspense, lazy, memo } from 'react';
 import type { ArchivePortalProps } from '@/app/types/common';
-import ExecutionSmartCard from './ExecutionSmartCard';
 import { ArchiveVirtualGrid } from './ArchiveVirtualGrid';
 import type { LooseArchiveFile, ArchiveEnrichedRow } from '../types';
-import type { ExecutionArchiveFilter } from './ExecutionArchiveToolbar';
-import type { ExecutionPerspectiveFilter, ExecutionViewMode } from '../executionArchiveFilterUtils';
+import {
+    resolveExecutionArchiveEmptyCopy,
+    type ExecutionDossierStatusFilter,
+    type ExecutionJurisdictionFilter,
+    type ExecutionPerspectiveFilter,
+    type ExecutionViewMode,
+} from '../executionArchiveFilterPresentation';
+import {
+    archiveGridClassForColumnCount,
+    readArchiveGridWidthGuess,
+    resolveArchiveGridColumnCount,
+} from '../archiveGridGeometry';
 import { useExecutionArchiveCardLiveRevision } from '../hooks/useExecutionArchiveCardLiveRevision';
+import { ExecutionArchiveCardPaintSlot } from './ExecutionArchiveCardPaintSlot';
+
+const LazyExecutionSmartCard = lazy(() => import('./ExecutionSmartCard'));
 
 export type ExecutionArchiveFileGridProps = {
     enrichedFiles: ArchiveEnrichedRow[];
     searchQuery: string;
-    filterType: ExecutionArchiveFilter;
+    filterType: ExecutionJurisdictionFilter;
     perspectiveFilter: ExecutionPerspectiveFilter;
-    dossierStatusFilter?: import('../executionArchiveFilterUtils').ExecutionDossierStatusFilter;
+    dossierStatusFilter?: ExecutionDossierStatusFilter;
     executionViewMode: ExecutionViewMode;
-    setExecutionViewMode: (mode: ExecutionViewMode) => void;
     lawsuitFilesForCluster: unknown[];
     onFileClick: ArchivePortalProps['onFileClick'] | ((file: LooseArchiveFile) => void);
     setExecutionPreviewFile: (file: LooseArchiveFile | null) => void;
@@ -27,7 +36,7 @@ export type ExecutionArchiveFileGridProps = {
     onPermanentlyDeleteExecutions?: (ids: string[]) => void;
     executionTrashDaysRemaining: (file: LooseArchiveFile) => number | undefined;
     selectedTrashIds: Set<string>;
-    toggleTrashSelect: (id: string) => void;
+    toggleTrashSelect: (id: string | number) => void;
     setTrashConfirmTarget: (file: LooseArchiveFile) => void;
     setArchiveConfirmTarget: (file: LooseArchiveFile) => void;
     executionFilesHydrating?: boolean;
@@ -42,7 +51,6 @@ function ExecutionArchiveFileGridImpl({
     perspectiveFilter,
     dossierStatusFilter = 'all',
     executionViewMode,
-    setExecutionViewMode: _setExecutionViewMode,
     lawsuitFilesForCluster,
     onFileClick,
     setExecutionPreviewFile,
@@ -72,36 +80,35 @@ function ExecutionArchiveFileGridImpl({
         enrichedFiles.length === 0 &&
         !hasNarrowFilters
     ) {
+        const hydrateColumnCount = resolveArchiveGridColumnCount(readArchiveGridWidthGuess(0));
+        const hydrateGridClass = archiveGridClassForColumnCount(hydrateColumnCount);
         return (
             <div
-                className="flex flex-col items-center justify-center py-20 text-center"
+                className={hydrateGridClass}
                 data-testid="executions-archive-loading"
                 aria-busy="true"
+                aria-label="جاري تجهيز بطاقات المخزن"
             >
-                <Clock size={48} className="mb-4 animate-pulse text-[#E6C673]/40" />
-                <h3 className="mb-2 text-xl font-bold text-white/55">جاري تحميل الإضابير…</h3>
-                <p className="max-w-sm text-sm text-white/30">
-                    يتم جلب قائمة إضابير التنفيذ من التخزين المحلي.
-                </p>
+                {Array.from({ length: hydrateColumnCount }, (_, slot) => (
+                    <ExecutionArchiveCardPaintSlot key={slot} />
+                ))}
             </div>
         );
     }
 
     if (enrichedFiles.length === 0) {
+        const empty = resolveExecutionArchiveEmptyCopy(executionViewMode, hasNarrowFilters);
         return (
             <div
-                className="flex min-h-full flex-col items-center justify-center py-12 text-center"
+                className="flex flex-col items-center justify-center px-4 py-10 text-center"
                 data-testid="executions-archive-empty"
             >
-                <h3 className="text-xl font-bold text-white/45">
-                    {hasNarrowFilters
-                        ? 'لا توجد نتائج'
-                        : executionViewMode === 'trash'
-                          ? 'سلة المهملات فارغة'
-                          : executionViewMode === 'archived'
-                            ? 'مخزن الأرشيف فارغ'
-                            : 'لا توجد إضابير نشطة'}
-                </h3>
+                <h3 className="text-sm font-bold text-white/45">{empty.title}</h3>
+                {empty.hint ? (
+                    <p className="mt-1.5 max-w-xs text-[11px] leading-relaxed text-white/28">
+                        {empty.hint}
+                    </p>
+                ) : null}
             </div>
         );
     }
@@ -116,57 +123,53 @@ function ExecutionArchiveFileGridImpl({
     return (
         <ArchiveVirtualGrid
             items={enrichedFiles}
-            estimateRowSize={280}
+            estimateRowSize={176}
             getItemKey={(file) => String(file.id)}
             testId="executions-archive-virtual-grid"
             getScrollElement={getArchiveScrollElement}
             renderItem={(file) => (
-                <ExecutionSmartCard
-                    file={file}
-                    liveRevision={executionCardLiveRevision}
-                    lawsuitFilesForCluster={lawsuitFilesForCluster}
-                    variant={executionVariant}
-                    onOpen={() => onFileClick(file)}
-                    onPreview={() => setExecutionPreviewFile(file as LooseArchiveFile)}
-                    onRequestMoveToTrash={
-                        executionVariant === 'active' && onMoveExecutionToTrash
-                            ? () =>
-                                  flushSync(() =>
-                                      setTrashConfirmTarget(file as LooseArchiveFile),
-                                  )
-                            : undefined
-                    }
-                    onRequestArchive={
-                        executionVariant === 'active' && onArchiveExecution
-                            ? () =>
-                                  flushSync(() =>
-                                      setArchiveConfirmTarget(file as LooseArchiveFile),
-                                  )
-                            : undefined
-                    }
-                    onRestoreFromTrash={
-                        executionVariant === 'trash' && onRestoreExecutionFromTrash
-                            ? () => onRestoreExecutionFromTrash((file as LooseArchiveFile).id)
-                            : undefined
-                    }
-                    onRestoreFromArchive={
-                        executionVariant === 'archived' && onRestoreArchivedExecution
-                            ? () => onRestoreArchivedExecution((file as LooseArchiveFile).id)
-                            : undefined
-                    }
-                    trashDaysRemaining={executionTrashDaysRemaining(file as LooseArchiveFile)}
-                    selected={selectedTrashIds.has(String((file as LooseArchiveFile).id))}
-                    onToggleSelect={
-                        executionVariant === 'trash' && onPermanentlyDeleteExecutions
-                            ? () => toggleTrashSelect((file as LooseArchiveFile).id)
-                            : undefined
-                    }
-                    onRequestPermanentDelete={
-                        executionVariant === 'trash' && beginPermanentDeleteForIds
-                            ? () => beginPermanentDeleteForIds([(file as LooseArchiveFile).id])
-                            : undefined
-                    }
-                />
+                <Suspense fallback={<ExecutionArchiveCardPaintSlot />}>
+                    <LazyExecutionSmartCard
+                        file={file}
+                        liveRevision={executionCardLiveRevision}
+                        lawsuitFilesForCluster={lawsuitFilesForCluster}
+                        variant={executionVariant}
+                        onOpen={() => onFileClick(file)}
+                        onPreview={() => setExecutionPreviewFile(file as LooseArchiveFile)}
+                        onRequestMoveToTrash={
+                            executionVariant === 'active' && onMoveExecutionToTrash
+                                ? () => setTrashConfirmTarget(file as LooseArchiveFile)
+                                : undefined
+                        }
+                        onRequestArchive={
+                            executionVariant === 'active' && onArchiveExecution
+                                ? () => setArchiveConfirmTarget(file as LooseArchiveFile)
+                                : undefined
+                        }
+                        onRestoreFromTrash={
+                            executionVariant === 'trash' && onRestoreExecutionFromTrash
+                                ? () => onRestoreExecutionFromTrash((file as LooseArchiveFile).id)
+                                : undefined
+                        }
+                        onRestoreFromArchive={
+                            executionVariant === 'archived' && onRestoreArchivedExecution
+                                ? () => onRestoreArchivedExecution((file as LooseArchiveFile).id)
+                                : undefined
+                        }
+                        trashDaysRemaining={executionTrashDaysRemaining(file as LooseArchiveFile)}
+                        selected={selectedTrashIds.has(String((file as LooseArchiveFile).id))}
+                        onToggleSelect={
+                            executionVariant === 'trash' && onPermanentlyDeleteExecutions
+                                ? () => toggleTrashSelect((file as LooseArchiveFile).id)
+                                : undefined
+                        }
+                        onRequestPermanentDelete={
+                            executionVariant === 'trash' && beginPermanentDeleteForIds
+                                ? () => beginPermanentDeleteForIds([(file as LooseArchiveFile).id])
+                                : undefined
+                        }
+                    />
+                </Suspense>
             )}
         />
     );

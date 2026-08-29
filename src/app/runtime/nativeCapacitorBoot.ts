@@ -19,7 +19,7 @@ function markBootComplete(): void {
 }
 
 /**
- * بوابة إقلاع أصلية واحدة — تنتظر الجسر ثم تُهيّئ StatusBar/Keyboard/الأمان.
+ * بوابة إقلاع أصلية واحدة — تنتظر الجسر ثم تُهيّئ أشرطة النظام/Keyboard/الأمان.
  * idempotent: آمن استدعاؤها من index و deferredBoot.
  */
 export async function bootNativeCapacitorShell(): Promise<void> {

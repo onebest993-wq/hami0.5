@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { FileData, Party } from '../LawyerShared';
 import type { LegalCase } from '@/app/stores/caseStore';
 import type { ArchiveType } from '@/app/types/common';
@@ -71,6 +70,25 @@ export function isFileData(value: unknown): value is FileData {
     );
 }
 
+/** حقول بطاقة المخزن — لا تُمرَّر إلى إضبارة SmartFile ولا تُحفظ معها. */
+const ARCHIVE_OPEN_UI_KEYS = new Set(['smartStatus', 'unifiedCount', 'unifiedTotalDemand']);
+
+function omitArchiveOpenUiFields(input: Record<string, unknown>): Record<string, unknown> {
+    const rest: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(input)) {
+        if (ARCHIVE_OPEN_UI_KEYS.has(key)) continue;
+        rest[key] = value;
+    }
+    return rest;
+}
+
+function readOpenLawsuitJurisdiction(
+    input: Record<string, unknown>,
+): FileData['lawsuitJurisdiction'] | undefined {
+    const raw = input.lawsuitJurisdiction ?? input.selectedType;
+    return raw === 'civil' || raw === 'personal' ? raw : undefined;
+}
+
 /** يُطبّع صف أرشيف/بطاقة إلى FileData قابل للفتح في SmartFileModal. */
 export function normalizeFileDataForOpen(input: unknown): FileData | null {
     if (!isRecord(input) || !hasValidFileId(input.id)) return null;
@@ -89,8 +107,10 @@ export function normalizeFileDataForOpen(input: unknown): FileData | null {
             : typeof input.id === 'string' && /^\d+$/.test(input.id.trim())
               ? Number(input.id)
               : input.id;
+    const lawsuitJurisdiction = readOpenLawsuitJurisdiction(input);
 
     const normalized: FileData = {
+        ...omitArchiveOpenUiFields(input),
         id: id as number,
         type,
         caseNo,
@@ -106,6 +126,7 @@ export function normalizeFileDataForOpen(input: unknown): FileData | null {
                 : new Date().toLocaleDateString('ar-EG'),
         ...(typeof input.docType === 'string' ? { docType: input.docType } : {}),
         ...(typeof input.subject === 'string' ? { subject: input.subject } : {}),
+        ...(lawsuitJurisdiction ? { lawsuitJurisdiction } : {}),
     };
 
     return isFileData(normalized) ? normalized : null;
@@ -119,8 +140,8 @@ export function resolveOpenableFileData(
     if (!isRecord(value) || !hasValidFileId(value.id)) return null;
     if (pool) {
         const hit = pool.find((f) => String(f.id) === String(value.id));
-        if (!hit) return null;
-        return normalizeFileDataForOpen(hit);
+        // فضّل النسخة الحيّة من الـpool؛ إن غابت (مؤرشف/سلة خارج النشطة) افتح صف البطاقة.
+        if (hit) return normalizeFileDataForOpen(hit);
     }
     return normalizeFileDataForOpen(value);
 }
@@ -172,8 +193,18 @@ export function coerceExecutionFilePreserveId(input: unknown): ExecutionFile {
 
     const extractPartyName = (p: unknown): string => resolvePartyStoredName(p);
 
-    const coerceParty = (p: unknown, fallbackId: number, fallbackRole: string): Party =>
-        normalizeExecutionParty(p, fallbackId, fallbackRole);
+    const coerceParty = (p: unknown, fallbackId: number, fallbackRole: string): Party => {
+        const n = normalizeExecutionParty(p, fallbackId, fallbackRole);
+        const id = typeof n.id === 'number' ? n.id : fallbackId;
+        return {
+            id,
+            name: n.name || '',
+            role: fallbackRole,
+            isClient: Boolean(n.isClient),
+            phone: n.phone || undefined,
+            address: n.address || undefined,
+        };
+    };
 
     const partiesFromValue = (): Party[] => {
         if (Array.isArray(v.parties) && v.parties.length > 0) {
@@ -239,10 +270,10 @@ export function coerceExecutionFilePreserveId(input: unknown): ExecutionFile {
     const creditorsNormalized = normalizeExecutionPartyList(v.creditors, 'الدائن');
     const debtorsNormalized = normalizeExecutionPartyList(v.debtors, 'المدين');
     const partiesCreditors = normalizeExecutionPartyList(v.parties, 'الدائن').filter(
-        (p) => p.role === 'الدائن',
+        (p) => String((p as { role?: unknown }).role ?? '') === 'الدائن',
     );
     const partiesDebtors = normalizeExecutionPartyList(v.parties, 'المدين').filter(
-        (p) => p.role === 'المدين',
+        (p) => String((p as { role?: unknown }).role ?? '') === 'المدين',
     );
     const creditorsResolved =
         creditorsFromParties.length > 0
@@ -314,7 +345,7 @@ export function coerceExecutionFilePreserveId(input: unknown): ExecutionFile {
             ? { executionTrashDeletedAt: v.executionTrashDeletedAt }
             : {}),
         ...(v.executionArchivedAt != null ? { executionArchivedAt: v.executionArchivedAt } : {}),
-    } as ExecutionFile;
+    } as unknown as ExecutionFile;
 }
 
 /** تطبيع إضبارة تنفيذ قبل العرض أو الحفظ في activeFile */
@@ -352,26 +383,7 @@ export function coerceLawsuitStage(value: unknown): 'بداءة' | 'استئنا
     return 'بداءة';
 }
 
-export function hexToRgba(hex: string, alpha: number): string {
-    const h = (hex || '').trim();
-    const a = Math.min(1, Math.max(0, alpha));
-    const m = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(h);
-    if (!m) return `rgba(0,0,0,${a})`;
-    const raw = m[1];
-    const full = raw.length === 3 ? raw.split('').map((c) => c + c).join('') : raw;
-    const r = parseInt(full.slice(0, 2), 16);
-    const g = parseInt(full.slice(2, 4), 16);
-    const b = parseInt(full.slice(4, 6), 16);
-    return `rgba(${r},${g},${b},${a})`;
-}
-
-export function getNavUnderlayStyle(bgColor: string): { background: string } {
-    return {
-        background: `linear-gradient(to top, ${bgColor} 0%, ${hexToRgba(bgColor, 0.94)} 60%, rgba(0,0,0,0) 100%)`,
-    } as const;
-}
-
-export function lawyerOverlayToArchivePortalType(t: Exclude<string, 'client_requests' | null>): ArchiveType {
+export function lawyerOverlayToArchivePortalType(t: string): ArchiveType {
     switch (t) {
         case 'execution':
             return 'executions';

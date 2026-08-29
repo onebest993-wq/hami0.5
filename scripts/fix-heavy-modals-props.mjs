@@ -92,10 +92,10 @@ for (const id of ordered) {
     content = content.replace(rx, `s.${id}`);
 }
 
-if (!content.includes('executionModalStack')) {
+if (!content.includes('executionDashboardConstants')) {
     content = content.replace(
         "} from '../executionDashboardLazyShell';",
-        `} from '../executionDashboardLazyShell';\nimport {\n    EXEC_MODAL_BACKDROP_STRONG,\n    EXEC_MODAL_Z,\n} from '@/app/components/lawyer/execution/executionModalStack';`,
+        `} from '../executionDashboardLazyShell';\nimport {\n    EXEC_MODAL_BACKDROP_STRONG,\n    EXEC_MODAL_Z,\n} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';`,
     );
 }
 

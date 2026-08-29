@@ -13,7 +13,7 @@ export function buildPhoneBodyDebtorEmploymentToggleHandler(
             (clusterFn as (ctx: { debtorKey: string; isPrimary: boolean }) => void)(payload);
             return;
         }
-        const s = live as Record<string, any>;
+        const s = live as Record<string, unknown>;
         runDebtorEmploymentToggle({
             base: (s.executionData ?? s.viewExecutionData) as import('@/app/types/execution').ExecutionFile | null,
             debtorWorkspaceEntries: Array.isArray(s.debtorWorkspaceEntries)

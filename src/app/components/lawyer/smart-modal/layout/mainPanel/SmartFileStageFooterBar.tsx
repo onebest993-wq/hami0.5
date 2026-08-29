@@ -70,15 +70,23 @@ export function SmartFileStageFooterBar({
     const prefetchAppeal = () => {
         void import('../../AppealTransitionModal').catch(() => undefined);
     };
+    const prefetchCrossAppeal = () => {
+        void import('../../CrossAppealModal').catch(() => undefined);
+    };
 
     return (
-        <div className="shrink-0 px-3 pt-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] print:hidden w-full relative z-20 border-t border-white/[0.06] bg-[#0F121E]/95 backdrop-blur-md sm:rounded-b-3xl">
+        <div className="shrink-0 px-3 pt-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] print:hidden w-full relative z-20 border-t border-white/[0.06] bg-[#0F121E] sm:rounded-b-3xl">
             {isAppealStageName(displayStage?.stageName) &&
             displayStage?.appealMetadata &&
             crossAppealEligibility.showButton ? (
                 <button
                     type="button"
-                    onClick={() => setShowCrossAppealModal(true)}
+                    onPointerEnter={prefetchCrossAppeal}
+                    onFocus={prefetchCrossAppeal}
+                    onClick={() => {
+                        prefetchCrossAppeal();
+                        setShowCrossAppealModal(true);
+                    }}
                     className="mb-2 w-full rounded-xl border border-teal-400/30 bg-teal-600/90 py-3 text-sm font-bold text-white transition-colors hover:bg-teal-500"
                 >
                     تقديم استئناف متقابل

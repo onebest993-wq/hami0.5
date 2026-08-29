@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useLayoutEffect } from 'react';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import {
     pushHomeHubOverlayBack,
@@ -14,7 +14,7 @@ export function useHomeHubOverlaySheet(
 ): { requestBack: () => void } {
     useBodyScrollLock(open);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (!open) return undefined;
         return pushHomeHubOverlayBack(overlayId, onClose);
     }, [open, onClose, overlayId]);

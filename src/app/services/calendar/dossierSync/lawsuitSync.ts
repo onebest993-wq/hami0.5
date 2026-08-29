@@ -1,6 +1,6 @@
 /**
  * مزامنة الدعاوى المدنية → التقويم:
- * مواعيد الخط الزمني + مهام الاستحقاق + مُهل قانونية مخزّنة + تواريخ ملف صريحة.
+ * مواعيد الخط الزمني + مُهل قانونية مخزّنة (المساران) + مهام الاستحقاق (حفظ/reconcile).
  */
 import { CalendarBridge, normalizeDateToYmd } from '@/app/services/calendar/bridge';
 import { isEphemeralLawsuitTaskId } from '@/app/services/calendarAuthenticity';
@@ -55,28 +55,25 @@ export function syncOneLawsuitFile(
             if (!ev.isDeleted && normalizeDateToYmd(readStr(ev, 'date'))) stats.lawsuitAppointments++;
         }
 
-        if (!whitelistOnly) {
-            // مُهل/تواريخ قانونية مخزّنة صراحةً (لا حساب آلي من المحرك)
-            for (const spec of collectStageLegalCalendarSpecs(stage, si)) {
-                syncLawsuitTimelineAppointment({
-                    userId,
-                    fileId,
-                    event: {
-                        id: spec.id,
-                        date: spec.date || undefined,
-                        title: spec.title,
-                        details: spec.details,
-                        isDeleted: !spec.date,
-                    },
-                    caseNo,
-                    court,
-                    parties,
-                    clientName,
-                });
-                if (spec.date) {
-                    stats.lawsuitDeadlines++;
-                    stats.lawsuitAppointments++;
-                }
+        for (const spec of collectStageLegalCalendarSpecs(stage, si)) {
+            syncLawsuitTimelineAppointment({
+                userId,
+                fileId,
+                event: {
+                    id: spec.id,
+                    date: spec.date || undefined,
+                    title: spec.title,
+                    details: spec.details,
+                    isDeleted: !spec.date,
+                },
+                caseNo,
+                court,
+                parties,
+                clientName,
+            });
+            if (spec.date) {
+                stats.lawsuitDeadlines++;
+                stats.lawsuitAppointments++;
             }
         }
 

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
     buildThirdPartyRoleLabel,
-    canThirdPartyBeClient,
     getDefaultThirdPartyStatus,
     hasLawyerClientMark,
     resolveLawyerClientSide,
@@ -22,15 +21,6 @@ describe('clientRepresentation', () => {
     it('resolves lawyer side from party flags', () => {
         expect(resolveLawyerClientSide([p(1, true)], [p(2, false)])).toBe(1);
         expect(resolveRepresentedPartyLabel([p(1, true)], [p(2, false)])).toBe('المدعي');
-    });
-
-    it('allows client mark on any third party type', () => {
-        expect(
-            canThirdPartyBeClient({ entryMode: 'interpleader', affiliatedSide: 1 }, 1),
-        ).toBe(true);
-        expect(
-            canThirdPartyBeClient({ entryMode: 'affiliative', affiliatedSide: 2 }, 1),
-        ).toBe(true);
     });
 
     it('detects when no lawyer client is marked', () => {

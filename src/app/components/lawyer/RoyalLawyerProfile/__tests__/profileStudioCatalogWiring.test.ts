@@ -1,6 +1,8 @@
 /**
  * تغطية أزرار الاستوديو — كل خيار في الكتالوج له data-testid ثابت للـ E2E.
  */
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
     PROFILE_ACCENT_COLORS,
@@ -12,6 +14,7 @@ import {
     PROFILE_IMAGE_RIM_STYLES,
     PROFILE_MATERIALS,
     PROFILE_MEDIA_TEMPLATES,
+    PROFILE_PORTRAIT_FRAMES,
 } from '@/app/services/profile/profilePageCatalog';
 
 describe('profileStudioCatalogWiring', () => {
@@ -20,10 +23,31 @@ describe('profileStudioCatalogWiring', () => {
             expect(`profile-accent-${c.id}`).toMatch(/^profile-accent-/);
         }
         expect(PROFILE_ACCENT_COLORS).toHaveLength(6);
+        const appearance = fs.readFileSync(
+            path.join(
+                process.cwd(),
+                'src/app/components/lawyer/RoyalLawyerProfile/components/settings/ProfileSettingsAppearanceTab.tsx',
+            ),
+            'utf8',
+        );
+        expect(appearance).toContain('data-testid={`profile-accent-${c.id}`}');
+        expect(appearance).toContain("draft.appearance.accentColor === c.id ? 'true' : 'false'");
     });
 
     it('appearance materials map to profile-material-* test ids', () => {
         expect(PROFILE_MATERIALS.map((m) => `profile-material-${m.id}`)).toHaveLength(6);
+    });
+
+    it('appearance portrait frames map to profile-portrait-frame-* test ids', () => {
+        expect(PROFILE_PORTRAIT_FRAMES.map((f) => `profile-portrait-frame-${f.id}`)).toHaveLength(5);
+        const appearance = fs.readFileSync(
+            path.join(
+                process.cwd(),
+                'src/app/components/lawyer/RoyalLawyerProfile/components/settings/ProfileSettingsAppearanceTab.tsx',
+            ),
+            'utf8',
+        );
+        expect(appearance).toContain('data-testid={`profile-portrait-frame-${frame.id}`}');
     });
 
     it('text canvas catalog maps to text-canvas-* test ids', () => {

@@ -1,8 +1,190 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
-import { recoverLawyerDashboardBootError, stripBootFailureLayer } from './bootFixtures';
+import {
+    applyE2eBootHomeLayoutAtRuntime,
+    bootToLawyerHome,
+    recoverLawyerDashboardBootError,
+} from './bootFixtures';
 import { dismissProductivityBlockers, prepareProductivityE2E } from './productivityE2EFixtures';
 import { writeE2eSecureStoreKey } from './secureStoreE2EFixtures';
+import { lawyerDashboardReady } from './lawyerDashboardLocators';
+
+export { lawyerDashboardReady } from './lawyerDashboardLocators';
+
+/** Host المفتوح فقط — يتجاهل InstantChrome (بدون data-open) وkeep-alive المخفي. */
+function lawsuitsWorkspaceOpen(page: Page) {
+    return page.locator('[data-testid="lawsuits-workspace"][data-open="true"]:visible');
+}
+
+async function expectArchiveSurfaceReady(host: Locator, timeoutMs = 20_000) {
+    await expect(host.getByTestId('lawsuits-add-new')).toBeVisible({ timeout: timeoutMs });
+    await expect(
+        host.getByTestId('lawsuit-archive-grid').or(host.getByTestId('lawsuit-archive-empty')),
+    ).toBeVisible({ timeout: timeoutMs });
+}
+
+/** Playwright locator.fill يعلق على Vite عند إعادة تركيب React — نكتب القيمة في DOM. */
+async function nativeSetInputValue(page: Page, selector: string, index: number, value: string) {
+    await page.evaluate(
+        ({ sel, idx, val }) => {
+            const nodes = Array.from(document.querySelectorAll(sel)).filter((el) => {
+                if (!(el instanceof HTMLInputElement) && !(el instanceof HTMLTextAreaElement)) {
+                    return false;
+                }
+                const style = getComputedStyle(el);
+                return style.visibility !== 'hidden' && style.display !== 'none' && !el.disabled;
+            }) as Array<HTMLInputElement | HTMLTextAreaElement>;
+            const el = nodes[idx];
+            if (!el) throw new Error(`${sel}[${idx}] not in view (visible=${nodes.length})`);
+            el.focus();
+            const proto =
+                el instanceof HTMLTextAreaElement
+                    ? HTMLTextAreaElement.prototype
+                    : HTMLInputElement.prototype;
+            Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(el, val);
+            el.dispatchEvent(new InputEvent('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        },
+        { sel: selector, idx: index, val: value },
+    );
+}
+
+async function nativeFillByPlaceholder(page: Page, placeholder: string, value: string, index = 0) {
+    await expect(page.getByPlaceholder(placeholder).nth(index)).toBeVisible({ timeout: 15_000 });
+    await page.evaluate(
+        ({ ph, val, idx }) => {
+            const nodes = Array.from(document.querySelectorAll('input, textarea')).filter((el) => {
+                if (!(el instanceof HTMLInputElement) && !(el instanceof HTMLTextAreaElement)) {
+                    return false;
+                }
+                if (el.placeholder !== ph || el.disabled) return false;
+                const style = getComputedStyle(el);
+                return style.visibility !== 'hidden' && style.display !== 'none';
+            }) as Array<HTMLInputElement | HTMLTextAreaElement>;
+            const el = nodes[idx];
+            if (!el) throw new Error(`placeholder=${ph}[${idx}] missing (visible=${nodes.length})`);
+            el.focus();
+            const proto =
+                el instanceof HTMLTextAreaElement
+                    ? HTMLTextAreaElement.prototype
+                    : HTMLInputElement.prototype;
+            Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(el, val);
+            el.dispatchEvent(new InputEvent('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+        },
+        { ph: placeholder, val: value, idx: index },
+    );
+}
+
+async function nativeFillByTestId(page: Page, testId: string, value: string) {
+    await expect(page.getByTestId(testId)).toBeVisible({ timeout: 15_000 });
+    await nativeSetInputValue(page, `[data-testid="${testId}"]`, 0, value);
+}
+
+async function nativeFillThirdPartyName(page: Page, name: string) {
+    await expect(page.getByRole('heading', { name: 'إضافة شخص ثالث' })).toBeVisible({ timeout: 10_000 });
+    await page.evaluate((val) => {
+        const heading = Array.from(document.querySelectorAll('h1, h2, h3, [role="heading"]')).find((el) =>
+            (el.textContent ?? '').includes('إضافة شخص ثالث'),
+        );
+        const root =
+            heading?.closest('.max-w-xl') ??
+            heading?.closest('[role="dialog"]') ??
+            heading?.parentElement;
+        const el = root?.querySelector('input[placeholder="الاسم الكامل"]');
+        if (!(el instanceof HTMLInputElement) || el.disabled) {
+            throw new Error('third-party name input missing');
+        }
+        el.focus();
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(el, val);
+        el.dispatchEvent(new InputEvent('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, name);
+}
+
+async function fillPartyFullNames(page: Page, plaintiff: string, defendant: string) {
+    const boxes = page.getByRole('textbox', { name: 'الاسم الكامل' });
+    await expect(boxes.nth(0)).toBeVisible({ timeout: 15_000 });
+    await expect(boxes.nth(1)).toBeVisible({ timeout: 15_000 });
+
+    const placeholderSel = 'input[placeholder="الاسم الكامل"]';
+    const ariaSel = 'input[aria-label="الاسم الكامل"]';
+    const placeholderCount = await page.locator(placeholderSel).count();
+    const selector = placeholderCount >= 2 ? placeholderSel : ariaSel;
+
+    await nativeSetInputValue(page, selector, 0, plaintiff);
+    await nativeSetInputValue(page, selector, 1, defendant);
+}
+
+export async function fillLabeledInput(page: Page, labelText: string, value: string) {
+    await expect(
+        page
+            .getByLabel(labelText)
+            .or(
+                page
+                    .locator('label')
+                    .filter({ hasText: labelText })
+                    .locator('xpath=following-sibling::input[1]'),
+            )
+            .first(),
+    ).toBeVisible({ timeout: 15_000 });
+    await page.evaluate(
+        ({ label, val }) => {
+            const setNative = (el: HTMLInputElement) => {
+                el.focus();
+                Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(el, val);
+                el.dispatchEvent(new InputEvent('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            };
+            const labels = Array.from(document.querySelectorAll('label')).filter((l) =>
+                (l.textContent ?? '').includes(label),
+            );
+            for (const lab of labels) {
+                const style = getComputedStyle(lab);
+                if (style.visibility === 'hidden' || style.display === 'none') continue;
+                const nested = lab.querySelector('input');
+                const sibling = lab.nextElementSibling;
+                const byFor = lab.htmlFor ? document.getElementById(lab.htmlFor) : null;
+                const el = [nested, sibling, byFor].find(
+                    (n) => n instanceof HTMLInputElement && !n.disabled,
+                ) as HTMLInputElement | undefined;
+                if (el) {
+                    setNative(el);
+                    return;
+                }
+            }
+            const aria = document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`);
+            if (aria && !aria.disabled) {
+                setNative(aria);
+                return;
+            }
+            throw new Error(`labeled input missing: ${label}`);
+        },
+        { label: labelText, val: value },
+    );
+}
+
+export function visibleTestId(page: Page, testId: string) {
+    return page.locator(`[data-testid="${testId}"]:visible`);
+}
+
+export async function clickVisibleTestId(page: Page, testId: string) {
+    const loc = visibleTestId(page, testId);
+    await expect(loc).toBeVisible({ timeout: 15_000 });
+    await page.evaluate((id) => {
+        const host =
+            document.querySelector(
+                `[data-testid="lawsuits-workspace"][data-open="true"] [data-testid="${id}"]`,
+            ) ??
+            Array.from(document.querySelectorAll(`[data-testid="${id}"]`)).find((el) => {
+                const style = getComputedStyle(el);
+                return style.visibility !== 'hidden' && style.display !== 'none';
+            });
+        if (!(host instanceof HTMLElement)) throw new Error(`${id} not in view`);
+        host.scrollIntoView({ block: 'center', inline: 'nearest' });
+        host.click();
+    }, testId);
+}
 
 async function waitForLawyerNewCaseChunks(page: Page, timeoutMs = 45_000) {
     await page
@@ -15,56 +197,70 @@ async function waitForLawyerNewCaseChunks(page: Page, timeoutMs = 45_000) {
         .catch(() => undefined);
 }
 
-async function waitForCivilArchiveShell(page: Page) {
-    const workspace = page.getByTestId('lawsuits-workspace');
-    await workspace.getByTestId('lawsuits-civil-archive-instant-shell').waitFor({
-        state: 'visible',
-        timeout: 25_000,
-    });
-    await workspace.getByTestId('archive-jurisdiction-filters-toggle').waitFor({
-        state: 'visible',
-        timeout: 20_000,
-    });
-}
-
 async function openAndSelectNewCaseJurisdiction(
     page: Page,
     jurisdiction: 'civil' | 'personal' | 'criminal',
 ) {
-    const workspace = page.getByTestId('lawsuits-workspace');
-    const addFab = workspace.getByTestId('lawsuits-add-new');
-    const picker = workspace.getByTestId('lawsuits-jurisdiction-picker');
-    await addFab.waitFor({ state: 'visible', timeout: 20_000 });
-    await addFab.scrollIntoViewIfNeeded();
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-        await addFab.evaluate((el) => (el as HTMLButtonElement).click());
-        if (await picker.isVisible({ timeout: 4_000 }).catch(() => false)) break;
-        await page.waitForTimeout(350);
-    }
-    await expect(picker).toBeVisible({ timeout: 25_000 });
-    const btn = picker.getByTestId(`new-case-jurisdiction-${jurisdiction}`);
-    await expect(btn).toBeVisible({ timeout: 20_000 });
-    await waitForLawyerNewCaseChunks(page, 30_000);
-    await page.evaluate((jurisdiction) => {
-        const picker = document.querySelector('[data-testid="lawsuits-jurisdiction-picker"]');
-        const target = picker?.querySelector(`[data-testid="new-case-jurisdiction-${jurisdiction}"]`);
-        if (target instanceof HTMLButtonElement) target.click();
-    }, jurisdiction);
-    const instantShell = page.getByTestId('lawyer-new-case-instant-shell');
-    if (await instantShell.isVisible({ timeout: 8_000 }).catch(() => false)) {
-        await expect(instantShell).toBeHidden({ timeout: 90_000 });
-    }
-    await expect(page.getByTestId('lawyer-new-case-save')).toBeVisible({ timeout: 30_000 });
+    await openNewCaseJurisdictionPanel(page);
+    await selectNewCaseJurisdiction(page, jurisdiction);
+}
+
+/** نقر حفظ النموذج عبر DOM — Playwright locator.evaluate يعلق إذا تغيّرت الشجرة أثناء الفتح. */
+export async function clickLawyerNewCaseSave(page: Page) {
+    await expect(page.getByTestId('lawyer-new-case-save')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('lawyer-new-case-save')).toBeEnabled({ timeout: 8_000 });
+    await page.evaluate(() => {
+        const el = document.querySelector('[data-testid="lawyer-new-case-save"]');
+        if (!(el instanceof HTMLButtonElement) || el.disabled) {
+            throw new Error('lawyer-new-case-save missing or disabled');
+        }
+        el.click();
+    });
+}
+
+/** تعليم الطرف الأول كموكل — زر الأحوال «تعيين كموكل» والمدني «موكل» يشتركان في نفس testid. */
+export async function markFirstPartyAsClient(page: Page) {
+    const btn = page.getByTestId('lawyer-new-case-mark-client').first();
+    await expect(btn).toBeVisible({ timeout: 10_000 });
+    if ((await btn.getAttribute('aria-pressed')) === 'true') return;
+    await page.evaluate(() => {
+        const buttons = Array.from(
+            document.querySelectorAll('[data-testid="lawyer-new-case-mark-client"]'),
+        ) as HTMLButtonElement[];
+        const target =
+            buttons.find((el) => {
+                const r = el.getBoundingClientRect();
+                return r.width > 0 && r.height > 0;
+            }) ?? buttons[0];
+        if (!target) throw new Error('lawyer-new-case-mark-client missing');
+        target.click();
+    });
+    await expect(btn).toHaveAttribute('aria-pressed', 'true', { timeout: 8_000 });
 }
 
 async function openNewCaseJurisdictionPanel(page: Page) {
-    const workspace = page.getByTestId('lawsuits-workspace');
-    const addFab = workspace.getByTestId('lawsuits-add-new');
-    const picker = workspace.getByTestId('lawsuits-jurisdiction-picker');
-    await addFab.waitFor({ state: 'visible', timeout: 20_000 });
-    await addFab.scrollIntoViewIfNeeded();
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-        await addFab.evaluate((el) => (el as HTMLButtonElement).click());
+    const addFab = visibleTestId(page, 'lawsuits-add-new');
+    if (!(await addFab.isVisible({ timeout: 8_000 }).catch(() => false))) {
+        await openLawsuitsWorkspace(page);
+        await ensureLawsuitsAddFab(page);
+    }
+    await expect(addFab).toBeVisible({ timeout: 20_000 });
+    const picker = visibleTestId(page, 'lawsuits-jurisdiction-picker');
+    await addFab.scrollIntoViewIfNeeded().catch(() => undefined);
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+        await page.evaluate(() => {
+            const buttons = Array.from(
+                document.querySelectorAll('[data-testid="lawsuits-add-new"]'),
+            ) as HTMLButtonElement[];
+            const btn = buttons.find((el) => {
+                const ws = el.closest('[data-testid="lawsuits-workspace"]');
+                if (ws?.getAttribute('data-open') === 'false') return false;
+                const r = el.getBoundingClientRect();
+                return r.width > 0 && r.height > 0;
+            });
+            if (!btn) throw new Error('lawsuits-add-new not clickable');
+            btn.click();
+        });
         if (await picker.isVisible({ timeout: 4_000 }).catch(() => false)) break;
         await page.waitForTimeout(350);
     }
@@ -73,8 +269,7 @@ async function openNewCaseJurisdictionPanel(page: Page) {
 }
 
 async function selectNewCaseJurisdiction(page: Page, jurisdiction: 'civil' | 'personal' | 'criminal') {
-    const workspace = page.getByTestId('lawsuits-workspace');
-    const picker = workspace.getByTestId('lawsuits-jurisdiction-picker');
+    const picker = visibleTestId(page, 'lawsuits-jurisdiction-picker');
     const btn = picker.getByTestId(`new-case-jurisdiction-${jurisdiction}`);
     if (!(await picker.isVisible({ timeout: 2_000 }).catch(() => false))) {
         await openNewCaseJurisdictionPanel(page);
@@ -82,30 +277,64 @@ async function selectNewCaseJurisdiction(page: Page, jurisdiction: 'civil' | 'pe
     await expect(btn).toBeVisible({ timeout: 20_000 });
     await waitForLawyerNewCaseChunks(page, 30_000);
     await page.evaluate((jurisdiction) => {
-        const picker = document.querySelector('[data-testid="lawsuits-jurisdiction-picker"]');
-        const target = picker?.querySelector(`[data-testid="new-case-jurisdiction-${jurisdiction}"]`);
+        const pickers = Array.from(
+            document.querySelectorAll('[data-testid="lawsuits-jurisdiction-picker"]'),
+        ) as HTMLElement[];
+        const picker =
+            pickers.find((el) => el.offsetParent !== null || el.getClientRects().length > 0) ??
+            pickers[0];
+        const target = picker?.querySelector(
+            `[data-testid="new-case-jurisdiction-${jurisdiction}"]`,
+        );
         if (target instanceof HTMLButtonElement) target.click();
     }, jurisdiction);
     const instantShell = page.getByTestId('lawyer-new-case-instant-shell');
     if (await instantShell.isVisible({ timeout: 8_000 }).catch(() => false)) {
-        await expect(instantShell).toBeHidden({ timeout: 90_000 });
+        await expect(instantShell).toBeHidden({ timeout: 45_000 });
     }
-    await expect(page.getByTestId('lawyer-new-case-save')).toBeVisible({ timeout: 30_000 });
+    const save = page.getByTestId('lawyer-new-case-save');
+    if (await save.isVisible({ timeout: 12_000 }).catch(() => false)) return;
+    await openNewCaseJurisdictionPanel(page);
+    await page.evaluate((jurisdiction) => {
+        const pickers = Array.from(
+            document.querySelectorAll('[data-testid="lawsuits-jurisdiction-picker"]'),
+        ) as HTMLElement[];
+        const pickerEl =
+            pickers.find((el) => el.offsetParent !== null || el.getClientRects().length > 0) ??
+            pickers[0];
+        const target = pickerEl?.querySelector(
+            `[data-testid="new-case-jurisdiction-${jurisdiction}"]`,
+        );
+        if (target instanceof HTMLButtonElement) target.click();
+    }, jurisdiction);
+    if (await instantShell.isVisible({ timeout: 8_000 }).catch(() => false)) {
+        await expect(instantShell).toBeHidden({ timeout: 45_000 });
+    }
+    await expect(save).toBeVisible({ timeout: 30_000 });
 }
 
 function civilCourtField(page: Page) {
-    return page.getByLabel('اسم المحكمة المختصة');
+    return page
+        .getByLabel('اسم المحكمة المختصة')
+        .or(
+            page
+                .locator('label')
+                .filter({ hasText: 'اسم المحكمة المختصة' })
+                .locator('xpath=following-sibling::input[1]'),
+        );
 }
 
-function civilTypeField(page: Page) {
-    return page.getByLabel('نوع الدعوى');
+async function ensureCivilNewCaseFormReady(page: Page): Promise<void> {
+    await expect(page.getByTestId('lawyer-new-case-save')).toBeVisible({ timeout: 30_000 });
+    const court = civilCourtField(page);
+    await expect(court).toBeVisible({ timeout: 20_000 });
 }
 
 export const E2E_CIVIL_FILE_ID = 990_001;
 export const E2E_CIVIL_FILE_ID_2 = 990_002;
 export const E2E_UNDETERMINED_FILE_ID = 990_004;
 export const LAWYER_FILES_KEY = 'lawyer_files';
-const SUPABASE_AUTH_KEY = 'sb-wldjvjnodvyodmgbgzab-auth-token';
+export const SUPABASE_AUTH_KEY = 'sb-wldjvjnodvyodmgbgzab-auth-token';
 const LAST_SCREEN_KEY = 'hami:last-screen';
 
 /** ملف دعوى مدنية كامل الشكل — متوافق مع isFileData و SmartFileModal */
@@ -212,15 +441,29 @@ export async function seedUndeterminedCivilFile(page: Page) {
 }
 
 export async function openLawsuitDossierById(page: Page, fileId: number) {
-    await page.getByTestId('hub-archive-lawsuit').click();
-    await expect(page.getByTestId('lawsuits-workspace')).toBeVisible({ timeout: 15_000 });
-    const fileCard = page.getByTestId(`lawsuit-file-${fileId}`);
-    if (await fileCard.isVisible({ timeout: 8_000 }).catch(() => false)) {
-        await fileCard.click();
-    } else {
-        await page.getByRole('button', { name: 'فتح الإضبارة' }).first().click({ timeout: 10_000 });
-    }
-    await expect(page.getByTestId('smart-file-dossier')).toBeVisible({ timeout: 20_000 });
+    await openLawsuitsWorkspace(page);
+    const workspace = lawsuitsWorkspaceOpen(page);
+    const fileCard = workspace.getByTestId(`lawsuit-file-${fileId}`);
+    await expect(fileCard).toBeVisible({ timeout: 45_000 });
+    await expect(async () => {
+        const card = workspace.getByTestId(`lawsuit-file-${fileId}`).first();
+        await expect(card).toBeVisible({ timeout: 5_000 });
+        const title = card.locator('h3');
+        if (await title.count()) {
+            await title.evaluate((el) => {
+                const host = el as HTMLElement;
+                host.scrollIntoView({ block: 'center', inline: 'nearest' });
+                host.click();
+            });
+        } else {
+            await card.evaluate((el) => {
+                const host = el as HTMLElement;
+                host.scrollIntoView({ block: 'center', inline: 'nearest' });
+                host.click();
+            });
+        }
+        await expect(page.getByTestId('smart-file-dossier')).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 60_000 });
 }
 
 /** إضافة شخص ثالث انضمامي */
@@ -234,13 +477,12 @@ export async function addAffiliativeThirdParty(page: Page, name: string, side: 1
     await modal.getByTestId('lawyer-new-case-third-party-mode-affiliative').click({ force: true });
     const sideLabel = side === 1 ? 'الطرف الأول (المدعي)' : 'الطرف الثاني (المدعى عليه)';
     await modal.getByRole('button', { name: sideLabel }).click({ force: true });
-    await modal.getByPlaceholder('الاسم الكامل').fill(name, { force: true });
+    await nativeFillThirdPartyName(page, name);
     await modal.getByTestId('lawyer-new-case-third-party-confirm').click({ force: true });
     await expect(page.getByText(name)).toBeVisible({ timeout: 8_000 });
 }
 
-/** حجز للقرار → ختام المرافعة → حكم → بوابة الطعn */
-/** ختام المرافعة → حكم → بوابة الطعn */
+/** ختام المرافعة → حكم → بوابة الطعن */
 export async function openAppealGatewayAfterJudgment(
     page: Page,
     judgmentLabel = 'رد الدعوى كلياً',
@@ -251,8 +493,12 @@ export async function openAppealGatewayAfterJudgment(
     await expect(page.getByRole('heading', { name: /ختم المرافعة/ })).toBeVisible({ timeout: 15_000 });
     await page.getByText('اختر النتيجة...').click();
     await page.getByRole('option', { name: judgmentLabel }).click();
-    await page.getByRole('button', { name: /حفظ والانتقال لمرحلة/ }).click();
-    await expect(page.getByRole('heading', { name: /بوابة/ })).toBeVisible({ timeout: 15_000 });
+    const gatewayHeading = page.getByRole('heading', { name: /بوابة الطعن|بوابة/ });
+    await expect(async () => {
+        if (await gatewayHeading.isVisible().catch(() => false)) return;
+        await page.getByRole('button', { name: /حفظ والانتقال لمرحلة/ }).click({ timeout: 8_000 });
+        await expect(gatewayHeading).toBeVisible({ timeout: 12_000 });
+    }).toPass({ timeout: 40_000 });
 }
 
 export function buildE2eSecondCivilLawsuitFile() {
@@ -289,14 +535,52 @@ export function buildE2eCivilLawsuitPair() {
     return [buildE2eCivilLawsuitFile(), buildE2eSecondCivilLawsuitFile()];
 }
 
-/** يضمن قراءة lawyer_files من localStorage قبل auto-save يفرغها */
-async function hydrateLawyerFilesFromStorage(page: Page, files?: unknown[]): Promise<void> {
-    const seedFiles = files ?? [buildE2eCivilLawsuitFile()];
-    await page.evaluate((seed) => {
-        localStorage.setItem('lawyer_files', JSON.stringify(seed));
-        sessionStorage.setItem('hami:last-screen', 'lawyer');
-    }, seedFiles);
+/** يغلق إضبارة/مساحة دعاوى/نموذج جديد قبل إقلاع اختبار تالٍ */
+export async function resetCivilLawsuitsScreenForE2E(page: Page): Promise<void> {
+    if (page.isClosed()) return;
+    await dismissProductivityBlockers(page);
+
+    const dossierExit = page.getByTestId('smart-file-exit');
+    const dossierBack = page.getByTestId('smart-file-back');
+    const workspaceExit = page.getByTestId('lawsuits-workspace-exit');
+    const newCaseSave = page.getByTestId('lawyer-new-case-save');
+
+    if (await dossierExit.isVisible({ timeout: 800 }).catch(() => false)) {
+        await dossierExit.click({ noWaitAfter: true });
+    } else if (await dossierBack.isVisible({ timeout: 800 }).catch(() => false)) {
+        await dossierBack.click({ noWaitAfter: true });
+    }
+
+    if (await newCaseSave.isVisible({ timeout: 800 }).catch(() => false)) {
+        await page.keyboard.press('Escape').catch(() => undefined);
+    }
+
+    if (await page.getByTestId('lawsuits-workspace').isVisible({ timeout: 800 }).catch(() => false)) {
+        if (await workspaceExit.isVisible({ timeout: 2_000 }).catch(() => false)) {
+            await workspaceExit.click({ noWaitAfter: true });
+        }
+    }
+
+    await dismissProductivityBlockers(page);
+}
+
+/** إقلاع مستقر للوحة + hub الدعاوى — SecureStore + reload عند الحاجة */
+export async function bootCivilLawsuitsScreenE2E(
+    page: Page,
+    multi = false,
+    customFiles?: unknown[],
+): Promise<void> {
+    const files = customFiles ?? (multi ? buildE2eCivilLawsuitPair() : [buildE2eCivilLawsuitFile()]);
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await hydrateLawyerFilesForE2E(page, files);
+    // SecureStore لا يُقرأ بعد الإقلاع إلا بإعادة تحميل — بدونها الشبكة تبقى فارغة.
+    // لا ننتظر اللوحة قبل الـ reload: إقلاع كامل مرتين يقتل vite preview على ويندوز.
     await page.reload({ waitUntil: 'domcontentloaded' });
+    await applyE2eBootHomeLayoutAtRuntime(page);
+    await bootToLawyerHome(page);
+    await dismissProductivityBlockers(page);
+    await resetCivilLawsuitsScreenForE2E(page);
+    await expect(page.getByTestId('hub-archive-lawsuit')).toBeVisible({ timeout: 30_000 });
 }
 
 export async function seedLawyerFiles(page: Page, multi = false) {
@@ -354,56 +638,41 @@ export async function prepareCivilLawsuitsE2E(page: Page, multi = false): Promis
     await seedLawyerFiles(page, multi);
 }
 
-/** إقلاع مستقر لمسار الدعاوى — hydrate + reload مثل الجنائي */
+/** إقلاع مستقر لمسار إنشاء دعوى — SecureStore + reload واحد */
 export async function bootCivilLawsuitsE2E(page: Page, multi = false): Promise<void> {
     const files = multi ? buildE2eCivilLawsuitPair() : [buildE2eCivilLawsuitFile()];
     await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await ensureLawyerDashboard(page, multi, files);
     await hydrateLawyerFilesForE2E(page, files);
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await ensureLawyerDashboard(page, multi, files);
+    await applyE2eBootHomeLayoutAtRuntime(page);
+    await bootToLawyerHome(page);
+    await dismissProductivityBlockers(page);
+    await resetCivilLawsuitsScreenForE2E(page);
+    await expect(page.getByTestId('hub-archive-lawsuit')).toBeVisible({ timeout: 30_000 });
+}
+
+/** يضمن lawyer_files في الذاكرة — reload اختياري فقط عند فشل الإقلاع */
+async function hydrateLawyerFilesFromStorage(
+    page: Page,
+    files?: unknown[],
+    options?: { reloadOnFailure?: boolean },
+): Promise<void> {
+    const seedFiles = files ?? [buildE2eCivilLawsuitFile()];
+    await page.evaluate((seed) => {
+        localStorage.setItem('lawyer_files', JSON.stringify(seed));
+        sessionStorage.setItem('hami:last-screen', 'lawyer');
+    }, seedFiles);
+    const dashboardUp = await lawyerDashboardReady(page)
+        .isVisible({ timeout: 6_000 })
+        .catch(() => false);
+    if (!dashboardUp && options?.reloadOnFailure !== false) {
+        await page.reload({ waitUntil: 'domcontentloaded' });
+    }
 }
 
 /** @deprecated use hydrate via ensureLawyerDashboard */
 export async function reinforceLawyerFilesSeed(page: Page): Promise<void> {
     await hydrateLawyerFilesFromStorage(page);
-}
-
-/** يصل إلى لوحة المحامي الرئيسية بعد الإقلاع — مسار الدعاوى يحتاج hub فقط بلا انتظار الدوك */
-async function assertDashboardChromeReady(page: Page): Promise<void> {
-    await stripBootFailureLayer(page);
-    await dismissProductivityBlockers(page);
-    await recoverLawyerDashboardBootError(page);
-
-    const dashboardUp = await page
-        .getByTestId('lawyer-dashboard-ready')
-        .isVisible({ timeout: 20_000 })
-        .catch(() => false);
-    if (!dashboardUp) {
-        await hydrateLawyerFilesFromStorage(page);
-        await page.reload({ waitUntil: 'domcontentloaded' });
-        await stripBootFailureLayer(page);
-        await dismissProductivityBlockers(page);
-        await recoverLawyerDashboardBootError(page);
-    }
-
-    await expect(page.getByTestId('lawyer-dashboard-ready')).toBeVisible({ timeout: 45_000 });
-    await stripBootFailureLayer(page);
-    await dismissProductivityBlockers(page);
-
-    const homeTab = page.getByTestId('lawyer-home-tab');
-    if (await homeTab.isVisible({ timeout: 8_000 }).catch(() => false)) {
-        const hub = page.getByTestId('hub-archive-lawsuit');
-        if (!(await hub.isVisible({ timeout: 4_000 }).catch(() => false))) {
-            await homeTab.evaluate((el) => (el as HTMLButtonElement).click());
-        }
-    }
-
-    await expect(async () => {
-        const hub = page.getByTestId('hub-archive-lawsuit');
-        await hub.scrollIntoViewIfNeeded();
-        await expect(hub).toBeVisible({ timeout: 8_000 });
-    }).toPass({ timeout: 45_000 });
 }
 
 export async function ensureLawyerDashboard(
@@ -414,26 +683,29 @@ export async function ensureLawyerDashboard(
 ) {
     const requireHub = options?.requireHub !== false;
     const seedFiles = customFiles ?? (multi ? buildE2eCivilLawsuitPair() : undefined);
-    const hub = page.getByTestId('hub-archive-lawsuit');
-    const dashboardReady = page.getByTestId('lawyer-dashboard-ready');
 
-    const onReady = await dashboardReady.isVisible({ timeout: 8_000 }).catch(() => false);
-    if (!onReady) {
-        await hydrateLawyerFilesFromStorage(page, seedFiles);
-    } else if (seedFiles) {
+    await resetCivilLawsuitsScreenForE2E(page);
+
+    if (seedFiles) {
         await page.evaluate((seed) => {
             localStorage.setItem('lawyer_files', JSON.stringify(seed));
         }, seedFiles);
+    } else {
+        const onReady = await lawyerDashboardReady(page)
+            .isVisible({ timeout: 4_000 })
+            .catch(() => false);
+        if (!onReady) {
+            await hydrateLawyerFilesFromStorage(page, undefined, { reloadOnFailure: true });
+        }
     }
 
-    const dossierBack = page.getByTestId('smart-file-back');
-    if (await dossierBack.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await dossierBack.click({ noWaitAfter: true });
-    }
+    await applyE2eBootHomeLayoutAtRuntime(page);
+    await recoverLawyerDashboardBootError(page);
+    await bootToLawyerHome(page);
+    await dismissProductivityBlockers(page);
 
-    await assertDashboardChromeReady(page);
-    if (requireHub && !(await hub.isVisible().catch(() => false))) {
-        await expect(hub).toBeVisible({ timeout: 30_000 });
+    if (requireHub) {
+        await expect(page.getByTestId('hub-archive-lawsuit')).toBeVisible({ timeout: 30_000 });
     }
 }
 
@@ -442,32 +714,64 @@ export async function bypassDevLogin(page: Page) {
     await ensureLawyerDashboard(page);
 }
 
+export async function closeSmartFileDossierToHub(page: Page): Promise<void> {
+    const back = page.getByTestId('smart-file-back');
+    const exit = page.getByTestId('smart-file-exit');
+    if (await back.isVisible({ timeout: 4_000 }).catch(() => false)) {
+        await back.click({ timeout: 10_000 });
+    } else if (await exit.isVisible({ timeout: 4_000 }).catch(() => false)) {
+        await exit.click({ timeout: 10_000 });
+    } else {
+        await page.keyboard.press('Escape').catch(() => undefined);
+    }
+    await expect(page.getByTestId('smart-file-dossier')).toBeHidden({ timeout: 15_000 });
+}
+
 export async function openCivilDossier(page: Page) {
     await openLawsuitsWorkspace(page);
-    await page.getByTestId('lawsuits-tab-civil').click({ timeout: 5_000 }).catch(() => undefined);
-    const fileCard = page.getByTestId(`lawsuit-file-${E2E_CIVIL_FILE_ID}`);
-    if (await fileCard.isVisible({ timeout: 8_000 }).catch(() => false)) {
-        await fileCard.click();
-    } else {
-        await page.getByRole('button', { name: 'فتح الإضبارة' }).first().click({ timeout: 10_000 });
-    }
-    await expect(page.getByTestId('smart-file-dossier')).toBeVisible({ timeout: 20_000 });
+    const workspace = lawsuitsWorkspaceOpen(page);
+    await workspace.getByTestId('lawsuits-tab-civil').click({ timeout: 5_000 }).catch(() => undefined);
+    const seededCard = workspace.getByTestId(`lawsuit-file-${E2E_CIVIL_FILE_ID}`);
+    await expect(seededCard).toBeVisible({ timeout: 45_000 });
+    await expect(async () => {
+        const fileCard = workspace.getByTestId(`lawsuit-file-${E2E_CIVIL_FILE_ID}`).first();
+        await expect(fileCard).toBeVisible({ timeout: 5_000 });
+        const title = fileCard.locator('h3');
+        if (await title.count()) {
+            await title.evaluate((el) => {
+                const host = el as HTMLElement;
+                host.scrollIntoView({ block: 'center', inline: 'nearest' });
+                host.click();
+            });
+        } else {
+            await fileCard.evaluate((el) => {
+                const host = el as HTMLElement;
+                host.scrollIntoView({ block: 'center', inline: 'nearest' });
+                host.click();
+            });
+        }
+        await expect(page.getByTestId('smart-file-dossier')).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 60_000 });
 }
 
 export const E2E_TASK_TITLE = 'مهمة E2E إدارية';
 
 /** إضافة مهمة إدارية داخل الإضبارة المفتوحة */
 export async function addAdministrativeTask(page: Page, title: string = E2E_TASK_TITLE) {
+    await expect(page.getByTestId('smart-file-dossier')).toBeVisible({ timeout: 15_000 });
     const addBtn = page.getByTestId('smart-file-task-add');
-    await expect(addBtn).toBeVisible({ timeout: 15_000 });
-    await addBtn.scrollIntoViewIfNeeded();
-    await addBtn.click();
+    await expect(addBtn).toBeAttached({ timeout: 20_000 });
+    await addBtn.evaluate((el) => {
+        const host = el as HTMLButtonElement;
+        host.scrollIntoView({ block: 'center', inline: 'nearest' });
+        host.click();
+    });
 
     const modalHeading = page.getByRole('heading', { name: 'إضافة مهمة إدارية' });
     await expect(modalHeading).toBeVisible({ timeout: 15_000 });
 
-    await page.getByTestId('smart-file-task-title').fill(title);
-    await page.getByTestId('smart-file-task-submit').click();
+    await nativeFillByTestId(page, 'smart-file-task-title', title);
+    await page.getByTestId('smart-file-task-submit').evaluate((el) => (el as HTMLButtonElement).click());
     await expect(modalHeading).toBeHidden({ timeout: 10_000 });
     await expect(page.getByText(title)).toBeVisible({ timeout: 10_000 });
 }
@@ -475,19 +779,63 @@ export async function addAdministrativeTask(page: Page, title: string = E2E_TASK
 /** يفتح مساحة الدعاوى من بطاقة الرئيسية */
 export async function openLawsuitsWorkspace(page: Page) {
     await dismissProductivityBlockers(page);
-    const trigger = page.getByTestId('hub-archive-lawsuit');
-    await trigger.scrollIntoViewIfNeeded().catch(() => undefined);
-    await trigger.evaluate((el) => (el as HTMLButtonElement).click());
-    await expect(page.getByTestId('lawsuits-workspace')).toBeVisible({ timeout: 25_000 });
-    const workspace = page.getByTestId('lawsuits-workspace');
-    const civilTab = workspace.getByTestId('lawsuits-tab-civil');
-    if (await civilTab.isVisible({ timeout: 5_000 }).catch(() => false)) {
-        await civilTab.click({ timeout: 5_000 }).catch(() => undefined);
+    if (await page.getByTestId('smart-file-dossier').isVisible({ timeout: 1_500 }).catch(() => false)) {
+        await closeSmartFileDossierToHub(page).catch(() => undefined);
     }
-    await waitForCivilArchiveShell(page);
+    const trigger = page.getByTestId('hub-archive-lawsuit');
+    await expect(trigger).toBeVisible({ timeout: 20_000 });
     await expect(async () => {
-        await expect(workspace.getByTestId('lawsuits-add-new')).toBeVisible({ timeout: 5_000 });
-    }).toPass({ timeout: 45_000 });
+        await dismissProductivityBlockers(page);
+        if (await page.getByTestId('smart-file-dossier').isVisible({ timeout: 800 }).catch(() => false)) {
+            await closeSmartFileDossierToHub(page).catch(() => undefined);
+        }
+        const host = lawsuitsWorkspaceOpen(page);
+        if (await host.isVisible().catch(() => false)) {
+            const civilTab = host.getByTestId('lawsuits-tab-civil');
+            await expect(civilTab).toBeVisible({ timeout: 12_000 });
+            if ((await civilTab.getAttribute('aria-selected')) !== 'true') {
+                await civilTab.evaluate((el) => (el as HTMLButtonElement).click());
+            }
+            await expectArchiveSurfaceReady(host);
+            return;
+        }
+
+        const instantChrome = page.locator(
+            '[data-testid="lawsuits-workspace"][aria-busy="true"]:visible',
+        );
+        if (await instantChrome.isVisible().catch(() => false)) {
+            // InstantChrome يغطي البلاطة — لا نُعيد النقر فيُغلق التحميل
+            await expect(host).toBeVisible({ timeout: 20_000 });
+            const civilTab = host.getByTestId('lawsuits-tab-civil');
+            await expect(civilTab).toBeVisible({ timeout: 12_000 });
+            if ((await civilTab.getAttribute('aria-selected')) !== 'true') {
+                await civilTab.evaluate((el) => (el as HTMLButtonElement).click());
+            }
+            await expectArchiveSurfaceReady(host);
+            return;
+        }
+
+        await trigger.evaluate((el) => (el as HTMLButtonElement).click());
+        const appeared =
+            (await instantChrome.isVisible({ timeout: 8_000 }).catch(() => false)) ||
+            (await host.isVisible({ timeout: 8_000 }).catch(() => false));
+        expect(appeared).toBeTruthy();
+        await expect(host).toBeVisible({ timeout: 20_000 });
+        const civilTab = host.getByTestId('lawsuits-tab-civil');
+        await expect(civilTab).toBeVisible({ timeout: 12_000 });
+        if ((await civilTab.getAttribute('aria-selected')) !== 'true') {
+            await civilTab.evaluate((el) => (el as HTMLButtonElement).click());
+        }
+        await expectArchiveSurfaceReady(host);
+    }).toPass({ timeout: 75_000 });
+    const readyHost = lawsuitsWorkspaceOpen(page);
+    await expect(
+        readyHost.getByTestId('lawsuit-archive-grid').or(readyHost.getByTestId('lawsuit-archive-empty')),
+    ).toBeVisible({ timeout: 30_000 });
+}
+
+async function ensureLawsuitsAddFab(page: Page) {
+    await expect(visibleTestId(page, 'lawsuits-add-new')).toBeVisible({ timeout: 45_000 });
 }
 
 /** اختيار قيمة من CaseFieldSelect (زر + listbox) بدل select الأصلي */
@@ -498,7 +846,7 @@ export async function selectCaseFieldOption(
 ) {
     const trigger = page.getByRole('button', { name: ariaLabel }).first();
     await trigger.waitFor({ state: 'visible', timeout: 15_000 });
-    await trigger.scrollIntoViewIfNeeded();
+    await trigger.scrollIntoViewIfNeeded().catch(() => undefined);
     await trigger.click({ force: true });
     const option = page.getByRole('option', { name: optionLabel });
     await expect(option).toBeVisible({ timeout: 10_000 });
@@ -510,6 +858,7 @@ export async function selectCaseFieldOption(
 /** فتح نموذج إنشاء دعوى أحوال شخصية من مخزن الدعاوى */
 export async function openPersonalNewCaseForm(page: Page) {
     await openLawsuitsWorkspace(page);
+    await ensureLawsuitsAddFab(page);
     await openAndSelectNewCaseJurisdiction(page, 'personal');
     await expect(page.getByRole('heading', { name: 'إضبارة الأحوال الشخصية' })).toBeVisible({
         timeout: 20_000,
@@ -536,30 +885,35 @@ export async function fillMinimalPersonalNewCase(
     const lawLabel =
         opts.applicableLawLabel ?? 'قانون الأحوال الشخصية رقم 188 لسنة 1959';
 
-    await page.getByPlaceholder('15/ش/2026').fill(number, { force: true });
-    await page.getByPlaceholder('اسم المحكمة...').fill(court, { force: true });
-    await page.getByPlaceholder('طلاق، نفقة، حضانة...').fill(type, { force: true });
+    await fillLabeledInput(page, 'رقم الدعوى', number);
+    await fillLabeledInput(page, 'محكمة الأحوال الشخصية', court);
+    await fillLabeledInput(page, 'نوع الدعوى', type);
 
-    const stageBtn = page.getByRole('button', { name: 'أحوال شخصية', exact: true });
-    if (await stageBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
-        await stageBtn.click({ force: true });
+    const stagePill = page.getByRole('button', { name: 'أحوال شخصية', exact: true });
+    if (await stagePill.isVisible({ timeout: 3_000 }).catch(() => false)) {
+        await stagePill.click({ force: true });
     }
 
-    await page.getByRole('checkbox', { name: lawLabel }).click({ force: true });
+    const lawChip = page.getByRole('checkbox', { name: lawLabel });
+    await expect(lawChip).toBeVisible({ timeout: 10_000 });
+    if ((await lawChip.getAttribute('aria-checked')) !== 'true') {
+        await lawChip.click({ force: true });
+    }
 
-    await page.getByRole('button', { name: 'الأطراف' }).click({ force: true });
+    await page.getByRole('button', { name: /الأطراف/ }).click({ force: true });
+    await expect(page.getByRole('heading', { name: 'أطراف الدعوى' })).toBeVisible({ timeout: 10_000 });
 
-    const nameInputs = page.getByPlaceholder('الاسم الكامل');
-    await nameInputs.nth(0).scrollIntoViewIfNeeded();
-    await nameInputs.nth(0).fill(plaintiff, { force: true });
-    await nameInputs.nth(1).fill(defendant, { force: true });
-    await page.getByRole('button', { name: 'موكل' }).first().click({ force: true });
+    await fillPartyFullNames(page, plaintiff, defendant);
+    await markFirstPartyAsClient(page);
 }
 
 /** فتح نموذج إنشاء دعوى مدنية من مخزن الدعاوى */
 export async function openCivilNewCaseForm(page: Page) {
+    await resetCivilLawsuitsScreenForE2E(page);
     await openLawsuitsWorkspace(page);
+    await ensureLawsuitsAddFab(page);
     await openAndSelectNewCaseJurisdiction(page, 'civil');
+    await ensureCivilNewCaseFormReady(page);
 }
 
 /** تعبئة نموذج دعوى مدنية minimal وحفظها */
@@ -576,16 +930,14 @@ export async function fillMinimalCivilNewCase(page: Page, opts: {
     const plaintiff = opts.plaintiff ?? 'مدعي E2E';
     const defendant = opts.defendant ?? 'مدعى عليه E2E';
 
-    await civilCourtField(page).fill(court, { force: true });
-    await civilTypeField(page).fill(type, { force: true });
+    await ensureCivilNewCaseFormReady(page);
+    await fillLabeledInput(page, 'اسم المحكمة المختصة', court);
+    await fillLabeledInput(page, 'نوع الدعوى', type);
     await page.getByRole('checkbox', { name: 'دعوى غير مقدرة القيمة' }).click({ force: true });
     await selectCaseFieldOption(page, 'المرحلة الحالية', stage);
 
-    const nameInputs = page.getByPlaceholder('الاسم الكامل');
-    await nameInputs.nth(0).scrollIntoViewIfNeeded();
-    await nameInputs.nth(0).fill(plaintiff, { force: true });
-    await nameInputs.nth(1).fill(defendant, { force: true });
-    await page.getByRole('button', { name: 'موكل' }).first().click({ force: true });
+    await fillPartyFullNames(page, plaintiff, defendant);
+    await markFirstPartyAsClient(page);
 }
 
 /** تعبئة نموذج مدني مع تحكم كامل بالقيمة والموكل */
@@ -609,7 +961,8 @@ export async function fillCivilNewCaseForm(page: Page, opts: {
     const defendant = opts.defendant ?? 'مدعى عليه E2E';
     const markClient = opts.markClient ?? true;
 
-    await civilCourtField(page).fill(court, { force: true });
+    await ensureCivilNewCaseFormReady(page);
+    await fillLabeledInput(page, 'اسم المحكمة المختصة', court);
 
     if (opts.undetermined) {
         await page.getByRole('checkbox', { name: 'دعوى غير مقدرة القيمة' }).click({ force: true });
@@ -629,27 +982,18 @@ export async function fillCivilNewCaseForm(page: Page, opts: {
         );
     }
 
-    await civilTypeField(page).fill(type, { force: true });
+    await fillLabeledInput(page, 'نوع الدعوى', type);
 
     if (opts.claimValue) {
-        const valueInput = page.getByTestId('lawyer-new-case-claim-value');
-        await valueInput.scrollIntoViewIfNeeded();
-        await expect(valueInput).toBeEnabled({ timeout: 8_000 });
-        await valueInput.click({ force: true });
-        await valueInput.fill('');
-        await valueInput.pressSequentially(opts.claimValue, { delay: 15 });
+        await expect(page.getByTestId('lawyer-new-case-claim-value')).toBeEnabled({ timeout: 8_000 });
+        await nativeSetInputValue(page, '[data-testid="lawyer-new-case-claim-value"]', 0, opts.claimValue);
         await page.waitForTimeout(200);
     }
 
-    const nameInputs = page.getByPlaceholder('الاسم الكامل');
-    await nameInputs.nth(0).scrollIntoViewIfNeeded();
-    await nameInputs.nth(0).fill(plaintiff, { force: true });
-    await nameInputs.nth(1).fill(defendant, { force: true });
+    await fillPartyFullNames(page, plaintiff, defendant);
 
     if (markClient) {
-        const clientBtn = page.getByRole('button', { name: 'موكل' }).first();
-        await clientBtn.scrollIntoViewIfNeeded();
-        await clientBtn.click({ force: true });
+        await markFirstPartyAsClient(page);
     }
 }
 
@@ -668,7 +1012,7 @@ export async function addInterpleaderThirdParty(page: Page, name: string) {
     await expect(heading).toBeVisible({ timeout: 10_000 });
     const modal = page.locator('.max-w-xl').filter({ has: heading });
     await modal.getByTestId('lawyer-new-case-third-party-mode-interpleader').click({ force: true });
-    await modal.getByPlaceholder('الاسم الكامل').fill(name, { force: true });
+    await nativeFillThirdPartyName(page, name);
     await modal.getByTestId('lawyer-new-case-third-party-confirm').click({ force: true });
     await expect(page.getByText(name)).toBeVisible({ timeout: 8_000 });
 }
@@ -789,6 +1133,29 @@ export async function flushLawyerFilesPersist(page: Page): Promise<void> {
     if (page.isClosed()) return;
     try {
         await page.evaluate(async (storageKey) => {
+            const bridge = (window as Window & {
+                __hamiE2eSecureStore?: {
+                    flushHeavyPersistPending: () => void;
+                    ensurePersistedReady: () => Promise<void>;
+                    getItemSync: (key: string) => string | null;
+                };
+            }).__hamiE2eSecureStore;
+
+            if (bridge) {
+                bridge.flushHeavyPersistPending();
+                await bridge.ensurePersistedReady();
+                await new Promise((resolve) => setTimeout(resolve, 300));
+                const raw = bridge.getItemSync(storageKey);
+                if (typeof raw === 'string' && raw.trim()) {
+                    try {
+                        localStorage.setItem(storageKey, raw);
+                    } catch {
+                        /* ignore */
+                    }
+                }
+                return;
+            }
+
             try {
                 const mod = await import('/src/app/services/SecureStoreService.ts');
                 const Svc = mod.default ?? mod.SecureStoreService;
@@ -852,7 +1219,11 @@ export async function waitForPartyInFiles(page: Page, name: string, timeoutMs = 
 }
 
 export async function readLawyerFilesFromPage(page: Page): Promise<unknown[]> {
-    return page.evaluate(
+    const deadline = Date.now() + 12_000;
+    let lastError: unknown;
+    while (Date.now() < deadline) {
+        try {
+            return await page.evaluate(
         async ({ storageKey }) => {
             const parse = (raw: string | null) => {
                 if (!raw) return [];
@@ -864,10 +1235,30 @@ export async function readLawyerFilesFromPage(page: Page): Promise<unknown[]> {
                 }
             };
 
+            const bridge = (window as Window & {
+                __hamiE2eSecureStore?: {
+                    getItemSync: (key: string) => string | null;
+                    getItem: (key: string) => Promise<string | null>;
+                };
+            }).__hamiE2eSecureStore;
+
+            if (bridge) {
+                const sync = bridge.getItemSync(storageKey);
+                const fromSync = parse(typeof sync === 'string' ? sync : null);
+                if (fromSync.length) return fromSync;
+                try {
+                    const asyncVal = await bridge.getItem(storageKey);
+                    const fromAsync = parse(typeof asyncVal === 'string' ? asyncVal : null);
+                    if (fromAsync.length) return fromAsync;
+                } catch {
+                    /* ignore */
+                }
+            }
+
             const readFromIdb = (): Promise<string | null> =>
                 new Promise((resolve) => {
                     try {
-                        const req = indexedDB.open('hami-secure-store', 1);
+                        const req = indexedDB.open('hami-secure-store', 2);
                         req.onerror = () => resolve(null);
                         req.onsuccess = () => {
                             const db = req.result;
@@ -910,6 +1301,18 @@ export async function readLawyerFilesFromPage(page: Page): Promise<unknown[]> {
         },
         { storageKey: LAWYER_FILES_KEY },
     );
+        } catch (err) {
+            lastError = err;
+            const msg = err instanceof Error ? err.message : String(err);
+            if (!/Execution context was destroyed|Target closed|navigation/i.test(msg)) {
+                throw err;
+            }
+            await page.waitForTimeout(300);
+        }
+    }
+    throw lastError instanceof Error
+        ? lastError
+        : new Error(`readLawyerFilesFromPage failed: ${String(lastError)}`);
 }
 
 export function extractTaskTitlesFromFile(file: unknown): string[] {
@@ -965,8 +1368,8 @@ export async function saveSessionRecord(
     const proceedings = opts.proceedings ?? E2E_SESSION_PROCEEDINGS;
     const judgeDecisions = opts.judgeDecisions ?? E2E_SESSION_JUDGE_DECISION;
 
-    await page.getByTestId('smart-file-session-record-proceedings').fill(proceedings);
-    await page.getByTestId('smart-file-session-record-judge-decisions').fill(judgeDecisions);
+    await nativeFillByTestId(page, 'smart-file-session-record-proceedings', proceedings);
+    await nativeFillByTestId(page, 'smart-file-session-record-judge-decisions', judgeDecisions);
     await page.getByTestId('smart-file-session-record-add').click();
     await expect(page.getByTestId('smart-file-session-record-panel')).toBeHidden({ timeout: 10_000 });
 }
@@ -1031,4 +1434,216 @@ export async function openCaseLinkModal(page: Page) {
     await openLegalActionsMenu(page);
     await page.getByRole('button', { name: 'ربط الدعوى' }).click();
     await expect(page.getByText('ربط الدعوى', { exact: true }).first()).toBeVisible({ timeout: 10_000 });
+}
+
+export const LAWYER_FILES_ACTIVE_KEY = 'lawyer_files_active';
+export const LAWSUIT_PENDING_CREATES_KEY = 'hami_lawsuit_pending_creates_v1';
+export const LAWSUIT_WRITE_JOURNAL_KEY = 'hami_lawsuit_write_journal_v1';
+
+/** اتحاد active + monolithic + pending + journal — يطابق منطق الإقلاع بعد Reload */
+export async function readLawsuitStorageUnionFromPage(page: Page): Promise<unknown[]> {
+    return page.evaluate(
+        async ({ monoKey, activeKey, pendingKey, journalKey }) => {
+            const parse = (raw: string | null) => {
+                if (!raw) return [];
+                try {
+                    const parsed = JSON.parse(raw);
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch {
+                    return [];
+                }
+            };
+
+            const parseJournalFiles = (raw: string | null): unknown[] => {
+                const entries = parse(raw) as Array<{ file?: unknown }>;
+                return entries.map((entry) => entry?.file).filter(Boolean);
+            };
+
+            const bridge = (window as Window & {
+                __hamiE2eSecureStore?: {
+                    getItemSync: (key: string) => string | null;
+                    getItem: (key: string) => Promise<string | null>;
+                };
+            }).__hamiE2eSecureStore;
+
+            const readKey = async (key: string): Promise<unknown[]> => {
+                if (bridge) {
+                    const sync = bridge.getItemSync(key);
+                    const fromSync = parse(typeof sync === 'string' ? sync : null);
+                    if (fromSync.length) return fromSync;
+                    try {
+                        const asyncVal = await bridge.getItem(key);
+                        const fromAsync = parse(typeof asyncVal === 'string' ? asyncVal : null);
+                        if (fromAsync.length) return fromAsync;
+                    } catch {
+                        /* ignore */
+                    }
+                }
+                const fromLs = parse(localStorage.getItem(key));
+                if (fromLs.length) return fromLs;
+                return [];
+            };
+
+            const readRaw = async (key: string): Promise<string | null> => {
+                if (bridge) {
+                    const sync = bridge.getItemSync(key);
+                    if (typeof sync === 'string' && sync.trim()) return sync;
+                    try {
+                        const asyncVal = await bridge.getItem(key);
+                        if (typeof asyncVal === 'string' && asyncVal.trim()) return asyncVal;
+                    } catch {
+                        /* ignore */
+                    }
+                }
+                const fromLs = localStorage.getItem(key);
+                if (fromLs) return fromLs;
+                try {
+                    return sessionStorage.getItem(key);
+                } catch {
+                    return null;
+                }
+            };
+
+            const pending = parse(await readRaw(pendingKey));
+            const journal = parseJournalFiles(await readRaw(journalKey));
+            const active = await readKey(activeKey);
+            const mono = await readKey(monoKey);
+            const byId = new Map<string, unknown>();
+            for (const file of [...pending, ...journal, ...active, ...mono]) {
+                if (!file || typeof file !== 'object') continue;
+                const id = String((file as { id?: unknown }).id ?? '');
+                if (!id) continue;
+                byId.set(id, file);
+            }
+            return Array.from(byId.values());
+        },
+        {
+            monoKey: LAWYER_FILES_KEY,
+            activeKey: LAWYER_FILES_ACTIVE_KEY,
+            pendingKey: LAWSUIT_PENDING_CREATES_KEY,
+            journalKey: LAWSUIT_WRITE_JOURNAL_KEY,
+        },
+    );
+}
+
+export async function partyExistsInLawsuitStorageUnion(page: Page, name: string): Promise<boolean> {
+    const files = await readLawsuitStorageUnionFromPage(page);
+    return files.some((f) => extractPartyNamesFromFile(f).includes(name));
+}
+
+export async function waitForPartyInLawsuitStorageUnion(
+    page: Page,
+    name: string,
+    timeoutMs = 30_000,
+): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    let attempt = 0;
+    while (Date.now() < deadline) {
+        if (attempt === 0 || attempt % 5 === 0) {
+            await flushLawyerFilesPersist(page);
+        }
+        if (await partyExistsInLawsuitStorageUnion(page, name)) return;
+        await page.waitForTimeout(400);
+        attempt += 1;
+    }
+    await flushLawyerFilesPersist(page);
+    if (await partyExistsInLawsuitStorageUnion(page, name)) return;
+    throw new Error(`Party "${name}" not found in lawsuit storage union within ${timeoutMs}ms`);
+}
+
+export async function rebootLawyerDashboardAfterReload(page: Page): Promise<void> {
+    await applyE2eBootHomeLayoutAtRuntime(page);
+    await bootToLawyerHome(page);
+    await dismissProductivityBlockers(page);
+    await resetCivilLawsuitsScreenForE2E(page);
+}
+
+export type LawsuitDurabilityOverlayState = {
+    pendingCount: number;
+    journalCount: number;
+};
+
+/** حالة طبقات المتانة (pending + WAL) — للتحقق بعد إثبات القرص */
+export async function readLawsuitDurabilityOverlayStateFromPage(
+    page: Page,
+): Promise<LawsuitDurabilityOverlayState> {
+    return page.evaluate(
+        async ({ pendingKey, journalKey }) => {
+            const parseArray = (raw: string | null) => {
+                if (!raw) return [];
+                try {
+                    const parsed = JSON.parse(raw);
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch {
+                    return [];
+                }
+            };
+
+            const bridge = (window as Window & {
+                __hamiE2eSecureStore?: {
+                    getItemSync: (key: string) => string | null;
+                    getItem: (key: string) => Promise<string | null>;
+                };
+            }).__hamiE2eSecureStore;
+
+            const readRaw = async (key: string): Promise<string | null> => {
+                if (bridge) {
+                    const sync = bridge.getItemSync(key);
+                    if (typeof sync === 'string' && sync.trim()) return sync;
+                    try {
+                        const asyncVal = await bridge.getItem(key);
+                        if (typeof asyncVal === 'string' && asyncVal.trim()) return asyncVal;
+                    } catch {
+                        /* ignore */
+                    }
+                }
+                const fromLs = localStorage.getItem(key);
+                if (fromLs) return fromLs;
+                try {
+                    return sessionStorage.getItem(key);
+                } catch {
+                    return null;
+                }
+            };
+
+            return {
+                pendingCount: parseArray(await readRaw(pendingKey)).length,
+                journalCount: parseArray(await readRaw(journalKey)).length,
+            };
+        },
+        {
+            pendingKey: LAWSUIT_PENDING_CREATES_KEY,
+            journalKey: LAWSUIT_WRITE_JOURNAL_KEY,
+        },
+    );
+}
+
+export async function waitForLawsuitDurabilityOverlaysCleared(
+    page: Page,
+    timeoutMs = 30_000,
+): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        await flushLawyerFilesPersist(page);
+        const state = await readLawsuitDurabilityOverlayStateFromPage(page);
+        if (state.pendingCount === 0 && state.journalCount === 0) return;
+        await page.waitForTimeout(400);
+    }
+    const finalState = await readLawsuitDurabilityOverlayStateFromPage(page);
+    throw new Error(
+        `Durability overlays not cleared within ${timeoutMs}ms (pending=${finalState.pendingCount}, journal=${finalState.journalCount})`,
+    );
+}
+
+/** حقن سجل WAL يدوياً — يحاكي كتابة قبل إثبات القرص */
+export async function stageLawsuitJournalEntryOnPage(page: Page, file: unknown): Promise<void> {
+    await page.evaluate(
+        ({ journalKey, payload }) => {
+            const fileId = String((payload as { id?: unknown }).id ?? '');
+            if (!fileId) throw new Error('stageLawsuitJournalEntryOnPage: missing file.id');
+            const entry = { v: 1, fileId, file: payload, ts: Date.now() };
+            localStorage.setItem(journalKey, JSON.stringify([entry]));
+        },
+        { journalKey: LAWSUIT_WRITE_JOURNAL_KEY, payload: file },
+    );
 }

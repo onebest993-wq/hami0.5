@@ -5,16 +5,19 @@ import {
     useRef,
 } from 'react';
 
-import { prefetchLawyerHomeTabModule } from '@/app/runtime/homeHubLoader';
-import { prefetchLawyerHomeHubCardModule } from '@/app/runtime/homeHubCardLoader';
+import { isDashboardInteractive, onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
 import { markHomeHubPerfPhase } from '@/app/services/alerts/homeHubPerfMetrics';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
+
+function loadHomeHubCardLoader() {
+    return import('@/app/runtime/homeHubCardLoader');
+}
 
 function loadHomeIntentWarm() {
     return import('@/app/hooks/lawyerDashboard/homeIntentWarm');
 }
 
-export type UseLawyerDashboardHomeTabParams = {
+type UseLawyerDashboardHomeTabParams = {
     activeTab: LawyerDashboardTab;
 };
 
@@ -22,35 +25,32 @@ export function useLawyerDashboardHomeTab({ activeTab }: UseLawyerDashboardHomeT
     const wasHomeTabVisibleRef = useRef(false);
 
     const primeHomeTabMount = useCallback(() => {
-        prefetchLawyerHomeTabModule();
-        prefetchLawyerHomeHubCardModule();
-        void loadHomeIntentWarm()
-            .then((m) => m.warmHomeOnOpen())
+        void loadHomeHubCardLoader()
+            .then((m) => m.prefetchLawyerHomeHubCardModule())
             .catch(() => undefined);
+        const warmIntent = () => {
+            void loadHomeIntentWarm()
+                .then((m) => m.warmHomeOnOpen())
+                .catch(() => undefined);
+        };
+        if (isDashboardInteractive()) warmIntent();
+        else onDashboardInteractive(warmIntent);
     }, []);
-
-    useEffect(() => {
-        prefetchLawyerHomeHubCardModule();
-    }, []);
-
-    useEffect(() => {
-        if (activeTab !== 'home') return;
-        prefetchLawyerHomeTabModule();
-        prefetchLawyerHomeHubCardModule();
-    }, [activeTab]);
 
     useLayoutEffect(() => {
         const isHome = activeTab === 'home';
         if (isHome && !wasHomeTabVisibleRef.current) {
             markHomeHubPerfPhase('open-request');
-            primeHomeTabMount();
         }
         wasHomeTabVisibleRef.current = isHome;
+    }, [activeTab]);
+
+    useEffect(() => {
+        if (activeTab !== 'home') return;
+        primeHomeTabMount();
     }, [activeTab, primeHomeTabMount]);
 
     return {
         primeHomeTabMount,
-        homeTabSessionKey: 0,
-        homeDockChromeSessionKey: 0,
     };
 }

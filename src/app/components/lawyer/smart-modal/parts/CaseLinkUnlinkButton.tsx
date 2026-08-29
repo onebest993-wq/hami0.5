@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link2Off } from '@/app/components/ui/lucideIcons';
+import { Link2Off } from '@/app/components/ui/icons/Link2Off';
 import { createPortal } from 'react-dom';
 
 type CaseLinkUnlinkButtonProps = {
@@ -41,7 +41,7 @@ export function CaseLinkUnlinkButton({
                       onClick={() => setOpen(false)}
                   >
                       <div
-                          className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0A0F1C] p-5 shadow-2xl text-right"
+                          className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0A0F1C] p-5 shadow-lg text-right"
                           dir="rtl"
                           onClick={(event) => event.stopPropagation()}
                       >

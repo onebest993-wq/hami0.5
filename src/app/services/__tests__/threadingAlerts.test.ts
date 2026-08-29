@@ -2,10 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SecretaryOrchestrator } from '../SecretaryOrchestrator';
 import { TransactionsThreadingDB } from '../lawyer-cloud';
 
-vi.mock('@/app/services/ClientRequestService', () => ({
-    ClientRequestService: { getLawyerRequests: vi.fn().mockResolvedValue([]) },
-}));
-
 vi.mock('@/app/services/lawyer-cloud', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../lawyer-cloud')>();
     return {

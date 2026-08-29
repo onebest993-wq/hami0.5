@@ -60,4 +60,20 @@ describe('cloudSyncStatusDisplay', () => {
         expect(msg.text).toContain('فشلت');
         expect(msg.canSyncNow).toBe(true);
     });
+
+    it('resolveCloudSyncStatusMessage — not signed in', () => {
+        const msg = resolveCloudSyncStatusMessage({ ...base, signedIn: false });
+        expect(msg.text).toContain('غير مسجّل');
+        expect(msg.canSyncNow).toBe(false);
+    });
+
+    it('resolveCloudSyncStatusMessage — verification blocked', () => {
+        const msg = resolveCloudSyncStatusMessage({
+            ...base,
+            signedIn: false,
+            verificationBlocked: true,
+        });
+        expect(msg.text).toContain('قيد التدقيق');
+        expect(msg.canSyncNow).toBe(false);
+    });
 });

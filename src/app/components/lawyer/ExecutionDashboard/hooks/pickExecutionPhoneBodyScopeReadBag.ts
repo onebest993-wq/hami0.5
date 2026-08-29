@@ -320,7 +320,6 @@ export const EXECUTION_PHONE_BODY_SCOPE_READ_KEYS = [
     'setShowTransferFileNumberChangeModal',
     'setShowUnifiedExecutionModal',
     'setShowUnifiedSummonsModal',
-    'setShowVisitationCalendarModal',
     'setSummonsContextDebtorKey',
     'setSummonsHubInitialMainTab',
     'setSummonsMarkerPopoverOpen',
@@ -347,7 +346,6 @@ export const EXECUTION_PHONE_BODY_SCOPE_READ_KEYS = [
     'summoningRound',
     'showUnifiedExecutionModal',
     'showUnifiedSeizureLogModal',
-    'showVisitationCalendarModal',
     'standaloneExecutionMarks',
     'statusMetadata',
     'statuteStatus',
@@ -392,10 +390,10 @@ export const EXECUTION_PHONE_BODY_SCOPE_READ_KEYS = [
 export type ExecutionPhoneBodyScopeReadKey = (typeof EXECUTION_PHONE_BODY_SCOPE_READ_KEYS)[number];
 
 /** حقيبة مفاتيح معلومة النوع — بدونها يفقد TypeScript مفاتيح الـ scope بعد الـ spread */
-export type ExecutionPhoneBodyScopeReadBag = Record<ExecutionPhoneBodyScopeReadKey, any>;
+export type ExecutionPhoneBodyScopeReadBag = Record<ExecutionPhoneBodyScopeReadKey, unknown>;
 
 export function pickExecutionPhoneBodyScopeReadBag(
-    props: Record<string, any>,
+    props: Record<string, unknown>,
 ): ExecutionPhoneBodyScopeReadBag {
     const out = {} as ExecutionPhoneBodyScopeReadBag;
     for (const key of EXECUTION_PHONE_BODY_SCOPE_READ_KEYS) {

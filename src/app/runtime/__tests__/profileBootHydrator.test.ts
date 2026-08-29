@@ -5,10 +5,11 @@ const prefetchProfileHubModule = vi.fn();
 const warmProfileDataCache = vi.fn(() => Promise.resolve());
 const hydrateProfileWarmCachePeekSync = vi.fn();
 
-vi.mock('@/app/runtime/profileHubLoader', () => ({
+vi.mock('@/app/runtime/royalLawyerProfileLoader', () => ({
     hydrateProfileShellForInstantOpen: (...args: unknown[]) => hydrateProfileShellForInstantOpen(...args),
     isProfileShellModuleResolved: vi.fn(() => false),
     prefetchProfileHubModule: (...args: unknown[]) => prefetchProfileHubModule(...args),
+    loadProfileHubModule: vi.fn(() => Promise.resolve({})),
 }));
 
 vi.mock('@/app/services/profile/profileWarmCache', () => ({
@@ -18,9 +19,10 @@ vi.mock('@/app/services/profile/profileWarmCache', () => ({
 
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: vi.fn(() => false),
+    isNativeShellStampedOnDom: vi.fn(() => false),
 }));
 
-vi.mock('@/app/services/settings/settingsRuntime', () => ({
+vi.mock('@/app/services/settings/settingsSnapshot', () => ({
     getLawyerSettingsSnapshot: vi.fn(() => ({
         security: { localOnlyMode: false },
         performance: { prefetchScreens: true, litePerformance: false },
@@ -41,10 +43,15 @@ vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
 describe('profileBootHydrator', () => {
     beforeEach(async () => {
         vi.clearAllMocks();
+        const { getLawyerSettingsSnapshot } = await import('@/app/services/settings/settingsSnapshot');
+        vi.mocked(getLawyerSettingsSnapshot).mockReturnValue({
+            security: { localOnlyMode: false },
+            performance: { prefetchScreens: true, litePerformance: false },
+        } as never);
         const mod = await import('@/app/runtime/profileBootHydrator');
         mod.resetProfileBootHydratorForTests();
         vi.mocked(
-            (await import('@/app/runtime/profileHubLoader')).isProfileShellModuleResolved,
+            (await import('@/app/runtime/royalLawyerProfileLoader')).isProfileShellModuleResolved,
         ).mockReturnValue(false);
     });
 
@@ -70,7 +77,7 @@ describe('profileBootHydrator', () => {
     });
 
     it('hydrateProfileShellForInstantOpenWithData(false) يتخطى التحميل عند تعطيل prefetch', async () => {
-        const { getLawyerSettingsSnapshot } = await import('@/app/services/settings/settingsRuntime');
+        const { getLawyerSettingsSnapshot } = await import('@/app/services/settings/settingsSnapshot');
         vi.mocked(getLawyerSettingsSnapshot).mockReturnValue({
             security: { localOnlyMode: true },
             performance: { prefetchScreens: false, litePerformance: false },
@@ -88,5 +95,18 @@ describe('profileBootHydrator', () => {
         const forced = await hydrateProfileShellForInstantOpenWithData('lawyer-1', true);
         expect(forced).toBe(true);
         expect(hydrateProfileShellForInstantOpen).toHaveBeenCalledTimes(1);
+    });
+
+    it('prefetchProfileAfterBootReveal يسخّن بيانات بلا مقطع hub', async () => {
+        const { prefetchProfileAfterBootReveal } = await import('@/app/runtime/profileBootHydrator');
+
+        prefetchProfileAfterBootReveal('lawyer-boot');
+
+        await vi.waitFor(() => {
+            expect(hydrateProfileWarmCachePeekSync).toHaveBeenCalledWith('lawyer-boot');
+            expect(warmProfileDataCache).toHaveBeenCalledWith('lawyer-boot');
+        });
+        expect(hydrateProfileShellForInstantOpen).not.toHaveBeenCalled();
+        expect(prefetchProfileHubModule).not.toHaveBeenCalled();
     });
 });

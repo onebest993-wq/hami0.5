@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { X, Shield, User, Phone, MapPin, CreditCard, CheckCircle } from '@/app/components/ui/lucideIcons';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
+import { X } from '@/app/components/ui/icons/X';
+import { Shield } from '@/app/components/ui/icons/Shield';
+import { User } from '@/app/components/ui/icons/User';
+import { Phone } from '@/app/components/ui/icons/Phone';
+import { MapPin } from '@/app/components/ui/icons/MapPin';
+import { CreditCard } from '@/app/components/ui/icons/CreditCard';
+import { CheckCircle } from '@/app/components/ui/icons/CheckCircle';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { GuarantorInfo } from '@/app/utils/alimonyPaymentEngine';
+import { useExecutionOverlayDismiss } from '@/app/components/lawyer/ExecutionDashboard/useExecutionOverlayDismiss';
 
 interface GuarantorRegistrationModalProps {
     isOpen: boolean;
@@ -61,6 +68,8 @@ export const GuarantorRegistrationModal: React.FC<GuarantorRegistrationModalProp
         onClose();
     };
 
+    useExecutionOverlayDismiss(isOpen, onClose);
+
     if (!isOpen) return null;
 
     return (
@@ -85,9 +94,11 @@ export const GuarantorRegistrationModal: React.FC<GuarantorRegistrationModalProp
                                         <p className="text-amber-500/70 text-xs mt-0.5">للنفقة المستمرة - القانون العراقي</p>
                                     </div>
                                 </div>
-                                <button type="button"
+                                <button
+                                    type="button"
                                     onClick={onClose}
-                                    className="text-white/50 hover:text-white transition-colors bg-white/5 hover:bg-white/10 p-2 rounded-lg"
+                                    aria-label="إغلاق"
+                                    className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-white/50 hover:text-white transition-colors bg-white/5 hover:bg-white/10 p-2 rounded-lg touch-manipulation"
                                 >
                                     <X size={20} />
                                 </button>
@@ -197,14 +208,14 @@ export const GuarantorRegistrationModal: React.FC<GuarantorRegistrationModalProp
                         <div className="p-4 bg-slate-950/50 border-t border-amber-500/20 flex justify-end gap-3">
                             <button type="button"
                                 onClick={onClose}
-                                className="px-5 py-2.5 rounded-lg text-white/60 hover:text-white hover:bg-white/5 transition-colors font-bold text-sm"
+                                className="min-h-[44px] px-5 py-2.5 rounded-lg text-white/60 hover:text-white hover:bg-white/5 transition-colors font-bold text-sm touch-manipulation"
                             >
                                 إلغاء
                             </button>
                             <button type="button"
                                 onClick={handleSubmit}
                                 disabled={!!nameError}
-                                className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white px-6 py-2.5 rounded-lg shadow-lg shadow-amber-900/30 flex items-center gap-2 font-bold transition-all transform hover:scale-105"
+                                className="min-h-[44px] bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white px-6 py-2.5 rounded-lg shadow-lg shadow-amber-900/30 flex items-center gap-2 font-bold transition-all transform hover:scale-105 disabled:opacity-40 touch-manipulation"
                             >
                                 <Shield size={18} />
                                 حفظ بيانات الكفيل

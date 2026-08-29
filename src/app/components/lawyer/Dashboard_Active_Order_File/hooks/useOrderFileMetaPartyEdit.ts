@@ -2,9 +2,9 @@ import { useState } from 'react';
 import type { DossierEditForm, PartyEditRow } from '../modals/DossierEditModal';
 
 type UseOrderFileMetaPartyEditArgs = {
-    caseData: any;
-    party1Entries: any[];
-    party2Entries: any[];
+    caseData: Record<string, unknown> | null | undefined;
+    party1Entries: Record<string, unknown>[];
+    party2Entries: Record<string, unknown>[];
     persistAndMerge: (patch: Record<string, unknown>) => void;
     appendCaseEvent: (message: string, kind?: 'system' | 'action' | 'edit') => void;
 };
@@ -55,8 +55,8 @@ export function useOrderFileMetaPartyEdit({
                 judgeName: String(caseData?.judgeName ?? ''),
                 specificActionType: String(caseData?.specificActionType ?? ''),
             },
-            party1: party1Entries.map((p) => mapPartyToForm(p as Record<string, unknown>)),
-            party2: party2Entries.map((p) => mapPartyToForm(p as Record<string, unknown>)),
+            party1: party1Entries.map((p) => mapPartyToForm(p)),
+            party2: party2Entries.map((p) => mapPartyToForm(p)),
         });
         setIsDossierEditOpen(true);
     };
@@ -72,10 +72,10 @@ export function useOrderFileMetaPartyEdit({
         }
 
         const nextParty1 = party1Entries.map((p, i) =>
-            mergePartyRow(p as Record<string, unknown>, dossierEditForm.party1[i] ?? mapPartyToForm(p)),
+            mergePartyRow(p, dossierEditForm.party1[i] ?? mapPartyToForm(p)),
         );
         const nextParty2 = party2Entries.map((p, i) =>
-            mergePartyRow(p as Record<string, unknown>, dossierEditForm.party2[i] ?? mapPartyToForm(p)),
+            mergePartyRow(p, dossierEditForm.party2[i] ?? mapPartyToForm(p)),
         );
 
         const meta = dossierEditForm.meta;
@@ -89,12 +89,12 @@ export function useOrderFileMetaPartyEdit({
         };
 
         if (nextParty1[0]) {
-            patch.party1Name = String((nextParty1[0] as any)?.name ?? '');
-            patch.party1Address = String((nextParty1[0] as any)?.address ?? '');
+            patch.party1Name = String(nextParty1[0]?.name ?? '');
+            patch.party1Address = String(nextParty1[0]?.address ?? '');
         }
         if (nextParty2[0]) {
-            patch.party2Name = String((nextParty2[0] as any)?.name ?? '');
-            patch.party2Address = String((nextParty2[0] as any)?.address ?? '');
+            patch.party2Name = String(nextParty2[0]?.name ?? '');
+            patch.party2Address = String(nextParty2[0]?.address ?? '');
         }
 
         persistAndMerge(patch);

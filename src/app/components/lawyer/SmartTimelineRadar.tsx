@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState, useCallback, memo } from 'react';
-import { motion, LayoutGroup, AnimatePresence } from 'motion/react';
-import { ChevronDown, History, Pin } from '@/app/components/ui/lucideIcons';
+import { motion, LayoutGroup, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
+import { History } from '@/app/components/ui/icons/History';
+import { Pin } from '@/app/components/ui/icons/Pin';
 import type { TimelineEvent } from '@/app/types/execution';
 import {
     cleanTimelineCardTitle,

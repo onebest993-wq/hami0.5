@@ -1,4 +1,4 @@
-import { requireWifeUser, unwrapWifeUser } from '../security/bffAuth.ts';
+import { requireWifeCloudWrite, unwrapWifeUser } from '../security/bffAuth.ts';
 import { isKeyOwnedBy, isPrefixOwnedBy } from '@/app/security/kvProxyKeyOwnership.ts';
 import { kvDel, kvDelByPrefix, kvGet, kvGetByPrefix, kvKeysByPrefix, kvSet } from '../security/kvStoreAdmin.ts';
 import { wifeJsonResponse } from '../security/wifeSecurityHeaders.ts';
@@ -7,6 +7,7 @@ import {
     redactProfileKvValueForViewer,
 } from '@/app/services/profile/profileKvReadRedact';
 import { resignProfileMediaUrlsForOwner } from './resignProfileMediaForKv.ts';
+import { applyCanonicalDisplayNameToProfileValue } from '../security/displayNameCorrection.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
@@ -18,7 +19,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 export async function POST(request: Request): Promise<Response> {
   try {
-    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    const authGate = unwrapWifeUser(await requireWifeCloudWrite(request));
     if ('response' in authGate) return authGate.response;
     const { userId } = authGate;
 
@@ -33,7 +34,16 @@ export async function POST(request: Request): Promise<Response> {
       if (typeof payload.key !== 'string' || !isKeyOwnedBy(payload.key, userId, 'write')) {
         return wifeJsonResponse(403, { ok: false, error: 'Forbidden: key not owned by current user' });
       }
-      await kvSet(payload.key, payload.value);
+      let value = payload.value;
+      const ownerId = parseProfileKvOwnerId(payload.key);
+      if (ownerId && ownerId === userId.trim()) {
+        try {
+          value = await applyCanonicalDisplayNameToProfileValue(userId, value);
+        } catch {
+          /* إن تعذّر القراءة نكتب القيمة كما وصلت — التصحيح يُقفل في PATCH الاسم */
+        }
+      }
+      await kvSet(payload.key, value);
       return wifeJsonResponse(200, { ok: true, success: true });
     }
 
@@ -58,12 +68,12 @@ export async function POST(request: Request): Promise<Response> {
       }
       return wifeJsonResponse(200, {
         ok: true,
-        value: redactProfileKvValueForViewer(payload.key, userId, value),
+        value: await redactProfileKvValueForViewer(payload.key, userId, value),
       });
     }
 
     if (action === 'getByPrefix') {
-      if (typeof payload.prefix !== 'string' || !isPrefixOwnedBy(payload.prefix, userId)) {
+      if (typeof payload.prefix !== 'string' || !isPrefixOwnedBy(payload.prefix, userId, 'read')) {
         return wifeJsonResponse(403, { ok: false, error: 'Forbidden: prefix not scoped to current user' });
       }
       const values = await kvGetByPrefix(payload.prefix);
@@ -79,7 +89,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     if (action === 'delByPrefix') {
-      if (typeof payload.prefix !== 'string' || !isPrefixOwnedBy(payload.prefix, userId)) {
+      if (typeof payload.prefix !== 'string' || !isPrefixOwnedBy(payload.prefix, userId, 'write')) {
         return wifeJsonResponse(403, { ok: false, error: 'Forbidden: prefix not scoped to current user' });
       }
       const deleted = await kvDelByPrefix(payload.prefix);
@@ -87,7 +97,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     if (action === 'listKeysByPrefix') {
-      if (typeof payload.prefix !== 'string' || !isPrefixOwnedBy(payload.prefix, userId)) {
+      if (typeof payload.prefix !== 'string' || !isPrefixOwnedBy(payload.prefix, userId, 'read')) {
         return wifeJsonResponse(403, { ok: false, error: 'Forbidden: prefix not scoped to current user' });
       }
       const keys = await kvKeysByPrefix(payload.prefix);
@@ -95,8 +105,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     return wifeJsonResponse(400, { ok: false, error: `Unknown action: ${action}` });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Internal kv-proxy error';
-    return wifeJsonResponse(500, { ok: false, error: message });
+  } catch {
+    return wifeJsonResponse(500, { ok: false, error: 'Internal kv-proxy error' });
   }
 }

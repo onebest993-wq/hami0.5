@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C Slice 16 — فتح إكمال جرد الأثاث / الحارس القضائي من قرارات المنفذ المعلّقة */
 import { useCallback } from 'react';
 import type { ExecutorApprovalActions } from '../../executionDashboardRuntimeChunkScope';

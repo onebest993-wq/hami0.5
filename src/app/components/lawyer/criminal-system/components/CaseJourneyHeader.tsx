@@ -15,6 +15,13 @@ import {
     personalStageLabel,
 } from '../partyPersonalStage';
 import { journeyStageCapsuleClass } from '../journeyStageVisuals';
+import {
+    LV_BLUR,
+    LV_BTN_GOLD,
+    LV_ELEVATION_SOFT,
+    LV_INSET,
+    LV_RADIUS,
+} from '@/app/components/lawyer/lawyerShared/lawsuitVisualLite';
 
 export type CaseJourneyHeaderProps = {
     journey: JourneyNode[];
@@ -118,7 +125,7 @@ const JourneyCapsule = ({
                 </span>
             ) : null}
             {isLiveCurrent && !intervention ? (
-                <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.55)]" aria-hidden />
+                <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400" aria-hidden />
             ) : null}
             {intervention ? (
                 <span className="text-[10px] shrink-0" aria-hidden>
@@ -339,14 +346,14 @@ export const CaseJourneyHeader = ({
 
     return (
         <div className="w-full px-3 md:px-4 pt-1.5 pb-1 print:hidden" dir="rtl">
-            <div className="max-w-6xl mx-auto rounded-xl border border-white/12 bg-white/[0.05] backdrop-blur-md shadow-[0_10px_32px_-14px_rgba(0,0,0,0.7)]">
+            <div className={`max-w-6xl mx-auto ${LV_RADIUS} ${LV_INSET} ${LV_BLUR} ${LV_ELEVATION_SOFT}`}>
                 <div className="flex flex-row items-stretch gap-2.5 min-h-0 min-w-0 p-2.5">
                     {showReferralButton && onOpenReferral ? (
                         <button
                             type="button"
                             onClick={onOpenReferral}
                             disabled={referralButtonDisabled}
-                            className="shrink-0 self-center order-first inline-flex items-center gap-1.5 rounded-full border border-[#E6C673]/45 bg-gradient-to-b from-[#E6C673]/22 to-[#E6C673]/10 px-3.5 py-2 text-xs font-black text-[#E6C673] hover:from-[#E6C673]/30 hover:to-[#E6C673]/14 transition disabled:opacity-40 disabled:pointer-events-none shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
+                            className={`shrink-0 self-center order-first inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-black transition disabled:opacity-40 disabled:pointer-events-none touch-manipulation min-h-[44px] ${LV_BTN_GOLD}`}
                             title={referralButtonTitle}
                         >
                             <span>{referralButtonLabel}</span>

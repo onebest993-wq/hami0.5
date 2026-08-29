@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { ChevronDown, GitBranch, MapPinned, Plus } from '@/app/components/ui/lucideIcons';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
+import { GitBranch } from '@/app/components/ui/icons/GitBranch';
+import { MapPinned } from '@/app/components/ui/icons/MapPinned';
+import { Plus } from '@/app/components/ui/icons/Plus';
 import type { DocumentRequirementItem, LegalSubTask, TaskExpenseEntry } from '@/app/types/TaskEngine';
 import { formatIqd, parseAmountInput } from './utils';
 import { TASKS_INPUT, TASKS_INNER_GLASS, TASKS_INNER_GLASS_SOFT, TASKS_INNER_GLASS_HOVER } from './tasksBoucleTheme';
@@ -146,7 +149,7 @@ export function TaskCardBranchPanel({
                                 placeholder="موقع الفرع (اختياري)…"
                                 value={subNewLocDraft}
                                 onChange={(e) => setSubNewLocDraft(e.target.value)}
-                                className={`w-full min-h-[44px] ${TASKS_INPUT} text-[11px]`}
+                                className={`w-full min-h-[44px] ${TASKS_INPUT}`}
                             />
                             <div className="flex flex-row-reverse gap-1.5 pt-0.5">
                                 <button
@@ -226,7 +229,7 @@ export function TaskCardDocPanel({
                     {items.map((d, idx) => (
                         <li
                             key={d.id}
-                            className={`flex flex-row-reverse items-center gap-2 min-h-[36px] rounded-md px-1 ${
+                            className={`flex flex-row-reverse items-center gap-2 min-h-[44px] rounded-md px-1 ${
                                 d.isChecked ? 'opacity-65' : ''
                             }`}
                         >
@@ -272,7 +275,7 @@ export function TaskCardDocPanel({
                             onAdd(t);
                             setDocDraft('');
                         }}
-                        className={`flex-1 min-h-[40px] ${TASKS_INPUT} !py-2 text-[12px]`}
+                        className={`flex-1 min-h-[44px] ${TASKS_INPUT} !py-2 text-[12px]`}
                     />
                     <button
                         type="button"
@@ -283,7 +286,7 @@ export function TaskCardDocPanel({
                             setDocDraft('');
                         }}
                         disabled={!docDraft.trim()}
-                        className="shrink-0 min-h-[40px] min-w-[40px] px-2 rounded-lg border border-violet-400/35 bg-violet-500/15 text-violet-100 text-sm font-bold disabled:opacity-40 touch-manipulation"
+                        className="shrink-0 min-h-[44px] min-w-[44px] px-2 rounded-lg border border-[#E6C673]/28 bg-[#E6C673]/10 text-[#E6C673] text-sm font-bold disabled:opacity-40 touch-manipulation"
                         aria-label="إضافة طلب"
                     >
                         +
@@ -305,13 +308,13 @@ export function TaskCardExpensePanel({ expenses, readOnly, onAdd }: TaskCardExpe
     const [expLabel, setExpLabel] = useState('');
 
     return (
-        <div className={`mx-3.5 mb-3.5 mr-5 border-r-2 border-amber-500/35 pr-3 py-2.5 ${TASKS_INNER_GLASS_SOFT} rounded-lg rounded-tr-none text-right space-y-2`}>
-            <p className="text-[11px] font-bold text-amber-200/90">مصروفات مسجلة</p>
-            <ul className="space-y-1 text-sm text-slate-300">
+        <div className={`mx-3.5 mb-3.5 mr-5 border-r-2 border-[#E6C673]/28 pr-3 py-2.5 ${TASKS_INNER_GLASS_SOFT} rounded-lg rounded-tr-none text-right space-y-2`}>
+            <p className="text-[11px] font-bold text-[#E6C673]/90">مصروفات مسجلة</p>
+            <ul className="space-y-1 text-sm text-[#F4F4F5]/80">
                 {expenses.map((e) => (
-                    <li key={e.id} className="flex flex-row-reverse justify-between gap-2 border-b border-slate-800/60 pb-1">
-                        <span className="font-bold text-amber-200/90 tabular-nums">{formatIqd(e.amount)}</span>
-                        <span className="text-slate-400 truncate flex-1">{e.label}</span>
+                    <li key={e.id} className="flex flex-row-reverse justify-between gap-2 border-b border-white/[0.06] pb-1">
+                        <span className="font-bold text-[#E6C673]/90 tabular-nums">{formatIqd(e.amount)}</span>
+                        <span className="text-[#F4F4F5]/55 truncate flex-1">{e.label}</span>
                     </li>
                 ))}
             </ul>
@@ -345,7 +348,7 @@ export function TaskCardExpensePanel({ expenses, readOnly, onAdd }: TaskCardExpe
                             setExpAmount('');
                             setExpLabel('');
                         }}
-                        className="w-full min-h-[44px] py-2 rounded-lg bg-amber-600/85 hover:bg-amber-600 text-white text-xs font-extrabold transition touch-manipulation"
+                        className="w-full min-h-[44px] py-2 rounded-lg border border-[#E6C673]/28 bg-[#E6C673]/12 text-[#E6C673] text-xs font-extrabold transition touch-manipulation"
                     >
                         حفظ المصروف
                     </button>

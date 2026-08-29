@@ -6,6 +6,7 @@ import {
     fieldsWith,
     resetCaseShareStore,
     richLawsuitSource,
+    seedOwnedLawsuitForShareTests,
 } from './caseShareTestFixtures';
 
 function noteIds(view: { visibleCatalog?: { key: string; items: { id: string }[] }[] }) {
@@ -19,6 +20,7 @@ function docIds(view: { visibleCatalog?: { key: string; items: { id: string }[] 
 describe('سيناريوهات استشارة الزميل — مرسل ↔ مستقبل', () => {
     beforeEach(() => {
         resetCaseShareStore();
+        seedOwnedLawsuitForShareTests();
     });
 
     it('سيناريو 1: مشاركة كاملة — المستقبل يرى كل الأقسام', async () => {

@@ -1,25 +1,34 @@
 /** تنقّل أدلة الإجراءات المنشورة في المنتدى → قسم المعاملات */
 
 import type { TransactionDocumentOwnerTag } from '@/app/modules/transactionsThreading/types';
+import {
+    sanitizeTransactionDocumentOwnerTag,
+    sanitizeTransactionDocumentTitle,
+    sanitizeTransactionId,
+    sanitizeTransactionTaskNotes,
+    sanitizeTransactionTaskTitle,
+    TX_TITLE_MAX,
+    clampTransactionText,
+} from '@/app/services/transactions/transactionsInputSecurity';
 
 export const PROCEDURE_GUIDE_TAG = '#دليل_إجرائي';
 export const OPEN_TRANSACTIONS_HUB_EVENT = 'hami:open-transactions-hub';
 /** سطر ثابت داخل المنشور للتعرّف والفتح */
 export const PROCEDURE_GUIDE_ACTION_MARKER = 'hami-action:open-transactions';
 /** بيانات آلة لتطبيق الخطوات/المستمسكات بعد إنشاء المعاملة */
-export const PROCEDURE_GUIDE_DATA_PREFIX = 'hami-guide-data:';
+const PROCEDURE_GUIDE_DATA_PREFIX = 'hami-guide-data:';
 
 const PENDING_GUIDE_KEY = 'hami:pending-procedure-guide';
 const OPEN_ADD_SHEET_KEY = 'hami:tx-open-add-sheet';
 
-export type ProcedureGuideStepPayload = {
+type ProcedureGuideStepPayload = {
     id: string;
     title: string;
     parentTaskId: string | null;
     notes?: string;
 };
 
-export type ProcedureGuideDocumentPayload = {
+type ProcedureGuideDocumentPayload = {
     title: string;
     ownerTag: TransactionDocumentOwnerTag;
 };
@@ -31,7 +40,7 @@ export type ProcedureGuideApplyPayload = {
     documents: ProcedureGuideDocumentPayload[];
 };
 
-export type OpenTransactionsHubDetail = {
+type OpenTransactionsHubDetail = {
     openAddSheet?: boolean;
     guide?: ProcedureGuideApplyPayload | null;
 };
@@ -49,8 +58,49 @@ export function isProcedureGuidePost(post: { tags?: string[] | null; content?: s
     );
 }
 
+const MAX_GUIDE_JSON_CHARS = 80_000;
+const MAX_GUIDE_STEPS = 80;
+const MAX_GUIDE_DOCUMENTS = 40;
+
+function sanitizeProcedureGuidePayload(raw: unknown): ProcedureGuideApplyPayload | null {
+    if (!raw || typeof raw !== 'object') return null;
+    const parsed = raw as Record<string, unknown>;
+    if (parsed.v !== 1 || !Array.isArray(parsed.steps)) return null;
+    const titleHint =
+        typeof parsed.titleHint === 'string'
+            ? clampTransactionText(parsed.titleHint, TX_TITLE_MAX) || undefined
+            : undefined;
+    const steps = parsed.steps
+        .map((step) => {
+            if (!step || typeof step !== 'object') return null;
+            const row = step as Record<string, unknown>;
+            const id = sanitizeTransactionId(row.id);
+            const title = sanitizeTransactionTaskTitle(String(row.title ?? ''));
+            if (!id || !title) return null;
+            const parentTaskId = row.parentTaskId == null ? null : sanitizeTransactionId(row.parentTaskId) || null;
+            const notes = sanitizeTransactionTaskNotes(typeof row.notes === 'string' ? row.notes : '') ?? '';
+            return { id, title, parentTaskId, notes };
+        })
+        .filter((s): s is ProcedureGuideApplyPayload['steps'][number] => s != null)
+        .slice(0, MAX_GUIDE_STEPS);
+    const documents = Array.isArray(parsed.documents)
+        ? parsed.documents
+              .map((doc) => {
+                  if (!doc || typeof doc !== 'object') return null;
+                  const row = doc as Record<string, unknown>;
+                  const title = sanitizeTransactionDocumentTitle(String(row.title ?? ''));
+                  if (!title) return null;
+                  return { title, ownerTag: sanitizeTransactionDocumentOwnerTag(row.ownerTag) };
+              })
+              .filter((d): d is ProcedureGuideApplyPayload['documents'][number] => d != null)
+              .slice(0, MAX_GUIDE_DOCUMENTS)
+        : [];
+    return { v: 1, titleHint, steps, documents };
+}
+
 export function encodeProcedureGuideData(guide: ProcedureGuideApplyPayload): string {
-    return `${PROCEDURE_GUIDE_DATA_PREFIX}${JSON.stringify(guide)}`;
+    const sanitized = sanitizeProcedureGuidePayload(guide) ?? { v: 1 as const, steps: [], documents: [] };
+    return `${PROCEDURE_GUIDE_DATA_PREFIX}${JSON.stringify(sanitized)}`;
 }
 
 export function parseProcedureGuideDataLine(content: string): ProcedureGuideApplyPayload | null {
@@ -58,38 +108,12 @@ export function parseProcedureGuideDataLine(content: string): ProcedureGuideAppl
     const idx = text.indexOf(PROCEDURE_GUIDE_DATA_PREFIX);
     if (idx < 0) return null;
     const raw = text.slice(idx + PROCEDURE_GUIDE_DATA_PREFIX.length).split(/\r?\n/, 1)[0]?.trim() ?? '';
-    if (!raw) return null;
+    if (!raw || raw.length > MAX_GUIDE_JSON_CHARS) return null;
     try {
-        const parsed = JSON.parse(raw) as ProcedureGuideApplyPayload;
-        if (!parsed || parsed.v !== 1 || !Array.isArray(parsed.steps)) return null;
-        return {
-            v: 1,
-            titleHint: typeof parsed.titleHint === 'string' ? parsed.titleHint : undefined,
-            steps: parsed.steps
-                .filter((s) => s && typeof s.id === 'string' && typeof s.title === 'string')
-                .map((s) => ({
-                    id: s.id,
-                    title: s.title,
-                    parentTaskId: s.parentTaskId ?? null,
-                    notes: typeof s.notes === 'string' ? s.notes : '',
-                })),
-            documents: Array.isArray(parsed.documents)
-                ? parsed.documents
-                      .filter((d) => d && typeof d.title === 'string')
-                      .map((d) => ({
-                          title: d.title,
-                          ownerTag: normalizeOwnerTag(d.ownerTag),
-                      }))
-                : [],
-        };
+        return sanitizeProcedureGuidePayload(JSON.parse(raw));
     } catch {
         return null;
     }
-}
-
-function normalizeOwnerTag(value: unknown): TransactionDocumentOwnerTag {
-    if (value === 'للدائرة' || value === 'أخرى' || value === 'للموكل') return value;
-    return 'أخرى';
 }
 
 /** يزيل علامات الآلة من نص العرض في المنتدى */
@@ -108,11 +132,12 @@ export function stripProcedureGuideMachineLines(content: string): string {
 export function stashPendingProcedureGuide(guide: ProcedureGuideApplyPayload | null | undefined): void {
     if (typeof window === 'undefined') return;
     try {
-        if (!guide || (guide.steps.length === 0 && guide.documents.length === 0)) {
+        const sanitized = guide ? sanitizeProcedureGuidePayload(guide) : null;
+        if (!sanitized || (sanitized.steps.length === 0 && sanitized.documents.length === 0)) {
             window.sessionStorage.removeItem(PENDING_GUIDE_KEY);
             return;
         }
-        window.sessionStorage.setItem(PENDING_GUIDE_KEY, JSON.stringify(guide));
+        window.sessionStorage.setItem(PENDING_GUIDE_KEY, JSON.stringify(sanitized));
     } catch {
         /* ignore quota */
     }
@@ -123,17 +148,6 @@ export function consumePendingProcedureGuide(): ProcedureGuideApplyPayload | nul
     try {
         const raw = window.sessionStorage.getItem(PENDING_GUIDE_KEY);
         window.sessionStorage.removeItem(PENDING_GUIDE_KEY);
-        if (!raw) return null;
-        return parseProcedureGuideDataLine(`${PROCEDURE_GUIDE_DATA_PREFIX}${raw}`);
-    } catch {
-        return null;
-    }
-}
-
-export function peekPendingProcedureGuide(): ProcedureGuideApplyPayload | null {
-    if (typeof window === 'undefined') return null;
-    try {
-        const raw = window.sessionStorage.getItem(PENDING_GUIDE_KEY);
         if (!raw) return null;
         return parseProcedureGuideDataLine(`${PROCEDURE_GUIDE_DATA_PREFIX}${raw}`);
     } catch {

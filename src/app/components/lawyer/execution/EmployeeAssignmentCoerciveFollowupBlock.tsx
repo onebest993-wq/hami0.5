@@ -1,6 +1,6 @@
 import * as React from 'react';
 import type { EmployeeSummonsAssignmentState } from '@/app/types/execution';
-import { Send } from '@/app/components/ui/lucideIcons';
+import { Send } from '@/app/components/ui/icons/Send';
 
 export interface EmployeeAssignmentCoerciveFollowupBlockProps {
     assignment: EmployeeSummonsAssignmentState;
@@ -37,15 +37,16 @@ export const EmployeeAssignmentCoerciveFollowupBlock: React.FC<
     onTerminateAssignment,
     onForcedBringOutcome,
 }) => {
-    const ph = assignment.phase;
-    if (ph === 'none' || ph === 'active') return null;
-
     type GateKey = 'investigation' | 'forced_bring';
+    // الخطافات قبل أي خروج مبكر: `phase` يتغيّر أثناء حياة المكوّن (active ← تكليف)،
+    // فالخروج فوقها كان يغيّر عددها بين رسمتين ويُسقط React بـ«خطافات أكثر من السابق».
     const [confirming, setConfirming] = React.useState<GateKey | null>(null);
     const [sending, setSending] = React.useState<GateKey | null>(null);
     const [forcedPick, setForcedPick] = React.useState<'brought' | 'dismissed' | 'absconded' | ''>(
         '',
     );
+
+    const ph = assignment.phase;
 
     const resolveForcedOutcome = onForcedBringOutcome
         ? (which: 'brought' | 'dismissed' | 'absconded') => onForcedBringOutcome(which)
@@ -88,6 +89,8 @@ export const EmployeeAssignmentCoerciveFollowupBlock: React.FC<
                 </button>
             </div>
         ) : null;
+
+    if (ph === 'none' || ph === 'active') return null;
 
     return (
         <div className="space-y-4 border-b border-amber-500/20 pb-4 mb-4">

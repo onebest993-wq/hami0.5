@@ -11,7 +11,7 @@ describe('world-class field-tasks close honesty', () => {
             'utf8',
         );
         expect(hook).toMatch(
-            /fieldTasksHostMounted[\s\S]*?initialSession\.open && initialSession\.surface === 'sheet'/,
+            /const \[fieldTasksHostMounted, setFieldTasksHostMounted\] = useState\(false\)/,
         );
         expect(hook).not.toMatch(/useState\(true\)/);
     });
@@ -68,26 +68,34 @@ describe('world-class field-tasks close honesty', () => {
     });
 
     it('T3: pointerPrime للمهام بلا hydrate مكرر', () => {
-        const dock = fs.readFileSync(
-            path.join(root, 'src/app/components/lawyer/LegalCommandCenterDock.tsx'),
+        const gate = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/dockShellPrefetchGate.ts'),
             'utf8',
         );
-        const tasksPrime = dock.match(
-            /if \(widgetId === 'dockTasks'\) \{[\s\S]*?\n            \}/,
+        const tasksPrime = gate.match(
+            /if \(widgetId === 'dockTasks'\) \{[\s\S]*?\n        \}/,
         )?.[0];
         expect(tasksPrime).toBeTruthy();
-        expect(tasksPrime).toContain("prefetchDockWidgetIntentImmediate('dockTasks', 'open')");
+        expect(tasksPrime).toContain('dispatchFieldTasksPrimeHost');
+        expect(tasksPrime).toContain("prefetchDockWidgetIntentImmediate('dockTasks'");
         expect(tasksPrime).not.toContain('hydrateFieldTasksShellForInstantOpen');
+        const slot = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/dashboard/HomeTabWidgetSlot.tsx'),
+            'utf8',
+        );
+        expect(slot).toContain('bindDockWidgetPointerHandlers');
+        expect(slot).not.toContain('LegalCommandCenterDock');
     });
 
-    it('T8: InstantShell على Host أثناء تحميل chunk', () => {
+    it('T8: Host يستورد الستارة ثابتاً ويحترم keepAlive', () => {
         const host = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/dashboard/fieldTasks/FieldTasksSheetHost.tsx'),
             'utf8',
         );
-        expect(host).toContain('FieldTasksWarmSheetBridge');
-        expect(host).toContain('field-tasks-sheet-load-error');
-        expect(host).toContain('field-tasks-sheet-retry');
+        expect(host).toMatch(/import \{ FieldTasksBottomSheet \} from/);
+        expect(host).toMatch(/if \(!open && !keepAlive\)/);
+        expect(host).not.toContain('FieldTasksWarmSheetBridge');
+        expect(host).not.toContain('FieldTasksInstantSheetShell');
     });
 
     it('T4: طبقات Escape متدرجة — ستارة ثم مدير', () => {

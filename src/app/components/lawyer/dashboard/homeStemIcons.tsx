@@ -61,18 +61,6 @@ export function HomeFileTextIcon(props: HomeStemIconProps) {
     );
 }
 
-export function HomeWarehouseIcon(props: HomeStemIconProps) {
-    return (
-        <HomeStemSvgIcon {...props}>
-            <path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z" />
-            <path d="M6 18h12" />
-            <path d="M6 14h12" />
-            <path d="M6 10h12" />
-            <path d="M12 2v20" />
-        </HomeStemSvgIcon>
-    );
-}
-
 /** مستودع ذكي — أرشيف طبقات + وميض ذكاء (بديل المستودع التقليدي في الدوك) */
 export function HomeSmartRepositoryIcon(props: HomeStemIconProps) {
     return (
@@ -108,43 +96,6 @@ export function HomeListChecksIcon(props: HomeStemIconProps) {
             <path d="M13 18h8" />
         </HomeStemSvgIcon>
     );
-}
-
-export function HomeMessageCircleIcon(props: HomeStemIconProps) {
-    return (
-        <HomeStemSvgIcon {...props}>
-            <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
-        </HomeStemSvgIcon>
-    );
-}
-
-/** أيقونة المنتدى — فقاعة نقاش (بدون حلقات تشبه مؤشر التحميل) */
-export function HomeForumRippleIcon(props: HomeStemIconProps) {
-    return (
-        <HomeStemSvgIcon {...props}>
-            <path
-                d="M21 15a2 2 0 0 1-2 2H8l-5 3V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-                strokeWidth={1.85}
-            />
-            <path d="M8 10h8" strokeWidth={1.5} opacity={0.7} />
-            <path d="M8 13.5h5" strokeWidth={1.5} opacity={0.5} />
-        </HomeStemSvgIcon>
-    );
-}
-
-/** @deprecated استخدم HomeForumRippleIcon */
-export function HomeForumMarkIcon(props: HomeStemIconProps) {
-    return <HomeForumRippleIcon {...props} />;
-}
-
-/** @deprecated استخدم HomeForumMarkIcon */
-export function HomeForumNexusIcon(props: HomeStemIconProps) {
-    return <HomeForumMarkIcon {...props} />;
-}
-
-/** @deprecated استخدم HomeForumMarkIcon */
-export function HomeForumConstellationIcon(props: HomeStemIconProps) {
-    return <HomeForumMarkIcon {...props} />;
 }
 
 export function HomeArrowLeftIcon(props: HomeStemIconProps) {
@@ -191,6 +142,17 @@ export function HomeBellIcon(props: HomeStemIconProps) {
     );
 }
 
+export function HomeUsersIcon(props: HomeStemIconProps) {
+    return (
+        <HomeStemSvgIcon {...props}>
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </HomeStemSvgIcon>
+    );
+}
+
 export function HomeSettingsIcon(props: HomeStemIconProps) {
     return (
         <HomeStemSvgIcon {...props}>
@@ -209,12 +171,20 @@ export function HomeSearchIcon(props: HomeStemIconProps) {
     );
 }
 
-export function HomeAlertCircleIcon(props: HomeStemIconProps) {
+export function HomeClockIcon(props: HomeStemIconProps) {
     return (
         <HomeStemSvgIcon {...props}>
             <circle cx="12" cy="12" r="10" />
-            <line x1="12" x2="12" y1="8" y2="12" />
-            <line x1="12" x2="12.01" y1="16" y2="16" />
+            <polyline points="12 6 12 12 16 14" />
+        </HomeStemSvgIcon>
+    );
+}
+
+export function HomeRotateCcwIcon(props: HomeStemIconProps) {
+    return (
+        <HomeStemSvgIcon {...props}>
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
         </HomeStemSvgIcon>
     );
 }
@@ -233,37 +203,6 @@ export function HomePlusIcon(props: HomeStemIconProps) {
         <HomeStemSvgIcon {...props}>
             <path d="M5 12h14" />
             <path d="M12 5v14" />
-        </HomeStemSvgIcon>
-    );
-}
-
-export function HomeScanIcon(props: HomeStemIconProps) {
-    return (
-        <HomeStemSvgIcon {...props}>
-            <path d="M3 7V5a2 2 0 0 1 2-2h2" />
-            <path d="M17 3h2a2 2 0 0 1 2 2v2" />
-            <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
-            <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
-        </HomeStemSvgIcon>
-    );
-}
-
-export function HomeImageIcon(props: HomeStemIconProps) {
-    return (
-        <HomeStemSvgIcon {...props}>
-            <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-            <circle cx="9" cy="9" r="2" />
-            <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-        </HomeStemSvgIcon>
-    );
-}
-
-export function HomeMicIcon(props: HomeStemIconProps) {
-    return (
-        <HomeStemSvgIcon {...props}>
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-            <line x1="12" x2="12" y1="19" y2="22" />
         </HomeStemSvgIcon>
     );
 }

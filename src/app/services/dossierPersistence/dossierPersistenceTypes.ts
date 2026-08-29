@@ -2,7 +2,14 @@
 export type DossierDomain = 'lawsuit' | 'execution';
 
 /** مجالات النسخ الاحتياطي — إضابير + بيانات المحامي الحساسة */
-export type BackupDomain = DossierDomain | 'notes' | 'community' | 'vault' | 'calendar' | 'tasks';
+export type BackupDomain =
+    | DossierDomain
+    | 'notes'
+    | 'community'
+    | 'vault'
+    | 'repository'
+    | 'calendar'
+    | 'tasks';
 
 export type DossierSnapshotMeta = {
     domain: BackupDomain;

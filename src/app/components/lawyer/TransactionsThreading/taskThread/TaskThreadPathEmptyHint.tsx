@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import { X } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
 import { GLASS_BTN, TX_ICON_BTN, TX_TEXT_MUTED, TX_TEXT_PRIMARY, TxGlassPanel } from '../transactionsGlassTheme';
 import { emptyPathDismissKey } from './taskThreadUtils';
 
@@ -20,7 +20,7 @@ export const TaskThreadPathEmptyHint = memo(function TaskThreadPathEmptyHint({
     if (dismissed) return null;
 
     return (
-        <TxGlassPanel className="p-4 relative">
+        <TxGlassPanel className="p-3 relative">
             {!readOnly ? (
                 <button
                     type="button"
@@ -34,7 +34,7 @@ export const TaskThreadPathEmptyHint = memo(function TaskThreadPathEmptyHint({
                     <X className="w-4 h-4" />
                 </button>
             ) : null}
-            <div className={`${TX_TEXT_PRIMARY} font-extrabold text-sm pr-1`}>لا يوجد مسار بعد</div>
+            <div className={`${TX_TEXT_PRIMARY} font-semibold text-sm pr-1`}>لا يوجد مسار بعد</div>
             <div className={`${TX_TEXT_MUTED} text-xs mt-1.5 leading-6 font-medium`}>
                 أضف مهمة من الزر السفلي أو استورد قالباً جاهزاً.
             </div>

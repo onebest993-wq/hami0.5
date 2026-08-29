@@ -30,41 +30,48 @@ describe('hubHomeOpen', () => {
         expect(prefetchHubArchiveIntentImmediate).not.toHaveBeenCalled();
     });
 
-    it('blocks signed-out users from opening execution', () => {
+    it('blocks signed-out users from opening execution', async () => {
         const onOpen = vi.fn();
         expect(openHubArchiveFromHomeTile('execution', null, onOpen)).toBe(false);
         expect(onOpen).not.toHaveBeenCalled();
-        expect(prefetchHubArchiveIntentImmediate).toHaveBeenCalledWith('execution', null);
-        expect(toastError).toHaveBeenCalled();
+        expect(prefetchHubArchiveIntentImmediate).not.toHaveBeenCalled();
+        await vi.waitFor(() => {
+            expect(toastError).toHaveBeenCalled();
+        });
     });
 
-    it('opens lawsuit for signed-in user', () => {
+    it('opens lawsuit for signed-in user', async () => {
         const onOpen = vi.fn();
         expect(openHubArchiveFromHomeTile('lawsuit', 'lawyer-1', onOpen)).toBe(true);
         expect(onOpen).toHaveBeenCalledWith('lawsuit');
-        expect(prefetchHubArchiveIntentImmediate).toHaveBeenCalledWith('lawsuit', 'lawyer-1');
+        await vi.waitFor(() => {
+            expect(prefetchHubArchiveIntentImmediate).toHaveBeenCalledWith('lawsuit', 'lawyer-1');
+        });
     });
 
     it('blocks signed-out users from opening lawsuit', () => {
         const onOpen = vi.fn();
         expect(openHubArchiveFromHomeTile('lawsuit', null, onOpen)).toBe(false);
         expect(onOpen).not.toHaveBeenCalled();
-        expect(prefetchHubArchiveIntentImmediate).toHaveBeenCalledWith('lawsuit', null);
+        expect(prefetchHubArchiveIntentImmediate).not.toHaveBeenCalled();
     });
 
     it('opens transaction for signed-in user', async () => {
         const onOpen = vi.fn();
         expect(openHubArchiveFromHomeTile('transaction', 'lawyer-1', onOpen)).toBe(true);
         expect(onOpen).toHaveBeenCalledWith('transaction');
-        await Promise.resolve();
-        expect(prefetchHubArchiveIntentImmediate).toHaveBeenCalledWith('transaction', 'lawyer-1');
+        await vi.waitFor(() => {
+            expect(prefetchHubArchiveIntentImmediate).toHaveBeenCalledWith('transaction', 'lawyer-1');
+        });
     });
 
-    it('blocks signed-out users from opening transaction', () => {
+    it('blocks signed-out users from opening transaction', async () => {
         const onOpen = vi.fn();
         expect(openHubArchiveFromHomeTile('transaction', null, onOpen)).toBe(false);
         expect(onOpen).not.toHaveBeenCalled();
         expect(prefetchHubArchiveIntentImmediate).not.toHaveBeenCalled();
-        expect(toastError).toHaveBeenCalled();
+        await vi.waitFor(() => {
+            expect(toastError).toHaveBeenCalled();
+        });
     });
 });

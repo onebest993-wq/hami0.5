@@ -2,14 +2,14 @@ import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import { resolveFileSearchLifecycle } from '@/app/services/searchLifecycle';
 import type { GlobalSearchCategory, GlobalSearchEntry } from '@/app/services/globalSearchIndex';
 import {
-    blob,
+    clipSearchHaystack,
     norm,
     noteTexts,
     partyNames,
     withLifecycle,
 } from '@/app/services/search/globalSearchIndexPureHelpers';
-import { fileTasksToEntries } from '@/app/services/search/globalSearchIndexFileTasks';
-import { lawsuitStagesToEntries } from '@/app/services/search/globalSearchIndexLawsuitStages';
+import { fileTasksSearchHaystack } from '@/app/services/search/globalSearchIndexFileTasks';
+import { lawsuitStagesSearchHaystack } from '@/app/services/search/globalSearchIndexLawsuitStages';
 
 export function fileToEntry(f: FileData & { executionTrashDeletedAt?: string | null }): GlobalSearchEntry[] {
     const lifecycle = resolveFileSearchLifecycle(f);
@@ -27,19 +27,23 @@ export function fileToEntry(f: FileData & { executionTrashDeletedAt?: string | n
             (f as { personalApplicableLaw?: string }).personalApplicableLaw ??
             '',
     ).trim();
-    const searchBlob = [
-        f.caseNo,
-        f.court,
-        f.docType,
-        f.judge,
-        client,
-        partyNames(f.parties),
-        noteTexts(f.notes),
-        jurisdictionHint,
-        applicableLaw,
-    ]
-        .filter(Boolean)
-        .join(' ');
+    const searchBlob = clipSearchHaystack(
+        [
+            f.caseNo,
+            f.court,
+            f.docType,
+            f.judge,
+            client,
+            partyNames(f.parties),
+            noteTexts(f.notes),
+            fileTasksSearchHaystack(f),
+            f.type === 'execution' ? '' : lawsuitStagesSearchHaystack(f),
+            jurisdictionHint,
+            applicableLaw,
+        ]
+            .filter(Boolean)
+            .join(' '),
+    );
 
     const jurisdictionSubtitle =
         f.lawsuitJurisdiction === 'personal'
@@ -48,66 +52,27 @@ export function fileToEntry(f: FileData & { executionTrashDeletedAt?: string | n
               ? 'قضاء مدني'
               : null;
 
-    const main = withLifecycle(
-        {
-            id: `file-${f.id}`,
-            category: cat,
-            title:
-                f.type === 'transaction'
-                    ? client || f.caseNo || 'معاملة'
-                    : f.parties?.find((p) => p.isClient)?.name || f.caseNo || 'ملف',
-            subtitle:
-                f.type === 'transaction'
-                    ? f.caseNo
-                    : jurisdictionSubtitle
-                      ? `${jurisdictionSubtitle} • ${f.court} • ${f.caseNo}`
-                      : `${f.court} • ${f.caseNo}`,
-            _searchStr: norm(searchBlob),
-            navigate: { type: 'file', fileId: f.id },
-        },
-        lifecycle,
-    );
-
-    const extras: GlobalSearchEntry[] = [main];
-
-    for (const p of f.parties ?? []) {
-        if (!p.name?.trim()) continue;
-        extras.push(
-            withLifecycle(
-                {
-                    id: `party-${f.id}-${p.id}`,
-                    category: 'party',
-                    title: p.name,
-                    subtitle: `${p.role} — ${main.title}`,
-                    _searchStr: blob([p.name, p.phone, p.role, searchBlob]),
-                    navigate: { type: 'file', fileId: f.id },
-                },
-                lifecycle,
-            ),
-        );
-    }
-
-    for (const n of f.notes ?? []) {
-        if (!n.text?.trim()) continue;
-        extras.push(
-            withLifecycle(
-                {
-                    id: `file-note-${f.id}-${n.id}`,
-                    category: 'note',
-                    title: n.text.slice(0, 80),
-                    subtitle: `ملاحظة ملف — ${main.title}`,
-                    snippet: n.text,
-                    _searchStr: blob([n.text, searchBlob]),
-                    navigate: { type: 'file', fileId: f.id },
-                },
-                lifecycle,
-            ),
-        );
-    }
-
-    extras.push(...fileTasksToEntries(f, main.title, lifecycle));
-    if (f.type !== 'execution') {
-        extras.push(...lawsuitStagesToEntries(f, main.title, lifecycle));
-    }
-    return extras;
+    return [
+        withLifecycle(
+            {
+                id: `file-${f.id}`,
+                category: cat,
+                title:
+                    f.type === 'transaction'
+                        ? client || f.caseNo || 'معاملة'
+                        : f.parties?.find((p) => p.isClient)?.name || f.caseNo || 'ملف',
+                subtitle:
+                    f.type === 'transaction'
+                        ? f.caseNo
+                            ? `إضبارة · ${f.caseNo}`
+                            : 'إضبارة'
+                        : jurisdictionSubtitle
+                          ? `${jurisdictionSubtitle} • ${f.court} • ${f.caseNo}`
+                          : `${f.court} • ${f.caseNo}`,
+                _searchStr: norm(searchBlob),
+                navigate: { type: 'file', fileId: f.id },
+            },
+            lifecycle,
+        ),
+    ];
 }

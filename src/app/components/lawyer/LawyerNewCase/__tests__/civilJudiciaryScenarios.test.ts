@@ -323,9 +323,13 @@ describe('القضاء المدني — الطعن الاستثنائي (بدل�
 describe('القضاء المدني — نص زر إضافة طرف', () => {
     it('حسب الدور الأول', () => {
         expect(getAddPartyButtonText([party('1', 'أ', 'مدعي')], 1)).toBe('إضافة مدعي آخر');
+        expect(getAddPartyButtonText([party('1', 'أ', 'المدعي')], 1)).toBe('إضافة مدعي آخر');
         expect(getAddPartyButtonText([party('1', 'أ', 'مستأنف')], 1)).toBe('إضافة مستأنف آخر');
+        expect(getAddPartyButtonText([party('1', 'أ', 'المستأنف')], 1)).toBe('إضافة مستأنف آخر');
         expect(getAddPartyButtonText([party('1', 'أ', 'مدعى عليه')], 2)).toBe('إضافة مدعى عليه آخر');
+        expect(getAddPartyButtonText([party('1', 'أ', 'المدعى عليه')], 2)).toBe('إضافة مدعى عليه آخر');
         expect(getAddPartyButtonText([party('1', 'أ', 'مستأنف عليه')], 2)).toBe('إضافة مستأنف عليه آخر');
+        expect(getAddPartyButtonText([party('1', 'أ', 'المستأنف عليه')], 2)).toBe('إضافة مستأنف عليه آخر');
     });
 });
 

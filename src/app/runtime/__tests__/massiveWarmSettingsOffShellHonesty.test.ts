@@ -14,19 +14,62 @@ describe('massive warm settings-off-shell honesty', () => {
         expect(shell).toContain('LazyLawyerDashboardGate');
     });
 
-    it('LawyerSettingsProvider داخل InnerRuntime بعد mark', () => {
-        const runtime = fs.readFileSync(
-            path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardInnerRuntime.tsx'),
+    it('LawyerSettingsBootProvider داخل Inner؛ FullBoot بلا Provider كامل؛ Ensure عند فتح الإعدادات', () => {
+        const boot = fs.readFileSync(
+            path.join(root, 'src/app/context/lawyerSettings/LawyerSettingsBootProvider.tsx'),
+            'utf8',
+        );
+        const stem = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/LawyerDashboard.tsx'),
+            'utf8',
+        );
+        const fullBoot = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardFullBootPath.tsx'),
             'utf8',
         );
         const inner = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardInner.tsx'),
             'utf8',
         );
-        expect(runtime).toContain('LawyerSettingsProvider');
-        expect(runtime).toContain('QuantumTasksProvider');
+        expect(boot).toContain('LawyerSettingsContext.Provider');
+        expect(boot).toContain('LawyerSettingsActionsContext.Provider');
+        expect(boot).toContain("from '@/app/services/settings/pushPolicy'");
+        expect(boot).not.toContain("from '@/app/services/settings/apply'");
+        expect(boot).toContain('isBootOnly: true');
+        expect(boot).toContain('subscribeLawyerSettingsLive');
+        expect(inner).toContain('LawyerSettingsBootProvider');
         expect(inner).not.toContain('LawyerSettingsProvider');
-        expect(inner).toContain('markDashboardInteractiveOnce');
+        expect(fullBoot).not.toContain('LawyerSettingsProvider');
+        expect(fullBoot).toContain('LawyerDashboardSettingsOverlayPortal');
+        expect(fullBoot).not.toContain('QuantumTasksProvider');
+        expect(fullBoot).toContain('primeQuantumTasksBootMetrics');
+        const ensure = fs.readFileSync(
+            path.join(root, 'src/app/context/lawyerSettings/LawyerSettingsProvider.tsx'),
+            'utf8',
+        );
+        expect(ensure).toContain('!ctx.isBootOnly');
+        const hami = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/HamiSettings/HamiSettingsApp.tsx'),
+            'utf8',
+        );
+        expect(hami).toContain('EnsureLawyerSettingsProvider');
+        expect(stem).not.toContain('markDashboardInteractiveOnce');
+        expect(inner).not.toContain('markDashboardInteractiveOnce');
+        expect(
+            fs.existsSync(
+                path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMinimalBootPath.tsx'),
+            ),
+        ).toBe(false);
+        const gridGate = fs.readFileSync(
+            path.join(root, 'src/app/bootstrap/homeMainGridPaintGate.ts'),
+            'utf8',
+        );
+        expect(gridGate).toContain('markDashboardInteractiveOnce');
+        expect(
+            fs.existsSync(
+                path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardInnerRuntime.tsx'),
+            ),
+        ).toBe(false);
     });
 
     it('useReduceMotion يقرأ DOM بلا LawyerSettingsContext', () => {

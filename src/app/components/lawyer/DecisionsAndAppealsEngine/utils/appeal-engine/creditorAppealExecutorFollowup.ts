@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Decision } from '../../types';
 import {
     type AppealUiPerspective,
@@ -151,7 +150,11 @@ export function isExecutorRequestAppealCycleSupersededFromRecord(
     perspective: AppealUiPerspective = 'creditor_agent'
 ): boolean {
     if (!row || typeof row !== 'object') return false;
-    return isExecutorRequestAppealCycleSuperseded(row as Decision, all as Decision[], perspective);
+    return isExecutorRequestAppealCycleSuperseded(
+        row as unknown as Decision,
+        all as unknown as Decision[],
+        perspective,
+    );
 }
 
 export function isExecutorRequestFollowupBlockedFromRecord(
@@ -160,7 +163,11 @@ export function isExecutorRequestFollowupBlockedFromRecord(
     perspective: AppealUiPerspective = 'creditor_agent'
 ): boolean {
     if (!row || typeof row !== 'object') return false;
-    return isExecutorRequestFollowupBlocked(row as Decision, all as Decision[], perspective);
+    return isExecutorRequestFollowupBlocked(
+        row as unknown as Decision,
+        all as unknown as Decision[],
+        perspective,
+    );
 }
 
 export function resolveExecutorRequestFollowupBlockFromRecord(
@@ -169,5 +176,9 @@ export function resolveExecutorRequestFollowupBlockFromRecord(
     perspective: AppealUiPerspective = 'creditor_agent'
 ): ExecutorRequestFollowupBlock | null {
     if (!row || typeof row !== 'object') return null;
-    return resolveExecutorRequestFollowupBlock(row as Decision, all as Decision[], perspective);
+    return resolveExecutorRequestFollowupBlock(
+        row as unknown as Decision,
+        all as unknown as Decision[],
+        perspective,
+    );
 }

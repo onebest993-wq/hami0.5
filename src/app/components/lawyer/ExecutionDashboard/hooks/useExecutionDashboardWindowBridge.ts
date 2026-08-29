@@ -3,7 +3,6 @@ import type { ExecutionFile } from '@/app/types/execution';
 import type { TimelineEvent } from '@/app/types/execution';
 import { HAMI_RESIDENTIAL_GRACE_CLEARED } from '@/app/utils/residentialEvictionGrace';
 import { stripResidentialGraceTimelineEvents } from '@/app/utils/residentialGraceTimeline';
-import { resolveDecisionsModalBootState } from '@/app/utils/decisionsModalBoot';
 
 export type UseExecutionResidentialGraceClearedListenerParams = {
     executionDataId: string | undefined;
@@ -157,111 +156,4 @@ export function useExecutionDecisionOutcomeToastBridge(
         window.addEventListener('hami-execution-decision-outcome', handler as EventListener);
         return () => window.removeEventListener('hami-execution-decision-outcome', handler as EventListener);
     }, [executionDataId, executionId, decisionsStorageExecutionId, showUnifiedExecutionModalRef, showToastRef]);
-}
-
-export type UseExecutionOpenCoerciveTabListenerParams = {
-    executionDataId: string | undefined;
-    executionId: string | undefined;
-    setShowDecisionsModal: (show: boolean) => void;
-    openExecutionSeizuresTab: () => void;
-};
-
-export function useExecutionOpenCoerciveTabListener(params: UseExecutionOpenCoerciveTabListenerParams) {
-    const { executionDataId, executionId, setShowDecisionsModal, openExecutionSeizuresTab } = params;
-    useEffect(() => {
-        const handler = (e: Event) => {
-            const detail = (e as CustomEvent<{ executionId?: string }>).detail;
-            const targetId = String(detail?.executionId || executionId || executionDataId || '').trim();
-            const currentId = String(executionId || executionDataId || '').trim();
-            if (targetId && currentId && targetId !== currentId) return;
-            setShowDecisionsModal(false);
-            openExecutionSeizuresTab();
-        };
-        window.addEventListener('hami-open-execution-coercive-tab', handler as EventListener);
-        return () => window.removeEventListener('hami-open-execution-coercive-tab', handler as EventListener);
-    }, [executionDataId, executionId, openExecutionSeizuresTab, setShowDecisionsModal]);
-}
-
-export type UseExecutionOpenDecisionsModalListenerParams = {
-    executionDataId: string | undefined;
-    executionId: string | undefined;
-    setShowExecutionFinancialHub: (show: boolean) => void;
-    setShowUnifiedExecutionModal: (show: boolean) => void;
-    setShowUnifiedSummonsModal: (show: boolean) => void;
-    setShowNotesModal: (show: boolean) => void;
-    setShowDocumentsModal: (show: boolean) => void;
-    setShowAppointmentModal: (show: boolean) => void;
-    setShowTimelineModal: (show: boolean) => void;
-    setShowNotificationModal: (show: boolean) => void;
-    setDecisionsModalBootHubTab: (tab: 'appeals' | null) => void;
-    setDecisionsModalBootListTab: (tab: 'current' | 'previous' | 'appeals' | null) => void;
-    setDecisionsModalScrollToDecisionId: (id: string | null) => void;
-    setAppealsModalScrollToDecisionId: (id: string | null) => void;
-    setShowDecisionsModal: (show: boolean) => void;
-};
-
-export function useExecutionOpenDecisionsModalListener(params: UseExecutionOpenDecisionsModalListenerParams) {
-    const {
-        executionDataId,
-        executionId,
-        setShowExecutionFinancialHub,
-        setShowUnifiedExecutionModal,
-        setShowUnifiedSummonsModal,
-        setShowNotesModal,
-        setShowDocumentsModal,
-        setShowAppointmentModal,
-        setShowTimelineModal,
-        setShowNotificationModal,
-        setDecisionsModalBootHubTab,
-        setDecisionsModalBootListTab,
-        setDecisionsModalScrollToDecisionId,
-        setAppealsModalScrollToDecisionId,
-        setShowDecisionsModal,
-    } = params;
-
-    useEffect(() => {
-        const handler = (e: Event) => {
-            const ce = e as CustomEvent<{ executionId?: string; decisionId?: string; tab?: string }>;
-            const myId = String(executionDataId ?? executionId ?? '');
-            if (!myId || String(ce.detail?.executionId ?? '') !== myId) return;
-            setShowExecutionFinancialHub(false);
-            setShowUnifiedExecutionModal(false);
-            setShowUnifiedSummonsModal(false);
-            setShowNotesModal(false);
-            setShowDocumentsModal(false);
-            setShowAppointmentModal(false);
-            setShowTimelineModal(false);
-            setShowNotificationModal(false);
-            const tabRaw = String(ce.detail?.tab || '').trim();
-            const tab =
-                tabRaw === 'current' || tabRaw === 'previous' || tabRaw === 'appeals' ? tabRaw : undefined;
-            const did = String(ce.detail?.decisionId || '').trim() || null;
-            const boot = resolveDecisionsModalBootState(
-                tab || did ? { tab: tab ?? null, decisionId: did } : undefined,
-            );
-            setDecisionsModalBootHubTab(boot.hubTab);
-            setDecisionsModalBootListTab(boot.listTab);
-            setDecisionsModalScrollToDecisionId(boot.scrollDecisionId);
-            setAppealsModalScrollToDecisionId(boot.scrollAppealId);
-            setShowDecisionsModal(true);
-        };
-        window.addEventListener('hami-open-decisions-modal', handler as EventListener);
-        return () => window.removeEventListener('hami-open-decisions-modal', handler as EventListener);
-    }, [
-        executionDataId,
-        executionId,
-        setShowDecisionsModal,
-        setShowUnifiedExecutionModal,
-        setShowUnifiedSummonsModal,
-        setShowNotesModal,
-        setShowDocumentsModal,
-        setShowAppointmentModal,
-        setShowTimelineModal,
-        setShowNotificationModal,
-        setShowExecutionFinancialHub,
-        setDecisionsModalBootHubTab,
-        setDecisionsModalBootListTab,
-        setDecisionsModalScrollToDecisionId,
-        setAppealsModalScrollToDecisionId,
-    ]);
 }

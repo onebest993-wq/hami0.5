@@ -1,7 +1,10 @@
 import type { LawyerProfileData } from '@/app/services/profile/profileTypes';
-import { ProfileDB, readLocalProfileSync } from '@/app/services/cloud/lawyerProfileCloud';
+import { readLocalProfileSync, isLawyerProfileLocalUnread, lawyerProfileLocalRecordExists } from '@/app/services/profile/lawyerProfileLocalRead';
 import { DEFAULT_LAWYER_PROFILE } from '@/app/services/cloud/lawyerProfileTypes';
-import { resolveLawyerDisplayName } from '@/app/services/profile/resolveLawyerDisplayName';
+import {
+    preferRicherLawyerDisplayName,
+    resolveFirstPaintLawyerDisplayName,
+} from '@/app/services/profile/resolveLawyerDisplayName';
 import { LAWYER_PROFILE_UPDATED } from '@/app/services/profile/profileEvents';
 import {
     hasProfileWarmCache,
@@ -14,6 +17,9 @@ import {
     isProfilePaintReady,
     shouldAwaitCloudProfileSettle,
 } from '@/app/services/profile/profileSparseDetect';
+import { isLawyerProfileBootWarmPending } from '@/app/services/profile/profileBootWarmPending';
+import { sanitizeProfileMediaUrl } from '@/app/services/profile/profileUrlSanitize';
+import { getUserIdentityUiState } from '@/app/services/profile/userIdentityUiState';
 
 export type { ProfileWarmCachePeekOptions };
 export {
@@ -23,11 +29,13 @@ export {
     setProfileWarmCache,
 };
 
+export { subscribeProfileWarmCache } from '@/app/services/profile/profileWarmCacheStore';
+
 const inflight = new Map<string, Promise<LawyerProfileData>>();
 
 /**
  * يملأ الكاش الدافئ متزامناً من التخزين المحلي أو بذرة الاسم من الجلسة —
- * قبل fetchLawyerProfile/async getProfile (مثل FieldTasksWarmSheetBridge).
+ * قبل fetchLawyerProfile/async getProfile.
  */
 export function hydrateProfileWarmCachePeekSync(
     userId?: string | null,
@@ -37,12 +45,34 @@ export function hydrateProfileWarmCachePeekSync(
     const uid = userId?.trim();
     if (!uid || typeof window === 'undefined') return null;
 
-    const existing = peekProfileWarmCache(uid);
-    if (existing?.header?.name?.trim()) return existing;
-
     const viewer = viewerId?.trim() || uid;
-    if (existing && viewer === uid) {
-        const name = resolveLawyerDisplayName(existing.header?.name, uid, userMeta ?? {}).trim();
+    const existing = peekProfileWarmCache(uid);
+    const local = viewer === uid ? readLocalProfileSync(uid) : null;
+
+    if (local) {
+        const resolved =
+            resolveFirstPaintLawyerDisplayName(local.header?.name, uid, userMeta ?? {}).trim() ||
+            local.header?.name?.trim() ||
+            '';
+        const mergedName = preferRicherLawyerDisplayName(existing?.header?.name ?? '', resolved);
+        const next: LawyerProfileData = {
+            ...local,
+            header: { ...local.header, name: mergedName || local.header.name },
+        };
+        setProfileWarmCache(uid, next);
+        return peekProfileWarmCache(uid) ?? next;
+    }
+
+    const localUnread = viewer === uid && isLawyerProfileLocalUnread(uid);
+    const warmPending = viewer === uid && isLawyerProfileBootWarmPending();
+    const hasLocalRecord = viewer === uid && lawyerProfileLocalRecordExists(uid);
+
+    if (localUnread || warmPending || hasLocalRecord) {
+        return existing ?? null;
+    }
+
+    if (existing?.header?.name?.trim() && viewer === uid) {
+        const name = resolveFirstPaintLawyerDisplayName(existing.header?.name, uid, userMeta ?? {}).trim();
         if (name && name !== existing.header?.name?.trim()) {
             const enriched: LawyerProfileData = {
                 ...existing,
@@ -51,23 +81,32 @@ export function hydrateProfileWarmCachePeekSync(
             setProfileWarmCache(uid, enriched);
             return peekProfileWarmCache(uid) ?? enriched;
         }
-        if (existing) return existing;
-    }
-
-    const local = readLocalProfileSync(uid);
-    if (local) {
-        setProfileWarmCache(uid, local);
-        return peekProfileWarmCache(uid) ?? local;
+        return existing;
     }
 
     if (viewer !== uid) return null;
 
-    const name = resolveLawyerDisplayName(undefined, uid, userMeta ?? {}).trim();
+    /* بلا ملف محلي: بذرة الاسم والصورة من الجلسة/الهوية — لا حقل JWT القصير `name`. */
+    const name = resolveFirstPaintLawyerDisplayName(undefined, uid, userMeta ?? {}).trim();
     if (!name) return null;
+
+    const metaAvatarRaw =
+        userMeta &&
+        (typeof userMeta.avatar_url === 'string'
+            ? userMeta.avatar_url
+            : typeof userMeta.avatarUrl === 'string'
+              ? userMeta.avatarUrl
+              : typeof userMeta.picture === 'string'
+                ? userMeta.picture
+                : '');
+    const profileImage =
+        getUserIdentityUiState(uid)?.avatarUrl ||
+        (typeof metaAvatarRaw === 'string' ? sanitizeProfileMediaUrl(metaAvatarRaw) ?? '' : '') ||
+        '';
 
     const stub: LawyerProfileData = {
         ...DEFAULT_LAWYER_PROFILE,
-        header: { ...DEFAULT_LAWYER_PROFILE.header, name },
+        header: { ...DEFAULT_LAWYER_PROFILE.header, name, profileImage },
         sections: DEFAULT_LAWYER_PROFILE.sections.map((section) => ({ ...section })),
     };
     setProfileWarmCache(uid, stub);
@@ -105,15 +144,17 @@ export function warmProfileDataCache(
     const pending = inflight.get(uid);
     if (pending) return pending.catch(() => null);
 
-    const run = Promise.resolve(ProfileDB.getProfile(uid, viewerId))
-        .then(async (data) => {
+    const run = import('@/app/services/auth/lawyerAccountStatus')
+        .then(async ({ canUseServerBackedNetworkFeatures }) => {
+            if (!canUseServerBackedNetworkFeatures(uid)) {
+                return peekProfileWarmCache(uid);
+            }
+            const m = await import('@/app/services/cloud/lawyerProfileCloud');
+            const data = await m.ProfileDB.getProfile(uid, viewerId);
             let viewer = viewerId?.trim() || '';
             if (!viewer) {
                 try {
-                    const { resolveSessionProfileUserId } = await import(
-                        '@/app/services/cloud/lawyerProfileCloud'
-                    );
-                    viewer = (await resolveSessionProfileUserId())?.trim() || '';
+                    viewer = (await m.resolveSessionProfileUserId())?.trim() || '';
                 } catch {
                     viewer = '';
                 }
@@ -143,8 +184,20 @@ function waitForProfileUpdated(userId: string, timeoutMs: number): Promise<void>
         const finish = () => {
             if (settled) return;
             settled = true;
-            window.clearTimeout(timer);
-            window.removeEventListener(LAWYER_PROFILE_UPDATED, onUpdated);
+            if (typeof window === 'undefined') {
+                resolve();
+                return;
+            }
+            try {
+                window.clearTimeout(timer);
+            } catch {
+                /* jsdom teardown */
+            }
+            try {
+                window.removeEventListener(LAWYER_PROFILE_UPDATED, onUpdated);
+            } catch {
+                /* jsdom teardown */
+            }
             resolve();
         };
         const onUpdated = (e: Event) => {
@@ -180,7 +233,9 @@ export async function ensureProfilePaintReady(
     if (afterWarm) return afterWarm;
 
     // السحابة قد تُكمّل بعد getProfile المحلي
-    void ProfileDB.getProfile(uid).catch(() => undefined);
+    void import('@/app/services/cloud/lawyerProfileCloud')
+        .then((m) => m.ProfileDB.getProfile(uid))
+        .catch(() => undefined);
     await waitForProfileUpdated(uid, timeoutMs);
 
     const afterCloud = peekReady();

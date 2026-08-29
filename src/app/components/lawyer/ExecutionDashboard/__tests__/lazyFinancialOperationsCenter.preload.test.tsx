@@ -10,9 +10,9 @@ vi.mock('@/app/components/lawyer/FinancialOperationsCenter', () => ({
 }));
 
 describe('LazyFinancialOperationsCenter preload-aware', () => {
-    it('بعد preload يرسم المحتوى الحقيقي بلا FocInstantShell', async () => {
+    it('بعد preload يرسم المحتوى الحقيقي بلا غلاف النبض', async () => {
         const { LazyFinancialOperationsCenter } = await import(
-            '../executionDashboardLazyRegistry'
+            '../executionDashboardLazyRegistryOverlays'
         );
 
         await act(async () => {

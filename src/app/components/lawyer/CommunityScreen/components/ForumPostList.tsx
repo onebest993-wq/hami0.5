@@ -1,23 +1,24 @@
-import React, { memo } from 'react';
-import { ChevronDown, Loader2 } from '@/app/components/ui/lucideIcons';
+import { memo } from 'react';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
+import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { QuestionCard } from './QuestionCard';
 import { useForumFeedWindow } from '../hooks/useForumFeedWindow';
 import {
+    FORUM_CONTENT_COLUMN,
     FORUM_GHOST_BTN,
     FORUM_INTERACT_BTN,
     FORUM_PUBLISH_BTN_DISABLED,
     FORUM_TEXT_MUTED,
 } from '../forumPlumTheme';
 
-interface ForumPostListProps {
+export type ForumPostListProps = {
     loadingPosts: boolean;
     hasMore: boolean;
     loadingMore: boolean;
     visiblePosts: CommunityPost[];
     currentUserId: string | null;
     onToggleUpvote: (postId: string) => void;
-    onImageClick: (url: string) => void;
     onCommentClick: (id: string) => void;
     onDelete: (postId: string) => void;
     onEdit: (postId: string) => void;
@@ -40,11 +41,16 @@ interface ForumPostListProps {
     threadFollowingIds?: Set<string>;
     onToggleThreadFollow?: (postId: string) => void;
     onOpenProfile?: (userId: string, displayName?: string) => void;
-}
+};
+
+export type ForumPostListSharedProps = Omit<
+    ForumPostListProps,
+    'visiblePosts' | 'loadingPosts' | 'hasMore' | 'loadingMore' | 'onLoadMore' | 'emptyHint'
+>;
 
 export const ForumPostList = memo(function ForumPostList({
     loadingPosts, hasMore, loadingMore, visiblePosts,
-    currentUserId, onToggleUpvote, onImageClick, onCommentClick,
+    currentUserId, onToggleUpvote, onCommentClick,
     onDelete, onEdit, onReport, onShare,
     onLoadMore,
     isAdmin, onTogglePin, onFollow, followingIds, userStats,
@@ -58,7 +64,7 @@ export const ForumPostList = memo(function ForumPostList({
 
     if (visiblePosts.length === 0) {
         return (
-            <div className="px-4 pb-28 space-y-4" data-testid="forum-post-list">
+            <div className={`${FORUM_CONTENT_COLUMN} pb-28 space-y-4`} data-testid="forum-post-list">
                 <div
                     className="pt-16 pb-8 flex flex-col items-center justify-end text-center px-3"
                     data-testid={loadingPosts ? undefined : 'forum-post-empty'}
@@ -76,9 +82,9 @@ export const ForumPostList = memo(function ForumPostList({
     }
 
     return (
-        <div className="px-4 pb-4 space-y-4" data-testid="forum-post-list">
+        <div className={`${FORUM_CONTENT_COLUMN} pb-4 space-y-4`} data-testid="forum-post-list">
             {loadingPosts && visiblePosts.length === 0 ? (
-                <div className="flex items-center justify-center gap-2 py-1 text-[#C9A86C]/50 text-[11px] font-bold">
+                <div className="flex items-center justify-center gap-2 py-1 text-[#E6C673]/50 text-[11px] font-bold">
                     <Loader2 size={14} className="animate-spin shrink-0" aria-hidden />
                     <span>جاري التحديث...</span>
                 </div>
@@ -96,7 +102,6 @@ export const ForumPostList = memo(function ForumPostList({
                     post={post}
                     currentUserId={currentUserId}
                     onToggleUpvote={onToggleUpvote}
-                    onImageClick={onImageClick}
                     onCommentClick={onCommentClick}
                     onDelete={onDelete}
                     onEdit={onEdit}
@@ -117,6 +122,7 @@ export const ForumPostList = memo(function ForumPostList({
                     isThreadFollowing={threadFollowingIds?.has(post.id) ?? false}
                     onToggleThreadFollow={onToggleThreadFollow}
                     onOpenProfile={onOpenProfile}
+                    preferEagerImage={index < 2}
                 />
                 </div>
             ))}

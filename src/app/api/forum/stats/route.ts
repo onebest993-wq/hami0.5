@@ -1,20 +1,29 @@
-import { requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
-import { getForumStats } from '../../../services/lawyer-cloud.ts';
-import { canManageForumAdmin } from '../adminAuth.ts';
 import { jsonResponse } from '../_auth.ts';
+import { requireTrustedHeadquartersAdmin } from '../../security/requireTrustedHeadquartersAdmin.ts';
+import { consumeRateLimitSlot } from '../../security/wifeRateLimitStore.ts';
+import { loadForumOfficialStats } from '../../../services/forum/forumOfficialStats.ts';
+
+/** إحصاءات منتدى المقر — جلسة WIFE + مدير + جهاز موثّق OTP. */
 
 export async function GET(request: Request): Promise<Response> {
-  try {
-    const authGate = unwrapWifeUser(await requireWifeUser(request));
-    if ('response' in authGate) return authGate.response;
-    const { userId: requesterId } = authGate;
-    if (!(await canManageForumAdmin(requesterId))) {
-      return jsonResponse(403, { ok: false, error: 'غير مصرح لك' });
-    }
+    try {
+        const gate = await requireTrustedHeadquartersAdmin(request);
+        if (!gate.ok) return gate.response;
 
-    const stats = await getForumStats();
-    return jsonResponse(200, { ok: true, stats });
-  } catch {
-    return jsonResponse(500, { ok: false, error: 'Internal server error' });
-  }
+        const allowed = await consumeRateLimitSlot(`admin-hq-forum-stats:${gate.userId}`, {
+            maxRequests: 40,
+            windowMs: 60_000,
+        });
+        if (!allowed) {
+            return jsonResponse(429, { ok: false, error: 'تجاوزت حد عمليات المقر — حاول لاحقاً' });
+        }
+
+        const stats = await loadForumOfficialStats();
+        if (!stats) {
+            return jsonResponse(503, { ok: false, error: 'Database client not configured' });
+        }
+        return jsonResponse(200, { ok: true, stats });
+    } catch {
+        return jsonResponse(500, { ok: false, error: 'Internal server error' });
+    }
 }

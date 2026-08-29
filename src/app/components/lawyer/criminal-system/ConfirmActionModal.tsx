@@ -1,5 +1,10 @@
 import React from 'react';
 import { CriminalModalPortal, CRIMINAL_MODAL_Z } from './criminalModalPortal';
+import {
+    CRIMINAL_MODAL_BTN_CANCEL,
+    CRIMINAL_MODAL_BTN_CLOSE_HEADER,
+    CRIMINAL_MODAL_BTN_DANGER_CONFIRM,
+} from './criminalModalButtonStyles';
 
 export type ConfirmActionModalProps = {
     open: boolean;
@@ -26,7 +31,7 @@ export const ConfirmActionModal = ({
     if (!open) return null;
 
     return (
-        <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.nested} className="bg-black/80">
+        <CriminalModalPortal zIndex={CRIMINAL_MODAL_Z.nested} className="bg-black/62">
             <div
                 className={`w-full max-w-sm rounded-2xl border bg-slate-900 overflow-hidden ${
                     danger ? 'border-red-500/60 shadow-lg shadow-red-950/40' : 'border-slate-700'
@@ -44,11 +49,7 @@ export const ConfirmActionModal = ({
                     >
                         {title || 'تأكيد العملية'}
                     </div>
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        className="text-white/70 hover:text-white transition text-sm font-bold whitespace-normal break-words"
-                    >
+                    <button type="button" onClick={onCancel} className={CRIMINAL_MODAL_BTN_CLOSE_HEADER}>
                         إغلاق
                     </button>
                 </div>
@@ -57,18 +58,10 @@ export const ConfirmActionModal = ({
                         {message}
                     </div>
                     <div className="flex items-center justify-end gap-2">
-                        <button
-                            type="button"
-                            onClick={onCancel}
-                            className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-black text-white/80 hover:text-white hover:bg-slate-800/30 transition whitespace-normal break-words"
-                        >
+                        <button type="button" onClick={onCancel} className={CRIMINAL_MODAL_BTN_CANCEL}>
                             {cancelText}
                         </button>
-                        <button
-                            type="button"
-                            onClick={onConfirm}
-                            className="rounded-xl border border-red-500/30 bg-red-500/15 px-4 py-2.5 text-sm font-black text-red-200 hover:bg-red-500/20 hover:text-red-100 transition whitespace-normal break-words"
-                        >
+                        <button type="button" onClick={onConfirm} className={CRIMINAL_MODAL_BTN_DANGER_CONFIRM}>
                             {confirmText}
                         </button>
                     </div>

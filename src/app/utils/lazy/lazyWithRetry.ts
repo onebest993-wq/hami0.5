@@ -1,5 +1,6 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 import { resetLawyerDashboardModuleCache } from '@/app/runtime/lawyerDashboardLoader';
+import { isDynamicImportFetchMessage, markStaleChunkError } from './staleChunkError';
 
 export type LazyComponent = ComponentType<Record<string, unknown>>;
 
@@ -7,15 +8,21 @@ const LAZY_IMPORT_TIMEOUT_MS = 18_000;
 
 function isDynamicImportFetchError(error: unknown): boolean {
     const msg = error instanceof Error ? error.message : String(error);
-    return (
-        /Failed to fetch dynamically imported module/i.test(msg) ||
-        /Importing a module script failed/i.test(msg) ||
-        /error loading dynamically imported module/i.test(msg)
-    );
+    return isDynamicImportFetchMessage(msg);
 }
 
+/**
+ * الرسالة المعروضة عربية عامّة، والتشخيص علامةٌ لا نصّ.
+ *
+ * كان هذا التحويل يُتلف الدليل: يستبدل «Failed to fetch dynamically imported
+ * module» برسالة عربية، فيصل العطل إلى `GlobalErrorBoundary` بلا أثر يدلّ على
+ * سببه — وذاك الحدّ يكشف العطل بمطابقة تلك الرسالة بالضبط. فكان الكشف معطّلاً في
+ * الإنتاج كلّه، وسليماً في التطوير وحده حيث تُلحَق الرسالة الأصلية.
+ */
 function toLoadError(error: unknown): Error {
     const generic = 'فشل في تحميل المكون. تأكد من الاتصال ثم أعد المحاولة.';
+    const isStale = isDynamicImportFetchError(error);
+    const stamp = <T extends Error>(err: T): T => (isStale ? markStaleChunkError(err) : err);
     const cause =
         error instanceof Error
             ? error.message
@@ -30,10 +37,13 @@ function toLoadError(error: unknown): Error {
         const wrapped = new Error(message);
         wrapped.stack = error.stack;
         wrapped.cause = error;
-        return wrapped;
+        return stamp(wrapped);
     }
-    if (error instanceof Error && !isDynamicImportFetchError(error)) return error;
-    return new Error(message);
+    if (error instanceof Error && !isStale) return error;
+    const wrapped = new Error(message);
+    /* السبب يُحفظ أيضاً — يفيد Sentry ويجعل الكشف يصحّ بلا العلامة إن جُمّد الكائن */
+    if (error instanceof Error) wrapped.cause = error;
+    return stamp(wrapped);
 }
 
 async function loadLazyModule(

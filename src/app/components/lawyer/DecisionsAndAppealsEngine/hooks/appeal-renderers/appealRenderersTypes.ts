@@ -15,9 +15,9 @@ export type UseDecisionsAppealsAppealRenderersArgs = {
     transitionAppealWorkflow: (
         decision: Decision,
         patch: Partial<Decision>,
-        title: string,
-        timelineMsg: string,
-        toastTone?: 'amber' | 'emerald' | 'rose'
+        title?: string,
+        timelineMsg?: string,
+        toastTone?: 'emerald' | 'amber' | 'rose' | 'slate'
     ) => void;
     commitExecutorSideAppealEntry: (
         decision: Decision,

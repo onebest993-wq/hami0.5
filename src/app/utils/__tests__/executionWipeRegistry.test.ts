@@ -36,6 +36,10 @@ describe('executionWipeRegistry', () => {
         expect(shouldPurgeExecutionLocalKey('hami_garnishment_details_x')).toBe(true);
         expect(shouldPurgeExecutionLocalKey('execution_exec_1:u:user-1')).toBe(true);
         expect(shouldPurgeExecutionLocalKey('lawyer_notes')).toBe(false);
+        expect(shouldPurgeExecutionLocalKey('executionFiles')).toBe(true);
+        expect(shouldPurgeExecutionLocalKey('executionFiles:user-1')).toBe(true);
+        expect(shouldPurgeExecutionLocalKey('lawyer_execution_files')).toBe(true);
+        expect(shouldPurgeExecutionLocalKey('hami:execution-dashboard')).toBe(true);
         expect(EXECUTION_WIPE_KEY_PREFIXES.length).toBeGreaterThan(0);
     });
 
@@ -72,5 +76,19 @@ describe('executionWipeRegistry', () => {
 
         expect(localStorage.getItem('execution_ls_only_wipe')).toBeNull();
         expect(localStorage.getItem('lawyer_notes')).toBe('keep');
+    });
+
+    it('يمسح فهرس ملفات التنفيذ عند الخروج دون الملاحظات', async () => {
+        SecureStoreService.setItemSync('executionFiles', JSON.stringify([{ id: 'idx' }]));
+        SecureStoreService.setItemSync('executionFiles:user-1', JSON.stringify([{ id: 'owned' }]));
+        SecureStoreService.setItemSync('lawyer_execution_files', JSON.stringify([{ id: 'legacy' }]));
+        SecureStoreService.setItemSync('lawyer_notes', '[]');
+
+        await purgeExecutionLocalStateOnLogout();
+
+        expect(SecureStoreService.getItemSync('executionFiles')).toBeNull();
+        expect(SecureStoreService.getItemSync('executionFiles:user-1')).toBeNull();
+        expect(SecureStoreService.getItemSync('lawyer_execution_files')).toBeNull();
+        expect(SecureStoreService.getItemSync('lawyer_notes')).not.toBeNull();
     });
 });

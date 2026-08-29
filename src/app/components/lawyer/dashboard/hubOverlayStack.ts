@@ -21,3 +21,6 @@ export const HUB_DOSSIER_SPAWN_NEW_CASE_Z_CLASS = 'z-[253]';
 
 /** مسجّل الصوت والنوافذ فوق محضر/ملاحظات الإضبارة */
 export const HUB_TOPMOST_OVERLAY_Z_CLASS = 'z-[280]';
+
+/** استشارة زميل — فوق كل طبقات الإضبارة والنوافذ المتداخلة */
+export const HUB_DOSSIER_CONSULT_Z_CLASS = 'z-[282]';

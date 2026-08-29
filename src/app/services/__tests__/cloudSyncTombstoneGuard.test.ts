@@ -15,6 +15,7 @@ vi.mock('@/app/services/SupabaseService', () => ({
     SupabaseService: {
         checkUserAuth: () => Promise.resolve(true),
         getExecutionFiles: () => getExecutionFiles(),
+        saveExecutionFile: vi.fn(async () => 'saved'),
     },
 }));
 
@@ -24,11 +25,31 @@ vi.mock('@/app/infrastructure/persistence/LocalStorageRepository', () => ({
         loadAsync: (key: string) => loadAsync(key),
         load: () => null,
         remove: () => undefined,
+        flushPending: () => undefined,
+        synchronizeExternalWrite: () => undefined,
     },
 }));
 
 vi.mock('@/app/utils/executionDossierStorageReconcile', () => ({
     reconcileExecutionDossierStorageAsync: () => Promise.resolve(),
+}));
+
+vi.mock('@/app/services/settings/localOnlyGuard', () => ({
+    isLocalOnlyModeEnabled: vi.fn(() => false),
+}));
+
+vi.mock('@/app/services/realtimeSyncGate', () => ({
+    isCloudPollingPausedByRealtime: vi.fn(() => false),
+}));
+
+vi.mock('@/app/services/settings/lawyerWorkCloudGate', () => ({
+    isLawyerWorkCloudLive: () => true,
+    isWorkLocalKvMaterial: () => false,
+}));
+
+vi.mock('@/app/services/settings/cloudSyncBucket', () => ({
+    isLiveCloudSyncBucketEnabled: () => true,
+    isCloudSyncBucketEnabled: () => true,
 }));
 
 /**

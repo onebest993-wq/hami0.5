@@ -5,7 +5,7 @@ export function useExecutionDashboardCoreHandlerClusterCoerciveActionHandlers(
     c: ExecutionDashboardCoreHandlerClusterInput,
     saveCoerciveAction: (actionType: string, details: Record<string, string>) => void,
 ) {
-    const resolved = c as any;
+    const resolved = c as Record<string, unknown>;
     const {
         coerciveUiLocked,
         activeDebtorIsEmployee,

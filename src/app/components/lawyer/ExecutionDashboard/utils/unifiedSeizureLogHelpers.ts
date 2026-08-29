@@ -1,7 +1,7 @@
 import {
     isSeizureLogTab,
     type SeizureLogTab,
-} from '@/app/components/lawyer/execution/UnifiedSeizureLogModal';
+} from '@/app/components/lawyer/execution/unifiedSeizureLogTabTypes';
 import type { UnifiedSeizureTabCounts } from '@/app/components/lawyer/ExecutionDashboard/utils/unifiedSeizureLogEntries';
 
 export const UNIFIED_SEIZURE_TAB_ORDER: SeizureLogTab[] = [

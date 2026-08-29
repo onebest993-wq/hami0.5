@@ -1,0 +1,56 @@
+[
+  {
+    "rel": "src/app/components/lawyer/criminal-system/components/JudicialDecisionsLedgerCardShared.tsx",
+    "name": "CassationResultMark",
+    "refs": 1,
+    "line": 61
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalDefendantLiteCore.ts",
+    "name": "hasUnrevealedUnknownDefendantsLite",
+    "refs": 1,
+    "line": 50
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalDefendantLiteCore.ts",
+    "name": "hasIdentifiedDefendantLite",
+    "refs": 1,
+    "line": 54
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalDefendantLiteCore.ts",
+    "name": "countSeveranceSelectableDefendantsLite",
+    "refs": 1,
+    "line": 69
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationDefendantPurge.ts",
+    "name": "resolveAcceptablePurgeDefendantIds",
+    "refs": 1,
+    "line": 474
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationTrackingEngine.ts",
+    "name": "LETTER_TRACKING_CATEGORIES",
+    "refs": 1,
+    "line": 7
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationTrackingEngine.ts",
+    "name": "EVIDENCE_TRACKING_CATEGORIES",
+    "refs": 1,
+    "line": 8
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/juvenileInvestigationRules.ts",
+    "name": "judicialDecisionMatchesPartyScope",
+    "refs": 1,
+    "line": 320
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralPathsEngine.ts",
+    "name": "PROCEDURAL_STEP_STATUS_OPTIONS",
+    "refs": 1,
+    "line": 28
+  }
+]

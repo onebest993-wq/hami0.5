@@ -3,6 +3,8 @@ import type { LawyerDashboardShellProps } from '@/app/components/lawyer/dashboar
 import type { LawyerDashboardOverlaysBundleProps } from '@/app/components/lawyer/dashboard/lawyerDashboardOverlaysBundles';
 import type { LawyerDashboardPostInteractiveRuntimeProps } from '@/app/components/lawyer/dashboard/LawyerDashboardPostInteractiveRuntime.types';
 import type { LawyerDashboardDeferredFeatureSurfacesProps } from '@/app/components/lawyer/dashboard/LawyerDashboardDeferredFeatureSurfaces.types';
+import type { LawyerDashboardPreDockFeatureSurfacesProps } from '@/app/components/lawyer/dashboard/LawyerDashboardPreDockFeatureSurfaces.types';
+import type { LawyerDashboardNavigationIslandProps } from '@/app/components/lawyer/dashboard/LawyerDashboardNavigationIsland.types';
 import type { LawyerDashboardShellPropsWithoutChildren } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardShellProps';
 import type { QuantumTasksContextValue } from '@/app/context/quantumTasksContext';
 import type { LawyerDashboardHomeTab } from '@/app/components/lawyer/dashboard/LawyerDashboardHomeTab';
@@ -29,7 +31,6 @@ export type LawyerDashboardCoreViewModel =
           notificationPanel: {
               isOpen: boolean;
               hostMounted?: boolean;
-              panelSessionKey: number;
               userId: string;
               onClose: () => void;
               onNavigate: ReturnType<typeof useLawyerDashboardNavigation>['handleNotificationRouting'];
@@ -44,7 +45,6 @@ export type LawyerDashboardCoreViewModel =
           profileHostMounted: boolean;
           profileTab: {
               visible: boolean;
-              sessionKey: number;
               perfOpenEpoch?: number;
               onBack: () => void;
               keepAlive?: boolean;
@@ -53,4 +53,6 @@ export type LawyerDashboardCoreViewModel =
           overlaysBundle: LawyerDashboardOverlaysBundleProps;
           postInteractiveRuntimeProps: LawyerDashboardPostInteractiveRuntimeProps;
           deferredFeatureSurfacesProps: LawyerDashboardDeferredFeatureSurfacesProps;
+          preDockFeatureSurfacesProps: LawyerDashboardPreDockFeatureSurfacesProps;
+          navigationSurfacesProps: LawyerDashboardNavigationIslandProps;
       };

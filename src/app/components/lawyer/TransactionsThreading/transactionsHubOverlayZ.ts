@@ -1,5 +1,3 @@
-/** ترتيب طبقات hub المعاملات — من الأدنى للأعلى */
-export const TX_HUB_Z = 200;
-export const TX_HUB_SHEET_Z = 210;
-export const TX_HUB_DROPDOWN_Z = 225;
-export const TX_HUB_DIALOG_Z = 230;
+/** طبقات portal: overlay hub = 229 — القائمة يجب أن تُنقر فوقه، والحوار فوق القائمة */
+export const TX_HUB_DROPDOWN_Z = 235;
+export const TX_HUB_DIALOG_Z = 240;

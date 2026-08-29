@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- قالب 288dp؛ الشعار محشور داخل دائرة الأمان 160dp — بلا مطّ -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/splash_icon_blank" />
+    <item android:drawable="@drawable/hami_splash_logo_padded" />
+</layer-list>

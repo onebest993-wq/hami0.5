@@ -2,12 +2,17 @@
  * Shared helpers for WIFE red-team / destruction drills.
  */
 import { vi } from 'vitest';
+import {
+  buildWifeTokenCanonicalPayload,
+  canonicalWifePathAndQuery,
+  toBase64Url,
+} from '@/app/security/wifeRequestSigningShared.ts';
 
 export const ATTACKER_TOKEN = 'test-user-token-abcdefghijklmnopqrstuvwxyz';
 export const VICTIM_TOKEN = 'other-user-token-abcdefghijklmnopqrstuvwx';
 export const ATTACKER_ID = 'attacker-target-user-aaa';
 export const VICTIM_ID = 'attacker-victim-user-bbb';
-export const CSRF_ATTACKER = 'CsRfTokEnUserA1234567890AbCd';
+export let CSRF_ATTACKER = 'CsRfTokEnUserA1234567890AbCd';
 export const CSRF_VICTIM = 'CsRfTokEnUserB1234567890XyZz';
 export const DRILL_DEVICE_ID = 'drilldevice00000001';
 
@@ -20,12 +25,24 @@ export type BffEndpoint = {
 
 /** Every same-origin BFF route — used for unsigned / tamper flood drills. */
 export const ALL_BFF_ENDPOINTS: BffEndpoint[] = [
-  { path: '/api/admin/ban', method: 'POST', body: '{"requesterId":"x","targetUserId":"y"}' },
-  { path: '/api/admin/verify', method: 'GET' },
+    { path: '/api/admin/ban', method: 'POST', body: '{"requesterId":"x","targetUserId":"y"}' },
+    { path: '/api/admin/account', method: 'POST', body: '{"action":"revoke_sessions","targetUserId":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"}' },
+    { path: '/api/admin/notify', method: 'POST', body: '{"scope":"all","title":"t","message":"m"}' },
+    { path: '/api/admin/consultations', method: 'GET' },
+    { path: '/api/admin/consultations', method: 'POST', body: '{"postId":"p1"}' },
+    { path: '/api/admin/role', method: 'POST', body: '{"targetUserId":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee","role":"moderator"}' },
+    { path: '/api/admin/stats', method: 'GET' },
+    { path: '/api/admin/status', method: 'GET' },
+    { path: '/api/admin/users', method: 'GET' },
+    { path: '/api/admin/audit', method: 'GET' },
+    { path: '/api/admin/devices', method: 'GET' },
+    { path: '/api/admin/devices', method: 'POST', body: '{"action":"revoke","deviceId":"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"}' },
+    { path: '/api/admin/account', method: 'GET', query: 'targetUserId=aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee' },
+  { path: '/api/notifications/append', method: 'POST', body: '{"title":"t","message":"m","type":"system_alert","category":"system"}' },
   { path: '/api/audit/log', method: 'POST', body: '{"action":"probe"}' },
   { path: '/api/calendar/tombstones', method: 'GET' },
   { path: '/api/calendar/tombstones', method: 'POST', body: '{"action":"mark","eventId":"ev-1"}' },
-  { path: '/api/comms-dispatcher', method: 'POST', body: '{"to":"07901234567","message":"spam","channel":"sms"}' },
+  { path: '/api/case-share/criminal-ownership', method: 'POST', body: '{"action":"register","dossierId":"d1"}' },
   { path: '/api/forum/ban', method: 'GET' },
   { path: '/api/forum/ban', method: 'POST', body: '{"action":"ban","userId":"v","userName":"v","reason":"x"}' },
   { path: '/api/forum/bookmark', method: 'GET' },
@@ -45,20 +62,21 @@ export const ALL_BFF_ENDPOINTS: BffEndpoint[] = [
   { path: '/api/forum/reports', method: 'POST', body: '{"reportId":"r1","action":"dismiss"}' },
   { path: '/api/forum/stats', method: 'GET' },
   { path: '/api/forum/status', method: 'GET' },
+  { path: '/api/auth/account-gate', method: 'GET' },
   { path: '/api/forum/update', method: 'POST', body: '{"postId":"p1","title":"t"}' },
   { path: '/api/kv-proxy', method: 'POST', body: '{"action":"get","key":"user:victim:cases:1"}' },
+  { path: '/api/settings/wipe', method: 'POST', body: '{"confirmation":"WIPE_ALL_APPLICATION_DATA_V1","version":1}' },
   { path: '/api/laws/add', method: 'POST', body: '{"law_name":"قانون التنفيذ","article_number":"1","content":"x"}' },
   { path: '/api/laws/clear', method: 'POST', body: '{"law_name":"قانون التنفيذ","confirm":true}' },
   { path: '/api/laws/list', method: 'POST', body: '{"law_name":"قانون التنفيذ"}' },
-  { path: '/api/requests/create', method: 'POST', body: '{"id":"r1","client_id":"c","lawyer_id":"l","title":"t","encrypted_details":"","data_signature":"","status":"open","created_at":"2020-01-01T00:00:00.000Z"}' },
-  { path: '/api/requests/list', method: 'POST', body: '{}' },
-  { path: '/api/requests/update', method: 'POST', body: '{"id":"r1","status":"closed"}' },
   { path: '/api/security/csrf', method: 'GET' },
   { path: '/api/timeline-events', method: 'GET', query: 'executionFileId=exec-victim-001' },
   { path: '/api/timeline-events', method: 'POST', body: '{"executionFileId":"exec-1","event":{"id":"e1","title":"t"}}' },
   { path: '/api/upload', method: 'POST', body: '{}' },
   { path: '/api/upload/remove', method: 'POST', body: '{"paths":["victim/vault/x.pdf"]}' },
   { path: '/api/upload/signed-url', method: 'POST', body: '{"path":"vault/x.pdf","expiresIn":3600}' },
+  { path: '/api/work-checkpoints', method: 'GET' },
+  { path: '/api/work-checkpoints', method: 'POST', body: '{"encrypted_data":"x","data_signature":"y"}' },
 ];
 
 export function okJson(data: unknown): Response {
@@ -66,24 +84,6 @@ export function okJson(data: unknown): Response {
     status: 200,
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
   });
-}
-
-export function canonicalPathAndQuery(url: string): string {
-  const resolved = new URL(url);
-  const normalizedEntries = Array.from(resolved.searchParams.entries()).sort(([ak, av], [bk, bv]) => {
-    if (ak === bk) return av.localeCompare(bv);
-    return ak.localeCompare(bk);
-  });
-  const query = new URLSearchParams(normalizedEntries).toString();
-  return query ? `${resolved.pathname}?${query}` : resolved.pathname;
-}
-
-function toBase64Url(bytes: Uint8Array): string {
-  return Buffer.from(bytes)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
 }
 
 export async function signWifePayload(input: {
@@ -94,13 +94,13 @@ export async function signWifePayload(input: {
   body: string;
   token: string;
 }): Promise<string> {
-  const payload = [
-    input.method.toUpperCase(),
-    canonicalPathAndQuery(input.url),
+  const payload = buildWifeTokenCanonicalPayload(
+    input.method,
+    canonicalWifePathAndQuery(input.url),
     input.timestamp,
     input.nonce,
     input.body,
-  ].join('\n');
+  );
   const keyMaterial = `${input.token}:wife-sign-v1`;
   const tokenHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(keyMaterial));
   const key = await crypto.subtle.importKey('raw', tokenHash, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
@@ -131,6 +131,7 @@ export async function signedRequest(input: {
   nonce?: string;
   timestamp?: string;
   csrf?: string;
+  deviceId?: string;
   extraHeaders?: Record<string, string>;
   signatureOverride?: string;
 }): Promise<Request> {
@@ -204,4 +205,13 @@ export function resetWifeDrillEnv(): void {
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
   delete process.env.WIFE_REDIS_REST_URL;
   delete process.env.WIFE_REDIS_REST_TOKEN;
+}
+
+export async function primeDrillCsrf(subject: string = ATTACKER_ID): Promise<void> {
+  const { issueCsrfTokenForSubject, resetCsrfServerStoreForTests } = await import(
+    '@/app/api/security/csrfServerStore.ts'
+  );
+  resetCsrfServerStoreForTests();
+  const issued = await issueCsrfTokenForSubject(subject);
+  if (issued) CSRF_ATTACKER = issued;
 }

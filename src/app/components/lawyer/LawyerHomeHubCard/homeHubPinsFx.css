@@ -1,0 +1,85 @@
+/* Home Hub pins panel — deferred with LazyHomeHubPinsPanel */
+
+.hami-hub-pins-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 0 0 auto;
+}
+
+[data-testid='home-hub-pins-loading'] {
+  min-height: 3.25rem;
+}
+
+.hami-hub-pins-feed {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 0 0 auto;
+}
+
+.hami-hub-pins-stack {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 0 0 auto;
+}
+
+.hami-hub-pins-stack--preview {
+  max-height: calc((52px * 3 + 0.25rem * 2) * var(--hami-content-scale, 1));
+  overflow: hidden;
+}
+
+.hami-hub-pins-feed--has-more .hami-hub-pins-stack--preview {
+  max-height: calc((52px * 3 + 0.25rem * 2 - 2.75rem) * var(--hami-content-scale, 1));
+}
+
+.hami-hub-pins-feed--has-more::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2.75rem;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, #0a0f1c 96%, transparent) 0%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.hami-hub-pins-more-dock {
+  position: absolute;
+  z-index: 3;
+  inset-inline: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  height: 2.75rem;
+  pointer-events: none;
+}
+
+.hami-hub-pins-more-dock .hami-hub-tab-more-trigger {
+  pointer-events: auto;
+  min-height: 44px;
+  min-width: 44px;
+  padding-block: 0.2rem 0.12rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.hami-hub-pins-stack--overlay {
+  flex: 1;
+  min-height: 0;
+  max-height: min(58vh, 420px);
+  max-height: min(58dvh, 420px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}

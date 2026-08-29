@@ -1,5 +1,5 @@
 import React from 'react';
-import { Scale } from '@/app/components/ui/lucideIcons';
+import { Scale } from '@/app/components/ui/icons/Scale';
 import type { CaseStage, JudicialDecision } from '@/app/types/criminal';
 import type { CassationCorrectionUserRole } from '../decisionAppealPeriodEngine';
 import {
@@ -62,7 +62,7 @@ export const DecisionCardAppealFooter = ({
                     aria-label="تسجيل طعن تمييزي"
                     className={
                         prominentCassation
-                            ? `${btnBase} border-[#E6C673]/65 bg-[#E6C673]/20 text-[#E6C673] hover:bg-[#E6C673]/30 shadow-[0_0_10px_rgba(230,198,115,0.25)] text-[12px]`
+                            ? `${btnBase} border-[#E6C673]/65 bg-[#E6C673]/20 text-[#E6C673] hover:bg-[#E6C673]/30 text-[12px]`
                             : `${btnBase} border-[#E6C673]/55 bg-[#E6C673]/12 text-[#E6C673] hover:bg-[#E6C673]/22`
                     }
                 >

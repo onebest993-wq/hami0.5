@@ -4,6 +4,7 @@ import {
     getCachedTasksManagerOverlay,
     loadTasksManagerModule,
 } from '@/app/runtime/fieldTasksHubLoader';
+import { TasksManagerOpenInstantChrome } from '@/app/components/lawyer/dashboard/tasksManager/TasksManagerOpenInstantChrome';
 
 type TasksManagerOverlayProps = React.ComponentProps<typeof TasksManagerOverlay>;
 type OverlayComponent = React.ComponentType<TasksManagerOverlayProps>;
@@ -31,7 +32,7 @@ function TasksManagerLoadError({ onRetry }: { onRetry: () => void }) {
     );
 }
 
-/** يحمّل أجندة المهام — chunk دافئ مخفياً؛ الفتح = إظار فوري من الكاش */
+/** يحمّل أجندة المهام — chunk دافئ مخفياً؛ الفتح = إظهار فوري من الكاش أو قشرة فورية */
 export function FieldTasksManagerHost(props: TasksManagerOverlayProps): React.ReactElement | null {
     const { open, onClose } = props;
     const [Component, setComponent] = useState<OverlayComponent | null>(() => getCachedTasksManagerOverlay());
@@ -42,10 +43,6 @@ export function FieldTasksManagerHost(props: TasksManagerOverlayProps): React.Re
         setLoadFailed(false);
         setLoadGeneration((g) => g + 1);
     }, []);
-
-    if (!open && !Component && typeof window !== 'undefined') {
-        void loadTasksManagerModule().catch(() => undefined);
-    }
 
     useLayoutEffect(() => {
         const cached = getCachedTasksManagerOverlay();
@@ -107,5 +104,5 @@ export function FieldTasksManagerHost(props: TasksManagerOverlayProps): React.Re
         return <TasksManagerLoadError onRetry={retryLoad} />;
     }
 
-    return null;
+    return <TasksManagerOpenInstantChrome />;
 }

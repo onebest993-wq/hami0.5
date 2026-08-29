@@ -28,7 +28,7 @@ export function LegalArticleEditModal({
 
     return (
         <div
-            className="fixed inset-0 z-[221] bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden"
+            className="fixed inset-0 z-[221] bg-black/62 backdrop-blur-sm p-4 flex items-center justify-center print:hidden"
             dir="rtl"
             role="dialog"
             aria-modal="true"

@@ -1,51 +1,28 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { flushSync } from 'react-dom';
-import { prefetchRoyalLawyerProfile } from '@/app/utils/lazyComponents';
+import { useEffect, useMemo } from 'react';
 import { useForumLifecycle } from './useForumLifecycle';
 import { warmForumSocialForUser } from '@/app/hooks/lawyerDashboard/forumIntentWarm';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
-import type { RepositoryDocument } from '@/app/services/lawyer-cloud';
-import type { RepositorySortKey } from '../repositoryListFilters';
 import { useForumNotificationStream } from '@/app/hooks/useForumNotificationStream';
-import { useMutedUsers } from '../useMutedUsers';
-import { useForumUserStats } from '../useForumUserStats';
-import { scheduleCommunityProfileOverlayPrefetch } from '../communityOverlayPrefetch';
-import { useForumEscapeStack } from './useForumEscapeStack';
+import { useCommunityScreenForumEscape } from './useCommunityScreenForumEscape';
 import { useCommunityForumAccess } from './useCommunityForumAccess';
-import { useCommunityDualPostLists } from './useCommunityDualPostLists';
-import { useCommunityPostsFeed } from './useCommunityPostsFeed';
-import { useCommunityGroupsFeed } from './useCommunityGroupsFeed';
-import { useCommunityPostActions } from './useCommunityPostActions';
 import { useForumPostCommentsLive } from './useForumPostCommentsLive';
-import { useCommunityAddQuestion } from './useCommunityAddQuestion';
-import { useCommunityScreenSocialGraph } from './useCommunityScreenSocialGraph';
 import { useCommunityScreenSearchOverlay } from './useCommunityScreenSearchOverlay';
 import { useCommunityScreenPostModeration } from './useCommunityScreenPostModeration';
-import {
-    buildCommunityScreenBodyProps,
-    buildCommunityScreenOverlayProps,
-} from './communityScreenPropBuilders';
-import {
-    COMMUNITY_USER_STATS_COMMENTS_PER_POST,
-    COMMUNITY_USER_STATS_VISIBLE_LIMIT,
-} from '../communityScreenConstants';
-import {
-    persistCommunitySection,
-    readPersistedCommunitySection,
-    type CommunitySection,
-} from '../communitySectionState';
+import { useCommunityScreenShell } from './useCommunityScreenShell';
+import { useCommunityScreenInteractions } from './useCommunityScreenInteractions';
+import { useCommunityScreenKeepAliveDismiss } from './useCommunityScreenKeepAliveDismiss';
+import { useCommunityScreenPropModel } from './useCommunityScreenPropModel';
+import { assembleCommunityScreenPropContext } from './assembleCommunityScreenPropContext';
+import { useCommunityScreenControllerFeeds } from './useCommunityScreenControllerFeeds';
 
 export type CommunityScreenControllerProps = {
-    /** passed from shell for mount/visibility coordination */
     isOpen?: boolean;
     keepAlive?: boolean;
     onBack?: () => void;
     initialPostId?: string | null;
     initialOpenComments?: boolean;
-    /** فُتح من لوحة المحامي — لا نحجب المنتدى إذا كان الجلسة نشطة هناك */
     lawyerShellAccess?: boolean;
     fallbackUserId?: string | null;
-    /** عند فتح ملفك من المنتدى — نفس مسار زر الهيدر */
     onOpenOwnProfile?: () => void;
 };
 
@@ -59,679 +36,155 @@ export function useCommunityScreenController({
     onOpenOwnProfile,
 }: CommunityScreenControllerProps) {
     const forumSurfaceOpen = isOpen !== false;
-    const { authUser, authIsLoading, persistedUser, canAccessLawyerForum, currentUserId, showLoadingShell, isAdmin } =
+    const {
+        authUser,
+        authIsLoading,
+        persistedUser,
+        canAccessLawyerForum,
+        forumDenial,
+        currentUserId,
+        showLoadingShell,
+        isAdmin,
+        accountFrozen,
+        frozenMessage,
+    } =
         useCommunityForumAccess({ lawyerShellAccess, fallbackUserId });
     useBodyScrollLock(Boolean(onBack) && forumSurfaceOpen);
+    const forumNetworkLive =
+        forumSurfaceOpen && canAccessLawyerForum && !accountFrozen;
     const forumStreamConnected = useForumNotificationStream(
         currentUserId,
-        forumSurfaceOpen && Boolean(currentUserId),
+        forumNetworkLive && Boolean(currentUserId),
     );
     useEffect(() => {
+        if (!forumNetworkLive) return;
         warmForumSocialForUser(currentUserId);
-    }, [currentUserId]);
-    const dualLists = useCommunityDualPostLists();
-    const { posts, groupPosts, findPostById, updatePostList } = dualLists;
+    }, [currentUserId, forumNetworkLive]);
 
-    const [repositorySearchTerm, setRepositorySearchTerm] = useState('');
-    const [repositorySortBy, setRepositorySortBy] = useState<RepositorySortKey>('newest');
-    const [repositorySelectedType, setRepositorySelectedType] = useState('الكل');
-    const [repositorySelectedTag, setRepositorySelectedTag] = useState<string | null>(null);
-    const [activeSection, setActiveSectionState] = useState<CommunitySection>(() => readPersistedCommunitySection());
-    const [selectedFilterIndex, setSelectedFilterIndex] = useState(0);
-    const [profileView, setProfileView] = useState<{ userId: string; displayName?: string } | null>(null);
-    const [forumAppBarDropdownOpen, setForumAppBarDropdownOpen] = useState(false);
-    const closeAppBarDropdownsRef = useRef<(() => void) | null>(null);
-    const { userStats, bumpFollowerCount, loadUserStats, queueLoadUserStats } = useForumUserStats();
-    const [showFollowingPanel, setShowFollowingPanel] = useState(false);
-    const [forumFeedScope, setForumFeedScope] = useState<'all' | 'following'>('all');
-    const { mutedIds, isMuted, toggleMute } = useMutedUsers(currentUserId);
-    const [commentingPostId, setCommentingPostId] = useState<string | null>(null);
-    const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
-
-    const socialGraph = useCommunityScreenSocialGraph({
+    const shell = useCommunityScreenShell();
+    const feeds = useCommunityScreenControllerFeeds({
         currentUserId,
         authUser,
-        posts,
-        showFollowingPanel,
-        bumpFollowerCount,
-        toggleMute,
-        isMuted,
-    });
-
-    const {
-        isBanned,
-        followingIds,
-        followBusyUserId,
-        followingRecords,
-        followerRecords,
-        threadFollowingIds,
-        bookmarkedIds,
-        setBookmarkedIds,
-        handleFollow,
-        handleUpdateFollowPrefs,
-        markThreadSubscribed,
-        handleToggleThreadFollow,
-        handleMuteUser,
-        followingAuthorNames,
-        forumMentionCandidates,
-    } = socialGraph;
-
-    const groupsFeed = useCommunityGroupsFeed({
-        lists: dualLists,
-        mutedIds,
-        currentUserId,
+        persistedUserId: persistedUser?.id ?? null,
+        isAdmin,
         authIsLoading,
-        activeSection,
-    });
-
-    const {
-        groups,
-        groupsLoading,
-        groupsSearchQuery,
-        setGroupsSearchQuery,
-        activeGroupId,
-        setActiveGroupId,
-        clearActiveGroup,
-        activeGroup,
-        groupPostsLoading,
-        groupPostsHasMore,
-        groupPostsLoadingMore,
-        groupVisiblePosts,
-        isCreateGroupOpen,
-        setIsCreateGroupOpen,
-        newGroupName,
-        setNewGroupName,
-        newGroupDesc,
-        setNewGroupDesc,
-        submittingGroup,
-        joiningGroupId,
-        leavingGroup,
-        handleJoinGroup,
-        handleOpenGroup,
-        handleLeaveGroup,
-        handleCreateGroup,
-        handleLoadMoreGroupPosts,
-        appendPublishedGroupPost,
-    } = groupsFeed;
-
-    const setActiveSection = useCallback(
-        (section: CommunitySection) => {
-            setActiveSectionState(section);
-            persistCommunitySection(section);
-            if (section !== 'groups') {
-                clearActiveGroup();
-            }
-        },
-        [clearActiveGroup],
-    );
-
-    const postsFeed = useCommunityPostsFeed({
-        lists: dualLists,
-        mutedIds,
-        currentUserId,
-        followingIds,
-        forumFeedScope,
-        selectedFilterIndex,
-        authIsLoading,
-        activeSection,
-        surfaceOpen: forumSurfaceOpen,
+        forumSurfaceOpen: forumNetworkLive,
         initialPostId,
         initialOpenComments,
-        onOpenComments: setCommentingPostId,
-        onActivateForumSection: () => setActiveSection('forum'),
-    });
-
-    const addQuestion = useCommunityAddQuestion({
-        lists: dualLists,
-        currentUserId,
-        persistedUserId: persistedUser?.id ?? null,
-        authUser,
-        isBanned,
-        activeGroupId,
-        appendPublishedGroupPost,
-        onForumPostPublished: () => {
-            setForumFeedScope('all');
-            setSelectedFilterIndex(0);
-        },
-    });
-
-    const postActions = useCommunityPostActions({
-        lists: dualLists,
-        currentUserId,
-        isAdmin,
-        isBanned,
-        authUser,
-        commentingPostId,
-        onThreadSubscribed: markThreadSubscribed,
-        onPostDeleted: (postId) => {
-            setCommentingPostId((current) => (current === postId ? null : current));
-        },
+        shell,
     });
 
     useForumPostCommentsLive({
-        postId: commentingPostId,
-        enabled: forumSurfaceOpen && Boolean(commentingPostId),
+        postId: shell.commentingPostId,
+        enabled: forumNetworkLive && Boolean(shell.commentingPostId),
         onPostUpdate: (postId, updater) => {
-            updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? updater(p) : p)));
+            feeds.updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? updater(p) : p)));
         },
     });
 
-    const {
-        loadingPosts,
-        loadingMore,
-        hasMore,
-        visiblePosts,
-        allTags,
-        handleLoadMore,
-    } = postsFeed;
-
-    const searchOverlay = useCommunityScreenSearchOverlay(posts, allTags);
-    const {
-        isSearchOpen,
-        setIsSearchOpen,
-        openSearchOverlay,
-        closeSearchOverlay,
-        searchQuery,
-        setSearchQuery,
-        filterHasPdf,
-        setFilterHasPdf,
-        filterHasImage,
-        setFilterHasImage,
-        selectedTag,
-        setSelectedTag,
-        allSearchTags,
-        filteredPosts,
-        filteredRepositoryDocs,
-    } = searchOverlay;
-
+    const searchOverlay = useCommunityScreenSearchOverlay(feeds.posts, feeds.postsFeed.allTags);
     const postModeration = useCommunityScreenPostModeration({
         currentUserId,
         isAdmin,
         authUser,
         persistedUser,
-        findPostById,
-        updatePostList,
-        bookmarkedIds,
-        setBookmarkedIds,
+        findPostById: (postId) => feeds.findPostById(postId) ?? undefined,
+        updatePostList: feeds.updatePostList,
+        bookmarkedIds: feeds.socialGraph.bookmarkedIds,
+        setBookmarkedIds: feeds.socialGraph.setBookmarkedIds,
     });
 
-    const {
-        editingPostId,
-        setEditingPostId,
-        editingText,
-        setEditingText,
-        savingEdit,
-        handleTogglePin,
-        handleToggleBookmark,
-        handleCopyPostText,
-        handleSavePostToVault,
-        handleSavePostToDevice,
-        handleToggleLock,
-        handleEditPost,
-        handleSaveEdit,
-        handleReportPost,
-    } = postModeration;
-
-    const {
-        isAddQuestionOpen,
-        openAddQuestion,
-        closeAddQuestion,
-        newPostText,
-        setNewPostText,
-        newTagText,
-        setNewTagText,
-        newIsAnonymous,
-        setNewIsAnonymous,
-        newIsUrgent,
-        setNewIsUrgent,
-        newAttachment,
-        removeAttachment,
-        submittingPost,
-        isRecordingVoice,
-        voiceRecordingSec,
-        imageInputRef,
-        docInputRef,
-        toggleVoiceRecording,
-        handleUploadAttachment,
-        handleAddPost,
-    } = addQuestion;
-
-    const {
-        handleToggleUpvote,
-        handleAddComment,
-        handleDeleteComment,
-        handleEditComment,
-        requestDeletePost,
-        confirmDeletePost,
-        pendingDeletePostId,
-        pendingDeletePost,
-        deletingPost,
-        cancelDeletePostRequest,
-        handleSharePost,
-        handleToggleBestAnswer,
-        handleToggleCommentUpvote,
-        handleReportComment,
-    } = postActions;
-
-    const openForumProfile = useCallback(
-        (userId: string, displayName?: string) => {
-            if (!userId) return;
-            if (userId === currentUserId && onOpenOwnProfile) {
-                onOpenOwnProfile();
-                return;
-            }
-            void prefetchRoyalLawyerProfile(userId);
-            void loadUserStats([userId]);
-            setProfileView({ userId, displayName });
-        },
-        [currentUserId, onOpenOwnProfile, loadUserStats],
-    );
-
-    const closeForumProfile = useCallback(() => setProfileView(null), []);
-
-    useEffect(() => {
-        scheduleCommunityProfileOverlayPrefetch();
-    }, []);
-
-    useEffect(() => {
-        const feedPosts =
-            activeSection === 'groups' && activeGroupId ? groupVisiblePosts : visiblePosts;
-        const slice = feedPosts.slice(0, COMMUNITY_USER_STATS_VISIBLE_LIMIT);
-        const authorIds = slice.map((p) => p.authorId).filter(Boolean);
-        const commentIds = slice
-            .flatMap((p) =>
-                p.comments
-                    .slice(0, COMMUNITY_USER_STATS_COMMENTS_PER_POST)
-                    .map((c) => c.authorId)
-                    .filter(Boolean),
-            );
-        queueLoadUserStats([...authorIds, ...commentIds]);
-    }, [
-        activeGroupId,
-        activeSection,
-        groupVisiblePosts,
-        queueLoadUserStats,
-        visiblePosts,
-    ]);
+    const interactions = useCommunityScreenInteractions({
+        forumSurfaceOpen,
+        currentUserId,
+        onOpenOwnProfile,
+        loadUserStats: feeds.loadUserStats,
+        queueLoadUserStats: feeds.queueLoadUserStats,
+        setProfileView: shell.setProfileView,
+        setActiveSection: feeds.setActiveSection,
+        setRepositorySearchTerm: shell.setRepositorySearchTerm,
+        closeSearchOverlay: searchOverlay.closeSearchOverlay,
+        setCommentingPostId: shell.setCommentingPostId,
+        activeSection: shell.activeSection,
+        activeGroupId: feeds.groupsFeed.activeGroupId,
+        groupVisiblePosts: feeds.groupsFeed.groupVisiblePosts,
+        visiblePosts: feeds.postsFeed.visiblePosts,
+    });
 
     const activePostForComments = useMemo(() => {
-        if (!commentingPostId) return null;
-        return findPostById(commentingPostId);
-    }, [commentingPostId, posts, groupPosts, findPostById]);
+        if (!shell.commentingPostId) return null;
+        return feeds.findPostById(shell.commentingPostId);
+    }, [shell.commentingPostId, feeds.posts, feeds.groupPosts, feeds.findPostById]);
 
-    const handleNavigateToPost = useCallback((postId: string) => {
-        setActiveSection('forum');
-        window.setTimeout(() => {
-            document.getElementById(`forum-post-${postId}`)?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center',
-            });
-        }, 120);
-    }, [setActiveSection]);
-
-    const handleSearchOpenPost = useCallback((postId: string) => {
-        closeSearchOverlay();
-        handleNavigateToPost(postId);
-    }, [closeSearchOverlay, handleNavigateToPost]);
-
-    const handleSearchOpenDocument = useCallback((doc: RepositoryDocument) => {
-        setActiveSection('repository');
-        setRepositorySearchTerm(doc.title);
-        closeSearchOverlay();
-    }, [closeSearchOverlay, setActiveSection]);
-
-    const openFullscreenImage = useCallback((url: string) => setFullscreenImage(url), []);
-    const openCommentSheet = useCallback((id: string) => {
-        void import('@/app/components/lawyer/CommunityScreen/communityScreenLazyOverlays').then((m) =>
-            m.prefetchCommunityCommentOverlay(),
-        );
-        setCommentingPostId(id);
-    }, []);
-
-    const { popForumLayer } = useForumEscapeStack({
-        enabled: forumSurfaceOpen,
-        fullscreenImage,
-        profileView: profileView !== null,
-        pendingDeletePostId,
-        editingPostId,
-        isCreateGroupOpen,
-        commentingPostId,
-        isAddQuestionOpen,
-        isSearchOpen,
-        showFollowingPanel,
-        activeGroupId,
-        forumAppBarDropdownOpen,
+    const { popForumLayer } = useCommunityScreenForumEscape({
+        forumSurfaceOpen,
         onBack,
-        onCloseFullscreenImage: () => setFullscreenImage(null),
-        onCloseProfile: closeForumProfile,
-        onCancelDelete: () => {
-            if (!deletingPost) cancelDeletePostRequest();
-        },
-        onCancelEdit: () => {
-            if (savingEdit) return;
-            setEditingPostId(null);
-            setEditingText('');
-        },
-        onCloseCreateGroup: () => {
-            if (submittingGroup) return;
-            setIsCreateGroupOpen(false);
-        },
-        onCloseComments: () => setCommentingPostId(null),
-        onCloseAddQuestion: closeAddQuestion,
-        onCloseSearch: closeSearchOverlay,
-        onCloseFollowingPanel: () => flushSync(() => setShowFollowingPanel(false)),
-        onCloseAppBarDropdowns: () => closeAppBarDropdownsRef.current?.(),
-        onLeaveGroupFeed: () => setActiveGroupId(null),
+        shell,
+        postActions: feeds.postActions,
+        postModeration,
+        groupsFeed: feeds.groupsFeed,
+        addQuestion: feeds.addQuestion,
+        searchOverlay,
+        interactions,
     });
 
-    useForumLifecycle(currentUserId, loadingPosts, visiblePosts.length, forumSurfaceOpen);
+    useForumLifecycle(
+        currentUserId,
+        feeds.postsFeed.loadingPosts,
+        feeds.postsFeed.visiblePosts.length,
+        forumNetworkLive,
+    );
 
-    /** keepAlive مغلق: أسقط طبقات portal على document.body حتى لا تبقى فوق الـ dock */
-    useEffect(() => {
-        if (forumSurfaceOpen) return;
-        setFullscreenImage(null);
-        setProfileView(null);
-        if (!deletingPost) cancelDeletePostRequest();
-        if (!savingEdit) {
-            setEditingPostId(null);
-            setEditingText('');
-        }
-        if (!submittingGroup) setIsCreateGroupOpen(false);
-        setCommentingPostId(null);
-        closeAddQuestion({ soft: true });
-        closeSearchOverlay();
-        /* بلا flushSync — الاستدعاء من useEffect يُطلق تحذير React */
-        setShowFollowingPanel(false);
-        closeAppBarDropdownsRef.current?.();
-        setForumAppBarDropdownOpen(false);
-    }, [
+    useCommunityScreenKeepAliveDismiss({
         forumSurfaceOpen,
-        deletingPost,
-        cancelDeletePostRequest,
-        savingEdit,
-        submittingGroup,
-        setIsCreateGroupOpen,
-        closeAddQuestion,
-        closeSearchOverlay,
-    ]);
+        deletingPost: feeds.postActions.deletingPost,
+        cancelDeletePostRequest: feeds.postActions.cancelDeletePostRequest,
+        savingEdit: postModeration.savingEdit,
+        setEditingPostId: postModeration.setEditingPostId,
+        setEditingText: postModeration.setEditingText,
+        submittingGroup: feeds.groupsFeed.submittingGroup,
+        setIsCreateGroupOpen: feeds.groupsFeed.setIsCreateGroupOpen,
+        setCommentingPostId: shell.setCommentingPostId,
+        closeAddQuestion: feeds.addQuestion.closeAddQuestion,
+        closeSearchOverlay: searchOverlay.closeSearchOverlay,
+        setShowFollowingPanel: shell.setShowFollowingPanel,
+        closeAppBarDropdownsRef: shell.closeAppBarDropdownsRef,
+        setForumAppBarDropdownOpen: shell.setForumAppBarDropdownOpen,
+        setProfileView: shell.setProfileView,
+    });
 
-    const gateBlocked = showLoadingShell || !canAccessLawyerForum;
-
-    const propBuilderCtx = useMemo(
-        () => ({
-            onBack: popForumLayer,
-            forumSurfaceOpen,
-            activeSection,
-            setActiveSection,
-            setIsSearchOpen,
-            openSearchOverlay,
-            closeSearchOverlay,
-            handleNavigateToPost,
-            currentUserId,
-            isBanned,
-            selectedFilterIndex,
-            setSelectedFilterIndex,
-            repositorySearchTerm,
-            setRepositorySearchTerm,
-            repositorySortBy,
-            setRepositorySortBy,
-            repositorySelectedType,
-            setRepositorySelectedType,
-            repositorySelectedTag,
-            setRepositorySelectedTag,
-            followingRecords,
-            setShowFollowingPanel,
-            forumFeedScope,
-            setForumFeedScope,
-            forumStreamConnected,
-            setForumAppBarDropdownOpen,
-            closeAppBarDropdownsRef,
-            showFollowingPanel,
-            followerRecords,
-            followingAuthorNames,
-            handleFollow,
-            handleUpdateFollowPrefs,
-            openForumProfile,
-            loadingPosts,
-            hasMore,
-            loadingMore,
-            visiblePosts,
-            isAdmin,
-            handleToggleUpvote,
-            openFullscreenImage,
-            openCommentSheet,
-            requestDeletePost,
-            handleEditPost,
-            handleReportPost,
-            handleSharePost,
-            handleLoadMore,
-            handleTogglePin,
-            followingIds,
-            bookmarkedIds,
-            handleToggleBookmark,
-            handleCopyPostText,
-            handleSavePostToVault,
-            handleSavePostToDevice,
-            handleToggleLock,
-            handleMuteUser,
-            userStats,
-            threadFollowingIds,
-            handleToggleThreadFollow,
-            activeGroupId,
-            activeGroup,
-            handleLeaveGroup,
-            leavingGroup,
-            groupPostsLoading,
-            groupPostsHasMore,
-            groupPostsLoadingMore,
-            groupVisiblePosts,
-            handleLoadMoreGroupPosts,
-            setActiveGroupId,
-            groups,
-            groupsLoading,
-            groupsSearchQuery,
-            setGroupsSearchQuery,
-            handleJoinGroup,
-            handleOpenGroup,
-            setIsCreateGroupOpen,
-            joiningGroupId,
-            openAddQuestion,
-            activePostForComments,
-            mutedIds,
-            forumMentionCandidates,
-            setCommentingPostId,
-            handleAddComment,
-            handleToggleBestAnswer,
-            handleDeleteComment,
-            handleEditComment,
-            handleToggleCommentUpvote,
-            handleReportComment,
-            isSearchOpen,
-            searchQuery,
-            setSearchQuery,
-            filterHasPdf,
-            setFilterHasPdf,
-            filterHasImage,
-            setFilterHasImage,
-            selectedTag,
-            setSelectedTag,
-            allSearchTags,
-            filteredPosts,
-            filteredRepositoryDocs,
-            handleSearchOpenPost,
-            handleSearchOpenDocument,
-            isAddQuestionOpen,
-            newPostText,
-            setNewPostText,
-            newTagText,
-            setNewTagText,
-            newIsAnonymous,
-            setNewIsAnonymous,
-            newIsUrgent,
-            setNewIsUrgent,
-            newAttachment,
-            removeAttachment,
-            submittingPost,
-            isRecordingVoice,
-            voiceRecordingSec,
-            imageInputRef,
-            docInputRef,
-            toggleVoiceRecording,
-            handleUploadAttachment,
-            handleAddPost,
-            closeAddQuestion,
-            fullscreenImage,
-            setFullscreenImage,
-            isCreateGroupOpen,
-            newGroupName,
-            newGroupDesc,
-            submittingGroup,
-            setNewGroupName,
-            setNewGroupDesc,
-            handleCreateGroup,
-            editingPostId,
-            editingText,
-            setEditingText,
-            handleSaveEdit,
-            setEditingPostId,
-            savingEdit,
-            pendingDeletePostId,
-            pendingDeletePost,
-            deletingPost,
-            confirmDeletePost,
-            cancelDeletePostRequest,
-            profileView,
-            closeForumProfile,
-            followBusyUserId,
-        }),
-        [
+    const { bodyProps, overlayProps } = useCommunityScreenPropModel(
+        assembleCommunityScreenPropContext({
             popForumLayer,
             forumSurfaceOpen,
-            activeSection,
-            setActiveSection,
-            handleNavigateToPost,
-            openSearchOverlay,
-            closeSearchOverlay,
             currentUserId,
-            isBanned,
-            selectedFilterIndex,
-            repositorySearchTerm,
-            repositorySortBy,
-            repositorySelectedType,
-            repositorySelectedTag,
-            followingRecords,
-            forumFeedScope,
-            forumStreamConnected,
-            showFollowingPanel,
-            followerRecords,
-            followingAuthorNames,
-            handleFollow,
-            handleUpdateFollowPrefs,
-            openForumProfile,
-            loadingPosts,
-            hasMore,
-            loadingMore,
-            visiblePosts,
             isAdmin,
-            handleToggleUpvote,
-            requestDeletePost,
-            handleEditPost,
-            handleReportPost,
-            handleSharePost,
-            handleLoadMore,
-            handleTogglePin,
-            followingIds,
-            bookmarkedIds,
-            handleToggleBookmark,
-            handleCopyPostText,
-            handleSavePostToVault,
-            handleSavePostToDevice,
-            handleToggleLock,
-            handleMuteUser,
-            userStats,
-            threadFollowingIds,
-            handleToggleThreadFollow,
-            activeGroupId,
-            activeGroup,
-            handleLeaveGroup,
-            leavingGroup,
-            groupPostsLoading,
-            groupPostsHasMore,
-            groupPostsLoadingMore,
-            groupVisiblePosts,
-            handleLoadMoreGroupPosts,
-            groups,
-            groupsLoading,
-            groupsSearchQuery,
-            handleJoinGroup,
-            handleOpenGroup,
-            joiningGroupId,
-            openAddQuestion,
+            forumStreamConnected,
+            userStats: feeds.userStats,
+            mutedIds: feeds.mutedIds,
             activePostForComments,
-            mutedIds,
-            forumMentionCandidates,
-            handleAddComment,
-            handleToggleBestAnswer,
-            handleDeleteComment,
-            handleEditComment,
-            handleToggleCommentUpvote,
-            handleReportComment,
-            isSearchOpen,
-            searchQuery,
-            filterHasPdf,
-            filterHasImage,
-            selectedTag,
-            allSearchTags,
-            filteredPosts,
-            filteredRepositoryDocs,
-            handleSearchOpenPost,
-            handleSearchOpenDocument,
-            isAddQuestionOpen,
-            newPostText,
-            newTagText,
-            newIsAnonymous,
-            newIsUrgent,
-            newAttachment,
-            submittingPost,
-            isRecordingVoice,
-            voiceRecordingSec,
-            handleUploadAttachment,
-            handleAddPost,
-            closeAddQuestion,
-            fullscreenImage,
-            isCreateGroupOpen,
-            newGroupName,
-            newGroupDesc,
-            submittingGroup,
-            handleCreateGroup,
-            editingPostId,
-            editingText,
-            handleSaveEdit,
-            savingEdit,
-            pendingDeletePostId,
-            pendingDeletePost,
-            deletingPost,
-            confirmDeletePost,
-            profileView,
-            closeForumProfile,
-            followBusyUserId,
-        ],
+            setActiveSection: feeds.setActiveSection,
+            shell,
+            socialGraph: feeds.socialGraph,
+            groupsFeed: feeds.groupsFeed,
+            postsFeed: feeds.postsFeed,
+            searchOverlay,
+            addQuestion: feeds.addQuestion,
+            postActions: feeds.postActions,
+            postModeration,
+            interactions,
+        }),
     );
-
-    const bodyProps = useMemo(
-        () => buildCommunityScreenBodyProps(propBuilderCtx),
-        [propBuilderCtx],
-    );
-    const overlayProps = useMemo(
-        () => buildCommunityScreenOverlayProps(propBuilderCtx),
-        [propBuilderCtx],
-    );
+    const gateBlocked = showLoadingShell || !canAccessLawyerForum || accountFrozen;
 
     return {
         gateBlocked,
         accessGateProps: {
             showLoadingShell,
             canAccessLawyerForum,
+            accountFrozen,
+            frozenMessage,
+            forumDenial,
         },
         bodyProps,
         overlayProps,

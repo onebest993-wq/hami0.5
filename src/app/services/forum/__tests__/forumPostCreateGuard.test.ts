@@ -64,4 +64,45 @@ describe('sanitizeCommunityPostForCreate', () => {
         );
         expect(safe.attachment).toBeNull();
     });
+
+    it('يحافظ على bucket/encrypted لمرفقات المنتدى', () => {
+        const safe = sanitizeCommunityPostForCreate(
+            buildPost({
+                attachment: {
+                    type: 'image',
+                    name: 'photo.jpg',
+                    mimeType: 'image/jpeg',
+                    storagePath: 'user-1/forum-media/photo.jpg',
+                    bucket: 'forum-media',
+                    encrypted: true,
+                    url: 'blob:preview',
+                },
+            }),
+            'user-1',
+        );
+        expect(safe.attachment).toMatchObject({
+            type: 'image',
+            name: 'photo.jpg',
+            storagePath: 'user-1/forum-media/photo.jpg',
+            bucket: 'forum-media',
+            encrypted: true,
+        });
+        expect(safe.attachment?.url).toBeUndefined();
+    });
+
+    it('يحافظ على data:image الآمن للمنشور المحلي', () => {
+        const safe = sanitizeCommunityPostForCreate(
+            buildPost({
+                attachment: {
+                    type: 'image',
+                    url: 'data:image/png;base64,abc',
+                    name: 'x.png',
+                    storagePath: 'idb:forum:local-1',
+                },
+            }),
+            'user-1',
+        );
+        expect(safe.attachment?.url).toBe('data:image/png;base64,abc');
+        expect(safe.attachment?.storagePath).toBe('idb:forum:local-1');
+    });
 });

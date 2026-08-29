@@ -1,14 +1,7 @@
 /** Phase C Slice 26 — debtor workspace + followup specialization + tab assembly */
-import { useMemo, type Dispatch, type SetStateAction } from 'react';
-import type { ExecutionFile, Debtor } from '@/app/types/execution';
-import type { ExecutionFollowupOrchestratorSlice } from '../../orchestrators/executionFollowupOrchestratorTypes';
-import type { ExecutionDashboardCoreWorkspacePipelineValue } from './executionDashboardCoreWorkspacePipelineTypes';
-import type { ExecutionDashboardCoreBootPipelineValue } from './executionDashboardCoreBootPipelineTypes';
-import type { DebtorEntityKind } from '@/app/utils/debtorEntityKindUtils';
-import { resolveDebtorEntityKind, isLegalEntityDebtorKind } from '@/app/utils/debtorEntityKindUtils';
-import { isLawyerRepresentingDebtor } from '@/app/utils/debtorAgentRepresentationUtils';
-import { resolveFollowupFlagsForDebtorContext } from '@/app/utils/executionDomainIsolation';
-import { applyDebtorDeathFollowupOverlay } from '@/app/utils/partyDeathFollowupOverlay';
+import type { UseExecutionDashboardCoreFollowupDebtorPipelineInput } from './useExecutionDashboardCoreFollowupDebtorPipeline.types';
+import { useMemo } from 'react';
+import type { Debtor } from '@/app/types/execution';
 import {
     executionTimelineVisibilityFromFollowup,
     resolveExecutionTimelineFilterOptions,
@@ -16,11 +9,14 @@ import {
 import { useExecutionDashboardDebtorWorkspaceContext } from './useExecutionDashboardDebtorWorkspaceContext';
 import { useActiveDebtorProfile } from '../useActiveDebtorProfile';
 import { useExecutionDashboardEmployeeAssignmentCoerciveState } from './useExecutionDashboardEmployeeAssignmentCoerciveState';
+import { useFollowupModalSpecializationCluster } from './useFollowupModalSpecializationCluster';
 import { useSeizureLogEntityData } from '../useSeizureLogEntityData';
 import { useUnifiedSeizureLog } from '../useUnifiedSeizureLog';
 import { useExecutionDashboardFollowupTabAssembly } from './useExecutionDashboardFollowupTabAssembly';
+import { createDefaultFollowupSpecializationFlags } from '@/app/utils/followupSpecializationVisibility';
 import { useDebtorScopedTimeline } from '../useDebtorScopedTimeline';
 import { timelineEventBelongsToDebtorWorkspace } from '@/app/utils/timelineDebtorScope';
+import { useFollowupDebtorEntityFlags } from './useFollowupDebtorEntityFlags';
 import {
     useExecutionDashboardActiveTimelineFilterNormalize,
     useExecutionDashboardDebtorBrowserTabsClamp,
@@ -28,43 +24,9 @@ import {
     useExecutionDashboardUnifiedModalPersonalTabRedirect,
     useExecutionResidentialGraceClearedListener,
 } from './useExecutionDashboardRuntimeSyncEffects';
+import { assembleFollowupDebtorPipelineReturn } from './assembleFollowupDebtorPipelineReturn';
 
-export function useExecutionDashboardCoreFollowupDebtorPipeline(p: {
-    executionData: ExecutionFile | null | undefined;
-    viewExecutionData: ExecutionFile | null | undefined;
-    executionId: string | undefined;
-    decisionsStorageExecutionId: string;
-    decisionsReloadEpoch: number;
-    claimType: string;
-    creditors: ExecutionFile['creditors'];
-    debtors: ExecutionFile['debtors'];
-    mergedTimelineEvents: ExecutionDashboardCoreWorkspacePipelineValue['mergedTimelineEvents'];
-    activeTimelineEvents: ExecutionDashboardCoreWorkspacePipelineValue['activeTimelineEvents'];
-    activeCoerciveActions: ExecutionDashboardCoreWorkspacePipelineValue['activeCoerciveActions'];
-    realEstateSeizureRegistryAssets: ExecutionDashboardCoreWorkspacePipelineValue['realEstateSeizureRegistryAssets'];
-    salarySeizureRegistryAssets: ExecutionDashboardCoreWorkspacePipelineValue['salarySeizureRegistryAssets'];
-    movableSeizureRegistryAssets: ExecutionDashboardCoreWorkspacePipelineValue['movableSeizureRegistryAssets'];
-    thirdPartySeizureRegistryAssets: ExecutionDashboardCoreWorkspacePipelineValue['thirdPartySeizureRegistryAssets'];
-    thirdPartySeizuresUi: ExecutionDashboardCoreWorkspacePipelineValue['thirdPartySeizuresUi'];
-    showToast: ExecutionDashboardCoreWorkspacePipelineValue['showToast'];
-    showUnifiedExecutionModal: boolean;
-    dossierFileKey: string;
-    executionFileKey: string;
-    setShowDecisionsModal: (show: boolean) => void;
-    showDecisionsModal: boolean;
-    setActiveTimelineFilter: Dispatch<SetStateAction<string>>;
-    setShowExtraCreditors: (v: boolean) => void;
-    setShowExtraDebtors: (v: boolean) => void;
-    caseTasksPendingRef: ExecutionDashboardCoreWorkspacePipelineValue['caseTasksPendingRef'];
-    setCaseTasksPending: ExecutionDashboardCoreWorkspacePipelineValue['setCaseTasksPending'];
-    setTimelineEvents: ExecutionDashboardCoreWorkspacePipelineValue['setTimelineEvents'];
-    persistExecutionMergeRef: ExecutionDashboardCoreWorkspacePipelineValue['persistExecutionMergeRef'];
-    setNotificationCount: React.Dispatch<React.SetStateAction<number>>;
-    setDebtorSummonsMarkerLocal: ExecutionDashboardCoreBootPipelineValue['setDebtorSummonsMarkerLocal'];
-    pushTimelineEventRef: ExecutionDashboardCoreWorkspacePipelineValue['pushTimelineEventRef'];
-    nextTimelineId: ExecutionDashboardCoreWorkspacePipelineValue['nextTimelineId'];
-    followupOrchestrator: ExecutionFollowupOrchestratorSlice;
-}) {
+export function useExecutionDashboardCoreFollowupDebtorPipeline(p: UseExecutionDashboardCoreFollowupDebtorPipelineInput) {
     const debtorWorkspaceContext = useExecutionDashboardDebtorWorkspaceContext({
         executionData: p.executionData,
         creditors: p.creditors,
@@ -80,40 +42,16 @@ export function useExecutionDashboardCoreFollowupDebtorPipeline(p: {
     });
 
     const {
-        effectiveCreditors,
         effectiveDebtors,
         allDebtorsUnified,
-        resolveDebtorSolidaryFlag,
-        allDebtorsSolidary,
-        isSolidaryLiability,
         debtorWorkspaceEntries,
-        creditorWorkspaceEntries,
-        creditorNamesTextList,
-        perDebtorSolidarySplitMode,
-        debtorLiabilityGroups,
-        liabilityGroupTabsMode,
-        multiDebtorMode,
         debtorBrowserTabsMode,
-        activeLiabilityGroup,
-        activeGroupEntries,
-        activeLiabilityGroupId,
-        allDebtorRowsForLiability,
-        activeDebtorSolidary,
         activeWorkspaceDebtorForFollowup,
         primaryDebtorWorkspaceKey,
         primaryDebtorKeyResolved,
-        showFollowupSolidaryDebtorTabs,
         effectiveFollowupDebtorEntry,
         followupAssignmentWorkspaceCtx,
-        mergedTimelineEventsDebtorScoped,
-        mergedTimelineRadarPreviewLimit,
         assignmentWorkspaceCtx,
-        unifiedSummonsTargetDebtorKey,
-        activeDebtorNoticeScope,
-        scopedNotificationCount,
-        scopedSummonsMarker,
-        followupActiveDebtorNoticeScope,
-        modalActiveDebtorNoticeScope,
     } = debtorWorkspaceContext;
 
     const { activeDebtorIsEmployee, activeDebtorIsDeceased } = useActiveDebtorProfile(
@@ -141,12 +79,7 @@ export function useExecutionDashboardCoreFollowupDebtorPipeline(p: {
         : activeDebtorIsDeceased;
     const modalKasabTerminationEmphasis = !followupModalDebtorIsEmployee;
 
-    const {
-        modalResolvedEmployeeSummonsAssignment,
-        modalShowEmployeeAssignmentCoerciveBlock,
-        employeeAssignmentPhaseForCoercive,
-        employeeUnlocksPersonalCoerciveFromAssignment,
-    } = useExecutionDashboardEmployeeAssignmentCoerciveState({
+    const employeeAssignmentCoercive = useExecutionDashboardEmployeeAssignmentCoerciveState({
         executionData: p.executionData,
         assignmentWorkspaceActiveDebtorKey: assignmentWorkspaceCtx.activeDebtorKey,
         followupAssignmentWorkspaceActiveDebtorKey: followupAssignmentWorkspaceCtx.activeDebtorKey,
@@ -154,62 +87,27 @@ export function useExecutionDashboardCoreFollowupDebtorPipeline(p: {
         activeDebtorIsEmployee,
         followupModalDebtorIsEmployee,
     });
+    const { modalShowEmployeeAssignmentCoerciveBlock, employeeAssignmentPhaseForCoercive } =
+        employeeAssignmentCoercive;
 
-    const followupModalEntityKind = useMemo((): DebtorEntityKind => {
-        const prim = p.executionData?.debtors?.[0] as Debtor | undefined;
-        let debtor: Debtor | Record<string, unknown> | undefined = prim;
-        const entry = effectiveFollowupDebtorEntry ?? activeWorkspaceDebtorForFollowup;
-        if (debtorBrowserTabsMode && entry) {
-            if (!entry.isPrimary) {
-                const ad = p.executionData?.party_multiplicity?.additionalDebtors?.find(
-                    (a) => String(a.id) === entry.key,
-                );
-                debtor = (ad ?? entry.d) as Debtor | Record<string, unknown>;
-            } else {
-                debtor = prim ?? entry.d;
-            }
-        }
-        return resolveDebtorEntityKind({
-            executionData: p.executionData,
-            debtor,
-            debtorKey: followupAssignmentWorkspaceCtx.activeDebtorKey,
-        });
-    }, [
-        p.executionData,
+    const followupModalSpecializationCluster = useFollowupModalSpecializationCluster({
+        executionData: p.executionData,
+        claimType: p.claimType,
         debtorBrowserTabsMode,
         effectiveFollowupDebtorEntry,
         activeWorkspaceDebtorForFollowup,
-        followupAssignmentWorkspaceCtx.activeDebtorKey,
-    ]);
+        followupAssignmentWorkspaceActiveDebtorKey: followupAssignmentWorkspaceCtx.activeDebtorKey,
+        followupModalDebtorIsEmployee,
+        followupModalDebtorIsDeceased,
+    });
+    const { followupModalSpecializationEffective } = followupModalSpecializationCluster;
 
-    const followupModalSpecialization = useMemo(
-        () =>
-            resolveFollowupFlagsForDebtorContext(
-                p.executionData as Record<string, unknown> | null | undefined,
-                {
-                    isEmployeeDebtor: followupModalDebtorIsEmployee,
-                    fallbackClaimType: p.claimType,
-                    debtorEntityKind: followupModalEntityKind,
-                },
-            ),
-        [p.executionData, followupModalDebtorIsEmployee, p.claimType, followupModalEntityKind],
-    );
-
-    const followupModalSpecializationEffective = useMemo(
-        () =>
-            applyDebtorDeathFollowupOverlay(
-                followupModalSpecialization,
-                Boolean(followupModalDebtorIsDeceased),
-            ),
-        [followupModalSpecialization, followupModalDebtorIsDeceased],
-    );
-
-    const { seizedPropertiesForSeizureLog, seizedMovablesForSeizureLog, seizureLogExecutorDecisions } =
-        useSeizureLogEntityData({
-            viewExecutionData: p.viewExecutionData,
-            decisionsStorageExecutionId: p.decisionsStorageExecutionId,
-            decisionsReloadEpoch: p.decisionsReloadEpoch,
-        });
+    const seizureLogEntity = useSeizureLogEntityData({
+        viewExecutionData: p.viewExecutionData,
+        decisionsStorageExecutionId: p.decisionsStorageExecutionId,
+        decisionsReloadEpoch: p.decisionsReloadEpoch,
+    });
+    const { seizedMovablesForSeizureLog } = seizureLogEntity;
 
     const unifiedSeizureLog = useUnifiedSeizureLog({
         viewExecutionData: p.viewExecutionData,
@@ -225,20 +123,6 @@ export function useExecutionDashboardCoreFollowupDebtorPipeline(p: {
         decisionsReloadEpoch: p.decisionsReloadEpoch,
         showToast: p.showToast,
     });
-
-    const {
-        showUnifiedSeizureLogModal,
-        closeUnifiedSeizureLog,
-        unifiedSeizureLogTab,
-        setUnifiedSeizureLogTab,
-        unifiedSeizureLogEntries,
-        unifiedSeizureTabCounts,
-        hasUnifiedSeizureLogContent,
-        openUnifiedSeizureLog,
-        thirdPartyFundsDraftById,
-        setThirdPartyFundsDraftById,
-        clearThirdPartyFundsDraft,
-    } = unifiedSeizureLog;
 
     const activeDebtorNameResolved = useMemo(() => {
         const row = allDebtorsUnified[p.followupOrchestrator.executionDebtorTabIndex];
@@ -275,43 +159,17 @@ export function useExecutionDashboardCoreFollowupDebtorPipeline(p: {
         timelineEventBelongsToDebtorWorkspace,
     );
 
-    const kasabTerminationEmphasis = !activeDebtorIsEmployee;
-
-    const activeFollowupDebtorKeyForEntity = String(
-        assignmentWorkspaceCtx.activeDebtorKey ?? primaryDebtorWorkspaceKey ?? p.executionId ?? '',
-    );
-    const activeDebtorEntityKind = useMemo((): DebtorEntityKind => {
-        const prim = p.executionData?.debtors?.[0] as Debtor | undefined;
-        let debtor: Debtor | Record<string, unknown> | undefined = prim;
-        if (debtorBrowserTabsMode && activeWorkspaceDebtorForFollowup) {
-            if (!activeWorkspaceDebtorForFollowup.isPrimary) {
-                const ad = p.executionData?.party_multiplicity?.additionalDebtors?.find(
-                    (a) => String(a.id) === activeWorkspaceDebtorForFollowup.key,
-                );
-                debtor = (ad ?? activeWorkspaceDebtorForFollowup.d) as Debtor | Record<string, unknown>;
-            } else {
-                debtor = prim ?? activeWorkspaceDebtorForFollowup.d;
-            }
-        }
-        return resolveDebtorEntityKind({
-            executionData: p.executionData,
-            debtor,
-            debtorKey: activeFollowupDebtorKeyForEntity,
-        });
-    }, [
-        p.executionData,
+    const entityFlags = useFollowupDebtorEntityFlags({
+        executionData: p.executionData,
+        executionId: p.executionId,
+        activeDebtorIsEmployee,
         debtorBrowserTabsMode,
         activeWorkspaceDebtorForFollowup,
-        activeFollowupDebtorKeyForEntity,
-    ]);
-
-    const activeDebtorIsLegalEntity = isLegalEntityDebtorKind(activeDebtorEntityKind);
-    const isRepresentingDebtor = useMemo(
-        () => isLawyerRepresentingDebtor(p.executionData),
-        [p.executionData],
-    );
-    const appealPerspective = isRepresentingDebtor ? 'debtor_agent' : 'creditor_agent';
-    const hideCoerciveTabsForDebtorAgent = isRepresentingDebtor && !activeDebtorIsLegalEntity;
+        assignmentWorkspaceCtx,
+        primaryDebtorWorkspaceKey,
+    });
+    const { activeDebtorIsLegalEntity, isRepresentingDebtor, hideCoerciveTabsForDebtorAgent } =
+        entityFlags;
 
     const followupTabAssembly = useExecutionDashboardFollowupTabAssembly({
         executionData: p.executionData,
@@ -343,40 +201,13 @@ export function useExecutionDashboardCoreFollowupDebtorPipeline(p: {
         openSeizureRequestsTabRef: p.followupOrchestrator.openSeizureRequestsTabRef,
         hideCoerciveTabsForDebtorAgent,
     });
-
-    const {
-        executionDomainContext,
-        followupSpecialization,
-        followupSpecializationEffective,
-        showPersonalCoerciveFollowupTab,
-        showSalarySeizureInFollowupModal,
-        followupSalarySeizureLabel,
-        showEmployeeCompulsoryProceduresBanner,
-        activeFollowupDebtorKey,
-        personalTabUnlockByDebtor,
-        setPersonalTabUnlockByDebtor,
-        employeePersonalTabUnlockStorageKey,
-        custodyRemovalClaimActive,
-        employeeCoerciveDetentionRestricted,
-        modalEmployeeCoerciveDetentionRestricted,
-        modalShowPersonalCoerciveFollowupTab,
-        personalTabLockedForEmployee,
-        modalPersonalTabLockedForEmployee,
-        followupTabsRestricted,
-        followupSectionTabOrder,
-        followupModalTabs,
-        isFollowupTabActive,
-        openFollowupModalPersisted,
-        closeFollowupModalPersisted,
-        persistFollowupModalViewport,
-        goFollowupSectionTabByDelta,
-    } = followupTabAssembly;
+    const { followupSpecialization, modalShowPersonalCoerciveFollowupTab } = followupTabAssembly;
 
     const timelineFilterOptions = useMemo(
         () =>
             resolveExecutionTimelineFilterOptions(
                 executionTimelineVisibilityFromFollowup({
-                    ...followupSpecialization,
+                    ...(followupSpecialization ?? createDefaultFollowupSpecializationFlags()),
                     showOtherPartyTimelineTab: isRepresentingDebtor,
                     hideCoerciveTimelineTab: hideCoerciveTabsForDebtorAgent,
                 }),
@@ -424,105 +255,23 @@ export function useExecutionDashboardCoreFollowupDebtorPipeline(p: {
         persistExecutionMergeRef: p.persistExecutionMergeRef,
     });
 
-    return {
+    return assembleFollowupDebtorPipelineReturn({
         debtorWorkspaceContext,
-        effectiveCreditors,
-        effectiveDebtors,
-        allDebtorsUnified,
-        resolveDebtorSolidaryFlag,
-        allDebtorsSolidary,
-        isSolidaryLiability,
-        debtorWorkspaceEntries,
-        creditorWorkspaceEntries,
-        creditorNamesTextList,
-        perDebtorSolidarySplitMode,
-        debtorLiabilityGroups,
-        liabilityGroupTabsMode,
-        multiDebtorMode,
-        debtorBrowserTabsMode,
-        activeLiabilityGroup,
-        activeGroupEntries,
-        activeLiabilityGroupId,
-        allDebtorRowsForLiability,
-        activeDebtorSolidary,
-        activeWorkspaceDebtorForFollowup,
-        primaryDebtorWorkspaceKey,
-        primaryDebtorKeyResolved,
-        showFollowupSolidaryDebtorTabs,
-        effectiveFollowupDebtorEntry,
-        followupAssignmentWorkspaceCtx,
-        mergedTimelineEventsDebtorScoped,
-        mergedTimelineRadarPreviewLimit,
-        assignmentWorkspaceCtx,
-        unifiedSummonsTargetDebtorKey,
-        activeDebtorNoticeScope,
-        scopedNotificationCount,
-        scopedSummonsMarker,
-        followupActiveDebtorNoticeScope,
-        modalActiveDebtorNoticeScope,
         activeDebtorIsEmployee,
         activeDebtorIsDeceased,
         followupModalDebtorIsEmployee,
         followupModalDebtorIsDeceased,
         modalKasabTerminationEmphasis,
-        modalResolvedEmployeeSummonsAssignment,
-        modalShowEmployeeAssignmentCoerciveBlock,
-        employeeAssignmentPhaseForCoercive,
-        employeeUnlocksPersonalCoerciveFromAssignment,
-        followupModalEntityKind,
-        followupModalSpecialization,
-        followupModalSpecializationEffective,
-        seizedPropertiesForSeizureLog,
-        seizedMovablesForSeizureLog,
-        seizureLogExecutorDecisions,
+        employeeAssignmentCoercive,
+        followupModalSpecializationCluster,
+        seizureLogEntity,
         unifiedSeizureLog,
-        showUnifiedSeizureLogModal,
-        closeUnifiedSeizureLog,
-        unifiedSeizureLogTab,
-        setUnifiedSeizureLogTab,
-        unifiedSeizureLogEntries,
-        unifiedSeizureTabCounts,
-        hasUnifiedSeizureLogContent,
-        openUnifiedSeizureLog,
-        thirdPartyFundsDraftById,
-        setThirdPartyFundsDraftById,
-        clearThirdPartyFundsDraft,
         activeDebtorNameResolved,
         activeDebtorInitialWasEmployee,
         activeTimelineEventsDebtorScoped,
         timelineRadarPreviewLimit,
-        kasabTerminationEmphasis,
-        activeDebtorEntityKind,
-        activeDebtorIsLegalEntity,
-        isRepresentingDebtor,
-        appealPerspective,
-        hideCoerciveTabsForDebtorAgent,
+        entityFlags,
         followupTabAssembly,
-        executionDomainContext,
-        followupSpecialization,
-        followupSpecializationEffective,
-        showPersonalCoerciveFollowupTab,
-        showSalarySeizureInFollowupModal,
-        followupSalarySeizureLabel,
-        showEmployeeCompulsoryProceduresBanner,
-        activeFollowupDebtorKey,
-        personalTabUnlockByDebtor,
-        setPersonalTabUnlockByDebtor,
-        employeePersonalTabUnlockStorageKey,
-        custodyRemovalClaimActive,
-        employeeCoerciveDetentionRestricted,
-        modalEmployeeCoerciveDetentionRestricted,
-        modalShowPersonalCoerciveFollowupTab,
-        personalTabLockedForEmployee,
-        modalPersonalTabLockedForEmployee,
-        followupTabsRestricted,
-        followupSectionTabOrder,
-        followupModalTabs,
-        isFollowupTabActive,
-        openFollowupModalPersisted,
-        closeFollowupModalPersisted,
-        persistFollowupModalViewport,
-        goFollowupSectionTabByDelta,
         timelineFilterOptions,
-    };
+    });
 }

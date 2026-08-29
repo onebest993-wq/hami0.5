@@ -31,9 +31,3 @@ export const PERSONAL_APPLICABLE_LAW_SOURCES: Record<
         },
     ],
 };
-
-/** مرافعات + إثبات — مشتركة مع المدني، عرض منفصل في الإضبارة. */
-export const PERSONAL_PROCEDURAL_LAW_TABS = [
-    { codeType: 'civil_procedure' as const, label: 'قانون المرافعات' },
-    { codeType: 'evidence' as const, label: 'قانون الإثبات' },
-];

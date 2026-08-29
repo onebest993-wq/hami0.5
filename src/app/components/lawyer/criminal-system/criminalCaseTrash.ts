@@ -22,7 +22,7 @@ export type CriminalTrashItemKind =
     | 'procedural_sub_item'
     | 'judicial_decision';
 
-export type CriminalTrashSnapshot =
+type CriminalTrashSnapshot =
     | Statement
     | LawyerRequest
     | InvestigationLog
@@ -133,8 +133,4 @@ export function normalizeTrashBin(raw: unknown): CriminalTrashItem[] {
             return { id, kind, deletedAt, label, snapshot: snapshot as CriminalTrashSnapshot } as CriminalTrashItem;
         })
         .filter(Boolean) as CriminalTrashItem[];
-}
-
-export function trashCountForCase(caseRecord: CriminalCase | undefined | null): number {
-    return normalizeTrashBin(caseRecord?.trashBin).length;
 }

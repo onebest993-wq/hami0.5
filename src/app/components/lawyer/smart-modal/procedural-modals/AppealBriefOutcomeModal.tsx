@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
 import {
     GLASS_BTN,
     GLASS_CLOSE,

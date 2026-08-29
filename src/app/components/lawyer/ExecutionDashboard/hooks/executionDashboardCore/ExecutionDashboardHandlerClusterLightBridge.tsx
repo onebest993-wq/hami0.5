@@ -1,12 +1,11 @@
-// @ts-nocheck
-/** Loads execution-core-handlers-light for notes/appointment/payment paths only. */
-import { useExecutionDashboardCoreHandlerClusterLight } from './useExecutionDashboardCoreHandlerClusterLight';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import { useExecutionDashboardCoreHandlerClusterLight } from './useExecutionDashboardCoreHandlerClusterLight';
 import {
     handlerBagKeyFingerprint,
     usePublishHandlerClusterWhenFingerprintChanges,
 } from './handlerClusterPublishUtils';
 
+/** Loads execution-core-handlers-light for notes/appointment/payment paths only. */
 export type ExecutionDashboardHandlerClusterLightBridgeProps = {
     input: ExecutionDashboardCoreHandlerClusterInput;
     onCluster: (cluster: Record<string, unknown>) => void;

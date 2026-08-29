@@ -1,9 +1,6 @@
 import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 import { onBootContentReady } from '@/app/bootstrap/bootReveal';
-import {
-    loadLawyerDashboardModule,
-    resetLawyerDashboardModuleCache,
-} from '@/app/runtime/lawyerDashboardLoader';
+import { loadLawyerDashboardModule } from '@/app/runtime/lawyerDashboardLoader';
 
 let chunkMarked = false;
 let headerWarmArmed = false;
@@ -52,27 +49,6 @@ export function preloadLawyerDashboardChunk(): Promise<void> {
                 console.warn('[preloadLawyerDashboardChunk] failed:', err);
             }
         });
-}
-
-/** تحميل مسبق idle — احتياطي إذا فُوّت preload المبكر */
-export function scheduleLawyerDashboardPrefetch(): void {
-    if (typeof window === 'undefined') return;
-
-    const run = () => {
-        void preloadLawyerDashboardChunk();
-    };
-
-    if (typeof requestIdleCallback !== 'undefined') {
-        requestIdleCallback(run, { timeout: 400 });
-    } else {
-        window.setTimeout(run, 0);
-    }
-}
-
-export function resetLawyerDashboardChunkPreload(): void {
-    chunkMarked = false;
-    headerWarmArmed = false;
-    resetLawyerDashboardModuleCache();
 }
 
 export const LawyerDashboardLazy = lazyWithRetry(() =>

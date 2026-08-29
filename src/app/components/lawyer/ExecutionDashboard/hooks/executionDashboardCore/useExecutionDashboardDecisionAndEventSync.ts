@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { ExecutionFile, SeizedAsset, TimelineEvent } from '@/app/types/execution';

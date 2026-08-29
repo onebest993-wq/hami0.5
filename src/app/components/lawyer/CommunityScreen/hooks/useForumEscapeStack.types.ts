@@ -1,0 +1,24 @@
+export type UseForumEscapeStackParams = {
+    enabled?: boolean;
+    profileView: boolean;
+    pendingDeletePostId: string | null;
+    editingPostId: string | null;
+    isCreateGroupOpen: boolean;
+    commentingPostId: string | null;
+    isAddQuestionOpen: boolean;
+    isSearchOpen: boolean;
+    showFollowingPanel: boolean;
+    activeGroupId: string | null;
+    forumAppBarDropdownOpen: boolean;
+    onBack?: () => void;
+    onCloseProfile: () => void;
+    onCancelDelete: () => void;
+    onCancelEdit: () => void;
+    onCloseCreateGroup: () => void;
+    onCloseComments: () => void;
+    onCloseAddQuestion: () => void;
+    onCloseSearch: () => void;
+    onCloseFollowingPanel: () => void;
+    onCloseAppBarDropdowns: () => void;
+    onLeaveGroupFeed: () => void;
+};

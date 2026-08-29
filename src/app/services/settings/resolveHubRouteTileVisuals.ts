@@ -54,10 +54,13 @@ export function resolveHubRouteTileVisuals(params: {
                   ['--hami-hub-title-size' as string]: `${baseRem}rem`,
               },
         titleRuleStyle: {
-            width: `calc(${layoutSpan === 1 ? 2.1 : 2.85}rem * ${scale})`,
-            height: `max(2px, calc(2.5px * ${scale}))`,
+            width: `calc(${layoutSpan === 1 ? 1.75 : 2.85}rem * ${scale})`,
+            height: layoutSpan === 1 ? '1px' : `max(2px, calc(2.5px * ${scale}))`,
             background: `linear-gradient(to left, color-mix(in srgb, ${accent} 95%, #FFF8E7), color-mix(in srgb, ${accent} 30%, transparent), transparent)`,
-            boxShadow: `0 0 14px color-mix(in srgb, ${accent} 38%, transparent)`,
+            boxShadow:
+                layoutSpan === 1
+                    ? 'none'
+                    : `0 0 14px color-mix(in srgb, ${accent} 38%, transparent)`,
         },
         glowOrbStyle: {
             background: `${accent}33`,

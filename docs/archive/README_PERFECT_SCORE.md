@@ -11,7 +11,7 @@
 
 نظام قانوني ذكي متكامل للقانون العراقي يجمع بين:
 - ✅ واجهة مستخدم فاخرة (كحلي × ذهبي)
-- ✅ ذكاء اصطناعي متقدم (Gemini + OpenAI)
+- ✅ تنبيهات إجرائية محلية
 - ✅ نظام مصادقة حقيقي (Supabase Auth)
 - ✅ أمان متقدم (W.I.F.E Protocol)
 - ✅ أداء ممتاز (Lazy Loading + Code Splitting)
@@ -188,13 +188,10 @@ describe('My Feature', () => {
 ```env
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_anon_key
-VITE_GEMINI_API_KEY=your_gemini_key
 ```
 
 ### الاختيارية:
 ```env
-VITE_OPENAI_API_KEY=your_openai_key
-VITE_PINECONE_API_KEY=your_pinecone_key
 VITE_TWILIO_ACCOUNT_SID=your_twilio_sid
 VITE_TWILIO_AUTH_TOKEN=your_twilio_token
 ```
@@ -256,14 +253,8 @@ debug.timeEnd('operation');
 - ✅ حالات الطوارئ
 - ✅ المحادثة الذكية
 
-### الذكاء الاصطناعي:
-- ✅ محرك Gemini 1.5
-- ✅ OpenAI GPT-4o
-- ✅ Whisper (تفريغ صوتي)
-- ✅ Vision API (OCR)
-- ✅ RAG Memory (Pinecone)
-
 ---
+
 
 ## 📱 التقنيات المستخدمة
 
@@ -278,11 +269,6 @@ debug.timeEnd('operation');
 - Supabase (Database + Auth)
 - Hono (Edge Functions)
 - Deno Runtime
-
-### AI:
-- Google Gemini API
-- OpenAI API
-- Pinecone Vector DB
 
 ### Testing:
 - Vitest

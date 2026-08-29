@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { isSmartFileNestedOverlayOpen } from '../smartFile/smartFileNestedOverlayState';
 import { isSmartFileInlineOverlayOpen } from '../smartFile/smartFileInlineOverlayRegistry';
 
-export type UseSmartFileDossierHeaderNavigationParams = {
+type UseSmartFileDossierHeaderNavigationParams = {
     onClose: () => void;
     onExitToProfile?: () => void;
     isTrashOpen: boolean;

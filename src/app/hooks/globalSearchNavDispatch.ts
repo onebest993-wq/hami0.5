@@ -1,21 +1,29 @@
 import { persistCommunitySection } from '@/app/components/lawyer/CommunityScreen/communitySectionState';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import type { OpenCriminalCaseOptions } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import type { GlobalSearchNavigate } from '@/app/services/globalSearchIndex';
+import { isOwnedCriminalCaseId } from '@/app/services/search/globalSearchCriminalOwnership';
+import { sanitizeGlobalSearchNavigate } from '@/app/services/search/globalSearchNavigateSecurity';
+import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
 import { openExecutionDossierWithContract } from '@/app/runtime/executionOpenContract';
 import { openLawsuitDossierWithContract } from '@/app/runtime/lawsuitOpenContract';
 import { coerceExecutionFilePreserveId } from '@/app/components/lawyer/LawyerDashboardParts/utils';
-import { isRealSignedIn } from '@/app/services/auth/shellAuth';
+import { findLawsuitFileAcrossSegments } from '@/app/domain/lawsuit/lawsuitSegmentStorage';
 import type { Dispatch, SetStateAction } from 'react';
 import type { OpenNotepadOptions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardRepository';
 import type { OpenScheduleTabOptions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardScheduleTab';
+
+/** رسالة واحدة عند الفشل — بلا تمييز ملكية عن غياب حتى لا يُربك أو يُسرَّب. */
+export const GLOBAL_SEARCH_NAV_UNAVAILABLE = 'تعذّر فتح النتيجة';
 
 export type GlobalSearchNavDispatchContext = {
     userId: string | null;
     files: FileData[];
     executionFiles: ExecutionFile[];
+    criminalCases?: unknown[];
     closeGlobalSearch: () => void;
     openNotifications: () => void;
     openProfileTab: () => void;
@@ -41,10 +49,14 @@ export function dispatchGlobalSearchNavigate(
     nav: GlobalSearchNavigate,
     ctx: GlobalSearchNavDispatchContext,
 ): boolean {
-    if (!isRealSignedIn(ctx.userId)) {
-        ctx.closeGlobalSearch();
-        return true;
+    if (!hasLocalAppSession(ctx.userId)) {
+        return failSearchNavigate(ctx);
     }
+    const safe = sanitizeGlobalSearchNavigate(nav);
+    if (!safe) {
+        return failSearchNavigate(ctx);
+    }
+    nav = safe;
 
     if (nav.type === 'notifications') {
         ctx.openNotifications();
@@ -82,6 +94,9 @@ export function dispatchGlobalSearchNavigate(
         return true;
     }
     if (nav.type === 'criminal') {
+        if (!isOwnedCriminalCaseId(ctx.criminalCases ?? [], nav.criminalId)) {
+            return failSearchNavigate(ctx);
+        }
         ctx.openCriminalCase(nav.criminalId);
         ctx.closeGlobalSearch();
         return true;
@@ -118,6 +133,11 @@ export function dispatchGlobalSearchNavigate(
         return dispatchGlobalSearchCaseNavigate(nav, ctx);
     }
 
+    return failSearchNavigate(ctx);
+}
+
+function failSearchNavigate(ctx: GlobalSearchNavDispatchContext): true {
+    SmartToast.error(GLOBAL_SEARCH_NAV_UNAVAILABLE);
     ctx.closeGlobalSearch();
     return true;
 }
@@ -126,18 +146,14 @@ function dispatchGlobalSearchFileNavigate(
     nav: Extract<GlobalSearchNavigate, { type: 'file' }>,
     ctx: GlobalSearchNavDispatchContext,
 ): boolean {
-    if (!isRealSignedIn(ctx.userId)) {
-        ctx.closeGlobalSearch();
-        return true;
-    }
-    ctx.setActiveTab('home');
     const id = String(nav.fileId);
-    const lawsuitHit = ctx.files.find((f) => String(f.id) === id);
+    const lawsuitHit =
+        ctx.files.find((f) => String(f.id) === id) ?? findLawsuitFileAcrossSegments(id) ?? undefined;
     const executionHit = ctx.executionFiles.find((f) => String(f.id) === id);
     if (!lawsuitHit && !executionHit) {
-        ctx.closeGlobalSearch();
-        return true;
+        return failSearchNavigate(ctx);
     }
+    ctx.setActiveTab('home');
     if (executionHit) {
         openExecutionDossierWithContract(() => {
             ctx.setActiveFile(coerceExecutionFilePreserveId(executionHit));
@@ -170,14 +186,13 @@ function dispatchGlobalSearchCaseNavigate(
     nav: Extract<GlobalSearchNavigate, { type: 'case' }>,
     ctx: GlobalSearchNavDispatchContext,
 ): boolean {
-    if (!isRealSignedIn(ctx.userId)) {
-        ctx.closeGlobalSearch();
-        return true;
+    const lawsuitHit = ctx.files.find((f) => String(f.id) === nav.caseId);
+    const executionHit = ctx.executionFiles.find((f) => String(f.id) === nav.caseId);
+    if (!lawsuitHit && !executionHit) {
+        return failSearchNavigate(ctx);
     }
     ctx.setActiveTab('home');
     ctx.selectCase(nav.caseId);
-    const lawsuitHit = ctx.files.find((f) => String(f.id) === nav.caseId);
-    const executionHit = ctx.executionFiles.find((f) => String(f.id) === nav.caseId);
     if (executionHit) {
         openExecutionDossierWithContract(() => {
             ctx.setActiveFile(coerceExecutionFilePreserveId(executionHit));
@@ -188,8 +203,6 @@ function dispatchGlobalSearchCaseNavigate(
             ctx.setActiveFile(lawsuitHit);
             ctx.closeGlobalSearch();
         });
-    } else {
-        ctx.closeGlobalSearch();
     }
     ctx.onNavigateToCase?.(nav.caseId);
     return true;

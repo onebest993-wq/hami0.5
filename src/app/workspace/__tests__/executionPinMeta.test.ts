@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { extractExecutionClientName, extractExecutionCaseNumber } from '../executionPinMeta';
-import { buildExecutionWorkspacePin } from '../workspacePinBuilders';
+import { buildExecutionWorkspacePin } from '../executionWorkspacePin';
 import { buildClusterScanIndex } from '../buildClusterScanIndex';
 import { findCrossSectionLinks } from '../clusterMatchRules';
 import { enrichPinFromScan } from '../enrichPinFromScan';
@@ -12,6 +12,14 @@ describe('executionPinMeta', () => {
             debtors: [{ name: 'خصم' }],
         });
         expect(name).toBe('أحمد كريم');
+    });
+
+    it('يستخرج اسم الموكل من creditors[].fullName', () => {
+        const name = extractExecutionClientName({
+            creditors: [{ fullName: 'زينب محمد', isClient: true }],
+            debtors: [{ name: 'خصم' }],
+        });
+        expect(name).toBe('زينب محمد');
     });
 
     it('يربط عبر parentId إلى دعوى مدنية', () => {

@@ -1,15 +1,31 @@
 <!DOCTYPE html>
-<html lang="ar-IQ" dir="rtl" class="hami-boot-static-active">
+<html lang="ar-IQ" dir="rtl" class="hami-boot-static-active" data-hami-app="handheld" data-hami-device="phone" data-hami-color-mode="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <link rel="preload" as="style" href="/hami-home-static-shell.css" />
-    <link rel="preload" as="style" href="/hami-boot-shell.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#0a0f1c" />
+    <meta name="color-scheme" content="dark" />
+    <script src="/hami-boot.js?v=boot-worthy-4"></script>
+    <link rel="preload" as="style" href="/hami-home-static-shell.css?v=boot-worthy-4" />
+    <link rel="preload" as="style" href="/hami-boot-shell.css?v=boot-worthy-4" />
+    <!--
+      إقلاع: سطح الهوية + شعار بنسبة مقفولة + شريط CSS.
+      الكشف بعد طلاء اللوحة — بلا تأخير اصطناعي.
+    -->
     <style id="hami-splash-critical">
       html,
       body {
         margin: 0;
         background: #0a0f1c;
+        color-scheme: dark;
+      }
+      html.hami-boot-static-active {
+        --hami-user-font-scale: 1;
+        --hami-font-size: 16px;
+        --background: 222 47% 6%;
+        font-size: 16px;
+        background: #0a0f1c;
+        color-scheme: dark;
       }
       #hami-static-boot {
         position: fixed;
@@ -18,25 +34,55 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        width: 100%;
+        min-height: 100vh;
+        min-height: 100dvh;
+        margin: 0;
+        padding: 0;
+        border: 0;
         background: #0a0f1c;
         overflow: hidden;
+        pointer-events: auto;
       }
-      .hami-boot-wordmark {
-        font-family: system-ui, sans-serif;
-        font-size: clamp(2.75rem, 14vw, 4.25rem);
-        font-weight: 800;
-        letter-spacing: 0.06em;
-        line-height: 1;
-        color: #e6c673;
-        user-select: none;
-        -webkit-user-select: none;
+      .hami-boot-brand {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 28px;
         pointer-events: none;
       }
+      .hami-boot-logo {
+        display: block;
+        width: 160px;
+        height: 160px;
+        object-fit: contain;
+        object-position: center;
+      }
+      .hami-boot-progress {
+        position: relative;
+        width: 168px;
+        height: 3px;
+        border-radius: 999px;
+        background: rgba(197, 160, 89, 0.2);
+        overflow: hidden;
+        pointer-events: none;
+      }
+      .hami-boot-progress-fill {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 34%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #c5a059, #d4af37, #e6c673);
+        transform: none;
+        will-change: left;
+      }
     </style>
-    <script src="/hami-boot.js"></script>
-    <link rel="stylesheet" href="/hami-boot-shell.css" />
-    <link rel="stylesheet" href="/hami-home-static-shell.css" />
-    <title>Hami - Lawyer Dashboard</title>
+    <link rel="stylesheet" href="/hami-boot-shell.css?v=boot-worthy-4" />
+    <link rel="stylesheet" href="/hami-home-static-shell.css?v=boot-worthy-4" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>Hami</title>
     <style>
       html,
       body {
@@ -53,8 +99,32 @@
     </style>
   </head>
   <body>
-    <div id="hami-static-boot" data-testid="hami-static-boot" data-hami-phase="splash" aria-hidden="true">
-      <span class="hami-boot-wordmark" data-testid="hami-boot-wordmark" aria-hidden="true">حامي</span>
+    <div
+      id="hami-static-boot"
+      data-testid="hami-static-boot"
+      data-hami-phase="splash"
+      data-hami-boot-mode="silent-canvas"
+      aria-hidden="true"
+    >
+      <div class="hami-boot-brand" data-testid="hami-boot-brand">
+        <img
+          class="hami-boot-logo"
+          src="/hami-splash-logo.webp"
+          alt=""
+          width="160"
+          height="160"
+          decoding="async"
+          draggable="false"
+        />
+        <div
+          class="hami-boot-progress"
+          role="progressbar"
+          aria-label="جاري التهيئة"
+          data-testid="hami-boot-progress"
+        >
+          <span class="hami-boot-progress-fill" aria-hidden="true"></span>
+        </div>
+      </div>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/index.tsx"></script>

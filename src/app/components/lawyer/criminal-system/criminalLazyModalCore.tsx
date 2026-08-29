@@ -13,7 +13,7 @@ type LazyModalProps<P extends object> = P & {
     open?: boolean;
 };
 
-export type LazyModalOptions = {
+type LazyModalOptions = {
     zIndex?: number;
     /** المكوّن يستخدم CriminalModalPortal داخلياً — لا نُضيف غلافاً خارجياً */
     selfPortaled?: boolean;

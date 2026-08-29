@@ -1,5 +1,9 @@
 import React from 'react';
-import { AlertTriangle, Building2, Package, Plus, Trash2 } from '@/app/components/ui/lucideIcons';
+import { AlertTriangle } from '@/app/components/ui/icons/AlertTriangle';
+import { Building2 } from '@/app/components/ui/icons/Building2';
+import { Package } from '@/app/components/ui/icons/Package';
+import { Plus } from '@/app/components/ui/icons/Plus';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import type { SpecificDeliveryItemNature } from '@/app/utils/executionModuleStrategies';
 import type { SpecificDeliveryItem } from '@/app/utils/specificDeliveryItemsUtils';
 import {

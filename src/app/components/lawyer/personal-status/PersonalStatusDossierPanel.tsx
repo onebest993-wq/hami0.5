@@ -9,23 +9,24 @@ import type { PersonalApplicableLaw } from './personalStatusValidation';
 import { buildPersonalStatusSessionHubProps } from './buildPersonalStatusDossierProps';
 import { PersonalStatusWorkToolbar } from './PersonalStatusWorkToolbar';
 import { PersonalStatusRequestsSection } from './PersonalStatusRequestsSection';
-import { PersonalStatusArabesqueLayers } from './PersonalStatusMoroccanGlass';
-import { PS_PANEL, PS_SECTION_LABEL } from './personalStatusPearlTheme';
+import { PS_SECTION_LABEL } from './personalStatusPearlTheme';
 
 type PersonalStatusDossierPanelProps = {
     p: SmartFileMainPanelProps;
     displayTimeline: TimelineEvent[];
     isViewingArchived: boolean;
+    /** أرشيف أو اطّلاع case-link — يقفل الجلسة/الطلبات والحذف */
+    interactionLocked?: boolean;
     displayStage?: CaseStage | null;
     quickActionsVariant: 'full' | 'notes-only';
     showWorkToolbar: boolean;
     onOpenLegalActions: () => void;
     applicableLaw?: PersonalApplicableLaw | '' | undefined;
     caseFlow: {
-        onInterrupt: () => void;
-        onPause: () => void;
-        onResume: () => void;
-        onAbandon: () => void;
+        onInterrupt?: () => void;
+        onPause?: () => void;
+        onResume?: () => void;
+        onAbandon?: () => void;
         flowStage?: CaseFlowActionsPanelProps['flowStage'];
         isPaused: boolean;
         isInterrupted: boolean;
@@ -36,6 +37,7 @@ export function PersonalStatusDossierPanel({
     p,
     displayTimeline,
     isViewingArchived,
+    interactionLocked,
     displayStage,
     quickActionsVariant,
     showWorkToolbar,
@@ -43,7 +45,8 @@ export function PersonalStatusDossierPanel({
     applicableLaw,
     caseFlow,
 }: PersonalStatusDossierPanelProps) {
-    const sessionHubProps = buildPersonalStatusSessionHubProps(p, isViewingArchived);
+    const locked = interactionLocked ?? isViewingArchived;
+    const sessionHubProps = buildPersonalStatusSessionHubProps(p, locked);
     const requestCount =
         (displayStage?.fastTrackPetitions?.length ?? 0) + (displayStage?.attachments?.length ?? 0);
     const taskCount = displayStage?.tasks?.length ?? 0;
@@ -64,11 +67,9 @@ export function PersonalStatusDossierPanel({
     };
 
     return (
-        <section className={`${PS_PANEL} mb-2 max-w-3xl overflow-hidden print:block`} dir="rtl">
-            <PersonalStatusArabesqueLayers primary={0.045} fine={0.022} />
-
+        <section className="mb-2 max-w-3xl print:block" dir="rtl">
             {showWorkToolbar ? (
-                <div className="relative z-[1] border-b border-white/[0.08]">
+                <div className="relative z-[1] border-b border-white/[0.07]">
                     <PersonalStatusWorkToolbar
                         variant={quickActionsVariant}
                         onAction={p.handleQuickAction}
@@ -76,7 +77,7 @@ export function PersonalStatusDossierPanel({
                         onOpenTasks={() => p.setShowTaskModal(true)}
                         taskCount={taskCount}
                         applicableLaw={applicableLaw}
-                        showLawReference={!isViewingArchived}
+                        showLawReference={!locked}
                         caseFlow={dockCaseFlow}
                         sessionSlot={
                             <SessionAndRequestsHub
@@ -94,6 +95,7 @@ export function PersonalStatusDossierPanel({
                     <ToDoList
                         tasks={displayStage?.tasks || []}
                         visualVariant="personal-pearl"
+                        readOnly={locked}
                         onAddTask={() => p.setShowTaskModal(true)}
                         onToggleTask={p.handleToggleTask}
                         onAppealBriefFile={p.handleAppealBriefFile}
@@ -118,14 +120,14 @@ export function PersonalStatusDossierPanel({
                 />
             ) : null}
 
-            <div className="relative z-[1] px-2 pt-1.5 pb-0 border-b border-white/[0.06]">
+            <div className="relative z-[1] px-1.5 pt-1 pb-0">
                 <span className={PS_SECTION_LABEL}>سجل</span>
             </div>
-            <div className="relative z-[1] p-1.5 pt-1">
+            <div className="relative z-[1] px-1.5 pb-1.5 pt-1">
                 <TimelineFeed
                     events={displayTimeline}
                     visualVariant="personal-pearl"
-                    onDelete={!isViewingArchived ? p.handleDeleteEvent : undefined}
+                    onDelete={!locked ? p.handleDeleteEvent : undefined}
                 />
             </div>
         </section>

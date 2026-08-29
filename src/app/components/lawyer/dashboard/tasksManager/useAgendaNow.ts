@@ -10,7 +10,14 @@ export function useAgendaNow(): Date {
             setNow((prev) => (prev.toDateString() === next.toDateString() ? prev : next));
         };
         const id = window.setInterval(tick, 60_000);
-        return () => window.clearInterval(id);
+        const onVis = () => {
+            if (document.visibilityState === 'visible') tick();
+        };
+        document.addEventListener('visibilitychange', onVis);
+        return () => {
+            window.clearInterval(id);
+            document.removeEventListener('visibilitychange', onVis);
+        };
     }, []);
 
     return now;

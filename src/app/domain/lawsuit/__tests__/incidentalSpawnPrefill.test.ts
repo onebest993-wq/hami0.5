@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import type { FileData } from '../lawsuitFileTypes';
 import {
     buildIncidentalSpawnParentSnapshot,
     buildIncidentalSpawnPrefill,

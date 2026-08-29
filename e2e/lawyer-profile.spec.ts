@@ -4,12 +4,17 @@
 import { test, expect } from '@playwright/test';
 import {
     prepareProfileE2E,
+    resetProfileScreenForE2E,
     bootLawyerDashboardForProfile,
     openLawyerProfile,
     openProfileStudio,
-    dismissProfileBlockers,
-    clickLawyerProfileBack,
+    clickProfileStudioTab,
+    profileDisplayName,
+    saveProfileDisplayName,
     closeLawyerProfileTab,
+    clickLawyerProfileBack,
+    expectProfileTabClosed,
+    reopenLawyerProfileFromHome,
     waitForProfileOpenToInteractiveMs,
     clearProfilePerfMarksInPage,
     E2E_PROFILE_COLD_OPEN_MS,
@@ -17,10 +22,11 @@ import {
 } from './helpers/profileFixtures';
 
 test.describe('الملف المهني', () => {
-    test.describe.configure({ mode: 'serial', timeout: 120_000 });
+    test.describe.configure({ timeout: 180_000 });
 
     test.beforeEach(async ({ page }) => {
         await prepareProfileE2E(page);
+        await resetProfileScreenForE2E(page);
     });
 
     test('يفتح من الهيدر بدون إحصائيات أو placeholders فارغة', async ({ page }) => {
@@ -42,11 +48,11 @@ test.describe('الملف المهني', () => {
         await bootLawyerDashboardForProfile(page);
         const sheet = await openProfileStudio(page);
 
-        await sheet.getByTestId('profile-settings-tab-appearance').click({ force: true });
+        await clickProfileStudioTab(page, 'profile-settings-tab-appearance');
         await expect(sheet.getByTestId('profile-settings-appearance-tab')).toBeVisible({ timeout: 10_000 });
         await expect(sheet.getByTestId('profile-settings-privacy-section')).toHaveCount(0);
 
-        await sheet.getByTestId('profile-settings-tab-containers').click({ force: true });
+        await clickProfileStudioTab(page, 'profile-settings-tab-containers');
         await expect(sheet.getByTestId('profile-settings-containers-tab')).toBeVisible({ timeout: 10_000 });
     });
 
@@ -54,8 +60,9 @@ test.describe('الملف المهني', () => {
         await bootLawyerDashboardForProfile(page);
         await openLawyerProfile(page);
 
-        await page.getByRole('button', { name: 'العودة للرئيسية' }).click({ force: true, timeout: 10_000 });
-        await expect(page.getByTestId('lawyer-profile')).toBeHidden({ timeout: 10_000 });
+        await clickLawyerProfileBack(page);
+        await expectProfileTabClosed(page);
+        await expect(page.getByTestId('home-dock-forum-profile')).toBeVisible({ timeout: 10_000 });
     });
 
     test('Escape يغلق استوديو الصفحة ثم يعيد للوحة', async ({ page }) => {
@@ -68,25 +75,19 @@ test.describe('الملف المهني', () => {
         await expect(profile).toBeVisible();
 
         await page.keyboard.press('Escape');
-        await expect(profile).toBeHidden({ timeout: 10_000 });
+        await expectProfileTabClosed(page);
+        await expect(page.getByTestId('home-dock-forum-profile')).toBeVisible({ timeout: 10_000 });
     });
 
-    test('إغلاق التبويب وإعادة الفتح يعرض الاسم المحفوظ', async ({ page }) => {
+    test('إغلاق التبويب وإعادة الفتح يعرض الاسم المحفوظ', { timeout: 240_000 }, async ({ page }) => {
         await bootLawyerDashboardForProfile(page);
         const profile = await openLawyerProfile(page);
         const uniqueName = `محامٍ تبويب ${Date.now()}`;
 
-        await profile.getByTestId('lawyer-profile-edit').click({ force: true, timeout: 10_000 });
-        await profile.getByTestId('lawyer-profile-name-input').fill(uniqueName);
-        await page.getByTestId('lawyer-profile-edit-save').click({ force: true, timeout: 10_000 });
-        await expect(profile.getByTestId('lawyer-profile-name-input')).toBeHidden({ timeout: 20_000 });
-        await expect(profile.locator('.hami-profile-hero-name')).toContainText(uniqueName, { timeout: 15_000 });
+        await saveProfileDisplayName(page, profile, uniqueName);
 
-        await dismissProfileBlockers(page);
-        await closeLawyerProfileTab(page);
-
-        const reopened = await openLawyerProfile(page);
-        await expect(reopened.locator('.hami-profile-hero-name')).toContainText(uniqueName, { timeout: 15_000 });
+        const reopened = await reopenLawyerProfileFromHome(page);
+        await expect(profileDisplayName(reopened)).toContainText(uniqueName, { timeout: 15_000 });
     });
 
     test('يفتح بزمن تفاعل مقبول (performance marks)', async ({ page }) => {
@@ -108,12 +109,35 @@ test.describe('الملف المهني', () => {
 
         await clearProfilePerfMarksInPage(page);
 
-        const headerTrigger = page.getByTestId('header-profile-trigger');
-        await headerTrigger.hover().catch(() => undefined);
         await openLawyerProfile(page);
 
         const perfMs = await waitForProfileOpenToInteractiveMs(page, 25_000);
         expect(perfMs, 'marks مع إعادة الدخول وكاش').not.toBeNull();
         expect(perfMs!).toBeLessThan(E2E_PROFILE_CACHED_OPEN_MS);
+    });
+
+    test('صفحة كاملة ثم اعتماد الشجرة الحية — خصوصية على الشجرة الحية', async ({ page }) => {
+        await bootLawyerDashboardForProfile(page);
+        const profile = await openLawyerProfile(page);
+
+        await expect(profile.getByTestId('lawyer-profile-edit')).toBeVisible();
+        await expect(profile.getByTestId('lawyer-profile-gallery')).toBeVisible();
+        await expect(profile.getByTestId('lawyer-profile-page-access')).toBeVisible();
+        await expect(page.locator('[data-profile-page-body]').first()).toBeVisible();
+        await expect(page.locator('[data-profile-live-tree]')).toBeVisible({ timeout: 15_000 });
+        await expect(page.locator('[data-profile-open-first-page]')).toHaveCount(0, {
+            timeout: 15_000,
+        });
+
+        const access = page
+            .locator('[data-profile-live-tree]')
+            .getByTestId('lawyer-profile-page-access');
+        await expect(access).toBeEnabled({ timeout: 8_000 });
+        const before = await access.getAttribute('data-page-access', { timeout: 8_000 });
+        await access.evaluate((el) => (el as HTMLButtonElement).click());
+        await expect(access).not.toHaveAttribute('data-page-access', before ?? '', {
+            timeout: 8_000,
+        });
+        await expect(access).toBeEnabled({ timeout: 8_000 });
     });
 });

@@ -3,6 +3,8 @@
  * Optional: set SENTRY_DSN for server-side capture via Sentry envelope API (best-effort).
  */
 
+import { isWifeProduction } from './wifeStoreEnv.ts';
+
 export type WifeRejectReason =
   | 'unauthorized_token'
   | 'signature_failed'
@@ -15,8 +17,11 @@ export type WifeRejectReason =
   | 'forum_banned'
   | 'forum_guest_write_denied'
   | 'forum_guest_read_denied'
+  | 'forum_guest_admin_denied'
   | 'execution_guest_denied'
-  | 'csrf_store_unavailable';
+  | 'csrf_store_unavailable'
+  | 'account_locked'
+  | 'account_frozen';
 
 export type WifeRejectMeta = {
   reason: WifeRejectReason;
@@ -30,10 +35,6 @@ type RejectionCounter = { reason: WifeRejectReason; count: number };
 const MAX_RECENT = 50;
 const recentRejections: WifeRejectMeta[] = [];
 const counterMap = new Map<WifeRejectReason, number>();
-
-function isProduction(): boolean {
-  return (process.env.NODE_ENV ?? '').toLowerCase() === 'production';
-}
 
 function requestPath(request?: Request): string {
   if (!request) return '';
@@ -54,8 +55,8 @@ function pushRecent(meta: WifeRejectMeta): void {
   counterMap.set(meta.reason, (counterMap.get(meta.reason) ?? 0) + 1);
 }
 
-function logStructured(meta: WifeRejectMeta): void {
-  const payload = {
+function rejectionPayload(meta: WifeRejectMeta) {
+  return {
     type: 'wife_rejection',
     reason: meta.reason,
     path: requestPath(meta.request),
@@ -64,29 +65,25 @@ function logStructured(meta: WifeRejectMeta): void {
     userId: meta.userId ?? null,
     ts: new Date().toISOString(),
   };
-  if (isProduction()) {
+}
+
+function logStructured(meta: WifeRejectMeta): void {
+  const payload = rejectionPayload(meta);
+  if (isWifeProduction()) {
     console.warn(JSON.stringify(payload));
   } else if (process.env.WIFE_LOG_REJECTIONS === 'true') {
     console.info('[WIFE rejection]', payload);
   }
 }
 
-async function captureSentryBestEffort(_meta: WifeRejectMeta): Promise<void> {
+async function captureSentryBestEffort(meta: WifeRejectMeta): Promise<void> {
   const url = (process.env.WIFE_SECURITY_WEBHOOK_URL ?? '').trim();
   if (!url) return;
   try {
     await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'wife_rejection',
-        reason: _meta.reason,
-        path: requestPath(_meta.request),
-        method: requestMethod(_meta.request),
-        detail: _meta.detail ?? null,
-        userId: _meta.userId ?? null,
-        ts: new Date().toISOString(),
-      }),
+      body: JSON.stringify(rejectionPayload(meta)),
     });
   } catch {
     /* best effort */

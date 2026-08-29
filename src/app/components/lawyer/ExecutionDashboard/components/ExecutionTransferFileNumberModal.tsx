@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
 import {
     EXEC_MODAL_BACKDROP_SAFE_PAD,
     EXEC_MODAL_CLOSE_BTN_CLASS,
@@ -43,12 +43,12 @@ export function ExecutionTransferFileNumberModal({
 
     return (
         <div
-            className={`fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
+            className={`fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
             onClick={onClose}
             role="presentation"
         >
             <div
-                className={`w-full max-w-md overflow-hidden rounded-2xl border border-amber-500/20 bg-[#0A0F1C] shadow-2xl ${EXEC_MODAL_EDIT_SHELL_MAX}`}
+                className={`w-full max-w-md overflow-hidden rounded-2xl border border-amber-500/20 bg-[#0A0F1C] shadow-lg ${EXEC_MODAL_EDIT_SHELL_MAX}`}
                 onClick={(e) => e.stopPropagation()}
                 dir="rtl"
             >

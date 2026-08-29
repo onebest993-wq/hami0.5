@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 import type { CloudSyncBucket } from '@/app/services/cloudSyncEngine';
 import { resolveSyncBucket } from '@/app/services/cloudSyncEngine';
 
@@ -20,7 +21,7 @@ type CloudSyncStatusStoreState = {
     setOnline: (isOnline: boolean) => void;
     reportBucket: (bucket: CloudSyncBucketId, partial: Partial<CloudSyncBucketStatus>) => void;
     registerSyncHandler: (bucket: CloudSyncBucketId, fn: () => Promise<void>) => void;
-    syncAllNow: () => Promise<void>;
+    syncAllNow: () => Promise<{ ok: boolean; skipped: boolean; failed: boolean }>;
 };
 
 const emptyBucket = (): CloudSyncBucketStatus => ({
@@ -38,7 +39,15 @@ export function mapLocalKeyToCloudSyncBucket(localKey: string): CloudSyncBucketI
     return null;
 }
 
-export function selectAggregateCloudSyncRuntime(state: CloudSyncStatusStoreState) {
+type AggregateCloudSyncRuntime = {
+    isSyncing: boolean;
+    lastSyncTime: number | null;
+    lastError: string | null;
+    isOnline: boolean;
+    signedIn: boolean;
+};
+
+export function selectAggregateCloudSyncRuntime(state: CloudSyncStatusStoreState): AggregateCloudSyncRuntime {
     const buckets = BUCKET_ORDER.map((id) => state.buckets[id]);
     const isSyncing = buckets.some((b) => b.isSyncing);
     const lastSyncTime = buckets.reduce((max, b) => Math.max(max, b.lastSyncTime ?? 0), 0);
@@ -92,12 +101,17 @@ export const useCloudSyncStatusStore = create<CloudSyncStatusStoreState>((set, g
             };
         }),
     syncAllNow: async () => {
-        const { syncNowHandlers } = get();
-        for (const bucket of BUCKET_ORDER) {
-            const fn = syncNowHandlers[bucket];
-            if (fn) await fn();
-        }
+        const { runCloudSyncAllNow } = await import('@/app/services/cloudSync/runCloudSyncAllNow');
+        return runCloudSyncAllNow();
     },
 }));
+
+/**
+ * اشتراك آمن — المنتقي يعيد كائناً جديداً كل استدعاء؛ بلا مقارنة ضحلة
+ * يدخل React في Maximum update depth عبر useSyncExternalStore.
+ */
+export function useAggregateCloudSyncRuntime(): AggregateCloudSyncRuntime {
+    return useCloudSyncStatusStore(useShallow(selectAggregateCloudSyncRuntime));
+}
 
 export { BUCKET_ORDER };

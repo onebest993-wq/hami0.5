@@ -65,9 +65,9 @@ export const JUVENILE_LAW_FILTERS: Record<string, LawFilterEntry> = {
 
 export const JUVENILE_LAW_FILTER_GENERAL_KEYS = Object.keys(JUVENILE_LAW_FILTERS);
 
-export const LEGAL_CODES_JUVENILE_FILTER_PIN_KEY = 'hami_legal_codes_juvenile_filter_pin';
+const LEGAL_CODES_JUVENILE_FILTER_PIN_KEY = 'hami_legal_codes_juvenile_filter_pin';
 
-export type JuvenileFilterPin = {
+type JuvenileFilterPin = {
     general: string;
     sub: string | null;
 };

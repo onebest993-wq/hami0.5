@@ -5,7 +5,7 @@ import { ShareProcedureModal } from '@/app/components/lawyer/TransactionsThreadi
 const createPost = vi.fn();
 
 vi.mock('@/app/hooks/useReduceMotion', () => ({ useReduceMotion: () => true }));
-vi.mock('@/app/context/AuthContext', () => ({
+vi.mock('@/app/context/authHooks', () => ({
     useAuthSafe: () => ({
         user: { id: 'lawyer-1', email: 'a@b.com', user_metadata: { fullName: 'محامي' } },
         isLoading: false,
@@ -74,8 +74,15 @@ describe('ShareProcedureModal', () => {
         fireEvent.click(screen.getByTestId('share-procedure-publish'));
 
         await waitFor(() => expect(createPost).toHaveBeenCalledTimes(1));
-        const post = createPost.mock.calls[0]?.[0] as { content: string; tags: string[]; authorId: string };
+        const post = createPost.mock.calls[0]?.[0] as {
+            content: string;
+            tags: string[];
+            authorId: string;
+            authorName: string;
+        };
         expect(post.authorId).toBe('lawyer-1');
+        expect(post.authorName).not.toContain('@');
+        expect(post.authorName).not.toBe('a@b.com');
         expect(post.content).toContain('نص معدّل يدوياً');
         expect(post.content).toContain('hami-action:open-transactions');
         expect(post.content).toContain('hami-guide-data:');

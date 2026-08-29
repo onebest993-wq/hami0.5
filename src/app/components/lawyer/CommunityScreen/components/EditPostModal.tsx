@@ -1,6 +1,7 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { X, Loader2 } from '@/app/components/ui/lucideIcons';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
+import { X } from '@/app/components/ui/icons/X';
+import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import {
     FORUM_GHOST_BTN,
     FORUM_ICON_BTN,
@@ -31,7 +32,7 @@ export const EditPostModal = ({ editingPostId, editingText, onTextChange, onSave
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onCancel}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+                        className="fixed inset-0 bg-black/70 z-[120]"
                     />
                     <motion.div
                         key="edit-modal"
@@ -40,12 +41,12 @@ export const EditPostModal = ({ editingPostId, editingText, onTextChange, onSave
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 14, scale: 0.98 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none"
+                        className="fixed inset-0 z-[120] flex items-center justify-center p-[max(0.75rem,env(safe-area-inset-left))] pe-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-none"
                     >
                         <div className={`w-full max-w-xl ${FORUM_MODAL} p-6 pointer-events-auto`}>
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-lg`}>تعديل المنشور</h3>
-                                <button type="button" onClick={onCancel} className={`w-9 h-9 ${FORUM_ICON_BTN}`}>
+                                <button type="button" onClick={onCancel} className={FORUM_ICON_BTN} aria-label="إغلاق التعديل">
                                     <X size={18} />
                                 </button>
                             </div>

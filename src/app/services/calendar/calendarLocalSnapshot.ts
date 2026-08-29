@@ -1,31 +1,25 @@
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
-import SecureStoreService from '@/app/services/SecureStoreService';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 /** مفتاح التخزين المحلي — يطابق lawyer-cloud CalendarDB */
 export const CALENDAR_LOCAL_STORAGE_KEY = 'hami:calendar:events:v1';
 
 const LOCAL_TOMBSTONES_KEY = 'hami:calendar:tombstones:v1';
 
-function readLocalStorageJson(key: string): unknown {
-    if (typeof localStorage === 'undefined') return null;
+function parseJsonUnknown(raw: string | null): unknown {
+    if (raw == null) return null;
     try {
-        const raw = localStorage.getItem(key);
-        if (!raw) return null;
         return JSON.parse(raw);
     } catch {
         return null;
     }
 }
 
-/** قراءة JSON فورية — SecureStore (webFallback/decryptedCache) ثم localStorage legacy */
 function readStorageJsonSync(key: string): unknown {
-    try {
-        const fromSecure = SecureStoreService.getItemSync(key);
-        if (fromSecure) return JSON.parse(fromSecure);
-    } catch {
-        /* ignore */
-    }
-    return readLocalStorageJson(key);
+    return parseJsonUnknown(readSecureOrDrainLegacySync(key));
 }
 
 function tombstoneIdsForUserSync(userId: string): Set<string> {
@@ -42,7 +36,7 @@ function tombstoneIdsForUserSync(userId: string): Set<string> {
 
 /**
  * قراءة فورية (sync) — للعرض الأولي قبل getEvents.
- * يقرأ من SecureStore sync cache أولاً (مصدر الحفظ الفعلي)، ثم localStorage للتراث.
+ * SecureStore / decryptedCache؛ مرآة localStorage تُرحَّل وتُمحى عند أول قراءة.
  */
 export function readLocalCalendarSnapshotSync(userId: string): CalendarEvent[] {
     if (!userId) return [];
@@ -67,35 +61,16 @@ export function hasLocalCalendarSnapshot(userId: string): boolean {
     return readLocalCalendarSnapshotSync(userId).length > 0;
 }
 
-/** مرآة sync للّقطة الفورية — يُستدعى بعد حفظ SecureStore */
-export function mirrorCalendarEventsToLocalStorage(payload: string): void {
-    if (typeof localStorage === 'undefined') return;
-    try {
-        const existing = localStorage.getItem(CALENDAR_LOCAL_STORAGE_KEY);
-        if (existing === payload) return;
-        localStorage.setItem(CALENDAR_LOCAL_STORAGE_KEY, payload);
-    } catch {
-        /* ignore mirror failures */
-    }
+/** لم تعد تُكتب مرآة صريحة — تُمحى بقايا localStorage بعد الحفظ المشفّر */
+export function mirrorCalendarEventsToLocalStorage(_payload: string): void {
+    clearLegacyPlaintextMirror(CALENDAR_LOCAL_STORAGE_KEY);
 }
 
 export function clearCalendarEventsLocalStorageMirror(): void {
-    if (typeof localStorage === 'undefined') return;
-    try {
-        localStorage.removeItem(CALENDAR_LOCAL_STORAGE_KEY);
-    } catch {
-        /* ignore */
-    }
+    clearLegacyPlaintextMirror(CALENDAR_LOCAL_STORAGE_KEY);
 }
 
-/** مرآة tombstones للّقطة الفورية — يُستدعى بعد حفظ SecureStore */
-export function mirrorCalendarTombstonesToLocalStorage(payload: string): void {
-    if (typeof localStorage === 'undefined') return;
-    try {
-        const existing = localStorage.getItem(LOCAL_TOMBSTONES_KEY);
-        if (existing === payload) return;
-        localStorage.setItem(LOCAL_TOMBSTONES_KEY, payload);
-    } catch {
-        /* ignore mirror failures */
-    }
+/** لم تعد تُكتب مرآة صريحة — تُمحى بقايا localStorage بعد الحفظ المشفّر */
+export function mirrorCalendarTombstonesToLocalStorage(_payload: string): void {
+    clearLegacyPlaintextMirror(LOCAL_TOMBSTONES_KEY);
 }

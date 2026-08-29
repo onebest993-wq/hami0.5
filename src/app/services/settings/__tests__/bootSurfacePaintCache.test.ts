@@ -40,6 +40,21 @@ describe('bootSurfacePaintCache', () => {
         expect(document.documentElement.style.getPropertyValue('--hami-primary')).toBe('#B08AD4');
         expect(document.documentElement.dataset.hamiTheme).toBe('purple');
         expect(document.body.style.backgroundColor).toBe('rgb(18, 13, 24)');
+        applyBootSurfacePaint({ ...SAMPLE, colorMode: 'dark', shape: 'pill', glassPanelBg: 'rgba(18,13,24,0.9)' });
+        expect(document.documentElement.dataset.hamiColorMode).toBe('dark');
+        expect(document.documentElement.dataset.hamiShape).toBe('pill');
+        expect(document.documentElement.style.getPropertyValue('--hami-glass-panel-bg')).toBe(
+            'rgba(18,13,24,0.9)',
+        );
+    });
+
+    it('لا يحقن صورة الخلفية في لقطة الإقلاع', () => {
+        document.documentElement.style.setProperty('--hami-wallpaper-image', 'url("x")');
+        applyBootSurfacePaint({ ...SAMPLE, wallpaper: '1' });
+        expect(document.documentElement.dataset.hamiWallpaper).toBe('1');
+        expect(document.documentElement.style.getPropertyValue('--hami-wallpaper-image')).toBe('url("x")');
+        applyBootSurfacePaint({ ...SAMPLE, wallpaper: '0' });
+        expect(document.documentElement.style.getPropertyValue('--hami-wallpaper-image')).toBe('');
     });
 
     it('يحفظ ويستعيد من localStorage', () => {
@@ -67,5 +82,7 @@ describe('bootSurfacePaintCache', () => {
         const cached = readBootSurfacePaintCache();
         expect(cached?.theme).toBe('purple');
         expect(cached?.primary).toBe('#B08AD4');
+        expect(cached?.colorMode).toBe('dark');
+        expect(cached?.shape).toBe('pill');
     });
 });

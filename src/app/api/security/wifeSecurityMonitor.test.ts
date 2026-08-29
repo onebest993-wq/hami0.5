@@ -25,6 +25,9 @@ describe('wifeSecurityMonitor', () => {
     const counters = getWifeRejectionCounters();
     expect(counters.find((c) => c.reason === 'signature_failed')?.count).toBe(2);
     expect(counters.find((c) => c.reason === 'stolen_token')?.count).toBe(1);
+
+    recordWifeRejection({ reason: 'forum_guest_admin_denied' });
+    expect(getWifeRejectionCounters().find((c) => c.reason === 'forum_guest_admin_denied')?.count).toBe(1);
   });
 
   it('logs structured JSON in production', () => {

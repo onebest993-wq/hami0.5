@@ -1,4 +1,5 @@
-import { Plus, Send } from '@/app/components/ui/lucideIcons';
+import { Plus } from '@/app/components/ui/icons/Plus';
+import { Send } from '@/app/components/ui/icons/Send';
 
 export type CommunicationCreateFormProps = {
     targetDirectorate: string;

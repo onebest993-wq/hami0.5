@@ -2,6 +2,19 @@
 ولم تمرّ على CI قط. لا علاقة لأيٍّ منها بتغييرات موجة TS2304.
 الإجمالي الفاشل نزل 216 -> 203، لكن هذه أسماء جديدة تستحق فحصاً فردياً.
 
+--- إضافة (موجة فكّ دوائر الاستيراد) ---
+خمسة إخفاقات إضافية ليست في خط الأساس ولا في القائمة أدناه. تحقّقت منها بعزل
+تعديلاتي على طبقة التخزين (SecureStoreService، protectedStorageKeys،
+storageDomains، workspaceStorePersist) بالتراجع المؤقت ثم إعادة التشغيل:
+تفشل بالقدر نفسه مع التراجع، فمصدرها أسبق. كلها تُرجع مصفوفات فارغة —
+أي أن الكتابة أو القراءة لا تحدث أصلاً، لا أن النتيجة خاطئة:
+
+  A1. src/app/services/__tests__/criminalCalendarSyncPruning.test.ts :: c2) إضبارة بجلسة pending تُنشئ event للتاريخ الفعلي فقط
+  A2. src/app/services/__tests__/criminalCalendarSyncPruning.test.ts :: c3) حذف الجلسة + إعادة sync → الـ event يُحذف (pruning)
+  A3. src/app/services/__tests__/criminalCalendarSyncPruning.test.ts :: c4) حذف القضية كاملة → removeAllBridgedEventsForEntity ينظّف كل شيء
+  A4. src/app/services/__tests__/criminalCalendarSyncPruning.test.ts :: c5) تعديل تاريخ الجلسة + إعادة sync → القديم يُحذف، الجديد ينشأ
+  A5. src/app/services/__tests__/executionSearchIndex.test.ts :: buildExecutionDeepSearchEntries indexes timeline events from scoped dossier blob reader
+
   1. src/app/api/auth/login/route.test.ts :: login route rate limiting degrades to counting in memory instead of locking everyone out when Redis is down
   2. src/app/application/execution/followup/__tests__/followupScenarioHiddenBaseline.test.ts :: followupScenarioHiddenBaseline baseline covers every catalog scenario
   3. src/app/application/execution/followup/__tests__/followupScenarioHiddenBaseline.test.ts :: followupScenarioHiddenBaseline eviction_earner matches committed hidden baseline

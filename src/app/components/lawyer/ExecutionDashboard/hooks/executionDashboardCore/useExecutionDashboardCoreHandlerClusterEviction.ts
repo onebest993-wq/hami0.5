@@ -1,6 +1,5 @@
-// @ts-nocheck
 /** Phase B — handler cluster eviction */
-import { useMemo, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useExecutionDashboardGracePeriodEndHandler } from './useExecutionDashboardGracePeriodEndHandler';
 import { useExecutionDashboardEvictionHeirsMemoHandlers } from './useExecutionDashboardEvictionHeirsMemoHandlers';
 import { useExecutionDashboardEvictionResidentialGraceHandlers } from './useExecutionDashboardEvictionResidentialGraceHandlers';
@@ -13,7 +12,8 @@ import { useEvictionLawyerFeeOutcome } from '../useEvictionLawyerFeeOutcome';
 import { useEvictionProcedures } from '../useEvictionProcedures';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import type { HandlerClusterPushTimelineDeps } from './executionDashboardCoreHandlerClusterTypes';
-import type { OpenFollowupModalPersistedFn } from '../../utils/followupModalOpen';
+import { useResidentialEvictionGraceFlags } from './useResidentialEvictionGraceFlags';
+import { toastAfterExecutionPersist } from '../../helpers/toastAfterExecutionPersist';
 
 export function useExecutionDashboardCoreHandlerClusterEviction(
     c: ExecutionDashboardCoreHandlerClusterInput,
@@ -21,8 +21,7 @@ export function useExecutionDashboardCoreHandlerClusterEviction(
 ) {
     const { pushTimelineEvent } = deps;
 
-    const openFollowupModalPersisted = (c as { openFollowupModalPersisted?: OpenFollowupModalPersistedFn })
-        .openFollowupModalPersisted;
+    const { openFollowupModalPersisted } = c;
 
     const {
         EVICTION_WORKFLOW_BY_ACTION_ID,
@@ -133,7 +132,7 @@ export function useExecutionDashboardCoreHandlerClusterEviction(
         timelineEvents,
         timelineEventsRef,
         vacateDeadline,
-    } = c as any;
+    } = c as Record<string, unknown>;
 
     const gracePeriodEndHandler = useExecutionDashboardGracePeriodEndHandler({
         debtorNotificationDate,
@@ -173,71 +172,28 @@ export function useExecutionDashboardCoreHandlerClusterEviction(
         handleIssueHeirsExecutionNoticeMemo,
     } = evictionHeirsMemoHandlers;
 
-    const showResidentialEvictionGraceControl =
-        isEvictionExecutionModule && evictionPremisesUseResolved === 'residential';
-
-    const residentialGracePeriodSaved = useMemo(
-        () =>
-            hasActiveResidentialEvictionGrace({
-                premisesUse: evictionPremisesUseResolved,
-                gracePeriodStart: evictionResidentialGracePeriodStart,
-                vacateDeadline: evictionVacateDeadlineLocal,
-                manuallyEndedAt: evictionResidentialGraceManuallyEndedAt,
-            }),
-        [
-            evictionPremisesUseResolved,
-            evictionResidentialGracePeriodStart,
-            evictionVacateDeadlineLocal,
-            evictionResidentialGraceManuallyEndedAt,
-        ]
-    );
-
-    /** موافقة إنهاء مبكر سارية — تُلغى عند وجود مهلة نشطة (دورة جديدة بعد التسجيل) */
-    const residentialGraceEarlyEndApproved = useMemo(() => {
-        if (residentialGracePeriodSaved) return false;
-        const exId = String(decisionsStorageExecutionId || executionId || '').trim();
-        if (!exId) return false;
-        const rows = readExecutorDecisionsArray(exId) as Array<Record<string, unknown>>;
-        return rows.some((d) => {
-            if (String((d as { requestKind?: string }).requestKind || '') !== 'eviction_procedure') {
-                return false;
-            }
-            if (String((d as { evictionWorkflowKey?: string }).evictionWorkflowKey || '') !== 'residential_grace_early_end') {
-                return false;
-            }
-            return isExecutorRowEffectivelyApproved(d);
-        });
-    }, [
+    const {
+        showResidentialEvictionGraceControl,
         residentialGracePeriodSaved,
+        residentialGraceEarlyEndApproved,
+        showResidentialGraceEarlyEndRequest,
+        residentialGraceAllowsFieldwork,
+        showBreakInventoryRequest,
+    } = useResidentialEvictionGraceFlags({
+        isEvictionExecutionModule,
+        evictionPremisesUseResolved,
+        evictionResidentialGracePeriodStart,
+        evictionVacateDeadlineLocal,
+        evictionResidentialGraceManuallyEndedAt,
         decisionsStorageExecutionId,
         executionId,
         decisionsReloadEpoch,
-    ]);
-
-    /** يظهر طلب الإنهاء فقط مع مهلة سكنية مسجّلة وسارية — نفس شرط «تعديل المهلة» */
-    const showResidentialGraceEarlyEndRequest = residentialGracePeriodSaved;
-
-    /** إجراءات ميدانية بعد مهلة سكنية: موافقة إنهاء مبكر، انتهاء تقويمي، أو إنهاء يدوي */
-    const residentialGraceAllowsFieldwork = useMemo(() => {
-        if (!isEvictionExecutionModule) return true;
-        if (evictionPremisesUseResolved !== 'residential') return true;
-        if (!residentialGracePeriodSaved) return true;
-        if (residentialGraceEarlyEndApproved) return true;
-        if (isResidentialVacateGraceFinished) return true;
-        if (Boolean((executionData as { eviction_residential_grace_manually_ended_at?: string })?.eviction_residential_grace_manually_ended_at)) {
-            return true;
-        }
-        return false;
-    }, [
-        isEvictionExecutionModule,
-        evictionPremisesUseResolved,
-        residentialGracePeriodSaved,
-        residentialGraceEarlyEndApproved,
         isResidentialVacateGraceFinished,
         executionData,
-    ]);
-
-    const showBreakInventoryRequest = residentialGraceAllowsFieldwork;
+        hasActiveResidentialEvictionGrace,
+        readExecutorDecisionsArray,
+        isExecutorRowEffectivelyApproved,
+    });
 
     const evictionResidentialGraceHandlers = useExecutionDashboardEvictionResidentialGraceHandlers({
         graceModalAllowResave,
@@ -390,11 +346,19 @@ const {
 
 
     const handleEvictionUnlockAssetsTab = useCallback(() => {
+        const persisted = persistExecutionMerge({ eviction_assets_tab_unlocked: true });
+        if (
+            !toastAfterExecutionPersist(
+                persisted,
+                showToast,
+                'تم فتح تبويب الحجز المالي',
+            )
+        ) {
+            return;
+        }
         setEvictionAssetsTabUnlocked(true);
-        persistExecutionMerge({ eviction_assets_tab_unlocked: true });
         openFinancialHubLedger();
-        showToast('تم فتح تبويب الحجز المالي', 'success');
-    }, [openFinancialHubLedger, persistExecutionMerge, showToast]);
+    }, [openFinancialHubLedger, persistExecutionMerge, setEvictionAssetsTabUnlocked, showToast]);
 
     const evictionFinancialHandlers = useExecutionDashboardEvictionFinancialHandlers({
         decisionsStorageExecutionId,

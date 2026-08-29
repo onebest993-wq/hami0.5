@@ -1,0 +1,282 @@
+[
+  {
+    "rel": "src/app/components/lawyer/ArchivePortal/archiveFinancialSync.ts",
+    "name": "ArchiveFinancialDemand",
+    "isProps": false,
+    "kind": "type",
+    "line": 120
+  },
+  {
+    "rel": "src/app/components/lawyer/ArchivePortal/components/ArchiveDossierIdentityBlock.tsx",
+    "name": "ArchiveDossierMetaRow",
+    "isProps": false,
+    "kind": "type",
+    "line": 10
+  },
+  {
+    "rel": "src/app/components/lawyer/ArchivePortal/components/LawsuitArchiveCard.tsx",
+    "name": "LawsuitCardVariant",
+    "isProps": false,
+    "kind": "type",
+    "line": 21
+  },
+  {
+    "rel": "src/app/components/lawyer/ArchivePortal/components/UnifiedDossierCard.tsx",
+    "name": "UnifiedDossierStatusBadge",
+    "isProps": false,
+    "kind": "type",
+    "line": 50
+  },
+  {
+    "rel": "src/app/components/lawyer/ArchivePortal/hooks/useArchivePortalController.ts",
+    "name": "UseArchivePortalControllerParams",
+    "isProps": false,
+    "kind": "type",
+    "line": 22
+  },
+  {
+    "rel": "src/app/components/lawyer/ArchivePortal/hooks/useLawsuitArchivePortalController.ts",
+    "name": "UseLawsuitArchivePortalControllerParams",
+    "isProps": false,
+    "kind": "type",
+    "line": 20
+  },
+  {
+    "rel": "src/app/components/lawyer/ArchivePortal/types.ts",
+    "name": "SmartTimers",
+    "isProps": false,
+    "kind": "type",
+    "line": 45
+  },
+  {
+    "rel": "src/app/components/lawyer/ArchivePortal/utils/criminalArchiveHearing.ts",
+    "name": "CriminalArchiveHearingDisplay",
+    "isProps": false,
+    "kind": "type",
+    "line": 6
+  },
+  {
+    "rel": "src/app/components/lawyer/ArchivePortal/utils/lawsuitArchiveHearing.ts",
+    "name": "LawsuitArchiveHearingDisplay",
+    "isProps": false,
+    "kind": "type",
+    "line": 77
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/AppealTransitionModal.tsx",
+    "name": "AppealTransitionMode",
+    "isProps": false,
+    "kind": "type",
+    "line": 48
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/hooks/useSmartFileDossierHeaderNavigation.ts",
+    "name": "UseSmartFileDossierHeaderNavigationParams",
+    "isProps": false,
+    "kind": "type",
+    "line": 5
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/hooks/useSmartFileIncidentalSpawn.ts",
+    "name": "UseSmartFileIncidentalSpawnParams",
+    "isProps": false,
+    "kind": "type",
+    "line": 7
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/hooks/useSmartFileModalDomainActions.ts",
+    "name": "SmartFileModalDomainActionsParams",
+    "isProps": false,
+    "kind": "type",
+    "line": 12
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/hooks/useSmartFileModalJudgmentBundle.ts",
+    "name": "SmartFileModalJudgmentBundleParams",
+    "isProps": false,
+    "kind": "type",
+    "line": 17
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/hooks/useSmartFileModalProceduralLinkingBundle.ts",
+    "name": "SmartFileModalProceduralLinkingBundleParams",
+    "isProps": false,
+    "kind": "type",
+    "line": 13
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/hooks/useSmartFileModalStageTimelineBundle.ts",
+    "name": "SmartFileModalStageTimelineBundleParams",
+    "isProps": false,
+    "kind": "type",
+    "line": 10
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/parts/civilLawTaxonomy.ts",
+    "name": "CivilLawTaxonomyNode",
+    "isProps": false,
+    "kind": "type",
+    "line": 5
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/parts/civilLawTaxonomy.ts",
+    "name": "CivilLawTaxonomyBranch",
+    "isProps": false,
+    "kind": "type",
+    "line": 14
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/parts/civilLawTaxonomy.ts",
+    "name": "CivilLawTaxonomySection",
+    "isProps": false,
+    "kind": "type",
+    "line": 22
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/parts/sessionHubGlassTheme.ts",
+    "name": "GLASS_BODY",
+    "isProps": false,
+    "kind": "value",
+    "line": 11
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/parts/sessionHubGlassTheme.ts",
+    "name": "GLASS_LABEL",
+    "isProps": false,
+    "kind": "value",
+    "line": 15
+  },
+  {
+    "rel": "src/app/domain/lawsuit/courtReferral.ts",
+    "name": "CourtReferralAcceptance",
+    "isProps": false,
+    "kind": "type",
+    "line": 1
+  },
+  {
+    "rel": "src/app/domain/lawsuit/courtReferral.ts",
+    "name": "CourtReferralStageFields",
+    "isProps": false,
+    "kind": "type",
+    "line": 3
+  },
+  {
+    "rel": "src/app/domain/lawsuit/courtReferral.ts",
+    "name": "CourtReferralDisplay",
+    "isProps": false,
+    "kind": "type",
+    "line": 13
+  },
+  {
+    "rel": "src/app/domain/lawsuit/incidentalSpawnPrefill.ts",
+    "name": "IncidentalSpawnParentSnapshot",
+    "isProps": false,
+    "kind": "type",
+    "line": 7
+  },
+  {
+    "rel": "src/app/domain/lawsuit/incidentalSpawnPrefill.ts",
+    "name": "IncidentalSpawnConfirmPreview",
+    "isProps": false,
+    "kind": "type",
+    "line": 63
+  },
+  {
+    "rel": "src/app/domain/lawsuit/lawsuitFileMutationGuard.ts",
+    "name": "LawsuitFileMutationTarget",
+    "isProps": false,
+    "kind": "type",
+    "line": 4
+  },
+  {
+    "rel": "src/app/domain/lawsuit/lawsuitJurisdiction.ts",
+    "name": "LawsuitJurisdiction",
+    "isProps": false,
+    "kind": "type",
+    "line": 4
+  },
+  {
+    "rel": "src/app/domain/lawsuit/lawsuitLifecycleIndex.ts",
+    "name": "LawsuitLifecycleStatus",
+    "isProps": false,
+    "kind": "type",
+    "line": 8
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseIdentitySyncEngine.ts",
+    "name": "patchLawyerRequestPartyName",
+    "isProps": false,
+    "kind": "value",
+    "line": 69
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseIdentitySyncEngine.ts",
+    "name": "patchTimelineEventPartyName",
+    "isProps": false,
+    "kind": "value",
+    "line": 95
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseIdentitySyncEngine.ts",
+    "name": "patchLawyerRequestLegalArticle",
+    "isProps": false,
+    "kind": "value",
+    "line": 169
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseMergeMigration.ts",
+    "name": "ConsolidatedParties",
+    "isProps": false,
+    "kind": "type",
+    "line": 119
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseMergeMigration.ts",
+    "name": "MergedCaseTransactionResult",
+    "isProps": false,
+    "kind": "type",
+    "line": 239
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseMergeMigration.ts",
+    "name": "resolveLinkedMergedChildCaseId",
+    "isProps": false,
+    "kind": "value",
+    "line": 402
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseMergeTimeline.ts",
+    "name": "MergedTimelineEventView",
+    "isProps": false,
+    "kind": "type",
+    "line": 9
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseMergeTimeline.ts",
+    "name": "MergeCaseTargetOption",
+    "isProps": false,
+    "kind": "type",
+    "line": 15
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseMergeTimeline.ts",
+    "name": "MergedCaseHeaderBadge",
+    "isProps": false,
+    "kind": "type",
+    "line": 229
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/casePhaseFilterEngine.ts",
+    "name": "CaseRecordPhase",
+    "isProps": false,
+    "kind": "type",
+    "line": 11
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/casePhaseFilterEngine.ts",
+    "name": "journeyNodeRecordPhase",
+    "isProps": false,
+    "kind": "value",
+    "line": 29
+  }
+]

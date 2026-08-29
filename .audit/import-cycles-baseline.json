@@ -1,87 +1,10 @@
 {
-  "savedAt": "2026-08-01T14:15:39.551Z",
-  "scannedFiles": 4538,
-  "cycleGroups": 14,
-  "filesInCycles": 48,
-  "largestGroup": 8,
-  "withDynamicGroups": 20,
-  "withDynamicFiles": 342,
-  "groups": [
-    [
-      "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealProceedings.ts",
-      "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealProceedingsActors.ts",
-      "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealProceedingsCatalog.ts",
-      "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealProceedingsManual.ts",
-      "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealWorkflowActors.ts",
-      "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealsHubCatalog.ts",
-      "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/decisionHubPipeline.tsx",
-      "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/manualExecutorLedger.ts"
-    ],
-    [
-      "src/app/components/lawyer/CommunityScreen.tsx",
-      "src/app/components/lawyer/CommunityScreen/CommunityScreenContent.tsx",
-      "src/app/components/lawyer/CommunityScreen/hooks/useCommunityScreenController.ts",
-      "src/app/hooks/lawyerDashboard/forumIntentWarm.ts",
-      "src/app/runtime/communityHubLoader.ts",
-      "src/app/slices/community/public.ts",
-      "src/app/utils/lazyComponents.tsx"
-    ],
-    [
-      "src/app/utils/executionDossierBlobPersistence.ts",
-      "src/app/utils/executionDossierTombstones.ts",
-      "src/app/utils/executionStorageKeys.ts",
-      "src/app/utils/executionWipeRegistry.ts",
-      "src/app/utils/storageCache.ts"
-    ],
-    [
-      "src/app/components/lawyer/personal-status/personalStatusStageDisplay.ts",
-      "src/app/components/lawyer/smart-modal/smartFile/extraordinaryAppealGateway.ts",
-      "src/app/components/lawyer/smart-modal/smartFile/interpleaderJudgmentEngine.ts",
-      "src/app/components/lawyer/smart-modal/smartFile/judgmentTypes.ts",
-      "src/app/components/lawyer/smart-modal/smartFile/stepperPipeline.ts"
-    ],
-    [
-      "src/app/runtime/sameOriginApiProbe.ts",
-      "src/app/services/SecureAPIClient.ts",
-      "src/app/utils/bffAuthClient.ts"
-    ],
-    [
-      "src/app/components/lawyer/criminal-system/decisionAppealPeriodEngine.ts",
-      "src/app/components/lawyer/criminal-system/trialSessionsEngine.ts",
-      "src/app/components/lawyer/criminal-system/verdictCassationResultEngine.ts"
-    ],
-    [
-      "src/app/components/lawyer/smart-modal/smartFile/appealPartyEngine.ts",
-      "src/app/components/lawyer/smart-modal/smartFile/appealStageTransition.ts",
-      "src/app/components/lawyer/smart-modal/smartFile/interpleaderAppealEngine.ts"
-    ],
-    [
-      "src/app/services/SecureStoreService.ts",
-      "src/app/services/dossierPersistence/protectedBackupService.ts"
-    ],
-    [
-      "src/app/services/cloud/lawyerCommunityCloud.ts",
-      "src/app/services/forum/forumFollowRepository.ts"
-    ],
-    [
-      "src/app/utils/executionClaimIsolation.ts",
-      "src/app/utils/followupSpecializationVisibility.ts"
-    ],
-    [
-      "src/app/components/lawyer/criminal-system/stageFinalDecisionEngine.ts",
-      "src/app/components/lawyer/criminal-system/verdictCardsEngine.ts"
-    ],
-    [
-      "src/app/hooks/lawyerDashboard/scheduleIntentWarm.ts",
-      "src/app/runtime/scheduleBootHydrator.ts"
-    ],
-    [
-      "src/app/components/lawyer/ExecutionDashboard/utils/unifiedSeizureLogHelpers.ts",
-      "src/app/components/lawyer/execution/UnifiedSeizureLogModal.tsx"
-    ],
-    [
-      "src/app/services/globalSearchLoad.ts",
-      "src/app/services/globalSearchWarm.ts"
-    ]
-  ]
+  "savedAt": "2026-08-10T17:42:41.230Z",
+  "scannedFiles": 5258,
+  "cycleGroups": 0,
+  "filesInCycles": 0,
+  "largestGroup": 0,
+  "withDynamicGroups": 10,
+  "withDynamicFiles": 547,
+  "groups": []
 }

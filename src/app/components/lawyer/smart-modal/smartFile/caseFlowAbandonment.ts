@@ -1,11 +1,11 @@
 import type { CaseStage } from '../../LawyerShared';
 
-export type AbandonmentFlowContext = Pick<
+type AbandonmentFlowContext = Pick<
     CaseStage,
     'isVoided' | 'abandonmentDate' | 'isPleadingsClosed' | 'abandonmentCount'
 >;
 
-export type AbandonmentFlowLabel = {
+type AbandonmentFlowLabel = {
     show: boolean;
     label: string;
     isSecondAttempt: boolean;

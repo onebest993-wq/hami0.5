@@ -17,7 +17,7 @@ export type RegisterStageFinalDecisionMeta = {
     defendantStatusAtDecision: StageConclusion['defendantStatusAtDecision'];
 };
 
-export type PreparedStageFinalDecision = {
+type PreparedStageFinalDecision = {
     syncedCase: CriminalCase;
     conclusion: StageConclusion;
     cardId: string;

@@ -44,6 +44,20 @@ describe('procedureGuideNavigation', () => {
         expect(stripProcedureGuideMachineLines(content)).toBe('نص ظاهر');
     });
 
+    it('يحذف الحقول الدخيلة ويحدّ العنوان ويصحّح ownerTag', () => {
+        const encoded = encodeProcedureGuideData({
+            v: 1,
+            titleHint: 'دليل',
+            steps: [{ id: '1', title: 'تقديم', parentTaskId: null, notes: '', extra: 'leak' } as never],
+            documents: [{ title: 'هوية', ownerTag: 'هاكر', ssn: '1' } as never],
+        } as never);
+        expect(encoded).not.toContain('leak');
+        expect(encoded).not.toContain('ssn');
+        const parsed = parseProcedureGuideDataLine(encoded);
+        expect(parsed?.documents[0]?.ownerTag).toBe('أخرى');
+        expect(parsed?.steps[0]?.title).toBe('تقديم');
+    });
+
     it('يخزّن الدليل ويفتح نموذج الإضافة عند الطلب', () => {
         const handler = vi.fn();
         const unsub = subscribeOpenTransactionsHub(handler);

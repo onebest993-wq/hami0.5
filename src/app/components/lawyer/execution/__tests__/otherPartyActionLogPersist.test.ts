@@ -3,7 +3,7 @@ import {
     buildOtherPartyActionLogEntry,
     persistOtherPartyActionLogEntry,
     prependOtherPartyActionLog,
-} from '../otherPartyActionLogPersist';
+} from '@/app/application/execution/followup/otherPartyActionLogPersist';
 
 describe('otherPartyActionLogPersist', () => {
     it('prepends log entry without duplicate id', () => {

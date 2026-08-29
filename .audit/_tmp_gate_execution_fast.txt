@@ -1,0 +1,779 @@
+﻿
+> hami-app@10.5.0 gate:execution:fast
+> node scripts/execution-gate-fast.mjs
+
+=== Execution fast gate (audits + unit) ===
+
+
+[execution-gate:fast] audit-execution-snapshot...
+
+> hami-app@10.5.0 audit:execution-snapshot
+> node scripts/audit-followup-snapshot-keys.mjs && node scripts/audit-followup-portal-snapshot.mjs
+
+snapshot keys: 197, bound via chunk-scope assign + snapshot input
+OK ظ¤ all snapshot keys are bound before followup snapshot
+Portal controller expects 187 keys
+Snapshot field keys 197
+Missing from snapshot: none
+OK ظ¤ portal controller keys covered by followup snapshot field keys
+ظ£ô audit-execution-snapshot
+
+[execution-gate:fast] audit-execution-chunk-scope...
+
+> hami-app@10.5.0 audit:execution-chunk-scope
+> node scripts/audit-execution-chunk-scope.mjs && node scripts/audit-execution-heavy-modals-props.mjs && node scripts/audit-execution-overlay-component-props.mjs && node scripts/audit-execution-all-overlay-props.mjs && node scripts/audit-core-scope-runtime-bindings.mjs
+
+node.exe : file:///C:/Users/HEX%20STORE/Downloads/New%20folder/scripts/lib/resolveExecutionChunkScopeKeys.mjs:344
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (file:///C:/User...opeKeys.mjs:344:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    if (start < 0) throw new Error('buildExecutionDashboardCoreDynamicScope call not found');
+                         ^
+
+Error: buildExecutionDashboardCoreDynamicScope call not found
+    at extractScopeBlock 
+(file:///C:/Users/HEX%20STORE/Downloads/New%20folder/scripts/lib/resolveExecutionChunkScopeKeys.mjs:344:26)
+    at resolveExecutionChunkScopeKeys 
+(file:///C:/Users/HEX%20STORE/Downloads/New%20folder/scripts/lib/resolveExecutionChunkScopeKeys.mjs:378:19)
+    at file:///C:/Users/HEX%20STORE/Downloads/New%20folder/scripts/audit-execution-chunk-scope.mjs:23:19
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.18.0
+ظ£ù audit-execution-chunk-scope
+
+[execution-gate:fast] execution-dashboard-unit...
+
+ RUN  v3.2.7 C:/Users/HEX STORE/Downloads/New folder
+
+stderr | src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardEviction
+ResidentialGraceHandlers.test.ts
+[execution-dashboard-store] ┘╪┤┘ ╪د╪│╪ز╪▒╪ش╪د╪╣ ╪د┘╪ص╪د┘╪ر ╪د┘┘à╪ص┘┘ê╪╕╪ر TypeError: 
+__vite_ssr_import_1__.default.ensurePersistedReady is not a function
+    at Object.getItem (C:\Users\HEX STORE\Downloads\New folder\src\app\services\securePersistStorage.ts:93:38)
+    at Object.getItem 
+(file:///C:/Users/HEX%20STORE/Downloads/New%20folder/node_modules/zustand/esm/middleware.mjs:292:33)
+    at file:///C:/Users/HEX%20STORE/Downloads/New%20folder/node_modules/zustand/esm/middleware.mjs:305:20
+    at hydrate (file:///C:/Users/HEX%20STORE/Downloads/New%20folder/node_modules/zustand/esm/middleware.mjs:388:53)
+    at file:///C:/Users/HEX%20STORE/Downloads/New%20folder/node_modules/zustand/esm/middleware.mjs:468:5
+    at createStoreImpl (file:///C:/Users/HEX%20STORE/Downloads/New%20folder/node_modules/zustand/esm/vanilla.mjs:19:32)
+    at createStore (file:///C:/Users/HEX%20STORE/Downloads/New%20folder/node_modules/zustand/esm/vanilla.mjs:22:53)
+    at createImpl (file:///C:/Users/HEX%20STORE/Downloads/New%20folder/node_modules/zustand/esm/react.mjs:15:15)
+    at C:\Users\HEX STORE\Downloads\New folder\src\app\stores\executionDashboardStore.ts:449:75
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+
+┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖x┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖
+
+ظ»ظ»ظ»ظ»ظ»ظ»ظ» Failed Tests 1 ظ»ظ»ظ»ظ»ظ»ظ»ظ»
+
+ FAIL  
+src/app/components/lawyer/ExecutionDashboard/components/__tests__/seizedMovableWorkflowLane.integration.test.tsx > 
+SeizedMovableWorkflowPanel lane selection (real accordion) > ┘è╪╣╪▒╪╢ ┘é┘è╪» ╪د┘╪ذ╪ز ╪ذ╪╣╪» ╪╖┘╪ذ ┘à┘ê╪╣╪» 
+┘à╪▓╪د┘è╪»╪ر ┘ê┘è╪ص╪ز┘╪╕ ╪ذ┘ç ╪ذ╪╣╪» remount
+TestingLibraryElementError: Unable to find an element with the text: /┘é┘è╪» ╪د┘╪ذ╪ز/i. This could be because the 
+text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your 
+matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-3 border-t border-white/10 pt-3"[39m
+      [33mdir[39m=[32m"rtl"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33maria-expanded[39m=[32m"true"[39m
+        [33mclass[39m=[32m"flex w-full flex-row-reverse items-center justify-between gap-2 rounded-xl py-1 
+text-right transition hover:bg-white/5"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-[11px] font-black text-sky-200"[39m
+        [36m>[39m
+          [0m╪ح╪ش╪▒╪د╪ة╪د╪ز ╪ص╪ش╪▓ ╪د┘┘à┘┘é┘ê┘[0m
+        [36m</span>[39m
+        [36m<svg[39m
+          [33mclass[39m=[32m"lucide lucide-chevron-down shrink-0 text-sky-300/85 transition-transform 
+rotate-180"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"16"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"16"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m6 9 6 6 6-6"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</button>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"relative"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mt-3"[39m
+          [33mdir[39m=[32m"rtl"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"relative"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"absolute right-[11px] top-2 bottom-2 w-px bg-white/10"[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-2"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"relative pr-8"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"absolute right-0 top-1.5 grid size-6 place-items-center rounded-full border 
+bg-emerald-500/20 border-emerald-500/35 text-emerald-200"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33mclass[39m=[32m"lucide lucide-check-circle text-current"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"14"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"14"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M22 11.08V12a10 10 0 1 1-5.93-9.14"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"m9 11 3 3L22 4"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"rounded-2xl border border-white/10 bg-black/15 p-3"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"flex items-start justify-between gap-2"[39m
+                  [36m>[39m
+                    [36m<button[39m
+                      [33maria-expanded[39m=[32m"false"[39m
+                      [33maria-label[39m=[32m"╪╣╪▒╪╢ ╪د┘╪ز┘╪د╪╡┘è┘"[39m
+                      [33mclass[39m=[32m"min-w-0 flex-1 cursor-pointer rounded-lg text-right transition 
+hover:bg-white/[0.03]"[39m
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [36m<p[39m
+                        [33mclass[39m=[32m"text-[11px] font-bold leading-tight text-emerald-200"[39m
+                      [36m>[39m
+                        [0m╪ز╪ث┘è┘è╪» ┘ê╪╢╪╣ ╪د┘╪ح╪┤╪د╪▒╪ر[0m
+                      [36m</p>[39m
+                      [36m<p[39m
+                        [33mclass[39m=[32m"mt-1 text-[10px] text-slate-500"[39m
+                      [36m>[39m
+                        [0m╪▒┘é┘à ┘â╪ز╪د╪ذ ╪د┘╪ح╪┤╪د╪▒╪ر: K-1[0m
+                      [36m</p>[39m
+                    [36m</button>[39m
+                    [36m<button[39m
+                      [33maria-expanded[39m=[32m"false"[39m
+                      [33maria-label[39m=[32m"╪╣╪▒╪╢ ╪د┘╪ز┘╪د╪╡┘è┘"[39m
+                      [33mclass[39m=[32m"shrink-0 rounded-md p-0.5 text-gray-500 transition hover:bg-white/5 
+hover:text-gray-300"[39m
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [36m<svg[39m
+                        [33mclass[39m=[32m"lucide lucide-chevron-down transition-transform"[39m
+                        [33mfill[39m=[32m"none"[39m
+                        [33mheight[39m=[32m"14"[39m
+                        [33mstroke[39m=[32m"currentColor"[39m
+                        [33mstroke-linecap[39m=[32m"round"[39m
+                        [33mstroke-linejoin[39m=[32m"round"[39m
+                        [33mstroke-width[39m=[32m"2"[39m
+                        [33mviewBox[39m=[32m"0 0 24 24"[39m
+                        [33mwidth[39m=[32m"14"[39m
+                        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                      [36m>[39m
+                        [36m<path[39m
+                          [33md[39m=[32m"m6 9 6 6 6-6"[39m
+                        [36m/>[39m
+                      [36m</svg>[39m
+                    [36m</button>[39m
+                  [36m</div>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"h-2"[39m
+                [36m/>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"relative pr-8"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"absolute right-0 top-1.5 grid size-6 place-items-center rounded-full border 
+bg-emerald-500/20 border-emerald-500/35 text-emerald-200"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33mclass[39m=[32m"lucide lucide-check-circle text-current"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"14"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"14"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M22 11.08V12a10 10 0 1 1-5.93-9.14"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"m9 11 3 3L22 4"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"rounded-2xl border border-white/10 bg-black/15 p-3"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"flex items-start justify-between gap-2"[39m
+                  [36m>[39m
+                    [36m<button[39m
+                      [33maria-expanded[39m=[32m"false"[39m
+                      [33maria-label[39m=[32m"╪╣╪▒╪╢ ╪د┘╪ز┘╪د╪╡┘è┘"[39m
+                      [33mclass[39m=[32m"min-w-0 flex-1 cursor-pointer rounded-lg text-right transition 
+hover:bg-white/[0.03]"[39m
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [36m<p[39m
+                        [33mclass[39m=[32m"text-[11px] font-bold leading-tight text-emerald-200"[39m
+                      [36m>[39m
+                        [0m╪د┘╪ز╪»╪د╪ذ ╪د┘╪«╪ذ╪▒╪د╪ة ┘ê╪د┘╪ز┘é╪»┘è╪▒[0m
+                      [36m</p>[39m
+                      [36m<p[39m
+                        [33mclass[39m=[32m"mt-1 text-[10px] text-slate-500"[39m
+                      [36m>[39m
+                        [0m╪د┘╪«╪ذ╪▒╪د╪ة: ╪«╪ذ┘è╪▒[0m
+                      [36m</p>[39m
+                    [36m</button>[39m
+                    [36m<button[39m
+                      [33maria-expanded[39m=[32m"false"[39m
+                      [33maria-label[39m=[32m"╪╣╪▒╪╢ ╪د┘╪ز┘╪د╪╡┘è┘"[39m
+                      [33mclass[39m=[32m"shrink-0 rounded-md p-0.5 text-gray-500 transition hover:bg-white/5 
+hover:text-gray-300"[39m
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [36m<svg[39m
+                        [33mclass[39m=[32m"lucide lucide-chevron-down transition-transform"[39m
+                        [33mfill[39m=[32m"none"[39m
+                        [33mheight[39m=[32m"14"[39m
+                        [33mstroke[39m=[32m"currentColor"[39m
+                        [33mstroke-linecap[39m=[32m"round"[39m
+                        [33mstroke-linejoin[39m=[32m"round"[39m
+                        [33mstroke-width[39m=[32m"2"[39m
+                        [33mviewBox[39m=[32m"0 0 24 24"[39m
+                        [33mwidth[39m=[32m"14"[39m
+                        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                      [36m>[39m
+                        [36m<path[39m
+                          [33md[39m=[32m"m6 9 6 6 6-6"[39m
+                        [36m/>[39m
+                      [36m</svg>[39m
+                    [36m</button>[39m
+                  [36m</div>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"h-2"[39m
+                [36m/>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"relative pr-8"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"absolute right-0 top-1.5 grid size-6 place-items-center rounded-full border 
+bg-amber-500/15 border-amber-500/35 text-amber-200"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"block size-2 rounded-full bg-current opacity-90"[39m
+                  [36m/>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"relative rounded-2xl border p-3 border-amber-500/25 bg-[#05060D]/55"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"flex flex-row items-start gap-2"[39m
+                  [36m>[39m
+                    [36m<button[39m
+                      [33maria-label[39m=[32m"╪▒╪ش┘ê╪╣ ┘╪د╪«╪ز┘è╪د╪▒ ╪د┘┘à╪│╪د╪▒"[39m
+                      [33mclass[39m=[32m"flex shrink-0 items-center justify-center rounded-full border 
+border-[#E6C673]/25 bg-[#E6C673]/[0.07] text-[#E6C673]/75 transition-all duration-200 hover:border-[#E6C673]/45 
+hover:bg-[#E6C673]/12 hover:text-[#E6C673] hover:shadow-[0_0_12px_rgba(230,198,115,0.25)] active:scale-95 
+disabled:opacity-30 disabled:pointer-events-none size-7  "[39m
+                      [33mtitle[39m=[32m"╪▒╪ش┘ê╪╣ ┘╪د╪«╪ز┘è╪د╪▒ ╪د┘┘à╪│╪د╪▒"[39m
+
+ Test Files  1 failed | 239 passed (240)
+      Tests  1 failed | 784 passed (785)
+   Start at  00:22:59
+   Duration  427.53s (transform 524.29s, setup 706.92s, collect 669.22s, tests 105.19s, environment 2201.96s, prepare 202.58s)
+
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [36m<svg[39m
+                        [33maria-hidden[39m=[32m"true"[39m
+                        [33mclass[39m=[32m"lucide lucide-arrow-right shrink-0"[39m
+                        [33mfill[39m=[32m"none"[39m
+                        [33mheight[39m=[32m"16"[39m
+                        [33mstroke[39m=[32m"currentColor"[39m
+                        [33mstroke-linecap[39m=[32m"round"[39m
+                        [33mstroke-linejoin[39m=[32m"round"[39m
+                        [33mstroke-width[39m=[32m"2.5"[39m
+                        [33mviewBox[39m=[32m"0 0 24 24"[39m
+                        [33mwidth[39m=[32m"16"[39m
+                        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                      [36m>[39m
+                        [36m<path[39m
+                          [33md[39m=[32m"M5 12h14"[39m
+                        [36m/>[39m
+                        [36m<path[39m
+                          [33md[39m=[32m"m12 5 7 7-7 7"[39m
+                        [36m/>[39m
+                      [36m</svg>[39m
+                    [36m</button>[39m
+                    [36m<button[39m
+                      [33maria-expanded[39m=[32m"true"[39m
+                      [33maria-label[39m=[32m"╪╖┘è ╪د┘┘à╪ص╪ز┘ê┘ë"[39m
+                      [33mclass[39m=[32m"min-w-0 flex-1 rounded-lg text-right transition hover:bg-white/[0.03]"[39m
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [36m<p[39m
+                        [33mclass[39m=[32m"text-[11px] font-black leading-snug text-slate-100"[39m
+                      [36m>[39m
+                        [0m┘à┘ê╪╣╪» ╪د┘┘à╪▓╪د┘è╪»╪ر ╪ث┘ê ╪د╪╣╪ز╪▒╪د╪╢ ╪د┘╪ز┘é╪»┘è╪▒[0m
+                      [36m</p>[39m
+                      [36m<p[39m
+                        [33mclass[39m=[32m"mt-1 text-[10px] text-slate-400"[39m
+                      [36m>[39m
+                        [0m╪د┘╪«╪╖┘ê╪ر ╪د┘╪ص╪د┘┘è╪ر[0m
+                      [36m</p>[39m
+                    [36m</button>[39m
+                  [36m</div>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"relative z-[1] mt-3 border-t border-white/10 pt-3 pointer-events-auto"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33mclass[39m=[32m"relative z-[2] space-y-2 pointer-events-auto"[39m
+                    [36m>[39m
+                      [36m<div[39m
+                        [33mclass[39m=[32m"space-y-2 rounded-2xl border border-[#E6C673]/20 bg-amber-950/15 
+p-3"[39m
+                      [36m>[39m
+                        [36m<p[39m
+                          [33mclass[39m=[32m"text-[10px] font-bold text-slate-500 text-right text-[#E6C673]/90"[39m
+                        [36m>[39m
+                          [0m┘à╪│╪د╪▒ ╪د┘┘à╪▓╪د┘è╪»╪ر[0m
+                        [36m</p>[39m
+                        [36m<button[39m
+                          [33mclass[39m=[32m"relative z-[2] w-full rounded-2xl border px-3 py-3 text-[11px] 
+font-black transition-colors disabled:opacity-40 pointer-events-auto border-[#E6C673]/25 bg-[#E6C673]/10 
+text-[#E6C673] hover:bg-[#E6C673]/15"[39m
+                          [33mtype[39m=[32m"button"[39m
+                        [36m>[39m
+                          [0m╪╖┘╪ذ ╪ز╪ص╪»┘è╪» ┘à┘ê╪╣╪» ┘à╪▓╪د┘è╪»╪ر[0m
+                        [36m</button>[39m
+                      [36m</div>[39m
+                    [36m</div>[39m
+                  [36m</div>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ظإ» Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ظإ» node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ظإ» node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ظإ» node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ظإ» 
+src/app/components/lawyer/ExecutionDashboard/components/__tests__/seizedMovableWorkflowLane.integration.test.tsx:109:23
+    107|         unmount();
+    108|         renderValuedMovablePanel();
+    109|         expect(screen.getByText(/┘é┘è╪» ╪د┘╪ذ╪ز/i)).toBeInTheDocument();
+       |                       ^
+    110|         expect(screen.queryByRole('button', { name: '╪╖┘╪ذ ╪ز╪ص╪»┘è╪» ┘à┘ê╪╣╪» ┘à╪▓ظخ
+    111|     });
+
+ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»[1/1]ظ»
+
+ظ£ù execution-dashboard-unit
+
+[execution-gate:fast] execution-application-unit...
+
+ RUN  v3.2.7 C:/Users/HEX STORE/Downloads/New folder
+
+┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖x┬╖x┬╖┬╖x┬╖x┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖stdout | src/app/application/execution/followup/__tests__/printHiddenBaseline.test.ts > print baseline > prints hidden baseline json
+{
+  "financial_employee": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [
+      "forced_bring_in",
+      "travel_ban"
+    ],
+    "hiddenGuarantorKeys": [
+      "guarantor_request"
+    ],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": true
+  },
+  "financial_earner": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [],
+    "hiddenGuarantorKeys": [],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": false
+  },
+  "civil_earner_low_center": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [],
+    "hiddenGuarantorKeys": [],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": false
+  },
+  "civil_earner_high_center": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [],
+    "hiddenGuarantorKeys": [],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": false
+  },
+  "specific_delivery_movable_pre_earner": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [
+      "forced_bring_in",
+      "travel_ban",
+      "arrest_warrant_investigation"
+    ],
+    "hiddenGuarantorKeys": [],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": true
+  },
+  "specific_delivery_movable_pre_employee": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [
+      "forced_bring_in",
+      "travel_ban"
+    ],
+    "hiddenGuarantorKeys": [
+      "guarantor_request"
+    ],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": true
+  },
+  "specific_delivery_immovable_pending_earner": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [
+      "forced_bring_in",
+      "travel_ban",
+      "arrest_warrant_investigation"
+    ],
+    "hiddenGuarantorKeys": [],
+    "breakInventoryVisible": true,
+    "hasAnyHiddenContent": true
+  },
+  "specific_delivery_movable_pre_legal_entity": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [
+      "forced_bring_in"
+    ],
+    "hiddenGuarantorKeys": [
+      "guarantor_request"
+    ],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": true
+  },
+  "specific_delivery_post_financialized_earner": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [
+      "forced_bring_in",
+      "travel_ban",
+      "arrest_warrant_investigation"
+    ],
+    "hiddenGuarantorKeys": [],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": true
+  },
+  "eviction_earner": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [],
+    "hiddenGuarantorKeys": [],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": false
+  },
+  "eviction_employee": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [
+      "forced_bring_in",
+      "travel_ban"
+    ],
+    "hiddenGuarantorKeys": [
+      "guarantor_request"
+    ],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": true
+  },
+  "encroachment_earner": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [
+      "forced_bring_in",
+      "travel_ban",
+      "arrest_warrant_investigation"
+    ],
+    "hiddenGuarantorKeys": [],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": true
+  },
+  "visitation_earner": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [],
+    "hiddenGuarantorKeys": [
+      "guarantor_request"
+    ],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": true
+  },
+  "matwaa_earner": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [
+      "forced_bring_in"
+    ],
+    "hiddenGuarantorKeys": [],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": true
+  },
+  "custody_removal_earner": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [],
+    "hiddenGuarantorKeys": [
+      "guarantor_request"
+    ],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": true
+  },
+  "custody_removal_employee": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [],
+    "hiddenGuarantorKeys": [
+      "guarantor_request"
+    ],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": true
+  },
+  "marital_furniture_earner": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [
+      "forced_bring_in"
+    ],
+    "hiddenGuarantorKeys": [],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": true
+  },
+  "legal_entity_financial": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [
+      "forced_bring_in"
+    ],
+    "hiddenGuarantorKeys": [
+      "guarantor_request"
+    ],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": true
+  },
+  "deceased_financial_earner": {
+    "hiddenToggleVisible": false,
+    "hiddenPersonalCoerciveKeys": [],
+    "hiddenGuarantorKeys": [],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": false
+  },
+  "court_sharia_earner": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [],
+    "hiddenGuarantorKeys": [],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": false
+  },
+  "court_sharia_employee": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [
+      "forced_bring_in"
+    ],
+    "hiddenGuarantorKeys": [
+      "guarantor_request"
+    ],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": true
+  },
+  "financial_employee_assignment_block": {
+    "hiddenToggleVisible": true,
+    "hiddenPersonalCoerciveKeys": [],
+    "hiddenGuarantorKeys": [
+      "guarantor_request"
+    ],
+    "breakInventoryVisible": false,
+    "hasAnyHiddenContent": true
+  }
+}
+
+┬╖┬╖┬╖┬╖┬╖┬╖┬╖x┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖x┬╖┬╖┬╖x┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖
+
+ظ»ظ»ظ»ظ»ظ»ظ»ظ» Failed Tests 7 ظ»ظ»ظ»ظ»ظ»ظ»ظ»
+
+ FAIL  src/app/application/execution/followup/__tests__/followupScenarioHiddenBaseline.test.ts > 
+followupScenarioHiddenBaseline > baseline covers every catalog scenario
+AssertionError: expected undefined to be defined
+ ظإ» src/app/application/execution/followup/__tests__/followupScenarioHiddenBaseline.test.ts:13:68
+     11|     it('baseline covers every catalog scenario', () => {
+     12|         for (const scenario of FOLLOWUP_SCENARIO_CATALOG) {
+     13|             expect(FOLLOWUP_SCENARIO_HIDDEN_BASELINE[scenario.id]).toBظخ
+       |                                                                    ^
+     14|         }
+     15|         expect(Object.keys(FOLLOWUP_SCENARIO_HIDDEN_BASELINE).length).ظخ
+
+ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»[1/7]ظ»
+
+ FAIL  src/app/application/execution/followup/__tests__/followupScenarioHiddenBaseline.test.ts > 
+followupScenarioHiddenBaseline > specific_delivery_movable_pre_legal_entity > matches committed hidden baseline
+AssertionError: expected { hiddenToggleVisible: true, ظخ(4) } to deeply equal undefined
+
+- Expected: 
+undefined
+
++ Received: 
+{
+  "breakInventoryVisible": false,
+  "hasAnyHiddenContent": true,
+  "hiddenGuarantorKeys": [
+    "guarantor_request",
+  ],
+  "hiddenPersonalCoerciveKeys": [
+    "forced_bring_in",
+  ],
+  "hiddenToggleVisible": true,
+}
+
+ ظإ» src/app/application/execution/followup/__tests__/followupScenarioHiddenBaseline.test.ts:24:65
+     22|             it('matches committed hidden baseline', () => {
+     23|                 const hidden = resolveFollowupHiddenActions(scenario.iظخ
+     24|                 expect(serializeFollowupHiddenSnapshot(hidden)).toEquaظخ
+       |                                                                 ^
+     25|                     FOLLOWUP_SCENARIO_HIDDEN_BASELINE[scenario.id],
+     26|                 );
+
+ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»[2/7]ظ»
+
+ FAIL  src/app/application/execution/followup/__tests__/followupScenarioHiddenBaseline.test.ts > 
+followupScenarioHiddenBaseline > eviction_earner > matches committed hidden baseline
+AssertionError: expected { hiddenToggleVisible: true, ظخ(4) } to deeply equal { hiddenToggleVisible: true, ظخ(4) }
+
+- Expected
++ Received
+
+  {
+    "breakInventoryVisible": false,
+-   "hasAnyHiddenContent": true,
++   "hasAnyHiddenContent": false,
+    "hiddenGuarantorKeys": [],
+-   "hiddenPersonalCoerciveKeys": [
+-     "forced_bring_in",
+-     "travel_ban",
+-     "arrest_warrant_investigation",
+-   ],
++   "hiddenPersonalCoerciveKeys": [],
+    "hiddenToggleVisible": true,
+  }
+
+ ظإ» src/app/application/execution/followup/__tests__/followupScenarioHiddenBaseline.test.ts:24:65
+     22|             it('matches committed hidden baseline', () => {
+     23|                 const hidden = resolveFollowupHiddenActions(scenario.iظخ
+     24|                 expect(serializeFollowupHiddenSnapshot(hidden)).toEquaظخ
+       |                                                                 ^
+     25|                     FOLLOWUP_SCENARIO_HIDDEN_BASELINE[scenario.id],
+     26|                 );
+
+ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»[3/7]ظ»
+
+ FAIL  src/app/application/execution/followup/__tests__/followupScenarioMatrix.test.ts > followupScenarioMatrix > 
+eviction_earner > effective tabs match catalog expectation
+ FAIL  src/app/application/execution/followup/__tests__/followupScenarioMatrix.test.ts > followupScenarioMatrix > 
+eviction_employee > effective tabs match catalog expectation
+AssertionError: expected [ 'personal', 'coercive', ظخ(5) ] to deeply equal [ Array(6) ]
+
+- Expected
++ Received
+
+@@ -1,6 +1,7 @@
+  [
++   "personal",
+    "coercive",
+    "seizure_requests",
+    "correspondences",
+    "admin",
+    "dossier_controls",
+
+ ظإ» src/app/application/execution/followup/__tests__/followupScenarioMatrix.test.ts:17:48
+     15|             it('effective tabs match catalog expectation', () => {
+     16|                 const result = resolveFollowupScenario(scenario.input);
+     17|                 expect(result.effectiveTabIds).toEqual(scenario.expectظخ
+       |                                                ^
+     18|             });
+     19| 
+
+ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»[4/7]ظ»
+
+ FAIL  src/app/application/execution/followup/__tests__/followupScenarioMatrix.test.ts > followupScenarioMatrix > 
+eviction_earner > flags match expectation (earner-gated)
+ FAIL  src/app/application/execution/followup/__tests__/followupScenarioMatrix.test.ts > followupScenarioMatrix > 
+eviction_employee > flags match expectation (earner-gated)
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ظإ» src/app/application/execution/followup/__tests__/followupScenarioMatrix.test.ts:33:108
+     31|                     const result = resolveFollowupScenario(scenario.inظخ
+     32|                     for (const [key, value] of Object.entries(scenarioظخ
+     33|                         expect(result.flagsWithEarnerGate[key as keyofظخ
+       |                                                                                                            ^
+     34|                             value,
+     35|                         );
+
+ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»ظ»[5/7]ظ»
+
+
+ Test Files  2 failed | 10 passed (12)
+      Tests  7 failed | 182 passed (189)
+   Start at  00:30:35
+   Duration  45.17s (transform 42.62s, setup 32.36s, collect 151.55s, tests 152ms, environment 107.46s, prepare 7.65s)
+
+ظ£ù execution-application-unit
+
+=== Fast gate result ===

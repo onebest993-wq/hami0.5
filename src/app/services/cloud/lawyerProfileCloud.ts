@@ -5,7 +5,7 @@ import {
     refreshProfileMediaUrl,
 } from '@/app/services/profileMediaService';
 import { assertCanWriteProfile } from '@/app/services/profile/profileWriteGuard';
-import { shouldPersistProfileLocally } from '@/app/services/profile/profileShellLogic';
+import { shouldPersistProfileLocally } from '@/app/services/profile/profileShellPolicy';
 import { redactProfileForVisitorView } from '@/app/services/profile/profileVisitorView';
 import { coerceGalleryItems } from '@/app/services/profile/profileGalleryItems';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
@@ -19,8 +19,16 @@ import {
     type LawyerProfileSection,
     type ProfileGalleryItem,
 } from '@/app/services/cloud/lawyerProfileTypes';
+import { getLawyerProfileLocalKey } from '@/app/services/profile/profileLocalKey';
+import { reconcileOwnerProfileFromCloud } from '@/app/services/profile/profileCloudReconcile';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 export { LAWYER_PROFILE_UPDATED } from '@/app/services/profile/profileEvents';
+export { readLocalProfileSync } from '@/app/services/profile/lawyerProfileLocalRead';
+
 export type {
     LawyerProfileHeader,
     ProfileStat,
@@ -30,30 +38,11 @@ export type {
     LawyerProfileData,
 } from '@/app/services/cloud/lawyerProfileTypes';
 
-const PROFILE_LOCAL_KEY_PREFIX = 'hami:profile:v1:';
-
-function getProfileLocalKey(userId: string): string {
-    return `${PROFILE_LOCAL_KEY_PREFIX}${userId}`;
-}
-
-/** قراءة محلية متزامنة — للفتح الفوري بلا انتظار getProfile الكامل */
-export function readLocalProfileSync(userId: string): LawyerProfileData | null {
-    try {
-        const uid = userId.trim();
-        if (!uid || typeof window === 'undefined') return null;
-        const raw = SecureStoreService.getItemSync(getProfileLocalKey(uid));
-        if (!raw) return null;
-        return sanitizeLawyerProfile(JSON.parse(raw) as LawyerProfileData);
-    } catch {
-        return null;
-    }
-}
-
 async function loadLocalProfile(userId: string): Promise<LawyerProfileData | null> {
     try {
-        const key = getProfileLocalKey(userId);
+        const key = getLawyerProfileLocalKey(userId);
         if (typeof window !== 'undefined') {
-            const sync = SecureStoreService.getItemSync(key);
+            const sync = readSecureOrDrainLegacySync(key);
             if (sync) return JSON.parse(sync) as LawyerProfileData;
         }
         const raw = await SecureStoreService.getItem(key);
@@ -64,16 +53,26 @@ async function loadLocalProfile(userId: string): Promise<LawyerProfileData | nul
     }
 }
 
-/** مسار متزامن على الويب — يتجنب حجب الحفظ خلف ensureWebReady الكامل (deadlock في E2E/لوحة). */
+/**
+ * ذاكرة فورية ثم انتظار IndexedDB.
+ * setItemSync وحدها كانت تُرجع قبل اكتمال التشفير — إعادة التحميل تمحو المعرض والقنوات.
+ */
 async function saveLocalProfile(userId: string, profile: LawyerProfileData): Promise<boolean> {
-    const key = getProfileLocalKey(userId);
+    const key = getLawyerProfileLocalKey(userId);
     const value = JSON.stringify(profile);
     try {
         if (typeof window !== 'undefined') {
-            SecureStoreService.setItemSync(key, value);
-            return true;
+            const accepted = SecureStoreService.setItemSync(key, value);
+            clearLegacyPlaintextMirror(key);
+            if (typeof SecureStoreService.waitForPendingSetItem === 'function') {
+                await SecureStoreService.waitForPendingSetItem(key);
+            } else {
+                await SecureStoreService.setItem(key, value);
+            }
+            return accepted !== false;
         }
         await SecureStoreService.setItem(key, value);
+        clearLegacyPlaintextMirror(key);
         return true;
     } catch {
         return false;
@@ -164,7 +163,8 @@ async function refreshProfileFromCloud(userId: string, localBase: LawyerProfileD
         const res = await lawyerCloudKv.get(`profile:${userId}`);
         if (!res) return;
         const remote = res as LawyerProfileData;
-        const finalized = await finalizeProfile(remote, userId, persistLocal);
+        const reconciled = reconcileOwnerProfileFromCloud(localBase, remote);
+        const finalized = await finalizeProfile(reconciled, userId, persistLocal);
         /* حدّث ذاكرة المالك الكاملة دائماً (حتى لزائر) — وإلا تبقى خصوصية قديمة من جلسة مالك */
         cacheProfile(userId, finalized);
         if (persistLocal) {
@@ -268,7 +268,7 @@ export const ProfileDB = {
         userId: string,
         profile: LawyerProfileData,
         writerId: string,
-    ): Promise<{ cloudSynced: boolean; localPersisted: boolean }> {
+    ): Promise<{ cloudSynced: boolean; localPersisted: boolean; profile: LawyerProfileData }> {
         assertCanWriteProfile(writerId, userId);
         const cleaned = sanitizeLawyerProfile(profile);
         const localPersisted = await saveLocalProfile(userId, cleaned);
@@ -278,12 +278,12 @@ export const ProfileDB = {
         }
         try {
             await lawyerCloudKv.set(`profile:${userId}`, cleaned);
-            return { cloudSynced: true, localPersisted };
+            return { cloudSynced: true, localPersisted, profile: cleaned };
         } catch {
             if (!localPersisted) {
                 throw new Error('profile-persist-failed');
             }
-            return { cloudSynced: false, localPersisted };
+            return { cloudSynced: false, localPersisted, profile: cleaned };
         }
     },
 };

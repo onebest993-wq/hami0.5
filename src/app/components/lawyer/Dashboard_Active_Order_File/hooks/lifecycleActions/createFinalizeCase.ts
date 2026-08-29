@@ -39,7 +39,7 @@ export function createFinalizeCase(ctx: UseOrderFileLifecycleActionsArgs) {
     };
     void persistPatch(patch);
     onCaseUpdated?.(caseId, patch);
-    setCaseData((prev: any) => ({ ...(prev || {}), ...patch }));
+    setCaseData((prev) => ({ ...(prev || {}), ...patch }));
     appendCaseEvent(
         reason === 'no_grievance'
             ? 'اكتسبت الإضبارة الدرجة القطعية لعدم تقديم تظلم'

@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreVertical } from '@/app/components/ui/lucideIcons';
+import { MoreVertical } from '@/app/components/ui/icons/MoreVertical';
 
 const MENU_MIN_W = 176;
 const PORTAL_Z = 25000;

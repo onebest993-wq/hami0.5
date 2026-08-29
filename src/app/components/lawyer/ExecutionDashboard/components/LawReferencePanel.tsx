@@ -1,19 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { ExecutionLawReferencePanel } from '@/app/components/lawyer/execution/ExecutionLawReferencePanel';
-import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { EXEC_MODAL_Z } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
+import { EXEC_MODAL_CLOSE_BTN_CLASS } from '@/app/components/lawyer/ExecutionDashboard/executionModalMobileShell';
+import { useExecutionOverlayDismiss } from '@/app/components/lawyer/ExecutionDashboard/useExecutionOverlayDismiss';
 import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 
 const LAW_REFERENCE_MODAL_KEY = 'showLawReferencePanel' as const;
 
 export interface LawReferencePanelProps {
-    /** @deprecated الحالة من Zustand — يُتجاهل */
-    isLawReferenceOpen?: boolean;
-    /** @deprecated استخدم closeModal في المتجر */
-    setIsLawReferenceOpen?: (v: boolean) => void;
-    EXEC_MODAL_Z?: Record<string, number>;
     isEvictionExecutionModule?: boolean;
     executionData?: Record<string, unknown> | null | undefined;
     viewExecutionData?: Record<string, unknown> | null | undefined;
@@ -23,12 +20,10 @@ export const LawReferencePanel: React.FC<LawReferencePanelProps> = ({
     isEvictionExecutionModule = false,
     executionData,
     viewExecutionData,
-    EXEC_MODAL_Z: execModalZProp,
 }) => {
     const isOpen = useExecutionDashboardStore((s) => s.modals.showLawReferencePanel);
     const closeModal = useExecutionDashboardStore((s) => s.closeModal);
     const executionTypeFromStore = useExecutionDashboardStore((s) => s.currentFile?.executionType);
-    const [articlesReady, setArticlesReady] = useState(false);
 
     const resolvedExecutionData = executionData ?? viewExecutionData;
     const executionType = isEvictionExecutionModule
@@ -38,38 +33,20 @@ export const LawReferencePanel: React.FC<LawReferencePanelProps> = ({
           ).trim();
 
     const handleClose = useCallback(() => {
-        setArticlesReady(false);
         closeModal(LAW_REFERENCE_MODAL_KEY);
     }, [closeModal]);
 
     useBodyScrollLock(isOpen);
-
-    useEffect(() => {
-        if (!isOpen) {
-            setArticlesReady(false);
-            return;
-        }
-        const frameId = requestAnimationFrame(() => setArticlesReady(true));
-        return () => cancelAnimationFrame(frameId);
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') handleClose();
-        };
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, [isOpen, handleClose]);
+    useExecutionOverlayDismiss(isOpen, handleClose);
 
     if (!isOpen || typeof document === 'undefined') return null;
 
-    const z = execModalZProp?.lawReferencePanel ?? EXEC_MODAL_Z.lawReferencePanel ?? 100;
+    const z = EXEC_MODAL_Z.lawReferencePanel;
 
     return createPortal(
         <div
             role="presentation"
-            className="fixed inset-0 flex flex-col bg-[#05060D]/82 backdrop-blur-md"
+            className="fixed inset-0 flex flex-col bg-[#05060D]/92"
             style={{ zIndex: z }}
             onClick={(e) => {
                 if (e.target === e.currentTarget) handleClose();
@@ -91,7 +68,7 @@ export const LawReferencePanel: React.FC<LawReferencePanelProps> = ({
                             e.preventDefault();
                             handleClose();
                         }}
-                        className="touch-manipulation rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+                        className={`${EXEC_MODAL_CLOSE_BTN_CLASS} text-slate-400 hover:bg-white/10 hover:text-white`}
                         aria-label="إغلاق"
                         data-testid="execution-law-reference-close"
                     >
@@ -109,13 +86,7 @@ export const LawReferencePanel: React.FC<LawReferencePanelProps> = ({
                     <span className="w-10 shrink-0" aria-hidden />
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                    {articlesReady ? (
-                        <ExecutionLawReferencePanel executionType={executionType} />
-                    ) : (
-                        <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-8">
-                            <p className="text-sm text-slate-500">جاري تجهيز المرجع القانوني…</p>
-                        </div>
-                    )}
+                    <ExecutionLawReferencePanel executionType={executionType} />
                 </div>
             </div>
         </div>,

@@ -28,13 +28,16 @@ describe('أقسام محلية: شبكة للمزامنة/الحفظ السحا
         expect(calendar).not.toContain('/api/comms-dispatcher');
     });
 
-    it('المعاملات تحفظ عبر kv-proxy لا المنتدى', () => {
+    it('المعاملات تحفظ عبر kv-proxy لا المنتدى — وplaintext محلي', () => {
         const tx = read('src/app/services/cloud/lawyerTransactionsCloud.ts');
         expect(tx).toContain('lawyerCloudKv');
         expect(tx).toContain('transactionsThreading:');
         expect(tx).toContain('isLawyerWorkCloudLive');
         expect(tx).not.toContain('/api/forum/');
         expect(tx).not.toContain('/api/task-help');
+        expect(tx).not.toContain('CryptoService');
+        const keys = read('src/app/services/secureStorageKeys.ts');
+        expect(keys).toContain('isTransactionsLocalPlaintextKey');
     });
 
     it('التنفيذ يزامن الإضابير عبر BFF الملفات لا المنتدى', () => {
@@ -133,6 +136,27 @@ describe('أقسام محلية: شبكة للمزامنة/الحفظ السحا
             'src/app/components/lawyer/criminal-system/legalCodes/legalCodesDataCache.ts',
         );
         expect(legalCodes).toContain('canReachPublishedLawCatalog');
+        const checkpoint = read('src/app/services/cloud/workCloudCheckpoint.ts');
+        expect(checkpoint).toContain('/api/work-checkpoints');
+        expect(checkpoint).toContain('isLawyerWorkCloudLive');
+        const checkpointRoute = read('src/app/api/work-checkpoints/route.ts');
+        expect(checkpointRoute).toContain('requireWifeCloudWrite');
+        expect(checkpointRoute).toContain('isPostgresUuidSubject');
+        const supabaseWrites = read('src/app/services/SupabaseService.ts');
+        expect(supabaseWrites).toContain('scheduleWorkCheckpointAfterCloudWrite');
+        const runAll = read('src/app/services/cloudSync/runCloudSyncAllNow.ts');
+        expect(runAll).toContain('pushWorkCloudCheckpointNow');
+        const wipeCloud = read('src/app/api/settings/wipe/wipeAuthenticatedUserCloud.ts');
+        expect(wipeCloud).toContain('lawyer_work_checkpoints');
+        const redTeam = read('src/app/security/__tests__/wifeRedTeamHelpers.ts');
+        expect(redTeam).toContain("path: '/api/work-checkpoints'");
+        const wipeSqlFiles = fs
+            .readdirSync(path.join(root, 'supabase/migrations'))
+            .filter((f) => f.includes('wipe_user_application_data_work_checkpoints'));
+        expect(wipeSqlFiles.length).toBeGreaterThan(0);
+        expect(read(`supabase/migrations/${wipeSqlFiles[0]}`)).toContain(
+            'DELETE FROM public.lawyer_work_checkpoints',
+        );
     });
 
     it('الإشعارات والمنتدى لهما شبكة صريحة بلا مراسلات', () => {
@@ -174,5 +198,83 @@ describe('أقسام محلية: شبكة للمزامنة/الحفظ السحا
         expect(hqUsers).not.toContain('toggleStatus');
         const hqUserRow = read('src/app/components/admin/HeadquartersUserRow.tsx');
         expect(hqUserRow).toContain('HQ_FREEZE_DURATION_OPTIONS');
+    });
+
+    it('التشفير المحلي لا ينتظر فك الجزائي/المنتدى ولا شبكة على مسار الدعاوى والتقويم', () => {
+        const secure = read('src/app/services/SecureStoreService.ts');
+        const getItem = secure.slice(
+            secure.indexOf('static async getItem('),
+            secure.indexOf('static async deleteItem('),
+        );
+        expect(getItem).toContain('ensureWebInfrastructureReady');
+        expect(getItem).not.toContain('ensurePersistedReady');
+        expect(getItem).not.toContain('/api/');
+        expect(getItem).not.toContain('fetch(');
+
+        const lawsuitReady = secure.slice(
+            secure.indexOf('static async ensureLawsuitKeysReady'),
+            secure.indexOf('static async ensureExecutionIndexReady'),
+        );
+        expect(lawsuitReady).toContain('LAWSUIT_SEGMENT_WARM_KEYS');
+        expect(lawsuitReady).not.toContain('hami:lawsuit:dossier-tombstones:v1');
+        expect(lawsuitReady).not.toContain('PROTECTED_WARM_KEYS');
+        expect(lawsuitReady).not.toContain('hami:criminal:store');
+
+        const keys = read('src/app/services/dossierPersistence/dossierStorageKeys.ts');
+        expect(keys).toContain('EXECUTION_INDEX_WARM_KEYS');
+        expect(keys).not.toMatch(
+            /EXECUTION_INDEX_WARM_KEYS = \[[\s\S]*hami:execution:dossier-tombstones:v1/,
+        );
+
+        const execReady = secure.slice(
+            secure.indexOf('static async ensureExecutionIndexReady'),
+            secure.indexOf('static async ensureKeysReady'),
+        );
+        expect(execReady).toContain('warmPersistedKeys(EXECUTION_INDEX_WARM_KEYS)');
+        expect(execReady).not.toContain('warmPersistedKeys(PROTECTED_WARM_KEYS)');
+        expect(execReady).not.toContain('hami:criminal:store');
+
+        const dossier = read('src/app/services/dossierPersistence/dossierPersistenceService.ts');
+        expect(dossier).toContain('ensureLawsuitKeysReady');
+        expect(dossier).toContain('ensureExecutionIndexReady');
+        expect(dossier).toContain('isLawyerWorkCloudLive');
+        const loadAsync = dossier.slice(
+            dossier.indexOf('export async function loadDossierCollectionAsync'),
+            dossier.indexOf('export type PersistDossierOptions'),
+        );
+        expect(loadAsync).not.toContain('ensurePersistedReady');
+
+        const repo = read('src/app/infrastructure/persistence/LocalStorageRepository.ts');
+        const loadAsyncRepo = repo.slice(
+            repo.indexOf('public async loadAsync'),
+            repo.indexOf('public remove('),
+        );
+        expect(loadAsyncRepo).not.toContain('ensurePersistedReady');
+        expect(loadAsyncRepo).toContain('getItem(key)');
+
+        const engine = read('src/app/services/cloudSyncEngine.ts');
+        expect(engine).toContain('ensureLawsuitDossierTombstonesReadable');
+        expect(engine).toContain('ensureExecutionDossierTombstonesReadable');
+
+        const execWarm = read('src/app/runtime/executionWorkspaceWarm.ts');
+        expect(execWarm).toContain('ensureExecutionIndexReady');
+        expect(execWarm).not.toContain('ensurePersistedReady');
+
+        const notes = read('src/app/hooks/useLawyerGlobalNotes.ts');
+        expect(notes).toContain('ensureKeysReady');
+        expect(notes).not.toContain('ensurePersistedReady');
+
+        const calendar = read('src/app/services/cloud/lawyerCalendarCloud.ts');
+        expect(calendar).not.toContain('ensurePersistedReady');
+        expect(calendar).toContain('isLawyerWorkCloudLive()');
+        expect(calendar).toContain('setItemSync(CALENDAR_LOCAL_KEY');
+
+        const recovery = read('src/app/domain/lawsuit/lawsuitWorkspaceRecovery.ts');
+        expect(recovery).toContain('readSecureOrDrainLegacySync');
+        expect(recovery).toContain('fullPersistReady === true');
+
+        const shareStore = read('src/app/services/caseShare/caseShareLocalStore.ts');
+        expect(shareStore).not.toContain('ensurePersistedReady');
+        expect(shareStore).toContain('getItem(CASE_SHARE_LOCAL_KEY)');
     });
 });

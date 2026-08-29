@@ -1,4 +1,5 @@
 import React, { memo, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { NotificationPanelHost } from '@/app/components/lawyer/NotificationPanel/NotificationPanelHost';
 import { IncomingNotificationPopups } from '@/app/components/lawyer/NotificationPanel/components/IncomingNotificationPopups';
 import { useIncomingNotificationPopups } from '@/app/hooks/lawyerDashboard/useIncomingNotificationPopups';
@@ -13,7 +14,6 @@ export type NotificationShellProps = {
     isOpen: boolean;
     /** Host مركّب للتسخين/المنبثقات حتى لو اللوحة مغلقة */
     hostMounted?: boolean;
-    panelSessionKey: number;
     userId: string;
     onClose: () => void;
     onNavigate: (path: string, payload: Record<string, unknown>) => void;
@@ -23,17 +23,17 @@ export type NotificationShellProps = {
 function NotificationShellInner({
     isOpen,
     hostMounted = true,
-    panelSessionKey,
     userId,
     onClose,
     onNavigate,
     onOpenPanel,
 }: NotificationShellProps) {
-    const shellEnabled = Boolean(userId) && (hostMounted || isOpen);
+    const popupsEnabled = Boolean(userId);
+    const panelEnabled = popupsEnabled && (hostMounted || isOpen);
     const { queue, dismiss } = useIncomingNotificationPopups({
         userId,
         isPanelOpen: isOpen,
-        enabled: shellEnabled,
+        enabled: popupsEnabled,
     });
 
     const hasLocalCache = useNotificationStore((s) => s.notifications.length > 0);
@@ -47,40 +47,42 @@ function NotificationShellInner({
 
     const handlePopupOpen = (id: string) => {
         dismiss(id);
+        void import('@/app/services/notifications/notificationPanelFocus').then((m) => {
+            m.stashNotificationPanelFocusId(id);
+        });
         onOpenPanel();
     };
 
-    if (!shellEnabled && queue.length === 0) {
-        return null;
-    }
+    const layer = panelEnabled ? (
+        <div
+            data-notification-root=""
+            data-hami-notification-shell=""
+            data-hami-overlay-safe={isOpen ? '1' : undefined}
+            data-open={isOpen ? 'true' : 'false'}
+            className={
+                isOpen
+                    ? 'hami-notif-layer hami-notif-layer--visible'
+                    : 'hami-notif-layer'
+            }
+            aria-hidden={!isOpen}
+            {...inertProps(!isOpen)}
+        >
+            <NotificationPanelHost
+                keepAlive={hostMounted}
+                isOpen={isOpen}
+                onClose={onClose}
+                userId={userId}
+                onNavigate={onNavigate}
+            />
+        </div>
+    ) : null;
 
     return (
         <>
-            <div
-                data-notification-root=""
-                data-hami-notification-shell=""
-                data-open={isOpen ? 'true' : 'false'}
-                className={
-                    isOpen
-                        ? 'hami-notif-layer hami-notif-layer--visible'
-                        : 'hami-notif-layer'
-                }
-                aria-hidden={!isOpen}
-                {...inertProps(!isOpen)}
-            >
-                {userId && (hostMounted || isOpen) ? (
-                    <NotificationPanelHost
-                        key={`notification-panel-${panelSessionKey}`}
-                        keepAlive={hostMounted}
-                        isOpen={isOpen}
-                        panelSessionKey={panelSessionKey}
-                        onClose={onClose}
-                        userId={userId}
-                        onNavigate={onNavigate}
-                    />
-                ) : null}
-            </div>
-            <IncomingNotificationPopups items={queue} onDismiss={dismiss} onOpen={handlePopupOpen} />
+            {layer && typeof document !== 'undefined' ? createPortal(layer, document.body) : layer}
+            {popupsEnabled ? (
+                <IncomingNotificationPopups items={queue} onDismiss={dismiss} onOpen={handlePopupOpen} />
+            ) : null}
         </>
     );
 }

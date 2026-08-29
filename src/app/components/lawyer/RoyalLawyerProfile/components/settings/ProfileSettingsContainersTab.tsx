@@ -1,12 +1,13 @@
 import React, { useMemo } from 'react';
-import { ChevronDown, Image as ImageIcon, Trash2, Type } from '@/app/components/ui/lucideIcons';
+import { Image as ImageIcon } from '@/app/components/ui/icons/Image';
+import { Type } from '@/app/components/ui/icons/Type';
 import type { ProfileCustomBlock } from '@/app/services/profile/profilePageCustomization';
 import type { ContainerKindTab } from '../../hooks/useProfileSettingsSheetState';
 import {
     prefetchProfileStudioEditor,
     useProfileStudioEditorChunk,
 } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileStudioEditorChunk';
-import { ProfileSettingsTabSkeleton } from './ProfileSettingsTabSkeleton';
+import { ProfileSettingsBlockCard } from './ProfileSettingsBlockCard';
 
 type ProfileSettingsContainersTabProps = {
     containerKind: ContainerKindTab;
@@ -58,115 +59,24 @@ export function ProfileSettingsContainersTab({
         ImageBlockStudioEditor,
     } = useProfileStudioEditorChunk(expandedEditorKind, Boolean(expandedBlockId));
 
-    const renderContainerBlock = (block: ProfileCustomBlock, blockIndex: number, isText: boolean) => {
-        const isOpen = expandedBlockId === block.id;
-        const previewText = isText
-            ? block.body?.trim().split('\n')[0] || 'نص فارغ — اضغط للتحرير'
-            : block.imageUrl
-              ? 'صورة جاهزة'
-              : 'ارفع صورة';
-
-        return (
-            <div key={block.id} className="profile-settings-block-card">
-                <div className="profile-settings-block-head" data-open={isOpen ? 'true' : 'false'}>
-                    <button
-                        type="button"
-                        data-testid={`profile-block-expand-${block.id}`}
-                        className="flex flex-1 items-center gap-2 min-w-0 text-right min-h-[44px]"
-                        onPointerEnter={() => prefetchProfileStudioEditor(isText ? 'text' : 'image')}
-                        onFocus={() => prefetchProfileStudioEditor(isText ? 'text' : 'image')}
-                        onClick={() => setExpandedBlockId(isOpen ? null : block.id)}
-                    >
-                        <span className="profile-settings-block-kind">
-                            {isText ? (
-                                <>
-                                    <Type size={11} />
-                                    نص
-                                </>
-                            ) : (
-                                <>
-                                    <ImageIcon size={11} />
-                                    صورة
-                                </>
-                            )}
-                        </span>
-                        <span className="profile-settings-block-preview-text">
-                            #{blockIndex + 1} · {previewText}
-                        </span>
-                        <ChevronDown
-                            size={14}
-                            className={`shrink-0 text-white/35 transition-transform ${
-                                isOpen ? 'rotate-180' : ''
-                            }`}
-                        />
-                    </button>
-                    <button
-                        type="button"
-                        data-testid={`profile-block-remove-${block.id}`}
-                        disabled={
-                            saving ||
-                            uploadingBlockId === block.id ||
-                            uploadingCanvasBlockId === block.id
-                        }
-                        onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            if (
-                                saving ||
-                                uploadingBlockId === block.id ||
-                                uploadingCanvasBlockId === block.id
-                            ) {
-                                return;
-                            }
-                            onRemoveBlock(block.id);
-                        }}
-                        className="p-2 text-red-400 rounded-lg hover:bg-red-500/10 shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation disabled:opacity-40 disabled:pointer-events-none"
-                        aria-label="حذف الحاوية"
-                    >
-                        <Trash2 size={14} />
-                    </button>
-                </div>
-
-                {isOpen ? (
-                    <div className="profile-settings-block-body" data-testid={`profile-block-body-${block.id}`}>
-                        {isText ? (
-                            editorReady && TextBlockStudioEditor ? (
-                                <TextBlockStudioEditor
-                                    block={block}
-                                    onChange={(patch) => onUpdateBlock(block.id, patch)}
-                                    uploadingCanvasBg={uploadingCanvasBlockId === block.id}
-                                    saving={saving}
-                                    onUploadCanvasBg={() => onUploadCanvasBg(block.id)}
-                                    onClearCanvasBg={
-                                        onClearCanvasBg ? () => onClearCanvasBg(block.id) : undefined
-                                    }
-                                />
-                            ) : (
-                                <ProfileSettingsTabSkeleton />
-                            )
-                        ) : editorReady && ImageBlockStudioEditor ? (
-                            <ImageBlockStudioEditor
-                                block={block}
-                                uploading={uploadingBlockId === block.id}
-                                saving={saving}
-                                onChange={(patch) => onUpdateBlock(block.id, patch)}
-                                onPickImage={() => onPickBlockImage(block.id)}
-                                onClearImage={
-                                    onClearBlockImage ? () => onClearBlockImage(block.id) : undefined
-                                }
-                            />
-                        ) : (
-                            <ProfileSettingsTabSkeleton />
-                        )}
-                    </div>
-                ) : null}
-            </div>
-        );
+    const blockCardShared = {
+        saving,
+        uploadingBlockId,
+        uploadingCanvasBlockId,
+        editorReady,
+        TextBlockStudioEditor,
+        ImageBlockStudioEditor,
+        onUpdateBlock,
+        onRemoveBlock,
+        onPickBlockImage,
+        onUploadCanvasBg,
+        onClearBlockImage,
+        onClearCanvasBg,
     };
 
     return (
         <div className="space-y-3 pb-2" data-testid="profile-settings-containers-tab">
-            <div className="profile-settings-container-tabs">
+            <div className="profile-settings-luxury-card p-1 profile-settings-container-tabs">
                 <button
                     type="button"
                     data-active={containerKind === 'text' ? 'true' : 'false'}
@@ -206,47 +116,65 @@ export function ProfileSettingsContainersTab({
             <section className="profile-settings-containers-section" data-flat="true">
                 {containerKind === 'text' ? (
                     <>
-                        <div className="profile-settings-containers-section-title">
-                            <h4>نصوص حرة</h4>
-                        </div>
                         <button
                             type="button"
                             onClick={() => onAddBlock('text')}
-                            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-dashed hami-profile-accent-btn text-xs font-bold mb-3 min-h-[44px]"
+                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed hami-profile-accent-btn text-xs font-bold mb-2 min-h-[44px]"
                         >
                             <Type size={14} />
                             إضافة نص حر
                         </button>
                         {textBlocks.length === 0 ? (
-                            <p className="profile-settings-containers-empty">
-                                لا توجد نصوص — أضف نصاً حراً من الزر أعلاه.
-                            </p>
+                            <p className="profile-settings-containers-empty">لا توجد نصوص بعد.</p>
                         ) : (
                             <div className="space-y-2">
-                                {textBlocks.map((block, index) => renderContainerBlock(block, index, true))}
+                                {textBlocks.map((block, index) => (
+                                    <ProfileSettingsBlockCard
+                                        key={block.id}
+                                        block={block}
+                                        blockIndex={index}
+                                        isText
+                                        isOpen={expandedBlockId === block.id}
+                                        onToggle={() =>
+                                            setExpandedBlockId(
+                                                expandedBlockId === block.id ? null : block.id,
+                                            )
+                                        }
+                                        {...blockCardShared}
+                                    />
+                                ))}
                             </div>
                         )}
                     </>
                 ) : (
                     <>
-                        <div className="profile-settings-containers-section-title">
-                            <h4>صور مخصصة</h4>
-                        </div>
                         <button
                             type="button"
                             onClick={() => onAddBlock('image')}
-                            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-dashed hami-profile-accent-btn text-xs font-bold mb-3 min-h-[44px]"
+                            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed hami-profile-accent-btn text-xs font-bold mb-2 min-h-[44px]"
                         >
                             <ImageIcon size={14} />
                             إضافة صورة
                         </button>
                         {imageBlocks.length === 0 ? (
-                            <p className="profile-settings-containers-empty">
-                                لا توجد صور — أضف حاوية صورة من الزر أعلاه.
-                            </p>
+                            <p className="profile-settings-containers-empty">لا توجد صور بعد.</p>
                         ) : (
                             <div className="space-y-2">
-                                {imageBlocks.map((block, index) => renderContainerBlock(block, index, false))}
+                                {imageBlocks.map((block, index) => (
+                                    <ProfileSettingsBlockCard
+                                        key={block.id}
+                                        block={block}
+                                        blockIndex={index}
+                                        isText={false}
+                                        isOpen={expandedBlockId === block.id}
+                                        onToggle={() =>
+                                            setExpandedBlockId(
+                                                expandedBlockId === block.id ? null : block.id,
+                                            )
+                                        }
+                                        {...blockCardShared}
+                                    />
+                                ))}
                             </div>
                         )}
                     </>

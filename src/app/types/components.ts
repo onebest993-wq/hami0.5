@@ -26,6 +26,8 @@ export type LawyerNewCaseStructuredSave = {
     thirdParties?: unknown[];
     isUndeterminedValue?: boolean;
     isFixedFee?: boolean;
+    /** أحوال شخصية — القانون الواجب التطبيق */
+    applicableLaw?: string;
     details: Record<string, unknown>;
     incidentalSpawnMeta?: {
         filingPartyId?: string;
@@ -38,7 +40,7 @@ export type LawyerNewCaseStructuredSave = {
 export type LawyerNewCaseSavePayload = CaseFormData | LawyerNewCaseStructuredSave;
 
 export interface LawyerNewCaseProps extends ModalProps {
-    onSave: (caseData: LawyerNewCaseSavePayload) => void;
+    onSave: (caseData: LawyerNewCaseSavePayload) => void | boolean | Promise<void | boolean>;
     initialData?: Partial<CaseFormData>;
     onOpenCriminalDashboard?: (caseId: string) => void;
     /**

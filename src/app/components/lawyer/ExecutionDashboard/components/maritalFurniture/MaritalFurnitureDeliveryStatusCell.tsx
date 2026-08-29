@@ -1,4 +1,6 @@
-import { CheckCircle, Truck, XCircle } from '@/app/components/ui/lucideIcons';
+import { CheckCircle } from '@/app/components/ui/icons/CheckCircle';
+import { Truck } from '@/app/components/ui/icons/Truck';
+import { XCircle } from '@/app/components/ui/icons/XCircle';
 import type { MaritalFurnitureItem } from '@/app/types/maritalFurniture';
 import { resolveMaritalFurnitureDeliveryOutcome } from '@/app/utils/maritalFurniture';
 

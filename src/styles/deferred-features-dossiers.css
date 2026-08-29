@@ -1,0 +1,7 @@
+/**
+ * تجميع توافق (deferred-features.css / مسارات قديمة) —
+ * المسار التشغيلي يحمّل الأوراق المنفصلة حسب النية.
+ */
+@import './deferred-features-dossiers-execution.css';
+@import './deferred-features-dossiers-criminal.css';
+@import './deferred-features-dossiers-smart.css';

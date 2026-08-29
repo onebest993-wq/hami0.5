@@ -6,6 +6,7 @@ import {
 } from '@/app/hooks/lawyerDashboard/useLawyerDashboardSettings';
 import { HAMI_DISMISS_OVERLAYS_EVENT } from '@/app/utils/bodyScrollLock';
 import { resetDashboardInteractiveForTests } from '@/app/bootstrap/bootMetrics';
+import { resetLawyerDashboardBootCycleForTests } from '@/app/bootstrap/lawyerDashboardBootCycle';
 import { LAWYER_SETTINGS_OPEN_KEY } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 
 vi.mock('@/app/components/ui/SmartToast', () => ({
@@ -39,6 +40,7 @@ vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
 
 vi.mock('@/app/runtime/settingsOverlayEntryLoader', () => ({
     prefetchSettingsOverlayEntry: vi.fn(),
+    loadSettingsOverlayEntry: vi.fn(() => Promise.resolve({})),
 }));
 
 vi.mock('@/app/hooks/lawyerDashboard/settingsIntentWarm', () => ({
@@ -58,6 +60,7 @@ describe('useLawyerDashboardSettings', () => {
         vi.clearAllMocks();
         resetSettingsOpenWarmForTests();
         resetDashboardInteractiveForTests();
+        resetLawyerDashboardBootCycleForTests();
         try {
             sessionStorage.removeItem(LAWYER_SETTINGS_OPEN_KEY);
         } catch {
@@ -71,12 +74,16 @@ describe('useLawyerDashboardSettings', () => {
     async function flushOpenFrame() {
         await act(async () => {
             await new Promise<void>((resolve) => {
-                setTimeout(resolve, 0);
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        setTimeout(resolve, 0);
+                    });
+                });
             });
         });
     }
 
-    it('primeSettingsShellMount يركّب host بلا flushSync — يُدمج مع flushSync الفتح', async () => {
+    it('primeSettingsShellMount يركّب host عبر setState بلا flushSync', async () => {
         const { result } = renderHook(() => useLawyerDashboardSettings('lawyer-1'));
         act(() => {
             result.current.primeSettingsShellMount();
@@ -85,6 +92,15 @@ describe('useLawyerDashboardSettings', () => {
         expect(result.current.showSettings).toBe(false);
         expect(result.current.settingsHostMounted).toBe(true);
         expect(warmSettingsOnHover).toHaveBeenCalled();
+    });
+
+    it('حدث SETTINGS_PRIME_HOST يركّب Host (لم يعد ميتاً)', async () => {
+        const { result } = renderHook(() => useLawyerDashboardSettings('lawyer-1'));
+        act(() => {
+            window.dispatchEvent(new Event('hami:settings-prime-host'));
+        });
+        await flushOpenFrame();
+        expect(result.current.settingsHostMounted).toBe(true);
     });
 
     it('بعد prime + conceal الطبقة لا يُبتلع فتح الترس (سباق pointerdown)', async () => {
@@ -183,7 +199,7 @@ describe('useLawyerDashboardSettings', () => {
         }
     });
 
-    it('يغلق الإعدادات عند dismiss-transient-overlays', () => {
+    it('يغلق الإعدادات عند dismiss-transient-overlays', async () => {
         const { result } = renderHook(() => useLawyerDashboardSettings('lawyer-1'));
 
         act(() => {
@@ -194,14 +210,37 @@ describe('useLawyerDashboardSettings', () => {
             window.dispatchEvent(new CustomEvent(HAMI_DISMISS_OVERLAYS_EVENT, { detail: { except: 'vault' } }));
         });
 
+        await flushOpenFrame();
         expect(result.current.showSettings).toBe(false);
+    });
+
+    it('resetSettingsShell يزيد المفتاح مرة واحدة فقط لكل جلسة فتح', () => {
+        const { result } = renderHook(() => useLawyerDashboardSettings('lawyer-1'));
+
+        act(() => {
+            result.current.setShowSettings(true);
+            result.current.resetSettingsShell();
+            result.current.resetSettingsShell();
+        });
+
+        expect(result.current.settingsSessionKey).toBe(1);
+
+        act(() => {
+            result.current.setShowSettings(false);
+        });
+        act(() => {
+            result.current.setShowSettings(true);
+            result.current.resetSettingsShell();
+        });
+
+        expect(result.current.settingsSessionKey).toBe(2);
     });
 
     it('يغلق ويمسح host عند غياب هوية حقيقية', async () => {
         const { clearSettingsReopenSuppress } = await import('@/app/runtime/settingsInstantPaint');
         clearSettingsReopenSuppress();
         const shellAuth = await import('@/app/services/auth/shellAuth');
-        const spy = vi.spyOn(shellAuth, 'isRealSignedIn').mockImplementation((id) => Boolean(id?.trim()));
+        const spy = vi.spyOn(shellAuth, 'hasLocalAppSession').mockImplementation((id) => Boolean(id?.trim()));
 
         try {
             const { result, rerender } = renderHook(

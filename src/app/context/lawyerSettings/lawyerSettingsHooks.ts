@@ -1,14 +1,6 @@
-import { useContext, useMemo, type Context, type Dispatch, type SetStateAction } from 'react';
-import {
-    applySettingsToDom,
-    shouldAllowPush,
-    shouldAllowPushFromSecurity,
-} from '@/app/services/settings/apply';
-import {
-    getLawyerSettingsSnapshot,
-    invalidateLawyerSettingsCache,
-} from '@/app/services/settings/settingsSnapshot';
-import { LAWYER_SETTINGS_V2_DEFAULTS } from '@/app/services/settings/defaults';
+import { useContext, useMemo } from 'react';
+import { shouldAllowPushFromSecurity } from '@/app/services/settings/pushPolicy';
+import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
 import { SETTINGS_SCHEMA_VERSION } from '@/app/services/settings/types';
 import type {
     AppSettingsState,
@@ -27,53 +19,20 @@ import {
     LawyerSettingsPerformanceContext,
     LawyerSettingsSecurityContext,
 } from './lawyerSettingsContexts';
-import type { LawyerSettingsActionsValue, LawyerSettingsContextValue } from './lawyerSettingsTypes';
-
-const noop = () => undefined;
-
-function isDevSettingsFallbackAllowed(): boolean {
-    return import.meta.env.DEV && typeof window !== 'undefined';
-}
-
-function useSettingsSliceContext<T>(
-    context: Context<T | null>,
-    hookName: string,
-    readSnapshot: () => T,
-): T {
-    const ctx = useContext(context);
-    if (ctx) return ctx;
-    if (isDevSettingsFallbackAllowed()) {
-        return readSnapshot();
-    }
-    throw new Error(`${hookName} must be used within LawyerSettingsProvider`);
-}
-
-let missingProviderWarned = false;
-
-function buildLawyerSettingsDevFallbackValue(): LawyerSettingsContextValue {
-    const snapshot = getLawyerSettingsSnapshot();
-    return {
-        settings: snapshot,
-        setSettings: noop as Dispatch<SetStateAction<AppSettingsState>>,
-        patchSettings: noop,
-        currentTheme: snapshot.appearance.theme,
-        currentShape: snapshot.appearance.shape,
-        setCurrentTheme: noop,
-        setCurrentShape: noop,
-        pushAllowed: shouldAllowPush(snapshot),
-        resetToDefaults: () => {
-            invalidateLawyerSettingsCache();
-            applySettingsToDom(LAWYER_SETTINGS_V2_DEFAULTS);
-        },
-    };
-}
+import type { LawyerSettingsActionsValue } from './lawyerSettingsTypes';
+import {
+    buildLawyerSettingsDevActionsFallback,
+    buildLawyerSettingsDevFallbackValue,
+    consumeMissingProviderWarning,
+    isDevSettingsFallbackAllowed,
+    useSettingsSliceContext,
+} from './lawyerSettingsDevFallback';
 
 export function useLawyerSettings() {
     const ctx = useContext(LawyerSettingsContext);
     if (ctx) return ctx;
     if (isDevSettingsFallbackAllowed()) {
-        if (!missingProviderWarned) {
-            missingProviderWarned = true;
+        if (consumeMissingProviderWarning()) {
             console.warn(
                 '[hami] useLawyerSettings outside LawyerSettingsProvider — dev snapshot fallback (HMR only)',
             );
@@ -157,16 +116,7 @@ export function useLawyerSettingsActions(): LawyerSettingsActionsValue {
     const ctx = useContext(LawyerSettingsActionsContext);
     if (ctx) return ctx;
     if (isDevSettingsFallbackAllowed()) {
-        return {
-            setSettings: noop as Dispatch<SetStateAction<AppSettingsState>>,
-            patchSettings: noop,
-            setCurrentTheme: noop,
-            setCurrentShape: noop,
-            resetToDefaults: () => {
-                invalidateLawyerSettingsCache();
-                applySettingsToDom(LAWYER_SETTINGS_V2_DEFAULTS);
-            },
-        };
+        return buildLawyerSettingsDevActionsFallback();
     }
     throw new Error('useLawyerSettingsActions must be used within LawyerSettingsProvider');
 }

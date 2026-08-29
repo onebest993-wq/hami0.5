@@ -30,7 +30,7 @@ export function useWorkspaceInsightsDerived(args: UseOrderFileLifecycleDerivedAr
 
     const archiveSummaryText = useMemo(() => {
         if (!isFinalized) return '';
-        const reason = String((caseData as any)?.finalityReason || (caseData as any)?.archivedReason || '').trim();
+        const reason = String(caseData?.finalityReason || caseData?.archivedReason || '').trim();
         if (reason === 'terminated_request') return 'إبطال الطلب وإغلاق الإضبارة';
         if (reason === 'iqrar_authenticated') return 'إقرار مؤرشف — تم إصدار حجة الإقرار والمصادقة';
         if (reason === 'cassation_decision') return 'انتهاء مرحلة التمييز وصدور القرار';

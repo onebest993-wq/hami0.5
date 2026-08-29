@@ -7,6 +7,7 @@ import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import { reportBootTimeline } from '@/app/bootstrap/bootMetrics';
 import { ensureSentryInitialized } from '@/app/observability/sentryClient';
 import { isSentryEnabledInBuild } from '@/app/observability/sentryBuildPolicy';
+import { clearBootFailureRecord, reportPendingBootFailure } from '@/app/observability/bootFailureBlackBox';
 
 function installSubmitGuard(): void {
     const w = window as unknown as { __hamiSubmitGuardInstalled?: boolean };
@@ -114,6 +115,20 @@ function initSentryDeferred(): void {
     void ensureSentryInitialized();
 }
 
+/**
+ * إقلاعٌ فاشل سبق هذا الإقلاع الناجح.
+ *
+ * السجل يُفرَّغ حتى مع تعطيل المراقبة: تركه يعني بلاغاً عن عطل قديم يُرسَل في
+ * أول مرة تُفعَّل فيها، منسوباً إلى بناء ليس هو الذي أنتجه.
+ */
+function drainBootFailureRecord(): void {
+    if (!isSentryEnabledInBuild()) {
+        clearBootFailureRecord();
+        return;
+    }
+    reportPendingBootFailure();
+}
+
 /** مهام ما بعد أول إطار — لا تُستدعى قبل ReactDOM.render */
 export function runDeferredBootTasks(): void {
     if (isCapacitorNativePlatform()) {
@@ -137,6 +152,7 @@ export function runDeferredBootTasks(): void {
         installIraqDateFormatPatch();
         installArabicDatePickersPatch();
         initSentryDeferred();
+        drainBootFailureRecord();
         scheduleDeferredGoogleFonts();
     };
 

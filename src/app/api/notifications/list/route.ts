@@ -1,4 +1,4 @@
-import { requireNotificationsAuth } from '../_auth.ts';
+import { NOTIFICATIONS_API_INTERNAL_ERROR, requireNotificationsAuth } from '../_auth.ts';
 import { wifeJsonResponse } from '../../security/wifeSecurityHeaders.ts';
 import { listNotificationsServer, getShellNotificationStorageMeta } from '@/app/services/notifications/notificationServerBlob';
 
@@ -17,8 +17,7 @@ export async function GET(request: Request): Promise<Response> {
         const storage = getShellNotificationStorageMeta();
 
         return wifeJsonResponse(200, { ok: true, notifications, unreadCount, storage });
-    } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Internal list error';
-        return wifeJsonResponse(500, { ok: false, error: msg });
+    } catch {
+        return wifeJsonResponse(500, { ok: false, error: NOTIFICATIONS_API_INTERNAL_ERROR });
     }
 }

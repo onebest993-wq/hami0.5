@@ -1,16 +1,16 @@
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { SecretaryAlert, SecretaryAlertTarget } from '@/app/services/SecretaryOrchestrator';
 import type { LegalTask } from '@/app/types/TaskEngine';
+import { EXECUTION_VISIT_NEXT_EVENT_ID } from '@/app/services/calendar/dossierSync/visitationCalendarSync';
 
 export type AlertNavigationAction =
     | { kind: 'tab'; tab: 'schedule' | 'community' | 'home' }
     | { kind: 'notepad'; noteId?: string }
-    | { kind: 'client_requests' }
     | { kind: 'transactions'; entityId?: string }
     | { kind: 'threading_tx'; entityId: string }
     | { kind: 'urgent_dashboard'; entityId?: string }
     | { kind: 'open_lawsuit'; entityId: string }
-    | { kind: 'open_execution'; entityId: string }
+    | { kind: 'open_execution'; entityId: string; openVisitationWorkspace?: boolean }
     | { kind: 'open_criminal'; entityId: string }
     | { kind: 'open_field_tasks' }
     | { kind: 'noop' };
@@ -27,7 +27,11 @@ function resolveFromCalendarSource(alert: SecretaryAlert): AlertNavigationAction
         case 'lawsuit':
             return { kind: 'open_lawsuit', entityId: cs.dossierId };
         case 'execution':
-            return { kind: 'open_execution', entityId: cs.dossierId };
+            return {
+                kind: 'open_execution',
+                entityId: cs.dossierId,
+                openVisitationWorkspace: cs.eventId === EXECUTION_VISIT_NEXT_EVENT_ID,
+            };
         case 'criminal':
             return { kind: 'open_criminal', entityId: cs.dossierId };
         case 'urgent':
@@ -73,10 +77,6 @@ export function resolveAlertNavigation(
     alert: SecretaryAlert,
     ctx?: AlertNavigationContext,
 ): AlertNavigationAction {
-    if (alert.type === 'REQUEST' && alert.request) {
-        return { kind: 'client_requests' };
-    }
-
     const fromCalendar = resolveFromCalendarSource(alert);
     if (fromCalendar) return fromCalendar;
 
@@ -94,8 +94,6 @@ export function resolveAlertNavigation(
                 kind: 'notepad',
                 noteId: alert.entityId ? String(alert.entityId) : undefined,
             };
-        case 'client_requests':
-            return { kind: 'client_requests' };
         case 'transactions':
             return alert.entityId
                 ? { kind: 'transactions', entityId: String(alert.entityId) }
@@ -114,7 +112,12 @@ export function resolveAlertNavigation(
             return alert.entityId ? { kind: 'open_lawsuit', entityId: String(alert.entityId) } : { kind: 'noop' };
         case 'execution':
             return alert.entityId
-                ? { kind: 'open_execution', entityId: String(alert.entityId) }
+                ? {
+                      kind: 'open_execution',
+                      entityId: String(alert.entityId),
+                      openVisitationWorkspace:
+                          alert.calendarSource?.eventId === EXECUTION_VISIT_NEXT_EVENT_ID,
+                  }
                 : { kind: 'noop' };
         case 'criminal':
             return alert.entityId ? { kind: 'open_criminal', entityId: String(alert.entityId) } : { kind: 'noop' };

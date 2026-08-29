@@ -28,6 +28,13 @@ export function formatCalendarReminderChip(minutes: number): string {
     return `${minutes}د`;
 }
 
+export function formatCalendarReminderSnoozeLabel(minutes: number): string {
+    if (minutes === 1) return 'دقيقة واحدة';
+    if (minutes === 2) return 'دقيقتان';
+    if (minutes >= 3 && minutes <= 10) return `${minutes} دقائق`;
+    return `${minutes} دقيقة`;
+}
+
 export function buildCalendarReminderKey(
     eventId: string,
     date: string,

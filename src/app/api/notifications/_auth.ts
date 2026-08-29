@@ -1,5 +1,8 @@
 import { requireWifeUser, unwrapWifeUser } from '../security/bffAuth.ts';
 
+/** رسالة خطأ عامة — لا تُسرَّب err.message للعميل */
+export const NOTIFICATIONS_API_INTERNAL_ERROR = 'تعذّر تنفيذ الطلب';
+
 /** مصادقة موحّدة لمسارات /api/notifications/* */
 export async function requireNotificationsAuth(
     request: Request,

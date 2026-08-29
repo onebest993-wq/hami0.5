@@ -16,12 +16,11 @@ import { buildPhoneBodyDeferredScope } from './buildPhoneBodyDeferredScope';
 import { useExecutionDashboardPhoneBodyScope } from '../hooks/useExecutionDashboardPhoneBodyScope';
 import { useExecutionDashboardPhoneBodyNavigation } from '../hooks/useExecutionDashboardPhoneBodyNavigation';
 import { useExecutionDashboardPhoneBodyCustodyLabels } from '../hooks/useExecutionDashboardPhoneBodyCustodyLabels';
-import { ExecutionDashboardSparkNudgeBridge } from './ExecutionDashboardSparkNudgeBridge';
 import {
     prefetchCustodyRemovalWardsModule,
     prefetchMaritalFurnitureModule,
     prefetchVisitationScheduleModule,
-} from '../executionDashboardLazyRegistry';
+} from '../executionDashboardLazyRegistryShell';
 
 export type { ExecutionDashboardPhoneBodyProps };
 
@@ -37,8 +36,6 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
         onClose: body.onClose,
         showExecutionTrashModal: body.showExecutionTrashModal,
         setShowExecutionTrashModal: body.setShowExecutionTrashModal,
-        showVisitationCalendarModal: body.showVisitationCalendarModal,
-        setShowVisitationCalendarModal: body.setShowVisitationCalendarModal,
         showUnifiedSeizureLogModal: body.showUnifiedSeizureLogModal,
         closeUnifiedSeizureLog: body.closeUnifiedSeizureLog,
         propertySeizureRequestModalOpen: body.propertySeizureRequestModalOpen,
@@ -84,7 +81,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
 
     return (
         <div
-            className="bg-slate-900/95 w-full max-w-md h-full flex flex-col shadow-2xl border border-slate-700/30"
+            className="bg-[#0A0F1C] w-full max-w-md h-full flex flex-col border border-white/10"
             dir="rtl"
         >
             <ExecutionDashboardPhoneBodyHeader
@@ -111,13 +108,6 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                 trashedCaseNotes={body.safeTrashedCaseNotes}
                 trashedCaseTasks={body.safeTrashedCaseTasks}
                 setShowExecutionTrashModal={body.setShowExecutionTrashModal}
-                sparkNudgeSlot={
-                    <ExecutionDashboardSparkNudgeBridge
-                        scope={body.props}
-                        directOpenUnifiedSummonsHub={body.directOpenUnifiedSummonsHub}
-                        setDossierLifecyclePanelOpen={body.setDossierLifecyclePanelOpen}
-                    />
-                }
             />
 
             <ExecutionDashboardPhoneBodyDossierChrome

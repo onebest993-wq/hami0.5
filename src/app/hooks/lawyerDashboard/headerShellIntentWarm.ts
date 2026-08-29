@@ -1,5 +1,4 @@
-import { isRealSignedIn } from '@/app/services/auth/shellAuth';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
+﻿import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import {
     prefetchHamiSettingsModule,
@@ -19,7 +18,7 @@ function loadNotificationIntentWarm() {
 }
 
 function loadProfileIntentWarm() {
-    return import('@/app/hooks/lawyerDashboard/profileIntentWarm');
+    return import('@/app/runtime/profileShellPrime');
 }
 
 function loadSettingsIntentWarm() {
@@ -35,7 +34,7 @@ function loadProfileBootHydrator() {
 }
 
 function loadProfileHubLoader() {
-    return import('@/app/runtime/profileHubLoader');
+    return import('@/app/runtime/royalLawyerProfileLoader');
 }
 
 function loadRoyalLawyerProfileLoader() {
@@ -51,16 +50,8 @@ export function resetHeaderShellIntentWarmForTests(): void {
 }
 
 export async function shouldAggressiveHeaderShellWarm(): Promise<boolean> {
-    try {
-        const { getLawyerSettingsSnapshot } = await import('@/app/services/settings/settingsRuntime');
-        const s = getLawyerSettingsSnapshot();
-        if (s.security.localOnlyMode) return false;
-        if (s.performance.prefetchScreens === false) return false;
-        if (isLitePerformanceActive(s.performance.litePerformance)) return false;
-    } catch {
-        /* ignore */
-    }
-    return true;
+    const { isSectionBackgroundPrefetchAllowed } = await import('@/app/runtime/sectionPrefetchPolicy');
+    return isSectionBackgroundPrefetchAllowed();
 }
 
 /** تسخين موحّد لأزرار الهيدر — آمن للتكرار (prefetch/idempotent). */
@@ -68,7 +59,7 @@ export function warmLawyerDashboardHeaderShell(
     userId: string | null | undefined,
     phase: HeaderShellWarmPhase = 'open',
 ): void {
-    if (!isRealSignedIn(userId)) return;
+    if (!hasLocalAppSession(userId)) return;
 
     if (phase !== 'open') {
         void loadSettingsIntentWarm().then((m) => m.warmSettingsOnHover());
@@ -174,7 +165,7 @@ function scheduleHeaderShellHeavyWarm(userId: string): void {
  */
 export function hydrateLawyerDashboardHeaderShellChunks(userId: string | null | undefined): void {
     const uid = userId?.trim();
-    if (!uid || !isRealSignedIn(uid)) return;
+    if (!uid || !hasLocalAppSession(uid)) return;
     if (headerShellHydrateStarted) return;
     headerShellHydrateStarted = true;
 

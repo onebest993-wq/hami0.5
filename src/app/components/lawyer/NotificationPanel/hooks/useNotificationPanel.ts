@@ -1,19 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNotificationStore } from '@/app/stores/notificationStore';
 import type { NotificationTab } from '@/app/components/lawyer/NotificationPanel/types';
 import {
-    isForumNotification,
-    isSystemNotification,
-} from '@/app/components/lawyer/NotificationPanel/utils/notificationFilters';
-import { groupNotificationsByTime } from '@/app/components/lawyer/NotificationPanel/utils/timeGrouping';
+    EMPTY_NOTIFICATION_TIME_GROUPS,
+    groupNotificationsByTime,
+} from '@/app/components/lawyer/NotificationPanel/utils/timeGrouping';
+import { partitionCaseShareForPanel } from '@/app/components/lawyer/NotificationPanel/utils/partitionCaseShareForPanel';
+import { selectNotificationTabView } from '@/app/components/lawyer/NotificationPanel/utils/selectNotificationTabView';
 import { useIncomingCaseShares } from '@/app/hooks/useIncomingCaseShares';
 import { useNotificationPolling } from '@/app/components/lawyer/NotificationPanel/hooks/useNotificationPolling';
 import { useNotificationActions } from '@/app/components/lawyer/NotificationPanel/hooks/useNotificationActions';
+import { useNotificationPanelFocus } from '@/app/components/lawyer/NotificationPanel/hooks/useNotificationPanelFocus';
 
 export function useNotificationPanel(
     isOpen: boolean,
     userId: string,
-    panelSessionKey: number,
     onClose: () => void,
     onNavigate: (path: string, payload: Record<string, unknown>) => void,
 ) {
@@ -27,14 +28,16 @@ export function useNotificationPanel(
     const [activeTab, setActiveTab] = useState<NotificationTab>('forum');
     const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
 
-    useEffect(() => {
-        setActiveTab('forum');
-    }, [panelSessionKey]);
+    const { focusNotificationId } = useNotificationPanelFocus(
+        isOpen,
+        activeTab,
+        setActiveTab,
+        notifications.length,
+    );
 
     useNotificationPolling(isOpen, userId);
 
     const {
-        incoming: caseShareIncoming,
         shares: caseShareAll,
         pendingCount: caseSharePendingCount,
         refresh: refreshCaseShares,
@@ -42,28 +45,25 @@ export function useNotificationPanel(
 
     const combinedUnreadCount = unreadCount + caseSharePendingCount;
 
-    const { handleTap, handleScan, handleClientRequest } = useNotificationActions(
+    const { handleTap, handleScan } = useNotificationActions(
         userId,
         onClose,
         onNavigate,
         markAsRead,
     );
 
-    const visibleNotifications = useMemo(() => {
-        if (activeTab === 'forum') return notifications.filter(isForumNotification);
-        return notifications.filter(isSystemNotification);
-    }, [notifications, activeTab]);
-
-    const groupedByTime = useMemo(
-        () => groupNotificationsByTime(visibleNotifications),
-        [visibleNotifications],
+    const { visibleNotifications, tabCounts } = useMemo(
+        () => selectNotificationTabView(notifications, activeTab),
+        [notifications, activeTab],
     );
 
-    const tabCounts = useMemo(() => {
-        const forum = notifications.filter((n) => !n.isRead && isForumNotification(n)).length;
-        const system = notifications.filter((n) => !n.isRead && isSystemNotification(n)).length;
-        return { forum, system };
-    }, [notifications]);
+    const groupedByTime = useMemo(
+        () =>
+            isOpen
+                ? groupNotificationsByTime(visibleNotifications)
+                : EMPTY_NOTIFICATION_TIME_GROUPS,
+        [isOpen, visibleNotifications],
+    );
 
     const handleMarkAllRead = useCallback(async () => {
         if (!userId || isMarkingAllRead) return;
@@ -75,20 +75,10 @@ export function useNotificationPanel(
         }
     }, [userId, isMarkingAllRead, markAllAsRead]);
 
-    const hasCaseShareContent = useMemo(() => {
-        const pendingIncoming = caseShareAll.filter(
-            (s) => s.recipientId === userId && s.status === 'pending',
-        );
-        const activeSessions = caseShareAll.filter(
-            (s) => s.status === 'accepted' && (s.ownerId === userId || s.recipientId === userId),
-        );
-        const recentEnded = caseShareAll
-            .filter(
-                (s) => s.status === 'ended' && (s.ownerId === userId || s.recipientId === userId),
-            )
-            .slice(0, 5);
-        return pendingIncoming.length > 0 || activeSessions.length > 0 || recentEnded.length > 0;
-    }, [caseShareAll, userId]);
+    const hasCaseShareContent = useMemo(
+        () => partitionCaseShareForPanel(caseShareAll, userId).hasContent,
+        [caseShareAll, userId],
+    );
 
     return {
         activeTab,
@@ -101,12 +91,12 @@ export function useNotificationPanel(
         groupedByTime,
         tabCounts,
         isMarkingAllRead,
-        caseShareIncoming: caseShareAll,
+        caseShareAll,
         hasCaseShareContent,
         refreshCaseShares,
+        focusNotificationId,
         handleTap,
         handleScan,
-        handleClientRequest,
         handleMarkAllRead,
     };
 }

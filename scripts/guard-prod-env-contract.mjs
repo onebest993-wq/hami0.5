@@ -108,8 +108,9 @@ if (!example) {
     'WIFE_REDIS_REST_URL',
     'WIFE_REDIS_REST_TOKEN',
     'WIFE_DISABLE_EDGE_KV_PROXY',
-    'WIFE_DISABLE_EDGE_COMMS_DISPATCHER',
     'ADMIN_ACCESS_KEY',
+    'HAMI_DOSSIER_PAYLOAD_MAC_SECRET',
+    'HAMI_DOSSIER_PAYLOAD_MAC_ENFORCE',
   ];
   const missing = required.filter((k) => !(k in example) || example[k] === '');
   record(
@@ -150,9 +151,9 @@ if (!example) {
     `WIFE_DISABLE_EDGE_KV_PROXY=${example.WIFE_DISABLE_EDGE_KV_PROXY ?? '(unset)'}`,
   );
   record(
-    'example-edge-comms-disabled',
-    example.WIFE_DISABLE_EDGE_COMMS_DISPATCHER === 'true',
-    `WIFE_DISABLE_EDGE_COMMS_DISPATCHER=${example.WIFE_DISABLE_EDGE_COMMS_DISPATCHER ?? '(unset)'}`,
+    'example-no-retired-comms-env',
+    !('WIFE_DISABLE_EDGE_COMMS_DISPATCHER' in example),
+    'retired Edge comms env must not remain in the production contract',
   );
   record(
     'example-admin-not-placeholder',
@@ -161,6 +162,13 @@ if (!example) {
     example.ADMIN_ACCESS_KEY === 'CHANGE_ME_IN_PRODUCTION'
       ? 'CHANGE_ME_IN_PRODUCTION forbidden'
       : 'ADMIN_ACCESS_KEY set (placeholder template ok)',
+  );
+  record(
+    'example-lawyer-is-not-hq-deployment',
+    example.HAMI_HQ_ALLOW_THIS_DEPLOYMENT !== 'true',
+    example.HAMI_HQ_ALLOW_THIS_DEPLOYMENT === 'true'
+      ? 'HAMI_HQ_ALLOW_THIS_DEPLOYMENT=true belongs on the HQ host only'
+      : 'lawyer production example does not enable HQ deployment',
   );
 }
 
@@ -182,12 +190,6 @@ if (live) {
     live.WIFE_DISABLE_EDGE_KV_PROXY === 'true',
     `WIFE_DISABLE_EDGE_KV_PROXY=${live.WIFE_DISABLE_EDGE_KV_PROXY ?? '(unset)'}`,
   );
-  record(
-    'live-edge-comms-disabled',
-    live.WIFE_DISABLE_EDGE_COMMS_DISPATCHER === 'true',
-    `WIFE_DISABLE_EDGE_COMMS_DISPATCHER=${live.WIFE_DISABLE_EDGE_COMMS_DISPATCHER ?? '(unset)'}`,
-  );
-
   const ph = (v) => !v || /YOUR_PROJECT|eyJ\.\.\.|CHANGE_ME|placeholder/i.test(v);
   const liveUrl = live.VITE_SUPABASE_URL ?? '';
   const liveAnon = live.VITE_SUPABASE_ANON_KEY ?? '';

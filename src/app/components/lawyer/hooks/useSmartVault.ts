@@ -1,4 +1,4 @@
-import { useAuthUser } from '@/app/context/AuthContext';
+import { useAuthUser } from '@/app/context/authHooks';
 import { isShellAuthBypassed } from '@/app/services/auth/shellAuth';
 import { GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
 import { useSmartVaultData } from './smartVault/useSmartVaultData';

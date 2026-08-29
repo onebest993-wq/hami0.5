@@ -2,14 +2,23 @@ import { useEffect, useRef, type RefObject } from 'react';
 
 import { GLOBAL_SEARCH_SHELL_HYDRATED_EVENT } from '@/app/runtime/globalSearchBootHydrator';
 import { isGlobalSearchOverlayModuleResolved } from '@/app/runtime/globalSearchLoader';
+import { GLOBAL_SEARCH_OVERLAY_INTERACTIVE_EVENT } from '@/app/runtime/globalSearchOverlayInteractive';
+import {
+    GLOBAL_SEARCH_OPEN_INPUT_SELECTOR,
+    GLOBAL_SEARCH_OPEN_OVERLAY_SELECTOR,
+} from '@/app/hooks/lawyerDashboard/observeGlobalSearchOverlayInteractive';
 import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 
-/** بعد اكتمال فتح الورقة + swap الـ chunk — يمنع وميض الكيبورد */
-const FOCUS_SETTLE_MS_DESKTOP = 160;
-const FOCUS_SETTLE_MS_MOBILE = 120;
+function isOverlayInteractive(): boolean {
+    if (typeof document === 'undefined') return false;
+    return Boolean(
+        document.querySelector(GLOBAL_SEARCH_OPEN_OVERLAY_SELECTOR) &&
+            document.querySelector(GLOBAL_SEARCH_OPEN_INPUT_SELECTOR),
+    );
+}
 
 /**
- * تركيز واحد لكل جلسة فتح — بعد استقرار الـ shell وليس أثناء swap Instant→Overlay.
+ * تركيز واحد لكل جلسة فتح — بعد اكتمال تفاعلية الورقة (بلا تأخير زمني اصطناعي).
  */
 export function useGlobalSearchInputFocus(
     open: boolean,
@@ -25,7 +34,6 @@ export function useGlobalSearchInputFocus(
         }
 
         let cancelled = false;
-        let settleTimer: number | null = null;
         let frame2 = 0;
 
         const tryFocus = () => {
@@ -40,24 +48,17 @@ export function useGlobalSearchInputFocus(
             focusedForOpenRef.current = true;
         };
 
-        const scheduleFocus = () => {
+        const focusAfterLayout = () => {
             if (cancelled || focusedForOpenRef.current) return;
-            const frame1 = requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
                 frame2 = requestAnimationFrame(() => {
-                    if (cancelled) return;
-                    const settleMs =
-                        typeof navigator !== 'undefined' &&
-                        /android|iphone|ipad|ipod/i.test(navigator.userAgent)
-                            ? FOCUS_SETTLE_MS_MOBILE
-                            : FOCUS_SETTLE_MS_DESKTOP;
-                    settleTimer = window.setTimeout(tryFocus, settleMs);
+                    if (!cancelled) tryFocus();
                 });
             });
-            void frame1;
         };
 
         const armFocus = () => {
-            if (cancelled) return;
+            if (cancelled || focusedForOpenRef.current) return;
             let moduleReady = true;
             try {
                 moduleReady = isGlobalSearchOverlayModuleResolved();
@@ -65,18 +66,22 @@ export function useGlobalSearchInputFocus(
                 moduleReady = true;
             }
             if (!moduleReady) return;
-            scheduleFocus();
+            if (!isOverlayInteractive()) return;
+            focusAfterLayout();
         };
 
         armFocus();
         const onHydrated = () => armFocus();
+        const onInteractive = () => armFocus();
+
         window.addEventListener(GLOBAL_SEARCH_SHELL_HYDRATED_EVENT, onHydrated);
+        window.addEventListener(GLOBAL_SEARCH_OVERLAY_INTERACTIVE_EVENT, onInteractive);
 
         return () => {
             cancelled = true;
             window.removeEventListener(GLOBAL_SEARCH_SHELL_HYDRATED_EVENT, onHydrated);
+            window.removeEventListener(GLOBAL_SEARCH_OVERLAY_INTERACTIVE_EVENT, onInteractive);
             if (frame2) cancelAnimationFrame(frame2);
-            if (settleTimer != null) window.clearTimeout(settleTimer);
         };
     }, [open, inputRef, focusArmed]);
 }

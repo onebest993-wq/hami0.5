@@ -38,6 +38,7 @@ vi.mock('../forumAsync', () => ({
 }));
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { ForumApiService } from '@/app/services/forumApiService';
 import { useForumAppBarNotifications } from '@/app/components/lawyer/CommunityScreen/hooks/useForumAppBarNotifications';
 
 describe('useForumAppBarNotifications', () => {
@@ -60,5 +61,11 @@ describe('useForumAppBarNotifications', () => {
 
         expect(SmartToast.warning).toHaveBeenCalledWith('سجّل الدخول لعرض التنبيهات');
         expect(result.current.showNotifPanel).toBe(false);
+    });
+
+    it('لا يجلب التنبيهات من الشبكة بينما السطح مغلق', async () => {
+        renderHook(() => useForumAppBarNotifications('lawyer-1', false, undefined, undefined, false));
+        await Promise.resolve();
+        expect(ForumApiService.listForumNotifications).not.toHaveBeenCalled();
     });
 });

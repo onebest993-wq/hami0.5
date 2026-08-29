@@ -88,6 +88,23 @@ export function assertClientEnvOrThrow(): void {
     resolveClientSupabaseConfig();
 }
 
+/**
+ * رابط دالة حافة، مبنيّاً على الأصل المُحلَّل لا على معرِّف مشروع مثبَّت.
+ *
+ * كانت ثلاث وحدات تبني الرابط من `info.ts` مباشرةً، فتخاطب مشروع التطوير في
+ * الإنتاج مهما ضُبطت متغيّرات البيئة — والمفتاح المودَع يُشحن مع كل حزمة. هنا
+ * يرث كل نداء العقد نفسه: قيمة حقيقية أو فشل صريح.
+ */
+export function supabaseFunctionUrl(functionPath: string): string {
+    const { url } = resolveClientSupabaseConfig();
+    return `${url}/functions/v1/${functionPath.replace(/^\/+/, '')}`;
+}
+
+/** مفتاح anon المُحلَّل — بديل استيراد `publicAnonKey` من info.ts */
+export function clientAnonKey(): string {
+    return resolveClientSupabaseConfig().anonKey;
+}
+
 export function __resetClientEnvCacheForTests(): void {
     cached = null;
     cachedError = null;

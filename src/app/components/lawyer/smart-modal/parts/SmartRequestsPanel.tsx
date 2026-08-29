@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, Sparkles, X, Zap } from '@/app/components/ui/lucideIcons';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
+import { ChevronUp } from '@/app/components/ui/icons/ChevronUp';
+import { Plus } from '@/app/components/ui/icons/Plus';
+import { Zap } from '@/app/components/ui/icons/Zap';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
+import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import {
     addRequestTypeTemplate,
     loadRequestTypeTemplates,
@@ -10,15 +14,17 @@ import {
     removeRequestTypeTemplate,
 } from '../smartFile/fastTrackRequestTemplates';
 import { MoroccanGlassPanel } from '../smartFile/moroccanGlassShell';
-import { PS_REQUESTS_ROW } from '@/app/components/lawyer/personal-status/personalStatusPearlTheme';
 import {
     buildUnifiedRequests,
     computeRequestStats,
-    resolveRequestResultLabel,
-    resolveRequestStatusChip,
-    statusToneClasses,
 } from '../smartFile/requestsHubEngine';
 import type { AttachmentShieldSummary, FastTrackPetitionSummary, OnAddFastTrackFn } from '../smartFile/requestTypes';
+import { SmartRequestsList } from './SmartRequestsList';
+import { SmartRequestsTemplatesSection } from './SmartRequestsTemplatesSection';
+import {
+    resolveSmartRequestsThemeClasses,
+    resolveSmartRequestsVisualFlags,
+} from './smartRequestsPanelTheme';
 
 export interface SmartRequestsPanelProps {
     petitions?: FastTrackPetitionSummary[];
@@ -34,9 +40,6 @@ export interface SmartRequestsPanelProps {
     dense?: boolean;
 }
 
-const FIELD_CLASS =
-    'w-full bg-white/[0.04] border border-white/[0.08] rounded-lg py-1.5 px-2.5 text-[10px] text-white outline-none focus:border-[#E6C673]/30 placeholder:text-white/25 backdrop-blur-sm';
-
 export const SmartRequestsPanel = ({
     petitions = [],
     attachments = [],
@@ -49,40 +52,21 @@ export const SmartRequestsPanel = ({
     embedMode = 'standalone',
     dense = false,
 }: SmartRequestsPanelProps) => {
-    const isPersonal = visualVariant === 'personal';
-    const isPearlEmbed = embedMode === 'pearl-embed';
-    const isPearlStage = embedMode === 'pearl-stage';
-    const isPearlInline = isPearlEmbed || isPearlStage;
-    const headerBar = isPearlInline
-        ? 'px-0 py-0 border-0 bg-transparent'
-        : isPersonal
-        ? 'px-3 sm:px-4 py-3 border-b border-white/[0.06] bg-[#141214]'
-        : 'px-3 sm:px-4 py-3 border-b border-[#E6C673]/12 bg-gradient-to-l from-[#E6C673]/10 via-transparent to-transparent';
-    const iconWrap = isPearlInline
-        ? 'hidden'
-        : isPersonal
-        ? 'flex h-7 w-7 items-center justify-center rounded-lg bg-[#C4A574]/10 border border-[#C4A574]/22 shrink-0'
-        : 'flex h-7 w-7 items-center justify-center rounded-lg bg-[#E6C673]/10 border border-[#E6C673]/25 shrink-0';
-    const titleClass = isPearlInline
-        ? 'hidden'
-        : isPersonal
-        ? 'text-white/88 text-sm font-bold leading-tight'
-        : 'text-[#E6C673]/95 text-sm font-bold leading-tight';
-    const badgeClass = isPearlInline
-        ? 'shrink-0 bg-white/[0.08] text-[#ECE8E2] px-2 py-0.5 rounded-full text-[9px] font-bold border border-white/[0.14]'
-        : isPersonal
-        ? 'shrink-0 bg-[#C4A574]/10 text-[#C4A574] px-2 py-0.5 rounded-full text-[9px] font-bold border border-[#C4A574]/22'
-        : 'shrink-0 bg-[#E6C673]/15 text-[#E6C673] px-2 py-0.5 rounded-full text-[9px] font-bold border border-[#E6C673]/20';
-    const addBtnClass = isPearlInline
-        ? 'inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/[0.08] border border-white/[0.16] text-[#FFFEF9] hover:bg-white/[0.12] transition-all text-[10px] font-bold'
-        : isPersonal
-        ? 'inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#C4A574]/10 border border-[#C4A574]/22 text-[#C4A574] hover:bg-[#C4A574]/15 transition-all text-[10px] font-bold'
-        : 'inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#E6C673]/10 border border-[#E6C673]/25 text-[#E6C673] hover:bg-[#E6C673]/18 transition-all text-[10px] font-bold backdrop-blur-sm';
-    const [typeTemplates, setTypeTemplates] = useState<string[]>(() => loadRequestTypeTemplates());
+    const flags = resolveSmartRequestsVisualFlags(visualVariant, embedMode);
+    const { isPersonal, isPearlEmbed, isPearlInline } = flags;
+    const { headerBar, iconWrap, titleClass, badgeClass, addBtnClass } = resolveSmartRequestsThemeClasses(flags);
+    const templatesUserId = resolveCalendarUserId();
+    const [typeTemplates, setTypeTemplates] = useState<string[]>(() =>
+        loadRequestTypeTemplates(templatesUserId),
+    );
     const [templateDraft, setTemplateDraft] = useState('');
     const [expanded, setExpanded] = useState(!dense);
     const [showQuickTemplates, setShowQuickTemplates] = useState(false);
     const [showPearlTemplates, setShowPearlTemplates] = useState(false);
+
+    useEffect(() => {
+        setTypeTemplates(loadRequestTypeTemplates(templatesUserId));
+    }, [templatesUserId]);
 
     const items = useMemo(
         () => buildUnifiedRequests({ petitions, attachments }),
@@ -127,7 +111,7 @@ export const SmartRequestsPanel = ({
             return;
         }
         setTypeTemplates(next);
-        persistRequestTypeTemplates(next);
+        persistRequestTypeTemplates(next, templatesUserId);
         setTemplateDraft('');
         SmartToast.success('تم حفظ القالب');
     };
@@ -135,7 +119,7 @@ export const SmartRequestsPanel = ({
     const handleRemoveTemplate = (text: string) => {
         const next = removeRequestTypeTemplate(typeTemplates, text);
         setTypeTemplates(next);
-        persistRequestTypeTemplates(next);
+        persistRequestTypeTemplates(next, templatesUserId);
     };
 
     const handleQuickAddFromTemplate = (requestType: string) => {
@@ -254,220 +238,32 @@ export const SmartRequestsPanel = ({
 
             {(isPearlInline ? visible.length > 0 || showPearlTemplates : expanded) ? (
                 <>
-                    {!isPearlInline ? (
-                    <div className="px-3 sm:px-4 py-2 space-y-2 border-b border-white/[0.04]">
-                        {!readOnly && onAddFastTrack && (stats.total > 0 || showQuickTemplates) ? (
-                            <div className="space-y-2 pt-0.5">
-                                <span className="text-[8px] font-bold text-white/35 flex items-center gap-1">
-                                    <Sparkles size={9} aria-hidden />
-                                    إضافة سريعة — قوالبك اليدوية
-                                </span>
-                                <div className="flex gap-1.5">
-                                    <input
-                                        type="text"
-                                        value={templateDraft}
-                                        onChange={(e) => setTemplateDraft(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                handleAddTemplate();
-                                            }
-                                        }}
-                                        data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsTemplateInput}
-                                        placeholder="نوع الطلب"
-                                        className={`${FIELD_CLASS} flex-1`}
-                                    />
-                                    <button
-                                        type="button"
-                                        data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsTemplateAdd}
-                                        onClick={handleAddTemplate}
-                                        disabled={!normalizeRequestTypeTemplate(templateDraft)}
-                                        className="inline-flex items-center gap-0.5 px-2 py-1.5 rounded-lg bg-[#E6C673]/10 border border-[#E6C673]/25 text-[#E6C673] text-[9px] font-bold hover:bg-[#E6C673]/18 transition-all disabled:opacity-40 shrink-0 backdrop-blur-sm"
-                                    >
-                                        <Plus size={10} aria-hidden />
-                                        إضافة قالب
-                                    </button>
-                                </div>
-                                {typeTemplates.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1">
-                                        {typeTemplates.map((type) => (
-                                            <span
-                                                key={type}
-                                                className="inline-flex items-center max-w-full rounded-md bg-white/[0.03] border border-white/[0.07] overflow-hidden backdrop-blur-sm"
-                                            >
-                                                <button
-                                                    type="button"
-                                                    data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsQuickType(type)}
-                                                    onClick={() => handleQuickAddFromTemplate(type)}
-                                                    className="px-2 py-0.5 text-white/45 hover:text-[#E6C673]/90 hover:bg-[#E6C673]/10 text-[8px] font-semibold transition-all truncate text-right"
-                                                    title={`تسجيل طلب: ${type}`}
-                                                >
-                                                    {type}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsTemplateRemove(type)}
-                                                    onClick={() => handleRemoveTemplate(type)}
-                                                    className="px-1 py-0.5 text-white/25 hover:text-rose-300 hover:bg-rose-500/10 border-r border-white/[0.06] transition-colors shrink-0"
-                                                    aria-label={`حذف القالب ${type}`}
-                                                >
-                                                    <X size={9} aria-hidden />
-                                                </button>
-                                            </span>
-                                        ))}
-                                    </div>
-                                ) : null}
-                            </div>
-                        ) : null}
-                    </div>
-                    ) : showPearlTemplates && !readOnly && onAddFastTrack ? (
-                        <div className="space-y-1.5 mb-2 pb-2 border-b border-[#C9B89A]/08">
-                            <div className="flex gap-1">
-                                <input
-                                    type="text"
-                                    value={templateDraft}
-                                    onChange={(e) => setTemplateDraft(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            e.preventDefault();
-                                            handleAddTemplate();
-                                        }
-                                    }}
-                                    data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsTemplateInput}
-                                    placeholder="قالب طلب"
-                                    className="flex-1 min-w-0 bg-white/[0.05] border border-white/[0.12] rounded-md px-2 py-1 text-[10px] text-[#FFFEF9] outline-none focus:border-white/[0.24]"
-                                />
-                                <button
-                                    type="button"
-                                    data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsTemplateAdd}
-                                    onClick={handleAddTemplate}
-                                    disabled={!normalizeRequestTypeTemplate(templateDraft)}
-                                    className="px-2 py-1 rounded-md bg-white/[0.08] border border-white/[0.16] text-[#ECE8E2] text-[9px] font-bold disabled:opacity-40"
-                                >
-                                    +
-                                </button>
-                            </div>
-                            {typeTemplates.length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
-                                    {typeTemplates.map((type) => (
-                                        <button
-                                            key={type}
-                                            type="button"
-                                            data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsQuickType(type)}
-                                            onClick={() => handleQuickAddFromTemplate(type)}
-                                            className="px-1.5 py-0.5 rounded-md bg-white/[0.06] border border-white/[0.12] text-[#C9B89A] text-[8px] font-semibold truncate max-w-full"
-                                        >
-                                            {type}
-                                        </button>
-                                    ))}
-                                </div>
-                            ) : null}
-                        </div>
-                    ) : null}
-
-                    <div className={`${isPearlStage ? 'max-h-52' : isPearlEmbed ? 'max-h-32' : 'max-h-64'} overflow-y-auto scrollbar-hide ${isPearlInline ? 'space-y-2' : 'px-3 sm:px-4 py-2.5 space-y-2.5'}`}>
-                        {visible.length === 0 ? (
-                            isPearlInline ? null : (
-                            <div
-                                className="rounded-lg border border-dashed border-[#E6C673]/18 bg-[#E6C673]/[0.02] backdrop-blur-sm px-3 py-3 text-center"
-                                data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsEmpty}
-                            >
-                                <p className="text-[10px] text-white/45">
-                                    لا توجد طلبات — اضغط «طلب جديد» أو وسّع القوالب
-                                </p>
-                            </div>
-                            )
-                        ) : (
-                            visible.map((item) => {
-                                const canOpen =
-                                    item.kind === 'fast_track'
-                                        ? Boolean(onEditPetition)
-                                        : Boolean(onEditAttachment);
-                                const resultLabel = resolveRequestResultLabel(item);
-                                const statusChip = resolveRequestStatusChip(item);
-                                const isPending =
-                                    item.kind === 'fast_track'
-                                    && (item.statusTone === 'pending'
-                                        || item.statusTone === 'neutral'
-                                        || item.statusTone === 'grievance');
-                                const petition = item.kind === 'fast_track' ? petitionById.get(item.id) : undefined;
-                                const isDecided =
-                                    item.kind === 'fast_track'
-                                    && (item.statusTone === 'accepted' || item.statusTone === 'rejected');
-
-                                return (
-                                    <div
-                                        key={`${item.kind}-${item.id}`}
-                                        data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsHubRow(item.id)}
-                                        className={`w-full text-right transition-colors group ${
-                                            isPearlStage
-                                                ? `${PS_REQUESTS_ROW} border-r-2 border-r-[#C9B89A]/45`
-                                                : isPearlEmbed
-                                                ? 'border-white/[0.10] bg-white/[0.04] hover:border-white/[0.18] p-2 rounded-lg'
-                                                : 'rounded-xl border-white/[0.08] bg-white/[0.03] backdrop-blur-sm hover:border-[#E6C673]/22 hover:bg-[#E6C673]/[0.04] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]'
-                                        }`}
-                                    >
-                                        <button
-                                            type="button"
-                                            onClick={() => handleOpen(item.id, item.kind)}
-                                            disabled={!canOpen}
-                                            className="w-full text-right disabled:cursor-default"
-                                        >
-                                            <div className="flex items-start justify-between gap-2 mb-2">
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="text-[12px] font-bold text-white/92 truncate">{item.title}</p>
-                                                    {item.detail ? (
-                                                        <p className="text-[10px] text-white/42 mt-1 line-clamp-2 leading-relaxed">
-                                                            {item.detail}
-                                                        </p>
-                                                    ) : null}
-                                                </div>
-                                                <span
-                                                    className={`shrink-0 px-2 py-0.5 rounded-md border text-[9px] font-bold ${statusToneClasses(item.statusTone, isPearlInline ? 'pearl' : 'civil')}`}
-                                                >
-                                                    {statusChip}
-                                                </span>
-                                            </div>
-                                        </button>
-
-                                        {isPending && petition && !readOnly && onResolvePetition ? (
-                                            <div className="pt-2 border-t border-white/[0.05] grid grid-cols-2 gap-2">
-                                                <button
-                                                    type="button"
-                                                    data-testid={`${CIVIL_LAWSUIT_TEST_IDS.requestsHubRow(item.id)}-accept`}
-                                                    onClick={() => onResolvePetition(petition, 'accepted')}
-                                                    className="min-h-[44px] flex-1 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2 py-1.5 text-[10px] font-bold text-emerald-200 hover:bg-emerald-500/15 transition-colors"
-                                                >
-                                                    قبول
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    data-testid={`${CIVIL_LAWSUIT_TEST_IDS.requestsHubRow(item.id)}-reject`}
-                                                    onClick={() => onResolvePetition(petition, 'rejected')}
-                                                    className="min-h-[44px] flex-1 rounded-lg border border-rose-400/30 bg-rose-500/10 px-2 py-1.5 text-[10px] font-bold text-rose-200 hover:bg-rose-500/15 transition-colors"
-                                                >
-                                                    رفض
-                                                </button>
-                                            </div>
-                                        ) : isDecided ? (
-                                            <div className="pt-2 border-t border-white/[0.05] flex items-center justify-between gap-2">
-                                                <span className="text-[10px] text-white/38">النتيجة</span>
-                                                <span
-                                                    className={`text-[11px] font-bold ${
-                                                        resultLabel === 'قبول'
-                                                            ? 'text-emerald-300'
-                                                            : 'text-rose-300'
-                                                    }`}
-                                                >
-                                                    {resultLabel}
-                                                </span>
-                                            </div>
-                                        ) : null}
-                                    </div>
-                                );
-                            })
-                        )}
-                    </div>
+                    <SmartRequestsTemplatesSection
+                        isPearlInline={isPearlInline}
+                        showPearlTemplates={showPearlTemplates}
+                        readOnly={readOnly}
+                        onAddFastTrack={onAddFastTrack}
+                        statsTotal={stats.total}
+                        showQuickTemplates={showQuickTemplates}
+                        templateDraft={templateDraft}
+                        setTemplateDraft={setTemplateDraft}
+                        typeTemplates={typeTemplates}
+                        handleAddTemplate={handleAddTemplate}
+                        handleRemoveTemplate={handleRemoveTemplate}
+                        handleQuickAddFromTemplate={handleQuickAddFromTemplate}
+                    />
+                    <SmartRequestsList
+                        visible={visible}
+                        isPearlInline={isPearlInline}
+                        isPearlStage={flags.isPearlStage}
+                        isPearlEmbed={isPearlEmbed}
+                        readOnly={readOnly}
+                        petitionById={petitionById}
+                        onEditPetition={onEditPetition}
+                        onEditAttachment={onEditAttachment}
+                        onResolvePetition={onResolvePetition}
+                        handleOpen={handleOpen}
+                    />
                 </>
             ) : null}
         </>

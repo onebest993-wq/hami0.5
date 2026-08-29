@@ -9,13 +9,12 @@ export function LawyerHomeAmbient({ wallpaperActive = false }: LawyerHomeAmbient
     if (!wallpaperActive) return null;
 
     return (
-        <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
-            <div
-                className="absolute inset-0"
-                style={{
-                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.12) 0%, transparent 40%)',
-                }}
-            />
-        </div>
+        <div
+            className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
+            aria-hidden
+            style={{
+                background: 'linear-gradient(to bottom, rgba(0,0,0,0.12) 0%, transparent 40%)',
+            }}
+        />
     );
 }

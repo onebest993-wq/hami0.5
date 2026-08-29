@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo } from 'react';
+﻿import { useMemo } from 'react';
 import {
     collectFullHandlerClusterContext,
     type HandlerClusterContextSpreads,
@@ -7,6 +7,10 @@ import { useExecutionDashboardCoreHandlerClusterCoerciveFoundation } from './use
 import { useExecutionDashboardNotesTasksHandlers } from './useExecutionDashboardNotesTasksHandlers';
 import { useExecutionDashboardAppointmentHandlers } from './useExecutionDashboardAppointmentHandlers';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import {
+    handlerBagKeyFingerprint,
+    usePublishHandlerClusterWhenFingerprintChanges,
+} from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterCoerciveOpsBridgeProps = {
     input: ExecutionDashboardCoreHandlerClusterInput;
@@ -17,7 +21,7 @@ export function ExecutionDashboardHandlerClusterCoerciveOpsBridge({
     input,
     onCluster,
 }: ExecutionDashboardHandlerClusterCoerciveOpsBridgeProps) {
-    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads) as any;
+    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads);
     const { pushTimelineEventBinding, pushTimelineEvent } =
         useExecutionDashboardCoreHandlerClusterCoerciveFoundation(c);
 
@@ -83,20 +87,31 @@ export function ExecutionDashboardHandlerClusterCoerciveOpsBridge({
         setEditingAppointmentId: c.setEditingAppointmentId,
     });
 
-    useEffect(() => {
-        onCluster({
+    const cluster = useMemo(
+        () => ({
             pushTimelineEventBinding,
             pushTimelineEvent,
             notesTasksHandlers,
             appointmentHandler,
-        });
-    }, [
-        appointmentHandler,
-        notesTasksHandlers,
+        }),
+        [appointmentHandler, notesTasksHandlers, pushTimelineEvent, pushTimelineEventBinding],
+    );
+
+    usePublishHandlerClusterWhenFingerprintChanges(
+        cluster,
+        [
+            ...handlerBagKeyFingerprint(
+                cluster.pushTimelineEventBinding as Record<string, unknown> | undefined,
+            ),
+            ...handlerBagKeyFingerprint(
+                cluster.notesTasksHandlers as Record<string, unknown> | undefined,
+            ),
+            ...handlerBagKeyFingerprint(
+                cluster.appointmentHandler as Record<string, unknown> | undefined,
+            ),
+        ],
         onCluster,
-        pushTimelineEvent,
-        pushTimelineEventBinding,
-    ]);
+    );
 
     return null;
 }

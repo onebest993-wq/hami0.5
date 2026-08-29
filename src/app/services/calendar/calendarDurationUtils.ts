@@ -4,7 +4,7 @@ import {
     mapCalendarModuleToScheduleSource,
     resolveScheduleItemDurationMinutes,
     type ScheduleItemSource,
-} from '@/app/services/calendar/scheduleConflictDetector';
+} from '@/app/services/calendar/scheduleItemSource';
 
 function parseTimeToMinutes(time: string | undefined): number | null {
     const raw = String(time ?? '').trim();

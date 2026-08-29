@@ -11,6 +11,8 @@ export function LifecycleSegment({
     testId,
     children,
     activeClassName = ARCHIVE_SEGMENT_BTN_ACTIVE,
+    inactiveClassName = ARCHIVE_SEGMENT_BTN_INACTIVE,
+    baseClassName = ARCHIVE_SEGMENT_BTN_BASE,
     iconOnly = false,
     ariaLabel,
 }: {
@@ -19,6 +21,8 @@ export function LifecycleSegment({
     testId?: string;
     children: React.ReactNode;
     activeClassName?: string;
+    inactiveClassName?: string;
+    baseClassName?: string;
     iconOnly?: boolean;
     ariaLabel?: string;
 }) {
@@ -27,11 +31,12 @@ export function LifecycleSegment({
             type="button"
             data-testid={testId}
             aria-label={ariaLabel}
+            aria-pressed={active}
             title={ariaLabel}
             onClick={onClick}
-            className={`${ARCHIVE_SEGMENT_BTN_BASE} inline-flex items-center justify-center gap-1.5 ${
-                iconOnly ? 'h-9 w-9 shrink-0 px-0' : ''
-            } ${active ? activeClassName : ARCHIVE_SEGMENT_BTN_INACTIVE}`}
+            className={`${baseClassName} inline-flex items-center justify-center gap-1.5 ${
+                iconOnly ? 'min-h-[44px] min-w-[44px] h-11 w-11 shrink-0 px-0' : ''
+            } ${active ? activeClassName : inactiveClassName}`}
         >
             {children}
         </button>

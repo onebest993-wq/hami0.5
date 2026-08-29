@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C — أتعاب/مصاريف التخلية + تفعيل وعاء المطالبة */
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { TimelineEvent } from '@/app/types/execution';
@@ -8,6 +7,7 @@ import {
     appendEvictionExecutorRequest,
     hasApprovedLawyerFeePayout,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { toastAfterExecutionPersist } from '../../helpers/toastAfterExecutionPersist';
 
 export type EvictionCaseExpenseRow = {
     id: string;
@@ -27,7 +27,7 @@ export type UseExecutionDashboardEvictionFinancialHandlersParams = {
     evictionCaseExpenses: EvictionCaseExpenseRow[];
     timelineEvents: TimelineEvent[];
     nextTimelineId: () => string;
-    persistExecutionMerge: (patch: Record<string, unknown>) => void;
+    persistExecutionMerge: (patch: Record<string, unknown>) => boolean | void;
     showToast: (message: string, type?: string, opts?: Record<string, unknown>) => void;
     setEvictionAssetsTabUnlocked: Dispatch<SetStateAction<boolean>>;
     setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
@@ -76,11 +76,14 @@ export function useExecutionDashboardEvictionFinancialHandlers({
         };
         const next = [ev, ...timelineEvents];
         setTimelineEvents(next);
-        persistExecutionMerge({
-            timelineEvents: next,
-            eviction_assets_tab_unlocked: true,
-        });
-        showToast('تم فتح مسار المطالبة وتسجيله في السجل الزمني.', 'success');
+        toastAfterExecutionPersist(
+            persistExecutionMerge({
+                timelineEvents: next,
+                eviction_assets_tab_unlocked: true,
+            }),
+            showToast,
+            'تم فتح مسار المطالبة وتسجيله في السجل الزمني.',
+        );
     }, [nextTimelineId, timelineEvents, persistExecutionMerge, showToast, setTimelineEvents]);
 
     const handleEvictionLawyerFeeRequest = useCallback(() => {
@@ -127,6 +130,7 @@ export function useExecutionDashboardEvictionFinancialHandlers({
                 eviction_assets_tab_unlocked: true,
                 eviction_lawyer_fee_requested: true,
             });
+            return true;
         },
         onClose: () => {
             setShowEvictionLawyerFeeModal(false);

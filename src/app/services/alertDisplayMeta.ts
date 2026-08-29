@@ -16,7 +16,6 @@ const FALLBACK_HEADLINE: Partial<Record<SecretaryAlertTarget, string>> = {
     threading: 'معاملة إدارية غير معنونة',
     notepad: 'ملاحظة بدون عنوان',
     schedule: 'موعد في التقويم',
-    client_requests: 'طلب موكل',
 };
 
 function isBrokenDisplayValue(value?: string | null): boolean {
@@ -64,7 +63,6 @@ const SECTION_KIND_SHORT: Partial<Record<SecretaryAlertTarget, string>> = {
     threading: 'إداري',
     notepad: 'مفكرة',
     schedule: 'تقويم',
-    client_requests: 'طلب موكل',
 };
 
 function normalizeArabicForCompare(text: string): string {
@@ -140,7 +138,6 @@ const TARGET_SECTION: Record<SecretaryAlertTarget, { label: string; icon: string
     transactions: { label: 'معاملات الملف', icon: '📁' },
     threading: { label: 'المعاملات الإدارية', icon: '📋' },
     notepad: { label: 'المستودع الذكي', icon: '📝' },
-    client_requests: { label: 'طلبات الموكلين', icon: '📥' },
     community: { label: 'المنتدى القانوني', icon: '💬' },
 };
 

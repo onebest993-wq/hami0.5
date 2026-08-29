@@ -1,9 +1,9 @@
 {
-  "url": "http://localhost:8080/",
-  "device": "Desktop Chrome",
+  "url": "http://127.0.0.1:4173/",
+  "device": "Pixel 7",
   "throttle": "none",
-  "measuredAt": "2026-08-01T18:33:57.660Z",
-  "wallClockMs": 1373,
+  "measuredAt": "2026-08-13T22:35:55.154Z",
+  "wallClockMs": 662,
   "timeline": [
     {
       "phase": "start",
@@ -15,7 +15,7 @@
     },
     {
       "phase": "app-render",
-      "ms": 77
+      "ms": 260
     },
     {
       "phase": "shell-visible",
@@ -27,23 +27,23 @@
     },
     {
       "phase": "dashboard-chunk-loaded",
-      "ms": 135
+      "ms": 41
     },
     {
       "phase": "dashboard-interactive",
-      "ms": 135
+      "ms": 309
     },
     {
       "phase": "first-tab-open",
-      "ms": 790
+      "ms": 394
     }
   ],
-  "ttfiMs": 135,
-  "probeTtfiMs": 135,
+  "ttfiMs": 309,
+  "probeTtfiMs": 309,
   "overlayRemovedMs": null,
-  "firstTabOpenMs": 790,
+  "firstTabOpenMs": 394,
   "staticShellMs": 0,
-  "chunkLoadedMs": 135,
-  "fcpMs": 84,
-  "domContentLoadedMs": 103
+  "chunkLoadedMs": 41,
+  "fcpMs": 428,
+  "domContentLoadedMs": 123
 }

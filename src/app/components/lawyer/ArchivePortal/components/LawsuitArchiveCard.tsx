@@ -1,10 +1,17 @@
 import React from 'react';
-import { Archive, RotateCcw, Trash2 } from '@/app/components/ui/lucideIcons';
+import { Archive } from '@/app/components/ui/icons/Archive';
+import { RotateCcw } from '@/app/components/ui/icons/RotateCcw';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import type { ArchiveEnrichedRow } from '../types';
 import { lawsuitTrashDaysRemaining } from '@/app/utils/lawsuitTrash';
+import { buildLawsuitWorkspacePin } from '@/app/workspace/lawsuitWorkspacePin';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
-import { buildLawsuitWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import { resolveLawsuitJurisdiction } from '@/app/domain/lawsuit/lawsuitJurisdiction';
+import {
+    isLawsuitDefendantRecord,
+    isLawsuitPlaintiffRecord,
+    normalizeLawsuitPartyRoleLabel,
+} from '@/app/domain/lawsuit/lawsuitPartyRole';
 import { resolveLawsuitArchiveHearingDisplay } from '../utils/lawsuitArchiveHearing';
 import {
     ArchiveDossierIdentityBlock,
@@ -16,7 +23,7 @@ import {
     type UnifiedDossierFooterIcon,
 } from './UnifiedDossierCard';
 
-export type LawsuitCardVariant = 'active' | 'trash' | 'archived';
+type LawsuitCardVariant = 'active' | 'trash' | 'archived';
 
 interface LawsuitArchiveCardProps {
     file: ArchiveEnrichedRow;
@@ -29,34 +36,6 @@ interface LawsuitArchiveCardProps {
     selected?: boolean;
     onToggleSelect?: () => void;
     testIdPrefix?: string;
-}
-
-function normalizeRoleLabel(raw: string, fallback: string): string {
-    const role = raw.trim();
-    if (!role) return fallback;
-    const lower = role.toLowerCase();
-    if (lower === 'plaintiff' || lower === 'client' || lower === 'creditor') return 'المدعي';
-    if (lower === 'defendant' || lower === 'opponent' || lower === 'debtor') return 'المدعى عليه';
-    return role;
-}
-
-function isPlaintiffParty(p: Record<string, unknown>): boolean {
-    const role = String(p.role ?? p.status ?? '').trim().toLowerCase();
-    const side = String(p.side ?? '').trim().toLowerCase();
-    if (role === 'plaintiff' || role === 'client' || role === 'creditor') return true;
-    if (side === 'right') return true;
-    if (role.includes('مدعي') && !role.includes('مدعى')) return true;
-    if (role.includes('دائن')) return true;
-    return false;
-}
-
-function isDefendantParty(p: Record<string, unknown>): boolean {
-    const role = String(p.role ?? p.status ?? '').trim().toLowerCase();
-    const side = String(p.side ?? '').trim().toLowerCase();
-    if (role === 'defendant' || role === 'opponent' || role === 'debtor') return true;
-    if (side === 'left') return true;
-    if (role.includes('مدعى') || role.includes('مدين') || role.includes('خصم')) return true;
-    return false;
 }
 
 function partyName(p?: Record<string, unknown>): string {
@@ -72,7 +51,7 @@ function toSnippet(
     if (!name) return null;
     return {
         name,
-        role: normalizeRoleLabel(String(p?.role ?? p?.status ?? ''), fallbackRole),
+        role: normalizeLawsuitPartyRoleLabel(String(p?.role ?? p?.status ?? ''), fallbackRole),
         isClient: p?.isClient === true,
     };
 }
@@ -84,8 +63,8 @@ function extractPrimaryParties(parties: unknown): {
 } {
     const list = Array.isArray(parties) ? (parties as Array<Record<string, unknown>>) : [];
     const plaintiff =
-        toSnippet(list.find(isPlaintiffParty), 'المدعي') || toSnippet(list[0], 'المدعي');
-    const defendant = toSnippet(list.find(isDefendantParty), 'المدعى عليه');
+        toSnippet(list.find(isLawsuitPlaintiffRecord), 'المدعي') || toSnippet(list[0], 'المدعي');
+    const defendant = toSnippet(list.find(isLawsuitDefendantRecord), 'المدعى عليه');
     return { plaintiff, defendant };
 }
 
@@ -146,6 +125,10 @@ export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
         className: `${status.bgColor} ${status.borderColor} ${status.color}`,
     };
 
+    const fileKey = String(file.id ?? '').trim();
+    const actionTestId = (suffix: string) =>
+        testIdPrefix && fileKey ? `${testIdPrefix}-${fileKey}-${suffix}` : undefined;
+
     const footerIcons: UnifiedDossierFooterIcon[] = [];
     if (variant === 'active') {
         if (onArchive) {
@@ -155,7 +138,7 @@ export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
                 icon: <Archive size={16} />,
                 tone: 'warning',
                 onClick: () => onArchive(),
-                testId: testIdPrefix ? `${testIdPrefix}-archive` : undefined,
+                testId: actionTestId('archive'),
             });
         }
         if (onMoveToTrash) {
@@ -165,7 +148,7 @@ export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
                 icon: <Trash2 size={16} />,
                 tone: 'danger',
                 onClick: () => onMoveToTrash(),
-                testId: testIdPrefix ? `${testIdPrefix}-trash` : undefined,
+                testId: actionTestId('trash'),
             });
         }
     } else if (variant === 'trash' && onRestoreFromTrash) {
@@ -175,6 +158,7 @@ export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
             icon: <RotateCcw size={16} />,
             tone: 'success',
             onClick: () => onRestoreFromTrash(),
+            testId: actionTestId('restore'),
         });
     } else if (variant === 'archived' && onRestoreFromArchive) {
         footerIcons.push({
@@ -183,6 +167,7 @@ export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
             icon: <RotateCcw size={16} />,
             tone: 'success',
             onClick: () => onRestoreFromArchive(),
+            testId: actionTestId('restore-archive'),
         });
     }
 
@@ -196,11 +181,13 @@ export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
                 type="button"
                 role="checkbox"
                 aria-checked={selected}
+                data-testid={actionTestId('select')}
                 onClick={(event) => {
                     event.stopPropagation();
                     onToggleSelect();
                 }}
-                className="absolute top-3 right-3 z-30 w-6 h-6 rounded-md border border-white/25 bg-black/40 flex items-center justify-center"
+                data-dossier-card-actions
+                className="absolute top-3 right-3 z-30 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-white/25 bg-black/40 touch-manipulation"
             >
                 {selected ? <span className="text-[#d4af37] text-xs font-bold">✓</span> : null}
             </button>
@@ -249,7 +236,12 @@ export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
                         onKeyDown={(event) => event.stopPropagation()}
                         role="presentation"
                     >
-                        <WorkspacePinButton item={pinPayload} />
+                        <WorkspacePinButton
+                            item={pinPayload}
+                            variant="ghost"
+                            size={16}
+                            className="!min-w-[44px] !min-h-[44px] !w-11 !h-11"
+                        />
                     </div>
                 ) : undefined
             }

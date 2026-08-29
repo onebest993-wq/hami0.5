@@ -7,10 +7,11 @@ export const DASHBOARD_INTERACTIVE_EVENT = 'hami:dashboard-interactive';
 
 const MARK_NAME = 'hami:boot:dashboard-interactive';
 
-let dashboardInteractiveMarked = false;
+/** اسم صريح — يتجنب تصادم minify مع re-export في boot-runtime chunk */
+let dashboardInteractiveMarkedState = false;
 
 export function isDashboardInteractive(): boolean {
-    if (dashboardInteractiveMarked) return true;
+    if (dashboardInteractiveMarkedState) return true;
     if (typeof performance === 'undefined') return false;
     return performance.getEntriesByName(MARK_NAME, 'mark').length > 0;
 }
@@ -37,11 +38,11 @@ function exposeTtfiProbe(): void {
 /** يُطلق مرة واحدة — mark + حدث `hami:dashboard-interactive`. */
 export function markDashboardInteractiveOnce(): void {
     if (isDashboardInteractive()) {
-        dashboardInteractiveMarked = true;
+        dashboardInteractiveMarkedState = true;
         exposeTtfiProbe();
         return;
     }
-    dashboardInteractiveMarked = true;
+    dashboardInteractiveMarkedState = true;
     if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {
         try {
             performance.mark(MARK_NAME);
@@ -69,5 +70,5 @@ export function onDashboardInteractive(run: () => void): () => void {
 
 /** للاختبارات — إعادة ضبط حالة interactive */
 export function resetDashboardInteractiveForTests(): void {
-    dashboardInteractiveMarked = false;
+    dashboardInteractiveMarkedState = false;
 }

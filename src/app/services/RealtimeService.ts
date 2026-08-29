@@ -26,6 +26,7 @@
 
 import { supabase } from '@/app/lib/supabase-client';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { isLocalOnlyModeEnabled } from '@/app/services/settings/localOnlyGuard';
 import { debug } from '@/app/utils/debug';
 import {
   notifyRealtimeChannelClosed,
@@ -88,6 +89,11 @@ export class RealtimeService {
     options: SubscriptionOptions = {}
   ): string {
     const channelId = `lawsuit-files-${userId}-${++this.subscriptionCount}`;
+
+    if (isLocalOnlyModeEnabled()) {
+      debug.log('[RealtimeService] ملفات الدعاوى: Realtime متوقف (قطع الاتصال)');
+      return channelId;
+    }
     
     debug.log('[RealtimeService] الاشتراك في ملفات الدعاوى:', channelId);
 
@@ -149,6 +155,11 @@ export class RealtimeService {
     options: SubscriptionOptions = {}
   ): string {
     const channelId = `global-notes-${userId}-${++this.subscriptionCount}`;
+
+    if (isLocalOnlyModeEnabled()) {
+      debug.log('[RealtimeService] الملاحظات: Realtime متوقف (قطع الاتصال)');
+      return channelId;
+    }
     
     debug.log('[RealtimeService] الاشتراك في الملاحظات:', channelId);
 

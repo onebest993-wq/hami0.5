@@ -1,4 +1,4 @@
-import { calculateDaysRemaining, isGracePeriodExpired } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardDate';
+import { calculateDaysRemaining, isGracePeriodExpired } from '@/app/utils/executionStateMachine';
 
 export type MemoNoticeBadge = {
     anchor: string;

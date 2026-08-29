@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Decision } from '../../types';
 import type { DecisionCardEnforcementVisual } from '../../decisionCardGlassShell';
 import {
@@ -332,7 +331,7 @@ export function resolveCreditorDecisionEnforcementState(
         }
         return finalize({
             visual: 'not_enforced',
-            pillLabel: phys === 'rejected' || eff === 'rejected' ? 'رفض المنفذ' : 'غير نافذ',
+            pillLabel: eff === 'rejected' ? 'رفض المنفذ' : 'غير نافذ',
             pillTone: 'red',
             enforced: false,
         });

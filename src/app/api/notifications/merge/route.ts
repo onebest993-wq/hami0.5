@@ -1,9 +1,11 @@
-import { requireNotificationsAuth } from '../_auth.ts';
+import { NOTIFICATIONS_API_INTERNAL_ERROR, requireNotificationsAuth } from '../_auth.ts';
 import { sanitizePayload } from '../../security/sanitizer.ts';
 import { wifeJsonResponse } from '../../security/wifeSecurityHeaders.ts';
 import { mergeNotificationBlobServer } from '@/app/services/notifications/notificationServerBlob';
 import type { NotificationModel } from '@/app/infrastructure/NotificationRepository';
 import { isActivityLogNotification } from '@/app/infrastructure/NotificationRepository';
+import { NOTIFICATION_LIST_CAP } from '@/app/services/notifications/notificationLimits';
+import { sanitizeNotificationModelForPersist } from '@/app/services/notifications/notificationInboxSanitize';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object';
@@ -36,12 +38,17 @@ export async function POST(request: Request): Promise<Response> {
             return wifeJsonResponse(400, { ok: false, error: 'notifications[] مطلوب' });
         }
 
-        const incoming = payload.notifications.filter(isNotificationModel).filter((n) => !isActivityLogNotification(n));
+        const incoming = payload.notifications
+            .slice(0, NOTIFICATION_LIST_CAP)
+            .filter(isNotificationModel)
+            .filter((n) => !isActivityLogNotification(n))
+            .filter((n) => n.type !== 'system_alert' && n.category !== 'system')
+            .map((n) => sanitizeNotificationModelForPersist(n))
+            .filter((n): n is NotificationModel => n != null);
         const notifications = await mergeNotificationBlobServer(userId, incoming);
 
         return wifeJsonResponse(200, { ok: true, notifications });
-    } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Internal merge error';
-        return wifeJsonResponse(500, { ok: false, error: msg });
+    } catch {
+        return wifeJsonResponse(500, { ok: false, error: NOTIFICATIONS_API_INTERNAL_ERROR });
     }
 }

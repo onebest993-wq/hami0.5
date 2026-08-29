@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useLayoutEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { HamiBootOverlay } from '@/app/bootstrap/HamiBootOverlay';
 import {
@@ -11,12 +11,31 @@ import {
     LawyerDashboardLazy,
     preloadLawyerDashboardChunk,
 } from '@/app/bootstrap/lawyerDashboardChunk';
+import { prefetchLawyerAuthLane } from '@/app/bootstrap/lawyerAuth/prefetchLawyerAuthLane';
 import { getLawyerDashboardModuleSync } from '@/app/runtime/lawyerDashboardLoader';
+import { prefetchLawyerDashboardInner } from '@/app/runtime/lawyerDashboardInnerLoader';
+import {
+    resolveLawyerBoardEnter,
+    shouldPreloadLawyerDashboardBoard,
+} from '@/boot/shouldPreloadLawyerBoard';
+import { useAuthSafe } from '@/app/context/authHooks';
+import { subscribePasswordRecovery } from '@/app/services/auth/passwordRecoveryGate';
+import { subscribeAuthLogout, subscribeSameTabAuthLogout } from '@/app/services/auth/authSessionBroadcast';
 import type { LawyerDashboardShellProps } from '@/app/components/lawyer/dashboard/LawyerDashboardQuantumShell';
 
-/** مع تقييم Gate — ابدأ LD فوراً بلا انتظار commit لـ Suspense */
+const LazyLawyerAuthLaneHost = lazy(() =>
+    import('@/app/bootstrap/lawyerAuth/LawyerAuthLaneHost').then((m) => ({
+        default: m.LawyerAuthLaneHost,
+    })),
+);
+
+/** مع تقييم Gate — اللوحة فقط عند جلسة مقبولة؛ وإلا مسار الهوية */
 if (typeof window !== 'undefined') {
-    void preloadLawyerDashboardChunk();
+    if (shouldPreloadLawyerDashboardBoard()) {
+        void preloadLawyerDashboardChunk();
+    } else {
+        prefetchLawyerAuthLane();
+    }
 }
 
 /**
@@ -29,7 +48,7 @@ function GateContentFallback(): React.ReactElement {
             className="relative min-h-screen w-full hami-board-canvas-bg"
             data-testid="lawyer-gate-content-fallback"
             aria-busy="true"
-            aria-label={isSplashGuardFrozen() ? 'تهيئة حامي' : 'حامي'}
+            aria-label={isSplashGuardFrozen() ? 'جاري التهيئة' : 'لوحة العمل'}
         />
     );
 }
@@ -54,6 +73,7 @@ function LawyerDashboardBody({
 /** chunk يُحمَّل عند دخول شاشة المحامي — الشعار الثابت يغطي حتى جاهزية الواجهة */
 export function LawyerDashboardGate(props: LawyerDashboardShellProps) {
     const [bootKey, setBootKey] = useState(0);
+    const [laneReleased, setLaneReleased] = useState(false);
     const { overlayCovering } = useBootReveal();
     const dashboardRootRef = useRef<HTMLDivElement | null>(null);
     const splashFrozen = isSplashGuardFrozen();
@@ -61,6 +81,42 @@ export function LawyerDashboardGate(props: LawyerDashboardShellProps) {
     const showBootOverlay = overlayCovering && !splashFrozen && mountReactOverlay;
     /** لا تحجب اللمس إلا عند overlay React — #hami-static-boot يغطي بz-index خاص */
     const blockPointer = !splashFrozen && showBootOverlay;
+    const { user: authUser } = useAuthSafe();
+    const [, setRecoveryEpoch] = useState(0);
+    const [forcedAuthLane, setForcedAuthLane] = useState(false);
+
+    useEffect(() => subscribePasswordRecovery(() => setRecoveryEpoch((n) => n + 1)), []);
+
+    useEffect(() => {
+        const leaveBoard = () => {
+            setForcedAuthLane(true);
+            setLaneReleased(false);
+        };
+        const unsubSameTab = subscribeSameTabAuthLogout(leaveBoard);
+        const unsubCrossTab = subscribeAuthLogout(leaveBoard);
+        return () => {
+            unsubSameTab();
+            unsubCrossTab();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (authUser?.id) setForcedAuthLane(false);
+    }, [authUser?.id]);
+
+    const enterBoard = resolveLawyerBoardEnter({
+        forcedAuthLane,
+        laneReleased,
+        liveUserId: authUser?.id,
+    });
+    const releaseLane = useCallback(() => setLaneReleased(true), []);
+
+    useLayoutEffect(() => {
+        if (!enterBoard) return;
+        void preloadLawyerDashboardChunk();
+        prefetchLawyerDashboardInner();
+        prefetchLawyerAuthLane();
+    }, [enterBoard]);
 
     useLayoutEffect(() => {
         if (!isBootRevealDone()) return;
@@ -92,10 +148,15 @@ export function LawyerDashboardGate(props: LawyerDashboardShellProps) {
                 }}
                 aria-hidden={blockPointer}
             >
-                <LawyerDashboardBody bootKey={bootKey} {...props} />
+                {enterBoard ? (
+                    <LawyerDashboardBody bootKey={bootKey} {...props} />
+                ) : (
+                    <Suspense fallback={<GateContentFallback />}>
+                        <LazyLawyerAuthLaneHost onEnterBoard={releaseLane} />
+                    </Suspense>
+                )}
             </div>
-            {/* فقط إن غاب الشعار الثابت — مسار نادر */}
-            {showBootOverlay ? <HamiBootOverlay phase="visible" /> : null}
+            {showBootOverlay && enterBoard ? <HamiBootOverlay phase="visible" /> : null}
         </LawyerDashboardBootErrorBoundary>
     );
 }

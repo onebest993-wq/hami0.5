@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useCallback, useEffect, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import { CalendarBridge } from '@/app/services/calendarBridge';
 import { syncExecutionTaskDue } from '@/app/services/calendarDossierSync';
@@ -21,10 +20,26 @@ export interface UseExecutionTrashAndPinsParams {
     setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
     setCaseNotesLog: Dispatch<SetStateAction<CaseNotesLog>>;
     setCaseTasksPending: Dispatch<SetStateAction<CaseTasksPending>>;
-    persistExecutionMerge: (patch: Record<string, unknown>) => void;
+    persistExecutionMerge: (patch: Record<string, unknown>) => boolean | void;
     showToast: ShowToast;
     currentFileId: string;
     setPermanentDeleteTimelineId: Dispatch<SetStateAction<string | null>>;
+}
+
+function toastAfterPersistMicrotask(
+    persist: () => boolean | void,
+    showToast: ShowToast,
+    successMessage: string,
+    successType: 'success' | 'info' = 'success',
+): void {
+    queueMicrotask(() => {
+        const ok = persist();
+        if (ok === false) {
+            showToast('تعذّر الحفظ — أعد المحاولة', 'error');
+            return;
+        }
+        showToast(successMessage, successType);
+    });
 }
 
 export function useExecutionTrashAndPins({
@@ -63,13 +78,17 @@ export function useExecutionTrashAndPins({
             const iso = new Date().toISOString();
             setTimelineEvents((prev) => {
                 const next = prev.map((e) => (e.id === ev.id ? { ...e, trashedAt: iso } : e));
-                queueMicrotask(() => persistExecutionMerge({ timelineEvents: next }));
+                toastAfterPersistMicrotask(
+                    () => persistExecutionMerge({ timelineEvents: next }),
+                    showToast,
+                    'نُقل الحدث إلى سلة مهملات الإضبارة',
+                    'info',
+                );
                 return next;
             });
             if (String(ev.type || '') === 'appointment') {
                 CalendarBridge.remove('execution', String(currentFileId), String(ev.id));
             }
-            showToast('نُقل الحدث إلى سلة مهملات الإضبارة', 'info');
         },
         [persistExecutionMerge, showToast, currentFileId, timelineEventsRef, setTimelineEvents],
     );
@@ -84,7 +103,9 @@ export function useExecutionTrashAndPins({
                 const next = prev.map((e) =>
                     e.id === ev.id ? { ...e, isPinned: !e.isPinned } : e,
                 );
-                queueMicrotask(() => persistExecutionMerge({ timelineEvents: next }));
+                queueMicrotask(() => {
+                    void persistExecutionMerge({ timelineEvents: next });
+                });
                 return next;
             });
         },
@@ -116,10 +137,13 @@ export function useExecutionTrashAndPins({
                         ? { ...e, trashedAt: undefined }
                         : e,
                 );
-                queueMicrotask(() => persistExecutionMerge({ timelineEvents: next }));
+                toastAfterPersistMicrotask(
+                    () => persistExecutionMerge({ timelineEvents: next }),
+                    showToast,
+                    'أُعيد الحدث إلى السجل الزمني',
+                );
                 return next;
             });
-            showToast('أُعيد الحدث إلى السجل الزمني', 'success');
         },
         [persistExecutionMerge, showToast, timelineEventsRef, setTimelineEvents],
     );
@@ -131,10 +155,13 @@ export function useExecutionTrashAndPins({
             if (!had) return;
             setTimelineEvents((prev) => {
                 const next = prev.filter((e) => e.id !== id);
-                queueMicrotask(() => persistExecutionMerge({ timelineEvents: next }));
+                toastAfterPersistMicrotask(
+                    () => persistExecutionMerge({ timelineEvents: next }),
+                    showToast,
+                    'حُذف الحدث نهائياً من السجل',
+                );
                 return next;
             });
-            showToast('حُذف الحدث نهائياً من السجل', 'success');
         },
         [persistExecutionMerge, showToast, timelineEventsRef, setTimelineEvents, setPermanentDeleteTimelineId],
     );
@@ -148,10 +175,14 @@ export function useExecutionTrashAndPins({
                 const next = prev.map((n) =>
                     n.id === id ? { ...n, trashedAt: iso, pinned: false } : n,
                 );
-                queueMicrotask(() => persistExecutionMerge({ caseNotesLog: next }));
+                toastAfterPersistMicrotask(
+                    () => persistExecutionMerge({ caseNotesLog: next }),
+                    showToast,
+                    'نُقلت الملاحظة إلى السلة',
+                    'info',
+                );
                 return next;
             });
-            showToast('نُقلت الملاحظة إلى السلة', 'info');
         },
         [persistExecutionMerge, showToast, caseNotesLogRef, setCaseNotesLog],
     );
@@ -165,7 +196,12 @@ export function useExecutionTrashAndPins({
                 const next = prev.map((t) =>
                     t.id === id ? { ...t, trashedAt: iso, pinned: false } : t,
                 );
-                queueMicrotask(() => persistExecutionMerge({ caseTasksPending: next }));
+                toastAfterPersistMicrotask(
+                    () => persistExecutionMerge({ caseTasksPending: next }),
+                    showToast,
+                    'نُقلت المهمة إلى السلة',
+                    'info',
+                );
                 return next;
             });
             const trashed = caseTasksPendingRef.current.find((t) => t.id === id);
@@ -175,7 +211,6 @@ export function useExecutionTrashAndPins({
                     task: { ...trashed, trashedAt: iso, pinned: false },
                 });
             }
-            showToast('نُقلت المهمة إلى السلة', 'info');
         },
         [persistExecutionMerge, showToast, currentFileId, caseTasksPendingRef, setCaseTasksPending],
     );
@@ -184,7 +219,9 @@ export function useExecutionTrashAndPins({
         (id: string) => {
             setCaseNotesLog((prev) => {
                 const next = prev.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n));
-                queueMicrotask(() => persistExecutionMerge({ caseNotesLog: next }));
+                queueMicrotask(() => {
+                    void persistExecutionMerge({ caseNotesLog: next });
+                });
                 return next;
             });
         },
@@ -195,7 +232,9 @@ export function useExecutionTrashAndPins({
         (id: string) => {
             setCaseTasksPending((prev) => {
                 const next = prev.map((t) => (t.id === id ? { ...t, pinned: !t.pinned } : t));
-                queueMicrotask(() => persistExecutionMerge({ caseTasksPending: next }));
+                queueMicrotask(() => {
+                    void persistExecutionMerge({ caseTasksPending: next });
+                });
                 return next;
             });
         },
@@ -215,11 +254,14 @@ export function useExecutionTrashAndPins({
                       }
                     : e,
             );
-            queueMicrotask(() => persistExecutionMerge({ timelineEvents: next }));
+            toastAfterPersistMicrotask(
+                () => persistExecutionMerge({ timelineEvents: next }),
+                showToast,
+                'تم تحديث الحدث في السجل',
+            );
             return next;
         });
         setTimelineEditDraft(null);
-        showToast('تم تحديث الحدث في السجل', 'success');
     }, [timelineEditDraft, persistExecutionMerge, showToast, setTimelineEvents]);
 
     const restoreCaseNoteFromTrash = useCallback(
@@ -236,10 +278,13 @@ export function useExecutionTrashAndPins({
                         ? { ...n, trashedAt: undefined }
                         : n,
                 );
-                queueMicrotask(() => persistExecutionMerge({ caseNotesLog: next }));
+                toastAfterPersistMicrotask(
+                    () => persistExecutionMerge({ caseNotesLog: next }),
+                    showToast,
+                    'أُعيدت الملاحظة',
+                );
                 return next;
             });
-            showToast('أُعيدت الملاحظة', 'success');
         },
         [persistExecutionMerge, showToast, caseNotesLogRef, setCaseNotesLog],
     );
@@ -250,10 +295,13 @@ export function useExecutionTrashAndPins({
             if (!had) return;
             setCaseNotesLog((prev) => {
                 const next = prev.filter((n) => n.id !== id);
-                queueMicrotask(() => persistExecutionMerge({ caseNotesLog: next }));
+                toastAfterPersistMicrotask(
+                    () => persistExecutionMerge({ caseNotesLog: next }),
+                    showToast,
+                    'حُذفت الملاحظة نهائياً',
+                );
                 return next;
             });
-            showToast('حُذفت الملاحظة نهائياً', 'success');
         },
         [persistExecutionMerge, showToast, caseNotesLogRef, setCaseNotesLog],
     );
@@ -272,10 +320,13 @@ export function useExecutionTrashAndPins({
                         ? { ...t, trashedAt: undefined }
                         : t,
                 );
-                queueMicrotask(() => persistExecutionMerge({ caseTasksPending: next }));
+                toastAfterPersistMicrotask(
+                    () => persistExecutionMerge({ caseTasksPending: next }),
+                    showToast,
+                    'أُعيدت المهمة',
+                );
                 return next;
             });
-            showToast('أُعيدت المهمة', 'success');
         },
         [persistExecutionMerge, showToast, caseTasksPendingRef, setCaseTasksPending],
     );
@@ -286,10 +337,13 @@ export function useExecutionTrashAndPins({
             if (!had) return;
             setCaseTasksPending((prev) => {
                 const next = prev.filter((t) => t.id !== id);
-                queueMicrotask(() => persistExecutionMerge({ caseTasksPending: next }));
+                toastAfterPersistMicrotask(
+                    () => persistExecutionMerge({ caseTasksPending: next }),
+                    showToast,
+                    'حُذفت المهمة نهائياً',
+                );
                 return next;
             });
-            showToast('حُذفت المهمة نهائياً', 'success');
         },
         [persistExecutionMerge, showToast, caseTasksPendingRef, setCaseTasksPending],
     );

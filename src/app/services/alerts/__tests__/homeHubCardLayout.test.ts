@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveHomeHubCardLayout } from '@/app/services/alerts/homeHubCardLayout';
+import { resolveHomeHubCardLayout, resolveStableHubHasItems } from '@/app/services/alerts/homeHubCardLayout';
 
 describe('resolveHomeHubCardLayout', () => {
     it('تبويب التثبيت بدون عناصر — ارتفاع متكيّف بلا حد تنبيهات', () => {
@@ -17,13 +17,35 @@ describe('resolveHomeHubCardLayout', () => {
         }
     });
 
-    it('تبويب التنبيهات/السكرتير — ارتفاع feed القياسي', () => {
-        const alerts = resolveHomeHubCardLayout({ activePanel: 'alerts', pinCount: 0, blockSize: 'normal' });
+    it('تبويب التنبيهات — ارتفاع feed عند وجود محتوى', () => {
+        const alerts = resolveHomeHubCardLayout({
+            activePanel: 'alerts',
+            pinCount: 0,
+            blockSize: 'normal',
+            hasFeedContent: true,
+        });
         expect(alerts.mode).toBe('feed');
         expect(alerts.sectionMinHeightClass).toBe('min-h-[240px]');
         expect(alerts.bodyRegionClass).toBe('hami-hub-card-body--feed');
+    });
 
-        const secretary = resolveHomeHubCardLayout({ activePanel: 'secretary', pinCount: 2, blockSize: 'compact' });
-        expect(secretary.sectionMinHeightClass).toBe('min-h-[180px]');
+    it('تبويب التنبيهات فارغ — ارتفاع متكيّف بلا حد 240px', () => {
+        const empty = resolveHomeHubCardLayout({
+            activePanel: 'alerts',
+            pinCount: 0,
+            blockSize: 'normal',
+            hasFeedContent: false,
+        });
+        expect(empty.mode).toBe('feed');
+        expect(empty.sectionMinHeightClass).toBe('min-h-0');
+    });
+
+    it('أثناء الإقلاع لا يتراجع has-items بعد أول ظهور', () => {
+        const latch = { current: false };
+        expect(resolveStableHubHasItems(false, true, latch)).toBe(false);
+        expect(resolveStableHubHasItems(true, true, latch)).toBe(true);
+        expect(resolveStableHubHasItems(false, true, latch)).toBe(true);
+        expect(resolveStableHubHasItems(false, false, latch)).toBe(false);
+        expect(resolveStableHubHasItems(true, false, latch)).toBe(true);
     });
 });

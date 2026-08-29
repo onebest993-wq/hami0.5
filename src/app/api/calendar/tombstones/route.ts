@@ -1,7 +1,8 @@
 import { sanitizePayload } from '../../security/sanitizer.ts';
-import { requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
+import { requireWifeCloudWrite, requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
 import { getSupabaseAdminClient } from '../../security/supabaseAdminClient.ts';
 import { wifeJsonResponse } from '../../security/wifeSecurityHeaders.ts';
+import { emptyUuidScopedEventIds, rejectNonUuidCloudWrite } from '../../security/postgresUuidSubject.ts';
 
 export const runtime = 'nodejs';
 
@@ -24,6 +25,8 @@ export async function GET(request: Request): Promise<Response> {
     const authGate = unwrapWifeUser(await requireWifeUser(request));
     if ('response' in authGate) return authGate.response;
     const { userId } = authGate;
+    const empty = emptyUuidScopedEventIds(userId);
+    if (empty) return empty;
 
     const admin = getSupabaseAdminClient();
     if (!admin) {
@@ -51,9 +54,11 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    const authGate = unwrapWifeUser(await requireWifeCloudWrite(request));
     if ('response' in authGate) return authGate.response;
     const { userId } = authGate;
+    const denied = rejectNonUuidCloudWrite(userId);
+    if (denied) return denied;
 
     let payload: unknown = null;
     try {

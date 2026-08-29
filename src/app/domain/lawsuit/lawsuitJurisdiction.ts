@@ -1,7 +1,7 @@
 /** تبويب أقسام مخزن الدعاوى: اختصاصات مدنية + الجزائي. */
 export type LawsuitJurisdictionTab = 'all' | 'civil' | 'personal' | 'criminal';
 
-export type LawsuitJurisdiction = 'civil' | 'personal';
+type LawsuitJurisdiction = 'civil' | 'personal';
 
 const PERSONAL_JURISDICTION_HINT =
     /أحوال|شخصية|زواج|طلاق|نفقة|حضانة|مهر|قانون\s*1959|قانون\s*2025/i;

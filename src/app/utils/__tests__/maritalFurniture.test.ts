@@ -26,6 +26,9 @@ describe('maritalFurniture', () => {
         });
         expect(items).toHaveLength(2);
         expect(items[0]?.name).toBe('ثلاجة');
+        expect(items[0]?.unitPriceIqd).toBe(100_000);
+        expect(items[1]?.unitPriceIqd).toBe(100_000);
+        expect(sumMaritalFurnitureTotal(items)).toBe(200_000);
     });
 
     it('uses stable ids when reading furnitureDetails fallback twice', () => {

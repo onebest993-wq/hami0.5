@@ -28,15 +28,9 @@ export function dossierLifecycleLabelAr(status: DossierLifecycleStatus): string 
     return m[status] ?? status;
 }
 
-/** شارة مختصرة — نفس تسميات لوحة الإضبارة */
+/** شارة مختصرة — نفس تسميات لوحة الإضبارة، بلا إيموجي */
 export function dossierLifecycleBadgeAr(status: DossierLifecycleStatus): string {
-    const m: Record<DossierLifecycleStatus, string> = {
-        active: '🟢 نشطة',
-        paused: '🟡 متوقفة',
-        suspended: '⏸️ مستأخرة',
-        finished: '🔒 انتهاء الإضبارة',
-    };
-    return m[status] ?? dossierLifecycleLabelAr(status);
+    return dossierLifecycleLabelAr(status);
 }
 
 export function dossierLifecycleBadgeClass(status: DossierLifecycleStatus): string {

@@ -1,4 +1,4 @@
-import React from 'react';
+import { EnsureQuantumTasksProvider } from '@/app/context/QuantumTasksProvider';
 import { TasksErrorBoundary } from '@/app/components/lawyer/dashboard/TasksErrorBoundary';
 import { FieldTasksSheetHost } from '@/app/components/lawyer/dashboard/fieldTasks/FieldTasksSheetHost';
 import { FieldTasksManagerHost } from '@/app/components/lawyer/dashboard/fieldTasks/FieldTasksManagerHost';
@@ -8,15 +8,9 @@ import {
 } from '@/app/constants/keepAliveSuspendedProps';
 import type { LawyerDashboardOverlaysBundleProps } from '../lawyerDashboardOverlaysBundles';
 
-import { prefetchFieldTasksSheetModule } from '@/app/runtime/fieldTasksHubLoader';
-
-if (typeof window !== 'undefined') {
-    prefetchFieldTasksSheetModule();
-}
-
 /**
  * مهام الميدان خارج Suspense.
- * يعتمد QuantumTasksProvider من InnerRuntime — بلا Provider مزدوج يعيد تهيئة الحالة.
+ * EnsureQuantumTasksProvider هنا — FullBoot بلا Provider ساكن حتى لا يُعاد تركيب المنزل.
  */
 export function LawyerDashboardFieldTasksOverlayEntry({
     data,
@@ -42,7 +36,7 @@ export function LawyerDashboardFieldTasksOverlayEntry({
     if (!sheetLive && !managerLive) return null;
 
     return (
-        <>
+        <EnsureQuantumTasksProvider>
             {sheetLive ? (
                 <FieldTasksSheetHost
                     key={`field-tasks-sheet-${fieldTasksSheetSessionKey}`}
@@ -50,8 +44,8 @@ export function LawyerDashboardFieldTasksOverlayEntry({
                     keepAlive={fieldTasksHostMounted && !fieldTasksSheetOpen}
                     onClose={closeFieldTasksSheet}
                     onManageAll={switchToTasksManager}
-                    lawsuitFiles={files}
-                    executionFiles={executionFiles}
+                    lawsuitFiles={fieldTasksSheetOpen ? files : SUSPENDED_LAWSUIT_FILES}
+                    executionFiles={fieldTasksSheetOpen ? executionFiles : SUSPENDED_EXECUTION_FILES}
                 />
             ) : null}
 
@@ -69,6 +63,6 @@ export function LawyerDashboardFieldTasksOverlayEntry({
                     />
                 </TasksErrorBoundary>
             ) : null}
-        </>
+        </EnsureQuantumTasksProvider>
     );
 }

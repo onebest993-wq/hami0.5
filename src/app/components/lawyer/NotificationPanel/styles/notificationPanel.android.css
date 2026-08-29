@@ -1,0 +1,44 @@
+/* Android — بلا blur/توهج (banding + بطء المحاكي/Adreno) */
+
+html[data-hami-native='1']:not([data-hami-platform='ios']) .hami-notif-overlay-btn {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(1, 3, 8, 0.72) !important;
+}
+
+html[data-hami-native='1']:not([data-hami-platform='ios']) .hami-notif-sheet-track {
+  will-change: auto !important;
+}
+
+html[data-hami-native='1'][data-hami-notifications-open='1'] .hami-notif-sheet-track,
+html[data-hami-native='1'][data-hami-notifications-closing='1'] .hami-notif-sheet-track {
+  will-change: transform !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-notif-sheet {
+  background: #0b1021 !important;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-notif-tabs-track,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-notif-dnd-segments {
+  background: color-mix(in srgb, #ffffff 5%, #0b1021) !important;
+  box-shadow: none !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-notif-card {
+  background: color-mix(in srgb, #ffffff 5%, #0c121c) !important;
+  box-shadow: none !important;
+  transition: none !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-notif-card[data-unread='true'] {
+  box-shadow: none !important;
+}
+
+html[data-hami-native='1']:not([data-hami-platform='ios']) .hami-incoming-notification-popup-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: #0a0f1c !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55) !important;
+}

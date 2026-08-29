@@ -3,10 +3,10 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
-import { X } from '@/app/components/ui/lucideIcons';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { X } from '@/app/components/ui/icons/X';
 import type { BreakInventoryFurnitureSavePayload } from '@/app/utils/executorApprovalWorkflow';
-import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { EXEC_MODAL_Z } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 
 export interface ExecutorBreakInventoryFurnitureModalProps {
     open: boolean;
@@ -54,13 +54,13 @@ export const ExecutorBreakInventoryFurnitureModal: React.FC<ExecutorBreakInvento
 
     return (
         <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-xl flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
             style={{ zIndex: EXEC_MODAL_Z.nestedOverDecisions }}
         >
             <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="backdrop-blur-3xl bg-slate-900/40 border border-indigo-500/20 rounded-3xl p-6 max-w-lg w-full shadow-2xl shadow-indigo-500/10"
+                className="backdrop-blur-3xl bg-slate-900/40 border border-indigo-500/20 rounded-3xl p-6 max-w-lg w-full shadow-lg shadow-indigo-500/10"
             >
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-indigo-600 bg-clip-text text-transparent">

@@ -5,6 +5,7 @@ import type {
     ForumGroupMemberRow,
     ForumGroupRow,
 } from './forumGroupTypes';
+import { readSecureJsonRawSync, writeSecureJsonValue } from '@/app/services/storage/syncSecureJson';
 
 const GROUPS_KEY = 'hami:forum:groups:v1';
 const MEMBERS_KEY = 'hami:forum:group-members:v1';
@@ -16,10 +17,9 @@ function createId(): string {
 }
 
 function readJson<T>(key: string): T[] {
-    if (typeof window === 'undefined') return [];
+    const raw = readSecureJsonRawSync(key);
+    if (!raw) return [];
     try {
-        const raw = window.localStorage.getItem(key);
-        if (!raw) return [];
         const parsed = JSON.parse(raw);
         return Array.isArray(parsed) ? (parsed as T[]) : [];
     } catch {
@@ -28,8 +28,7 @@ function readJson<T>(key: string): T[] {
 }
 
 function writeJson<T>(key: string, rows: T[]): void {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(key, JSON.stringify(rows));
+    writeSecureJsonValue(key, rows);
 }
 
 function rowToGroup(

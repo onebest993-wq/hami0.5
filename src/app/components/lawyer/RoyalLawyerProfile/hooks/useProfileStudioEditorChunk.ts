@@ -9,7 +9,7 @@ import {
     type TextBlockStudioEditorComponent,
 } from '@/app/runtime/profileSettingsStudioTabsLoader';
 
-export type ProfileStudioEditorKind = 'text' | 'image';
+type ProfileStudioEditorKind = 'text' | 'image';
 
 export function prefetchProfileStudioEditor(kind: ProfileStudioEditorKind): void {
     prefetchProfileStudioChunk(kind === 'text' ? 'textEditor' : 'imageEditor');

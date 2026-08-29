@@ -51,4 +51,10 @@ export interface SmartFileModalProps {
         peerDossierKind?: 'lawsuit' | 'criminal';
     };
     onExitToProfile?: () => void;
+    /** false عند keep-alive المخفي — لا قفل تمرير ولا أزرار نظام */
+    surfaceActive?: boolean;
+    /** إخفاء المخزن بعد أول إطار حقيقي للإضبارة */
+    onPainted?: () => void;
+    /** غلاف BootChrome فقط إن لم يكن المخزن ظاهراً تحت الطبقة */
+    coverWhilePending?: boolean;
 }

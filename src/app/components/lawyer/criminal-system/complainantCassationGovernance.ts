@@ -46,25 +46,25 @@ export function isComplainantLawyerRole(userRole: CriminalCaseUserRole | undefin
     return userRole === 'complainant_lawyer';
 }
 
-export function decisionProceduralTemplateKey(decision: JudicialDecision): string {
+function decisionProceduralTemplateKey(decision: JudicialDecision): string {
     return normalizeProceduralRequestTemplate(decision.proceduralTemplate ?? decision.title);
 }
 
-export function isArrestSummonProceduralTemplate(key: string): boolean {
+function isArrestSummonProceduralTemplate(key: string): boolean {
     if (isOrderEnforcementTemplate(key)) return true;
     return /استقدام|قبض|تحري/.test(key) && !/كفالة|إخلاء/.test(key);
 }
 
-export function isDetentionProceduralTemplate(key: string): boolean {
+function isDetentionProceduralTemplate(key: string): boolean {
     return isDetentionRequestTemplate(key) || (/توقيف/.test(key) && !/إخلاء|كفالة/.test(key));
 }
 
-export function isBailProceduralTemplate(key: string): boolean {
+function isBailProceduralTemplate(key: string): boolean {
     return key === BAIL_TEMPLATE || (/كفالة|إخلاء سبيل/.test(key) && !/توقيف/.test(key));
 }
 
 /** قرار حاسم (م 130) بإلغاء التهمة / إفراج / غلق — يجيز طعن المشتكي. */
-export function isArticle130InvestigationDismissalDecision(decision: JudicialDecision): boolean {
+function isArticle130InvestigationDismissalDecision(decision: JudicialDecision): boolean {
     if (decision.decisionType !== 'dispositive') return false;
     const title = normalizeProceduralRequestTemplate(decision.title);
     const text = `${title} ${decision.summary} ${decision.proceduralTemplate ?? ''}`;
@@ -97,7 +97,7 @@ export function isComplainantFavorableProceduralOutcome(decision: JudicialDecisi
 }
 
 /** الحالات المحددة التي يتضرر فيها المشتكي — يجوز إظهار زر الطعن. */
-export function isComplainantHarmCassationTrigger(decision: JudicialDecision): boolean {
+function isComplainantHarmCassationTrigger(decision: JudicialDecision): boolean {
     const key = decisionProceduralTemplateKey(decision);
     const status = decision.requestOutcomeStatus;
     if (isArticle130InvestigationDismissalDecision(decision)) return true;
@@ -113,10 +113,3 @@ export function canComplainantLawyerFileCassationAppeal(decision: JudicialDecisi
     return isComplainantHarmCassationTrigger(decision);
 }
 
-export function resolveComplainantLawyerAppealTargetIds(
-    caseRecord: Pick<CriminalCase, 'complainants'>,
-): string[] {
-    return (Array.isArray(caseRecord.complainants) ? caseRecord.complainants : [])
-        .map((c) => String(c.id ?? '').trim())
-        .filter(Boolean);
-}

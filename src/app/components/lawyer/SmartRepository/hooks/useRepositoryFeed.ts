@@ -17,11 +17,9 @@ import {
     buildRepositoryFeedCacheKey,
     peekRepositoryFeedCache,
     setRepositoryFeedCache,
-    invalidateRepositoryFeedCache,
 } from '@/app/services/repository/repositoryFeedWarmCache';
 import {
     getRepositoryFeedContainerClass,
-    getRepositoryFeedItemClass,
     loadRepositoryFeedLayout,
     normalizeRepositoryFeedLayout,
     persistRepositoryFeedLayout,
@@ -37,7 +35,6 @@ type UseRepositoryFeedParams = {
     vaultCategoryFilter: string;
     vaultSearchQuery: string;
     roomFilter?: RepositoryRoomFilter | null;
-    notesBootSettled?: boolean;
     initialFilter: RepositoryFeedFilter;
     focusNoteId?: string;
     feedScrollRef: RefObject<HTMLDivElement | null>;
@@ -79,24 +76,12 @@ export function useRepositoryFeed({
     }, []);
 
     const feedLayoutClass = getRepositoryFeedContainerClass(feedLayout);
-    const feedItemLayoutClass = getRepositoryFeedItemClass(feedLayout);
 
     const handleFeedLayoutChange = useCallback((next: RepositoryFeedLayoutId) => {
         const normalized = normalizeRepositoryFeedLayout(next);
         setFeedLayout(normalized);
         persistRepositoryFeedLayout(normalized);
     }, []);
-
-    useEffect(() => {
-        let raf = 0;
-        raf = requestAnimationFrame(() => {
-            invalidateRepositoryFeedCache();
-            setFeedEpoch((n) => n + 1);
-        });
-        return () => {
-            if (raf) cancelAnimationFrame(raf);
-        };
-    }, [notes, vaultDocs]);
 
     const feedItems = useMemo(() => {
         const input = {
@@ -166,7 +151,6 @@ export function useRepositoryFeed({
         activeFilter,
         feedLayout,
         feedLayoutClass,
-        feedItemLayoutClass,
         visibleByFilter,
         filterCounts,
         vaultDocsById,

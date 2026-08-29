@@ -1,6 +1,6 @@
-// @ts-nocheck
 import React from 'react';
-import { Zap, Scale } from '@/app/components/ui/lucideIcons';
+import { Zap } from '@/app/components/ui/icons/Zap';
+import { Scale } from '@/app/components/ui/icons/Scale';
 import { ecg } from './executionCreationGlassUi';
 import { formatMoneyIntegerDisplay, handleMoneyInputChange } from '@/app/utils/moneyInput';
 import type { AlimonyPastLawSystem } from '../hooks/useAlimonyCalculator';
@@ -64,7 +64,7 @@ export const PastAlimonyFieldsSection: React.FC<PastAlimonyFieldsSectionProps> =
                 <option value="قانون الأحوال الشخصية 1959">
                     قانون الأحوال الشخصية 1959 (حد أقصى سنة واحدة)
                 </option>
-                <option value="الفقه الجعfري">الفقه الجعfري (بدون حد أقصى)</option>
+                <option value="الفقه الجعفري">الفقه الجعفري (بدون حد أقصى)</option>
             </select>
         </div>
         <div>
@@ -168,9 +168,9 @@ export const PastAlimonyResultPreview: React.FC<PastAlimonyResultPreviewProps> =
                                 <span className="block text-[10px] text-amber-400/90">
                                     حد سنة (1959) — فعلياً {calculated.pastDurationMonthsRaw.toFixed(1)} شهر
                                 </span>
-                            ) : pastLawSystem === 'الفقه الجعfري' ? (
+                            ) : pastLawSystem === 'الفقه الجعفري' ? (
                                 <span className="block text-[10px] text-amber-400/90">
-                                    فقه جعfري — {calculated.pastDurationMonthsRaw.toFixed(1)} شهر
+                                    فقه جعفري — {calculated.pastDurationMonthsRaw.toFixed(1)} شهر
                                 </span>
                             ) : null}
                         </span>

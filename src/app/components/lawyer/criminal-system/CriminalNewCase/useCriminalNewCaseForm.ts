@@ -335,6 +335,7 @@ export function useCriminalNewCaseForm({
             return;
         }
         const caseId = createCaseFromDraft();
+        if (!caseId) return;
         resetDraft();
         onCreated(caseId);
     }, [

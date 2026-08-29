@@ -1,14 +1,6 @@
 import React, { useState } from 'react';
-import {
-    Eye,
-    FileText,
-    Loader2,
-    Paperclip,
-    RefreshCw,
-    Trash2,
-    UploadCloud,
-} from '@/app/components/ui/lucideIcons';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { Paperclip } from '@/app/components/ui/icons/Paperclip';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
@@ -22,9 +14,13 @@ import {
 import { revokeBlobUrlIfNeeded } from '@/app/services/vault/vaultDocUtils';
 import { readVaultLocalIndexSync } from '@/app/services/vault/vaultLocalIndex';
 import { fetchVaultDocsDeduped, seedVaultWarmCacheFromLocalIndex } from '@/app/services/vault/vaultDocsWarmCache';
-import { prefetchVaultPdfJsViewer, VaultPdfJsViewerLazy } from '@/app/components/lawyer/SmartVaultModal/VaultPdfJsViewerLazy';
+import { prefetchVaultPdfJsViewer } from '@/app/components/lawyer/SmartVaultModal/VaultPdfJsViewerLazy';
 import type { AddDocumentModalProps, TimelineEvent } from '../../smartFile/modalFormTypes';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../../smartFile/civilLawsuitTestIds';
+import {
+    confirmSmartFileDestructiveAction,
+    SMART_FILE_DELETE_DOCUMENT_MESSAGE,
+} from '../../smartFile/smartFileDestructiveConfirm';
 import { MoroccanGlassShell } from '../../smartFile/moroccanGlassShell';
 import { useSmartFileModalTheme } from '../../smartFile/smartFileModalTheme';
 import {
@@ -37,6 +33,8 @@ import {
     ModalInlineTimeline,
     SmartModalHeader,
 } from './shared';
+import { AddDocumentModalEntryForm } from './AddDocumentModalEntryForm';
+import { AddDocumentModalSavedActions } from './AddDocumentModalSavedActions';
 
 export const AddDocumentModal = ({
     isOpen,
@@ -262,6 +260,7 @@ export const AddDocumentModal = ({
     };
 
     const handleDeleteSavedDocument = async (item: TimelineEvent) => {
+        if (!confirmSmartFileDestructiveAction(SMART_FILE_DELETE_DOCUMENT_MESSAGE)) return;
         const snapshot = extractVaultDocSnapshot(item);
         const meta = (item.metadata as Record<string, unknown> | undefined) ?? {};
         const attachmentDocId =
@@ -317,8 +316,7 @@ export const AddDocumentModal = ({
         <MoroccanGlassShell
             onOverlayClick={onClose}
             overlayTestId={CIVIL_LAWSUIT_TEST_IDS.documentModal}
-            maxWidth="max-w-4xl"
-            className="min-h-[min(84dvh,760px)]"
+            maxWidth="max-w-2xl"
         >
             <FullDocumentPreviewOverlay
                 key={fullPreviewNonce}
@@ -338,15 +336,7 @@ export const AddDocumentModal = ({
                 title={browseOnly ? 'مستندات الإضبارة — للاطلاع' : editMode ? 'تعديل مستند' : 'محفظة الأدلة الذكية'}
                 onClose={onClose}
             />
-            <div
-                className={
-                    browseOnly
-                        ? 'p-5 sm:p-6'
-                        : T.useMoroccanCorners
-                        ? 'grid gap-5 p-5 sm:p-6 md:min-h-[min(76dvh,640px)] md:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] md:items-start'
-                        : T.body
-                }
-            >
+            <div className={browseOnly ? 'p-3 sm:p-4' : T.body}>
                 <div className="space-y-4">
                     <ModalInlineTimeline
                         title={browseOnly ? 'مستندات هذه المرحلة' : 'سجل المستندات داخل هذا القسم'}
@@ -364,50 +354,20 @@ export const AddDocumentModal = ({
                                 .join(' • ') || null
                         }
                         renderActions={(item) => (
-                            <div className="flex flex-wrap items-center gap-1.5">
-                                <button
-                                    type="button"
-                                    onClick={(event) => {
-                                        event.preventDefault();
-                                        event.stopPropagation();
-                                        void handlePreviewSavedDocument(item);
-                                    }}
-                                    disabled={
-                                        (previewLoading && previewingEventId === String(item.id)) ||
-                                        isPreviewMissing(String(item.id))
-                                    }
-                                    className="inline-flex items-center gap-1 rounded-xl border border-[#E6C673]/18 bg-[#E6C673]/10 px-2 py-0.5 text-[9px] font-bold text-[#E6C673] transition-colors hover:bg-[#E6C673]/18 disabled:opacity-50"
-                                >
-                                    {previewLoading && previewingEventId === String(item.id) ? (
-                                        <Loader2 size={12} className="animate-spin" />
-                                    ) : isPreviewMissing(String(item.id)) ? (
-                                        <FileText size={12} />
-                                    ) : (
-                                        <Eye size={12} />
-                                    )}
-                                    {isPreviewMissing(String(item.id)) ? 'مفقود' : 'اطلاع'}
-                                </button>
-                                {!browseOnly ? (
-                                <>
-                                <button
-                                    type="button"
-                                    onClick={() => onReplaceDocument?.(item)}
-                                    className="inline-flex items-center gap-1 rounded-xl border border-white/[0.12] bg-white/[0.05] px-2 py-0.5 text-[9px] font-bold text-white/70 transition-colors hover:bg-white/[0.08]"
-                                >
-                                    <RefreshCw size={12} />
-                                    استبدال
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => void handleDeleteSavedDocument(item)}
-                                    className="inline-flex items-center gap-1 rounded-xl border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[9px] font-bold text-rose-200 transition-colors hover:bg-rose-500/16"
-                                >
-                                    <Trash2 size={12} />
-                                    حذف
-                                </button>
-                                </>
-                                ) : null}
-                            </div>
+                            <AddDocumentModalSavedActions
+                                item={item}
+                                browseOnly={browseOnly}
+                                previewLoading={previewLoading}
+                                previewingEventId={previewingEventId}
+                                isPreviewMissing={isPreviewMissing}
+                                onPreview={(doc) => {
+                                    void handlePreviewSavedDocument(doc);
+                                }}
+                                onReplace={onReplaceDocument}
+                                onDelete={(doc) => {
+                                    void handleDeleteSavedDocument(doc);
+                                }}
+                            />
                         )}
                         renderBody={(item) => (
                             <DocumentTimelinePreview
@@ -424,141 +384,30 @@ export const AddDocumentModal = ({
                     />
                 </div>
                 {!browseOnly ? (
-                <div className="space-y-5 md:self-center">
-                    <input
-                        id={fileInputId}
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileSelect}
-                        accept="image/*,.pdf"
-                        className="sr-only"
-                        tabIndex={-1}
-                        aria-hidden="true"
+                    <AddDocumentModalEntryForm
+                        T={T}
+                        isPearl={isPearl}
+                        fileInputId={fileInputId}
+                        fileInputRef={fileInputRef}
+                        title={title}
+                        setTitle={setTitle}
+                        category={category}
+                        setCategory={setCategory}
+                        notes={notes}
+                        setNotes={setNotes}
+                        selectedFile={selectedFile}
+                        selectedFileKind={selectedFileKind}
+                        selectedPreviewUrl={selectedPreviewUrl}
+                        isFileDragActive={isFileDragActive}
+                        saving={saving}
+                        editMode={editMode}
+                        handleFileSelect={handleFileSelect}
+                        handleDropSelectedFile={handleDropSelectedFile}
+                        handleDragState={handleDragState}
+                        handleSubmit={() => {
+                            void handleSubmit();
+                        }}
                     />
-                    <div>
-                        <label className={T.label}>
-                            نوع المستند <span className="text-red-400">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                            placeholder="مثال: عريضة، وكالة، وصل..."
-                            className={T.field}
-                        />
-                    </div>
-                    <div>
-                        <label className={T.label}>
-                            اسم المستند <span className="text-red-400">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            placeholder="مثال: قرار تمييز، عقد بيع..."
-                            className={T.field}
-                        />
-                    </div>
-                    <div className="rounded-[24px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-4 space-y-3">
-                        <div className="flex items-center justify-between gap-2">
-                            <p className="text-[12px] font-black text-[#E6C673]/85">معاينة المستند</p>
-                            <label
-                                htmlFor={fileInputId}
-                                className="cursor-pointer rounded-xl border border-[#E6C673]/18 bg-[#E6C673]/10 px-3 py-2 text-[11px] font-bold text-[#E6C673] transition-colors hover:bg-[#E6C673]/18"
-                            >
-                                {selectedFile ? 'تغيير الملف' : 'اختيار ملف'}
-                            </label>
-                        </div>
-                        {selectedFile ? (
-                            <div className="space-y-3">
-                                {selectedFileKind === 'image' && selectedPreviewUrl ? (
-                                    <div className="flex h-44 sm:h-52 items-center justify-center overflow-hidden rounded-[22px] border border-white/[0.08] bg-black/20 p-3">
-                                        <img
-                                            src={selectedPreviewUrl}
-                                            alt={selectedFile.name}
-                                            className="block max-h-full max-w-full object-contain"
-                                        />
-                                    </div>
-                                ) : null}
-                                {selectedFileKind === 'pdf' && selectedPreviewUrl ? (
-                                    <div className="overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#161616]">
-                                        <div className="h-56 sm:h-64 w-full">
-                                            <VaultPdfJsViewerLazy
-                                                source={selectedFile}
-                                                title={selectedFile.name}
-                                                openUrl={selectedPreviewUrl}
-                                                fallbackClassName="flex h-full items-center justify-center text-sm text-white/45"
-                                            />
-                                        </div>
-                                    </div>
-                                ) : null}
-                                {selectedFileKind === 'file' ? (
-                                    <div className="flex h-40 items-center justify-center rounded-[22px] border border-dashed border-white/[0.08] bg-black/10 px-4 text-center">
-                                        <div className="space-y-2">
-                                            <FileText size={28} className="mx-auto text-[#E6C673]" />
-                                            <p className="text-sm font-bold text-[#F4E9CD] truncate max-w-[18rem]">
-                                                {selectedFile.name}
-                                            </p>
-                                            <p className="text-[11px] text-white/40">
-                                                لا تتوفر معاينة مضمنة لهذا النوع، لكن الملف جاهز للحفظ.
-                                            </p>
-                                        </div>
-                                    </div>
-                                ) : null}
-                                <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/45">
-                                    <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2 py-1">
-                                        {selectedFile.name}
-                                    </span>
-                                    <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2 py-1">
-                                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                                    </span>
-                                    <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2 py-1">
-                                        {selectedFile.type || 'ملف عام'}
-                                    </span>
-                                </div>
-                            </div>
-                        ) : (
-                            <label
-                                htmlFor={fileInputId}
-                                onDrop={handleDropSelectedFile}
-                                onDragEnter={(e) => handleDragState(e, true)}
-                                onDragOver={(e) => handleDragState(e, true)}
-                                onDragLeave={(e) => handleDragState(e, false)}
-                                className={`w-full h-36 cursor-pointer rounded-[22px] border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all backdrop-blur-sm ${
-                                    isPearl
-                                        ? 'border-[#C9B89A]/15 bg-[#EDE6D6]/[0.02] text-[#9C9890] hover:border-[#C9B89A]/28 hover:text-[#C9B89A]/90 hover:bg-[#C9B89A]/5'
-                                        : 'border-white/10 bg-white/[0.02] text-white/40 hover:border-[#E6C673]/30 hover:text-[#E6C673]/80 hover:bg-[#E6C673]/5'
-                                } ${isFileDragActive ? 'border-[#E6C673]/45 bg-[#E6C673]/8 text-[#E6C673]' : ''}`}
-                            >
-                                <UploadCloud size={22} />
-                                <span className="text-sm font-bold">اسحب أو اختر ملفاً من الجهاز</span>
-                                <span className="text-[11px] text-white/42">PDF أو صورة عالية الدقة</span>
-                            </label>
-                        )}
-                    </div>
-                    <div className="rounded-[22px] border border-white/[0.08] bg-white/[0.03] p-4 space-y-3">
-                        <div className="flex items-center justify-between gap-2">
-                            <p className="text-[12px] font-black text-[#E6C673]/85">ملخص المستند</p>
-                            <span className="text-[10px] text-white/35">
-                                {selectedFile ? 'جاهز للحفظ' : 'ينتظر الملف'}
-                            </span>
-                        </div>
-                        <textarea
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            placeholder="وصف مختصر أو ملاحظات قانونية للمستند..."
-                            className={`${T.field} min-h-[130px] resize-none`}
-                        />
-                    </div>
-                    <button
-                        type="button"
-                        onClick={handleSubmit}
-                        disabled={saving || !title.trim() || !category.trim() || (!editMode && !selectedFile)}
-                        className={T.btn}
-                    >
-                        {saving ? 'جارٍ حفظ المستند...' : editMode ? 'تحديث المستند' : 'حفظ المستند'}
-                    </button>
-                </div>
                 ) : null}
             </div>
         </MoroccanGlassShell>

@@ -57,6 +57,16 @@ export function canEditComment(
     return true;
 }
 
+export function canAddComment(
+    post: CommunityPost,
+    currentUserId: string | null,
+    isBanned: boolean,
+): boolean {
+    if (!currentUserId || isBanned) return false;
+    if (post.isLocked === true) return false;
+    return true;
+}
+
 export function canUpvotePost(post: CommunityPost, currentUserId: string | null): boolean {
     if (!currentUserId) return false;
     return getPostAuthorId(post) !== currentUserId;

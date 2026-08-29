@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useIncomingCaseShares } from '@/app/hooks/useIncomingCaseShares';
@@ -8,19 +8,23 @@ import {
     computeNotificationsShellUnreadCount,
     openNotificationsFromShell,
 } from '@/app/services/notifications/notificationShellNavigation';
-import { isRealSignedIn } from '@/app/services/auth/shellAuth';
+import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
 import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
-import { executeOverlaySnapClose } from '@/app/runtime/overlaySnapClose';
-import {
-    clearNotificationForceVisible,
-    concealNotificationWarmPanel,
-} from '@/app/runtime/notificationInstantPaint';
+import { executeNotificationsOverlayClose } from '@/app/runtime/overlaySnapClose';
+import { concealNotificationWarmPanel } from '@/app/runtime/notificationInstantPaint';
 import {
     persistNotificationsSessionOpen,
     readInitialNotificationsSession,
 } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import { peekNotificationUnreadCount } from '@/app/infrastructure/notificationPeekLite';
-import { commitNotificationShellOpen } from '@/app/hooks/lawyerDashboard/notifications/notificationShellOpenFlow';
+import { beginNotificationShellOpen as beginNotificationShellOpenFlow } from '@/app/hooks/lawyerDashboard/notifications/notificationShellOpenFlow';
+import { beginNotificationShellExit, clearNotificationShellClosing } from '@/app/hooks/lawyerDashboard/notifications/notificationShellExit';
+import {
+    isNotificationShellSnappedOpen,
+    snapNotificationShellClose,
+} from '@/app/services/notifications/notificationShellSnap';
+import { suppressNotificationReopen } from '@/app/services/notifications/notificationReopenGuard';
+import { shouldKeepNotificationHostWarm } from '@/app/services/notifications/notificationHostKeepAlive';
 import {
     primeNotificationHostMount,
     useNotificationHostLifecycle,
@@ -29,9 +33,14 @@ import {
     useNotificationStoreSync,
     type SearchNotificationRow,
 } from '@/app/hooks/lawyerDashboard/notifications/useNotificationStoreSync';
+import { useNotificationOsPanelOpen } from '@/app/hooks/lawyerDashboard/notifications/useNotificationOsPanelOpen';
+import { useNotificationE2eWindow } from '@/app/hooks/lawyerDashboard/notifications/useNotificationE2eWindow';
 
-export type { SearchNotificationRow };
-
+/**
+ * فتح/إغلاق لوحة الإشعارات — نمط الإعدادات:
+ * - فتح: محاولة ورقة أندرويد الأصلية إن فُعّلت، وإلا snap + commit متزامن
+ * - إغلاق: conceal فوري + toggle من الجرس
+ */
 export function useLawyerDashboardNotifications(
     userId: string | null,
     options?: { backgroundRuntimeEnabled?: boolean },
@@ -54,21 +63,24 @@ export function useLawyerDashboardNotifications(
     const [initialSession] = useState(() => readInitialNotificationsSession());
     const [showNotifications, setShowNotifications] = useState(() => initialSession.open);
     const [notificationHostMounted, setNotificationHostMounted] = useState(() => initialSession.open);
-    const [notificationPanelSessionKey, setNotificationPanelSessionKey] = useState(0);
     const showNotificationsRef = useRef(initialSession.open);
     const openInFlightRef = useRef(false);
+    const closingRef = useRef(false);
+    const notificationHostMountedRef = useRef(notificationHostMounted);
     showNotificationsRef.current = showNotifications;
+    notificationHostMountedRef.current = notificationHostMounted;
 
     useEffect(() => {
         setStoreUnreadCount(peekNotificationUnreadCount(userId));
     }, [userId]);
 
     useEffect(() => {
-        if (isRealSignedIn(userId)) return;
+        if (hasLocalAppSession(userId)) return;
         if (!showNotificationsRef.current && !initialSession.open) return;
+        snapNotificationShellClose();
         concealNotificationWarmPanel();
-        clearNotificationForceVisible();
         showNotificationsRef.current = false;
+        closingRef.current = false;
         setShowNotifications(false);
         persistNotificationsSessionOpen(false);
     }, [userId, initialSession.open]);
@@ -93,16 +105,32 @@ export function useLawyerDashboardNotifications(
     });
 
     const closeNotifications = useCallback(() => {
-        executeOverlaySnapClose({
-            conceal: () => {
-                concealNotificationWarmPanel();
-                clearNotificationForceVisible();
-            },
-            commit: () => {
-                showNotificationsRef.current = false;
-                setShowNotifications(false);
-                persistNotificationsSessionOpen(false);
-            },
+        if (closingRef.current) return;
+        if (!showNotificationsRef.current && !isNotificationShellSnappedOpen()) {
+            clearNotificationShellClosing();
+            concealNotificationWarmPanel();
+            persistNotificationsSessionOpen(false);
+            return;
+        }
+        closingRef.current = true;
+        openInFlightRef.current = false;
+        suppressNotificationReopen();
+        beginNotificationShellExit(() => {
+            showNotificationsRef.current = false;
+            executeNotificationsOverlayClose({
+                conceal: () => {
+                    snapNotificationShellClose();
+                    concealNotificationWarmPanel();
+                },
+                commit: () => {
+                    setShowNotifications(false);
+                    persistNotificationsSessionOpen(false);
+                    closingRef.current = false;
+                    if (!shouldKeepNotificationHostWarm()) {
+                        setNotificationHostMounted(false);
+                    }
+                },
+            });
         });
     }, []);
 
@@ -112,72 +140,92 @@ export function useLawyerDashboardNotifications(
     }, []);
 
     useEffect(() => {
-        return registerDashboardOverlayCloser('notifications', () => {
-            concealNotificationWarmPanel();
-            clearNotificationForceVisible();
-            showNotificationsRef.current = false;
-            setShowNotifications(false);
-            persistNotificationsSessionOpen(false);
-        });
-    }, []);
+        return registerDashboardOverlayCloser('notifications', closeNotifications);
+    }, [closeNotifications]);
 
     useEffect(() => {
         persistNotificationsSessionOpen(showNotifications);
     }, [showNotifications]);
 
-    const openNotifications = useCallback(() => {
-        openNotificationsFromShell({
-            signedIn: isRealSignedIn(userId),
-            onSignedOut: () =>
-                SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${NOTIFICATIONS_SHELL_FEATURE}`),
-            onOpen: () => {
-                if (showNotificationsRef.current || openInFlightRef.current) return;
-                openInFlightRef.current = true;
-                try {
-                    commitNotificationShellOpen({
-                        userId,
-                        showNotificationsRef,
-                        setNotificationHostMounted,
-                        setShowNotifications,
-                    });
-                } finally {
-                    openInFlightRef.current = false;
-                }
-            },
+    const syncReactClosedWhenSnapGone = useCallback(() => {
+        if (openInFlightRef.current) return;
+        if (isNotificationShellSnappedOpen()) return;
+        clearNotificationShellClosing();
+        if (!showNotificationsRef.current) return;
+        /* snap أُغلق دون setState — aria-modal كان يخفي بلاطة الرئيسية عن Playwright */
+        showNotificationsRef.current = false;
+        setShowNotifications(false);
+        persistNotificationsSessionOpen(false);
+        closingRef.current = false;
+        concealNotificationWarmPanel();
+    }, []);
+
+    useLayoutEffect(() => {
+        syncReactClosedWhenSnapGone();
+        if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') return;
+        const observer = new MutationObserver(syncReactClosedWhenSnapGone);
+        observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['data-hami-notifications-open', 'data-hami-notifications-closing'],
+        });
+        return () => observer.disconnect();
+    }, [showNotifications, syncReactClosedWhenSnapGone]);
+
+    const beginNotificationShellOpen = useCallback(() => {
+        beginNotificationShellOpenFlow({
+            userId,
+            showNotificationsRef,
+            setNotificationHostMounted,
+            setShowNotifications,
+            openInFlightRef,
         });
     }, [userId]);
 
-    useEffect(() => {
-        if (!import.meta.env.DEV || typeof window === 'undefined') return;
-        const w = window as Window & {
-            __hamiE2eForceOpenNotifications?: () => void;
-            __hamiE2eNotificationDebug?: () => {
-                showNotifications: boolean;
-                notificationPanelMounted: boolean;
-            };
-        };
-        w.__hamiE2eForceOpenNotifications = () => openNotifications();
-        w.__hamiE2eNotificationDebug = () => ({
-            showNotifications,
-            notificationPanelMounted: showNotifications || notificationHostMounted,
-        });
-        return () => {
-            delete w.__hamiE2eForceOpenNotifications;
-            delete w.__hamiE2eNotificationDebug;
-        };
-    }, [notificationHostMounted, openNotifications, showNotifications]);
+    const runNotificationShellOpen = useCallback(
+        (mode: 'toggle' | 'ensure') => {
+            openNotificationsFromShell({
+                signedIn: hasLocalAppSession(userId),
+                onSignedOut: () =>
+                    SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${NOTIFICATIONS_SHELL_FEATURE}`),
+                onOpen: () => {
+                    if (showNotificationsRef.current) {
+                        if (mode === 'toggle') closeNotifications();
+                        return;
+                    }
+                    beginNotificationShellOpen();
+                },
+            });
+        },
+        [beginNotificationShellOpen, closeNotifications, userId],
+    );
+
+    const openNotifications = useCallback(() => {
+        runNotificationShellOpen('toggle');
+    }, [runNotificationShellOpen]);
+
+    /** فتح من نقر إشعار النظام — لا يُغلِق اللوحة إن كانت مفتوحة أصلاً */
+    const ensureNotificationsOpen = useCallback(() => {
+        runNotificationShellOpen('ensure');
+    }, [runNotificationShellOpen]);
+
+    useNotificationOsPanelOpen(ensureNotificationsOpen);
+    useNotificationE2eWindow({
+        userId,
+        closeNotifications,
+        openInFlightRef,
+        showNotificationsRef,
+        notificationHostMountedRef,
+        setNotificationHostMounted,
+        setShowNotifications,
+    });
 
     return {
         showNotifications,
-        setShowNotifications,
         closeNotifications,
-        notificationPanelSessionKey,
         notificationHostMounted,
         openNotifications,
         searchNotifications,
         notificationsUnreadCount,
-        caseSharePendingCount,
         primeNotificationPanelMount,
-        bumpNotificationPanelSession: () => setNotificationPanelSessionKey((k) => k + 1),
     };
 }

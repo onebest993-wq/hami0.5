@@ -11,9 +11,10 @@ vi.mock('@/app/runtime/criminalDashboardLoader', () => ({
 
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: vi.fn(() => false),
+    isNativeShellStampedOnDom: vi.fn(() => false),
 }));
 
-vi.mock('@/app/services/settings/settingsRuntime', () => ({
+vi.mock('@/app/services/settings/settingsSnapshot', () => ({
     getLawyerSettingsSnapshot: vi.fn(() => ({
         security: { localOnlyMode: false },
         performance: { prefetchScreens: true, litePerformance: false },
@@ -42,7 +43,7 @@ describe('criminalBootHydrator', () => {
         const mod = await import('@/app/runtime/criminalBootHydrator');
         mod.resetCriminalBootHydratorForTests();
         vi.mocked(
-            (await import('@/app/services/settings/settingsRuntime')).getLawyerSettingsSnapshot,
+            (await import('@/app/services/settings/settingsSnapshot')).getLawyerSettingsSnapshot,
         ).mockReturnValue({
             security: { localOnlyMode: false },
             performance: { prefetchScreens: true, litePerformance: false },
@@ -65,15 +66,16 @@ describe('criminalBootHydrator', () => {
         window.removeEventListener(CRIMINAL_CHROME_HYDRATED_EVENT, onHydrated);
     });
 
-    it('bind + dashboard-interactive يطلق chrome ثم phased', async () => {
+    it('bind لا يسخّن chrome على reveal؛ interactive يطلق chrome ثم phased', async () => {
         const { bindCriminalBootHydrator, resetCriminalBootHydratorForTests } = await import(
             '@/app/runtime/criminalBootHydrator'
         );
         resetCriminalBootHydratorForTests();
         const unbind = bindCriminalBootHydrator('lawyer-1');
         window.dispatchEvent(new Event('hami:boot-reveal-done'));
-        expect(prefetchCriminalDashboardChromeWarm).toHaveBeenCalled();
+        expect(prefetchCriminalDashboardChromeWarm).not.toHaveBeenCalled();
         window.dispatchEvent(new Event('hami:dashboard-interactive'));
+        expect(prefetchCriminalDashboardChromeWarm).toHaveBeenCalled();
         expect(prefetchCriminalDashboardPhased).toHaveBeenCalled();
         unbind();
     });

@@ -27,10 +27,19 @@ if (scopeProblems.length) {
 
 fs.writeFileSync(keysJsonPath, JSON.stringify(merged, null, 2) + '\n');
 
-const keysBody = merged.map((k) => `    '${k}',`).join('\n');
+const mid = Math.ceil(merged.length / 2);
+const head = merged.slice(0, mid);
+const tail = merged.slice(mid);
+const emitPart = (name, part) =>
+    `/** جزء من EXECUTION_PHONE_BODY_PROP_KEYS — يُزامَن عبر scripts/sync-phone-body-missing-keys.mjs */\nexport const ${name} = [\n${part
+        .map((k) => `    '${k}',`)
+        .join('\n')}\n] as const;\n`;
+const keysDir = keysPath.replace(/executionPhoneBodyPropKeys\.ts$/, '');
+fs.writeFileSync(keysDir + 'executionPhoneBodyPropKeys.head.ts', emitPart('EXECUTION_PHONE_BODY_PROP_KEYS_HEAD', head));
+fs.writeFileSync(keysDir + 'executionPhoneBodyPropKeys.tail.ts', emitPart('EXECUTION_PHONE_BODY_PROP_KEYS_TAIL', tail));
 fs.writeFileSync(
     keysPath,
-    `/** مفاتيح جسم الدashboard — مُولَّد/مُزامَن عبر scripts/sync-phone-body-missing-keys.mjs */\nexport const EXECUTION_PHONE_BODY_PROP_KEYS = [\n${keysBody}\n] as const;\n\nexport type ExecutionPhoneBodyPropKey = (typeof EXECUTION_PHONE_BODY_PROP_KEYS)[number];\n`,
+    `/** مفاتيح جسم الدashboard — مُولَّد/مُزامَن عبر scripts/sync-phone-body-missing-keys.mjs */\nimport { EXECUTION_PHONE_BODY_PROP_KEYS_HEAD } from './executionPhoneBodyPropKeys.head';\nimport { EXECUTION_PHONE_BODY_PROP_KEYS_TAIL } from './executionPhoneBodyPropKeys.tail';\n\nexport const EXECUTION_PHONE_BODY_PROP_KEYS = [\n    ...EXECUTION_PHONE_BODY_PROP_KEYS_HEAD,\n    ...EXECUTION_PHONE_BODY_PROP_KEYS_TAIL,\n] as const;\n\nexport type ExecutionPhoneBodyPropKey = (typeof EXECUTION_PHONE_BODY_PROP_KEYS)[number];\n`,
 );
 
 const scopeBody = merged.map((k) => `            ${k},`).join('\n');

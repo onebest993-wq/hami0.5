@@ -1,7 +1,7 @@
-import { memo, useEffect, useRef, type ReactNode } from 'react';
+import { memo, useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { getHamiOverlayPortalRoot } from '@/app/utils/overlayPortal';
+import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 import { TX_HUB_DIALOG_Z } from './transactionsHubOverlayZ';
 
 function getTransactionsHubDialogPortalRoot(): HTMLElement {
@@ -38,9 +38,9 @@ export const TransactionsHubDialog = memo(function TransactionsHubDialog({
     testId?: string;
     ariaLabel?: string;
 }) {
-    const reduceMotion = useReduceMotion();
     const panelRef = useRef<HTMLDivElement>(null);
     const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+    const keyboardInsetPx = useMobileKeyboardInset(open);
 
     useEffect(() => {
         if (!open) return;
@@ -103,7 +103,7 @@ export const TransactionsHubDialog = memo(function TransactionsHubDialog({
 
     if (!open || typeof document === 'undefined') return null;
 
-    const backdropMotion = reduceMotion ? '!transition-none' : 'transition-opacity duration-75 ease-out';
+    const backdropMotion = '!transition-none';
 
     return createPortal(
         <div
@@ -113,6 +113,9 @@ export const TransactionsHubDialog = memo(function TransactionsHubDialog({
             aria-label={ariaLabel}
             data-testid={testId}
             data-state="open"
+            data-hami-overlay-safe="1"
+            data-keyboard-inset={keyboardInsetPx > 0 ? String(keyboardInsetPx) : undefined}
+            style={{ touchAction: 'manipulation' }}
         >
             <button
                 type="button"
@@ -120,7 +123,15 @@ export const TransactionsHubDialog = memo(function TransactionsHubDialog({
                 className={`absolute inset-0 bg-black/50 ${backdropMotion}`}
                 onClick={() => onOpenChange(false)}
             />
-            <div className="pointer-events-none fixed inset-0 z-[231] flex items-center justify-center p-4">
+            <div
+                className="pointer-events-none fixed inset-0 z-[231] flex items-center justify-center"
+                style={{
+                    paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))',
+                    paddingInline: 'max(1rem, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px))',
+                    paddingBottom: `max(1rem, env(safe-area-inset-bottom, 0px), ${keyboardInsetPx}px)`,
+                    touchAction: 'manipulation',
+                } satisfies CSSProperties}
+            >
                 <div
                     ref={panelRef}
                     tabIndex={-1}

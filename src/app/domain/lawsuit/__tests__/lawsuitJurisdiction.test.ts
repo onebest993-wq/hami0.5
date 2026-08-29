@@ -21,6 +21,18 @@ describe('resolveLawsuitJurisdiction', () => {
     });
 });
 
+describe('isPersonalStatusFile follows the same jurisdiction source', () => {
+    it('treats legacy court hints as personal, not civil-first', async () => {
+        const { isPersonalStatusFile } = await import(
+            '@/app/components/lawyer/personal-status/personalStatusValidation'
+        );
+        expect(isPersonalStatusFile({ court: 'محكمة الأحوال الشخصية' })).toBe(true);
+        expect(isPersonalStatusFile({ lawsuitJurisdiction: 'personal' })).toBe(true);
+        expect(isPersonalStatusFile({ lawsuitJurisdiction: 'civil' })).toBe(false);
+        expect(isPersonalStatusFile({ court: 'بداءة الكرخ', docType: 'تعويض' })).toBe(false);
+    });
+});
+
 describe('filterByLawsuitJurisdictionTab', () => {
     const files = [
         { id: 1, lawsuitJurisdiction: 'civil' as const },

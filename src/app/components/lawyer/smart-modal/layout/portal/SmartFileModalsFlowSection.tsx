@@ -5,7 +5,6 @@ import {
     LazyPauseCaseModal,
     LazyInterruptionModal,
     LazyObjectionRegistrationModal,
-    LazyObjectionJudgmentModal,
     LazyTrashModal,
 } from '../../lazySmartFileModalChunks';
 import { InterlocutoryAppealModal } from '../../modals/appealObjectionModals';
@@ -30,8 +29,6 @@ export function SmartFileModalsFlowSection(props: SmartFileModalsPortalProps) {
         setShowInterlocutoryModal,
         showObjectionRegistrationModal,
         setShowObjectionRegistrationModal,
-        showObjectionJudgmentModal,
-        setShowObjectionJudgmentModal,
         showAbsentJudgmentNotificationModal,
         setShowAbsentJudgmentNotificationModal,
         showOpponentAbsentObjectionModal,
@@ -44,6 +41,7 @@ export function SmartFileModalsFlowSection(props: SmartFileModalsPortalProps) {
         deletedEvents,
         currentStage,
         handlers: h,
+        parentData,
     } = props;
 
     return (
@@ -160,13 +158,6 @@ export function SmartFileModalsFlowSection(props: SmartFileModalsPortalProps) {
                         onClose={() => setShowObjectionRegistrationModal(false)}
                         onConfirm={h.handleRegisterObjection}
                     />
-                )}                {showObjectionJudgmentModal && (
-                    <LazyObjectionJudgmentModal
-                        key="obj-judg"
-                        isOpen={showObjectionJudgmentModal}
-                        onClose={() => setShowObjectionJudgmentModal(false)}
-                        onConfirm={h.handleObjectionJudgment}
-                    />
                 )}
                 <AbsentJudgmentNotificationModal
                     key="abs-notif"
@@ -179,6 +170,7 @@ export function SmartFileModalsFlowSection(props: SmartFileModalsPortalProps) {
                     isOpen={showOpponentAbsentObjectionModal}
                     onClose={() => setShowOpponentAbsentObjectionModal(false)}
                     onConfirm={h.handleOpponentAbsentObjection}
+                    sourceCaseNumber={String(currentStage.caseNo ?? parentData.caseNo ?? '').trim()}
                 />
                 {isTrashOpen && (
                     <LazyTrashModal

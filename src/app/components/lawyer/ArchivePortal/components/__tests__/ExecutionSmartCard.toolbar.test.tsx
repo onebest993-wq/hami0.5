@@ -29,6 +29,9 @@ describe('ExecutionSmartCard toolbar', () => {
             />,
         );
 
+        const tile = screen.getByTestId('execution-archive-card');
+        expect(tile).toHaveAttribute('data-execution-id', 'exec-1');
+        expect(screen.getByTestId('execution-archive-card-open')).toBeTruthy();
         const archiveBtn = screen.getByTestId('execution-smart-card-archive');
         const trashBtn = screen.getByTestId('execution-smart-card-trash');
 

@@ -58,7 +58,7 @@ describe('homeHubOverlayBackStack', () => {
 
     it('زر الرجوع الأصلي يغلق آخر واجهة', () => {
         const close = vi.fn();
-        pushHomeHubOverlayBack('home-hub-secretary-more', close);
+        pushHomeHubOverlayBack('home-hub-alerts-more', close);
 
         expect(consumeNativeBack()).toBe(true);
         expect(close).toHaveBeenCalledTimes(1);
@@ -66,7 +66,7 @@ describe('homeHubOverlayBackStack', () => {
 
     it('Escape يغلق آخر واجهة', () => {
         const close = vi.fn();
-        pushHomeHubOverlayBack('home-hub-radar-more', close);
+        pushHomeHubOverlayBack('home-hub-pins-more', close);
 
         const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
         const preventDefault = vi.spyOn(event, 'preventDefault');

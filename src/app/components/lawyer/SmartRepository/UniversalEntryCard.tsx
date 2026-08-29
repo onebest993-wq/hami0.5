@@ -18,7 +18,9 @@ export const UniversalEntryCard = React.memo(function UniversalEntryCard({
     dossiers,
     vaultDocsById,
     feedLayout = 'grid',
-    viewMode,
+    rooms,
+    onMoveGlobalToRoom,
+    onMoveVaultDocToRoom,
     onSaveGlobal,
     onDeleteGlobal,
     onUpdateLawsuit,
@@ -31,19 +33,14 @@ export const UniversalEntryCard = React.memo(function UniversalEntryCard({
     viewingVaultDocId,
 }: UniversalEntryCardProps) {
     const cardRef = useRef<HTMLElement>(null);
-    const layoutId = feedLayout ?? (viewMode === 'grid' ? 'grid' : 'list');
+    const layoutId = feedLayout;
     const innerLayout = resolveRepositoryCardInnerLayout(layoutId);
     const cardClass = resolveRepositoryCardArticleClass({
         item,
         layoutId,
         baseCardClass: REPO_CARD,
     });
-    const bodyClampClass =
-        innerLayout === 'compact'
-            ? ' line-clamp-2'
-            : innerLayout === 'row'
-              ? ' line-clamp-4 sm:line-clamp-5'
-              : ' line-clamp-3';
+    const bodyClampClass = innerLayout === 'row' ? ' line-clamp-4 sm:line-clamp-5' : ' line-clamp-3';
 
     if (item.kind === 'vault_doc') {
         return (
@@ -53,6 +50,8 @@ export const UniversalEntryCard = React.memo(function UniversalEntryCard({
                 cardClass={cardClass}
                 feedLayout={layoutId}
                 dossiers={dossiers}
+                rooms={rooms}
+                onMoveVaultDocToRoom={onMoveVaultDocToRoom}
                 onBindVaultDoc={onBindVaultDoc}
                 onDeleteVaultDoc={onDeleteVaultDoc}
                 onEditVaultDoc={onEditVaultDoc}
@@ -94,6 +93,8 @@ export const UniversalEntryCard = React.memo(function UniversalEntryCard({
             onUpdateExecution={onUpdateExecution}
             onLinkGlobalToDossier={onLinkGlobalToDossier}
             onViewVaultDoc={onViewVaultDoc}
+            rooms={rooms}
+            onMoveGlobalToRoom={onMoveGlobalToRoom}
         />
     );
 });

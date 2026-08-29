@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { ExecutionFile } from '@/app/types/execution';
 import {
     formatClaimTypeArabic,
@@ -31,8 +30,9 @@ function resolveClassificationDisplay(
 function parseFileNumberYear(file: ExecutionFile): { fileNumber: string; fileYear: string } {
     let fileNumber = trimOrEmpty(file.fileNumber);
     let fileYear = trimOrEmpty(file.fileYear);
-    if ((!fileNumber || !fileYear) && file.caseNo) {
-        const parts = String(file.caseNo).split('/').map((p) => p.trim());
+    const caseNo = trimOrEmpty((file as unknown as { caseNo?: string }).caseNo);
+    if ((!fileNumber || !fileYear) && caseNo) {
+        const parts = caseNo.split('/').map((p) => p.trim());
         if (!fileNumber && parts[0]) fileNumber = parts[0];
         if (!fileYear && parts[1]) fileYear = parts[1];
     }
@@ -60,8 +60,8 @@ export type DossierHeaderResolved = {
 /** هل الملف يتضمن مطالبة «تسليم شيء معين»؟ */
 export function fileHasSpecificDeliveryClaim(file: ExecutionFile | null | undefined): boolean {
     if (!file) return false;
-    const types = Array.isArray((file as { claimTypes?: string[] }).claimTypes)
-        ? ((file as { claimTypes: string[] }).claimTypes || []).map((t) => String(t || '').trim())
+    const types = Array.isArray((file as unknown as { claimTypes?: string[] }).claimTypes)
+        ? ((file as unknown as { claimTypes?: string[] }).claimTypes || []).map((t) => String(t || '').trim())
         : [];
     const single = trimOrEmpty(file.claimType);
     return types.includes('تسليم شيء معين') || single === 'تسليم شيء معين';

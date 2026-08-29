@@ -1,11 +1,10 @@
 /**
- * مسار الدعاوى فقط — بلا executionArchiveFilterUtils / utils / SecureStore.
+ * مسار الدعاوى فقط — بلا stubs تنفيذ / SecureStore.
  */
-import { useCallback, useDeferredValue, useMemo } from 'react';
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import { useCallback, useDeferredValue, useMemo, type MutableRefObject } from 'react';
+import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
 import type { ArchivePortalProps } from '@/app/types/common';
 import { computeLawsuitArchiveEnrichedFiles } from '../lawsuitArchiveEnrichment';
-import type { LawsuitViewMode } from './lawsuitLifecycleTypes';
 import type { LawsuitLifecycleCounts } from '@/app/domain/lawsuit/lawsuitLifecycleIndex';
 import { useLawsuitArchivePortalDossierState } from './useLawsuitArchivePortalDossierState';
 import { useLawsuitArchivePortalTrashState } from './useLawsuitArchivePortalTrashState';
@@ -15,11 +14,12 @@ import {
     filterLawsuitCriminalCases,
     resolveLawsuitLifecycleSourceFiles,
 } from './lawsuitArchivePortalFiltering';
-import type { LooseArchiveFile } from '../types';
+import type { LooseArchiveFile, ArchiveEnrichedRow } from '../types';
+import type { LawsuitJurisdictionTab } from '@/app/domain/lawsuit/lawsuitJurisdiction';
+import type { LawsuitViewMode } from './lawsuitLifecycleTypes';
+import type { ArchiveDossierViewMode } from '../components/ArchiveDossierToolbar';
 
-export type { LawsuitViewMode } from './lawsuitLifecycleTypes';
-
-export type UseLawsuitArchivePortalControllerParams = Pick<
+type UseLawsuitArchivePortalControllerParams = Pick<
     ArchivePortalProps,
     | 'files'
     | 'criminalCases'
@@ -28,8 +28,6 @@ export type UseLawsuitArchivePortalControllerParams = Pick<
     | 'onMoveLawsuitToTrash'
     | 'onArchiveLawsuit'
     | 'onRestoreLawsuitFromTrash'
-    | 'dossierSearchOpen'
-    | 'onDossierSearchOpenChange'
     | 'dossierSearchQuery'
     | 'onDossierSearchQueryChange'
     | 'dossierViewMode'
@@ -42,6 +40,40 @@ export type UseLawsuitArchivePortalControllerParams = Pick<
     onEnsureLawsuitTrashLoaded?: () => void | Promise<void>;
 };
 
+/** سطح العرض لمسار الدعاوى فقط — بلا حقول تنفيذ وهمية. */
+export type LawsuitArchivePortalViewModel = {
+    dossierSearchQuery: string;
+    setDossierSearchQuery: (q: string) => void;
+    lawsuitJurisdictionTab: LawsuitJurisdictionTab;
+    setLawsuitJurisdictionTab: (v: LawsuitJurisdictionTab) => void;
+    viewingCriminal: boolean;
+    dossierViewMode: ArchiveDossierViewMode;
+    setDossierViewMode: (m: ArchiveDossierViewMode) => void;
+    criminalDeleteTarget: { id: string; title: string } | null;
+    setCriminalDeleteTarget: (t: { id: string; title: string } | null) => void;
+    lawsuitViewMode: LawsuitViewMode;
+    setLawsuitViewMode: (m: LawsuitViewMode) => void;
+    lawsuitTrashConfirmTarget: LooseArchiveFile | null;
+    setLawsuitTrashConfirmTarget: (f: LooseArchiveFile | null) => void;
+    selectedTrashIds: Set<string>;
+    setSelectedTrashIds: (s: Set<string>) => void;
+    permanentDeleteOpen: boolean;
+    setPermanentDeleteOpen: (o: boolean) => void;
+    confirmPermanentDelete: () => void;
+    permanentIdsRef: MutableRefObject<Array<string | number>>;
+    lawsuitTrashedCount: number;
+    unifiedArchivedCount: number;
+    toggleTrashSelect: (id: string | number) => void;
+    getTitle: () => string;
+    filteredCriminalCases: Array<Record<string, unknown> & { id?: string | number }>;
+    showLawsuitCardsInGrid: boolean;
+    showCriminalCardsInGrid: boolean;
+    enrichedFiles: ArchiveEnrichedRow[];
+    selectAllTrashedInView: () => void;
+    beginPermanentDeleteFlow: () => void;
+    hasLawsuitLifecycle: boolean;
+};
+
 export function useLawsuitArchivePortalController({
     files,
     criminalCases,
@@ -50,8 +82,6 @@ export function useLawsuitArchivePortalController({
     onMoveLawsuitToTrash,
     onArchiveLawsuit,
     onRestoreLawsuitFromTrash,
-    dossierSearchOpen: dossierSearchOpenProp,
-    onDossierSearchOpenChange,
     dossierSearchQuery: dossierSearchQueryProp,
     onDossierSearchQueryChange,
     dossierViewMode: dossierViewModeProp,
@@ -61,11 +91,9 @@ export function useLawsuitArchivePortalController({
     lawsuitTrashFiles,
     onEnsureLawsuitArchivedLoaded,
     onEnsureLawsuitTrashLoaded,
-}: UseLawsuitArchivePortalControllerParams) {
+}: UseLawsuitArchivePortalControllerParams): LawsuitArchivePortalViewModel {
     const dossier = useLawsuitArchivePortalDossierState({
         initialLawsuitJurisdictionTab,
-        dossierSearchOpen: dossierSearchOpenProp,
-        onDossierSearchOpenChange,
         dossierSearchQuery: dossierSearchQueryProp,
         onDossierSearchQueryChange,
         dossierViewMode: dossierViewModeProp,
@@ -176,8 +204,6 @@ export function useLawsuitArchivePortalController({
     ]);
 
     return {
-        dossierSearchOpen: dossier.dossierSearchOpen,
-        setDossierSearchOpen: dossier.setDossierSearchOpen,
         dossierSearchQuery: dossier.dossierSearchQuery,
         setDossierSearchQuery: dossier.setDossierSearchQuery,
         lawsuitJurisdictionTab: dossier.lawsuitJurisdictionTab,
@@ -187,23 +213,8 @@ export function useLawsuitArchivePortalController({
         setDossierViewMode: dossier.setDossierViewMode,
         criminalDeleteTarget: trash.criminalDeleteTarget,
         setCriminalDeleteTarget: trash.setCriminalDeleteTarget,
-        searchQuery: '',
-        setSearchQuery: () => undefined,
-        filterType: 'all' as const,
-        setFilterType: () => undefined,
-        perspectiveFilter: 'all' as const,
-        setPerspectiveFilter: () => undefined,
-        executionPreviewFile: null,
-        setExecutionPreviewFile: () => undefined,
-        executionViewMode: 'active' as const,
-        setExecutionViewMode: () => undefined,
-        executionArchivedCount: 0,
         lawsuitViewMode: trash.lawsuitViewMode,
         setLawsuitViewMode: trash.setLawsuitViewMode,
-        trashConfirmTarget: null,
-        setTrashConfirmTarget: () => undefined,
-        archiveConfirmTarget: null,
-        setArchiveConfirmTarget: () => undefined,
         lawsuitTrashConfirmTarget: trash.lawsuitTrashConfirmTarget,
         setLawsuitTrashConfirmTarget: trash.setLawsuitTrashConfirmTarget,
         selectedTrashIds: trash.selectedTrashIds,
@@ -211,27 +222,17 @@ export function useLawsuitArchivePortalController({
         permanentDeleteOpen: trash.permanentDeleteOpen,
         setPermanentDeleteOpen: trash.setPermanentDeleteOpen,
         confirmPermanentDelete: trash.confirmPermanentDelete,
-        beginPermanentDeleteForIds: trash.beginPermanentDeleteForIds,
         permanentIdsRef: trash.permanentIdsRef,
-        previewTimelineEvents: [],
-        executionTrashedCountForFilter: 0,
-        executionTrashedCountTotal: 0,
-        executionJurisdictionCountsForView: {},
         lawsuitTrashedCount: trash.lawsuitTrashedCount,
         unifiedArchivedCount,
         toggleTrashSelect: trash.toggleTrashSelect,
         getTitle: trash.getTitle,
-        filteredExecutionFiles: [] as typeof files,
-        filteredLawsuitFiles,
         filteredCriminalCases,
         showLawsuitCardsInGrid,
         showCriminalCardsInGrid,
-        showDossierToolbar: true,
         enrichedFiles,
         selectAllTrashedInView,
         beginPermanentDeleteFlow,
         hasLawsuitLifecycle: trash.hasLawsuitLifecycle,
-        hasExecutionLifecycle: false,
-        executionFilterSummary: '',
     };
 }

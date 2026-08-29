@@ -1,6 +1,6 @@
 import { isIqrarRequest, IQRAR_PARTY_LABELS } from './constants';
 
-export type UrgentPartyLabels = { party1: string; party2: string };
+type UrgentPartyLabels = { party1: string; party2: string };
 
 export function resolveUrgentPartyLabels(actionType: string): UrgentPartyLabels {
     if (isIqrarRequest(actionType)) {

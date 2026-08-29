@@ -1,4 +1,4 @@
-export interface PetitionDecisionSource {
+interface PetitionDecisionSource {
     requestType?: string;
     subject?: string;
     status?: string;
@@ -15,7 +15,7 @@ export function formatPetitionDecisionLine(p: PetitionDecisionSource): string {
     return status ? `⚡ ${core} — ${status}` : `⚡ ${core}`;
 }
 
-export interface AttachmentDecisionSource {
+interface AttachmentDecisionSource {
     attachedProperty?: string;
     status?: string;
 }

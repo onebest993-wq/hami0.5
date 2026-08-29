@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     prefetchExecutionFollowupOverlay,
     prefetchExecutionFinanceOverlay,
+    prefetchExecutionNotesOverlay,
     prefetchExecutionShellIntent,
 } from '../executionDashboardOverlayPrefetch';
 
@@ -16,25 +17,27 @@ const prefetchExecutionFinancialHubPortalMock = vi.fn();
 const prefetchUnifiedSeizureLogHostMock = vi.fn();
 const prefetchExecutionDashboardShellOverlaysMock = vi.fn();
 const prefetchExecutionFollowupModalPortalMock = vi.fn();
+const prefetchExecutionFollowupModalHostMock = vi.fn();
 
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: () => isLitePerformanceActiveMock(),
 }));
 
-vi.mock('../executionDashboardLazyShell', () => ({
+vi.mock('../executionDashboardLazyRegistryShell', () => ({
     prefetchExecutionDashboardShell: () => prefetchExecutionDashboardShellMock(),
-    prefetchDecisionsAndAppealsEngine: vi.fn(),
-    prefetchFinancialOperationsCenter: () => prefetchFinancialOperationsCenterMock(),
     prefetchFollowupMemoPanels: () => prefetchFollowupMemoPanelsMock(),
-    prefetchLawReferencePanel: vi.fn(),
+    prefetchUnifiedSeizureLogHost: () => prefetchUnifiedSeizureLogHostMock(),
+    prefetchCustodyRemovalWardsModule: vi.fn(),
 }));
 
-vi.mock('../executionDashboardLazyRegistry', () => ({
+vi.mock('../executionDashboardLazyRegistryOverlays', () => ({
+    prefetchDecisionsAndAppealsEngine: vi.fn(),
+    prefetchFinancialOperationsCenter: () => prefetchFinancialOperationsCenterMock(),
+    prefetchLawReferencePanel: vi.fn(),
     prefetchExecutionDecisionsModalContainer: vi.fn(),
     prefetchExecutionFinancialHubPortal: () => prefetchExecutionFinancialHubPortalMock(),
-    prefetchUnifiedSeizureLogHost: () => prefetchUnifiedSeizureLogHostMock(),
     prefetchExecutionNotesAndAppointmentModals: vi.fn(),
-    prefetchCustodyRemovalWardsModule: vi.fn(),
+    prefetchExecutionDocumentVault: vi.fn(),
 }));
 
 vi.mock('../executionFollowupTabPrefetch', () => ({
@@ -48,6 +51,10 @@ vi.mock('../executionDashboardShellOverlaysLazy', () => ({
 
 vi.mock('../executionFollowupModalLazy', () => ({
     prefetchExecutionFollowupModalPortal: () => prefetchExecutionFollowupModalPortalMock(),
+}));
+
+vi.mock('../executionFollowupHostLazy', () => ({
+    prefetchExecutionFollowupModalHost: () => prefetchExecutionFollowupModalHostMock(),
 }));
 
 vi.mock('../executionCoreHandlersPrefetch', () => ({
@@ -68,38 +75,52 @@ describe('executionDashboardOverlayPrefetch', () => {
         expect(prefetchExecutionCoreHandlersMock).not.toHaveBeenCalled();
     });
 
-    it('loads followup critical path for explicit followup intent', () => {
+    it('loads followup critical path for explicit followup intent', async () => {
         prefetchExecutionFollowupOverlay();
 
         expect(prefetchExecutionDashboardShellMock).toHaveBeenCalledTimes(1);
-        expect(prefetchExecutionDashboardShellOverlaysMock).toHaveBeenCalledTimes(1);
+        expect(prefetchExecutionDashboardShellOverlaysMock).not.toHaveBeenCalled();
+        expect(prefetchExecutionFollowupModalHostMock).toHaveBeenCalledTimes(1);
         expect(prefetchExecutionFollowupModalPortalMock).toHaveBeenCalledTimes(1);
-        expect(prefetchExecutionFollowupDefaultTabMock).toHaveBeenCalledTimes(1);
-        expect(prefetchExecutionFollowupTabMock).toHaveBeenCalledWith('other_party');
+        await vi.waitFor(() => {
+            expect(prefetchExecutionFollowupDefaultTabMock).toHaveBeenCalledTimes(1);
+        });
+        expect(prefetchExecutionFollowupTabMock).not.toHaveBeenCalled();
         expect(prefetchExecutionCoreHandlersMock).toHaveBeenCalledWith('seizure-requests');
         expect(prefetchExecutionCoreHandlersMock).not.toHaveBeenCalledWith('light');
         expect(prefetchFollowupMemoPanelsMock).toHaveBeenCalledTimes(1);
     });
 
-    it('warms followup critical path even when lite skips shell extras', () => {
+    it('warms followup critical path even when lite skips shell extras', async () => {
         isLitePerformanceActiveMock.mockReturnValue(true);
         prefetchExecutionFollowupOverlay();
 
         expect(prefetchExecutionDashboardShellMock).not.toHaveBeenCalled();
         expect(prefetchFollowupMemoPanelsMock).not.toHaveBeenCalled();
-        expect(prefetchExecutionDashboardShellOverlaysMock).toHaveBeenCalledTimes(1);
+        expect(prefetchExecutionDashboardShellOverlaysMock).not.toHaveBeenCalled();
+        expect(prefetchExecutionFollowupModalHostMock).toHaveBeenCalledTimes(1);
         expect(prefetchExecutionFollowupModalPortalMock).toHaveBeenCalledTimes(1);
-        expect(prefetchExecutionFollowupDefaultTabMock).toHaveBeenCalledTimes(1);
-        expect(prefetchExecutionFollowupTabMock).toHaveBeenCalledWith('other_party');
+        await vi.waitFor(() => {
+            expect(prefetchExecutionFollowupDefaultTabMock).toHaveBeenCalledTimes(1);
+        });
+        expect(prefetchExecutionFollowupTabMock).not.toHaveBeenCalled();
         expect(prefetchExecutionCoreHandlersMock).toHaveBeenCalledWith('seizure-requests');
     });
 
-    it('does not warm the followup tab for finance intent', () => {
+    it('does not warm the followup tab for finance intent', async () => {
         prefetchExecutionFinanceOverlay();
 
         expect(prefetchExecutionDashboardShellMock).toHaveBeenCalledTimes(1);
-        expect(prefetchFinancialOperationsCenterMock).toHaveBeenCalledTimes(1);
-        expect(prefetchExecutionFinancialHubPortalMock).toHaveBeenCalledTimes(1);
+        await vi.waitFor(() => {
+            expect(prefetchFinancialOperationsCenterMock).toHaveBeenCalledTimes(1);
+            expect(prefetchExecutionFinancialHubPortalMock).toHaveBeenCalledTimes(1);
+        });
         expect(prefetchExecutionFollowupDefaultTabMock).not.toHaveBeenCalled();
+        expect(prefetchExecutionDashboardShellOverlaysMock).not.toHaveBeenCalled();
+    });
+
+    it('warms the shell overlays barrel on notes intent', () => {
+        prefetchExecutionNotesOverlay();
+        expect(prefetchExecutionDashboardShellOverlaysMock).toHaveBeenCalledTimes(1);
     });
 });

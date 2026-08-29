@@ -3,6 +3,7 @@ import {
     safeProfileCssBackgroundImage,
     sanitizeProfileCanvasColor,
     sanitizeProfileMediaUrl,
+    sanitizeProfilePlainText,
 } from '../profileUrlSanitize';
 
 const SAMPLE_JPEG_DATA_URL =
@@ -42,6 +43,19 @@ describe('sanitizeProfileMediaUrl', () => {
     it('rejects CSS injection in url field', () => {
         expect(sanitizeProfileMediaUrl("x'); background:url(")).toBeUndefined();
     });
+
+    it('rejects blob, data-html, and relative paths — العرض يولّد blob بعد التنقية فقط', () => {
+        expect(sanitizeProfileMediaUrl('blob:http://localhost:8080/abc')).toBeUndefined();
+        expect(sanitizeProfileMediaUrl('data:text/html;base64,PHNjcmlwdD4=')).toBeUndefined();
+        expect(sanitizeProfileMediaUrl('/local/avatar.jpg')).toBeUndefined();
+        expect(sanitizeProfileMediaUrl('')).toBeUndefined();
+        expect(sanitizeProfileMediaUrl('   ')).toBeUndefined();
+    });
+
+    it('rejects remote SVG paths', () => {
+        expect(sanitizeProfileMediaUrl('https://cdn.example.com/x.svg')).toBeUndefined();
+        expect(sanitizeProfileMediaUrl('https://cdn.example.com/x.svgz')).toBeUndefined();
+    });
 });
 
 describe('sanitizeProfileCanvasColor', () => {
@@ -64,5 +78,13 @@ describe('safeProfileCssBackgroundImage', () => {
 
     it('returns undefined for unsafe values', () => {
         expect(safeProfileCssBackgroundImage('not-a-url')).toBeUndefined();
+    });
+});
+
+
+describe('sanitizeProfilePlainText', () => {
+    it('strips tags and control chars', () => {
+        expect(sanitizeProfilePlainText('<script>alert(1)</script>أحمد', 80)).toBe('أحمد');
+        expect(sanitizeProfilePlainText('أ\u0007حمد', 80)).toBe('أحمد');
     });
 });

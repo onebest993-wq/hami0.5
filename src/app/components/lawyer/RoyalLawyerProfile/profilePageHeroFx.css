@@ -1,173 +1,94 @@
-/* ── Hero monument ── */
+/* هيرو خفيف: صورة + اسم + أدوات — بلا بطاقة/جزيرة/هالة */
 [data-lawyer-profile-root] .hami-profile-hero-wrap {
     position: relative;
-    padding-top: 1.25rem;
+    padding-top: 0.25rem;
 }
 
-[data-lawyer-profile-root] .hami-profile-hero-card {
-    position: relative;
-    padding-top: 4.25rem;
-}
-
-[data-lawyer-profile-root] .hami-profile-hero-aurora {
-    position: absolute;
-    top: -0.5rem;
-    left: 50%;
-    width: min(92vw, 22rem);
-    height: 11rem;
-    transform: translateX(-50%);
-    border-radius: 50%;
-    background: radial-gradient(
-        ellipse 70% 65% at 50% 40%,
-        color-mix(in srgb, var(--profile-accent) 22%, transparent),
-        transparent 72%
-    );
-    filter: blur(18px);
-    pointer-events: none;
-    z-index: 0;
+[data-lawyer-profile-root] .hami-profile-hero-identity-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.85rem;
+    min-width: 0;
+    direction: rtl;
 }
 
 [data-lawyer-profile-root] .hami-profile-hero-portrait-slot {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 20;
-}
-
-[data-lawyer-profile-root] .hami-profile-hero-panel {
     position: relative;
-    z-index: 1;
-    border-radius: 1.75rem;
-    padding: 4.35rem 1.15rem 1.25rem;
-    overflow: visible;
+    flex: 0 0 auto;
 }
 
-[data-lawyer-profile-root] .hami-profile-identity-zone {
-    width: 100%;
-}
-
-/* ── Identity capsule (name + badge) ── */
-[data-lawyer-profile-root] .hami-profile-identity {
-    position: relative;
-    isolation: isolate;
-    width: 100%;
-    padding: 0.1rem 0.15rem 0.2rem;
-}
-
-[data-lawyer-profile-root] .hami-profile-identity__ambient {
-    position: absolute;
-    top: -0.35rem;
-    left: 10%;
-    right: 10%;
-    height: 4.75rem;
-    background: radial-gradient(
-        ellipse 85% 95% at 50% 0%,
-        color-mix(in srgb, var(--profile-accent, #e6c673) 16%, transparent),
-        transparent 72%
-    );
-    filter: blur(14px);
+[data-lawyer-profile-root] .hami-profile-hero-portrait-slot .hami-accredited-mark {
     pointer-events: none;
-    z-index: 0;
 }
 
-[data-lawyer-profile-root] .hami-profile-identity__content {
-    position: relative;
-    z-index: 1;
+[data-lawyer-profile-root] .hami-profile-identity {
+    flex: 1 1 auto;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    text-align: center;
+    align-items: flex-start;
+    gap: 0.2rem;
+    text-align: right;
 }
 
 [data-lawyer-profile-root] .hami-profile-identity__name {
     margin: 0;
     max-width: 100%;
-    line-height: 1.12;
+    line-height: 1.2;
 }
 
 [data-lawyer-profile-root] .hami-profile-identity__name-text {
     display: block;
     max-width: 100%;
-    font-size: clamp(1.9rem, 6.2vw, 2.4rem);
+    font-size: clamp(1.1rem, 3.8vw, 1.35rem);
     font-weight: 800;
-    letter-spacing: -0.035em;
-    line-height: 1.1;
-    color: #f7f4ec;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    color: #f4f1ea;
     text-wrap: balance;
     overflow-wrap: anywhere;
-    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
-}
-
-[data-lawyer-profile-root] .hami-profile-identity__rule {
-    display: flex;
-    align-items: center;
-    gap: 0.42rem;
-    width: min(8.5rem, 68%);
-}
-
-[data-lawyer-profile-root] .hami-profile-identity__rule-line {
-    flex: 1;
-    height: 1px;
-    border-radius: 999px;
-    opacity: 0.9;
-}
-
-[data-lawyer-profile-root] .hami-profile-identity__rule-line:first-child {
-    background: linear-gradient(
-        to left,
-        transparent,
-        color-mix(in srgb, var(--profile-accent, #e6c673) 48%, rgba(255, 255, 255, 0.14))
-    );
-}
-
-[data-lawyer-profile-root] .hami-profile-identity__rule-line:last-child {
-    background: linear-gradient(
-        to right,
-        transparent,
-        color-mix(in srgb, var(--profile-accent, #e6c673) 48%, rgba(255, 255, 255, 0.14))
-    );
-}
-
-[data-lawyer-profile-root] .hami-profile-identity__rule-mark {
-    flex-shrink: 0;
-    width: 0.3rem;
-    height: 0.3rem;
-    border-radius: 999px;
-    background: var(--profile-accent, #e6c673);
-    box-shadow: 0 0 10px color-mix(in srgb, var(--profile-accent, #e6c673) 55%, transparent);
+    text-shadow: none;
 }
 
 [data-lawyer-profile-root] .hami-profile-identity__badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.38rem;
-    margin-top: 0.1rem;
-    padding: 0.32rem 0.8rem;
-    border-radius: 999px;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    margin: 0;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: rgba(255, 255, 255, 0.48);
+}
+
+[data-lawyer-profile-root] .hami-profile-identity__note {
+    margin: 0.35rem 0 0;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.48);
+}
+
+[data-lawyer-profile-root] .hami-profile-identity__was {
+    display: inline-block;
+    margin-inline-start: 0.45rem;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: rgba(255, 255, 255, 0.42);
+    vertical-align: middle;
 }
 
 [data-lawyer-profile-root] .hami-profile-identity--edit {
     text-align: right;
-    padding: 0.65rem 0.8rem;
-    border-radius: 1.15rem;
-    background: color-mix(in srgb, var(--profile-accent, #e6c673) 4%, rgba(255, 255, 255, 0.04));
-    border: 1px solid color-mix(in srgb, var(--profile-accent, #e6c673) 14%, rgba(255, 255, 255, 0.08));
+    padding: 0;
+    background: none;
+    border: none;
 }
 
 [data-lawyer-profile-root] .hami-profile-identity__label {
     display: block;
-    margin-bottom: 0.4rem;
-    font-size: 9px;
+    margin-bottom: 0.35rem;
+    font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.1em;
     color: rgba(255, 255, 255, 0.42);
 }
 
@@ -179,7 +100,7 @@
     scroll-margin-bottom: max(10rem, calc(env(safe-area-inset-bottom) + 8rem));
 }
 
-[data-lawyer-profile-root][data-profile-keyboard-open='true'] .hami-profile-hero-card {
+[data-lawyer-profile-root][data-profile-keyboard-open='true'] .hami-profile-hero-wrap {
     transform: translateZ(0);
 }
 
@@ -191,63 +112,44 @@ html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-ro
     text-shadow: none;
 }
 
-html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-root] .hami-profile-identity__rule-mark {
-    box-shadow: none;
-}
-
 [data-lawyer-profile-root] .hami-profile-hero-meta {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.4rem;
-    margin-top: 0.85rem;
+    gap: 0.65rem 1rem;
+    margin-top: 0.45rem;
 }
 
 [data-lawyer-profile-root] .hami-profile-hero-meta-chip {
     display: inline-flex;
     align-items: center;
-    gap: 0.38rem;
-    min-height: 32px;
-    padding: 0.35rem 0.72rem;
-    border-radius: 0.85rem;
-    font-size: 10px;
+    gap: 0.3rem;
+    min-height: 28px;
+    padding: 0;
+    border: none;
+    background: none;
+    font-size: 11px;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.72);
-    background: color-mix(in srgb, var(--profile-accent, #e6c673) 3%, rgba(255, 255, 255, 0.04));
-    border: 1px solid color-mix(in srgb, var(--profile-accent, #e6c673) 12%, rgba(255, 255, 255, 0.08));
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-}
-
-[data-lawyer-profile-root] .hami-profile-hero-divider {
-    height: 1px;
-    margin: 1.1rem 0 1rem;
-    background: linear-gradient(
-        to left,
-        transparent,
-        color-mix(in srgb, var(--profile-accent) 35%, rgba(255, 255, 255, 0.12)),
-        transparent
-    );
+    color: rgba(255, 255, 255, 0.55);
 }
 
 [data-lawyer-profile-root] .hami-profile-forum-metrics {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem;
-    margin-bottom: 0.85rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 1.15rem;
+    margin-bottom: 0.35rem;
 }
 
 [data-lawyer-profile-root] .hami-profile-forum-metric {
-    padding: 0.65rem 0.5rem;
-    border-radius: 1rem;
-    text-align: center;
-    background: color-mix(in srgb, var(--profile-accent) 5%, rgba(255, 255, 255, 0.03));
-    border: 1px solid color-mix(in srgb, var(--profile-accent) 14%, rgba(255, 255, 255, 0.06));
+    padding: 0;
+    background: transparent;
+    border: none;
+    text-align: right;
 }
 
 [data-lawyer-profile-root] .hami-profile-forum-metric strong {
     display: block;
-    font-size: 1.15rem;
+    font-size: 1.05rem;
     font-weight: 800;
     color: #fff;
     line-height: 1.1;
@@ -255,198 +157,61 @@ html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-ro
 
 [data-lawyer-profile-root] .hami-profile-forum-metric span {
     display: block;
-    margin-top: 0.15rem;
-    font-size: 9px;
-    letter-spacing: 0.06em;
+    margin-top: 0.1rem;
+    font-size: 10px;
     color: rgba(255, 255, 255, 0.38);
 }
 
-[data-lawyer-profile-root] .hami-profile-action-rail {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.55rem;
-}
-
-/* ── Sigil constellation (hero actions) ── */
-@keyframes hami-sigil-glyph-enter {
-    0% {
-        transform: rotateY(-92deg) scale(0.55);
-        opacity: 0;
-    }
-    65% {
-        transform: rotateY(8deg) scale(1.06);
-        opacity: 1;
-    }
-    100% {
-        transform: rotateY(0deg) scale(1);
-        opacity: 1;
-    }
-}
-
-@keyframes hami-sigil-ripple {
-    0% {
-        transform: scale(0.35);
-        opacity: 0.55;
-    }
-    100% {
-        transform: scale(1.65);
-        opacity: 0;
-    }
-}
-
-@keyframes hami-sigil-edit-stroke {
-    0% {
-        transform: scaleX(0);
-        opacity: 0;
-    }
-    40% {
-        opacity: 0.9;
-    }
-    100% {
-        transform: scaleX(1);
-        opacity: 0;
-    }
-}
-
-[data-lawyer-profile-root] .hami-profile-hero-tools {
-    position: relative;
-    margin-top: 0.85rem;
-    padding-top: 0.9rem;
-}
-
-[data-lawyer-profile-root] .hami-profile-hero-tools::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 8%;
-    left: 8%;
-    height: 1px;
-    background: linear-gradient(
-        to left,
-        transparent,
-        color-mix(in srgb, var(--profile-accent) 28%, rgba(255, 255, 255, 0.1)),
-        transparent
-    );
-    pointer-events: none;
-}
-
 [data-lawyer-profile-root] .hami-profile-forum-metrics--unified {
-    margin-bottom: 0.75rem;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil-deck {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.5rem;
+    margin-top: 0.45rem;
+    margin-bottom: 0.15rem;
 }
 
 [data-lawyer-profile-root] .hami-profile-sigil-constellation {
-    position: relative;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(1.35rem, 6vw, 2.1rem);
-    min-height: auto;
-    padding: 0.15rem 0.25rem;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 0.15rem;
     direction: rtl;
 }
 
-[data-lawyer-profile-root] .hami-profile-sigil-slot {
-    position: relative;
-    z-index: 1;
-    display: flex;
+[data-lawyer-profile-root] .hami-profile-sigil {
+    display: inline-flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.35rem;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
     justify-content: center;
-    width: 2.85rem;
-    height: 2.85rem;
+    gap: 0.12rem;
+    width: 100%;
+    min-width: 44px;
+    min-height: 44px;
+    margin: 0;
+    padding: 0.2rem 0.15rem;
     border: none;
-    border-radius: 999px;
-    padding: 0;
-    color: rgba(255, 255, 255, 0.92);
+    border-radius: 0;
     background: transparent;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.15;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
     cursor: pointer;
-    isolation: isolate;
-    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 [data-lawyer-profile-root] .hami-profile-sigil:active {
-    transform: scale(0.94);
+    opacity: 0.75;
 }
 
-[data-lawyer-profile-root] .hami-profile-sigil-halo {
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: color-mix(in srgb, var(--profile-accent) 5%, rgba(255, 255, 255, 0.04));
-    border: 1px solid color-mix(in srgb, var(--profile-accent) 16%, rgba(255, 255, 255, 0.08));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+[data-lawyer-profile-root] .hami-profile-sigil:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--profile-accent) 50%, transparent);
+    outline-offset: 2px;
 }
 
 [data-lawyer-profile-root] .hami-profile-sigil-glyph {
-    position: relative;
-    z-index: 2;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: var(--profile-accent-ink);
-    transform-style: preserve-3d;
-    animation: hami-sigil-glyph-enter 0.42s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil-orbit {
-    position: absolute;
-    inset: -3px;
-    border-radius: inherit;
-    border: 1px solid transparent;
-    background:
-        linear-gradient(transparent, transparent) padding-box,
-        conic-gradient(from 200deg, transparent, color-mix(in srgb, var(--profile-accent) 55%, #fff), transparent)
-            border-box;
-    opacity: 0.5;
-    pointer-events: none;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil--privacy[data-page-access='public'] .hami-profile-sigil-orbit {
-    background:
-        linear-gradient(transparent, transparent) padding-box,
-        conic-gradient(from 180deg, transparent, #6ee7b7, transparent) border-box;
-    opacity: 0.65;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil--privacy[data-page-access='followers'] .hami-profile-sigil-orbit {
-    background:
-        linear-gradient(transparent, transparent) padding-box,
-        conic-gradient(from 200deg, transparent, #93c5fd, transparent) border-box;
-    opacity: 0.65;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil--privacy[data-page-access='private'] .hami-profile-sigil-orbit {
-    background:
-        linear-gradient(transparent, transparent) padding-box,
-        conic-gradient(from 160deg, transparent, #fcd34d, transparent) border-box;
-    opacity: 0.65;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil-ripple {
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    border: 1px solid color-mix(in srgb, var(--profile-accent) 55%, #fff);
-    animation: hami-sigil-ripple 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-    pointer-events: none;
-    z-index: 3;
 }
 
 [data-lawyer-profile-root] .hami-profile-sigil--privacy.is-busy {
@@ -455,272 +220,60 @@ html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-ro
 }
 
 [data-lawyer-profile-root] .hami-profile-sigil--throne {
-    width: 3.05rem;
-    height: 3.05rem;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil--throne .hami-profile-sigil-halo {
-    background: color-mix(in srgb, var(--profile-accent) 14%, rgba(255, 255, 255, 0.06));
-    border-color: color-mix(in srgb, var(--profile-accent) 32%, rgba(255, 255, 255, 0.1));
+    min-width: 44px;
+    min-height: 44px;
+    color: color-mix(in srgb, var(--profile-accent-ink) 85%, rgba(255, 255, 255, 0.4));
 }
 
 [data-lawyer-profile-root] .hami-profile-sigil--throne .hami-profile-sigil-glyph {
     color: var(--profile-accent-ink);
-    animation: none;
 }
 
-[data-lawyer-profile-root] .hami-profile-sigil-edit-stroke {
-    position: absolute;
-    bottom: 0.55rem;
-    right: 0.7rem;
-    left: 0.7rem;
-    height: 1px;
-    transform-origin: right center;
-    background: linear-gradient(to left, var(--profile-accent-ink), transparent);
-    opacity: 0;
-    pointer-events: none;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil--edit:active .hami-profile-sigil-edit-stroke {
-    animation: hami-sigil-edit-stroke 0.45s ease-out forwards;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil--edit:active .hami-profile-sigil-glyph {
-    transform: translate(1px, -2px) rotate(-10deg);
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil-micro {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    color: rgba(255, 255, 255, 0.34);
-    line-height: 1;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil-micro--throne {
-    color: color-mix(in srgb, var(--profile-accent-ink) 70%, rgba(255, 255, 255, 0.35));
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil-legend {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
-    margin: 0.1rem 0 0;
-    padding: 0;
-    font-size: 10px;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.42);
-    background: none;
-    border: none;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil-legend-dot {
-    width: 0.45rem;
-    height: 0.45rem;
-    border-radius: 999px;
-    flex-shrink: 0;
-    box-shadow: 0 0 10px currentColor;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil-legend-dot[data-page-access='public'] {
-    background: #6ee7b7;
-    color: #6ee7b7;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil-legend-dot[data-page-access='followers'] {
-    background: #93c5fd;
-    color: #93c5fd;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil-legend-dot[data-page-access='private'] {
-    background: #fcd34d;
-    color: #fcd34d;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil-legend-hint {
-    color: rgba(255, 255, 255, 0.28);
-    font-weight: 500;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil--privacy {
-    overflow: hidden;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil-micro--privacy {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.14rem;
-    max-width: 4.75rem;
-    text-align: center;
-    line-height: 1.1;
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil-micro-privacy-eyebrow {
-    font-size: 8px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: rgba(255, 255, 255, 0.3);
-}
-
-[data-lawyer-profile-root] .hami-profile-sigil-micro-privacy-state {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.28rem;
-    font-size: 9px;
-    font-weight: 800;
-    color: rgba(255, 255, 255, 0.62);
+[data-lawyer-profile-root] .hami-profile-hero-rail {
+    margin-top: 0.45rem;
 }
 
 [data-lawyer-profile-root] .hami-profile-sigil-follow {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.45rem;
-    align-self: center;
-    min-height: 2.5rem;
-    padding: 0.4rem 0.9rem;
-    border-radius: 999px;
-    border: 1px solid color-mix(in srgb, var(--profile-accent) 28%, rgba(255, 255, 255, 0.1));
-    background: rgba(255, 255, 255, 0.04);
-    color: rgba(255, 255, 255, 0.88);
-    font-size: 11px;
-    font-weight: 800;
+    gap: 0.35rem;
+    min-height: max(2.5rem, 44px);
+    margin-bottom: 0.2rem;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 13px;
+    font-weight: 700;
     touch-action: manipulation;
-    transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
 }
 
 [data-lawyer-profile-root] .hami-profile-sigil-follow.is-following {
-    border-color: color-mix(in srgb, #34d399 38%, rgba(255, 255, 255, 0.1));
-    background: color-mix(in srgb, #34d399 10%, rgba(255, 255, 255, 0.04));
     color: #a7f3d0;
 }
 
 [data-lawyer-profile-root] .hami-profile-sigil-follow:active {
-    transform: scale(0.97);
+    opacity: 0.8;
 }
 
 [data-lawyer-profile-root] .hami-profile-sigil-follow-glyph {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.65rem;
-    height: 1.65rem;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.07);
-    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 [data-lawyer-profile-root][data-profile-reduce-motion='true'] .hami-profile-sigil,
-[data-lawyer-profile-root][data-profile-reduce-motion='true'] .hami-profile-sigil-glyph,
-[data-lawyer-profile-root][data-profile-reduce-motion='true'] .hami-profile-sigil-ripple {
+[data-lawyer-profile-root][data-profile-reduce-motion='true'] .hami-profile-sigil-glyph {
     animation: none !important;
-    transition: transform 0.1s ease, opacity 0.1s ease;
+    transition: none;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-root] .hami-profile-sigil {
-    transition: transform 0.1s ease;
+    transition: none;
 }
 
-html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-root] .hami-profile-sigil-glyph,
-html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-root] .hami-profile-sigil-ripple {
+html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-root] .hami-profile-sigil-glyph {
     animation: none !important;
 }
-
-[data-lawyer-profile-root] .hami-profile-action-primary {
-    flex: 1 1 100%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    min-height: 46px;
-    border-radius: 1rem;
-    font-size: 12px;
-    font-weight: 800;
-    letter-spacing: 0.02em;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
-}
-
-[data-lawyer-profile-root] .hami-profile-action-primary:active {
-    transform: scale(0.985);
-}
-
-[data-lawyer-profile-root] .hami-profile-action-secondary {
-    flex: 1 1 calc(50% - 0.3rem);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.45rem;
-    min-height: 44px;
-    border-radius: 0.95rem;
-    font-size: 11px;
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.82);
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
-}
-
-[data-lawyer-profile-root] .hami-profile-action-secondary:hover {
-    background: rgba(255, 255, 255, 0.07);
-    border-color: color-mix(in srgb, var(--profile-accent) 22%, rgba(255, 255, 255, 0.12));
-}
-
-[data-lawyer-profile-root] .hami-profile-action-icon {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    min-height: 44px;
-    border-radius: 0.95rem;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.75);
-    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
-}
-
-[data-lawyer-profile-root] .hami-profile-action-icon:hover {
-    color: var(--profile-accent-ink);
-    border-color: color-mix(in srgb, var(--profile-accent) 30%, rgba(255, 255, 255, 0.1));
-    background: color-mix(in srgb, var(--profile-accent) 8%, rgba(255, 255, 255, 0.04));
-}
-
-[data-lawyer-profile-root] .hami-profile-studio-btn {
-    flex: 1 1 calc(50% - 0.3rem);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.45rem;
-    min-height: 44px;
-    padding: 0 0.85rem;
-    border-radius: 0.95rem;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.02em;
-    color: var(--profile-accent-ink);
-    background: linear-gradient(
-        135deg,
-        color-mix(in srgb, var(--profile-accent) 16%, rgba(255, 255, 255, 0.04)),
-        color-mix(in srgb, var(--profile-accent) 6%, rgba(0, 0, 0, 0.2))
-    );
-    border: 1px solid color-mix(in srgb, var(--profile-accent) 38%, rgba(255, 255, 255, 0.1));
-    box-shadow:
-        0 8px 22px color-mix(in srgb, var(--profile-accent) 14%, transparent),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-}
-
-[data-lawyer-profile-root] .hami-profile-studio-btn:hover {
-    border-color: color-mix(in srgb, var(--profile-accent) 55%, rgba(255, 255, 255, 0.14));
-    box-shadow:
-        0 10px 26px color-mix(in srgb, var(--profile-accent) 22%, transparent),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
-}
-
-[data-lawyer-profile-root] .hami-profile-studio-btn:active {
-    transform: scale(0.985);
-}
-

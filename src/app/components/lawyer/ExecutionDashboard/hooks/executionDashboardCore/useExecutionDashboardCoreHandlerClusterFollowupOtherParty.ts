@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useExecutionDashboardCoreHandlerClusterFoundationTimeline } from './useExecutionDashboardCoreHandlerClusterFoundationTimeline';
 import { useExecutionDashboardOtherPartyHandlers } from './useExecutionDashboardOtherPartyHandlers';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
@@ -21,7 +20,7 @@ export function useExecutionDashboardCoreHandlerClusterFollowupOtherParty(
         showToast,
         openDecisionsModalWithBoot,
         setTimelineEvents,
-    } = c as any;
+    } = c as Record<string, unknown>;
 
     const dossierFollowupHandlers = useExecutionDashboardOtherPartyHandlers({
         executionDataRef,

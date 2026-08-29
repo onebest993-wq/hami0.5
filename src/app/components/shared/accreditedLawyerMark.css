@@ -1,0 +1,49 @@
+/* علامة اعتماد المحامي — ذهبية صغيرة على الصورة/الغلاف، ليست زراً مستقلاً */
+
+.hami-accredited-mark {
+  position: absolute;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  inset-inline-end: -0.05rem;
+  bottom: -0.05rem;
+  pointer-events: none;
+  border-radius: 999px;
+  background: #e6c673;
+  color: #0a0f1c;
+  box-shadow: 0 0 0 1px rgba(10, 15, 28, 0.55);
+}
+
+.hami-accredited-mark svg {
+  display: block;
+  width: 0.68rem;
+  height: 0.68rem;
+}
+
+.hami-accredited-mark--tile {
+  width: 1.05rem;
+  height: 1.05rem;
+  inset-inline-end: 0.08rem;
+  bottom: 0.08rem;
+}
+
+.hami-accredited-mark--tile svg {
+  width: 0.72rem;
+  height: 0.72rem;
+}
+
+.hami-accredited-mark--portrait {
+  width: 1.2rem;
+  height: 1.2rem;
+  inset-inline-end: 0.12rem;
+  bottom: 0.12rem;
+  z-index: 4;
+}
+
+.hami-accredited-mark--portrait svg {
+  width: 0.82rem;
+  height: 0.82rem;
+}

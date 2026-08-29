@@ -4,7 +4,7 @@ import {
     findDossierControlDecisionRow,
     shouldShowDossierControlExecutorStrip,
 } from '../utils/dossierControlDecisions';
-import type { DossierActionType } from './DossierActionsModal';
+import type { DossierActionType } from './DossierActionTypes';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 
 export type DossierExecutorDecisionStripProps = {

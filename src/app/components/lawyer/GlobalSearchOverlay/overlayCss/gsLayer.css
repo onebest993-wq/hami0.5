@@ -1,0 +1,105 @@
+/* بحث شامل — طبقة html / تجميد اللوحة / خلفية.
+ * لا content-visibility:hidden: كان يعيد تخطيط الرئيسية عند الإغلاق فيبدو المنزل «يُحمَّل».
+ * الطبقة تبقى full-viewport — ضغطها فوق IME كان يكشف بطاقات المنزل كأنها «نتائج».
+ */
+
+html[data-hami-global-search-open='1'] [data-hami-lawyer-dashboard] {
+    pointer-events: none !important;
+}
+
+html[data-hami-native='1'][data-hami-global-search-open='1'] [data-hami-lawyer-dashboard] {
+    pointer-events: none !important;
+}
+
+html[data-hami-global-search-open='1'] .hami-lawyer-header,
+html[data-hami-global-search-closing='1'] .hami-lawyer-header {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-overlay-unfreeze='1'][data-hami-global-search-open='1'] [data-hami-lawyer-dashboard] {
+    content-visibility: visible !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-overlay-unfreeze='1'][data-hami-global-search-open='1'] .hami-lawyer-header {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+}
+
+html:not([data-hami-global-search-open='1']):not([data-hami-global-search-closing='1']) .hami-gs-layer {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+.hami-gs-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 280;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  contain: layout style;
+  overscroll-behavior: none;
+  background-color: #0b1021;
+}
+
+html[data-hami-native='1'] .hami-gs-layer,
+html.hami-native-shell .hami-gs-layer {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+@media (min-width: 768px) and (min-height: 560px) {
+  .hami-gs-layer {
+    align-items: center;
+    padding: max(0.75rem, env(safe-area-inset-top, 0px))
+      max(0.75rem, env(safe-area-inset-right, 0px))
+      max(0.75rem, env(safe-area-inset-bottom, 0px))
+      max(0.75rem, env(safe-area-inset-left, 0px));
+  }
+
+  .hami-gs-layer[data-keyboard-inset] {
+    align-items: flex-end;
+  }
+}
+
+.hami-gs-backdrop {
+  position: absolute;
+  inset: 0;
+  background: #0a0f1c;
+  border: none;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  html:not([data-hami-native='1']):not(.hami-native-shell)
+    .hami-gs-layer[data-search-open='true']
+    > .hami-gs-backdrop {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+}
+
+html[data-hami-native='1']:not([data-hami-platform='ios']) .hami-gs-backdrop,
+html.hami-native-shell:not([data-hami-platform='ios']) .hami-gs-backdrop,
+html[data-hami-native='1'] .hami-gs-backdrop,
+html.hami-native-shell .hami-gs-backdrop {
+  background: #0a0f1c;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+@media (min-width: 768px) and (min-height: 560px) {
+  .hami-gs-backdrop {
+    background: #0a0f1c;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

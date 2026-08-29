@@ -1,6 +1,7 @@
 
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
-import { loadLawsuitFilesRaw, saveLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
+import { loadLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
+import { applyLawsuitMonolithicMergeToSegments } from '@/app/domain/lawsuit/lawsuitSegmentStorage';
 import { loadGlobalNotesRaw, saveGlobalNotesRaw } from '@/app/utils/globalNotesStorage';
 import {
     QUANTUM_TASKS_STORAGE_KEY,
@@ -181,7 +182,7 @@ export async function patchThreadingTaskDeadline(
         await TransactionsThreadingDB.saveState(uid, {
             transactions: state.transactions,
             tasks,
-            financeRecords: state.financeRecords,
+            financeRecords: [],
             documents: state.documents,
         });
         return true;
@@ -206,7 +207,11 @@ export function patchLawsuitStorage(
     if (!row || typeof row !== 'object') return false;
     const next = [...files];
     next[idx] = mutator({ ...(row as Record<string, unknown>) });
-    saveLawsuitFilesRaw(next);
+    /*
+     * سابقاً: مرآة monolithic فقط → المقاطع تكتب فوقها وتُضيّع تعديل التقويم.
+     * الآن: دمج إلى المقاطع (مرآة + جدولة تثبيت قرص).
+     */
+    applyLawsuitMonolithicMergeToSegments(next as never[]);
     return true;
 }
 

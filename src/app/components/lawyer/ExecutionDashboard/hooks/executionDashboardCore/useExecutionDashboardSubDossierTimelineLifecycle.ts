@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** inaba / subfile timeline lifecycle — موجة 13 */
 import { useEffect, useRef } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';

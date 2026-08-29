@@ -15,7 +15,7 @@ import {
 } from './seizureFinancialTrustLedgerUtils';
 
 /** معرّف دفع واحد لكل حجز لدى الغير — يمنع الإيداع المزدوج */
-export function thirdPartyFundsTrustPaymentId(seizureId: string, _decisionRowId?: string): string {
+function thirdPartyFundsTrustPaymentId(seizureId: string, _decisionRowId?: string): string {
     const sid = String(seizureId || '').trim();
     if (!sid) return `pay-thirdparty-${Date.now()}`;
     return `pay-thirdparty-${sid}`;

@@ -1,16 +1,8 @@
 import type { InvestigationLog } from './criminalCaseModel';
 
-export const LETTER_SLA_WARNING_DAYS = 15;
+const LETTER_SLA_WARNING_DAYS = 15;
 
-export type ExhibitLifecycleStatus = 'seized_at_station' | 'sent_to_lab' | 'lab_result_received';
-
-export type InvestigationRecordKind = 'letter' | 'evidence';
-
-export const LETTER_TRACKING_CATEGORIES = ['official_letter', 'forensic_report'] as const;
-export const EVIDENCE_TRACKING_CATEGORIES = ['exhibit_seizure', 'site_inspection'] as const;
-
-export type LetterTrackingCategory = (typeof LETTER_TRACKING_CATEGORIES)[number];
-export type EvidenceTrackingCategory = (typeof EVIDENCE_TRACKING_CATEGORIES)[number];
+type InvestigationRecordKind = 'letter' | 'evidence';
 
 export function inferInvestigationRecordKind(
     category: InvestigationLog['category'],
@@ -19,19 +11,8 @@ export function inferInvestigationRecordKind(
     return 'evidence';
 }
 
-export function isLetterInvestigationLog(log: Pick<InvestigationLog, 'category'>): boolean {
+function isLetterInvestigationLog(log: Pick<InvestigationLog, 'category'>): boolean {
     return inferInvestigationRecordKind(log.category) === 'letter';
-}
-
-export function isEvidenceInvestigationLog(log: Pick<InvestigationLog, 'category'>): boolean {
-    return inferInvestigationRecordKind(log.category) === 'evidence';
-}
-
-export function resolveLinkedPartyId(log: InvestigationLog): string {
-    const direct = String(log.linkedPartyId ?? '').trim();
-    if (direct) return direct;
-    const ids = Array.isArray(log.defendantIds) ? log.defendantIds : [];
-    return String(ids[0] ?? '').trim();
 }
 
 export function daysSinceIsoDate(isoDate: string, today = new Date()): number | null {
@@ -57,36 +38,7 @@ export function isLetterSlaOverdue(log: InvestigationLog): boolean {
     return days !== null && days > LETTER_SLA_WARNING_DAYS;
 }
 
-export function trackingCategoryLabel(category: InvestigationLog['category']): string {
-    if (category === 'official_letter') return 'مفاتحة جهة رسمية';
-    if (category === 'forensic_report') return 'طب عدلي';
-    if (category === 'site_inspection') return 'كشف دلالة';
-    if (category === 'exhibit_seizure') return 'ضبط مبرز';
-    return 'أخرى';
-}
-
-export const EXHIBIT_LIFECYCLE_OPTIONS: ReadonlyArray<{ value: ExhibitLifecycleStatus; label: string }> = [
-    { value: 'seized_at_station', label: '🔒 محرز في مركز الشرطة' },
-    { value: 'sent_to_lab', label: '🔬 مُرسل للفحص الجنائي' },
-    { value: 'lab_result_received', label: '📄 وردت نتيجة الفحص' },
-] as const;
-
-export function exhibitLifecycleLabel(status: ExhibitLifecycleStatus | '' | undefined): string {
-    const hit = EXHIBIT_LIFECYCLE_OPTIONS.find((o) => o.value === status);
-    return hit?.label ?? '—';
-}
-
-export function normalizeExhibitLifecycle(raw: unknown): ExhibitLifecycleStatus | '' {
-    const v = String(raw ?? '').trim();
-    if (v === 'seized_at_station' || v === 'sent_to_lab' || v === 'lab_result_received') return v;
-    return '';
-}
-
-export function defaultExhibitLifecycle(): ExhibitLifecycleStatus {
-    return 'seized_at_station';
-}
-
-export function sortInvestigationLogsNewestFirst(logs: InvestigationLog[]): InvestigationLog[] {
+function sortInvestigationLogsNewestFirst(logs: InvestigationLog[]): InvestigationLog[] {
     return [...logs].sort((a, b) => {
         const dateA = String(a.date ?? '').trim();
         const dateB = String(b.date ?? '').trim();

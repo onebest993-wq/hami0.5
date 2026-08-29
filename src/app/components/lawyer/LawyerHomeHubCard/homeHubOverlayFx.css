@@ -1,0 +1,208 @@
+/* Home Hub more-overlay chrome — shared by pins/alerts overlays */
+
+/* Home Hub overlays — lawyer-home-hub-overlays */
+
+.hami-hub-radar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding:
+    max(0.85rem, env(safe-area-inset-top, 0px))
+    max(0.85rem, env(safe-area-inset-right, 0px))
+    max(0.85rem, env(safe-area-inset-bottom, 0px))
+    max(0.85rem, env(safe-area-inset-left, 0px));
+  pointer-events: auto;
+  overscroll-behavior: none;
+}
+
+.hami-hub-radar-overlay__backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: rgba(4, 7, 14, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  cursor: pointer;
+}
+
+.hami-hub-radar-overlay__sheet {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 520px);
+  max-height: min(78vh, 520px);
+  max-height: min(78dvh, 520px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 1.625rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.055), rgba(0, 0, 0, 0.32)),
+    rgba(10, 15, 28, 0.94);
+  box-shadow:
+    0 28px 72px rgba(0, 0, 0, 0.58),
+    0 0 0 1px rgba(230, 198, 115, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.hami-hub-radar-overlay__body--scroll {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hami-hub-radar-overlay__rim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(230, 198, 115, 0.45) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.hami-hub-radar-overlay__handle {
+  width: 100%;
+  max-width: 5.5rem;
+  min-height: 44px;
+  margin: 0 auto;
+  padding: 0.55rem 0 0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: pan-y;
+  cursor: pointer;
+  background: transparent;
+}
+
+.hami-hub-radar-overlay__handle::before {
+  content: '';
+  width: 2.75rem;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(230, 198, 115, 0.5),
+    transparent
+  );
+}
+
+.hami-hub-radar-overlay__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 1rem 0.85rem;
+}
+
+.hami-hub-radar-overlay__head-main {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.hami-hub-radar-overlay__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.hami-hub-radar-overlay__title {
+  font-size: 1em;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.96);
+  line-height: 1.25;
+}
+
+.hami-hub-radar-overlay__subtitle {
+  margin-top: 0.2rem;
+  font-size: 0.6875em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.46);
+  line-height: 1.35;
+}
+
+.hami-hub-radar-overlay__count-badge {
+  min-width: 1.65rem;
+  height: 1.65rem;
+  padding: 0 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(230, 198, 115, 0.35);
+  background: rgba(230, 198, 115, 0.12);
+  font-size: 0.6875em;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #e6c673;
+}
+
+.hami-hub-radar-overlay__close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.62);
+  touch-action: manipulation;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.hami-hub-radar-overlay__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(230, 198, 115, 0.28);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.hami-hub-radar-overlay__body {
+  flex: 1;
+  min-height: 0;
+  padding: 0 0.75rem 0.85rem;
+}
+
+.hami-hub-radar-overlay__list {
+  list-style: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: min(58vh, 400px);
+  max-height: min(58dvh, 400px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding: 0.15rem 0.1rem 0.1rem;
+}
+
+html[data-hami-reduce-motion='1'] .hami-hub-radar-overlay__close,
+html[data-hami-animations='0'] .hami-hub-radar-overlay__close,
+html[data-hami-lite='1'] .hami-hub-radar-overlay__close {
+  transition: none;
+}
+
+html[data-hami-lite='1'] .hami-hub-radar-overlay__backdrop {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

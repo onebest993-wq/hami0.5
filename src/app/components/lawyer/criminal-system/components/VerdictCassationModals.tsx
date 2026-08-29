@@ -24,7 +24,7 @@ import { ModalIsoDateInput } from './ModalIsoDateInput';
 import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../criminalModalPortal';
 
 const panelClass =
-    'relative w-full max-w-lg max-h-[min(92vh,720px)] flex flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden';
+    'relative w-full max-w-lg max-h-[min(92vh,720px)] flex flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-lg overflow-hidden';
 
 type CassationModalBaseProps = {
     open: boolean;

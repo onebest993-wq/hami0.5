@@ -1,7 +1,11 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
-import { AlertTriangle, Loader2, X } from '@/app/components/ui/lucideIcons';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
+import { AlertTriangle } from '@/app/components/ui/icons/AlertTriangle';
+import { Loader2 } from '@/app/components/ui/icons/Loader2';
+import { X } from '@/app/components/ui/icons/X';
+import { getForumOverlayPortalRoot } from '../forumOverlayPortal';
+import { FORUM_PANEL } from '../forumPlumTheme';
 
 interface ForumDeleteConfirmModalProps {
     open: boolean;
@@ -31,7 +35,7 @@ export const ForumDeleteConfirmModal = ({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 bg-black/65 backdrop-blur-sm"
+                    className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-[max(0.75rem,env(safe-area-inset-left))] pe-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-black/65 pointer-events-auto"
                     onClick={onCancel}
                 >
                     <motion.div
@@ -40,8 +44,8 @@ export const ForumDeleteConfirmModal = ({
                         exit={{ opacity: 0, y: 16, scale: 0.98 }}
                         transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                         data-testid="forum-delete-confirm-modal"
-                        className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1A1D2D] shadow-2xl shadow-black/40 overflow-hidden"
-                        onClick={(e) => e.stopPropagation()}
+                        className={`w-full max-w-md ${FORUM_PANEL} overflow-hidden`}
+                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
                         role="alertdialog"
                         aria-modal="true"
                         aria-labelledby="forum-delete-title"
@@ -58,7 +62,7 @@ export const ForumDeleteConfirmModal = ({
                                 type="button"
                                 onClick={onCancel}
                                 disabled={loading}
-                                className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                className="min-h-[44px] min-w-[44px] touch-manipulation rounded-full bg-white/5 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-colors shrink-0"
                                 aria-label="إغلاق"
                             >
                                 <X size={16} />
@@ -87,6 +91,6 @@ export const ForumDeleteConfirmModal = ({
                 </motion.div>
             ) : null}
         </AnimatePresence>,
-        document.body,
+        getForumOverlayPortalRoot(),
     );
 };

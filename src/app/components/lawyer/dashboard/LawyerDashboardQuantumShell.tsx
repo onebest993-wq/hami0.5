@@ -1,9 +1,8 @@
-// @ts-nocheck
 import React from 'react';
 import { LawyerDashboardInner } from './LawyerDashboardInner';
 
 export type LawyerDashboardShellProps = {
-    onLogout: () => void;
+    onLogout: (options?: { skipLocalPurge?: boolean }) => void | Promise<void>;
     onOpenProfile?: () => void;
     onNavigateToCase?: (caseId: string) => void;
     onAppNavigate?: (target: 'privacy' | 'support' | 'settings') => void;
@@ -11,7 +10,7 @@ export type LawyerDashboardShellProps = {
 
 /**
  * غلاف اللوحة الرقيق — بلا QuantumTasksProvider هنا.
- * الـ Provider داخل InnerRuntime بعد markDashboardInteractiveOnce (لا يمنع TTFI).
+ * شارة الدوك من primeQuantumTasksBootMetrics؛ الـ Provider عند فتح ستارة الميدان.
  */
 function LawyerDashboardQuantumShell(props: LawyerDashboardShellProps) {
     return <LawyerDashboardInner {...props} />;

@@ -2,11 +2,14 @@ import { sanitizePayload } from '../../security/sanitizer.ts';
 import { ForumRepository } from '../../../services/forum/forumRepository.ts';
 import { checkForumActionRateLimit } from '../../../services/forum/forumRateLimitServer.ts';
 import { forumAuthorDisplayName, redactAnonymousAuthor } from '../../../services/forum/forumMapper.ts';
-import { sanitizeCommunityPostForCreate } from '../../../services/forum/forumPostCreateGuard.ts';
+import {
+    assertPublishableForumAttachment,
+    sanitizeCommunityPostForCreate,
+} from '../../../services/forum/forumPostCreateGuard.ts';
 import { computeAllowedUpvoterIds, resolveSyncBestCommentId } from '../../../services/forum/forumPostSyncGuard.ts';
 import { resolveForumAuthorDisplayName } from '../../../services/forum/forumAuthorResolver.ts';
 import type { CommunityPost } from '../../../services/lawyer-cloud.ts';
-import { requireForumAuth, requireForumAuthAndUnbanned, jsonResponse } from '../_auth.ts';
+import { requireForumAuth, requireForumAuthAndUnbanned, jsonResponse, forumCatchJsonResponse } from '../_auth.ts';
 import { canViewForumGroupPost } from '../../../services/forum/forumBffAccessPolicy.ts';
 import { ForumGroupRepository } from '../../../services/forum/forumGroupRepository.ts';
 
@@ -125,7 +128,13 @@ export async function POST(request: Request): Promise<Response> {
                 },
                 auth.userId,
             );
-            const saved = await ForumRepository.savePost(safePost);
+            try {
+                assertPublishableForumAttachment(safePost.attachment);
+            } catch (err) {
+                const message = err instanceof Error ? err.message : 'مرفق غير صالح';
+                return jsonResponse(400, { ok: false, error: message });
+            }
+            const saved = await ForumRepository.createPost(safePost);
             void import('../../../services/forum/forumNotificationDispatch').then(({ dispatchFollowedUserNewPost }) =>
                 dispatchFollowedUserNewPost({
                     authorId: auth.userId,
@@ -212,7 +221,6 @@ export async function POST(request: Request): Promise<Response> {
 
         return jsonResponse(400, { ok: false, error: 'إجراء غير معروف' });
     } catch (err) {
-        const message = err instanceof Error ? err.message : 'Internal server error';
-        return jsonResponse(500, { ok: false, error: message });
+        return forumCatchJsonResponse(err);
     }
 }

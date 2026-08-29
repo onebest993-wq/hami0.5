@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Gavel } from '@/app/components/ui/lucideIcons';
+import { Gavel } from '@/app/components/ui/icons/Gavel';
 import type { JudicialDecision, OrderEnforcementTracking } from '@/app/types/criminal';
 import { formatJudicialLedgerDate } from '../judicialDecisionsEngine';
 import {
@@ -36,13 +36,13 @@ function shellClassByKind(kind: 'arrest' | 'summons'): {
 } {
     if (kind === 'arrest') {
         return {
-            container: 'border-red-500/30 bg-red-950/15 shadow-[0_0_18px_rgba(244,63,94,0.14)]',
+            container: 'border-red-500/30 bg-red-950/15',
             spine: 'bg-red-500/45',
             chip: 'border-red-500/45 bg-red-500/15 text-red-100',
         };
     }
     return {
-        container: 'border-amber-500/30 bg-amber-950/12 shadow-[0_0_18px_rgba(245,158,11,0.10)]',
+        container: 'border-amber-500/30 bg-amber-950/12',
         spine: 'bg-amber-500/50',
         chip: 'border-amber-500/45 bg-amber-500/15 text-amber-100',
     };

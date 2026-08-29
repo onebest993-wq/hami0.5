@@ -1,5 +1,5 @@
 /** إغلاق overlays المتنافسة قبل فتح مركز المعاملات — نفس نمط المنتدى والإشعارات */
-export type CloseOverlaysBeforeTransactionsInput = {
+type CloseOverlaysBeforeTransactionsInput = {
     closeNotifications: () => void;
     closeGlobalSearch: () => void;
     closeSettings: () => void;

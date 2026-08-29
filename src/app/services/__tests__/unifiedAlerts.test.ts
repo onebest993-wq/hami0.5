@@ -35,13 +35,37 @@ function mockBridgedCalendarEvent(p: {
     };
 }
 
-vi.mock('@/app/services/ClientRequestService', () => ({
-    ClientRequestService: {
-        getLawyerRequests: vi.fn().mockResolvedValue([]),
+const calendarTestStore: CalendarEvent[] = [];
+
+vi.mock('@/app/services/cloud/lawyerCalendarCloud', () => ({
+    CalendarDB: {
+        getEvents: vi.fn(async (userId: string) =>
+            calendarTestStore.filter((e) => e.userId === userId),
+        ),
+        getAllStoredEvents: vi.fn(async () => [...calendarTestStore]),
+        saveEvent: vi.fn(async (event: CalendarEvent) => {
+            const idx = calendarTestStore.findIndex((e) => e.id === event.id);
+            if (idx >= 0) calendarTestStore[idx] = event;
+            else calendarTestStore.push(event);
+        }),
+        saveEventsBatch: vi.fn(async (events: CalendarEvent[]) => {
+            for (const event of events) {
+                const idx = calendarTestStore.findIndex((e) => e.id === event.id);
+                if (idx >= 0) calendarTestStore[idx] = event;
+                else calendarTestStore.push(event);
+            }
+        }),
+        deleteEvent: vi.fn(async (eventId: string) => {
+            const idx = calendarTestStore.findIndex((e) => e.id === eventId);
+            if (idx >= 0) calendarTestStore.splice(idx, 1);
+        }),
+        updateEvent: vi.fn(async (event: CalendarEvent) => {
+            const idx = calendarTestStore.findIndex((e) => e.id === event.id);
+            if (idx >= 0) calendarTestStore[idx] = event;
+            else calendarTestStore.push(event);
+        }),
     },
 }));
-
-const calendarTestStore: CalendarEvent[] = [];
 
 vi.mock('@/app/services/lawyer-cloud', () => ({
     getCommunityPosts: vi.fn().mockResolvedValue([]),
@@ -72,6 +96,17 @@ vi.mock('@/app/services/lawyer-cloud', () => ({
             else calendarTestStore.push(event);
         }),
     },
+    TransactionsThreadingDB: {
+        getState: vi.fn().mockResolvedValue({
+            transactions: [],
+            tasks: [],
+            financeRecords: [],
+            documents: [],
+        }),
+    },
+}));
+
+vi.mock('@/app/services/cloud/lawyerTransactionsCloud', () => ({
     TransactionsThreadingDB: {
         getState: vi.fn().mockResolvedValue({
             transactions: [],
@@ -163,7 +198,7 @@ describe('Unified alerts orchestrator', () => {
             date: new Date().toISOString(),
         } as unknown as FileData;
 
-        const { CalendarDB } = await import('@/app/services/lawyer-cloud');
+        const { CalendarDB } = await import('@/app/services/cloud/lawyerCalendarCloud');
         vi.mocked(CalendarDB.getEvents).mockResolvedValueOnce([
             mockBridgedCalendarEvent({
                 module: 'lawsuit',
@@ -293,7 +328,7 @@ describe('Unified alerts orchestrator', () => {
     });
 
     it('يرفع تنبيهاً لموعد تقويم يدوي غير مربوط بإضبارة', async () => {
-        const { CalendarDB } = await import('@/app/services/lawyer-cloud');
+        const { CalendarDB } = await import('@/app/services/cloud/lawyerCalendarCloud');
         await CalendarDB.saveEvent({
             id: 'cal-manual-1',
             userId: 'lawyer-1',
@@ -377,6 +412,35 @@ describe('Unified alerts orchestrator', () => {
         expect(injected?.fieldTaskInjected).toBe(true);
         expect(injected?.suggestedAction).toContain('إنجاز المهمة الميدانية');
         expect(alerts.some((a) => a.id === `calendar:${bridgeId}`)).toBe(false);
+    });
+
+    it('يرفع تنبيه تقويم لمهلة معاملة Threading', async () => {
+        const { CalendarDB } = await import('@/app/services/cloud/lawyerCalendarCloud');
+        const date = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        await CalendarDB.saveEvent({
+            id: buildStableBridgeId('threading', 'tx-9', 'task_t1'),
+            userId: 'lawyer-1',
+            title: 'مهلة مهمة',
+            date,
+            type: 'deadline',
+            sourceModule: 'threading',
+            sourceEntityId: 'tx-9',
+            sourceEventId: 'task_t1',
+            isCompleted: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        });
+        const alerts = await SecretaryOrchestrator.getUnifiedAlerts({
+            lawyerId: 'lawyer-1',
+            files: [],
+            executionFiles: [],
+            notes: [],
+        });
+        const hit = alerts.find((a) => a.calendarSource?.module === 'threading');
+        expect(hit).toBeDefined();
+        expect(hit?.id.startsWith('calendar:')).toBe(true);
+        expect(hit?.target).toBe('threading');
+        expect(hit?.entityId).toBe('tx-9');
     });
 });
 

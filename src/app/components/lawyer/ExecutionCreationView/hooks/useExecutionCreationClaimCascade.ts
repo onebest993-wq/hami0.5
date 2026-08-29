@@ -15,6 +15,7 @@ import {
     showCivilDebtorSolidarySplit,
 } from './executionFormUtils';
 import type { VisitationScheduleConfig } from '@/app/types/visitationSchedule';
+import type { SpecificDeliveryItem } from '@/app/utils/specificDeliveryItemsUtils';
 import type { AdditionalDebtorDraft, DebtorDraft } from '../types';
 import type { AlimonyCalculationResult } from './useAlimonyCalculator';
 
@@ -58,6 +59,7 @@ export interface UseExecutionCreationClaimCascadeParams {
 
     setShowChequeValidatorModal: Dispatch<SetStateAction<boolean>>;
     setShowAbsenteeModal: Dispatch<SetStateAction<boolean>>;
+    setSpecificDeliveryItems: Dispatch<SetStateAction<SpecificDeliveryItem[]>>;
 }
 
 /**
@@ -95,6 +97,7 @@ export function useExecutionCreationClaimCascade(params: UseExecutionCreationCla
         alimonyPastStartDate,
         setShowChequeValidatorModal,
         setShowAbsenteeModal,
+        setSpecificDeliveryItems,
     } = params;
 
     useEffect(() => {
@@ -287,6 +290,9 @@ export function useExecutionCreationClaimCascade(params: UseExecutionCreationCla
 
     const removeActiveClaimType = useCallback(
         (value: string) => {
+            if (value === 'تسليم شيء معين') {
+                setSpecificDeliveryItems([]);
+            }
             setActiveClaimTypes((prev) => {
                 const next = prev.filter((x) => x !== value);
                 setClaimAmountsByType((amt) => {
@@ -297,7 +303,7 @@ export function useExecutionCreationClaimCascade(params: UseExecutionCreationCla
                 return next;
             });
         },
-        [setActiveClaimTypes, setClaimAmountsByType],
+        [setActiveClaimTypes, setClaimAmountsByType, setSpecificDeliveryItems],
     );
 
     useEffect(() => {
@@ -390,8 +396,9 @@ export function useExecutionCreationClaimCascade(params: UseExecutionCreationCla
                         type: 'individual',
                         occupation:
                             (d as { occupation?: string }).occupation === 'معنوي'
-                                ? 'كاسب'
-                                : (d as { occupation?: string }).occupation,
+                                ? ('كاسب' as const)
+                                : ((d as { occupation?: string }).occupation as 'موظف' | 'كاسب') ??
+                                  ('كاسب' as const),
                     })),
                 );
             }

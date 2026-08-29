@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Send } from '@/app/components/ui/lucideIcons';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { Send } from '@/app/components/ui/icons/Send';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import { MoroccanGlassShell } from '../smartFile/moroccanGlassShell';
 import { SmartModalHeader, useSmartModalAccent } from '../smartFile/smartModalChrome';
 
@@ -28,7 +28,7 @@ export const CorrespondenceModal = ({ isOpen, onClose, onConfirm }: Corresponden
     return (
         <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-2xl">
             <SmartModalHeader icon={Send} title="المخاطبات" onClose={onClose} />
-            <div className={`${T.body} md:min-h-[28rem] md:space-y-6`}>
+            <div className={`${T.body} md:min-h-[28rem] md:space-y-4`}>
                 <div>
                     <label className={T.label}>
                         الجهة المخاطبة <span className={required}>*</span>

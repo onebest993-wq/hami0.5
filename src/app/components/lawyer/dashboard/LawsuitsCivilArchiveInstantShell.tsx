@@ -4,17 +4,18 @@ import {
     ArchiveDossierToolbar,
     type ArchiveDossierViewMode,
 } from '@/app/components/lawyer/ArchivePortal/components/ArchiveDossierToolbar';
-import { prefetchLawsuitArchiveContent } from '@/app/runtime/hubArchiveLoader';
+import {
+    prefetchLawsuitArchiveContent,
+    prefetchLawsuitArchiveHubModule,
+} from '@/app/runtime/hubArchiveLoader';
 import { LAWSUIT_ARCHIVE_SCROLL_REGION_CLASS } from '@/app/components/lawyer/ArchivePortal/lawsuitArchiveInstantLayout';
-
-const noop = () => undefined;
+import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 
 export type LawsuitShellLifecycleChrome = {
     lawsuitViewMode: 'active' | 'trash' | 'archived';
     setLawsuitViewMode: (mode: 'active' | 'trash' | 'archived') => void;
     unifiedArchivedCount: number;
     lawsuitTrashedCount: number;
-    hasLawsuitLifecycle: boolean;
 } | null;
 
 type LawsuitsCivilArchiveInstantShellProps = {
@@ -23,13 +24,12 @@ type LawsuitsCivilArchiveInstantShellProps = {
     onJurisdictionTabChange?: (tab: LawsuitJurisdictionTab) => void;
     lifecycleChrome?: LawsuitShellLifecycleChrome;
     children?: React.ReactNode;
-    searchOpen?: boolean;
-    onSearchOpenChange?: (open: boolean) => void;
     searchQuery?: string;
     onSearchQueryChange?: (query: string) => void;
     viewMode?: ArchiveDossierViewMode;
     onViewModeChange?: (mode: ArchiveDossierViewMode) => void;
     onScrollParentRef?: (el: HTMLDivElement | null) => void;
+    filesHydrating?: boolean;
 };
 
 /**
@@ -41,13 +41,12 @@ export function LawsuitsCivilArchiveInstantShell({
     onJurisdictionTabChange,
     lifecycleChrome = null,
     children,
-    searchOpen: searchOpenProp,
-    onSearchOpenChange,
     searchQuery: searchQueryProp,
     onSearchQueryChange,
     viewMode: viewModeProp,
     onViewModeChange,
     onScrollParentRef,
+    filesHydrating = false,
 }: LawsuitsCivilArchiveInstantShellProps): React.ReactElement {
     const [internalJurisdictionTab, setInternalJurisdictionTab] =
         useState<LawsuitJurisdictionTab>(initialJurisdictionTab);
@@ -59,22 +58,15 @@ export function LawsuitsCivilArchiveInstantShell({
         onJurisdictionTabChange?.(tab);
     };
 
-    const [internalSearchOpen, setInternalSearchOpen] = useState(true);
     const [internalSearchQuery, setInternalSearchQuery] = useState('');
     const [internalViewMode, setInternalViewMode] = useState<ArchiveDossierViewMode>('grid');
 
-    const searchOpen = searchOpenProp ?? internalSearchOpen;
     const searchQuery = searchQueryProp ?? internalSearchQuery;
     const viewMode = viewModeProp ?? internalViewMode;
 
-    const setSearchOpen = (open: boolean) => {
-        if (searchOpenProp === undefined) setInternalSearchOpen(open);
-        onSearchOpenChange?.(open);
-    };
     const setSearchQuery = (query: string) => {
         if (searchQueryProp === undefined) setInternalSearchQuery(query);
         onSearchQueryChange?.(query);
-        if (query && !searchOpen) setSearchOpen(true);
     };
     const setViewMode = (mode: ArchiveDossierViewMode) => {
         if (viewModeProp === undefined) setInternalViewMode(mode);
@@ -83,31 +75,33 @@ export function LawsuitsCivilArchiveInstantShell({
 
     useEffect(() => {
         prefetchLawsuitArchiveContent();
+        prefetchLawsuitArchiveHubModule();
     }, []);
 
+    const keyboardInset = useMobileKeyboardInset(true);
     const hasChildren = children != null;
-    const lawsuitViewMode = lifecycleChrome?.lawsuitViewMode ?? 'active';
-    const setLawsuitViewMode = lifecycleChrome?.setLawsuitViewMode ?? noop;
+    const lifecycleReady = lifecycleChrome != null;
 
     return (
         <div
-            className="relative flex h-full min-h-0 flex-col bg-black/90 backdrop-blur-md font-['Tajawal']"
+            className="relative flex h-full min-h-0 flex-col bg-[#0B1021] font-['Tajawal']"
             {...(hasChildren ? {} : { 'aria-busy': true })}
             data-testid="lawsuits-civil-archive-instant-shell"
+            data-files-hydrating={filesHydrating ? '1' : '0'}
         >
             <ArchiveDossierToolbar
                 showJurisdictionTabs
                 jurisdictionTab={jurisdictionTab}
                 onJurisdictionTabChange={handleJurisdictionTabChange}
-                searchOpen={searchOpen}
-                onToggleSearch={() => setSearchOpen(!searchOpen)}
                 searchQuery={searchQuery}
                 onSearchQueryChange={setSearchQuery}
                 searchPlaceholder="ابحث برقم الإضبارة أو اسم الدعوى..."
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
-                lifecycleViewMode={lawsuitViewMode}
-                onLifecycleViewModeChange={setLawsuitViewMode}
+                lifecycleViewMode={lifecycleReady ? lifecycleChrome.lawsuitViewMode : undefined}
+                onLifecycleViewModeChange={
+                    lifecycleReady ? lifecycleChrome.setLawsuitViewMode : undefined
+                }
                 archivedCount={lifecycleChrome?.unifiedArchivedCount ?? 0}
                 trashedCount={lifecycleChrome?.lawsuitTrashedCount ?? 0}
             />
@@ -115,32 +109,17 @@ export function LawsuitsCivilArchiveInstantShell({
             <div
                 ref={onScrollParentRef}
                 className={LAWSUIT_ARCHIVE_SCROLL_REGION_CLASS}
+                style={keyboardInset > 0 ? { paddingBottom: keyboardInset } : undefined}
             >
                 {hasChildren ? (
                     children
                 ) : (
-                    <div
-                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
-                        aria-busy="true"
-                        aria-label="جاري تحميل الإضابير"
+                    <p
+                        className="px-3 py-8 text-center text-sm text-white/45"
+                        data-testid="lawsuit-vault-quiet-status"
                     >
-                        {Array.from({ length: 6 }).map((_, i) => (
-                            <div
-                                key={i}
-                                className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 min-h-[132px] animate-pulse"
-                                style={{ animationDelay: `${i * 50}ms` }}
-                                aria-hidden
-                            >
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="h-5 w-14 rounded-md bg-white/[0.08]" />
-                                    <div className="h-5 w-5 rounded-full bg-white/[0.06]" />
-                                </div>
-                                <div className="h-4 w-[75%] rounded bg-white/[0.08] mb-2" />
-                                <div className="h-3 w-[50%] rounded bg-white/[0.05] mb-4" />
-                                <div className="h-3 w-[66%] rounded bg-white/[0.05]" />
-                            </div>
-                        ))}
-                    </div>
+                        جاري تجهيز الإضابير…
+                    </p>
                 )}
             </div>
         </div>

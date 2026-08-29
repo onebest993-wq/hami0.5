@@ -56,5 +56,23 @@ describe('ExecutionFollowupModal composition', () => {
         );
         expect(shell).toContain('data-testid="execution-followup-modal"');
         expect(shell).toContain('data-testid="execution-followup-modal-close"');
+        expect(shell).toContain('registerNativeBackHandler');
+        const host = fs.readFileSync(
+            path.join(componentsDir, 'ExecutionFollowupModalHost.tsx'),
+            'utf8',
+        );
+        expect(host).toContain('LazyExecutionFollowupModalPortal');
+        expect(host).not.toContain("from '../ExecutionFollowupModalPortal'");
+        const clusters = fs.readFileSync(
+            path.join(componentsDir, 'ExecutionDashboardChunkHostClusters.tsx'),
+            'utf8',
+        );
+        expect(clusters).toContain('ExecutionFollowupOverlayEntry');
+        expect(clusters).not.toContain('جاري تحميل محضر المتابعة');
+        const overlays = fs.readFileSync(
+            path.join(componentsDir, 'ExecutionDashboardShellOverlays.tsx'),
+            'utf8',
+        );
+        expect(overlays).not.toContain('ExecutionFollowupModalHost');
     });
 });

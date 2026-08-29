@@ -1,3 +1,5 @@
+import { readSecureJsonRawSync, writeSecureJsonValue } from '@/app/services/storage/syncSecureJson';
+
 const STORAGE_KEY = 'hami:manual-classification-templates';
 const MAX_TEMPLATES = 24;
 const MAX_TAG_LENGTH = 48;
@@ -14,7 +16,7 @@ export function normalizeManualClassificationTag(raw: string): string {
 export function loadManualClassificationTemplates(): string[] {
     if (typeof window === 'undefined') return [];
     try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = readSecureJsonRawSync(STORAGE_KEY);
         if (!raw) return [];
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
@@ -35,11 +37,7 @@ export function loadManualClassificationTemplates(): string[] {
 
 export function persistManualClassificationTemplates(templates: string[]): void {
     if (typeof window === 'undefined') return;
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(templates.slice(0, MAX_TEMPLATES)));
-    } catch {
-        /* ignore quota errors */
-    }
+    writeSecureJsonValue(STORAGE_KEY, templates.slice(0, MAX_TEMPLATES));
 }
 
 export function addManualClassificationTemplate(templates: string[], text: string): string[] {

@@ -14,7 +14,7 @@ export type EarnerFinancialPersonalCoerciveFlagsInput = EarnerFinancialCoerciveG
 };
 
 /** قرار القاضي بالحبس — يُخفى فقط في مسار الكاسب العام دون مطالبة مالية صريحة */
-export function resolveHideExecutiveDetentionJudgeCard(
+function resolveHideExecutiveDetentionJudgeCard(
     input: EarnerFinancialPersonalCoerciveFlagsInput,
 ): boolean {
     if (input.isFinancialDebtCollection && !input.isEmployee) {

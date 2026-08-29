@@ -15,7 +15,7 @@ import type {
 } from '../../types';
 
 export type OrderFileHydrateSetters = {
-    setCaseData: React.Dispatch<React.SetStateAction<any>>;
+    setCaseData: React.Dispatch<React.SetStateAction<Record<string, unknown> | null | undefined>>;
     setHasIntervention: React.Dispatch<React.SetStateAction<boolean>>;
     setFileStatus: React.Dispatch<React.SetStateAction<FileStatus>>;
     setIsSecretMode: React.Dispatch<React.SetStateAction<boolean>>;
@@ -57,6 +57,6 @@ export type UseOrderFileHydrateArgs = {
     caseId: string | null;
     userId: string;
     fileData: unknown;
-    caseData: any;
+    caseData: Record<string, unknown> | null | undefined;
     setters: OrderFileHydrateSetters;
 };

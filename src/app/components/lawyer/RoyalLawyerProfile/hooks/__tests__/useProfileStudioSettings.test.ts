@@ -55,6 +55,7 @@ import { loadProfileSettingsSheetModule } from '@/app/utils/lazyComponentsIntent
 import { primeProfileStudio } from '@/app/runtime/profileShellPrime';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { HAMI_DISMISS_OVERLAYS_EVENT } from '@/app/utils/bodyScrollLock';
+import { resetProfileOpenedThisPageForTests } from '@/app/hooks/lawyerDashboard/profile/profileOpenSession';
 
 const baseProfile = {
     header: { name: 'أحمد', title: 'محامٍ', coverImage: '', profileImage: '' },
@@ -68,6 +69,7 @@ describe('useProfileStudioSettings', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        resetProfileOpenedThisPageForTests();
         profileRef.current = { ...baseProfile, customization: defaultProfilePageCustomization() };
     });
 
@@ -113,6 +115,7 @@ describe('useProfileStudioSettings', () => {
 
         expect(primeProfileStudio).toHaveBeenCalledTimes(1);
         expect(loadProfileSettingsSheetModule).toHaveBeenCalledTimes(1);
+        expect(document.documentElement.getAttribute('data-hami-profile-studio-open')).toBe('1');
     });
 
     it('يحفظ التخصيص ويحدّث الكاش', async () => {
@@ -186,6 +189,73 @@ describe('useProfileStudioSettings', () => {
         });
 
         await waitFor(() => expect(result.current.settingsOpen).toBe(false));
+    });
+
+    it('بعد dismiss العام يُعاد فتح الاستوديو من الزر', async () => {
+        const { result } = renderHook(() =>
+            useProfileStudioSettings({
+                userId: 'owner-1',
+                isOwnProfile: true,
+                profileRef,
+                setProfile,
+                enqueueProfileSave: (fn) => fn(),
+            }),
+        );
+
+        act(() => {
+            result.current.openSettings();
+        });
+        act(() => {
+            window.dispatchEvent(new CustomEvent(HAMI_DISMISS_OVERLAYS_EVENT, { detail: {} }));
+        });
+        await waitFor(() => expect(result.current.settingsOpen).toBe(false));
+
+        act(() => {
+            result.current.openSettings();
+        });
+        expect(result.current.settingsOpen).toBe(true);
+    });
+
+    it('الحفظ الصامت لا يقفل واجهة الاستوديو', async () => {
+        let resolveSave!: (value: { cloudSynced: boolean; localPersisted: boolean }) => void;
+        vi.mocked(ProfileDB.saveProfile).mockImplementation(
+            () =>
+                new Promise((resolve) => {
+                    resolveSave = resolve;
+                }),
+        );
+
+        const { result } = renderHook(() =>
+            useProfileStudioSettings({
+                userId: 'owner-1',
+                isOwnProfile: true,
+                profileRef,
+                setProfile,
+                enqueueProfileSave: (fn) => fn(),
+            }),
+        );
+
+        act(() => {
+            result.current.openSettings();
+        });
+
+        let savePromise!: Promise<boolean>;
+        act(() => {
+            savePromise = result.current.saveCustomization(defaultProfilePageCustomization(), {
+                silent: true,
+            });
+        });
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(result.current.savingSettings).toBe(false);
+
+        await act(async () => {
+            resolveSave({ cloudSynced: true, localPersisted: true });
+            await savePromise;
+        });
+        expect(result.current.savingSettings).toBe(false);
     });
 
     it('لا يغلق الاستوديو بـ dismiss أثناء الحفظ', async () => {
@@ -290,5 +360,19 @@ describe('useProfileStudioSettings', () => {
             resolveSave({ cloudSynced: true, localPersisted: true });
             await savePromise;
         });
+    });
+
+    it('يعيد فتح الاستوديو بعد إعادة التركيب إن بقيت نيته على html', () => {
+        document.documentElement.setAttribute('data-hami-profile-studio-open', '1');
+        const { result } = renderHook(() =>
+            useProfileStudioSettings({
+                userId: 'owner-1',
+                isOwnProfile: true,
+                profileRef,
+                setProfile,
+                enqueueProfileSave: (fn) => fn(),
+            }),
+        );
+        expect(result.current.settingsOpen).toBe(true);
     });
 });

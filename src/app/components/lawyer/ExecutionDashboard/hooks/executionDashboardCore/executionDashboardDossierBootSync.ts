@@ -1,11 +1,10 @@
 /** boot / inaba / subfile — منطق نقي (موجة 13) */
 import type { ExecutionFile, SeizedAsset, TimelineEvent } from '@/app/types/execution';
 import {
-    ensureSubDossierOpenedTimelineEvent,
     filterTimelineEventsForInabaDossier,
     filterTimelineEventsForParentDossier,
-    isInabaSubFileId,
-} from '@/app/stores';
+} from '@/app/domain/execution/dossier/ExecutionDossierScope';
+import { ensureSubDossierOpenedTimelineEvent, isInabaSubFileId } from '@/app/stores';
 
 export function buildLegacyDecisionMigrationSources(input: {
     decisionsStorageExecutionId: string;
@@ -57,7 +56,7 @@ export function scopeTimelineEventsOnExecutionSwitch(
     return raw;
 }
 
-export function subDossierOpenedThreadKey(activeSubFileId: string): string {
+function subDossierOpenedThreadKey(activeSubFileId: string): string {
     return `sub_dossier_opened:${activeSubFileId}`;
 }
 

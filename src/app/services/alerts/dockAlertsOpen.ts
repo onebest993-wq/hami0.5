@@ -1,5 +1,5 @@
 /** فتح تنبيهات/تثبيت الدوك — منطق موحّد قابل للاختبار */
-export const ALERTS_DOCK_FEATURE = 'البطاقة الذكية';
+export const ALERTS_DOCK_FEATURE = 'البطاقة';
 
 export type AlertsDockSheetMode = 'alerts' | 'pins';
 
@@ -29,4 +29,21 @@ export function openAlertsDockFromShell(input: DockAlertsOpenInput): boolean {
 
 export function shouldShowAlertsDockBadge(pinnedCount: number, urgentAlertsCount: number): boolean {
     return urgentAlertsCount > 0 || pinnedCount > 0;
+}
+
+let pendingAlertsDockOpen = false;
+
+/** لمسة هيكل الهاب قبل جاهزية الورقة — تُستهلك عند تركيب الدوك */
+export function armPendingAlertsDockOpen(): void {
+    pendingAlertsDockOpen = true;
+}
+
+export function consumePendingAlertsDockOpen(): boolean {
+    const pending = pendingAlertsDockOpen;
+    pendingAlertsDockOpen = false;
+    return pending;
+}
+
+export function resetPendingAlertsDockOpenForTests(): void {
+    pendingAlertsDockOpen = false;
 }

@@ -10,7 +10,7 @@ import {
 
 describe('executionDashboardFollowupSeizureInits', () => {
     it('saves seized property init and patches decision row', () => {
-        const persistExecutionMerge = vi.fn();
+        const persistExecutionMerge = vi.fn(() => true);
         const pushTimelineEvent = vi.fn();
         const showToast = vi.fn();
         const executionDataRef = {

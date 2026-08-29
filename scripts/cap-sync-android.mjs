@@ -37,10 +37,20 @@ function mergeBuildEnv() {
     if (!String(merged.VITE_BUILD_NATIVE ?? '').trim()) {
         merged.VITE_BUILD_NATIVE = 'true';
     }
+    /* تجربة الجهاز: لا توقف قسماً على شاشة الدخول */
+    merged.VITE_SHELL_AUTH_OPEN = 'true';
     if (!String(merged.VITE_ENABLE_CLOUD_SYNC ?? '').trim()) {
         merged.VITE_ENABLE_CLOUD_SYNC = 'true';
     }
-    if (!String(merged.VITE_ENABLE_SENTRY ?? '').trim()) {
+    /*
+     * الأصلي ليس استثناءً من المراقبة.
+     *
+     * كان الإطفاء قسرياً هنا حتى مع ضبط DSN، فتخرج حزمة الهاتف — وهي المنتج
+     * الفعلي — بلا أي إبلاغ عن أعطالها: لا Crashlytics على الجانب الأصلي ولا
+     * Sentry على جانب الويب. الغياب يبقى الافتراض حين لا DSN (سياسة البناء
+     * تُطفئه من تلقائها)، أما وجود DSN فيعني أن الإبلاغ مقصود.
+     */
+    if (!String(merged.VITE_SENTRY_DSN ?? '').trim() && !String(merged.VITE_ENABLE_SENTRY ?? '').trim()) {
         merged.VITE_ENABLE_SENTRY = 'false';
     }
     if (!String(merged.VITE_PDF_MINIMAL_ASSETS ?? '').trim()) {
@@ -53,7 +63,6 @@ console.log('[cap-sync-android] prepare + build (Supabase env) + cap sync androi
 
 run('node', ['scripts/ensure-capacitor-cli-tar-compat.mjs']);
 run('node', ['scripts/patch-android-proguard-compat.mjs']);
-run('node', ['scripts/optimize-forum-emblem.mjs']);
 
 const buildEnv = mergeBuildEnv();
 if (!buildEnv.VITE_SUPABASE_URL || !buildEnv.VITE_SUPABASE_ANON_KEY) {
@@ -67,6 +76,7 @@ console.log(
 
 run('npm', ['run', 'build'], buildEnv);
 run('node', ['scripts/assert-native-capacitor-dist.mjs']);
+run('node', ['scripts/guard-dist-no-hq-runtime.mjs']);
 
 const distIndex = path.join(ROOT, 'dist', 'index.html');
 if (!fs.existsSync(distIndex)) {
@@ -90,7 +100,11 @@ if (fs.existsSync(path.join(ROOT, 'android', 'app', 'build.gradle'))) {
     run('node', ['scripts/apply-android-native-ready.mjs']);
 }
 
+run('node', ['scripts/patch-android-compose.mjs']);
+
 run('node', ['scripts/patch-android-proguard-compat.mjs']);
 run('node', ['scripts/patch-android-gradle-hygiene.mjs']);
+run('node', ['scripts/patch-capacitor-agp9-kotlin.mjs']);
+run('node', ['scripts/patch-android-app-version.mjs']);
 
 console.log('\n[cap-sync-android] OK — Run from Android Studio or: npm run cap:install:android\n');

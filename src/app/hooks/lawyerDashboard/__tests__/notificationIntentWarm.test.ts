@@ -6,12 +6,25 @@ import {
 
 const prefetchNotificationPanel = vi.fn();
 const loadNotificationPanelModule = vi.fn(() => Promise.resolve({}));
+const prefetchNotificationShellModule = vi.fn();
+const prefetchNotificationAlertControls = vi.fn();
+const loadCaseSharePanelSectionModule = vi.fn();
 const refreshNotificationShellBadge = vi.fn();
 const hydrateFromLocalPeek = vi.fn();
 
 vi.mock('@/app/runtime/notificationPanelLoader', () => ({
     prefetchNotificationPanel: (...args: unknown[]) => prefetchNotificationPanel(...args),
     loadNotificationPanelModule: (...args: unknown[]) => loadNotificationPanelModule(...args),
+}));
+
+vi.mock('@/app/runtime/notificationShellLoader', () => ({
+    prefetchNotificationShellModule: (...args: unknown[]) => prefetchNotificationShellModule(...args),
+}));
+
+vi.mock('@/app/components/lawyer/NotificationPanel/notificationPanelLazyModules', () => ({
+    prefetchNotificationAlertControls: (...args: unknown[]) =>
+        prefetchNotificationAlertControls(...args),
+    loadCaseSharePanelSectionModule: (...args: unknown[]) => loadCaseSharePanelSectionModule(...args),
 }));
 
 vi.mock('@/app/services/notifications/notificationBackgroundSync', () => ({
@@ -29,9 +42,11 @@ describe('notificationIntentWarm', () => {
         vi.clearAllMocks();
     });
 
-    it('warmNotificationsOnHover يحمّل اللوحة مسبقاً', () => {
+    it('warmNotificationsOnHover يحمّل الشِل واللوحة مسبقاً', () => {
         warmNotificationsOnHover();
         expect(prefetchNotificationPanel).toHaveBeenCalledTimes(1);
+        expect(prefetchNotificationShellModule).toHaveBeenCalledTimes(1);
+        expect(prefetchNotificationAlertControls).not.toHaveBeenCalled();
     });
 
     it('warmNotificationsOnOpen يجلب الإشعارات ويحمّل chunk للمستخدم المسجّل', async () => {

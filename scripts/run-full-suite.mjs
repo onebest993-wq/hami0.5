@@ -47,6 +47,7 @@ const STEPS = [
     optional: true,
   },
   { id: 'verify-native-android', section: 'P5-mobile', cmd: 'npm', args: ['run', 'verify:native:android'] },
+  { id: 'verify-native-ios', section: 'P5-mobile', cmd: 'npm', args: ['run', 'verify:native:ios'] },
   { id: 'test-execution', section: 'section-execution', cmd: 'npm', args: ['run', 'test:execution'] },
   { id: 'test-notifications', section: 'section-notifications', cmd: 'npm', args: ['run', 'test:notifications'] },
 ];

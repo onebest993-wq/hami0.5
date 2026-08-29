@@ -5,6 +5,10 @@ import {
     isDefendantOnlyCassationJudgmentType,
     isFirstInstanceStageName,
     isPlaintiffFavorableFinalDecision,
+    isClientSelfAppealFinalDecision,
+    hasMeritJudgmentRecorded,
+    shouldShowClientAppealPostJudgmentFooter,
+    shouldShowOpponentAppealWatchPostJudgmentFooter,
     isAwaitingOpponentAppeal,
     shouldShowOpponentAppealRegisterButton,
     resolveLawyerSide,
@@ -21,6 +25,9 @@ describe('judgmentAppealRights', () => {
         expect(isFirstInstanceStageName('اعتراض الغير')).toBe(false);
         expect(isFirstInstanceStageName('اعتراض على الحكم الغيابي')).toBe(false);
         expect(isFirstInstanceStageName('أحوال شخصية')).toBe(false);
+        expect(isFirstInstanceStageName('تصحيح قرار')).toBe(false);
+        expect(isFirstInstanceStageName('التمييز')).toBe(false);
+        expect(isFirstInstanceStageName('الاستئناف')).toBe(false);
     });
 
     it('treats win, sulh, and waiver as defendant-only cassation outcomes', () => {
@@ -34,6 +41,7 @@ describe('judgmentAppealRights', () => {
     it('detects awaiting opponent appeal state', () => {
         expect(isAwaitingOpponentAppeal('محسومة لصالح الموكل - بانتظار الطعن')).toBe(true);
         expect(isAwaitingOpponentAppeal('محسومة لصالح الموكل - بانتظار تمييز الخصم')).toBe(true);
+        expect(isAwaitingOpponentAppeal('تأييد الحكم الغيابي — بانتظار طعن المعترض')).toBe(true);
         expect(isAwaitingOpponentAppeal('إجابة الدعوى بالكامل — ختم الإضبارة')).toBe(false);
     });
 
@@ -260,7 +268,7 @@ describe('judgmentAppealRights', () => {
 
         it('offers استئناف on civil absent-objection stage when بداءة exists in history', () => {
             const methods = resolveAllowedOpponentAppealMethods({
-                judgmentForm: 'غيابي',
+                judgmentForm: 'حضوري',
                 stageName: 'الاعتراض على الحكم الغيابي',
                 stages: [
                     { stageName: 'بداءة بدرجة أولى' },
@@ -269,6 +277,22 @@ describe('judgmentAppealRights', () => {
             });
             expect(methods).toContain('استئناف');
             expect(methods).toContain('تمييز');
+            expect(methods).not.toContain('اعتراض غيابي');
+        });
+
+        it('offers تمييز only on personal-status absent-objection stage', () => {
+            const methods = resolveAllowedOpponentAppealMethods({
+                judgmentForm: 'حضوري',
+                stageName: 'الاعتراض على الحكم الغيابي',
+                stages: [
+                    { stageName: 'أحوال شخصية' },
+                    { stageName: 'الاعتراض على الحكم الغيابي' },
+                ],
+                file: { lawsuitJurisdiction: 'personal' },
+            });
+            expect(methods).toEqual(['تمييز']);
+            expect(methods).not.toContain('استئناف');
+            expect(methods).not.toContain('اعتراض غيابي');
         });
 
         it('hides absentia objection for in-person judgment', () => {
@@ -356,5 +380,57 @@ describe('judgmentAppealRights', () => {
                 }),
             ).toEqual(['تمييز']);
         });
+    });
+
+    it('post-judgment footer: plaintiff against client → client appeal (not unlock)', () => {
+        const fd = 'محسومة ضد الموكل - يحق لموكلك الطعن';
+        expect(isClientSelfAppealFinalDecision(fd)).toBe(true);
+        expect(shouldShowClientAppealPostJudgmentFooter('المدعي', fd)).toBe(true);
+        expect(shouldShowOpponentAppealWatchPostJudgmentFooter('المدعي', fd)).toBe(false);
+    });
+
+    it('post-judgment footer: client won (plaintiff) → wait opponent, never self-appeal', () => {
+        const fd = 'محسومة لصالح الموكل - بانتظار الطعن';
+        expect(isClientSelfAppealFinalDecision(fd)).toBe(false);
+        expect(shouldShowOpponentAppealWatchPostJudgmentFooter('المدعي', fd)).toBe(true);
+        expect(shouldShowClientAppealPostJudgmentFooter('المدعي', fd)).toBe(false);
+        expect(shouldShowOpponentAppealWatchPostJudgmentFooter('المدعى عليه', fd)).toBe(true);
+        expect(shouldShowClientAppealPostJudgmentFooter('المدعى عليه', fd)).toBe(false);
+    });
+
+    it('post-judgment footer: defendant client when claim answered → client appeal', () => {
+        const fd = 'إجابة الدعوى بالكامل — ختم الإضبارة';
+        expect(shouldShowClientAppealPostJudgmentFooter('المدعى عليه', fd)).toBe(true);
+        expect(shouldShowOpponentAppealWatchPostJudgmentFooter('المدعى عليه', fd)).toBe(false);
+    });
+
+    it('post-judgment footer: awaitingOpponentAppeal flag forces watch even without text', () => {
+        expect(
+            shouldShowOpponentAppealWatchPostJudgmentFooter('المدعي', '', {
+                awaitingOpponentAppeal: true,
+            }),
+        ).toBe(true);
+        expect(
+            shouldShowClientAppealPostJudgmentFooter('المدعي', '', {
+                awaitingOpponentAppeal: true,
+            }),
+        ).toBe(false);
+    });
+
+    it('post-judgment footer: partial — client may appeal (both sides)', () => {
+        const fd = 'محسومة جزئياً - يحق للطرفين الطعن فيما حُسم عليه';
+        expect(isClientSelfAppealFinalDecision(fd)).toBe(true);
+        expect(shouldShowClientAppealPostJudgmentFooter('المدعي', fd)).toBe(true);
+        expect(shouldShowOpponentAppealWatchPostJudgmentFooter('المدعي', fd)).toBe(false);
+    });
+
+    it('post-judgment footer: recorded judgment always has merit context', () => {
+        expect(
+            hasMeritJudgmentRecorded({
+                finalDecision: 'محسومة - بانتظار الطعن (رد الدعوى)',
+                decisionDate: '2026-03-01',
+            }),
+        ).toBe(true);
+        expect(hasMeritJudgmentRecorded({})).toBe(false);
     });
 });

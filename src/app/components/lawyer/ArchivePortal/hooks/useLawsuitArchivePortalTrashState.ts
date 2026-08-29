@@ -65,16 +65,6 @@ export function useLawsuitArchivePortalTrashState({
         return 'إدارة الدعاوى القضائية (الشاملة) ⚖️';
     };
 
-    const beginPermanentDeleteForIds = useCallback(
-        (ids: Array<string | number>) => {
-            if (ids.length === 0) return;
-            if (!onPermanentlyDeleteLawsuits) return;
-            permanentIdsRef.current = ids;
-            setPermanentDeleteOpen(true);
-        },
-        [onPermanentlyDeleteLawsuits],
-    );
-
     const confirmPermanentDelete = useCallback(() => {
         const ids = permanentIdsRef.current;
         if (ids.length === 0) {
@@ -106,7 +96,6 @@ export function useLawsuitArchivePortalTrashState({
         permanentDeleteOpen,
         setPermanentDeleteOpen,
         confirmPermanentDelete,
-        beginPermanentDeleteForIds,
         permanentIdsRef,
         lawsuitTrashedCount,
         toggleTrashSelect,

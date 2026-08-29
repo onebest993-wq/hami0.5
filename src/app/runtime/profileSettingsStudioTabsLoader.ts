@@ -165,13 +165,6 @@ export function prefetchProfileStudioMainTab(tab: ProfileStudioMainTab): void {
     prefetchProfileStudioChunk(tab);
 }
 
-/**
- * عند فتح الاستوديو: التبويب الافتراضي (المظهر) فقط — بلا تحميل المحرّرين الثقيلة.
- */
-export function prefetchProfileSettingsStudioTabsModule(): void {
-    prefetchProfileStudioChunk('appearance');
-}
-
 /** تحميل كل الأقسام — للاختبارات أو التسخين العدواني فقط */
 export function loadProfileSettingsStudioTabs(): Promise<void> {
     return Promise.all([

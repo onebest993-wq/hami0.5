@@ -20,6 +20,23 @@ export type EvictionExecutorWorkflowKey =
     | 'judicial_custodian'
     | 'residential_grace_early_end';
 
+const EVICTION_WORKFLOW_KEY_SET = new Set<string>([
+    'field_visit_or_grace',
+    'police_assistance',
+    'inventory_or_eviction',
+    'break_inventory',
+    'marital_furniture_delivery',
+    'judicial_custodian',
+    'residential_grace_early_end',
+]);
+
+export function coerceEvictionExecutorWorkflowKey(
+    value: unknown,
+): EvictionExecutorWorkflowKey | undefined {
+    const key = String(value ?? '').trim();
+    return EVICTION_WORKFLOW_KEY_SET.has(key) ? (key as EvictionExecutorWorkflowKey) : undefined;
+}
+
 /** ربط زر الإجراء الميداني → نوع سير العمل */
 export const EVICTION_WORKFLOW_BY_ACTION_ID: Partial<
     Record<EvictionTimelineActionId, EvictionExecutorWorkflowKey>
@@ -315,9 +332,8 @@ export function handleExecutorApproval(
             break;
 
         case 'Eviction':
-            actions.promptOpenExecutionReport(() => {
-                // TODO: PATCH /api/cases/{dossierId}/execution-report — فتح مسودة محضر التنفيذ
-            });
+            // الانتقال لمحضر الجرد/التخلية يتم في ExecutorWorkflowPortalModals عند التأكيد
+            actions.promptOpenExecutionReport(() => {});
             break;
 
         case 'Residential Grace Early End':

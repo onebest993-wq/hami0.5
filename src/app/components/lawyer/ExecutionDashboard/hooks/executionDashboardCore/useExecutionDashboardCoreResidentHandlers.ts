@@ -3,7 +3,7 @@
  * تُستبدل جسور lazy المكررة لـ followup/dossier-support.
  */
 import { useCallback, useMemo } from 'react';
-import { useExecutionAICopilot } from '../useExecutionAICopilot';
+import { useExecutionDecisionAppealSnapshot } from '../useExecutionDecisionAppealSnapshot';
 import { useExecutionDashboardJudicialCustodianRemove } from './useExecutionDashboardJudicialCustodianRemove';
 import { useExecutionDashboardMovableInlineSaveContext } from './useExecutionDashboardMovableInlineSaveContext';
 import { useExecutionDashboardPropertyInlineSaveContext } from './useExecutionDashboardPropertyInlineSaveContext';
@@ -41,7 +41,7 @@ export function useExecutionDashboardCoreResidentHandlers(
         executionData: p.boot.executionData as Record<string, unknown> | null,
     });
 
-    const { firstActiveAppealDecisionId } = useExecutionAICopilot({
+    const { firstActiveAppealDecisionId } = useExecutionDecisionAppealSnapshot({
         decisionsStorageExecutionId: resolvedDecisionsStorageExecutionId,
         decisionsReloadEpoch: p.decisionsReloadEpoch ?? 0,
     });

@@ -2,7 +2,7 @@ import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import { STAGGERED_BOOT_IDLE_EVENT } from '@/app/bootstrap/staggeredBootEvents';
 
-export type StaggeredBootPriority = 'critical' | 'secondary' | 'deferred';
+type StaggeredBootPriority = 'critical' | 'secondary' | 'deferred';
 
 export { STAGGERED_BOOT_IDLE_EVENT } from '@/app/bootstrap/staggeredBootEvents';
 const DASHBOARD_INTERACTIVE_EVENT = 'hami:dashboard-interactive';

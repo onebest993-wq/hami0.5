@@ -9,9 +9,11 @@ import {
     clickDockTasks,
     dockTasksTrigger,
     expectDockWidgetsVisible,
+    expectScheduleSurfaceVisible,
     prepareHomeDockE2E,
 } from './helpers/homeDockFixtures';
 import { teardownTasksE2E, waitForFieldTasksSheetReady } from './helpers/tasksFixtures';
+import { clickNativeElement } from './helpers/executionE2EBoot';
 
 test.describe('الشريط السفلي', () => {
     test.describe.configure({ mode: 'serial', timeout: 120_000 });
@@ -32,7 +34,7 @@ test.describe('الشريط السفلي', () => {
     test('يفتح المخزن من أيقونة الدوك', async ({ page }) => {
         await bootHomeDockChrome(page);
         const modal = await openVaultMediaFromDock(page);
-        await expect(modal.getByTestId('repository-feed-empty-media')).toBeVisible({ timeout: 12_000 });
+        await expect(modal.getByTestId('repository-feed-empty-all')).toBeVisible({ timeout: 12_000 });
     });
 
     test('يفتح مهام الميدان من أيقونة الدوك', async ({ page }) => {
@@ -42,12 +44,10 @@ test.describe('الشريط السفلي', () => {
 
     test('يتجاهل النقر السريع المتكرر على مهام الميدان', async ({ page }) => {
         await bootHomeDockChrome(page);
+        await clickDockTasks(page);
         const tasksBtn = dockTasksTrigger(page).first();
-        await tasksBtn.scrollIntoViewIfNeeded();
-        // نقرات متزامنة — تطابق سلوك debounce في useCommandCenterDockActions
-        await tasksBtn.evaluate((el) => {
-            for (let i = 0; i < 3; i++) (el as HTMLElement).click();
-        });
+        await clickNativeElement(tasksBtn);
+        await clickNativeElement(tasksBtn);
         await waitForFieldTasksSheetReady(page, 35_000);
         await expect(page.getByTestId('field-tasks-sheet')).toHaveCount(1);
     });
@@ -55,9 +55,6 @@ test.describe('الشريط السفلي', () => {
     test('يفتح التقويم من أيقونة الدوك', async ({ page }) => {
         await bootHomeDockChrome(page);
         await clickDockCalendar(page);
-        await expect(page.getByTestId('schedule-tab-loading').or(page.getByTestId('smart-legal-radar'))).toBeVisible({
-            timeout: 10_000,
-        });
-        await expect(page.getByTestId('smart-legal-radar')).toBeVisible({ timeout: 15_000 });
+        await expectScheduleSurfaceVisible(page);
     });
 });

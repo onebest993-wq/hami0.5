@@ -1,4 +1,4 @@
-export const SEIZED_PROPERTY_PORTAL_PROP_KEYS = [
+const SEIZED_PROPERTY_PORTAL_PROP_KEYS = [
     'seizedPropertyStepModalOpen',
     'seizedPropertyStepEntityKind',
     'setSeizedPropertyStepModalOpen',
@@ -58,7 +58,7 @@ export const SEIZED_PROPERTY_PORTAL_PROP_KEYS = [
     'savePublicationDetails',
 ] as const;
 
-export type SeizedPropertyPortalPropKey = (typeof SEIZED_PROPERTY_PORTAL_PROP_KEYS)[number];
+type SeizedPropertyPortalPropKey = (typeof SEIZED_PROPERTY_PORTAL_PROP_KEYS)[number];
 
 export function pickSeizedPropertyPortalProps(
     sources: Record<string, unknown>,

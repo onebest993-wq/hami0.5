@@ -2,6 +2,7 @@ import React from 'react';
 import { formatDateText } from '../../utils/formatters';
 import type { GrievanceLifecyclePanelProps } from '../GrievanceLifecyclePanelProps';
 import { URGENT_DOSSIER_BTN_GHOST, URGENT_DOSSIER_BTN_PRIMARY } from '../../layout/urgentDossierUi';
+import { preloadActiveOrderQuickLog } from '../../layout/activeOrderQuickLogLazy';
 
 export function GrievanceTimingSection(props: GrievanceLifecyclePanelProps) {
     const {
@@ -28,9 +29,14 @@ export function GrievanceTimingSection(props: GrievanceLifecyclePanelProps) {
                         <div className="text-white/70 text-xs font-semibold">تاريخ التبليغ بقرار القاضي</div>
                         <button
                             type="button"
-                            onClick={() => setDecisionNotificationModalOpen(true)}
+                            onPointerEnter={preloadActiveOrderQuickLog}
+                            onFocus={preloadActiveOrderQuickLog}
+                            onClick={() => {
+                                preloadActiveOrderQuickLog();
+                                setDecisionNotificationModalOpen(true);
+                            }}
                             disabled={grievanceWizardInputsLocked}
-                            className={`${URGENT_DOSSIER_BTN_GHOST} min-h-[36px] py-1.5 px-3 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
+                            className={`${URGENT_DOSSIER_BTN_GHOST} min-h-[44px] py-1.5 px-3 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
                             {grievanceDecisionNotificationConfirmed ? 'تعديل التبليغ' : 'تأكيد التبليغ'}
                         </button>
@@ -55,7 +61,7 @@ export function GrievanceTimingSection(props: GrievanceLifecyclePanelProps) {
                     type="button"
                     onClick={() => void confirmGrievanceTiming()}
                     disabled={grievanceWizardInputsLocked || !grievanceTimingGateReady}
-                    className={`${URGENT_DOSSIER_BTN_PRIMARY} min-h-[40px] py-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
+                    className={`${URGENT_DOSSIER_BTN_PRIMARY} min-h-[44px] py-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                     تثبيت التوقيت القانوني
                 </button>

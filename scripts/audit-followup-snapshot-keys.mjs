@@ -8,7 +8,7 @@ const keysPath = 'src/app/components/lawyer/ExecutionDashboard/followupSnapshotF
 const snapshotInputPath =
     'src/app/components/lawyer/ExecutionDashboard/hooks/buildFollowupModalSnapshotInput.ts';
 const assignPath =
-    'src/app/components/lawyer/ExecutionDashboard/hooks/assignExecutionDashboardChunkScope.ts';
+    'src/app/components/lawyer/ExecutionDashboard/hooks/executionFollowupModalSnapshotFields.ts';
 
 const keysSrc = fs.readFileSync(keysPath, 'utf8');
 const snapshotKeys = [...keysSrc.matchAll(/'([^']+)'/g)].map((m) => m[1]);
@@ -33,9 +33,9 @@ if (!snapshotInput.includes('EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS') &&
 }
 
 if (!assign.includes('EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS')) {
-    console.error('assignExecutionDashboardChunkScope missing followup snapshot keys loop');
+    console.error('executionFollowupModalSnapshotFields missing followup snapshot keys loop');
     process.exit(1);
 }
 
-console.log(`snapshot keys: ${unique.length}, bound via chunk-scope assign + snapshot input`);
+console.log(`snapshot keys: ${unique.length}, bound via followup snapshot fields + snapshot input`);
 console.log('OK — all snapshot keys are bound before followup snapshot');

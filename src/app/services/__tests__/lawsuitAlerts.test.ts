@@ -12,7 +12,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { buildLawsuitAlerts } from '../lawsuitAlerts';
 import type { DossierRegistry } from '../alertDossierRegistry';
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
 
 function fakeRegistry(): DossierRegistry {
     return {

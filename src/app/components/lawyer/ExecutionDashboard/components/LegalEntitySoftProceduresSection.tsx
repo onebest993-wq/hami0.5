@@ -1,5 +1,5 @@
 import React from 'react';
-import { ClipboardList } from '@/app/components/ui/lucideIcons';
+import { ClipboardList } from '@/app/components/ui/icons/ClipboardList';
 import { EncroachmentRemovalRequestCards } from './EncroachmentRemovalRequestCards';
 import type { InlineActionGateKey } from '../types';
 

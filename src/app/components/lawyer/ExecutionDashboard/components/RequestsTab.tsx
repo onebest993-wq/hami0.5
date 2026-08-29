@@ -1,21 +1,24 @@
 import React from 'react';
-import { Eye, EyeOff, Send } from '@/app/components/ui/lucideIcons';
+import { Eye } from '@/app/components/ui/icons/Eye';
+import { EyeOff } from '@/app/components/ui/icons/EyeOff';
+import { Send } from '@/app/components/ui/icons/Send';
 import type { InlineActionGateKey } from '../types';
 import { shouldAlwaysShowHiddenRequestsToggle, hasAnyHiddenFollowupContent } from './hiddenFollowupRequestsUtils';
 import { SPECIAL_REQUEST_MANUAL_MODE } from './requestsTabConstants';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import type { HiddenFollowupRequestOptionsProps } from './HiddenFollowupRequestOptions';
 import { useFollowupTabDecisionsLoader } from '../hooks/useFollowupTabDecisionsLoader';
+import { EXEC_MODAL_TOUCH_TARGET } from '../executionModalMobileShell';
+import { PreloadableOverlayGate } from '../preloadableOverlayGate';
+import {
+    LazyHiddenFollowupRequestOptions,
+    LazyRequestsTabDecisionLog,
+    prefetchHiddenFollowupRequestOptions,
+    prefetchRequestsTabInnerSurfaces,
+} from '../requestsTabInnerLazy';
 
-const LazyHiddenFollowupRequestOptions = React.lazy(() =>
-    import('./HiddenFollowupRequestOptions').then((m) => ({
-        default: m.HiddenFollowupRequestOptions,
-    }))
-);
-const LazyRequestsTabDecisionLog = React.lazy(() =>
-    import('./RequestsTabDecisionLog').then((m) => ({
-        default: m.RequestsTabDecisionLog,
-    }))
+const REQUESTS_INNER_PAINT_SLOT = (
+    <div className="h-11 min-h-[44px] rounded-xl border border-white/10 bg-black/20" aria-hidden />
 );
 
 export { SPECIAL_REQUEST_MANUAL_MODE } from './requestsTabConstants';
@@ -67,6 +70,9 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
     );
     const [showHiddenPersonalRequests, setShowHiddenPersonalRequests] = React.useState(false);
     React.useEffect(() => {
+        prefetchRequestsTabInnerSurfaces();
+    }, []);
+    React.useEffect(() => {
         if (activeDebtorIsLegalEntity) setShowHiddenPersonalRequests(false);
     }, [activeDebtorIsLegalEntity]);
 
@@ -95,7 +101,8 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
                         <button
                             type="button"
                             onClick={() => setShowHiddenPersonalRequests((v) => !v)}
-                            className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[9px] font-bold transition-all ${
+                            onPointerEnter={() => prefetchHiddenFollowupRequestOptions()}
+                            className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[9px] font-bold transition-all ${EXEC_MODAL_TOUCH_TARGET} ${
                                 showHiddenPersonalRequests
                                     ? 'border-emerald-400/35 bg-emerald-500/12 text-emerald-100'
                                     : 'border-white/10 bg-white/5 text-slate-300 hover:border-emerald-400/25 hover:text-emerald-100'
@@ -110,13 +117,15 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
                 </div>
 
                 {showHiddenPersonalRequests && hiddenFollowupRequestOptions ? (
-                    <React.Suspense fallback={<div className="rounded-xl border border-white/10 bg-black/20 px-3 py-4 text-center text-[10px] text-slate-400">جاري تحميل الطلبات المخفية...</div>}>
-                        <LazyHiddenFollowupRequestOptions
-                            executionId={exId}
-                            breakDecisions={decisions}
-                            {...hiddenFollowupRequestOptions}
-                        />
-                    </React.Suspense>
+                    <PreloadableOverlayGate
+                        lazy={LazyHiddenFollowupRequestOptions}
+                        lazyProps={{
+                            executionId: exId,
+                            breakDecisions: decisions,
+                            ...hiddenFollowupRequestOptions,
+                        }}
+                        fallback={REQUESTS_INNER_PAINT_SLOT}
+                    />
                 ) : (
                     <div className="space-y-3">
                         <div>
@@ -125,7 +134,7 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
                                 type="text"
                                 value={specialRequestManualTitle}
                                 onChange={(e) => setSpecialRequestManualTitle(e.target.value)}
-                                className="w-full rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] text-white focus:border-emerald-500/50 focus:outline-none"
+                                className="w-full min-h-[44px] rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] text-white focus:border-emerald-500/50 focus:outline-none touch-manipulation"
                             />
                         </div>
 
@@ -137,7 +146,7 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
                                 onChange={(e) => setSpecialRequestDate(e.target.value)}
                                 max={new Date().toISOString().slice(0, 10)}
                                 dir="rtl"
-                                className="w-full bg-black/30 border border-white/10 text-white rounded-xl p-3 text-[11px] focus:outline-none focus:border-emerald-500/50 [&::-webkit-calendar-picker-indicator]:invert"
+                                className="w-full min-h-[44px] bg-black/30 border border-white/10 text-white rounded-xl p-3 text-[11px] focus:outline-none focus:border-emerald-500/50 [&::-webkit-calendar-picker-indicator]:invert touch-manipulation"
                             />
                         </div>
 
@@ -165,7 +174,7 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
                                     !specialRequestContent.trim() ||
                                     !specialRequestManualTitle.trim()
                                 }
-                                className="w-full py-3 bg-emerald-700/80 text-white hover:bg-emerald-700 rounded-xl font-bold text-[11px] border border-emerald-500/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                className="w-full min-h-[44px] py-3 bg-emerald-700/80 text-white hover:bg-emerald-700 rounded-xl font-bold text-[11px] border border-emerald-500/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 touch-manipulation"
                             >
                                 <Send size={14} />
                                 تأكيد إرسال الطلب
@@ -175,19 +184,15 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
                 )}
             </div>
 
-            <React.Suspense
-                fallback={
-                    <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-4 text-center text-[10px] text-slate-400">
-                        جاري تحميل سجل الطلبات...
-                    </div>
-                }
-            >
-                <LazyRequestsTabDecisionLog
-                    executionId={exId}
-                    decisions={decisions}
-                    appealPerspective={appealPerspective}
-                />
-            </React.Suspense>
+            <PreloadableOverlayGate
+                lazy={LazyRequestsTabDecisionLog}
+                lazyProps={{
+                    executionId: exId,
+                    decisions,
+                    appealPerspective,
+                }}
+                fallback={REQUESTS_INNER_PAINT_SLOT}
+            />
         </div>
     );
 };

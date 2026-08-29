@@ -13,17 +13,15 @@
  */
 
 import React, {
-    createContext,
     useCallback,
-    useContext,
     useEffect,
     useLayoutEffect,
     useMemo,
     useState,
     type ReactNode,
 } from 'react';
+import { useAuth } from '@/app/context/authHooks';
 import type { Session, User } from '@supabase/supabase-js';
-import { UserRole } from '@/app/types/admin-types';
 import {
     readPersistedSupabaseAuth,
     writeDevMockAuth,
@@ -38,59 +36,33 @@ import {
     resolveDevMockLawyerSession,
     resolveDevMockLawyerUser,
 } from '@/app/services/auth/devMockLawyerAuth';
-import { resolveInitialAuthState, shouldApplyGuestFallbackSession } from '@/app/context/authBoot';
+import {
+    resolveInitialAuthState,
+    shouldApplyGuestFallbackSession,
+    shouldHoldAuthGateUntilSessionProbe,
+    shouldRestoreGuestWhenServerHasNoSession,
+    shouldKeepStoredNonGuestDevMock,
+} from '@/app/context/authBoot';
+import { userHasRole } from '@/app/context/authRoleUtils';
+import {
+    AuthContext,
+    type AuthContextType,
+    type RegisterLawyerInput,
+} from '@/app/context/authContextStore';
+import { isExplicitLocalGuest } from '@/app/services/auth/localGuestSession';
+import { isExplicitDevUnlock } from '@/app/services/auth/devUnlockSession';
+import { isShellAuthBypassed, isShellDemoUserId } from '@/app/services/auth/shellAuth';
+import { HAMI_REQUEST_AUTH_GATE_EVENT } from '@/app/services/auth/requestAuthGateFromGuest';
+import {
+    isPlainDocumentSurface,
+    whenPlainDocumentCoverClears,
+} from '@/boot/plainDocumentPath';
+
+export type { RegisterLawyerInput, AuthContextType } from '@/app/context/authContextStore';
 
 function resolveBootAuth() {
     return resolveInitialAuthState();
 }
-
-// =====================================================
-// Types
-// =====================================================
-
-interface AuthContextType {
-    user: User | null;
-    session: Session | null;
-    isLoading: boolean;
-    login: (email: string, password: string) => Promise<void>;
-    signup: (
-        email: string,
-        password: string,
-        options?: { fullName?: string; accountType?: 'lawyer' | 'client'; phone?: string },
-    ) => Promise<void>;
-    logout: () => Promise<void>;
-    hasRole: (role: 'lawyer' | 'client' | 'admin') => boolean;
-    devBypassLogin: () => Promise<void>;
-    adminBypassLogin: () => Promise<void>;
-}
-
-function getSystemRoleFromMetadata(meta: Record<string, unknown>): UserRole | null {
-    const systemRole = meta.systemRole;
-    if (typeof systemRole === 'string') {
-        if (systemRole === UserRole.SUPER_ADMIN) return UserRole.SUPER_ADMIN;
-        if (systemRole === UserRole.LAWYER) return UserRole.LAWYER;
-        if (systemRole === UserRole.CLIENT) return UserRole.CLIENT;
-    }
-    const legacyRole = meta.role;
-    if (legacyRole === 'admin') return UserRole.SUPER_ADMIN;
-    if (legacyRole === 'lawyer') return UserRole.LAWYER;
-    if (legacyRole === 'client') return UserRole.CLIENT;
-    return null;
-}
-
-export function isSuperAdminUser(user: User | null): boolean {
-    if (!user) return false;
-    const appMeta = (user.app_metadata ?? {}) as Record<string, unknown>;
-    if (getSystemRoleFromMetadata(appMeta) === UserRole.SUPER_ADMIN) return true;
-    const userMeta = (user.user_metadata ?? {}) as Record<string, unknown>;
-    return getSystemRoleFromMetadata(userMeta) === UserRole.SUPER_ADMIN;
-}
-
-// =====================================================
-// Context Creation
-// =====================================================
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // =====================================================
 // Provider Component
@@ -105,7 +77,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const [user, setUser] = useState<User | null>(boot.user);
     const [session, setSession] = useState<Session | null>(boot.session);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(() => shouldHoldAuthGateUntilSessionProbe(boot));
+
+    useLayoutEffect(() => {
+        // امسح ضيفاً عالقاً عند إغلاق الشِل حتى تظهر بوابة الدخول فوراً
+        if (isShellAuthBypassed() || isExplicitLocalGuest() || isExplicitDevUnlock()) return;
+        if (user && isShellDemoUserId(user.id)) {
+            clearDevMockAuth();
+            setUser(null);
+            setSession(null);
+            setLiveAuthUserId(null);
+        }
+    }, []);
 
     useLayoutEffect(() => {
         setLiveAuthUserId(user?.id ?? null);
@@ -113,38 +96,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     useEffect(() => {
         if (!boot.session) return;
+        // لا تُثبّت جلسة ضيف في التخزين عندما تكون بوابة الدخول مغلقة
+        if (!shouldApplyGuestFallbackSession() && !isExplicitLocalGuest() && !isExplicitDevUnlock()) return;
         const persisted = readPersistedSupabaseAuth();
         if (!persisted.session) {
+            if (
+                shouldKeepStoredNonGuestDevMock() &&
+                boot.session.user &&
+                isShellDemoUserId(boot.session.user.id)
+            ) {
+                return;
+            }
             writeDevMockAuth(boot.session);
         }
     }, [boot.session]);
-
-    const applyGuestSession = useCallback((): void => {
-        const guest = getDevMockLawyerSession();
-        setSession(guest.session);
-        setUser(guest.user);
-        writeDevMockAuth(guest.session);
-    }, []);
 
     const applySignedOutState = useCallback((): void => {
         setSession(null);
         setUser(null);
         clearDevMockAuth();
+        setLiveAuthUserId(null);
     }, []);
-
-    const applyGuestOrSignedOut = useCallback((): void => {
-        if (shouldApplyGuestFallbackSession()) {
-            applyGuestSession();
-            return;
-        }
-        applySignedOutState();
-    }, [applyGuestSession, applySignedOutState]);
 
     const restoreDevMockIfPresent = useCallback((): boolean => {
         const devUser = readDevMockUser();
         const devToken = readDevMockAccessToken();
         if (!devUser || !devToken) return false;
-        if (import.meta.env.PROD && !shouldApplyGuestFallbackSession()) {
+        if (!shouldRestoreGuestWhenServerHasNoSession()) {
             clearDevMockAuth();
             return false;
         }
@@ -159,6 +137,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(devUser);
         return true;
     }, []);
+
+    const applyGuestSession = useCallback((): void => {
+        if (shouldKeepStoredNonGuestDevMock() && restoreDevMockIfPresent()) {
+            return;
+        }
+        const guest = getDevMockLawyerSession();
+        setSession(guest.session);
+        setUser(guest.user);
+        writeDevMockAuth(guest.session);
+    }, [restoreDevMockIfPresent]);
+
+    const applyGuestOrSignedOut = useCallback((): void => {
+        const persisted = readPersistedSupabaseAuth();
+        if (persisted.user && persisted.session && !isShellDemoUserId(persisted.user.id)) {
+            setSession(persisted.session);
+            setUser(persisted.user);
+            return;
+        }
+        if (shouldKeepStoredNonGuestDevMock() && restoreDevMockIfPresent()) {
+            return;
+        }
+        if (shouldRestoreGuestWhenServerHasNoSession()) {
+            applyGuestSession();
+            return;
+        }
+        applySignedOutState();
+    }, [applyGuestSession, applySignedOutState, restoreDevMockIfPresent]);
 
     const runtimeBindings = useMemo(
         () => ({
@@ -184,11 +189,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     useEffect(() => {
         let cleanup: (() => void) | undefined;
-        void import('@/app/context/authProviderRuntime').then((runtime) => {
-            cleanup = runtime.startAuthSessionSync(runtimeBindings);
-        });
-        return () => cleanup?.();
+        let stopWait: (() => void) | undefined;
+        let cancelled = false;
+        const start = () => {
+            if (cancelled) return;
+            void import('@/app/context/authProviderRuntime').then((runtime) => {
+                if (cancelled) return;
+                cleanup = runtime.startAuthSessionSync(runtimeBindings);
+            });
+        };
+        if (isPlainDocumentSurface()) {
+            stopWait = whenPlainDocumentCoverClears(start);
+        } else {
+            start();
+        }
+        return () => {
+            cancelled = true;
+            stopWait?.();
+            cleanup?.();
+        };
     }, [runtimeBindings]);
+
+    useEffect(() => {
+        let unsub: (() => void) | undefined;
+        void import('@/app/services/auth/authSessionBroadcast').then((m) => {
+            unsub = m.subscribeAuthLogout(() => {
+                applySignedOutState();
+                setLiveAuthUserId(null);
+            });
+        });
+        return () => unsub?.();
+    }, [applySignedOutState]);
 
     const login = useCallback(
         async (email: string, password: string) => {
@@ -202,7 +233,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         async (
             email: string,
             password: string,
-            options?: { fullName?: string; accountType?: 'lawyer' | 'client'; phone?: string },
+            options?: { fullName?: string; accountType?: 'lawyer'; phone?: string },
         ) => {
             const runtime = await import('@/app/context/authProviderRuntime');
             await runtime.authSignup(email, password, options);
@@ -210,9 +241,87 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         [],
     );
 
-    const logout = useCallback(async () => {
+    const registerLawyer = useCallback(
+        async (input: RegisterLawyerInput) => {
+            const runtime = await import('@/app/context/authProviderRuntime');
+            return runtime.authRegisterLawyer(input, runtimeBindings);
+        },
+        [runtimeBindings],
+    );
+
+    const registerLawyerAccount = useCallback(
+        async (input: { email: string; password: string }) => {
+            const runtime = await import('@/app/context/authProviderRuntime');
+            return runtime.authRegisterLawyerAccount(input, runtimeBindings);
+        },
+        [runtimeBindings],
+    );
+
+    const finalizeLawyerOnboarding = useCallback(
+        async (input: Omit<RegisterLawyerInput, 'password'>) => {
+            const runtime = await import('@/app/context/authProviderRuntime');
+            return runtime.authFinalizeLawyerOnboarding(input);
+        },
+        [],
+    );
+
+    const enterLocalGuest = useCallback(async () => {
         const runtime = await import('@/app/context/authProviderRuntime');
-        await runtime.authLogout(runtimeBindings);
+        await runtime.authEnterLocalGuest(runtimeBindings);
+    }, [runtimeBindings]);
+
+    const exitGuestForAuthGate = useCallback(async (mode: 'login' | 'register') => {
+        const { setPreferredAuthGateMode } = await import(
+            '@/app/services/auth/authGatePreferredMode'
+        );
+        const { clearExplicitLocalGuest } = await import(
+            '@/app/services/auth/localGuestSession'
+        );
+        const { clearExplicitDevUnlock } = await import(
+            '@/app/services/auth/devUnlockSession'
+        );
+        setPreferredAuthGateMode(mode);
+        clearExplicitLocalGuest();
+        clearExplicitDevUnlock();
+        clearDevMockAuth();
+        applySignedOutState();
+        setLiveAuthUserId(null);
+    }, [applySignedOutState]);
+
+    useEffect(() => {
+        const onRequestGate = (event: Event) => {
+            const detail = (event as CustomEvent<{ mode?: 'login' | 'register' }>).detail;
+            const mode = detail?.mode === 'register' ? 'register' : 'login';
+            void exitGuestForAuthGate(mode);
+        };
+        window.addEventListener(HAMI_REQUEST_AUTH_GATE_EVENT, onRequestGate as EventListener);
+        return () =>
+            window.removeEventListener(HAMI_REQUEST_AUTH_GATE_EVENT, onRequestGate as EventListener);
+    }, [exitGuestForAuthGate]);
+
+    const requestPasswordReset = useCallback(async (email: string) => {
+        const runtime = await import('@/app/context/authProviderRuntime');
+        return runtime.authRequestPasswordReset(email);
+    }, []);
+
+    const resendEmailConfirmation = useCallback(async (email: string) => {
+        const runtime = await import('@/app/context/authProviderRuntime');
+        return runtime.authResendEmailConfirmation(email);
+    }, []);
+
+    const logout = useCallback(async (options?: { skipLocalPurge?: boolean }) => {
+        const runtime = await import('@/app/context/authProviderRuntime');
+        const result = await runtime.authLogout(runtimeBindings, options);
+        if (!result.purgeComplete) {
+            const { SmartToast } = await import('@/app/components/ui/SmartToast');
+            SmartToast.warning('أُنهيت الجلسة، لكن تعذّر مسح بعض البيانات المحلية على هذا الجهاز');
+        }
+        if (!result.serverOk) {
+            const { SmartToast } = await import('@/app/components/ui/SmartToast');
+            SmartToast.warning(
+                'خرجت من هذا الجهاز. تعذّر تأكيد إنهاء الجلسة على الخادم — إن بقيت جلسة على جهاز آخر غيّر كلمة المرور',
+            );
+        }
     }, [runtimeBindings]);
 
     const devBypassLogin = useCallback(async () => {
@@ -234,82 +343,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             isLoading,
             login,
             signup,
+            registerLawyer,
+            registerLawyerAccount,
+            finalizeLawyerOnboarding,
+            enterLocalGuest,
+            exitGuestForAuthGate,
+            requestPasswordReset,
+            resendEmailConfirmation,
             logout,
-            hasRole: (role: 'lawyer' | 'client' | 'admin') => userHasRole(effectiveUser, role),
+            hasRole: (role: 'lawyer' | 'admin') => userHasRole(effectiveUser, role),
             devBypassLogin,
             adminBypassLogin,
         };
-    }, [user, session, isLoading, login, signup, logout, devBypassLogin, adminBypassLogin]);
+    }, [
+        user,
+        session,
+        isLoading,
+        login,
+        signup,
+        registerLawyer,
+        registerLawyerAccount,
+        finalizeLawyerOnboarding,
+        enterLocalGuest,
+        exitGuestForAuthGate,
+        requestPasswordReset,
+        resendEmailConfirmation,
+        logout,
+        devBypassLogin,
+        adminBypassLogin,
+    ]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-
-/** جذر التطبيق — لا يرمي خارج AuthProvider (مقاوم لانقطاع HMR) */
-export function useAppRootAuth(): Pick<AuthContextType, 'user' | 'isLoading' | 'logout'> {
-    const context = useContext(AuthContext);
-    return useMemo(() => {
-        if (context !== undefined) {
-            return { user: context.user, isLoading: context.isLoading, logout: context.logout };
-        }
-        const persisted = readPersistedSupabaseAuth();
-        const user = resolveDevMockLawyerUser(persisted.user);
-        return {
-            user,
-            isLoading: false,
-            logout: async () => {
-                const runtime = await import('@/app/context/authProviderRuntime');
-                await runtime.performRootAuthLogout();
-            },
-        };
-    }, [context]);
-}
-
-// =====================================================
-// Hook للاستخدام
-// =====================================================
-
-export const useAuth = (): AuthContextType => {
-    const context = useContext(AuthContext);
-
-    if (context === undefined) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-
-    return context;
-};
-
-/** للمكوّنات lazy — لا يرمي إذا انفصل الـ context بسبب تقسيم الحزم/HMR */
-export function useAuthUser(): User | null {
-    const context = useContext(AuthContext);
-    if (context !== undefined) return context.user;
-    return resolveDevMockLawyerUser(readPersistedSupabaseAuth().user);
-}
-
-export function userHasRole(user: User | null, role: 'lawyer' | 'client' | 'admin'): boolean {
-    if (!user) return false;
-    if (role === 'admin') return isSuperAdminUser(user);
-    const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
-    const accountType = typeof meta.accountType === 'string' ? meta.accountType : 'lawyer';
-    if (role === 'client') return accountType === 'client';
-    return accountType !== 'client';
-}
-
-/** للمكوّنات lazy — user + hasRole + isLoading دون رمي خارج AuthProvider */
-export function useAuthSafe(): {
-    user: User | null;
-    isLoading: boolean;
-    hasRole: (role: 'lawyer' | 'client' | 'admin') => boolean;
-} {
-    const context = useContext(AuthContext);
-    const persistedUser = readPersistedSupabaseAuth().user;
-    const user = resolveDevMockLawyerUser(context !== undefined ? context.user : persistedUser);
-    const isLoading = context !== undefined ? context.isLoading : false;
-    const hasRole = useMemo(
-        () => (role: 'lawyer' | 'client' | 'admin') => userHasRole(user, role),
-        [user],
-    );
-    return { user, isLoading, hasRole };
-}
 
 // =====================================================
 // مكون حماية الصفحات
@@ -317,7 +382,7 @@ export function useAuthSafe(): {
 
 interface ProtectedRouteProps {
     children: ReactNode;
-    requiredRole?: 'lawyer' | 'client' | 'admin';
+    requiredRole?: 'lawyer' | 'admin';
     fallback?: ReactNode;
 }
 

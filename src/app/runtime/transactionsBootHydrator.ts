@@ -1,18 +1,18 @@
-import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
+import {
+    isSectionBackgroundPrefetchAllowed,
+    sectionBackgroundHydrateDelayMs,
+} from '@/app/runtime/sectionPrefetchPolicy';
 import {
     hydrateTransactionsShellForInstantOpen,
     isTransactionsHubModuleResolved,
     prefetchTransactionsHubModule,
 } from '@/app/runtime/transactionsHubLoader';
-import { warmTransactionsOnHover } from '@/app/hooks/lawyerDashboard/transactionsIntentWarm';
 import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
 import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
 
 export const TRANSACTIONS_SHELL_HYDRATED_EVENT = 'hami:transactions-shell-hydrated';
-/** pointerdown على بلاطة/دوك المعاملات — يركّب Host مخفياً قبل الـ click */
+/** pointerdown على بلاطة/دوك المعاملات — يسخّن القرص والمقطع قبل الـ click */
 export const TRANSACTIONS_PRIME_HOST_EVENT = 'hami:transactions-prime-host';
 
 let bootHydratorArmed = false;
@@ -20,21 +20,11 @@ let hydrateInflight: Promise<boolean> | null = null;
 let coldBootPrefetchStarted = false;
 
 function transactionsPrefetchAllowed(): boolean {
-    try {
-        const s = getLawyerSettingsSnapshot();
-        if (s.security.localOnlyMode) return false;
-        if (s.performance.prefetchScreens === false) return false;
-        if (isLitePerformanceActive(s.performance.litePerformance)) return false;
-    } catch {
-        /* ignore */
-    }
-    return true;
+    return isSectionBackgroundPrefetchAllowed();
 }
 
 function hydrateDelayMs(): number {
-    if (!transactionsPrefetchAllowed()) return -1;
-    if (isCapacitorNativePlatform()) return 80;
-    return 0;
+    return sectionBackgroundHydrateDelayMs();
 }
 
 function dispatchHydratedOnce(): void {
@@ -47,7 +37,7 @@ export function dispatchTransactionsPrimeHost(): void {
     window.dispatchEvent(new Event(TRANSACTIONS_PRIME_HOST_EVENT));
 }
 
-export function isTransactionsShellFullyHydrated(): boolean {
+function isTransactionsShellFullyHydrated(): boolean {
     return isTransactionsHubModuleResolved();
 }
 
@@ -62,15 +52,15 @@ export function prefetchTransactionsAfterBootReveal(userId?: string | null): voi
 }
 
 /**
+ * تحميل مقطع الـ hub فقط — بلا تسخين نية/مخزن (ذلك عند الهوية أو الفتح).
  * @param force يتجاوز تعطيل prefetch عند فتح المستخدم.
  */
 export function hydrateTransactionsBootShellForInstantOpen(
-    userId?: string | null,
+    _userId?: string | null,
     force = false,
 ): Promise<boolean> {
     if (!force && !transactionsPrefetchAllowed()) return Promise.resolve(false);
     if (isTransactionsShellFullyHydrated()) {
-        warmTransactionsOnHover(userId);
         dispatchHydratedOnce();
         return Promise.resolve(true);
     }
@@ -78,10 +68,7 @@ export function hydrateTransactionsBootShellForInstantOpen(
 
     hydrateInflight = hydrateTransactionsShellForInstantOpen()
         .then((ok) => {
-            if (ok) {
-                warmTransactionsOnHover(userId);
-                dispatchHydratedOnce();
-            }
+            if (ok) dispatchHydratedOnce();
             return ok;
         })
         .finally(() => {

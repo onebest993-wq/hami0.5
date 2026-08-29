@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import SecureStoreService from '@/app/services/SecureStoreService';
 import { PRIVATE_RIGHT_WAIVER_TIMELINE_CATEGORY, isInvestigationStoredStage } from './criminalStageUtils';
 import {
     isCorruptTimelineEvent,
@@ -16,43 +15,11 @@ import {
     type TimelineEvent,
 } from './criminalStore';
 import { isDefendantIdentityUnknown, canMarkDraftDefendantAsUnknown } from './criminalUnknownDefendant';
-
-function resetCriminalStore() {
-    SecureStoreService.deleteItemSync('hami:criminal:store');
-    useCriminalStore.setState({ casesById: {} });
-    useCriminalStore.getState().resetDraft();
-}
-
-async function readPersistedCriminalStoreRaw(): Promise<string | null> {
-    await SecureStoreService.ensurePersistedReady();
-    await new Promise((r) => setTimeout(r, 0));
-    return SecureStoreService.getItem('hami:criminal:store');
-}
-
-function seedDraftForNewCase(stage: CriminalCaseStage) {
-    const s = useCriminalStore.getState();
-    const c1 = useCriminalStore.getState().draft.complainants[0]?.id;
-    if (c1) {
-        s.toggleDraftComplainantOfficeClient(c1, true);
-    }
-    s.setBasicField('stage', stage);
-    s.setLocationField('investigationCourtName', 'محكمة تحقيق الكرخ');
-    s.setLocationField('baseRegisterNumberAndDate', '1/2026 في 2026-05-19');
-    s.setLocationField('courtName', isInvestigationStoredStage(stage) ? '' : 'محكمة جنح الكرخ');
-    s.setLocationField('caseNumber', isInvestigationStoredStage(stage) ? '' : '123/ج/2026');
-    if (!isInvestigationStoredStage(stage)) {
-        s.setBasicField('crimeType', 'جنحة');
-        s.setBasicField('legalArticle', '413 ق.ع');
-    }
-    const d1 = useCriminalStore.getState().draft.defendants[0]?.id;
-    if (d1) {
-        s.setDefendantField(d1, 'fullName', 'محمد قاسم عبد');
-        s.setDefendantField(d1, 'birthYear', '1990');
-        s.setDefendantField(d1, 'status', 'موقوف');
-        s.setDefendantField(d1, 'detentionAuthority', 'سجن التوقيف المركزي');
-        s.setDefendantField(d1, 'detentionExpiryDate', '2026-06-01');
-    }
-}
+import {
+    readPersistedCriminalStoreRaw,
+    resetCriminalStore,
+    seedDraftForNewCase,
+} from './__tests__/criminalStoreTestHelpers';
 
 describe('criminalStore', () => {
     beforeEach(() => {
@@ -1313,6 +1280,15 @@ describe('criminalStore', () => {
         const raw = await readPersistedCriminalStoreRaw();
         const parsed = JSON.parse(raw!);
         expect(parsed?.state?.casesById?.[caseId]).toBeUndefined();
+    });
+
+    it('deleteCase returns false for missing id and true on successful delete', () => {
+        expect(useCriminalStore.getState().deleteCase('missing-case-id')).toBe(false);
+        seedDraftForNewCase('محكمة الجنح');
+        const caseId = useCriminalStore.getState().createCaseFromDraft();
+        expect(useCriminalStore.getState().deleteCase(caseId)).toBe(true);
+        expect(useCriminalStore.getState().casesById[caseId]).toBeUndefined();
+        expect(useCriminalStore.getState().deleteCase(caseId)).toBe(false);
     });
 
     it('does not auto-update defendant status when adding timeline events (manual control)', () => {

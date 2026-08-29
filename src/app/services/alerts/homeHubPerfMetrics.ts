@@ -6,9 +6,9 @@ import {
 
 const MARK_PREFIX = 'hami:home-hub:';
 
-export type HomeHubPerfPhase = 'open-request' | 'first-paint' | 'interactive';
+type HomeHubPerfPhase = 'open-request' | 'first-paint' | 'interactive';
 
-export type HomeHubPerfReportContext = {
+type HomeHubPerfReportContext = {
     userId?: string;
     alertsTabCount?: number;
     pinsCount?: number;
@@ -18,7 +18,7 @@ export type HomeHubPerfReportContext = {
 
 let homeHubPerfReported = false;
 
-export function resetHomeHubPerfReportSession(): void {
+function resetHomeHubPerfReportSession(): void {
     homeHubPerfReported = false;
 }
 
@@ -54,20 +54,14 @@ export function getHomeHubOpenToInteractiveMs(): number | null {
     return Math.round(ms);
 }
 
-export function reportHomeHubPerfIfDev(context?: HomeHubPerfReportContext | string): void {
-    if (!import.meta.env.DEV) return;
-    const ms = getHomeHubOpenToInteractiveMs();
-    if (ms == null) return;
-    debug.log(`[HomeHubPerf] open→interactive ${ms}ms`, context ?? '');
-}
-
 export function reportHomeHubPerf(context: HomeHubPerfReportContext = {}): void {
     if (homeHubPerfReported) return;
     const ms = getHomeHubOpenToInteractiveMs();
     if (ms == null) return;
     homeHubPerfReported = true;
     if (import.meta.env.DEV) {
-        debug.log('[HomeHubPerf] open→interactive', ms, 'ms', context);
+        const { userId: _omitUser, ...safeContext } = context;
+        debug.log('[HomeHubPerf] open→interactive', ms, 'ms', safeContext);
     }
     reportHomeHubOpenToSentry(ms, context as HomeHubSentryReportContext);
 }

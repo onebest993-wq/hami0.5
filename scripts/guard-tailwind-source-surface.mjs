@@ -8,9 +8,17 @@ import { resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
 const tailwindPath = resolve(root, 'src/styles/tailwind.css');
 const featuresPath = resolve(root, 'src/styles/tailwind-features.css');
+const workspacePath = resolve(root, 'src/styles/tailwind-features-workspace.css');
+const dossiersPath = resolve(root, 'src/styles/tailwind-features-dossiers.css');
+const adminPath = resolve(root, 'src/styles/tailwind-features-admin.css');
 
 const tailwind = readFileSync(tailwindPath, 'utf8');
-const features = readFileSync(featuresPath, 'utf8');
+const featuresCombined = readFileSync(featuresPath, 'utf8');
+const features = [
+    readFileSync(workspacePath, 'utf8'),
+    readFileSync(dossiersPath, 'utf8'),
+    readFileSync(adminPath, 'utf8'),
+].join('\n');
 
 const fail = (msg) => {
     console.error(`[guard-tailwind-source] FAIL: ${msg}`);
@@ -48,8 +56,23 @@ for (const dir of heavyDirs) {
     }
     const featureInclude = new RegExp(`@source\\s+'\\.\\./app/components/lawyer/${escaped}/\\*\\*'`);
     if (!featureInclude.test(features)) {
-        fail(`tailwind-features.css must @source lawyer/${dir}/**`);
+        fail(`tailwind-features-{workspace|dossiers|admin}.css must @source lawyer/${dir}/**`);
     }
+}
+
+if (!featuresCombined.includes("tailwind-features-workspace.css")) {
+    fail('tailwind-features.css must import the workspace split');
+}
+if (!featuresCombined.includes("tailwind-features-dossiers.css")) {
+    fail('tailwind-features.css must import the dossiers split');
+}
+if (dossiersHasAdminLeak()) {
+    fail('tailwind-features-dossiers.css must not scan AdminDashboard/admin');
+}
+
+function dossiersHasAdminLeak() {
+    const dossiers = readFileSync(dossiersPath, 'utf8');
+    return /AdminDashboard|components\/admin\/\*\*/.test(dossiers);
 }
 
 console.log('[guard-tailwind-source] PASS');

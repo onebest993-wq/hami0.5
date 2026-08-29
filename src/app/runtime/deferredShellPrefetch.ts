@@ -11,8 +11,8 @@ export function scheduleLawyerShellPrefetch(options?: { delayMs?: number }): voi
     scheduled = true;
 
     void import('@/app/components/lawyer/LawyerDashboardParts/components/Header').catch(() => undefined);
-    void import('@/app/utils/lazyComponents')
-        .then((m) => m.prefetchLawyerHomeHubCard())
+    void import('@/app/runtime/homeHubCardLoader')
+        .then((m) => m.prefetchLawyerHomeHubCardModule())
         .catch(() => undefined);
 
     const runDeferred = () => {

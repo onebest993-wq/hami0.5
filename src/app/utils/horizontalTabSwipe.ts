@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react';
+import { isOverlayInlineStartEdge } from '@/app/runtime/overlayEdgeBackGesture';
 
 type PointerOrigin = {
     x: number;
@@ -38,6 +39,8 @@ export type UseHorizontalTabSwipeOptions<T extends string> = {
     activeId: T;
     onChange: (id: T) => void;
     enabled?: boolean;
+    /** تجاهل السحب الذي يبدأ من حافة الرجوع (iOS) حتى لا يُبدَّل التبويب مع إيماءة النظام */
+    ignoreInlineStartEdgePx?: number;
 };
 
 export function useHorizontalTabSwipe<T extends string>({
@@ -45,15 +48,31 @@ export function useHorizontalTabSwipe<T extends string>({
     activeId,
     onChange,
     enabled = true,
+    ignoreInlineStartEdgePx = 0,
 }: UseHorizontalTabSwipeOptions<T>) {
     const originRef = useRef<PointerOrigin | null>(null);
 
     const onPointerDown = useCallback(
         (event: React.PointerEvent<HTMLElement>) => {
             if (!enabled || event.button !== 0) return;
+            if (ignoreInlineStartEdgePx > 0 && typeof window !== 'undefined') {
+                const rtl =
+                    (document.documentElement.getAttribute('dir') || document.dir) !== 'ltr';
+                if (
+                    isOverlayInlineStartEdge(
+                        event.clientX,
+                        window.innerWidth || 0,
+                        rtl,
+                        ignoreInlineStartEdgePx,
+                    )
+                ) {
+                    originRef.current = null;
+                    return;
+                }
+            }
             originRef.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
         },
-        [enabled],
+        [enabled, ignoreInlineStartEdgePx],
     );
 
     const onPointerUp = useCallback(

@@ -2,7 +2,7 @@ type UrgentOrdersViewModule = typeof import('@/app/components/lawyer/View_Urgent
 
 let modulePromise: Promise<UrgentOrdersViewModule> | null = null;
 
-export function resetUrgentOrdersViewLoaderForTests(): void {
+export function resetUrgentOrdersViewLoader(): void {
     modulePromise = null;
 }
 

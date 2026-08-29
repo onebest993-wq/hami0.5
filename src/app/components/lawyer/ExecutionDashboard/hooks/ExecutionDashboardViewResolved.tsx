@@ -12,11 +12,13 @@ export const ExecutionDashboardViewResolved = React.memo(function ExecutionDashb
     executionId,
     onClose,
     onUpdate,
+    onExitToHome,
 }: ExecutionDashboardProps) {
     const vm = useExecutionDashboardCore({ file, executionId, onClose, onUpdate });
+    const exitToHome = onExitToHome ?? onClose;
 
     if (vm.isLoading) {
-        return <ExecutionDashboardLoadingView />;
+        return <ExecutionDashboardLoadingView file={file} onExitToHome={exitToHome} />;
     }
 
     if (vm.loadError || !vm.executionData) {
@@ -28,5 +30,11 @@ export const ExecutionDashboardViewResolved = React.memo(function ExecutionDashb
         );
     }
 
-    return <ExecutionDashboardResolvedRuntimeSurface vm={vm} />;
+    return (
+        <ExecutionDashboardResolvedRuntimeSurface
+            vm={vm}
+            paintFile={file ?? vm.executionData}
+            onExitToHome={exitToHome}
+        />
+    );
 });

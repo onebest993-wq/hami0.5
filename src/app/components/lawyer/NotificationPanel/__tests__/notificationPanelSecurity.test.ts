@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-    clampClientPhoneInput,
-    normalizeClientPhoneInput,
-} from '@/app/services/notifications/notificationClientRequestSecurity';
-import {
     isNotificationNavTarget,
     sanitizeNotificationActionPayload,
 } from '@/app/services/notifications/notificationNavigateSecurity';
@@ -11,23 +7,6 @@ import {
     isNotificationHeaderBusy,
     isNotificationPanelColdLoading,
 } from '@/app/components/lawyer/NotificationPanel/utils/notificationHeaderBusy';
-
-describe('notificationClientRequestSecurity', () => {
-    it('يقبل رقماً عراقياً صالحاً', () => {
-        expect(normalizeClientPhoneInput('07800000000')).toBe('+9647800000000');
-        expect(normalizeClientPhoneInput('+9647800000000')).toBe('+9647800000000');
-    });
-
-    it('يرفض رقماً غير صالح', () => {
-        expect(normalizeClientPhoneInput('abc')).toBeNull();
-        expect(normalizeClientPhoneInput('123')).toBeNull();
-    });
-
-    it('يحدّ طول الإدخال', () => {
-        const long = '0'.repeat(40);
-        expect(clampClientPhoneInput(long).length).toBeLessThanOrEqual(20);
-    });
-});
 
 describe('notificationNavigateSecurity', () => {
     it('يسمح بمسارات معروفة فقط', () => {

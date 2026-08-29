@@ -1,0 +1,31 @@
+export const FOUNDATION_HANDLER_CLUSTER_KEYS = [
+    'decisionsStorageExecutionId',
+    'decisionsReloadEpoch',
+    'executionData',
+    'executionDataRef',
+    'executionId',
+    'parentDossierId',
+    'persistExecutionMerge',
+    'showToast',
+    'setTimelineEvents',
+    'pushTimelineEventRef',
+    'realEstateSeizureAssets',
+    'realEstateSeizureModalDecisionId',
+    'realEstateSeizureSnapshotRef',
+    'nextTimelineId',
+    'setRealEstateSeizureAssets',
+    'setShowRealEstateSeizureModal',
+    'getLocalTodayYmd',
+    'setThirdPartySeizuresUi',
+    'linkSeizureAuctionToAppointments',
+    'pushSeizureAuctionCalendarAppointment',
+] as const;
+
+export const FOUNDATION_TIMELINE_HANDLER_CLUSTER_KEYS = [
+    'executionDataRef',
+    'executionId',
+    'parentDossierId',
+    'persistExecutionMerge',
+    'setTimelineEvents',
+    'pushTimelineEventRef',
+] as const;

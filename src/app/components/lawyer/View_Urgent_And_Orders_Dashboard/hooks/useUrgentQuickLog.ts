@@ -7,7 +7,7 @@ import {
 
 export type UrgentQuickLogAction = 'notification' | 'grievance' | 'cassation';
 
-export type UrgentQuickLogModalState = {
+type UrgentQuickLogModalState = {
     isOpen: boolean;
     actionType: UrgentQuickLogAction;
     caseId: string;

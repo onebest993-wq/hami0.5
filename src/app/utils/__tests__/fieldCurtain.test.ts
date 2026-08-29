@@ -1,26 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { LegalTask } from '@/app/types/TaskEngine';
 import { isTaskOnFieldCurtain } from '../fieldCurtain';
-
-function task(partial: Partial<LegalTask> & Pick<LegalTask, 'id' | 'title'>): LegalTask {
-    return {
-        id: partial.id,
-        rawText: partial.title,
-        title: partial.title,
-        location: partial.location ?? null,
-        parsedDate: partial.parsedDate ?? null,
-        reminderAt: null,
-        isFatalDeadline: partial.isFatalDeadline ?? false,
-        linkedCaseId: null,
-        status: 'pending',
-        pinnedToFieldCurtain: partial.pinnedToFieldCurtain ?? false,
-        fieldCurtainPinnedAt: null,
-        completedAt: null,
-        subTasks: partial.subTasks ?? [],
-        documentRequirements: [],
-        expenses: [],
-    };
-}
+import { legalTaskStub as task } from '@/app/services/tasks/__tests__/legalTaskStub';
 
 describe('isTaskOnFieldCurtain', () => {
     it('returns true only when explicitly pinned', () => {

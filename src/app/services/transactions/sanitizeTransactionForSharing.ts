@@ -1,90 +1,27 @@
 import { buildTaskTree } from '@/app/modules/transactionsThreading/service';
 import type { TaskTemplate } from '@/app/modules/transactionsThreading/taskTemplates';
-import type {
-    Transaction,
-    TransactionDocument,
-    TransactionDocumentOwnerTag,
-    TransactionTask,
-    TransactionTaskNode,
-} from '@/app/modules/transactionsThreading/types';
-import { TransactionTaskStatus } from '@/app/modules/transactionsThreading/types';
 import {
-    encodeProcedureGuideData,
-    PROCEDURE_GUIDE_ACTION_MARKER,
-    PROCEDURE_GUIDE_TAG,
-    type ProcedureGuideApplyPayload,
-    type ProcedureGuideDocumentPayload,
-} from '@/app/services/transactions/procedureGuideNavigation';
+    TransactionTaskStatus,
+    type Transaction,
+    type TransactionDocument,
+    type TransactionTask,
+    type TransactionTaskNode,
+} from '@/app/modules/transactionsThreading/types';
+import { PROCEDURE_GUIDE_TAG } from '@/app/services/transactions/procedureGuideNavigation';
+import { SHARE_PII_TOKEN, scrubPiiMultiline, scrubPiiText } from '@/app/services/transactions/scrubTransactionSharePii';
+import { clampTransactionText, TX_SHARE_BODY_MAX } from '@/app/services/transactions/transactionsInputSecurity';
+import {
+    ensureMachineTrail,
+    formatProcedureCardsBody,
+    type ShareProcedureDocumentCard,
+    type ShareProcedureDraft,
+    type ShareProcedureStepCard,
+} from '@/app/services/transactions/formatProcedureShareBody';
 
-export type ShareProcedureStepCard = {
-    id: string;
-    number: string;
-    title: string;
-    notes: string;
-    depth: number;
-    parentTaskId: string | null;
-};
+export type { ShareProcedureDraft, ShareProcedureStepCard } from '@/app/services/transactions/formatProcedureShareBody';
+export { formatProcedureCardsBody } from '@/app/services/transactions/formatProcedureShareBody';
 
-export type ShareProcedureDocumentCard = {
-    title: string;
-    ownerTag: TransactionDocumentOwnerTag;
-};
-
-export type ShareProcedureDraft = {
-    title: string;
-    /** نص المنشور النهائي — قابل للتحرير اليدوي */
-    body: string;
-    tags: string[];
-    steps: ShareProcedureStepCard[];
-    documents: ShareProcedureDocumentCard[];
-};
-
-const PII_TOKEN = '[محذوف]';
-
-const EMAIL_RE = /([a-zA-Z0-9._%+-]{1,64})@([a-zA-Z0-9.-]{1,253})\.([a-zA-Z]{2,24})/g;
-const IRAQ_MOBILE_RE = /(?:\+?964|0)?\s*7\d{2}[\s-]?\d{3}[\s-]?\d{4}/g;
-const LONG_ID_RE = /(?:\d[\s-]?){10,16}/g;
-const OFFICIAL_REF_INLINE_RE = /(?:صادر|وارد|وصل)\s*[:：]?\s*[\d\u0660-\u0669\-/]+/gi;
-
-function escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/** تنقيح نصي للبيانات الحساسة — آمن لإعادة التشغيل قبل النشر */
-export function scrubPiiText(input: string, clientName?: string | null): string {
-    let out = String(input ?? '');
-    const name = clientName?.trim();
-    if (name && name.length >= 2) {
-        out = out.replace(new RegExp(escapeRegExp(name), 'gi'), PII_TOKEN);
-    }
-    out = out.replace(EMAIL_RE, PII_TOKEN);
-    out = out.replace(IRAQ_MOBILE_RE, PII_TOKEN);
-    out = out.replace(LONG_ID_RE, (m) => {
-        const digits = m.replace(/[^\d]/g, '');
-        if (digits.length < 10 || digits.length > 16) return m;
-        return PII_TOKEN;
-    });
-    out = out.replace(OFFICIAL_REF_INLINE_RE, PII_TOKEN);
-    return out.replace(/\s{2,}/g, ' ').trim();
-}
-
-/** تنقيح مع الحفاظ على أسطر النص الإجرائي */
-export function scrubPiiMultiline(input: string, clientName?: string | null): string {
-    let out = String(input ?? '');
-    const name = clientName?.trim();
-    if (name && name.length >= 2) {
-        out = out.replace(new RegExp(escapeRegExp(name), 'gi'), PII_TOKEN);
-    }
-    out = out.replace(EMAIL_RE, PII_TOKEN);
-    out = out.replace(IRAQ_MOBILE_RE, PII_TOKEN);
-    out = out.replace(LONG_ID_RE, (m) => {
-        const digits = m.replace(/[^\d]/g, '');
-        if (digits.length < 10 || digits.length > 16) return m;
-        return PII_TOKEN;
-    });
-    out = out.replace(OFFICIAL_REF_INLINE_RE, PII_TOKEN);
-    return out.replace(/[^\S\n]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
-}
+const PII_TOKEN = SHARE_PII_TOKEN;
 
 function normalizeTag(label: string): string {
     const core = label
@@ -173,93 +110,6 @@ function scrubDocuments(
     return out;
 }
 
-export function buildProcedureGuidePayload(draft: Pick<ShareProcedureDraft, 'title' | 'steps' | 'documents'>): ProcedureGuideApplyPayload {
-    return {
-        v: 1,
-        titleHint: draft.title,
-        steps: draft.steps.map((s) => ({
-            id: s.id,
-            title: s.title,
-            parentTaskId: s.parentTaskId,
-            notes: s.notes || '',
-        })),
-        documents: draft.documents.map((d) => ({
-            title: d.title,
-            ownerTag: d.ownerTag,
-        })),
-    };
-}
-
-/** يبني نص المنشور: إجراءات + عناوين مستمسكات + بيانات آلة */
-export function formatProcedureCardsBody(params: {
-    title: string;
-    steps: ShareProcedureStepCard[];
-    documents?: ShareProcedureDocumentCard[];
-}): string {
-    const documents = params.documents ?? [];
-    const lines: string[] = [
-        params.title,
-        '',
-        'دليل إجرائي معرفي — بلا بيانات موكلين. طبّقه في قسم المعاملات وأضف الأسماء محلياً.',
-        '',
-        '─── بطاقات الإجراءات ───',
-        '',
-    ];
-
-    if (params.steps.length === 0) {
-        lines.push('□ لا توجد خطوات محفوظة');
-    } else {
-        for (const step of params.steps) {
-            const indent = '  '.repeat(Math.min(step.depth, 4));
-            lines.push(`${indent}┌─ البطاقة ${step.number}`);
-            lines.push(`${indent}│  ${step.title}`);
-            if (step.notes) {
-                lines.push(`${indent}│  ملاحظة: ${step.notes}`);
-            }
-            lines.push(`${indent}└────────────────`);
-            lines.push('');
-        }
-    }
-
-    if (documents.length > 0) {
-        lines.push('─── مستمسكات مطلوبة (عناوين فقط) ───');
-        lines.push('');
-        for (const doc of documents) {
-            lines.push(`□ ${doc.title} — ${doc.ownerTag}`);
-        }
-        lines.push('');
-    }
-
-    lines.push('─── تطبيق الدليل ───');
-    lines.push('اضغط «فتح قسم المعاملات» أسفل المنشور لإضافة الأسماء والبيانات الحساسة محلياً.');
-    lines.push(PROCEDURE_GUIDE_ACTION_MARKER);
-    lines.push(
-        encodeProcedureGuideData(
-            buildProcedureGuidePayload({
-                title: params.title,
-                steps: params.steps,
-                documents,
-            }),
-        ),
-    );
-
-    return lines.join('\n').trim();
-}
-
-function ensureMachineTrail(body: string, draft: Pick<ShareProcedureDraft, 'title' | 'steps' | 'documents'>): string {
-    let trimmed = body.trim();
-    if (!trimmed.includes(PROCEDURE_GUIDE_ACTION_MARKER)) {
-        trimmed = `${trimmed}\n\n─── تطبيق الدليل ───\nاضغط «فتح قسم المعاملات» أسفل المنشور لإضافة الأسماء والبيانات الحساسة محلياً.\n${PROCEDURE_GUIDE_ACTION_MARKER}`;
-    }
-    const dataLine = encodeProcedureGuideData(buildProcedureGuidePayload(draft));
-    const withoutOldData = trimmed
-        .split(/\r?\n/)
-        .filter((line) => !line.trimStart().startsWith('hami-guide-data:'))
-        .join('\n')
-        .trim();
-    return `${withoutOldData}\n${dataLine}`;
-}
-
 function buildDraft(params: {
     sourceTitle: string;
     clientName?: string | null;
@@ -330,26 +180,26 @@ export function resanitizeShareDraft(
     clientName?: string | null,
 ): ShareProcedureDraft {
     const title = scrubPiiText(draft.title, clientName) || 'دليل إجرائي لمعاملة';
-    const steps = (draft.steps ?? []).map((s) => ({
-        ...s,
+    const steps = (draft.steps ?? []).slice(0, 80).map((s) => ({
+        id: String(s.id ?? ''),
+        number: String(s.number ?? ''),
         title: scrubPiiText(s.title, clientName) || 'خطوة',
         notes: scrubPiiText(s.notes, clientName),
+        depth: Number.isFinite(s.depth) ? Math.min(Math.max(0, Math.floor(s.depth)), 8) : 0,
         parentTaskId: s.parentTaskId ?? null,
     }));
-    const documents = scrubDocuments(draft.documents ?? [], clientName);
+    const documents = scrubDocuments(draft.documents ?? [], clientName).slice(0, 40);
     const tags = Array.from(
         new Set(
             [...draft.tags, PROCEDURE_GUIDE_TAG]
                 .map((t) => normalizeTag(String(t)))
                 .filter(Boolean),
         ),
-    );
-    const manualBody = scrubPiiMultiline(draft.body ?? '', clientName);
+    ).slice(0, 8);
+    const manualBody = clampTransactionText(scrubPiiMultiline(draft.body ?? '', clientName), TX_SHARE_BODY_MAX);
     const baseBody = manualBody.trim()
         ? manualBody
         : formatProcedureCardsBody({ title, steps, documents });
     const body = ensureMachineTrail(baseBody, { title, steps, documents });
     return { title, body, tags, steps, documents };
 }
-
-export type { ProcedureGuideDocumentPayload };

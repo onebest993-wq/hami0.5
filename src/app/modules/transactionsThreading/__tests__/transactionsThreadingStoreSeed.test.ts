@@ -3,7 +3,7 @@ import { groupThreadingSeedForStore } from '@/app/modules/transactionsThreading/
 import { TransactionStatus, TransactionTaskStatus } from '@/app/modules/transactionsThreading/types';
 
 describe('groupThreadingSeedForStore', () => {
-    it('يجمّع المهام والمالية والمستندات حسب transactionId', () => {
+    it('يجمّع المهام والمستندات حسب transactionId', () => {
         const grouped = groupThreadingSeedForStore({
             transactions: [
                 {
@@ -36,7 +36,6 @@ describe('groupThreadingSeedForStore', () => {
 
         expect(grouped.transactions).toHaveLength(1);
         expect(grouped.tasksByTransactionId['tx-1']).toHaveLength(1);
-        expect(grouped.financeByTransactionId['tx-1']).toBeUndefined();
         expect(grouped.documentsByTransactionId['tx-1']).toBeUndefined();
     });
 });

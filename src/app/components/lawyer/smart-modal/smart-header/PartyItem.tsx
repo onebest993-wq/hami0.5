@@ -1,31 +1,15 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import {
-    Clock as _Clock, X, Scale as _Scale, Lock as _Lock, PauseCircle as _PauseCircle, Play as _Play, Users as _Users, Shield as _Shield, ShieldCheck, Check as _Check, ChevronLeft as _ChevronLeft, MapPin, Phone, Briefcase, Gavel as _Gavel, ArrowRightLeft as _ArrowRightLeft,
-} from '@/app/components/ui/lucideIcons';
-import { getLegalRole as _getLegalRole } from '../../LawyerShared';
-import { shouldShowAbsentJudgmentFooter as _shouldShowAbsentJudgmentFooter } from '../smartFile/absentJudgmentFlow';
-import type { CaseStage as _CaseStage, IncidentalCase as _IncidentalCase, Party as _Party } from '../../LawyerShared';
-import { filterHeaderIncidentalCases as _filterHeaderIncidentalCases, groupPartiesForHeader as _groupPartiesForHeader } from '../smartFile/incidentalCaseLinking';
-import { resolveDisplayParties as _resolveDisplayParties } from '../smartFile/resolveDisplayParties';
-import { resolveCrossAppealEligibility as _resolveCrossAppealEligibility, type CrossAppealEligibility as _CrossAppealEligibility } from '../smartFile/crossAppealEngine';
-import {
-    isAffiliativeThirdPartyRole as _isAffiliativeThirdPartyRole,
-    isAppealIntegratedInterpleaderRole as _isAppealIntegratedInterpleaderRole,
-    isInterpleaderThirdPartyRole as _isInterpleaderThirdPartyRole,
-} from '../smartFile/partyRoleClassification';
-import {
-    isPlaintiffFavorableFinalDecision as _isPlaintiffFavorableFinalDecision,
-    isAwaitingOpponentAppeal as _isAwaitingOpponentAppeal,
-    shouldShowOpponentAppealRegisterButton as _shouldShowOpponentAppealRegisterButton,
-    isAppealStageName as _isAppealStageName,
-} from '../smartFile/judgmentTypes';
-import { isLockedPriorStage as _isLockedPriorStage, shouldShowFirstInstancePleadingLockUi as _shouldShowFirstInstancePleadingLockUi } from '../smartFile/stageInit';
-import { formatNumberInput as _formatNumberInput } from '@/app/utils/execution/amountInputCore';
-
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
+import { X } from '@/app/components/ui/icons/X';
+import { ShieldCheck } from '@/app/components/ui/icons/ShieldCheck';
+import { MapPin } from '@/app/components/ui/icons/MapPin';
+import { Phone } from '@/app/components/ui/icons/Phone';
+import { Briefcase } from '@/app/components/ui/icons/Briefcase';
 import type { PartyItemProps } from './partyItemTypes';
 
-export const PartyItem = ({ party, isEditing, align = 'right', notificationBadge: _notificationBadge, provisionalOrders = [] }: PartyItemProps) => {
+export const PartyItem = ({ party, isEditing, align = 'right', provisionalOrders = [] }: PartyItemProps) => {
+    const reduceMotion = useReduceMotion();
     const [isOpen, setIsOpen] = useState(false);
     const [showLawyerInfo, setShowLawyerInfo] = useState(false);
     
@@ -81,7 +65,7 @@ export const PartyItem = ({ party, isEditing, align = 'right', notificationBadge
                                 {hasLawyer && (
                                     <div className="flex items-center gap-1 mx-1">
                                         {isMyClient ? (
-                                            <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.1)]" title="موكلي (مكتبي)">
+                                            <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full" title="موكلي (مكتبي)">
                                                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
                                                 <span className="text-[10px] font-bold text-emerald-400">موكلي</span>
                                             </div>
@@ -110,10 +94,11 @@ export const PartyItem = ({ party, isEditing, align = 'right', notificationBadge
             <AnimatePresence>
                 {showLawyerInfo && hasLawyer && (
                     <motion.div
-                        initial={{ opacity: 0, y: -5 }}
+                        initial={reduceMotion ? false : { opacity: 0, y: -5 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -5 }}
-                        className={`absolute z-50 mt-1 p-3 bg-[#1e2536] border border-indigo-500/40 rounded-xl shadow-xl w-64 ${align === 'left' ? 'right-0' : 'left-0'}`}
+                        exit={reduceMotion ? undefined : { opacity: 0, y: -5 }}
+                        transition={reduceMotion ? { duration: 0 } : undefined}
+                        className={`absolute z-50 mt-1 p-3 bg-[#1e2536] border border-indigo-500/40 rounded-xl shadow-lg w-64 ${align === 'left' ? 'right-0' : 'left-0'}`}
                     >
                          <div className="flex justify-between items-start mb-2 border-b border-white/10 pb-2">
                             <h4 className="text-indigo-300 font-bold text-xs">
@@ -138,9 +123,10 @@ export const PartyItem = ({ party, isEditing, align = 'right', notificationBadge
             <AnimatePresence>
                 {isOpen && !isEditing && (
                     <motion.div
-                        initial={{ height: 0, opacity: 0 }}
+                        initial={reduceMotion ? false : { height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
+                        exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
+                        transition={reduceMotion ? { duration: 0 } : undefined}
                         className="overflow-hidden"
                     >
                          <div className={`bg-black/20 rounded-lg p-2 mt-1 mb-2 border border-white/5 flex flex-col gap-1.5 text-xs ${align === 'left' ? 'items-end' : 'items-start'}`}>

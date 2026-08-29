@@ -1,0 +1,119 @@
+name: Lawsuits Gate
+
+on:
+  pull_request:
+    paths:
+      - 'src/app/domain/lawsuit/**'
+      - 'src/app/components/lawyer/smart-modal/**'
+      - 'src/app/components/lawyer/criminal-system/**'
+      - 'src/app/components/lawyer/ArchivePortal/**'
+      - 'src/app/services/caseShare/**'
+      - 'src/app/services/cloudSyncEngine.ts'
+      - 'src/app/services/criminalShardedPersistStorage.ts'
+      - 'e2e/civil-lawsuit-*.spec.ts'
+      - 'e2e/criminal-dossier-open.spec.ts'
+      - 'e2e/helpers/civilLawsuitFixtures.ts'
+      - 'scripts/lawsuits-*.mjs'
+      - 'scripts/run-lawsuits-ci-e2e.mjs'
+      - 'scripts/e2e-preview-manager.mjs'
+      - '.github/workflows/lawsuits-gate.yml'
+  push:
+    branches: [main, master]
+    paths:
+      - 'src/app/domain/lawsuit/**'
+      - 'src/app/components/lawyer/smart-modal/**'
+      - 'src/app/components/lawyer/criminal-system/**'
+      - 'src/app/components/lawyer/ArchivePortal/**'
+      - 'e2e/civil-lawsuit-*.spec.ts'
+      - 'e2e/criminal-dossier-open.spec.ts'
+      - 'scripts/lawsuits-*.mjs'
+  workflow_dispatch:
+
+concurrency:
+  group: lawsuits-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit + structure
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Lawsuits unit gate
+        run: npm run gate:lawsuits
+
+  e2e:
+    name: Desktop E2E (batched)
+    runs-on: ubuntu-latest
+    needs: unit
+    timeout-minutes: 75
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Lawsuits E2E (preview batches)
+        env:
+          VITE_SUPABASE_URL: https://ci-hami-gate.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjaS1oYW1pLWdhdGUifQ.ci-hami-quality-gate-anon-key
+          VITE_SHELL_AUTH_OPEN: 'true'
+          VITE_BFF_AUTH: 'true'
+        run: node scripts/run-lawsuits-ci-e2e.mjs
+
+  perf:
+    name: TTFI regression + aspiration
+    runs-on: ubuntu-latest
+    needs: unit
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Lawsuits perf gate
+        env:
+          VITE_SUPABASE_URL: https://ci-hami-gate.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjaS1oYW1pLWdhdGUifQ.ci-hami-quality-gate-anon-key
+          VITE_SHELL_AUTH_OPEN: 'true'
+          VITE_BFF_AUTH: 'true'
+        run: npm run gate:lawsuits:perf
+
+      - name: Upload TTFI report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lawsuits-dossier-ttfi
+          path: perf-reports/lawsuits-dossier-ttfi.json
+          if-no-files-found: ignore

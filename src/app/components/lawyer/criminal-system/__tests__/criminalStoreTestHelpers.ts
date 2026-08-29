@@ -7,9 +7,15 @@ import {
     type LawyerRequest,
 } from '../criminalStore';
 
+export const TEST_CRIMINAL_SESSION_LAWYER_ID = 'test-session-lawyer';
+
 export function resetCriminalStore() {
     SecureStoreService.deleteItemSync('hami:criminal:store');
-    useCriminalStore.setState({ casesById: {}, sessionOwnerLawyerId: null, pendingSeveranceContext: null });
+    useCriminalStore.setState({
+        casesById: {},
+        sessionOwnerLawyerId: TEST_CRIMINAL_SESSION_LAWYER_ID,
+        pendingSeveranceContext: null,
+    });
     useCriminalStore.getState().resetDraft();
 }
 

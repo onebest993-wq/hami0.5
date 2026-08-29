@@ -13,7 +13,7 @@ import {
 } from '../partyPersonalStage';
 import type { CriminalStageCloserOrchestratorSlice } from './criminalOrchestratorSliceTypes';
 
-export type UseCriminalStageCloserSubmitParams = {
+type UseCriminalStageCloserSubmitParams = {
     caseId: string;
     stage: string;
     defendants: CriminalDefendant[];
@@ -43,7 +43,7 @@ export type UseCriminalStageCloserSubmitParams = {
     ) => string | null;
 };
 
-export type UseCriminalStageCloserSubmitResult = {
+type UseCriminalStageCloserSubmitResult = {
     submitPrivateRightWaiverDecision: (date: string) => boolean;
     submitStageCloser: () => void;
 };

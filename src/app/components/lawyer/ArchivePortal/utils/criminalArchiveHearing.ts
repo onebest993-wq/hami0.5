@@ -1,9 +1,9 @@
-import { parseTrialSessionNumber } from '@/app/components/lawyer/criminal-system/trialSessionsEngine';
-import { normalizeLawsuitArchiveYmd } from './lawsuitArchiveHearing';
+import { parseTrialSessionNumber } from '@/app/components/lawyer/criminal-system/trialSessionNumber';
+import { normalizeLawsuitArchiveYmd } from './archiveYmd';
 
 const TRIAL_STORED_STAGES = new Set(['محكمة الجنح', 'محكمة الجنايات', 'محكمة الأحداث']);
 
-export type CriminalArchiveHearingDisplay = {
+type CriminalArchiveHearingDisplay = {
     ymd: string;
     label: 'موعد المرافعة' | 'المرافعة القادمة';
     /** يُعرض على البطاقة فقط عند وجود مرافعة قادمة بعد جلسات مُنعَدة فعلياً */

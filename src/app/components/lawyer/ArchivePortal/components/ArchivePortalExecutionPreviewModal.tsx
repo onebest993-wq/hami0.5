@@ -1,54 +1,116 @@
-import React from 'react';
-import { motion } from 'motion/react';
-import { X, Scale, History } from '@/app/components/ui/lucideIcons';
-import { isEvictionClaim } from '@/app/utils/executionModuleStrategies';
+import React, { useLayoutEffect, useRef } from 'react';
+import { registerNativeBackHandler } from '@/app/runtime/nativeBackStack';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { ExecutionArchiveXMark } from '../executionArchiveMarks';
+import { isEvictionClaim } from '@/app/utils/isEvictionClaim';
 import { ExecutionArchivePartyBlock } from './ExecutionArchivePartyBlock';
 import type { LooseArchiveFile } from '../types';
 import {
     executionClaimBadgeArabic,
     resolveExecutionArchiveCardView,
-} from '../utils';
+} from '../executionArchiveCardView';
+import { warmExecutionDossierFromArchiveCard } from '../executionArchiveCardIntentWarm';
+import {
+    EXECUTION_ARCHIVE_PREVIEW_LAYER_TEST_ID,
+    EXECUTION_ARCHIVE_PREVIEW_OVERLAY_CLASS,
+    EXECUTION_ARCHIVE_PREVIEW_PANEL_CLASS,
+} from '../executionArchivePreviewLayer';
 
 type ArchivePortalExecutionPreviewModalProps = {
     file: LooseArchiveFile;
-    previewTimelineEvents: NonNullable<LooseArchiveFile['timelineEvents']>;
     onClose: () => void;
     onOpenFull: (file: LooseArchiveFile) => void;
 };
 
+const PREVIEW_TITLE_ID = 'execution-archive-preview-title';
+
 export function ArchivePortalExecutionPreviewModal({
     file,
-    previewTimelineEvents,
     onClose,
     onOpenFull,
 }: ArchivePortalExecutionPreviewModalProps) {
     const cardView = resolveExecutionArchiveCardView(file);
+    const [previewTimelineEvents, setPreviewTimelineEvents] = React.useState<
+        NonNullable<LooseArchiveFile['timelineEvents']>
+    >(() => (Array.isArray(file.timelineEvents) ? file.timelineEvents : []));
+    const onCloseRef = useRef(onClose);
+    onCloseRef.current = onClose;
+    const ignoreBackdropUntilRef = useRef(0);
+
+    useBodyScrollLock(true);
+
+    useLayoutEffect(() => {
+        ignoreBackdropUntilRef.current = performance.now() + 400;
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            onCloseRef.current();
+        };
+
+        window.addEventListener('keydown', onKeyDown, true);
+        const unregisterNativeBack = registerNativeBackHandler(() => {
+            onCloseRef.current();
+            return true;
+        });
+        return () => {
+            window.removeEventListener('keydown', onKeyDown, true);
+            unregisterNativeBack();
+        };
+    }, []);
+
+    React.useEffect(() => {
+        let cancelled = false;
+        void import('../executionArchivePreviewTimeline')
+            .then((m) => {
+                if (cancelled) return;
+                setPreviewTimelineEvents(m.mergedPreviewTimelineEvents(file));
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [file]);
+
     const demandAmount =
-        cardView.remainingDemand > 0 && cardView.remainingDemand < cardView.totalDemand
-            ? cardView.remainingDemand
-            : cardView.totalDemand;
+        cardView.demandLabel === 'متبقي الوعاء' ? cardView.remainingDemand : cardView.totalDemand;
     const demandFormatted =
-        demandAmount > 0
+        cardView.demandLabel === 'متبقي الوعاء' || demandAmount > 0
             ? new Intl.NumberFormat('ar-IQ').format(Math.round(demandAmount)) + ' د.ع'
             : '—';
 
     return (
         <div
-            className="fixed inset-0 z-[120] bg-black/85 flex items-center justify-center p-4"
-            onClick={onClose}
+            className={EXECUTION_ARCHIVE_PREVIEW_OVERLAY_CLASS}
+            data-testid={EXECUTION_ARCHIVE_PREVIEW_LAYER_TEST_ID}
+            data-hami-overlay-safe="1"
+            role="presentation"
+            onClick={() => {
+                if (performance.now() < ignoreBackdropUntilRef.current) return;
+                onClose();
+            }}
         >
-            <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={PREVIEW_TITLE_ID}
+                data-testid="execution-archive-preview-dialog"
                 onClick={(e) => e.stopPropagation()}
-                className="bg-[#0B1120] border border-[#E6C673]/35 rounded-3xl w-full max-w-lg max-h-[88vh] overflow-hidden flex flex-col shadow-2xl"
+                onPointerDown={(e) => e.stopPropagation()}
+                className={EXECUTION_ARCHIVE_PREVIEW_PANEL_CLASS}
             >
                 <div className="flex items-center justify-between border-b border-white/10 p-4 shrink-0">
-                    <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-white/10">
-                        <X className="text-white" size={20} />
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="إغلاق تفاصيل الإضبارة"
+                        className="p-2 rounded-lg min-h-[44px] min-w-[44px] touch-manipulation"
+                    >
+                        <ExecutionArchiveXMark className="text-white" size={20} />
                     </button>
-                    <h3 className="text-[#E6C673] font-bold text-lg flex items-center gap-2">
-                        <Scale size={20} />
+                    <h3 id={PREVIEW_TITLE_ID} className="text-[#E6C673] font-bold text-sm">
                         تفاصيل وسجل زمني
                     </h3>
                 </div>
@@ -102,8 +164,7 @@ export function ArchivePortalExecutionPreviewModal({
                         </div>
                     )}
                     <div>
-                        <p className="text-white/50 text-xs mb-2 flex items-center justify-end gap-2">
-                            <History size={14} />
+                        <p className="text-white/50 text-xs mb-2">
                             السجل الزمني (من آخر الأحداث)
                         </p>
                         <div className="space-y-2 max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2">
@@ -138,13 +199,16 @@ export function ArchivePortalExecutionPreviewModal({
                 <div className="p-4 border-t border-white/10 shrink-0">
                     <button
                         type="button"
-                        onClick={() => onOpenFull(file)}
-                        className="w-full py-3 rounded-xl bg-gradient-to-r from-[#E6C673] to-amber-600 text-[#0B1021] font-bold text-sm"
+                        onClick={() => {
+                            warmExecutionDossierFromArchiveCard('urgent');
+                            onOpenFull(file);
+                        }}
+                        className="w-full min-h-[44px] rounded-xl bg-[#E6C673] text-[#0B1021] font-bold text-sm touch-manipulation"
                     >
                         فتح لوحة الإضبارة الكاملة
                     </button>
                 </div>
-            </motion.div>
+            </div>
         </div>
     );
 }

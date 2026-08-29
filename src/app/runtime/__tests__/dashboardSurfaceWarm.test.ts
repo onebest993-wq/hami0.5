@@ -21,7 +21,6 @@ vi.mock('@/app/runtime/executionFilesEagerHydrate', () => eagerMocks);
 vi.mock('@/app/runtime/executionWorkspaceWarm', () => execWarmMocks);
 vi.mock('@/app/runtime/lawsuitWorkspaceWarm', () => lawsuitWarmMocks);
 vi.mock('@/app/runtime/hubArchiveLoader', () => hubMocks);
-vi.mock('@/app/components/lawyer/dashboard/LawsuitsWorkspaceHost', () => ({}));
 
 import { scheduleDashboardSurfaceWarmAfterInteractive } from '../dashboardSurfaceWarm';
 

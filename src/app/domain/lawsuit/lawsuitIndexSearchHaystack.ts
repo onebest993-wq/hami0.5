@@ -1,4 +1,4 @@
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import type { FileData } from './lawsuitFileTypes';
 
 const MAX_HAYSTACK_CHARS = 640;
 

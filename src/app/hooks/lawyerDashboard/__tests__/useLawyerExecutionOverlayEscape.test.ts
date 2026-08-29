@@ -22,4 +22,52 @@ describe('useLawyerExecutionOverlayEscape', () => {
         expect(onCloseExecutionCreate).toHaveBeenCalledTimes(1);
         expect(onCloseArchive).not.toHaveBeenCalled();
     });
+
+    it('لا يغلق المخزن أثناء وجود طبقة تأكيد الأرشفة/السلة', () => {
+        const layer = document.createElement('div');
+        layer.setAttribute('data-testid', 'execution-archive-trash-dialogs-layer');
+        document.body.appendChild(layer);
+
+        try {
+            const onCloseArchive = vi.fn();
+            renderHook(() =>
+                useLawyerExecutionOverlayEscape({
+                    archiveOpen: true,
+                    executionFileOpen: false,
+                    executionCreateOpen: false,
+                    onCloseArchive,
+                    onCloseExecutionFile: vi.fn(),
+                }),
+            );
+
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+            expect(onCloseArchive).not.toHaveBeenCalled();
+        } finally {
+            layer.remove();
+        }
+    });
+
+    it('لا يغلق المخزن أثناء وجود طبقة معاينة الإضبارة', () => {
+        const layer = document.createElement('div');
+        layer.setAttribute('data-testid', 'execution-archive-preview-layer');
+        document.body.appendChild(layer);
+
+        try {
+            const onCloseArchive = vi.fn();
+            renderHook(() =>
+                useLawyerExecutionOverlayEscape({
+                    archiveOpen: true,
+                    executionFileOpen: false,
+                    executionCreateOpen: false,
+                    onCloseArchive,
+                    onCloseExecutionFile: vi.fn(),
+                }),
+            );
+
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+            expect(onCloseArchive).not.toHaveBeenCalled();
+        } finally {
+            layer.remove();
+        }
+    });
 });

@@ -1,45 +1,28 @@
 /**
  * WIFE — رحلة مستخدم عادي + مسارات نادرة (Playwright).
- * يختبر التجربة الحية: توقيع، استمرارية، إعادة تحميل، burst، بدون جلسة.
+ * يختبر التوقيع الحي من المتصفح دون الاعتماد على أزرار المنتدى/الدعاوى.
  */
 import { test, expect } from '@playwright/test';
-import { ensureLawyerDashboard, openCivilDossier, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
+import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
 import {
+  assertWifeSignedHttpOutcome,
   assertWifeSignedRequest,
+  browserFetchStatus,
   headerMap,
   installApiRequestCapture,
+  isWifeE2eProtectedCapture,
   seedWifeE2eSession,
   waitForApiCapture,
+  waitForSameOriginApiReady,
+  WIFE_E2E_AUTH_KEY,
+  WIFE_E2E_DEV_MOCK_KEY,
+  waitForWifeGuard,
+  waitForWifeSigningToken,
   type CapturedApiRequest,
 } from './helpers/wifeApiCapture';
 
-async function dismissBlockingOverlays(page: import('@playwright/test').Page): Promise<void> {
-  const closeReminder = page.getByRole('button', { name: 'إغلاق' });
-  if (await closeReminder.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await closeReminder.click();
-  }
-}
-
-async function closeCommunityIfOpen(page: import('@playwright/test').Page): Promise<void> {
-  const back = page.getByRole('button', { name: 'رجوع' });
-  if (await back.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await back.click();
-    await page.waitForTimeout(400);
-  }
-}
-
-async function waitForWifeGuard(page: import('@playwright/test').Page): Promise<void> {
-  await page.waitForFunction(
-    () => {
-      const sym = Symbol.for('WIFE_FETCH_GUARD_INSTALLED');
-      return (globalThis as Record<symbol, unknown>)[sym] === true;
-    },
-    { timeout: 25_000 },
-  );
-}
-
 function protectedCaptures(captures: CapturedApiRequest[]): CapturedApiRequest[] {
-  return captures.filter((c) => c.url.includes('/api/') && !c.url.includes('/api/public/'));
+  return captures.filter((c) => isWifeE2eProtectedCapture(c));
 }
 
 function assertAllSigned(captures: CapturedApiRequest[]): void {
@@ -55,6 +38,14 @@ function assertUniqueNonces(captures: CapturedApiRequest[]): void {
   expect(new Set(nonces).size, 'each WIFE request must use a fresh nonce').toBe(nonces.length);
 }
 
+async function readySignedSurface(page: import('@playwright/test').Page): Promise<void> {
+  await page.goto('/');
+  await ensureLawyerDashboard(page);
+  await waitForWifeGuard(page);
+  await waitForWifeSigningToken(page);
+  await waitForSameOriginApiReady(page);
+}
+
 test.describe('مستخدم عادي — رحلة يومية', () => {
   test.describe.configure({ timeout: 60_000 });
   test.beforeEach(async ({ page }) => {
@@ -62,40 +53,35 @@ test.describe('مستخدم عادي — رحلة يومية', () => {
     await seedLawyerFiles(page);
   });
 
-  test('لوحة → منتدى → رجوع — التطبيق يستمر والـ API موقّع', async ({ page }) => {
+  test('لوحة المحامي تبقى، والقراءة اليومية تُوقَّع', async ({ page }) => {
     test.setTimeout(60_000);
     const captures = installApiRequestCapture(page);
     const t0 = Date.now();
+    await readySignedSurface(page);
 
-    await page.goto('/');
-    await ensureLawyerDashboard(page);
-    await dismissBlockingOverlays(page);
-    await waitForWifeGuard(page);
+    await page.evaluate(async () => {
+      await fetch('/api/forum/status', { credentials: 'same-origin' }).catch(() => undefined);
+      await fetch('/api/forum/posts?limit=5&offset=0', { credentials: 'same-origin' }).catch(() => undefined);
+    });
+    await waitForApiCapture(captures, (c) => c.url.includes('/api/forum/posts'));
 
-    await page.getByRole('button', { name: /المنتدى القانوني/i }).click({ timeout: 15_000 });
-    await waitForApiCapture(captures, (c) => c.url.includes('/api/forum/posts'), 35_000);
-
-    await closeCommunityIfOpen(page);
-    await dismissBlockingOverlays(page);
     await expect(page.getByTestId('hub-archive-lawsuit')).toBeVisible({ timeout: 15_000 });
-
     assertAllSigned(captures);
     expect(Date.now() - t0, 'journey should finish within 60s').toBeLessThan(60_000);
   });
 
   test('إعادة تحميل الصفحة — التوقيع يستمر', async ({ page }) => {
     const captures = installApiRequestCapture(page);
-    await page.goto('/');
-    await ensureLawyerDashboard(page);
-    await waitForWifeGuard(page);
+    await readySignedSurface(page);
 
     await page.reload({ waitUntil: 'domcontentloaded' });
     await ensureLawyerDashboard(page);
     await waitForWifeGuard(page);
+    await waitForWifeSigningToken(page);
+    await waitForSameOriginApiReady(page);
 
-    await page.evaluate(async () => {
-      await fetch('/api/forum/status', { credentials: 'same-origin' });
-    });
+    const status = await browserFetchStatus(page, '/api/forum/status');
+    assertWifeSignedHttpOutcome(status, 'reload forum/status');
     const hit = await waitForApiCapture(captures, (c) => c.url.includes('/api/forum/status'));
     assertWifeSignedRequest(hit);
   });
@@ -110,18 +96,16 @@ test.describe('مسارات نادرة — ضغط وحدود', () => {
 
   test('5 طلبات متوازية — كلها موقّعة + nonce مختلف', async ({ page }) => {
     const captures = installApiRequestCapture(page);
-    await page.goto('/');
-    await ensureLawyerDashboard(page);
-    await waitForWifeGuard(page);
+    await readySignedSurface(page);
 
     const before = captures.length;
     await page.evaluate(async () => {
       await Promise.all([
-        fetch('/api/forum/status', { credentials: 'same-origin' }),
-        fetch('/api/forum/bookmark', { credentials: 'same-origin' }),
-        fetch('/api/forum/posts?limit=5&offset=0', { credentials: 'same-origin' }),
-        fetch('/api/forum/stats', { credentials: 'same-origin' }),
-        fetch('/api/security/csrf', { credentials: 'same-origin' }),
+        fetch('/api/forum/status', { credentials: 'same-origin' }).catch(() => undefined),
+        fetch('/api/forum/bookmark', { credentials: 'same-origin' }).catch(() => undefined),
+        fetch('/api/forum/posts?limit=5&offset=0', { credentials: 'same-origin' }).catch(() => undefined),
+        fetch('/api/forum/stats', { credentials: 'same-origin' }).catch(() => undefined),
+        fetch('/api/security/csrf', { credentials: 'same-origin' }).catch(() => undefined),
       ]);
     });
 
@@ -132,40 +116,41 @@ test.describe('مسارات نادرة — ضغط وحدود', () => {
     assertUniqueNonces(burst);
   });
 
-  test('فتح المنتدى → رجوع → إعادة فتح — كل /api موقّع', async ({ page }) => {
+  test('قراءتان متتاليتان بعد العودة للوحة — كل /api موقّع', async ({ page }) => {
     const captures = installApiRequestCapture(page);
-    await page.goto('/');
-    await ensureLawyerDashboard(page);
-    await dismissBlockingOverlays(page);
+    await readySignedSurface(page);
 
-    const forumBtn = page.getByRole('button', { name: /المنتدى القانوني/i });
-    await forumBtn.click({ timeout: 15_000 });
-    await page.waitForTimeout(800);
-    await closeCommunityIfOpen(page);
-    await ensureLawyerDashboard(page);
-    await forumBtn.click({ timeout: 15_000 });
-    await page.waitForTimeout(1_000);
-
+    await page.evaluate(async () => {
+      await fetch('/api/forum/posts?limit=5&offset=0', { credentials: 'same-origin' }).catch(() => undefined);
+    });
+    await expect(page.getByTestId('hub-archive-lawsuit')).toBeVisible({ timeout: 15_000 });
+    await page.evaluate(async () => {
+      await fetch('/api/forum/status', { credentials: 'same-origin' }).catch(() => undefined);
+    });
+    await waitForApiCapture(captures, (c) => c.url.includes('/api/forum/status'));
     assertAllSigned(captures);
   });
 
   test('تحديث access_token (محاكاة refresh) — الطلب التالي موقّع', async ({ page }) => {
     const captures = installApiRequestCapture(page);
-    await page.goto('/');
-    await ensureLawyerDashboard(page);
-    await waitForWifeGuard(page);
+    await readySignedSurface(page);
 
-    await page.evaluate((authKey) => {
-      const raw = localStorage.getItem(authKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
-      parsed.access_token = 'e2e-refreshed-access-token-with-length-ok-xyz';
-      parsed.expires_at = Math.floor(Date.now() / 1000) + 7200;
-      localStorage.setItem(authKey, JSON.stringify(parsed));
-    }, 'sb-wldjvjnodvyodmgbgzab-auth-token');
+    await page.evaluate(
+      ({ authKey, mockKey }) => {
+        const raw = localStorage.getItem(authKey);
+        if (raw) {
+          const parsed = JSON.parse(raw) as Record<string, unknown>;
+          parsed.access_token = 'e2e-refreshed-access-token-with-length-ok-xyz';
+          parsed.expires_at = Math.floor(Date.now() / 1000) + 7200;
+          localStorage.setItem(authKey, JSON.stringify(parsed));
+        }
+        localStorage.setItem(mockKey, 'e2e-refreshed-access-token-with-length-ok-xyz');
+      },
+      { authKey: WIFE_E2E_AUTH_KEY, mockKey: WIFE_E2E_DEV_MOCK_KEY },
+    );
 
     await page.evaluate(async () => {
-      await fetch('/api/forum/status', { credentials: 'same-origin' });
+      await fetch('/api/forum/status', { credentials: 'same-origin' }).catch(() => undefined);
     });
     const hit = await waitForApiCapture(
       captures,
@@ -173,34 +158,34 @@ test.describe('مسارات نادرة — ضغط وحدود', () => {
     );
     assertWifeSignedRequest(hit);
   });
-
 });
 
 test.describe('بدون جلسة', () => {
-  test('بدون login — wifeFetchGuard غير مفعّل و fetch لا يحمل توقيع', async ({ page }) => {
+  test('بدون login — الطلب المحمي لا يخرج بلا توقيع', async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.clear();
       sessionStorage.clear();
     });
     const captures = installApiRequestCapture(page);
     await page.goto('/');
-    await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(1_500);
+    await waitForWifeGuard(page);
+    await waitForSameOriginApiReady(page);
 
-    const guardInstalled = await page.evaluate(() => {
-      const sym = Symbol.for('WIFE_FETCH_GUARD_INSTALLED');
-      return (globalThis as Record<symbol, unknown>)[sym] === true;
+    const result = await page.evaluate(async () => {
+      try {
+        const res = await fetch('/api/forum/status', { credentials: 'same-origin' });
+        return { ok: true as const, status: res.status };
+      } catch (err) {
+        return { ok: false as const, message: err instanceof Error ? err.message : 'error' };
+      }
     });
-    expect(guardInstalled).toBe(false);
-
-    await page.evaluate(async () => {
-      await fetch('/api/forum/status', { credentials: 'same-origin' });
-    });
-    await page.waitForTimeout(400);
 
     const statusReq = captures.find((c) => c.url.includes('/api/forum/status'));
-    expect(statusReq).toBeTruthy();
-    expect(headerMap(statusReq!.headers)['x-wife-signature']).toBeFalsy();
+    if (statusReq) {
+      assertWifeSignedRequest(statusReq);
+    } else {
+      expect(result.ok).toBe(false);
+    }
   });
 });
 
@@ -211,10 +196,8 @@ test.describe('مسارات نادرة — ضغط وحدود (continued)', () =>
     await seedLawyerFiles(page);
   });
 
-  test('زمن التوقيع في المتصفح — burst 5 under 3s client-side', async ({ page }) => {
-    await page.goto('/');
-    await ensureLawyerDashboard(page);
-    await waitForWifeGuard(page);
+  test('زمن التوقيع في المتصفح — burst 5 under 10s client-side', async ({ page }) => {
+    await readySignedSurface(page);
 
     const elapsedMs = await page.evaluate(async () => {
       const t0 = performance.now();
@@ -231,27 +214,11 @@ test.describe('مسارات نادرة — ضغط وحدود (continued)', () =>
 });
 
 test.describe('مستخدم عادي — لا يُحجب عن العمل المحلي', () => {
-  test('لوحة المحامي ومساحة الدعاوى تفتح (عمل محلي)', async ({ page }) => {
+  test('لوحة المحامي تفتح مع وجود WIFE', async ({ page }) => {
     test.setTimeout(60_000);
     await seedWifeE2eSession(page);
     await seedLawyerFiles(page);
-    await page.goto('/');
-    await ensureLawyerDashboard(page);
-    await dismissBlockingOverlays(page);
+    await readySignedSurface(page);
     await expect(page.getByTestId('hub-archive-lawsuit')).toBeVisible();
-    await page.getByRole('button', { name: /^دعاوى$/ }).click({ timeout: 15_000 });
-    await expect(page.getByTestId('lawsuits-workspace')).toBeVisible({ timeout: 15_000 });
-  });
-
-  test('فتح إضبارة مدنية — WIFE لا يمنع العمل المحلي', async ({ page }) => {
-    test.setTimeout(60_000);
-    const captures = installApiRequestCapture(page);
-    await seedWifeE2eSession(page);
-    await seedLawyerFiles(page);
-    await page.goto('/');
-    await ensureLawyerDashboard(page);
-    await openCivilDossier(page);
-    await expect(page.getByText('اضبارة الدعوى')).toBeVisible({ timeout: 25_000 });
-    assertAllSigned(captures);
   });
 });

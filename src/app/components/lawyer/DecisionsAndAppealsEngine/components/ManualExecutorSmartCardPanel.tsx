@@ -175,7 +175,7 @@ export function ManualExecutorSmartCardPanel({
                 <button
                     type="button"
                     onClick={() => submitGrievanceOutcome(false)}
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 px-3 text-center text-[11px] font-bold text-slate-200 backdrop-blur-md transition-all duration-200 hover:border-white/18 hover:bg-white/[0.08]"
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 px-3 text-center text-[11px] font-bold text-slate-200 backdrop-blur-sm transition-all duration-200 hover:border-white/18 hover:bg-white/[0.08]"
                 >
                     رد التظلم
                 </button>
@@ -220,7 +220,7 @@ export function ManualExecutorSmartCardPanel({
                 <button
                     type="button"
                     onClick={submitCassationRadLaheeza}
-                    className="w-full rounded-xl border border-rose-500/25 bg-rose-500/10 py-2 px-3 text-center text-[11px] font-bold text-rose-200 backdrop-blur-md transition-all duration-200 hover:border-rose-500/40 hover:bg-rose-500/15"
+                    className="w-full rounded-xl border border-rose-500/25 bg-rose-500/10 py-2 px-3 text-center text-[11px] font-bold text-rose-200 backdrop-blur-sm transition-all duration-200 hover:border-rose-500/40 hover:bg-rose-500/15"
                 >
                     رد اللائحة
                 </button>

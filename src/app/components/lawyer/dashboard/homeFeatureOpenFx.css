@@ -1,0 +1,62 @@
+/* شاشات كاملة (تقويم، مخزن، مستودع) — قفل تمرير المنزل وإخفاء الخلفية */
+html[data-hami-feature-open='1'] .hami-home-scroll-root {
+    overflow: hidden !important;
+    touch-action: none;
+}
+
+html[data-hami-feature-open='1'] .hami-wallpaper-layer,
+html[data-hami-feature-open='1'] .hami-wallpaper-scrim {
+    opacity: 0;
+    visibility: hidden;
+}
+
+html[data-hami-feature-open='1'] .hami-dashboard-home-stack-cover {
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-feature-open='1'] .hami-dashboard-home-stack-cover * {
+    pointer-events: none !important;
+}
+
+html[data-hami-feature-open='1'] .hami-vault-overlay,
+html[data-hami-feature-open='1'] .hami-radar-page {
+    background-color: #0a0f1c;
+}
+
+html[data-hami-feature-open='1'] .hami-radar-scroll,
+html[data-hami-feature-open='1'] .hami-radar-add-dock {
+    background-color: #0a0f1c;
+}
+
+html[data-hami-feature-open='1'] .hami-radar-page > header {
+    background-color: #0a0f1c;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html[data-hami-feature-open='1'] .hami-vault-panel,
+html[data-hami-feature-open='1'] .hami-vault-body,
+html[data-hami-feature-open='1'] .hami-radar-scroll,
+html[data-hami-feature-open='1'] .hami-repository-panel,
+html[data-hami-feature-open='1'] .hami-repository-feed-scroll,
+html[data-hami-feature-open='1'] .hami-repository-filter-scroll {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html[data-hami-feature-open='1'] [data-testid='smart-repository-modal'] {
+    touch-action: auto;
+}
+
+html[data-hami-feature-open='1'] .hami-repository-feed-scroll {
+    touch-action: pan-y;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: auto;
+}
+
+html[data-hami-feature-open='1'] .hami-repository-filter-scroll {
+    touch-action: pan-x;
+    overscroll-behavior-x: contain;
+}

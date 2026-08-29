@@ -3,6 +3,7 @@ import { persistenceRepository } from '../infrastructure/persistence/LocalStorag
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { LAWSUIT_FILES_STORAGE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
 import { debug } from '@/app/utils/debug';
+import { readSecureOrDrainLegacySync } from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 function stableSerialize(data: unknown): string | null {
     try {
@@ -28,13 +29,27 @@ export function useAutoSave<T>(
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const dataRef = useRef(data);
     const lastSavedSerializedRef = useRef<string | null>(null);
+    const enabledRef = useRef(enabled);
+    const storageHydratedRef = useRef(storageHydrated);
+    const suppressAfterClearRef = useRef(false);
+    const externalImportPendingRef = useRef(false);
+
+    enabledRef.current = enabled;
+    storageHydratedRef.current = storageHydrated;
 
     useEffect(() => {
         dataRef.current = data;
+        if (externalImportPendingRef.current) {
+            externalImportPendingRef.current = false;
+        }
     }, [data]);
 
-    const saveImmediately = useCallback((forceHeavyPersistFlush: boolean = false) => {
-        if (!enabled || !storageHydrated) return;
+    const saveImmediately = useCallback((
+        forceHeavyPersistFlush: boolean = false,
+        allowDisabledTransition: boolean = false,
+    ) => {
+        if (suppressAfterClearRef.current || externalImportPendingRef.current) return;
+        if ((!enabledRef.current && !allowDisabledTransition) || !storageHydratedRef.current) return;
         if (dataRef.current === undefined || dataRef.current === null) return;
         const serialized = stableSerialize(dataRef.current);
         if (serialized === null) return;
@@ -46,10 +61,49 @@ export function useAutoSave<T>(
         if (forceHeavyPersistFlush && key === LAWSUIT_FILES_STORAGE_KEY) {
             SecureStoreService.flushHeavyPersistPending();
         }
-    }, [key, enabled, storageHydrated]);
+    }, [key]);
 
     useEffect(() => {
-        if (!enabled) return;
+        let cancelled = false;
+        void SecureStoreService.getItem(key).then((stored) => {
+            if (!cancelled && lastSavedSerializedRef.current === null && stored !== null) {
+                lastSavedSerializedRef.current = stored;
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [key]);
+
+    useEffect(() => {
+        const handleImported = (event: Event) => {
+            const keys = (event as CustomEvent<{ keys?: unknown }>).detail?.keys;
+            if (Array.isArray(keys) && !keys.includes(key)) return;
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
+            lastSavedSerializedRef.current = readSecureOrDrainLegacySync(key);
+            externalImportPendingRef.current = true;
+        };
+        const handleCleared = () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
+            suppressAfterClearRef.current = true;
+            lastSavedSerializedRef.current = null;
+        };
+        window.addEventListener('hami:data-imported', handleImported);
+        window.addEventListener('hami:data-cleared', handleCleared);
+        return () => {
+            window.removeEventListener('hami:data-imported', handleImported);
+            window.removeEventListener('hami:data-cleared', handleCleared);
+        };
+    }, [key]);
+
+    useEffect(() => {
+        if (!enabled || !storageHydrated || suppressAfterClearRef.current) return;
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
 
         timeoutRef.current = setTimeout(() => {
@@ -59,12 +113,12 @@ export function useAutoSave<T>(
         return () => {
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
         };
-    }, [data, delay, saveImmediately, enabled]);
+    }, [data, delay, saveImmediately, enabled, storageHydrated]);
 
     const prevEnabledRef = useRef(enabled);
     useEffect(() => {
         if (prevEnabledRef.current && !enabled) {
-            saveImmediately(true);
+            saveImmediately(true, true);
         }
         prevEnabledRef.current = enabled;
     }, [enabled, saveImmediately]);

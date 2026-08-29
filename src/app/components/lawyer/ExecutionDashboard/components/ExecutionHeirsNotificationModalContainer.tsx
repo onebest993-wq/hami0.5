@@ -1,12 +1,13 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
 import {
     EXEC_MODAL_BACKDROP_SAFE_PAD,
     EXEC_MODAL_CLOSE_BTN_CLASS,
     EXEC_MODAL_HEADER_SAFE_TOP,
     EXEC_MODAL_TOUCH_TARGET,
 } from '../executionModalMobileShell';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 
 export type HeirWorkflowRowState = {
     memoDate?: string;
@@ -59,6 +60,8 @@ export const ExecutionHeirsNotificationModalContainer: React.FC<ExecutionHeirsNo
     markHeirSummonsAttended,
     markHeirSummonsPeriodEnded,
 }) => {
+    useBodyScrollLock(showHeirsNotificationModal);
+
     const closeHeirsNotificationModal = () => {
         if (typeof onCloseHeirsNotificationModal === 'function') {
             onCloseHeirsNotificationModal();
@@ -91,7 +94,7 @@ export const ExecutionHeirsNotificationModalContainer: React.FC<ExecutionHeirsNo
                     </button>
                     <h3 className="text-cyan-300 font-bold text-sm">مركز تبليغ الورثة — متابعة مستقلة</h3>
                 </div>
-                <div className="p-4 space-y-3 max-h-[72vh] overflow-y-auto">
+                <div className="p-4 space-y-3 max-h-[72dvh] overflow-y-auto overscroll-contain">
                     {activeDebtorHeirsForNotification.map((heir, idx) => {
                         const key = normalizeHeirWorkflowKey(heir);
                         const row = heirsWorkflowByHeir[key] || {};

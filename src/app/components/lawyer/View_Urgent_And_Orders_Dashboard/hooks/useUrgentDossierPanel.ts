@@ -8,9 +8,15 @@ type UseUrgentDossierPanelArgs = {
     cases: UrgentCase[];
     setCases: Dispatch<SetStateAction<UrgentCase[]>>;
     pendingCasesPersistRef: MutableRefObject<boolean>;
+    persistSnapshot?: (next: UrgentCase[]) => void;
 };
 
-export function useUrgentDossierPanel({ cases, setCases, pendingCasesPersistRef }: UseUrgentDossierPanelArgs) {
+export function useUrgentDossierPanel({
+    cases,
+    setCases,
+    pendingCasesPersistRef,
+    persistSnapshot,
+}: UseUrgentDossierPanelArgs) {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [selectedCaseForDetails, setSelectedCaseForDetails] = useState<string | null>(null);
     const [dossierMountKey, setDossierMountKey] = useState(0);
@@ -33,11 +39,6 @@ export function useUrgentDossierPanel({ cases, setCases, pendingCasesPersistRef 
         setDossierMountKey((k) => k + 1);
     }, []);
 
-    const handleCaseClick = useCallback((caseId: string) => {
-        setSelectedCaseForDetails(caseId);
-        setShowDetailsModal(true);
-    }, []);
-
     const openDossierForCase = useCallback((caseId: string) => {
         preloadActiveOrderFilePanel();
         setSelectedCaseForDetails(caseId);
@@ -48,11 +49,15 @@ export function useUrgentDossierPanel({ cases, setCases, pendingCasesPersistRef 
         (caseId: string, patch: Record<string, unknown>) => {
             setCases((prev) => {
                 const next = prev.map((c) => (c.id === caseId ? mergeUrgentCasePatch(c, patch) : c));
-                pendingCasesPersistRef.current = true;
+                if (persistSnapshot) {
+                    persistSnapshot(next);
+                } else {
+                    pendingCasesPersistRef.current = true;
+                }
                 return next;
             });
         },
-        [pendingCasesPersistRef, setCases],
+        [pendingCasesPersistRef, persistSnapshot, setCases],
     );
 
     return {
@@ -62,7 +67,6 @@ export function useUrgentDossierPanel({ cases, setCases, pendingCasesPersistRef 
         selectedCaseFile,
         closeDossierPanel,
         retryDossierPanel,
-        handleCaseClick,
         openDossierForCase,
         handleCaseUpdated,
     };

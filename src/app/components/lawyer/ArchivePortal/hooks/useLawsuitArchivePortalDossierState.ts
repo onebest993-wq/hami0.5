@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ArchiveDossierViewMode } from '../components/ArchiveDossierToolbar';
-import { prefetchCriminalDashboard } from '@/app/utils/lazyComponentsIntent';
 import type { LawsuitJurisdictionTab } from '@/app/domain/lawsuit/lawsuitJurisdiction';
 
+function prefetchCriminalListPath(): void {
+    void import('@/app/utils/lazyComponentsIntent')
+        .then((m) => m.prefetchCriminalListPath())
+        .catch(() => undefined);
+}
+
 type DossierSearchProps = {
-    dossierSearchOpen?: boolean;
-    onDossierSearchOpenChange?: (open: boolean) => void;
     dossierSearchQuery?: string;
     onDossierSearchQueryChange?: (query: string) => void;
     dossierViewMode?: ArchiveDossierViewMode;
@@ -14,8 +17,6 @@ type DossierSearchProps = {
 
 export function useLawsuitArchivePortalDossierState({
     initialLawsuitJurisdictionTab,
-    dossierSearchOpen: dossierSearchOpenProp,
-    onDossierSearchOpenChange,
     dossierSearchQuery: dossierSearchQueryProp,
     onDossierSearchQueryChange,
     dossierViewMode: dossierViewModeProp,
@@ -23,23 +24,12 @@ export function useLawsuitArchivePortalDossierState({
 }: DossierSearchProps & {
     initialLawsuitJurisdictionTab?: LawsuitJurisdictionTab;
 }) {
-    const [internalSearchOpen, setInternalSearchOpen] = useState(false);
     const [internalSearchQuery, setInternalSearchQuery] = useState('');
     const [lawsuitJurisdictionTab, setLawsuitJurisdictionTab] = useState<LawsuitJurisdictionTab>(
         initialLawsuitJurisdictionTab ?? 'all',
     );
     const viewingCriminal = lawsuitJurisdictionTab === 'criminal';
     const [internalViewMode, setInternalViewMode] = useState<ArchiveDossierViewMode>('grid');
-
-    const dossierSearchOpen = dossierSearchOpenProp ?? internalSearchOpen;
-    const setDossierSearchOpen = useCallback(
-        (open: boolean | ((prev: boolean) => boolean)) => {
-            const next = typeof open === 'function' ? open(dossierSearchOpen) : open;
-            if (dossierSearchOpenProp === undefined) setInternalSearchOpen(next);
-            onDossierSearchOpenChange?.(next);
-        },
-        [dossierSearchOpen, dossierSearchOpenProp, onDossierSearchOpenChange],
-    );
 
     const dossierSearchQuery = dossierSearchQueryProp ?? internalSearchQuery;
     const setDossierSearchQuery = useCallback(
@@ -70,7 +60,7 @@ export function useLawsuitArchivePortalDossierState({
     }, [initialLawsuitJurisdictionTab]);
 
     const setLawsuitJurisdictionTabWithPrefetch = useCallback((value: LawsuitJurisdictionTab) => {
-        if (value === 'criminal') prefetchCriminalDashboard();
+        if (value === 'criminal') prefetchCriminalListPath();
         setLawsuitJurisdictionTab(value);
         if (value === 'criminal' || value === 'all') {
             setCriminalCardsReady(true);
@@ -79,7 +69,7 @@ export function useLawsuitArchivePortalDossierState({
 
     useEffect(() => {
         if (lawsuitJurisdictionTab === 'criminal') {
-            prefetchCriminalDashboard();
+            prefetchCriminalListPath();
             setCriminalCardsReady(true);
             return;
         }
@@ -99,8 +89,6 @@ export function useLawsuitArchivePortalDossierState({
     }, [lawsuitJurisdictionTab]);
 
     return {
-        dossierSearchOpen,
-        setDossierSearchOpen,
         dossierSearchQuery,
         setDossierSearchQuery,
         lawsuitJurisdictionTab,

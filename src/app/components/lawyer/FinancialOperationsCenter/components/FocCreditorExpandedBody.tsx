@@ -1,6 +1,6 @@
 import React from 'react';
-import { motion } from 'motion/react';
-import { Send } from '@/app/components/ui/lucideIcons';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { Send } from '@/app/components/ui/icons/Send';
 import type { SettlementDuePhase } from '../utils';
 import type { UnifiedLedgerStore, FinancialLedgerEntry } from '../types';
 import type { SettlementUxTier } from '../settlementUxMatrix';
@@ -78,6 +78,8 @@ export interface FocCreditorExpandedBodyProps {
     pendingSettlementDueYmd: string;
     onNotify: (message: string, type?: 'warning' | 'info' | 'success') => void;
     salarySeizureActive?: boolean;
+    showAmountGuarantorRequest?: boolean;
+    onGuarantorRequest?: () => void;
 }
 
 /**
@@ -154,6 +156,8 @@ export const FocCreditorExpandedBody: React.FC<FocCreditorExpandedBodyProps> = (
     pendingSettlementDueYmd,
     onNotify,
     salarySeizureActive,
+    showAmountGuarantorRequest = false,
+    onGuarantorRequest,
 }) => {
     const renderUnifiedSettlementPanel = () => (
         <UnifiedLedgerSettlementPanel
@@ -318,6 +322,16 @@ export const FocCreditorExpandedBody: React.FC<FocCreditorExpandedBodyProps> = (
                     ) : null}
                 </div>
             )}
+            {showAmountGuarantorRequest && onGuarantorRequest ? (
+                <button
+                    type="button"
+                    data-testid="foc-amount-guarantor-request"
+                    onClick={onGuarantorRequest}
+                    className="w-full min-h-[44px] rounded-xl border border-cyan-500/30 bg-cyan-500/[0.04] py-3 px-4 text-cyan-300/90 text-[11px] font-bold backdrop-blur-sm transition-all hover:bg-cyan-500/10 hover:border-cyan-400/40 flex items-center justify-center gap-2"
+                >
+                    طلب كفيل ضامن للمبلغ
+                </button>
+            ) : null}
         </motion.div>
     );
 };

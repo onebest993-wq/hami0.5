@@ -1,5 +1,4 @@
-// @ts-nocheck
-import type { DossierActionType } from '../components/DossierActionsModal';
+import type { DossierActionType } from '../components/DossierActionTypes';
 import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import {
@@ -79,7 +78,7 @@ export function isDossierControlDecisionSettled(
         if (Array.isArray(all) && all.length > 0) {
             const followup = resolveExecutorRequestFollowupBlockFromRecord(
                 row,
-                all as Decision[],
+                all,
                 opts?.appealPerspective ?? 'creditor_agent'
             );
             if (followup) return false;
@@ -164,7 +163,7 @@ export function resolveDossierControlWorkflowLabels(phase: DossierControlWorkflo
     }
 }
 
-export const DOSSIER_ACTION_DECISION_TITLES: Record<DossierActionType, string> = {
+const DOSSIER_ACTION_DECISION_TITLES: Record<DossierActionType, string> = {
     delegation: 'طلب الإنابة التنفيذية',
     unify: 'طلب توحيد الأضابير',
     transfer: 'طلب نقل الإضبارة',
@@ -186,18 +185,18 @@ export function findDossierControlDecisionRow(
     };
     const matches = all
         .filter((r) => {
-            if (String((r as any)?.requestKind || '') !== 'special_followup') return false;
-            return String((r as any)?.title || '').trim() === title;
+            if (String(r?.requestKind || '') !== 'special_followup') return false;
+            return String(r?.title || '').trim() === title;
         })
         .filter((r) => !isDossierControlDecisionSettled(r, settleOpts));
     if (!matches.length) return null;
     const sorted = [...matches].sort((a, b) => {
-        const da = String((a as any)?.resolvedAt ?? (a as any)?.date ?? '');
-        const db = String((b as any)?.resolvedAt ?? (b as any)?.date ?? '');
+        const da = String(a?.resolvedAt ?? a?.date ?? '');
+        const db = String(b?.resolvedAt ?? b?.date ?? '');
         return db.localeCompare(da, undefined, { numeric: true });
     });
     const pending = sorted.find((r) => {
-        const o = String((r as any)?.executorOutcome ?? 'pending');
+        const o = String(r?.executorOutcome ?? 'pending');
         return o === 'pending' || o === '';
     });
     if (pending) return pending;
@@ -225,7 +224,7 @@ export function shouldShowDossierControlExecutorStrip(input: {
     if (!row || !exId) return false;
     const followupBlock = resolveExecutorRequestFollowupBlockFromRecord(
         row,
-        decisions as Decision[],
+        decisions,
         appealPerspective
     );
     if (
@@ -240,15 +239,6 @@ export function shouldShowDossierControlExecutorStrip(input: {
     }
     if (isExecutorRowRejectedAndFinal(row) && isExecutorHubRowSuperseded(row)) return false;
     return true;
-}
-
-export function dossierDecisionShowsInlineActions(row: Record<string, unknown> | null): boolean {
-    if (!row) return false;
-    const out = String((row as { executorOutcome?: string }).executorOutcome ?? 'pending');
-    if (out === 'withdrawn' || (row as { lawyerWithdrawn?: boolean }).lawyerWithdrawn) return true;
-    if (isExecutorRowEffectivelyApproved(row)) return true;
-    const pending = out === 'pending' || out === '';
-    return pending || isExecutorRowRejectedAndFinal(row);
 }
 
 /** إظهار اختصار قرار المنفذ لطلب special_followup — محضر الطلبات وسجل الطرف الآخر */
@@ -285,14 +275,14 @@ export function shouldShowSpecialFollowupExecutorStrip(
     if (isExecutorRowRejectedAndFinal(row)) return true;
     const followupBlock = resolveExecutorRequestFollowupBlockFromRecord(
         row,
-        decisions as Decision[],
+        decisions,
         appealPerspective
     );
     if (followupBlock) return true;
     if (
         isExecutorRowEffectivelyApproved(row) &&
         appealPerspective === 'debtor_agent' &&
-        isCreditorInitiatedExecutorRequest(hubWithInferredAppealOrigin(row as Decision))
+        isCreditorInitiatedExecutorRequest(hubWithInferredAppealOrigin(row as unknown as Decision))
     ) {
         return true;
     }
@@ -314,7 +304,7 @@ export function resolveSpecialFollowupStatusLabel(
     if (approved) {
         if (
             appealPerspective === 'debtor_agent' &&
-            isCreditorInitiatedExecutorRequest(hubWithInferredAppealOrigin(row as Decision))
+            isCreditorInitiatedExecutorRequest(hubWithInferredAppealOrigin(row as unknown as Decision))
         ) {
             return 'موافقة ضد موكّلك — متابعة المسار';
         }

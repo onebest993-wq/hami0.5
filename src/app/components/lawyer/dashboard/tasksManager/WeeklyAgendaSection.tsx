@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import type { LegalTask } from '@/app/types/TaskEngine';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { WORK_WEEK } from './constants';
 import type { WeekAddState } from './types';
 import type { TaskListOrdinal } from './TaskListOrdinalBadge';
@@ -51,11 +52,10 @@ export const WeeklyAgendaSection = React.memo(function WeeklyAgendaSection({
                         data-tasks-week-past={dayPast ? 'true' : 'false'}
                         className={TASKS_DAY_PANEL}
                     >
-                        <div className="absolute top-3 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#E6C673]/25 to-transparent pointer-events-none" />
                         <header className="flex flex-row-reverse items-center justify-between gap-3 mb-3 flex-wrap relative">
                             <div className="text-right min-w-0 flex-1">
                                 <h3
-                                    className={`text-[#F4F4F5] font-extrabold text-lg tracking-tight ${
+                                    className={`text-[#F4F4F5] font-semibold text-base tracking-tight ${
                                         dayPast ? 'line-through decoration-[#E6C673]/45 decoration-2' : ''
                                     }`}
                                 >
@@ -116,17 +116,18 @@ type WeekAddFormProps = {
 
 function WeekAddForm({ block, weekAdd, setWeekAdd, saveWeekBundle }: WeekAddFormProps) {
     const formRef = useRef<HTMLDivElement>(null);
+    const reduceMotion = useReduceMotion();
 
     useEffect(() => {
         const node = formRef.current;
         if (!node) return;
         const frame = requestAnimationFrame(() => {
-            node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            node.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
             const details = node.querySelector<HTMLTextAreaElement>('[data-testid="tasks-week-form-details"]');
             details?.focus({ preventScroll: true });
         });
         return () => cancelAnimationFrame(frame);
-    }, []);
+    }, [reduceMotion]);
 
     return (
         <div
@@ -140,6 +141,8 @@ function WeekAddForm({ block, weekAdd, setWeekAdd, saveWeekBundle }: WeekAddForm
                     dir="rtl"
                     rows={2}
                     data-testid="tasks-week-form-details"
+                    autoComplete="off"
+                    enterKeyHint="enter"
                     value={weekAdd.details}
                     onChange={(e) =>
                         setWeekAdd((w) => (w && w.dayKey === block.key ? { ...w, details: e.target.value } : w))
@@ -154,6 +157,8 @@ function WeekAddForm({ block, weekAdd, setWeekAdd, saveWeekBundle }: WeekAddForm
                     dir="rtl"
                     type="text"
                     data-testid="tasks-week-form-location"
+                    autoComplete="off"
+                    enterKeyHint="done"
                     value={weekAdd.location}
                     onChange={(e) =>
                         setWeekAdd((w) => (w && w.dayKey === block.key ? { ...w, location: e.target.value } : w))

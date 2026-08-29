@@ -1,7 +1,8 @@
 import { sanitizePayload } from '@/app/api/security/sanitizer';
-import { requireWifeUser, unwrapWifeUser } from '@/app/api/security/bffAuth';
+import { requireWifeCloudWrite, unwrapWifeUser } from '@/app/api/security/bffAuth';
 import { getSupabaseAdminClient } from '@/app/api/security/supabaseAdminClient';
 import { wifeJsonResponse } from '@/app/api/security/wifeSecurityHeaders';
+import { rejectNonUuidCloudWrite } from '@/app/api/security/postgresUuidSubject';
 
 export const runtime = 'nodejs';
 
@@ -33,9 +34,11 @@ function normalizeTags(raw: unknown): string[] | null {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    const authGate = unwrapWifeUser(await requireWifeCloudWrite(request));
     if ('response' in authGate) return authGate.response;
     const { userId } = authGate;
+    const denied = rejectNonUuidCloudWrite(userId);
+    if (denied) return denied;
 
     let payload: unknown = null;
     try {

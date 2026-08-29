@@ -32,8 +32,25 @@ vi.mock('@/app/services/fieldTasks/fieldTasksPerfMetrics', () => ({
     markFieldTasksPerfPhase: mocks.markPerfMock,
 }));
 
-vi.mock('@/app/utils/quantumTasksStorage', () => ({
+vi.mock('@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports', () => ({
     warmQuantumTasksDiskRead: mocks.warmDiskMock,
+}));
+
+vi.mock('@/app/runtime/fieldTasksHubLoader', () => ({
+    prefetchFieldTasksSheetModule: vi.fn(),
+    loadFieldTasksSheetModule: vi.fn(() => Promise.resolve()),
+    prefetchTasksManagerModule: vi.fn(),
+}));
+
+vi.mock('@/app/runtime/tasksManagerInstantPaint', () => ({
+    paintTasksManagerInstantChrome: vi.fn(),
+}));
+
+vi.mock('@/app/services/fieldTasks/fieldTasksShellSnap', () => ({
+    snapFieldTasksShellOpen: vi.fn(),
+    snapFieldTasksShellClose: vi.fn(),
+    snapTasksManagerShellOpen: vi.fn(),
+    snapTasksManagerShellClose: vi.fn(),
 }));
 
 describe('fieldTasksShellOpenFlow', () => {
@@ -49,7 +66,6 @@ describe('fieldTasksShellOpenFlow', () => {
         const setActiveTab = vi.fn();
 
         commitFieldTasksSheetOpen({
-            sheetOpenRef: { current: true },
             instantPaint: { revealFieldTasksWarmSheet: mocks.revealMock } as never,
             setFieldTasksHostMounted: vi.fn(),
             setTasksManagerFocusTaskId: vi.fn(),
@@ -79,7 +95,6 @@ describe('fieldTasksShellOpenFlow', () => {
         const setFieldTasksSheetOpen = vi.fn();
 
         commitFieldTasksSheetOpen({
-            sheetOpenRef: { current: true },
             instantPaint: { revealFieldTasksWarmSheet: mocks.revealMock } as never,
             setFieldTasksHostMounted: vi.fn(),
             setTasksManagerFocusTaskId: vi.fn(),
@@ -111,6 +126,11 @@ describe('fieldTasksShellOpenFlow', () => {
         expect(revealTasksManager).toHaveBeenCalledWith('task-1');
         expect(mocks.clearPerfMock).toHaveBeenCalled();
         expect(mocks.warmOnOpenMock).toHaveBeenCalled();
+
+        const { paintTasksManagerInstantChrome } = await import(
+            '@/app/runtime/tasksManagerInstantPaint'
+        );
+        expect(paintTasksManagerInstantChrome).toHaveBeenCalled();
 
         await new Promise<void>((resolve) => queueMicrotask(resolve));
         expect(mocks.dismissMock).toHaveBeenCalledWith('tasks-manager');

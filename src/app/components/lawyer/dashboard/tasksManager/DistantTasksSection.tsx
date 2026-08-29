@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Hourglass } from '@/app/components/ui/lucideIcons';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Hourglass } from '@/app/components/ui/icons/Hourglass';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { addDays } from '@/app/utils/nlpParser';
 import type { TaskListOrdinal } from './TaskListOrdinalBadge';
@@ -25,7 +25,7 @@ export type DistantTasksSectionProps = {
 
 export const DistantTasksSection = React.memo(function DistantTasksSection(props: DistantTasksSectionProps) {
     return (
-        <section className="mt-10 pt-6 border-t border-[#E6C673]/15" data-testid="tasks-distant-section">
+        <section className="mt-8 pt-5 border-t border-white/[0.06]" data-testid="tasks-distant-section">
             <h2 className={`${TASKS_SECTION_TITLE} mb-5`}>
                 <Hourglass className="size-5 text-[#E6C673]/70 shrink-0" aria-hidden />
                 المهام المؤجلة
@@ -42,7 +42,6 @@ const SnoozeTaskForm = React.memo(function SnoozeTaskForm({
     minSnoozeIso: string;
     onSave: (title: string, dueIso: string) => void;
 }) {
-    const dateRef = useRef<HTMLInputElement>(null);
     const defaultDueIso = useMemo(() => {
         const minDate = dateFromYmdInput(minSnoozeIso);
         if (!minDate) return minSnoozeIso;
@@ -50,11 +49,15 @@ const SnoozeTaskForm = React.memo(function SnoozeTaskForm({
     }, [minSnoozeIso]);
 
     const [title, setTitle] = useState('');
+    const [dueYmd, setDueYmd] = useState(defaultDueIso);
+
+    useEffect(() => {
+        setDueYmd(defaultDueIso);
+    }, [defaultDueIso]);
 
     const handleSave = useCallback(() => {
-        const dueIso = dateRef.current?.value ?? defaultDueIso;
-        onSave(title, dueIso);
-    }, [defaultDueIso, onSave, title]);
+        onSave(title, dueYmd || defaultDueIso);
+    }, [defaultDueIso, dueYmd, onSave, title]);
 
     return (
         <div
@@ -67,6 +70,8 @@ const SnoozeTaskForm = React.memo(function SnoozeTaskForm({
                 placeholder="عنوان المهمة…"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                autoComplete="off"
+                enterKeyHint="next"
                 className={TASKS_INPUT}
             />
             <div className="space-y-2 text-right">
@@ -77,14 +82,14 @@ const SnoozeTaskForm = React.memo(function SnoozeTaskForm({
                     تاريخ القيام بالمهمة
                 </label>
                 <input
-                    ref={dateRef}
                     id="tasks-snooze-due-date"
                     type="date"
                     dir="ltr"
                     lang="ar-IQ"
-                    defaultValue={defaultDueIso}
+                    value={dueYmd}
                     min={minSnoozeIso}
-                    className={`${TASKS_INPUT} !py-2.5 text-sm touch-manipulation [color-scheme:dark] tabular-nums`}
+                    onChange={(e) => setDueYmd(e.target.value)}
+                    className={`${TASKS_INPUT} min-h-[44px] !py-2.5 text-base touch-manipulation [color-scheme:dark] tabular-nums`}
                     data-testid="tasks-snooze-due-date"
                     onPointerDown={markTasksDatePickerOpening}
                     onFocus={markTasksDatePickerOpening}

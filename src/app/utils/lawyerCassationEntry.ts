@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
 import {
     appealPipelineRowForCard,
@@ -147,7 +146,7 @@ export function applyLawyerCassationEntryForExecution(input: {
         return { ok: false, message: 'معرّف التنفيذ أو القرار غير صالح.' };
     }
 
-    const decisions = readExecutorDecisionsArray(executionId) as Decision[];
+    const decisions = readExecutorDecisionsArray(executionId) as unknown as Decision[];
     const row = decisions.find((d) => String(d.id ?? '').trim() === decisionId);
     if (!row) {
         return { ok: false, message: 'لم يُعثر على بطاقة القرار.' };
@@ -175,7 +174,7 @@ export function applyLawyerCassationEntryForExecution(input: {
 
     const target = decisions.find((d) => d.id === pipeline.id) ?? pipeline;
     const hasMeaningfulChange = Object.entries(patch).some(([k, v]) => {
-        const prevVal = (target as Record<string, unknown>)[k];
+        const prevVal = (target as unknown as Record<string, unknown>)[k];
         if (Array.isArray(prevVal) || Array.isArray(v)) {
             return JSON.stringify(prevVal) !== JSON.stringify(v);
         }

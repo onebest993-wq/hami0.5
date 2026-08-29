@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckSquare } from '@/app/components/ui/lucideIcons';
+import { CheckSquare } from '@/app/components/ui/icons/CheckSquare';
 import type { AddTaskModalProps } from '../../smartFile/modalFormTypes';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../../smartFile/civilLawsuitTestIds';
 import { MoroccanGlassShell } from '../../smartFile/moroccanGlassShell';
@@ -31,10 +31,10 @@ export const AddTaskModal = ({ isOpen, onClose, onAdd, editMode = false, editDat
     if (!isOpen) return null;
 
     return (
-        <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-3xl">
+        <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-xl">
             <SmartModalHeader T={T} icon={CheckSquare} title={editMode ? 'تحديث مهمة إدارية' : 'إضافة مهمة إدارية'} onClose={onClose} />
-            <div data-testid={CIVIL_LAWSUIT_TEST_IDS.taskModal} className={T.useMoroccanCorners ? 'p-5 sm:p-6 space-y-5 md:min-h-[24rem]' : T.body}>
-                <div className="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] md:items-start">
+            <div data-testid={CIVIL_LAWSUIT_TEST_IDS.taskModal} className={T.body}>
+                <div className="space-y-3">
                     <div>
                         <label className={T.label}>
                             عنوان المهمة <span className="text-red-400">*</span>
@@ -50,22 +50,20 @@ export const AddTaskModal = ({ isOpen, onClose, onAdd, editMode = false, editDat
                         />
                     </div>
 
-                    <div className="rounded-[22px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))] p-4 space-y-4">
-                        <div>
-                            <label className={T.label}>
-                                تاريخ الإنجاز (اختياري)
-                            </label>
-                            <input
-                                type="date"
-                                value={dueDate}
-                                onChange={(e) => setDueDate(e.target.value)}
-                                className={T.field}
-                            />
-                        </div>
-                        <div className="rounded-xl border border-white/[0.06] bg-black/10 px-3 py-3 text-[11px] text-white/45">
-                            ستظهر المهمة مباشرة داخل قسم المهام الإدارية في نفس المرحلة.
-                        </div>
+                    <div>
+                        <label className={T.label}>
+                            تاريخ الإنجاز (اختياري)
+                        </label>
+                        <input
+                            type="date"
+                            value={dueDate}
+                            onChange={(e) => setDueDate(e.target.value)}
+                            className={T.field}
+                        />
                     </div>
+                    <p className="text-[11px] text-white/40">
+                        ستظهر المهمة مباشرة داخل قسم المهام الإدارية في نفس المرحلة.
+                    </p>
                 </div>
                 <button
                     type="button"

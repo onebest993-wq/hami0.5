@@ -32,7 +32,19 @@ describe('buildInitialStagesFromFile', () => {
         const first = stages[0] as CaseStage & { caseNo?: string; court?: string };
         expect(first.caseNo).toBe('10 / أ / 2026');
         expect(first.court).toBe('كرخ');
+        expect(first.stageName).toBe('بداءة');
         expect(stages[0]!.status).toBe('active');
+    });
+
+    it('fills judge and stageName from file when the active stage omits them', () => {
+        const stages = buildInitialStagesFromFile({
+            judge: 'القاضي علي',
+            currentStage: 'استئناف',
+            stages: [{ id: 's1', status: 'active' }],
+        });
+        expect(stages[0]?.judge).toBe('القاضي علي');
+        expect(stages[0]?.stageName).toBe('استئناف');
+        expect(stages[0]?.name).toBe('استئناف');
     });
 
     it('uses file parties when active stage has empty parties array', () => {

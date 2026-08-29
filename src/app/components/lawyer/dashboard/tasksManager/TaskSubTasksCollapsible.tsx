@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown } from '@/app/components/ui/lucideIcons';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
 import type { LegalSubTask } from '@/app/types/TaskEngine';
 import { CURTAIN_GLASS_INNER, TASKS_INNER_GLASS_HOVER, TASKS_INNER_GLASS_SOFT } from './tasksBoucleTheme';
 import { TaskRingToggle } from './TaskRingToggle';
@@ -56,7 +56,7 @@ export function TaskSubTasksCollapsible({
                         <li
                             key={st.id}
                             data-testid={testIdPrefix ? `${testIdPrefix}-sub-${st.id}` : undefined}
-                            className={`rounded-md border px-1.5 py-1 flex flex-row-reverse items-center gap-2 min-h-[36px] ${
+                            className={`rounded-md border px-1.5 py-1 flex flex-row-reverse items-center gap-2 min-h-[44px] ${
                                 st.isCompleted
                                     ? 'border-[#059669]/20 bg-[#059669]/8 opacity-75'
                                     : compactActions

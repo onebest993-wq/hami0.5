@@ -497,8 +497,6 @@ export const SCOPE_BAG_FRAGMENT_CONFIG = [
             'setEvictionExpenseAmount',
             'evictionExpenseNote',
             'setEvictionExpenseNote',
-            'showVisitationCalendarModal',
-            'setShowVisitationCalendarModal',
             'heirNoticeDateDrafts',
             'setHeirNoticeDateDrafts',
             'heirSummonsDatePickerOpenByHeir',

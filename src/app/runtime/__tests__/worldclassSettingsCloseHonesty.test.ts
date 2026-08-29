@@ -5,6 +5,32 @@ import path from 'node:path';
 const root = process.cwd();
 
 describe('world-class settings close honesty', () => {
+    it('الإغلاق يلتزم setShowSettings فوراً بلا rAF', () => {
+        const hook = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardSettings.ts'),
+            'utf8',
+        );
+        expect(hook).toContain('setShowSettings(false)');
+        expect(hook).toContain('executeSettingsOverlayClose');
+        expect(hook).toContain('beginSettingsShellExit');
+        expect(hook).not.toContain('scheduleSettingsShellReactSync');
+        const css = [
+            'settingsChrome.css',
+            'settingsChromeOverlay.css',
+            'settingsChromeCards.css',
+        ]
+            .map((file) =>
+                fs.readFileSync(
+                    path.join(root, 'src/app/components/lawyer/HamiSettings', file),
+                    'utf8',
+                ),
+            )
+            .join('\n');
+        expect(css).toContain("html:not([data-hami-settings-open='1']):not([data-hami-settings-closing='1']) .hami-settings-overlay-host");
+        expect(css).toContain("html[data-hami-overlay-unfreeze='1'][data-hami-settings-open='1']");
+        expect(css).toContain("html[data-hami-native='1'][data-hami-settings-open='1'] [data-hami-lawyer-dashboard]");
+    });
+
     it('S5: settingsHostMounted يبدأ من initialSession.open لا true على cold', () => {
         const hook = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardSettings.ts'),
@@ -16,12 +42,13 @@ describe('world-class settings close honesty', () => {
         expect(hook).not.toMatch(/setSettingsHostMounted\]\s*=\s*useState\(true\)/);
     });
 
-    it('S2: يمسح جلسة الإعدادات عند غياب هوية حقيقية', () => {
+    it('S2: يمسح جلسة الإعدادات عند غياب جلسة محلية', () => {
         const hook = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardSettings.ts'),
             'utf8',
         );
-        expect(hook).toMatch(/isRealSignedIn\(userId\)/);
+        expect(hook).toMatch(/hasLocalAppSession\(userId\)/);
+        expect(hook).not.toMatch(/isRealSignedIn\(userId\)/);
         expect(hook).toMatch(/persistSettingsSessionOpen\(false\)/);
         expect(hook).toMatch(/setSettingsHostMounted\(false\)/);
     });
@@ -54,7 +81,8 @@ describe('world-class settings close honesty', () => {
             path.join(root, 'src/app/components/lawyer/HamiSettings/hooks/useSettingsLifecycle.ts'),
             'utf8',
         );
-        expect(life).toMatch(/setTimeout\(markInteractiveNow,\s*1_?200\)/);
+        expect(life).toContain('SETTINGS_INTERACTIVE_FALLBACK_MS');
+        expect(life).not.toMatch(/setTimeout\(markInteractiveNow,\s*1_?200\)/);
     });
 
     it('S8: أقسام الإعدادات تعلن data-settings-interactive عند الجاهزية', () => {

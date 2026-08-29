@@ -1,11 +1,10 @@
-// @ts-nocheck
 import {
     getExecutionModuleStrategy,
     isEvictionClaim,
 } from '@/app/utils/executionModuleStrategies';
 import { parseLooseAmountFromText } from '@/app/utils/looseAmountParse';
 import { storageCache } from '@/app/utils/storageCache';
-import SecureStoreService from '@/app/services/SecureStoreService';
+import { readSecureOrDrainLegacySync } from '@/app/services/storage/readSecureOrDrainLegacySync';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import {
     parseUnifiedLedgerFromStorage,
@@ -24,10 +23,12 @@ const NON_FINANCIAL_CLAIMS = [
     'مطاوعة',
     'تسليم طفل',
     'تسليم ولد',
+    'تسليم شيء معين',
+    'إزالة تجاوز',
 ];
 
 function parseArchivePrincipalDebt(loose: LooseArchiveFile): number {
-    const d = loose as Record<string, unknown>;
+    const d = loose as unknown as Record<string, unknown>;
     const primary = Array.isArray(d.debtors) ? (d.debtors as Array<Record<string, unknown>>) : [];
     const additional = Array.isArray((d.party_multiplicity as Record<string, unknown> | undefined)?.additionalDebtors)
         ? ((d.party_multiplicity as Record<string, unknown>).additionalDebtors as Array<Record<string, unknown>>)
@@ -62,7 +63,7 @@ function sumEvictionCaseExpenses(loose: LooseArchiveFile): number {
 }
 
 function sumJudicialCustodianSalaries(loose: LooseArchiveFile): number {
-    const d = loose as Record<string, unknown>;
+    const d = loose as unknown as Record<string, unknown>;
     const arr = d.eviction_judicial_custodians;
     if (Array.isArray(arr) && arr.length > 0) {
         return arr.reduce((t, row) => {
@@ -117,24 +118,7 @@ export function buildArchiveLedgerParams(
     };
 }
 
-export function readArchiveLedgerRaw(executionId: string): unknown {
-    if (!executionId) return undefined;
-    try {
-        const cached = storageCache.get(storageKey(executionId));
-        if (cached !== undefined && cached !== null) return cached;
-    } catch {
-        /* ignore */
-    }
-    try {
-        const raw = SecureStoreService.getItemSync(storageKey(executionId));
-        if (!raw) return undefined;
-        return JSON.parse(raw) as unknown;
-    } catch {
-        return undefined;
-    }
-}
-
-export type ArchiveFinancialDemand = {
+type ArchiveFinancialDemand = {
     totalDemand: number;
     remainingDemand: number;
     demandLabel: string;
@@ -180,7 +164,7 @@ export function resolveExecutionArchiveFinancialDemand(
             /* ignore */
         }
         try {
-            const raw = SecureStoreService.getItemSync(key);
+            const raw = readSecureOrDrainLegacySync(key);
             if (!raw) return undefined;
             return JSON.parse(raw) as unknown;
         } catch {
@@ -226,14 +210,4 @@ export function resolveExecutionArchiveFinancialDemand(
     };
 }
 
-export function formatArchiveExecutionStatusLabel(status: string | undefined): string {
-    const s = String(status || '').trim();
-    if (!s || s === 'active') return '';
-    if (s === 'paused') return 'موقوف';
-    if (s === 'archived' || s === 'archived_stage') return 'مؤرشف';
-    if (s === 'deleted') return 'محذوف';
-    if (s.includes('متلكئ')) return 'متلكئ';
-    if (s.includes('بانتظار')) return 'بانتظار';
-    if (s.includes('منتهية') || s.includes('منجز')) return 'منتهية';
-    return s;
-}
+export { formatArchiveExecutionStatusLabel } from './executionArchiveStatusLabel';

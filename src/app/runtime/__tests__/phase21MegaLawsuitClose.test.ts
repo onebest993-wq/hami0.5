@@ -12,6 +12,11 @@ describe('mega-close: lawsuit virtualize + InstantShell bridge', () => {
         );
         expect(src).toContain('useVirtualizer');
         expect(src).toContain('getScrollElement');
+        expect(src).toContain('ResizeObserver');
+        expect(src).toContain('clientWidth');
+        expect(src).toContain('lastMeasuredArchiveHostWidth');
+        expect(src).toContain('readArchiveGridWidthGuess');
+        expect(src).not.toContain('containerWidth <= 0');
         expect(src).not.toContain('useWindowVirtualizer');
     });
 
@@ -33,7 +38,7 @@ describe('mega-close: lawsuit virtualize + InstantShell bridge', () => {
         );
         expect(host).toContain('onScrollParentRef');
         expect(host).toContain('archiveScrollParent');
-        expect(host).toContain('dossierSearchOpen');
+        expect(host).toContain('dossierSearchQuery');
         expect(host).toContain('dossierViewMode');
         expect(host).toContain('onDossierSearchQueryChange');
     });
@@ -44,9 +49,10 @@ describe('mega-close: lawsuit virtualize + InstantShell bridge', () => {
             'utf8',
         );
         expect(shell).toContain('onScrollParentRef');
-        expect(shell).toContain('onSearchOpenChange');
+        expect(shell).toContain('onSearchQueryChange');
         expect(shell).toContain('onViewModeChange');
-        expect(shell).toContain('searchOpen?: boolean');
+        expect(shell).toContain('searchQuery?: string');
+        expect(shell).not.toContain('searchOpen');
     });
 
     it('ExecutionArchiveFileGrid يمرّر getArchiveScrollElement', () => {

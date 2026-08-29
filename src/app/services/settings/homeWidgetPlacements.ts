@@ -29,7 +29,7 @@ export type HomeWidgetPlacements = Record<HomeWidgetId, HomeWidgetPlacement>;
 /** دُمجت في المستودع الذكي — تبقى في placements للترحيل فقط ولا تُعرض على السطح */
 export const REPOSITORY_LEGACY_WIDGET_IDS = ['dockNotepad', 'dockVault'] as const satisfies readonly HomeWidgetId[];
 
-export type RepositoryLegacyWidgetId = (typeof REPOSITORY_LEGACY_WIDGET_IDS)[number];
+type RepositoryLegacyWidgetId = (typeof REPOSITORY_LEGACY_WIDGET_IDS)[number];
 
 export function isRepositoryLegacyWidget(id: HomeWidgetId): id is RepositoryLegacyWidgetId {
     return (REPOSITORY_LEGACY_WIDGET_IDS as readonly HomeWidgetId[]).includes(id);
@@ -45,11 +45,11 @@ export function filterDisplayHomeWidgets(
 export function buildDefaultPlacements(): HomeWidgetPlacements {
     return {
         alerts: { zone: 'main', order: 0 },
-        hubLawsuit: { zone: 'main', order: 1 },
-        hubExecution: { zone: 'main', order: 2 },
-        hubTransaction: { zone: 'main', order: 3 },
-        dockTasks: { zone: 'main', order: 4 },
-        forum: { zone: 'main', order: 5 },
+        forum: { zone: 'main', order: 1 },
+        hubLawsuit: { zone: 'main', order: 2 },
+        hubExecution: { zone: 'main', order: 3 },
+        hubTransaction: { zone: 'main', order: 4 },
+        dockTasks: { zone: 'main', order: 5 },
         dockCalendar: { zone: 'main', order: 6 },
         dockRepository: { zone: 'main', order: 7 },
         dockNotepad: { zone: 'dock', order: 98 },
@@ -58,14 +58,14 @@ export function buildDefaultPlacements(): HomeWidgetPlacements {
     };
 }
 
-/** ترتيب الشبكة الرئيسية — تثبيت، دعاوى، تنفيذ، معاملات، مهام، منتدى، تقويم، مستودع */
+/** ترتيب الشبكة الرئيسية — منتدى+ملف أولاً ثم المسارات والمهام والتقويم والمستودع */
 export const CANONICAL_MAIN_WIDGET_ORDER: HomeWidgetId[] = [
     'alerts',
+    'forum',
     'hubLawsuit',
     'hubExecution',
     'hubTransaction',
     'dockTasks',
-    'forum',
     'dockCalendar',
     'dockRepository',
 ];
@@ -73,14 +73,16 @@ export const CANONICAL_MAIN_WIDGET_ORDER: HomeWidgetId[] = [
 export function applyCanonicalMainWidgetOrder(
     placements: HomeWidgetPlacements,
 ): HomeWidgetPlacements {
-    const mainIds = getWidgetsInZone(placements, 'main');
+    const sourced =
+        placements.alerts?.zone === 'main' ? placements : transferWidget(placements, 'alerts', 'main', 0);
+    const mainIds = getWidgetsInZone(sourced, 'main');
     const canonical = CANONICAL_MAIN_WIDGET_ORDER.filter((id) => mainIds.includes(id));
     const trailing = mainIds.filter((id) => !CANONICAL_MAIN_WIDGET_ORDER.includes(id));
     const nextOrder = [...canonical, ...trailing];
-    if (nextOrder.every((id, index) => id === mainIds[index])) {
+    if (sourced === placements && nextOrder.every((id, index) => id === mainIds[index])) {
         return placements;
     }
-    const next = { ...placements };
+    const next = { ...sourced };
     nextOrder.forEach((id, index) => {
         next[id] = { zone: 'main', order: index };
     });
@@ -92,7 +94,7 @@ export function isHomeWidgetId(id: string): id is HomeWidgetId {
 }
 
 /** عناصر الدوك — لا تُحسب في ترتيب أيقونات الشريط */
-export const DOCK_SHELL_WIDGET_IDS: HomeWidgetId[] = ['dockQuickNote'];
+const DOCK_SHELL_WIDGET_IDS: HomeWidgetId[] = ['dockQuickNote'];
 
 export function isDockShellOrderWidget(id: HomeWidgetId): boolean {
     return !DOCK_SHELL_WIDGET_IDS.includes(id) && !isRepositoryLegacyWidget(id);
@@ -303,18 +305,8 @@ export function consolidateLegacyRepositoryDock(
     return reindexZone(reindexZone(stashed.placements, 'main'), 'dock');
 }
 
-export const DOCK_ONLY_WIDGETS: HomeWidgetId[] = [
-    'dockRepository',
-    'dockNotepad',
-    'dockCalendar',
-    'dockVault',
-    'dockTasks',
-    'dockQuickNote',
-];
-
 export function defaultMainSpan(widgetId: HomeWidgetId): 1 | 2 {
-    if (widgetId === 'alerts' || widgetId === 'forum') return 2;
-    return 1;
+    return widgetId === 'forum' || widgetId === 'alerts' ? 2 : 1;
 }
 
 export type { BackgroundPresetId };

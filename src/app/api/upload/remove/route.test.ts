@@ -20,6 +20,7 @@ vi.mock('../../security/bffAuth.ts', async (importOriginal) => {
   return {
     ...actual,
     requireWifeUser: (...args: unknown[]) => requireWifeUserMock(...args),
+    requireWifeCloudWrite: (...args: unknown[]) => requireWifeUserMock(...args),
   };
 });
 

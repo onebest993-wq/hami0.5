@@ -1,18 +1,14 @@
 import React, { useMemo } from 'react';
-import { Eye, FileText, Loader2, Pencil, Trash2 } from '@/app/components/ui/lucideIcons';
+import { FileText } from '@/app/components/ui/icons/FileText';
 import {
     formatRepositoryTimestamp,
     resolveRepositoryEntryLayout,
 } from '@/app/services/repository/repositoryUnifiedFeed';
 import { resolveVaultMediaKind } from '@/app/services/vault/vaultDocUtils';
-import { VaultDossierLinkButton } from '../VaultDossierLinkButton';
-import { RepositoryMoveToRoomButton } from '../RepositoryMoveToRoomButton';
 import { REPO_FEED_THUMB_IMAGE, VaultDocDisplayImage } from '../VaultDocDisplayImage';
 import { confirmRepositoryAction } from '../repositoryDialog';
 import { RepositoryMediaKindBadge } from '../RepositoryMediaKindBadge';
 import {
-    REPO_CARD_ACTIONS,
-    REPO_CARD_ICON_BTN,
     REPO_CARD_META,
     REPO_CARD_NOTE,
     REPO_CARD_TIMESTAMP,
@@ -21,6 +17,7 @@ import {
 import { plainTextFromPossiblyHtml } from '../legalRichTextEditorUtils';
 import type { RepositoryFeedLayoutId } from '../repositoryFeedLayout';
 import type { UniversalEntryCardProps } from './universalEntryCardTypes';
+import { VaultEntryCardActions } from './VaultEntryCardActions';
 
 type VaultEntryCardProps = Pick<
     UniversalEntryCardProps,
@@ -38,8 +35,6 @@ type VaultEntryCardProps = Pick<
     cardClass: string;
     feedLayout?: RepositoryFeedLayoutId;
 };
-
-const CARD_ACTION_BTN = `${REPO_CARD_ICON_BTN} relative z-[2] pointer-events-auto`;
 
 export const VaultEntryCard = React.memo(function VaultEntryCard({
     item,
@@ -88,63 +83,19 @@ export const VaultEntryCard = React.memo(function VaultEntryCard({
     };
 
     const actions = (
-        <div className={REPO_CARD_ACTIONS} data-testid={`repository-vault-actions-${doc.id}`}>
-            <VaultDossierLinkButton
-                dossiers={dossiers}
-                onConfirm={async (dossier) => onBindVaultDoc(doc, dossier)}
-            />
-            {rooms && onMoveVaultDocToRoom ? (
-                <RepositoryMoveToRoomButton
-                    rooms={rooms}
-                    currentRoomId={doc.roomId}
-                    onMove={(roomId) => onMoveVaultDocToRoom(doc, roomId)}
-                />
-            ) : null}
-            <div className="flex items-center gap-0.5 pointer-events-auto">
-                {onViewVaultDoc ? (
-                    <button
-                        type="button"
-                        disabled={isViewing}
-                        onClick={handleView}
-                        className={`${CARD_ACTION_BTN} disabled:opacity-50`}
-                        aria-label={`عرض ${doc.title}`}
-                        data-testid={`repository-vault-view-${doc.id}`}
-                    >
-                        {isViewing ? (
-                            <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                            <Eye size={14} />
-                        )}
-                    </button>
-                ) : null}
-                {onEditVaultDoc ? (
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onEditVaultDoc(doc);
-                        }}
-                        className={CARD_ACTION_BTN}
-                        aria-label={`تعديل ${doc.title}`}
-                        data-testid={`repository-vault-edit-${doc.id}`}
-                    >
-                        <Pencil size={14} />
-                    </button>
-                ) : null}
-                {onDeleteVaultDoc ? (
-                    <button
-                        type="button"
-                        onClick={(e) => void handleDelete(e)}
-                        className={`${CARD_ACTION_BTN} hover:text-rose-400`}
-                        aria-label={`حذف ${doc.title}`}
-                        data-testid={`repository-vault-delete-${doc.id}`}
-                    >
-                        <Trash2 size={14} />
-                    </button>
-                ) : null}
-            </div>
-        </div>
+        <VaultEntryCardActions
+            doc={doc}
+            dossiers={dossiers}
+            rooms={rooms}
+            onMoveVaultDocToRoom={onMoveVaultDocToRoom}
+            onBindVaultDoc={onBindVaultDoc}
+            onDeleteVaultDoc={onDeleteVaultDoc}
+            onEditVaultDoc={onEditVaultDoc}
+            onViewVaultDoc={onViewVaultDoc}
+            isViewing={isViewing}
+            onView={handleView}
+            onDelete={handleDelete}
+        />
     );
 
     const meta = (
@@ -162,7 +113,7 @@ export const VaultEntryCard = React.memo(function VaultEntryCard({
                 className={`${cardClass} relative`}
                 data-testid={`repository-feed-vault-${doc.id}`}
             >
-                <div className="flex items-start gap-3 min-w-0">
+                <div className="hami-repo-card-list-main flex items-start gap-3 min-w-0">
                     {isImageDoc ? (
                         <button
                             type="button"
@@ -187,7 +138,9 @@ export const VaultEntryCard = React.memo(function VaultEntryCard({
                     )}
                     <div className="min-w-0 flex-1 space-y-1">
                         {meta}
-                        <h3 className={REPO_CARD_TITLE}>{doc.title}</h3>
+                        <h3 className={REPO_CARD_TITLE} data-testid="repository-entry-title">
+                            {doc.title}
+                        </h3>
                         {lawyerNotePlain ? <p className={REPO_CARD_NOTE}>{lawyerNotePlain}</p> : null}
                     </div>
                 </div>
@@ -219,7 +172,9 @@ export const VaultEntryCard = React.memo(function VaultEntryCard({
 
             <div className={isImageDoc && !showHeroImage ? 'flex gap-2.5 items-start' : undefined}>
                 <div className="min-w-0 flex-1 space-y-1">
-                    <h3 className={REPO_CARD_TITLE}>{doc.title}</h3>
+                    <h3 className={REPO_CARD_TITLE} data-testid="repository-entry-title">
+                        {doc.title}
+                    </h3>
                     {lawyerNotePlain ? <p className={REPO_CARD_NOTE}>{lawyerNotePlain}</p> : null}
                     {!lawyerNotePlain && isPdfDoc ? (
                         <p className="text-[11px] text-white/35 flex items-center gap-1.5">

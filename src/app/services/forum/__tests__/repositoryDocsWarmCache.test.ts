@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RepositoryDocument } from '@/app/services/lawyer-cloud';
+import SecureStoreService from '@/app/services/SecureStoreService';
 
 const REPOSITORY_LOCAL_KEY = 'hami:repository:docs:v1';
 
@@ -20,6 +21,7 @@ const sampleDoc: RepositoryDocument = {
 describe('repositoryDocsWarmCache', () => {
     afterEach(() => {
         localStorage.removeItem(REPOSITORY_LOCAL_KEY);
+        SecureStoreService.deleteItemSync(REPOSITORY_LOCAL_KEY);
         vi.resetModules();
     });
 
@@ -40,5 +42,6 @@ describe('repositoryDocsWarmCache', () => {
 
         const { listRepositoryDocumentsSync } = await import('@/app/services/lawyer-cloud');
         expect(listRepositoryDocumentsSync()).toEqual([sampleDoc]);
+        expect(localStorage.getItem(REPOSITORY_LOCAL_KEY)).toBeNull();
     });
 });

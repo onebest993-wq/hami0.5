@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C — flags/setters للنوافذ قبل dynamic scope */
 import type { ModalStates } from '@/app/stores/executionDashboardStore';
 

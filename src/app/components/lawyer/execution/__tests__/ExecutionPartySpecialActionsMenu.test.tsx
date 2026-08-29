@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ExecutionPartySpecialActionsMenu } from '../ExecutionPartySpecialActionsMenu';
 
 describe('ExecutionPartySpecialActionsMenu', () => {
-    it('opens from the trigger click and fires the edit action once', () => {
+    it('opens from the trigger click and fires the edit action once', async () => {
         const onEditParty = vi.fn();
 
         render(
@@ -15,8 +15,9 @@ describe('ExecutionPartySpecialActionsMenu', () => {
             />,
         );
 
-        fireEvent.click(screen.getByRole('button', { name: 'إجراءات إضافية' }));
-        fireEvent.click(screen.getByRole('button', { name: 'تعديل بيانات المدين' }));
+        fireEvent.mouseDown(screen.getByRole('button', { name: 'إجراءات إضافية' }));
+        const edit = await screen.findByRole('button', { name: 'تعديل بيانات المدين' });
+        fireEvent.click(edit);
 
         expect(onEditParty).toHaveBeenCalledTimes(1);
         expect(screen.queryByRole('button', { name: 'تعديل بيانات المدين' })).toBeNull();

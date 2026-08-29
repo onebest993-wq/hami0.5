@@ -5,6 +5,7 @@ import type { ProfileCustomBlock } from '@/app/services/profile/profilePageCusto
 import { TextBlockCanvasPanel } from './textStudio/TextBlockCanvasPanel';
 import { TextBlockStylePanel } from './textStudio/TextBlockStylePanel';
 import type { TextStyleScope } from './textStudio/patchTextBlockStyle';
+import { isPrimaryDragPointer } from '@/app/components/lawyer/RoyalLawyerProfile/utils/profilePointerDrag';
 
 type StudioPanel = 'style' | 'canvas';
 
@@ -117,7 +118,7 @@ export const TextBlockStudioEditor = React.memo(function TextBlockStudioEditor({
                         className="profile-studio-panel-tab min-h-[44px] touch-manipulation"
                         style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
                         onPointerDown={(event) => {
-                            if (event.button !== 0) return;
+                            if (!isPrimaryDragPointer(event)) return;
                             event.stopPropagation();
                             /* لا preventDefault — على Android يمرّر click لاحقاً ويغلق الورقة */
                             if (event.pointerType === 'touch' || event.pointerType === 'pen') {

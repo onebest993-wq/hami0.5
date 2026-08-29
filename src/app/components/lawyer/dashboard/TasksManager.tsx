@@ -1,8 +1,13 @@
-import React, { Suspense, useCallback, useState } from 'react';
-import { HandHelping, History, X } from '@/app/components/ui/lucideIcons';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
+import {
+    blockTasksOverlayEscape,
+    unblockTasksOverlayEscape,
+} from '@/app/components/lawyer/dashboard/fieldTasks/tasksEscapeCoordinator';
+import { TasksManagerHeader } from './tasksManager/TasksManagerHeader';
 import { useTasksLifecycle } from '@/app/components/lawyer/dashboard/fieldTasks/useTasksLifecycle';
 import { useQuantumTasksActions } from '@/app/hooks/useQuantumTasksContext';
-import { useAuthSafe } from '@/app/context/AuthContext';
+import { useAuthSafe } from '@/app/context/authHooks';
 import { DistantTasksSection } from './tasksManager/DistantTasksSection';
 import { FatalDeadlinesSection } from './tasksManager/FatalDeadlinesSection';
 import { TasksManagerModals } from './tasksManager/TasksManagerModals';
@@ -12,9 +17,7 @@ import { useTasksManagerController } from './tasksManager/useTasksManagerControl
 import { snoozeAfterDays, dateFromYmdInput } from './tasksManager/utils';
 import {
     TASKS_PAGE,
-    TASKS_HEADER,
     TASKS_BODY,
-    TASKS_GLASS_PANEL,
 } from './tasksManager/tasksBoucleTheme';
 import type { ShareScope } from '@/app/types/taskHelpTypes';
 import { SmartToast } from '@/app/components/ui/SmartToast';
@@ -64,6 +67,14 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
             void flushPersist();
         });
     }, [flushPersist, onClose]);
+
+    const reduceMotion = useReduceMotion();
+    const scrollToTaskCard = useCallback((taskId: string) => {
+        const node = document.querySelector(`[data-testid="tasks-task-card-${taskId}"]`);
+        if (!(node instanceof HTMLElement)) return;
+        node.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
+        node.focus({ preventScroll: true });
+    }, [reduceMotion]);
 
     const handleRequestHelpSubmit = useCallback(
         async (params: {
@@ -115,6 +126,12 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
         ctrl.postponeTaskId !== null ||
         ctrl.helpTarget !== null ||
         ctrl.helpInboxOpen;
+
+    useEffect(() => {
+        if (!ctrl.helpInboxOpen && ctrl.helpTarget === null) return;
+        blockTasksOverlayEscape('manager-help');
+        return () => unblockTasksOverlayEscape('manager-help');
+    }, [ctrl.helpInboxOpen, ctrl.helpTarget]);
 
     const bodyStyle =
         keyboardInsetPx > 0
@@ -230,47 +247,12 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
                 </Suspense>
             ) : null}
 
-            <header className={`${TASKS_HEADER} relative z-[1]`}>
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#E6C673]/22 to-transparent" />
-                <div className="min-w-0 text-right">
-                    <h1 className="text-[#F4F4F5] font-extrabold text-xl truncate tracking-tight">أجندة المهام</h1>
-                    <p className="text-[10px] text-[#E6C673]/55 font-bold mt-0.5">الأسبوع الحالي</p>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0 max-w-[62%]">
-                    <button
-                        type="button"
-                        onClick={() => ctrl.setHelpInboxOpen(true)}
-                        data-testid="tasks-manager-help-inbox"
-                        className={`flex items-center gap-1 min-h-[44px] px-2.5 py-2 rounded-xl border text-[11px] font-extrabold transition-all touch-manipulation ${TASKS_GLASS_PANEL} border-white/[0.08] text-[#F4F4F5]/75 hover:border-[#E6C673]/22`}
-                        aria-label="صندوق طلبات المساعدة"
-                    >
-                        <HandHelping size={15} />
-                        مساعدة
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => ctrl.setShowCompletedArchive((v) => !v)}
-                        data-testid="tasks-manager-completed-toggle"
-                        className={`flex items-center gap-1 min-h-[44px] px-2.5 py-2 rounded-xl border text-[11px] font-extrabold transition-all touch-manipulation ${
-                            ctrl.showCompletedArchive
-                                ? 'border-[#E6C673]/35 bg-[#E6C673]/12 text-[#E6C673]'
-                                : `${TASKS_GLASS_PANEL} border-white/[0.08] text-[#F4F4F5]/75 hover:border-[#E6C673]/22`
-                        }`}
-                    >
-                        <History size={15} />
-                        {ctrl.showCompletedArchive ? 'الأجندة' : 'المنتهية'}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handleClose}
-                        data-testid="tasks-manager-close"
-                        className="w-11 h-11 shrink-0 rounded-xl border border-white/[0.08] bg-[#12182B] flex items-center justify-center text-[#F4F4F5]/75 hover:bg-[#1A2238] hover:text-[#F4F4F5] hover:border-[#E6C673]/22 touch-manipulation"
-                        aria-label="إغلاق"
-                    >
-                        <X size={22} />
-                    </button>
-                </div>
-            </header>
+            <TasksManagerHeader
+                showCompletedArchive={ctrl.showCompletedArchive}
+                onOpenHelpInbox={() => ctrl.setHelpInboxOpen(true)}
+                onToggleCompletedArchive={() => ctrl.setShowCompletedArchive((v) => !v)}
+                onClose={handleClose}
+            />
 
             <div className={`${TASKS_BODY} relative z-[1]`} style={bodyStyle}>
                 {ctrl.showCompletedArchive ? (
@@ -278,10 +260,17 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
                         tasks={ctrl.tasks}
                         now={ctrl.now}
                         onBack={() => ctrl.setShowCompletedArchive(false)}
+                        onReopen={(task) => {
+                            ctrl.reopenTask(task.id);
+                            ctrl.setShowCompletedArchive(false);
+                        }}
                     />
                 ) : (
                     <>
-                        <FatalDeadlinesSection fatalTasks={ctrl.fatalTasks} />
+                        <FatalDeadlinesSection
+                            fatalTasks={ctrl.fatalTasks}
+                            onSelectFatalTask={scrollToTaskCard}
+                        />
 
                         <WeeklyAgendaSection
                             weeklyDayBlocks={ctrl.weeklyDayBlocks}

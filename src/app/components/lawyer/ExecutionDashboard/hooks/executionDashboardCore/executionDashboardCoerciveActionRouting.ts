@@ -11,7 +11,7 @@ export type CoerciveActionRouteResult =
     | { kind: 'redirect_followup'; decisionId: string }
     | { kind: 'save'; subject: { id: string; name: string } };
 
-export function actionTypeToSeizureSubtype(actionType: string): string | null {
+function actionTypeToSeizureSubtype(actionType: string): string | null {
     if (actionType === 'vehicle') return 'movable_auction';
     if (actionType === 'salary' || actionType === 'property') return actionType;
     return null;

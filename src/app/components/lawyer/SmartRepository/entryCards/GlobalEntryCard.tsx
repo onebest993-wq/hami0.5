@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { Eye, Loader2, Pin, Trash2 } from '@/app/components/ui/lucideIcons';
-import { SmartDialog } from '@/app/components/ui/SmartDialog';
+import { Pin } from '@/app/components/ui/icons/Pin';
 import { isVoiceNote } from '@/app/components/lawyer/dashboard/notepadNoteUtils';
 import { VoiceNoteAudio } from '@/app/components/lawyer/dashboard/VoiceNoteAudio';
 import {
@@ -9,12 +8,12 @@ import {
 } from '@/app/services/repository/repositoryUnifiedFeed';
 import { RepositoryEntryContentLayout } from '../RepositoryEntryContentLayout';
 import { RepositoryCardFrame } from '../RepositoryCardFrame';
-import { VaultDossierLinkButton } from '../VaultDossierLinkButton';
-import { REPO_BADGE_GOLD, REPO_CARD_ACTIONS, REPO_CARD_EDIT_LINK, REPO_CARD_ICON_BTN, REPO_CARD_ICON_BTN_ACTIVE, REPO_CARD_TIMESTAMP } from '../smartRepositoryTheme';
+import { REPO_BADGE_GOLD, REPO_CARD_TIMESTAMP } from '../smartRepositoryTheme';
 import type { RepositoryCardInnerLayout } from '../repositoryFeedLayout';
 import { EntryCardInlineEditor } from './EntryCardInlineEditor';
 import { useUniversalEntryCardEdit } from './useUniversalEntryCardEdit';
 import type { UniversalEntryCardProps } from './universalEntryCardTypes';
+import { GlobalEntryCardActions } from './GlobalEntryCardActions';
 
 type GlobalEntryCardProps = Pick<
     UniversalEntryCardProps,
@@ -28,6 +27,8 @@ type GlobalEntryCardProps = Pick<
     | 'onUpdateExecution'
     | 'onLinkGlobalToDossier'
     | 'onViewVaultDoc'
+    | 'rooms'
+    | 'onMoveGlobalToRoom'
 > & {
     item: Extract<UniversalEntryCardProps['item'], { kind: 'global' }>;
     cardRef: React.RefObject<HTMLElement | null>;
@@ -52,6 +53,8 @@ export const GlobalEntryCard = React.memo(function GlobalEntryCard({
     onUpdateExecution,
     onLinkGlobalToDossier,
     onViewVaultDoc,
+    rooms,
+    onMoveGlobalToRoom,
 }: GlobalEntryCardProps) {
     const note = item.note;
     const voice = isVoiceNote(note);
@@ -87,63 +90,19 @@ export const GlobalEntryCard = React.memo(function GlobalEntryCard({
     );
 
     const footerNode = (
-        <div className={REPO_CARD_ACTIONS}>
-            <div className="flex flex-wrap items-center gap-1 min-w-0">
-                {!voice ? (
-                    <button type="button" onClick={edit.startEdit} className={REPO_CARD_EDIT_LINK}>
-                        تعديل
-                    </button>
-                ) : null}
-                <button
-                    type="button"
-                    onClick={toggleGlobalPin}
-                    className={note.isPinned ? REPO_CARD_ICON_BTN_ACTIVE : REPO_CARD_ICON_BTN}
-                    aria-label={note.isPinned ? 'إلغاء التثبيت' : 'تثبيت'}
-                    aria-pressed={note.isPinned}
-                    data-testid={`repository-note-pin-${note.id}`}
-                >
-                    <Pin size={14} className={note.isPinned ? 'fill-current' : undefined} />
-                </button>
-                <VaultDossierLinkButton
-                    dossiers={dossiers}
-                    onConfirm={async (dossier) => onLinkGlobalToDossier(note, dossier)}
-                />
-                {note.attachmentDocId && onViewVaultDoc ? (
-                    attachment ? (
-                        <button
-                            type="button"
-                            onClick={() => void onViewVaultDoc(attachment)}
-                            className={`${REPO_CARD_ICON_BTN} text-white/45 hover:text-[#E6C673]`}
-                            aria-label="عرض المرفق"
-                            data-testid={`repository-global-attachment-view-${attachment.id}`}
-                        >
-                            <Eye size={14} />
-                        </button>
-                    ) : (
-                        <button
-                            type="button"
-                            disabled
-                            className={`${REPO_CARD_ICON_BTN} text-white/30 opacity-60`}
-                            aria-label="جاري تحميل المرفق"
-                            title="جاري تحميل المرفق..."
-                        >
-                            <Loader2 size={14} className="animate-spin" />
-                        </button>
-                    )
-                ) : null}
-            </div>
-            <button
-                type="button"
-                onClick={async () => {
-                    const ok = await SmartDialog.confirm('حذف هذه البطاقة؟');
-                    if (ok) onDeleteGlobal(note.id);
-                }}
-                className={`${REPO_CARD_ICON_BTN} text-white/40 hover:text-red-400 hover:border-red-400/25`}
-                aria-label="حذف"
-            >
-                <Trash2 size={14} />
-            </button>
-        </div>
+        <GlobalEntryCardActions
+            note={note}
+            voice={voice}
+            attachment={attachment}
+            dossiers={dossiers}
+            rooms={rooms}
+            onStartEdit={edit.startEdit}
+            onTogglePin={toggleGlobalPin}
+            onLinkGlobalToDossier={onLinkGlobalToDossier}
+            onMoveGlobalToRoom={onMoveGlobalToRoom}
+            onViewVaultDoc={onViewVaultDoc}
+            onDeleteGlobal={onDeleteGlobal}
+        />
     );
 
     if (edit.editing && !voice) {
@@ -189,7 +148,7 @@ export const GlobalEntryCard = React.memo(function GlobalEntryCard({
                         voiceSlot={voice ? <VoiceNoteAudio body={note.body || ''} className="mb-2" /> : undefined}
                         bodyClassName={bodyClampClass.trim()}
                     />
-                    {note.quickTaskLines?.length && innerLayout !== 'compact' ? (
+                    {note.quickTaskLines?.length ? (
                         <ul className="space-y-1 mt-2">
                             {note.quickTaskLines.map((line) => (
                                 <li key={line} className="flex items-center gap-2 text-xs text-white/70">

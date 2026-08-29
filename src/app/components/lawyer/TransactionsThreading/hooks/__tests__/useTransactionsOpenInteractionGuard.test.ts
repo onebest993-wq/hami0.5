@@ -1,6 +1,9 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useTransactionsOpenInteractionGuard } from '@/app/components/lawyer/TransactionsThreading/hooks/useTransactionsOpenInteractionGuard';
+import {
+    OPEN_GUARD_FALLBACK_MS,
+    useTransactionsOpenInteractionGuard,
+} from '@/app/components/lawyer/TransactionsThreading/hooks/useTransactionsOpenInteractionGuard';
 
 describe('useTransactionsOpenInteractionGuard', () => {
     beforeEach(() => {
@@ -11,7 +14,7 @@ describe('useTransactionsOpenInteractionGuard', () => {
         vi.useRealTimers();
     });
 
-    it('يبقى غير تفاعلي حتى انتهاء نافذة الحماية بعد الفتح', () => {
+    it('يفكّ الحماية فور pointerup بعد الفتح', () => {
         const { result, rerender } = renderHook(
             ({ open }) => useTransactionsOpenInteractionGuard(open),
             { initialProps: { open: false } },
@@ -23,7 +26,22 @@ describe('useTransactionsOpenInteractionGuard', () => {
         expect(result.current).toBe(false);
 
         act(() => {
-            vi.advanceTimersByTime(419);
+            window.dispatchEvent(new Event('pointerup'));
+        });
+        expect(result.current).toBe(true);
+    });
+
+    it('يفكّ الحماية بعد نافذة الاحتياط إن لم يصل pointerup', () => {
+        const { result, rerender } = renderHook(
+            ({ open }) => useTransactionsOpenInteractionGuard(open),
+            { initialProps: { open: false } },
+        );
+
+        rerender({ open: true });
+        expect(result.current).toBe(false);
+
+        act(() => {
+            vi.advanceTimersByTime(OPEN_GUARD_FALLBACK_MS - 1);
         });
         expect(result.current).toBe(false);
 
@@ -40,7 +58,7 @@ describe('useTransactionsOpenInteractionGuard', () => {
         );
 
         act(() => {
-            vi.advanceTimersByTime(500);
+            window.dispatchEvent(new Event('pointerup'));
         });
         expect(result.current).toBe(true);
 

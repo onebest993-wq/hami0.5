@@ -2,22 +2,29 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatc
 import { flushSync } from 'react-dom';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { executeOverlaySnapClose } from '@/app/runtime/overlaySnapClose';
-import { isRealSignedIn } from '@/app/services/auth/shellAuth';
+import {
+    beginTransactionsShellExit,
+    clearTransactionsShellClosing,
+} from '@/app/hooks/lawyerDashboard/transactions/transactionsShellExit';
+import { executeTransactionsOverlayClose } from '@/app/runtime/overlaySnapClose';
+import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
 import {
     openTransactionsFromShell,
     TRANSACTIONS_SHELL_FEATURE,
 } from '@/app/services/transactions/transactionsShellNavigation';
-/** Matches transactionsBootHydrator.ts — local to avoid sync stem pull. */
-const TRANSACTIONS_PRIME_HOST_EVENT = 'hami:transactions-prime-host';
-
-function loadTransactionsBootHydrator() {
-    return import('@/app/runtime/transactionsBootHydrator');
-}
+import {
+    snapTransactionsShellClose,
+    snapTransactionsShellOpen,
+    isTransactionsShellSnappedOpen,
+} from '@/app/services/transactions/transactionsShellSnap';
+import {
+    clearTransactionsEnterSettle,
+    paintTransactionsInstantChrome,
+} from '@/app/runtime/transactionsInstantPaint';
 import type { LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
 import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
 import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
-import { useKeepAliveIdleRelease } from '@/app/hooks/lawyerDashboard/useKeepAliveIdleRelease';
+import { deferShellConcealAfterHandoff, isShellHandoffPending } from '@/app/runtime/sectionShellHandoff';
 import {
     persistTransactionsSessionOpen,
     readInitialTransactionsSession,
@@ -26,16 +33,17 @@ import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
 import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
 import { subscribeOpenTransactionsHub } from '@/app/services/transactions/procedureGuideNavigation';
 import { warmTransactionsDiskRead } from '@/app/services/transactions/transactionsDiskWarm';
-import {
-    warmTransactionsThreadingStore,
-} from '@/app/modules/transactionsThreading/store';
+import { blurFocusWithin } from '@/app/utils/inertProps';
+
+/** Matches transactionsBootHydrator.ts — local to avoid sync stem pull. */
+const TRANSACTIONS_PRIME_HOST_EVENT = 'hami:transactions-prime-host';
+
+function loadTransactionsBootHydrator() {
+    return import('@/app/runtime/transactionsBootHydrator');
+}
 
 function loadTransactionsIntentWarm() {
     return import('@/app/hooks/lawyerDashboard/transactionsIntentWarm');
-}
-
-function loadTransactionsHubLoader() {
-    return import('@/app/runtime/transactionsHubLoader');
 }
 
 export type UseLawyerDashboardTransactionsParams = {
@@ -51,49 +59,54 @@ export function useLawyerDashboardTransactions({
 }: UseLawyerDashboardTransactionsParams) {
     const [initialSession] = useState(() => readInitialTransactionsSession());
     const [showTransactions, setShowTransactions] = useState(() => initialSession.open);
-    const [transactionsHostMounted, setTransactionsHostMounted] = useState(
-        () => initialSession.open,
-    );
     const [transactionsSessionKey, setTransactionsSessionKey] = useState(0);
     const [transactionsFocusId, setTransactionsFocusId] = useState<string | undefined>();
     const showTransactionsRef = useRef(initialSession.open);
+    const closingRef = useRef(false);
     showTransactionsRef.current = showTransactions;
 
     const closeTransactionsHub = useCallback(() => {
-        showTransactionsRef.current = false;
-        executeOverlaySnapClose({
-            commit: () => {
-                setShowTransactions(false);
-                setTransactionsFocusId(undefined);
-            },
+        if (closingRef.current) return;
+        closingRef.current = true;
+        beginTransactionsShellExit(() => {
+            showTransactionsRef.current = false;
+            executeTransactionsOverlayClose({
+                conceal: () => {
+                    if (typeof document !== 'undefined') {
+                        const hub = document.querySelector('[data-testid="transactions-hub"]');
+                        blurFocusWithin(hub instanceof HTMLElement ? hub : null);
+                    }
+                    snapTransactionsShellClose();
+                },
+                commit: () => {
+                    flushSync(() => {
+                        setShowTransactions(false);
+                        setTransactionsFocusId(undefined);
+                        persistTransactionsSessionOpen(false);
+                    });
+                    closingRef.current = false;
+                },
+            });
         });
-        persistTransactionsSessionOpen(false);
     }, []);
 
-    const armTransactionsHost = useCallback(() => {
-        setTransactionsHostMounted(true);
+    const warmTransactionsPrimeChain = useCallback(() => {
         void ensureDeferredFeatureStylesLoaded();
-        void loadTransactionsIntentWarm().then((m) => m.primeTransactionsShellForOpen());
-    }, []);
+        void loadTransactionsIntentWarm().then((m) => m.primeTransactionsShellForOpen(userId));
+    }, [userId]);
 
+    /** لمسة البلاطة: قرص + مقطع — بلا تركيب Host حتى الفتح */
     const primeTransactionsHubMount = useCallback(() => {
         warmTransactionsDiskRead(userId);
-        void loadTransactionsIntentWarm().then((m) => m.warmTransactionsOnHover(userId));
-        armTransactionsHost();
-    }, [armTransactionsHost, userId]);
+        warmTransactionsPrimeChain();
+    }, [userId, warmTransactionsPrimeChain]);
 
-    /** ركّب Host مخفياً فور وجود هوية — قبل أول لمسة معاملات (مثل الإعدادات) */
+    /** تسخين القرص فور وجود هوية — بلا تركيب Host حتى اللمسة أو الفتح */
     useLayoutEffect(() => {
         const uid = userId?.trim();
-        if (!uid || !isRealSignedIn(uid)) return;
+        if (!uid || !hasLocalAppSession(uid)) return;
         warmTransactionsDiskRead(uid);
-        armTransactionsHost();
-        void loadTransactionsIntentWarm().then((m) => m.warmTransactionsOnHover(uid));
-        void loadTransactionsHubLoader().then((m) => m.loadTransactionsHubModule()).catch(() => undefined);
-        void import('@/app/modules/transactionsThreading/store')
-            .then((m) => m.warmTransactionsThreadingStore(uid))
-            .catch(() => undefined);
-    }, [armTransactionsHost, userId]);
+    }, [userId]);
 
     useEffect(() => {
         let disposed = false;
@@ -117,43 +130,45 @@ export function useLawyerDashboardTransactions({
     }, [userId]);
 
     useEffect(() => {
-        return registerDashboardOverlayCloser('transactions', () => {
-            showTransactionsRef.current = false;
-            setShowTransactions(false);
-            setTransactionsFocusId(undefined);
-            persistTransactionsSessionOpen(false);
+        return registerDashboardOverlayCloser('transactions', closeTransactionsHub);
+    }, [closeTransactionsHub]);
+
+    useLayoutEffect(() => {
+        if (showTransactions) {
+            snapTransactionsShellOpen();
+            return;
+        }
+        return deferShellConcealAfterHandoff(() => {
+            if (isShellHandoffPending('transactions') || showTransactionsRef.current) return;
+            if (isTransactionsShellSnappedOpen()) {
+                snapTransactionsShellClose();
+            }
         });
-    }, []);
-
-    useKeepAliveIdleRelease(showTransactions, () => setTransactionsHostMounted(false));
-
-    useEffect(() => {
-        persistTransactionsSessionOpen(showTransactions);
     }, [showTransactions]);
 
-    /** استعادة بعد F5: ثبّت host + سخّن */
+    /** بلا جلسة محلية — أغلق المركز ولا تُبقِ Host دافئاً */
     useEffect(() => {
-        if (!showTransactions || !isRealSignedIn(userId)) return;
-        armTransactionsHost();
-        void loadTransactionsIntentWarm().then((m) => m.warmTransactionsOnOpen(userId));
-        void loadTransactionsBootHydrator()
-            .then((m) => m.hydrateTransactionsBootShellForInstantOpen(userId, true))
-            .catch(() => undefined);
-        void loadTransactionsHubLoader().then((m) => m.loadTransactionsHubModule()).catch(() => undefined);
-    }, [armTransactionsHost, showTransactions, userId]);
+        if (hasLocalAppSession(userId)) return;
+        closingRef.current = false;
+        clearTransactionsEnterSettle();
+        clearTransactionsShellClosing();
+        showTransactionsRef.current = false;
+        snapTransactionsShellClose();
+        setShowTransactions(false);
+        setTransactionsFocusId(undefined);
+        persistTransactionsSessionOpen(false);
+    }, [userId]);
 
     /**
      * بعد dashboard-interactive: تسخين chunk فقط — بلا arm Host
-     * (مثل الملف/البحث؛ التركيب عند نية/فتح فقط).
      */
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
         const scheduleWarm = () => {
-        void loadTransactionsIntentWarm().then((m) => m.warmTransactionsOnHover(userId));
-        void loadTransactionsBootHydrator()
-            .then((m) => m.prefetchTransactionsAfterBootReveal(userId))
-            .catch(() => undefined);
+            void loadTransactionsBootHydrator()
+                .then((m) => m.prefetchTransactionsAfterBootReveal(userId))
+                .catch(() => undefined);
         };
 
         return onDashboardInteractive(scheduleWarm);
@@ -163,34 +178,40 @@ export function useLawyerDashboardTransactions({
         if (typeof window === 'undefined') return;
         const onPrime = () => {
             primeTransactionsHubMount();
-            void loadTransactionsBootHydrator()
-                .then((m) => m.hydrateTransactionsBootShellForInstantOpen(userId, true))
-                .catch(() => undefined);
         };
         window.addEventListener(TRANSACTIONS_PRIME_HOST_EVENT, onPrime);
         return () => window.removeEventListener(TRANSACTIONS_PRIME_HOST_EVENT, onPrime);
-    }, [primeTransactionsHubMount, userId]);
+    }, [primeTransactionsHubMount]);
 
     const openTransactionsHub = useCallback(
         (focusId?: string) => {
             openTransactionsFromShell({
-                signedIn: isRealSignedIn(userId),
+                signedIn: hasLocalAppSession(userId),
                 onSignedOut: () =>
                     SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${TRANSACTIONS_SHELL_FEATURE}`),
                 onOpen: () => {
+                    if (closingRef.current) {
+                        closingRef.current = false;
+                        clearTransactionsShellClosing();
+                        if (focusId !== undefined) setTransactionsFocusId(focusId);
+                        else setTransactionsFocusId(undefined);
+                        paintTransactionsInstantChrome();
+                        persistTransactionsSessionOpen(true);
+                        return;
+                    }
+
                     if (showTransactionsRef.current) {
                         if (focusId !== undefined) setTransactionsFocusId(focusId);
                         else setTransactionsFocusId(undefined);
                         return;
                     }
 
+                    closingRef.current = false;
+                    clearTransactionsShellClosing();
                     warmTransactionsDiskRead(userId);
-                    if (userId) {
-                        void warmTransactionsThreadingStore(userId);
-                    }
-
+                    paintTransactionsInstantChrome();
                     flushSync(() => {
-                        armTransactionsHost();
+                        warmTransactionsPrimeChain();
                         if (focusId !== undefined) setTransactionsFocusId(focusId);
                         else setTransactionsFocusId(undefined);
                         showTransactionsRef.current = true;
@@ -203,22 +224,13 @@ export function useLawyerDashboardTransactions({
                         setArchiveType(null);
                         setShowLawsuitsWorkspace(false);
                         void loadTransactionsIntentWarm().then((m) => {
-                            m.primeTransactionsShellForOpen();
                             m.warmTransactionsOnOpen(userId);
                         });
-                        void loadTransactionsBootHydrator()
-                            .then((m) =>
-                                m.hydrateTransactionsBootShellForInstantOpen(userId, true),
-                            )
-                            .catch(() => undefined);
-                        void loadTransactionsHubLoader()
-                            .then((m) => m.loadTransactionsHubModule())
-                            .catch(() => undefined);
                     });
                 },
             });
         },
-        [armTransactionsHost, setArchiveType, setShowLawsuitsWorkspace, userId],
+        [setArchiveType, setShowLawsuitsWorkspace, userId, warmTransactionsPrimeChain],
     );
 
     useEffect(() => {
@@ -228,8 +240,12 @@ export function useLawyerDashboardTransactions({
     }, [openTransactionsHub]);
 
     const resetTransactionsShell = useCallback(() => {
+        closingRef.current = false;
+        clearTransactionsEnterSettle();
+        clearTransactionsShellClosing();
         setTransactionsSessionKey((k) => k + 1);
         showTransactionsRef.current = false;
+        snapTransactionsShellClose();
         setShowTransactions(false);
         setTransactionsFocusId(undefined);
         persistTransactionsSessionOpen(false);
@@ -237,7 +253,6 @@ export function useLawyerDashboardTransactions({
 
     return {
         showTransactions,
-        transactionsHostMounted,
         setShowTransactions,
         closeTransactionsHub,
         transactionsSessionKey,

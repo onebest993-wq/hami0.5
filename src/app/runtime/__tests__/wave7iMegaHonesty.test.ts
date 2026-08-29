@@ -6,15 +6,27 @@ const root = process.cwd();
 const cs = path.join(root, 'src/app/components/lawyer/criminal-system');
 
 describe('wave7i mega honesty', () => {
-    it('lawyerRequest يركّب detention + judicial lifecycle', () => {
+    it('lawyerRequest يركّب detention + judicial lifecycle + crud/create/trash', () => {
         const t = fs.readFileSync(path.join(cs, 'criminalStoreLawyerRequestActions.ts'), 'utf8');
         expect(t).toContain('createCriminalDetentionDecisionActions');
         expect(t).toContain('createCriminalJudicialDecisionLifecycleActions');
+        expect(t).toContain('createCriminalLawyerRequestCrudActions');
+        expect(t).toContain('createCriminalLawyerRequestCreateActions');
+        expect(t).toContain('createCriminalLawyerRequestTrashActions');
         expect(t).not.toContain('extendDetentionOnDecision:');
         expect(t).not.toContain('fileJudicialDecisionAppeal:');
-        expect(t.trimEnd().split(/\r?\n/).length).toBeLessThanOrEqual(600);
-        expect(fs.existsSync(path.join(cs, 'criminalStoreDetentionDecisionActions.ts'))).toBe(true);
-        expect(fs.existsSync(path.join(cs, 'criminalStoreJudicialDecisionLifecycleActions.ts'))).toBe(true);
+        expect(t.trimEnd().split(/\r?\n/).length).toBeLessThanOrEqual(80);
+        for (const slice of [
+            'criminalStoreDetentionDecisionActions.ts',
+            'criminalStoreJudicialDecisionLifecycleActions.ts',
+            'criminalStoreLawyerRequestCrudActions.ts',
+            'criminalStoreLawyerRequestCreateActions.ts',
+            'criminalStoreLawyerRequestTrashActions.ts',
+            'criminalStoreLawyerRequestCreatePayload.ts',
+            'criminalStoreLawyerRequestAssetSeizureApply.ts',
+        ]) {
+            expect(fs.existsSync(path.join(cs, slice))).toBe(true);
+        }
     });
 
     it('sessionDraft يركّب complainant + defendant', () => {

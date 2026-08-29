@@ -1,0 +1,129 @@
+/* ── استوديو الصور: شبكة الأشكال ── */
+.profile-studio-media-shape-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.45rem;
+}
+
+.profile-studio-media-shape-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.5rem 0.25rem 0.4rem;
+    border-radius: 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.28));
+    transition: all 0.18s ease;
+}
+
+.profile-studio-media-shape-chip[data-selected='true'] {
+    border-color: color-mix(in srgb, var(--profile-accent, #e6c673) 52%, transparent);
+    background: linear-gradient(
+        165deg,
+        color-mix(in srgb, var(--profile-accent, #e6c673) 14%, rgba(255, 255, 255, 0.05)),
+        rgba(0, 0, 0, 0.32)
+    );
+    box-shadow: 0 0 18px color-mix(in srgb, var(--profile-accent, #e6c673) 14%, transparent);
+}
+
+.profile-studio-media-shape-chip__preview {
+    width: 2.4rem;
+    height: 2.4rem;
+    background:
+        radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.22), transparent 42%),
+        linear-gradient(145deg, color-mix(in srgb, var(--profile-accent, #e6c673) 42%, #1a1520), rgba(8, 10, 18, 0.92));
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.profile-studio-media-shape-chip[data-template='vault'] .profile-studio-media-shape-chip__preview,
+.profile-studio-media-shape-chip[data-template='cinema'] .profile-studio-media-shape-chip__preview {
+    border-radius: 0.55rem;
+}
+
+.profile-studio-media-shape-chip[data-template='perspective'] .profile-studio-media-shape-chip__preview {
+    transform: perspective(120px) rotateY(-12deg) rotateX(8deg);
+}
+
+.profile-studio-media-shape-chip__label {
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.52);
+}
+
+.profile-studio-media-shape-chip[data-selected='true'] .profile-studio-media-shape-chip__label {
+    color: var(--profile-accent, #e6c673);
+}
+
+/* ── حواف الإطار ── */
+.profile-studio-rim-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.4rem;
+}
+
+.profile-studio-rim-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.25rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.22);
+    transition: all 0.18s ease;
+}
+
+.profile-studio-rim-chip[data-selected='true'] {
+    border-color: color-mix(in srgb, var(--profile-accent, #e6c673) 48%, transparent);
+    background: color-mix(in srgb, var(--profile-accent, #e6c673) 10%, rgba(0, 0, 0, 0.28));
+}
+
+.profile-studio-rim-chip__frame {
+    width: 2.15rem;
+    height: 1.45rem;
+    border-radius: 0.4rem;
+    background:
+        linear-gradient(#0a0f1c, #0a0f1c) padding-box,
+        linear-gradient(135deg, var(--img-accent, #e6c673), color-mix(in srgb, var(--img-accent, #e6c673) 40%, #000))
+            border-box;
+    border: 2px solid transparent;
+}
+
+.profile-studio-rim-chip[data-rim='minimal'] .profile-studio-rim-chip__frame {
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: #0a0f1c;
+}
+
+.profile-studio-rim-chip[data-rim='gold'] .profile-studio-rim-chip__frame {
+    border: 3px solid var(--img-accent, #e6c673);
+    background: #0a0f1c;
+    box-shadow: 0 0 8px color-mix(in srgb, var(--img-accent, #e6c673) 35%, transparent);
+}
+
+.profile-studio-rim-chip[data-rim='ornate'] .profile-studio-rim-chip__frame {
+    border: 4px double var(--img-accent, #e6c673);
+    background: #0a0f1c;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+
+.profile-studio-rim-chip[data-rim='neon'] .profile-studio-rim-chip__frame {
+    border: 2px solid color-mix(in srgb, var(--img-accent, #e6c673) 80%, #fff);
+    background: #0a0f1c;
+    box-shadow:
+        0 0 10px color-mix(in srgb, var(--img-accent, #e6c673) 55%, transparent),
+        0 0 2px var(--img-accent, #e6c673);
+}
+
+.profile-studio-rim-chip__label {
+    font-size: 8px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.profile-studio-rim-chip[data-selected='true'] .profile-studio-rim-chip__label {
+    color: var(--profile-accent, #e6c673);
+}

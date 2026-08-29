@@ -1,10 +1,11 @@
 import type { Page } from '@playwright/test';
-import { applyE2eBootHomeLayoutAtRuntime, bootToLawyerHome } from './bootFixtures';
+import { applyE2eBootHomeLayoutAtRuntime, bootToLawyerHome, gotoAppPath } from './bootFixtures';
 import { writeE2eSecureStoreKey } from './secureStoreE2EFixtures';
 
 export const VAULT_DOCS_KEY = 'hami:smartvault:docs:v1';
 export const VAULT_CATEGORIES_KEY = 'hami:smartvault:custom-categories:v1';
-export const E2E_VAULT_USER_ID = 'dev-user-uuid-1';
+/** يطابق جلسة Vite/E2E عند VITE_SHELL_AUTH_OPEN — لا `dev-user-uuid-1` */
+export const E2E_VAULT_USER_ID = 'guest-lawyer-1';
 
 type E2eVaultDoc = {
     id: string;
@@ -57,18 +58,45 @@ export async function clearVaultStorage(page: Page) {
 }
 
 export async function hydrateVaultDocsForE2E(page: Page, docs: E2eVaultDoc[] = [buildE2eVaultDoc()]) {
-    const payload = JSON.stringify(docs);
+    const stamped = docs.map((doc) => ({
+        ...doc,
+        authorId: doc.authorId?.trim() || E2E_VAULT_USER_ID,
+    }));
+    const payload = JSON.stringify(stamped);
     await writeE2eSecureStoreKey(page, VAULT_DOCS_KEY, payload);
     await page.evaluate(
-        ({ docsKey, json }) => {
-            localStorage.setItem(docsKey, json);
+        async ({ docsKey, json, userId }) => {
+            try {
+                localStorage.setItem(docsKey, json);
+            } catch {
+                /* ignore */
+            }
+            const bridge = (
+                window as Window & {
+                    __hamiE2eSecureStore?: { setItem: (key: string, value: string) => Promise<void> };
+                }
+            ).__hamiE2eSecureStore;
+            try {
+                await bridge?.setItem(docsKey, json);
+            } catch {
+                /* ignore */
+            }
+            window.dispatchEvent(
+                new CustomEvent('hami:smart-vault-docs-updated', {
+                    detail: { userId, docs: JSON.parse(json) as unknown[] },
+                }),
+            );
         },
-        { docsKey: VAULT_DOCS_KEY, json: payload },
+        { docsKey: VAULT_DOCS_KEY, json: payload, userId: E2E_VAULT_USER_ID },
     );
 }
 
 export async function seedVaultDocs(page: Page, docs: E2eVaultDoc[] = [buildE2eVaultDoc()]) {
-    const payload = JSON.stringify(docs);
+    const stamped = docs.map((doc) => ({
+        ...doc,
+        authorId: doc.authorId?.trim() || E2E_VAULT_USER_ID,
+    }));
+    const payload = JSON.stringify(stamped);
     await page.addInitScript(
         ({ docsKey, raw, dbName, dbVersion, storeName }) => {
             localStorage.setItem(docsKey, raw);
@@ -106,9 +134,9 @@ export async function bootLawyerHomeWithVaultDocs(
     docs: E2eVaultDoc[] = [buildE2eVaultDoc()],
 ): Promise<void> {
     await seedVaultDocs(page, docs);
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await gotoAppPath(page, '/');
     await hydrateVaultDocsForE2E(page, docs);
-    await page.goto(`/?_hami_vault_e2e=${Date.now()}`, { waitUntil: 'domcontentloaded' });
+    await gotoAppPath(page, `/?_hami_vault_e2e=${Date.now()}`);
     await applyE2eBootHomeLayoutAtRuntime(page);
     await bootToLawyerHome(page);
 }

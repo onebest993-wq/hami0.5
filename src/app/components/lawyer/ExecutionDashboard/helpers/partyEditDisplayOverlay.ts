@@ -24,7 +24,7 @@ function emit(): void {
     listeners.forEach((listener) => listener());
 }
 
-export function partyEditSurfaceSelector(kind: PartyEditDisplayKind, partyId: string): string {
+function partyEditSurfaceSelector(kind: PartyEditDisplayKind, partyId: string): string {
     return `[data-party-edit-surface="${overlayKey(kind, partyId)}"]`;
 }
 
@@ -128,17 +128,7 @@ function getSnapshot(): number {
     return version;
 }
 
-export function usePartyEditDisplayOverlay(
-    kind: PartyEditDisplayKind,
-    partyId: string | number | null | undefined,
-): PartyEditDisplayOverlay | null {
-    useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-    const id = partyId != null ? String(partyId).trim() : '';
-    if (!id) return null;
-    return getPartyEditDisplayOverlay(kind, id);
-}
-
-export function applyPartyEditDisplayOverlayToParty<T extends Record<string, unknown>>(
+function applyPartyEditDisplayOverlayToParty<T extends Record<string, unknown>>(
     party: T,
     kind: PartyEditDisplayKind,
     fallbackKeys: string[] = [],

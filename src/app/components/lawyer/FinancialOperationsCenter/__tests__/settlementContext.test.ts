@@ -222,6 +222,20 @@ describe('settlement lifecycle sync with ledger remaining', () => {
                 pendingSettlement: breach.store.pendingSettlement,
             })
         ).toBe(true);
+        expect(
+            baseContext({
+                settlementBreachTriggeredAt: breach.store.settlementBreachTriggeredAt,
+                pendingSettlement: breach.store.pendingSettlement,
+                panelOpen: false,
+            }).showAmountGuarantorRequest
+        ).toBe(true);
+        expect(
+            baseContext({
+                settlementBreachTriggeredAt: breach.store.settlementBreachTriggeredAt,
+                pendingSettlement: breach.store.pendingSettlement,
+                hideAllGuarantorPresence: true,
+            }).showAmountGuarantorRequest
+        ).toBe(false);
 
         const remainingFromLedger = resolveRemainingBalanceFromFinancialCenter({
             executionId: 'exec-test',

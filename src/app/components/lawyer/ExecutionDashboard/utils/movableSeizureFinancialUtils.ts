@@ -11,7 +11,6 @@ import {
     persistReconciledTrustStore,
     pickFirstPositiveIqd,
     resolveTotalOwedForStore,
-    seizureProceedsLedgerGapIqd,
     upsertTrustCollectPayment,
     type SeizureTrustCollectCreditResult,
 } from './seizureFinancialTrustLedgerUtils';
@@ -147,17 +146,4 @@ export function creditMovableProceedsForExecution(
         totalOwedIqd: totals.totalOwedUnified,
         ledgerParams,
     });
-}
-
-/** للتحقق: هل رصيد الأمانات يغطي حصيلة منقول مباع؟ */
-export function movableProceedsLedgerGapIqd(
-    executionId: string,
-    movable: SeizedMovable
-): { expected: number; credited: number; gap: number } {
-    const expected = resolveMovableSaleProceedsIqd(movable);
-    return seizureProceedsLedgerGapIqd(
-        executionId,
-        expected,
-        movableProceedsTrustPaymentId(String(movable.id || ''))
-    );
 }

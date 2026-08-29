@@ -88,7 +88,7 @@ export const ExecutionTimelineFilterBar: React.FC<ExecutionTimelineFilterBarProp
                                 title={label}
                                 ref={(el) => bindChipRef(label, el)}
                                 onClick={() => setActiveTimelineFilter(label)}
-                                className={`snap-start inline-flex min-h-[40px] shrink-0 touch-manipulation items-center gap-1.5 rounded-full border px-3 text-[11px] font-bold transition-colors ${
+                                className={`snap-start inline-flex min-h-[44px] shrink-0 touch-manipulation items-center gap-1.5 rounded-full border px-3 text-[11px] font-bold transition-colors ${
                                     active
                                         ? 'border-[#E6C673]/45 bg-[#E6C673]/15 text-[#F4E4B0] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
                                         : 'border-white/[0.08] bg-[#0B1120]/80 text-slate-400 hover:border-white/15 hover:text-slate-200'
@@ -124,7 +124,7 @@ export const ExecutionTimelineFilterBar: React.FC<ExecutionTimelineFilterBarProp
                 <button
                     type="button"
                     onClick={() => setShowOnlyActiveFileTimeline((v) => !v)}
-                    className={`inline-flex min-h-[40px] w-full touch-manipulation items-center justify-center rounded-xl border px-3 text-[10px] font-semibold transition-colors ${
+                    className={`inline-flex min-h-[44px] w-full touch-manipulation items-center justify-center rounded-xl border px-3 text-[10px] font-semibold transition-colors ${
                         showOnlyActiveFileTimeline
                             ? 'border-indigo-400/35 bg-indigo-500/10 text-indigo-100'
                             : 'border-white/[0.08] bg-[#0B1120]/60 text-slate-400 hover:text-slate-200'

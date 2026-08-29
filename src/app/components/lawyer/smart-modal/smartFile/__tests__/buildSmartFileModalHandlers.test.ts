@@ -21,7 +21,6 @@ describe('buildSmartFileModalHandlers', () => {
             handleResumeInterruptionConfirm: noop,
             handleInterlocutoryAppealConfirm: noop,
             handleRegisterObjection: noop,
-            handleObjectionJudgment: noop,
             handleAbsentJudgmentNotification: noop,
             handleOpponentAbsentObjection: noop,
             handleRestoreEvent: noop,

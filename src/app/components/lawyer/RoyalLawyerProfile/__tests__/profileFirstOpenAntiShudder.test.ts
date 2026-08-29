@@ -20,12 +20,40 @@ describe('profile open stability (simple path)', () => {
         expect(indexSrc).not.toContain('useProfileFrameReveal');
         expect(indexSrc).not.toContain('profile-frame-cover');
         expect(indexSrc).not.toContain('revealFinal');
-        expect(indexSrc).toContain('بلا بوابة settle');
+        expect(indexSrc).not.toContain('ProfileInstantShell');
+        expect(indexSrc).not.toContain('profileShellReady');
     });
 
-    it('يستورد CSS الأقسام متزامناً', () => {
-        expect(fxCss).toContain('profilePageSectionFx.css');
+    it('برميل أول رسم: كروم/هيرو/أقسام — الكتل خارج الصفحة الفارغة', () => {
+        expect(fxCss).toContain('profilePageHeroFx.css');
         expect(fxCss).toContain('profilePortraitFrameFx.css');
+        expect(fxCss).toContain('profilePageSectionFx.css');
+        expect(fxCss).not.toContain('profilePageBlockFx.css');
+        expect(contentSrc).toContain('ProfileFirstPaintTree');
+        expect(contentSrc).not.toContain('useProfileBelowFoldArmed');
+        expect(contentSrc).not.toContain('lazy(() =>');
+        const firstTreeSrc = readFileSync(
+            resolve(__dirname, '../components/ProfileFirstPaintTree.tsx'),
+            'utf8',
+        );
+        expect(firstTreeSrc).toContain('ProfileContentBodySections');
+        const body = readFileSync(
+            resolve(__dirname, '../components/ProfileContentBodySections.tsx'),
+            'utf8',
+        );
+        expect(body).toContain('data-profile-page-body');
+        expect(body).toContain('ProfileCustomBlocksLazy');
+        expect(body).toContain('ProfileContactSection');
+        expect(body).toContain('ProfileGallerySection');
+        expect(body).not.toContain("lazy(() =>\n    import('./ProfileContactSection')");
+        expect(body).not.toContain("lazy(() =>\n    import('./ProfileGallerySection')");
+        expect(body).not.toContain('profilePageSectionFx.css');
+        expect(body).not.toContain('profilePageBlockFx.css');
+        const blocks = readFileSync(
+            resolve(__dirname, '../components/ProfileCustomBlocks.tsx'),
+            'utf8',
+        );
+        expect(blocks).toContain('profilePageBlockFx.css');
     });
 
     it('سطح preserve بلا translate — كشف بـ z-index تحت غطاء الرئيسية', () => {
@@ -35,8 +63,9 @@ describe('profile open stability (simple path)', () => {
         expect(enterCss).toContain('لا translate/opacity');
     });
 
-    it('يطابق InstantShell 132px', () => {
-        expect(chromeCss).toContain('8.25rem');
+    it('كروم الملف بارتفاع صف ثابت (لا هيكل InstantShell الميت)', () => {
+        expect(chromeCss).toContain('--profile-chrome-header-height: 3.25rem');
+        expect(chromeCss).not.toContain('8.25rem');
     });
 
     it('لا يخفي المحتوى بـ visibility/contentVisibility', () => {
@@ -44,9 +73,9 @@ describe('profile open stability (simple path)', () => {
         expect(contentSrc).not.toContain("contentVisibility: 'hidden'");
     });
 
-    it('صورة بلا opacity 0→100 وبلا بوابة Image قبل الرسم', () => {
-        expect(avatarSrc).toContain('بلا بوابة Image()/opacity');
-        expect(avatarSrc).not.toContain('opacity-0');
-        expect(avatarSrc).not.toContain('new Image()');
+    it('لا يربط زر الرجوع بـ screenActive — يمنع قفزة تركيب الكروم عند الفتح', () => {
+        const indexSrc = readFileSync(resolve(__dirname, '../index.tsx'), 'utf8');
+        expect(indexSrc).toContain('isScreenMode && onBack ?');
+        expect(indexSrc).not.toContain('isScreenMode && onBack && screenActive');
     });
 });

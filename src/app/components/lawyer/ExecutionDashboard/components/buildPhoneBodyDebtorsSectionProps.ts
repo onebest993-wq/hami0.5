@@ -1,11 +1,13 @@
 import { heirsDetailsIncludeClient } from '../helpers';
 import type { MutableRefObject } from 'react';
+import type { ExecutionFile } from '@/app/types/execution';
 import {
     buildPhoneBodyLiveScopeHandler,
     readPhoneBodyLiveScopeValue,
 } from './buildPhoneBodyLiveScopeHandler';
 import { buildPhoneBodyDebtorEmploymentToggleHandler } from './buildPhoneBodyDebtorEmploymentToggleHandler';
 import { buildPhoneBodyPartyDeathMenuHandler } from './buildPhoneBodyPartyDeathMenuHandler';
+import { pickExecutionPhoneBodyDebtorsScope } from './executionPhoneBodyDebtorsScope';
 
 export function buildPhoneBodyDebtorsSectionProps(
     source: Record<string, unknown>,
@@ -17,9 +19,21 @@ export function buildPhoneBodyDebtorsSectionProps(
     openDecisionsModalWithBoot: (boot?: { tab?: string }) => void,
     scopeRef?: MutableRefObject<Record<string, unknown>>,
 ) {
-    const s = source as Record<string, any>;
+    const s = pickExecutionPhoneBodyDebtorsScope(source);
+    const executionData = s.executionData as ExecutionFile | null | undefined;
+    const viewExecutionData = s.viewExecutionData as ExecutionFile | null | undefined;
+    const followupSpecialization = s.followupSpecialization as
+        | { hideAllGuarantorPresence?: boolean }
+        | null
+        | undefined;
+    const openUnifiedSummonsHubFromScope = s.onOpenUnifiedSummonsHub as
+        | ((options?: {
+              debtorKey?: string | null;
+              initialMainTab?: 'tabligh' | 'taklif' | 'nashr' | 'guarantor' | null;
+          }) => void)
+        | undefined;
     return {
-        executionId: String(s.executionId ?? s.executionData?.id ?? ''),
+        executionId: String(s.executionId ?? executionData?.id ?? ''),
         heirsDetailsIncludeClient:
             typeof s.heirsDetailsIncludeClient === 'function'
                 ? s.heirsDetailsIncludeClient
@@ -28,13 +42,24 @@ export function buildPhoneBodyDebtorsSectionProps(
             debtorKey?: string | null;
             initialMainTab?: 'tabligh' | 'taklif' | 'nashr' | 'guarantor' | null;
         }) => {
-            if (typeof s.onOpenUnifiedSummonsHub === 'function') {
-                s.onOpenUnifiedSummonsHub(options);
+            if (typeof openUnifiedSummonsHubFromScope === 'function') {
+                openUnifiedSummonsHubFromScope(options);
                 return;
             }
-            s.setSummonsContextDebtorKey?.(options?.debtorKey ?? null);
-            s.setSummonsHubInitialMainTab?.(options?.initialMainTab ?? null);
-            s.setShowUnifiedSummonsModal?.(true);
+            const setKey = s.setSummonsContextDebtorKey;
+            const setTab = s.setSummonsHubInitialMainTab;
+            const setShow = s.setShowUnifiedSummonsModal;
+            if (typeof setKey === 'function') {
+                (setKey as (key: string | null) => void)(options?.debtorKey ?? null);
+            }
+            if (typeof setTab === 'function') {
+                (setTab as (tab: 'tabligh' | 'taklif' | 'nashr' | 'guarantor' | null) => void)(
+                    options?.initialMainTab ?? null,
+                );
+            }
+            if (typeof setShow === 'function') {
+                (setShow as (v: boolean) => void)(true);
+            }
         },
         activeCoerciveActions: s.activeCoerciveActions,
         activeDebtorHeirsForNotification: s.activeDebtorHeirsForNotification,
@@ -50,10 +75,10 @@ export function buildPhoneBodyDebtorsSectionProps(
         clearDebtorSummonsMarker: s.clearDebtorSummonsMarker,
         completeEvictionResidentialGrace: buildPhoneBodyLiveScopeHandler(
             scopeRef,
-            s,
+            source,
             'completeEvictionResidentialGrace',
         ),
-        completePoliceAssistance: buildPhoneBodyLiveScopeHandler(scopeRef, s, 'completePoliceAssistance'),
+        completePoliceAssistance: buildPhoneBodyLiveScopeHandler(scopeRef, source, 'completePoliceAssistance'),
         computeTaklifDeadlineYmd: s.computeTaklifDeadlineYmd,
         daysRemainingUntilDeadline: s.daysRemainingUntilDeadline,
         debtorArrested: s.debtorArrested,
@@ -73,9 +98,9 @@ export function buildPhoneBodyDebtorsSectionProps(
         dismissDebtorAbsenceBadge: s.dismissDebtorAbsenceBadge,
         effectiveDebtors: s.effectiveDebtors,
         evictionGraceBadgeInfo: s.evictionGraceBadgeInfo,
-        evictionGracePinned: readPhoneBodyLiveScopeValue(scopeRef, s, 'evictionGracePinned', false),
+        evictionGracePinned: readPhoneBodyLiveScopeValue(scopeRef, source, 'evictionGracePinned', false),
         executionAppealBanner: s.executionAppealBanner,
-        executionData: s.executionData,
+        executionData,
         executionDebtorTabIndex: s.executionDebtorTabIndex,
         executionMemoBadgePopoverOpen: s.executionMemoBadgePopoverOpen,
         executionToolsTimelineLockedUi: s.executionToolsTimelineLockedUi,
@@ -89,10 +114,10 @@ export function buildPhoneBodyDebtorsSectionProps(
         getPublicationNoticeForDebtorKey: s.getPublicationNoticeForDebtorKey,
         handleDebtorDeathMenuAction: buildPhoneBodyPartyDeathMenuHandler(
             scopeRef,
-            s,
+            source,
             'handleDebtorDeathMenuAction',
         ),
-        handleDebtorEmploymentToggle: buildPhoneBodyDebtorEmploymentToggleHandler(scopeRef, s),
+        handleDebtorEmploymentToggle: buildPhoneBodyDebtorEmploymentToggleHandler(scopeRef, source),
         isAssignmentDeadlinePassed: s.isAssignmentDeadlinePassed,
         isDebtorGovernmentEmployee: s.isDebtorGovernmentEmployee,
         isDebtorRowEmployee: s.isDebtorRowEmployee,
@@ -105,14 +130,14 @@ export function buildPhoneBodyDebtorsSectionProps(
         openEditParty: safeOpenEditParty,
         openEvictionResidentialGraceModal: buildPhoneBodyLiveScopeHandler(
             scopeRef,
-            s,
+            source,
             'openEvictionResidentialGraceModal',
         ),
         openHeirsNotificationCenter: s.openHeirsNotificationCenter,
         openHeirsQuickView: s.openHeirsQuickView,
         openPoliceAssistanceFromBadge: buildPhoneBodyLiveScopeHandler(
             scopeRef,
-            s,
+            source,
             'openPoliceAssistanceFromBadge',
         ),
         parsedLawyerFees: s.financialLawyerFeesAmount,
@@ -144,17 +169,17 @@ export function buildPhoneBodyDebtorsSectionProps(
         showDebtorUnservedMemoBadge: s.showDebtorUnservedMemoBadge,
         showExtraDebtors: s.showExtraDebtors,
         showToast: s.showToast,
-        smExecutionTarget: s.executionData?.executionTarget,
-        smHasGuarantorFile: s.executionData?.hasGuarantor,
-        hideAllGuarantorPresence: s.followupSpecialization?.hideAllGuarantorPresence,
+        smExecutionTarget: executionData?.executionTarget,
+        smHasGuarantorFile: executionData?.hasGuarantor,
+        hideAllGuarantorPresence: followupSpecialization?.hideAllGuarantorPresence,
         standaloneExecutionMarks: s.standaloneExecutionMarks,
         summonsMarkerPopoverOpen: s.summonsMarkerPopoverOpen,
         summonsPurposeDraft: s.summonsPurposeDraft,
         thirdPartySeizureAssets: s.thirdPartySeizureAssets,
         thirdPartySeizures: s.thirdPartySeizuresUi,
         timelineDebtorMetadata: s.timelineDebtorMetadata,
-        toggleEvictionGracePinned: buildPhoneBodyLiveScopeHandler(scopeRef, s, 'toggleEvictionGracePinned'),
-        viewExecutionData: s.viewExecutionData,
+        toggleEvictionGracePinned: buildPhoneBodyLiveScopeHandler(scopeRef, source, 'toggleEvictionGracePinned'),
+        viewExecutionData,
         voluntaryAttendanceCount: s.voluntaryAttendanceCount,
         noticeVoluntaryPeriodEndOptimistic: s.noticeVoluntaryPeriodEndOptimistic,
         voluntaryEndOptimistic: s.voluntaryEndOptimistic,

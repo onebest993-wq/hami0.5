@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { CRIMINAL_CASE_PREFIX } from '@/app/services/criminalShardedPersistStorage';
 import { CRIMINAL_STORE_KEY } from '@/app/utils/criminalCasesStorage';
 import { buildStableBridgeId } from '../calendarBridge';
 import { propagateBridgedCalendarUpdate } from '../calendarBridgePersistence';
@@ -39,9 +40,10 @@ describe('calendarBridgePersistence — criminal reverse sync', () => {
         });
 
         expect(ok).toBe(true);
-        const raw = JSON.parse(SecureStoreService.getItemSync(CRIMINAL_STORE_KEY) ?? '{}') as {
-            state?: { casesById?: Record<string, { location?: { nextHearingDate?: string } }> };
+        expect(SecureStoreService.getItemSync(CRIMINAL_STORE_KEY)).toBeNull();
+        const shard = JSON.parse(SecureStoreService.getItemSync(`${CRIMINAL_CASE_PREFIX}${caseId}`) ?? '{}') as {
+            location?: { nextHearingDate?: string };
         };
-        expect(raw.state?.casesById?.[caseId]?.location?.nextHearingDate).toBe('2028-09-20');
+        expect(shard.location?.nextHearingDate).toBe('2028-09-20');
     });
 });

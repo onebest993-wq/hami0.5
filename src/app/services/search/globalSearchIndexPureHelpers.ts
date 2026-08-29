@@ -22,6 +22,13 @@ export function blob(parts: (string | undefined | null)[]): string {
     return norm(parts.filter(Boolean).join(' '));
 }
 
+const FILE_SEARCH_HAYSTACK_MAX = 8_000;
+
+export function clipSearchHaystack(text: string, max = FILE_SEARCH_HAYSTACK_MAX): string {
+    if (text.length <= max) return text;
+    return text.slice(0, max);
+}
+
 export function partyNames(parties: Party[] | undefined): string {
     return (parties ?? []).map((p) => `${p.name || ''} ${p.phone || ''} ${p.role || ''}`).join(' ');
 }

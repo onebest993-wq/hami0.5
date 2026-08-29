@@ -67,6 +67,17 @@ describe('repositoryUnifiedFeed', () => {
         expect(searchRepositoryFeed(items, 'خاصة')).toHaveLength(1);
         expect(searchRepositoryFeed(items, 'عقد')).toHaveLength(1);
         expect(searchRepositoryFeed(items, 'xyz')).toHaveLength(0);
+        expect(
+            searchRepositoryFeed(
+                buildRepositoryFeed({
+                    globalNotes: [{ id: 'n2', title: 'ملاحظة أحمد', body: '', isPinned: false }],
+                    lawsuitFiles: [],
+                    executionFiles: [],
+                    vaultDocs: [],
+                }),
+                'احمد',
+            ),
+        ).toHaveLength(1);
     });
 
     it('يحدد تخطيط البطاقة حسب المحتوى', () => {

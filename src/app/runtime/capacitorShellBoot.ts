@@ -1,20 +1,11 @@
 import { whenNativeBridgeReady } from './nativeBridgeReady';
-import { getBootCapacitorPlatformId, type BootNativePlatformId } from './bootNativePlatform';
+import { getCapacitorPlatformId, isCapacitorNativePlatform, type NativePlatformId } from './nativePlatform';
 import { BOOT_REVEAL_DONE_EVENT } from '@/app/bootstrap/bootReveal';
+import { applyHandheldAppKernel } from './handheldAppKernel';
 import { wireNativeSecuritySettingsListener } from './nativeSecurityBoot';
 import { wireNativeResumeFastPath } from './nativeResumeFastPath';
 
-type CapacitorLike = {
-    isNativePlatform?: () => boolean;
-    getPlatform?: () => string;
-};
-
-function readCapacitorGlobal(): CapacitorLike | null {
-    if (typeof window === 'undefined') return null;
-    return (window as Window & { Capacitor?: CapacitorLike }).Capacitor ?? null;
-}
-
-function applyNativeDataset(isNative: boolean, platform: BootNativePlatformId): void {
+function applyNativeDataset(isNative: boolean, platform: NativePlatformId): void {
     if (typeof document === 'undefined') return;
     const root = document.documentElement;
     /* لا تُسقط native→web إن كُشف Android مبكراً عبر UA قبل Capacitor */
@@ -32,21 +23,31 @@ function applyNativeDataset(isNative: boolean, platform: BootNativePlatformId): 
 
 /**
  * يضبط سمات الجذر لـ Capacitor — safe-area، overscroll، لوحة المفاتيح.
- * آمن على الويب: isNative=false.
+ * آمن على الويب: isNative=false. هوية اليد (هاتف/لوحي) تُختَم دائماً.
  */
 export function applyCapacitorShellBoot(): void {
     if (typeof window === 'undefined') return;
 
-    const cap = readCapacitorGlobal();
-    const isNative = Boolean(cap?.isNativePlatform?.());
-    const platform: BootNativePlatformId = isNative ? getBootCapacitorPlatformId() : 'web';
+    applyHandheldAppKernel();
 
+    const isNative = isCapacitorNativePlatform();
+    const platform = getCapacitorPlatformId();
     applyNativeDataset(isNative, platform);
+
+    void import('./overlayEdgeBackGesture').then((m) => m.wireOverlayEdgeBackGesture()).catch(() => undefined);
 
     if (isNative) {
         wireNativeBootRevealHandoff();
         wireNativeResumeFastPath();
         void import('./capacitorAppLifecycle').then((m) => m.wireCapacitorAppLifecycle());
+        void import('@/plugins/hami-privacy-guard').catch(() => undefined);
+        if (platform === 'android') {
+            /* قبل أول فتح للملف — يمنع وميض banding إن وُجدت القواعد متأخرة */
+            void import('./profileAndroidFxLoader')
+                .then((m) => m.prefetchProfileAndroidFx())
+                .catch(() => undefined);
+        }
+        /* أشرطة النظام: مسار واحد بعد الجسر في applyCapacitorNativePlugins */
     }
 }
 
@@ -71,29 +72,30 @@ function wireNativeBootRevealHandoff(): void {
     }
 }
 
-/** StatusBar + Keyboard + أمان أصلي — يُستدعى بعد جاهزية الجسر فقط */
+/** أشرطة النظام + Keyboard + أمان أصلي — يُستدعى بعد جاهزية الجسر فقط */
 export async function applyCapacitorNativePlugins(): Promise<void> {
     await whenNativeBridgeReady();
     try {
-        const { StatusBar, Style } = await import('@capacitor/status-bar');
-        await StatusBar.setStyle({ style: Style.Dark });
-        await StatusBar.setBackgroundColor({ color: '#0A0F1C' });
-        /* Android فقط: WebView تحت شريط الحالة — يمنع لصق الهيدر الثابت فوق الساعة/البطارية */
-        if (getBootCapacitorPlatformId() === 'android') {
-            await StatusBar.setOverlaysWebView({ overlay: false });
-            await StatusBar.setBackgroundColor({ color: '#0A0F1C' });
-            if (typeof document !== 'undefined') {
-                /* env(safe-area-inset-top) غالباً 0 — احتياط لإنزال الهيدر عن الساعة/البطارية */
-                document.documentElement.style.setProperty('--hami-android-status-pad', '12px');
-            }
-        }
+        /*
+         * أشرطة النظام من النواة، لا من @capacitor/status-bar المهجورة.
+         *
+         * ما سقط عمداً مع استهداف أندرويد ١٦: `setOverlaysWebView({overlay:false})`
+         * و`setBackgroundColor`. النظام يفرض الرسم من حافة إلى حافة على كل تطبيق
+         * يستهدف SDK 35 فما فوق، وأُلغيت آخر وسيلة انسحاب في SDK 36. فالنداءان
+         * لا يفعلان شيئاً، ووجودهما يوهم القارئ بأن الهيدر محميّ بهما بينما
+         * الحماية الفعلية من `env(safe-area-inset-*)` في CSS.
+         */
+        const { SystemBars, SystemBarsStyle } = await import('@capacitor/core');
+        /* Dark = محتوى فاتح على خلفية داكنة — يطابق قاعدة التطبيق الكحلية */
+        await SystemBars.setStyle({ style: SystemBarsStyle.Dark });
     } catch {
         /* plugin غير متاح على الويب */
     }
 
     try {
-        const { Keyboard, KeyboardResize } = await import('@capacitor/keyboard');
+        const { Keyboard, KeyboardResize, KeyboardStyle } = await import('@capacitor/keyboard');
         await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+        await Keyboard.setStyle({ style: KeyboardStyle.Dark });
     } catch {
         /* optional */
     }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { GlobalSearchEntry } from '@/app/services/globalSearchIndex';
 import type { WorkspacePinnedItem } from './types';
 import {
@@ -15,6 +14,8 @@ import {
 export type WorkspacePinLookupContext = {
     files: unknown[];
     executionFiles: unknown[];
+    /** دعاوى للربط برقم القضية عند تثبيت إضبارة تنفيذ */
+    lawsuitFiles?: unknown[];
     notes: unknown[];
     tasks: unknown[];
     urgentCases: unknown[];
@@ -62,11 +63,13 @@ export function buildPinFromSearchEntry(
         if (fromFiles) {
             const f = fromFiles as Record<string, unknown>;
             if (f.type === 'transaction') return buildTransactionWorkspacePin(fromFiles);
-            if (f.type === 'execution') return buildExecutionWorkspacePin(fromFiles, ctx.lawsuitFiles);
+            if (f.type === 'execution') {
+                return buildExecutionWorkspacePin(fromFiles, ctx.lawsuitFiles ?? ctx.files);
+            }
             return buildLawsuitWorkspacePin(fromFiles);
         }
         const fromExec = findById(ctx.executionFiles, id);
-        if (fromExec) return buildExecutionWorkspacePin(fromExec, ctx.lawsuitFiles);
+        if (fromExec) return buildExecutionWorkspacePin(fromExec, ctx.lawsuitFiles ?? ctx.files);
         return null;
     }
 

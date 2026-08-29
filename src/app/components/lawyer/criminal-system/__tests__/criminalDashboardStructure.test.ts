@@ -43,7 +43,7 @@ describe('CriminalDashboard structural splits', () => {
         const runtimeSource = readRuntimeSource();
         const dossierBodySource = fs.readFileSync(dossierBodyPath, 'utf8');
         expect(dossierBodySource).toContain('LazyCriminalDashboardStatementsTab');
-        expect(dossierBodySource).toContain('LazyCriminalDashboardTrackingTab');
+        expect(dossierBodySource).toContain('CriminalDossierTrackingPanel');
         expect(runtimeSource).not.toContain('useCriminalDashboardStatementsTabData');
         expect(dossierBodySource).not.toContain('useCriminalDashboardStatementsTabData');
     });
@@ -66,8 +66,24 @@ describe('CriminalDashboard structural splits', () => {
             'src/app/components/lawyer/criminal-system/CriminalDashboardModalsHost.tsx',
         );
         const modalsHostSource = fs.readFileSync(modalsHostPath, 'utf8');
-        expect(modalsHostSource).toContain('<JudicialCassationAppealModal');
         expect(modalsHostSource).toContain('export function CriminalDashboardModalsHost');
+        expect(modalsHostSource).toContain('CriminalDashboardModalsHostCassation');
+        expect(modalsHostSource).toContain('CriminalDashboardModalsHostInvestigation');
+        expect(modalsHostSource).toContain('CriminalDashboardModalsHostTrial');
+        expect(modalsHostSource).toContain('CriminalDashboardModalsHostRequests');
+        expect(modalsHostSource).toContain('CriminalDashboardModalsHostIdentity');
+        expect(modalsHostSource).toContain("from './criminalDashboardModalsHostProps'");
+        expect(modalsHostSource).toContain('IdentityEditState');
+        expect(modalsHostSource).toContain('ConfirmActionState');
+        expect(modalsHostSource).toContain('CriminalDashboardModalsHostProps');
+
+        const cassationPath = path.join(
+            root,
+            'src/app/components/lawyer/criminal-system/CriminalDashboardModalsHostCassation.tsx',
+        );
+        const cassationSource = fs.readFileSync(cassationPath, 'utf8');
+        expect(cassationSource).toContain('<JudicialCassationAppealModal');
+        expect(cassationSource).toContain('export function CriminalDashboardModalsHostCassation');
     });
 
     it('delegates the stage closer submit logic to the orchestrators layer instead of a local function body', () => {
@@ -178,13 +194,24 @@ describe('CriminalDashboard structural splits', () => {
         expect(dossierBodySource).toContain('export function CriminalDashboardDossierBody');
         expect(dossierBodySource).toContain('<LazyCriminalDashboardHeader');
         expect(dossierBodySource).toContain('<LazyCriminalPartiesGrid');
-        expect(dossierBodySource).toContain('<LazyCriminalDashboardRequestsTab');
         expect(dossierBodySource).toContain('<LazyCriminalDashboardStatementsTab');
-        expect(dossierBodySource).toContain('<LazyCriminalDashboardTrackingTab');
         expect(dossierBodySource).toContain('<CaseJourneyHeader');
         expect(dossierBodySource).toContain('<CriminalDossierTopBanners');
         expect(dossierBodySource).toContain('<CriminalDossierMidBanners');
+        expect(dossierBodySource).toContain('<CriminalDossierRequestsPanel');
+        expect(dossierBodySource).toContain('<CriminalDossierTrackingPanel');
         expect(dossierBodySource).not.toContain('<CriminalDashboardModalsHost');
+
+        const requestsPanelSource = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/criminal-system/CriminalDossierRequestsPanel.tsx'),
+            'utf8',
+        );
+        const trackingPanelSource = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/criminal-system/CriminalDossierTrackingPanel.tsx'),
+            'utf8',
+        );
+        expect(requestsPanelSource).toContain('<LazyCriminalDashboardRequestsTab');
+        expect(trackingPanelSource).toContain('<LazyCriminalDashboardTrackingTab');
     });
 
     it('delegates the Escape/back navigation guard to a dedicated hook instead of a local handler + effect', () => {
@@ -210,8 +237,34 @@ describe('CriminalDashboard structural splits', () => {
         const navigationGuardSource = fs.readFileSync(navigationGuardPath, 'utf8');
         expect(navigationGuardSource).toContain('export function useCriminalDashboardNavigationGuard');
         expect(navigationGuardSource).toContain('const handleDashboardBack = useCallback(');
-        expect(navigationGuardSource).toContain("window.addEventListener('keydown', onKeyDown, true)");
+        expect(navigationGuardSource).toContain('tryCloseCriminalDashboardOverlayLayer');
+        // Bubble Escape so local canvas/hearing capture handlers can win first.
+        expect(navigationGuardSource).toContain("window.addEventListener('keydown', onKeyDown)");
+        expect(navigationGuardSource).not.toContain("window.addEventListener('keydown', onKeyDown, true)");
+        expect(navigationGuardSource).toMatch(/طبقات محلية|criminalLocalOverlayBackStack|useProceduralCanvasOverlayEscape/);
         expect(navigationGuardSource).toContain('return { handleDashboardBack, dossierNestedNav };');
+
+        const overlayClosePath = path.join(
+            root,
+            'src/app/components/lawyer/criminal-system/tryCloseCriminalDashboardOverlayLayer.ts',
+        );
+        const overlayCloseSource = fs.readFileSync(overlayClosePath, 'utf8');
+        expect(overlayCloseSource).toContain('tryPopCriminalLocalOverlayBack()');
+        expect(overlayCloseSource).toContain('export function tryCloseCriminalDashboardOverlayLayer');
+
+        const canvasPath = path.join(
+            root,
+            'src/app/components/lawyer/criminal-system/components/RecursiveProceduralCanvas.tsx',
+        );
+        const canvasSource = fs.readFileSync(canvasPath, 'utf8');
+        expect(canvasSource).toContain('useProceduralCanvasOverlayEscape');
+
+        const requestsTabPath = path.join(
+            root,
+            'src/app/components/lawyer/criminal-system/CriminalDashboardRequestsTab.tsx',
+        );
+        const requestsTabSource = fs.readFileSync(requestsTabPath, 'utf8');
+        expect(requestsTabSource).toContain('useCriminalLocalOverlayEscape');
     });
 
     it('delegates the useCriminalStore selector bindings to a dedicated hook instead of dozens of inline calls', () => {
@@ -375,5 +428,17 @@ describe('CriminalDashboard structural splits', () => {
         const dossierBodySource = fs.readFileSync(dossierBodyPath, 'utf8');
         expect(dossierBodySource).toContain('CriminalDashboardLazySurfaceFallback');
         expect(dossierBodySource).not.toContain('fallback={null}');
+        expect(dossierBodySource).toMatch(
+            /<CriminalDossierHeaderLazyBoundary[\s\S]*onNavExit=\{onExitToHome\}/,
+        );
+    });
+
+    it('Portal ErrorBoundary resets with caseId so a crash does not stick across reopens', () => {
+        const portal = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/criminal-system/CriminalDashboardPortal.tsx'),
+            'utf8',
+        );
+        expect(portal).toContain('ErrorBoundary key={caseId}');
+        expect(portal).toContain('criminal-dossier-error-fallback');
     });
 });

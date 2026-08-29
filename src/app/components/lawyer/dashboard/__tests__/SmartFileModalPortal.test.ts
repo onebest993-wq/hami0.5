@@ -1,29 +1,29 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { pickFreshSmartFileModalFile } from '../SmartFileModalPortal';
 
-vi.mock('@/app/utils/lawsuitFilesStorage', () => ({
-    loadLawsuitFilesRaw: vi.fn(),
-}));
-
-import { loadLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
-import { resolveFreshSmartFileModalFile } from '../SmartFileModalPortal';
-
-describe('resolveFreshSmartFileModalFile', () => {
-    beforeEach(() => {
-        vi.mocked(loadLawsuitFilesRaw).mockReset();
-    });
-
-    it('prefers the latest stored file with the same id before opening the modal', () => {
+describe('pickFreshSmartFileModalFile', () => {
+    it('prefers the latest stored file with the same id', () => {
         const staleFile = { id: 42, title: 'old', activeStageIndex: 0 };
         const freshFile = { id: 42, title: 'new', activeStageIndex: 2 };
-        vi.mocked(loadLawsuitFilesRaw).mockReturnValue([freshFile]);
 
-        expect(resolveFreshSmartFileModalFile(staleFile)).toEqual(freshFile);
+        expect(pickFreshSmartFileModalFile(staleFile as never, [freshFile])).toEqual(freshFile);
     });
 
-    it('falls back to the incoming file when no stored match exists', () => {
-        const incomingFile = { id: 77, title: 'incoming', activeStageIndex: 1 };
-        vi.mocked(loadLawsuitFilesRaw).mockReturnValue([{ id: 12, title: 'other' }]);
+    it('merges stored row onto the open file so missing disk fields keep open identity', () => {
+        const incomingFile = {
+            id: 42,
+            title: 'open',
+            lawsuitJurisdiction: 'personal',
+            judge: 'القاضي',
+        };
+        const storedFile = { id: 42, title: 'disk', activeStageIndex: 2 };
 
-        expect(resolveFreshSmartFileModalFile(incomingFile)).toBe(incomingFile);
+        expect(pickFreshSmartFileModalFile(incomingFile as never, [storedFile])).toEqual({
+            id: 42,
+            title: 'disk',
+            lawsuitJurisdiction: 'personal',
+            judge: 'القاضي',
+            activeStageIndex: 2,
+        });
     });
 });

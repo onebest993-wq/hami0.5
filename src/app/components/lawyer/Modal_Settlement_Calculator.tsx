@@ -1,11 +1,15 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { motion } from 'motion/react';
-import { X, Handshake, CheckCircle, AlertCircle, Calendar } from '@/app/components/ui/lucideIcons';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { X } from '@/app/components/ui/icons/X';
+import { Handshake } from '@/app/components/ui/icons/Handshake';
+import { CheckCircle } from '@/app/components/ui/icons/CheckCircle';
+import { AlertCircle } from '@/app/components/ui/icons/AlertCircle';
+import { Calendar } from '@/app/components/ui/icons/Calendar';
 import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,
-} from '@/app/components/lawyer/execution/executionModalStack';
+} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 
 interface SettlementCalculatorProps {
     isOpen: boolean;

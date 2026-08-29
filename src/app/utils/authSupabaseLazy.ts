@@ -43,6 +43,33 @@ export async function signUpWithPassword(
     return { error: error as Error | null };
 }
 
+export async function requestPasswordResetEmail(
+    email: string,
+    redirectTo?: string,
+): Promise<{ error: Error | null }> {
+    const supabase = await getAuthSupabase();
+    const { error } = await (
+        supabase.auth as unknown as {
+            resetPasswordForEmail: (
+                email: string,
+                opts?: { redirectTo?: string },
+            ) => Promise<{ error: Error | null }>;
+        }
+    ).resetPasswordForEmail(email, {
+        redirectTo: redirectTo || undefined,
+    });
+    return { error: error as Error | null };
+}
+
+/** تحديث كلمة المرور بعد جلسة `PASSWORD_RECOVERY` من رابط البريد */
+export async function updateAuthPassword(
+    password: string,
+): Promise<{ error: Error | null }> {
+    const supabase = await getAuthSupabase();
+    const { error } = await supabase.auth.updateUser({ password });
+    return { error: error as Error | null };
+}
+
 export async function signOutSupabase(): Promise<void> {
     try {
         const supabase = await getAuthSupabase();
@@ -57,16 +84,24 @@ export async function signOutSupabase(): Promise<void> {
 export async function attachSupabaseAuthListener(handlers: {
     onSession: (session: Session | null) => void;
     onReady?: () => void;
+    onAuthEvent?: (event: string, session: Session | null) => void;
 }): Promise<() => void> {
     const supabase = await getAuthSupabase();
     const { data, error } = await supabase.auth.getSession();
-    if (!error) {
-        handlers.onSession(data.session ?? null);
+    if (!error && data.session) {
+        handlers.onSession(data.session);
     }
     handlers.onReady?.();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
-        handlers.onSession(session);
+    const { data: sub } = supabase.auth.onAuthStateChange((event: string, session: Session | null) => {
+        handlers.onAuthEvent?.(event, session);
+        if (event === 'SIGNED_OUT') {
+            handlers.onSession(null);
+            return;
+        }
+        if (session) {
+            handlers.onSession(session);
+        }
     });
 
     return () => sub.subscription.unsubscribe();

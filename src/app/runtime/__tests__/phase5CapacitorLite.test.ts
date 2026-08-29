@@ -18,6 +18,8 @@ describe('phase-5 capacitor inventory', () => {
             scripts: Record<string, string>;
         };
         expect(pkg.scripts['verify:native:android']).toBeTruthy();
+        expect(pkg.scripts['verify:native:ios']).toBeTruthy();
+        expect(pkg.scripts['cap:add:ios']).toBeTruthy();
     });
 
     it('documents android/ios as local-only when gitignored', () => {
@@ -42,16 +44,12 @@ describe('phase-5 Lite intent warm gates', () => {
     });
     afterEach(() => {
         document.documentElement.removeAttribute('data-hami-lite');
-        vi.resetModules();
     });
 
     it('warmForumOnHover no-ops under Lite', async () => {
         const prefetch = vi.fn();
         vi.doMock('@/app/runtime/communityHubLoader', () => ({
             prefetchCommunityScreenModule: prefetch,
-        }));
-        vi.doMock('@/app/components/lawyer/CommunityScreen', () => ({
-            prefetchCommunityScreenContent: vi.fn(),
         }));
         vi.doMock('@/app/services/forum/forumPostsWarmCache', () => ({
             warmForumPostsCache: vi.fn(),
@@ -68,7 +66,7 @@ describe('phase-5 Lite intent warm gates', () => {
         const { warmForumOnHover } = await import('@/app/hooks/lawyerDashboard/forumIntentWarm');
         warmForumOnHover('u1');
         expect(prefetch).not.toHaveBeenCalled();
-    });
+    }, 30_000);
 
     it('warmNotificationsOnHover no-ops under Lite', async () => {
         const prefetch = vi.fn();
@@ -81,5 +79,5 @@ describe('phase-5 Lite intent warm gates', () => {
         );
         warmNotificationsOnHover();
         expect(prefetch).not.toHaveBeenCalled();
-    });
+    }, 30_000);
 });

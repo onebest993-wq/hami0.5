@@ -28,7 +28,6 @@ function sanitizeGallery(data: unknown): ProfileGalleryItem[] {
 function sanitizeActions(data: unknown): ProfileAction[] {
     if (!Array.isArray(data)) return [];
     const allowedTypes = new Set<ProfileAction['type']>([
-        'whatsapp',
         'call',
         'email',
         'website',

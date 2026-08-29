@@ -1,4 +1,4 @@
-import { requireNotificationsAuth } from '../_auth.ts';
+import { NOTIFICATIONS_API_INTERNAL_ERROR, requireNotificationsAuth } from '../_auth.ts';
 import { wifeJsonResponse } from '../../security/wifeSecurityHeaders.ts';
 import { getShellNotificationStorageMeta } from '@/app/services/notifications/notificationServerBlob';
 import {
@@ -14,7 +14,6 @@ export async function GET(request: Request): Promise<Response> {
     try {
         const auth = await requireNotificationsAuth(request);
         if (auth instanceof Response) return auth;
-        const { userId } = auth;
 
         const storage = getShellNotificationStorageMeta();
         const supabaseEnabled = isShellNotificationSupabaseEnabled();
@@ -26,13 +25,11 @@ export async function GET(request: Request): Promise<Response> {
         return wifeJsonResponse(200, {
             ok: true,
             ready,
-            userId,
             supabaseEnabled,
             storage,
             schema,
         });
-    } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Internal health error';
-        return wifeJsonResponse(500, { ok: false, error: msg });
+    } catch {
+        return wifeJsonResponse(500, { ok: false, error: NOTIFICATIONS_API_INTERNAL_ERROR });
     }
 }

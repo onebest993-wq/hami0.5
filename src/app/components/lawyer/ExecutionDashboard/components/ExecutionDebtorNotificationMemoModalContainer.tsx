@@ -1,9 +1,12 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, Calendar, X } from '@/app/components/ui/lucideIcons';
+import { Bell } from '@/app/components/ui/icons/Bell';
+import { Calendar } from '@/app/components/ui/icons/Calendar';
+import { X } from '@/app/components/ui/icons/X';
 import {
     EXEC_MODAL_BACKDROP_SAFE_PAD,
     EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_MODAL_COERCIVE_SHELL_MAX,
     EXEC_MODAL_HEADER_SAFE_TOP,
     EXEC_MODAL_TOUCH_TARGET,
 } from '../executionModalMobileShell';
@@ -12,6 +15,7 @@ import {
     HUB_SHELL_CLASS,
     HUB_TITLE_CLASS,
 } from '@/app/components/lawyer/Modal_Unified_Summons_Hub/summonsHubStyles';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 
 export interface ExecutionDebtorNotificationMemoModalContainerProps {
     showNotificationModal: boolean;
@@ -39,6 +43,8 @@ export const ExecutionDebtorNotificationMemoModalContainer: React.FC<
     EXEC_MODAL_BACKDROP_STRONG,
     notificationModalZIndex,
 }) => {
+    useBodyScrollLock(showNotificationModal);
+
     const closeNotificationModal = () => {
         if (typeof onCloseNotificationModal === 'function') {
             onCloseNotificationModal();
@@ -57,7 +63,7 @@ export const ExecutionDebtorNotificationMemoModalContainer: React.FC<
             role="presentation"
         >
             <div
-                className={`${HUB_SHELL_CLASS} max-h-[80vh] overflow-y-auto`}
+                className={`${HUB_SHELL_CLASS} ${EXEC_MODAL_COERCIVE_SHELL_MAX} overflow-y-auto overscroll-contain`}
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className={`sticky top-0 z-10 ${HUB_HEADER_CLASS} ${EXEC_MODAL_HEADER_SAFE_TOP}`}>

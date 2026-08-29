@@ -1,5 +1,6 @@
 import React from 'react';
-import { Archive, Trash2 } from '@/app/components/ui/lucideIcons';
+import { Archive } from '@/app/components/ui/icons/Archive';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import type { LawsuitViewMode } from '../hooks/lawsuitLifecycleTypes';
 import { ARCHIVE_SEGMENT_SHELL, ARCHIVE_TOOLBAR_SECTION } from '../archiveToolbarStyles';
 import { CountBadge, LifecycleSegment } from './archiveLifecycleSegmentUi';
@@ -19,11 +20,8 @@ export function LawsuitArchiveLifecycleBars({
     unifiedArchivedCount,
     lawsuitTrashedCount,
     showLawsuitTrashToggle,
-    selectedLawsuitCount = 0,
 }: LawsuitArchiveLifecycleBarsProps) {
-    const trashToggleVisible =
-        showLawsuitTrashToggle ??
-        (lawsuitViewMode === 'trash' || selectedLawsuitCount > 0 || lawsuitTrashedCount > 0);
+    const trashToggleVisible = showLawsuitTrashToggle ?? true;
 
     return (
         <div className={ARCHIVE_TOOLBAR_SECTION}>
@@ -76,7 +74,7 @@ export function LawsuitArchiveLifecycleBars({
                 ) : null}
             </div>
             {lawsuitViewMode === 'trash' ? (
-                <p className="mt-2 text-[11px] text-amber-200/75 leading-relaxed">
+                <p className="mt-1.5 text-[11px] text-amber-200/75 leading-relaxed">
                     تبقى الإضابير هنا حتى تحذفها نهائياً بنفسك. يمكنك استرجاعها في أي وقت.
                 </p>
             ) : null}

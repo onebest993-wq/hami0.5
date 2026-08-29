@@ -70,6 +70,15 @@ export function prefetchExecutionLawSeedData(): void {
     void loadExecutionLawSeedData().catch(() => {});
 }
 
+export function peekExecutionLawSeedDataCached(): ExecutionLawArticle[] | null {
+    return cachedSeedData && cachedSeedData.length > 0 ? cachedSeedData : null;
+}
+
+/** للاختبارات */
+export function setExecutionLawSeedCacheForTests(articles: ExecutionLawArticle[] | null): void {
+    cachedSeedData = articles;
+}
+
 /** للاختبارات */
 export function resetExecutionLawSeedCacheForTests(): void {
     cachedSeedData = null;

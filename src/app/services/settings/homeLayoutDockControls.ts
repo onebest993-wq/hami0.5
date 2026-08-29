@@ -7,7 +7,7 @@ import {
 } from './homeWidgetPlacements';
 
 /** أيقونات الشريط السفلي فقط — لا يشمل شريط الملاحظة السريعة */
-export function getDockShellWidgetIds(placements: HomeWidgetPlacements): HomeWidgetId[] {
+function getDockShellWidgetIds(placements: HomeWidgetPlacements): HomeWidgetId[] {
     return getWidgetsInZone(placements, 'dock').filter(isDockShellOrderWidget);
 }
 
@@ -30,14 +30,6 @@ export function evacuateDockShellIconsToMain(placements: HomeWidgetPlacements): 
     return { placements: next, dockHiddenWidgetIds: dockIds };
 }
 
-/** @deprecated استخدم evacuateDockShellIconsToMain */
-export function evacuateDockToMain(placements: HomeWidgetPlacements): {
-    placements: HomeWidgetPlacements;
-    dockHiddenWidgetIds: HomeWidgetId[];
-} {
-    return evacuateDockShellIconsToMain(placements);
-}
-
 /** إعادة أيقونات الدوك من النسخة المحفوظة أو الافتراضي — دون المساس بشريط الملاحظة */
 export function repopulateDockShellFromHidden(
     placements: HomeWidgetPlacements,
@@ -56,14 +48,6 @@ export function repopulateDockShellFromHidden(
     });
 
     return next;
-}
-
-/** @deprecated استخدم repopulateDockShellFromHidden */
-export function repopulateDockFromHidden(
-    placements: HomeWidgetPlacements,
-    dockHiddenWidgetIds: HomeWidgetId[],
-): HomeWidgetPlacements {
-    return repopulateDockShellFromHidden(placements, dockHiddenWidgetIds);
 }
 
 /** يضمن وجود شريط الملاحظة في الدوك عند التفعيل — يحترم نقله إلى الرئيسية (فصل عن الحاوية) */

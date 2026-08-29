@@ -11,15 +11,12 @@ import { join, relative } from 'node:path';
 const ROOT = process.cwd();
 const SCAN_ROOT = join(ROOT, 'src/app/components/lawyer/ExecutionDashboard');
 
-const VH_ALLOWLIST = new Set([
-    'src/app/components/lawyer/ExecutionDashboard/components/TimelineSection.tsx',
-    'src/app/components/lawyer/ExecutionDashboard/components/RequestLifecycleBadge.tsx',
-    'src/app/components/lawyer/ExecutionDashboard/components/MaritalFurnitureModule.tsx',
-    'src/app/components/lawyer/ExecutionDashboard/components/DebtorsSectionPortals.tsx',
-    'src/app/components/lawyer/ExecutionDashboard/components/FinancialLedgerSection.tsx',
-    'src/app/components/lawyer/ExecutionDashboard/components/DossierMetaEditSection.tsx',
-    'src/app/components/lawyer/ExecutionDashboard/components/ExecutionSolidaryAndEvictionFollowupModalsContainer.tsx',
-]);
+/*
+ * فارغة عن قصد: `vh` يقيس أطول حالة للنافذة، فيمتدّ المحتوى تحت شريط المتصفح
+ * على الهاتف ويختفي آخر زر. `dvh` يتبع الارتفاع الفعلي لحظةً بلحظة. لا استثناء
+ * هنا لأن كل حالة استُبدلت — وإضافة اسم إلى القائمة تعني إعادة العطل لا تأجيله.
+ */
+const VH_ALLOWLIST = new Set([]);
 
 const SCROLL_LOCK_ALLOWLIST = new Set([
     'src/app/components/lawyer/ExecutionDashboard/components/ExecutionModalsContainer.tsx',

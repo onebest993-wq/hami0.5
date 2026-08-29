@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Party } from '@/app/types/execution';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -17,22 +16,20 @@ export function resolvePartyStoredName(party: unknown): string {
 export function normalizeExecutionParty(
     raw: unknown,
     fallbackId: number,
-    fallbackRole: string,
+    _fallbackRole: string,
 ): Party {
     if (isRecord(raw)) {
         const name = resolvePartyStoredName(raw);
-        const role = typeof raw.role === 'string' ? raw.role : fallbackRole;
         const isClient = typeof raw.isClient === 'boolean' ? raw.isClient : false;
         const phone = typeof raw.phone === 'string' ? raw.phone : '';
         const address = typeof raw.address === 'string' ? raw.address : '';
         const pid =
             typeof raw.id === 'number' || typeof raw.id === 'string' ? raw.id : fallbackId;
         return {
-            ...(raw as unknown as Party),
+            ...(raw as Party),
             id: pid,
             name,
             fullName: name || undefined,
-            role,
             isClient,
             phone,
             address,
@@ -43,7 +40,6 @@ export function normalizeExecutionParty(
     return {
         id: fallbackId,
         name: '',
-        role: fallbackRole,
         isClient: false,
         phone: '',
         address: '',

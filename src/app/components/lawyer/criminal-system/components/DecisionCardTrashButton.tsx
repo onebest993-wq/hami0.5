@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2 } from '@/app/components/ui/lucideIcons';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
 
 export type DecisionCardTrashButtonProps = {
     onClick: () => void;

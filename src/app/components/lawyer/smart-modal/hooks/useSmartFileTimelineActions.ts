@@ -2,6 +2,12 @@ import { useCallback } from 'react';
 import type { CaseStage, TimelineEvent } from '../../LawyerShared';
 import { patchActiveStage } from '../smartFile/stageMutations';
 import {
+    confirmSmartFileDestructiveAction,
+    SMART_FILE_DELETE_EVENT_MESSAGE,
+    SMART_FILE_EMPTY_TRASH_MESSAGE,
+    SMART_FILE_HARD_DELETE_EVENT_MESSAGE,
+} from '../smartFile/smartFileDestructiveConfirm';
+import {
     filterTimelineEmptyTrash,
     filterTimelineRemoveId,
     mapTimelineSoftDelete,
@@ -41,6 +47,7 @@ export function useSmartFileTimelineActions(options: {
 
     const handleDeleteEvent = useCallback(
         (id: string) => {
+            if (!confirmSmartFileDestructiveAction(SMART_FILE_DELETE_EVENT_MESSAGE)) return;
             const ev = currentStage.timeline?.find((e) => e.id === id);
             if (ev?.type === 'appointment') {
                 onCalendarUnlink?.({ sourceEventId: id, eventType: ev.type });
@@ -59,6 +66,7 @@ export function useSmartFileTimelineActions(options: {
 
     const handleHardDeleteEvent = useCallback(
         (id: string) => {
+            if (!confirmSmartFileDestructiveAction(SMART_FILE_HARD_DELETE_EVENT_MESSAGE)) return;
             const ev = currentStage.timeline?.find((e) => e.id === id);
             if (ev?.type === 'appointment') {
                 onCalendarUnlink?.({ sourceEventId: id, eventType: ev.type });
@@ -69,7 +77,7 @@ export function useSmartFileTimelineActions(options: {
     );
 
     const handleEmptyTrash = useCallback(() => {
-        if (!confirm('هل أنت متأكد من إفراغ سلة المهملات؟')) return;
+        if (!confirmSmartFileDestructiveAction(SMART_FILE_EMPTY_TRASH_MESSAGE)) return;
         commitTimeline(filterTimelineEmptyTrash(currentStage.timeline ?? []));
         setIsTrashOpen(false);
     }, [currentStage.timeline, commitTimeline, setIsTrashOpen]);

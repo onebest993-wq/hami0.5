@@ -3,10 +3,9 @@ import { executeOverlaySnapClose } from '@/app/runtime/overlaySnapClose';
 import { HAMI_DISMISS_OVERLAYS_EVENT } from '@/app/utils/bodyScrollLock';
 
 export type HomeHubOverlayBackId =
-    | 'home-hub-secretary-more'
     | 'home-hub-urgent-more'
     | 'home-hub-alerts-more'
-    | 'home-hub-radar-more';
+    | 'home-hub-pins-more';
 
 type OverlayBackEntry = {
     id: HomeHubOverlayBackId;
@@ -74,7 +73,7 @@ export function pushHomeHubOverlayBack(id: HomeHubOverlayBackId, close: () => vo
     return () => removeHomeHubOverlayBack(id, false);
 }
 
-export function removeHomeHubOverlayBack(id: HomeHubOverlayBackId, invokeClose: boolean): void {
+function removeHomeHubOverlayBack(id: HomeHubOverlayBackId, invokeClose: boolean): void {
     const index = stack.findIndex((entry) => entry.id === id);
     if (index < 0) return;
     const [entry] = stack.splice(index, 1);

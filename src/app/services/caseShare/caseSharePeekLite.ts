@@ -1,7 +1,9 @@
 /**
  * قراءة مشاركات القضايا محلياً sync — بلا CaseShareApiService / SecureAPI.
+ * أول طلاء: قراءة فقط. leftover لا يُشفَّر هنا؛ الترحيل في loadCaseShareRecords.
+ * أصل unread لا تُسمَّم عليه مرآة localStorage.
  */
-import SecureStoreService from '@/app/services/SecureStoreService';
+import { peekSecureOrLegacySync } from '@/app/services/storage/readSecureOrDrainLegacySync';
 import type { CaseShareRecord } from '@/app/services/caseShare/caseShareTypes';
 
 const CASE_SHARE_LOCAL_KEY = 'hami:case-shares:v1';
@@ -9,13 +11,8 @@ const CASE_SHARE_LOCAL_KEY = 'hami:case-shares:v1';
 function peekCaseShareRecords(): CaseShareRecord[] {
     try {
         if (typeof window === 'undefined') return [];
-        const raw = SecureStoreService.getItemSync(CASE_SHARE_LOCAL_KEY);
-        if (!raw) {
-            const legacy = window.localStorage.getItem(CASE_SHARE_LOCAL_KEY);
-            if (!legacy) return [];
-            const parsed: unknown = JSON.parse(legacy);
-            return Array.isArray(parsed) ? (parsed as CaseShareRecord[]) : [];
-        }
+        const raw = peekSecureOrLegacySync(CASE_SHARE_LOCAL_KEY);
+        if (!raw) return [];
         const parsed: unknown = JSON.parse(raw);
         return Array.isArray(parsed) ? (parsed as CaseShareRecord[]) : [];
     } catch {

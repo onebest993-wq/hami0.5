@@ -4,6 +4,10 @@ import type { ThemeMode } from '@/app/types/common';
 export function resolveThemeMode(themeMode: ThemeMode): 'light' | 'dark' {
     if (themeMode === 'light') return 'light';
     if (themeMode === 'dark') return 'dark';
+    /* WebView الأصلي يتبع ثيم النظام الفاتح فيومض الواجهة — الإقلاع دائماً داكن */
+    if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-hami-native') === '1') {
+        return 'dark';
+    }
     if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches) {
         return 'light';
     }

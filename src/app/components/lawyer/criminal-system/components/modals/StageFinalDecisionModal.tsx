@@ -1,3 +1,4 @@
+import { buildStageFinalDecisionSubmit } from './stageFinalDecisionModalSubmit';
 import React, { useEffect, useMemo, useState } from 'react';
 import type { CriminalDefendant, StageConclusion } from '../../criminalStore';
 import type { CaseSovereignContext } from '../../caseClassificationEngine';
@@ -115,79 +116,36 @@ export const StageFinalDecisionModal = ({
 
     const handleSubmit = () => {
         setLocalError('');
-        if (!selectableDefendants.length) {
-            setLocalError('لا يوجد متهمون قابلون للإدراج في القرار.');
-            return;
-        }
-        const effectiveScopeIds = resolveTrialFinalDecisionScopeIds(defendants, scopedDefendantIds);
-        if (!effectiveScopeIds.length) {
-            setLocalError('حدّد متهماً واحداً على الأقل.');
-            return;
-        }
-
-        const resolvedKind: StageFinalDecisionKind = isSummaryPath ? 'conviction_penalty' : (kind as StageFinalDecisionKind);
-
-        if (resolvedKind === 'criminal_expiration') {
-            const expirationErr = validateExpirationReasonSelection(expirationReason, expirationCustomDetail);
-            if (expirationErr) {
-                setLocalError(expirationErr);
-                return;
-            }
-        }
-
-        const resolvedPenalty =
-            isSummaryPath || showFullConvictionFields
-                ? {
-                      ...penalty,
-                      penalties_supplementary:
-                          supplementaryPenaltiesEnabled &&
-                          String(penaltiesSupplementary ?? '').trim()
-                              ? String(penaltiesSupplementary).trim()
-                              : null,
-                  }
-                : undefined;
-        const payload: StageFinalDecisionFormPayload = {
-            kind: resolvedKind,
+        const result = buildStageFinalDecisionSubmit({
+            defendants,
+            selectableDefendants,
+            scopedDefendantIds,
+            isSummaryPath,
+            kind,
+            showFullConvictionFields,
+            expirationReason,
+            expirationCustomDetail,
+            penalty,
+            supplementaryPenaltiesEnabled,
+            penaltiesSupplementary,
             issuedAt,
-            presenceType: inferredPresenceType,
-            decisionText:
-                isSummaryPath
-                    ? ''
-                    : resolvedKind === 'criminal_expiration' && expirationReason === 'custom_manual'
-                      ? expirationCustomDetail.trim() || decisionText
-                      : decisionText,
-            convictionText: showFullConvictionFields ? convictionText : undefined,
-            defendantIds: effectiveScopeIds,
-            expirationReason:
-                resolvedKind === 'criminal_expiration' && expirationReason ? expirationReason : undefined,
-            penalty: resolvedPenalty,
-            decisionPath: isSummaryPath ? 'summary' : 'full',
-        };
-
-        const validationErr = validateStageFinalDecisionForm(payload, caseContext);
-        if (validationErr) {
-            setLocalError(validationErr);
+            inferredPresenceType,
+            decisionText,
+            convictionText,
+            caseContext,
+        });
+        if (!result.ok) {
+            setLocalError(result.error);
             return;
         }
-
-        const defaultStatus: StageConclusion['defendantStatusAtDecision'] = defendants.some(
-            (d) => d.status === 'موقوف' || d.status === 'ملقى القبض عليه',
-        )
-            ? 'detained'
-            : defendants.some((d) => d.status === 'مكفل' || d.status === 'bailed_pending_appeal')
-              ? 'bailed'
-              : defendants.some((d) => d.status === 'هارب')
-                ? 'fugitive'
-                : 'bailed';
-
-        onSubmit(payload, { defendantStatusAtDecision: defaultStatus });
+        onSubmit(result.payload, result.meta);
     };
 
     const displayError = error || localError;
 
     return (
         <div
-            className="fixed inset-0 z-[500] isolate bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden"
+            className="fixed inset-0 z-[500] isolate bg-black/62 backdrop-blur-sm p-4 flex items-center justify-center print:hidden"
             dir="rtl"
             role="dialog"
             aria-modal="true"
@@ -195,7 +153,7 @@ export const StageFinalDecisionModal = ({
             onClick={onClose}
         >
             <div
-                className="relative z-[501] w-full max-w-xl max-h-[min(92vh,780px)] flex flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/60 overflow-hidden isolate"
+                className="relative z-[501] w-full max-w-xl max-h-[min(92vh,780px)] flex flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-lg shadow-black/35 overflow-hidden isolate"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex items-center justify-between gap-3">
@@ -508,3 +466,4 @@ export const StageFinalDecisionModal = ({
         </div>
     );
 };
+

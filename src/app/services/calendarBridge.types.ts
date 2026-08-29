@@ -15,6 +15,9 @@ export type CalendarSourceModule =
 /** يطلب LawyerDashboard مزامنة كاملة عند فتح التقويم */
 export const CALENDAR_REQUEST_SYNC_EVENT = 'hami:calendar-request-sync';
 
+/** فشل مزامنة الجسر في الخلفية — الرادر يعلن بدل صمت تام */
+export const CALENDAR_BACKGROUND_SYNC_FAILED_EVENT = 'hami:calendar-background-sync-failed';
+
 export type CalendarBridgePayload = {
     userId?: string | null;
     sourceModule: CalendarSourceModule;

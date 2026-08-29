@@ -1,11 +1,7 @@
 import React, { useMemo } from 'react';
-import {
-    SEARCH_CATEGORY_LABELS,
-    type GlobalSearchEntry,
-    type GroupedSearchResults,
-} from '@/app/services/globalSearchIndex';
-import { CATEGORY_META, SEARCH_SECTION_ORDER } from '@/app/components/lawyer/GlobalSearchOverlay/constants';
+import type { GlobalSearchEntry, GroupedSearchResults } from '@/app/services/globalSearchIndex';
 import { ResultRow } from '@/app/components/lawyer/GlobalSearchOverlay/components/ResultRow';
+import { iterSearchResultSections } from '@/app/components/lawyer/GlobalSearchOverlay/utils/searchResultSections';
 import {
     buildPinFromSearchEntry,
     canPinSearchEntry,
@@ -55,28 +51,16 @@ export function ResultsBody({
     }, [flatResults, pinLookup, scanIndex]);
 
     return (
-        <div className="space-y-6 pb-5 px-2">
-            {SEARCH_SECTION_ORDER.map((cat) => {
-                const entries = grouped[cat];
-                if (!entries?.length) return null;
-                const meta = CATEGORY_META[cat];
-                const Icon = meta.icon;
+        <div className="space-y-3 pb-4 px-1.5">
+            {iterSearchResultSections(grouped).map((section) => {
+                const { key, label, entries } = section;
                 return (
-                    <section key={cat}>
-                        <h3
-                            className="font-bold text-[11px] mb-2.5 flex items-center gap-2 uppercase tracking-wide px-2"
-                            style={{ color: meta.color }}
-                        >
-                            <Icon size={14} />
-                            <span>{SEARCH_CATEGORY_LABELS[cat]}</span>
-                            <span
-                                className="text-[10px] px-1.5 py-0.5 rounded-md font-mono"
-                                style={{ backgroundColor: `${meta.color}18`, color: meta.color }}
-                            >
-                                {entries.length}
-                            </span>
+                    <section key={key}>
+                        <h3 className="hami-gs-section-label">
+                            <span>{label}</span>
+                            <span className="hami-gs-section-count">{entries.length}</span>
                         </h3>
-                        <div className="space-y-0.5">
+                        <div>
                             {entries.map((e) => {
                                 const enrich = enriched.get(e.id);
                                 const pinItem = enrich?.pinItem ?? null;
@@ -87,9 +71,7 @@ export function ResultsBody({
                                         key={e.id}
                                         entry={e}
                                         query={query}
-                                        icon={Icon}
-                                        accent={meta.color}
-                                        onClick={() => onPick(e)}
+                                        onPick={onPick}
                                         pinItem={pinItem}
                                         relatedLinkCount={relatedLinkCount}
                                         resultIndex={resultIndex}

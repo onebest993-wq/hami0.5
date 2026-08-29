@@ -1,32 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const loadHamiSettingsModule = vi.fn(() => Promise.resolve({ HamiSettings: vi.fn() }));
-const preloadAllSettingsSectionComponents = vi.fn(() => Promise.resolve());
-const loadSettingsSection = vi.fn(() => Promise.resolve({}));
 
 vi.mock('@/app/runtime/hamiSettingsLoader', () => ({
     isHamiSettingsModuleResolved: vi.fn(() => false),
     loadHamiSettingsModule: (...args: unknown[]) => loadHamiSettingsModule(...args),
 }));
 
-vi.mock('@/app/components/lawyer/HamiSettings/settingsSectionRegistry', () => ({
-    preloadAllSettingsSectionComponents: (...args: unknown[]) =>
-        preloadAllSettingsSectionComponents(...args),
-}));
-
-vi.mock('@/app/components/lawyer/HamiSettings/settingsSectionLoader', () => ({
-    loadSettingsSection: (...args: unknown[]) => loadSettingsSection(...args),
-}));
-
-vi.mock('@/app/components/lawyer/HamiSettings/settingsSectionPersistence', () => ({
-    readPersistedSettingsSection: vi.fn(() => 'appearance'),
-}));
-
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: vi.fn(() => false),
+    isNativeShellStampedOnDom: vi.fn(() => false),
 }));
 
-vi.mock('@/app/services/settings/settingsRuntime', () => ({
+vi.mock('@/app/services/settings/settingsSnapshot', () => ({
     getLawyerSettingsSnapshot: vi.fn(() => ({
         security: { localOnlyMode: false },
         performance: { prefetchScreens: true, litePerformance: false },
@@ -54,7 +40,7 @@ describe('settingsBootHydrator', () => {
         ).mockReturnValue(false);
     });
 
-    it('hydrateSettingsShellForInstantOpen يحمّل shell وجميع التبويبات', async () => {
+    it('hydrateSettingsShellForInstantOpen يحمّل مقطع الإعدادات مرة واحدة', async () => {
         const { hydrateSettingsShellForInstantOpen, SETTINGS_SHELL_HYDRATED_EVENT } = await import(
             '@/app/runtime/settingsBootHydrator'
         );
@@ -66,15 +52,13 @@ describe('settingsBootHydrator', () => {
 
         expect(ok).toBe(true);
         expect(loadHamiSettingsModule).toHaveBeenCalledTimes(1);
-        expect(preloadAllSettingsSectionComponents).toHaveBeenCalledTimes(1);
-        expect(loadSettingsSection).toHaveBeenCalledWith('appearance');
         expect(onHydrated).toHaveBeenCalledTimes(1);
 
         window.removeEventListener(SETTINGS_SHELL_HYDRATED_EVENT, onHydrated);
     });
 
     it('hydrateSettingsShellForInstantOpen(false) يتخطى التحميل عند تعطيل prefetch', async () => {
-        const { getLawyerSettingsSnapshot } = await import('@/app/services/settings/settingsRuntime');
+        const { getLawyerSettingsSnapshot } = await import('@/app/services/settings/settingsSnapshot');
         vi.mocked(getLawyerSettingsSnapshot).mockReturnValue({
             security: { localOnlyMode: true },
             performance: { prefetchScreens: false, litePerformance: false },

@@ -35,7 +35,7 @@ export type ProfileLocationMode = 'gps' | 'manual';
 
 export interface ProfileAction {
     id: string;
-    type: 'whatsapp' | 'call' | 'email' | 'website' | 'location';
+    type: 'call' | 'email' | 'website' | 'location';
     label: string;
     value: string;
     /** للموقع: gps = فتح الخرائط، manual = عرض نصي فقط */

@@ -1,11 +1,6 @@
 /** إزالة تكرار السجل الزمني — منطق نقي (موجة 12) */
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import { dedupeTimelineEventsForDisplay } from '@/app/utils/timelineDedup';
-import {
-    filterTimelineEventsForInabaDossier,
-    filterTimelineEventsForParentDossier,
-    isInabaSubFileId,
-} from '@/app/stores';
 
 export function buildTimelineEventRowSignature(events: TimelineEvent[]): string {
     return events
@@ -121,22 +116,6 @@ export function reconcileCaseTasksPendingState(
     options?: { forceReplace?: boolean },
 ): CaseTasksPendingRow[] {
     return reconcileKeyedLogState(local, incoming, buildCaseTasksPendingRowSignature, options);
-}
-
-export function scopeTimelineEventsForActiveDossier(
-    timelineEvents: TimelineEvent[],
-    executionId: string,
-    activeSubFileId: string | null | undefined,
-    parentDossierId: string,
-): TimelineEvent[] {
-    const execId = String(executionId || '');
-    if (isInabaSubFileId(execId) && activeSubFileId) {
-        return filterTimelineEventsForInabaDossier(timelineEvents, activeSubFileId);
-    }
-    if (parentDossierId) {
-        return filterTimelineEventsForParentDossier(timelineEvents, parentDossierId);
-    }
-    return timelineEvents;
 }
 
 export type TimelineDedupePersistPlan = {

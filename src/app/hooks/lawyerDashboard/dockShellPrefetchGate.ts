@@ -1,14 +1,8 @@
 import type { HomeWidgetId } from '@/app/services/settings/homeLayout';
-import {
-    prefetchDockWidgetIntent,
-    type DockWidgetPrefetchPhase,
-} from '@/app/hooks/lawyerDashboard/lawyerDashboardIntentPrefetch';
-import { dispatchFieldTasksPrimeHost } from '@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksPrimeHost';
-import { dispatchSchedulePrimeHost } from '@/app/runtime/scheduleBootHydrator';
+import type { DockWidgetPrefetchPhase } from '@/app/hooks/lawyerDashboard/lawyerDashboardIntentPrefetch';
 
 const DOCK_PREFETCH_COOLDOWN_MS = 300;
 const DOCK_IDLE_STAGGER_MS = 120;
-const HEAVY_DOCK_IDLE_DELAY_MS = 4_500;
 const HEAVY_DOCK_IDLE_STAGGER_MS = 220;
 /** المنتدى خارج القائمة — يُسخَّن idle حتى يختفي انتظار أول فتح بارد */
 const HEAVY_IDLE_PREFETCH_WIDGETS = new Set<HomeWidgetId>([
@@ -24,11 +18,14 @@ const idleScheduledKeys = new Set<string>();
 const heavyIdleScheduledKeys = new Set<string>();
 let idleCallbackId: number | null = null;
 let idleFallbackTimerId: number | null = null;
-const staggerTimerIds: number[] = [];
+const lightStaggerTimerIds: number[] = [];
+const heavyStaggerTimerIds: number[] = [];
+let heavyIdleIntentArmed = false;
+let queuedHeavyIdleStart: (() => void) | null = null;
 
-function clearStaggerTimers(): void {
-    while (staggerTimerIds.length > 0) {
-        window.clearTimeout(staggerTimerIds.pop()!);
+function clearTimerIds(ids: number[]): void {
+    while (ids.length > 0) {
+        window.clearTimeout(ids.pop()!);
     }
 }
 
@@ -41,18 +38,23 @@ function cancelIdlePrefetchSchedule(): void {
         window.clearTimeout(idleFallbackTimerId);
         idleFallbackTimerId = null;
     }
-    clearStaggerTimers();
+    clearTimerIds(lightStaggerTimerIds);
 }
 
 export function resetDockShellPrefetchGateForTests(): void {
     cancelIdlePrefetchSchedule();
+    clearTimerIds(heavyStaggerTimerIds);
     lastPrefetchAt.clear();
     idleScheduledKeys.clear();
     heavyIdleScheduledKeys.clear();
+    heavyIdleIntentArmed = false;
+    queuedHeavyIdleStart = null;
 }
 
 function runPrefetch(widgetId: HomeWidgetId, phase: DockWidgetPrefetchPhase): void {
-    prefetchDockWidgetIntent(widgetId, phase);
+    void import('@/app/hooks/lawyerDashboard/lawyerDashboardIntentPrefetch')
+        .then((m) => m.prefetchDockWidgetIntent(widgetId, phase))
+        .catch(() => undefined);
 }
 
 /** prefetch واحد لكل widget كل ~300ms — يمنع triple-fire من enter/down/focus */
@@ -87,9 +89,9 @@ export function scheduleVisibleDockWidgetsPrefetch(widgetIds: readonly HomeWidge
 
     const run = () => {
         if (cancelled || document.hidden) return;
-        clearStaggerTimers();
+        clearTimerIds(lightStaggerTimerIds);
         eligibleWidgetIds.forEach((widgetId, index) => {
-            staggerTimerIds.push(
+            lightStaggerTimerIds.push(
                 window.setTimeout(() => {
                     if (!cancelled && !document.hidden) prefetchDockWidgetIntentDebounced(widgetId);
                 }, index * DOCK_IDLE_STAGGER_MS),
@@ -110,7 +112,7 @@ export function scheduleVisibleDockWidgetsPrefetch(widgetIds: readonly HomeWidge
     };
 }
 
-/** موجة idle منخفضة الأولوية للأقسام الثقيلة — بعد استقرار الإقلاع */
+/** موجة idle للأقسام الثقيلة — بعد نية على بلاطة ثقيلة لا بعد الجلوس على الرئيسية. */
 export function scheduleHeavyDockWidgetsIdlePrefetch(widgetIds: readonly HomeWidgetId[]): () => void {
     if (typeof window === 'undefined' || widgetIds.length === 0) return () => undefined;
     const heavyWidgetIds = widgetIds.filter((widgetId) => HEAVY_IDLE_PREFETCH_WIDGETS.has(widgetId));
@@ -121,13 +123,12 @@ export function scheduleHeavyDockWidgetsIdlePrefetch(widgetIds: readonly HomeWid
     heavyIdleScheduledKeys.add(key);
 
     let cancelled = false;
-    let delayTimer: number | null = null;
 
     const run = () => {
         if (cancelled || document.hidden) return;
-        clearStaggerTimers();
+        clearTimerIds(heavyStaggerTimerIds);
         heavyWidgetIds.forEach((widgetId, index) => {
-            staggerTimerIds.push(
+            heavyStaggerTimerIds.push(
                 window.setTimeout(() => {
                     if (!cancelled && !document.hidden) {
                         prefetchDockWidgetIntentDebounced(widgetId);
@@ -137,14 +138,27 @@ export function scheduleHeavyDockWidgetsIdlePrefetch(widgetIds: readonly HomeWid
         });
     };
 
-    delayTimer = window.setTimeout(run, HEAVY_DOCK_IDLE_DELAY_MS);
+    queuedHeavyIdleStart = run;
+    if (heavyIdleIntentArmed) {
+        queuedHeavyIdleStart = null;
+        run();
+    }
 
     return () => {
         cancelled = true;
-        if (delayTimer != null) window.clearTimeout(delayTimer);
-        clearStaggerTimers();
+        if (queuedHeavyIdleStart === run) queuedHeavyIdleStart = null;
+        clearTimerIds(heavyStaggerTimerIds);
         heavyIdleScheduledKeys.delete(key);
     };
+}
+
+/** أول مؤشر على بلاطة ثقيلة — يبدأ موجة الأخوات ولا يحمّل شيئاً بمجرد النظر. */
+export function armHeavyDockWidgetsIdlePrefetch(): void {
+    if (typeof window === 'undefined') return;
+    heavyIdleIntentArmed = true;
+    const start = queuedHeavyIdleStart;
+    queuedHeavyIdleStart = null;
+    start?.();
 }
 
 /** تسخين/تحضير المؤشر عند hover — نفس منطق الشريط السفلي القديم */
@@ -155,14 +169,19 @@ export function bindDockWidgetPointerHandlers(widgetId: HomeWidgetId): {
 } {
     const runPrefetch = () => prefetchDockWidgetIntentDebounced(widgetId);
     const onPointerDown = () => {
+        if (HEAVY_IDLE_PREFETCH_WIDGETS.has(widgetId)) armHeavyDockWidgetsIdlePrefetch();
         if (widgetId === 'dockTasks') {
-            dispatchFieldTasksPrimeHost();
+            void import('@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksPrimeHost')
+                .then((m) => m.dispatchFieldTasksPrimeHost())
+                .catch(() => undefined);
             prefetchDockWidgetIntentImmediate('dockTasks', 'hover');
             return;
         }
         if (widgetId === 'dockCalendar') {
             queueMicrotask(() => {
-                dispatchSchedulePrimeHost();
+                void import('@/app/runtime/scheduleBootHydrator')
+                    .then((m) => m.dispatchSchedulePrimeHost())
+                    .catch(() => undefined);
                 prefetchDockWidgetIntentImmediate('dockCalendar', 'hover');
             });
             return;
@@ -181,8 +200,14 @@ export function bindDockWidgetPointerHandlers(widgetId: HomeWidgetId): {
         runPrefetch();
     };
     return {
-        onPointerEnter: runPrefetch,
+        onPointerEnter: () => {
+            if (HEAVY_IDLE_PREFETCH_WIDGETS.has(widgetId)) armHeavyDockWidgetsIdlePrefetch();
+            runPrefetch();
+        },
         onPointerDown,
-        onFocus: runPrefetch,
+        onFocus: () => {
+            if (HEAVY_IDLE_PREFETCH_WIDGETS.has(widgetId)) armHeavyDockWidgetsIdlePrefetch();
+            runPrefetch();
+        },
     };
 }

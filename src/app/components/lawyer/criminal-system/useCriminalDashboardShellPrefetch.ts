@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
     preloadCriminalDashboardShellSurfaces,
     preloadCriminalDashboardSecondaryShellSurfaces,
+    preloadCriminalDashboardRequestsTabSurface,
 } from './criminalDashboardLazyRegistry';
 import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
 import { subscribeCriminalModalsHostPrime } from './criminalModalsHostPrime';
@@ -16,12 +17,17 @@ export function useCriminalDashboardShellPrefetch(forceModalsHost: boolean) {
         const cancelSecondary = scheduleIdleWork(() => {
             preloadCriminalDashboardSecondaryShellSurfaces();
         }, 1800);
+        /* تبويب الطلبات — idle أطول / نية التبويب عبر prefetchCriminalDashboardTab */
+        const cancelRequests = scheduleIdleWork(() => {
+            preloadCriminalDashboardRequestsTabSurface();
+        }, 4200);
         const cancelModals = scheduleIdleWork(() => {
             setModalsHostMounted(true);
         }, 280);
         const unsubPrime = subscribeCriminalModalsHostPrime(() => setModalsHostMounted(true));
         return () => {
             cancelSecondary();
+            cancelRequests();
             cancelModals();
             unsubPrime();
         };

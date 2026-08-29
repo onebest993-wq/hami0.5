@@ -6,7 +6,10 @@ import {
     resolveExecutionDomainContext,
 } from '@/app/utils/executionDomainIsolation';
 import { isCustodyRemovalExecutionClaim } from '@/app/utils/executionClaimIsolation';
-import type { FollowupSpecializationVisibility } from '@/app/utils/followupSpecializationVisibility';
+import {
+    createDefaultFollowupSpecializationFlags,
+    type FollowupSpecializationVisibility,
+} from '@/app/utils/followupSpecializationVisibility';
 import { requireDecisionsStorageExecutionId } from '../../utils/requireDecisionsStorageExecutionId';
 import type { FollowupUnifiedModalTab } from '../../followupModalTabTypes';
 import { useFollowupModalPersistNavigation } from '../useFollowupModalPersistNavigation';
@@ -103,7 +106,10 @@ export function useExecutionDashboardFollowupTabAssembly({
         [executionData, decisionsStorageExecutionId, executionId],
     );
 
-    const followupSpecialization = executionDomainContext.flags;
+    const followupSpecialization = useMemo(
+        () => executionDomainContext.flags ?? createDefaultFollowupSpecializationFlags(),
+        [executionDomainContext],
+    );
 
     const followupSpecializationEffective = useMemo(
         () => applyDebtorDeathFollowupOverlay(followupSpecialization, Boolean(activeDebtorIsDeceased)),

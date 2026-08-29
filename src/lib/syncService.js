@@ -1,16 +1,20 @@
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import { isCloudSyncEnabled } from './cloudSyncEnv.js';
 
-const LAWYER_SETTINGS_TABLE = 'lawyer_settings';
+const CLOUD_SYNC_PATH = '/api/settings/cloud-sync';
 const LEGACY_DEV_USER_KEY = 'dev_user';
 
-let supabasePromise = null;
-
-async function getSupabase() {
-    if (!supabasePromise) {
-        supabasePromise = import('./supabaseClient.js').then((mod) => mod.supabase);
+/**
+ * @param {'GET' | 'POST' | 'PATCH'} method
+ * @param {unknown} [body]
+ */
+async function bffCloudSyncRequest(method, body) {
+    const { SecureAPIClient } = await import('@/app/services/SecureAPIClient');
+    const options = { method, headers: { 'Content-Type': 'application/json' } };
+    if (body !== undefined) {
+        options.body = JSON.stringify(body);
     }
-    return supabasePromise;
+    return SecureAPIClient.fetchSecure(CLOUD_SYNC_PATH, options);
 }
 
 /**
@@ -103,43 +107,16 @@ export function applyAppData(appData) {
  * @param {unknown} appData
  */
 export async function saveToCloud(appData) {
-    const user_key = await resolveUserKeyOrThrow();
-    const supabase = await getSupabase();
-    const payload = {
-        user_key,
-        app_data: appData ?? {},
-        updated_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await supabase
-        .from(LAWYER_SETTINGS_TABLE)
-        .upsert(payload, { onConflict: 'user_key' })
-        .select('user_key, app_data, updated_at')
-        .single();
-
-    if (error) {
-        throw error;
-    }
-
-    return data;
+    await resolveUserKeyOrThrow();
+    return bffCloudSyncRequest('POST', { app_data: appData ?? {} });
 }
 
 export async function loadFromCloud() {
     const user_key = await resolveCloudSyncUserKey();
     if (!user_key) return null;
 
-    const supabase = await getSupabase();
-    const { data, error } = await supabase
-        .from(LAWYER_SETTINGS_TABLE)
-        .select('app_data, updated_at')
-        .eq('user_key', user_key)
-        .maybeSingle();
-
-    if (error) {
-        throw error;
-    }
-
-    return data?.app_data ?? null;
+    const res = await bffCloudSyncRequest('GET');
+    return res?.app_data ?? null;
 }
 
 /** ترحيل اختياري من dev_user إلى المستخدم الحالي */
@@ -147,33 +124,8 @@ export async function migrateLegacyDevUserCloudData() {
     const user_key = await resolveCloudSyncUserKey();
     if (!user_key) return false;
 
-    const supabase = await getSupabase();
-    const { data: legacy, error: legacyError } = await supabase
-        .from(LAWYER_SETTINGS_TABLE)
-        .select('app_data, updated_at')
-        .eq('user_key', LEGACY_DEV_USER_KEY)
-        .maybeSingle();
-
-    if (legacyError || !legacy?.app_data) return false;
-
-    const { data: existing } = await supabase
-        .from(LAWYER_SETTINGS_TABLE)
-        .select('user_key')
-        .eq('user_key', user_key)
-        .maybeSingle();
-
-    if (existing?.user_key) return false;
-
-    const { error } = await supabase.from(LAWYER_SETTINGS_TABLE).upsert(
-        {
-            user_key,
-            app_data: legacy.app_data,
-            updated_at: legacy.updated_at ?? new Date().toISOString(),
-        },
-        { onConflict: 'user_key' },
-    );
-
-    return !error;
+    const res = await bffCloudSyncRequest('PATCH', { action: 'migrateLegacy' });
+    return Boolean(res?.migrated);
 }
 
 export { isCloudSyncEnabled, LEGACY_DEV_USER_KEY };

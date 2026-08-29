@@ -5,11 +5,13 @@ import {
     executorSubtypesForPropertyWorkflowStatus,
     propertyWorkflowActiveStepIndex,
     normalizePropertySeizureStatus,
+    buildPropertyWorkflowStepHistory,
 } from '../seizureWorkflowPropertyAdapter';
 import {
     findSeizureDecisionForMovable,
     executorSubtypesForMovableWorkflowStatus,
     movableWorkflowActiveStepIndex,
+    buildMovableWorkflowStepHistory,
 } from '../seizureWorkflowMovableAdapter';
 import {
     findSeizureDecisionForEntity,
@@ -105,5 +107,22 @@ describe('seizureWorkflowAdapters', () => {
         expect(movableWorkflowActiveStepIndex('published', entity as never)).toBe(
             workflowActiveStepIndex('published', entity),
         );
+    });
+
+    it('تاريخ خطوة الإشارة يقرأ رقم الكتاب من الأصل', () => {
+        const movableLines = buildMovableWorkflowStepHistory(
+            0,
+            { id: 'm1', seizureMarkLetterNumber: 'ك-99' } as never,
+            [],
+            'm1',
+        );
+        const propertyLines = buildPropertyWorkflowStepHistory(
+            0,
+            { id: 'p1', seizureMarkLetterNumber: 'ع-12' } as never,
+            [],
+            'p1',
+        );
+        expect(movableLines.some((l) => String(l.value).includes('ك-99'))).toBe(true);
+        expect(propertyLines.some((l) => String(l.value).includes('ع-12'))).toBe(true);
     });
 });

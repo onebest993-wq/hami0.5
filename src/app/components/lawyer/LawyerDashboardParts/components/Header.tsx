@@ -1,23 +1,14 @@
 import React, { memo, useLayoutEffect, useRef } from 'react';
 import { HeaderToolbarNav } from './HeaderToolbarNav';
-import { HeaderProfileTrigger } from './HeaderProfileTrigger';
-import { useAuthUser } from '@/app/context/AuthContext';
-import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 import {
     clearPublishedLawyerHeaderOffset,
     publishLawyerHeaderOffset,
 } from '@/app/components/lawyer/LawyerDashboardParts/publishLawyerHeaderOffset';
+import { HAMI_SHELL_CONTAINER } from '@/app/components/lawyer/dashboard/lawyerShellLayout';
 
 export interface HeaderProps {
     shouldShow: boolean;
     unreadCount: number;
-    onProfileClick: () => void;
-    onProfilePointerEnter?: () => void;
-    onProfilePointerDown?: () => void;
-    /** تبويب الملف مفتوح — لـ aria-expanded فقط */
-    profileExpanded?: boolean;
-    /** shell الملف جاهز للفتح الفوري */
-    profileShellReady?: boolean;
     onSearchClick: () => void;
     onSearchPointerEnter?: () => void;
     onSearchPointerDown?: () => void;
@@ -32,11 +23,6 @@ export interface HeaderProps {
 export const Header = memo(function Header({
     shouldShow,
     unreadCount,
-    onProfileClick,
-    onProfilePointerEnter,
-    onProfilePointerDown,
-    profileExpanded = false,
-    profileShellReady = true,
     onSearchClick,
     onSearchPointerEnter,
     onSearchPointerDown,
@@ -47,9 +33,6 @@ export const Header = memo(function Header({
     onSettingsPointerEnter,
     onSettingsPointerDown,
 }: HeaderProps) {
-    const user = useAuthUser();
-    const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
-    const calendarUserId = resolveCalendarUserId(user?.id ?? null);
     const headerRef = useRef<HTMLElement>(null);
 
     useLayoutEffect(() => {
@@ -72,19 +55,25 @@ export const Header = memo(function Header({
 
         syncOffset();
 
-        if (typeof ResizeObserver === 'undefined') return;
-        const observer = new ResizeObserver(syncOffset);
-        observer.observe(node);
+        const resizeObserver =
+            typeof ResizeObserver !== 'undefined' ? new ResizeObserver(syncOffset) : null;
+        resizeObserver?.observe(node);
+
+        window.addEventListener('resize', syncOffset, { passive: true });
+        const visualViewport = window.visualViewport;
+        visualViewport?.addEventListener('resize', syncOffset);
         return () => {
-            observer.disconnect();
-            clearPublishedLawyerHeaderOffset();
+            resizeObserver?.disconnect();
+            window.removeEventListener('resize', syncOffset);
+            visualViewport?.removeEventListener('resize', syncOffset);
+            /* لا تُمسح الإزاحة عند إعادة التركيب — يمنع رعشة الشبكة تحت الهيدر */
         };
     }, [shouldShow]);
 
     return (
         <header
             ref={headerRef}
-            className="hami-lawyer-header fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-3 sm:px-5"
+            className="hami-lawyer-header fixed top-0 left-0 right-0 z-[100] flex items-center justify-center hami-shell-gutter-x"
             data-header-visible={shouldShow ? 'true' : 'false'}
             style={{
                 opacity: shouldShow ? 1 : 0,
@@ -93,30 +82,21 @@ export const Header = memo(function Header({
             }}
             aria-hidden={!shouldShow}
         >
-            <HeaderProfileTrigger
-                interactive={shouldShow}
-                userId={calendarUserId}
-                userMetadata={meta}
-                expanded={profileExpanded}
-                shellReady={profileShellReady}
-                onClick={onProfileClick}
-                onPointerEnter={onProfilePointerEnter}
-                onPointerDown={onProfilePointerDown}
-            />
-
-            <HeaderToolbarNav
-                interactive={shouldShow}
-                unreadCount={unreadCount}
-                onSearchClick={onSearchClick}
-                onSearchPointerEnter={onSearchPointerEnter}
-                onSearchPointerDown={onSearchPointerDown}
-                onNotificationsClick={onNotificationsClick}
-                onNotificationsPointerEnter={onNotificationsPointerEnter}
-                onNotificationsPointerDown={onNotificationsPointerDown}
-                onSettingsClick={onSettingsClick}
-                onSettingsPointerEnter={onSettingsPointerEnter}
-                onSettingsPointerDown={onSettingsPointerDown}
-            />
+            <div className={HAMI_SHELL_CONTAINER}>
+                <HeaderToolbarNav
+                    interactive={shouldShow}
+                    unreadCount={unreadCount}
+                    onSearchClick={onSearchClick}
+                    onSearchPointerEnter={onSearchPointerEnter}
+                    onSearchPointerDown={onSearchPointerDown}
+                    onNotificationsClick={onNotificationsClick}
+                    onNotificationsPointerEnter={onNotificationsPointerEnter}
+                    onNotificationsPointerDown={onNotificationsPointerDown}
+                    onSettingsClick={onSettingsClick}
+                    onSettingsPointerEnter={onSettingsPointerEnter}
+                    onSettingsPointerDown={onSettingsPointerDown}
+                />
+            </div>
         </header>
     );
 });

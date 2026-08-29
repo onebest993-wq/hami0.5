@@ -1,5 +1,5 @@
 import React from 'react';
-import { History } from '@/app/components/ui/lucideIcons';
+import { History } from '@/app/components/ui/icons/History';
 import type { ExecutorRequestLifecycleSummary } from '@/app/utils/executorRequestLifecycle';
 
 const TONE_CLASS: Record<
@@ -74,7 +74,7 @@ export const RequestLifecyclePanel: React.FC<RequestLifecyclePanelProps> = ({ su
             {summary.rejections > 0 ? ` · ${summary.rejections} رفض` : ''}
             {summary.pending > 0 ? ` · ${summary.pending} قيد البت` : ''}
         </p>
-        <div className="space-y-1.5 max-h-[min(36vh,220px)] overflow-y-auto">
+        <div className="space-y-1.5 max-h-[min(36dvh,220px)] overflow-y-auto overscroll-contain">
             {summary.entries.map((entry) => (
                 <div
                     key={entry.decisionId || `${entry.cycleNumber}:${entry.submittedAt}`}

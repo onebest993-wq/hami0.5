@@ -1,4 +1,5 @@
 import React from 'react';
+import type { RefObject } from 'react';
 import type { RepositoryFeedLayoutId } from './repositoryFeedLayout';
 import type { UniversalEntryCardProps } from './UniversalEntryCard';
 import type { RepositoryFeedItem } from '@/app/services/repository/repositoryUnifiedFeed';
@@ -9,13 +10,13 @@ import { RepositoryFeedProgressiveList } from './RepositoryFeedProgressiveList';
 type RepositoryFeedListProps = Omit<UniversalEntryCardProps, 'item'> & {
     items: RepositoryFeedItem[];
     feedLayout: RepositoryFeedLayoutId;
-    itemLayoutClass?: string;
+    scrollParentRef?: RefObject<HTMLDivElement | null>;
 };
 
 export const RepositoryFeedList = React.memo(function RepositoryFeedList({
     items,
     feedLayout,
-    itemLayoutClass = '',
+    scrollParentRef,
     ...cardProps
 }: RepositoryFeedListProps) {
     if (shouldVirtualizeRepositoryFeed(items.length)) {
@@ -23,7 +24,7 @@ export const RepositoryFeedList = React.memo(function RepositoryFeedList({
             <RepositoryFeedVirtualList
                 items={items}
                 feedLayout={feedLayout}
-                itemLayoutClass={itemLayoutClass}
+                scrollParentRef={scrollParentRef}
                 {...cardProps}
             />
         );
@@ -33,7 +34,6 @@ export const RepositoryFeedList = React.memo(function RepositoryFeedList({
         <RepositoryFeedProgressiveList
             items={items}
             feedLayout={feedLayout}
-            itemLayoutClass={itemLayoutClass}
             {...cardProps}
         />
     );

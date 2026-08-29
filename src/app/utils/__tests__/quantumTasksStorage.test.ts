@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import type { LegalTask } from '@/app/types/TaskEngine';
+import { legalTaskStub as task } from '@/app/services/tasks/__tests__/legalTaskStub';
+import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     countPendingFieldTasks,
     deserializeQuantumTasks,
@@ -8,25 +9,6 @@ import {
     serializeQuantumTasks,
     QUANTUM_TASKS_STORAGE_KEY,
 } from '../quantumTasksStorage';
-
-function task(partial: Partial<LegalTask> & Pick<LegalTask, 'id' | 'title'>): LegalTask {
-    return {
-        id: partial.id,
-        rawText: partial.title,
-        title: partial.title,
-        location: partial.location ?? null,
-        parsedDate: partial.parsedDate ?? null,
-        reminderAt: null,
-        isFatalDeadline: partial.isFatalDeadline ?? false,
-        linkedCaseId: null,
-        status: partial.status ?? 'pending',
-        completedAt: partial.completedAt ?? null,
-        pinnedToFieldCurtain: partial.pinnedToFieldCurtain ?? false,
-        subTasks: partial.subTasks ?? [],
-        documentRequirements: [],
-        expenses: [],
-    };
-}
 
 describe('deserializeQuantumTasks', () => {
     it('returns empty array for invalid blob', () => {
@@ -61,6 +43,32 @@ describe('deserializeQuantumTasks', () => {
     it('filters tasks without id', () => {
         const loaded = deserializeQuantumTasks({ tasks: [{ id: '', title: 'x' }] });
         expect(loaded).toHaveLength(0);
+    });
+
+    it('clamps oversized strings and drops unsafe voice refs', () => {
+        const loaded = deserializeQuantumTasks({
+            tasks: [
+                {
+                    id: 'bomb-1',
+                    rawText: 'x'.repeat(5000),
+                    title: 'y'.repeat(5000),
+                    status: 'pending',
+                    voiceRef: 'javascript:alert(1)',
+                    voiceTranscript: 'z'.repeat(9000),
+                    subTasks: Array.from({ length: 90 }, (_, i) => ({
+                        id: `s${i}`,
+                        title: 'فرع',
+                        isCompleted: false,
+                    })),
+                },
+            ],
+        });
+        expect(loaded).toHaveLength(1);
+        expect(loaded[0]!.rawText.length).toBeLessThanOrEqual(2000);
+        expect(loaded[0]!.title.length).toBeLessThanOrEqual(500);
+        expect(loaded[0]!.voiceRef).toBeNull();
+        expect(loaded[0]!.voiceTranscript!.length).toBeLessThanOrEqual(4000);
+        expect(loaded[0]!.subTasks.length).toBeLessThanOrEqual(40);
     });
 });
 
@@ -125,9 +133,14 @@ describe('countPendingFieldTasks', () => {
 describe('persistQuantumTasksSync / readQuantumTasksFromDiskSync', () => {
     beforeEach(() => {
         localStorage.clear();
+        try {
+            SecureStoreService.deleteItemSync(QUANTUM_TASKS_STORAGE_KEY);
+        } catch {
+            /* ignore */
+        }
     });
 
-    it('writes synchronously to localStorage and survives reload read', () => {
+    it('writes SecureStore synchronously and clears leftover localStorage', () => {
         const tasks = [
             task({
                 id: 'persist-1',
@@ -137,13 +150,26 @@ describe('persistQuantumTasksSync / readQuantumTasksFromDiskSync', () => {
             }),
         ];
         expect(persistQuantumTasksSync(tasks)).toBe(true);
-        const raw = localStorage.getItem(QUANTUM_TASKS_STORAGE_KEY);
+        expect(localStorage.getItem(QUANTUM_TASKS_STORAGE_KEY)).toBeNull();
+        const raw = SecureStoreService.getItemSync(QUANTUM_TASKS_STORAGE_KEY);
         expect(raw).toContain('persist-1');
         expect(raw).toContain('بغداد');
+    });
 
+    it('قراءة الستارة المتزامنة تقرأ leftover localStorage دون محوه (أول إطار)', () => {
+        const blob = serializeQuantumTasks([
+            task({
+                id: 'legacy-1',
+                title: 'تراثي',
+                location: 'كرخ',
+                parsedDate: new Date(2026, 5, 21),
+            }),
+        ]);
+        localStorage.setItem(QUANTUM_TASKS_STORAGE_KEY, JSON.stringify(blob));
         const restored = readQuantumTasksFromDiskSync(new Date(2026, 5, 21));
         expect(restored).toHaveLength(1);
-        expect(restored[0]!.id).toBe('persist-1');
-        expect(restored[0]!.location).toBe('بغداد');
+        expect(restored[0]!.id).toBe('legacy-1');
+        expect(restored[0]!.location).toBe('كرخ');
+        expect(localStorage.getItem(QUANTUM_TASKS_STORAGE_KEY)).not.toBeNull();
     });
 });

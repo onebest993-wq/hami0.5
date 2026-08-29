@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     isModestDevice,
+    isNativeShellStampedOnDom,
     normalizeLitePerformanceMode,
     resolveLitePerformance,
 } from '../devicePerformanceTier';
@@ -19,11 +20,13 @@ describe('devicePerformanceTier', () => {
         expect(resolveLitePerformance('off')).toBe(false);
     });
 
-    it('isModestDevice يُرجع false بدون navigator', () => {
-        const original = globalThis.navigator;
-        // @ts-expect-error test stub
-        delete globalThis.navigator;
-        expect(isModestDevice()).toBe(false);
-        globalThis.navigator = original;
+    it('isNativeShellStampedOnDom يقرأ ختم html فقط', () => {
+        document.documentElement.removeAttribute('data-hami-native');
+        expect(isNativeShellStampedOnDom()).toBe(false);
+        document.documentElement.dataset.hamiNative = '1';
+        expect(isNativeShellStampedOnDom()).toBe(true);
+        document.documentElement.dataset.hamiNative = '0';
+        expect(isNativeShellStampedOnDom()).toBe(false);
+        document.documentElement.removeAttribute('data-hami-native');
     });
 });

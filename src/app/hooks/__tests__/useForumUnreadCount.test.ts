@@ -23,6 +23,10 @@ vi.mock('@/app/services/forum/forumNotificationBridge', () => ({
     syncForumNotificationsToAppStore: vi.fn(),
 }));
 
+vi.mock('@/app/services/secureApiNetworkFeatures', () => ({
+    canReachProtectedServerNetwork: () => true,
+}));
+
 describe('useForumUnreadCount', () => {
     beforeEach(() => {
         listForumNotifications.mockReset();

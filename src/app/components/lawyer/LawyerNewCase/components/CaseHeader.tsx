@@ -1,23 +1,20 @@
 import React from 'react';
-import { X } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
 import { NC_HEADER } from '../newCaseGlassTheme';
 
 export interface CaseHeaderProps {
-    step: 'gateway' | 'form';
     onClose: () => void;
     selectedType?: string | null;
     incidentalBadge?: { label: string; tone: 'joined' | 'counter' };
 }
 
-export const CaseHeader = ({ step, onClose, selectedType, incidentalBadge }: CaseHeaderProps) => {
+export const CaseHeader = ({ onClose, selectedType, incidentalBadge }: CaseHeaderProps) => {
     const title =
-        step === 'form'
-            ? selectedType === 'personal'
-              ? 'إضبارة الأحوال الشخصية'
-              : selectedType === 'criminal'
-                ? 'إضبارة جزائية'
-                : 'إضبارة الدعوى'
-            : 'اختر التصنيف القضائي';
+        selectedType === 'personal'
+            ? 'إضبارة الأحوال الشخصية'
+            : selectedType === 'criminal'
+              ? 'إضبارة جزائية'
+              : 'إضبارة الدعوى';
 
     const badgeClass =
         incidentalBadge?.tone === 'counter'
@@ -29,7 +26,8 @@ export const CaseHeader = ({ step, onClose, selectedType, incidentalBadge }: Cas
             <button
                 type="button"
                 onClick={onClose}
-                className="p-2 rounded-full text-white/55 hover:text-white hover:bg-white/[0.06] transition-colors"
+                aria-label="إغلاق"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-white/55 hover:text-white hover:bg-white/[0.06] transition-colors touch-manipulation"
             >
                 <X size={20} />
             </button>
@@ -43,7 +41,7 @@ export const CaseHeader = ({ step, onClose, selectedType, incidentalBadge }: Cas
                     </span>
                 ) : null}
             </div>
-            <div className="w-9" aria-hidden />
+            <div className="min-w-[44px]" aria-hidden />
         </div>
     );
 };

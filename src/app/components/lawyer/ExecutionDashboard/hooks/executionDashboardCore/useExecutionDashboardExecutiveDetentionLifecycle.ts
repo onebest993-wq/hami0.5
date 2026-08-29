@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** انتهاء الحبس التنفيذي + تنبيه ما قبل الانتهاء */
 import { useEffect, useRef } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';

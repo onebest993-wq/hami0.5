@@ -1,5 +1,4 @@
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
-import { HOME_SECTION_ORDER_DEFAULT, type HomeSectionId } from './homeSections';
 import type { ViewMode } from './types';
 
 /** سلوك ثابت — لم يعد جزءاً من lawyer_settings القابل للتعديل.
@@ -8,8 +7,6 @@ export const BUILTIN_VIEW_MODE_DEFAULT: ViewMode = 'list';
 export const BUILTIN_COMPACT_MODE = false;
 export const BUILTIN_WATERMARK_EXPORT = false;
 export const BUILTIN_AUTO_SUMMARY = false;
-export const BUILTIN_SMART_ALERTS = true;
-export const BUILTIN_HOME_SECTION_ORDER: HomeSectionId[] = [...HOME_SECTION_ORDER_DEFAULT];
 
 export const BUILTIN_NOTIFICATIONS_ENABLED = true;
 export const BUILTIN_PUSH_ENABLED = true;

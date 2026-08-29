@@ -228,33 +228,20 @@ export function loadArchivePortalModule(): Promise<ArchivePortalModule> {
     return ensureArchivePortalPromise();
 }
 
-const EXECUTION_CHUNK_SOFT_TIMEOUT_MS = 6_000;
-
-function withSoftSettle(promise: Promise<unknown>): Promise<void> {
-    return new Promise((resolve) => {
-        let settled = false;
-        const finish = () => {
-            if (settled) return;
-            settled = true;
-            resolve();
-        };
-        const timeoutId = window.setTimeout(finish, EXECUTION_CHUNK_SOFT_TIMEOUT_MS);
-        promise.then(finish, finish).finally(() => window.clearTimeout(timeoutId));
-    });
-}
-
 /**
- * سطح التنفيذ (lazy داخل ArchivePortal) — يُقيَّم أثناء InstantShell قبل التركيب.
+ * سطح التنفيذ (lazy داخل OverlayEntry) — يُقيَّم أثناء InstantBody قبل التركيب.
  */
 function ensureExecutionSurfacePromise(): Promise<void> {
     if (!executionSurfacePromise) {
-        executionSurfacePromise = withSoftSettle(
-            import('@/app/components/lawyer/ArchivePortal/ArchivePortalExecutionSurface').then((m) => {
-                cachedExecutionSurface = m.ArchivePortalExecutionSurface;
-            }),
-        ).then(() => {
+        const loadSurface = import(
+            '@/app/components/lawyer/ArchivePortal/ArchivePortalExecutionSurface'
+        ).then((m) => {
+            cachedExecutionSurface = m.ArchivePortalExecutionSurface;
             executionSurfaceReady = true;
             notifyExecutionSurfaceListeners();
+        });
+        executionSurfacePromise = loadSurface.catch(() => {
+            executionSurfacePromise = null;
         });
     }
     return executionSurfacePromise;
@@ -265,18 +252,19 @@ function ensureExecutionSurfacePromise(): Promise<void> {
  */
 function ensureExecutionFileGridPromise(): Promise<void> {
     if (!executionFileGridPromise) {
-        executionFileGridPromise = withSoftSettle(
-            import(
-                '@/app/components/lawyer/ArchivePortal/components/ExecutionArchiveFileGrid'
-            ).then((m) => {
+        executionFileGridPromise = import(
+            '@/app/components/lawyer/ArchivePortal/components/ExecutionArchiveFileGrid'
+        )
+            .then((m) => {
                 cachedExecutionFileGrid = m.ExecutionArchiveFileGrid;
-            }),
-        ).then(() => {
-            executionFileGridReady = true;
-            notifyExecutionFileGridListeners();
-        });
+                executionFileGridReady = true;
+                notifyExecutionFileGridListeners();
+            })
+            .catch(() => {
+                executionFileGridPromise = null;
+            });
     }
-    return executionFileGridPromise;
+    return executionFileGridPromise ?? Promise.resolve();
 }
 
 /** دعاوى — أرشيف + شبكة دعاوى فقط (بلا chunk التنفيذ) */
@@ -297,11 +285,41 @@ export function prefetchLawsuitArchiveContent(): void {
     void ensureLawsuitFileGridPromise();
 }
 
+function ensureExecutionSmartCardPromise(): void {
+    void import('@/app/components/lawyer/ArchivePortal/components/ExecutionSmartCard').catch(
+        () => undefined,
+    );
+}
+
+function ensureExecutionArchiveLitePromise(): void {
+    void import(
+        '@/app/components/lawyer/ArchivePortal/components/ExecutionArchiveToolbar'
+    ).catch(() => undefined);
+}
+
+function ensureExecutionArchivePinPromise(): void {
+    void import('@/app/components/lawyer/ArchivePortal/components/ExecutionArchiveCardPin')
+        .then((m) => {
+            m.prefetchExecutionArchivePinStore();
+        })
+        .catch(() => undefined);
+}
+
+function ensureExecutionArchivePreviewPromise(): void {
+    void import(
+        '@/app/components/lawyer/ArchivePortal/components/ArchivePortalExecutionPreviewModal'
+    ).catch(() => undefined);
+}
+
 /** سطح + شبكة مخزن التنفيذ — يمنع انتظار Suspense الداخلي بعد اعتماد Portal */
 export function prefetchExecutionArchiveContent(): void {
     if (typeof window === 'undefined') return;
     void ensureExecutionSurfacePromise();
     void ensureExecutionFileGridPromise();
+    ensureExecutionSmartCardPromise();
+    ensureExecutionArchiveLitePromise();
+    ensureExecutionArchivePinPromise();
+    ensureExecutionArchivePreviewPromise();
 }
 
 export function prefetchLawsuitArchiveHubModule(): void {

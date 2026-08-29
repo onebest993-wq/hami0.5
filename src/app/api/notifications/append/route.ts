@@ -1,11 +1,17 @@
-import { requireNotificationsAuth } from '../_auth.ts';
+import { NOTIFICATIONS_API_INTERNAL_ERROR, requireNotificationsAuth } from '../_auth.ts';
 import { sanitizePayload } from '../../security/sanitizer.ts';
 import { wifeJsonResponse } from '../../security/wifeSecurityHeaders.ts';
 import { appendIncomingNotificationServer } from '@/app/services/notifications/notificationServerBlob';
 import type { NotificationCategory, NotificationType } from '@/app/infrastructure/NotificationRepository';
+import {
+    clampNotificationInboxText,
+    MAX_NOTIFICATION_MESSAGE_LEN,
+    MAX_NOTIFICATION_TITLE_LEN,
+    sanitizeNotificationDedupeKey,
+} from '@/app/services/notifications/notificationInboxSanitize';
+import { sanitizeNotificationActionPayload } from '@/app/services/notifications/notificationNavigateSecurity';
 
-const ALLOWED_TYPES = new Set<NotificationType>([
-    'system_alert',
+const CLIENT_ALLOWED_TYPES = new Set<NotificationType>([
     'new_document',
     'forum_reply',
     'forum_mention',
@@ -13,15 +19,10 @@ const ALLOWED_TYPES = new Set<NotificationType>([
     'ai_insight',
 ]);
 
-const ALLOWED_CATEGORIES = new Set<NotificationCategory>([
-    'forum',
-    'system',
-    'document',
-    'ai',
-]);
+const CLIENT_ALLOWED_CATEGORIES = new Set<NotificationCategory>(['forum', 'document', 'ai']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value) && typeof value === 'object';
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 /**
@@ -39,27 +40,28 @@ export async function POST(request: Request): Promise<Response> {
             return wifeJsonResponse(400, { ok: false, error: 'payload مطلوب' });
         }
 
-        const title = typeof payload.title === 'string' ? payload.title.trim() : '';
-        const message = typeof payload.message === 'string' ? payload.message.trim() : '';
+        const title = clampNotificationInboxText(payload.title, MAX_NOTIFICATION_TITLE_LEN);
+        const message = clampNotificationInboxText(payload.message, MAX_NOTIFICATION_MESSAGE_LEN);
         if (!title || !message) {
             return wifeJsonResponse(400, { ok: false, error: 'title و message مطلوبان' });
         }
 
-        const type = (typeof payload.type === 'string' ? payload.type : 'system_alert') as NotificationType;
-        if (!ALLOWED_TYPES.has(type)) {
-            return wifeJsonResponse(400, { ok: false, error: 'نوع إشعار غير مسموح' });
+        const type = typeof payload.type === 'string' ? (payload.type as NotificationType) : null;
+        if (!type || !CLIENT_ALLOWED_TYPES.has(type)) {
+            return wifeJsonResponse(403, { ok: false, error: 'نوع إشعار غير مسموح من العميل' });
         }
 
         const category = (
-            typeof payload.category === 'string' ? payload.category : 'system'
+            typeof payload.category === 'string' ? payload.category : 'forum'
         ) as NotificationCategory;
-        if (!ALLOWED_CATEGORIES.has(category)) {
-            return wifeJsonResponse(400, { ok: false, error: 'فئة غير مسموحة' });
+        if (!CLIENT_ALLOWED_CATEGORIES.has(category)) {
+            return wifeJsonResponse(403, { ok: false, error: 'فئة غير مسموحة من العميل' });
         }
 
-        const dedupeKey = typeof payload.dedupeKey === 'string' ? payload.dedupeKey.trim() : undefined;
-        const actionPayload =
-            isRecord(payload.actionPayload) ? (payload.actionPayload as Record<string, unknown>) : undefined;
+        const dedupeKey = sanitizeNotificationDedupeKey(payload.dedupeKey);
+        const actionPayload = isRecord(payload.actionPayload)
+            ? sanitizeNotificationActionPayload(payload.actionPayload)
+            : undefined;
 
         const notif = await appendIncomingNotificationServer(userId, {
             title,
@@ -72,8 +74,7 @@ export async function POST(request: Request): Promise<Response> {
         });
 
         return wifeJsonResponse(200, { ok: true, notification: notif });
-    } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Internal append error';
-        return wifeJsonResponse(500, { ok: false, error: msg });
+    } catch {
+        return wifeJsonResponse(500, { ok: false, error: NOTIFICATIONS_API_INTERNAL_ERROR });
     }
 }

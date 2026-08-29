@@ -3,9 +3,9 @@ import type { UnifiedLedgerStore } from './types';
 import {
     computeTotalOwedUnifiedFromStore,
     hasFrozenLedgerRows,
-    isUnifiedLedgerLocked,
     type UnifiedLedgerTotalParams,
 } from './utils';
+import { isUnifiedLedgerLocked } from './unifiedLedgerLock';
 
 function asUnifiedCollectionDecisionState(
     value: UnifiedCollectionDecisionState | string | null | undefined,

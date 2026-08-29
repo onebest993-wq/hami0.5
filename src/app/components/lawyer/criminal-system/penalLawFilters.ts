@@ -162,9 +162,9 @@ export const PENAL_LAW_FILTERS: Record<string, LawFilterEntry> = {
 
 export const PENAL_LAW_FILTER_GENERAL_KEYS = Object.keys(PENAL_LAW_FILTERS);
 
-export const LEGAL_CODES_PENAL_FILTER_PIN_KEY = 'hami_legal_codes_penal_filter_pin';
+const LEGAL_CODES_PENAL_FILTER_PIN_KEY = 'hami_legal_codes_penal_filter_pin';
 
-export type PenalFilterPin = {
+type PenalFilterPin = {
     general: string;
     sub: string | null;
 };

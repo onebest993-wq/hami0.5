@@ -38,12 +38,19 @@ describe('CALENDAR_SYNC_RULES completeness', () => {
     it('يفصل المسار الحيّ عن مسارات reconcile المعطّلة', () => {
         expect(CALENDAR_SYNC_RULES.active.threading).toBeDefined();
         expect(CALENDAR_SYNC_RULES.active.lawsuit?.some((r) => r.includes('appointment'))).toBe(true);
+        expect(CALENDAR_SYNC_RULES.active.lawsuit?.some((r) => r.includes('legalTimers'))).toBe(true);
         expect(CALENDAR_SYNC_RULES.active.execution?.some((r) => r.includes('appointment'))).toBe(
+            true,
+        );
+        expect(CALENDAR_SYNC_RULES.active.execution?.some((r) => r.includes('visitationSchedule'))).toBe(
             true,
         );
         expect((CALENDAR_SYNC_RULES.disabled as { lawsuitLegacy?: unknown }).lawsuitLegacy).toBeDefined();
         expect((CALENDAR_SYNC_RULES.disabled as { executionTasks?: unknown }).executionTasks).toBeDefined();
         expect((CALENDAR_SYNC_RULES.disabled as { note?: unknown }).note).toBeDefined();
+        expect(
+            String((CALENDAR_SYNC_RULES.disabled as { threadingFinance: readonly string[] }).threadingFinance),
+        ).toContain('مهجور');
     });
 });
 
@@ -116,7 +123,7 @@ describe('syncOneLawsuitFile — مهام ومُهل', () => {
         expect(syncLawsuitTask).not.toHaveBeenCalled();
     });
 
-    it('whitelistOnly: مواعيد timeline فقط بلا مهام ولا مهل legacy', () => {
+    it('whitelistOnly: مواعيد timeline + مهلة قانونية بلا مهام ولا nextDate', () => {
         const stats = EMPTY_STATS();
         syncOneLawsuitFile(
             {
@@ -126,6 +133,7 @@ describe('syncOneLawsuitFile — مهام ومُهل', () => {
                 stages: [
                     {
                         id: 'st1',
+                        stageName: 'بداءة',
                         appealDeadline: '2026-07-30',
                         timeline: [
                             {
@@ -152,10 +160,14 @@ describe('syncOneLawsuitFile — مهام ومُهل', () => {
             syncLawsuitAppointment.mock.calls.some(
                 (call) => call[0]?.timelineEventId === LAWSUIT_CAL_APPT.appealDeadline('st1'),
             ),
+        ).toBe(true);
+        expect(
+            syncLawsuitAppointment.mock.calls.some(
+                (call) => call[0]?.timelineEventId === 'file_next_date',
+            ),
         ).toBe(false);
         expect(stats.lawsuitTasks).toBe(0);
-        expect(stats.lawsuitDeadlines).toBe(0);
-        expect(stats.lawsuitAppointments).toBe(1);
+        expect(stats.lawsuitDeadlines).toBeGreaterThanOrEqual(1);
     });
 });
 
@@ -181,6 +193,41 @@ describe('syncOneExecutionFile — مهام', () => {
             expect.objectContaining({ taskId: 'et1', dueDate: '2026-07-28' }),
         );
         expect(stats.executionTasks).toBe(1);
+    });
+
+    it('يرفع موعد المشاهدة القادم فقط حتى في المسار الحيّ', () => {
+        const stats = EMPTY_STATS();
+        syncOneExecutionFile(
+            {
+                id: 'ex-visit',
+                timelineEvents: [],
+                visitationSchedule: {
+                    config: { startTime: '16:00', location: 'بيت الطفل' },
+                    sessions: [
+                        {
+                            id: 's-past',
+                            date: '2020-01-01',
+                            status: 'completed',
+                            documentedAt: '2020-01-01T00:00:00.000Z',
+                        },
+                        { id: 's-next', date: '2099-06-15', status: 'scheduled' },
+                        { id: 's-later', date: '2099-07-01', status: 'scheduled' },
+                    ],
+                },
+            },
+            'lawyer-1',
+            stats,
+            { whitelistOnly: true, includeTasks: false },
+        );
+        expect(syncExecutionTask).not.toHaveBeenCalled();
+        expect(syncExecutionAppointment).toHaveBeenCalledWith(
+            expect.objectContaining({
+                timelineEventId: 'visit_next',
+                date: '2099-06-15',
+                purpose: 'موعد مشاهدة',
+            }),
+        );
+        expect(stats.executionAppointments).toBe(1);
     });
 });
 

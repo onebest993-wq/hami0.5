@@ -3,6 +3,7 @@ import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { RepositoryEntryLayoutMode } from '@/app/services/repository/repositoryUnifiedFeed';
 import { sanitizeRichNoteHtml } from './legalRichTextEditorUtils';
 import { REPO_FEED_IMAGE, REPO_FEED_THUMB_IMAGE, VaultDocDisplayImage } from './VaultDocDisplayImage';
+import { REPO_CARD_TITLE } from './smartRepositoryTheme';
 
 type RepositoryEntryContentLayoutProps = {
     layout: RepositoryEntryLayoutMode;
@@ -31,7 +32,7 @@ export function RepositoryEntryContentLayout({
     if (voiceSlot) {
         return (
             <div className={className}>
-                <h3 className={`font-bold text-[#F4F0E8] mb-2 ${titleClassName}`}>{title}</h3>
+                <h3 className={`${REPO_CARD_TITLE} mb-2 ${titleClassName}`}>{title}</h3>
                 {voiceSlot}
             </div>
         );
@@ -47,7 +48,7 @@ export function RepositoryEntryContentLayout({
                         className={REPO_FEED_IMAGE}
                     />
                 </div>
-                <h3 className="font-bold text-[#F4F0E8] mb-1.5">{title}</h3>
+                <h3 className={`${REPO_CARD_TITLE} mb-1.5`}>{title}</h3>
                 {safeHtml ? (
                     <p
                         className={`text-xs text-white/55 leading-relaxed border-t border-white/[0.06] pt-2 line-clamp-3 ${bodyClassName}`}
@@ -61,7 +62,7 @@ export function RepositoryEntryContentLayout({
     if (layout === 'text-dominant' && imageAttachment) {
         return (
             <div className={className}>
-                <h3 className={`font-bold text-[#F4F0E8] mb-2 ${titleClassName}`}>{title}</h3>
+                <h3 className={`${REPO_CARD_TITLE} mb-2 ${titleClassName}`}>{title}</h3>
                 <div
                     className={`text-sm text-white/65 leading-relaxed mb-3 line-clamp-3 ${bodyClassName}`}
                     dangerouslySetInnerHTML={{ __html: safeHtml }}
@@ -81,7 +82,7 @@ export function RepositoryEntryContentLayout({
 
     return (
         <div className={className}>
-            <h3 className={`font-bold text-[#F4F0E8] mb-2 line-clamp-2 ${titleClassName}`}>{title}</h3>
+            <h3 className={`${REPO_CARD_TITLE} mb-2 ${titleClassName}`}>{title}</h3>
             <div
                 className={`text-sm text-white/65 leading-relaxed line-clamp-3 ${bodyClassName}`}
                 dangerouslySetInnerHTML={{ __html: safeHtml }}

@@ -1,8 +1,7 @@
 import { useCallback } from 'react';
 import type { CaseStage } from '../../LawyerShared';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { logError } from '@/app/utils/errorHandler';
-import { safeSetItem } from '@/app/utils/storageUtils';
+import { logError } from '@/app/utils/errorLog';
 import { debug } from '@/app/utils/debug';
 import { buildCloudSavePayload } from '../smartFile/cloudSavePayload';
 import type { SmartFileParentData } from '../smartFile/parentDataInit';
@@ -47,10 +46,13 @@ export function useSmartFilePersist(options: {
             }
 
             const backupKey = `case_backup_${String(updatedParent.id ?? 'unknown')}`;
-            const backupOk = safeSetItem(backupKey, dataToSave);
-            if (!backupOk) {
-                debug.warn('⚠️ فشل النسخ الاحتياطي للـ localStorage');
-            }
+            void import('@/app/utils/storageUtils')
+                .then((m) => {
+                    if (!m.safeSetItem(backupKey, dataToSave)) {
+                        debug.warn('⚠️ فشل النسخ الاحتياطي للـ localStorage');
+                    }
+                })
+                .catch(() => undefined);
 
             if (!onUpdate) return;
 
@@ -58,11 +60,7 @@ export function useSmartFilePersist(options: {
                 onUpdate(dataToSave);
             } catch (error) {
                 logError('saveToCloud.onUpdate', error);
-                if (backupOk) {
-                    SmartToast.warning('تم الحفظ محلياً — تعذّر مزامنة السحابة');
-                } else {
-                    SmartToast.error('حدث خطأ أثناء الحفظ');
-                }
+                SmartToast.error('حدث خطأ أثناء الحفظ');
             }
         },
         [parentData, activeStageIndex, status, onUpdate],

@@ -1,33 +1,47 @@
-/* إقلاع حامي — شاشة واحدة: كلمة «حامي» على navy (#0a0f1c) */
+/**
+ * إقلاع — سطح الهوية حتى طلاء اللوحة.
+ */
 
 html.hami-boot-static-active,
 html.hami-boot-static-active body {
     background: #0a0f1c;
 }
 
+html.hami-boot-static-active {
+    --hami-user-font-scale: 1;
+    --hami-font-size: 16px;
+    font-size: 16px;
+}
+
 #hami-static-boot {
+    position: fixed;
+    inset: 0;
+    z-index: 99990;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: none !important;
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: #0a0f1c;
+    overflow: hidden;
+    pointer-events: auto;
+    opacity: 1;
+    transition: opacity 180ms linear;
+    animation: none !important;
 }
 
-.hami-boot-wordmark {
-    /* خط نظامي واحد — بلا Cairo/Tajawal حتى لا يتغيّر الشكل بعد تحميل Google Fonts */
-    font-family: system-ui, sans-serif;
-    font-size: clamp(2.75rem, 14vw, 4.25rem);
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    line-height: 1;
-    color: #e6c673;
-    user-select: none;
-    -webkit-user-select: none;
+#hami-static-boot.hami-boot-cinematic--exiting {
+    opacity: 0 !important;
     pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
     #hami-static-boot,
-    .hami-boot-wordmark {
+    #hami-static-boot.hami-boot-cinematic--exiting {
         transition: none !important;
         animation: none !important;
     }

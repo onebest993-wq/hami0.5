@@ -23,8 +23,8 @@ describe('instant demo boot foundation', () => {
         window.__hamiBootContentReady__ = undefined;
     });
 
-    it('getBootRevealMaxMs = 0 في بناء تجريبي', () => {
-        expect(getBootRevealMaxMs()).toBe(0);
+    it('getBootRevealMaxMs حارس تعليق في بناء تجريبي — ليس كشفاً فورياً', () => {
+        expect(getBootRevealMaxMs()).toBe(4_000);
     });
 
     it('applyInstantDemoBootFoundation يثبت علامة التجريب دون إزالة shell', () => {

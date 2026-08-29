@@ -22,8 +22,7 @@ function buildPost(overrides: Partial<CommunityPost> = {}): CommunityPost {
 }
 
 describe('QuestionCardAttachment', () => {
-    it('يفتح معاينة VaultDocViewer فقط دون استدعاء onImageClick القديم', () => {
-        const onImageClick = vi.fn();
+    it('يفتح معاينة VaultDocViewer محلياً عند النقر على الصورة', () => {
         render(
             <QuestionCardAttachment
                 post={buildPost({
@@ -37,13 +36,11 @@ describe('QuestionCardAttachment', () => {
                 })}
                 attachmentUrl="blob:mock-image"
                 attachmentLoading={false}
-                onImageClick={onImageClick}
             />,
         );
 
         fireEvent.click(screen.getByRole('button'));
 
-        expect(onImageClick).not.toHaveBeenCalled();
         expect(screen.getByTestId('vault-doc-viewer-overlay')).toBeTruthy();
     });
 
@@ -53,7 +50,6 @@ describe('QuestionCardAttachment', () => {
                 post={buildPost({ attachment: null })}
                 attachmentUrl={null}
                 attachmentLoading={false}
-                onImageClick={() => undefined}
             />,
         );
 
@@ -74,7 +70,6 @@ describe('QuestionCardAttachment', () => {
                 })}
                 attachmentUrl={null}
                 attachmentLoading
-                onImageClick={() => undefined}
             />,
         );
 
@@ -88,7 +83,6 @@ describe('QuestionCardAttachment', () => {
                 post={buildPost({ attachment: null })}
                 attachmentUrl={null}
                 attachmentLoading={false}
-                onImageClick={() => undefined}
                 onMediaReady={onMediaReady}
             />,
         );

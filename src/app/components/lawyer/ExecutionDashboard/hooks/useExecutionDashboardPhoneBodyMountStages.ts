@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
 import {
-    prefetchExecutionOverlayModals,
     prefetchMaritalFurnitureModule,
     prefetchVisitationScheduleModule,
-} from '../executionDashboardLazyRegistry';
+} from '../executionDashboardLazyRegistryShell';
 import type { ExecutionShellOverlayModalFlags } from './useExecutionShellOverlaysGate';
 
 export type ExecutionDashboardPhoneBodyMountFlags = ExecutionShellOverlayModalFlags & {
@@ -12,7 +11,6 @@ export type ExecutionDashboardPhoneBodyMountFlags = ExecutionShellOverlayModalFl
     propertySeizureRequestModalOpen?: boolean;
     showExecutionFinancialHub?: boolean;
     showUnifiedSeizureLogModal?: boolean;
-    showVisitationCalendarModal?: boolean;
     isVisitationClaim?: boolean;
     isMaritalFurnitureClaim?: boolean;
 };
@@ -39,11 +37,10 @@ export function useExecutionDashboardPhoneBodyMountStages(
     const quaternaryStageUrgent = useMemo(
         () =>
             Boolean(
-                flags.showVisitationCalendarModal ||
-                    flags.isVisitationClaim ||
+                flags.isVisitationClaim ||
                     flags.isMaritalFurnitureClaim,
             ),
-        [flags.showVisitationCalendarModal, flags.isVisitationClaim, flags.isMaritalFurnitureClaim],
+        [flags.isVisitationClaim, flags.isMaritalFurnitureClaim],
     );
 
     useEffect(() => {
@@ -51,8 +48,24 @@ export function useExecutionDashboardPhoneBodyMountStages(
         setSecondaryStageReady(true);
         setTertiaryStageReady(true);
         setQuaternaryStageReady(true);
-        prefetchExecutionOverlayModals();
-    }, [tertiaryStageUrgent]);
+        if (flags.showExecutionFinancialHub) {
+            void import('../executionDashboardOverlayPrefetch')
+                .then((m) => {
+                    m.prefetchExecutionFinanceOverlay();
+                })
+                .catch(() => undefined);
+        }
+        if (flags.propertySeizureRequestModalOpen || flags.movableSeizureRequestModalOpen) {
+            void import('../executionDashboardSeizureRequestSubjectModalLazy')
+                .then((m) => m.LazySeizureRequestSubjectModal.preload())
+                .catch(() => undefined);
+        }
+    }, [
+        tertiaryStageUrgent,
+        flags.showExecutionFinancialHub,
+        flags.propertySeizureRequestModalOpen,
+        flags.movableSeizureRequestModalOpen,
+    ]);
 
     useEffect(() => {
         if (!quaternaryStageUrgent) return;

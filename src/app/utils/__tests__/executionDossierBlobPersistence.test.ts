@@ -8,10 +8,12 @@ import {
     readExecutionDossierBlobScanningScopes,
     shouldRejectExecutionDossierBlobWipe,
     syncExecutionFileInIndex,
+    ensureExecutionDossierBlobReady,
 } from '@/app/utils/executionDossierBlobPersistence';
 import { executionStorageKey, unscopedExecutionStorageKey } from '@/app/utils/executionStorageKeys';
 import { scopeExecutionDeviceStorageKey } from '@/app/utils/executionDeviceStorageScope';
 import { setLiveAuthUserId } from '@/app/utils/liveAuthUserId';
+import { markExecutionDossierTombstone } from '@/app/utils/executionDossierTombstones';
 
 describe('executionDossierBlobPersistence', () => {
     const execId = 'exec_persist_test_1';
@@ -23,6 +25,7 @@ describe('executionDossierBlobPersistence', () => {
         for (const key of SecureStoreService.listKeysSync()) {
             SecureStoreService.deleteItemSync(key);
         }
+        localStorage.clear();
     });
 
     it('detects main dossier blob keys', () => {
@@ -40,6 +43,21 @@ describe('executionDossierBlobPersistence', () => {
             creditors: [{ name: 'دائن' }],
         });
         expect(shouldRejectExecutionDossierBlobWipe(blobKey, '{}', existing)).toBe(true);
+    });
+
+    it('rejects wiping a dossier blob whose stored copy is unreadable', () => {
+        // بلوب مبتور — قراءة فاشلة تُظهر إضبارة خالية، فتكتب أول حفظة فوق آخر نسخة
+        const corrupt = '{"id":"exec_persist_test_1","debtors":[{"name":"مد';
+        expect(shouldRejectExecutionDossierBlobWipe(blobKey, '{}', corrupt)).toBe(true);
+        expect(shouldRejectExecutionDossierBlobWipe(blobKey, '{"id":"x"}', corrupt)).toBe(true);
+        // استعادة حقيقية فوق التالف تمرّ
+        const restored = JSON.stringify({ id: execId, debtors: [{ name: 'مدين' }] });
+        expect(shouldRejectExecutionDossierBlobWipe(blobKey, restored, corrupt)).toBe(false);
+    });
+
+    it('rejects an unparsable payload over a readable dossier blob', () => {
+        const existing = JSON.stringify({ id: execId, debtors: [{ name: 'مدين' }] });
+        expect(shouldRejectExecutionDossierBlobWipe(blobKey, 'not-json', existing)).toBe(true);
     });
 
     it('persists blob and syncs executionFiles index', () => {
@@ -95,6 +113,36 @@ describe('executionDossierBlobPersistence', () => {
         expect(row?.debtor_absence_badge_dismissed).toBe(true);
     });
 
+    it('syncExecutionFileInIndex keeps list classification when incoming omits it', () => {
+        SecureStoreService.setItemSync(
+            EXECUTION_FILES_STORAGE_KEY,
+            JSON.stringify([
+                {
+                    id: execId,
+                    claimType: 'مشاهدة',
+                    classification: 'أحوال شخصية',
+                    debtor_entity_kind: 'natural_person',
+                    total_remaining_balance: 900_000,
+                },
+            ]),
+        );
+
+        syncExecutionFileInIndex({
+            id: execId,
+            fileNumber: '88',
+            claimType: '',
+        });
+
+        const index = JSON.parse(
+            SecureStoreService.getItemSync(EXECUTION_FILES_STORAGE_KEY) || '[]',
+        ) as Array<Record<string, unknown>>;
+        const row = index.find((r) => r.id === execId);
+        expect(row?.fileNumber).toBe('88');
+        expect(row?.claimType).toBe('مشاهدة');
+        expect(row?.classification).toBe('أحوال شخصية');
+        expect(row?.total_remaining_balance).toBe(900_000);
+    });
+
     it('syncExecutionFileInIndex merges without dropping archive markers', () => {
         SecureStoreService.setItemSync(
             EXECUTION_FILES_STORAGE_KEY,
@@ -134,6 +182,17 @@ describe('executionDossierBlobPersistence', () => {
             SecureStoreService.getItemSync(EXECUTION_FILES_STORAGE_KEY) || '[]',
         ) as Array<Record<string, unknown>>;
         expect(index.some((r) => r.id === execId)).toBe(false);
+    });
+
+    it('persistExecutionDossierBlob refuses to resurrect a tombstoned dossier', () => {
+        markExecutionDossierTombstone(execId);
+        const ok = persistExecutionDossierBlob(execId, {
+            id: execId,
+            fileNumber: 'zombie',
+            debtors: [{ name: 'مدين' }],
+        });
+        expect(ok).toBe(false);
+        expect(SecureStoreService.getItemSync(blobKey)).toBeNull();
     });
 
     it('reads legacy unscoped blob when scoped key is missing', () => {
@@ -205,5 +264,92 @@ describe('executionDossierBlobPersistence', () => {
 
         const hit = readExecutionDossierBlobScanningScopes(ownId);
         expect(hit?.fileNumber).toBe('OWN-SCOPED');
+    });
+
+    it('يرحّل leftover localStorage للبلوب ويمحوه', () => {
+        localStorage.setItem(
+            blobKey,
+            JSON.stringify({
+                id: execId,
+                fileNumber: 'ls-blob',
+                debtors: [{ name: 'مدين leftover' }],
+            }),
+        );
+        const blob = readExecutionDossierBlob(execId);
+        expect(blob?.fileNumber).toBe('ls-blob');
+        expect(localStorage.getItem(blobKey)).toBeNull();
+        expect(SecureStoreService.getItemSync(blobKey)).toContain('ls-blob');
+    });
+
+    it('لا يرحّل مرآة البلوب فوق أصل مشفّر لم يُفكّ', () => {
+        SecureStoreService.setItemSync(blobKey, 'hami_enc_v2:blob-cold');
+        SecureStoreService.clearDecryptedMemoryCache();
+        localStorage.setItem(
+            blobKey,
+            JSON.stringify({ id: execId, fileNumber: 'poison' }),
+        );
+        expect(SecureStoreService.isUnreadSync(blobKey)).toBe(true);
+        expect(readExecutionDossierBlob(execId)).toBeNull();
+        expect(localStorage.getItem(blobKey)).not.toBeNull();
+        expect(SecureStoreService.getItemSync(blobKey)).toBeNull();
+    });
+
+    it('بعد كتابة البلوب يمحو مرآة localStorage', () => {
+        localStorage.setItem(blobKey, JSON.stringify({ id: execId, fileNumber: 'stale' }));
+        persistExecutionDossierBlob(execId, {
+            id: execId,
+            fileNumber: 'fresh',
+            debtors: [{ name: 'مدين' }],
+        });
+        expect(localStorage.getItem(blobKey)).toBeNull();
+        expect(SecureStoreService.getItemSync(blobKey)).toContain('fresh');
+    });
+
+    it('ensureExecutionDossierBlobReady لا يعيد كتابة بلوب IDB إن كان القرص plaintext', async () => {
+        persistExecutionDossierBlob(execId, {
+            id: execId,
+            fileNumber: 'warm-plain',
+            debtors: [{ name: 'مدين' }],
+        });
+        // اترك طابور كتابة الفهرس يستقر قبل قياس مسار التسخين
+        await Promise.resolve();
+        await Promise.resolve();
+        const setSpy = vi.spyOn(SecureStoreService, 'setItem');
+        await ensureExecutionDossierBlobReady(execId);
+        const blobRewrites = setSpy.mock.calls.filter(([key]) => {
+            const k = String(key);
+            return k === blobKey || k.endsWith(`:${blobKey}`) || k.includes(blobKey);
+        });
+        expect(blobRewrites).toEqual([]);
+        setSpy.mockRestore();
+    });
+
+    it('ensureExecutionDossierBlobReady ينتظر إعادة الكتابة عند ciphertext على القرص', async () => {
+        persistExecutionDossierBlob(execId, {
+            id: execId,
+            fileNumber: 'migrate-me',
+            debtors: [{ name: 'مدين' }],
+        });
+        vi.spyOn(SecureStoreService, 'peekRawFromDisk').mockResolvedValue('hami_enc_v2:legacy');
+        const setSpy = vi.spyOn(SecureStoreService, 'setItem').mockResolvedValue(undefined as never);
+        await ensureExecutionDossierBlobReady(execId);
+        expect(setSpy).toHaveBeenCalled();
+        expect(String(setSpy.mock.calls[0]?.[1] || '')).toContain('migrate-me');
+        setSpy.mockRestore();
+        vi.restoreAllMocks();
+    });
+
+    it('يرحّل leftover غير المقيّد إلى المقيّد عند وجود جلسة', () => {
+        setLiveAuthUserId('scoped-user');
+        const legacyKey = unscopedExecutionStorageKey(execId);
+        const scopedKey = scopeExecutionDeviceStorageKey(legacyKey);
+        localStorage.setItem(
+            legacyKey,
+            JSON.stringify({ id: execId, fileNumber: 'ls-unscoped' }),
+        );
+        const blob = readExecutionDossierBlob(execId);
+        expect(blob?.fileNumber).toBe('ls-unscoped');
+        expect(localStorage.getItem(legacyKey)).toBeNull();
+        expect(SecureStoreService.getItemSync(scopedKey)).toContain('ls-unscoped');
     });
 });

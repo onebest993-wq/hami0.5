@@ -1,11 +1,20 @@
 import { createJSONStorage, type StateStorage } from 'zustand/middleware';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import {
-    countCasesInPersistPayload,
     defaultPersistWipeGuard,
     type PersistWipeGuard,
 } from '@/app/services/securePersistStorage';
 import { CRIMINAL_SHARD_ENCRYPT_MAX_BYTES } from '@/app/services/secureStorageKeys';
+import { CRIMINAL_CARD_INDEX_STUB_FLAG } from '@/app/utils/criminalCaseCardIndex';
+
+function isMarkedCardIndexStub(caseData: unknown): boolean {
+    return (
+        Boolean(caseData) &&
+        typeof caseData === 'object' &&
+        !Array.isArray(caseData) &&
+        (caseData as Record<string, unknown>)[CRIMINAL_CARD_INDEX_STUB_FLAG] === true
+    );
+}
 
 export const CRIMINAL_STORE_KEY = 'hami:criminal:store';
 export const CRIMINAL_META_KEY = 'hami:criminal:meta';
@@ -19,12 +28,24 @@ const DEBOUNCE_MS = 800;
 let flushChain = Promise.resolve();
 let visibilityHookInstalled = false;
 let hiddenFlushTimer: ReturnType<typeof setTimeout> | null = null;
+const leftoverMonolithMigrateQueued = new Set<string>();
+
+/** انتظار طابور الشظايا — بعد قراءة بقايا المونولث أو بعد debounce الكتابة. */
+export function waitForCriminalShardedFlush(): Promise<void> {
+    return flushChain;
+}
+
+function enqueueFlush(flush: () => Promise<void>): void {
+    flushChain = flushChain.then(flush).catch(() => {
+        /* فشل التشفير/القرص لا يُحوَّل إلى unhandledrejection يُسقط الإقلاع */
+    });
+}
 
 function installVisibilityFlush(flush: () => Promise<void>) {
     if (visibilityHookInstalled || typeof document === 'undefined') return;
     visibilityHookInstalled = true;
     const schedule = () => {
-        flushChain = flushChain.then(flush);
+        enqueueFlush(flush);
     };
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
@@ -191,14 +212,21 @@ async function listCriminalCaseShardIds(): Promise<string[]> {
 async function writeShardedPayload(name: string, value: string, wipeGuard: PersistWipeGuard): Promise<void> {
     const envelope = parseEnvelope(value);
     if (!envelope) {
-        await SecureStoreService.setItem(name, value);
+        /* لا تُعاد كتابة المونولث الصريح — حمولة تالفة لا تُثبَّت */
         return;
     }
 
     const state = extractState(envelope);
     const casesById = state.casesById;
     if (!casesById || typeof casesById !== 'object') {
-        await SecureStoreService.setItem(name, value);
+        const metaPayload = JSON.stringify({
+            state,
+            version: envelope.version,
+            caseIds: [],
+            sharded: true,
+        });
+        await SecureStoreService.setItem(CRIMINAL_META_KEY, metaPayload);
+        await SecureStoreService.deleteItem(name);
         return;
     }
 
@@ -224,6 +252,9 @@ async function writeShardedPayload(name: string, value: string, wipeGuard: Persi
     }
 
     for (const [caseId, caseData] of Object.entries(caseMap)) {
+        // Keep stub ids in meta.caseIds so existing full shards are not deleted as stale,
+        // but never persist an explicitly marked card-index stub as the full case shard.
+        if (isMarkedCardIndexStub(caseData)) continue;
         await writeCaseShardJson(caseId, JSON.stringify(caseData));
     }
 
@@ -234,14 +265,8 @@ async function writeShardedPayload(name: string, value: string, wipeGuard: Persi
         await deleteCaseShardStorage(staleId);
     }
 
-    const legacyRaw = await SecureStoreService.getItem(name);
-    if (existingLegacyExists(legacyRaw)) {
-        await SecureStoreService.deleteItem(name);
-    }
-}
-
-function existingLegacyExists(raw: string | null): boolean {
-    return countCasesInPersistPayload(raw) > 0;
+    /* احذف المونولث دائماً بعد نجاح meta+shards — حتى blob فارغ/يتيم */
+    await SecureStoreService.deleteItem(name);
 }
 
 /** تخزين جنائي: debounce + shard لكل قضية — يقلّل ضغط RAM/CPU عند كل mutation */
@@ -275,10 +300,28 @@ export function createCriminalShardedStateStorage(options?: {
             const metaRaw = await SecureStoreService.getItem(CRIMINAL_META_KEY);
             if (metaRaw) {
                 const assembled = await reassembleShardedPayload(metaRaw);
-                if (assembled) return assembled;
+                if (assembled) {
+                    /* مسار shards ناجح — امسح المونولث إن بقي (ترحيل سابق ناقص) */
+                    const legacyRaw = await SecureStoreService.getItem(name);
+                    if (legacyRaw != null) {
+                        await SecureStoreService.deleteItem(name);
+                    }
+                    return assembled;
+                }
             }
 
-            return SecureStoreService.getItem(name);
+            const legacyRaw = await SecureStoreService.getItem(name);
+            if (legacyRaw?.trim() && !leftoverMonolithMigrateQueued.has(name)) {
+                leftoverMonolithMigrateQueued.add(name);
+                enqueueFlush(async () => {
+                    try {
+                        await writeShardedPayload(name, legacyRaw, wipeGuard);
+                    } finally {
+                        leftoverMonolithMigrateQueued.delete(name);
+                    }
+                });
+            }
+            return legacyRaw;
         },
 
         setItem: async (name: string, value: string) => {
@@ -297,7 +340,7 @@ export function createCriminalShardedStateStorage(options?: {
             if (debounceTimer) clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
                 debounceTimer = null;
-                flushChain = flushChain.then(flushPending);
+                enqueueFlush(flushPending);
             }, debounceMs);
         },
 

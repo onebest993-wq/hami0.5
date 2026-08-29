@@ -1,4 +1,3 @@
-﻿// @ts-nocheck
 /** ╪ص╪│╪د╪ذ╪د╪ز ╪د┘┘à╪╖╪د┘╪ذ╪ر ┘ê╪د┘╪░┘à╪ر ╪د┘┘à╪د┘┘è╪ر ظ¤ ╪ذ┘╪د outcome hooks (╪ز╪ذ┘é┘ë ┘┘è useExecutionDashboardCore) */
 import { useEffect, useMemo, useState } from 'react';
 import type { UnifiedLedgerTotalParams } from '@/app/slices/financial/ledgerPublic';

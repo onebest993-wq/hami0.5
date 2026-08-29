@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C — callbacks قبول المنفذ للقرارات (مواعيد، قوة جبرية، حراس، مهام) */
 import { useMemo, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';

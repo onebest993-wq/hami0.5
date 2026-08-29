@@ -1,40 +1,8 @@
 /**
- * PushNotificationService - خدمة الإشعارات الفورية
- * 
- * الوظيفة:
- * - طلب صلاحية الإشعارات
- * - تسجيل Service Worker
- * - إرسال إشعارات محلية
- * - الاشتراك في Push Notifications
- * 
- * الاستخدام:
- * ```typescript
- * // تهيئة الخدمة
- * await PushNotificationService.initialize();
- * 
- * // إرسال إشعار محلي
- * await PushNotificationService.showNotification({
- *   title: 'ملف جديد',
- *   body: 'تم إضافة ملف تنفيذ جديد',
- *   tag: 'new-execution'
- * });
- * 
- * // فحص الصلاحيات
- * const permission = PushNotificationService.getPermission();
- * ```
- * 
- * @version 1.0.0
- * @date 2026-03-06
+ * PushNotificationService — صلاحيات + Service Worker + إشعارات ويب محلية.
  */
-
 import { debug } from '@/app/utils/debug';
-import {
-    canSendPushNotifications,
-    getLawyerSettingsSnapshot,
-    isNotificationChannelAllowed,
-} from '@/app/services/settings/settingsRuntime';
-import { showHamiNotification } from '@/app/services/notifications/HamiNotificationBridge';
-
+import { HAMI_NATIVE_NOTIFICATION_RECEIVED_EVENT } from '@/app/services/notifications/notificationOsTapEvents';
 // =====================================================
 // Types
 // =====================================================
@@ -63,14 +31,6 @@ export interface NotificationAction {
 // =====================================================
 // PushNotificationService Class
 // =====================================================
-
-function isEmbeddedContext(): boolean {
-  try {
-    return window.self !== window.top;
-  } catch {
-    return true;
-  }
-}
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -108,23 +68,22 @@ export class PushNotificationService {
     return this.registration !== null;
   }
 
-  /** تسجيل Service Worker من public/sw.js (يُتخطى داخل iframe) */
+  /**
+   * يستعير التسجيل الوحيد من `appServiceWorker` بدل إنشاء واحد موازٍ.
+   *
+   * `register()` بنفس النص والنطاق ليست بلا أثر: تُعيد ضبط `updateViaCache` على
+   * قيمة النداء الأخير. فتسجيلٌ ثانٍ بلا `'none'` كان يُعيد سياسة التحديث إلى
+   * الافتراضي، أي أن `sw.js` يُقرأ من ذاكرة HTTP ويتأخّر انتشار أي إصلاح.
+   */
   static async registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-    if (import.meta.env.DEV) return null;
     if (this.registration) return this.registration;
-    if (!('serviceWorker' in navigator)) return null;
-    if (isEmbeddedContext()) {
-      debug.log('[PushNotification] Service Worker skipped (embedded iframe)');
-      return null;
-    }
     if (this.registerInFlight) return this.registerInFlight;
 
     this.registerInFlight = (async () => {
       try {
-        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-        await reg.update().catch(() => undefined);
+        const { registerAppServiceWorker } = await import('@/app/runtime/appServiceWorker');
+        const reg = await registerAppServiceWorker();
         this.registration = reg;
-        debug.log('[PushNotification] ✅ Service Worker registered');
         return reg;
       } catch (error) {
         debug.warn('[PushNotification] Service Worker registration failed:', error);
@@ -217,7 +176,6 @@ export class PushNotificationService {
     }
 
     try {
-      // ✅ FIX: استخدام Notification API مباشرة بدون Service Worker
       const notification = new Notification(options.title, {
         body: options.body || '',
         icon: options.icon || '/icon-192.png',
@@ -227,63 +185,26 @@ export class PushNotificationService {
         silent: options.silent || false,
       });
 
-      // Auto-close بعد 5 ثواني (اختياري)
+      notification.onclick = () => {
+        try {
+          window.focus();
+        } catch {
+          /* ignore */
+        }
+        window.dispatchEvent(
+          new CustomEvent(HAMI_NATIVE_NOTIFICATION_RECEIVED_EVENT, {
+            detail: { data: options.data || {} },
+          }),
+        );
+        notification.close();
+      };
+
       setTimeout(() => notification.close(), 5000);
-      
+
       debug.log('[PushNotification] ✅ Notification shown:', options.title);
     } catch (error) {
       debug.error('[PushNotification] ❌ Failed to show notification:', error);
     }
-  }
-
-  /**
-   * إشعارات مخصصة للنظام القانوني
-   */
-  static async notifyNewExecution(caseNo: string): Promise<void> {
-    const settings = getLawyerSettingsSnapshot();
-    if (!canSendPushNotifications(settings) || !isNotificationChannelAllowed('execution')) return;
-    await showHamiNotification(
-      'execution',
-      {
-        title: '📩 ملف تنفيذ جديد',
-        body: `تم إضافة ملف تنفيذ رقم ${caseNo}`,
-        tag: 'new-execution',
-        data: { type: 'execution', caseNo },
-      },
-    );
-  }
-
-  static async notifyNewLawsuit(caseNo: string): Promise<void> {
-    const settings = getLawyerSettingsSnapshot();
-    if (!canSendPushNotifications(settings) || !isNotificationChannelAllowed('lawsuits')) return;
-    await showHamiNotification(
-      'lawsuits',
-      {
-        title: '📩 ملف دعوى جديد',
-        body: `تم إضافة ملف دعوى رقم ${caseNo}`,
-        tag: 'new-lawsuit',
-        data: { type: 'lawsuit', caseNo },
-      },
-    );
-  }
-
-  static async notifyForumActivity(notif: {
-    title: string;
-    message: string;
-    postId?: string;
-    type?: string;
-  }): Promise<void> {
-    const settings = getLawyerSettingsSnapshot();
-    if (!canSendPushNotifications(settings) || !isNotificationChannelAllowed('community')) return;
-    await showHamiNotification(
-      'community',
-      {
-        title: notif.title,
-        body: notif.message,
-        tag: `forum-${notif.type ?? 'activity'}-${notif.postId ?? 'general'}`,
-        data: { type: 'forum', postId: notif.postId, forumType: notif.type },
-      },
-    );
   }
 
   /**

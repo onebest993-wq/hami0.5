@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { dismissProductivityBlockers } from './productivityE2EFixtures';
-import { closeRepositoryIfOpen, openRepositoryFromDock } from './repositoryFixtures';
+import { clickRepositoryChrome, closeRepositoryIfOpen, openRepositoryAddMenu, openRepositoryFromDock } from './repositoryFixtures';
 
 export const LAWYER_NOTES_KEY = 'lawyer_notes';
 
@@ -55,16 +55,30 @@ export async function fillRepositoryNoteComposer(
     title: string,
     body: string,
 ) {
-    await modal.getByPlaceholder('عنوان البطاقة').fill(title);
+    await modal.getByTestId('repository-compose-title').fill(title);
     const editor = modal.getByTestId('repository-rich-editor').locator('[contenteditable]');
     await expect(editor).toBeVisible({ timeout: 15_000 });
     await editor.click({ force: true });
-    await editor.fill(body);
+    // fill() على contenteditable يعلّق Chromium تحت الحمل — نفس مسار ملاحظات التنفيذ
+    await editor.evaluate((el, text) => {
+        const node = el as HTMLElement;
+        const escaped = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        node.innerHTML = `<p>${escaped}</p>`;
+        node.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    }, body);
+    await expect(editor).toContainText(body, { timeout: 8_000 });
 }
 
 /** فتح إنشاء بطاقة — عبر قائمة «+ إضافة» */
 export async function openRepositoryNoteCreate(modal: Locator) {
-    await modal.getByTestId('repository-add-menu-trigger').click();
-    await expect(modal.getByTestId('repository-add-menu-panel')).toBeVisible({ timeout: 5_000 });
-    await modal.getByTestId('repository-note-create').click();
+    const page = modal.page();
+    await openRepositoryAddMenu(page, modal);
+    await clickRepositoryChrome(page.getByTestId('repository-note-create'));
+}
+
+export async function saveRepositoryNoteComposer(modal: Locator): Promise<void> {
+    await clickRepositoryChrome(modal.getByTestId('repository-note-save'));
 }

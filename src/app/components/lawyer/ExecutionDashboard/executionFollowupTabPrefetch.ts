@@ -6,15 +6,20 @@ import {
     LazyCommunicationsTab,
     LazyDossierControlsTab,
     LazyFinancialTab,
-    LazyOtherPartyActionsLog,
     LazyOtherPartyTab,
-    LazyPersonalCoerciveFollowupPanel,
     LazyPersonalTab,
     LazyRequestsTab,
     LazySeizureRequestsTab,
     prefetchCustodyRemovalWardsModule,
+    prefetchFollowupMemoPanels,
+} from './executionDashboardLazyRegistryShell';
+import {
+    LazyOtherPartyActionsLog,
     prefetchEvictionFieldProceduresPanel,
-} from './executionDashboardLazyRegistry';
+    prefetchExecutionFinancialHubPortal,
+} from './executionDashboardLazyRegistryOverlays';
+import { prefetchRequestsTabInnerSurfaces } from './requestsTabInnerLazy';
+import { prefetchManualOtherPartyLogBlock } from './otherPartyManualLogBlockLazy';
 
 export type ExecutionFollowupTabPrefetchId =
     | 'personal'
@@ -28,26 +33,37 @@ export type ExecutionFollowupTabPrefetchId =
     | 'special';
 
 // preload (لا import خام) — يثبّت مكوّن التبويب للرسم المباشر بلا تعليق Suspense
+// اللوحات الثقيلة (PCFP / FinancialHub) هنا فقط — نية تبويب، لا deep-warm عام
 const TAB_LOADERS: Record<ExecutionFollowupTabPrefetchId, () => Promise<unknown>> = {
     personal: () =>
         Promise.all([
             LazyPersonalTab.preload(),
-            LazyPersonalCoerciveFollowupPanel.preload(),
+            Promise.resolve(prefetchFollowupMemoPanels()),
             Promise.resolve(prefetchCustodyRemovalWardsModule()),
         ]),
     coercive: () =>
         Promise.all([LazyCoerciveTab.preload(), Promise.resolve(prefetchEvictionFieldProceduresPanel())]),
-    financial: () => LazyFinancialTab.preload(),
+    financial: () =>
+        Promise.all([
+            LazyFinancialTab.preload(),
+            Promise.resolve(prefetchExecutionFinancialHubPortal()),
+        ]),
     other_party: () =>
-        Promise.all([LazyOtherPartyTab.preload(), LazyOtherPartyActionsLog.preload()]),
+        Promise.all([
+            LazyOtherPartyTab.preload(),
+            LazyOtherPartyActionsLog.preload(),
+            Promise.resolve(prefetchManualOtherPartyLogBlock()),
+        ]),
     seizure_requests: () => LazySeizureRequestsTab.preload(),
     correspondences: () => LazyCommunicationsTab.preload(),
     dossier_controls: () => LazyDossierControlsTab.preload(),
-    admin: () => LazyRequestsTab.preload(),
-    special: () => LazyRequestsTab.preload(),
+    admin: () =>
+        Promise.all([LazyRequestsTab.preload(), Promise.resolve(prefetchRequestsTabInnerSurfaces())]),
+    special: () =>
+        Promise.all([LazyRequestsTab.preload(), Promise.resolve(prefetchRequestsTabInnerSurfaces())]),
 };
 
-export function isExecutionFollowupTabPrefetchId(
+function isExecutionFollowupTabPrefetchId(
     tabId: string,
 ): tabId is ExecutionFollowupTabPrefetchId {
     return Object.prototype.hasOwnProperty.call(TAB_LOADERS, tabId);
@@ -83,25 +99,6 @@ export function prefetchExecutionFollowupTab(tabId: string): void {
     void TAB_LOADERS[canonical as ExecutionFollowupTabPrefetchId]().catch(() => undefined);
 }
 
-/**
- * تسخين كل تبويبات المحضر + جسورها دفعة واحدة (idle فقط) —
- * يجعل التنقل بين التبويبات لحظياً بلا أي Suspense بارد عند أول زيارة.
- */
-export function prefetchAllExecutionFollowupTabs(): void {
-    (Object.keys(TAB_LOADERS) as ExecutionFollowupTabPrefetchId[]).forEach((tabId) => {
-        prefetchExecutionFollowupTab(tabId);
-    });
-}
-
-/** التبويب الافتراضي عند فتح المحضر بدون تفضيل محفوظ */
 export function prefetchExecutionFollowupDefaultTab(): void {
     prefetchExecutionFollowupTab('seizure_requests');
-}
-
-/**
- * @deprecated اسم تاريخي — يحمّل التبويب الافتراضي فقط (لا كل التبويبات).
- * استخدم prefetchExecutionFollowupTab للتبويب النشط.
- */
-export function prefetchExecutionFollowupAllTabs(): void {
-    prefetchExecutionFollowupDefaultTab();
 }

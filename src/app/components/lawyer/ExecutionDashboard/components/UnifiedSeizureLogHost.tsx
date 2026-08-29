@@ -2,8 +2,8 @@ import React from 'react';
 import {
     UnifiedSeizureLogModal,
     type SeizureLogTab,
-    type UnifiedSeizureLogEntry,
 } from '@/app/components/lawyer/execution/UnifiedSeizureLogModal';
+import type { UnifiedSeizureLogEntry } from '@/app/components/lawyer/execution/unifiedSeizureLogEntryTypes';
 import {
     UnifiedSeizureLogEntryFooter,
     type UnifiedSeizureLogEntryFooterProps,

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Plus } from '@/app/components/ui/lucideIcons';
+import { Plus } from '@/app/components/ui/icons/Plus';
 import { VAULT_INPUT } from './vaultDustyRoseTheme';
 
 interface VaultCategoryPickerProps {
@@ -73,13 +73,13 @@ export const VaultCategoryPicker: React.FC<VaultCategoryPickerProps> = ({
                         setAddingCustom(true);
                         setNewName('');
                     }}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#B87333]/30 bg-[#0E1B2E]/30 px-3 py-2 text-xs font-bold text-[#C4926A] transition-colors hover:border-[#B87333]/50 hover:bg-[#B87333]/8 disabled:opacity-40"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-xl border-0 bg-white/[0.04] px-3 py-2 min-h-[44px] text-xs font-medium text-[#E6C673] transition-colors hover:bg-[#E6C673]/10 disabled:opacity-40"
                 >
                     <Plus size={14} />
                     إضافة تصنيف مخصص
                 </button>
             ) : (
-                <div className="flex flex-col gap-2 rounded-xl border border-[#B87333]/22 bg-[#0E1B2E]/35 p-3">
+                <div className="flex flex-col gap-2 rounded-xl bg-white/[0.04] p-3">
                     <input
                         type="text"
                         value={newName}
@@ -108,7 +108,7 @@ export const VaultCategoryPicker: React.FC<VaultCategoryPickerProps> = ({
                                 setNewName('');
                             }}
                             disabled={disabled}
-                            className="flex-1 rounded-xl border border-[#D9CFC0]/15 bg-[#132238]/60 py-2 text-xs font-bold text-[#C9BCA8] disabled:opacity-40"
+                            className="flex-1 min-h-[44px] rounded-xl border-0 bg-white/[0.05] py-2 text-xs font-medium text-white/55 disabled:opacity-40"
                         >
                             إلغاء
                         </button>
@@ -116,7 +116,7 @@ export const VaultCategoryPicker: React.FC<VaultCategoryPickerProps> = ({
                             type="button"
                             onClick={applyNewCategory}
                             disabled={disabled || !newName.trim()}
-                            className="flex flex-1 items-center justify-center gap-1 rounded-xl border border-[#B87333]/35 bg-[#B87333]/20 py-2 text-xs font-bold text-[#E8E4DC] disabled:opacity-40"
+                            className="flex flex-1 min-h-[44px] items-center justify-center gap-1 rounded-xl border-0 bg-[#E6C673] py-2 text-xs font-medium text-[#0A0F1C] disabled:opacity-40"
                         >
                             <Plus size={14} />
                             حفظ التصنيف

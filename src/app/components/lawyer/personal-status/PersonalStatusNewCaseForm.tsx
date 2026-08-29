@@ -26,7 +26,7 @@ const LAW_CARD_OPTIONS = PERSONAL_APPLICABLE_LAW_OPTIONS.map(({ id, label }) => 
     label,
 }));
 
-export interface PersonalStatusNewCaseFormProps {
+interface PersonalStatusNewCaseFormProps {
     caseDetails: {
         number: string;
         court: string;
@@ -113,18 +113,17 @@ export function PersonalStatusNewCaseForm(props: PersonalStatusNewCaseFormProps)
     );
 
     return (
-        <div className="pb-6">
+        <div className="pb-4">
             <PersonalFormStepRail active={step} onChange={setStep} completion={completion} />
 
             {step === 'identity' ? (
                 <div>
                     <PersonalSectionShell>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                             <PersonalFloatingField
                                 label="رقم الدعوى"
                                 value={caseDetails.number}
                                 onChange={(v) => setCaseDetails((p) => ({ ...p, number: v }))}
-                                placeholder="15/ش/2026"
                                 inputRef={numberRef}
                                 error={caseNumberError ?? errorMap.number}
                                 dir="ltr"
@@ -136,17 +135,15 @@ export function PersonalStatusNewCaseForm(props: PersonalStatusNewCaseFormProps)
                                 onChange={(v) => setCaseDetails((p) => ({ ...p, court: v }))}
                                 inputRef={courtRef}
                                 error={errorMap.court}
-                                placeholder="اسم المحكمة..."
                             />
                         </div>
-                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                             <PersonalFloatingField
                                 label="نوع الدعوى"
                                 value={caseDetails.type}
                                 onChange={(v) => setCaseDetails((p) => ({ ...p, type: v }))}
                                 inputRef={typeRef}
                                 error={errorMap.type}
-                                placeholder="طلاق، نفقة، حضانة..."
                             />
                             <PersonalFloatingField
                                 label="اسم القاضي (اختياري)"
@@ -154,13 +151,12 @@ export function PersonalStatusNewCaseForm(props: PersonalStatusNewCaseFormProps)
                                 onChange={(v) => setCaseDetails((p) => ({ ...p, judge: v }))}
                             />
                         </div>
-                        <div className="mt-4">
-                            <label className="text-[10px] text-white/55 mb-1.5 block">تاريخ أول مرافعة</label>
+                        <div className="mt-2.5">
+                            <label className="text-[10px] text-white/55 mb-1 block">تاريخ أول مرافعة</label>
                             <HamiDateInput
                                 value={caseDetails.firstHearingDate}
                                 onValueChange={(v) => setCaseDetails((p) => ({ ...p, firstHearingDate: v }))}
                                 className={PERSONAL_STATUS_FIELD}
-                                placeholder="اختر التاريخ من التقويم"
                             />
                         </div>
                     </PersonalSectionShell>
@@ -176,7 +172,7 @@ export function PersonalStatusNewCaseForm(props: PersonalStatusNewCaseFormProps)
                             error={errorMap.stage}
                         />
 
-                        <div className="mt-5">
+                        <div className="mt-3">
                             {isExtraordinary ? (
                                 <div className="space-y-2">
                                     <label className="text-[10px] text-[#E6C673]/88 font-bold mb-1.5 block">

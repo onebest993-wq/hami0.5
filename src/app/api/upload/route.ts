@@ -1,12 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
-import { readSupabasePrivilegedKey } from '../security/supabasePrivilegedEnv.ts';
-import { requireWifeUser, unwrapWifeUser } from '../security/bffAuth.ts';
+import { getSupabaseAdminClient } from '../security/supabaseAdminClient.ts';
+import { requireWifeCloudWrite, unwrapWifeUser } from '../security/bffAuth.ts';
 import { wifeForbiddenResponse } from '../security/wifeValidator.ts';
 import { validateFileBuffer, verifyFileContentHash } from '../security/fileValidator.ts';
 import { scanBufferForMalware } from '../../services/server/MalwareScanService.ts';
 import {
   ALLOWED_UPLOAD_CATEGORIES,
   buildCategoryObjectPath,
+  isForumEncryptedUpload,
   resolveUploadBucketForCategory,
   SIGNED_URL_TTL_SEC,
 } from './uploadStorageUtils.ts';
@@ -22,15 +22,6 @@ function json(status: number, payload: Record<string, unknown>): Response {
   });
 }
 
-function getSupabaseAdminClient() {
-  const supabaseUrl = (process.env.SUPABASE_URL ?? '').trim();
-  const serviceRoleKey = readSupabasePrivilegedKey();
-  if (!supabaseUrl || !serviceRoleKey) {
-    return null;
-  }
-  return createClient(supabaseUrl, serviceRoleKey);
-}
-
 function pickUploadedFile(formData: FormData): File | null {
   const direct = formData.get('file');
   if (direct instanceof File) return direct;
@@ -43,7 +34,7 @@ function pickUploadedFile(formData: FormData): File | null {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    const authGate = unwrapWifeUser(await requireWifeCloudWrite(request));
     if ('response' in authGate) return authGate.response;
     const { userId } = authGate;
 
@@ -87,8 +78,8 @@ export async function POST(request: Request): Promise<Response> {
       return json(403, { ok: false, error: 'File Tampering Detected' });
     }
 
-    // 4) Magic-bytes validation (polyglot defense).
-    if (!validateFileBuffer(buffer, file.name)) {
+    const forumEncrypted = isForumEncryptedUpload(category, file.name);
+    if (!forumEncrypted && !validateFileBuffer(buffer, file.name)) {
       return json(400, { ok: false, error: 'Invalid or malicious file' });
     }
 

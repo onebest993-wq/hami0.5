@@ -1,4 +1,5 @@
 import { loadForumSupabaseAdmin } from './loadForumSupabaseAdmin';
+import { persistSecureJsonValue, readSecureJsonRaw } from '@/app/services/storage/syncSecureJson';
 
 const LOCAL_KEY = 'hami:forum:post-sub:v1';
 
@@ -9,9 +10,8 @@ export type PostSubscription = {
 };
 
 async function loadLocal(): Promise<PostSubscription[]> {
-    if (typeof window === 'undefined') return [];
     try {
-        const raw = window.localStorage.getItem(LOCAL_KEY);
+        const raw = await readSecureJsonRaw(LOCAL_KEY);
         if (!raw) return [];
         const parsed = JSON.parse(raw) as PostSubscription[];
         return Array.isArray(parsed) ? parsed : [];
@@ -21,12 +21,7 @@ async function loadLocal(): Promise<PostSubscription[]> {
 }
 
 async function saveLocal(rows: PostSubscription[]): Promise<void> {
-    if (typeof window === 'undefined') return;
-    try {
-        window.localStorage.setItem(LOCAL_KEY, JSON.stringify(rows));
-    } catch {
-        /* silent */
-    }
+    await persistSecureJsonValue(LOCAL_KEY, rows);
 }
 
 export const ForumPostFollowRepository = {

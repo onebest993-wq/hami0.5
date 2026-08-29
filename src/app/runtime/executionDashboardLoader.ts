@@ -2,36 +2,33 @@
  * تحميل مرحلي لإضبارة التنفيذ — chunk رئيسي أولاً، ثم shell عند الخمول أو النية.
  */
 import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
-import { prefetchDeferredFeatureStyles } from '@/app/runtime/deferredFeatureStyles';
+import { prefetchDeferredExecutionDossierStyles } from '@/app/runtime/deferredFeatureStyles';
+import {
+    loadExecutionDashboardModule,
+    resetExecutionDashboardModuleCache,
+} from '@/app/runtime/executionDashboardModuleLoad';
+
+export { loadExecutionDashboardModule, resetExecutionDashboardModuleCache };
 
 type ExecutionDashboardModule = typeof import('@/app/components/lawyer/ExecutionDashboard.tsx');
 
 export type ExecutionDashboardPrefetchMode = 'deferred' | 'intent' | 'urgent';
 
-let executionModulePromise: Promise<ExecutionDashboardModule> | null = null;
+export type ExecutionDashboardPrefetchOptions = {
+    /**
+     * false = تسخين JS بعد كشف اللوحة بلا CSS الأضابير.
+     * الافتراضي true لمسار النية/الفتح.
+     */
+    includeFeatureStyles?: boolean;
+};
 
-export function resetExecutionDashboardModuleCache(): void {
-    executionModulePromise = null;
-}
-
-function createExecutionModuleImport(): Promise<ExecutionDashboardModule> {
-    return import('@/app/components/lawyer/ExecutionDashboard.tsx')
-        .then((mod) => mod)
-        .catch((err) => {
-            executionModulePromise = null;
-            throw err;
-        });
-}
-
-export function loadExecutionDashboardModule(): Promise<ExecutionDashboardModule> {
-    if (!executionModulePromise) {
-        executionModulePromise = createExecutionModuleImport();
-    }
-    return executionModulePromise;
+function prefetchExecutionDossierStylesIfNeeded(includeFeatureStyles?: boolean): void {
+    if (includeFeatureStyles === false) return;
+    prefetchDeferredExecutionDossierStyles();
 }
 
 function prefetchExecutionShellChunks(): void {
-    void import('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell')
+    void import('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistryShell')
         .then((shell) => {
             shell.prefetchExecutionDashboardShell();
         })
@@ -44,9 +41,14 @@ function prefetchExecutionShellChunks(): void {
  * شبكة بعد النقرة (core → body → sections) عند الفتح قبل اكتمال التسخين.
  */
 function prefetchExecutionFirstPaintChunks(): void {
-    void import('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell')
+    void import('@/app/components/lawyer/ExecutionDashboard/executionDashboardPhoneBodyLazy')
+        .then((m) => {
+            m.prefetchExecutionDashboardPhoneBody();
+        })
+        .catch(() => undefined);
+    void import('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistryShell')
         .then((shell) => {
-            shell.prefetchExecutionDashboardPhoneBody();
+            void shell.preloadExecutionDashboardFirstViewportSections();
         })
         .catch(() => undefined);
     void import('@/app/components/lawyer/dashboard/executionDashboardPortalLazy')
@@ -61,23 +63,20 @@ function prefetchExecutionFirstPaintChunks(): void {
 }
 
 /**
- * تسخين عميق كامل (idle فقط) — جسم الهاتف + overlays + محضر المتابعة + جسور
- * المعالجات الحرجة. بدونه كان أول فتح بارد يسحب مئات الوحدات بعد النقر.
+ * تسخين عميق (idle) — جسم/سجل حجز/جسور بعد أول paint.
+ * overlays والمحضر يُحمَّلان عند نية النافذة/البلاط فقط — لا عبر برميل lazyShell
+ * (تقييمه يسحب سجل overlays).
  */
 function prefetchExecutionDeepWarmChunks(): void {
-    void import('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell')
+    void import('@/app/components/lawyer/ExecutionDashboard/executionDashboardPhoneBodyLazy')
+        .then((m) => {
+            m.prefetchExecutionDashboardPhoneBody();
+        })
+        .catch(() => undefined);
+    void import('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistryShell')
         .then((shell) => {
-            shell.prefetchExecutionDashboardPhoneBody();
-            shell.prefetchExecutionDashboardShellOverlays();
-            shell.prefetchFollowupMemoPanels();
-            shell.prefetchExecutionFollowupModalPortal();
-            // أبناء shell overlays التي كانت تُحمَّل لحظة الفتح (سويتشر/قانون/مالية/حجز)
-            shell.prefetchExecutionOverlayModals();
-            shell.prefetchLawReferencePanel();
             shell.prefetchUnifiedSeizureLogHost();
-            shell.prefetchExecutionFinancialHubPortal();
             shell.prefetchExecutionDossierDeepSurface();
-            shell.prefetchExecutionModalContainers();
         })
         .catch(() => undefined);
     void import('@/app/components/lawyer/ExecutionDashboard/executionCoreHandlersPrefetch')
@@ -90,11 +89,7 @@ function prefetchExecutionDeepWarmChunks(): void {
     void import(
         '@/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardHandlerClusterGroups'
     ).catch(() => undefined);
-    // وحدة overlay scope المؤجّلة — كانت تُستورد لحظة الحاجة داخل الإضبارة
-    void import(
-        '@/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoreScopeSourcesOverlayLazy'
-    ).catch(() => undefined);
-    // base scope (~42KB gz) — يُحمَّل بعد أول paint داخل الإضبارة؛ تسخينه هنا يمنع waterfall
+    // base scope — يُحمَّل بعد أول paint داخل الإضبارة؛ تسخينه هنا يمنع waterfall
     void import(
         '@/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoreScopeSourcesBaseLazy'
     ).catch(() => undefined);
@@ -106,34 +101,21 @@ function prefetchExecutionDeepWarmChunks(): void {
         .catch(() => undefined);
 }
 
-/**
- * الموجة الأخيرة — كل تبويبات محضر المتابعة + جسورها. بعدها لا يبقى أي chunk
- * بارد داخل قسم التنفيذ: فتح المحضر والتنقل بين تبويباته يصبح لحظياً.
- */
-function prefetchExecutionFollowupFullWarm(): void {
-    void import('@/app/components/lawyer/ExecutionDashboard/executionFollowupTabPrefetch')
-        .then((m) => {
-            m.prefetchAllExecutionFollowupTabs();
-        })
-        .catch(() => undefined);
-}
-
 /** يبدأ تحميل الـ chunk الرئيسي فقط — بدون منافسة أرشيف التنفيذ */
-export function prefetchExecutionDashboardCore(): void {
+export function prefetchExecutionDashboardCore(opts?: ExecutionDashboardPrefetchOptions): void {
     if (typeof window === 'undefined') return;
-    prefetchDeferredFeatureStyles();
+    prefetchExecutionDossierStylesIfNeeded(opts?.includeFeatureStyles);
     void loadExecutionDashboardModule().catch(() => {
-        executionModulePromise = null;
+        resetExecutionDashboardModuleCache();
     });
 }
 
 /**
- * تسخين خفيف لمسار Instant (portal + first-paint) — بدون تحميل chunk التنفيذ الكامل.
+ * تسخين خفيف لمسار Instant (portal + first-paint) — بدون CSS الأضابير وبدون chunk التنفيذ الكامل.
  * يُستخدم من executionBootHydrator عند الإقلاع.
  */
 export function prefetchExecutionDashboardChromeWarm(): void {
     if (typeof window === 'undefined') return;
-    prefetchDeferredFeatureStyles();
     prefetchExecutionFirstPaintChunks();
     void import('@/app/components/lawyer/dashboard/ExecutionDashboardBootChrome').catch(() => undefined);
 }
@@ -143,23 +125,25 @@ export function prefetchExecutionDashboardChromeWarm(): void {
  * intent: hover على بطاقة/الهَب — chunk رئيسي فوراً، shell عند الخمول
  * urgent: نقرة فتح إضبارة — chunk + shell الحرجة فوراً
  */
-export function prefetchExecutionDashboardByMode(mode: ExecutionDashboardPrefetchMode): void {
+export function prefetchExecutionDashboardByMode(
+    mode: ExecutionDashboardPrefetchMode,
+    opts?: ExecutionDashboardPrefetchOptions,
+): void {
     if (typeof window === 'undefined') return;
 
     switch (mode) {
         case 'deferred':
             scheduleIdleWork(() => {
-                prefetchExecutionDashboardCore();
+                prefetchExecutionDashboardCore(opts);
                 void loadExecutionDashboardModule()
                     .then(() =>
                         scheduleIdleWork(() => {
                             prefetchExecutionShellChunks();
                             // سلسلة أول paint كاملة مع الـ shell — لا تنتظر موجة deep warm
                             prefetchExecutionFirstPaintChunks();
-                            // موجة أخيرة idle — تجعل أول فتح فعلي بلا أي تحميل شبكة تقريباً
+                            // deep warm رفيع — بلا PCFP/FinancialHub/Law (نية تبويب فقط)
                             scheduleIdleWork(() => {
                                 prefetchExecutionDeepWarmChunks();
-                                scheduleIdleWork(() => prefetchExecutionFollowupFullWarm(), 700);
                             }, 600);
                         }, 500),
                     )
@@ -169,25 +153,22 @@ export function prefetchExecutionDashboardByMode(mode: ExecutionDashboardPrefetc
         case 'intent':
             // hover/دخول الأرشيف: النقرة تأتي عادة خلال أقل من ثانية —
             // كل ما يلزم لأول paint (core + shell + body + portal) يُحمَّل فوراً.
-            prefetchExecutionDashboardCore();
+            prefetchExecutionDashboardCore(opts);
             prefetchExecutionShellChunks();
             prefetchExecutionFirstPaintChunks();
             scheduleIdleWork(() => {
                 prefetchExecutionDeepWarmChunks();
-                scheduleIdleWork(() => prefetchExecutionFollowupFullWarm(), 600);
             }, 450);
             break;
         case 'urgent':
             // فتح مباشر: كل سلسلة أول paint بالتوازي فوراً — أي جزء مؤجَّل منها
             // كان يتحول لحلقة waterfall بعد النقرة (chrome يظهر والمحتوى ينتظر).
-            prefetchExecutionDashboardCore();
+            prefetchExecutionDashboardCore(opts);
             prefetchExecutionShellChunks();
             prefetchExecutionFirstPaintChunks();
-            // تسخين عميق سريع بعد أول paint — محضر المتابعة/الجسور كانت تبقى باردة
-            // عند الفتح المباشر ويشعر المستخدم بثقل أول نقرة داخل الإضبارة.
+            // تسخين عميق رفيع بعد أول paint — اللوحات الثقيلة تبقى لنية التبويب/البلاط.
             scheduleIdleWork(() => {
                 prefetchExecutionDeepWarmChunks();
-                scheduleIdleWork(() => prefetchExecutionFollowupFullWarm(), 500);
             }, 250);
             break;
         default:
@@ -208,17 +189,19 @@ export function isExecutionDossierFirstPaintReady(): boolean {
 }
 
 /**
- * ينتظر سلسلة أول paint حتى تكتمل — يُستدعى قبل setActiveFile حتى يصبح
- * أول فتح كالثاني (بلا BootChrome / PhoneBodyLoadingShell).
+ * ينتظر بوابة الإضبارة + جسم الهاتف + أقسام أول viewport.
+ * وحدة ExecutionDashboard السمينة تُبدأ دون انتظار — لا تُدخل في مسار الجاهزية.
  */
-export function ensureExecutionDossierFirstPaintReady(): Promise<void> {
+export function ensureExecutionDossierFirstPaintReady(
+    opts?: ExecutionDashboardPrefetchOptions,
+): Promise<void> {
     if (typeof window === 'undefined') return Promise.resolve();
 
     if (firstPaintReady) return Promise.resolve();
 
     if (!firstPaintReadyPromise) {
         firstPaintReadyPromise = (async () => {
-            prefetchDeferredFeatureStyles();
+            prefetchExecutionDossierStylesIfNeeded(opts?.includeFeatureStyles);
             prefetchExecutionFirstPaintChunks();
             prefetchExecutionShellChunks();
             void loadExecutionDashboardModule()
@@ -226,37 +209,29 @@ export function ensureExecutionDossierFirstPaintReady(): Promise<void> {
                     cachedExecutionModule = mod;
                 })
                 .catch(() => {
-                    executionModulePromise = null;
+                    resetExecutionDashboardModuleCache();
                 });
 
-            const [portalLazy, phoneLazy, baseScope, shell] = await Promise.all([
+            const [portalLazy, phoneLazy, baseScope, shellRegistry] = await Promise.all([
                 import('@/app/components/lawyer/dashboard/executionDashboardPortalLazy'),
                 import('@/app/components/lawyer/ExecutionDashboard/executionDashboardPhoneBodyLazy'),
                 import(
                     '@/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardBaseScopeCache'
                 ),
-                import('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell'),
+                import(
+                    '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistryShell'
+                ),
             ]);
 
             await Promise.all([
                 portalLazy.LazyExecutionDashboardPortal.preload().catch(() => undefined),
                 phoneLazy.LazyExecutionDashboardPhoneBody.preload().catch(() => undefined),
+                shellRegistry.preloadExecutionDashboardFirstViewportSections(),
                 baseScope.loadAndCacheExecutionDashboardBaseScopeBuilder().then(
                     () => undefined,
                     () => undefined,
                 ),
-                loadExecutionDashboardModule().then(
-                    (mod) => {
-                        cachedExecutionModule = mod;
-                    },
-                    () => undefined,
-                ),
             ]);
-
-            // ثبّت Resolved داخل Portal's LazyExecutionDashboard (نفس وحدة loadExecutionDashboardModule)
-            await import('@/app/components/lawyer/dashboard/ExecutionDashboardPortal')
-                .then((m) => m.prefetchExecutionDashboardComponent())
-                .catch(() => undefined);
 
             firstPaintReady = true;
         })().catch(() => {
@@ -267,8 +242,8 @@ export function ensureExecutionDossierFirstPaintReady(): Promise<void> {
     return firstPaintReadyPromise ?? Promise.resolve();
 }
 
-export function primeExecutionDossierSurface(): void {
+export function primeExecutionDossierSurface(opts?: ExecutionDashboardPrefetchOptions): void {
     if (typeof window === 'undefined') return;
-    prefetchExecutionDashboardByMode('urgent');
-    void ensureExecutionDossierFirstPaintReady();
+    prefetchExecutionDashboardByMode('urgent', opts);
+    void ensureExecutionDossierFirstPaintReady(opts);
 }

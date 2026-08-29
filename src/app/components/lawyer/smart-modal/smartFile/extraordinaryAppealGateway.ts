@@ -1,40 +1,26 @@
 import type { CaseStage } from '../../LawyerShared';
-import { isCassationStageName } from './judgmentTypes';
+import { isDossierFinalized } from './dossierFinality';
+import {
+    isCassationCorrectionStageName,
+    isCassationStageName,
+} from './judgmentStageNames';
 import {
     resolveLastPleadingStageIndex,
 } from './pleadingStageClassification';
+
+export { isDossierFinalized };
+export { isCassationCorrectionStageName };
 
 export const EXTRAORDINARY_APPEAL_LABELS = {
     retrial: 'إعادة المحاكمة',
     cassation_correction: 'تصحيح القرار التمييزي',
 } as const;
 
-export const CASSATION_CORRECTION_STAGE_NAME = 'تصحيح قرار';
+const CASSATION_CORRECTION_STAGE_NAME = 'تصحيح قرار';
 export const CASSATION_CORRECTION_TAB_LABEL = CASSATION_CORRECTION_STAGE_NAME;
-
-export function isCassationCorrectionStageName(stageName?: string | null): boolean {
-    const s = String(stageName ?? '').trim();
-    if (!s) return false;
-    return s === CASSATION_CORRECTION_STAGE_NAME || (s.includes('تصحيح') && s.includes('قرار'));
-}
 
 function stageNameOf(stage: CaseStage | undefined): string {
     return String(stage?.stageName ?? stage?.name ?? '').trim();
-}
-
-export function isDossierFinalized(status: string | undefined, stages: CaseStage[]): boolean {
-    if (isFinalityPhrase(status)) return true;
-    return stages.some((stage) => isFinalityPhrase(stage?.finalDecision));
-}
-
-function isFinalityPhrase(value: unknown): boolean {
-    const text = String(value ?? '').trim();
-    if (!text) return false;
-    return (
-        text.includes('مكتسبة الدرجة القطعية')
-        || text.includes('اكتسب الدرجة القطعية')
-        || text.includes('اكتسب القرار الدرجة القطعية')
-    );
 }
 
 export function isExtraordinaryTypeConsumed(
@@ -75,7 +61,7 @@ export function findCassationStageIndex(stages: CaseStage[]): number {
 }
 
 /** تصحيح قرار تمييزي — مرة واحدة لكل دورة تمييز (يُتاح مجدداً بعد نقض وتمييز جديد). */
-export function isCassationCorrectionConsumedForStage(
+function isCassationCorrectionConsumedForStage(
     stages: CaseStage[],
     cassationStageIndex: number,
 ): boolean {
@@ -143,7 +129,7 @@ export function shouldShowCassationCorrectionTabLabel(
     return isCassationCorrectionStageName(stageNameOf(stage));
 }
 
-export function shouldAllowExtraordinaryAppealsWhenArchived(
+function shouldAllowExtraordinaryAppealsWhenArchived(
     status: string | undefined,
     stages: CaseStage[],
 ): boolean {
@@ -151,7 +137,7 @@ export function shouldAllowExtraordinaryAppealsWhenArchived(
 }
 
 /** طعن استثنائي قيد النظر — يحتاج مدخل إجراءات حتى على مرحلة التمييز النشطة. */
-export function isExtraordinaryAppealInProgress(status: string | undefined): boolean {
+function isExtraordinaryAppealInProgress(status: string | undefined): boolean {
     const s = String(status ?? '');
     return s.includes('التصحيح') || s.includes('إعادة المحاكمة');
 }

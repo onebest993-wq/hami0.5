@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     dismissHomeHubRadarId,
     filterVisibleHomeHubRadarEvents,
@@ -7,7 +8,16 @@ import {
 } from '../homeHubRadarDismiss';
 
 describe('homeHubRadarDismiss', () => {
-    beforeEach(() => localStorage.clear());
+    beforeEach(() => {
+        localStorage.clear();
+        try {
+            SecureStoreService.deleteItemSync(`${HOME_HUB_RADAR_DISMISSED_KEY_PREFIX}:lawyer-1`);
+            SecureStoreService.deleteItemSync(`${HOME_HUB_RADAR_DISMISSED_KEY_PREFIX}:lawyer-2`);
+            SecureStoreService.deleteItemSync(`${HOME_HUB_RADAR_DISMISSED_KEY_PREFIX}:${'L'.repeat(128)}`);
+        } catch {
+            /* ignore */
+        }
+    });
 
     it('يخفي الموعد من البطاقة فقط حسب المحامي', () => {
         dismissHomeHubRadarId('lawyer-1', 'evt-a');
@@ -32,5 +42,17 @@ describe('homeHubRadarDismiss', () => {
         dismissHomeHubRadarId('lawyer-1', 'evt-a');
         dismissHomeHubRadarId('lawyer-1', 'evt-a');
         expect(getDismissedHomeHubRadarIds('lawyer-1')).toEqual(['evt-a']);
+    });
+
+    it('يقص مفتاح المحامي ومعرّف الحدث حتى لا يتضخم التخزين', () => {
+        const longLawyer = 'L'.repeat(200);
+        const longEvent = 'E'.repeat(300);
+        dismissHomeHubRadarId(longLawyer, longEvent);
+        expect(getDismissedHomeHubRadarIds(longLawyer)).toEqual(['E'.repeat(240)]);
+        expect(
+            SecureStoreService.getItemSync(`${HOME_HUB_RADAR_DISMISSED_KEY_PREFIX}:${'L'.repeat(128)}`),
+        ).toBeTruthy();
+        expect(localStorage.getItem(`${HOME_HUB_RADAR_DISMISSED_KEY_PREFIX}:${'L'.repeat(128)}`)).toBeNull();
+        expect(localStorage.getItem(`${HOME_HUB_RADAR_DISMISSED_KEY_PREFIX}:${longLawyer}`)).toBeNull();
     });
 });

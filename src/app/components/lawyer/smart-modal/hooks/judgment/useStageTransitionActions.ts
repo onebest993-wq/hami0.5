@@ -1,6 +1,6 @@
 import type { CaseStage } from '../../../LawyerShared';
 import { debug } from '@/app/utils/debug';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import { applyStageTransition } from '../../smartFile/stageTransition';
 
 
@@ -35,7 +35,6 @@ export function useStageTransitionActions(options: UseSmartFileJudgmentActionsOp
         setShowObjectionRegistrationModal,
         setShowJudgmentModal,
         setShowCrossAppealModal,
-        setShowTransitionModal,
     } = options;
 
 const handleTransitionConfirm = (transitionData: StageTransitionPayload) => {
@@ -56,8 +55,6 @@ const handleTransitionConfirm = (transitionData: StageTransitionPayload) => {
 
     debug.log(`✅ تم إنشاء إضبارة فرعية جديدة "${newStage}" برقم: ${newCaseNo}`);
     debug.log(`📦 إجمالي المراحل: ${updatedStages.length}`);
-
-    setShowTransitionModal(false);
 };
 
 const inferJudgmentTypeFromStage = (stage: CaseStage): string => {

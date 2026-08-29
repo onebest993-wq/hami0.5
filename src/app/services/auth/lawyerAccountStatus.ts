@@ -51,6 +51,11 @@ export function resolveLawyerVerificationStatus(
     const userSafe = fromUser === 'active' ? null : fromUser;
 
     if (fromStore === 'active' || fromApp === 'active') return 'active';
+    /**
+     * بعد إعادة الرفع المحلي: السجل معلّق بينما app_metadata قد يبقى rejected
+     * إلى أن ينجح POST — لا نبقي الواجهة على «مرفوض» فوق طلب جديد.
+     */
+    if (fromStore === 'pending' && fromApp === 'rejected') return 'pending';
     if (fromStore === 'rejected' || fromApp === 'rejected' || userSafe === 'rejected') {
         return 'rejected';
     }
@@ -163,7 +168,7 @@ export function networkAccessDenialMessage(reason: NetworkAccessDenial): string 
         return 'حسابك قيد التدقيق — الميزات الشبكية مغلقة حتى اعتماد البيانات.';
     }
     if (reason === 'rejected') {
-        return 'تم رفض التحقق من الحساب — راجع البيانات أو أعد رفع الوثائق من الإعدادات.';
+        return 'تم رفض التحقق من الحساب — راجع البيانات أو أعد رفع وثائق هوية النقابة عبر الدعم أو شاشة التسجيل إن وُجدت.';
     }
     return 'يجب تسجيل الدخول بحساب محامٍ معتمد لاستخدام هذه الميزة.';
 }

@@ -18,7 +18,7 @@ export function ExecutionDashboardHandlerClusterEmployeeAssignmentBridge({
     input,
     onCluster,
 }: ExecutionDashboardHandlerClusterEmployeeAssignmentBridgeProps) {
-    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads) as any;
+    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads);
 
     const employeeAssignmentHandlers = useExecutionDashboardEmployeeAssignmentHandlers({
         executionData: c.executionData,

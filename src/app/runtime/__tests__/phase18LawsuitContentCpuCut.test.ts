@@ -52,12 +52,14 @@ describe('phase-18 lawsuit ArchivePortal cold CPU cuts', () => {
         );
     });
 
-    it('UnifiedDossierCard يلغي spring الدخول (initial=false)', () => {
+    it('UnifiedDossierCard بلا Framer — رسم أصلي وتسخين إضبارة مرة', () => {
         const src = readFileSync(
             join(root, 'src/app/components/lawyer/ArchivePortal/components/UnifiedDossierCard.tsx'),
             'utf8',
         );
-        expect(src).toContain('initial={false}');
-        expect(src).toContain('useReduceMotion');
+        expect(src).not.toContain('overlayMotionRuntime');
+        expect(src).not.toContain('motion.div');
+        expect(src).not.toContain('warmLawsuitWorkspace');
+        expect(src).toContain('prepareLawsuitDossierChromeOnce');
     });
 });

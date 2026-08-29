@@ -20,3 +20,10 @@ export const BTN_GARNISH =
 
 export const BTN_SETTLEMENT_APPLY =
     'rounded-xl bg-gradient-to-l from-cyan-500 to-sky-700 px-5 py-2.5 text-white text-xs font-bold shadow-md shadow-cyan-950/30';
+
+/** إغلاق نوافذ المركز المالي — أرضية لمس 44px بلا تغيير لوني */
+export const FOC_MODAL_CLOSE_BTN =
+    'inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full p-2 text-slate-400 hover:bg-white/10 touch-manipulation';
+
+/** أزرار إلغاء/تأكيد داخل نوافذ المركز المالي */
+export const FOC_MODAL_ACTION_BTN = 'min-h-[44px] touch-manipulation';

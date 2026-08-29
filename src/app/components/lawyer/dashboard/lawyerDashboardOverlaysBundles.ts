@@ -11,7 +11,7 @@ type CriminalBridge = ReturnType<typeof useCriminalDashboardBridge>;
 type Workspace = ReturnType<typeof useLawyerDashboardWorkspace>;
 
 export type LawyerDashboardShellBundle = {
-    onLogout: () => void;
+    onLogout: (options?: { skipLocalPurge?: boolean }) => void | Promise<void>;
     onAppNavigate?: (target: 'privacy' | 'support' | 'settings') => void;
     onNavigateToCase?: (caseId: string) => void;
     userId: string;
@@ -26,7 +26,6 @@ export type LawyerDashboardDataBundle = {
     executionFiles: DashboardExecutionFile[];
     executionFilesHydrating?: boolean;
     globalNotes: Workspace['globalNotes'];
-    notesBootSettled?: boolean;
     searchNotifications: Array<{ id: string; title: string; message: string; type: string }>;
     criminalCasesForCluster: unknown[];
     lawsuitLifecycleCounts: Workspace['lawsuitLifecycleCounts'];
@@ -35,6 +34,7 @@ export type LawyerDashboardDataBundle = {
     lawsuitTrashFiles: Workspace['lawsuitTrashFiles'];
     ensureLawsuitArchivedLoaded: Workspace['ensureLawsuitArchivedLoaded'];
     ensureLawsuitTrashLoaded: Workspace['ensureLawsuitTrashLoaded'];
+    lawsuitFilesHydrating?: boolean;
 };
 
 export type LawyerDashboardDossierBundle = {

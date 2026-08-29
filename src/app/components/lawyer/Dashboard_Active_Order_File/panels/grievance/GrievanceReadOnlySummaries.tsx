@@ -49,19 +49,19 @@ export function GrievanceReadOnlySummaries(props: GrievanceLifecyclePanelProps) 
                                                                 ؛ والقرار المعترض عليه: رفض الطلب بتاريخ{' '}
                                                                 {formatDateText(effectiveJudgeDecisionDate) || '—'}.
                                                             </div>
-                                                            {(grievanceDecision.decision || (caseData as any)?.grievanceDecision) && (
+                                                            {(grievanceDecision.decision || caseData?.grievanceDecision) && (
                                                                 <div>
                                                                     قرار التظلم:{' '}
-                                                                    {(grievanceDecision.decision || (caseData as any)?.grievanceDecision) === 'confirmed'
+                                                                    {(grievanceDecision.decision || caseData?.grievanceDecision) === 'confirmed'
                                                                         ? 'تصديق القرار'
-                                                                        : (grievanceDecision.decision || (caseData as any)?.grievanceDecision) === 'modified'
+                                                                        : (grievanceDecision.decision || caseData?.grievanceDecision) === 'modified'
                                                                           ? 'تعديل القرار'
                                                                           : 'نقض القرار'}{' '}
                                                                     —{' '}
                                                                     {formatDateText(
                                                                         String(
                                                                             grievanceDecision.decisionDate ||
-                                                                                (caseData as any)?.grievanceDecisionDate ||
+                                                                                caseData?.grievanceDecisionDate ||
                                                                                 '',
                                                                         ),
                                                                     ) || '—'}

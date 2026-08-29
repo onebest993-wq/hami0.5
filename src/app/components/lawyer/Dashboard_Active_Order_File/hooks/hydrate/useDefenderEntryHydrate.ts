@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import type { GrievanceDecision } from '../../types';
 import type { UseOrderFileHydrateArgs } from './types';
 
 /** يزامن مرحلة دخول المدافع (defenderEntryPhase 2/3) مع state دورة الحياة */
@@ -9,12 +10,12 @@ export function useDefenderEntryHydrate({ caseId, fileData, caseData, setters }:
 
     useEffect(() => {
         defenderEntryHydrateRef.current = false;
-    }, [caseId, (fileData as any)?.id]);
+    }, [caseId, (fileData as Record<string, unknown> | null | undefined)?.id]);
 
     useEffect(() => {
-        const src: any = {
-            ...(fileData && typeof fileData === 'object' ? (fileData as object) : {}),
-            ...(caseData && typeof caseData === 'object' ? (caseData as object) : {}),
+        const src: Record<string, unknown> = {
+            ...(fileData && typeof fileData === 'object' ? (fileData as Record<string, unknown>) : {}),
+            ...(caseData && typeof caseData === 'object' ? (caseData as Record<string, unknown>) : {}),
         };
         if (!src || typeof src !== 'object') return;
         const ep = Number(src.defenderEntryPhase);
@@ -58,7 +59,7 @@ export function useDefenderEntryHydrate({ caseId, fileData, caseData, setters }:
             }
             if (src.grievanceDecision && src.grievanceDecisionDate) {
                 setGrievanceDecision({
-                    decision: src.grievanceDecision,
+                    decision: src.grievanceDecision as GrievanceDecision['decision'],
                     decisionDate: String(src.grievanceDecisionDate),
                 });
             }

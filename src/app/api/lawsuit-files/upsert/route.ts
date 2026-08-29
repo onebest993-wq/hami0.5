@@ -1,7 +1,9 @@
 import { sanitizePayload } from '@/app/api/security/sanitizer';
-import { requireWifeUser, unwrapWifeUser } from '@/app/api/security/bffAuth';
+import { requireWifeCloudWrite, unwrapWifeUser } from '@/app/api/security/bffAuth';
 import { getSupabaseAdminClient } from '@/app/api/security/supabaseAdminClient';
 import { wifeJsonResponse } from '@/app/api/security/wifeSecurityHeaders';
+import { rejectNonUuidCloudWrite } from '@/app/api/security/postgresUuidSubject';
+import { encryptedPayloadSignatureMatches, computeDossierPayloadMac } from '@/app/api/security/encryptedPayloadSignature';
 
 export const runtime = 'nodejs';
 
@@ -22,9 +24,11 @@ function normalizeText(raw: unknown, maxLen: number): string | null {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    const authGate = unwrapWifeUser(await requireWifeCloudWrite(request));
     if ('response' in authGate) return authGate.response;
     const { userId } = authGate;
+    const denied = rejectNonUuidCloudWrite(userId);
+    if (denied) return denied;
 
     let payload: unknown = null;
     try {
@@ -45,6 +49,9 @@ export async function POST(request: Request): Promise<Response> {
     if (!externalId || !caseNo || !court || !stage || !encryptedData || !dataSignature) {
       return wifeJsonResponse(400, { ok: false, error: 'Missing required fields' });
     }
+    if (!encryptedPayloadSignatureMatches(encryptedData, dataSignature)) {
+      return wifeJsonResponse(400, { ok: false, error: 'Invalid data signature' });
+    }
 
     const caseType = normalizeText(payload.case_type, 128);
     const parentId = normalizeText(payload.parent_id, 128);
@@ -59,6 +66,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const nowIso = new Date().toISOString();
+    const payloadMac = computeDossierPayloadMac(encryptedData);
     const row = {
       user_id: userId,
       external_id: externalId,
@@ -69,6 +77,7 @@ export async function POST(request: Request): Promise<Response> {
       parent_id: parentId ?? null,
       encrypted_data: encryptedData,
       data_signature: dataSignature,
+      ...(payloadMac ? { payload_mac: payloadMac } : {}),
       security_version: securityVersion,
       status,
       updated_at: nowIso,

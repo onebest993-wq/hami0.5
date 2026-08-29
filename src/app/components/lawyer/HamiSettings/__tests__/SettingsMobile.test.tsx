@@ -15,6 +15,10 @@ vi.mock('../hooks/useSettingsShellFocusTrap', () => ({
     useSettingsShellFocusTrap: () => ({ onKeyDownCapture: undefined }),
 }));
 
+vi.mock('@/app/hooks/useMobileKeyboardInset', () => ({
+    useMobileKeyboardInset: (enabled = true) => (enabled ? 96 : 0),
+}));
+
 describe('Settings mobile readiness', () => {
     it('SettingsShell يستخدم safe-area و min-h-[44px] على التبويبات وزر الإغلاق', () => {
         render(
@@ -35,6 +39,7 @@ describe('Settings mobile readiness', () => {
 
         const appearanceTab = screen.getByTestId('settings-nav-appearance');
         expect(appearanceTab.className).toContain('min-h-[44px]');
+        expect(appearanceTab.className).toContain('min-w-[44px]');
 
         const header = document.querySelector('.hami-settings-header');
         expect(header?.className).toContain('safe-area-inset-top');
@@ -42,5 +47,8 @@ describe('Settings mobile readiness', () => {
         const panel = document.getElementById('settings-section-panel');
         expect(panel?.className).toContain('safe-area-inset-bottom');
         expect(panel?.className).toContain('overscroll-contain');
+        expect(panel?.className).toContain('min-w-0');
+        expect(panel).toHaveAttribute('data-keyboard-inset', '96');
+        expect(panel?.getAttribute('style') ?? '').toContain('96px');
     });
 });

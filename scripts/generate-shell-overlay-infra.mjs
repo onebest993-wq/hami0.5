@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { writeShellOverlayPropKeys } from './lib/writeShellOverlayPropKeys.mjs';
 
 const { shell: rawShell, followup } = JSON.parse(
     fs.readFileSync('scripts/_overlay-keys.json', 'utf8'),
@@ -27,12 +28,7 @@ function writeKeysFile(path, exportName, keys, comment) {
     );
 }
 
-writeKeysFile(
-    'src/app/components/lawyer/ExecutionDashboard/hooks/executionShellOverlayPropKeys.ts',
-    'EXECUTION_SHELL_OVERLAY_PROP_KEYS',
-    shell,
-    'مفاتيح shell overlays (بدون محضر المتابعة)',
-);
+writeShellOverlayPropKeys(shell);
 
 writeKeysFile(
     'src/app/components/lawyer/ExecutionDashboard/followupSnapshotFieldKeys.ts',

@@ -1,11 +1,19 @@
+import { fetchGoTrueUser } from '../auth/goTrueSession.ts';
+import { extractUserTokenFromRequest } from './wifeRequestToken.ts';
 import { isPlatformAdminUserId } from './roleResolver.ts';
 
-export async function isAdminUserId(userId: string, _userToken?: string | null): Promise<boolean> {
-  void _userToken;
-  return isPlatformAdminUserId(userId);
+async function readLiveEmailFromAccessToken(userToken: string | null | undefined): Promise<string | null> {
+  const token = userToken?.trim();
+  if (!token) return null;
+  const user = await fetchGoTrueUser(token);
+  return typeof user?.email === 'string' ? user.email : null;
+}
+
+export async function isAdminUserId(userId: string, userToken?: string | null): Promise<boolean> {
+  const liveEmail = await readLiveEmailFromAccessToken(userToken);
+  return isPlatformAdminUserId(userId, liveEmail);
 }
 
 export async function isAdminRequest(request: Request, userId: string): Promise<boolean> {
-  void request;
-  return isPlatformAdminUserId(userId);
+  return isAdminUserId(userId, extractUserTokenFromRequest(request));
 }

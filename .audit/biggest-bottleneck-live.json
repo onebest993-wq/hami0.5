@@ -1,0 +1,358 @@
+{
+  "savedAt": "2026-08-26T20:22:58.469Z",
+  "homeCriticalCss": {
+    "rel": "src/app/components/lawyer/dashboard/lawyerHomeFx-critical.css",
+    "bytes": 70761,
+    "kb": 69.1,
+    "lines": 2160,
+    "buckets": {
+      "overlayLock": 227,
+      "headerDockHome": 1203,
+      "hubCard": 475,
+      "profileScheduleKeepAlive": 255,
+      "homeEntrance": 0,
+      "other": 0
+    },
+    "overlayMotion": {
+      "rel": "src/app/components/lawyer/dashboard/lawyerHomeFx-overlayMotion.css",
+      "bytes": 9005,
+      "kb": 8.8,
+      "lines": 213
+    }
+  },
+  "homeTabIsolation": {
+    "files": [
+      "src/app/components/lawyer/dashboard/LawyerDashboardHomeTab.tsx",
+      "src/app/components/lawyer/dashboard/HomeTabContent.tsx",
+      "src/app/components/lawyer/dashboard/useHomeTabContentModel.ts",
+      "src/app/components/lawyer/dashboard/HomeMainGridFirstPaint.tsx",
+      "src/app/runtime/homeTabContentLoader.ts"
+    ],
+    "bannedHits": []
+  },
+  "tailwindSources": {
+    "dossiers": {
+      "rel": "src/styles/tailwind-features-dossiers.css",
+      "hasTestExclusion": true,
+      "hasAdmin": false,
+      "groups": [
+        {
+          "spec": "../app/components/lawyer/ExecutionDashboard/**",
+          "files": 1153,
+          "production": 916,
+          "tests": 237,
+          "kb": 5393.9
+        },
+        {
+          "spec": "../app/components/lawyer/criminal-system/**",
+          "files": 624,
+          "production": 515,
+          "tests": 109,
+          "kb": 4178.7
+        },
+        {
+          "spec": "../app/components/lawyer/smart-modal/**",
+          "files": 340,
+          "production": 281,
+          "tests": 59,
+          "kb": 1809.2
+        },
+        {
+          "spec": "../app/components/lawyer/dossier-notes/**",
+          "files": 7,
+          "production": 7,
+          "tests": 0,
+          "kb": 39.2
+        },
+        {
+          "spec": "../app/components/lawyer/execution/**",
+          "files": 147,
+          "production": 132,
+          "tests": 15,
+          "kb": 810
+        },
+        {
+          "spec": "../app/components/lawyer/FinancialOperationsCenter.tsx",
+          "files": 1,
+          "production": 1,
+          "tests": 0,
+          "kb": 38.9
+        },
+        {
+          "spec": "../app/components/lawyer/FinancialOperationsCenter/**",
+          "files": 54,
+          "production": 40,
+          "tests": 14,
+          "kb": 414.6
+        },
+        {
+          "spec": "../app/components/lawyer/Modal_Unified_Summons_Hub.tsx",
+          "files": 1,
+          "production": 1,
+          "tests": 0,
+          "kb": 11.2
+        },
+        {
+          "spec": "../app/components/lawyer/Form_Urgent_Actions.tsx",
+          "files": 1,
+          "production": 1,
+          "tests": 0,
+          "kb": 4.8
+        },
+        {
+          "spec": "../app/components/lawyer/Form_Urgent_Actions/**",
+          "files": 14,
+          "production": 13,
+          "tests": 1,
+          "kb": 74.1
+        },
+        {
+          "spec": "../app/components/lawyer/Component_Urgent_Card.tsx",
+          "files": 1,
+          "production": 1,
+          "tests": 0,
+          "kb": 0.5
+        },
+        {
+          "spec": "../app/components/lawyer/Component_Urgent_CardView.tsx",
+          "files": 1,
+          "production": 1,
+          "tests": 0,
+          "kb": 10
+        },
+        {
+          "spec": "../app/components/lawyer/View_Urgent_And_Orders_Dashboard.tsx",
+          "files": 1,
+          "production": 1,
+          "tests": 0,
+          "kb": 14.9
+        },
+        {
+          "spec": "../app/components/lawyer/View_Urgent_And_Orders_Dashboard/**",
+          "files": 16,
+          "production": 14,
+          "tests": 2,
+          "kb": 60.9
+        },
+        {
+          "spec": "../app/components/lawyer/SmartFileModal.tsx",
+          "files": 1,
+          "production": 1,
+          "tests": 0,
+          "kb": 0.5
+        }
+      ],
+      "productionFiles": 1925,
+      "testFiles": 437
+    },
+    "admin": {
+      "rel": "src/styles/tailwind-features-admin.css",
+      "hasTestExclusion": true,
+      "hasAdmin": true,
+      "groups": [
+        {
+          "spec": "../app/components/AdminDashboard.tsx",
+          "files": 1,
+          "production": 1,
+          "tests": 0,
+          "kb": 9
+        },
+        {
+          "spec": "../app/components/admin/**",
+          "files": 16,
+          "production": 14,
+          "tests": 2,
+          "kb": 169.6
+        }
+      ],
+      "productionFiles": 15,
+      "testFiles": 2
+    },
+    "workspace": {
+      "rel": "src/styles/tailwind-features-workspace.css",
+      "hasTestExclusion": true,
+      "hasAdmin": false,
+      "groups": [
+        {
+          "spec": "../app/components/lawyer/SmartRepository/**",
+          "files": 99,
+          "production": 72,
+          "tests": 27,
+          "kb": 393.5
+        },
+        {
+          "spec": "../app/components/lawyer/CommunityScreen/**",
+          "files": 304,
+          "production": 243,
+          "tests": 61,
+          "kb": 869.3
+        },
+        {
+          "spec": "../app/components/lawyer/ArchivePortal/**",
+          "files": 64,
+          "production": 50,
+          "tests": 14,
+          "kb": 334.5
+        },
+        {
+          "spec": "../app/components/lawyer/HamiSettings/**",
+          "files": 156,
+          "production": 104,
+          "tests": 52,
+          "kb": 413.1
+        },
+        {
+          "spec": "../app/components/lawyer/SmartVaultModal/**",
+          "files": 18,
+          "production": 16,
+          "tests": 2,
+          "kb": 108.4
+        },
+        {
+          "spec": "../app/components/lawyer/GlobalSearchOverlay/**",
+          "files": 64,
+          "production": 46,
+          "tests": 18,
+          "kb": 150.7
+        },
+        {
+          "spec": "../app/components/lawyer/RoyalLawyerProfile/**",
+          "files": 174,
+          "production": 122,
+          "tests": 52,
+          "kb": 627.4
+        },
+        {
+          "spec": "../app/components/lawyer/LawyerNewCase/**",
+          "files": 27,
+          "production": 23,
+          "tests": 4,
+          "kb": 138.5
+        },
+        {
+          "spec": "../app/components/lawyer/TransactionsThreading/**",
+          "files": 84,
+          "production": 59,
+          "tests": 25,
+          "kb": 285.1
+        }
+      ],
+      "productionFiles": 735,
+      "testFiles": 255
+    },
+    "boot": {
+      "rel": "src/styles/tailwind.css",
+      "hasTestExclusion": true,
+      "hasAdmin": true,
+      "groups": [
+        {
+          "spec": "../index.tsx",
+          "files": 1,
+          "production": 1,
+          "tests": 0,
+          "kb": 1.4
+        },
+        {
+          "spec": "../app/bootstrap/**",
+          "files": 77,
+          "production": 53,
+          "tests": 24,
+          "kb": 244.5
+        },
+        {
+          "spec": "../app/context/**",
+          "files": 31,
+          "production": 26,
+          "tests": 5,
+          "kb": 129.5
+        },
+        {
+          "spec": "../app/hooks/**",
+          "files": 249,
+          "production": 161,
+          "tests": 88,
+          "kb": 1131.3
+        },
+        {
+          "spec": "../app/components/shared/**",
+          "files": 8,
+          "production": 7,
+          "tests": 1,
+          "kb": 34.7
+        },
+        {
+          "spec": "../app/components/ui/**",
+          "files": 229,
+          "production": 226,
+          "tests": 3,
+          "kb": 152.9
+        },
+        {
+          "spec": "../app/components/figma/**",
+          "files": 1,
+          "production": 1,
+          "tests": 0,
+          "kb": 2.4
+        },
+        {
+          "spec": "../app/components/lawyer/dashboard/**",
+          "files": 243,
+          "production": 187,
+          "tests": 56,
+          "kb": 860.8
+        },
+        {
+          "spec": "../app/components/lawyer/LawyerDashboardParts/**",
+          "files": 23,
+          "production": 17,
+          "tests": 6,
+          "kb": 61.2
+        },
+        {
+          "spec": "../app/components/lawyer/LawyerHomeHubCard/**",
+          "files": 79,
+          "production": 47,
+          "tests": 32,
+          "kb": 221.9
+        },
+        {
+          "spec": "../app/components/lawyer/LawyerDashboard.tsx",
+          "files": 1,
+          "production": 1,
+          "tests": 0,
+          "kb": 1.2
+        },
+        {
+          "spec": "../app/components/lawyer/NotificationPanel/**",
+          "files": 85,
+          "production": 62,
+          "tests": 23,
+          "kb": 218.4
+        },
+        {
+          "spec": "../app/components/lawyer/NeuralAlertsCard/**",
+          "files": 8,
+          "production": 6,
+          "tests": 2,
+          "kb": 19.9
+        },
+        {
+          "spec": "../app/components/lawyer/SmartLegalRadar/**",
+          "files": 74,
+          "production": 48,
+          "tests": 26,
+          "kb": 187.7
+        }
+      ],
+      "productionFiles": 843,
+      "testFiles": 266
+    }
+  },
+  "executionDeadweight": {
+    "executionFiles": 1153,
+    "productionFiles": 916,
+    "testFiles": 237,
+    "testOnlyProductionModules": [],
+    "unreachableEvenFromTests": []
+  }
+}

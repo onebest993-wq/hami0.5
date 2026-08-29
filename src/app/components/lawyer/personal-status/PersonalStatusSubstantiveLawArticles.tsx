@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { Search } from '@/app/components/ui/lucideIcons';
+import { Search } from '@/app/components/ui/icons/Search';
 import type { PersonalStatusLawCodeType } from '@/app/constants/personalStatusLawCatalog';
 import {
     PERSONAL_STATUS_LAW_CACHE_INVALIDATED_EVENT,

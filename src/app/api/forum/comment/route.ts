@@ -6,7 +6,7 @@ import { resolveForumAuthorDisplayName } from '../../../services/forum/forumAuth
 import { sanitizeCommunityCommentForCreate } from '../../../services/forum/forumPostCreateGuard.ts';
 import { assertForumPostGroupAccess } from '../../../services/forum/forumGroupMutationGate.ts';
 import { UserRole } from '../../../types/admin-types.ts';
-import { requireForumAuthAndUnbanned, jsonResponse } from '../_auth.ts';
+import { requireForumAuthAndUnbanned, jsonResponse, forumCatchJsonResponse } from '../_auth.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object';
@@ -120,15 +120,6 @@ export async function POST(request: Request): Promise<Response> {
 
         return jsonResponse(400, { ok: false, error: 'إجراء غير معروف' });
     } catch (err) {
-        const message = err instanceof Error ? err.message : 'Internal server error';
-        const status = (() => {
-            if (message.includes('صلاحية') || message.includes('الانضمام للمجموعة')) return 403;
-            if (message.includes('أفضل إجابة')) return 409;
-            if (message.includes('مقفل')) return 423;
-            if (message.includes('قصير') || message.includes('طويل')) return 400;
-            if (message.includes('غير موجود')) return 404;
-            return 500;
-        })();
-        return jsonResponse(status, { ok: false, error: message });
+        return forumCatchJsonResponse(err);
     }
 }

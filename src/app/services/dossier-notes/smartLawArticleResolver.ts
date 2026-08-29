@@ -3,7 +3,7 @@ import {
     EXECUTION_LAW_CANONICAL_NAME,
     IRAQI_LAW_CANONICAL_NAMES,
 } from '@/app/constants/iraqiLawCatalog';
-import { extractArticleSortNumber } from '@/app/components/admin/lawStructure';
+import { extractArticleSortNumber } from '@/app/utils/articleNumberRange';
 import {
     loadLegalCodeArticles,
     prefetchLegalCodeArticles,

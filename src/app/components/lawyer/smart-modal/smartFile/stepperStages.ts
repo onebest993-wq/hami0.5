@@ -1,6 +1,6 @@
 import type { CaseStage } from '../../LawyerShared';
 
-export type StepperStageItem = {
+type StepperStageItem = {
     id: string;
     name: string;
     status: CaseStage['status'];

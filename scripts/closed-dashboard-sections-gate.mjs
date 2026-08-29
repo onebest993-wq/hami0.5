@@ -18,6 +18,7 @@ const sections = [
     { id: 'forum', label: 'المنتدى', script: 'gate:forum' },
     { id: 'homeHub', label: 'التنبيهات/التثبيت', script: 'gate:homeHub' },
     { id: 'profile', label: 'الملف المهني', script: 'gate:profile' },
+    { id: 'lawsuits', label: 'الدعاوى', script: 'gate:lawsuits' },
 ];
 
 console.log('=== Closed dashboard sections — integrity gate ===\n');

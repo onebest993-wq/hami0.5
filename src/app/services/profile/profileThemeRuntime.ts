@@ -20,6 +20,22 @@ export function clearLiveProfileAppearance(): void {
     liveProfileAppearance = null;
 }
 
+/** يؤجّل تطبيق الثيم بعد إغلاق الاستوديو — يترك حركة الإغلاق تكتمل بلا وميض */
+export function scheduleProfileRootTheme(
+    appearance: ProfileAppearance,
+    root?: HTMLElement | null,
+): void {
+    if (typeof window === 'undefined') {
+        applyProfileRootTheme(appearance, root);
+        return;
+    }
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            applyProfileRootTheme(appearance, root);
+        });
+    });
+}
+
 /** تحديث متغيرات CSS للمعاينة دون إعادة رسم React */
 export function applyProfileRootTheme(
     appearance: ProfileAppearance,
@@ -34,6 +50,7 @@ export function applyProfileRootTheme(
     if (!el || !(el instanceof HTMLElement)) return;
     el.dataset.profileMaterial = appearance.material;
     el.dataset.profilePortraitFrame = appearance.portraitFrame ?? 'classic';
+    el.dataset.profileAccent = appearance.accentColor;
     const pageBg = resolveProfilePageBackground(appearance.accentColor);
     el.style.setProperty('--profile-accent', resolveProfileAccentHex(appearance.accentColor));
     el.style.setProperty('--profile-accent-ink', resolveProfileAccentInkHex(appearance.accentColor));

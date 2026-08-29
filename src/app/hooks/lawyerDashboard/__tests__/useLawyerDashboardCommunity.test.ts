@@ -29,6 +29,8 @@ vi.mock('@/app/runtime/communityHubLoader', () => ({
 
 vi.mock('@/app/runtime/communityOverlayEntryLoader', () => ({
     prefetchCommunityOverlayEntry: vi.fn(),
+    loadCommunityOverlayEntry: () => Promise.resolve({}),
+    isCommunityOverlayEntryResolved: () => false,
 }));
 
 vi.mock('@/app/services/forum/forumPostsWarmCache', () => ({
@@ -63,6 +65,7 @@ describe('useLawyerDashboardCommunity', () => {
         if (typeof window !== 'undefined' && window.location.hash) {
             window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
         }
+        document.documentElement.removeAttribute('data-hami-forum-open');
     });
 
     it('يفتح المنتدى فوراً (flushSync)', async () => {
@@ -74,19 +77,32 @@ describe('useLawyerDashboardCommunity', () => {
         );
 
         expect(result.current.showCommunity).toBe(false);
+        expect(result.current.communityHostMounted).toBe(false);
 
         await act(async () => {
             result.current.openCommunityTab();
-            await Promise.resolve();
-            await Promise.resolve();
-            await Promise.resolve();
         });
 
-        expect(result.current.showCommunity).toBe(true);
-        expect(result.current.communityHostMounted).toBe(true);
+        await vi.waitFor(() => {
+            expect(result.current.showCommunity).toBe(true);
+            expect(result.current.communityHostMounted).toBe(true);
+        });
         expect(result.current.communitySessionKey).toBe(0);
         expect(intentMod.warmForumOnOpen).toHaveBeenCalled();
         expect(hubMod.loadCommunityScreenModule).toHaveBeenCalled();
+    });
+
+    it('primeCommunityShellMount يسخّن بلا فتح ولا تركيب Host', () => {
+        const { result } = renderHook(() =>
+            useLawyerDashboardCommunity({ userId: 'lawyer-1', activeTab: 'home' }),
+        );
+
+        act(() => {
+            result.current.primeCommunityShellMount();
+        });
+
+        expect(result.current.showCommunity).toBe(false);
+        expect(result.current.communityHostMounted).toBe(false);
     });
 
     it('لا يعيد remount عند إعادة فتح المنتدى', async () => {
@@ -94,34 +110,46 @@ describe('useLawyerDashboardCommunity', () => {
             useLawyerDashboardCommunity({ userId: 'lawyer-1', activeTab: 'home' }),
         );
 
-        act(() => {
+        await act(async () => {
             result.current.openCommunityTab();
         });
-        expect(result.current.showCommunity).toBe(true);
+        await act(async () => {
+            await vi.waitFor(() => {
+                expect(result.current.showCommunity).toBe(true);
+            });
+        });
         const sessionKey = result.current.communitySessionKey;
 
         act(() => {
             result.current.closeCommunity();
         });
+        expect(result.current.showCommunity).toBe(false);
+        expect(result.current.communityHostMounted).toBe(false);
 
         act(() => {
             result.current.openCommunityTab();
+        });
+        await act(async () => {
+            await vi.waitFor(() => {
+                expect(result.current.showCommunity).toBe(true);
+            });
         });
         expect(result.current.showCommunity).toBe(true);
 
         expect(result.current.communitySessionKey).toBe(sessionKey);
     });
 
-    it('يرفض الفتح بدون تسجيل دخول', () => {
+    it('يفتح سطح المنتدى بدون userId — البوابة داخل الشاشة', async () => {
         const { result } = renderHook(() =>
             useLawyerDashboardCommunity({ userId: null, activeTab: 'home' }),
         );
 
-        act(() => {
+        await act(async () => {
             result.current.openCommunityTab();
+            await Promise.resolve();
         });
 
-        expect(result.current.showCommunity).toBe(false);
+        expect(result.current.showCommunity).toBe(true);
     });
 
     it('يغلق ويمسح deep link عند dismiss-transient-overlays', () => {
@@ -140,5 +168,27 @@ describe('useLawyerDashboardCommunity', () => {
 
         expect(result.current.showCommunity).toBe(false);
         expect(result.current.communityDeepLink).toBeNull();
+        expect(result.current.communityHostMounted).toBe(false);
+    });
+
+    it('لا يمسح ستارة المنتدى إذا كانت نية الفتح معلّقة', async () => {
+        const { markForumOpenIntentPending, resetForumOpenIntentForTests } = await import(
+            '@/app/runtime/forumOpenIntent'
+        );
+        const { paintForumInstantChrome } = await import('@/app/runtime/forumInstantPaint');
+        markForumOpenIntentPending();
+        paintForumInstantChrome();
+        expect(document.documentElement.getAttribute('data-hami-forum-open')).toBe('1');
+
+        renderHook(() => useLawyerDashboardCommunity({ userId: 'lawyer-1', activeTab: 'home' }));
+
+        await act(async () => {
+            await new Promise<void>((resolve) => {
+                window.setTimeout(resolve, 0);
+            });
+        });
+
+        expect(document.documentElement.getAttribute('data-hami-forum-open')).toBe('1');
+        resetForumOpenIntentForTests();
     });
 });

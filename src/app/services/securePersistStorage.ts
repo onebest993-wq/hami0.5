@@ -1,5 +1,9 @@
 import { createJSONStorage, type StateStorage } from 'zustand/middleware';
 import SecureStoreService from '@/app/services/SecureStoreService';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 export type PersistWipeGuard = (incomingRaw: string, existingRaw: string | null, storageKey: string) => boolean;
 
@@ -70,12 +74,6 @@ export const defaultPersistWipeGuard: PersistWipeGuard = (incomingRaw, existingR
         if (incomingCount === 0 && existingCount > 0) return true;
     }
 
-    if (storageKey === 'hami-legal-marketplace') {
-        const incomingCount = countArrayItemsInPersistPayload(incomingRaw, 'requests');
-        const existingCount = countArrayItemsInPersistPayload(existingRaw, 'requests');
-        if (incomingCount === 0 && existingCount > 0) return true;
-    }
-
     const trimmed = incomingRaw.trim();
     if (trimmed === '' || trimmed === '{}' || trimmed === 'null') return true;
 
@@ -90,11 +88,24 @@ export function createSecureStateStorage(options?: {
 
     return {
         getItem: async (name: string) => {
-            await SecureStoreService.ensurePersistedReady();
-            return SecureStoreService.getItem(name);
+            await SecureStoreService.ensurePersistedReady?.();
+            if (typeof SecureStoreService.getItem !== 'function') return null;
+            const fromSecure = await SecureStoreService.getItem(name);
+            if (fromSecure != null) {
+                clearLegacyPlaintextMirror(name);
+                return fromSecure;
+            }
+            try {
+                return readSecureOrDrainLegacySync(name);
+            } catch {
+                return null;
+            }
         },
         setItem: async (name: string, value: string) => {
-            await SecureStoreService.ensurePersistedReady();
+            await SecureStoreService.ensurePersistedReady?.();
+            if (typeof SecureStoreService.getItem !== 'function' || typeof SecureStoreService.setItem !== 'function') {
+                return;
+            }
             try {
                 const existing = await SecureStoreService.getItem(name);
                 if (wipeGuard(value, existing, name)) return;
@@ -102,6 +113,7 @@ export function createSecureStateStorage(options?: {
                 /* ignore guard errors */
             }
             await SecureStoreService.setItem(name, value);
+            clearLegacyPlaintextMirror(name);
         },
         removeItem: async (name: string) => {
             await SecureStoreService.deleteItem(name);

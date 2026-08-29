@@ -3,7 +3,7 @@ import { DETENTION_DECISION_TEMPLATE, isDetentionDecisionTemplate } from './proc
 
 export { DETENTION_DECISION_TEMPLATE };
 
-export function parseIsoDateOnly(raw: string | undefined): Date | null {
+function parseIsoDateOnly(raw: string | undefined): Date | null {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(raw ?? '').trim());
     if (!m) return null;
     return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
@@ -69,7 +69,7 @@ export function sortDecisionsNewestFirst(decisions: JudicialDecision[]): Judicia
 }
 
 /** أحدث قرار توقيف نافذ لنفس الأطراف — للتحكم بأزرار المحرك الذكي. */
-export function findLatestBindingDetentionDecision(
+function findLatestBindingDetentionDecision(
     decisions: JudicialDecision[],
     partyIds: string[],
 ): JudicialDecision | null {

@@ -1,9 +1,16 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
+import { onLawyerDashboardFirstTabOpen } from '@/app/bootstrap/lawyerDashboardFirstTabMark';
 import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
+import { isHamiNativeShell } from '@/app/runtime/hamiNativeShell';
 import { prefetchHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
-import { prefetchSettingsOverlayEntry } from '@/app/runtime/settingsOverlayEntryLoader';
+import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
+import { hasSettingsOverlayHost } from '@/app/runtime/settingsInstantPaint';
+import {
+    loadSettingsOverlayEntry,
+    prefetchSettingsOverlayEntry,
+} from '@/app/runtime/settingsOverlayEntryLoader';
 
 function loadSettingsBootHydrator() {
     return import('@/app/runtime/settingsBootHydrator');
@@ -19,7 +26,15 @@ type UseSettingsHostLifecycleParams = {
     ensureSettingsHostMounted: () => void;
 };
 
-/** تركيب Host بعد interactive + تسخين — قبل أول ضغطة على الترس */
+function nativeIdleOptions(): { minDelayMs: number; timeoutMs: number } | undefined {
+    if (!isHamiNativeShell()) return undefined;
+    return { minDelayMs: 0, timeoutMs: 800 };
+}
+
+/**
+ * تسخين Host بعد طلاء المنزل — ليس في أول commit.
+ * لمسة الترس تبقى فورية عبر primeSettingsHostMount + جسر الكروم.
+ */
 export function useSettingsHostLifecycle({
     signedIn,
     initialSessionOpen,
@@ -35,21 +50,42 @@ export function useSettingsHostLifecycle({
         return () => unbind?.();
     }, []);
 
-    useLayoutEffect(() => {
+    useEffect(() => {
         if (!signedIn) return;
-        return onDashboardInteractive(() => {
-            ensureSettingsHostMounted();
-            prefetchSettingsOverlayEntry();
-            prefetchHamiSettingsModule();
+        let cancelIdle: (() => void) | undefined;
+        const stopListen = onLawyerDashboardFirstTabOpen(() => {
+            prefetchSettingsChunks();
+            cancelIdle = scheduleIdleWork(() => {
+                ensureSettingsHostMounted();
+            }, nativeIdleOptions());
+        });
+        return () => {
+            stopListen();
+            cancelIdle?.();
+        };
+    }, [ensureSettingsHostMounted, signedIn]);
+
+    useEffect(() => {
+        if (!signedIn) return;
+        let cancelIdle: (() => void) | undefined;
+        const stopInteractive = onDashboardInteractive(() => {
+            prefetchSettingsChunks();
             if (!isLitePerformanceActive()) {
                 void loadSettingsIntentWarm()
                     .then((m) => m.warmSettingsOnHover())
                     .catch(() => undefined);
             }
-            void loadSettingsBootHydrator()
-                .then((m) => m.hydrateSettingsShellForInstantOpen(true))
-                .catch(() => undefined);
+            cancelIdle = scheduleIdleWork(() => {
+                ensureSettingsHostMounted();
+                void loadSettingsBootHydrator()
+                    .then((m) => m.hydrateSettingsShellForInstantOpen(true))
+                    .catch(() => undefined);
+            }, nativeIdleOptions());
         });
+        return () => {
+            stopInteractive();
+            cancelIdle?.();
+        };
     }, [ensureSettingsHostMounted, signedIn]);
 
     useEffect(() => {
@@ -65,10 +101,19 @@ export function useSettingsHostLifecycle({
     }, [ensureSettingsHostMounted, initialSessionOpen, signedIn]);
 }
 
-export function primeSettingsHostMount(ensureSettingsHostMounted: () => void): void {
-    ensureSettingsHostMounted();
+function prefetchSettingsChunks(): void {
     prefetchSettingsOverlayEntry();
+    void loadSettingsOverlayEntry().catch(() => undefined);
     prefetchHamiSettingsModule();
+    void import('@/app/components/lawyer/HamiSettings/settingsSectionLoad')
+        .then((m) => {
+            m.prefetchSecondarySettingsSections();
+        })
+        .catch(() => undefined);
+}
+
+function warmSettingsChunks(): void {
+    prefetchSettingsChunks();
     void loadSettingsIntentWarm()
         .then((m) => {
             m.warmSettingsOnHover();
@@ -78,4 +123,17 @@ export function primeSettingsHostMount(ensureSettingsHostMounted: () => void): v
     void loadSettingsBootHydrator()
         .then((m) => m.hydrateSettingsShellForInstantOpen(true))
         .catch(() => undefined);
+}
+
+/**
+ * pointerdown على الترس — setState بلا flushSync حتى لا تتجمد لمسة الفتح خلف الشجرة.
+ * الكروم الفوري من paintSettingsInstantChrome قبل هذا الاستدعاء.
+ */
+export function primeSettingsHostMount(ensureSettingsHostMounted: () => void): void {
+    if (hasSettingsOverlayHost()) {
+        warmSettingsChunks();
+        return;
+    }
+    ensureSettingsHostMounted();
+    warmSettingsChunks();
 }

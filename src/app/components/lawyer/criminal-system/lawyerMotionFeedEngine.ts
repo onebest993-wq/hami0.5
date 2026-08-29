@@ -2,7 +2,7 @@ import type { JudicialDecision } from '@/app/types/criminal';
 import type { LawyerRequest } from './criminalCaseModel';
 import { parseEventDateKey } from './stageJourney';
 
-export type LawyerMotionFeedRow =
+type LawyerMotionFeedRow =
     | { kind: 'pending_request'; id: string; sortMs: number; request: LawyerRequest }
     | { kind: 'decision'; id: string; sortMs: number; decision: JudicialDecision };
 

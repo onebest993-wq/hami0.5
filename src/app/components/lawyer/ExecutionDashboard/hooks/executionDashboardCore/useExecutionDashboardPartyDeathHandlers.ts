@@ -1,11 +1,8 @@
-// @ts-nocheck
 /** وفاة الخصوم + إحلال الورثة + نفقة مستمرة — handlers وeffects */
 import { useCallback, useEffect, useMemo, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
-import type { Creditor, Debtor, ExecutionFile, TimelineEvent } from '@/app/types/execution';
+import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import type { PartyDeathSavePayload } from '@/app/components/lawyer/execution/PartyDeathReportModal';
 import {
-    appendCreditorPartyDeathRequest,
-    appendDebtorHeirSubstitutionRequest,
     findLatestHeirSubstitutionDecisionNeedingEntry,
     getCreditorHeirSubstitutionRequestStatus,
     getDebtorHeirSubstitutionRequestStatus,
@@ -18,35 +15,11 @@ import {
     shouldShowAlimonyBeneficiaryDeathPicker,
     type AlimonyBeneficiaryProfile,
 } from '@/app/utils/alimonyBeneficiaryDeathUtils';
-import { isHeirSubstitutionAllowedForClaim } from '@/app/utils/partyDeathClaimPolicy';
 import { runPartyDeathSave } from './executionDashboardPartyDeathSave';
+import { usePartyDeathSubstitutionHandlers } from './usePartyDeathSubstitutionHandlers';
 
-export type UseExecutionDashboardPartyDeathHandlersParams = {
-    executionDataRef: MutableRefObject<ExecutionFile | null | undefined>;
-    executionData: ExecutionFile | null | undefined;
-    executionId: string | undefined;
-    claimType: string | undefined;
-    creditors: Creditor[];
-    debtors: Debtor[];
-    decisionsStorageExecutionId: string;
-    decisionsReloadEpoch: number;
-    partyDeathModalParty: 'creditor' | 'debtor' | null;
-    setPartyDeathModalParty: (party: 'creditor' | 'debtor' | null) => void;
-    partyDeathModalDecisionId: string | null;
-    setPartyDeathModalDecisionId: (id: string | null) => void;
-    setAlimonyBeneficiaryDeathModalProfile: (profile: AlimonyBeneficiaryProfile | null) => void;
-    setAlimonyBeneficiaryDeathModalOpen: (open: boolean) => void;
-    lastHeirSubRequestAtRef: MutableRefObject<{ debtor: number; creditor: number }>;
-    creditorDeathMarked: boolean;
-    debtorDeathMarked: boolean;
-    heirSubstitutionAllowed: boolean;
-    ongoingAlimonyClaim: boolean;
-    alimonyBeneficiaryProfile: AlimonyBeneficiaryProfile | null | undefined;
-    nextTimelineId: () => string;
-    persistExecutionMerge: (patch: Record<string, unknown>) => void;
-    showToast: (message: string, type?: string, opts?: Record<string, unknown>) => void;
-    setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
-};
+export type { UseExecutionDashboardPartyDeathHandlersParams } from './useExecutionDashboardPartyDeathHandlers.types';
+import type { UseExecutionDashboardPartyDeathHandlersParams } from './useExecutionDashboardPartyDeathHandlers.types';
 
 export function useExecutionDashboardPartyDeathHandlers({
     executionDataRef,
@@ -197,130 +170,22 @@ export function useExecutionDashboardPartyDeathHandlers({
         debtorSubstitutionRequestStatus,
     };
 
-    const handleRequestDebtorSubstitution = useCallback((): boolean => {
-        if (!isHeirSubstitutionAllowedForClaim(executionData, claimType)) {
-            showToast('لا يوجد مسار إحلال ورثة لهذا النوع من المطالبة.', 'info');
-            return false;
-        }
-        if (debtorSubstitutionRequestStatus === 'pending') {
-            showToast('الطلب مُرسل مسبقاً وقيد البت لدى المنفذ.', 'warning');
-            return false;
-        }
-        const nowMs = Date.now();
-        if (nowMs - lastHeirSubRequestAtRef.current.debtor < 1200) {
-            showToast('تم تجاهل النقر المتكرر. انتظر لحظة ثم أعد المحاولة.', 'info');
-            return false;
-        }
-        lastHeirSubRequestAtRef.current.debtor = nowMs;
-        const debtorName = String(
-            executionDataRef.current?.debtors?.[0]?.name ?? debtors?.[0]?.name ?? '',
-        ).trim();
-        const req = appendDebtorHeirSubstitutionRequest({
-            executionId: decisionsStorageExecutionId,
-            debtorNameSnapshot: debtorName,
+    const { handleRequestDebtorSubstitution, handleRequestCreditorSubstitution } =
+        usePartyDeathSubstitutionHandlers({
+            executionDataRef,
+            executionData,
+            claimType,
+            creditors,
+            debtors,
+            decisionsStorageExecutionId,
+            lastHeirSubRequestAtRef,
+            debtorSubstitutionRequestStatus,
+            creditorSubstitutionRequestStatus,
+            nextTimelineId,
+            persistExecutionMerge,
+            showToast,
+            setTimelineEvents,
         });
-        if (!req.ok) {
-            showToast('يوجد طلب إحلال مدين قيد البت لدى المنفذ.', 'warning');
-            return false;
-        }
-        const now = new Date().toISOString();
-        const te: TimelineEvent = {
-            id: nextTimelineId(),
-            date: now.slice(0, 10),
-            timestamp: now,
-            title: 'طلب — إحلال الورثة محل المدين المتوفى',
-            description: `تم إرسال الطلب إلى «القرارات والطعون» بانتظار بتّ المنفذ.\nالمدين: ${debtorName || 'المدين'}.`,
-            type: 'decision',
-            source: 'بطاقة الخصوم',
-            metadata: req.decisionId
-                ? {
-                      timelineThreadKey: `executor_decision:${req.decisionId}`,
-                      decisionRowId: req.decisionId,
-                  }
-                : undefined,
-        };
-        setTimelineEvents((prev) => {
-            const next = [te, ...prev];
-            persistExecutionMerge({ timelineEvents: next });
-            return next;
-        });
-        showToast('تم إرسال طلب إحلال المدين إلى قرارات المنفذ.', 'success', { decisionsLink: true });
-        return true;
-    }, [
-        claimType,
-        debtorSubstitutionRequestStatus,
-        debtors,
-        decisionsStorageExecutionId,
-        executionData,
-        executionDataRef,
-        lastHeirSubRequestAtRef,
-        nextTimelineId,
-        persistExecutionMerge,
-        showToast,
-        setTimelineEvents,
-    ]);
-
-    const handleRequestCreditorSubstitution = useCallback((): boolean => {
-        if (!isHeirSubstitutionAllowedForClaim(executionData, claimType)) {
-            showToast('لا يوجد مسار إحلال ورثة لهذا النوع من المطالبة.', 'info');
-            return false;
-        }
-        if (creditorSubstitutionRequestStatus === 'pending') {
-            showToast('الطلب مُرسل مسبقاً وقيد البت لدى المنفذ.', 'warning');
-            return false;
-        }
-        const nowMs = Date.now();
-        if (nowMs - lastHeirSubRequestAtRef.current.creditor < 1200) {
-            showToast('تم تجاهل النقر المتكرر. انتظر لحظة ثم أعد المحاولة.', 'info');
-            return false;
-        }
-        lastHeirSubRequestAtRef.current.creditor = nowMs;
-        const creditorName = String(creditors?.[0]?.name || '').trim();
-        const req = appendCreditorPartyDeathRequest({
-            executionId: decisionsStorageExecutionId,
-            action: 'heir_substitution',
-            creditorNameSnapshot: creditorName,
-            heirNames: [],
-        });
-        if (!req.ok) {
-            showToast('يوجد طلب إحلال ورثة للدائن قيد البت لدى المنفذ.', 'warning');
-            return false;
-        }
-        const now = new Date().toISOString();
-        const te: TimelineEvent = {
-            id: nextTimelineId(),
-            date: now.slice(0, 10),
-            timestamp: now,
-            title: 'طلب — إحلال الورثة محل الدائن المتوفى',
-            description: `تم إرسال الطلب إلى «القرارات والطعون» بانتظار بتّ المنفذ.\nالدائن: ${creditorName || 'الدائن'}.`,
-            type: 'decision',
-            source: 'بطاقة الخصوم',
-            metadata: req.decisionId
-                ? {
-                      timelineThreadKey: `executor_decision:${req.decisionId}`,
-                      decisionRowId: req.decisionId,
-                  }
-                : undefined,
-        };
-        setTimelineEvents((prev) => {
-            const next = [te, ...prev];
-            persistExecutionMerge({ timelineEvents: next });
-            return next;
-        });
-        showToast('تم إرسال طلب إحلال ورثة الدائن إلى قرارات المنفذ.', 'success', { decisionsLink: true });
-        return true;
-    }, [
-        claimType,
-        creditorSubstitutionRequestStatus,
-        creditors,
-        decisionsStorageExecutionId,
-        executionData,
-        lastHeirSubRequestAtRef,
-        nextTimelineId,
-        persistExecutionMerge,
-        showToast,
-        setTimelineEvents,
-    ]);
 
     const handleCreditorDeathMenuAction = useCallback(() => {
         if (ongoingAlimonyClaim) {

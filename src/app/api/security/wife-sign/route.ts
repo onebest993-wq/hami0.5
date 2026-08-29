@@ -1,7 +1,6 @@
-import { coalesceWifeSign } from '../../security/wifeSignInflight.ts';
-import { parseAccessCookie } from '../../security/sessionCookie.ts';
 import {
     createWifeSignedHeaders,
+    extractUserTokenFromRequest,
     getVerifiedTokenSubject,
     isTokenAuthorized,
     wifeRateLimitedResponse,
@@ -11,31 +10,7 @@ import { applyWifeSecurityHeaders } from '../../security/wifeSecurityHeaders.ts'
 import { consumeRateLimitSlot } from '../../security/wifeRateLimitStore.ts';
 import { resolveAllowedWifeSignTarget } from '../../security/wifeSignPolicy.ts';
 import { recordWifeRejection } from '../../security/wifeSecurityMonitor.ts';
-
-function isProductionNodeEnv(): boolean {
-    return (process.env.NODE_ENV ?? '').toLowerCase() === 'production';
-}
-
-function assertSameOriginRequest(request: Request): boolean {
-    const requestOrigin = new URL(request.url).origin;
-    const origin = request.headers.get('origin')?.trim();
-    if (origin) {
-        try {
-            return new URL(origin).origin === requestOrigin;
-        } catch {
-            return false;
-        }
-    }
-    const referer = request.headers.get('referer')?.trim();
-    if (referer) {
-        try {
-            return new URL(referer).origin === requestOrigin;
-        } catch {
-            return false;
-        }
-    }
-    return !isProductionNodeEnv();
-}
+import { assertSameOriginRequest } from '../../security/wifeSameOrigin.ts';
 
 const WIFE_SIGN_RATE = { scope: 'wife-sign', maxRequests: 180, windowMs: 60_000 };
 
@@ -63,7 +38,7 @@ export async function POST(request: Request): Promise<Response> {
         );
     }
 
-    const userToken = parseAccessCookie(request.headers.get('cookie'));
+    const userToken = extractUserTokenFromRequest(request);
     if (!userToken || !(await isTokenAuthorized(userToken))) {
         return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
     }
@@ -117,10 +92,7 @@ export async function POST(request: Request): Promise<Response> {
     const requestOrigin = new URL(request.url).origin;
     const signUrl = `${requestOrigin}${allowedTarget.startsWith('/') ? allowedTarget : `/${allowedTarget}`}`;
 
-    const headers = await coalesceWifeSign(
-        { subject, method, url: signUrl, body, contentHash },
-        () => createWifeSignedHeaders(method, signUrl, body, userToken, contentHash),
-    );
+    const headers = await createWifeSignedHeaders(method, signUrl, body, userToken, contentHash);
 
     return applyWifeSecurityHeaders(
         new Response(JSON.stringify({ ok: true, headers }), {

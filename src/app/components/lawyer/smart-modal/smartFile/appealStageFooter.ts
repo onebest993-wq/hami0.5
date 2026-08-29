@@ -5,9 +5,9 @@ import {
     isCassationStageName,
 } from './judgmentTypes';
 
-export type AppealStageFooterKind = 'register_opponent_cassation' | 'file_cassation';
+type AppealStageFooterKind = 'register_opponent_cassation' | 'file_cassation';
 
-export type AppealStageFooterEligibility = {
+type AppealStageFooterEligibility = {
     show: boolean;
     kind: AppealStageFooterKind | null;
 };

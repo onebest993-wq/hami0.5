@@ -38,7 +38,7 @@ import { resolveCriminalCaseUserRole } from './judicialDecisionsEngine';
 import { formatConcernedPartyLabel, type SocialInquiryWorkflowStatus } from './criminalStageUtils';
 import { resolveInvestigationDefendantsPartyMix } from './juvenileInvestigationRules';
 
-export type UseCriminalDashboardCaseFactsParams = {
+type UseCriminalDashboardCaseFactsParams = {
     id: string;
     criminalCase: CriminalCase;
     stage: string;

@@ -1,10 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ZoomIn, ExternalLink, FileText, ImageIcon, Music, File, Download, Loader2 } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
+import { ZoomIn } from '@/app/components/ui/icons/ZoomIn';
+import { ExternalLink } from '@/app/components/ui/icons/ExternalLink';
+import { FileText } from '@/app/components/ui/icons/FileText';
+import { ImageIcon } from '@/app/components/ui/icons/ImageIcon';
+import { Music } from '@/app/components/ui/icons/Music';
+import { File } from '@/app/components/ui/icons/File';
+import { Download } from '@/app/components/ui/icons/Download';
+import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { formatDate, formatFileSize } from '@/app/components/lawyer/hooks/useSmartVault';
 import { downloadVaultDocToDevice, type VaultDocViewerKind } from '@/app/services/vaultUploadService';
 import { vaultMediaKindLabel } from '@/app/services/vault/vaultDocUtils';
+import { sanitizeVaultPreviewUrl } from '@/app/services/vault/vaultPreviewUrlSafety';
 import { ZoomableContainer } from '@/app/components/shared/ZoomableContainer';
 import {
     prefetchVaultPdfViewerSurface,
@@ -23,7 +32,7 @@ interface VaultDocViewerProps {
 }
 
 const PANEL_OVERLAY =
-    'absolute inset-0 z-[50] flex flex-col bg-[#1a1614]/95 backdrop-blur-md min-h-0';
+    'absolute inset-0 z-[50] flex flex-col bg-[#0A0F1C] min-h-0';
 
 function kindIcon(kind: VaultDocViewerKind) {
     switch (kind) {
@@ -68,10 +77,10 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [onClose]);
 
-    const openUrl = fileUrl;
+    const openUrl = sanitizeVaultPreviewUrl(fileUrl) ?? '';
     const overlayClass =
         overlayScope === 'viewport'
-            ? `${VAULT_SHEET_OVERLAY_VIEWPORT} flex flex-col !items-stretch !justify-stretch bg-[#1a1614]/96 min-h-0`
+            ? `${VAULT_SHEET_OVERLAY_VIEWPORT} flex flex-col !items-stretch !justify-stretch bg-[#0A0F1C] min-h-0`
             : PANEL_OVERLAY;
 
     const KindIcon = kindIcon(kind);
@@ -80,7 +89,7 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
         if (isDownloading) return;
         setIsDownloading(true);
         try {
-            await downloadVaultDocToDevice(doc, { fileUrl, fileBlob });
+            await downloadVaultDocToDevice(doc, { fileUrl: openUrl || null, fileBlob });
             SmartToast.success('تم تنزيل الملف بنجاح');
         } catch {
             SmartToast.error('تعذر تنزيل الملف');
@@ -140,6 +149,7 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
                         {formatDate(doc.createdAt)} — {formatFileSize(doc.fileSize || 0)}
                     </p>
                 </div>
+                {openUrl ? (
                 <a
                     href={openUrl}
                     target="_blank"
@@ -151,6 +161,9 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
                 >
                     <ExternalLink size={18} />
                 </a>
+                ) : (
+                    <span className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] shrink-0" />
+                )}
             </div>
 
             {doc.lawyerNote ? (
@@ -168,7 +181,7 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
                     /* التقريب بقرصة اللمس أو Ctrl+عجلة — العجلة العادية تبقى لتمرير الصفحات */
                     <ZoomableContainer className="flex-1 min-h-0" wheelZoom="modifier" nativeVerticalScroll showControls>
                         <VaultPdfViewerSurfaceLazy
-                            source={fileBlob ?? fileUrl}
+                            source={fileBlob ?? openUrl}
                             title={doc.title}
                             openUrl={openUrl}
                             fallbackClassName="flex h-full items-center justify-center text-sm text-white/45"
@@ -176,22 +189,24 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
                     </ZoomableContainer>
                 ) : isImage ? (
                     <div className="flex-1 flex items-center justify-center overflow-auto custom-scrollbar">
-                        {imageError ? (
+                        {imageError || !openUrl ? (
                             <div className="text-center text-white/55 text-sm px-4">
                                 <p className="mb-2">تعذر عرض الصورة</p>
+                                {openUrl ? (
                                 <a
-                                    href={fileUrl}
+                                    href={openUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-[#E6C673] underline text-xs"
                                 >
                                     فتح في نافذة جديدة
                                 </a>
+                                ) : null}
                             </div>
                         ) : (
                             <div className="relative max-w-full max-h-full">
                                 <img
-                                    src={fileUrl}
+                                    src={openUrl}
                                     alt={doc.title}
                                     className="max-w-full max-h-[calc(100dvh-200px)] object-contain rounded-lg shadow-2xl"
                                     draggable={false}
@@ -209,7 +224,7 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
                         <Music size={48} className="text-[#E6C673]/60" />
                         <audio
                             controls
-                            src={fileUrl}
+                            src={openUrl || undefined}
                             className="w-full max-w-md"
                             preload="metadata"
                         >
@@ -220,8 +235,9 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
                     <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-4">
                         <File size={48} className="text-white/30" />
                         <p className="text-white/60 text-sm">{doc.fileName || doc.title}</p>
+                        {openUrl ? (
                         <a
-                            href={fileUrl}
+                            href={openUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[#E6C673]/30 text-[#E6C673] text-sm font-bold hover:bg-[#E6C673]/10"
@@ -229,6 +245,7 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
                             <ExternalLink size={16} />
                             فتح الملف
                         </a>
+                        ) : null}
                     </div>
                 )}
             </div>

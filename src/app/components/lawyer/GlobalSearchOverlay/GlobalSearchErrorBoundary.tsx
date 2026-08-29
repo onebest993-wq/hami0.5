@@ -12,19 +12,19 @@ export function GlobalSearchErrorBoundary({
         <ErrorBoundary
             fallback={
                 <div
-                    className="fixed inset-0 z-[280] flex flex-col justify-end sm:justify-center sm:items-center sm:px-4"
+                    className="hami-gs-error-layer fixed inset-0 z-[280] flex flex-col justify-end"
                     role="alertdialog"
                     aria-label="خطأ في البحث"
                 >
-                    <div className="absolute inset-0 bg-[#010308]/75 backdrop-blur-[18px]" />
-                    <div className="relative w-full sm:max-w-sm rounded-t-[28px] sm:rounded-3xl border-t border-x sm:border border-rose-500/20 bg-[#080D18]/98 p-8 flex flex-col items-center gap-4 text-center pb-[max(20px,env(safe-area-inset-bottom))]">
-                        <p className="text-white/70 text-sm max-w-xs leading-relaxed">
+                    <div className="absolute inset-0 bg-[#0A0F1C]/80" />
+                    <div className="hami-gs-error-sheet relative w-full rounded-t-2xl border-t border-x border-rose-500/20 bg-[#0B1021] p-5 flex flex-col items-center gap-3 text-center pb-[max(16px,env(safe-area-inset-bottom))] ps-[max(1rem,env(safe-area-inset-left))] pe-[max(1rem,env(safe-area-inset-right))]">
+                        <p className="text-white/70 text-sm max-w-xs leading-6">
                             تعذّر تحميل البحث. أغلق وحاول مرة أخرى.
                         </p>
                         <button
                             type="button"
                             onClick={onClose}
-                            className="min-h-[48px] px-8 rounded-2xl bg-[#E6C673]/12 text-[#E6C673] border border-[#E6C673]/25 active:bg-[#E6C673]/20 transition-colors text-sm font-bold"
+                            className="min-h-[44px] min-w-[44px] px-6 rounded-xl bg-[#E6C673]/12 text-[#E6C673] border border-[#E6C673]/25 active:bg-[#E6C673]/20 text-sm font-bold touch-manipulation"
                         >
                             إغلاق
                         </button>

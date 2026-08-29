@@ -40,42 +40,6 @@ export function resolveRepresentedPartyLabel(
     return null;
 }
 
-export function clearClientFlagsOnSide(
-    parties: Party[],
-    thirdParties: ThirdParty[],
-    side: ClientSide,
-): { parties: Party[]; thirdParties: ThirdParty[] } {
-    const clearParties = (list: Party[]) =>
-        list.map((p) => ({
-            ...p,
-            isClient: false,
-            isMyOffice: false,
-            ...(p.isMyOffice ? { lawyerName: '' } : {}),
-        }));
-
-    const nextThird = thirdParties.map((tp) => {
-        if (tp.affiliatedSide !== side) return tp;
-        return {
-            ...tp,
-            isClient: false,
-            isMyOffice: false,
-            lawyerName: tp.isMyOffice ? '' : tp.lawyerName,
-        };
-    });
-
-    return {
-        parties: clearParties(parties),
-        thirdParties: nextThird,
-    };
-}
-
-export function canThirdPartyBeClient(
-    _thirdParty: Pick<ThirdParty, 'entryMode' | 'affiliatedSide'>,
-    _lawyerSide: ClientSide | null,
-): boolean {
-    return true;
-}
-
 export function buildThirdPartyRoleLabel(tp: ThirdParty): string {
     if (tp.entryMode === 'interpleader') return 'شخص ثالث (اختصامي)';
     if (tp.entryMode === 'affiliative') {

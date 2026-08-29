@@ -17,17 +17,7 @@ export function prefetchCommunityEditPostOverlay(): void {
     void import('./communityScreenLazyOverlays').then((m) => m.prefetchCommunityEditPostOverlay());
 }
 
-export function prefetchCommunityDeleteConfirmOverlay(): void {
-    if (typeof window === 'undefined' || isLitePerformanceActive()) return;
-    void import('./communityScreenLazyOverlays').then((m) => m.prefetchCommunityDeleteConfirmOverlay());
-}
-
 export function scheduleCommunityProfileOverlayPrefetch(): void {
     if (typeof window === 'undefined' || isLitePerformanceActive()) return;
     void import('./communityScreenLazyOverlays').then((m) => m.scheduleCommunityProfileOverlayPrefetch());
-}
-
-export function prefetchCommunityHeavyOverlays(): void {
-    if (typeof window === 'undefined' || isLitePerformanceActive()) return;
-    void import('./communityScreenLazyOverlays').then((m) => m.prefetchCommunityHeavyOverlays());
 }

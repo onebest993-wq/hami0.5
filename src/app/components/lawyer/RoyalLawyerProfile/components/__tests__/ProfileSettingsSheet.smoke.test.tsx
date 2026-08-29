@@ -5,9 +5,12 @@ import { defaultProfilePageCustomization } from '@/app/services/profile/profileP
 
 vi.mock('motion/react', () => ({
     motion: {
-        div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
-            <div {...props}>{children}</div>
-        ),
+        div: React.forwardRef<
+            HTMLDivElement,
+            React.PropsWithChildren<Record<string, unknown>>
+        >(({ children, ...props }, ref) => (
+            <div ref={ref} {...props}>{children}</div>
+        )),
     },
     AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>,
 }));

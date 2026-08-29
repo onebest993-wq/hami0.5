@@ -16,6 +16,8 @@ function runSettingsEscape(onClose: () => void): void {
         smartDialogOpen: isSmartDialogOpen(),
         wipeCountdownActive: guards.wipeCountdownActive,
         backupUiOpen: guards.backupUiOpen,
+        appearanceCustomizeOpen: guards.appearanceCustomizeOpen,
+        accountLegalDocumentOpen: guards.accountLegalDocumentOpen,
     });
     if (action === 'dismiss-dialog') {
         dismissActiveSmartDialog();
@@ -27,6 +29,14 @@ function runSettingsEscape(onClose: () => void): void {
     }
     if (action === 'dismiss-backup-ui') {
         guards.dismissBackupUi?.();
+        return;
+    }
+    if (action === 'dismiss-appearance-customize') {
+        guards.dismissAppearanceCustomize?.();
+        return;
+    }
+    if (action === 'dismiss-account-legal-document') {
+        guards.dismissAccountLegalDocument?.();
         return;
     }
     onClose();
@@ -63,11 +73,23 @@ export function useSettingsShellFocusTrap(
     useEffect(() => {
         if (!enabled || !shellRef.current) return;
         const root = shellRef.current;
+        const previousFocus =
+            document.activeElement instanceof HTMLElement &&
+            !root.contains(document.activeElement)
+                ? document.activeElement
+                : null;
 
         const onFocusIn = (e: FocusEvent) => {
             if (isSettingsFilePickerGraceActive()) return;
             const target = e.target;
             if (!(target instanceof Node) || root.contains(target)) return;
+            if (
+                isSmartDialogOpen() &&
+                target instanceof Element &&
+                target.closest('[data-testid="smart-dialog-overlay"]')
+            ) {
+                return;
+            }
             if (target instanceof HTMLInputElement && target.type === 'file') return;
             e.stopPropagation();
             const focusables = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
@@ -87,6 +109,9 @@ export function useSettingsShellFocusTrap(
         return () => {
             cancelAnimationFrame(focusRaf);
             document.removeEventListener('focusin', onFocusIn, true);
+            if (previousFocus?.isConnected) {
+                previousFocus.focus({ preventScroll: true });
+            }
         };
     }, [enabled, shellRef]);
 

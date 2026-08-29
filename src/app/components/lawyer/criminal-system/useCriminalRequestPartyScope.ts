@@ -1,4 +1,5 @@
-import { useEffect, useMemo } from 'react';
+import { useCriminalRequestPartyScopeEffects } from './useCriminalRequestPartyScopeEffects';
+import { useMemo } from 'react';
 import type { CriminalComplainant, CriminalDefendant, OurRepresentation } from './criminalStore';
 import type { CriminalActionParty } from './criminalStagePresentationCore';
 import { formatConcernedPartyLabel } from './criminalStageUtils';
@@ -32,7 +33,7 @@ import {
 import type { PartyBailDraft, PartyDetentionDraft } from './components/concernedPartyDecisionPickerDraft';
 import type { CriminalRequestsOrchestratorSlice } from './orchestrators/criminalOrchestratorSliceTypes';
 
-export type CriminalRequestPartyScopeParams = Pick<
+type CriminalRequestPartyScopeParams = Pick<
     CriminalRequestsOrchestratorSlice,
     | 'requestModalLane'
     | 'reqTypeTemplate'
@@ -388,59 +389,19 @@ export function useCriminalRequestPartyScope(params: CriminalRequestPartyScopePa
         }));
     };
 
-    useEffect(() => {
-        if (!isRequestsModalOpen || !reqNeedsPurgeDefendantScope || isRequestModalViewOnly) return;
-        const selectable = filterSelectableDefendantsForScope(defendants);
-        if (selectable.length === 1) {
-            setReqDefendantIds([selectable[0]!.id]);
-        }
-    }, [isRequestsModalOpen, reqNeedsPurgeDefendantScope, isRequestModalViewOnly, defendants, reqTypeTemplate, setReqDefendantIds]);
-
-    useEffect(() => {
-        if (!isRequestsModalOpen || isRequestModalViewOnly || !isJuvenileJudgeDecisionEntry) return;
-        if (requestEligibleParties.length !== 1) return;
-        const soleId = requestEligibleParties[0]!.id;
-        if (reqDefendantIds[0] !== soleId) setReqDefendantIds([soleId]);
-    }, [
+    useCriminalRequestPartyScopeEffects({
         isRequestsModalOpen,
         isRequestModalViewOnly,
+        reqNeedsPurgeDefendantScope,
         isJuvenileJudgeDecisionEntry,
-        requestEligibleParties,
-        reqDefendantIds,
-        setReqDefendantIds,
-    ]);
-
-    useEffect(() => {
-        if (!isRequestsModalOpen || isRequestModalViewOnly || !isAdultInvestigationJudicialEntry) return;
-        if (!isDefendantTargetRequestTemplate(reqTypeTemplate)) return;
-        if (requestEligibleParties.length !== 1) return;
-        const soleId = requestEligibleParties[0]!.id;
-        if (reqDefendantIds[0] !== soleId) setReqDefendantIds([soleId]);
-    }, [
-        isRequestsModalOpen,
-        isRequestModalViewOnly,
         isAdultInvestigationJudicialEntry,
+        showRequestPartySection,
+        defendants,
         reqTypeTemplate,
         requestEligibleParties,
         reqDefendantIds,
         setReqDefendantIds,
-    ]);
-
-    useEffect(() => {
-        if (!isRequestsModalOpen || isRequestModalViewOnly) return;
-        if (!showRequestPartySection) return;
-        if (requestEligibleParties.length === 1 && reqDefendantIds.length === 0) {
-            setReqDefendantIds([requestEligibleParties[0]!.id]);
-        }
-    }, [
-        isRequestsModalOpen,
-        isRequestModalViewOnly,
-        showRequestPartySection,
-        reqTypeTemplate,
-        requestEligibleParties,
-        reqDefendantIds.length,
-        setReqDefendantIds,
-    ]);
+    });
 
     return {
         requestPartyCtx,
@@ -472,3 +433,4 @@ export function useCriminalRequestPartyScope(params: CriminalRequestPartyScopePa
         patchReqBailForParty,
     };
 }
+

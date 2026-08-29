@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
+    createDefaultFollowupSpecializationFlags,
     isFinancialDebtCollectionClaim,
     isPersonalStatusCourtDecisionsDossier,
     resolveFollowupSpecializationVisibility,
 } from '../followupSpecializationVisibility';
 
 describe('followupSpecializationVisibility', () => {
+    it('createDefaultFollowupSpecializationFlags exposes open followup tabs', () => {
+        const flags = createDefaultFollowupSpecializationFlags();
+        expect(flags.hidePersonalCoerciveFollowupTab).toBe(false);
+        expect(flags.hideFollowupCoerciveTab).toBe(false);
+        expect(flags.hideFollowupSeizureRequestsTab).toBe(false);
+    });
+
     it('detects financial debt collection claims', () => {
         expect(isFinancialDebtCollectionClaim('استحصال دين مالي')).toBe(true);
         expect(isFinancialDebtCollectionClaim('استخلاص دين مالي')).toBe(true);
@@ -35,13 +43,13 @@ describe('followupSpecializationVisibility', () => {
         expect(flags.showFinancialGuarantorRequestOnly).toBe(true);
     });
 
-    it('shows personal coercive tab for eviction claims (employee and earner)', () => {
+    it('hides personal coercive tab for eviction claims (field procedures stay in coercive tab)', () => {
         for (const claim of ['تخلية مأجور', 'تسليم عقار', 'تخلية المأجور/ تسليم عقار']) {
             expect(resolveFollowupSpecializationVisibility(claim, true).hidePersonalCoerciveFollowupTab).toBe(
-                false
+                true
             );
             expect(resolveFollowupSpecializationVisibility(claim, false).hidePersonalCoerciveFollowupTab).toBe(
-                false
+                true
             );
         }
         const earner = resolveFollowupSpecializationVisibility('تخلية مأجور', false);

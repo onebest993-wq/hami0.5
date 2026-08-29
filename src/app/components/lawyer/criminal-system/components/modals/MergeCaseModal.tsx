@@ -49,7 +49,7 @@ export const MergeCaseModal = ({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="text-white/70 hover:text-white transition text-sm font-bold whitespace-normal break-words"
+                        className="min-h-[44px] min-w-[44px] px-3 text-white/70 hover:text-white transition text-sm font-bold whitespace-normal break-words touch-manipulation"
                     >
                         إغلاق
                     </button>
@@ -101,7 +101,7 @@ export const MergeCaseModal = ({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-black text-white/80 hover:text-white hover:bg-slate-800/30 transition whitespace-normal break-words"
+                            className="min-h-[44px] px-4 rounded-xl border border-slate-700 bg-slate-900 text-sm font-black text-white/80 hover:text-white hover:bg-slate-800/30 transition whitespace-normal break-words touch-manipulation"
                         >
                             إلغاء
                         </button>
@@ -109,7 +109,7 @@ export const MergeCaseModal = ({
                             type="button"
                             onClick={onSubmit}
                             disabled={!canSubmit}
-                            className="rounded-lg bg-[#E6C673] text-[#0B1021] font-black py-2.5 px-4 text-sm hover:brightness-110 active:brightness-95 transition disabled:opacity-40 whitespace-normal break-words"
+                            className="min-h-[44px] px-4 rounded-lg bg-[#E6C673] text-[#0B1021] font-black text-sm hover:brightness-110 active:brightness-95 transition disabled:opacity-40 whitespace-normal break-words touch-manipulation"
                         >
                             تنفيذ الضم
                         </button>

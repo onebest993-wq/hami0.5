@@ -15,6 +15,8 @@ describe('execution dossier open — no circular first-paint await', () => {
         // التحميل عبر LazyExecutionDashboard.preload (المصنع يستدعي loadExecutionDashboardModule)
         expect(prefetchFn).toContain('LazyExecutionDashboard.preload');
         expect(portalSrc).toContain('loadExecutionDashboardModule');
+        expect(portalSrc).toContain("from '@/app/runtime/executionDashboardModuleLoad'");
+        expect(portalSrc).not.toContain("from '@/app/runtime/executionDashboardLoader'");
     });
 
     it('ensureExecutionDossierFirstPaintReady لا ينتظر ensureExecutionDashboardPortalReady', () => {

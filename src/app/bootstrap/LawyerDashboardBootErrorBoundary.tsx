@@ -1,4 +1,5 @@
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
+import { sentryCaptureException } from '@/app/observability/sentryClient';
 
 type LawyerDashboardBootErrorBoundaryProps = {
     /** يُزيد عند إعادة المحاولة لإعادة تركيب الحدّ ومسح حالة الخطأ */
@@ -25,6 +26,15 @@ class LawyerDashboardBootErrorBoundaryInner extends Component<
     componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
         console.error('[LawyerDashboardBoot] load/render failed:', error);
         console.error('[LawyerDashboardBoot] component stack:', errorInfo.componentStack);
+        /*
+         * الحدّ يمسك العطل قبل أن يبلغ GlobalErrorBoundary، فيبقى الفشل ظاهراً
+         * للمستخدم وحده. وlوحة المحامي هي الشاشة الأولى — عطلٌ هنا يعني تطبيقاً
+         * لا يُفتح، وهو آخر ما يجوز أن يمرّ دون أثر.
+         */
+        void sentryCaptureException(error, {
+            source: 'LawyerDashboardBootErrorBoundary',
+            componentStack: errorInfo.componentStack?.slice(0, 2000) ?? null,
+        });
     }
 
     private handleRetry = (): void => {

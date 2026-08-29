@@ -4,6 +4,16 @@ import type { PersistedCaseRecord } from './caseRecordTypes';
 import { restoreLifecycleNavigation } from './restoreLifecycleNavigation';
 import type { OrderFileHydrateSetters } from './types';
 
+function ymdPrefix(value: unknown): string {
+    return String(value ?? '')
+        .trim()
+        .match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? '';
+}
+
+function asObjectRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+}
+
 /** يطبّق سجل القضية من IDB على state المحلي */
 export function applyCaseRecord(
     found: PersistedCaseRecord | null | undefined,
@@ -43,16 +53,10 @@ export function applyCaseRecord(
                 setCaseFollowups,
     } = setters;
     
-            setCaseData((prev: any) => {
-                const merged = { ...(prev || {}), ...found };
-                const seedFh =
-                    String((fileData as any)?.firstHearingDate ?? '')
-                        .trim()
-                        .match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? '';
-                const mergedFh =
-                    String(merged.firstHearingDate ?? '')
-                        .trim()
-                        .match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? '';
+            setCaseData((prev: Record<string, unknown> | null | undefined) => {
+                const merged: Record<string, unknown> = { ...(prev || {}), ...found };
+                const seedFh = ymdPrefix(asObjectRecord(fileData)?.firstHearingDate);
+                const mergedFh = ymdPrefix(merged.firstHearingDate);
                 if (seedFh && !mergedFh) merged.firstHearingDate = seedFh;
                 else if (mergedFh) merged.firstHearingDate = mergedFh;
                 return merged;
@@ -79,54 +83,47 @@ export function applyCaseRecord(
                 setExecutionData((prev) => ({ ...prev, deadlineDays: found.deadlineDays }));
             }
             {
-                const notifYmd =
-                    String(found.rejectionNotificationDate ?? found.notificationDate ?? '')
-                        .trim()
-                        .match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? '';
+                const notifYmd = ymdPrefix(found.rejectionNotificationDate ?? found.notificationDate);
                 if (notifYmd) {
                     setGrievanceData((prev) => ({ ...prev, rejectionNotificationDate: notifYmd }));
                 }
                 setGrievanceDecisionNotificationConfirmed(!!notifYmd);
             }
-            if (typeof (found as any).grievancePetitionNotificationDate === 'string') {
-                const v = String((found as any).grievancePetitionNotificationDate);
+            if (typeof found.grievancePetitionNotificationDate === 'string') {
+                const v = String(found.grievancePetitionNotificationDate);
                 setGrievancePetitionNotificationDate(v);
                 setGrievancePetitionNotificationConfirmed(!!String(v || '').trim());
             }
-            if (typeof (found as any).grievanceLegalEndDate === 'string') {
-                setGrievanceLegalEndDate(String((found as any).grievanceLegalEndDate));
+            if (typeof found.grievanceLegalEndDate === 'string') {
+                setGrievanceLegalEndDate(String(found.grievanceLegalEndDate));
             }
             if (found.grievanceOutcome === 'filed' || found.grievanceOutcome === 'expired') {
                 setGrievanceData((prev) => ({ ...prev, outcome: found.grievanceOutcome }));
-            } else if ((found as any).grievanceOutcomeDraft === 'filed' || (found as any).grievanceOutcomeDraft === 'expired') {
-                setGrievanceData((prev) => ({ ...prev, outcome: String((found as any).grievanceOutcomeDraft) as any }));
+            } else if (found.grievanceOutcomeDraft === 'filed' || found.grievanceOutcomeDraft === 'expired') {
+                setGrievanceData((prev) => ({ ...prev, outcome: found.grievanceOutcomeDraft }));
             }
             {
-                const defenderEp = Number((found as any).defenderEntryPhase);
+                const defenderEp = Number(found.defenderEntryPhase);
                 if (defenderEp === 2 || defenderEp === 3) {
                     /* useDefenderEntryHydrate يضبط التوقيت/التفاصيل — لا نعيد حسابها من سجل ناقص */
                 } else {
                 const intervention = typeof found.hasIntervention === 'boolean' ? found.hasIntervention : false;
-                const end = typeof (found as any).grievanceLegalEndDate === 'string' ? String((found as any).grievanceLegalEndDate) : '';
+                const end = typeof found.grievanceLegalEndDate === 'string' ? String(found.grievanceLegalEndDate) : '';
                 const notif = String(found.rejectionNotificationDate ?? found.notificationDate ?? '').trim();
                 const timingOk = !!String(end || '').trim() && (intervention || !!notif);
                 setGrievanceTimingConfirmed(timingOk);
                 const outcome =
                     found.grievanceOutcome === 'filed' || found.grievanceOutcome === 'expired'
                         ? found.grievanceOutcome
-                        : (found as any).grievanceOutcomeDraft === 'filed' ||
-                            (found as any).grievanceOutcomeDraft === 'expired'
-                          ? String((found as any).grievanceOutcomeDraft)
+                        : found.grievanceOutcomeDraft === 'filed' || found.grievanceOutcomeDraft === 'expired'
+                          ? found.grievanceOutcomeDraft
                           : '';
                 const filing = typeof found.grievanceFilingDate === 'string' ? String(found.grievanceFilingDate) : '';
-                const p2Raw = String(
-                    (found as any).grievanceFirstHearingDate ?? (found as any).phase2FirstHearingDate ?? '',
-                ).trim();
-                const p2Ymd = p2Raw.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? '';
+                const p2Ymd = ymdPrefix(found.grievanceFirstHearingDate ?? found.phase2FirstHearingDate);
                 const detailsDerived =
                     timingOk && outcome === 'filed' && !!String(filing || '').trim() && !!p2Ymd;
                 setGrievanceDetailsConfirmed(
-                    (found as any).grievanceDetailsConfirmed === true ? true : detailsDerived,
+                    found.grievanceDetailsConfirmed === true ? true : detailsDerived,
                 );
                 }
             }
@@ -134,9 +131,7 @@ export function applyCaseRecord(
                 setGrievanceData((prev) => ({ ...prev, filingDate: String(found.grievanceFilingDate) }));
             }
             {
-                const raw = String((found as any).grievanceFirstHearingDate ?? found.phase2FirstHearingDate ?? '').trim();
-                const ymd = raw.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? '';
-                setPhase2FirstHearingDate(ymd);
+                setPhase2FirstHearingDate(ymdPrefix(found.grievanceFirstHearingDate ?? found.phase2FirstHearingDate));
             }
             if (found.grievanceDecision === 'confirmed' || found.grievanceDecision === 'modified' || found.grievanceDecision === 'canceled') {
                 setGrievanceDecision((prev) => ({ ...prev, decision: found.grievanceDecision }));
@@ -186,32 +181,34 @@ export function applyCaseRecord(
                 });
             }
             if (Array.isArray(found.hearings)) {
-                const normalized = (found.hearings as any[])
+                const normalized = found.hearings
                     .map((h): CaseHearing | null => {
-                        if (!h || typeof h !== 'object') return null;
-                        const stage = h.stage === 'pre_decision' || h.stage === 'grievance' ? h.stage : null;
+                        const row = asObjectRecord(h);
+                        if (!row) return null;
+                        const stage = row.stage === 'pre_decision' || row.stage === 'grievance' ? row.stage : null;
                         if (!stage) return null;
                         return {
-                            id: typeof h.id === 'string' ? h.id : uuidv4(),
+                            id: typeof row.id === 'string' ? row.id : uuidv4(),
                             stage,
-                            sessionDate: typeof h.sessionDate === 'string' ? h.sessionDate : '',
-                            notes: typeof h.notes === 'string' ? h.notes : '',
-                            nextSessionDate: typeof h.nextSessionDate === 'string' ? h.nextSessionDate : '',
-                            createdAt: typeof h.createdAt === 'string' ? h.createdAt : new Date().toISOString(),
+                            sessionDate: typeof row.sessionDate === 'string' ? row.sessionDate : '',
+                            notes: typeof row.notes === 'string' ? row.notes : '',
+                            nextSessionDate: typeof row.nextSessionDate === 'string' ? row.nextSessionDate : '',
+                            createdAt: typeof row.createdAt === 'string' ? row.createdAt : new Date().toISOString(),
                         };
                     })
                     .filter(Boolean) as CaseHearing[];
                 setHearings(normalized);
             }
             if (found.expertModule && typeof found.expertModule === 'object') {
+                const expert = found.expertModule;
                 setExpertModule({
-                    enabled: !!found.expertModule.enabled,
-                    expertName: typeof found.expertModule.expertName === 'string' ? found.expertModule.expertName : '',
-                    depositAmount: typeof found.expertModule.depositAmount === 'string' ? found.expertModule.depositAmount : '',
-                    inspectionDate: typeof found.expertModule.inspectionDate === 'string' ? found.expertModule.inspectionDate : '',
-                    reportDueDate: typeof found.expertModule.reportDueDate === 'string' ? found.expertModule.reportDueDate : '',
+                    enabled: !!expert.enabled,
+                    expertName: typeof expert.expertName === 'string' ? expert.expertName : '',
+                    depositAmount: typeof expert.depositAmount === 'string' ? expert.depositAmount : '',
+                    inspectionDate: typeof expert.inspectionDate === 'string' ? expert.inspectionDate : '',
+                    reportDueDate: typeof expert.reportDueDate === 'string' ? expert.reportDueDate : '',
                     reportReceivedDate:
-                        typeof found.expertModule.reportReceivedDate === 'string' ? found.expertModule.reportReceivedDate : '',
+                        typeof expert.reportReceivedDate === 'string' ? expert.reportReceivedDate : '',
                 });
             }
             if (typeof found.preDecisionClosed === 'boolean') {
@@ -241,13 +238,16 @@ export function applyCaseRecord(
                 setCaseAttachments(found.attachments as CaseAttachment[]);
             }
             if (Array.isArray(found.followups)) {
-                const normalized = (found.followups as any[]).map((f) => ({
-                    id: typeof f?.id === 'string' ? f.id : uuidv4(),
-                    title: typeof f?.title === 'string' ? f.title : '',
-                    date: typeof f?.date === 'string' ? f.date : '',
-                    completed: typeof f?.completed === 'boolean' ? f.completed : false,
-                    createdAt: typeof f?.createdAt === 'string' ? f.createdAt : new Date().toISOString(),
-                })) as CaseFollowup[];
+                const normalized = found.followups.map((f): CaseFollowup => {
+                    const row = asObjectRecord(f) ?? {};
+                    return {
+                        id: typeof row.id === 'string' ? row.id : uuidv4(),
+                        title: typeof row.title === 'string' ? row.title : '',
+                        date: typeof row.date === 'string' ? row.date : '',
+                        completed: typeof row.completed === 'boolean' ? row.completed : false,
+                        createdAt: typeof row.createdAt === 'string' ? row.createdAt : new Date().toISOString(),
+                    };
+                });
         setCaseFollowups(normalized);
     }
 

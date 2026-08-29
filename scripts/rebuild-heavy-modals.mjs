@@ -283,7 +283,7 @@ import {
 import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,
-} from '@/app/components/lawyer/execution/executionModalStack';
+} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 
 export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
     const s = props;

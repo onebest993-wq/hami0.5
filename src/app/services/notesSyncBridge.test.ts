@@ -18,6 +18,8 @@ vi.mock('@/app/services/SecureStoreService', () => ({
         setItemSync: (key: string, value: string) => {
             memoryStore.set(key, value);
         },
+        isUnreadSync: () => false,
+        hasItemSync: (key: string) => memoryStore.has(key),
     },
 }));
 
@@ -70,5 +72,14 @@ describe('notesSyncBridge', () => {
 
     it('loadSyncMap returns empty for new user', () => {
         expect(loadSyncMap('fresh-user')).toEqual({});
+    });
+
+    it('يرحّل leftover خريطة المزامنة ويمحوه', () => {
+        const key = `hami_notes_sync_map_${uid}`;
+        memoryStore.delete(key);
+        localStorage.setItem(key, JSON.stringify({ '1': 'vault-1' }));
+        expect(loadSyncMap(uid)).toEqual({ '1': 'vault-1' });
+        expect(localStorage.getItem(key)).toBeNull();
+        expect(memoryStore.get(key)).toContain('vault-1');
     });
 });

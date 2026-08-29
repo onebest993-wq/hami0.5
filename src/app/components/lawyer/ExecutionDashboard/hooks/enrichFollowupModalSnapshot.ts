@@ -8,10 +8,10 @@ import {
     LazyPersonalTab,
     LazyRequestsTab,
     LazySeizureRequestsTab,
-} from '../executionDashboardLazyRegistry';
+} from '../executionDashboardLazyRegistryShell';
 import type { FollowupModalSnapshot } from '../followupModalContext';
 
-const EMPTY_FOLLOWUP_SPECIALIZATION: FollowupModalSnapshot = {
+const EMPTY_FOLLOWUP_SPECIALIZATION = {
     hideFollowupCoerciveTab: false,
     hideCoerciveGraceNoticeBanner: false,
     hideCoerciveFinancialBanners: false,
@@ -30,7 +30,7 @@ const EMPTY_FOLLOWUP_SPECIALIZATION: FollowupModalSnapshot = {
     showCorrespondencesSoftProcedures: false,
     showFinancialGuarantorRequestOnly: false,
     isFinancialDebtCollection: false,
-};
+} as const;
 
 /** يكمّل snapshot محضر المتابعة من chunk scope — أسماء portal + lazy tabs + حقول خارج القائمة المولَّدة */
 export function enrichFollowupModalSnapshot(
@@ -92,13 +92,13 @@ export function enrichFollowupModalSnapshot(
             ...EMPTY_FOLLOWUP_SPECIALIZATION,
             ...(typeof picked.followupModalSpecializationEffective === 'object' &&
             picked.followupModalSpecializationEffective
-                ? (picked.followupModalSpecializationEffective as FollowupModalSnapshot)
+                ? (picked.followupModalSpecializationEffective as Record<string, unknown>)
                 : {}),
             ...(typeof s.followupSpecialization === 'object' && s.followupSpecialization
-                ? (s.followupSpecialization as FollowupModalSnapshot)
+                ? (s.followupSpecialization as Record<string, unknown>)
                 : {}),
             ...(typeof picked.followupSpecialization === 'object' && picked.followupSpecialization
-                ? (picked.followupSpecialization as FollowupModalSnapshot)
+                ? (picked.followupSpecialization as Record<string, unknown>)
                 : {}),
         },
         executionDebtorTabIndex: picked.executionDebtorTabIndex ?? s.executionDebtorTabIndex ?? 0,

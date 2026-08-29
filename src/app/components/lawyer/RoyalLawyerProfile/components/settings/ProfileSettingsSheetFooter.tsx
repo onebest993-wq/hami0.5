@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check } from '@/app/components/ui/lucideIcons';
+import { Check } from '@/app/components/ui/icons/Check';
 
 type ProfileSettingsSheetFooterProps = {
     saving: boolean;
@@ -8,7 +8,7 @@ type ProfileSettingsSheetFooterProps = {
 
 export function ProfileSettingsSheetFooter({ saving, onSave }: ProfileSettingsSheetFooterProps) {
     return (
-        <div className="relative z-[1] p-4 border-t border-white/[0.06] pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/20">
+        <div className="relative z-[1] p-3 border-t border-white/[0.05] pb-[max(0.85rem,env(safe-area-inset-bottom))]">
             <button
                 type="button"
                 disabled={saving}

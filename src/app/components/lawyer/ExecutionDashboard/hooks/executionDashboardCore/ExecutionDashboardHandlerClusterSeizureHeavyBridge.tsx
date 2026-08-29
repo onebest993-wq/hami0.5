@@ -20,7 +20,6 @@ function seizureHeavyClusterFingerprint(
     const propertyCtx = cluster.propertyInlineSaveCtx as Record<string, unknown> | undefined;
     const movableCtx = cluster.movableInlineSaveCtx as Record<string, unknown> | undefined;
     const followup = cluster.followupSeizureHandlers as Record<string, unknown> | undefined;
-    const asset = cluster.seizureAssetModalHandlers as Record<string, unknown> | undefined;
     const release = cluster.seizureReleaseHandlers as Record<string, unknown> | undefined;
     const thirdParty = cluster.thirdPartyReceiveHandlers as Record<string, unknown> | undefined;
     const mark = cluster.standaloneMarkHandlers as Record<string, unknown> | undefined;
@@ -35,7 +34,6 @@ function seizureHeavyClusterFingerprint(
         ...handlerBagKeyFingerprint(propertyCtx),
         ...handlerBagKeyFingerprint(movableCtx),
         ...handlerBagKeyFingerprint(followup),
-        ...handlerBagKeyFingerprint(asset),
         ...handlerBagKeyFingerprint(release),
         ...handlerBagKeyFingerprint(thirdParty),
         ...handlerBagKeyFingerprint(mark),

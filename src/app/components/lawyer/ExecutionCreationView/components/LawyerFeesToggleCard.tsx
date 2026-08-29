@@ -1,6 +1,6 @@
 ﻿import React from 'react';
-import { Check } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { Check } from '@/app/components/ui/icons/Check';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import { ecg } from './executionCreationGlassUi';
 
 interface LawyerFeesToggleCardProps {
@@ -15,7 +15,7 @@ interface LawyerFeesToggleCardProps {
     onLawyerFeesAmountChange: (v: string) => void;
 }
 
-/** ╪ذ╪╖╪د┘é╪ر ╪ز┘╪╣┘è┘ ╪د┘┘à╪╖╪د┘╪ذ╪ر ╪ذ╪ث╪ز╪╣╪د╪ذ ╪د┘┘à╪ص╪د┘à╪د╪ر ╪د┘┘à╪ص┘â┘ê┘à ╪ذ┘ç╪د ظ¤ ┘à╪│╪ز╪«╪▒╪ش╪ر ┘à┘ ExecutionCreationView (Phase-1 split). */
+/** بطاقة تفعيل المطالبة بأتعاب المحاماة المحكوم بها — مستخرجة من ExecutionCreationView (Phase-1 split). */
 export const LawyerFeesToggleCard: React.FC<LawyerFeesToggleCardProps> = ({
     includeLawyerFees,
     onIncludeLawyerFeesChange,
@@ -26,13 +26,13 @@ export const LawyerFeesToggleCard: React.FC<LawyerFeesToggleCardProps> = ({
 }) => (
     <div
         className={[
-            'rounded-2xl border transition-colors duration-200 overflow-hidden',
+            'rounded-xl border transition-colors duration-200 overflow-hidden',
             includeLawyerFees
-                ? 'border-[#E6C673]/35 bg-[#E6C673]/08'
-                : 'border-white/10 bg-white/[0.03]',
+                ? 'border-[#E6C673]/22 bg-[#E6C673]/05'
+                : 'border-white/[0.06] bg-transparent',
         ].join(' ')}
     >
-        <label className="flex min-h-[52px] flex-row-reverse items-center gap-3 px-3.5 py-3.5 cursor-pointer">
+        <label className="flex min-h-[44px] flex-row-reverse items-center gap-3 px-3 py-2.5 cursor-pointer">
             <input
                 type="checkbox"
                 checked={includeLawyerFees}
@@ -44,14 +44,14 @@ export const LawyerFeesToggleCard: React.FC<LawyerFeesToggleCardProps> = ({
                     'relative flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-150',
                     includeLawyerFees
                         ? 'border-[#E6C673] bg-[#E6C673] text-[#0A0F1C]'
-                        : 'border-white/30 bg-transparent',
+                        : 'border-white/25 bg-transparent',
                 ].join(' ')}
                 aria-hidden
             >
                 {includeLawyerFees ? <Check size={12} strokeWidth={3} /> : null}
             </span>
             <span className="flex-1 text-right text-sm font-bold text-[#F0DFA8]">
-                ╪د┘┘à╪╖╪د┘╪ذ╪ر ╪ذ╪ث╪ز╪╣╪د╪ذ ╪د┘┘à╪ص╪د┘à╪د╪ر ╪د┘┘à╪ص┘â┘ê┘à ╪ذ┘ç╪د
+                المطالبة بأتعاب المحاماة المحكوم بها
             </span>
         </label>
 
@@ -65,8 +65,8 @@ export const LawyerFeesToggleCard: React.FC<LawyerFeesToggleCardProps> = ({
                     transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                     className="overflow-hidden"
                 >
-                    <div className="border-t border-white/10 px-3.5 pb-3.5 pt-3">
-                        <label className={ecg.labelGold}>╪د┘┘à╪ذ┘╪║ (╪»┘è┘╪د╪▒)</label>
+                    <div className="border-t border-white/[0.06] px-3 pb-3 pt-2.5">
+                        <label className={ecg.labelGold}>المبلغ (دينار)</label>
                         <div className={ecg.moneyWrap}>
                             <input
                                 type="text"
@@ -75,9 +75,9 @@ export const LawyerFeesToggleCard: React.FC<LawyerFeesToggleCardProps> = ({
                                     handleAmountChange(e, onLawyerFeesAmountChange)
                                 }
                                 className={ecg.moneyInput}
-                                aria-label="╪ث╪ز╪╣╪د╪ذ ╪د┘┘à╪ص╪د┘à╪د╪ر ╪د┘┘à╪ص┘â┘ê┘à ╪ذ┘ç╪د (╪»┘è┘╪د╪▒)"
+                                aria-label="أتعاب المحاماة المحكوم بها (دينار)"
                             />
-                            <span className="text-slate-500 text-[10px] font-bold shrink-0">╪».╪╣</span>
+                            <span className="text-slate-500 text-[10px] font-bold shrink-0">د.ع</span>
                         </div>
                     </div>
                 </motion.div>

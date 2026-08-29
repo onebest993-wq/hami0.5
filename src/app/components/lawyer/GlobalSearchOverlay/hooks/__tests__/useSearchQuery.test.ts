@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSearchQuery } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useSearchQuery';
-import { TIMING } from '@/app/utils/constants';
+import { GLOBAL_SEARCH_QUERY_DEBOUNCE_MS } from '@/app/components/lawyer/GlobalSearchOverlay/constants';
 import {
     resetGlobalSearchDraftQueryForTests,
     writeGlobalSearchDraftQuery,
@@ -53,7 +53,7 @@ describe('useSearchQuery', () => {
             result.current.setQuery('دعوى');
         });
         act(() => {
-            vi.advanceTimersByTime(TIMING.SEARCH_DEBOUNCE + 10);
+            vi.advanceTimersByTime(GLOBAL_SEARCH_QUERY_DEBOUNCE_MS + 10);
         });
 
         expect(result.current.debouncedQuery).toBe('دعوى');

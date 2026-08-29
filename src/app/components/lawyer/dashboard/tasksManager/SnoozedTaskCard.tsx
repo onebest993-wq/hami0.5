@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarDays } from '@/app/components/ui/lucideIcons';
+import { CalendarDays } from '@/app/components/ui/icons/CalendarDays';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { formatShortDate, snoozedTaskDueDate } from './utils';
 import { TASKS_INNER_GLASS } from './tasksBoucleTheme';
@@ -22,7 +22,7 @@ export function SnoozedTaskCard({ task, listOrdinal }: SnoozedTaskCardProps) {
             }`}
         >
             {(listOrdinal?.total ?? 0) > 1 ? (
-                <TaskListOrdinalBadge ordinal={listOrdinal!} compact placement="edge" />
+                <TaskListOrdinalBadge ordinal={listOrdinal!} compact />
             ) : null}
             <div className="min-w-0 flex-1 text-right space-y-0.5">
                 <p className="text-sm font-bold text-[#F4F4F5]/90 truncate">{task.title}</p>

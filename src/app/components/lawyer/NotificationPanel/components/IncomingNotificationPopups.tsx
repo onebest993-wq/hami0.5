@@ -1,9 +1,7 @@
 import React, { memo } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
-import { Bell, X } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
 import type { IncomingNotificationPopup } from '@/app/hooks/lawyerDashboard/useIncomingNotificationPopups';
-import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { formatTimeShort } from '@/app/components/lawyer/NotificationPanel/utils/timeGrouping';
 
 export type IncomingNotificationPopupsProps = {
@@ -16,40 +14,26 @@ function PopupCard({
     item,
     onDismiss,
     onOpen,
-    reduceMotion,
 }: {
     item: IncomingNotificationPopup;
     onDismiss: (id: string) => void;
     onOpen: (id: string) => void;
-    reduceMotion: boolean;
 }) {
     return (
-        <motion.button
-            type="button"
-            layout={reduceMotion ? false : true}
-            initial={reduceMotion ? false : { opacity: 0, x: 48, scale: 0.96 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={reduceMotion ? undefined : { opacity: 0, x: 32, scale: 0.98 }}
-            transition={
-                reduceMotion
-                    ? { duration: 0 }
-                    : { type: 'spring' as const, stiffness: 420, damping: 32 }
-            }
-            drag={reduceMotion ? false : 'x'}
-            dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.12}
-            onDragEnd={(_, info) => {
-                if (info.offset.x > 72 || info.velocity.x > 420) onDismiss(item.id);
-            }}
+        <div
+            role="button"
+            tabIndex={0}
             onClick={() => onOpen(item.id)}
+            onKeyDown={(e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                e.preventDefault();
+                onOpen(item.id);
+            }}
             data-testid={`incoming-notification-popup-${item.id}`}
-            className="group pointer-events-auto w-full text-right rounded-2xl border border-[#E6C673]/20 bg-[#0A0F1C]/92 backdrop-blur-2xl shadow-[0_16px_48px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.04)_inset] overflow-hidden touch-manipulation"
+            className="relative group hami-incoming-notification-popup-card pointer-events-auto w-full text-right rounded-2xl border border-white/[0.08] bg-[#0b1021] overflow-hidden touch-manipulation"
         >
-            <div className="absolute inset-y-0 end-0 w-1 bg-gradient-to-b from-[#E6C673]/80 via-[#E6C673]/40 to-transparent" aria-hidden />
+            <div className="absolute inset-y-0 end-0 w-0.5 bg-white/15" aria-hidden />
             <div className="relative px-4 py-3.5 flex items-start gap-3">
-                <div className="shrink-0 w-10 h-10 rounded-xl bg-[#E6C673]/12 border border-[#E6C673]/25 flex items-center justify-center shadow-[0_0_20px_rgba(230,198,115,0.15)]">
-                    <Bell size={18} className="text-[#E6C673]" strokeWidth={2} aria-hidden />
-                </div>
                 <div className="flex-1 min-w-0 pe-1">
                     <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-bold text-white leading-snug line-clamp-1">{item.title}</p>
@@ -58,10 +42,10 @@ function PopupCard({
                         </span>
                     </div>
                     <p className="text-xs text-white/65 leading-relaxed mt-1 line-clamp-2">{item.message}</p>
-                    <p className="text-[10px] text-[#E6C673]/75 mt-2 font-semibold">اضغط للعرض</p>
                 </div>
                 <button
                     type="button"
+                    data-testid="incoming-notification-popup-dismiss"
                     onClick={(e) => {
                         e.stopPropagation();
                         onDismiss(item.id);
@@ -72,40 +56,27 @@ function PopupCard({
                     <X size={16} />
                 </button>
             </div>
-            <motion.div
-                className="h-0.5 bg-[#E6C673]/30 origin-right"
-                initial={{ scaleX: 1 }}
-                animate={{ scaleX: 0 }}
-                transition={{ duration: 6.5, ease: 'linear' }}
+            <div
+                className="hami-incoming-notification-popup-ttl h-0.5 bg-[#E6C673]/30 origin-right"
                 aria-hidden
             />
-        </motion.button>
+        </div>
     );
 }
 
 function IncomingNotificationPopupsInner({ items, onDismiss, onOpen }: IncomingNotificationPopupsProps) {
-    const reduceMotion = useReduceMotion();
-
     if (typeof document === 'undefined' || items.length === 0) return null;
 
     return createPortal(
         <div
-            className="hami-incoming-notification-popups-host fixed z-[99990] inset-x-4 sm:inset-x-auto sm:end-4 sm:w-[min(100%,380px)] flex flex-col gap-2.5 pointer-events-none"
+            className="hami-incoming-notification-popups-host fixed z-[99990] inset-x-4 top-[max(0.75rem,env(safe-area-inset-top))] sm:inset-x-auto sm:end-[max(1rem,env(safe-area-inset-right))] sm:top-[max(4.5rem,calc(env(safe-area-inset-top)+3.5rem))] sm:w-[min(100%,380px)] md:w-[min(100%,420px)] lg:w-[min(100%,440px)] flex flex-col gap-2.5 pointer-events-none"
             dir="rtl"
             data-testid="incoming-notification-popups"
             aria-live="polite"
         >
-            <AnimatePresence initial={false} mode="popLayout">
-                {items.map((item) => (
-                    <PopupCard
-                        key={item.id}
-                        item={item}
-                        onDismiss={onDismiss}
-                        onOpen={onOpen}
-                        reduceMotion={reduceMotion}
-                    />
-                ))}
-            </AnimatePresence>
+            {items.map((item) => (
+                <PopupCard key={item.id} item={item} onDismiss={onDismiss} onOpen={onOpen} />
+            ))}
         </div>,
         document.body,
     );

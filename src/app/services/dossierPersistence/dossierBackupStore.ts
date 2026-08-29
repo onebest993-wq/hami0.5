@@ -29,34 +29,35 @@ function snapshotKey(domain: BackupDomain, revision: number): string {
     return `${domain}:rev:${revision}`;
 }
 
-export async function readLatestDossierBackup(domain: BackupDomain): Promise<SnapshotRecord | null> {
+/** كل النسخ الاحتياطية للمجال — الأحدث أولاً */
+export async function listDossierBackups(domain: BackupDomain): Promise<SnapshotRecord[]> {
     const db = await openDb();
-    if (!db) return null;
+    if (!db) return [];
     return new Promise((resolve) => {
         const tx = db.transaction(STORE, 'readonly');
-        const req = tx.objectStore(STORE).getAllKeys();
+        const req = tx.objectStore(STORE).getAll();
         req.onsuccess = () => {
-            const prefix = `${domain}:rev:`;
-            const keys = (req.result as unknown[])
-                .filter((k): k is string => typeof k === 'string' && k.startsWith(prefix))
-                .sort()
-                .reverse();
-            if (keys.length === 0) {
-                resolve(null);
-                return;
-            }
-            const getReq = tx.objectStore(STORE).get(keys[0]!);
-            getReq.onsuccess = () => {
-                const rec = getReq.result as SnapshotRecord | undefined;
-                resolve(rec && Array.isArray(rec.payload) ? rec : null);
-            };
-            getReq.onerror = () => resolve(null);
+            const rows = (req.result as SnapshotRecord[])
+                .filter(
+                    (rec) =>
+                        rec &&
+                        Array.isArray(rec.payload) &&
+                        rec.payload.length > 0 &&
+                        String(rec.meta?.domain ?? '') === domain,
+                )
+                .sort((a, b) => (b.meta?.revision ?? 0) - (a.meta?.revision ?? 0));
+            resolve(rows);
         };
-        req.onerror = () => resolve(null);
+        req.onerror = () => resolve([]);
         tx.oncomplete = () => db.close();
         tx.onabort = () => db.close();
         tx.onerror = () => db.close();
     });
+}
+
+export async function readLatestDossierBackup(domain: BackupDomain): Promise<SnapshotRecord | null> {
+    const all = await listDossierBackups(domain);
+    return all[0] ?? null;
 }
 
 export async function writeDossierBackup(

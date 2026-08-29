@@ -9,7 +9,6 @@ import { RepositoryViewLayoutPicker } from './RepositoryViewLayoutPicker';
 import type { RepositoryFeedLayoutId } from './repositoryFeedLayout';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { RepositoryRoom, RepositoryRoomFilter } from '@/app/services/repository/repositoryRooms';
-import type { RepositoryFeedFilter } from '@/app/services/repository/repositoryUnifiedFeed';
 
 type VaultControls = Pick<
     ReturnType<typeof useSmartVault>,
@@ -39,7 +38,6 @@ type RepositoryControlsSectionProps = {
     onCreateRoom: (title: string) => void;
     onRemoveRoom: (roomId: string) => void;
     onTogglePinRoom: (roomId: string) => void;
-    onMainFilterChange: (filter: RepositoryFeedFilter) => void;
     feedLayout: RepositoryFeedLayoutId;
     actionToolbarDisabled?: boolean;
     onFeedLayoutChange: (layout: RepositoryFeedLayoutId) => void;
@@ -59,7 +57,6 @@ export const RepositoryControlsSection = memo(function RepositoryControlsSection
     onCreateRoom,
     onRemoveRoom,
     onTogglePinRoom,
-    onMainFilterChange,
     feedLayout,
     actionToolbarDisabled = false,
     onFeedLayoutChange,
@@ -69,17 +66,13 @@ export const RepositoryControlsSection = memo(function RepositoryControlsSection
 }: RepositoryControlsSectionProps) {
     return (
         <div className={REPO_CONTROLS_SHELL}>
-            <div className="px-5 pt-3 pb-2 shrink-0 flex items-center gap-2" dir="rtl">
-                <div className="flex-1 min-w-0">
+            <div className="hami-repository-controls-toolbar px-5 pt-3 pb-2 shrink-0" dir="rtl">
+                <div className="hami-repository-controls-toolbar__search">
                     <VaultSearchFilterHub
                         searchQuery={vault.searchQuery}
                         onSearchChange={vault.setSearchQuery}
                         onSearchKeyDown={vault.handleSearchSubmit}
                         searchInputRef={vault.searchInputRef}
-                        isSearching={false}
-                        onAISearch={() => undefined}
-                        liveSearch
-                        searchOnly
                         activeFilter={vault.activeFilter}
                         onFilterChange={vault.setActiveFilter}
                         customCategories={vault.customCategories}
@@ -107,8 +100,6 @@ export const RepositoryControlsSection = memo(function RepositoryControlsSection
 
             <div className="hami-repository-rail hami-repository-rail--filters shrink-0 min-w-0 pe-4" dir="rtl">
                 <RepositoryFiltersRail
-                    activeFilter={vault.activeFilter}
-                    customCategories={vault.customCategories}
                     docs={unboundVaultDocs}
                     notes={notes}
                     rooms={rooms}
@@ -118,11 +109,6 @@ export const RepositoryControlsSection = memo(function RepositoryControlsSection
                     onCreateRoom={onCreateRoom}
                     onRemoveRoom={onRemoveRoom}
                     onTogglePinRoom={onTogglePinRoom}
-                    onFilterChange={vault.setActiveFilter}
-                    onAddCategory={vault.addVaultCategory}
-                    onRemoveCategory={(name) => void vault.removeVaultCategory(name)}
-                    onMainFilterChange={onMainFilterChange}
-                    classificationInSearch
                 />
             </div>
         </div>

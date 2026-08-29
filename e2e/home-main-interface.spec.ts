@@ -8,13 +8,15 @@ import {
     expectHomeMainShell,
     prepareHomeMainE2E,
 } from './helpers/homeMainFixtures';
+import { expectScheduleSurfaceVisible } from './helpers/homeDockFixtures';
 import {
     ensureTransactionsDashboard,
     openTransactionsFromHome,
     waitForTransactionsHubClosed,
 } from './helpers/transactionsFixtures';
 import { closeNotepadShell, openNotepadShellFromHome } from './helpers/notepadFixtures';
-import { openForumFromHome } from './helpers/forumFixtures';
+import { openForumFromHome, prepareForumE2E } from './helpers/forumFixtures';
+import { clickHubArchiveTileNative } from './helpers/executionE2EBoot';
 
 test.describe('الواجهة الرئيسية', () => {
     test.describe.configure({ timeout: 90_000 });
@@ -44,8 +46,7 @@ test.describe('الواجهة الرئيسية', () => {
 
         const forumTile = page.getByTestId('home-dock-forum');
         await expect(forumTile).toBeVisible({ timeout: 15_000 });
-        await expect(forumTile.locator('.hami-forum-meridian-pod')).toBeVisible();
-        await expect(forumTile.locator('.hami-forum-meridian-lead')).toHaveText('المنتدى');
+        await expect(forumTile).toContainText('المنتدى');
 
         const legacySpinnerCircle = forumTile.locator('svg circle[r="8.5"]');
         await expect(legacySpinnerCircle).toHaveCount(0);
@@ -62,6 +63,7 @@ test.describe('الواجهة الرئيسية', () => {
     });
 
     test('تفتح المنتدى من بطاقة الواجهة', async ({ page }) => {
+        await prepareForumE2E(page);
         await page.goto('/');
         await ensureLawyerDashboard(page);
         await dismissProductivityBlockers(page);
@@ -69,13 +71,20 @@ test.describe('الواجهة الرئيسية', () => {
         await expectHomeMainShell(page);
         await openForumFromHome(page);
 
+        await dismissProductivityBlockers(page);
         await page.keyboard.press('Escape');
-        await expect(page.getByTestId('forum-screen')).toBeHidden({ timeout: 10_000 });
+        await expect(page.getByTestId('forum-overlay-host')).toBeHidden({ timeout: 10_000 });
+        await expect(page.getByTestId('forum-screen-shell')).toBeHidden({ timeout: 10_000 });
         await expect(page.getByTestId('lawyer-home-tab')).toBeVisible();
     });
 
     test('تفتح مخزن التنفيذ من بطاقة الشبكة', async ({ page }) => {
-        await page.getByTestId('hub-archive-execution').click({ force: true });
+        await page.goto('/');
+        await ensureLawyerDashboard(page);
+        await dismissProductivityBlockers(page);
+        await expectHomeMainShell(page);
+
+        await clickHubArchiveTileNative(page, 'hub-archive-execution');
         await expect(page.getByRole('heading', { name: /مخزن الأضابير التنفيذية/i })).toBeVisible({
             timeout: 25_000,
         });
@@ -105,9 +114,8 @@ test.describe('الواجهة الرئيسية', () => {
         await page
             .getByTestId('home-dock-dockCalendar')
             .or(page.getByTestId('home-dock-shell-dockCalendar'))
+            .first()
             .click({ force: true });
-        await expect(
-            page.getByTestId('smart-legal-radar').or(page.getByTestId('schedule-tab-loading')),
-        ).toBeVisible({ timeout: 15_000 });
+        await expectScheduleSurfaceVisible(page, 15_000);
     });
 });

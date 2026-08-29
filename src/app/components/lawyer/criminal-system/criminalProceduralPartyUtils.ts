@@ -1,7 +1,7 @@
 export type OurRepresentation = 'complainant_side' | 'defendant_side';
 
-export type ProceduralPartyComplainant = { id: string; fullName?: string };
-export type ProceduralPartyDefendant = { id: string; fullName?: string };
+type ProceduralPartyComplainant = { id: string; fullName?: string };
+type ProceduralPartyDefendant = { id: string; fullName?: string };
 
 export function normalizeOurRepresentation(incoming: string, role: string): OurRepresentation {
     const rep = String(incoming ?? '').trim();

@@ -2,16 +2,10 @@ import React from 'react';
 import { RepositoryErrorBoundary } from '@/app/components/lawyer/SmartRepository/RepositoryErrorBoundary';
 import { SmartRepositoryHost } from '@/app/components/lawyer/SmartRepository/SmartRepositoryHost';
 import { resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
-import {
-    SUSPENDED_EXECUTION_FILES,
-    SUSPENDED_GLOBAL_NOTES,
-    SUSPENDED_LAWSUIT_FILES,
-} from '@/app/constants/keepAliveSuspendedProps';
 import type { LawyerDashboardOverlaysBundleProps } from '../lawyerDashboardOverlaysBundles';
 
 /**
- * المستودع الذكي — Entry sync من MainView؛ Host sync داخل الـ chunk
- * (بلا Suspense مزدوج — InstantShell فقط داخل Host إن لم تُجهَّز الـ Modal).
+ * المستودع الذكي — Host + Modal ثابتان؛ keepAlive يبقي الطبقة مخفية للكشف اللحظي.
  */
 export function LawyerDashboardRepositoryOverlayEntry({
     shell,
@@ -21,7 +15,7 @@ export function LawyerDashboardRepositoryOverlayEntry({
     dossier,
 }: Pick<LawyerDashboardOverlaysBundleProps, 'shell' | 'data' | 'overlays' | 'notepad' | 'dossier'>) {
     const { userId, authUserId } = shell;
-    const { files, executionFiles, globalNotes, notesBootSettled = true } = data;
+    const { files, executionFiles, globalNotes } = data;
     const {
         isNotepadOpen,
         closeNotepad,
@@ -39,8 +33,6 @@ export function LawyerDashboardRepositoryOverlayEntry({
     const shouldMount = isNotepadOpen || repositoryHostMounted;
     if (!shouldMount) return null;
 
-    const repositoryLive = isNotepadOpen || repositoryHostMounted;
-
     return (
         <RepositoryErrorBoundary onClose={closeNotepad}>
             <SmartRepositoryHost
@@ -52,10 +44,9 @@ export function LawyerDashboardRepositoryOverlayEntry({
                 notepadMode={notepadMode}
                 focusNoteId={notepadFocusNoteId}
                 vaultOpenScanner={vaultOpenScanner}
-                notes={repositoryLive ? globalNotes : SUSPENDED_GLOBAL_NOTES}
-                notesBootSettled={repositoryLive ? notesBootSettled : true}
-                lawsuitFiles={repositoryLive ? files : SUSPENDED_LAWSUIT_FILES}
-                executionFiles={repositoryLive ? executionFiles : SUSPENDED_EXECUTION_FILES}
+                notes={globalNotes}
+                lawsuitFiles={files}
+                executionFiles={executionFiles}
                 currentUserId={resolveShellAuthUserId(authUserId, userId) ?? userId}
                 onSaveNote={handleSaveNote}
                 onDeleteNote={handleDeleteNote}

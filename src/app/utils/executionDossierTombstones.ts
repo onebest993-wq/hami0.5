@@ -1,5 +1,10 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { normalizeExecutionStorageId } from '@/app/utils/executionStorageKeys';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+    writeSecureAndClearLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
+import { normalizeExecutionStorageId } from '@/app/utils/executionStorageKeysLite';
 import { getActiveExecutionFilesStorageOwner } from '@/app/utils/executionFilesStorage';
 
 const TOMBSTONES_KEY_BASE = 'hami:execution:dossier-tombstones:v1';
@@ -9,22 +14,45 @@ function resolveTombstonesKey(): string {
     return owner ? `${TOMBSTONES_KEY_BASE}:${owner}` : TOMBSTONES_KEY_BASE;
 }
 
+function tombstoneKeysToProbe(): string[] {
+    const key = resolveTombstonesKey();
+    return key === TOMBSTONES_KEY_BASE ? [key] : [key, TOMBSTONES_KEY_BASE];
+}
+
+/** أصل مشفّر لم يُفكّ ≠ لا حذف. */
+export function areExecutionDossierTombstonesUnreadSync(): boolean {
+    try {
+        return tombstoneKeysToProbe().some((k) => SecureStoreService.isUnreadSync(k));
+    } catch {
+        return false;
+    }
+}
+
+/** يفكّ شواهد التنفيذ فقط. false = لا تدمج السحابة. */
+export async function ensureExecutionDossierTombstonesReadable(): Promise<boolean> {
+    if (!areExecutionDossierTombstonesUnreadSync()) return true;
+    try {
+        await Promise.all(tombstoneKeysToProbe().map((k) => SecureStoreService.getItem(k)));
+    } catch {
+        /* يبقى unread */
+    }
+    return !areExecutionDossierTombstonesUnreadSync();
+}
+
 function readTombstoneSet(): Set<string> {
     try {
-        const raw = SecureStoreService.getItemSync(resolveTombstonesKey());
-        if (!raw?.trim()) {
-            // ترحيل لمرة من المفتاح العام عند وجود مالك
-            const owner = getActiveExecutionFilesStorageOwner();
-            if (owner) {
-                const legacy = SecureStoreService.getItemSync(TOMBSTONES_KEY_BASE);
-                if (legacy?.trim()) {
-                    SecureStoreService.setItemSync(resolveTombstonesKey(), legacy);
-                    return parseTombstoneRaw(legacy);
-                }
+        const key = resolveTombstonesKey();
+        const raw = readSecureOrDrainLegacySync(key);
+        if (raw?.trim()) return parseTombstoneRaw(raw);
+        const owner = getActiveExecutionFilesStorageOwner();
+        if (owner) {
+            const legacy = readSecureOrDrainLegacySync(TOMBSTONES_KEY_BASE);
+            if (legacy?.trim()) {
+                writeSecureAndClearLegacySync(key, legacy);
+                return parseTombstoneRaw(legacy);
             }
-            return new Set();
         }
-        return parseTombstoneRaw(raw);
+        return new Set();
     } catch {
         return new Set();
     }
@@ -48,20 +76,19 @@ function parseTombstoneRaw(raw: string): Set<string> {
  * شاهد القبر هو الشيء الوحيد الذي يمنع عودة الإضبارة المحذوفة من السحابة.
  * فإن فشلت كتابته صامتةً، يبقى الحذف محلياً ثم تُعاد الإضبارة عند أول مزامنة.
  * لذلك نتحقق بقراءة مرتجعة ونُعيد النتيجة للمنادي بدل الكتم.
- *
- * حدّ معروف: القراءة المرتجعة تُثبت الإلزام في الذاكرة فقط — `setItemSync`
- * يُطلق الكتابة الدائمة بلا انتظار ولا إشارة فشل. إثبات الدوام يحتاج تعديل
- * `SecureStoreService` نفسه، وهو خارج نطاق دورة الحذف.
+ * `setItemSync` يعيد false عند رفض الكتابة الفارغة — نرفض الشاهد عندها.
  */
 function writeTombstoneSet(set: Set<string>): boolean {
     const key = resolveTombstonesKey();
     const payload = JSON.stringify([...set]);
     try {
-        SecureStoreService.setItemSync(key, payload);
+        const wrote = SecureStoreService.setItemSync(key, payload);
+        if (wrote === false) return false;
     } catch {
         return false;
     }
-    // setItemSync قد يعود صامتاً (رفض الكتابة الفارغة) — لا نثق إلا بالقراءة
+    clearLegacyPlaintextMirror(key);
+    clearLegacyPlaintextMirror(TOMBSTONES_KEY_BASE);
     return SecureStoreService.getItemSync(key) === payload;
 }
 
@@ -75,6 +102,8 @@ export function isExecutionDossierTombstoned(dossierId: string | number | undefi
 export function markExecutionDossierTombstone(dossierId: string | number | undefined): boolean {
     const id = normalizeExecutionStorageId(String(dossierId ?? ''));
     if (!id || id === 'default') return false;
+    /* unread ≠ قائمة فارغة — لا تكتب فوق ciphertext بارد */
+    if (areExecutionDossierTombstonesUnreadSync()) return false;
     const next = readTombstoneSet();
     next.add(id);
     return writeTombstoneSet(next);
@@ -82,6 +111,7 @@ export function markExecutionDossierTombstone(dossierId: string | number | undef
 
 /** @returns false إن لم يُلزَم الشاهد — الإضابير معرّضة للعودة من السحابة */
 export function markExecutionDossierTombstones(dossierIds: Iterable<string | number>): boolean {
+    if (areExecutionDossierTombstonesUnreadSync()) return false;
     const next = readTombstoneSet();
     let marked = 0;
     for (const rawId of dossierIds) {

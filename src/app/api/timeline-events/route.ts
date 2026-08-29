@@ -1,7 +1,8 @@
 import { sanitizePayload } from '../security/sanitizer.ts';
-import { requireWifeUser, unwrapWifeUser } from '../security/bffAuth.ts';
 import { getSupabaseAdminClient } from '../security/supabaseAdminClient.ts';
 import { wifeJsonResponse } from '../security/wifeSecurityHeaders.ts';
+import { emptyUuidScopedRows, rejectNonUuidCloudWrite } from '../security/postgresUuidSubject.ts';
+import { requireExecutionFilesAuth } from '../execution-files/_auth.ts';
 import type { TimelineEvent } from '@/app/types/execution';
 
 export const runtime = 'nodejs';
@@ -9,6 +10,8 @@ export const runtime = 'nodejs';
 const TABLE = 'timeline_events';
 const MAX_EXECUTION_ID_LEN = 128;
 const MAX_EVENT_ID_LEN = 128;
+/** يجب أن يطابق UNIQUE (user_id, execution_file_id, event_id) */
+const TIMELINE_UPSERT_CONFLICT = 'user_id,execution_file_id,event_id';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
@@ -46,9 +49,11 @@ function buildRow(userId: string, executionFileId: string, event: TimelineEvent,
 
 export async function GET(request: Request): Promise<Response> {
   try {
-    const authGate = unwrapWifeUser(await requireWifeUser(request));
-    if ('response' in authGate) return authGate.response;
+    const authGate = await requireExecutionFilesAuth(request);
+    if (authGate.ok === false) return authGate.response;
     const { userId } = authGate;
+    const empty = emptyUuidScopedRows(userId);
+    if (empty) return empty;
 
     const url = new URL(request.url);
     const executionFileId = normalizeExecutionFileId(url.searchParams.get('executionFileId'));
@@ -82,9 +87,11 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const authGate = unwrapWifeUser(await requireWifeUser(request));
-    if ('response' in authGate) return authGate.response;
+    const authGate = await requireExecutionFilesAuth(request);
+    if (authGate.ok === false) return authGate.response;
     const { userId } = authGate;
+    const denied = rejectNonUuidCloudWrite(userId);
+    if (denied) return denied;
 
     let payload: unknown = null;
     try {
@@ -113,7 +120,7 @@ export async function POST(request: Request): Promise<Response> {
 
     const row = buildRow(userId, executionFileId, event, payload.snapshotData);
     const { error } = await admin.from(TABLE).upsert(row, {
-      onConflict: 'execution_file_id,event_id',
+      onConflict: TIMELINE_UPSERT_CONFLICT,
     });
     if (error) {
       return wifeJsonResponse(500, { ok: false, error: 'Failed to upsert timeline event' });

@@ -1,5 +1,5 @@
 import { recordWifeRejection } from '../security/wifeSecurityMonitor.ts';
-import { requireWifeUser, unwrapWifeUser } from '../security/bffAuth.ts';
+import { requireWifeCloudWrite, unwrapWifeUser } from '../security/bffAuth.ts';
 import { wifeJsonResponse } from '../security/wifeSecurityHeaders.ts';
 
 /** محامٍ ضيف للعرض التجريبي — محظور على إضابير التنفيذ في الإنتاج */
@@ -42,7 +42,7 @@ export function rejectExecutionDemoGuest(userId: string, request?: Request): Res
 export async function requireExecutionFilesAuth(
     request: Request,
 ): Promise<{ ok: true; userId: string } | { ok: false; response: Response }> {
-    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    const authGate = unwrapWifeUser(await requireWifeCloudWrite(request));
     if ('response' in authGate) return { ok: false, response: authGate.response };
     const guestDenied = rejectExecutionDemoGuest(authGate.userId, request);
     if (guestDenied) return { ok: false, response: guestDenied };

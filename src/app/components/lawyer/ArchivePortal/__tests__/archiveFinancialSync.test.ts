@@ -53,4 +53,18 @@ describe('archiveFinancialSync', () => {
         expect(demand.totalDemand).toBe(4_500_000);
         expect(demand.demandLabel).toBe('إجمالي المطلوب (بعد التوحيد)');
     });
+
+    it('zeroes principal for encroachment and specific-delivery claims', () => {
+        for (const claimType of ['إزالة تجاوز', 'تسليم شيء معين']) {
+            const file = {
+                id: `exec-${claimType}`,
+                type: 'execution',
+                claimType,
+                totalAmount: 9_000_000,
+            } as LooseArchiveFile;
+            const snap = readExecutionFileLiveSnapshot(file);
+            const params = buildArchiveLedgerParams(snap, file);
+            expect(params.principal_amount).toBe(0);
+        }
+    });
 });

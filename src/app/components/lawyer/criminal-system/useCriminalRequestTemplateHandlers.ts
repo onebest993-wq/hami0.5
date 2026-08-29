@@ -47,7 +47,7 @@ type TemplateHandlersOrchestratorKeys =
     | 'setReqInvestigationExpirationReason' | 'setReqInvestigationExpirationCustomDetail'
     | 'setReqIsStarred' | 'setReqDraftAttachments';
 
-export type CriminalRequestTemplateHandlersParams = Pick<
+type CriminalRequestTemplateHandlersParams = Pick<
     CriminalRequestsOrchestratorSlice,
     TemplateHandlersOrchestratorKeys
 > & {

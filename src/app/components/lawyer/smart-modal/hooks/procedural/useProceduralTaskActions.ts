@@ -6,8 +6,8 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
     validateTaskData,
 } from '@/app/utils/validationUtils';
-import { logError } from '@/app/utils/errorHandler';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { logError } from '@/app/utils/errorLog';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 
 
 import type { UseSmartFileProceduralActionsOptions } from '../../smartFile/proceduralTypes';
@@ -17,7 +17,7 @@ import {
 } from '../../smartFile/proceduralTypes';
 
 
-import { syncLawsuitTaskDue } from '@/app/services/calendarDossierSync';
+import { syncLawsuitTaskDue } from '@/app/services/calendar/dossierSyncLazy';
 
 
 import { buildLawsuitCalendarContext } from './lawsuitCalendarContext';

@@ -1,4 +1,7 @@
 import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
+import { isNativeSensitivePromptActive } from '@/app/runtime/nativeSensitivePrompt';
+import { applyNativePrivacyGuard } from '@/app/runtime/nativePrivacyGuard';
+import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
 
 const SHIELD_ID = 'hami-privacy-blur-shield';
 const WEB_BLUR = 'blur(14px)';
@@ -20,13 +23,14 @@ function ensureNativeShield(): HTMLElement {
         'pointer-events:auto',
         'opacity:0',
         'visibility:hidden',
-        'transition:opacity 0.12s ease-out',
+        'transition:none',
     ].join(';');
     document.body.appendChild(el);
     return el;
 }
 
 function showNativeShield(): void {
+    if (isNativeSensitivePromptActive()) return;
     const el = ensureNativeShield();
     el.style.visibility = 'visible';
     el.style.opacity = '1';
@@ -66,26 +70,23 @@ function bindWebPrivacyBlur(enabled: boolean): () => void {
 }
 
 function bindNativePrivacyBlur(enabled: boolean): () => void {
+    document.body.style.filter = 'none';
+    void applyNativePrivacyGuard({
+        recentsCover: enabled,
+        windowSecure: enabled || getLawyerSettingsSnapshot().security.screenshotDeterrent,
+    });
+
     if (!enabled) {
         hideNativeShield();
         return () => undefined;
     }
 
-    let backgroundTimer: ReturnType<typeof setTimeout> | null = null;
-
     const applyBackgroundState = (backgrounded: boolean) => {
-        if (backgroundTimer) {
-            clearTimeout(backgroundTimer);
-            backgroundTimer = null;
-        }
-        if (backgrounded) {
-            backgroundTimer = setTimeout(() => {
-                backgroundTimer = null;
-                if (document.hidden) showNativeShield();
-            }, 380);
+        if (!backgrounded || isNativeSensitivePromptActive()) {
+            dismissNativePrivacyShieldImmediately();
             return;
         }
-        dismissNativePrivacyShieldImmediately();
+        showNativeShield();
     };
 
     const onVis = () => applyBackgroundState(document.hidden);
@@ -108,7 +109,6 @@ function bindNativePrivacyBlur(enabled: boolean): () => void {
     if (document.hidden) applyBackgroundState(true);
 
     return () => {
-        if (backgroundTimer) clearTimeout(backgroundTimer);
         document.removeEventListener('visibilitychange', onVis);
         removeAppListener?.();
         hideNativeShield();
@@ -116,11 +116,10 @@ function bindNativePrivacyBlur(enabled: boolean): () => void {
     };
 }
 
-/** تمويه/حجب المحتوى عند الخروج — ويب: CSS blur؛ أصلي: درع فوق اللوحة + app switcher */
+/** تمويه عند الخروج — ويب: CSS؛ أصلي: غطاء نافذة + FLAG_SECURE لشاشة المهام */
 export function bindPrivacyBlur(enabled: boolean): () => void {
     if (typeof document === 'undefined') return () => undefined;
     if (isCapacitorNativePlatform()) {
-        document.body.style.filter = 'none';
         return bindNativePrivacyBlur(enabled);
     }
     return bindWebPrivacyBlur(enabled);

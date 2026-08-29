@@ -1,5 +1,6 @@
 import React from 'react';
-import { Link2, X } from '@/app/components/ui/lucideIcons';
+import { Link2 } from '@/app/components/ui/icons/Link2';
+import { X } from '@/app/components/ui/icons/X';
 
 import { resolveCriminalCaseDisplayLabel, useCriminalStore } from '../criminalStore';
 

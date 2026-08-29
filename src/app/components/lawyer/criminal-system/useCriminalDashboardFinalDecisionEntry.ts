@@ -25,7 +25,7 @@ import type { StageFinalDecisionFormPayload } from './stageFinalDecisionEngine';
 import type { CriminalDashboardModalUiState } from './useCriminalDashboardModalUiState';
 import type { CriminalStageCloserOrchestratorSlice } from './orchestrators/criminalOrchestratorSliceTypes';
 
-export type UseCriminalDashboardFinalDecisionEntryParams = {
+type UseCriminalDashboardFinalDecisionEntryParams = {
     id: string;
     criminalCase: CriminalCase;
     rawCase: CriminalCase | null;

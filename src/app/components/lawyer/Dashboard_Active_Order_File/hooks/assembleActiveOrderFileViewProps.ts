@@ -24,7 +24,7 @@ type CaseDataLike = {
     archivedAt?: string | null;
 };
 
-export type AssembleActiveOrderFileViewInput = {
+type AssembleActiveOrderFileViewInput = {
     onClose: () => void;
     confirmPortal: ReactNode;
     lifecyclePanelProps: LifecyclePanelProps;

@@ -23,7 +23,6 @@ export type GlobalSearchCategory =
     | 'calendar'
     | 'urgent'
     | 'threading'
-    | 'finance'
     | 'community'
     | 'notification';
 
@@ -87,7 +86,6 @@ const ALL_CATEGORIES: GlobalSearchCategory[] = [
     'calendar',
     'urgent',
     'threading',
-    'finance',
     'community',
     'notification',
 ];
@@ -131,7 +129,7 @@ export function groupSearchResults(entries: GlobalSearchEntry[]): GroupedSearchR
 
 export const SEARCH_CATEGORY_LABELS: Record<GlobalSearchCategory, string> = {
     lawsuit: 'دعاوى قضائية',
-    transaction: 'معاملات الملفات',
+    transaction: 'معاملات',
     execution: 'إضابير تنفيذ',
     criminal: 'قضايا جزائية',
     note: 'ملاحظات',
@@ -144,8 +142,7 @@ export const SEARCH_CATEGORY_LABELS: Record<GlobalSearchCategory, string> = {
     task: 'مهام',
     calendar: 'التقويم',
     urgent: 'طلبات مستعجلة',
-    threading: 'نظام المعاملات',
-    finance: 'سجلات مالية',
+    threading: 'معاملات',
     community: 'مجتمع المحامين',
     notification: 'الإشعارات',
 };

@@ -1,0 +1,1497 @@
+[
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseIdentitySyncEngine.ts",
+    "name": "patchJudicialDecisionCourtName",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseIdentitySyncEngine.ts",
+    "name": "patchLawyerRequestCourtName",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/casePhaseFilterEngine.ts",
+    "name": "resolveStatementCasePhase",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/casePhaseFilterEngine.ts",
+    "name": "itemMatchesDecisionsScope",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseSeveranceView.ts",
+    "name": "isAbscondingSeverance",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseSeveranceView.ts",
+    "name": "buildSubstantiveSeveranceJourney",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseTransformDraftSeed.ts",
+    "name": "resolveArticleAtReferralFromCase",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseTransformDraftSeed.ts",
+    "name": "copyComplainantsForSeveranceDraft",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseTransformInvestigationReferral.ts",
+    "name": "formatInvestigationReferralDescription",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseTransformInvestigationReferral.ts",
+    "name": "applyReferralMetadataToCase",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseTransformInvestigationReferral.ts",
+    "name": "applyReferralStatusesToDefendants",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseTransformJudicialOutcome.ts",
+    "name": "findStoredJudicialDecisionIndex",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseTransformProceduralRoute.ts",
+    "name": "stageCourtNumberForJourney",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseTransformProceduralRoute.ts",
+    "name": "partialRouteBranchLabel",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/caseTransformProceduralRoute.ts",
+    "name": "unlockInvestigationOnCase",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/cassationJudicialForm.ts",
+    "name": "CassationResultFormValue",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/cassationJudicialForm.ts",
+    "name": "remandCourtLabel",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/cassationJudicialForm.ts",
+    "name": "cassationBadgeTone",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/cassationResultSummary.ts",
+    "name": "remandCourtLabelLite",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/complainantCassationGovernance.ts",
+    "name": "decisionProceduralTemplateKey",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/complainantCassationGovernance.ts",
+    "name": "isArrestSummonProceduralTemplate",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/complainantCassationGovernance.ts",
+    "name": "isDetentionProceduralTemplate",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/complainantCassationGovernance.ts",
+    "name": "isBailProceduralTemplate",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/complainantCassationGovernance.ts",
+    "name": "isArticle130InvestigationDismissalDecision",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/complainantCassationGovernance.ts",
+    "name": "isComplainantHarmCassationTrigger",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/complaintCourtReferralEngine.ts",
+    "name": "isQuashCassationAppealResult",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/components/CriminalDossierStatusBanners.tsx",
+    "name": "InAbsentiaBannerItem",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/components/JourneyStageBadge.tsx",
+    "name": "JourneyStageRecordRef",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/components/JudicialDecisionsLedgerCardShared.tsx",
+    "name": "JudicialLedgerDate",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/components/JudicialDecisionsLedgerCardShared.tsx",
+    "name": "CassationResultMark",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/components/JudicialDecisionsLedgerCardShared.tsx",
+    "name": "BodyMetaRow",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/components/modals/ProceduralAdvancePhaseModal.tsx",
+    "name": "ProceduralAdvancePhasePayload",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/components/modals/ProceduralContainerFormModal.tsx",
+    "name": "ProceduralContainerFormPayload",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/components/RecursiveProceduralCanvas/ProceduralContainerTreeNode.tsx",
+    "name": "ProceduralContextDisplay",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/components/RequestModalEntryLanes.tsx",
+    "name": "RequestEntryLane",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/components/RequestModalEntryLanes.tsx",
+    "name": "AssetSeizureFugitive",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/components/StageCloserModal.tsx",
+    "name": "isDecisionDefendantStatus",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalCaseMutationPolicy.ts",
+    "name": "timelineEventAllowedWhenFrozen",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalCaseReferenceUtils.ts",
+    "name": "CriminalCaseReferenceInput",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalCaseTimelineUtils.ts",
+    "name": "TimelineEventCorruptionCheckInput",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalCaseTrash.ts",
+    "name": "CriminalTrashSnapshot",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalDashboardEvidenceCardRenderers.tsx",
+    "name": "UseCriminalDashboardEvidenceCardRenderersParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/CriminalDashboardHeader.tsx",
+    "name": "CriminalDashboardHeaderTitle",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalDateUtils.ts",
+    "name": "addUtcDays",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalDateUtils.ts",
+    "name": "addUtcMonths",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalDefendantLiteCore.ts",
+    "name": "resolveDefendantFullNameLite",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalDefendantLiteCore.ts",
+    "name": "isUnknownDefendantDisplayNameLite",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalDefendantLiteCore.ts",
+    "name": "isEmptyDefendantShellLite",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalDefendantLiteCore.ts",
+    "name": "pruneEmptyDefendantShellsLite",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalDefendantLiteCore.ts",
+    "name": "getUnknownIdentityDefendantsLite",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalDefendantLiteCore.ts",
+    "name": "hasUnrevealedUnknownDefendantsLite",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalDefendantLiteCore.ts",
+    "name": "hasIdentifiedDefendantLite",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalDefendantLiteCore.ts",
+    "name": "filterSeveranceSelectableDefendantsLite",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalDefendantLiteCore.ts",
+    "name": "countSeveranceSelectableDefendantsLite",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalInvestigationMutationEngine.ts",
+    "name": "InvestigationMutationResult",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalInvestigationMutationEngine.ts",
+    "name": "InvestigationLetterCompletionPayload",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalInvestigationMutationEngine.ts",
+    "name": "InvestigationLetterCompletionResult",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalInvestigationMutationEngine.ts",
+    "name": "InvestigationExhibitLifecycleResult",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalJudicialAppealMutations.ts",
+    "name": "FileJudicialDecisionAppealPayload",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalJudicialAppealMutations.ts",
+    "name": "DeclareJudicialDecisionFinalPayload",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalLazyModalCore.tsx",
+    "name": "LazyModalOptions",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalLocalOverlayBackStack.ts",
+    "name": "CriminalLocalOverlayBackCloser",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalOfficeClient.ts",
+    "name": "hasComplainantOfficeClient",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalOfficeClient.ts",
+    "name": "hasDefendantOfficeClient",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalProceduralPartyUtils.ts",
+    "name": "ProceduralPartyComplainant",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalProceduralPartyUtils.ts",
+    "name": "ProceduralPartyDefendant",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalReferralMutations.ts",
+    "name": "InvestigationReferralPayload",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalReferralMutations.ts",
+    "name": "InvestigationReferralTrialPayload",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalRequestsTabLitePrimitives.ts",
+    "name": "parseEventDateKeyLite",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalStageFinalMutations.ts",
+    "name": "PreparedStageFinalDecision",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalStoreLawyerRequestAssetSeizureApply.ts",
+    "name": "AssetSeizurePerDefendant",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalStoreLawyerRequestCreatePayload.ts",
+    "name": "DefendantBailInput",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalStoreLawyerRequestCreatePayload.ts",
+    "name": "AssetSeizureInput",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalStorePersistMerge.ts",
+    "name": "mergeCriminalCasesFromPersistedStorage",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalTimelineEventInsertEngine.ts",
+    "name": "TimelineEventInsertResult",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalUnknownDefendant.ts",
+    "name": "isUnknownDefendantDisplayName",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/criminalUnknownDefendant.ts",
+    "name": "draftHasUnknownDefendant",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/decisionsLedgerVisuals.ts",
+    "name": "DecisionLedgerKind",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/decisionsLedgerVisuals.ts",
+    "name": "DecisionVisualKind",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/decisionsLedgerVisuals.ts",
+    "name": "DECISION_LEDGER_KIND_THEME",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/decisionsLedgerVisuals.ts",
+    "name": "isDisplayablePartyLabel",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/decisionsLedgerVisuals.ts",
+    "name": "JudicialDecisionBailLike",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/detentionEngine.ts",
+    "name": "parseIsoDateOnly",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/detentionEngine.ts",
+    "name": "findLatestBindingDetentionDecision",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationDefendantPurge.ts",
+    "name": "isInvestigationTemporaryClosureTemplate",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationDefendantPurge.ts",
+    "name": "hasActiveInvestigationDefendants",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationDefendantPurge.ts",
+    "name": "PurgeDecisionRef",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationDefendantPurge.ts",
+    "name": "resolveAcceptablePurgeDefendantIds",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationDefendantPurge.ts",
+    "name": "InvestigationStageClosureKind",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationDefendantPurge.ts",
+    "name": "buildInvestigationClosureJudicialDecisionFromConclusion",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationDefendantPurge.ts",
+    "name": "cassationResultFinalizesInvestigationClosure",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationDefendantPurge.ts",
+    "name": "cassationResultReopensInvestigationDefendant",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationDefendantPurge.ts",
+    "name": "InvestigationPurgeCassationUiTone",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationDefendantPurge.ts",
+    "name": "InvestigationPurgeCassationContext",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationTrackingEngine.ts",
+    "name": "LETTER_SLA_WARNING_DAYS",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationTrackingEngine.ts",
+    "name": "InvestigationRecordKind",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationTrackingEngine.ts",
+    "name": "LETTER_TRACKING_CATEGORIES",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationTrackingEngine.ts",
+    "name": "EVIDENCE_TRACKING_CATEGORIES",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationTrackingEngine.ts",
+    "name": "isLetterInvestigationLog",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/investigationTrackingEngine.ts",
+    "name": "sortInvestigationLogsNewestFirst",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/journeyOrderApplyEngine.ts",
+    "name": "PendingJourneyOrder",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/journeyOrderApplyEngine.ts",
+    "name": "pendingJourneyOrderRequiresReferralMeta",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/journeyStageVisuals.ts",
+    "name": "JourneyStageTone",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/journeyStageVisuals.ts",
+    "name": "JOURNEY_STAGE_TONES",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/journeyStageVisuals.ts",
+    "name": "journeyStageTone",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/judicialDecisionsEngine.ts",
+    "name": "canFileComplainantCassationAppeal",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/judicialDecisionsEngine.ts",
+    "name": "resolveDecisionScopedDefendantPartyIds",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/judicialDecisionsEngine.ts",
+    "name": "LawyerRequestLike",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/judicialDecisionsEngine.ts",
+    "name": "lawyerRequestQualifiesForLedger",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/juvenileInvestigationRules.ts",
+    "name": "judicialDecisionMatchesPartyScope",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/juvenileInvestigationRules.ts",
+    "name": "judicialTemplatesForPartyScope",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/juvenileInvestigationRules.ts",
+    "name": "resolveInvestigationCommonJudicialTemplates",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/juvenileInvestigationRules.ts",
+    "name": "resolveInvestigationAdultOnlyJudicialTemplates",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/juvenileInvestigationRules.ts",
+    "name": "resolveInvestigationJuvenileExclusiveTemplates",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/juvenileInvestigationRules.ts",
+    "name": "resolveJuvenileJudgeDecisionTemplates",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/juvenileInvestigationRules.ts",
+    "name": "formatDecisionsPartyScopeShortLabel",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/juvenileLawFilters.ts",
+    "name": "LEGAL_CODES_JUVENILE_FILTER_PIN_KEY",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/juvenileLawFilters.ts",
+    "name": "JuvenileFilterPin",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/lawFilters.ts",
+    "name": "LEGAL_CODES_PROCEDURE_FILTER_PIN_KEY",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/lawFilters.ts",
+    "name": "ProcedureFilterPin",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/lawyerMotionFeedEngine.ts",
+    "name": "LawyerMotionFeedRow",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/lawyerRequestStatusMachine.ts",
+    "name": "LawyerRequestStatus",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/legalCodes/legalCodesSearchHighlight.tsx",
+    "name": "LegalSearchHighlightSegment",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/orchestrators/criminalOrchestratorTypes.ts",
+    "name": "CriminalOrchestratorSlice",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/orchestrators/useCriminalDecisionsOrchestrator.ts",
+    "name": "UseCriminalDecisionsOrchestratorParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/orchestrators/useCriminalJourneyStageAccessOrchestrator.ts",
+    "name": "UseCriminalJourneyStageAccessOrchestratorParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/orchestrators/useCriminalJourneyStageAccessOrchestrator.ts",
+    "name": "UseCriminalJourneyStageAccessOrchestratorResult",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/orchestrators/useCriminalStageCloserSubmit.ts",
+    "name": "UseCriminalStageCloserSubmitParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/orchestrators/useCriminalStageCloserSubmit.ts",
+    "name": "UseCriminalStageCloserSubmitResult",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/partyContextFilter.ts",
+    "name": "PartyLifeInput",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/partyContextFilter.ts",
+    "name": "ConcernedPartyLabelOptions",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/partyPersonalStage.ts",
+    "name": "isPathSplitPersonalStage",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/penalLawFilters.ts",
+    "name": "LEGAL_CODES_PENAL_FILTER_PIN_KEY",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/penalLawFilters.ts",
+    "name": "PenalFilterPin",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralCassationResults.ts",
+    "name": "isDetentionProceduralDecision",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralCassationResults.ts",
+    "name": "isBailDenialProceduralDecision",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralCassationResults.ts",
+    "name": "JUDICIAL_LEDGER_MIRROR_TIMELINE_CATEGORIES",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralCassationResults.ts",
+    "name": "ProceduralCassationEffectsInput",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralContainersEngine.ts",
+    "name": "ProceduralAttentionBoard",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralPathsEngine.ts",
+    "name": "ProceduralPathStepStatus",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralPathsEngine.ts",
+    "name": "ProceduralPathStep",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralPathsEngine.ts",
+    "name": "ProceduralPath",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralPathsEngine.ts",
+    "name": "PROCEDURAL_PATH_COLOR_PRESETS",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralPathsEngine.ts",
+    "name": "PROCEDURAL_STEP_STATUS_OPTIONS",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralPathsEngine.ts",
+    "name": "isProceduralStepStatus",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralPathsEngine.ts",
+    "name": "normalizePathColor",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralPathsEngine.ts",
+    "name": "normalizeProceduralPathStep",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+    "name": "JUVENILE_JUDGE_CASSATION_APPEALABLE_TEMPLATES",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+    "name": "INVESTIGATION_EXPIRATION_JUDICIAL_TEMPLATE",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+    "name": "UNKNOWN_PERPETRATOR_ALLOWED_JUDICIAL_TEMPLATES",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+    "name": "isInvestigationPersonalFinalClosureTemplate",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+    "name": "JUDICIAL_DECISION_OPTGROUP_LABEL",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+    "name": "LAWYER_MOTION_OPTGROUP_LABEL",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+    "name": "ORDER_ENFORCEMENT_TEMPLATES",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+    "name": "JUDICIAL_DECISION_FIXED_TEMPLATES",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+    "name": "LAWYER_MOTION_TEMPLATES",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+    "name": "PROCEDURAL_REQUEST_TYPE_OPTIONS",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+    "name": "ProceduralRequestTypeOption",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+    "name": "isArrestSummonDecisionTemplate",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+    "name": "DetentionUrgency",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+    "name": "computeDetentionUrgency",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralSandboxToolkit.ts",
+    "name": "PROCEDURAL_AUDIT_MAX",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralSandboxToolkit.ts",
+    "name": "SandboxTemplateMeta",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/proceduralSandboxToolkit.ts",
+    "name": "PrintLine",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/publicProsecutionGovernance.ts",
+    "name": "filterPrivateComplainants",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/publicProsecutionGovernance.ts",
+    "name": "caseHasPublicRightComplainant",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/requestPartySelection.ts",
+    "name": "ResolveAutoRequestPartyInput",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/resolveProceduralCanvasOverlayBack.ts",
+    "name": "ProceduralCanvasOverlayBackAction",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/severanceCassationEngine.ts",
+    "name": "resolveLinkedSeveranceChildCaseId",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/severanceMigrationEngine.ts",
+    "name": "SeverancePartyIdMaps",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/severanceMigrationEngine.ts",
+    "name": "resolveLawyerRequestPartyIds",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/severanceMigrationEngine.ts",
+    "name": "resolveJudicialDecisionPartyIds",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/severanceMigrationEngine.ts",
+    "name": "resolveInvestigationLogPartyIds",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/severanceMigrationEngine.ts",
+    "name": "resolveTimelineEventPartyIds",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/stageCassationActionGates.ts",
+    "name": "CassationActionKind",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/stageCassationActionGates.ts",
+    "name": "isOriginalJudicialDecisionAcquittalOrRelease",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/stageCassationActionGates.ts",
+    "name": "shouldHideCassationAppealForDefendantCounsel",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/stageCassationActionGates.ts",
+    "name": "actionsToStageCassationButtonFlags",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/stageExpirationReasons.ts",
+    "name": "stageExpirationReasonLabel",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/stageFinalDecisionEngine.ts",
+    "name": "StageFinalDecisionBadge",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/stageFinalDecisionEngine.ts",
+    "name": "StageFinalDecisionCardActions",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/stageFinalDecisionEngine.ts",
+    "name": "StageFinalDecisionActionsContext",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/stageFinalDecisionEngine.ts",
+    "name": "normalizeStageFinalDecisionUserRole",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/stageFinalDecisionEngine.ts",
+    "name": "isStageFinalConvictionOutcome",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/stageFinalDecisionEngine.ts",
+    "name": "isStageFinalAcquittalOrReleaseOutcome",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/stageFinalDecisionEngine.ts",
+    "name": "STAGE_FINAL_DECISION_KIND_OPTIONS",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/stageFinalDecisionEngine.ts",
+    "name": "masterPenaltyLabel",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/stageFinalDecisionEngine.ts",
+    "name": "mapKindToVerdictOutcome",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/stageFinalDecisionEngine.ts",
+    "name": "mapKindToStageDecisionType",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/statementLinking.ts",
+    "name": "linkableEntryId",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/trialChargeEngine.ts",
+    "name": "createTrialChargeModificationId",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/trialDepositionsEngine.ts",
+    "name": "matchInvestigationStatementsForDeposition",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/trialReferralOrdersEngine.ts",
+    "name": "TRIAL_REFERRAL_ORDER_ACTION_IDS",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/trialReferralOrdersEngine.ts",
+    "name": "PROCEDURAL_STAGE_ROUTE_ACTION_IDS",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/trialReferralOrdersEngine.ts",
+    "name": "proceduralRouteRequiresCourtFields",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/trialReferralOrdersEngine.ts",
+    "name": "proceduralRouteOrderTitle",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/trialSessionsEngine.ts",
+    "name": "TrialVerdictPresenceType",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/trialSessionsEngine.ts",
+    "name": "TrialSessionRound",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/trialSessionsEngine.ts",
+    "name": "TrialSessionPreparatoryDecision",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/trialSessionsEngine.ts",
+    "name": "TrialSessionOrigin",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/trialSessionsEngine.ts",
+    "name": "isTrialPresenceStatus",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/trialSessionsEngine.ts",
+    "name": "isTrialSessionStatus",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/trialSessionsEngine.ts",
+    "name": "AppealCountdownSnapshot",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/trialSessionsEngine.ts",
+    "name": "TrialPresenceOption",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/trialSessionsEngine.ts",
+    "name": "normalizeTrialSession",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalDashboardCaseBanners.ts",
+    "name": "UseCriminalDashboardCaseBannersParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalDashboardCaseCollections.ts",
+    "name": "UseCriminalDashboardCaseCollectionsParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalDashboardCaseFacts.ts",
+    "name": "UseCriminalDashboardCaseFactsParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalDashboardCassationMergeActions.ts",
+    "name": "UseCriminalDashboardCassationMergeActionsParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalDashboardFinalDecisionEntry.ts",
+    "name": "UseCriminalDashboardFinalDecisionEntryParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalDashboardIntentWarmup.ts",
+    "name": "UseCriminalDashboardIntentWarmupParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalDashboardModalUiState.ts",
+    "name": "CriminalDashboardIdentityEdit",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalDashboardModalUiState.ts",
+    "name": "UseCriminalDashboardModalUiStateParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalDashboardNavigationGuard.ts",
+    "name": "UseCriminalDashboardNavigationGuardParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalDashboardProceduralData.ts",
+    "name": "UseCriminalDashboardProceduralDataParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalDashboardRequestsTabData.ts",
+    "name": "UseCriminalDashboardRequestsTabDataParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalDashboardResolvedOrchestration.ts",
+    "name": "CriminalDashboardOrchestrationResult",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalDashboardTrashProceduralHandlers.ts",
+    "name": "UseCriminalDashboardTrashProceduralHandlersParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalRequestCommitFlow.ts",
+    "name": "CriminalRequestCommitFlowParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalRequestFormFlags.ts",
+    "name": "CriminalRequestFormFlagsParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalRequestModalOpeners.ts",
+    "name": "CriminalRequestModalOpenersParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalRequestPartyScope.ts",
+    "name": "CriminalRequestPartyScopeParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalRequestsModalController.ts",
+    "name": "CriminalRequestsModalControllerParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalRequestSpecialtyFields.ts",
+    "name": "CriminalRequestSpecialtyFieldsParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/useCriminalRequestTemplateHandlers.ts",
+    "name": "CriminalRequestTemplateHandlersParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/verdictCardAbsentiaExpiry.ts",
+    "name": "AbsentiaExpiryVerdictCard",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/verdictCardsEngine.ts",
+    "name": "VerdictInterventionStatus",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/verdictCardsEngine.ts",
+    "name": "isVerdictCardOutcome",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/verdictCardsEngine.ts",
+    "name": "resolveVerdictCassationCorrectionOutcome",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/verdictCardsEngine.ts",
+    "name": "resolveVerdictCassationIssuedBy",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/verdictCardsEngine.ts",
+    "name": "sortVerdictCardsDesc",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/verdictCassationResultEngine.ts",
+    "name": "resolveReferralLabelToCaseStage",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/criminal-system/verdictCassationResultEngine.ts",
+    "name": "ApplyVerdictCassationResultOutcome",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/parts/civilLawTaxonomy.ts",
+    "name": "CivilLawTaxonomy",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/parts/sessionHubGlassTheme.ts",
+    "name": "GLASS_SECTION",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/absentJudgmentFlow.ts",
+    "name": "AbsentObjectionJudgmentOption",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/absentJudgmentFlow.ts",
+    "name": "AbsentObjectionClientRole",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/appealRouteEligibility.ts",
+    "name": "AppealRouteStageRef",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/appealStageFooter.ts",
+    "name": "AppealStageFooterEligibility",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/appealStageJudgmentEngine.ts",
+    "name": "ClientAppealRole",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/appealStageTransition.ts",
+    "name": "AppealTransitionParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/appealStageTransition.ts",
+    "name": "CassationRemandTarget",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/appealStageTransition.ts",
+    "name": "CassationRemandParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/appealStageTransition.ts",
+    "name": "CassationCorrectionOpenParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/appealStageTransition.ts",
+    "name": "CorrectionCompleteParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/assembleSmartFileModalLayout.ts",
+    "name": "AssembleSmartFileModalLayoutParams",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/buildSmartFileModalHandlers.ts",
+    "name": "SmartFileModalHandlerSources",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/buildSmartFileOrchestratorLayout.ts",
+    "name": "BuildSmartFileOrchestratorLayoutInput",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/caseConsolidationLinking.ts",
+    "name": "ConsolidationExternalMeta",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/caseConsolidationLinking.ts",
+    "name": "LitigationDegree",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/caseFlowAbandonment.ts",
+    "name": "AbandonmentFlowContext",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/caseFlowAbandonment.ts",
+    "name": "AbandonmentFlowLabel",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/caseLinking.ts",
+    "name": "CaseLinkMeta",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/fastTrackCalendar.ts",
+    "name": "FastTrackCalendarAppointment",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/fastTrackStatus.ts",
+    "name": "FastTrackStatusOption",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/incidentalCaseLinking.ts",
+    "name": "IncidentalSpawnStageOverride",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/incidentalCaseLinking.ts",
+    "name": "IncidentalLinkedFileCreateStub",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/incidentalCaseLinking.ts",
+    "name": "LinkedStageJudgment",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/incidentalCaseLinking.ts",
+    "name": "buildIncidentalLinkedJudgmentEvent",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/interpleaderAppealEngine.ts",
+    "name": "AppealDossierMode",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/interpleaderAppealEngine.ts",
+    "name": "listInterpleaderParties",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/interpleaderAppealEngine.ts",
+    "name": "listMainLitigantParties",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/interpleaderJudgmentEngine.ts",
+    "name": "INTERPLEADER_JUDGMENT_PLAINTIFF_PARTIAL",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/interpleaderJudgmentEngine.ts",
+    "name": "INTERPLEADER_JUDGMENT_FORMAL_NULLITY",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/judgeDecisionComposer.ts",
+    "name": "PetitionDecisionSource",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/judgeDecisionComposer.ts",
+    "name": "AttachmentDecisionSource",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/judgmentTypes.ts",
+    "name": "resolveJudgmentFormLabel",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/modalFormTypes.ts",
+    "name": "DocumentEditData",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/modalFormTypes.ts",
+    "name": "IncidentalCaseEditData",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/modalFormTypes.ts",
+    "name": "AppointmentEditData",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/modalFormTypes.ts",
+    "name": "PauseInterruptionEditData",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.ts",
+    "name": "PartySideBucket",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/petitionVoidFlow.ts",
+    "name": "PetitionVoidFlowStatus",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/petitionVoidFlow.ts",
+    "name": "PetitionVoidFlow",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/petitionVoidFlow.ts",
+    "name": "PETITION_VOID_JUDGMENT_VALUES",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/pleadingStageClassification.ts",
+    "name": "PleadingLayer",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/proceduralTypes.ts",
+    "name": "SaveToCloudFn",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/requestsHubEngine.ts",
+    "name": "RequestFilterId",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/requestsHubEngine.ts",
+    "name": "UnifiedRequestItem",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/requestTypes.ts",
+    "name": "FastTrackPreset",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/resolveDisplayParties.ts",
+    "name": "ResolveDisplayPartiesInput",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/smartFileModalTheme.tsx",
+    "name": "SmartFileModalTheme",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/smartFileModalTheme.tsx",
+    "name": "resolveSmartFileModalTheme",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/stageInit.ts",
+    "name": "normalizeLegacyLawsuitStages",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/stageMutations.ts",
+    "name": "cloneStages",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/stageTransition.ts",
+    "name": "createBlankChildStage",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/stageTransition.ts",
+    "name": "StageTransitionInput",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/stepperStages.ts",
+    "name": "StepperStageItem",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/timelineEventVisuals.ts",
+    "name": "TimelineVisual",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/timelineEventVisuals.ts",
+    "name": "PaletteSpec",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/timelineEventVisuals.ts",
+    "name": "TimelineVisualTheme",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/timelineEventVisuals.ts",
+    "name": "paletteVisual",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/timelineEventVisuals.ts",
+    "name": "PAL",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/timelineFeedTaxonomy.ts",
+    "name": "TimelineFeedCategoryMeta",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/timelineFeedTaxonomy.ts",
+    "name": "timelineEventSearchBlob",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/timelineLegalDeadline.ts",
+    "name": "LEGAL_DEADLINE_APPT_ID_PREFIXES",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/components/lawyer/smart-modal/smartFile/timelineRequestSync.ts",
+    "name": "readLinkedTimelineEventId",
+    "kind": "value"
+  },
+  {
+    "rel": "src/app/domain/lawsuit/lawsuitLifecycleIndex.ts",
+    "name": "LawsuitIndexEntry",
+    "kind": "type"
+  },
+  {
+    "rel": "src/app/domain/lawsuit/lawsuitSegmentStorage.ts",
+    "name": "LawsuitBootState",
+    "kind": "type"
+  }
+]

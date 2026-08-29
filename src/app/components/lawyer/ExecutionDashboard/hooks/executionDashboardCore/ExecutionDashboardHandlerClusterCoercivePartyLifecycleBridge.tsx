@@ -23,7 +23,7 @@ export function ExecutionDashboardHandlerClusterCoercivePartyLifecycleBridge({
     input,
     onCluster,
 }: Props) {
-    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads) as any;
+    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads);
 
     const voluntaryPeriodHandlers = useExecutionDashboardVoluntaryPeriodHandlers({
         isEvictionExecutionModule: c.isEvictionExecutionModule,

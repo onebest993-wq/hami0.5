@@ -2,17 +2,6 @@ import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 
 export const NATIVE_CAPACITOR_BOOT_DONE_EVENT = 'hami:capacitor-native-ready';
 
-type CapacitorGlobal = {
-    isNativePlatform?: () => boolean;
-    getPlatform?: () => string;
-    isPluginAvailable?: (name: string) => boolean;
-};
-
-function readCapacitor(): CapacitorGlobal | null {
-    if (typeof window === 'undefined') return null;
-    return (window as Window & { Capacitor?: CapacitorGlobal }).Capacitor ?? null;
-}
-
 let bridgeReadyPromise: Promise<void> | null = null;
 
 async function isCapacitorBridgeOperational(): Promise<boolean> {
@@ -26,17 +15,6 @@ async function isCapacitorBridgeOperational(): Promise<boolean> {
 
         const { App } = await import('@capacitor/app');
         await App.getState();
-
-        void (async () => {
-            try {
-                if (!Capacitor.isPluginAvailable('PrivacyScreen')) return;
-                const { PrivacyScreen } = await import('@capacitor-community/privacy-screen');
-                await PrivacyScreen.disable();
-            } catch {
-                /* optional — لا يحجب الجسر */
-            }
-        })();
-
         return true;
     } catch {
         return false;
@@ -44,7 +22,8 @@ async function isCapacitorBridgeOperational(): Promise<boolean> {
 }
 
 /**
- * ينتظر حقن جسر Capacitor + إثبات App + PrivacyScreen قبل أي plugin حساس.
+ * ينتظر حقن جسر Capacitor + إثبات App.
+ * لا يستدعي PrivacyScreen.disable — ذلك كان يُسقط FLAG_SECURE عند الإقلاع.
  */
 export function whenNativeBridgeReady(timeoutMs = 8_000): Promise<void> {
     if (!isCapacitorNativePlatform()) return Promise.resolve();

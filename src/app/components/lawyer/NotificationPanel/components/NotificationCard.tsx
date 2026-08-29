@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
-import { motion } from 'motion/react';
-import { Camera, MessageCircle } from '@/app/components/ui/lucideIcons';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { Camera } from '@/app/components/ui/icons/Camera';
 import { deriveNotificationCategory, type NotificationModel } from '@/app/infrastructure/NotificationRepository';
 import { formatNotificationForCard } from '@/app/services/notificationMessageFormat';
 import {
@@ -15,14 +15,12 @@ interface NotificationCardProps {
     notification: NotificationModel;
     onTap: (n: NotificationModel) => void;
     onScan: (e: React.MouseEvent) => void;
-    onClientRequest: (e: React.MouseEvent, n: NotificationModel) => void;
 }
 
 function NotificationCardInner({
     notification,
     onTap,
     onScan,
-    onClientRequest,
 }: NotificationCardProps) {
     const reduceMotion = useReduceMotion();
     const category = deriveNotificationCategory(notification);
@@ -37,20 +35,16 @@ function NotificationCardInner({
     return (
         <motion.button
             type="button"
-            layout={reduceMotion ? false : true}
-            initial={reduceMotion ? false : { opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
+            layout={false}
+            initial={false}
+            animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
             onClick={() => onTap(notification)}
             data-unread={unread ? 'true' : 'false'}
             className="hami-notif-card group flex w-full touch-manipulation items-start gap-3 px-4 py-3.5 text-right"
             data-testid={`notification-card-${notification.id}`}
         >
-            <span className="hami-notif-card-sheen" aria-hidden />
             {unread ? (
-                <span
-                    className="absolute end-3 top-3.5 h-2 w-2 rounded-full bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.65)]"
-                    aria-hidden
-                />
+                <span className="absolute end-3 top-3.5 h-1.5 w-1.5 rounded-full bg-rose-400" aria-hidden />
             ) : null}
             <div
                 className={`absolute inset-y-3 start-0 w-1 rounded-full ${accentBarForCategory(category)}`}
@@ -105,14 +99,6 @@ function NotificationCardInner({
                         >
                             <Camera size={12} aria-hidden />
                             مسح المستند
-                        </button>
-                        <button
-                            type="button"
-                            onClick={(e) => onClientRequest(e, notification)}
-                            className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-white/5 py-2.5 text-xs font-semibold text-white/80 transition-colors active:bg-white/10"
-                        >
-                            <MessageCircle size={12} aria-hidden />
-                            مراسلة الموكل
                         </button>
                     </div>
                 ) : null}

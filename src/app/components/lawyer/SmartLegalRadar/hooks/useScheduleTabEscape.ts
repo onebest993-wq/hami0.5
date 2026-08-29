@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
+import { registerNativeBackHandler } from '@/app/runtime/nativeBackStack';
 
-export type UseScheduleTabEscapeParams = {
+type UseScheduleTabEscapeParams = {
     enabled: boolean;
     showForm: boolean;
     formSaving: boolean;

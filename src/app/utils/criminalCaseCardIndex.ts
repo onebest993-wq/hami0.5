@@ -195,3 +195,48 @@ export function parseCriminalCardIndex(raw: string | null | undefined): Criminal
         return null;
     }
 }
+
+/**
+ * Runtime-only mark for slim card-index rows injected into `casesById` for display.
+ * Must never be written as a full case shard (see criminalShardedPersistStorage).
+ */
+export const CRIMINAL_CARD_INDEX_STUB_FLAG = '_cardIndexStub' as const;
+
+export type CriminalCaseCardIndexStubMark = {
+    [CRIMINAL_CARD_INDEX_STUB_FLAG]?: true;
+};
+
+/** True for display stubs (explicit flag, or legacy slim rows lacking createdAt). */
+export function isCriminalCaseCardIndexStub(row: unknown): boolean {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) return false;
+    const record = row as Record<string, unknown>;
+    if (record[CRIMINAL_CARD_INDEX_STUB_FLAG] === true) return true;
+    const id = String(record.id ?? '').trim();
+    if (!id) return false;
+    // Full persisted cases always carry createdAt; projected card-index entries never do.
+    return !String(record.createdAt ?? '').trim();
+}
+
+export function markCriminalCaseCardIndexStub<T extends Record<string, unknown>>(
+    row: T,
+): T & { [CRIMINAL_CARD_INDEX_STUB_FLAG]: true } {
+    return { ...row, [CRIMINAL_CARD_INDEX_STUB_FLAG]: true as const };
+}
+
+/**
+ * Policy for merging into casesById:
+ * - never overwrite a full case with a card-index stub
+ * - upgrade stub → full when a richer record arrives
+ * - skip no-op stub→stub / full→full
+ */
+export function shouldInjectCriminalCaseRecord(
+    existing: unknown | null | undefined,
+    incomingIsCardIndexStub: boolean,
+): 'skip' | 'inject' {
+    if (!existing) return 'inject';
+    const existingStub = isCriminalCaseCardIndexStub(existing);
+    if (!existingStub && incomingIsCardIndexStub) return 'skip';
+    if (!existingStub && !incomingIsCardIndexStub) return 'skip';
+    if (existingStub && incomingIsCardIndexStub) return 'skip';
+    return 'inject';
+}

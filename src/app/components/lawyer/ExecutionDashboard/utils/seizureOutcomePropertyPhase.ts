@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { SeizedProperty } from '@/app/types/execution';
 import { patchExecutorDecisionRow } from '@/app/utils/executorSeizureDecisionQueue';
 import {

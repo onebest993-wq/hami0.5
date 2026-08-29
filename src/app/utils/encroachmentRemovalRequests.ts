@@ -65,11 +65,19 @@ export function appendEncroachmentRemovalExecutorRequest(input: {
         );
         if (governing?.id) {
             if (input.supersedeCompletedHub) {
-                arr = supersedePriorExecutorHubRows(allRows, hubMatches) as typeof arr;
+                arr = supersedePriorExecutorHubRows(
+                    allRows,
+                    hubMatches,
+                    new Date().toISOString(),
+                ) as typeof arr;
             } else if (isEvictionProcedureRowActive(governing, allRows)) {
                 return null;
             } else {
-                arr = supersedePriorExecutorHubRows(allRows, hubMatches) as typeof arr;
+                arr = supersedePriorExecutorHubRows(
+                    allRows,
+                    hubMatches,
+                    new Date().toISOString(),
+                ) as typeof arr;
             }
         }
         const decisionId = newEncroachmentDecisionId();

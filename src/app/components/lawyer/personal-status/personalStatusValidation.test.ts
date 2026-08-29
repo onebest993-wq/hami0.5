@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    collectPersonalPartyNameErrors,
     computePersonalStatusStageOptions,
     getPersonalStatusRoleForSide,
     getPersonalUnderlyingStageOptions,
@@ -123,6 +124,16 @@ describe('personalStatusValidation', () => {
 
         expect(errors.stage).toContain('غير متاحة');
 
+    });
+
+    it('flags empty trimmed party names on both sides', () => {
+        const errors = collectPersonalPartyNameErrors(
+            [{ id: 'p1', name: '  ' }, { id: 'p1b', name: 'أحمد' }],
+            [{ id: 'p2', name: '' }],
+        );
+        expect(errors).toHaveProperty('party_p1');
+        expect(errors).not.toHaveProperty('party_p1b');
+        expect(errors).toHaveProperty('party_p2');
     });
 
 });

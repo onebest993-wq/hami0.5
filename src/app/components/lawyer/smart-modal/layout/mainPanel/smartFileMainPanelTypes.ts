@@ -27,7 +27,6 @@ export type SmartFileMainPanelProps = {
     onTouchEnd: (e: React.TouchEvent) => void;
     handleResumeAbandonment: (data?: { nextHearingDate?: string }) => void;
     handleResume: (data?: { nextHearingDate?: string }) => void;
-    handleToggleClient: () => void;
     handleStageSelect: (stageId: string) => void;
     handleInterruptionToggle: () => void;
     handleAbandonment: () => void;

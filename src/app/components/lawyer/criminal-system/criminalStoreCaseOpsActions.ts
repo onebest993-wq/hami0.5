@@ -179,6 +179,7 @@ export function createCriminalCaseOpsActions(set: SetFn, get: GetFn) {
                 const target = state.casesById[caseId];
                 if (!target) return state;
                 if (target.isArchived) return state;
+                if (isCriminalCaseMutationBlocked(target, state.sessionOwnerLawyerId)) return state;
                 const defId = String(defendantId ?? '').trim();
                 if (!defId) return state;
                 const defendants = Array.isArray(target.defendants) ? target.defendants : [];
@@ -251,6 +252,7 @@ export function createCriminalCaseOpsActions(set: SetFn, get: GetFn) {
             set((state) => {
                 const target = state.casesById[caseId];
                 if (!target) return state;
+                if (isCriminalCaseMutationBlocked(target, state.sessionOwnerLawyerId)) return state;
 
                 const type = newLocationType === 'police' || newLocationType === 'court' ? newLocationType : null;
                 const name = String(newLocationName ?? '').trim();

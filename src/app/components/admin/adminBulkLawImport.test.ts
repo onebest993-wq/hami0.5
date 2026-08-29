@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
     parseBulkLawJsonInput,
+    parseBulkLawJsonText,
+    summarizeBulkLawParse,
     unwrapBulkLawJsonRows,
 } from './adminBulkLawImport';
 
@@ -92,5 +94,33 @@ describe('parseBulkLawJsonInput', () => {
         if (!result.ok) return;
         expect(result.items).toHaveLength(1);
         expect(result.items[0]?.article_number).toBe('5');
+    });
+});
+
+describe('parseBulkLawJsonText / summarizeBulkLawParse', () => {
+    it('يرفض النص الفارغ وJSON المعطوب', () => {
+        expect(parseBulkLawJsonText('  ', 'قانون')).toEqual({
+            ok: false,
+            error: 'الصق JSON أو ارفع ملف .json.',
+        });
+        const bad = parseBulkLawJsonText('{', 'قانون');
+        expect(bad.ok).toBe(false);
+        if (bad.ok) return;
+        expect(bad.error).toContain('JSON');
+    });
+
+    it('يلخّص الجاهز للرفع مع التخطّي', () => {
+        const law = 'قانون الأحوال الشخصية رقم 188 لسنة 1959';
+        const ok = parseBulkLawJsonInput(
+            [
+                { المادة: 1, النص: 'صالح' },
+                { المادة: 2 },
+            ],
+            law,
+        );
+        expect(summarizeBulkLawParse(ok)).toContain('تخطّي');
+        const allGood = parseBulkLawJsonInput([{ المادة: 1, النص: 'صالح' }], law);
+        expect(summarizeBulkLawParse(allGood)).toContain('جاهز للرفع');
+        expect(summarizeBulkLawParse({ ok: false, error: 'فشل' })).toBe('فشل');
     });
 });

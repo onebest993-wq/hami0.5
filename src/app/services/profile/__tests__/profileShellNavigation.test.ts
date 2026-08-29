@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import {
     PROFILE_SHELL_FEATURE,
     openProfileFromShell,
-} from '@/app/services/profile/profileShellNavigation';
+} from '@/app/services/profile/profileShellPolicy';
 
-describe('profileShellNavigation', () => {
+describe('profileShellPolicy — فتح من الهيدر', () => {
     it('opens profile when signed in', () => {
         const onOpen = vi.fn();
         expect(openProfileFromShell({ signedIn: true, onOpen })).toBe(true);

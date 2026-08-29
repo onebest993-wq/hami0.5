@@ -1,6 +1,8 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from '@/app/components/ui/lucideIcons';
+import { Calendar as CalendarIcon } from '@/app/components/ui/icons/Calendar';
+import { ChevronLeft } from '@/app/components/ui/icons/ChevronLeft';
+import { ChevronRight } from '@/app/components/ui/icons/ChevronRight';
 import { cn } from './utils';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');

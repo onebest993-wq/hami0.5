@@ -8,26 +8,46 @@ import {
     type LawyerDashboardTab,
     type OpenCriminalCaseOptions,
 } from './lawyerDashboard/lawyerDashboardNav';
+import { wasProfileOpenedThisPage } from '@/app/hooks/lawyerDashboard/profile/profileOpenSession';
 import { openCriminalDossierWithContract } from '@/app/runtime/criminalOpenContract';
-import { isRealSignedIn, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
+import { hasLocalAppSession, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
 import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
-import { LAWSUITS_PRIME_HOST_EVENT } from '@/app/runtime/lawsuitWorkspaceWarm';
+import { isSectionBackgroundPrefetchAllowed } from '@/app/runtime/sectionPrefetchPolicy';
+import { LAWSUITS_PRIME_HOST_EVENT } from '@/app/runtime/lawsuitWorkspaceEvents';
 import { EXECUTION_ARCHIVE_PRIME_HOST_EVENT } from '@/app/runtime/executionArchivePrimeHost';
-import { prefetchExecutionArchiveOpen } from '@/app/runtime/executionArchiveOpenSession';
+import {
+    loadLawsuitsOverlayEntry,
+    prefetchLawsuitsOverlayEntry,
+} from '@/app/runtime/lawsuitsOverlayEntryLoader';
+
+function primeLawsuitsWorkspaceChunks(): void {
+    prefetchLawsuitsOverlayEntry();
+    void import('@/app/components/lawyer/dashboard/lawsuitsWorkspaceHostLazy')
+        .then((m) => m.prefetchLawsuitsWorkspaceHost())
+        .catch(() => undefined);
+    void import('@/app/runtime/hubArchiveLoader')
+        .then((m) => m.prefetchLawsuitArchiveHubModule())
+        .catch(() => undefined);
+}
 
 export type UseLawyerDashboardOverlaysParams = {
     setArchiveType: Dispatch<SetStateAction<LawyerArchiveOverlay>>;
     /** لـ keep-alive: هل مخزن التنفيذ ظاهر الآن */
     executionArchiveOpen?: boolean;
+    userId?: string | null;
 };
 
 export function useLawyerDashboardOverlays({
     setArchiveType,
     executionArchiveOpen = false,
+    userId = null,
 }: UseLawyerDashboardOverlaysParams) {
     const [activeTab, setActiveTab] = useState<LawyerDashboardTab>(() => {
+        /* إعادة تركيب اللوحة أثناء جلسة فتح قائمة: أبقِ التبويب ولا تمسح snap */
+        if (wasProfileOpenedThisPage()) return 'profile';
         resetProfileShellOnColdDashboardBoot();
         return readInitialLawyerTab();
     });
@@ -46,7 +66,12 @@ export function useLawyerDashboardOverlays({
     const isCriminalDossierOpen = Boolean(criminalDashboardCaseId);
 
     const armLawsuitsHost = useCallback(() => {
-        setLawsuitsHostMounted(true);
+        primeLawsuitsWorkspaceChunks();
+        void loadLawsuitsOverlayEntry()
+            .then(() => {
+                setLawsuitsHostMounted(true);
+            })
+            .catch(() => undefined);
     }, []);
 
     const armExecutionArchiveHost = useCallback(() => {
@@ -54,11 +79,16 @@ export function useLawyerDashboardOverlays({
     }, []);
 
     const openUrgentInLawsuitsWorkspace = useCallback((caseId?: string) => {
-        setLawsuitsHostMounted(true);
-        setUrgentFocusCaseId(caseId?.trim() ? caseId.trim() : undefined);
-        setLawsuitsWorkspaceTab('urgent');
-        setShowLawsuitsWorkspace(true);
-        setArchiveType(null);
+        primeLawsuitsWorkspaceChunks();
+        void loadLawsuitsOverlayEntry()
+            .then(() => {
+                setLawsuitsHostMounted(true);
+                setUrgentFocusCaseId(caseId?.trim() ? caseId.trim() : undefined);
+                setLawsuitsWorkspaceTab('urgent');
+                setShowLawsuitsWorkspace(true);
+                setArchiveType(null);
+            })
+            .catch(() => undefined);
     }, [setArchiveType]);
 
     const resetLawsuitDossierReturnTarget = useCallback(() => {
@@ -73,8 +103,13 @@ export function useLawyerDashboardOverlays({
         const returnTarget = lawsuitDossierReturnTargetRef.current;
         lawsuitDossierReturnTargetRef.current = 'main';
         if (returnTarget === 'lawsuits_workspace') {
-            setLawsuitsHostMounted(true);
-            setShowLawsuitsWorkspace(true);
+            primeLawsuitsWorkspaceChunks();
+            void loadLawsuitsOverlayEntry()
+                .then(() => {
+                    setLawsuitsHostMounted(true);
+                    setShowLawsuitsWorkspace(true);
+                })
+                .catch(() => undefined);
         }
     }, []);
 
@@ -91,8 +126,11 @@ export function useLawyerDashboardOverlays({
             if (!trimmed) return;
 
             const persisted = readPersistedSupabaseAuth();
-            const sessionUid = resolveShellAuthUserId(persisted.user?.id, persisted.user?.id);
-            if (!isRealSignedIn(sessionUid)) return;
+            const sessionUid = resolveShellAuthUserId(persisted.user?.id, userId);
+            if (!hasLocalAppSession(sessionUid) && !hasLocalAppSession(userId)) {
+                SmartToast.error('تعذّر فتح الإضبارة الجزائية — لا توجد جلسة محلية');
+                return;
+            }
 
             if (options?.keepReturnTarget) {
                 openCriminalDossierWithContract(trimmed, (id) => {
@@ -109,12 +147,18 @@ export function useLawyerDashboardOverlays({
                 setArchiveType(null);
             }
 
-            setLawsuitsHostMounted(true);
+            primeLawsuitsWorkspaceChunks();
+            void loadLawsuitsOverlayEntry()
+                .then(() => {
+                    setLawsuitsHostMounted(true);
+                })
+                .catch(() => undefined);
+
             openCriminalDossierWithContract(trimmed, (id) => {
                 setCriminalDashboardCaseId(id);
             });
         },
-        [setArchiveType],
+        [setArchiveType, userId],
     );
 
     const closeCriminalCase = useCallback(() => {
@@ -141,35 +185,45 @@ export function useLawyerDashboardOverlays({
     });
 
     const setShowLawsuitsWorkspaceMounted = useCallback((open: boolean) => {
-        if (open) setLawsuitsHostMounted(true);
-        setShowLawsuitsWorkspace(open);
+        if (!open) {
+            setShowLawsuitsWorkspace(false);
+            return;
+        }
+        primeLawsuitsWorkspaceChunks();
+        void loadLawsuitsOverlayEntry()
+            .then(() => {
+                setLawsuitsHostMounted(true);
+                setShowLawsuitsWorkspace(true);
+            })
+            .catch(() => undefined);
     }, []);
 
     /**
-     * بعد interactive: ركّب Hosts مخفية + سخّن chunks — يزيل سباق «دفء/برد» عند أول نقرة.
+     * بعد interactive: دعاوى Host + أسطح ميدان. مخزن التنفيذ: بايتات من
+     * hubArchiveAfterHomePaint بعد طلاء الشبكة — بلا تركيب Host من الجلوس.
      */
     useLayoutEffect(() => {
         return onDashboardInteractive(() => {
             armLawsuitsHost();
-            void import('@/app/runtime/hubArchiveLoader')
-                .then((m) => m.prefetchLawsuitArchiveContent())
-                .catch(() => undefined);
+            if (isSectionBackgroundPrefetchAllowed()) {
+                void import('@/app/runtime/hubArchiveLoader')
+                    .then((m) => m.prefetchLawsuitArchiveHubModule())
+                    .catch(() => undefined);
+            }
             void import('@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports')
                 .then((m) => m.prefetchFieldTasksInstantPaint())
                 .catch(() => undefined);
             if (isLitePerformanceActive()) return;
-            armExecutionArchiveHost();
             void import('@/app/runtime/lawsuitWorkspaceWarm')
                 .then((m) => m.warmLawsuitWorkspace({ includeSecondary: false }))
                 .catch(() => undefined);
-            prefetchExecutionArchiveOpen();
             void import('@/app/runtime/executionWorkspaceWarm')
                 .then((m) =>
                     m.warmExecutionWorkspace({ includeSecondary: false }),
                 )
                 .catch(() => undefined);
         });
-    }, [armLawsuitsHost, armExecutionArchiveHost]);
+    }, [armLawsuitsHost]);
 
     /** hover / warm — يعيد تركيب Host بعد idle-release أو قبل النقر */
     useEffect(() => {
@@ -178,9 +232,10 @@ export function useLawyerDashboardOverlays({
             armLawsuitsHost();
         };
         const onPrimeExecution = () => {
-            if (isLitePerformanceActive()) return;
             armExecutionArchiveHost();
-            prefetchExecutionArchiveOpen();
+            void import('@/app/runtime/executionArchiveOpenSession')
+                .then((m) => m.prefetchExecutionArchiveOpen())
+                .catch(() => undefined);
         };
         window.addEventListener(LAWSUITS_PRIME_HOST_EVENT, onPrimeLawsuits);
         window.addEventListener(EXECUTION_ARCHIVE_PRIME_HOST_EVENT, onPrimeExecution);

@@ -4,11 +4,27 @@ import {
     isActivityLogNotification,
     deriveNotificationCategory,
 } from '@/app/infrastructure/notificationModel';
-import { sanitizeNotificationDisplayMessage, isNavigationNoiseNotification } from '@/app/services/notificationMessageFormat';
 import { isIncomingNotification } from '@/app/services/notificationIncomingFilter';
 import { capNotificationList } from '@/app/services/notifications/notificationLimits';
-import { capMergedNotificationLists, mergeNotificationRecord } from '@/app/services/notifications/notificationMerge';
-import { peekLocalNotifications } from '@/app/infrastructure/notificationPeekLite';
+import {
+    capMergedNotificationLists,
+    notificationListsReferenceEqual,
+} from '@/app/services/notifications/notificationMerge';
+import { peekLocalNotifications, hasStoredLocalNotifications } from '@/app/infrastructure/notificationPeekLite';
+import { isViteE2eHooksEnabled } from '@/app/utils/viteE2eHooks';
+import { NOTIFICATION_PERF_BUDGET } from '@/app/services/notifications/notificationPerfBudget';
+import { emitInboxNotificationArrived } from '@/app/runtime/inboxNotificationArrival';
+import {
+    applyUpsertsToList,
+    normalizeNotification,
+    stripInvalidNotifications,
+    unreadCountOf,
+} from '@/app/stores/notificationStoreList';
+import {
+    applyE2eInboxSeedToStore,
+    installNotificationStoreE2eHooks,
+    type E2eInboxSeedItem,
+} from '@/app/stores/notificationStoreE2e';
 
 type NotificationRepositoryModule = typeof import('@/app/infrastructure/NotificationRepository');
 
@@ -21,52 +37,13 @@ function loadNotificationRepository(): Promise<NotificationRepositoryModule> {
     return notificationRepositoryPromise;
 }
 
-function normalizeNotification(notification: NotificationModel): NotificationModel | null {
-    if (isActivityLogNotification(notification)) return null;
-    if (!isIncomingNotification(notification)) return null;
-    if (isNavigationNoiseNotification(notification)) return null;
-    const message = sanitizeNotificationDisplayMessage(notification);
-    if (!message.trim()) return null;
-    if (message === notification.message) return notification;
-    return { ...notification, message };
-}
-
-function applyUpsertsToList(
-    current: NotificationModel[],
-    incoming: NotificationModel[],
-): NotificationModel[] {
-    let list = current;
-    for (const raw of incoming) {
-        if (isActivityLogNotification(raw)) continue;
-        if (!isIncomingNotification(raw)) continue;
-        const normalized = normalizeNotification(raw);
-        if (!normalized) continue;
-
-        const existing = list.find((n) => n.id === normalized.id);
-        if (existing) {
-            list = list.map((n) =>
-                n.id === normalized.id ? mergeNotificationRecord(n, normalized) : n,
-            );
-        } else {
-            list = [normalized, ...list];
-        }
-    }
-    return capNotificationList(list);
-}
-
-function stripInvalidNotifications(list: NotificationModel[]): NotificationModel[] {
-    return list
-        .filter((n) => !isActivityLogNotification(n) && isIncomingNotification(n) && !isNavigationNoiseNotification(n))
-        .map((n) => normalizeNotification(n))
-        .filter((n): n is NotificationModel => n != null);
-}
-
 interface NotificationState {
     notifications: NotificationModel[];
     unreadCount: number;
     isLoading: boolean;
     currentUserId: string | null;
     hasHydratedOnce: boolean;
+    lastFetchedAt: number;
 
     fetchNotifications: (userId: string) => Promise<void>;
     hydrateFromLocalPeek: (userId: string) => void;
@@ -84,8 +61,6 @@ interface NotificationState {
     addNotification: (notification: NotificationModel) => void;
     upsertNotification: (notification: NotificationModel) => void;
     upsertNotifications: (notifications: NotificationModel[]) => void;
-    /** استبدال كامل لمجموعة إشعارات المنتدى بقائمة الخادم السلطوية */
-    reconcileForumNotifications: (forumNotifications: NotificationModel[]) => void;
     setUserId: (userId: string | null) => void;
 }
 
@@ -95,6 +70,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     isLoading: false,
     currentUserId: null,
     hasHydratedOnce: false,
+    lastFetchedAt: 0,
 
     setUserId: (userId) => {
         const prev = get().currentUserId;
@@ -105,17 +81,41 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
             unreadCount: 0,
             isLoading: false,
             hasHydratedOnce: false,
+            lastFetchedAt: 0,
         });
     },
 
-  hydrateFromLocalPeek: (userId: string) => {
+    hydrateFromLocalPeek: (userId: string) => {
         const uid = userId.trim();
         if (!uid) return;
         const state = get();
         if (state.currentUserId === uid && state.hasHydratedOnce) return;
 
         const list = stripInvalidNotifications(capNotificationList(peekLocalNotifications(uid)));
-        const unread = list.filter((n) => !n.isRead).length;
+        const unread = unreadCountOf(list);
+        /*
+         * المفتاح مشفَّر — قائمة فارغة من peek غامضة: فراغ حقيقي، أم بيانات
+         * موجودة وذاكرة الفكّ باردة (أول لمسة لهذا المفتاح في الجلسة)؟
+         * hasStoredLocalNotifications تفصل الحالتين عبر hasItemSync (فحص وجود
+         * على القرص لا فكّ). في الحالة الغامضة لا نُثبّت hasHydratedOnce، فتبقى
+         * شاشة التحميل (لا حالة خالية) — وfetchNotifications اللاحقة تُصحّح
+         * فوراً عبر مسارها غير المتزامن الذي يقرأ ذات المفتاح بلا اعتماد على
+         * التسخين.
+         *
+         * إن كانت الذاكرة أصلاً تحمل وارد هذا المستخدم، لا تُمسَح بـ peek بارد —
+         * وإلا ومضة فراغ (أو بقاء فراغ إن فشل الجلب) فوق بيانات صحيحة.
+         */
+        const ambiguousEmpty = list.length === 0 && hasStoredLocalNotifications(uid);
+        if (ambiguousEmpty) {
+            const keepMemory = state.currentUserId === uid && state.notifications.length > 0;
+            set({
+                currentUserId: uid,
+                hasHydratedOnce: false,
+                isLoading: true,
+                ...(keepMemory ? {} : { notifications: [], unreadCount: 0 }),
+            });
+            return;
+        }
         set({
             currentUserId: uid,
             notifications: list,
@@ -130,8 +130,17 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         const sameUser = prevUserId === userId;
         const hadCached = sameUser && get().notifications.length > 0;
         const hasHydratedOnce = sameUser && get().hasHydratedOnce;
+        const fetchedAt = sameUser ? get().lastFetchedAt : 0;
+        if (
+            sameUser &&
+            fetchedAt > 0 &&
+            Date.now() - fetchedAt < NOTIFICATION_PERF_BUDGET.fetchFreshWindowMs &&
+            (hadCached || hasHydratedOnce)
+        ) {
+            return;
+        }
         if (!sameUser) {
-            set({ notifications: [], unreadCount: 0, currentUserId: userId, hasHydratedOnce: false });
+            set({ notifications: [], unreadCount: 0, currentUserId: userId, hasHydratedOnce: false, lastFetchedAt: 0 });
         } else {
             set({ currentUserId: userId });
         }
@@ -149,9 +158,16 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         const current = get().notifications;
         const merged = stripInvalidNotifications(capMergedNotificationLists(list, current));
         const capped = capNotificationList(merged);
-        const unread = capped.filter((n) => !n.isRead).length;
+        const finalList = notificationListsReferenceEqual(capped, current) ? current : capped;
+        const unread = unreadCountOf(finalList);
 
-        set({ notifications: capped, unreadCount: unread, isLoading: false, hasHydratedOnce: true });
+        set({
+            notifications: finalList,
+            unreadCount: unread,
+            isLoading: false,
+            hasHydratedOnce: true,
+            lastFetchedAt: Date.now(),
+        });
     },
 
     markAsRead: async (userId: string, notificationId: string, options?: { skipForumPersist?: boolean }) => {
@@ -162,7 +178,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         const updatedList = notifications.map((n) =>
             n.id === notificationId ? { ...n, isRead: true } : n,
         );
-        const unread = updatedList.filter((n) => !n.isRead).length;
+        const unread = unreadCountOf(updatedList);
 
         set({ notifications: updatedList, unreadCount: unread });
 
@@ -182,7 +198,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         const updatedList = notifications.map((n) =>
             deriveNotificationCategory(n) === 'forum' ? { ...n, isRead: true } : n,
         );
-        const unread = updatedList.filter((n) => !n.isRead).length;
+        const unread = unreadCountOf(updatedList);
 
         set({ notifications: updatedList, unreadCount: unread });
         const { NotificationRepository } = await loadNotificationRepository();
@@ -224,7 +240,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
         set({
             notifications: updated,
-            unreadCount: updated.filter((n) => !n.isRead).length,
+            unreadCount: unreadCountOf(updated),
         });
 
         if (currentUserId) {
@@ -245,8 +261,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         const capped = capNotificationList(updated);
         set({
             notifications: capped,
-            unreadCount: capped.filter((n) => !n.isRead).length,
+            unreadCount: unreadCountOf(capped),
         });
+
+        emitInboxNotificationArrived(normalized);
 
         if (currentUserId) {
             void loadNotificationRepository().then(({ NotificationRepository }) => {
@@ -261,7 +279,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
                         const next = applyUpsertsToList(list, [authoritative]);
                         set({
                             notifications: next,
-                            unreadCount: next.filter((n) => !n.isRead).length,
+                            unreadCount: unreadCountOf(next),
                         });
                     },
                 );
@@ -277,30 +295,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         if (incoming.length === 0) return;
         const { notifications, currentUserId } = get();
         const capped = applyUpsertsToList(notifications, incoming);
+        if (capped === notifications) return;
 
         set({
             notifications: capped,
-            unreadCount: capped.filter((n) => !n.isRead).length,
-        });
-
-        if (currentUserId) {
-            void loadNotificationRepository().then(({ NotificationRepository }) => {
-                void NotificationRepository.saveNotifications(currentUserId, capped);
-            });
-        }
-    },
-
-    reconcileForumNotifications: (forumIncoming: NotificationModel[]) => {
-        const { notifications, currentUserId } = get();
-        const nonForum = notifications.filter((n) => deriveNotificationCategory(n) !== 'forum');
-        const forumOnly = forumIncoming
-            .map((n) => normalizeNotification({ ...n, category: 'forum' as const }))
-            .filter((n): n is NotificationModel => n != null);
-        const capped = capNotificationList([...forumOnly, ...nonForum]);
-
-        set({
-            notifications: capped,
-            unreadCount: capped.filter((n) => !n.isRead).length,
+            unreadCount: unreadCountOf(capped),
         });
 
         if (currentUserId) {
@@ -311,27 +310,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     },
 }));
 
-if (import.meta.env.DEV && typeof window !== 'undefined') {
-    const w = window as Window & {
-        __hamiE2ePushNotification?: (partial: {
-            id: string;
-            title: string;
-            message: string;
-            type?: NotificationModel['type'];
-            isRead?: boolean;
-            createdAt?: string;
-            actionPayload?: Record<string, unknown>;
-        }) => void;
-        __hamiE2eNotificationsLoading?: () => boolean;
-    };
-    w.__hamiE2ePushNotification = (partial) => {
-        useNotificationStore.getState().addNotification({
-            type: partial.type ?? 'forum_reply',
-            isRead: partial.isRead ?? false,
-            createdAt: partial.createdAt ?? new Date().toISOString(),
-            actionPayload: partial.actionPayload ?? {},
-            ...partial,
-        });
-    };
-    w.__hamiE2eNotificationsLoading = () => useNotificationStore.getState().isLoading;
+export type { E2eInboxSeedItem };
+
+export function applyE2eInboxSeed(items: E2eInboxSeedItem[], userId?: string | null): number {
+    return applyE2eInboxSeedToStore(useNotificationStore, items, userId);
+}
+
+if (isViteE2eHooksEnabled() && typeof window !== 'undefined') {
+    installNotificationStoreE2eHooks(useNotificationStore);
 }

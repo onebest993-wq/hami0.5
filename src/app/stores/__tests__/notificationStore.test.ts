@@ -8,7 +8,7 @@
  *  n4) cap 400 — لا تتجاوز القائمة 400
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useNotificationStore } from '../notificationStore';
+import { applyE2eInboxSeed, useNotificationStore } from '../notificationStore';
 import type { NotificationModel } from '@/app/infrastructure/NotificationRepository';
 
 const persistMock = vi.fn().mockResolvedValue(undefined);
@@ -27,6 +27,13 @@ vi.mock('@/app/infrastructure/NotificationRepository', async (importOriginal) =>
     };
 });
 
+const peekLocalNotificationsMock = vi.fn<(userId: string) => NotificationModel[]>(() => []);
+const hasStoredLocalNotificationsMock = vi.fn<(userId: string) => boolean>(() => false);
+vi.mock('@/app/infrastructure/notificationPeekLite', () => ({
+    peekLocalNotifications: (userId: string) => peekLocalNotificationsMock(userId),
+    hasStoredLocalNotifications: (userId: string) => hasStoredLocalNotificationsMock(userId),
+}));
+
 function makeNotif(id: string, isRead = false): NotificationModel {
     return {
         id,
@@ -41,11 +48,14 @@ function makeNotif(id: string, isRead = false): NotificationModel {
 describe('notificationStore', () => {
     beforeEach(() => {
         persistMock.mockClear();
+        peekLocalNotificationsMock.mockReset().mockReturnValue([]);
+        hasStoredLocalNotificationsMock.mockReset().mockReturnValue(false);
         useNotificationStore.setState({
             notifications: [],
             unreadCount: 0,
             isLoading: false,
             currentUserId: null,
+            lastFetchedAt: 0,
             hasHydratedOnce: false,
         });
     });
@@ -109,6 +119,103 @@ describe('notificationStore', () => {
         expect(state.isLoading).toBe(false);
     });
 
+    it('hydrateFromLocalPeek لا يُثبّت hasHydratedOnce عند فراغ غامض (مفتاح مشفَّر وذاكرة الفكّ باردة)', () => {
+        // القائمة فارغة من peek، لكن hasItemSync تؤكّد وجود بيانات فعلية على القرص
+        // — أي أن التشفير لم يُفكّ بعد، لا أن المستخدم بلا إشعارات فعلاً.
+        peekLocalNotificationsMock.mockReturnValue([]);
+        hasStoredLocalNotificationsMock.mockReturnValue(true);
+
+        useNotificationStore.getState().hydrateFromLocalPeek('user-cold-cache');
+        const state = useNotificationStore.getState();
+
+        expect(state.currentUserId).toBe('user-cold-cache');
+        expect(state.notifications).toEqual([]);
+        expect(state.hasHydratedOnce).toBe(false);
+        expect(state.isLoading).toBe(true);
+    });
+
+    it('hydrateFromLocalPeek لا يمسح وارد الذاكرة عند فراغ peek غامض', () => {
+        peekLocalNotificationsMock.mockReturnValue([]);
+        hasStoredLocalNotificationsMock.mockReturnValue(true);
+        useNotificationStore.setState({
+            currentUserId: 'user-cold-cache',
+            notifications: [makeNotif('keep-me')],
+            unreadCount: 1,
+            hasHydratedOnce: false,
+            isLoading: false,
+        });
+
+        useNotificationStore.getState().hydrateFromLocalPeek('user-cold-cache');
+        const state = useNotificationStore.getState();
+
+        expect(state.notifications).toHaveLength(1);
+        expect(state.notifications[0]!.id).toBe('keep-me');
+        expect(state.hasHydratedOnce).toBe(false);
+        expect(state.isLoading).toBe(true);
+    });
+
+    it('applyE2eInboxSeed يزرع الوارد ويتجاهل الصادر', () => {
+        useNotificationStore.getState().setUserId('user-e2e');
+        const planted = applyE2eInboxSeed(
+            [
+                {
+                    id: 'in',
+                    title: 'رد جديد على سؤالك',
+                    message: 'استشارة',
+                    type: 'forum_reply',
+                    direction: 'incoming',
+                },
+                {
+                    id: 'out',
+                    title: 'حذفت سؤالاً',
+                    message: 'سؤال #',
+                    type: 'forum_reply',
+                    direction: 'outgoing',
+                },
+                {
+                    id: 'sys',
+                    title: 'تحديث النظام',
+                    message: 'تجربة',
+                    type: 'system_alert',
+                    direction: 'incoming',
+                },
+            ],
+            'user-e2e',
+        );
+        expect(planted).toBe(2);
+        const state = useNotificationStore.getState();
+        expect(state.notifications.map((n) => n.id).sort()).toEqual(['in', 'sys']);
+        expect(state.hasHydratedOnce).toBe(true);
+        expect(state.isLoading).toBe(false);
+        expect(state.unreadCount).toBe(2);
+        expect(state.currentUserId).toBe('user-e2e');
+    });
+
+    it('applyE2eInboxSeed لا يستبدل currentUserId القائم بمعرّف بذرة مختلف', () => {
+        useNotificationStore.getState().setUserId('guest-lawyer-1');
+        applyE2eInboxSeed(
+            [{ id: 'in', title: 'رد جديد على سؤالك', message: 'استشارة' }],
+            'dev-user-uuid-1',
+        );
+        const state = useNotificationStore.getState();
+        expect(state.currentUserId).toBe('guest-lawyer-1');
+        expect(state.notifications[0]!.id).toBe('in');
+    });
+
+    it('hydrateFromLocalPeek لا يلمس البذرة بعد applyE2eInboxSeed', () => {
+        applyE2eInboxSeed(
+            [{ id: 'in', title: 'رد جديد على سؤالك', message: 'استشارة' }],
+            'user-e2e',
+        );
+        peekLocalNotificationsMock.mockReturnValue([]);
+        hasStoredLocalNotificationsMock.mockReturnValue(true);
+        useNotificationStore.getState().hydrateFromLocalPeek('user-e2e');
+        const state = useNotificationStore.getState();
+        expect(state.notifications[0]!.id).toBe('in');
+        expect(state.hasHydratedOnce).toBe(true);
+        expect(state.isLoading).toBe(false);
+    });
+
     it('setUserId يُصفّر القائمة عند تبديل الحساب', () => {
         useNotificationStore.getState().setUserId('user-a');
         useNotificationStore.getState().addNotification(makeNotif('a'));
@@ -156,5 +263,23 @@ describe('notificationStore', () => {
         expect(state.notifications[0]!.isRead).toBe(true);
         expect(state.notifications[0]!.message).toBe('محدّث');
         expect(state.unreadCount).toBe(0);
+    });
+
+    it('fetchNotifications يتخطى إعادة الجلب داخل نافذة الطزاجة', async () => {
+        const { NotificationRepository } = await import(
+            '@/app/infrastructure/NotificationRepository'
+        );
+        const fetchMock = vi.mocked(NotificationRepository.fetchNotifications);
+        fetchMock.mockClear();
+        useNotificationStore.setState({
+            currentUserId: 'user-1',
+            notifications: [makeNotif('a')],
+            unreadCount: 1,
+            hasHydratedOnce: true,
+            lastFetchedAt: Date.now(),
+            isLoading: false,
+        });
+        await useNotificationStore.getState().fetchNotifications('user-1');
+        expect(fetchMock).not.toHaveBeenCalled();
     });
 });

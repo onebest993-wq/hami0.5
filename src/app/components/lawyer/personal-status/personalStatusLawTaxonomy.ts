@@ -1,7 +1,7 @@
 import type { PersonalStatusLawCodeType } from '@/app/constants/personalStatusLawCatalog';
 import { articleNumberInRange, extractArticleSortNumber } from '@/app/utils/articleNumberRange';
 
-export type PersonalStatusLawTaxonomyNode = {
+type PersonalStatusLawTaxonomyNode = {
     id: string;
     label: string;
     from: number;
@@ -9,7 +9,7 @@ export type PersonalStatusLawTaxonomyNode = {
     exclude?: readonly number[];
 };
 
-export type PersonalStatusLawTaxonomyBranch = {
+type PersonalStatusLawTaxonomyBranch = {
     id: string;
     label: string;
     from: number;
@@ -17,7 +17,7 @@ export type PersonalStatusLawTaxonomyBranch = {
     nodes: PersonalStatusLawTaxonomyNode[];
 };
 
-export type PersonalStatusLawTaxonomySection = {
+type PersonalStatusLawTaxonomySection = {
     id: string;
     label: string;
     from: number;
@@ -25,7 +25,7 @@ export type PersonalStatusLawTaxonomySection = {
     branches: PersonalStatusLawTaxonomyBranch[];
 };
 
-export type PersonalStatusLawTaxonomy = {
+type PersonalStatusLawTaxonomy = {
     codeType: PersonalStatusLawCodeType;
     sections: PersonalStatusLawTaxonomySection[];
 };
@@ -61,7 +61,7 @@ function section(
 }
 
 /** شجرة تصنيف قانون الأحوال الشخصية رقم 188 — قسم ← فرع ← عقدة */
-export const PERSONAL_STATUS_188_TAXONOMY: PersonalStatusLawTaxonomy = {
+const PERSONAL_STATUS_188_TAXONOMY: PersonalStatusLawTaxonomy = {
     codeType: 'personal_status_188',
     sections: [
         section('ps188-s1', 'الأحكام العامة والزواج', 1, 21, [
@@ -136,7 +136,7 @@ export const PERSONAL_STATUS_188_TAXONOMY: PersonalStatusLawTaxonomy = {
 };
 
 /** شجرة تصنيف المدونة الجعفرية — قسم ← فرع ← عقدة */
-export const JAAFAARI_CODE_TAXONOMY: PersonalStatusLawTaxonomy = {
+const JAAFAARI_CODE_TAXONOMY: PersonalStatusLawTaxonomy = {
     codeType: 'jaafari_code',
     sections: [
         section('psj-s1', 'المبادئ العامة وعقد الزواج', 1, 18, [
@@ -369,7 +369,7 @@ export function articleMatchesPersonalStatusTaxonomyNode(
     return !isExcludedArticle(n, taxonomyNode.exclude);
 }
 
-export function articleMatchesPersonalStatusTaxonomyBranch(
+function articleMatchesPersonalStatusTaxonomyBranch(
     articleNumber: string,
     taxonomyBranch: PersonalStatusLawTaxonomyBranch,
 ): boolean {
@@ -378,7 +378,7 @@ export function articleMatchesPersonalStatusTaxonomyBranch(
     );
 }
 
-export function articleMatchesPersonalStatusTaxonomySection(
+function articleMatchesPersonalStatusTaxonomySection(
     articleNumber: string,
     taxonomySection: PersonalStatusLawTaxonomySection,
 ): boolean {

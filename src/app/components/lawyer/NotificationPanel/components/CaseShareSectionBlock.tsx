@@ -1,7 +1,7 @@
 import React from 'react';
 import type { LucideIcon } from '@/app/components/ui/lucideIcons';
 import type { CaseShareRecord } from '@/app/services/caseShare/caseShareTypes';
-import { CaseShareIncomingCard } from './CaseShareIncomingCard';
+import { CaseShareCard } from './CaseShareCard';
 
 type Props = {
     testId: string;
@@ -47,7 +47,7 @@ export function CaseShareSectionBlock({
             </h3>
             <div className="space-y-2">
                 {shares.map((share) => (
-                    <CaseShareIncomingCard
+                    <CaseShareCard
                         key={share.id}
                         share={share}
                         userId={userId}

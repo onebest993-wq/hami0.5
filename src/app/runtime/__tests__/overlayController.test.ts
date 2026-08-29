@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    applyOverlayLayerVisible,
     applyOverlayThemeChrome,
     isOverlayThemeActive,
 } from '@/app/runtime/overlayController';
@@ -22,5 +23,20 @@ describe('overlayController', () => {
         expect(meta.getAttribute('content')).toBe('#111111');
 
         meta.remove();
+    });
+
+    it('طبقة ظاهرة تضع aria-hidden=false لا حذف الخاصية', () => {
+        const root = document.createElement('div');
+        root.setAttribute('aria-hidden', 'true');
+        applyOverlayLayerVisible(root, true, {
+            visible: ['is-visible'],
+            hidden: ['is-hidden'],
+        });
+        expect(root.getAttribute('aria-hidden')).toBe('false');
+        applyOverlayLayerVisible(root, false, {
+            visible: ['is-visible'],
+            hidden: ['is-hidden'],
+        });
+        expect(root.getAttribute('aria-hidden')).toBe('true');
     });
 });

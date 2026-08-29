@@ -1,32 +1,30 @@
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import type { AppSettingsState } from '@/app/services/settings/types';
 import {
-    NOTIFICATION_CHANNEL_KEYS,
     type NotificationChannelKey,
     type NotificationChannelPrefs,
     type NotificationSettings,
-    normalizeNotificationSettings,
-    NOTIFICATION_SETTINGS_DEFAULTS,
+    isNotificationInboxChannel,
 } from '@/app/services/settings/notificationSettings';
 import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
+import {
+    getNotificationSettings,
+    isSessionMuted,
+} from '@/app/services/notifications/notificationSessionMute';
 
 const PREFS_CACHE_KEY = 'hami:notification-prefs-cache:v1';
 
 export type { NotificationChannelKey, NotificationChannelPrefs, NotificationSettings };
+export { getNotificationSettings, isSessionMuted };
 
-export function getNotificationSettings(
-    settings: AppSettingsState = getLawyerSettingsSnapshot(),
-): NotificationSettings {
-    return normalizeNotificationSettings(settings.notifications);
+/** سطح الإشعارات النشط: المنتدى + النظام (+ تقويم للتذكيرات الحرجة خارج اللوحة) */
+function isActiveNotificationSurface(channel: NotificationChannelKey): boolean {
+    return isNotificationInboxChannel(channel) || channel === 'calendar';
 }
 
-export function isSessionMuted(settings?: AppSettingsState, now = Date.now()): boolean {
-    const n = getNotificationSettings(settings);
-    return typeof n.sessionMutedUntil === 'number' && now < n.sessionMutedUntil;
-}
-
-function isWithinQuietHours(settings: AppSettingsState, now = new Date()): boolean {
-    const q = getNotificationSettings(settings).quietHours;
+export function isWithinQuietHours(settings?: AppSettingsState, now = new Date()): boolean {
+    const s = settings ?? getLawyerSettingsSnapshot();
+    const q = getNotificationSettings(s).quietHours;
     if (!q.enabled) return false;
     const [sh, sm] = q.start.split(':').map(Number);
     const [eh, em] = q.end.split(':').map(Number);
@@ -58,10 +56,10 @@ function baseAllowed(
     return true;
 }
 
-export function shouldShowSecretaryAlerts(settings?: AppSettingsState): boolean {
+function shouldShowSecretaryAlerts(settings?: AppSettingsState): boolean {
     const s = settings ?? getLawyerSettingsSnapshot();
     const n = getNotificationSettings(s);
-    if (!n.masterEnabled || !n.secretaryEnabled) return false;
+    if (!n.masterEnabled) return false;
     if (isSessionMuted(s)) return false;
     return channelPrefs(s, 'secretary').enabled;
 }
@@ -71,6 +69,7 @@ export function shouldShowChannelInApp(
     settings?: AppSettingsState,
     critical = false,
 ): boolean {
+    if (!isActiveNotificationSurface(channel)) return false;
     const s = settings ?? getLawyerSettingsSnapshot();
     if (!baseAllowed(s, channel, critical)) return false;
     return channelPrefs(s, channel).inApp;
@@ -81,6 +80,7 @@ export function shouldPlayChannelSound(
     settings?: AppSettingsState,
     critical = false,
 ): boolean {
+    if (!isActiveNotificationSurface(channel)) return false;
     const s = settings ?? getLawyerSettingsSnapshot();
     const n = getNotificationSettings(s);
     if (!n.soundMaster) return false;
@@ -93,11 +93,13 @@ export function shouldVibrateChannel(
     settings?: AppSettingsState,
     critical = false,
 ): boolean {
+    if (!isActiveNotificationSurface(channel)) return false;
     const s = settings ?? getLawyerSettingsSnapshot();
     const n = getNotificationSettings(s);
     if (!n.vibrateMaster) return false;
     if (!baseAllowed(s, channel, critical)) return false;
-    return channelPrefs(s, channel).sound;
+    /* الاهتزاز مستقل عن صوت القناة — يُحكم بـ vibrateMaster + تفعيل القناة */
+    return channelPrefs(s, channel).enabled;
 }
 
 export function shouldSendOsPush(
@@ -105,6 +107,7 @@ export function shouldSendOsPush(
     settings?: AppSettingsState,
     critical = false,
 ): boolean {
+    if (!isActiveNotificationSurface(channel)) return false;
     const s = settings ?? getLawyerSettingsSnapshot();
     if (!baseAllowed(s, channel, critical)) return false;
     return channelPrefs(s, channel).push;
@@ -152,7 +155,6 @@ export function alertNotificationChannel(alert: SecretaryAlert): NotificationCha
             return 'execution';
         case 'lawsuit':
         case 'urgent':
-        case 'client_requests':
             return 'lawsuits';
         case 'notepad':
             return null;
@@ -170,7 +172,7 @@ export function filterAlertsByNotificationPolicy(
     const quiet = isWithinQuietHours(settings);
     return alerts.filter((alert) => {
         const channel = alertNotificationChannel(alert);
-        if (!channel) return false;
+        if (!channel || !isNotificationInboxChannel(channel)) return false;
         const critical = alert.priority <= 1;
         if (!shouldShowChannelInApp(channel, settings, critical)) return false;
         if (quiet && !critical) return false;
@@ -178,43 +180,22 @@ export function filterAlertsByNotificationPolicy(
     });
 }
 
-export function cacheNotificationPrefsForBackground(settings: AppSettingsState): void {
-    const payload = {
-        at: Date.now(),
-        notifications: getNotificationSettings(settings),
-    };
-    const json = JSON.stringify(payload);
-
+export function cacheNotificationPrefsForBackground(_settings: AppSettingsState): void {
+    /*
+     * سابقاً: كتابة plaintext إلى localStorage + Cache API دون قارئ.
+     * التفضيلات الحساسة تعيش أصلاً داخل `lawyer_settings` المشفّر.
+     * هنا نمسح أي بقايا قديمة فقط — لا نعيد كتابة نص صريح على الجهاز.
+     */
     if (typeof localStorage !== 'undefined') {
         try {
-            localStorage.setItem(PREFS_CACHE_KEY, json);
+            localStorage.removeItem(PREFS_CACHE_KEY);
         } catch {
             /* ignore */
         }
     }
 
     if (typeof caches !== 'undefined') {
-        void caches.open('hami-notification-prefs-v1').then((cache) => {
-            return cache.put(
-                'https://hami.local/notification-prefs',
-                new Response(json, { headers: { 'Content-Type': 'application/json' } }),
-            );
-        });
+        void caches.delete('hami-notification-prefs-v1').catch(() => undefined);
     }
 }
 
-export function readCachedNotificationPrefs(): NotificationSettings {
-    if (typeof localStorage === 'undefined') return NOTIFICATION_SETTINGS_DEFAULTS;
-    try {
-        const raw = localStorage.getItem(PREFS_CACHE_KEY);
-        if (!raw) return NOTIFICATION_SETTINGS_DEFAULTS;
-        const parsed = JSON.parse(raw) as { notifications?: unknown };
-        return normalizeNotificationSettings(parsed.notifications);
-    } catch {
-        return NOTIFICATION_SETTINGS_DEFAULTS;
-    }
-}
-
-export function listNotificationChannels(): NotificationChannelKey[] {
-    return [...NOTIFICATION_CHANNEL_KEYS];
-}

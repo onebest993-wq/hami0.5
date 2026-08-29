@@ -1,3 +1,7 @@
+/**
+ * أدوات أرشيف جزائي غنية — تُسحب مع CriminalArchiveCard فقط.
+ * البحث/الشبكة يستخدمان criminalArchiveReferenceLite بلا presentation core.
+ */
 import {
     formatCriminalStageLabel,
     formatInvestigationDepositLocation,
@@ -53,25 +57,4 @@ export function criminalStageBadgeClass(stage: string): string {
 export function criminalStageLabel(stage: string, c: Record<string, unknown>): string {
     const defs = Array.isArray(c.defendants) ? c.defendants : [];
     return formatCriminalStageLabel(stage, hasJuvenileAccused(defs));
-}
-
-export function criminalSearchHaystack(c: Record<string, unknown>): string {
-    const ref = criminalCaseReference(c);
-    const basics = (c.basics && typeof c.basics === 'object' ? c.basics : {}) as Record<string, unknown>;
-    const complainants = Array.isArray(c.complainants) ? c.complainants : [];
-    const defendants = Array.isArray(c.defendants) ? c.defendants : [];
-    const parts = [
-        ref.primary,
-        ref.secondary,
-        String(basics.legalArticle ?? ''),
-        String(basics.crimeType ?? ''),
-        String(c.notes ?? ''),
-        ...complainants.map((p) =>
-            p && typeof p === 'object' ? String((p as { fullName?: string; name?: string }).fullName ?? (p as { name?: string }).name ?? '') : '',
-        ),
-        ...defendants.map((p) =>
-            p && typeof p === 'object' ? String((p as { fullName?: string; name?: string }).fullName ?? (p as { name?: string }).name ?? '') : '',
-        ),
-    ];
-    return parts.join(' ').toLowerCase();
 }

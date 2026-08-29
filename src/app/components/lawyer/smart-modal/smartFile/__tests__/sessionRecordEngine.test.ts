@@ -3,13 +3,17 @@ import type { TimelineEvent } from '../../../LawyerShared';
 import {
     buildOpponentProceedingsPayload,
     buildSessionRecordPayload,
+    collectUniqueHearingDates,
     computeNextSessionNumber,
+    findCourtSessionRecordForDate,
     isOpponentProceedingsEvent,
     isSessionTimelineEvent,
     parseSessionRecordEvent,
+    sessionNumberForHearingDate,
     suggestCurrentHearingDate,
     suggestNextHearingDate,
 } from '../sessionRecordEngine';
+import { shouldOpenAppointmentEditor } from '../timelineLegalDeadline';
 
 describe('sessionRecordEngine', () => {
     it('detects session timeline events', () => {
@@ -18,12 +22,30 @@ describe('sessionRecordEngine', () => {
         expect(isSessionTimelineEvent({ id: '3', type: 'note', date: '2026-01-01', title: 'ملاحظة' })).toBe(false);
     });
 
-    it('computes next session number from records and pleading appointments', () => {
+    it('computes next session number from unique unrecorded hearing dates', () => {
         const timeline: TimelineEvent[] = [
-            { id: 'a', type: 'decision', date: '2026-01-01', title: 'محضر الجلسة 2', isSessionRecord: true },
+            { id: 'a', type: 'decision', date: '2026-01-01', title: 'محضر الجلسة 1', isSessionRecord: true },
             { id: 'b', type: 'appointment', date: '2026-02-01', title: 'جلسة', subType: 'pleading' },
         ];
-        expect(computeNextSessionNumber(timeline)).toBe(3);
+        expect(computeNextSessionNumber(timeline)).toBe(2);
+    });
+
+    it('keeps one session number when first hearing and a pleading share the same day', () => {
+        const timeline: TimelineEvent[] = [
+            { id: 'b', type: 'appointment', date: '2026-01-15', title: 'مرافعة', subType: 'pleading' },
+        ];
+        expect(computeNextSessionNumber(timeline, '2026-01-15')).toBe(1);
+        expect(sessionNumberForHearingDate(collectUniqueHearingDates(timeline, '2026-01-15'), '2026-01-15')).toBe(1);
+    });
+
+    it('finds the court session for a hearing date and rejects a second record on that day', () => {
+        const timeline: TimelineEvent[] = [
+            { id: 'a', type: 'decision', date: '2026-01-01', title: 'محضر الجلسة 1', isSessionRecord: true },
+            { id: 'b', type: 'appointment', date: '2026-01-01', title: 'مرافعة', subType: 'pleading' },
+        ];
+        expect(findCourtSessionRecordForDate(timeline, '2026-01-01')?.id).toBe('a');
+        expect(collectUniqueHearingDates(timeline, '2026-01-01')).toEqual(['2026-01-01']);
+        expect(computeNextSessionNumber(timeline, '2026-01-01')).toBe(2);
     });
 
     it('parses and builds session record payload with judge decisions and next date', () => {
@@ -105,5 +127,32 @@ describe('sessionRecordEngine', () => {
             isOpponentProceedings: true,
             details: expect.stringContaining('اعتراض شفهي'),
         });
+    });
+
+    it('opens the appointment editor only for non-hearing appointments', () => {
+        const pleading: TimelineEvent = {
+            id: 'p',
+            type: 'appointment',
+            date: '2026-01-01',
+            title: 'مرافعة',
+            subType: 'pleading',
+        };
+        const other: TimelineEvent = {
+            id: 'x',
+            type: 'appointment',
+            date: '2026-01-02',
+            title: 'استماع شهود',
+        };
+        expect(shouldOpenAppointmentEditor(pleading)).toBe(false);
+        expect(shouldOpenAppointmentEditor(other)).toBe(true);
+        expect(
+            shouldOpenAppointmentEditor({
+                id: 's',
+                type: 'decision',
+                date: '2026-01-01',
+                title: 'محضر الجلسة 1',
+                isSessionRecord: true,
+            }),
+        ).toBe(false);
     });
 });

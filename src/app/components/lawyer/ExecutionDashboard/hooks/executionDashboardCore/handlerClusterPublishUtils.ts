@@ -37,10 +37,23 @@ export function mergeHandlerClusterPatch(
             let bagChanged = false;
             const mergedBag: Record<string, unknown> = { ...curBag };
             for (const bagKey of bagKeys) {
-                if (!Object.is(curBag[bagKey], nextBag[bagKey])) {
+                if (!(bagKey in nextBag)) {
+                    delete mergedBag[bagKey];
+                    bagChanged = true;
+                    continue;
+                }
+                if (!(bagKey in curBag)) {
                     mergedBag[bagKey] = nextBag[bagKey];
                     bagChanged = true;
+                    continue;
                 }
+                if (Object.is(curBag[bagKey], nextBag[bagKey])) continue;
+                const curEntry = curBag[bagKey];
+                const nextEntry = nextBag[bagKey];
+                /* تجاهل إعادة إنشاء الدوال — المفتاح فقط يُطلق republish */
+                if (typeof curEntry === 'function' && typeof nextEntry === 'function') continue;
+                mergedBag[bagKey] = nextEntry;
+                bagChanged = true;
             }
             if (bagChanged) {
                 merged[key] = mergedBag;
@@ -54,13 +67,6 @@ export function mergeHandlerClusterPatch(
     }
 
     return changed ? merged : current;
-}
-
-export function handlerClusterPatchMeaningfullyChanged(
-    current: Record<string, unknown>,
-    next: Record<string, unknown>,
-): boolean {
-    return !Object.is(mergeHandlerClusterPatch(current, next), current);
 }
 
 export function usePublishHandlerClusterWhenFingerprintChanges(

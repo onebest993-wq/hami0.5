@@ -3,7 +3,7 @@ import type { CaseStage } from '../../LawyerShared';
 import { buildInitialStagesFromFile } from '../smartFile/stageInit';
 import { buildInitialParentDataFromFile } from '../smartFile/parentDataInit';
 import { useSmartFileStageNavigation } from './useSmartFileStageNavigation';
-import { useAuthUser } from '@/app/context/AuthContext';
+import { useAuthUser } from '@/app/context/authHooks';
 import { useSmartFilePersist } from './useSmartFilePersist';
 import { useSmartFileModalFlags } from './useSmartFileModalFlags';
 import { useSmartFileModalCaseStatus } from './useSmartFileModalCaseStatus';
@@ -64,7 +64,6 @@ export function useSmartFileModalOrchestrator(props: SmartFileModalProps) {
         viewingStageIndex: navigation.viewingStageIndex,
         setActiveStageIndex: navigation.setActiveStageIndex,
         setViewingStageIndex: navigation.setViewingStageIndex,
-        saveToCloud,
         calendarUserId: user?.id,
     });
 
@@ -115,7 +114,7 @@ export function useSmartFileModalOrchestrator(props: SmartFileModalProps) {
 
     useEffect(() => {
         if (!file?.id) return;
-        void import('../SmartFileModals');
+        void import('../layout/SmartFileModalsPortal');
     }, [file?.id]);
 
     if (!file || !navigation.currentStage) {

@@ -13,11 +13,19 @@ const DYNAMIC = path.join(
     ROOT,
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoreDynamicScope.ts',
 );
+if (!fs.existsSync(DYNAMIC)) {
+    console.log('[spent] buildExecutionDashboardCoreDynamicScope.ts — skip');
+    process.exit(0);
+}
 const RESOLVER = path.join(ROOT, 'scripts/lib/resolveExecutionChunkScopeKeys.mjs');
 const COERCIVE_BAG = path.join(
     ROOT,
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoerciveScopeBag.ts',
 );
+if (!fs.existsSync(COERCIVE_BAG)) {
+    console.log('[spent] coercive scope bag — skip');
+    process.exit(0);
+}
 
 const COERCIVE_KEY_PATTERN =
     /coercive|Coercive|forced|Forced|employee|Employee|summoning|Summoning|earner|Earner|notifyDebtor|DebtorEvasion|registerDebtorVoluntary|syncActiveCoercive|saveCoerciveAction|policeAssistance|PoliceAssistance|publicationModal|Publication|solidaryCoercive|SolidaryCoercive|stayOfExecution|StayOfExecution|warrant|Warrant|arrest|Arrest|investigation|Investigation/i;
@@ -157,6 +165,9 @@ fs.writeFileSync(DYNAMIC, newDynamic, 'utf8');
 // Patch resolver
 let resolver = fs.readFileSync(RESOLVER, 'utf8');
 if (!resolver.includes('COERCIVE_BAG_PATH')) {
+    void fs.existsSync(
+        'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoerciveScopeBag.ts',
+    );
     resolver = resolver.replace(
         'const FOLLOWUP_BAG_PATH =',
         `const COERCIVE_BAG_PATH =

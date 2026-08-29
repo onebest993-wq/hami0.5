@@ -1,13 +1,10 @@
 /**
  * اختبارات الـ hook الذي يُغذّي بطاقة «التنبيهات» في البطاقة العامة.
  *
- * يتحقّق من:
- *  1) صحّة التصنيف الزمني (urgent / near / upcoming) بالعدّ وبالـ IDs
- *  2) ترتيب الأولويات داخل كل دلو (priority → critical أولاً)
- *  3) الكسل (lazy mapping): استدعاء أفقٍ واحد لا يولّد بقية الأفقيات
- *  4) المرجعية الثابتة (referential stability) بين الاستعلامين المتتاليين
- *  5) إعادة الاستخدام: لا يُغيِّر mapAndSort مرجع الناتج إذا لم يتغيّر classified
- *  6) التزامن: alertsForFilter و sourcesForFilter يُرجعان قوائم متطابقة الـ IDs
+ * نموذج التصنيف الحالي (طبقتان فعليتان):
+ *  - urgent: خلال ٤٨ ساعة أو اليوم/غداً (أيام)
+ *  - upcoming: ما بعد ٤٨ ساعة ولغاية ٩٦ ساعة (أو ٢–٤ أيام)
+ *  - near: دلو تراثي فارغ — `alertsForFilter('near')` يُعاد توجيهه إلى upcoming للتوافق
  */
 import { describe, expect, it } from 'vitest';
 import { renderHook } from '@testing-library/react';
@@ -35,33 +32,28 @@ function makeAlert(
 }
 
 describe('useNeuralAlertsFromSecretary', () => {
-    it('1) يقسّم التنبيهات على الأفقيات الثلاثة بدقّة', () => {
+    it('1) يقسّم التنبيهات على العاجل والقادم بدقّة', () => {
         const alerts = [
-            makeAlert({ id: 'u1', hoursAhead: 6 }),  // عاجل
-            makeAlert({ id: 'u2', hoursAhead: 18 }), // عاجل
-            makeAlert({ id: 'n1', hoursAhead: 48 }), // قريبة
-            makeAlert({ id: 'up1', hoursAhead: 120 }), // قادمة
+            makeAlert({ id: 'u1', hoursAhead: 6 }),
+            makeAlert({ id: 'u2', hoursAhead: 18 }),
+            makeAlert({ id: 'up1', hoursAhead: 72 }),
+            makeAlert({ id: 'up2', hoursAhead: 90 }),
         ];
         const { result } = renderHook(() => useNeuralAlertsFromSecretary(alerts));
 
-        expect(result.current.counts).toEqual({ urgent: 2, near: 1, upcoming: 1 });
+        expect(result.current.counts).toEqual({ urgent: 2, near: 0, upcoming: 2 });
         expect(result.current.carouselTotal).toBe(4);
 
-        const urgent = result.current.alertsForFilter('urgent');
-        expect(urgent.map((a) => a.id).sort()).toEqual(['u1', 'u2']);
-
-        const near = result.current.alertsForFilter('near');
-        expect(near.map((a) => a.id)).toEqual(['n1']);
-
-        const upcoming = result.current.alertsForFilter('upcoming');
-        expect(upcoming.map((a) => a.id)).toEqual(['up1']);
+        expect(result.current.alertsForFilter('urgent').map((a) => a.id).sort()).toEqual(['u1', 'u2']);
+        expect(result.current.alertsForFilter('upcoming').map((a) => a.id).sort()).toEqual(['up1', 'up2']);
+        expect(result.current.alertsForFilter('near').map((a) => a.id).sort()).toEqual(['up1', 'up2']);
     });
 
     it('2) يرتّب داخل الدلو حسب الأولوية (critical قبل high قبل medium)', () => {
         const alerts = [
-            makeAlert({ id: 'medium', hoursAhead: 6, priority: 4 }), // -> medium
-            makeAlert({ id: 'high', hoursAhead: 6, priority: 2 }),   // -> high
-            makeAlert({ id: 'critical', hoursAhead: 6, priority: 1 }), // -> critical
+            makeAlert({ id: 'medium', hoursAhead: 6, priority: 4 }),
+            makeAlert({ id: 'high', hoursAhead: 6, priority: 2 }),
+            makeAlert({ id: 'critical', hoursAhead: 6, priority: 1 }),
         ];
         const { result } = renderHook(() => useNeuralAlertsFromSecretary(alerts));
         const ids = result.current.alertsForFilter('urgent').map((a) => a.id);
@@ -71,17 +63,12 @@ describe('useNeuralAlertsFromSecretary', () => {
     it('3) Lazy mapping: استدعاء أفقٍ واحد لا يبني البقية ضمنياً', () => {
         const alerts = [
             makeAlert({ id: 'u', hoursAhead: 6 }),
-            makeAlert({ id: 'n', hoursAhead: 48 }),
-            makeAlert({ id: 'up', hoursAhead: 120 }),
+            makeAlert({ id: 'up', hoursAhead: 72 }),
         ];
         const { result } = renderHook(() => useNeuralAlertsFromSecretary(alerts));
 
-        // العدّ متاح فوراً دون الحاجة لتخريط أي أفق
-        expect(result.current.counts.urgent).toBe(1);
-        expect(result.current.counts.near).toBe(1);
-        expect(result.current.counts.upcoming).toBe(1);
+        expect(result.current.counts).toEqual({ urgent: 1, near: 0, upcoming: 1 });
 
-        // طلب أفق واحد فقط
         const urgent = result.current.alertsForFilter('urgent');
         expect(urgent).toHaveLength(1);
         expect(urgent[0]!.id).toBe('u');
@@ -96,7 +83,6 @@ describe('useNeuralAlertsFromSecretary', () => {
     });
 
     it('5) إعادة التهيئة عند تغيّر مرجع classified (إعادة تخريط)', () => {
-        // عند تغيّر قائمة التنبيهات، يجب أن نحصل على مرجع جديد للقائمة المُخرَّطة
         const alertsA = [makeAlert({ id: 'a', hoursAhead: 6 })];
         const alertsB = [makeAlert({ id: 'b', hoursAhead: 6 })];
 
@@ -116,7 +102,7 @@ describe('useNeuralAlertsFromSecretary', () => {
     it('6) sourcesForFilter يُطابق alertsForFilter في الـ IDs (لا تنبيه دون مصدر)', () => {
         const alerts = [
             makeAlert({ id: 'u1', hoursAhead: 6 }),
-            makeAlert({ id: 'n1', hoursAhead: 48 }),
+            makeAlert({ id: 'up1', hoursAhead: 72 }),
         ];
         const { result } = renderHook(() => useNeuralAlertsFromSecretary(alerts));
 
@@ -135,19 +121,19 @@ describe('useNeuralAlertsFromSecretary', () => {
         expect(result.current.sourcesForFilter('urgent')).toEqual([]);
     });
 
-    it('8) تنبيهات بلا dueAt من نوع REQUEST → عاجل افتراضياً', () => {
+    it('8) تنبيهات بلا dueAt لا تُصنَّف عاجلاً افتراضياً', () => {
         const alerts: SecretaryAlert[] = [
             makeAlert({
                 id: 'req1',
-                type: 'REQUEST',
-                target: 'client_requests',
+                type: 'TASK',
+                target: 'notepad',
                 hoursAhead: undefined,
                 dueAt: undefined,
             }),
-            makeAlert({ id: 'ignored', hoursAhead: undefined, dueAt: undefined }), // بدون dueAt → مُتجاهَل
+            makeAlert({ id: 'ignored', hoursAhead: undefined, dueAt: undefined }),
         ];
         const { result } = renderHook(() => useNeuralAlertsFromSecretary(alerts));
-        expect(result.current.alertsForFilter('urgent').map((a) => a.id)).toEqual(['req1']);
-        expect(result.current.carouselTotal).toBe(1);
+        expect(result.current.alertsForFilter('urgent').map((a) => a.id)).toEqual([]);
+        expect(result.current.carouselTotal).toBe(0);
     });
 });

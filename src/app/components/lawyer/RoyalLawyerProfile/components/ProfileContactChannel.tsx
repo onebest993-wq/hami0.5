@@ -6,9 +6,12 @@ import {
     resolveLocationMode,
 } from '@/app/services/profile/profileContactNavigation';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { Copy, ChevronLeft, MapPin } from '@/app/components/ui/lucideIcons';
+import { Copy } from '@/app/components/ui/icons/Copy';
+import { ChevronLeft } from '@/app/components/ui/icons/ChevronLeft';
+import { MapPin } from '@/app/components/ui/icons/MapPin';
 import { ActionIcon } from './ActionIcon';
 import { withAllowedClipboardAction } from '@/app/runtime/screenshotDeterrentRuntime';
+import { safeProfileContactClipboardText } from '@/app/services/profile/profileContactInputSecurity';
 
 type ProfileContactChannelProps = {
     action: ProfileAction;
@@ -46,7 +49,12 @@ export function ProfileContactChannel({ action }: ProfileContactChannelProps) {
             onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                void copyValue(action.value);
+                const text = safeProfileContactClipboardText(action.value);
+                if (!text) {
+                    SmartToast.error('بيانات التواصل غير صالحة — عدّلها من «تعديل»');
+                    return;
+                }
+                void copyValue(text);
             }}
             aria-label="نسخ"
         >
@@ -111,7 +119,11 @@ export function ProfileContactChannel({ action }: ProfileContactChannelProps) {
     );
 
     return (
-        <div className="flex items-stretch gap-1" data-testid="profile-contact-channel-row">
+        <div
+            className="flex items-stretch gap-1"
+            data-testid="profile-contact-channel-row"
+            data-contact-type={action.type}
+        >
             <div className="min-w-0 flex-1">{openControl}</div>
             {copyControl}
         </div>

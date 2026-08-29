@@ -1,16 +1,13 @@
-export const HAMI_SUPPORT_EMAIL = 'support@hami.app';
+import { clientEnv } from '@/config/clientEnv';
 
-/** رقم واتساب الدعم الفني — بدون + في التخزين */
-export const HAMI_SUPPORT_WHATSAPP_DIGITS = '9647811102199';
-
-export const HAMI_SUPPORT_WHATSAPP_DISPLAY = '+964 781 110 2199';
-
-export function buildHamiSupportWhatsAppUrl(text?: string): string {
-    const base = `https://wa.me/${HAMI_SUPPORT_WHATSAPP_DIGITS}`;
-    if (!text?.trim()) return base;
-    return `${base}?text=${encodeURIComponent(text.trim())}`;
-}
+/**
+ * بريد الدعم العام — عبر `clientEnv.supportEmail` فقط (لا بريد إداري هنا).
+ * المصدر: `VITE_APP_SUPPORT_EMAIL`.
+ */
+export const HAMI_SUPPORT_EMAIL = clientEnv.supportEmail;
 
 export function buildHamiSupportMailtoUrl(subject = 'دعم فني - حامي'): string {
-    return `mailto:${HAMI_SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}`;
+    const email = clientEnv.supportEmail;
+    if (!email) return 'mailto:?subject=' + encodeURIComponent(subject);
+    return `mailto:${email}?subject=${encodeURIComponent(subject)}`;
 }

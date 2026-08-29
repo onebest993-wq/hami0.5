@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
-import { resolveUnifiedCalendarEventsForScan } from '@/app/components/lawyer/hooks/useCalendarData';
 import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
 
 /** أحداث التقويم للمسح العنقودي — من الكاش المحلي دون حجب الواجهة */
@@ -21,8 +20,13 @@ export function useCalendarEventsForClusterScan(
             return;
         }
 
+        let cancelled = false;
         const sync = () => {
-            setCalendarEvents(resolveUnifiedCalendarEventsForScan(uid));
+            void import('@/app/components/lawyer/hooks/useCalendarData')
+                .then((m) => {
+                    if (!cancelled) setCalendarEvents(m.resolveUnifiedCalendarEventsForScan(uid));
+                })
+                .catch(() => undefined);
         };
 
         sync();
@@ -30,6 +34,7 @@ export function useCalendarEventsForClusterScan(
         const onCalendarUpdated = () => sync();
         window.addEventListener(CALENDAR_UPDATED_EVENT, onCalendarUpdated);
         return () => {
+            cancelled = true;
             window.removeEventListener(CALENDAR_UPDATED_EVENT, onCalendarUpdated);
         };
     }, [enabled, userId]);

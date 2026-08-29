@@ -1,0 +1,22 @@
+{
+  "savedAt": "2026-08-28T14:12:00.000Z",
+  "slackKb": 40,
+  "budgets": {
+    "src/app/components/lawyer/ArchivePortal/LawsuitArchiveChrome.tsx": {
+      "maxKb": 174,
+      "modules": 45
+    },
+    "src/app/components/lawyer/ArchivePortal/components/LawsuitArchiveFileGrid.tsx": {
+      "maxKb": 129,
+      "modules": 30
+    },
+    "src/app/components/lawyer/ArchivePortal/ExecutionArchiveChrome.tsx": {
+      "maxKb": 802,
+      "modules": 109
+    },
+    "src/app/components/lawyer/ArchivePortal/components/ExecutionArchiveFileGrid.tsx": {
+      "maxKb": 744,
+      "modules": 98
+    }
+  }
+}

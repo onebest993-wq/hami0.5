@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C Slice 21 — دوال ثابتة لحقائب chunk scope (imports موثّقة) */
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { getExecutionPartyDisplayName } from '@/app/utils/partyDisplayName';

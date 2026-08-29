@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C Slice 16 — ربط موعد مزاد الحجز بالتقويم عبر executorApprovalActions */
 import { useCallback } from 'react';
 import type { ExecutorApprovalActions } from '../../executionDashboardRuntimeChunkScope';

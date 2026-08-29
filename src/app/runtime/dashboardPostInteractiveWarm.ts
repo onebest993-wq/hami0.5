@@ -6,6 +6,7 @@ import { scheduleDeferredFeatureStyles } from '@/app/runtime/deferredFeatureStyl
 import {
     resetHeavyDashboardSectionWarmForTests,
     scheduleHeavyDashboardSectionWarm,
+    scheduleLawsuitArchiveEarlyWarm,
 } from '@/app/runtime/heavyDashboardSectionWarm';
 
 function loadHeaderShellIntentWarm() {
@@ -19,6 +20,7 @@ function loadProfileBootHydrator() {
 let postInteractiveWarmStarted = false;
 let cancelPendingWarm: (() => void) | null = null;
 let cancelHeavyWarm: (() => void) | null = null;
+let cancelLawsuitEarlyWarm: (() => void) | null = null;
 let unbindProfileBoot: (() => void) | null = null;
 
 export function resetDashboardPostInteractiveWarmForTests(): void {
@@ -31,6 +33,8 @@ export function resetDashboardPostInteractiveWarmForTests(): void {
     resetHeavyDashboardSectionWarmForTests();
     cancelHeavyWarm?.();
     cancelHeavyWarm = null;
+    cancelLawsuitEarlyWarm?.();
+    cancelLawsuitEarlyWarm = null;
     void loadHeaderShellIntentWarm()
         .then((m) => m.resetHeaderShellIntentWarmForTests())
         .catch(() => undefined);
@@ -41,7 +45,7 @@ export function resetDashboardPostInteractiveWarmForTests(): void {
 
 async function settingsAllowBackgroundWarm(): Promise<boolean> {
     try {
-        const { getLawyerSettingsSnapshot } = await import('@/app/services/settings/settingsRuntime');
+        const { getLawyerSettingsSnapshot } = await import('@/app/services/settings/settingsSnapshot');
         const s = getLawyerSettingsSnapshot();
         if (s.security.localOnlyMode) return false;
         return s.performance.prefetchScreens !== false;
@@ -81,6 +85,9 @@ export function scheduleDashboardPostInteractiveWarm(userId?: string | null): vo
     void import('@/app/runtime/homeHubCardLoader')
         .then((m) => m.prefetchLawyerHomeHubCardModule())
         .catch(() => undefined);
+    void import('@/app/runtime/profileInstantPaint').catch(() => undefined);
+    void import('@/app/stores/caseStore').catch(() => undefined);
+    void import('@/app/stores/notificationStore').catch(() => undefined);
 
     cancelPendingWarm = scheduleIdleWork(runLightShellWarm, {
         minDelayMs: import.meta.env.DEV ? 4_000 : 15_000,
@@ -88,6 +95,7 @@ export function scheduleDashboardPostInteractiveWarm(userId?: string | null): vo
     });
 
     cancelHeavyWarm = scheduleHeavyDashboardSectionWarm();
+    cancelLawsuitEarlyWarm = scheduleLawsuitArchiveEarlyWarm();
 }
 
 /** يُستدعى مرة واحدة من runtime effects — ينتظر boot-content-ready قبل أي warm */
@@ -103,6 +111,8 @@ export function bindDashboardPostInteractiveWarm(userId?: string | null): () => 
         cancelPendingWarm = null;
         cancelHeavyWarm?.();
         cancelHeavyWarm = null;
+        cancelLawsuitEarlyWarm?.();
+        cancelLawsuitEarlyWarm = null;
         unbindProfileBoot?.();
         unbindProfileBoot = null;
         /* أعد السماح بالتسخين — وإلا تبديل userId يترك hydrator ميتاً */

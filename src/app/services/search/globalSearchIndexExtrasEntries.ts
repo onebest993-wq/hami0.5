@@ -3,7 +3,6 @@ import type { CommunityPost } from '@/app/services/forum/forumTypes';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import {
     TransactionStatus,
-    type FinanceRecord,
     type Transaction,
     type TransactionTask,
 } from '@/app/modules/transactionsThreading/types';
@@ -33,19 +32,17 @@ export function quantumTaskToEntry(t: LegalTask, fileLifecycleById: Map<string, 
 }
 
 export function calendarToEntry(e: CalendarEvent, fileLifecycleById: Map<string, SearchLifecycle>): GlobalSearchEntry {
-    const text = `${e.title} ${e.notes || ''} ${e.clientName || ''} ${e.location || ''} ${e.caseNo || ''} ${e.court || ''}`;
+    const text = `${e.title} ${e.notes || ''} ${e.clientName || ''} ${e.location || ''} ${e.caseNo || ''} ${e.court || ''} ${e.caseId || ''}`;
     const linkedLifecycle = e.caseId ? fileLifecycleById.get(String(e.caseId)) : undefined;
     return withLifecycle(
         {
             id: `cal-${e.id}`,
             category: 'calendar',
             title: e.title,
-            subtitle: `${e.date}${e.time ? ` ${e.time}` : ''}${e.clientName ? ` • ${e.clientName}` : ''}`,
+            subtitle: `${e.date}${e.time ? ` ${e.time}` : ''}${e.clientName ? ` • ${e.clientName}` : ''}${e.caseNo ? ` • ${e.caseNo}` : ''}`,
             snippet: e.notes,
             _searchStr: norm(text),
-            navigate: e.caseId
-                ? { type: 'file', fileId: e.caseId }
-                : { type: 'calendar', eventId: e.id, date: e.date },
+            navigate: { type: 'calendar', eventId: e.id, date: e.date },
         },
         linkedLifecycle ?? LIFECYCLE_ACTIVE,
     );
@@ -176,19 +173,4 @@ export function communityPostToEntries(p: CommunityPost): GlobalSearchEntry[] {
         );
     }
     return entries;
-}
-
-export function financeToEntry(f: FinanceRecord, txTitle: string, transactionId: string): GlobalSearchEntry {
-    const text = `${f.description} ${f.amount} ${f.type} ${txTitle}`;
-    return withLifecycle(
-        {
-            id: `fin-${f.id}`,
-            category: 'finance',
-            title: f.description || `${f.amount}`,
-            subtitle: `مالية — ${txTitle}`,
-            _searchStr: norm(text),
-            navigate: { type: 'transactions', transactionId },
-        },
-        LIFECYCLE_ACTIVE,
-    );
 }

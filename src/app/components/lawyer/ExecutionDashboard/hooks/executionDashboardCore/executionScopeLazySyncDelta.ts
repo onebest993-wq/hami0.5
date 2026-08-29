@@ -135,7 +135,7 @@ export const EXECUTION_LAZY_SYNC_DRAFT_CHURN_KEYS = new Set<string>([
 ]);
 
 /** دوال يجب أن تُقارن بالمرجع — تجميدها يكسر الحفظ/الفتح */
-export const EXECUTION_LAZY_SYNC_CRITICAL_HANDLER_KEYS = new Set<string>([
+const EXECUTION_LAZY_SYNC_CRITICAL_HANDLER_KEYS = new Set<string>([
     'persistExecutionMerge',
     'pushTimelineEvent',
     'openDecisionsModalWithBoot',
@@ -163,7 +163,7 @@ export const EXECUTION_LAZY_SYNC_CRITICAL_HANDLER_KEYS = new Set<string>([
  * أيقونات lucide / وحدات UI ثابتة الاستيراد — مقارنة بالمرجع فقط
  * (تجنّب deep-walk عديم الفائدة على مسار ~468 مفتاحاً).
  */
-export const EXECUTION_LAZY_SYNC_STABLE_UI_MODULE_KEYS = new Set<string>([
+const EXECUTION_LAZY_SYNC_STABLE_UI_MODULE_KEYS = new Set<string>([
     'Activity',
     'AlertCircle',
     'AlertTriangle',
@@ -221,7 +221,7 @@ export function fingerprintLazySyncPrimitiveBucket(scope: Record<string, unknown
     return out;
 }
 
-export function isPlainComparableObject(value: unknown): value is Record<string, unknown> {
+function isPlainComparableObject(value: unknown): value is Record<string, unknown> {
     if (value == null || typeof value !== 'object' || Array.isArray(value)) {
         return false;
     }

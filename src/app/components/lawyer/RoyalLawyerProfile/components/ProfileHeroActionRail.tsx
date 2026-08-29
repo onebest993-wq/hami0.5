@@ -1,12 +1,14 @@
 import React, { memo } from 'react';
-import { Pencil, Sparkles, UserCheck, UserPlus } from '@/app/components/ui/lucideIcons';
+import { Pencil } from '@/app/components/ui/icons/Pencil';
+import { Sparkles } from '@/app/components/ui/icons/Sparkles';
+import { UserCheck } from '@/app/components/ui/icons/UserCheck';
+import { UserPlus } from '@/app/components/ui/icons/UserPlus';
 import type { ForumProfileFollowState } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 import type { ProfilePageAccess } from '@/app/services/profile/profilePageTypes';
-import {
-    ProfilePageAccessControl,
-} from './ProfilePageAccessControl';
+import { ProfilePageAccessControl } from './ProfilePageAccessControl';
+import { isPrimaryDragPointer } from '@/app/components/lawyer/RoyalLawyerProfile/utils/profilePointerDrag';
 
-export type ProfileHeroActionRailProps = {
+type ProfileHeroActionRailProps = {
     readOnly: boolean;
     forumFollow?: ForumProfileFollowState;
     showForumSocial: boolean;
@@ -38,7 +40,7 @@ export const ProfileHeroActionRail = memo(function ProfileHeroActionRail({
     onStudioWarm,
 }: ProfileHeroActionRailProps) {
     return (
-        <div className="hami-profile-sigil-deck" data-testid="lawyer-profile-action-rail">
+        <div className="hami-profile-hero-rail" data-testid="lawyer-profile-action-rail">
             {showForumSocial && forumFollow ? (
                 <button
                     type="button"
@@ -47,69 +49,56 @@ export const ProfileHeroActionRail = memo(function ProfileHeroActionRail({
                     className={`hami-profile-sigil-follow ${forumFollow.isFollowing ? 'is-following' : ''}`}
                     data-testid="lawyer-profile-follow"
                 >
-                    <span className="hami-profile-sigil-follow-glyph" aria-hidden>
-                        {forumFollow.isFollowing ? <UserCheck size={16} /> : <UserPlus size={16} />}
-                    </span>
-                    <span className="hami-profile-sigil-follow-text">
-                        {forumFollow.isFollowing ? 'متابَع' : 'متابعة'}
-                    </span>
+                    {forumFollow.isFollowing ? <UserCheck size={15} /> : <UserPlus size={15} />}
+                    {forumFollow.isFollowing ? 'متابَع' : 'متابعة'}
                 </button>
             ) : null}
 
             {!readOnly ? (
-                <>
-                    <div className="hami-profile-sigil-constellation" aria-label="أدوات الصفحة">
-                        {pageAccess && onCyclePageAccess ? (
-                            <ProfilePageAccessControl
-                                pageAccess={pageAccess}
-                                busy={pageAccessBusy}
-                                onCycle={onCyclePageAccess}
-                            />
-                        ) : null}
+                <div className="hami-profile-sigil-constellation" aria-label="أدوات الصفحة">
+                    {pageAccess && onCyclePageAccess ? (
+                        <ProfilePageAccessControl
+                            pageAccess={pageAccess}
+                            busy={pageAccessBusy}
+                            onCycle={onCyclePageAccess}
+                        />
+                    ) : null}
 
-                        <div className="hami-profile-sigil-slot" data-sigil="studio">
-                            <button
-                                type="button"
-                                data-testid="lawyer-profile-settings"
-                                onClick={onStudioClick}
-                                onPointerDown={(event) => {
-                                    if (event.button === 0) onStudioWarm();
-                                    onStudioPointerDown(event);
-                                }}
-                                onPointerCancel={onStudioPointerCancel}
-                                onPointerEnter={onStudioWarm}
-                                onFocus={onStudioWarm}
-                                className="hami-profile-sigil hami-profile-sigil--throne"
-                                aria-label="استوديو الصفحة — تخصيص المظهر والمحتوى"
-                            >
-                                <span className="hami-profile-sigil-halo" aria-hidden />
-                                <span className="hami-profile-sigil-glyph" aria-hidden>
-                                    <Sparkles size={18} strokeWidth={2.1} />
-                                </span>
-                            </button>
-                            <span className="hami-profile-sigil-micro hami-profile-sigil-micro--throne">استوديو</span>
-                        </div>
+                    <button
+                        type="button"
+                        data-testid="lawyer-profile-settings"
+                        onClick={onStudioClick}
+                        onPointerDown={(event) => {
+                            if (isPrimaryDragPointer(event)) onStudioWarm();
+                            onStudioPointerDown(event);
+                        }}
+                        onPointerCancel={onStudioPointerCancel}
+                        onPointerEnter={onStudioWarm}
+                        onFocus={onStudioWarm}
+                        className="hami-profile-sigil hami-profile-sigil--throne"
+                        aria-label="استوديو الصفحة — تخصيص المظهر والمحتوى"
+                    >
+                        <span className="hami-profile-sigil-glyph" aria-hidden>
+                            <Sparkles size={15} strokeWidth={2.1} />
+                        </span>
+                        استوديو
+                    </button>
 
-                        <div className="hami-profile-sigil-slot" data-sigil="edit">
-                            <button
-                                type="button"
-                                data-testid="lawyer-profile-edit"
-                                onClick={onEditClick}
-                                onPointerDown={onEditPointerDown}
-                                onPointerCancel={onEditPointerCancel}
-                                className="hami-profile-sigil hami-profile-sigil--edit"
-                                aria-label="تعديل الملف الشخصي"
-                            >
-                                <span className="hami-profile-sigil-halo" aria-hidden />
-                                <span className="hami-profile-sigil-glyph" aria-hidden>
-                                    <Pencil size={17} strokeWidth={2.15} />
-                                </span>
-                                <span className="hami-profile-sigil-edit-stroke" aria-hidden />
-                            </button>
-                            <span className="hami-profile-sigil-micro">تعديل</span>
-                        </div>
-                    </div>
-                </>
+                    <button
+                        type="button"
+                        data-testid="lawyer-profile-edit"
+                        onClick={onEditClick}
+                        onPointerDown={onEditPointerDown}
+                        onPointerCancel={onEditPointerCancel}
+                        className="hami-profile-sigil hami-profile-sigil--edit"
+                        aria-label="تعديل الملف الشخصي"
+                    >
+                        <span className="hami-profile-sigil-glyph" aria-hidden>
+                            <Pencil size={15} strokeWidth={2.1} />
+                        </span>
+                        تعديل
+                    </button>
+                </div>
             ) : null}
         </div>
     );

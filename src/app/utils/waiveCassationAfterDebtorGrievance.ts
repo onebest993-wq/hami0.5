@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
 import {
     appealPipelineRowForCard,
@@ -123,7 +122,7 @@ export function applyWaiveLawyerAwaitingCassationForExecution(input: {
         return { ok: false, message: 'معرّف التنفيذ أو القرار غير صالح.' };
     }
 
-    const decisions = readExecutorDecisionsArray(executionId) as Decision[];
+    const decisions = readExecutorDecisionsArray(executionId) as unknown as Decision[];
     const row = decisions.find((d) => String(d.id ?? '').trim() === decisionId);
     if (!row) {
         return { ok: false, message: 'لم يُعثر على بطاقة القرار.' };

@@ -1,14 +1,18 @@
+// @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./wifeNonceStore.ts', () => ({
   consumeNonceWithTtl: vi.fn(),
 }));
 
-vi.mock('./stolenTokenServer.ts', () => ({
-  detectStolenTokenServer: vi.fn().mockResolvedValue({ status: 'valid' }),
-  registerTokenSessionServer: vi.fn().mockResolvedValue(true),
-  extractDeviceIdFromRequest: vi.fn().mockReturnValue(''),
-}));
+vi.mock('./stolenTokenServer.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./stolenTokenServer.ts')>();
+  return {
+    ...actual,
+    detectStolenTokenServer: vi.fn().mockResolvedValue({ status: 'valid' }),
+    registerTokenSessionServer: vi.fn().mockResolvedValue(true),
+  };
+});
 
 /** Production fail-closes rate limit without Redis; keep slots open so CSRF/device gates are exercised. */
 vi.mock('./wifeRateLimitStore.ts', () => ({
@@ -16,13 +20,15 @@ vi.mock('./wifeRateLimitStore.ts', () => ({
   resetWifeRateLimitStoreForTests: vi.fn(),
 }));
 
-import { verifyWifeSignature } from './wifeValidator.ts';
+import { verifyWifeSignature, wifeRateLimitedResponse } from './wifeValidator.ts';
 import { consumeNonceWithTtl } from './wifeNonceStore.ts';
+import { issueCsrfTokenForSubject, resetCsrfServerStoreForTests } from './csrfServerStore.ts';
+import { okJson, signWifePayload, DRILL_DEVICE_ID } from '@/app/security/__tests__/wifeRedTeamHelpers.ts';
 
 /** يجب أن يكون ≥ 20 حرفاً (getVerifiedTokenSubject) */
 const TOKEN = 'test-user-token-abcdefghijklmnopqrstuvwxyz';
 const USER_ID = 'user-1';
-const CSRF_TOKEN = 'AbCdEfGhIjKlMnOpQrStUvWxYz012345';
+let CSRF_TOKEN = 'AbCdEfGhIjKlMnOpQrStUvWxYz012345';
 
 function csrfHeaders(): { 'x-csrf-token': string; cookie: string } {
   return {
@@ -31,59 +37,18 @@ function csrfHeaders(): { 'x-csrf-token': string; cookie: string } {
   };
 }
 
-function canonicalPathAndQuery(url: string): string {
-  const resolved = new URL(url);
-  const normalizedEntries = Array.from(resolved.searchParams.entries()).sort(([ak, av], [bk, bv]) => {
-    if (ak === bk) return av.localeCompare(bv);
-    return ak.localeCompare(bk);
-  });
-  const query = new URLSearchParams(normalizedEntries).toString();
-  return query ? `${resolved.pathname}?${query}` : resolved.pathname;
-}
-
-function toBase64Url(bytes: Uint8Array): string {
-  return Buffer.from(bytes)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
-}
-
-async function signWifePayload(input: {
-  method: string;
-  url: string;
-  timestamp: string;
-  nonce: string;
-  body: string;
-  token: string;
-}): Promise<string> {
-  const payload = [
-    input.method.toUpperCase(),
-    canonicalPathAndQuery(input.url),
-    input.timestamp,
-    input.nonce,
-    input.body,
-  ].join('\n');
-
-  const keyMaterial = `${input.token}:wife-sign-v1`;
-  const tokenHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(keyMaterial));
-  const key = await crypto.subtle.importKey('raw', tokenHash, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload));
-  return toBase64Url(new Uint8Array(signature));
-}
-
-function okJson(data: unknown): Response {
-  return new Response(JSON.stringify(data), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
-  });
+function deviceHeader(): Record<string, string> {
+  return { 'x-wife-device-id': DRILL_DEVICE_ID };
 }
 
 describe('verifyWifeSignature security checks', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     process.env.SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
     process.env.SUPABASE_ANON_KEY = 'anon-key';
+    resetCsrfServerStoreForTests();
+    const issued = await issueCsrfTokenForSubject(USER_ID);
+    if (issued) CSRF_TOKEN = issued;
 
     vi.mocked(consumeNonceWithTtl).mockResolvedValue(true);
 
@@ -112,7 +77,7 @@ describe('verifyWifeSignature security checks', () => {
   });
 
   it('accepts a valid signed JSON request', async () => {
-    const url = 'https://example.test/api/requests/create?z=2&a=1';
+    const url = 'https://example.test/api/forum/posts?z=2&a=1';
     const method = 'POST';
     const timestamp = String(Date.now());
     const nonce = 'nonce_valid_12345';
@@ -129,6 +94,7 @@ describe('verifyWifeSignature security checks', () => {
         'x-wife-nonce': nonce,
         'x-csrf-token': csrf['x-csrf-token'],
         cookie: csrf.cookie,
+        ...deviceHeader(),
       },
       body,
     });
@@ -138,7 +104,7 @@ describe('verifyWifeSignature security checks', () => {
   });
 
   it('rejects tampered JSON body (signature mismatch)', async () => {
-    const url = 'https://example.test/api/requests/update';
+    const url = 'https://example.test/api/forum/update';
     const method = 'POST';
     const timestamp = String(Date.now());
     const nonce = 'nonce_tamper_12345';
@@ -157,6 +123,7 @@ describe('verifyWifeSignature security checks', () => {
         'x-wife-nonce': nonce,
         'x-csrf-token': csrf['x-csrf-token'],
         cookie: csrf.cookie,
+        ...deviceHeader(),
       },
       body: tamperedBody,
     });
@@ -168,7 +135,7 @@ describe('verifyWifeSignature security checks', () => {
   it('rejects replay when nonce store reports reused nonce', async () => {
     vi.mocked(consumeNonceWithTtl).mockResolvedValue(false);
 
-    const url = 'https://example.test/api/requests/list';
+    const url = 'https://example.test/api/kv-proxy';
     const method = 'POST';
     const timestamp = String(Date.now());
     const nonce = 'nonce_replay_12345';
@@ -186,6 +153,7 @@ describe('verifyWifeSignature security checks', () => {
         'x-wife-nonce': nonce,
         'x-csrf-token': csrf['x-csrf-token'],
         cookie: csrf.cookie,
+        ...deviceHeader(),
       },
       body,
     });
@@ -195,7 +163,7 @@ describe('verifyWifeSignature security checks', () => {
   });
 
   it('rejects POST when CSRF header and cookie mismatch', async () => {
-    const url = 'https://example.test/api/requests/create';
+    const url = 'https://example.test/api/forum/posts';
     const method = 'POST';
     const timestamp = String(Date.now());
     const nonce = 'nonce_csrf_mismatch_1';
@@ -222,7 +190,7 @@ describe('verifyWifeSignature security checks', () => {
   it('rejects POST when CSRF cookie is missing in production mode', async () => {
     process.env.NODE_ENV = 'production';
 
-    const url = 'https://example.test/api/requests/create';
+    const url = 'https://example.test/api/forum/posts';
     const method = 'POST';
     const timestamp = String(Date.now());
     const nonce = 'nonce_csrf_prod_1';
@@ -246,7 +214,7 @@ describe('verifyWifeSignature security checks', () => {
   });
 
   it('rejects malformed header format before verification work', async () => {
-    const url = 'https://example.test/api/requests/create';
+    const url = 'https://example.test/api/forum/posts';
     const req = new Request(url, {
       method: 'POST',
       headers: {
@@ -262,12 +230,16 @@ describe('verifyWifeSignature security checks', () => {
     expect(valid).toBe(false);
   });
 
-  it('accepts multipart request when x-wife-content-hash signature matches', async () => {
+  it('accepts multipart request when file bytes match x-wife-content-hash', async () => {
     const url = 'https://example.test/api/upload?step=1';
     const method = 'POST';
     const timestamp = String(Date.now());
     const nonce = 'nonce_multi_ok_12345';
-    const contentHash = 'a'.repeat(64);
+    const fileBytes = new Uint8Array([11, 22, 33, 44]);
+    const digest = await crypto.subtle.digest('SHA-256', fileBytes);
+    const contentHash = Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
     const signature = await signWifePayload({
       method,
       url,
@@ -277,23 +249,66 @@ describe('verifyWifeSignature security checks', () => {
       token: TOKEN,
     });
     const csrf = csrfHeaders();
+    const form = new FormData();
+    form.append('file', new File([fileBytes], 'doc.bin', { type: 'application/octet-stream' }));
 
     const req = new Request(url, {
       method,
       headers: {
-        'content-type': 'multipart/form-data; boundary=test-boundary',
         'x-wife-signature': signature,
         'x-wife-timestamp': timestamp,
         'x-wife-nonce': nonce,
         'x-wife-content-hash': contentHash,
         'x-csrf-token': csrf['x-csrf-token'],
         cookie: csrf.cookie,
+        ...deviceHeader(),
       },
-      body: '--test-boundary\r\ncontent\r\n--test-boundary--',
+      body: form,
     });
 
     const valid = await verifyWifeSignature(req, TOKEN);
     expect(valid).toBe(true);
+  });
+
+  it('rejects multipart request when file bytes do not match x-wife-content-hash', async () => {
+    const url = 'https://example.test/api/upload';
+    const method = 'POST';
+    const timestamp = String(Date.now());
+    const nonce = 'nonce_multi_mismatch_1';
+    const claimedBytes = new Uint8Array([1, 2, 3]);
+    const actualBytes = new Uint8Array([9, 9, 9]);
+    const digest = await crypto.subtle.digest('SHA-256', claimedBytes);
+    const contentHash = Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    const signature = await signWifePayload({
+      method,
+      url,
+      timestamp,
+      nonce,
+      body: contentHash,
+      token: TOKEN,
+    });
+    const csrf = csrfHeaders();
+    const form = new FormData();
+    form.append('file', new File([actualBytes], 'doc.bin', { type: 'application/octet-stream' }));
+
+    const req = new Request(url, {
+      method,
+      headers: {
+        'x-wife-signature': signature,
+        'x-wife-timestamp': timestamp,
+        'x-wife-nonce': nonce,
+        'x-wife-content-hash': contentHash,
+        'x-csrf-token': csrf['x-csrf-token'],
+        cookie: csrf.cookie,
+        ...deviceHeader(),
+      },
+      body: form,
+    });
+
+    const valid = await verifyWifeSignature(req, TOKEN);
+    expect(valid).toBe(false);
   });
 
   it('rejects multipart request when x-wife-content-hash is missing', async () => {
@@ -326,15 +341,13 @@ describe('verifyWifeSignature security checks', () => {
     expect(valid).toBe(false);
   });
 
-  it('rejects production POST when x-wife-device-id is missing (fail-closed binding)', async () => {
-    process.env.NODE_ENV = 'production';
-    const { extractDeviceIdFromRequest } = await import('./stolenTokenServer.ts');
-    vi.mocked(extractDeviceIdFromRequest).mockReturnValue('');
+  it('rejects POST when x-wife-device-id is missing', async () => {
+    process.env.NODE_ENV = 'test';
 
     const url = 'https://example.test/api/forum/delete';
     const body = '{"postId":"p1"}';
     const timestamp = String(Date.now());
-    const nonce = 'nonce_prod_nodevice_1';
+    const nonce = 'nonce_post_nodevice_1';
     const signature = await signWifePayload({
       method: 'POST',
       url,
@@ -358,5 +371,42 @@ describe('verifyWifeSignature security checks', () => {
     });
 
     expect(await verifyWifeSignature(req, TOKEN)).toBe(false);
+  });
+
+  it('rejects GET when x-wife-device-id is missing', async () => {
+    process.env.NODE_ENV = 'test';
+
+    const url = 'https://example.test/api/kv-proxy';
+    const timestamp = String(Date.now());
+    const nonce = 'nonce_get_nodevice_1';
+    const signature = await signWifePayload({
+      method: 'GET',
+      url,
+      timestamp,
+      nonce,
+      body: '',
+      token: TOKEN,
+    });
+    const req = new Request(url, {
+      method: 'GET',
+      headers: {
+        'x-wife-signature': signature,
+        'x-wife-timestamp': timestamp,
+        'x-wife-nonce': nonce,
+      },
+    });
+
+    expect(await verifyWifeSignature(req, TOKEN)).toBe(false);
+  });
+});
+
+describe('wifeRateLimitedResponse', () => {
+  it('returns readable Arabic 429 copy matching the client', async () => {
+    const res = wifeRateLimitedResponse();
+    expect(res.status).toBe(429);
+    expect(res.headers.get('retry-after')).toBe('60');
+    const body = (await res.json()) as { code?: string; message?: string };
+    expect(body.code).toBe('WIFE_RATE_LIMITED');
+    expect(body.message).toBe('تم تجاوز حد الطلبات. انتظر قليلاً ثم أعد المحاولة.');
   });
 });

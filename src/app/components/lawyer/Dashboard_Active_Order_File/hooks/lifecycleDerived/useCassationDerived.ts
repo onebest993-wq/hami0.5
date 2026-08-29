@@ -9,7 +9,7 @@ function pickYmd(value: unknown): string {
     return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
 }
 
-export type CassationDerivedDeps = {
+type CassationDerivedDeps = {
     grievanceClosingHearingExists: boolean;
     grievanceExpiredCanClose: boolean;
     grievanceDecisionDateChronologyError: string | null;
@@ -86,7 +86,7 @@ const cassationFilingMinYmd = useMemo(
 const cassationFilingDateChronologyError = useMemo(() => {
     const f = String(cassationData.filingDate || '').trim();
     if (!f || !cassationFilingMinYmd) return null;
-    if (f < cassationFilingMinYmd) return '⚠️ تاريخ تقديم الطعن يجب ألا يسبق قرار المرحلة السابقة أو تقديم الطلب الأصلي';
+    if (f < cassationFilingMinYmd) return 'تاريخ تقديم الطعن يجب ألا يسبق قرار المرحلة السابقة أو تقديم الطلب الأصلي';
     return null;
 }, [cassationData.filingDate, cassationFilingMinYmd]);
 const cassationEnteredFilingYmd = useMemo(() => {
@@ -101,7 +101,7 @@ const cassationDecisionDateError = useMemo(() => {
     const decision = String(cassationDecision.decisionDate || '').trim();
     const minD = cassationDecisionMinYmd;
     if (!decision || !minD) return null;
-    if (decision < minD) return '⚠️ تاريخ قرار التمييز يجب أن يكون بعد/مساوٍ لتاريخ تقديم الطعن';
+    if (decision < minD) return 'تاريخ قرار التمييز يجب أن يكون بعد/مساوٍ لتاريخ تقديم الطعن';
     return null;
 }, [cassationDecision.decisionDate, cassationDecisionMinYmd]);
 const cassationLegalEndDate = useMemo(() => {

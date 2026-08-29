@@ -46,6 +46,23 @@ describe('LawyerDashboard utils', () => {
         const enrichedRow = { ...poolFile, smartStatus: { label: 'مستمرة' } };
         expect(resolveOpenableFileData(enrichedRow, [poolFile])?.caseNo).toBe('10 / ب / 2026');
         expect(
+            resolveOpenableFileData(
+                {
+                    id: 42,
+                    type: 'lawsuit',
+                    caseNo: '42 / ب / 2026',
+                    court: 'بداءة',
+                    parties: [],
+                    history: [],
+                    notes: [],
+                    images: [],
+                    date: '2026-01-01',
+                    status: 'archived',
+                },
+                [poolFile],
+            )?.caseNo,
+        ).toBe('42 / ب / 2026');
+        expect(
             normalizeFileDataForOpen({
                 id: 99,
                 type: 'lawsuit',
@@ -55,6 +72,42 @@ describe('LawyerDashboard utils', () => {
                 status: 'active',
             })?.court,
         ).toBe('استئناف');
+    });
+
+    it('keeps jurisdiction, judge, stage, and stages on open instead of stripping them', () => {
+        const poolFile = buildFileDataFromNewCaseSave({
+            mainCategory: 'lawsuit',
+            selectedType: 'personal',
+            parties1: [{ name: 'مدعي', status: 'مدعي' }],
+            parties2: [{ name: 'مدعى', status: 'مدعى عليه' }],
+            details: {
+                number: '10 / ش / 2026',
+                court: 'محكمة الأحوال الشخصية',
+                judge: 'القاضي سارة',
+                stage: 'أحوال شخصية',
+            },
+        })!;
+        const withStages = {
+            ...poolFile,
+            stages: [
+                {
+                    id: 's1',
+                    stageName: 'أحوال شخصية',
+                    judge: 'القاضي سارة',
+                    status: 'active',
+                },
+            ],
+            smartStatus: { label: 'مستمرة' },
+            unifiedCount: 2,
+        };
+        const opened = resolveOpenableFileData(withStages, [withStages as never]);
+        expect(opened?.lawsuitJurisdiction).toBe('personal');
+        expect(opened?.judge).toBe('القاضي سارة');
+        expect(opened?.currentStage).toBe('أحوال شخصية');
+        expect(opened?.stages?.[0]?.stageName).toBe('أحوال شخصية');
+        expect(opened?.stages?.[0]?.judge).toBe('القاضي سارة');
+        expect((opened as { smartStatus?: unknown } | null)?.smartStatus).toBeUndefined();
+        expect((opened as { unifiedCount?: unknown } | null)?.unifiedCount).toBeUndefined();
     });
 
     it('file id equality is compared as strings in dashboard merge paths', () => {

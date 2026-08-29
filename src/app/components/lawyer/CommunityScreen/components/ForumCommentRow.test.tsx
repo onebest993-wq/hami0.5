@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -70,14 +70,16 @@ describe('ForumCommentRow', () => {
         expect(onSetEditContent).toHaveBeenCalledWith('تعليق تجريبي');
     });
 
-    it('يحذف التعليق مباشرة عند الضغط على زر الحذف', () => {
-        const onDeleteComment = vi.fn();
+    it('يحذف التعليق مباشرة عند الضغط على زر الحذف', async () => {
+        const onDeleteComment = vi.fn(async () => {});
         const onSetConfirmDeleteId = vi.fn();
         renderRow({ onDeleteComment, onSetConfirmDeleteId });
 
         fireEvent.click(screen.getByTitle('حذف التعليق'));
 
-        expect(onDeleteComment).toHaveBeenCalledWith('p1', 'c1');
+        await waitFor(() => {
+            expect(onDeleteComment).toHaveBeenCalledWith('p1', 'c1');
+        });
         expect(onSetConfirmDeleteId).toHaveBeenCalledWith(null);
     });
 });

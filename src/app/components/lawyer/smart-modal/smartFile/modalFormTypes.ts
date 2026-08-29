@@ -16,7 +16,7 @@ export type EditDataProps<T> = {
     editData?: T | null;
 };
 
-export type DocumentEditData = {
+type DocumentEditData = {
     id?: string;
     title?: string;
     category?: DocumentCategory;
@@ -26,7 +26,7 @@ export type DocumentEditData = {
     notes?: string;
 };
 
-export type IncidentalCaseEditData = Pick<
+type IncidentalCaseEditData = Pick<
     IncidentalCase,
     | 'id'
     | 'type'
@@ -39,7 +39,7 @@ export type IncidentalCaseEditData = Pick<
     | 'entryDecision'
 >;
 
-export type AppointmentEditData = {
+type AppointmentEditData = {
     id?: string;
     title?: string;
     date?: string;
@@ -48,7 +48,7 @@ export type AppointmentEditData = {
     tags?: string[];
 };
 
-export type PauseInterruptionEditData = {
+type PauseInterruptionEditData = {
     id?: string;
     reason?: string;
     linkedCaseNo?: string;
@@ -58,16 +58,6 @@ export type PauseInterruptionEditData = {
     decisionType?: string;
     decisionDate?: string;
 };
-
-/** حقول تحرير مشتركة لأحداث الخط الزمني في النماذج القديمة */
-export type TimelineModalEditData = Partial<
-    Pick<TimelineEvent, 'id' | 'title' | 'date' | 'details' | 'type'>
-> &
-    AppointmentEditData &
-    PauseInterruptionEditData &
-    DocumentEditData & {
-        tags?: string[];
-    };
 
 export type ExtraordinaryAppealModalProps = ModalShellProps & {
     onConfirm: (data: { type: string; date: string; court: string; reasons: string }) => void;
@@ -139,19 +129,6 @@ export type ResumeInterruptionModalProps = ModalShellProps & {
     interruptionParty?: string;
 };
 
-export type LegacyModalParty = {
-    id?: string | number;
-    name: string;
-    role?: string;
-    isClient?: boolean;
-};
-
-export type TransitionModalProps = ModalShellProps & {
-    onConfirm: (data: Record<string, unknown>) => void;
-    nextStageName?: string;
-    currentParties?: LegacyModalParty[];
-};
-
 export type SmartFileCaseFormData = {
     caseNo?: string;
     court?: string;
@@ -185,14 +162,6 @@ export type EditCaseInfoModalProps = ModalShellProps & {
     onSave: (data: Record<string, unknown>) => void;
 };
 
-export type AppealRegistrationModalProps = ModalShellProps & {
-    onConfirm: (data: Record<string, unknown>) => void;
-    judgmentForm?: string | null;
-    lastJudgmentType?: string | null;
-    stageName?: string | null;
-    appealRoute?: import('./appealRouteEligibility').AppealRouteContext | null;
-};
-
 export type JudicialNotificationModalProps = ModalShellProps & {
     onConfirm: (data: Record<string, unknown>) => void;
 };
@@ -207,10 +176,7 @@ export type AbsentJudgmentNotificationModalProps = ModalShellProps & {
 
 export type OpponentAbsentObjectionModalProps = ModalShellProps & {
     onConfirm: (data: { newCaseNumber: string; filingDate: string }) => void;
-};
-
-export type ObjectionJudgmentModalProps = ModalShellProps & {
-    onConfirm: (data: Record<string, unknown>) => void;
+    sourceCaseNumber?: string;
 };
 
 export type { IncidentalType, TimelineEvent };

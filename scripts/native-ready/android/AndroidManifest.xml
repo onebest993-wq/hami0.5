@@ -1,16 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!--
+        هذا الملف هو مصدر الحقيقة: `npm run cap:apply:android` ينسخه فوق
+        android/app/src/main/AndroidManifest.xml بعد أي إعادة توليد.
+        أي تعديل يُجرى على النسخة المولَّدة وحدها يضيع عند أول إعادة توليد.
+
+        صلابة البيانات (تطبيق قانوني — إضابير تحت سرّية المهنة):
+        - allowBackup=false      : يمنع `adb backup` والنسخ السحابي التلقائي.
+        - dataExtractionRules    : يمنع النقل بين جهازين على أندرويد ١٢+
+                                   (allowBackup لا يغطّيه).
+        - fullBackupContent      : الاستثناءات نفسها لأندرويد ١١ فما دون.
+        - networkSecurityConfig  : لا نص صريح، ومراسي ثقة نظامية فقط.
+    -->
+    <!-- تطبيق يد: هاتف + لوحي. ليست تجربة سطح مكتب. -->
+    <supports-screens
+        android:smallScreens="true"
+        android:normalScreens="true"
+        android:largeScreens="true"
+        android:xlargeScreens="true"
+        android:anyDensity="true" />
+
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!--
+            navigation|density مضافان لأجل Capacitor 8: بدونهما يُعاد تحميل
+            الـWebView عند تغيّر كثافة العرض أو وصل لوحة مفاتيح بلوتوث — أي
+            إعادة إقلاع كاملة تفقد حالة الإضبارة المفتوحة.
+        -->
         <activity
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
@@ -22,7 +51,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- روابط الاستعادة/التأكيد: iq.hami.legal:// — بدون هذا الفلتر يبقى الرابط في المتصفح -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="iq.hami.legal" />
+            </intent-filter>
+
         </activity>
+
+        <activity
+            android:name=".notificationsheet.HamiNotificationSheetActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Hami.TransparentSheet"
+            android:launchMode="singleTop" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -39,9 +82,26 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
-    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
+    <!-- USE_FINGERPRINT مهجور منذ API 28 لكنه لازم لأجهزة minSdk=22..27 -->
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" android:maxSdkVersion="27" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <!-- التطبيق يعمل بدون كاميرا/ميكروفون عتاد — المسح والتسجيل يُعطَّلان برسالة عربية -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+    <!--
+        إشعارات مواعيد الجلسات — كانت مضافة إلى النسخة المولَّدة وحدها، فكان أول
+        `cap:apply:android` يمسحها ويكسر الإشعارات على أندرويد ١٣+ بلا إنذار.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- منبّه دقيق لموعد الجلسة. Play يطلب إقراراً مستقلاً لهذا الإذن. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- تقويم/منبّه على أندرويد ١٣+ — يُمنح مع فئة المنبّه عند الاعتماد -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 </manifest>

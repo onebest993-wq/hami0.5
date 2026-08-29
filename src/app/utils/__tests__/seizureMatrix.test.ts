@@ -27,7 +27,7 @@ describe('seizureMatrix', () => {
         expect(r.hideSeizureTab).toBe(true);
     });
 
-    it('rule 2: small balance shows seizure buttons directly', () => {
+    it('rule 2: small balance requires lawyer soft opt-in before buttons', () => {
         const r = computeSeizureMatrix({
             remainingBalanceIqd: 222_233,
             debtorJob: 'employee',
@@ -35,6 +35,19 @@ describe('seizureMatrix', () => {
         });
         expect(r.ruleId).toBe('rule_2_soft');
         expect(r.hideSeizureTab).toBe(false);
+        expect(r.requiresSoftActivationModal).toBe(true);
+        expect(r.showTabContentButtons).toBe(false);
+        expect(r.buttons.salary).toBe(false);
+        expect(r.buttons.movable).toBe(false);
+    });
+
+    it('rule 2: after lawyer soft opt-in shows the first-tier button', () => {
+        const r = computeSeizureMatrix({
+            remainingBalanceIqd: 222_233,
+            debtorJob: 'employee',
+            debtorType: 'natural_person',
+            lawyerSoftOptIn: true,
+        });
         expect(r.requiresSoftActivationModal).toBe(false);
         expect(r.showTabContentButtons).toBe(true);
         expect(r.buttons.salary).toBe(true);
@@ -111,6 +124,7 @@ describe('seizureMatrix', () => {
             remainingBalanceIqd: 1_000_000,
             debtorJob: 'employee',
             debtorType: 'natural_person',
+            lawyerSoftOptIn: true,
         });
         expect(r.progressiveDisclosure.showAdditionalExpand).toBe(true);
         expect(r.progressiveDisclosure.additionalButtons).toEqual(['movable']);

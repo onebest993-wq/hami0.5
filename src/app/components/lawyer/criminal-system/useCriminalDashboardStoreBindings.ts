@@ -85,6 +85,14 @@ export function useCriminalDashboardStoreBindings(id: string) {
         Boolean(resolvedCriminalCase) &&
         isOrphanCriminalCase(resolvedCriminalCase) &&
         Boolean(String(sessionOwnerLawyerId ?? '').trim());
+    const claimCriminalCaseOwnership = useCriminalStore((s) => s.claimCriminalCaseOwnership);
+
+    // فتح يتيم بالمعرّف: ختم المالك لهذه الإضبارة فقط (لا تملّك جماعي عند الجلسة)
+    useEffect(() => {
+        if (!trimmedId || !isOrphanLegacyCase) return;
+        claimCriminalCaseOwnership(trimmedId);
+    }, [trimmedId, isOrphanLegacyCase, claimCriminalCaseOwnership]);
+
     const criminalCase = useMemo(
         () => resolvedCriminalCase ?? createMissingCriminalCase(id),
         [resolvedCriminalCase, id],
@@ -157,7 +165,6 @@ export function useCriminalDashboardStoreBindings(id: string) {
     const updateJuvenileSocialInquiryReport = useCriminalStore((s) => s.updateJuvenileSocialInquiryReport);
     const mergeCases = useCriminalStore((s) => s.mergeCases);
     const severJuvenileDefendantToJuvenileCourt = useCriminalStore((s) => s.severJuvenileDefendantToJuvenileCourt);
-    const claimCriminalCaseOwnership = useCriminalStore((s) => s.claimCriminalCaseOwnership);
 
     return {
         rawCase,

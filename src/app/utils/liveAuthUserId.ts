@@ -2,13 +2,18 @@
  * مرآة هوية الجلسة الحية — مصدر عزل التخزين بلا AuthService الزومبي.
  * يحدّثها AuthProvider؛ القراءة متاحة من utils متزامنة (خارج React).
  */
+import { resetLawyerSessionUiForIdentityChange } from '@/app/services/auth/resetLawyerSessionUiForIdentityChange';
 import { readDevMockUser, readPersistedSupabaseAuth } from '@/app/utils/authStorage';
 
 let liveAuthUserId: string | null = null;
 
 export function setLiveAuthUserId(userId: string | null | undefined): void {
-    const id = String(userId ?? '').trim();
-    liveAuthUserId = id || null;
+    const id = String(userId ?? '').trim() || null;
+    const previous = liveAuthUserId;
+    liveAuthUserId = id;
+    if (previous !== null && previous !== id) {
+        resetLawyerSessionUiForIdentityChange();
+    }
 }
 
 export function getLiveAuthUserId(): string | null {

@@ -1,26 +1,28 @@
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import type { FileData } from './lawsuitFileTypes';
+import { isLawsuitArchived, isLawsuitInTrash } from '@/app/utils/lawsuitTrash';
 
-export type LawsuitFileMutationTarget = {
+type LawsuitFileMutationTarget = {
     status?: string | null;
 };
 
-export function isLawsuitFileArchived(file: LawsuitFileMutationTarget | null | undefined): boolean {
-    return String(file?.status ?? '').trim() === 'archived';
+/** Null-safe archive check for mutation guards — delegates to `isLawsuitArchived`. */
+function lawsuitTargetIsArchived(file: LawsuitFileMutationTarget | null | undefined): boolean {
+    return isLawsuitArchived({ status: file?.status ?? undefined });
 }
 
-export function isLawsuitFileDeleted(file: LawsuitFileMutationTarget | null | undefined): boolean {
-    return String(file?.status ?? '').trim() === 'deleted';
+function isLawsuitFileDeleted(file: LawsuitFileMutationTarget | null | undefined): boolean {
+    return isLawsuitInTrash({ status: file?.status ?? undefined });
 }
 
 export function isLawsuitFileMutationBlocked(file: LawsuitFileMutationTarget | null | undefined): boolean {
-    return isLawsuitFileArchived(file) || isLawsuitFileDeleted(file);
+    return lawsuitTargetIsArchived(file) || isLawsuitFileDeleted(file);
 }
 
 /** رسالة عربية عند رفض التعديل — null إذا مسموح */
 export function rejectLawsuitFileMutation(file: LawsuitFileMutationTarget | null | undefined): string | null {
     if (!file) return 'السجل غير موجود.';
     if (isLawsuitFileDeleted(file)) return 'الإضبارة في سلة المحذوفات — لا يمكن التعديل.';
-    if (isLawsuitFileArchived(file)) return 'الإضبارة مؤرشفة — للقراءة فقط.';
+    if (lawsuitTargetIsArchived(file)) return 'الإضبارة مؤرشفة — للقراءة فقط.';
     return null;
 }
 

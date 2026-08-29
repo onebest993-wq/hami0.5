@@ -1,0 +1,34 @@
+﻿
+> hami-app@10.5.0 build
+> vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+ظ£ô 4634 modules transformed.
+node.exe : ظ£ù Build failed in 13.04s
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (ظ£ù Build failed in 13.04s:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+error during build:
+[hami-sw-cache-stamp] [hami-sw-cache-stamp] placeholder missing from public/sw.js
+    at Object.closeBundle (file:///C:/Users/HEX%20STORE/Downloads/New%20folder/node_modules/.vite-temp/vite.config.mts.
+timestamp-1786315497462-58778cd98a3458.mjs:499:15)
+    at Object.handler 
+(file:///C:/Users/HEX%20STORE/Downloads/New%20folder/node_modules/vite/dist/node/chunks/config.js:33823:13)
+    at file:///C:/Users/HEX%20STORE/Downloads/New%20folder/node_modules/rollup/dist/es/shared/node-entry.js:22981:40
+    at async Promise.all (index 2)
+    at async PluginDriver.hookParallel 
+(file:///C:/Users/HEX%20STORE/Downloads/New%20folder/node_modules/rollup/dist/es/shared/node-entry.js:22891:9)
+    at async 
+file:///C:/Users/HEX%20STORE/Downloads/New%20folder/node_modules/rollup/dist/es/shared/node-entry.js:23884:13
+    at async catchUnfinishedHookActions 
+(file:///C:/Users/HEX%20STORE/Downloads/New%20folder/node_modules/rollup/dist/es/shared/node-entry.js:23335:16)
+    at async rollupInternal 
+(file:///C:/Users/HEX%20STORE/Downloads/New%20folder/node_modules/rollup/dist/es/shared/node-entry.js:23860:5)
+    at async buildEnvironment 
+(file:///C:/Users/HEX%20STORE/Downloads/New%20folder/node_modules/vite/dist/node/chunks/config.js:33621:12)
+    at async Object.build 
+(file:///C:/Users/HEX%20STORE/Downloads/New%20folder/node_modules/vite/dist/node/chunks/config.js:33980:19)

@@ -1,9 +1,11 @@
 import React from 'react';
-import { LayoutGrid, List, Search, Trash2 } from '@/app/components/ui/lucideIcons';
+import { LayoutGrid } from '@/app/components/ui/icons/LayoutGrid';
+import { List } from '@/app/components/ui/icons/List';
+import { Search } from '@/app/components/ui/icons/Search';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import type { ViewMode } from './types';
-import { ARCHIVE_GLASS_ACTIVE_COMPACT } from '@/app/components/lawyer/ArchivePortal/archiveToolbarStyles';
 
-export type UrgentScope = 'active' | 'archive' | 'trash';
+type UrgentScope = 'active' | 'archive' | 'trash';
 
 interface DashboardControlsProps {
     searchQuery: string;
@@ -35,7 +37,7 @@ export const DashboardControls = ({
     return (
         <div dir="rtl" className="w-full">
             <div
-                className="flex h-11 w-full items-stretch overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]"
+                className="flex h-11 w-full items-stretch overflow-hidden rounded-lg border border-white/10 bg-transparent"
                 role="search"
             >
                 <div
@@ -48,10 +50,8 @@ export const DashboardControls = ({
                         role="tab"
                         aria-selected={isActive}
                         onClick={() => onScopeChange('active')}
-                        className={`h-full min-w-[3.25rem] rounded-xl px-2.5 text-[11px] font-bold transition-all duration-200 touch-manipulation ${
-                            isActive
-                                ? 'bg-white/[0.14] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]'
-                                : 'text-white/45 hover:bg-white/[0.06] hover:text-white/75'
+                        className={`h-full min-w-[3.25rem] rounded-lg px-2.5 text-[11px] font-bold touch-manipulation ${
+                            isActive ? 'bg-white/[0.12] text-white' : 'text-white/45 hover:bg-white/[0.06] hover:text-white/75'
                         }`}
                     >
                         نشطة
@@ -61,10 +61,8 @@ export const DashboardControls = ({
                         role="tab"
                         aria-selected={isArchive}
                         onClick={() => onScopeChange('archive')}
-                        className={`inline-flex h-full min-w-[3.25rem] items-center justify-center gap-1 rounded-xl px-2.5 text-[11px] font-bold transition-all duration-200 touch-manipulation ${
-                            isArchive
-                                ? 'bg-white/[0.14] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]'
-                                : 'text-white/45 hover:bg-white/[0.06] hover:text-white/75'
+                        className={`inline-flex h-full min-w-[3.25rem] items-center justify-center gap-1 rounded-lg px-2.5 text-[11px] font-bold touch-manipulation ${
+                            isArchive ? 'bg-white/[0.12] text-white' : 'text-white/45 hover:bg-white/[0.06] hover:text-white/75'
                         }`}
                     >
                         أرشيف
@@ -106,10 +104,8 @@ export const DashboardControls = ({
                         title="عرض شبكي"
                         aria-pressed={viewMode === 'grid'}
                         onClick={() => onViewModeChange('grid')}
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors touch-manipulation ${
-                            viewMode === 'grid'
-                                ? ARCHIVE_GLASS_ACTIVE_COMPACT
-                                : 'text-white/40 hover:bg-white/[0.06] hover:text-white'
+                        className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg touch-manipulation ${
+                            viewMode === 'grid' ? 'bg-white/[0.12] text-white' : 'text-white/40 hover:bg-white/[0.06] hover:text-white'
                         }`}
                     >
                         <LayoutGrid size={15} />
@@ -119,10 +115,8 @@ export const DashboardControls = ({
                         title="عرض قائمة"
                         aria-pressed={viewMode === 'list'}
                         onClick={() => onViewModeChange('list')}
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors touch-manipulation ${
-                            viewMode === 'list'
-                                ? ARCHIVE_GLASS_ACTIVE_COMPACT
-                                : 'text-white/40 hover:bg-white/[0.06] hover:text-white'
+                        className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg touch-manipulation ${
+                            viewMode === 'list' ? 'bg-white/[0.12] text-white' : 'text-white/40 hover:bg-white/[0.06] hover:text-white'
                         }`}
                     >
                         <List size={15} />
@@ -136,7 +130,7 @@ export const DashboardControls = ({
                         aria-pressed={scope === 'trash'}
                         aria-label={`سلة المهملات${trashedCount > 0 ? ` (${trashedCount})` : ''}`}
                         onClick={() => onScopeChange(scope === 'trash' ? 'active' : 'trash')}
-                        className={`flex shrink-0 items-center justify-center gap-1 border-r border-white/8 px-2.5 transition-colors touch-manipulation ${
+                        className={`flex shrink-0 min-h-[44px] min-w-[44px] items-center justify-center gap-1 border-r border-white/8 px-2 touch-manipulation ${
                             scope === 'trash'
                                 ? 'bg-rose-950/40 text-rose-200'
                                 : 'text-white/40 hover:bg-white/[0.06] hover:text-rose-200'

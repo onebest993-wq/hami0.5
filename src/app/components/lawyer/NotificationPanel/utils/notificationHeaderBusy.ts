@@ -1,6 +1,6 @@
 ﻿/**
- * ┘à╪ج╪┤╪▒ ╪د┘╪د┘╪┤╪║╪د┘ ┘┘è ╪▒╪ث╪│ ╪د┘╪ح╪┤╪╣╪د╪▒╪د╪ز ظ¤ ┘è╪╕┘ç╪▒ ┘┘é╪╖ ╪╣┘╪» ╪د┘╪ز╪ص┘à┘è┘ ╪د┘╪ث┘ê┘ ╪ذ╪»┘ê┘ ╪ذ┘è╪د┘╪د╪ز ┘à╪«╪▓┘ّ┘╪ر.
- * ╪د┘╪ز╪ص╪»┘è╪س ╪د┘╪«┘┘┘è (polling) ┘╪د ┘è┘╪╕┘ç╪▒ spinner ┘┘è ╪د┘╪▒╪ث╪│.
+ * مؤشر الانشغال في رأس الإشعارات — يظهر فقط عند التحميل الأول بدون بيانات مخزّنة.
+ * التحديث الخلفي (polling) لا يُظهر spinner في الرأس.
  */
 export function isNotificationHeaderBusy(
     isLoading: boolean,
@@ -9,10 +9,16 @@ export function isNotificationHeaderBusy(
     return isLoading && !hasCachedNotifications;
 }
 
+/**
+ * تحميل بارد للقائمة — يُظهر هيكل التحميل (skeleton) فقط عند أول ترطيب فعلي
+ * (لا hydration سابق) مع عدم وجود عناصر ظاهرة أو محتوى مشاركة قضية.
+ * `hasHydratedOnce` يمنع ومضة skeleton فوق حالة فارغة مستقرة أثناء polling الخلفي.
+ */
 export function isNotificationPanelColdLoading(
     isLoading: boolean,
     visibleCount: number,
     hasCaseShareContent: boolean,
+    hasHydratedOnce: boolean,
 ): boolean {
-    return isLoading && visibleCount === 0 && !hasCaseShareContent;
+    return isLoading && !hasHydratedOnce && visibleCount === 0 && !hasCaseShareContent;
 }

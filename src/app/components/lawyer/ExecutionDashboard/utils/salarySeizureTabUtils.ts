@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { ExecutionFile, SeizedAsset } from '@/app/types/execution';
 import { isSalarySeizureAsset } from '@/app/components/lawyer/ExecutionDashboard/helpers/seizureUtils';
 import { resolveSalarySeizureSubject } from '@/app/components/lawyer/ExecutionDashboard/utils/salarySeizureDisplayUtils';

@@ -1,53 +1,51 @@
 import React, { useId } from 'react';
 import { flushSync } from 'react-dom';
-import { ChevronLeft, Layers } from '@/app/components/ui/lucideIcons';
+import { ChevronLeft } from '@/app/components/ui/icons/ChevronLeft';
+import { Layers } from '@/app/components/ui/icons/Layers';
+import { Pause } from '@/app/components/ui/icons/Pause';
 import { SettingsCollapseToggle } from '../components/SettingsCollapseToggle';
-import { SettingCard, SETTING_GLASS_INNER } from '../settings-ui';
+import { SETTING_ROW_BORDER } from '../settings-ui/tokens';
+import { SettingRow, Toggle } from '../settings-ui/index';
 import type { AppearanceSectionViewModel } from './useAppearanceSection';
 import { AppearanceThemeSwatch } from './AppearanceThemeSwatch';
+import { AppearanceReadabilityRows } from './AppearanceReadabilityRows';
+import { prefetchAppearanceCustomizeSheet } from './appearanceCustomizeSheetLoad';
 
 export function AppearanceThemeAndSurfaceCard({ vm }: { vm: AppearanceSectionViewModel }) {
     const colorLabelId = useId();
 
     return (
-        <SettingCard className="mb-4">
-            <div className="p-4 border-b border-white/[0.03]">
-                <button
-                    type="button"
-                    data-testid="appearance-block-customize-toggle"
-                    aria-haspopup="dialog"
-                    aria-expanded={vm.blockCustomize.panelOpen}
-                    onPointerDown={(event) => {
-                        if (event.button !== 0) return;
-                        event.stopPropagation();
-                        flushSync(() => vm.blockCustomize.setPanelOpen((open) => !open));
-                    }}
-                    onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                    }}
-                    className="flex w-full items-center justify-between gap-3 min-h-[44px] rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-right touch-manipulation hover:bg-white/[0.05] active:scale-[0.99]"
-                >
-                    <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${SETTING_GLASS_INNER} text-[#E6C673]`}>
-                            <Layers size={17} aria-hidden />
-                        </div>
-                        <span className="text-sm font-bold text-white block min-w-0">تخصيص قسم</span>
-                    </div>
-                    <ChevronLeft size={18} className="shrink-0 text-white/45" aria-hidden />
-                </button>
-            </div>
+        <>
+            <button
+                type="button"
+                data-testid="appearance-block-customize-toggle"
+                aria-haspopup="dialog"
+                aria-expanded={vm.blockCustomize.panelOpen}
+                onPointerDown={(event) => {
+                    if (event.button !== 0) return;
+                    event.stopPropagation();
+                    prefetchAppearanceCustomizeSheet();
+                    flushSync(() => vm.blockCustomize.setPanelOpen((open) => !open));
+                }}
+                onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }}
+                className={`flex w-full items-center justify-between gap-3 min-h-[48px] px-3.5 py-2.5 text-right touch-manipulation ${SETTING_ROW_BORDER}`}
+                style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+            >
+                <span className="flex items-center gap-2.5 min-w-0">
+                    <Layers size={16} className="shrink-0 text-[#E6C673]/80" aria-hidden />
+                    <span className="text-[13px] font-medium text-white/95">تخصيص قسم</span>
+                </span>
+                <ChevronLeft size={16} className="shrink-0 text-white/35" aria-hidden />
+            </button>
 
-            <div className="p-4">
-                <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="min-w-0">
-                        <label id={colorLabelId} className="text-sm font-bold text-white block">
-                            لون الواجهة
-                        </label>
-                        <p className="text-[10px] text-white/45 mt-0.5 leading-relaxed">
-                            يُطبَّق على خلفية اللوحة والبطاقات — كما في المعاينة
-                        </p>
-                    </div>
+            <div className="px-3.5 py-3">
+                <div className="flex items-center justify-between gap-2 mb-2.5">
+                    <label id={colorLabelId} className="text-[13px] font-medium text-white/95">
+                        لون الواجهة
+                    </label>
                     <SettingsCollapseToggle
                         expanded={vm.themesExpanded}
                         hidden={vm.hiddenThemeCount}
@@ -65,8 +63,22 @@ export function AppearanceThemeAndSurfaceCard({ vm }: { vm: AppearanceSectionVie
                         />
                     ))}
                 </div>
-                <p className="text-xs text-white/60 mt-2 text-center">{vm.activeThemeToken.name}</p>
+                <p className="text-[11px] text-white/40 mt-2 text-center">{vm.activeThemeToken.name}</p>
             </div>
-        </SettingCard>
+
+            <SettingRow
+                icon={Pause}
+                label="تقليل الحركة"
+                subLabel="يقلّل الانتقالات في التطبيق"
+                action={
+                    <Toggle
+                        testId="settings-toggle-appearance-reduceMotion"
+                        checked={vm.appearance.reduceMotion}
+                        onChange={(next) => vm.patchAppearance({ reduceMotion: next })}
+                    />
+                }
+            />
+            <AppearanceReadabilityRows vm={vm} />
+        </>
     );
 }

@@ -1,44 +1,32 @@
 import type { ComponentProps, ComponentType } from 'react';
 
-type FieldTasksBottomSheetModule =
-    typeof import('@/app/components/lawyer/dashboard/FieldTasksBottomSheet');
+type FieldTasksOverlayEntryModule =
+    typeof import('@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardFieldTasksOverlayEntry');
 type TasksManagerOverlayModule =
     typeof import('@/app/components/lawyer/dashboard/TasksManagerOverlay');
 
-type FieldTasksBottomSheetProps = ComponentProps<FieldTasksBottomSheetModule['FieldTasksBottomSheet']>;
 type TasksManagerOverlayProps = ComponentProps<TasksManagerOverlayModule['TasksManagerOverlay']>;
 
-export type FieldTasksBottomSheetComponent = ComponentType<FieldTasksBottomSheetProps>;
 export type TasksManagerOverlayComponent = ComponentType<TasksManagerOverlayProps>;
 
 /**
- * تحميل قسم المهام مقسوم إلى chunk‌ين مستقلين:
- * - الستارة (sheet): خفيفة، تُفتح فوراً عند نقر «مهام».
- * - الأجندة (manager overlay): أثقل، تُحمّل فقط عند «إدارة الكل».
- * هذا يمنع انتظار المستخدم لتحميل الأجندة الكاملة قبل ظهور الستارة.
+ * تحميل قسم المهام مقسوم إلى مسارين:
+ * - الستارة: مقطع Entry (Host + BottomSheet ثابتان) — أول نقرة «مهام».
+ * - الأجندة: chunk مستقل يُحمَّل عند «إدارة الكل» فقط.
  */
 
-let sheetModulePromise: Promise<FieldTasksBottomSheetModule> | null = null;
-let managerModulePromise: Promise<TasksManagerOverlayModule> | null = null;
+let overlayEntryPromise: Promise<FieldTasksOverlayEntryModule> | null = null;
+let overlayEntryResolved = false;
 
-let cachedFieldTasksBottomSheet: FieldTasksBottomSheetComponent | null = null;
+let managerModulePromise: Promise<TasksManagerOverlayModule> | null = null;
 let cachedTasksManagerOverlay: TasksManagerOverlayComponent | null = null;
 
 export function isFieldTasksSheetModuleResolved(): boolean {
-    return cachedFieldTasksBottomSheet !== null;
+    return overlayEntryResolved;
 }
 
 export function isTasksManagerModuleResolved(): boolean {
     return cachedTasksManagerOverlay !== null;
-}
-
-/** @deprecated استخدم isFieldTasksSheetModuleResolved — يبقى للتوافق */
-export function isFieldTasksHubModuleResolved(): boolean {
-    return isFieldTasksSheetModuleResolved();
-}
-
-export function getCachedFieldTasksBottomSheet(): FieldTasksBottomSheetComponent | null {
-    return cachedFieldTasksBottomSheet;
 }
 
 export function getCachedTasksManagerOverlay(): TasksManagerOverlayComponent | null {
@@ -47,27 +35,28 @@ export function getCachedTasksManagerOverlay(): TasksManagerOverlayComponent | n
 
 /** للاختبارات */
 export function resetFieldTasksHubModuleCacheForTests(): void {
-    sheetModulePromise = null;
+    overlayEntryPromise = null;
+    overlayEntryResolved = false;
     managerModulePromise = null;
-    cachedFieldTasksBottomSheet = null;
     cachedTasksManagerOverlay = null;
 }
 
-function ensureSheetModulePromise(): Promise<FieldTasksBottomSheetModule> {
-    if (!sheetModulePromise) {
-        sheetModulePromise = import('@/app/components/lawyer/dashboard/FieldTasksBottomSheet')
+function ensureOverlayEntry(): Promise<FieldTasksOverlayEntryModule> {
+    if (!overlayEntryPromise) {
+        overlayEntryPromise = import(
+            '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardFieldTasksOverlayEntry'
+        )
             .then((mod) => {
-                if (mod?.FieldTasksBottomSheet) {
-                    cachedFieldTasksBottomSheet = mod.FieldTasksBottomSheet;
-                }
+                overlayEntryResolved = Boolean(mod.LawyerDashboardFieldTasksOverlayEntry);
                 return mod;
             })
             .catch((err) => {
-                sheetModulePromise = null;
+                overlayEntryPromise = null;
+                overlayEntryResolved = false;
                 throw err;
             });
     }
-    return sheetModulePromise;
+    return overlayEntryPromise;
 }
 
 function ensureManagerModulePromise(): Promise<TasksManagerOverlayModule> {
@@ -87,45 +76,27 @@ function ensureManagerModulePromise(): Promise<TasksManagerOverlayModule> {
     return managerModulePromise;
 }
 
-/** يحمّل ستارة الميدان فقط */
-export function loadFieldTasksSheetModule(): Promise<FieldTasksBottomSheetModule> {
-    return ensureSheetModulePromise();
+/** مقطع Entry (Host + الستارة ثابتان داخله) */
+export function loadFieldTasksSheetModule(): Promise<FieldTasksOverlayEntryModule> {
+    return ensureOverlayEntry();
 }
 
-/** يحمّل أجندة المهام (overlay + manager) فقط */
 export function loadTasksManagerModule(): Promise<TasksManagerOverlayModule> {
     return ensureManagerModulePromise();
 }
 
-/** prefetch الستارة — أولوية عالية (تُفتح أولاً) */
 export function prefetchFieldTasksSheetModule(): void {
     if (typeof window === 'undefined') return;
-    void ensureSheetModulePromise();
+    void ensureOverlayEntry().catch(() => undefined);
 }
 
-/** prefetch الأجندة — أولوية أدنى */
 export function prefetchTasksManagerModule(): void {
     if (typeof window === 'undefined') return;
     void ensureManagerModulePromise();
 }
 
-/** prefetch كلا الـ chunkين — الستارة أولاً ثم الأجندة */
-export function prefetchFieldTasksHubModule(): void {
-    if (typeof window === 'undefined') return;
-    void ensureSheetModulePromise();
-    void ensureManagerModulePromise();
-}
-
-/** يضمن جاهزية الستارة للفتح الفوري */
 export function hydrateFieldTasksSheetForInstantOpen(): Promise<boolean> {
-    return ensureSheetModulePromise()
-        .then(() => true)
-        .catch(() => false);
-}
-
-/** يضمن جاهزية chunk المهام كاملاً (الستارة + الأجندة) */
-export function hydrateFieldTasksHubForInstantOpen(): Promise<boolean> {
-    return Promise.all([ensureSheetModulePromise(), ensureManagerModulePromise()])
-        .then(() => true)
+    return ensureOverlayEntry()
+        .then(() => overlayEntryResolved)
         .catch(() => false);
 }

@@ -1,21 +1,18 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { NotificationPanelHost } from '@/app/components/lawyer/NotificationPanel/NotificationPanelHost';
 
-const MockPanel = (props: { isOpen: boolean; keepAlive?: boolean }) =>
-    props.isOpen || props.keepAlive
-        ? <div data-testid="notification-panel-loaded">loaded</div>
-        : null;
-
-vi.mock('@/app/runtime/notificationBootHydrator', () => ({
-    hydrateNotificationShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
-    NOTIFICATION_SHELL_HYDRATED_EVENT: 'hami:notification-shell-hydrated',
+vi.mock('@/app/stores/notificationStore', () => ({
+    useNotificationStore: {
+        getState: () => ({ hydrateFromLocalPeek: vi.fn() }),
+    },
 }));
 
-vi.mock('@/app/runtime/notificationPanelLoader', () => ({
-    getCachedNotificationPanel: vi.fn(() => MockPanel),
-    loadNotificationPanelModule: vi.fn(async () => ({ NotificationPanel: MockPanel })),
-    seedCachedNotificationPanel: vi.fn(),
+vi.mock('@/app/components/lawyer/NotificationPanel/index', () => ({
+    NotificationPanel: (props: { isOpen: boolean; keepAlive?: boolean }) =>
+        props.isOpen || props.keepAlive ? (
+            <div data-testid="notification-panel-loaded">loaded</div>
+        ) : null,
 }));
 
 describe('NotificationPanelHost', () => {
@@ -36,7 +33,7 @@ describe('NotificationPanelHost', () => {
         expect(container.firstChild).toBeNull();
     });
 
-    it('يبقي اللوحة mounted مع keepAlive حتى عند الإغلاق', async () => {
+    it('يبقي اللوحة mounted مع keepAlive حتى عند الإغلاق', () => {
         render(
             <NotificationPanelHost
                 isOpen={false}
@@ -46,12 +43,10 @@ describe('NotificationPanelHost', () => {
                 onNavigate={vi.fn()}
             />,
         );
-        await waitFor(() => {
-            expect(screen.getByTestId('notification-panel-loaded')).toBeInTheDocument();
-        });
+        expect(screen.getByTestId('notification-panel-loaded')).toBeInTheDocument();
     });
 
-    it('يعرض المحتوى عند الفتح', async () => {
+    it('يعرض المحتوى عند الفتح بلا هيكل تحميل', () => {
         render(
             <NotificationPanelHost
                 isOpen
@@ -61,8 +56,7 @@ describe('NotificationPanelHost', () => {
                 onNavigate={vi.fn()}
             />,
         );
-        await waitFor(() => {
-            expect(screen.getByTestId('notification-panel-loaded')).toBeInTheDocument();
-        });
+        expect(screen.getByTestId('notification-panel-loaded')).toBeInTheDocument();
+        expect(screen.queryByTestId('notification-panel-shell-loading')).toBeNull();
     });
 });

@@ -1,5 +1,7 @@
 import React from 'react';
-import { Pencil, Pin, Trash2 } from '@/app/components/ui/lucideIcons';
+import { Pencil } from '@/app/components/ui/icons/Pencil';
+import { Pin } from '@/app/components/ui/icons/Pin';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import type { DossierNoteContext } from '@/app/services/dossier-notes/smartLawLinker';
 import { DossierNoteBodyPreview } from './DossierNoteBodyPreview';
 import { parseLocalNotificationDate } from '@/app/utils/executionStateMachine';

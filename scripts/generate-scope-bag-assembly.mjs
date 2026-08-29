@@ -3,6 +3,10 @@ import { SCOPE_BAG_FRAGMENT_CONFIG } from './scope-bag-fragment-config.mjs';
 
 const outPath =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoreScopeBagAssembly.generated.ts';
+if (!fs.existsSync(outPath)) {
+    console.log('[spent] buildExecutionDashboardCoreScopeBagAssembly.generated.ts — skip');
+    process.exit(0);
+}
 
 const fragmentCalls = SCOPE_BAG_FRAGMENT_CONFIG.map((f) => {
     return `        ${f.fn}(sources.${f.var}),`;

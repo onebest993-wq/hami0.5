@@ -1,20 +1,126 @@
 import {
-    ProceduralSubItem,
-    ProceduralContainer,
-    ProceduralSubItemPatch,
-    cloneProceduralNoteItem,
-    cloneProceduralActionItem,
+    CONTAINER_COLOR_PRESETS,
+    CONTAINER_ICON_PRESETS,
+    type ProceduralActionItem,
+    type ProceduralContainer,
+    type ProceduralNoteItem,
+    type ProceduralSubItem,
+    type ProceduralSubItemPatch,
 } from './proceduralContainersModel';
 
-import {
-    createProceduralId,
-    normalizeColor,
-    normalizeIcon,
-    cloneContainer,
-    findContainerInTree,
-    mapContainerTree,
-    deleteContainerFromTree,
-} from './proceduralContainersNormalize';
+export function createProceduralId(): string {
+    return globalThis.crypto &&
+        'randomUUID' in globalThis.crypto &&
+        typeof globalThis.crypto.randomUUID === 'function'
+        ? globalThis.crypto.randomUUID()
+        : `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+export function normalizeColor(raw: unknown): string {
+    const v = String(raw ?? '').trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(v)) return v;
+    return CONTAINER_COLOR_PRESETS[0];
+}
+
+export function normalizeIcon(raw: unknown): string {
+    const v = String(raw ?? '').trim();
+    return CONTAINER_ICON_PRESETS.includes(v as (typeof CONTAINER_ICON_PRESETS)[number]) ? v : '📁';
+}
+
+export function cloneProceduralNoteItem(source: ProceduralNoteItem): ProceduralNoteItem {
+    return {
+        ...source,
+        type: 'note',
+        id: createProceduralId(),
+        tags: source.tags ? [...source.tags] : undefined,
+        link: source.link ? { ...source.link } : undefined,
+    };
+}
+
+export function cloneProceduralActionItem(source: ProceduralActionItem): ProceduralActionItem {
+    return {
+        ...source,
+        type: 'action',
+        id: createProceduralId(),
+        tags: source.tags ? [...source.tags] : undefined,
+        link: source.link ? { ...source.link } : undefined,
+    };
+}
+
+export function getRootContainers(containers: ProceduralContainer[]): ProceduralContainer[] {
+    return containers.filter((c) => !c.parentId);
+}
+
+export function cloneContainer(c: ProceduralContainer): ProceduralContainer {
+    return {
+        ...c,
+        subItems: c.subItems.map((item) => {
+            if (item.type === 'container') {
+                return { type: 'container', container: cloneContainer(item.container) };
+            }
+            return { ...item };
+        }),
+    };
+}
+
+export function findContainerInTree(
+    roots: ProceduralContainer[],
+    id: string,
+): { container: ProceduralContainer; parent: ProceduralContainer | null; path: ProceduralContainer[] } | null {
+    const walk = (
+        list: ProceduralContainer[],
+        parent: ProceduralContainer | null,
+        path: ProceduralContainer[],
+    ): ReturnType<typeof findContainerInTree> => {
+        for (const c of list) {
+            if (c.id === id) return { container: c, parent, path };
+            for (const item of c.subItems) {
+                if (item.type === 'container') {
+                    const hit = walk([item.container], c, [...path, c]);
+                    if (hit) return hit;
+                }
+            }
+        }
+        return null;
+    };
+    return walk(roots, null, []);
+}
+
+export function mapContainerTree(
+    roots: ProceduralContainer[],
+    fn: (c: ProceduralContainer, parent: ProceduralContainer | null) => ProceduralContainer,
+): ProceduralContainer[] {
+    const mapOne = (c: ProceduralContainer, parent: ProceduralContainer | null): ProceduralContainer => {
+        const next = fn(c, parent);
+        return {
+            ...next,
+            subItems: next.subItems.map((item) => {
+                if (item.type === 'container') {
+                    return {
+                        type: 'container',
+                        container: mapOne(item.container, next),
+                    };
+                }
+                return item;
+            }),
+        };
+    };
+    return roots.map((r) => mapOne(r, null));
+}
+
+export function deleteContainerFromTree(roots: ProceduralContainer[], targetId: string): ProceduralContainer[] {
+    const prune = (c: ProceduralContainer): ProceduralContainer => ({
+        ...c,
+        subItems: c.subItems
+            .filter((item) => item.type !== 'container' || item.container.id !== targetId)
+            .map((item) =>
+                item.type === 'container'
+                    ? { type: 'container', container: prune(item.container) }
+                    : item,
+            ),
+    });
+    return roots.filter((c) => c.id !== targetId).map(prune);
+}
 
 export function insertRootContainer(roots: ProceduralContainer[], container: ProceduralContainer): ProceduralContainer[] {
     return [...roots, { ...container, parentId: null }];
@@ -224,4 +330,3 @@ export function advanceActionToNextPhase(
     }
     return updated;
 }
-

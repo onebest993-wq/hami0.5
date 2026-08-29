@@ -1,0 +1,161 @@
+/**
+ * حركة دخول/خروج طبقات الملء بعد الكشف.
+ * ليست أول إطار: تُحمَّل مع deferred-app (lawyerHomeFx.css).
+ * قواعد الإخفاء/قفل النقر تبقى في lawyerHomeFx-critical.css.
+ * دخول شبكة المنزل المتسلسل أُلغي — اللوحة تظهر مكتملة بلا حركة تزيينية.
+ */
+
+html[data-hami-transactions-open='1'] .hami-tx-overlay-layer,
+html[data-hami-transactions-open='1'] #hami-transactions-instant-chrome {
+    transition:
+        transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html[data-hami-transactions-open='1']:not([data-hami-tx-enter='1']):not([data-hami-transactions-closing='1']) .hami-tx-overlay-layer,
+html[data-hami-transactions-open='1']:not([data-hami-tx-enter='1']):not([data-hami-transactions-closing='1']) #hami-transactions-instant-chrome {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+}
+
+html[data-hami-transactions-open='1'][data-hami-tx-enter='1'] .hami-tx-overlay-layer,
+html[data-hami-transactions-open='1'][data-hami-tx-enter='1'] #hami-transactions-instant-chrome {
+    will-change: transform, opacity;
+    transform: translate3d(0, 8px, 0);
+    opacity: 0.78;
+    transition: none !important;
+}
+
+html[data-hami-transactions-closing='1'] .hami-tx-overlay-layer,
+html[data-hami-transactions-closing='1'] #hami-transactions-instant-chrome {
+    visibility: visible !important;
+    pointer-events: none !important;
+    transform: translate3d(0, 10px, 0);
+    opacity: 0;
+    transition:
+        transform 140ms cubic-bezier(0.4, 0, 1, 1),
+        opacity 130ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html[data-hami-transactions-open='1'] .hami-tx-overlay-layer,
+    html[data-hami-transactions-open='1'] #hami-transactions-instant-chrome,
+    html[data-hami-transactions-closing='1'] .hami-tx-overlay-layer,
+    html[data-hami-transactions-closing='1'] #hami-transactions-instant-chrome {
+        transition: none !important;
+        transform: none !important;
+    }
+
+    html[data-hami-transactions-open='1'][data-hami-tx-enter='1'] .hami-tx-overlay-layer,
+    html[data-hami-transactions-open='1'][data-hami-tx-enter='1'] #hami-transactions-instant-chrome {
+        opacity: 1 !important;
+    }
+}
+
+html[data-hami-reduce-motion='1'] .hami-tx-overlay-layer,
+html[data-hami-animations='0'] .hami-tx-overlay-layer,
+html[data-hami-lite='1'] .hami-tx-overlay-layer,
+html[data-hami-reduce-motion='1'] #hami-transactions-instant-chrome,
+html[data-hami-animations='0'] #hami-transactions-instant-chrome,
+html[data-hami-lite='1'] #hami-transactions-instant-chrome {
+    transition: none !important;
+}
+
+html[data-hami-forum-enter='1'] [data-testid='forum-overlay-host'],
+html[data-hami-repository-enter='1'] .hami-repository-overlay-layer,
+html[data-hami-tasks-manager-enter='1'] [data-testid='tasks-manager-overlay'],
+html[data-hami-tasks-manager-enter='1'] #hami-tasks-manager-instant-chrome,
+html[data-hami-schedule-enter='1'] [data-testid='lawyer-dashboard-schedule-surface'],
+html[data-hami-settings-enter='1'] .hami-settings-overlay-host,
+html[data-hami-settings-enter='1'] .hami-settings-overlay-layer,
+html[data-hami-settings-enter='1'] #hami-settings-instant-bridge {
+    will-change: transform, opacity;
+    transform: translate3d(0, 8px, 0);
+    opacity: 0.78 !important;
+    transition: none !important;
+}
+
+/* دعاوى: قشرة فورية — بلا انزلاق/تعتيم يسرق أول إطار للمخزن */
+html[data-hami-lawsuits-enter='1'] [data-testid='lawsuits-workspace'],
+html[data-hami-lawsuits-open='1'] [data-testid='lawsuits-workspace'] {
+    will-change: auto;
+    transform: none !important;
+    opacity: 1 !important;
+    transition: none !important;
+}
+
+html[data-hami-forum-open='1'] [data-testid='forum-overlay-host'],
+html[data-hami-repository-open='1'] .hami-repository-overlay-layer,
+html[data-hami-tasks-manager-open='1'] [data-testid='tasks-manager-overlay'],
+html[data-hami-tasks-manager-open='1'] #hami-tasks-manager-instant-chrome,
+html[data-hami-schedule-open='1'] [data-testid='lawyer-dashboard-schedule-surface'] {
+    transition:
+        transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html[data-hami-forum-closing='1'] [data-testid='forum-overlay-host'],
+html[data-hami-repository-closing='1'] .hami-repository-overlay-layer,
+html[data-hami-tasks-manager-closing='1'] [data-testid='tasks-manager-overlay'],
+html[data-hami-tasks-manager-closing='1'] #hami-tasks-manager-instant-chrome,
+html[data-hami-schedule-closing='1'] [data-testid='lawyer-dashboard-schedule-surface'],
+html[data-hami-lawsuits-closing='1'] [data-testid='lawsuits-workspace'] {
+    visibility: visible !important;
+    pointer-events: none !important;
+    transform: translate3d(0, 10px, 0);
+    opacity: 0 !important;
+    transition:
+        transform 140ms cubic-bezier(0.4, 0, 1, 1),
+        opacity 130ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+html[data-hami-field-tasks-closing='1'] [data-testid='field-tasks-sheet'] {
+    transform: translate3d(0, 100%, 0) !important;
+    transition: transform 160ms cubic-bezier(0.4, 0, 1, 1) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html[data-hami-forum-enter='1'] [data-testid='forum-overlay-host'],
+    html[data-hami-repository-enter='1'] .hami-repository-overlay-layer,
+    html[data-hami-tasks-manager-enter='1'] [data-testid='tasks-manager-overlay'],
+    html[data-hami-schedule-enter='1'] [data-testid='lawyer-dashboard-schedule-surface'],
+    html[data-hami-settings-enter='1'] .hami-settings-overlay-host,
+    html[data-hami-lawsuits-enter='1'] [data-testid='lawsuits-workspace'] {
+        transform: none !important;
+        opacity: 1 !important;
+    }
+}
+
+html[data-hami-profile-closing='1'] [data-lawyer-profile-root] {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+    transition:
+        transform 170ms cubic-bezier(0.4, 0, 1, 1),
+        opacity 150ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+html[data-hami-schedule-open='1'][data-hami-schedule-enter='1'] [data-testid='lawyer-dashboard-schedule-surface'] {
+    opacity: 0.78 !important;
+    transform: translate3d(0, 8px, 0);
+    transition: none !important;
+}
+
+html[data-hami-schedule-closing='1'] [data-testid='lawyer-dashboard-schedule-surface'] {
+    visibility: visible !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translate3d(0, 10px, 0);
+    z-index: 20 !important;
+    transition:
+        transform 140ms cubic-bezier(0.4, 0, 1, 1),
+        opacity 130ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html[data-hami-profile-open='1'] [data-lawyer-profile-root],
+    html[data-hami-profile-closing='1'] [data-lawyer-profile-root],
+    html[data-hami-profile-closing='1'] [data-testid='lawyer-dashboard-profile-surface'] {
+        transition: none !important;
+        transform: none !important;
+    }
+}

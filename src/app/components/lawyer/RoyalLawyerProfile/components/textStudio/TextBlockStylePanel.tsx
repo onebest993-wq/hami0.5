@@ -12,6 +12,8 @@ import {
     TEXT_STYLE_PRESETS,
     type TextStyleScope,
 } from './patchTextBlockStyle';
+import { tokenizeTextPhrases } from './tokenizeTextPhrases';
+import { TextBlockStyleScopeTabs } from './TextBlockStyleScopeTabs';
 
 type TextBlockStylePanelProps = {
     block: ProfileCustomBlock;
@@ -45,16 +47,10 @@ export function TextBlockStylePanel({
         [block, scope, lineIndex, phraseRange],
     );
 
-    const phraseTokens = useMemo(() => {
-        const line = lines[lineIndex] ?? '';
-        const tokens: { text: string; start: number; end: number }[] = [];
-        const re = /\S+/g;
-        let match: RegExpExecArray | null;
-        while ((match = re.exec(line)) !== null) {
-            tokens.push({ text: match[0], start: match.index, end: match.index + match[0].length });
-        }
-        return tokens;
-    }, [lines, lineIndex]);
+    const phraseTokens = useMemo(
+        () => tokenizeTextPhrases(lines[lineIndex] ?? ''),
+        [lines, lineIndex],
+    );
 
     const applyStylePatch = (stylePatch: ProfileBlockTextStyle) => {
         patchStyleForScope(block, scope, lineIndex, phraseRange, stylePatch, onChange);
@@ -62,32 +58,11 @@ export function TextBlockStylePanel({
 
     return (
         <div className="profile-studio-panel space-y-3" data-testid="text-block-style-panel">
-            <div>
-                <p className="profile-studio-field-label">نطاق التنسيق</p>
-                <div className="profile-studio-scope-tabs">
-                    {(
-                        [
-                            ['all', 'كامل النص'],
-                            ['line', 'سطر'],
-                            ['phrase', 'مقطع/كلمة'],
-                        ] as const
-                    ).map(([id, label]) => (
-                        <button
-                            key={id}
-                            type="button"
-                            data-active={scope === id ? 'true' : 'false'}
-                            data-testid={`text-style-scope-${id}`}
-                            className="profile-studio-scope-tab min-h-[44px]"
-                            onClick={() => {
-                                onScopeChange(id);
-                                onPhraseRangeChange(null);
-                            }}
-                        >
-                            {label}
-                        </button>
-                    ))}
-                </div>
-            </div>
+            <TextBlockStyleScopeTabs
+                scope={scope}
+                onScopeChange={onScopeChange}
+                onPhraseRangeChange={onPhraseRangeChange}
+            />
 
             {scope === 'line' || scope === 'phrase' ? (
                 <div>

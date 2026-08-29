@@ -12,7 +12,8 @@ function safeStr(v: unknown): string {
 
 function partyName(p: unknown): string {
     if (!p || typeof p !== 'object') return '';
-    return safeStr((p as { name?: string }).name);
+    const row = p as { name?: string; fullName?: string };
+    return safeStr(row.fullName) || safeStr(row.name);
 }
 
 function partiesFromArray(arr: unknown, preferClient: boolean): string {

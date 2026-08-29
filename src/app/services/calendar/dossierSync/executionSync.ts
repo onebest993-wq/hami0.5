@@ -1,11 +1,15 @@
 /**
- * مزامنة التنفيذ → التقويم: مواعيد الخط الزمني + مهام الاستحقاق ذات التاريخ.
+ * مزامنة التنفيذ → التقويم: مواعيد الخط الزمني + المشاهدة القادمة + مهام الاستحقاق ذات التاريخ.
  */
 import { CalendarBridge, normalizeDateToYmd } from '@/app/services/calendar/bridge';
 import type { DossierSyncStats, SyncScope } from './types';
 import { shouldExcludeExecutionFromCalendar } from './exclusions';
 import { isRecord, readEntityId, readStr } from './shared';
 import { syncExecutionTaskDue, syncExecutionTimelineAppointment } from './incrementalSync';
+import {
+    EXECUTION_VISIT_NEXT_EVENT_ID,
+    resolveNextExecutionVisitation,
+} from './visitationCalendarSync';
 
 export function syncOneExecutionFile(
     file: Record<string, unknown>,
@@ -45,6 +49,26 @@ export function syncOneExecutionFile(
         if (String(ev.type) === 'appointment' && !ev.trashedAt && normalizeDateToYmd(readStr(ev, 'date'))) {
             stats.executionAppointments++;
         }
+    }
+
+    const nextVisit = resolveNextExecutionVisitation(file);
+    if (nextVisit) {
+        syncExecutionTimelineAppointment({
+            userId,
+            executionId,
+            event: {
+                id: EXECUTION_VISIT_NEXT_EVENT_ID,
+                type: 'appointment',
+                date: nextVisit.date,
+                title: 'موعد مشاهدة',
+                description: [nextVisit.time, nextVisit.location].filter(Boolean).join(' · ') || undefined,
+            },
+            caseNo,
+            clientName,
+        });
+        stats.executionAppointments++;
+    } else {
+        CalendarBridge.remove('execution', executionIdStr, EXECUTION_VISIT_NEXT_EVENT_ID, userId);
     }
 
     if (!includeTasks) return;

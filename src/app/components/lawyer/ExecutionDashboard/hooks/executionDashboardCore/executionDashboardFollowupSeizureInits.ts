@@ -71,11 +71,19 @@ export function runSaveSeizedPropertyInitForDecision(
     };
     if (existingIdx >= 0) next[existingIdx] = { ...next[existingIdx], ...nextRow };
     else next.unshift(nextRow);
-    persistExecutionMerge({ seizedProperties: next });
+    const persisted = persistExecutionMerge({ seizedProperties: next });
+    if (!persisted) {
+        showToast('تعذّر حفظ بيانات العقار — أعد المحاولة', 'error');
+        return;
+    }
+    if (executionDataRef.current) {
+        executionDataRef.current = { ...executionDataRef.current, seizedProperties: next };
+    }
     patchExecutorDecisionRow(exId, decisionId, {
         seizureRequestSavedAt: nowIso,
         seizureRequestDetails: `رقم العقار: ${propertyNumber}\nالجنس: ${input.propertyGender}\nتفاصيل السند:\n${deedNotes}`,
     });
+    dispatchDecisionsReload();
     pushTimelineEvent({
         id: nextTimelineId(),
         date: nowIso.slice(0, 10),

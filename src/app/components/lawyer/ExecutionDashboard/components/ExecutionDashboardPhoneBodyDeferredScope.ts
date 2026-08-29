@@ -11,11 +11,9 @@ import type {
 import type { UnifiedLedgerTotalParams } from '@/app/slices/financial/ledgerPublic';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import type { SeizureRequestSubjectModalProps } from './SeizureRequestSubjectModal.types';
-import type { VisitationCalendarModalProps } from './VisitationCalendarModal';
-import type {
-    SeizureLogTab,
-    UnifiedSeizureLogEntry,
-} from '@/app/components/lawyer/execution/UnifiedSeizureLogModal';
+import type { VisitationScheduleConfig, VisitationSession } from '@/app/types/visitationSchedule';
+import type { SeizureLogTab } from '@/app/components/lawyer/execution/unifiedSeizureLogTabTypes';
+import type { UnifiedSeizureLogEntry } from '@/app/components/lawyer/execution/unifiedSeizureLogEntryTypes';
 
 export type GenericHandler = (...args: unknown[]) => unknown;
 
@@ -43,8 +41,8 @@ export type ExecutionStatusMetadata = Record<string, unknown> | null | undefined
 export type ExecutionPhoneBodyDeferredViewData =
     | (ExecutionFile & {
           visitationSchedule?: {
-              config?: VisitationCalendarModalProps['config'];
-              sessions: VisitationCalendarModalProps['sessions'];
+              config?: VisitationScheduleConfig;
+              sessions: VisitationSession[];
           } | null;
       })
     | null
@@ -155,7 +153,6 @@ export type ExecutionDashboardPhoneBodyDeferredScope = {
     setPropertySeizureRequestModalOpen: Dispatch<SetStateAction<boolean>>;
     setPropertySeizureSubjectDraft: SeizureRequestSubjectModalProps['onSubjectDraftChange'];
     setShowExecutionFinancialHub: Dispatch<SetStateAction<boolean>>;
-    setShowVisitationCalendarModal: Dispatch<SetStateAction<boolean>>;
     setThirdPartyFundsDraftById: Dispatch<SetStateAction<ThirdPartyDraftMap>>;
     setThirdPartySeizuresUi: Dispatch<SetStateAction<ThirdPartySeizure[]>>;
     setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
@@ -168,7 +165,6 @@ export type ExecutionDashboardPhoneBodyDeferredScope = {
         options?: unknown,
     ) => void;
     showUnifiedSeizureLogModal: boolean;
-    showVisitationCalendarModal: VisitationCalendarModalProps['open'];
     standaloneExecutionMarks: SeizedAsset[];
     statusMetadata: ExecutionStatusMetadata;
     submitMovableSeizureRequest: SeizureRequestSubjectModalProps['onSubmit'];

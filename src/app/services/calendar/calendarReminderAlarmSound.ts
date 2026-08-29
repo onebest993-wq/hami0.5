@@ -1,13 +1,15 @@
 /**
- * نغمة «حامي» القانونية — إيقاع محكمة عراقية مميز:
+ * نغمة «حامي» القانونية — ملف WAV حقيقي أولاً، ثم إيقاع مُركَّب إن تعذّر التشغيل.
  * نبرة عميقة (سلطة) → ثنائية شرقية → نداء ذهبي قابل للتمييز من بعيد.
  */
+
+import { HAMI_LEGAL_ALARM_SOUND_WEB } from '@/app/services/notifications/native/hamiNativeSound';
 
 type ChimeStep =
     | { kind: 'tone'; freq: number; duration: number; gain: number; wave?: OscillatorType; detune?: number }
     | { kind: 'pause'; duration: number };
 
-/** توقيع صوتي ثابت للمشروع — لا يُغيَّر إلا بقصد */
+/** توقيع صوتي ثابت للمشروع — يطابق scripts/generate-hami-notification-sound.mjs */
 const HAMI_LEGAL_ALARM_SEQUENCE: ChimeStep[] = [
     { kind: 'tone', freq: 146.83, duration: 0.48, gain: 0.58, wave: 'sine' },
     { kind: 'pause', duration: 0.16 },
@@ -23,6 +25,7 @@ const HAMI_LEGAL_ALARM_SEQUENCE: ChimeStep[] = [
 
 let sharedAudioContext: AudioContext | null = null;
 let activePlaybackGeneration = 0;
+let webAlarmAudio: HTMLAudioElement | null = null;
 
 function getAudioContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;
@@ -42,6 +45,19 @@ async function ensureAudioRunning(ctx: AudioContext): Promise<void> {
             /* ignore */
         }
     }
+}
+
+function stopWebAlarmAudio(): void {
+    if (!webAlarmAudio) return;
+    try {
+        webAlarmAudio.pause();
+        webAlarmAudio.currentTime = 0;
+        webAlarmAudio.loop = false;
+        webAlarmAudio.src = '';
+    } catch {
+        /* ignore */
+    }
+    webAlarmAudio = null;
 }
 
 function scheduleTone(
@@ -100,11 +116,30 @@ function vibrateLegalAlarm(): void {
     }
 }
 
+async function playWebLegalAlarmWav(loop: boolean): Promise<HTMLAudioElement | null> {
+    if (typeof window === 'undefined' || typeof Audio === 'undefined') return null;
+    try {
+        stopWebAlarmAudio();
+        const audio = new Audio(HAMI_LEGAL_ALARM_SOUND_WEB);
+        audio.preload = 'auto';
+        audio.loop = loop;
+        audio.volume = 1;
+        await audio.play();
+        webAlarmAudio = audio;
+        return audio;
+    } catch {
+        stopWebAlarmAudio();
+        return null;
+    }
+}
+
 export type PlayHamiLegalReminderAlarmOptions = {
-    /** تكرار النغمة الكاملة (للمنبه المستمر) */
+    /** تكرار النغمة الكاملة (للمنبه المستمر) — يُستخدم عند سقوط ملف WAV */
     repeats?: number;
     /** فاصل بين التكرارات بالثواني */
     repeatGapSec?: number;
+    /** حلقة WAV حتى الإيقاف — منبّه حقيقي داخل التطبيق */
+    loop?: boolean;
 };
 
 /**
@@ -120,9 +155,25 @@ export async function playHamiLegalReminderAlarm(
         return () => undefined;
     }
 
+    const generation = ++activePlaybackGeneration;
+    const loop = options.loop === true;
+
+    if (shouldVibrateChannel('calendar', undefined, true)) {
+        vibrateLegalAlarm();
+    }
+
+    const wavEl = await playWebLegalAlarmWav(loop);
+    if (wavEl && generation === activePlaybackGeneration) {
+        return () => {
+            if (generation === activePlaybackGeneration) {
+                activePlaybackGeneration += 1;
+            }
+            stopWebAlarmAudio();
+        };
+    }
+
     const repeats = Math.max(1, options.repeats ?? 1);
     const repeatGapSec = options.repeatGapSec ?? 0.35;
-    const generation = ++activePlaybackGeneration;
 
     const ctx = getAudioContext();
     if (!ctx) return () => undefined;
@@ -132,10 +183,6 @@ export async function playHamiLegalReminderAlarm(
     const master = ctx.createGain();
     master.gain.setValueAtTime(0.92, ctx.currentTime);
     master.connect(ctx.destination);
-
-    if (shouldVibrateChannel('calendar', undefined, true)) {
-        vibrateLegalAlarm();
-    }
 
     let cursor = 0;
     for (let i = 0; i < repeats; i += 1) {
@@ -148,6 +195,7 @@ export async function playHamiLegalReminderAlarm(
         if (generation === activePlaybackGeneration) {
             activePlaybackGeneration += 1;
         }
+        stopWebAlarmAudio();
         try {
             master.disconnect();
         } catch {
@@ -167,17 +215,30 @@ export async function playHamiLegalReminderAlarm(
 /** إيقاف أي تشغيل جارٍ */
 export function stopHamiLegalReminderAlarm(): void {
     activePlaybackGeneration += 1;
+    stopWebAlarmAudio();
 }
 
 /** يُستدعى من إيماءة المستخدم (تفعيل الجرس) لتفادي حظر الصوت على iOS/Safari */
 export async function primeHamiLegalReminderAudio(): Promise<void> {
     const ctx = getAudioContext();
-    if (!ctx) return;
-    await ensureAudioRunning(ctx);
+    if (ctx) await ensureAudioRunning(ctx);
+    if (typeof Audio === 'undefined') return;
+    try {
+        const audio = new Audio(HAMI_LEGAL_ALARM_SOUND_WEB);
+        audio.preload = 'auto';
+        audio.muted = true;
+        audio.volume = 0;
+        await audio.play().catch(() => undefined);
+        audio.pause();
+        audio.src = '';
+    } catch {
+        /* ignore */
+    }
 }
 
 export function resetHamiLegalReminderAlarmForTests(): void {
     activePlaybackGeneration = 0;
+    stopWebAlarmAudio();
     if (sharedAudioContext && sharedAudioContext.state !== 'closed') {
         void sharedAudioContext.close();
     }

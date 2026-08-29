@@ -41,6 +41,18 @@ describe('sanitizeExecutionPersistPatch', () => {
         expect(result.ok).toBe(true);
     });
 
+    it('strips script from caseNotesLog body and keeps text', () => {
+        const result = sanitizeExecutionPersistPatch({
+            caseNotesLog: [{ id: 'n1', title: 'ملاحظة', body: '<p>ok</p><script>alert(1)</script>' }],
+        });
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            const rows = result.patch.caseNotesLog as Array<{ body: string }>;
+            expect(rows[0]?.body).toContain('ok');
+            expect(rows[0]?.body).not.toMatch(/<script/i);
+        }
+    });
+
     it('rejects oversize note body', () => {
         const result = sanitizeExecutionPersistPatch({
             noteTitle: 'ملاحظة',
@@ -66,5 +78,28 @@ describe('sanitizeExecutionPersistPatch', () => {
         if (result.ok) {
             expect(result.patch.pauseReason).toBe('قرار محكمة');
         }
+    });
+
+    it('strips script from seized asset details and keeps the row', () => {
+        const result = sanitizeExecutionPersistPatch({
+            seizedAssets: [
+                {
+                    id: 'a1',
+                    type: 'حجز راتب موظف',
+                    details: { note: '<p>راتب</p><script>alert(1)</script>' },
+                },
+            ],
+        });
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            const rows = result.patch.seizedAssets as Array<{ details: { note: string } }>;
+            expect(rows[0]?.details?.note).toContain('راتب');
+            expect(rows[0]?.details?.note).not.toMatch(/<script/i);
+        }
+    });
+
+    it('rejects negative paidDebt', () => {
+        const result = sanitizeExecutionPersistPatch({ paidDebt: -1 });
+        expect(result.ok).toBe(false);
     });
 });

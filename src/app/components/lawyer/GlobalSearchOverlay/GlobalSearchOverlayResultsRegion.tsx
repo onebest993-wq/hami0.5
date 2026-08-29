@@ -9,9 +9,8 @@ export type GlobalSearchOverlayResultsRegionProps = Pick<
     | 'recentSearches'
     | 'setQuery'
     | 'clearRecent'
-    | 'isLoadingIndex'
     | 'query'
-    | 'isSearching'
+    | 'searchUiState'
     | 'results'
     | 'flatResults'
     | 'pick'
@@ -19,7 +18,6 @@ export type GlobalSearchOverlayResultsRegionProps = Pick<
     | 'scanIndexForPreview'
     | 'activeIndex'
     | 'setActiveIndex'
-    | 'resultsMaxHeight'
 >;
 
 export function GlobalSearchOverlayResultsRegion({
@@ -27,9 +25,8 @@ export function GlobalSearchOverlayResultsRegion({
     recentSearches,
     setQuery,
     clearRecent,
-    isLoadingIndex,
     query,
-    isSearching,
+    searchUiState,
     results,
     flatResults,
     pick,
@@ -37,13 +34,9 @@ export function GlobalSearchOverlayResultsRegion({
     scanIndexForPreview,
     activeIndex,
     setActiveIndex,
-    resultsMaxHeight,
 }: GlobalSearchOverlayResultsRegionProps) {
     return (
-        <div
-            className="hami-gs-scroll scrollbar-hide"
-            style={{ maxHeight: resultsMaxHeight }}
-        >
+        <div className="hami-gs-scroll">
             {showEmptyState ? (
                 <SearchIdlePanel
                     recentSearches={recentSearches}
@@ -53,18 +46,14 @@ export function GlobalSearchOverlayResultsRegion({
             ) : (
                 <SearchResultsPanel
                     query={query}
-                    isSearching={isSearching}
-                    isLoadingIndex={isLoadingIndex}
+                    searchUiState={searchUiState ?? 'idle'}
                     results={results}
                     flatResults={flatResults}
                     onPick={pick}
                     pinLookup={pinLookup}
                     scanIndex={scanIndexForPreview}
                     activeIndex={activeIndex}
-                    onActiveIndexChange={(i) => {
-                        if (i < 0) return;
-                        setActiveIndex(i);
-                    }}
+                    onActiveIndexChange={setActiveIndex}
                 />
             )}
         </div>

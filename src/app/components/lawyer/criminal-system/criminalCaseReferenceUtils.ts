@@ -1,7 +1,7 @@
 import { formatCriminalStageLabel } from './criminalStageUtils';
 
 /** مدخلات مرجع الإضبارة — واجهة ضيقة لتجنّب الاعتماد الدائري على criminalStore. */
-export type CriminalCaseReferenceInput = {
+type CriminalCaseReferenceInput = {
     location?: {
         caseNumber?: string;
         investigationDossierNumber?: string;

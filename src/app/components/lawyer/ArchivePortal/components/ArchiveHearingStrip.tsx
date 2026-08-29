@@ -10,7 +10,7 @@ export type ArchiveHearingStripProps = {
 export function ArchiveHearingStrip({ label, ymd, sessionNumber }: ArchiveHearingStripProps) {
     return (
         <div
-            className="flex items-center justify-between gap-3 rounded-xl border border-[#E6C673]/30 bg-[#E6C673]/10 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+            className="flex items-center justify-between gap-2 rounded-lg border border-[#E6C673]/30 bg-[#E6C673]/10 px-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
         >
             <div className="flex min-w-0 items-center gap-2">
                 <span className="text-[11px] font-black tracking-wide text-[#E6C673]/95 shrink-0">

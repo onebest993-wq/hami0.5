@@ -28,7 +28,7 @@ export function isExecutionParentDossierBlobKey(key: string): boolean {
   return isExecutionDossierMainBlobKey(key) && !key.includes('__sub__');
 }
 
-function parseDossierBlob(raw: string | null | undefined): Record<string, unknown> | null {
+export function parseDossierBlob(raw: string | null | undefined): Record<string, unknown> | null {
   if (!raw?.trim()) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -71,7 +71,15 @@ export function shouldRejectExecutionDossierBlobWipe(
 
   const existing = parseDossierBlob(existingRaw);
   const incoming = parseDossierBlob(incomingRaw);
-  if (!existing || !incoming) return false;
+
+  /*
+   * `!existing || !incoming → false` كان يفتح الباب في الحالة التي وُضع الحارس
+   * لأجلها: موجودٌ لا يُقرأ لأنه تالف. حينها لا سبيل لمعرفة كم كان فيه، فتمرّ
+   * الكتابة شبه الفارغة وتحسم الأمر. وحمولة واردة لا تُحلَّل ليست حفظاً صحيحاً
+   * بحال — `JSON.stringify` لا يُنتج نصّاً يعجز `JSON.parse` عنه.
+   */
+  if (!existing) return !incoming || countMeaningfulDossierFields(incoming) === 0;
+  if (!incoming) return true;
 
   const existingScore = countMeaningfulDossierFields(existing);
   const incomingScore = countMeaningfulDossierFields(incoming);

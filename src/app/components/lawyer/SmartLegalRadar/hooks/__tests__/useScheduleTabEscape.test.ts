@@ -5,7 +5,7 @@ import { useScheduleTabEscape } from '../useScheduleTabEscape';
 
 const nativeHandlers: Array<() => boolean> = [];
 
-vi.mock('@/app/runtime/capacitorAppLifecycle', () => ({
+vi.mock('@/app/runtime/nativeBackStack', () => ({
     registerNativeBackHandler: (handler: () => boolean) => {
         nativeHandlers.push(handler);
         return () => {

@@ -10,7 +10,14 @@ import {
     isLegalEntityDebtorKind,
     type DebtorEntityKind,
 } from '@/app/utils/debtorEntityKindUtils';
-import { mergeFollowupSpecializationFlags } from '@/app/utils/executionClaimIsolation';
+import { mergeFollowupSpecializationFlags } from '@/app/utils/followupSpecializationMerge';
+import {
+    createDefaultFollowupSpecializationFlags,
+    type FollowupSpecializationVisibility,
+} from '@/app/utils/followupSpecializationTypes';
+
+export type { FollowupSpecializationVisibility } from '@/app/utils/followupSpecializationTypes';
+export { createDefaultFollowupSpecializationFlags } from '@/app/utils/followupSpecializationTypes';
 
 /** قرارات المحاكم — مسار أحوال شخصية / شرعي (لا إجراءات جبرية) */
 export function isPersonalStatusCourtDecisionsDossier(
@@ -98,57 +105,6 @@ export function isMaritalFurnitureClaim(claimType: string): boolean {
 
 export { isCustodyRemovalClaim } from '@/app/utils/executionModuleStrategies';
 
-export interface FollowupSpecializationVisibility {
-    /** استحصال/استخلاص دين مالي — يفعّل بوابة التسوية لكفيل ضامن للمبلغ */
-    isFinancialDebtCollection: boolean;
-    /** إخفاء تبويب «التنفيذ الجبري الشخصي» بالكامل (استحصال مالي + مدين موظف) */
-    hidePersonalCoerciveFollowupTab: boolean;
-    /** إخفاء تبويب «الإجراءات الجبرية» بالكامل */
-    hideFollowupCoerciveTab: boolean;
-    /** إخفاء عرض الإضبارة على قاضي البداءة وقرار الحبس في التنفيذ الجبري الشخصي */
-    hidePersonalJudgePresentation: boolean;
-    /** إخفاء «تفعيل بقرار المنفذ» في مسار الإحضار الجبري */
-    hidePersonalForcedBringActivation: boolean;
-    /** إخفاء تبويب حجز الكفيل الضامن */
-    hideGuarantorSeizureSubTab: boolean;
-    /** إخفاء كل مسارات الكفيل (مالي + حجز + بطاقات) — مدين موظف */
-    hideAllGuarantorPresence: boolean;
-    /** التسوية تبقى في ⋮ المخفي فقط — استحصال مالي + موظف */
-    forceSettlementBuriedOnly: boolean;
-    /** طلب كفيل ضامن للمبلغ فقط (بدون تبويب حجز الكفيل) — للكاسب في استحصال مالي */
-    showFinancialGuarantorRequestOnly: boolean;
-    /** إخفاء بانر «تنبيه مهلة الإخبار» في تبويب الإجراءات الجبرية */
-    hideCoerciveGraceNoticeBanner: boolean;
-    /** إخفاء بانرات التوجيه المالي (موظف / استحصال) في تبويب الإجراءات الجبرية */
-    hideCoerciveFinancialBanners: boolean;
-    /** إخفاء أزرار حجز الراتب والعقار في شبكة الأدوات الجبرية */
-    hideCoerciveSeizureSalaryAndProperty: boolean;
-    /** إخفاء مهلة / كسر الأقفال / الإخلاء الجبري في إجراءات الميدان */
-    hideEncroachmentEvictionProcedureItems: boolean;
-    /** بطاقات طلبات إزالة / رفع تجاوز (خبير مساح + آليات) */
-    showEncroachmentRemovalRequestCards: boolean;
-    /** بطاقة انتداب خبير مساح — تسليم شيء غير منقول */
-    showSpecificDeliverySurveyorCard: boolean;
-    /** بطاقة تحويل المطالبة لتعذر التسليم / هلاك الشيء */
-    showSpecificDeliveryConversionCard: boolean;
-    /** إخفاء تنصيب حارس قضائي في إجراءات الميدان */
-    hideEvictionCustodianProcedure: boolean;
-    /** @deprecated — لم يعد يُعرض في الإجراءات الجبرية */
-    showSpecificDeliveryBreakInventoryCard: boolean;
-    /** طلب كسر الأقفال في الطلبات المخفية (تبويب الطلبات) */
-    showHiddenBreakInventoryRequest: boolean;
-    /** كتلة الإجراءات الميدانية لتسليم شيء معين */
-    showSpecificDeliveryFieldProcedures: boolean;
-    /** إخفاء طلبات التنفيذ الجبري الشخصي من «الطلبات المخفية» (أحوال شخصية + موظف) */
-    suppressHiddenPersonalCoerciveRequests: boolean;
-    /** إخفاء المركز المالي وسجل الحجز من أدوات الإضبارة */
-    hideDossierFinancialTools: boolean;
-    /** إخفاء تبويب طلبات الحجز المالية في محضر المتابعة */
-    hideFollowupSeizureRequestsTab: boolean;
-    /** مدين معنوي — إجراءات ميدانية لطيفة داخل المخاطبات */
-    showCorrespondencesSoftProcedures: boolean;
-}
-
 /** مدين موظف — لا كفيل ضامن للمبلغ في أي مسار تنفيذ (مدني / أحوال / مالي) */
 function applyEmployeeDebtorAmountGuarantorBan(
     flags: FollowupSpecializationVisibility
@@ -161,38 +117,11 @@ function applyEmployeeDebtorAmountGuarantorBan(
     };
 }
 
-const defaultFollowupSpecialization = (): FollowupSpecializationVisibility => ({
-    isFinancialDebtCollection: false,
-    hidePersonalCoerciveFollowupTab: false,
-    hideFollowupCoerciveTab: false,
-    hidePersonalJudgePresentation: false,
-    hidePersonalForcedBringActivation: false,
-    hideGuarantorSeizureSubTab: false,
-    hideAllGuarantorPresence: false,
-    forceSettlementBuriedOnly: false,
-    showFinancialGuarantorRequestOnly: false,
-    hideCoerciveGraceNoticeBanner: false,
-    hideCoerciveFinancialBanners: false,
-    hideCoerciveSeizureSalaryAndProperty: false,
-    hideEncroachmentEvictionProcedureItems: false,
-    showEncroachmentRemovalRequestCards: false,
-    showSpecificDeliverySurveyorCard: false,
-    showSpecificDeliveryConversionCard: false,
-    hideEvictionCustodianProcedure: false,
-    showSpecificDeliveryBreakInventoryCard: false,
-    showHiddenBreakInventoryRequest: false,
-    showSpecificDeliveryFieldProcedures: false,
-    suppressHiddenPersonalCoerciveRequests: false,
-    hideDossierFinancialTools: false,
-    hideFollowupSeizureRequestsTab: false,
-    showCorrespondencesSoftProcedures: false,
-});
-
 function mapSpecificDeliveryPhaseToFollowupFlags(
     phase: ReturnType<typeof resolveSpecificDeliveryUiPhase>,
     isEmployee: boolean
 ): FollowupSpecializationVisibility {
-    const base = defaultFollowupSpecialization();
+    const base = createDefaultFollowupSpecializationFlags();
     const flags: FollowupSpecializationVisibility = {
         ...base,
         hidePersonalCoerciveFollowupTab: !phase.showPersonalCoerciveTab,
@@ -287,11 +216,11 @@ export function resolveFollowupSpecializationVisibility(
         return finalize(mapSpecificDeliveryPhaseToFollowupFlags(phase, isEmployee));
     }
 
-    /** تخلية / تسليم عقار — الإجراءات الميدانية في «الإجراءات الجبرية»؛ التنفيذ الجبري الشخصي في تبويبه */
+    /** تخلية / تسليم عقار — الإجراءات الميدانية في «الإجراءات الجبرية»؛ الإجراءات الشخصية في الطلبات المخفية */
     if (isEvictionClaim(c)) {
         const flags = {
-            ...defaultFollowupSpecialization(),
-            hidePersonalCoerciveFollowupTab: false,
+            ...createDefaultFollowupSpecializationFlags(),
+            hidePersonalCoerciveFollowupTab: true,
         };
         return finalize(isEmployee ? applyEmployeeDebtorAmountGuarantorBan(flags) : flags);
     }
@@ -299,7 +228,7 @@ export function resolveFollowupSpecializationVisibility(
     /** إزالة / رفع تجاوز — إجراءات ميدانية (بطاقات إزالة التجاوز) دون مسار شخصي أو حجز مالي */
     if (isEncroachmentRemovalClaim(c)) {
         const flags = {
-            ...defaultFollowupSpecialization(),
+            ...createDefaultFollowupSpecializationFlags(),
             hidePersonalCoerciveFollowupTab: true,
             hideFollowupSeizureRequestsTab: true,
             hideDossierFinancialTools: true,
@@ -315,7 +244,7 @@ export function resolveFollowupSpecializationVisibility(
     /** مشاهدة / استصحاب / مبيت — لا مركز مالي ولا حجز؛ تبويب الجبري الشخصي للمسارات غير المالية */
     if (isVisitationClaim(c)) {
         const flags = {
-            ...defaultFollowupSpecialization(),
+            ...createDefaultFollowupSpecializationFlags(),
             hidePersonalCoerciveFollowupTab: false,
             hidePersonalJudgePresentation: false,
             hidePersonalForcedBringActivation: true,
@@ -335,7 +264,7 @@ export function resolveFollowupSpecializationVisibility(
     /** المطاوعة / ترك النشوز — لا مركز مالي ولا تبويب التنفيذ الجبري الشخصي */
     if (isMatwaaClaim(c)) {
         const flags = {
-            ...defaultFollowupSpecialization(),
+            ...createDefaultFollowupSpecializationFlags(),
             hidePersonalCoerciveFollowupTab: true,
             hideFollowupCoerciveTab: true,
             hideFollowupSeizureRequestsTab: true,
@@ -351,7 +280,7 @@ export function resolveFollowupSpecializationVisibility(
      */
     if (isCustodyRemovalClaim(c)) {
         const flags: FollowupSpecializationVisibility = {
-            ...defaultFollowupSpecialization(),
+            ...createDefaultFollowupSpecializationFlags(),
             hideFollowupCoerciveTab: true,
             hidePersonalCoerciveFollowupTab: false,
             hidePersonalJudgePresentation: false,
@@ -371,7 +300,7 @@ export function resolveFollowupSpecializationVisibility(
     /** أثاث زوجية — تسليم من وحدة الأثاث؛ لا تبويب إجراءات جبريّة؛ يبقى حجز مالي عند التعذّر */
     if (isMaritalFurnitureClaim(c)) {
         const flags = {
-            ...defaultFollowupSpecialization(),
+            ...createDefaultFollowupSpecializationFlags(),
             hideFollowupCoerciveTab: true,
             hidePersonalCoerciveFollowupTab: true,
             hidePersonalJudgePresentation: true,
@@ -392,14 +321,14 @@ export function resolveFollowupSpecializationVisibility(
 
     const financial = isFinancialDebtCollectionClaim(c);
     if (!financial) {
-        const flags = defaultFollowupSpecialization();
+        const flags = createDefaultFollowupSpecializationFlags();
         return finalize(isEmployee ? applyEmployeeDebtorAmountGuarantorBan(flags) : flags);
     }
 
     if (isEmployee) {
         return finalize(
             applyEmployeeDebtorAmountGuarantorBan({
-                ...defaultFollowupSpecialization(),
+                ...createDefaultFollowupSpecializationFlags(),
                 isFinancialDebtCollection: true,
                 hidePersonalCoerciveFollowupTab: true,
                 hideFollowupCoerciveTab: true,
@@ -411,7 +340,7 @@ export function resolveFollowupSpecializationVisibility(
     }
 
     return finalize({
-        ...defaultFollowupSpecialization(),
+        ...createDefaultFollowupSpecializationFlags(),
         isFinancialDebtCollection: true,
         hidePersonalCoerciveFollowupTab: false,
         hideFollowupCoerciveTab: true,

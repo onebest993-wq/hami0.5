@@ -2,7 +2,7 @@ import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
 import type { CommunityPost } from '@/app/services/cloud/lawyerCommunityTypes';
 import type { RepositoryDocument, SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { LegalTask } from '@/app/types/TaskEngine';
-import type { Transaction, TransactionTask, FinanceRecord } from '@/app/modules/transactionsThreading/types';
+import type { Transaction, TransactionTask } from '@/app/modules/transactionsThreading/types';
 
 export type GlobalSearchExtras = {
     quantumTasks: LegalTask[];
@@ -12,7 +12,6 @@ export type GlobalSearchExtras = {
     repositoryDocs: RepositoryDocument[];
     threadingTransactions: Transaction[];
     threadingTasks: TransactionTask[];
-    threadingFinance: FinanceRecord[];
     communityPosts: CommunityPost[];
 };
 
@@ -37,12 +36,11 @@ export function emptyGlobalSearchExtras(): GlobalSearchExtras {
         repositoryDocs: [],
         threadingTransactions: [],
         threadingTasks: [],
-        threadingFinance: [],
         communityPosts: [],
     };
 }
 
-function shouldIncludeCommunityPosts(options?: GlobalSearchExtrasLoadOptions): boolean {
+function shouldRequireCommunityPosts(options?: GlobalSearchExtrasLoadOptions): boolean {
     return options?.includeCommunityPosts === true;
 }
 
@@ -52,7 +50,7 @@ export function getCachedGlobalSearchExtras(
     options?: GlobalSearchExtrasLoadOptions,
 ): GlobalSearchExtras | null {
     if (!userId || resolvedExtrasCache?.userId !== userId) return null;
-    if (shouldIncludeCommunityPosts(options) && !resolvedExtrasCache.includeCommunityPosts) return null;
+    if (shouldRequireCommunityPosts(options) && !resolvedExtrasCache.includeCommunityPosts) return null;
     return resolvedExtrasCache.data;
 }
 
@@ -65,7 +63,7 @@ export function setCachedGlobalSearchExtras(
 }
 
 export function clearCachedGlobalSearchExtras(userId?: string | null): void {
-    if (userId && resolvedExtrasCache?.userId !== userId) return;
+    if (userId && resolvedExtrasCache?.userId != null && resolvedExtrasCache.userId !== userId) return;
     resolvedExtrasCache = null;
 }
 

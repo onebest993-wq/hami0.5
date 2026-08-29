@@ -1,9 +1,9 @@
 import { memo } from 'react';
-import { Send } from '@/app/components/ui/lucideIcons';
-import { useColleagueConsultation } from './ColleagueConsultationContext';
+import { Send } from '@/app/components/ui/icons/Send';
+import { prefetchColleagueConsultationFlow, useColleagueConsultation } from './ColleagueConsultationContext';
 
 const DEFAULT_CLASS =
-    "flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#E6C673]/[0.06] border border-[#E6C673]/25 text-[#E6C673] hover:bg-[#E6C673]/[0.12] hover:border-[#E6C673]/40 transition-all duration-200 shrink-0";
+    "flex items-center gap-1.5 px-2.5 py-1 min-h-[44px] rounded-lg bg-[#E6C673]/[0.06] border border-[#E6C673]/25 text-[#E6C673] hover:bg-[#E6C673]/[0.12] hover:border-[#E6C673]/40 transition-all duration-200 shrink-0 touch-manipulation";
 
 type ColleagueConsultationHeaderButtonProps = {
     className?: string;
@@ -25,9 +25,15 @@ export const ColleagueConsultationHeaderButton = memo(function ColleagueConsulta
         <button
             type="button"
             data-testid="colleague-consultation-trigger"
-            onClick={() => consultation.openConsultation()}
+            onClick={(event) => {
+                event.stopPropagation();
+                consultation.openConsultation();
+            }}
+            onPointerEnter={prefetchColleagueConsultationFlow}
+            onFocus={prefetchColleagueConsultationFlow}
             className={className ?? DEFAULT_CLASS}
             title="استشارة زميل مختار"
+            aria-label="استشارة زميل مختار"
         >
             <Send size={iconSize} strokeWidth={1.75} className="shrink-0" />
             {!iconOnly ? (

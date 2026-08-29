@@ -1,12 +1,13 @@
 import React from 'react';
-import { Calendar, Shield, Gavel, UserCheck, Home } from '@/app/components/ui/lucideIcons';
+import { Calendar } from '@/app/components/ui/icons/Calendar';
+import { Shield } from '@/app/components/ui/icons/Shield';
+import { Gavel } from '@/app/components/ui/icons/Gavel';
 import type { EvictionTimelineActionId } from '@/app/utils/executionModuleStrategies';
 import { FollowupProcedureCard } from '../FollowupProcedureCard';
 import { SpecificDeliveryPropertyExpertRequestCard } from '../SpecificDeliveryPropertyExpertRequestCard';
-import { SpecificDeliveryMovableValuationExpertCard } from '../SpecificDeliveryMovableValuationExpertCard';
-import { SpecificDeliveryConversionRequestCard } from '../SpecificDeliveryConversionRequestCard';
 import { evictionProcedureIcon } from './evictionProceduresUiHelpers';
 import type { EvictionProceduresSectionState } from './useEvictionProceduresSectionState';
+import { EvictionProceduresSectionBodyLateCards } from './EvictionProceduresSectionBodyLateCards';
 
 export function EvictionProceduresSectionBody(state: EvictionProceduresSectionState) {
     const {
@@ -15,32 +16,21 @@ export function EvictionProceduresSectionBody(state: EvictionProceduresSectionSt
         gracePeriodEnded,
         setInlineActionGateKey,
         handleEndGracePeriod,
-        appendEvictionExecutorRequest,
         decisionsStorageExecutionId,
         showToast,
         EVICTION_TIMELINE_ACTION_IDS,
         hideEncroachmentEvictionProcedureItems = false,
-        showCustodianProcedure = false,
         showGenericFieldProcedureCards = false,
         specificDeliveryItemName = '',
-        specificDeliveryItems = null,
-        specificDeliveryFinancialized = false,
-        onSpecificDeliveryFinancialized,
-        onSpecificDeliveryItemDeclaredDestroyed,
         onSpecificDeliveryExpenseRecorded,
         isMaritalFurnitureClaim = false,
         expandedByKey,
         toggleExpanded,
         showPropertyExpertCard,
-        showMovableValuationExpertCard,
-        showSpecificDeliveryConversionCard,
-        hasPendingDeliveryItems,
         appendEvictionProcedureSafe,
         fieldVisitRow,
         policeRow,
         breakInventoryRow,
-        custodianRow,
-        forcedEvictionRow,
         renderProcedurePanel,
         showBreakInventory,
         isRowWorkflowComplete,
@@ -59,7 +49,7 @@ export function EvictionProceduresSectionBody(state: EvictionProceduresSectionSt
                         onClick={() => handleEndGracePeriod()}
                         title="مهلة"
                         aria-label="مهلة"
-                        className={`w-full sm:w-[108px] sm:shrink-0 text-right rounded-2xl px-4 py-3.5 transition-all border backdrop-blur-xl bg-[#0A1122]/70 border-white/5 hover:border-[#E6C673]/35 ${
+                        className={`w-full sm:w-[108px] sm:shrink-0 text-right rounded-2xl px-4 py-3.5 transition-all border bg-[#0A1122]/80 border-white/5 hover:border-[#E6C673]/35 ${
                             executionCoerciveButtonDisabled
                                 ? 'opacity-45 cursor-not-allowed hover:border-white/5'
                                 : ''
@@ -123,7 +113,7 @@ export function EvictionProceduresSectionBody(state: EvictionProceduresSectionSt
                             actionId: EVICTION_TIMELINE_ACTION_IDS.POLICE_FORCE as EvictionTimelineActionId,
                             title: '🛡️ مفاتحة الشرطة للقوة الإجرائية',
                             description:
-                                'تمت مفاتحة الجهة الأمنية لطلب القوة الإجرائية المساندة للتنفيذ الميداني.',
+                                'طلب عرض على منفذ العدل بشأن مخاطبة مركز الشرطة لطلب القوة الإجرائية عند التنفيذ.',
                             supersedeCompletedHub: resubmit,
                         })
                     }
@@ -146,7 +136,7 @@ export function EvictionProceduresSectionBody(state: EvictionProceduresSectionSt
                 />
             ) : null}
 
-            {showBreakInventory && !isMaritalFurnitureClaim ? (
+            {!isMaritalFurnitureClaim && showBreakInventory ? (
                 <FollowupProcedureCard
                     label="طلب كسر الأقفال وجرد الأثاث"
                     icon={evictionProcedureIcon(<Gavel className="w-6 h-6 text-white/70" />)}
@@ -177,96 +167,7 @@ export function EvictionProceduresSectionBody(state: EvictionProceduresSectionSt
                 />
             ) : null}
 
-            {showCustodianProcedure ? (
-                <FollowupProcedureCard
-                    label="تنصيب حارس قضائي"
-                    subtitle="بعد طلب الكسر والجرد — يمكن إضافة أكثر من حارس بعد التعيين"
-                    icon={evictionProcedureIcon(<UserCheck className="w-6 h-6 text-white/70" />)}
-                    gateKey="eviction_custodian"
-                    inlineActionGateKey={inlineActionGateKey}
-                    setInlineActionGateKey={setInlineActionGateKey}
-                    hasActiveRequest={procedureCardInProgress(custodianRow)}
-                    expanded={Boolean(expandedByKey.custodian)}
-                    onToggleExpanded={() => toggleExpanded('custodian')}
-                    workflowComplete={isRowWorkflowComplete(custodianRow)}
-                    lifecycleSummary={lifecycleForBranch('Judicial Custodian')}
-                    disabled={executionCoerciveButtonDisabled}
-                    resubmitWarningMessage={resubmitWarning}
-                    onConfirmSend={({ resubmit } = {}) => {
-                        appendEvictionProcedureSafe({
-                            actionId: EVICTION_TIMELINE_ACTION_IDS.CUSTODIAN as EvictionTimelineActionId,
-                            title: '👤 طلب تنصيب حارس قضائي',
-                            description: 'طلب عرض على منفذ العدل لتنصيب حارس قضائي على العين.',
-                            supersedeCompletedHub: resubmit,
-                        });
-                    }}
-                    panelBody={renderProcedurePanel('تنصيب حارس قضائي', custodianRow, 'Judicial Custodian')}
-                />
-            ) : null}
-
-            {!hideEncroachmentEvictionProcedureItems ? (
-                <FollowupProcedureCard
-                    label="طلب الإخلاء الجبري"
-                    icon={evictionProcedureIcon(<Home className="w-6 h-6 text-white/70" />)}
-                    gateKey="eviction_forced_eviction"
-                    inlineActionGateKey={inlineActionGateKey}
-                    setInlineActionGateKey={setInlineActionGateKey}
-                    hasActiveRequest={procedureCardInProgress(forcedEvictionRow)}
-                    expanded={Boolean(expandedByKey.forced_eviction)}
-                    onToggleExpanded={() => toggleExpanded('forced_eviction')}
-                    workflowComplete={isRowWorkflowComplete(forcedEvictionRow)}
-                    lifecycleSummary={lifecycleForBranch('Eviction')}
-                    disabled={executionCoerciveButtonDisabled}
-                    resubmitWarningMessage={resubmitWarning}
-                    onConfirmSend={({ resubmit } = {}) => {
-                        const ok = appendEvictionExecutorRequest({
-                            executionId: decisionsStorageExecutionId,
-                            title: 'طلب الإخلاء الجبري',
-                            body: 'طلب إخلاء العقار موضوع الإضبارة جبرياً وتسليمه للدائن خاوياً من الشواغل.',
-                            requestKind: 'eviction_procedure',
-                            evictionWorkflowKey: 'inventory_or_eviction',
-                            supersedeCompletedHub: resubmit,
-                        });
-                        if (!ok) {
-                            showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning');
-                            return;
-                        }
-                        showToast('تم إنشاء الطلب — قرار المنفذ يظهر هنا.', 'success');
-                    }}
-                    panelBody={renderProcedurePanel(
-                        'طلب الإخلاء الجبري',
-                        forcedEvictionRow,
-                        'Eviction',
-                    )}
-                />
-            ) : null}
-
-            {showSpecificDeliveryConversionCard && decisionsStorageExecutionId ? (
-                <SpecificDeliveryConversionRequestCard
-                    decisionsStorageExecutionId={decisionsStorageExecutionId}
-                    inlineActionGateKey={inlineActionGateKey}
-                    setInlineActionGateKey={setInlineActionGateKey}
-                    showToast={showToast}
-                    specificDeliveryItemName={specificDeliveryItemName}
-                    specificDeliveryItems={specificDeliveryItems}
-                    specificDeliveryFinancialized={specificDeliveryFinancialized}
-                    onConversionItemDeclared={onSpecificDeliveryItemDeclaredDestroyed}
-                />
-            ) : null}
-
-            {showMovableValuationExpertCard && decisionsStorageExecutionId ? (
-                <SpecificDeliveryMovableValuationExpertCard
-                    decisionsStorageExecutionId={decisionsStorageExecutionId}
-                    inlineActionGateKey={inlineActionGateKey}
-                    setInlineActionGateKey={setInlineActionGateKey}
-                    showToast={showToast}
-                    specificDeliveryItemName={specificDeliveryItemName}
-                    specificDeliveryItems={specificDeliveryItems}
-                    hasPendingDeliveryItems={hasPendingDeliveryItems}
-                    onExpenseRecorded={onSpecificDeliveryExpenseRecorded}
-                    onValuationFinancialized={onSpecificDeliveryFinancialized}
-                />
-            ) : null}
+            <EvictionProceduresSectionBodyLateCards {...state} />
         </div>
     );
 }

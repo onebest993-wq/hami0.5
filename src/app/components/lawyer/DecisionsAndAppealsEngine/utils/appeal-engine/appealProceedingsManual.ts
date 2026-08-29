@@ -15,10 +15,10 @@ import {
 } from './appealProceedingsTypes';
 import {
     resolveAppealActorLabel,
-    isCassationAffirmResult,
-    resolveEffectiveAwaitingCassationParty,
     appellantLabelFromLogMessage,
+    resolveEffectiveAwaitingCassationParty,
 } from './appealProceedingsActors';
+import { isCassationAffirmResult } from './appealCassationResultLabels';
 
 function resolveManualGrievanceProceedingResult(row: Decision): string {
     const r = String(row.appealResult ?? '').trim();

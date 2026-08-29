@@ -23,6 +23,19 @@ vi.mock('@/app/components/lawyer/ArchivePortal/components/ExecutionArchiveFileGr
     ExecutionArchiveFileGrid: () => null,
 }));
 
+vi.mock('@/app/components/lawyer/ArchivePortal/components/ExecutionSmartCard', () => ({
+    default: () => null,
+}));
+
+vi.mock('@/app/components/lawyer/ArchivePortal/components/ExecutionArchiveCardPin', () => ({
+    ExecutionArchiveCardPin: () => null,
+    prefetchExecutionArchivePinStore: () => undefined,
+}));
+
+vi.mock('@/app/components/lawyer/ArchivePortal/components/ArchivePortalExecutionPreviewModal', () => ({
+    ArchivePortalExecutionPreviewModal: () => null,
+}));
+
 describe('hubArchiveLoader', () => {
     beforeEach(() => {
         resetHubArchiveModuleCacheForTests();

@@ -1,6 +1,15 @@
 import type { LawyerProfileData } from '@/app/services/cloud/lawyerProfileTypes';
-import type { EditDraft } from '@/app/components/lawyer/RoyalLawyerProfile/types';
-import { getGallery } from '@/app/components/lawyer/RoyalLawyerProfile/utils/profileSections';
+import type { EditDraft } from '@/app/services/profile/profileEditDraft';
+import { getGallery } from '@/app/services/profile/profileSections';
+
+/** جدولة حذف وسائط — مسار واحد بدل import ديناميكي مكرر */
+export function scheduleRemoveProfileMediaPaths(paths: readonly string[]): void {
+    const cleaned = [...new Set(paths.map((p) => p.trim()).filter(Boolean))];
+    if (cleaned.length === 0) return;
+    void import('@/app/services/profileMediaService')
+        .then((m) => m.removeProfileMediaPaths(cleaned))
+        .catch(() => undefined);
+}
 
 /** مسارات رُفعت أثناء جلسة التحرير ولم تُثبَّت في الملف المحفوظ */
 export function collectEditDraftOrphanMediaPaths(
@@ -39,13 +48,12 @@ export function collectEditDraftOrphanMediaPaths(
     return orphans;
 }
 
-export function discardEditDraftOrphanMedia(draft: EditDraft | null, committed: LawyerProfileData | null | undefined) {
+export function discardEditDraftOrphanMedia(
+    draft: EditDraft | null,
+    committed: LawyerProfileData | null | undefined,
+) {
     if (!draft) return;
-    const orphans = collectEditDraftOrphanMediaPaths(draft, committed);
-    if (orphans.length === 0) return;
-    void import('@/app/services/profileMediaService')
-        .then((m) => m.removeProfileMediaPaths(orphans))
-        .catch(() => undefined);
+    scheduleRemoveProfileMediaPaths(collectEditDraftOrphanMediaPaths(draft, committed));
 }
 
 /** يحذف مساراً مرفوعاً في الجلسة فقط إن لم يكن مثبتاً في الملف المحفوظ */
@@ -55,9 +63,7 @@ export function discardUnsavedMediaPath(
 ) {
     const next = path?.trim();
     if (!next || next === committedPath?.trim()) return;
-    void import('@/app/services/profileMediaService')
-        .then((m) => m.removeProfileMediaPaths([next]))
-        .catch(() => undefined);
+    scheduleRemoveProfileMediaPaths([next]);
 }
 
 export function discardUnsavedMediaPathUnlessCommitted(
@@ -69,7 +75,5 @@ export function discardUnsavedMediaPathUnlessCommitted(
     for (const raw of committedPaths) {
         if (raw?.trim() === next) return;
     }
-    void import('@/app/services/profileMediaService')
-        .then((m) => m.removeProfileMediaPaths([next]))
-        .catch(() => undefined);
+    scheduleRemoveProfileMediaPaths([next]);
 }

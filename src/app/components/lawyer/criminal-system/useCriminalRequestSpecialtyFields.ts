@@ -30,7 +30,7 @@ type SpecialtyFieldsOrchestratorKeys =
     | 'reqSeizureSelectedDefendantIds' | 'setReqSeizureSelectedDefendantIds'
     | 'reqSeizureDraftsByDefendant' | 'setReqSeizureDraftsByDefendant';
 
-export type CriminalRequestSpecialtyFieldsParams = Pick<CriminalRequestsOrchestratorSlice, SpecialtyFieldsOrchestratorKeys> & {
+type CriminalRequestSpecialtyFieldsParams = Pick<CriminalRequestsOrchestratorSlice, SpecialtyFieldsOrchestratorKeys> & {
     isRequestModalViewOnly: boolean;
     defendants: CriminalDefendant[];
     complainants: CriminalComplainant[];

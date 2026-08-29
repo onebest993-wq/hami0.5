@@ -1,6 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDown, Forward, Shuffle, FileText, RefreshCw, MessageSquare } from '@/app/components/ui/lucideIcons';
-import type { DossierActionPayload, DossierActionType } from './DossierActionsModal';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
+import { Forward } from '@/app/components/ui/icons/Forward';
+import { Shuffle } from '@/app/components/ui/icons/Shuffle';
+import { FileText } from '@/app/components/ui/icons/FileText';
+import { RefreshCw } from '@/app/components/ui/icons/RefreshCw';
+import { MessageSquare } from '@/app/components/ui/icons/MessageSquare';
+import type { DossierActionPayload, DossierActionType } from './DossierActionTypes';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import {
     DossierActionFormFields,
@@ -16,9 +21,10 @@ import {
 } from '../utils/dossierControlDecisions';
 import type { InabaCorrespondenceLogEntry } from '../utils/inabaCorrespondenceLog';
 import { useExecutorDecisions } from '../hooks/useExecutorDecisions';
+import { EXEC_MODAL_TOUCH_TARGET } from '../executionModalMobileShell';
 
 const DOSSIER_BTN_BASE =
-    'w-full text-right rounded-2xl px-4 py-3.5 transition-all border backdrop-blur-xl bg-[#0A1122]/70 border-white/5 hover:border-[#E6C673]/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] relative z-10 cursor-pointer active:scale-[0.99]';
+    `w-full text-right rounded-2xl px-4 py-3.5 transition-colors border bg-[#0A1122]/80 border-white/5 hover:border-[#E6C673]/35 relative z-10 cursor-pointer active:scale-[0.99] ${EXEC_MODAL_TOUCH_TARGET}`;
 
 function DossierWorkflowStepStrip(props: {
     phase: ReturnType<typeof resolveDossierControlWorkflowPhase>;
@@ -67,7 +73,7 @@ type DossierControlItem = {
     id: DossierActionType;
     label: string;
     icon: React.ReactNode;
-    gradient: string;
+    toneHover: string;
 };
 
 const ITEMS: DossierControlItem[] = [
@@ -75,31 +81,31 @@ const ITEMS: DossierControlItem[] = [
         id: 'delegation',
         label: 'طلب الإنابة التنفيذية',
         icon: <Forward size={24} className="text-white/70" />,
-        gradient: 'from-amber-500/12 to-transparent hover:from-amber-500/18',
+        toneHover: 'hover:bg-amber-500/10',
     },
     {
         id: 'inaba_correspondence',
         label: 'طلب مخاطبة الإنابة',
         icon: <MessageSquare size={24} className="text-white/70" />,
-        gradient: 'from-sky-500/12 to-transparent hover:from-sky-500/18',
+        toneHover: 'hover:bg-sky-500/10',
     },
     {
         id: 'unify',
         label: 'طلب توحيد الأضابير',
         icon: <Shuffle size={24} className="text-white/70" />,
-        gradient: 'from-violet-500/12 to-transparent hover:from-violet-500/18',
+        toneHover: 'hover:bg-violet-500/10',
     },
     {
         id: 'transfer',
         label: 'طلب نقل الإضبارة',
         icon: <FileText size={24} className="text-white/70" />,
-        gradient: 'from-emerald-500/12 to-transparent hover:from-emerald-500/18',
+        toneHover: 'hover:bg-emerald-500/10',
     },
     {
         id: 'renew',
         label: 'طلب تجديد الإضبارة',
         icon: <RefreshCw size={24} className="text-white/70" />,
-        gradient: 'from-rose-500/12 to-transparent hover:from-rose-500/18',
+        toneHover: 'hover:bg-rose-500/10',
     },
 ];
 
@@ -195,7 +201,7 @@ function DossierControlAccordionRow(props: {
                 type="button"
                 aria-expanded={expanded}
                 onClick={handleHeaderClick}
-                className={`w-full ${DOSSIER_BTN_BASE} bg-gradient-to-l ${item.gradient}`}
+                className={`w-full ${DOSSIER_BTN_BASE} ${item.toneHover}`}
             >
                 <div className="flex flex-row-reverse items-center gap-3">
                     <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/5">

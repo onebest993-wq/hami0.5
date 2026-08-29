@@ -3,6 +3,7 @@ import type { CaseFile, ExecutionArchiveFile, Party, Stage } from '@/app/types/c
 export type LooseArchiveFile = (CaseFile | ExecutionArchiveFile) & {
     claimType?: string;
     docType?: string;
+    classification?: string;
     fileNumber?: string;
     caseNo?: string;
     caseNumber?: string;
@@ -28,11 +29,16 @@ export type LooseArchiveFile = (CaseFile | ExecutionArchiveFile) & {
     full_address?: string;
     timelineEvents?: Array<{ id?: string; title?: string; description?: string; date?: string; timestamp?: string }>;
     parties?: Party[];
+    stages?: StageWithCaseMeta[];
+    activeStageIndex?: number;
     court?: CaseFile['court'] | string;
     executionTrashDeletedAt?: string | null;
 };
 
-export type StageWithCaseMeta = Stage & {
+export type StageWithCaseMeta = Omit<Stage, 'status'> & {
+    status?: Stage['status'] | 'voided';
+    isVoided?: boolean;
+    interruptionDate?: string;
     finalDecision?: string;
     legalTimers?: {
         appealDeadline?: string;
@@ -42,7 +48,7 @@ export type StageWithCaseMeta = Stage & {
     };
 };
 
-export type SmartTimers = {
+type SmartTimers = {
     appeal?: number;
     cassation?: number;
     review?: number;

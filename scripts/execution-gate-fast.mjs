@@ -37,6 +37,12 @@ run('execution-application-unit', 'npx', [
     'src/app/application/execution',
     '--reporter=dot',
 ]);
+run('execution-scenario-honesty', 'npx', [
+    'vitest',
+    'run',
+    'src/app/runtime/__tests__/executionSectionScenarioCoverageHonesty.test.ts',
+    '--reporter=dot',
+]);
 
 console.log('\n=== Fast gate result ===');
 process.exit(failed ? 1 : 0);

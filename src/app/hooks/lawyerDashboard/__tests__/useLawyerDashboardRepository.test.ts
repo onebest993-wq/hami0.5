@@ -5,6 +5,7 @@ import { HAMI_DISMISS_OVERLAYS_EVENT } from '@/app/utils/bodyScrollLock';
 
 vi.mock('@/app/services/auth/shellAuth', () => ({
     isRealSignedIn: (userId: string | null | undefined) => Boolean(userId?.trim()),
+    hasLocalAppSession: (userId: string | null | undefined) => Boolean(userId?.trim()),
     isShellAuthBypassed: () => false,
 }));
 
@@ -36,7 +37,6 @@ import {
 } from '@/app/services/repository/repositoryPerfMetrics';
 
 vi.mock('@/app/runtime/repositoryHubLoader', () => ({
-    loadRepositoryHubModule: vi.fn(() => Promise.resolve({})),
     prefetchRepositoryHubModule: vi.fn(),
     hydrateRepositoryShellForInstantOpen: vi.fn(() => Promise.resolve(false)),
     isRepositoryHubModuleResolved: vi.fn(() => false),
@@ -48,7 +48,6 @@ vi.mock('@/app/runtime/repositoryBootHydrator', () => ({
     bindRepositoryBootHydrator: vi.fn(() => () => undefined),
     isRepositoryShellFullyHydrated: vi.fn(() => false),
     dispatchRepositoryPrimeHost: vi.fn(),
-    REPOSITORY_SHELL_HYDRATED_EVENT: 'hami:repository-shell-hydrated',
     REPOSITORY_PRIME_HOST_EVENT: 'hami:repository-prime-host',
 }));
 
@@ -72,6 +71,7 @@ vi.mock('@/app/runtime/repositoryInstantPaint', () => ({
     paintRepositoryInstantChrome: vi.fn(),
     applyRepositoryOpaqueChrome: vi.fn(),
     concealRepositoryWarmShell: vi.fn(),
+    isRepositoryShellPaintedOpen: vi.fn(() => false),
 }));
 
 describe('useLawyerDashboardRepository', () => {
@@ -81,15 +81,15 @@ describe('useLawyerDashboardRepository', () => {
         resetDashboardInteractiveForTests();
     });
 
-    it('يركّب Host المستودع مخفياً فور وجود هوية حقيقية', () => {
+    it('لا يركّب Host المستودع فور وجود هوية', () => {
         const { result } = renderHook(() => useLawyerDashboardRepository({ userId: 'lawyer-1' }));
 
         expect(result.current.isRepositoryOpen).toBe(false);
-        expect(result.current.repositoryHostMounted).toBe(true);
+        expect(result.current.repositoryHostMounted).toBe(false);
         expect(warmRepositoryOnOpen).not.toHaveBeenCalled();
     });
 
-    it('primeRepositoryShellMount ي prefetch ويُجهّز المضيف — بلا فتح', () => {
+    it('primeRepositoryShellMount يسخّن بلا فتح ولا تركيب Host', () => {
         const { result } = renderHook(() => useLawyerDashboardRepository({ userId: 'lawyer-1' }));
 
         act(() => {
@@ -97,21 +97,17 @@ describe('useLawyerDashboardRepository', () => {
         });
 
         expect(result.current.isRepositoryOpen).toBe(false);
-        expect(result.current.repositoryHostMounted).toBe(true);
+        expect(result.current.repositoryHostMounted).toBe(false);
     });
 
-    it('حدث hydrate يُجهّز المضيف بعد جاهزية الـ Modal', () => {
+    it('الهوية تسخّن بلا Host حتى بدون حدث hydrate', () => {
         const { result } = renderHook(() => useLawyerDashboardRepository({ userId: 'lawyer-1' }));
 
-        act(() => {
-            window.dispatchEvent(new Event('hami:repository-shell-hydrated'));
-        });
-
         expect(result.current.isRepositoryOpen).toBe(false);
-        expect(result.current.repositoryHostMounted).toBe(true);
+        expect(result.current.repositoryHostMounted).toBe(false);
     });
 
-    it('حدث prime يُجهّز المضيف قبل الفتح', () => {
+    it('حدث prime يسخّن بلا تركيب Host', () => {
         const { result } = renderHook(() => useLawyerDashboardRepository({ userId: 'lawyer-1' }));
 
         act(() => {
@@ -119,7 +115,7 @@ describe('useLawyerDashboardRepository', () => {
         });
 
         expect(result.current.isRepositoryOpen).toBe(false);
-        expect(result.current.repositoryHostMounted).toBe(true);
+        expect(result.current.repositoryHostMounted).toBe(false);
     });
 
     it('يفتح المستودع فوراً عبر flushSync', async () => {
@@ -130,6 +126,7 @@ describe('useLawyerDashboardRepository', () => {
         });
 
         expect(result.current.isRepositoryOpen).toBe(true);
+        expect(result.current.repositoryHostMounted).toBe(true);
     });
 
     it('يغلق المستودع بعد conceal و rAF', async () => {
@@ -144,7 +141,10 @@ describe('useLawyerDashboardRepository', () => {
             result.current.closeRepository();
         });
 
-        await waitFor(() => expect(result.current.isRepositoryOpen).toBe(false));
+        await waitFor(() => {
+            expect(result.current.isRepositoryOpen).toBe(false);
+            expect(result.current.repositoryHostMounted).toBe(false);
+        });
     });
 
     it('يفتح المستودع الموحّد على تبويب المفكرة', async () => {

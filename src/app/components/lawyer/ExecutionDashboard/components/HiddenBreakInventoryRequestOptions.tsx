@@ -1,5 +1,5 @@
 import React from 'react';
-import { Hammer, Send } from '@/app/components/ui/lucideIcons';
+import { Hammer } from '@/app/components/ui/icons/Hammer';
 import { InlineActionGate } from './InlineActionGate';
 import {
     ExecutionInlineAccordion,
@@ -19,6 +19,15 @@ import {
     resolveHiddenBreakInventoryRequest,
     type HiddenFollowupVisibilityInput,
 } from './hiddenFollowupRequestsUtils';
+import {
+    HIDDEN_FOLLOWUP_PENDING_REASON,
+    HiddenFollowupDecisionsFollowupButton,
+    HiddenFollowupDetailPanel,
+    HiddenFollowupStatusLabel,
+    HiddenFollowupSubmitButton,
+    openHiddenFollowupSubmitOrWarn,
+    resolveHiddenFollowupLockedReason,
+} from './hiddenFollowup/shared';
 
 export interface HiddenBreakInventoryRequestOptionsProps {
     executionId: string;
@@ -59,8 +68,9 @@ export const HiddenBreakInventoryRequestOptions: React.FC<HiddenBreakInventoryRe
     );
 
     const submitDisabledReason = React.useMemo(() => {
-        if (isHistoricalMode || coerciveUiLocked) return 'الوضع مقفل — لا يمكن إرسال طلب جديد.';
-        if (resolved.status === 'pending') return 'يوجد طلب قيد البت لدى المنفذ.';
+        const locked = resolveHiddenFollowupLockedReason(isHistoricalMode, coerciveUiLocked);
+        if (locked) return locked;
+        if (resolved.status === 'pending') return HIDDEN_FOLLOWUP_PENDING_REASON;
         if (resolved.resendBlocked && !resolved.workflowComplete) {
             return 'الطلب موافق عليه — أكمل الإجراء من القرارات أولاً.';
         }
@@ -163,13 +173,10 @@ export const HiddenBreakInventoryRequestOptions: React.FC<HiddenBreakInventoryRe
                         تأكيد اكتمال كسر الأقفال
                     </button>
                 ) : approved ? (
-                    <button
-                        type="button"
+                    <HiddenFollowupDecisionsFollowupButton
+                        label="متابعة في القرارات"
                         onClick={() => onOpenDecisions({ tab: 'previous', decisionId })}
-                        className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 py-2 text-[10px] font-bold text-emerald-100 hover:bg-emerald-500/15"
-                    >
-                        متابعة في القرارات
-                    </button>
+                    />
                 ) : undefined,
             },
         ];
@@ -178,7 +185,7 @@ export const HiddenBreakInventoryRequestOptions: React.FC<HiddenBreakInventoryRe
     if (!flags.showHiddenBreakInventoryRequest) return null;
 
     const panel = (
-        <div className="rounded-xl border border-white/10 bg-black/20 p-3 space-y-3">
+        <HiddenFollowupDetailPanel>
             {!embedded ? (
                 <div className="flex flex-row-reverse items-center gap-3 text-right">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5">
@@ -192,26 +199,24 @@ export const HiddenBreakInventoryRequestOptions: React.FC<HiddenBreakInventoryRe
                     </div>
                 </div>
             ) : (
-                <p className="text-[9px] text-slate-400 text-right">{resolved.statusLabel}</p>
+                <HiddenFollowupStatusLabel>{resolved.statusLabel}</HiddenFollowupStatusLabel>
             )}
 
             {resolved.status !== 'pending' ? (
                 <div className="relative">
-                    <button
-                        type="button"
+                    <HiddenFollowupSubmitButton
                         disabled={Boolean(submitDisabledReason) || submitting}
-                        onClick={() => {
-                            if (submitDisabledReason) {
-                                showToast(submitDisabledReason, 'warning');
-                                return;
-                            }
-                            setInlineGateKey('hidden_break_inventory');
-                        }}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-700/70 py-2.5 text-[11px] font-bold text-white transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                        <Send size={13} />
-                        {resolved.workflowComplete ? 'تقديم طلب جديد' : 'إرسال الطلب إلى المنفذ'}
-                    </button>
+                        label={
+                            resolved.workflowComplete
+                                ? 'تقديم طلب جديد'
+                                : 'إرسال الطلب إلى المنفذ'
+                        }
+                        onClick={() =>
+                            openHiddenFollowupSubmitOrWarn(submitDisabledReason, showToast, () =>
+                                setInlineGateKey('hidden_break_inventory')
+                            )
+                        }
+                    />
                     {inlineGateKey === 'hidden_break_inventory' ? (
                         <InlineActionGate
                             gateKey="hidden_break_inventory"
@@ -226,7 +231,7 @@ export const HiddenBreakInventoryRequestOptions: React.FC<HiddenBreakInventoryRe
             ) : null}
 
             {resolved.row && steps.length > 0 ? <ExecutionInlineAccordion steps={steps} /> : null}
-        </div>
+        </HiddenFollowupDetailPanel>
     );
 
     if (embedded) {

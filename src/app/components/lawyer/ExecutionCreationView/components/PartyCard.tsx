@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Trash2, UserCheck } from '@/app/components/ui/lucideIcons';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
+import { UserCheck } from '@/app/components/ui/icons/UserCheck';
 import type { Party } from '@/app/types/common';
 import { DebtorEntityKindSegment } from '@/app/components/lawyer/ExecutionDashboard/components/DebtorEntityKindSegment';
 import { normalizeDebtorEntityKind } from '@/app/utils/debtorEntityKindUtils';
@@ -62,22 +63,22 @@ const PartyCard: React.FC<PartyCardProps> = React.memo(({
               ? 'الدائن'
               : 'المدين';
 
-    const pillIdle = 'border-white/10 bg-white/[0.04] text-slate-400 hover:border-white/16 hover:bg-white/[0.07]';
+    const pillIdle = 'border-transparent bg-transparent text-slate-400 hover:bg-white/[0.04] hover:text-slate-200';
     const pillActive = isCreditor
-        ? 'border-emerald-400/45 bg-emerald-500/14 text-emerald-100 shadow-[0_0_16px_-8px_rgba(52,211,153,0.5)]'
-        : 'border-rose-400/45 bg-rose-500/14 text-rose-100 shadow-[0_0_16px_-8px_rgba(251,113,133,0.5)]';
-    const segWrap = 'inline-flex items-stretch rounded-xl border border-white/10 bg-white/[0.03] p-0.5 backdrop-blur-sm';
+        ? 'border-emerald-400/35 bg-emerald-500/10 text-emerald-100'
+        : 'border-rose-400/35 bg-rose-500/10 text-rose-100';
+    const segWrap = 'inline-flex items-stretch rounded-lg border border-white/[0.06] bg-transparent p-0.5';
     const segBtn =
-        'rounded-[10px] px-2.5 py-1.5 text-[11px] font-bold transition-all duration-200 min-w-[3rem] text-center';
-    const segIdle = 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.05]';
+        'rounded-md px-2.5 py-1.5 text-[11px] font-bold transition-colors duration-150 min-w-[3rem] text-center';
+    const segIdle = 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04]';
     const segActive = isCreditor
-        ? 'bg-emerald-500/20 text-emerald-100 border border-emerald-400/25'
-        : 'bg-rose-500/20 text-rose-100 border border-rose-400/25';
+        ? 'bg-emerald-500/15 text-emerald-100 border border-emerald-400/20'
+        : 'bg-rose-500/15 text-rose-100 border border-rose-400/20';
 
     const pillClass = (active: boolean) =>
         [
-            'inline-flex items-center justify-center gap-1.5 rounded-xl border px-2.5 py-1.5',
-            'text-[11px] font-bold backdrop-blur-sm transition-colors duration-150 cursor-pointer select-none',
+            'inline-flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5',
+            'text-[11px] font-bold transition-colors duration-150 cursor-pointer select-none',
             active ? pillActive : pillIdle,
         ].join(' ');
 
@@ -92,8 +93,8 @@ const PartyCard: React.FC<PartyCardProps> = React.memo(({
     };
 
     return (
-        <div className="p-3">
-            <div className="flex justify-between items-center mb-2 pb-2 gap-2">
+        <div className="p-2.5">
+            <div className="mb-2 flex items-center justify-between gap-2 pb-1.5">
                 <div className="flex items-center gap-2 shrink-0">
                     <h4 className={`${isCreditor ? 'text-emerald-500' : 'text-rose-500'} font-bold text-sm`}>
                         {displayTitle}

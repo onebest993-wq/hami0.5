@@ -1,4 +1,8 @@
-import SecureStoreService from '@/app/services/SecureStoreService';
+import {
+    persistSecurePayloadWhenReady,
+    readSecureOrDrainLegacySync,
+    writeSecureAndClearLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 import type {
     TransactionsThreadingSaveInput,
     TransactionsThreadingState,
@@ -27,14 +31,15 @@ function parseTransactionsThreadingState(
         return null;
     }
 
-    return {
-        schemaVersion: 1,
-        userId,
-        updatedAt: String(state.updatedAt ?? ''),
+    const sanitized = sanitizeTransactionsThreadingSaveInput(userId, {
         transactions: state.transactions,
         tasks: state.tasks,
-        financeRecords: state.financeRecords,
+        financeRecords: [],
         documents: state.documents,
+    });
+    return {
+        ...sanitized,
+        updatedAt: String(state.updatedAt ?? ''),
     };
 }
 
@@ -56,6 +61,11 @@ function itemTime(item: unknown): number {
         if (Number.isFinite(t)) return t;
     }
     return 0;
+}
+
+function persistThreadingPayload(key: string, payload: string): void {
+    writeSecureAndClearLegacySync(key, payload);
+    void persistSecurePayloadWhenReady(key, payload);
 }
 
 /** دمج بالـ id — المحلي يفوز عند التعادل لحماية الحفظ الفوري من سحابة قديمة */
@@ -101,7 +111,7 @@ export function mergeTransactionsThreadingStates(
         updatedAt: lTime >= rTime ? local.updatedAt : remote.updatedAt,
         transactions: mergeThreadingRecordsById(local.transactions, remote.transactions),
         tasks: mergeThreadingRecordsById(local.tasks, remote.tasks),
-        financeRecords: mergeThreadingRecordsById(local.financeRecords, remote.financeRecords),
+        financeRecords: [],
         documents: mergeThreadingRecordsById(local.documents, remote.documents),
     };
 }
@@ -110,37 +120,19 @@ export function mirrorTransactionsThreadingLocalSync(
     userId: string,
     input: TransactionsThreadingSaveInput,
 ): void {
-    if (typeof localStorage === 'undefined') return;
     const state = sanitizeTransactionsThreadingSaveInput(userId, input);
-    const key = getTransactionsThreadingLocalKey(userId);
-    try {
-        localStorage.setItem(key, JSON.stringify(state));
-    } catch {
-        /* ignore mirror write */
-    }
+    persistThreadingPayload(getTransactionsThreadingLocalKey(userId), JSON.stringify(state));
 }
 
 export function peekTransactionsThreadingState(userId: string): TransactionsThreadingState | null {
     const key = getTransactionsThreadingLocalKey(userId);
-    if (typeof localStorage !== 'undefined') {
-        try {
-            if (localStorage.getItem(key) !== null) {
-                const raw = localStorage.getItem(key);
-                if (raw) return parseTransactionsThreadingState(userId, JSON.parse(raw));
-            }
-        } catch {
-            /* fall through */
-        }
-    }
     try {
-        const syncRaw = SecureStoreService.getItemSync(key);
-        if (syncRaw != null && typeof syncRaw === 'string') {
-            return parseTransactionsThreadingState(userId, JSON.parse(syncRaw));
-        }
+        const raw = readSecureOrDrainLegacySync(key);
+        if (raw == null) return null;
+        return parseTransactionsThreadingState(userId, JSON.parse(raw));
     } catch {
-        /* fall through */
+        return null;
     }
-    return null;
 }
 
 export {

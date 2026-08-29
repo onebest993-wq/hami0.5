@@ -70,21 +70,26 @@ export function useProfilePageAccess({
 
     const followCheckPending = needsFollowCheck && isFollowing === null;
 
-    const cyclePageAccess = useCallback(async () => {
+    const cyclePageAccess = useCallback(() => {
         if (!isOwnProfile || accessBusy) return;
         const next = nextProfilePageAccess(pageAccess);
         setAccessBusy(true);
-        try {
-            await saveCustomization(
-                {
-                    ...customization,
-                    privacy: { ...customization.privacy, pageAccess: next },
-                },
-                { silent: true },
-            );
-        } finally {
-            setAccessBusy(false);
+        void saveCustomization(
+            {
+                ...customization,
+                privacy: { ...customization.privacy, pageAccess: next },
+            },
+            { silent: true },
+        );
+        /* الحفظ السحابي قد يستغرق PROFILE_SAVE_TIMEOUT_MS — لا نُقفل الزر عليه */
+        const release = () => setAccessBusy(false);
+        if (typeof requestAnimationFrame !== 'function') {
+            release();
+            return;
         }
+        requestAnimationFrame(() => {
+            requestAnimationFrame(release);
+        });
     }, [isOwnProfile, accessBusy, pageAccess, saveCustomization, customization]);
 
     return {

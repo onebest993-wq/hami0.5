@@ -1,0 +1,134 @@
+[
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/custodyRemovalWardsModuleStructure.test.ts",
+    "spec": "./custodyRemoval"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/custodyRemovalWardsModuleStructure.test.ts",
+    "spec": "./useCustodyRemovalWardsModule"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/custodyRemovalWardsModuleStructure.test.ts",
+    "spec": "./WardDeliveryRow"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/custodyRemovalWardsModuleStructure.test.ts",
+    "spec": "./CustodyRemovalWardsModule"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/custodyRemovalWardsModuleStructure.test.ts",
+    "spec": "./custodyRemovalWardsModuleTypes"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/executionFinancialHubPortalStructure.test.ts",
+    "spec": "./executionFinancialHub/useExecutionFinancialHubModel"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/executionFinancialHubPortalStructure.test.ts",
+    "spec": "./executionFinancialHub/ExecutionFinancialHubPortalDialog"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/hiddenFollowupSharedChromeHonesty.test.ts",
+    "spec": "./hiddenFollowup/shared"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/seizedAssetWorkflowPanelStateStructure.test.ts",
+    "spec": "./panelState/useSeizedAssetWorkflowFoundation"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/seizedAssetWorkflowPanelStateStructure.test.ts",
+    "spec": "./panelState/useSeizedAssetWorkflowHandlers"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/seizedAssetWorkflowPanelStateStructure.test.ts",
+    "spec": "./panelState/useSeizedAssetWorkflowSteps"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/seizureMovablePropertyDedupHonesty.test.ts",
+    "spec": "./seizureInlineSectionsShared"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/seizureMovablePropertyDedupHonesty.test.ts",
+    "spec": "./seizureInlineSectionsShared"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/seizureMovablePropertyDedupHonesty.test.ts",
+    "spec": "./panelState/useSeizedAssetWorkflowFoundation"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/seizureMovablePropertyDedupHonesty.test.ts",
+    "spec": "./panelState/useSeizedAssetWorkflowHandlers"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/seizureMovablePropertyDedupHonesty.test.ts",
+    "spec": "./panelState/useSeizedAssetWorkflowSteps"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/visitationScheduleStructure.test.ts",
+    "spec": "./visitationSchedule"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/visitationScheduleStructure.test.ts",
+    "spec": "./VisitationLauncherCard"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/visitationScheduleStructure.test.ts",
+    "spec": "./VisitationWorkspaceSheet"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/visitationScheduleStructure.test.ts",
+    "spec": "./VisitationWorkspaceBody"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/visitationScheduleStructure.test.ts",
+    "spec": "./useVisitationScheduleModuleState"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/visitationScheduleStructure.test.ts",
+    "spec": "./VisitationScheduleModule"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/components/__tests__/visitationScheduleStructure.test.ts",
+    "spec": "./visitationScheduleModuleTypes"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardDossierAction.test.ts",
+    "spec": "../../components/DossierActionTypes"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionFollowupOrchestratorTypes.test.ts",
+    "spec": "../../orchestrators/executionFollowupOrchestratorTypes"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/phase4PipelinesScopeBagFactoriesHonesty.test.ts",
+    "spec": "./pipelinesChainInputs/buildWorkspacePipelineInput"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/phase4PipelinesScopeBagFactoriesHonesty.test.ts",
+    "spec": "./executionScopeBagFollowupFragments"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/phase4PipelinesScopeBagFactoriesHonesty.test.ts",
+    "spec": "./executionScopeBagCoerciveFragments"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/phase4PipelinesScopeBagFactoriesHonesty.test.ts",
+    "spec": "./executionScopeBagPartyFragments"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/phase4PipelinesScopeBagFactoriesHonesty.test.ts",
+    "spec": "./executionScopeBagSeizureFragments"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/phase4PipelinesScopeBagFactoriesHonesty.test.ts",
+    "spec": "./executionScopeBagFinancialRuntimeFragments"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionGateManifestParity.test.ts",
+    "spec": "./execution-gate-manifest.mjs"
+  },
+  {
+    "f": "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionGateManifestParity.test.ts",
+    "spec": "./execution-gate-manifest.mjs"
+  }
+]

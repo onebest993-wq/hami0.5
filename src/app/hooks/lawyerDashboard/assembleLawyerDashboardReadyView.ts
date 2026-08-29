@@ -1,9 +1,11 @@
 import { buildLawyerDashboardTabBundle } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardTabBundle';
 import { buildLawyerDashboardTabStackMask } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardTabStackMask';
 import { shouldMaskLawyerDashboardTabStack, isLawyerDashboardTabMounted } from '@/app/hooks/lawyerDashboard/lawyerDashboardTabStack';
-import { isRealSignedIn, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
+import { hasLocalAppSession, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
 import { buildLawyerDashboardShellProps } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardShellProps';
 import { buildLawyerDashboardOverlaysBundleProps } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardOverlaysBundleProps';
+import type { LawyerDashboardOverlaysBundleProps } from '@/app/components/lawyer/dashboard/lawyerDashboardOverlaysBundles';
+import type { ExecutionFile as ScheduleExecutionFile } from '@/app/types/execution';
 import { buildLawyerDashboardSurface } from '@/app/hooks/lawyerDashboard/lawyerDashboardSurfaceUtils';
 import type { LawyerDashboardCoreViewModel } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCore.types';
 import type { useLawyerDashboardCoreOrchestration } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCoreOrchestration';
@@ -38,7 +40,6 @@ export function assembleLawyerDashboardReadyView({
     dashboardTransactions,
     dashboardRepository,
     dashboardCommunity,
-    dashboardHome,
     appAlerts,
     archiveAndSync,
     overlays,
@@ -52,10 +53,10 @@ export function assembleLawyerDashboardReadyView({
     globalSearchNav,
     quantumPendingForField,
     pendingFieldTasksCount,
-    storeCases,
-    hydrateCasesFromLawsuitFiles,
     dashboardExecutionFiles,
     deferredFeatureSurfacesProps,
+    preDockFeatureSurfacesProps,
+    navigationSurfacesProps,
 }: AssembleLawyerDashboardReadyViewParams): Extract<LawyerDashboardCoreViewModel, { status: 'ready' }> {
     const { wallpaperSrc, hasWallpaper, dashboardBg, dashboardSurfaceStyle } = buildLawyerDashboardSurface({
         appearance: settings.appearance,
@@ -75,7 +76,7 @@ export function assembleLawyerDashboardReadyView({
         globalNotes: workspace.globalNotes,
         searchNotifications: notifications.searchNotifications,
         criminalCasesForCluster,
-        overlays,
+        overlays: overlays as LawyerDashboardOverlaysBundleProps['overlays'],
         criminalBridge,
         workspace,
         nav: {
@@ -100,8 +101,6 @@ export function assembleLawyerDashboardReadyView({
         archiveType: archiveAndSync.archiveType,
         isCriminalDossierOpen: overlays.isCriminalDossierOpen,
         showSettings: dashboardSettings.showSettings,
-        homeTabSessionKey: dashboardHome.homeTabSessionKey,
-        homeDockChromeSessionKey: dashboardHome.homeDockChromeSessionKey,
         isNewCaseModalOpen: workspace.isNewCaseModalOpen,
         isNotepadOpen: dashboardRepository.isRepositoryOpen,
         showCommunity: dashboardCommunity.showCommunity,
@@ -109,7 +108,6 @@ export function assembleLawyerDashboardReadyView({
         lawsuitsWorkspaceTab: overlays.lawsuitsWorkspaceTab,
         showTransactions: dashboardTransactions.showTransactions,
         showTasksManager: overlays.showTasksManager,
-        fieldTasksSheetOpen: overlays.fieldTasksSheetOpen,
         showDocs: dashboardRepository.isRepositoryOpen,
         showGlobalSearch: overlays.showGlobalSearch,
         showNotifications: notifications.showNotifications,
@@ -119,14 +117,12 @@ export function assembleLawyerDashboardReadyView({
         appAlertsLoading: appAlerts.appAlertsLoading,
         appAlertsError: appAlerts.appAlertsError,
         theme,
-        shapeClass,
         files: workspace.files,
-        executionFiles: workspace.executionFiles,
+        executionFiles: workspace.executionFiles as ScheduleExecutionFile[],
         setActiveTab: overlays.setActiveTab,
         openProfileTab: overlays.openProfileTab,
         closeProfileTab: profileTab.closeProfileTab,
         primeProfileTabMount: profileTab.primeProfileTabMount,
-        profileShellReady: profileTab.profileShellReady,
         openSettings: overlays.openSettings,
         primeSettingsShellMount: dashboardSettings.primeSettingsShellMount,
         openGlobalSearch: overlays.openGlobalSearch,
@@ -198,7 +194,12 @@ export function assembleLawyerDashboardReadyView({
             fieldTasks: quantumPendingForField,
             onAlerts: appAlerts.handleAlertsFromBackground,
             onNotesSynced: (merged) => workspace.mergeNotesStores(merged),
-            onLawsuitFilesSynced: (merged) => workspace.setFiles(merged),
+            onLawsuitFilesSynced: () => {
+                workspace.reloadLawsuitFiles();
+            },
+            onExecutionFilesSynced: () => {
+                workspace.reloadExecutionFiles();
+            },
             mergeNotesStores: workspace.mergeNotesStores,
             syncExecutionFilesNowRef: archiveAndSync.syncExecutionFilesNowRef,
             syncLawsuitFilesNowRef: archiveAndSync.syncLawsuitFilesNowRef,
@@ -214,10 +215,9 @@ export function assembleLawyerDashboardReadyView({
         notificationPanel: {
             isOpen: notifications.showNotifications,
             hostMounted: notifications.notificationHostMounted,
-            panelSessionKey: notifications.notificationPanelSessionKey,
             userId: (() => {
                 const uid = resolveShellAuthUserId(authUser?.id, user?.id);
-                return isRealSignedIn(uid) ? uid! : '';
+                return hasLocalAppSession(uid) ? uid! : '';
             })(),
             onClose: notifications.closeNotifications,
             onOpenPanel: notifications.openNotifications,
@@ -228,15 +228,11 @@ export function assembleLawyerDashboardReadyView({
             ...homeTabProps,
             visible: isLawyerDashboardTabMounted(homeTabProps.visible, tabStackMask),
         },
-        scheduleTabProps: {
-            ...scheduleTabProps,
-            active: isLawyerDashboardTabMounted(scheduleTabProps.visible, tabStackMask),
-        },
+        scheduleTabProps,
         scheduleHostMounted: overlays.scheduleHostMounted ?? false,
         profileHostMounted: profileTab.profileHostMounted ?? false,
         profileTab: {
             visible: overlays.activeTab === 'profile',
-            sessionKey: profileTab.profileTabSessionKey,
             perfOpenEpoch: profileTab.profileOpenEpoch,
             onBack: profileTab.closeProfileTab,
         },
@@ -260,8 +256,6 @@ export function assembleLawyerDashboardReadyView({
             searchIndexVersion: overlays.searchIndexVersion ?? 0,
             showLawsuitsWorkspace: overlays.showLawsuitsWorkspace,
             lawsuitsDossierSection: overlays.lawsuitsDossierSection,
-            storeCases,
-            hydrateCasesFromLawsuitFiles,
             refreshAppAlerts: appAlerts.refreshAppAlerts,
             reloadLawsuitFiles: workspace.reloadLawsuitFiles,
             reloadExecutionFiles: workspace.reloadExecutionFiles,
@@ -273,5 +267,7 @@ export function assembleLawyerDashboardReadyView({
             setShowLawsuitsWorkspace: overlays.setShowLawsuitsWorkspace,
         },
         deferredFeatureSurfacesProps,
+        preDockFeatureSurfacesProps,
+        navigationSurfacesProps,
     };
 }

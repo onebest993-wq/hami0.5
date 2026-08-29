@@ -39,6 +39,7 @@ export type BuildLawyerDashboardShellPropsParams = {
     }) => void;
     onNotesSynced: (merged: GlobalNote[]) => void;
     onLawsuitFilesSynced: (merged: FileData[]) => void;
+    onExecutionFilesSynced?: () => void;
     mergeNotesStores: (merged: GlobalNote[]) => void;
     syncExecutionFilesNowRef: MutableRefObject<() => void>;
     syncLawsuitFilesNowRef: MutableRefObject<() => void>;
@@ -49,7 +50,7 @@ export type BuildLawyerDashboardShellPropsParams = {
     requiresBiometricToUnlock: boolean;
     unlockWithBiometric: () => Promise<boolean>;
     unlockContinue: () => void;
-    onLogout: () => void;
+    onLogout: (options?: { skipLocalPurge?: boolean }) => void | Promise<void>;
 };
 
 export function buildLawyerDashboardShellProps(
@@ -69,13 +70,14 @@ export function buildLawyerDashboardShellProps(
         syncExecutionOn: params.syncExecutionOn,
         pushAllowed: params.pushAllowed,
         files: params.files,
-        executionFiles: params.executionFiles,
+        executionFiles: params.executionFiles as ExecutionFile[],
         criminalCasesForCluster: params.criminalCasesForCluster,
         globalNotes: params.globalNotes,
         fieldTasks: params.fieldTasks,
         onAlerts: params.onAlerts,
         onNotesSynced: params.onNotesSynced,
         onLawsuitFilesSynced: params.onLawsuitFilesSynced,
+        onExecutionFilesSynced: params.onExecutionFilesSynced,
         mergeNotesStores: params.mergeNotesStores,
         syncExecutionFilesNowRef: params.syncExecutionFilesNowRef,
         syncLawsuitFilesNowRef: params.syncLawsuitFilesNowRef,

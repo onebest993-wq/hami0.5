@@ -121,13 +121,32 @@ problems.push(...validateScopeKeys(view, [...bagKeys]));
 const assignedScopeKeys = new Set();
 for (const listPath of scopeAssignKeyLists) {
     const text = read(listPath);
-    const listBody = text.match(/=\s*\[([\s\S]*?)\]\s*as\s*const/);
-    if (!listBody) {
+    const listBodies = [...text.matchAll(/=\s*\[([\s\S]*?)\]\s*as\s*const/g)];
+    if (!listBodies.length) {
         problems.push(`key list not parseable: ${listPath}`);
         continue;
     }
-    for (const m of listBody[1].matchAll(/['"]([A-Za-z_][A-Za-z0-9_]*)['"]/g)) {
-        assignedScopeKeys.add(m[1]);
+    for (const listBody of listBodies) {
+        for (const m of listBody[1].matchAll(/['"]([A-Za-z_][A-Za-z0-9_]*)['"]/g)) {
+            assignedScopeKeys.add(m[1]);
+        }
+        for (const spread of listBody[1].matchAll(/\.\.\.([A-Z_][A-Z0-9_]*)/g)) {
+            const ident = spread[1];
+            const importRe = new RegExp(
+                `import \\{[^}]*\\b${ident}\\b[^}]*\\} from ['"](\\.[^'"]+)['"]`,
+            );
+            const im = text.match(importRe);
+            if (!im) continue;
+            const fragPath = listPath.replace(/[^/\\]+$/, '') + im[1].replace(/^\.\//, '') + (im[1].endsWith('.ts') ? '' : '.ts');
+            try {
+                const frag = read(fragPath);
+                for (const m of frag.matchAll(/['"]([A-Za-z_][A-Za-z0-9_]*)['"]/g)) {
+                    assignedScopeKeys.add(m[1]);
+                }
+            } catch {
+                problems.push(`spread fragment missing for ${ident} from ${listPath}`);
+            }
+        }
     }
 }
 for (const key of bagKeys) {

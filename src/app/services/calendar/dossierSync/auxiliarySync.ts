@@ -13,10 +13,10 @@ import {
 } from '@/app/services/calendar/bridge';
 import { TransactionsThreadingDB } from '@/app/services/cloud/lawyerTransactionsCloud';
 import { TransactionTaskStatus } from '@/app/modules/transactionsThreading/types';
-import SecureStoreService from '@/app/services/SecureStoreService';
 import { debug } from '@/app/utils/debug';
 import type { DossierSyncStats } from './types';
 import { isRecord, readStr } from './shared';
+import { readSecureOrDrainLegacySync } from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 const TRANSACTIONS_LOCAL_KEY = 'hami:transactions:v1';
 
@@ -25,7 +25,7 @@ export function loadTransactionsLocalForCalendar(userId: string): unknown[] {
     const uid = String(userId ?? '').trim();
     if (!uid) return [];
     try {
-        const raw = SecureStoreService.getItemSync(TRANSACTIONS_LOCAL_KEY);
+        const raw = readSecureOrDrainLegacySync(TRANSACTIONS_LOCAL_KEY);
         if (!raw?.trim()) return [];
         const parsed: unknown = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
@@ -99,7 +99,6 @@ export function syncThreadingCalendarSnapshot(
     userId: string | null | undefined,
     transactions: unknown[],
     tasks: unknown[],
-    financeRecords: unknown[] = [],
 ): void {
     const uid = resolveCalendarUserId(userId);
     const txById = new Map<string, Record<string, unknown>>();
@@ -132,29 +131,6 @@ export function syncThreadingCalendarSnapshot(
             clientName: tx ? readStr(tx, 'clientName') || undefined : undefined,
         });
     }
-    for (const rec of financeRecords) {
-        if (!isRecord(rec)) continue;
-        const recordId = String(rec.id ?? '').trim();
-        const txId = String(rec.transactionId ?? '').trim();
-        if (!recordId || !txId) continue;
-        const ymd = normalizeDateToYmd(typeof rec.date === 'string' ? rec.date : undefined);
-        if (!ymd) {
-            CalendarBridge.remove('threading', txId, `finance_${recordId}`, uid);
-            continue;
-        }
-        const tx = txById.get(txId);
-        const financeType =
-            String(rec.type ?? '') === 'AdvancePayment' ? 'advance' : 'expense';
-        CalendarBridge.syncThreadingFinance({
-            userId: uid,
-            transactionId: txId,
-            recordId,
-            title: readStr(rec, 'description') || 'حركة مالية',
-            date: ymd,
-            clientName: tx ? readStr(tx, 'clientName') || undefined : undefined,
-            financeType,
-        });
-    }
     void flushPendingCalendarSyncs();
 }
 
@@ -163,8 +139,7 @@ export async function syncThreadingTasks(userId: string, stats: DossierSyncStats
         const state = await TransactionsThreadingDB.getState(userId);
         const transactions = Array.isArray(state?.transactions) ? state.transactions : [];
         const tasks = Array.isArray(state?.tasks) ? state.tasks : [];
-        const financeRecords = Array.isArray(state?.financeRecords) ? state.financeRecords : [];
-        syncThreadingCalendarSnapshot(userId, transactions, tasks, financeRecords);
+        syncThreadingCalendarSnapshot(userId, transactions, tasks);
         stats.threadingTasks += tasks.length;
     } catch (err) {
         debug.warn('[calendarDossierSync] threading scan failed:', err);

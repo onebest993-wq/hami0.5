@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { buildSeizureRegistryDraftPatch } from '@/app/components/lawyer/ExecutionDashboard/helpers/seizureRegistryBridge';
 import { patchExecutorDecisionRow } from '@/app/utils/executorSeizureDecisionQueue';
 import type { SeizedMovable } from '@/app/types/execution';

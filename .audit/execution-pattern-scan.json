@@ -1,0 +1,175 @@
+{
+  "scanned": 1411,
+  "unreadable": [
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardFollowupCluster.ts",
+    "src/app/components/lawyer/ExecutionDashboard/helpers/dossierNoteValidation.ts",
+    "src/app/components/lawyer/ExecutionDashboard/ExecutionHeader.tsx",
+    "src/app/components/lawyer/execution/otherPartyActionLogPersist.ts",
+    "src/app/components/lawyer/execution/submitOtherPartyFollowupAction.ts",
+    "src/app/application/execution/followup/followupScenarioDefinitions.ts",
+    "src/app/application/execution/followup/followupScenarioHiddenBaseline.ts",
+    "src/app/application/execution/followup/followupScenarioResolver.ts",
+    "src/app/application/execution/followup/resolveFollowupHiddenActions.ts",
+    "src/app/application/execution/followup/followupModalJourneyHarness.ts",
+    "src/app/application/execution/followup/followupActionRegistry.ts",
+    "src/app/application/execution/followup/followupScenarioHiddenInvariants.ts",
+    "scripts/wire-execution-dashboard-core.mjs",
+    "scripts/wire-execution-orchestrators.mjs",
+    "scripts/restore-execution-dashboard-core.mjs",
+    "scripts/extract-execution-dashboard-state.mjs",
+    "scripts/trim-useExecutionDashboardCore-imports.mjs",
+    "scripts/extract-execution-static-chunk-scope.mjs",
+    "scripts/restore-execution-dashboard-state.mjs",
+    "scripts/split-execution-dashboard-core.mjs",
+    "scripts/wire-execution-domain-orchestrators.mjs",
+    "scripts/slim-execution-dashboard-render.mjs",
+    "scripts/wire-execution-dashboard-core-chunks.mjs",
+    "scripts/sync-execution-shell-overlay-props.mjs",
+    "scripts/sync-execution-chunk-scope.mjs",
+    "scripts/dedupe-execution-dashboard-core-hooks.mjs"
+  ],
+  "summary": {
+    "nocheck": 0,
+    "tsIgnore": 0,
+    "windowConfirm": 1,
+    "asAny": 9,
+    "todo": 1,
+    "eslintDisable": 0,
+    "emptyCatch": 5
+  },
+  "hits": {
+    "nocheck": [],
+    "tsIgnore": [],
+    "windowConfirm": [
+      {
+        "path": "src/app/components/lawyer/execution/ExecutionSectionConfirmDialog.tsx",
+        "lines": 79,
+        "module": "B-execution-components"
+      }
+    ],
+    "asAny": [
+      {
+        "path": "src/app/components/lawyer/FinancialOperationsCenter/components/StandardFinancialLedger.tsx",
+        "lines": 472,
+        "module": "D-financial-center"
+      },
+      {
+        "path": "src/app/utils/executorSeizureDecisionQueueTypes.ts",
+        "lines": 434,
+        "module": "F-utils"
+      },
+      {
+        "path": "src/app/utils/executorSeizureDecisionQueueReadResolve.ts",
+        "lines": 422,
+        "module": "F-utils"
+      },
+      {
+        "path": "src/app/utils/executorSeizureDecisionQueuePatch.ts",
+        "lines": 391,
+        "module": "F-utils"
+      },
+      {
+        "path": "src/app/utils/executorSeizureDecisionQueueAppendSeizure.ts",
+        "lines": 250,
+        "module": "F-utils"
+      },
+      {
+        "path": "src/app/utils/executorSeizureDecisionQueueRead.ts",
+        "lines": 146,
+        "module": "F-utils"
+      },
+      {
+        "path": "src/app/utils/executorSeizureDecisionQueueAppendSpecial.ts",
+        "lines": 141,
+        "module": "F-utils"
+      },
+      {
+        "path": "src/app/components/lawyer/PremiumTimelineAuditLog.tsx",
+        "lines": 291,
+        "module": "M-lawyer-other"
+      },
+      {
+        "path": "src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/useDecisionsAppealsExecutorResolve.ts",
+        "lines": 167,
+        "module": "M-lawyer-other"
+      }
+    ],
+    "todo": [
+      {
+        "path": "src/app/utils/executorApprovalWorkflow.ts",
+        "lines": 332,
+        "module": "F-utils"
+      }
+    ],
+    "eslintDisable": [],
+    "emptyCatch": [
+      {
+        "path": "src/app/components/lawyer/ExecutionDashboard/components/ExecutionFollowupModalPersonalTabPanel.tsx",
+        "lines": 187,
+        "module": "A3-dashboard-components"
+      },
+      {
+        "path": "src/app/components/lawyer/ExecutionDashboard/components/DossierSwitcher.tsx",
+        "lines": 141,
+        "module": "A3-dashboard-components"
+      },
+      {
+        "path": "src/app/components/lawyer/ExecutionDashboard/components/useSeizureRequestsTabOpeners.ts",
+        "lines": 101,
+        "module": "A3-dashboard-components"
+      },
+      {
+        "path": "src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/useDecisionsAppealsExecutorResolve.ts",
+        "lines": 167,
+        "module": "M-lawyer-other"
+      },
+      {
+        "path": "src/app/components/lawyer/DecisionsAndAppealsEngine/components/DecisionCardFollowupShortcuts.tsx",
+        "lines": 122,
+        "module": "M-lawyer-other"
+      }
+    ]
+  },
+  "buttonNoClick": [
+    {
+      "path": "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodyHeader.tsx",
+      "snippet": "<button\n                        type=\"button\"\n                        onPointerEnter={() =>"
+    },
+    {
+      "path": "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodyHeader.tsx",
+      "snippet": "<button\n                    type=\"button\"\n                    onPointerEnter={() =>"
+    },
+    {
+      "path": "src/app/components/lawyer/ExecutionDashboard/components/ExecutionTimelineFilterBar.tsx",
+      "snippet": "<button\n                                key={label}\n                                type=\"button\"\n                                role=\"tab\"\n                   "
+    },
+    {
+      "path": "src/app/components/lawyer/ExecutionDashboard/components/LawReferencePanel.tsx",
+      "snippet": "<button\r\n                        type=\"button\"\r\n                        onPointerDown={(e) =>"
+    },
+    {
+      "path": "src/app/components/lawyer/execution/partyInteractiveBadges/ExecutionPartyInteractiveBadges.tsx",
+      "snippet": "<button\n                                type=\"button\"\n                                ref={(el) =>"
+    },
+    {
+      "path": "src/app/components/lawyer/execution/ExecutionPartySpecialActionsMenu.tsx",
+      "snippet": "<button\r\n                            type=\"button\"\r\n                            className={`w-full px-3 py-2 text-right text-[11px] font-bold hover:bg-white/10 "
+    },
+    {
+      "path": "src/app/components/lawyer/execution/ExecutionPartySpecialActionsMenu.tsx",
+      "snippet": "<button\r\n                        type=\"button\"\r\n                        className=\"w-full px-3 py-2 text-right text-[11px] font-bold text-slate-100 hover:bg-whi"
+    },
+    {
+      "path": "src/app/components/lawyer/execution/ExecutionPartySpecialActionsMenu.tsx",
+      "snippet": "<button\r\n                            type=\"button\"\r\n                            className=\"w-full px-3 py-2 text-right text-[11px] font-bold text-slate-100 hove"
+    },
+    {
+      "path": "src/app/components/lawyer/execution/ExecutionPartySpecialActionsMenu.tsx",
+      "snippet": "<button\r\n                ref={buttonRef}\r\n                type=\"button\"\r\n                className=\"rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text"
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/ExecutionArchiveInstantChrome.tsx",
+      "snippet": "<button\n                            type=\"button\"\n                            onPointerDown={(event) =>"
+    }
+  ]
+}

@@ -1,7 +1,31 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import type { FollowupModalSnapshot } from './followupSnapshotFieldKeys';
+import type { FollowupModalSnapshot as FollowupGeneratedSnapshot } from './followupSnapshotFieldKeys';
 
-export type { FollowupModalSnapshot } from './followupSnapshotFieldKeys';
+/**
+ * مكوّنات تبويب المحضر + lazy — خارج القائمة المولَّدة في followupSnapshotFieldKeys
+ * (generate-shell-overlay-infra يعيد كتابة تلك القائمة).
+ */
+export type FollowupModalPortalTabKey =
+    | 'CoerciveTab'
+    | 'LazyCoerciveTab'
+    | 'PersonalTab'
+    | 'LazyPersonalTab'
+    | 'SeizureRequestsTab'
+    | 'LazySeizureRequestsTab'
+    | 'FinancialTab'
+    | 'LazyFinancialTab'
+    | 'DossierControlsTab'
+    | 'LazyDossierControlsTab'
+    | 'OtherPartyTab'
+    | 'LazyOtherPartyTab'
+    | 'RequestsTab'
+    | 'LazyRequestsTab'
+    | 'CommunicationsTab'
+    | 'LazyCommunicationsTab'
+    | 'DebtorFinancialProgressBar';
+
+export type FollowupModalSnapshot = FollowupGeneratedSnapshot &
+    Partial<Record<FollowupModalPortalTabKey, unknown>>;
 
 const FollowupModalStoreContext = createContext<FollowupModalSnapshot | null>(null);
 

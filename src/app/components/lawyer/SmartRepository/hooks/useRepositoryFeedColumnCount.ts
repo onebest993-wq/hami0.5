@@ -15,18 +15,26 @@ export function useRepositoryFeedColumnCount(
         const node = containerRef.current;
         if (!node || typeof ResizeObserver === 'undefined') return undefined;
 
+        let raf = 0;
         const sync = () => {
             const width = node.clientWidth || window.innerWidth;
-            setColumnCount(resolveRepositoryFeedColumnCount(layoutId, width));
+            const next = resolveRepositoryFeedColumnCount(layoutId, width);
+            setColumnCount((prev) => (prev === next ? prev : next));
+        };
+        const schedule = () => {
+            if (raf) return;
+            raf = requestAnimationFrame(() => {
+                raf = 0;
+                sync();
+            });
         };
 
         sync();
-        const observer = new ResizeObserver(sync);
+        const observer = new ResizeObserver(schedule);
         observer.observe(node);
-        window.addEventListener('resize', sync);
         return () => {
+            if (raf) cancelAnimationFrame(raf);
             observer.disconnect();
-            window.removeEventListener('resize', sync);
         };
     }, [containerRef, layoutId]);
 

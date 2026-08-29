@@ -11,7 +11,7 @@ type SyncRollingCalendarSessions = (
     todayYmd: string,
 ) => VisitationScheduleBundle['sessions'];
 
-vi.mock('../../executionDashboardLazyRegistry', () => ({
+vi.mock('../../executionDashboardLazyRegistryShell', () => ({
     LazyActionGridSection: (props: {
         onOpenAppointmentModal?: () => void;
         onOpenNotesModal?: () => void;
@@ -19,7 +19,6 @@ vi.mock('../../executionDashboardLazyRegistry', () => ({
         onOpenDecisionsModal?: () => void;
         onOpenFinancialCenter?: () => void;
         onMemoFollowupClick?: () => void;
-        onOpenVisitationCalendar?: () => void;
     }) => (
         <>
             <button type="button" onClick={props.onOpenAppointmentModal}>
@@ -40,9 +39,6 @@ vi.mock('../../executionDashboardLazyRegistry', () => ({
             <button type="button" onClick={props.onMemoFollowupClick}>
                 followup
             </button>
-            <button type="button" onClick={props.onOpenVisitationCalendar}>
-                visitation
-            </button>
         </>
     ),
     LazyTimelineSection: (props: { onOpenTimelineModal?: () => void; executionEntityId?: string | null }) => (
@@ -53,9 +49,19 @@ vi.mock('../../executionDashboardLazyRegistry', () => ({
             <div>{props.executionEntityId}</div>
         </>
     ),
-    LazyLawReferencePanel: () => <div>law-reference</div>,
-    LazyPremiumTimelineAuditLog: () => null,
-    LazySmartTimelineRadar: () => null,
+    LazyCustodyRemovalWardsModule: () => null,
+}));
+
+vi.mock('../ExecutionLawOverlayEntry', () => ({
+    ExecutionLawOverlayEntry: () => <div>law-reference</div>,
+}));
+
+vi.mock('@/app/components/lawyer/PremiumTimelineAuditLog', () => ({
+    PremiumTimelineAuditLog: () => null,
+}));
+
+vi.mock('@/app/components/lawyer/SmartTimelineRadar', () => ({
+    SmartTimelineRadar: () => null,
 }));
 
 vi.mock('@/app/domain/execution/visitation/visitationScheduleEngine', () => ({
@@ -72,7 +78,6 @@ vi.mock('@/app/domain/execution/visitation/visitationScheduleEngine', () => ({
 
 describe('ExecutionDashboardPhoneBodySecondarySections', () => {
     function buildProps(): Parameters<typeof ExecutionDashboardPhoneBodySecondarySections>[0] {
-        const setShowVisitationCalendarModal = vi.fn();
         return {
             secondaryStageReady: true,
             followupSpec: {},
@@ -108,7 +113,6 @@ describe('ExecutionDashboardPhoneBodySecondarySections', () => {
                 setActiveTimelineFilter: vi.fn(),
                 setEmployeeCompulsoryBannerDismissed: vi.fn(),
                 setShowOnlyActiveFileTimeline: vi.fn(),
-                setShowVisitationCalendarModal,
                 showEmployeeCompulsoryProceduresBanner: false,
                 showOnlyActiveFileTimeline: false,
                 showToast: vi.fn(),
@@ -168,7 +172,7 @@ describe('ExecutionDashboardPhoneBodySecondarySections', () => {
         expect(container).toBeEmptyDOMElement();
     });
 
-    it('forwards action handlers from the secondary sections bundle', () => {
+    it('forwards action handlers from the secondary sections bundle', async () => {
         const props = buildProps();
 
         render(<ExecutionDashboardPhoneBodySecondarySections {...props} />);
@@ -189,6 +193,6 @@ describe('ExecutionDashboardPhoneBodySecondarySections', () => {
         expect(props.directHandleMemoFollowupClick).toHaveBeenCalledTimes(1);
         expect(props.directOpenTimelineModal).toHaveBeenCalledTimes(1);
         expect(screen.getByText('exec-1')).toBeInTheDocument();
-        expect(screen.getByText('law-reference')).toBeInTheDocument();
+        expect(await screen.findByText('law-reference')).toBeInTheDocument();
     });
 });

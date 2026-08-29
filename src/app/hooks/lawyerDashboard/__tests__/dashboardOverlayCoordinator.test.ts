@@ -4,11 +4,13 @@ import {
     getRegisteredDashboardOverlayIds,
     registerDashboardOverlayCloser,
     resetDashboardOverlayCoordinatorForTests,
+    shouldEvictProfileTabOnDismiss,
 } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
 
 describe('dashboardOverlayCoordinator', () => {
     beforeEach(() => {
         resetDashboardOverlayCoordinatorForTests();
+        document.documentElement.removeAttribute('data-hami-profile-open');
     });
 
     it('dismiss مع except=field-tasks لا يغلق tasks-manager عند فتح الستارة', () => {
@@ -116,5 +118,26 @@ describe('dashboardOverlayCoordinator', () => {
         expect(closeRepository).toHaveBeenCalledTimes(1);
         expect(closeSettings).toHaveBeenCalledTimes(1);
         expect(getRegisteredDashboardOverlayIds()).toHaveLength(2);
+    });
+
+    it('dismiss بدون except لا يطرد تبويب الملف إن كان snap مفتوحاً', () => {
+        document.documentElement.setAttribute('data-hami-profile-open', '1');
+        const closeProfile = vi.fn();
+        registerDashboardOverlayCloser('profile', closeProfile);
+
+        window.dispatchEvent(new CustomEvent(HAMI_DISMISS_OVERLAYS_EVENT, { detail: {} }));
+
+        expect(shouldEvictProfileTabOnDismiss(undefined)).toBe(false);
+        expect(closeProfile).not.toHaveBeenCalled();
+    });
+
+    it('dismiss بدون except يطرد تبويب الملف إن لم يكن snap مفتوحاً', () => {
+        const closeProfile = vi.fn();
+        registerDashboardOverlayCloser('profile', closeProfile);
+
+        window.dispatchEvent(new CustomEvent(HAMI_DISMISS_OVERLAYS_EVENT, { detail: {} }));
+
+        expect(shouldEvictProfileTabOnDismiss(undefined)).toBe(true);
+        expect(closeProfile).toHaveBeenCalledTimes(1);
     });
 });

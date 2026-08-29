@@ -6,10 +6,16 @@ const root = process.cwd();
 
 describe('settings section surgical close honesty', () => {
     it('orchestration لا يستخدم useLawyerSettingsFromSlices (يمنع homeLayout fan-out)', () => {
-        const orch = fs.readFileSync(
-            path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardCoreOrchestration.ts'),
-            'utf8',
-        );
+        const orch = [
+            fs.readFileSync(
+                path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardPreWorkspaceOrchestration.ts'),
+                'utf8',
+            ),
+            fs.readFileSync(
+                path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardCoreOrchestration.ts'),
+                'utf8',
+            ),
+        ].join('\n');
         expect(orch).not.toContain('useLawyerSettingsFromSlices');
         expect(orch).toContain('useLawyerSettingsPerformance');
         expect(orch).toContain('LAWYER_SETTINGS_V2_DEFAULTS.homeLayout');
@@ -22,6 +28,8 @@ describe('settings section surgical close honesty', () => {
         );
         expect(sec).toContain('biometricSubLabel');
         expect(sec).toContain('settings-toggle-security-biometricLock');
+        expect(sec).toContain('settings-toggle-security-privacyBlur');
+        expect(sec).toContain('togglePrivacyBlur');
     });
 
     it('privacyBlur يتخطى CSS على Capacitor', () => {
@@ -36,8 +44,18 @@ describe('settings section surgical close honesty', () => {
             path.join(root, 'src/app/context/lawyerSettings/LawyerSettingsProvider.tsx'),
             'utf8',
         );
-        expect(provider).toContain('settings.security.privacyBlur');
-        expect(provider).toContain('privacyBlurRuntime');
+        const runtimeEffects = fs.readFileSync(
+            path.join(root, 'src/app/context/lawyerSettings/useLawyerSettingsRuntimeEffects.ts'),
+            'utf8',
+        );
+        const bindings = fs.readFileSync(
+            path.join(root, 'src/app/context/lawyerSettings/useLawyerSettingsSecurityBindings.ts'),
+            'utf8',
+        );
+        expect(provider).toContain('useLawyerSettingsRuntimeEffects');
+        expect(runtimeEffects).toContain('useLawyerSettingsSecurityBindings');
+        expect(bindings).toContain('settings.security.privacyBlur');
+        expect(bindings).toContain('privacyBlurRuntime');
     });
 
     it('مسار فتح الإعدادات من الهيدر ما زال عبر HeaderSettingsTrigger', () => {

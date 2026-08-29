@@ -1,0 +1,69 @@
+{
+  "stamp": "2026-08-29T12:19:57.299Z",
+  "codeGateDev": {
+    "ok": true,
+    "status": 0
+  },
+  "codeGateProd": {
+    "ok": true,
+    "status": 0
+  },
+  "envChecks": [
+    {
+      "key": "WIFE_REDIS_REST_URL",
+      "ok": true,
+      "detail": "set",
+      "why": "distributed nonce / CSRF / rate-limit"
+    },
+    {
+      "key": "WIFE_REDIS_REST_TOKEN",
+      "ok": true,
+      "detail": "set",
+      "why": "Redis auth"
+    },
+    {
+      "key": "WIFE_DISABLE_EDGE_KV_PROXY",
+      "ok": true,
+      "detail": "set",
+      "why": "no Edge kv bypass"
+    },
+    {
+      "key": "ADMIN_ACCESS_KEY",
+      "ok": true,
+      "detail": "set",
+      "why": "Edge admin diagnostics"
+    },
+    {
+      "key": "VITE_BFF_AUTH",
+      "ok": true,
+      "detail": "set",
+      "why": "HttpOnly session cookies"
+    },
+    {
+      "key": "VITE_SHELL_AUTH_OPEN",
+      "ok": true,
+      "detail": "set",
+      "why": "no guest shell in prod"
+    },
+    {
+      "key": "SUPABASE_URL",
+      "ok": true,
+      "detail": "set",
+      "why": "auth + BFF"
+    },
+    {
+      "key": "SUPABASE_SERVICE_ROLE_KEY",
+      "ok": true,
+      "detail": "set",
+      "why": "server BFF"
+    }
+  ],
+  "envMissingCount": 0,
+  "optionalGoTrueStaging": {
+    "WIFE_GOTRUE_STAGING_EMAIL": false,
+    "WIFE_GOTRUE_STAGING_PASSWORD": false,
+    "ready": false
+  },
+  "deployReady": true,
+  "note": "Env + dev gate look ready; run gate --prod --live on staging host"
+}

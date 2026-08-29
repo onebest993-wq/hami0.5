@@ -1,15 +1,19 @@
 import React from 'react';
-import { X } from '@/app/components/ui/lucideIcons';
-import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { X } from '@/app/components/ui/icons/X';
+import { EXEC_MODAL_Z } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 import {
     EXEC_MODAL_CLOSE_BTN_CLASS,
     EXEC_MODAL_HEADER_SAFE_TOP,
     EXEC_MODAL_SHELL_HEIGHT_CLASS,
+    EXEC_MODAL_TOUCH_TARGET,
+    execModalKeyboardPadStyle,
 } from '../executionModalMobileShell';
+import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 import { assignMutableRefCurrent } from '../utils/assignMutableRefCurrent';
 import type { ExecutionFollowupModalPortalController } from '../hooks/useExecutionFollowupModalPortalController';
 import { prefetchExecutionFollowupTab } from '../executionFollowupTabPrefetch';
 import { useExecutionDashboardStore } from '@/app/stores';
+import { registerNativeBackHandler } from '@/app/runtime/nativeBackStack';
 
 export function ExecutionFollowupModalShell({
     c,
@@ -79,16 +83,27 @@ export function ExecutionFollowupModalShell({
             forceCloseFollowup();
         };
         window.addEventListener('keydown', onKeyDown, true);
-        return () => window.removeEventListener('keydown', onKeyDown, true);
+        const unregisterNativeBack = registerNativeBackHandler(() => {
+            forceCloseFollowup();
+            return true;
+        });
+        return () => {
+            window.removeEventListener('keydown', onKeyDown, true);
+            unregisterNativeBack();
+        };
     }, [forceCloseFollowup]);
+
+    const keyboardInset = useMobileKeyboardInset(!dismissed, true);
 
     if (dismissed) return null;
 
     return (
         <div
-            className="fixed inset-0 bg-slate-950/95 backdrop-blur-lg px-[max(0px,env(safe-area-inset-left))] py-[max(0px,env(safe-area-inset-top))] pb-[max(0px,env(safe-area-inset-bottom))]"
-            style={{ zIndex: EXEC_MODAL_Z.unifiedFollowUp }}
-            role="presentation"
+            className="fixed inset-0 bg-black/75 px-[max(0px,env(safe-area-inset-left))] py-[max(0px,env(safe-area-inset-top))] pb-[max(0px,env(safe-area-inset-bottom))]"
+            style={{ zIndex: EXEC_MODAL_Z.unifiedFollowUp, ...execModalKeyboardPadStyle(keyboardInset) }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="execution-followup-modal-title"
             data-testid="execution-followup-modal"
             onClick={(e) => {
                 if (e.target === e.currentTarget) forceCloseFollowup();
@@ -96,7 +111,7 @@ export function ExecutionFollowupModalShell({
         >
             <div className="w-full" onClick={(e) => e.stopPropagation()}>
                 <div
-                    className={`relative mx-auto flex w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0A0F1C]/98 shadow-[0_8px_32px_rgba(0,0,0,0.65)] ring-1 ring-white/10 ${EXEC_MODAL_SHELL_HEIGHT_CLASS}`}
+                    className={`relative mx-auto flex w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0A0F1C] shadow-md ${EXEC_MODAL_SHELL_HEIGHT_CLASS}`}
                 >
                     <div
                         className={`flex shrink-0 items-center justify-between border-b border-white/10 bg-[#0A0F1C]/98 px-4 py-3 ${EXEC_MODAL_HEADER_SAFE_TOP}`}
@@ -104,6 +119,7 @@ export function ExecutionFollowupModalShell({
                         <button
                             type="button"
                             data-testid="execution-followup-modal-close"
+                            data-hami-dialog-close
                             onClick={(e) => {
                                 e.stopPropagation();
                                 forceCloseFollowup();
@@ -113,14 +129,17 @@ export function ExecutionFollowupModalShell({
                         >
                             <X size={20} className="text-white" />
                         </button>
-                        <h2 className="text-lg font-bold tracking-wide text-amber-200">
+                        <h2
+                            id="execution-followup-modal-title"
+                            className="text-lg font-bold tracking-wide text-amber-200"
+                        >
                             محضر المتابعة
                         </h2>
                         <span className="w-9" aria-hidden />
                     </div>
 
                     <div
-                        className="shrink-0 border-b border-white/10 bg-gradient-to-b from-[#0A0F1C]/80 to-transparent px-3 py-2.5"
+                        className="shrink-0 border-b border-white/10 bg-[#0A0F1C] px-3 py-2.5"
                         dir="rtl"
                     >
                         <div
@@ -161,9 +180,9 @@ export function ExecutionFollowupModalShell({
                                                 ? 'المدين موظف — الخيارات مقفلة حتى فك القفل'
                                                 : undefined
                                         }
-                                        className={`flex shrink-0 snap-start flex-row-reverse items-center gap-1.5 whitespace-nowrap rounded-xl border px-4 py-2.5 text-[11px] font-bold transition-all ${
+                                        className={`flex shrink-0 snap-start flex-row-reverse items-center gap-1.5 whitespace-nowrap rounded-xl border px-4 py-2.5 text-[11px] font-bold transition-colors ${
                                             active
-                                                ? 'border-amber-400/35 bg-gradient-to-b from-amber-500/20 to-amber-500/5 text-amber-50 shadow-[0_0_22px_-8px_rgba(230,198,115,0.45)]'
+                                                ? 'border-amber-400/35 bg-amber-500/15 text-amber-50'
                                                 : 'border-transparent bg-white/[0.03] text-slate-400 hover:border-white/10 hover:bg-white/[0.06] hover:text-slate-200'
                                         }`}
                                     >
@@ -180,7 +199,7 @@ export function ExecutionFollowupModalShell({
                         className="min-h-0 flex-1 overflow-y-auto bg-[#0A0F1C] p-4 md:p-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10"
                     >
                         {!isSolidaryLiability && debtorsUnified.length > 1 ? (
-                            <div className="sticky top-0 z-[5] border-b border-slate-700/50 bg-[#0B1120]/98 px-2 pt-2 pb-2 backdrop-blur-md">
+                            <div className="sticky top-0 z-[5] border-b border-slate-700/50 bg-[#0B1120] px-2 pt-2 pb-2">
                                 <p className="mb-1 px-1 text-right text-[9px] text-slate-500">
                                     مدينو الإضبارة — ذمة مستقلة لكل منهم (اختر التبويب قبل الإجراء)
                                 </p>
@@ -196,7 +215,7 @@ export function ExecutionFollowupModalShell({
                                                 e.stopPropagation();
                                                 setExecutionDebtorTabIndex(i);
                                             }}
-                                            className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold transition-all ${
+                                            className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold transition-all ${EXEC_MODAL_TOUCH_TARGET} ${
                                                 executionDebtorTabIndex === i
                                                     ? 'border-amber-500/50 bg-amber-950/40 text-amber-100'
                                                     : 'border-slate-600/40 bg-slate-900/60 text-slate-400 hover:border-slate-500/50'

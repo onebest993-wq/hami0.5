@@ -13,9 +13,11 @@ vi.mock('@/app/runtime/deferredFeatureStyles', () => ({
 }));
 
 const scheduleHeavyDashboardSectionWarm = vi.fn(() => () => undefined);
+const scheduleLawsuitArchiveEarlyWarm = vi.fn(() => () => undefined);
 
 vi.mock('@/app/runtime/heavyDashboardSectionWarm', () => ({
     scheduleHeavyDashboardSectionWarm: (...args: unknown[]) => scheduleHeavyDashboardSectionWarm(...args),
+    scheduleLawsuitArchiveEarlyWarm: (...args: unknown[]) => scheduleLawsuitArchiveEarlyWarm(...args),
     resetHeavyDashboardSectionWarmForTests: vi.fn(),
 }));
 
@@ -32,7 +34,7 @@ vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: vi.fn(() => false),
 }));
 
-vi.mock('@/app/services/settings/settingsRuntime', () => ({
+vi.mock('@/app/services/settings/settingsSnapshot', () => ({
     getLawyerSettingsSnapshot: vi.fn(() => ({
         security: { localOnlyMode: false },
         performance: { prefetchScreens: true },
@@ -77,6 +79,7 @@ describe('dashboardPostInteractiveWarm', () => {
         expect(hydrateLawyerDashboardHeaderShellChunks).toHaveBeenCalledWith('lawyer-1');
         expect(scheduleIdleWork).toHaveBeenCalledTimes(1);
         expect(scheduleHeavyDashboardSectionWarm).toHaveBeenCalledTimes(1);
+        expect(scheduleLawsuitArchiveEarlyWarm).toHaveBeenCalledTimes(1);
         expect(scheduleLawyerShellPrefetch).toHaveBeenCalledTimes(1);
     });
 

@@ -1,11 +1,10 @@
 import { useCallback } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import type { CaseStage, IncidentalCase } from '../../LawyerShared';
 import type { IncidentalSpawnContext } from '../smartFile/incidentalCaseLinking';
 import { normalizeFileId } from '../smartFile/incidentalCaseLinking';
 
-export type UseSmartFileIncidentalSpawnParams = {
+type UseSmartFileIncidentalSpawnParams = {
     fileId: string | number;
     fileCaseNo: string | undefined;
     currentStageCaseNo: string | undefined;
@@ -13,26 +12,10 @@ export type UseSmartFileIncidentalSpawnParams = {
     spawnStage: CaseStage | undefined;
     viewingStageIndex: number;
     fileFallback?: { court?: string; judge?: string; docType?: string };
-    handleAddIncidentalCase: (caseData: IncidentalCase) => void;
     onSpawnLinkedIncidentalCase?: (ctx: IncidentalSpawnContext) => void;
     setShowIncidentalModal: (open: boolean) => void;
     setEditingIncidental: (c: IncidentalCase | null) => void;
 };
-
-function summarizeSpawnPartyName(
-    type: 'joined' | 'counter',
-    stage: CaseStage | undefined,
-): string {
-    const parties = Array.isArray(stage?.parties) ? stage.parties : [];
-    const names = parties
-        .map((p) => String(p.name ?? '').trim())
-        .filter(Boolean);
-    if (names.length === 0) {
-        return type === 'joined' ? 'دعوى منضمة' : 'دعوى متقابلة';
-    }
-    if (names.length <= 2) return names.join(' — ');
-    return `${names.slice(0, 2).join(' — ')} (+${names.length - 2})`;
-}
 
 export function useSmartFileIncidentalSpawn({
     fileId,
@@ -41,7 +24,6 @@ export function useSmartFileIncidentalSpawn({
     spawnStage,
     viewingStageIndex,
     fileFallback,
-    handleAddIncidentalCase,
     onSpawnLinkedIncidentalCase,
     setShowIncidentalModal,
     setEditingIncidental,
@@ -54,16 +36,6 @@ export function useSmartFileIncidentalSpawn({
                 return;
             }
             const parentCaseNo = String(currentStageCaseNo || fileCaseNo || '').trim();
-            const partyName = summarizeSpawnPartyName(data.type, spawnStage);
-
-            handleAddIncidentalCase({
-                id: data.incidentalId,
-                type: data.type,
-                partyName,
-                details: data.details || '',
-                date: getLocalTodayYmd(),
-                status: 'active',
-            } as IncidentalCase);
 
             setShowIncidentalModal(false);
             setEditingIncidental(null);
@@ -85,11 +57,14 @@ export function useSmartFileIncidentalSpawn({
                   }
                 : undefined;
 
+            // لا نُنشئ الصف الحادث هنا — يُنشأ عند نجاح NewCase عبر patchIncidentalLinkedFile(createIfMissing)
+            // حتى لا تبقى يتيمة بلا linkedFileId عند الإلغاء.
             onSpawnLinkedIncidentalCase({
                 parentFileId,
                 parentCaseNo,
                 incidentalId: data.incidentalId,
                 type: data.type,
+                details: data.details,
                 stageOverride,
             });
         },
@@ -100,7 +75,6 @@ export function useSmartFileIncidentalSpawn({
             spawnStage,
             viewingStageIndex,
             fileFallback,
-            handleAddIncidentalCase,
             onSpawnLinkedIncidentalCase,
             setShowIncidentalModal,
             setEditingIncidental,

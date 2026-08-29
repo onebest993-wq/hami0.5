@@ -2,7 +2,7 @@ import { addDaysYmd } from '../utils/ymd';
 import { formatDateText } from '../utils/formatters';
 import type { GrievanceData, JudgeDecision } from '../types';
 
-export type UseDecisionNotificationSubmitArgs = {
+type UseDecisionNotificationSubmitArgs = {
     judgeDecision: JudgeDecision;
     showGrievanceStep: boolean;
     setGrievanceData: React.Dispatch<React.SetStateAction<GrievanceData>>;

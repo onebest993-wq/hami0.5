@@ -30,10 +30,10 @@ describe('useAutoSync Hook', () => {
     describe('Basic Functionality', () => {
         
         it('should initialize with correct default values', () => {
-            const { result } = renderHook(() => 
-                useAutoSync('test-key', { test: 'data' })
+            const { result } = renderHook(() =>
+                useAutoSync('test-key', { test: 'data' }, { enabled: false }),
             );
-            
+
             expect(result.current.isSyncing).toBe(false);
             expect(result.current.failureCount).toBe(0);
             expect(typeof result.current.syncNow).toBe('function');

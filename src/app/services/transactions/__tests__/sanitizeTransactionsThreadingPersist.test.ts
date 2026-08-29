@@ -3,7 +3,7 @@ import { sanitizeTransactionsThreadingSaveInput } from '@/app/services/transacti
 import { TransactionStatus, TransactionTaskStatus, FinanceRecordType } from '@/app/modules/transactionsThreading/types';
 
 describe('sanitizeTransactionsThreadingSaveInput', () => {
-    it('يعقّم الحقول النصية والمبالغ قبل Persist', () => {
+    it('يعقّم الحقول النصية ويفرغ المالية المهجورة قبل Persist', () => {
         const state = sanitizeTransactionsThreadingSaveInput('u1', {
             transactions: [
                 {
@@ -12,7 +12,7 @@ describe('sanitizeTransactionsThreadingSaveInput', () => {
                     clientName: '  موكل  ',
                     targetDepartment: '  دائرة  ',
                     status: TransactionStatus.Active,
-                    agreedFees: -5,
+                    agreedFees: 5000,
                     createdAt: '2026-01-01T00:00:00.000Z',
                     updatedAt: '2026-01-01T00:00:00.000Z',
                 },
@@ -40,14 +40,6 @@ describe('sanitizeTransactionsThreadingSaveInput', () => {
                     description: '  وصف\u0000  ',
                     date: '2026-01-01T00:00:00.000Z',
                 },
-                {
-                    id: 'f-bad',
-                    transactionId: 'tx-1',
-                    type: FinanceRecordType.Expense,
-                    amount: Number.NaN,
-                    description: 'سيء',
-                    date: '2026-01-01T00:00:00.000Z',
-                },
             ],
             documents: [
                 {
@@ -66,10 +58,42 @@ describe('sanitizeTransactionsThreadingSaveInput', () => {
         expect(state.transactions[0]?.agreedFees).toBe(0);
         expect(state.tasks[0]?.title).toBe('مهمة');
         expect(state.tasks[0]?.officialReference).toBe('رف');
-        expect(state.financeRecords).toHaveLength(1);
-        expect(state.financeRecords[0]?.amount).toBe(10.46);
-        expect(state.financeRecords[0]?.description).toBe('وصف');
+        expect(state.financeRecords).toEqual([]);
         expect(state.documents[0]?.title).toBe('مستمسك');
         expect(state.documents[0]?.type).toBe('نوع');
+    });
+
+    it('يحذف الحقول الدخيلة ويصحّح ownerTag غير المسموح', () => {
+        const state = sanitizeTransactionsThreadingSaveInput('u1', {
+            transactions: [
+                {
+                    id: 'tx-1',
+                    title: 'عنوان',
+                    clientName: 'موكل',
+                    targetDepartment: 'دائرة',
+                    status: TransactionStatus.Active,
+                    agreedFees: 9,
+                    createdAt: '2026-01-01T00:00:00.000Z',
+                    updatedAt: '2026-01-01T00:00:00.000Z',
+                    secret: 'leak',
+                } as never,
+            ],
+            tasks: [],
+            financeRecords: [],
+            documents: [
+                {
+                    id: 'd1',
+                    transactionId: 'tx-1',
+                    type: 'نوع',
+                    title: 'مستمسك',
+                    ownerTag: 'هاكر',
+                    uploadedAt: '2026-01-01T00:00:00.000Z',
+                } as never,
+            ],
+        });
+        expect(state.transactions[0]).not.toHaveProperty('secret');
+        expect(state.transactions[0]?.agreedFees).toBe(0);
+        expect(state.documents[0]?.ownerTag).toBe('أخرى');
+        expect(state.financeRecords).toEqual([]);
     });
 });

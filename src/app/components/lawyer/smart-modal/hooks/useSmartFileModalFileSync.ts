@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { CalendarBridge } from '@/app/services/calendarBridge';
 import { CALENDAR_SOURCE_PATCHED_EVENT } from '@/app/services/calendarBridge.types';
 import type { CalendarSourcePatchDetail } from '@/app/services/calendarBridgePersistence';
-import { loadLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
 import type { CaseStage, FileData } from '../../LawyerShared';
 import { buildInitialParentDataFromFile } from '../smartFile/parentDataInit';
 import { buildInitialStagesFromFile, resolveInitialStageIndex } from '../smartFile/stageInit';
@@ -53,11 +51,6 @@ export function useSmartFileModalFileSync(params: {
     viewingStageIndex: number;
     setActiveStageIndex: React.Dispatch<React.SetStateAction<number>>;
     setViewingStageIndex: React.Dispatch<React.SetStateAction<number>>;
-    saveToCloud: (
-        nextStages: CaseStage[],
-        nextParent: ParentData,
-        stageIndex: number,
-    ) => void;
     calendarUserId?: string;
 }) {
     const {
@@ -70,28 +63,48 @@ export function useSmartFileModalFileSync(params: {
         viewingStageIndex,
         setActiveStageIndex,
         setViewingStageIndex,
-        saveToCloud,
         calendarUserId,
     } = params;
 
     const externalFileFingerprint = useMemo(() => {
-        const f = file as FileData;
+        const f = file as FileData & { updatedAt?: string | number };
         const fileStages = Array.isArray(f?.stages) ? f.stages : [];
         const activeIdx =
             typeof f?.activeStageIndex === 'number' && f.activeStageIndex >= 0
                 ? f.activeStageIndex
                 : Math.max(0, fileStages.length - 1);
-        const activeStage = fileStages[activeIdx];
+        const activeStage = fileStages[activeIdx] as
+            | (CaseStage & {
+                  fastTrackPetitions?: unknown[];
+                  attachments?: unknown[];
+                  tasks?: unknown[];
+                  incidentalCases?: unknown[];
+              })
+            | undefined;
         return JSON.stringify({
             id: f?.id,
             caseNo: f?.caseNo,
             court: f?.court,
             judge: f?.judge,
+            updatedAt: f?.updatedAt ?? null,
+            status: f?.status ?? null,
             consolidationSecondaryRefs: f?.consolidationSecondaryRefs,
             mergedConsolidatedFileIds: f?.mergedConsolidatedFileIds,
             caseLinks: f?.caseLinks,
             timelineCount: Array.isArray(activeStage?.timeline) ? activeStage.timeline.length : 0,
+            petitionsCount: Array.isArray(activeStage?.fastTrackPetitions)
+                ? activeStage.fastTrackPetitions.length
+                : 0,
+            attachmentsCount: Array.isArray(activeStage?.attachments)
+                ? activeStage.attachments.length
+                : 0,
+            tasksCount: Array.isArray(activeStage?.tasks) ? activeStage.tasks.length : 0,
+            incidentalCount: Array.isArray(activeStage?.incidentalCases)
+                ? activeStage.incidentalCases.length
+                : 0,
+            partiesCount: Array.isArray(activeStage?.parties) ? activeStage.parties.length : 0,
             stagesCount: fileStages.length,
+            activeStageIndex: activeIdx,
         });
     }, [file]);
 
@@ -102,6 +115,10 @@ export function useSmartFileModalFileSync(params: {
         hydratedStagePartyKeysRef.current.clear();
     }, [file?.id]);
 
+    /**
+     * تعبئة أحزاب العرض في الذاكرة فقط عند فراغ المرحلة —
+     * لا saveToCloud عند الفتح (يمنع سباق مع تعديلات المستخدم).
+     */
     useEffect(() => {
         const stageKey = `${String(file?.id ?? 'unknown')}:${viewingStageIndex}`;
         if (hydratedStagePartyKeysRef.current.has(stageKey)) return;
@@ -122,27 +139,30 @@ export function useSmartFileModalFileSync(params: {
         }
 
         hydratedStagePartyKeysRef.current.add(stageKey);
-        const updatedStages = [...stages];
-        updatedStages[viewingStageIndex] = { ...stage!, parties: resolved };
-        setStages(updatedStages);
-        const nextParent = { ...parentData, parties: resolved };
-        setParentData(nextParent);
-        saveToCloud(updatedStages, nextParent, viewingStageIndex);
-    }, [
-        file,
-        parentData,
-        saveToCloud,
-        setParentData,
-        setStages,
-        stages,
-        viewingStageIndex,
-    ]);
+        setStages((prev) =>
+            prev.map((s, i) => (i === viewingStageIndex ? { ...s, parties: resolved } : s)),
+        );
+        setParentData((prev) =>
+            Array.isArray(prev.parties) && prev.parties.length > 0
+                ? prev
+                : { ...prev, parties: resolved },
+        );
+    }, [file, parentData, setParentData, setStages, stages, viewingStageIndex]);
 
     const lawsuitFileId = String(parentData?.id ?? file?.id ?? '');
 
     const onCalendarUnlink = useCallback(
         (unlinkParams: { sourceEventId: string }) => {
-            CalendarBridge.remove('lawsuit', lawsuitFileId, unlinkParams.sourceEventId, calendarUserId);
+            void import('@/app/services/calendar/bridge/legacyCalendarBridge')
+                .then((m) => {
+                    m.CalendarBridge.remove(
+                        'lawsuit',
+                        lawsuitFileId,
+                        unlinkParams.sourceEventId,
+                        calendarUserId,
+                    );
+                })
+                .catch(() => undefined);
         },
         [calendarUserId, lawsuitFileId],
     );
@@ -152,15 +172,22 @@ export function useSmartFileModalFileSync(params: {
             const detail = (ev as CustomEvent<CalendarSourcePatchDetail>).detail;
             if (!detail || detail.sourceModule !== 'lawsuit') return;
             if (String(detail.sourceEntityId) !== lawsuitFileId) return;
-            const raw = loadLawsuitFilesRaw();
-            const row = raw.find(
-                (f) => f && typeof f === 'object' && String((f as { id?: unknown }).id) === lawsuitFileId,
-            );
-            if (!row || typeof row !== 'object') return;
-            const nextStages = (row as { stages?: unknown }).stages;
-            if (Array.isArray(nextStages)) {
-                setStages(nextStages as CaseStage[]);
-            }
+            void import('@/app/utils/lawsuitFilesStorage')
+                .then((m) => {
+                    const raw = m.loadLawsuitFilesRaw();
+                    const row = raw.find(
+                        (f) =>
+                            f &&
+                            typeof f === 'object' &&
+                            String((f as { id?: unknown }).id) === lawsuitFileId,
+                    );
+                    if (!row || typeof row !== 'object') return;
+                    const nextStages = (row as { stages?: unknown }).stages;
+                    if (Array.isArray(nextStages)) {
+                        setStages(nextStages as CaseStage[]);
+                    }
+                })
+                .catch(() => undefined);
         };
         window.addEventListener(CALENDAR_SOURCE_PATCHED_EVENT, handler);
         return () => window.removeEventListener(CALENDAR_SOURCE_PATCHED_EVENT, handler);

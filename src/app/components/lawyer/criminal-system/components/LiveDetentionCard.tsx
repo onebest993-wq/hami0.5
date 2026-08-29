@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { CalendarClock, Scale, ShieldOff, Unlock } from '@/app/components/ui/lucideIcons';
+import { CalendarClock } from '@/app/components/ui/icons/CalendarClock';
+import { Scale } from '@/app/components/ui/icons/Scale';
+import { ShieldOff } from '@/app/components/ui/icons/ShieldOff';
+import { Unlock } from '@/app/components/ui/icons/Unlock';
 import type { JudicialDecision, JudicialDecisionAppeal } from '@/app/types/criminal';
 import type { CriminalCaseUserRole } from '../complainantCassationGovernance';
 import type { CriminalDefendant } from '../criminalStore';
@@ -67,11 +70,11 @@ function isDetentionCardClosed(
  *   • أَخضر/Emerald           : أُغلِقَت — إطلاق سراح موثَّق.
  */
 function detentionShellClass(endReached: boolean, closed: boolean): string {
-    if (closed) return 'border-emerald-500/35 bg-emerald-950/15 shadow-[0_0_18px_rgba(16,185,129,0.10)]';
+    if (closed) return 'border-emerald-500/35 bg-emerald-950/15';
     if (endReached) {
-        return 'border-amber-500/45 bg-amber-950/20 shadow-[0_0_20px_rgba(245,158,11,0.18)] ring-1 ring-amber-400/25';
+        return 'border-amber-500/45 bg-amber-950/20 ring-1 ring-amber-400/25';
     }
-    return 'border-red-500/30 bg-red-950/15 shadow-[0_0_18px_rgba(244,63,94,0.14)]';
+    return 'border-red-500/30 bg-red-950/15';
 }
 
 function detentionSpineClass(endReached: boolean, closed: boolean): string {

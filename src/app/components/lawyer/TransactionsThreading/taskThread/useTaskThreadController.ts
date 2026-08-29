@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
 import { buildTaskTree } from '@/app/modules/transactionsThreading/service';
 import { TransactionTaskStatus, type TransactionTask } from '@/app/modules/transactionsThreading/types';
 import type { TransactionsDetailsEscapeSnapshot } from '../transactionsEscapeStack';
 import type { TaskNodeActionHandlers } from './TaskThreadNodeRenderer';
-import type { TaskThreadDialogActions, TaskThreadDialogState } from './TaskThreadDialogs';
+import type { TaskThreadDialogActions } from './TaskThreadDialogs';
+import { useTaskThreadOverlays } from './useTaskThreadOverlays';
 import {
     EMPTY_TASKS,
     computeTaskProgress,
@@ -20,6 +21,7 @@ export function useTaskThreadController({
     readOnly,
     onTaskEscapeSnapshotChange,
     registerTaskEscapeCloser,
+    detailsActive = true,
 }: {
     transactionId: string;
     onRequestAddTask: (parent: TransactionTask | null) => void;
@@ -33,69 +35,49 @@ export function useTaskThreadController({
     registerTaskEscapeCloser?: (
         closer: ((patch: Partial<TransactionsDetailsEscapeSnapshot>) => void) | null,
     ) => void;
+    detailsActive?: boolean;
 }) {
-    const refreshTransactionData = useTransactionsThreadingStore((s) => s.refreshTransactionData);
     const updateTaskStatus = useTransactionsThreadingStore((s) => s.updateTaskStatus);
     const completeTask = useTransactionsThreadingStore((s) => s.completeTask);
     const updateTask = useTransactionsThreadingStore((s) => s.updateTask);
     const deleteTaskCascade = useTransactionsThreadingStore((s) => s.deleteTaskCascade);
     const tasks = useTransactionsThreadingStore((s) => s.tasksByTransactionId[transactionId] ?? EMPTY_TASKS);
 
-    const [completeOpen, setCompleteOpen] = useState(false);
-    const [completeTarget, setCompleteTarget] = useState<TransactionTask | null>(null);
-    const [officialRef, setOfficialRef] = useState('');
-    const [editOpen, setEditOpen] = useState(false);
-    const [editTarget, setEditTarget] = useState<TransactionTask | null>(null);
-    const [editTitle, setEditTitle] = useState('');
-    const [editDeadlineDate, setEditDeadlineDate] = useState('');
-    const [deleteOpen, setDeleteOpen] = useState(false);
-    const [deleteTarget, setDeleteTarget] = useState<TransactionTask | null>(null);
-    const [deleteCount, setDeleteCount] = useState(1);
-
-    const resetComplete = useCallback(() => {
-        setCompleteOpen(false);
-        setCompleteTarget(null);
-        setOfficialRef('');
-    }, []);
-
-    const resetEdit = useCallback(() => {
-        setEditOpen(false);
-        setEditTarget(null);
-        setEditTitle('');
-        setEditDeadlineDate('');
-    }, []);
-
-    const resetDelete = useCallback(() => {
-        setDeleteOpen(false);
-        setDeleteTarget(null);
-        setDeleteCount(1);
-    }, []);
-
-    const closeTaskOverlay = useCallback(
-        (patch: Partial<TransactionsDetailsEscapeSnapshot>) => {
-            if (patch.taskCompleteOpen === false) resetComplete();
-            if (patch.taskEditOpen === false) resetEdit();
-            if (patch.taskDeleteOpen === false) resetDelete();
-        },
-        [resetComplete, resetDelete, resetEdit],
-    );
-
-    useEffect(() => {
-        registerTaskEscapeCloser?.(closeTaskOverlay);
-        return () => registerTaskEscapeCloser?.(null);
-    }, [closeTaskOverlay, registerTaskEscapeCloser]);
+    const overlays = useTaskThreadOverlays({
+        detailsActive,
+        registerTaskEscapeCloser,
+    });
+    const {
+        completeOpen,
+        completeTarget,
+        officialRef,
+        setOfficialRef,
+        setCompleteOpen,
+        setCompleteTarget,
+        editTarget,
+        editTitle,
+        editDeadlineDate,
+        setEditOpen,
+        setEditTitle,
+        setEditDeadlineDate,
+        deleteTarget,
+        setDeleteOpen,
+        resetComplete,
+        resetEdit,
+        resetDelete,
+        dialogState,
+        openEdit,
+        openDelete: openDeleteOverlay,
+        beginComplete,
+    } = overlays;
 
     useEffect(() => {
         onTaskEscapeSnapshotChange?.({
             taskCompleteOpen: completeOpen,
-            taskEditOpen: editOpen,
-            taskDeleteOpen: deleteOpen,
+            taskEditOpen: overlays.editOpen,
+            taskDeleteOpen: overlays.deleteOpen,
         });
-    }, [completeOpen, editOpen, deleteOpen, onTaskEscapeSnapshotChange]);
-
-    useEffect(() => {
-        refreshTransactionData(transactionId);
-    }, [refreshTransactionData, transactionId]);
+    }, [completeOpen, overlays.deleteOpen, overlays.editOpen, onTaskEscapeSnapshotChange]);
 
     const tree = useMemo(() => buildTaskTree(tasks), [tasks]);
     const progress = useMemo(() => computeTaskProgress(tasks), [tasks]);
@@ -106,23 +88,32 @@ export function useTaskThreadController({
         localStorage.removeItem(emptyPathDismissKey(transactionId));
     }, [tree.length, transactionId]);
 
-    const onToggleStatus = useCallback(
-        async (task: TransactionTask) => {
+    const applyTaskStatus = useCallback(
+        async (task: TransactionTask, next: TransactionTaskStatus) => {
             if (readOnly) return;
-            const next = nextTaskStatus(task.status);
             if (next === TransactionTaskStatus.Done && task.status !== TransactionTaskStatus.Done) {
-                setCompleteTarget(task);
-                setOfficialRef('');
-                setCompleteOpen(true);
+                beginComplete(task);
                 return;
             }
-            await updateTaskStatus(task.id, next);
+            try {
+                await updateTaskStatus(task.id, next);
+            } catch {
+                SmartToast.error('تعذر تحديث حالة المهمة — حاول مرة أخرى');
+            }
         },
-        [readOnly, updateTaskStatus],
+        [beginComplete, readOnly, updateTaskStatus],
+    );
+
+    const onToggleStatus = useCallback(
+        async (task: TransactionTask) => {
+            await applyTaskStatus(task, nextTaskStatus(task.status));
+        },
+        [applyTaskStatus],
     );
 
     const confirmComplete = useCallback(async () => {
         if (!completeTarget) return;
+        const target = completeTarget;
         const taskId = completeTarget.id;
         const ref = officialRef;
         resetComplete();
@@ -131,15 +122,11 @@ export function useTaskThreadController({
             SmartToast.success('تم إكمال المهمة');
         } catch {
             SmartToast.error('تعذر إكمال المهمة — حاول مرة أخرى');
+            setCompleteTarget(target);
+            setOfficialRef(ref);
+            setCompleteOpen(true);
         }
     }, [completeTarget, completeTask, officialRef, resetComplete]);
-
-    const openEdit = useCallback((task: TransactionTask) => {
-        setEditTarget(task);
-        setEditTitle(task.title);
-        setEditDeadlineDate(task.deadline ? task.deadline.slice(0, 10) : '');
-        setEditOpen(true);
-    }, []);
 
     const saveEdit = useCallback(async () => {
         if (!editTarget) return;
@@ -157,11 +144,16 @@ export function useTaskThreadController({
 
     const openDelete = useCallback(
         (task: TransactionTask) => {
-            setDeleteTarget(task);
-            setDeleteCount(countTaskCascade(task.id, tasks));
-            setDeleteOpen(true);
+            openDeleteOverlay(task, countTaskCascade(task.id, tasks));
         },
-        [tasks],
+        [openDeleteOverlay, tasks],
+    );
+
+    const onSetTaskStatus = useCallback(
+        async (task: TransactionTask, status: TransactionTaskStatus) => {
+            await applyTaskStatus(task, status);
+        },
+        [applyTaskStatus],
     );
 
     const confirmDelete = useCallback(async () => {
@@ -182,38 +174,29 @@ export function useTaskThreadController({
             onAddSubTask: onRequestAddTask,
             onEdit: openEdit,
             onDelete: openDelete,
+            onSetTaskStatus,
             readOnly,
         }),
-        [onRequestAddTask, onToggleStatus, openDelete, openEdit, readOnly],
+        [onRequestAddTask, onSetTaskStatus, onToggleStatus, openDelete, openEdit, readOnly],
     );
 
-    const dialogState: TaskThreadDialogState = {
-        editOpen,
-        editTarget,
-        editTitle,
-        editDeadlineDate,
-        deleteOpen,
-        deleteTarget,
-        deleteCount,
-        completeOpen,
-        completeTarget,
-        officialRef,
-    };
-
-    const dialogActions: TaskThreadDialogActions = {
-        setEditOpen,
-        setEditTitle,
-        setEditDeadlineDate,
-        resetEdit,
-        saveEdit,
-        setDeleteOpen,
-        resetDelete,
-        confirmDelete,
-        setCompleteOpen,
-        setOfficialRef,
-        resetComplete,
-        confirmComplete,
-    };
+    const dialogActions: TaskThreadDialogActions = useMemo(
+        () => ({
+            setEditOpen,
+            setEditTitle,
+            setEditDeadlineDate,
+            resetEdit,
+            saveEdit,
+            setDeleteOpen,
+            resetDelete,
+            confirmDelete,
+            setCompleteOpen,
+            setOfficialRef,
+            resetComplete,
+            confirmComplete,
+        }),
+        [confirmComplete, confirmDelete, resetComplete, resetDelete, resetEdit, saveEdit],
+    );
 
     return { tree, progress, nodeHandlers, dialogState, dialogActions };
 }

@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,
-} from '@/app/components/lawyer/execution/executionModalStack';
+} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
+import { useExecutionOverlayDismiss } from '@/app/components/lawyer/ExecutionDashboard/useExecutionOverlayDismiss';
 
 interface FocModalPortalProps {
     open: boolean;
@@ -12,6 +13,8 @@ interface FocModalPortalProps {
     children: React.ReactNode;
 }
 
+const NOOP_CLOSE = () => undefined;
+
 /** يعرض طبقة المودال على document.body فوق نافذة المركز المالي (z-180) */
 export function FocModalPortal({
     open,
@@ -19,6 +22,8 @@ export function FocModalPortal({
     backdropClassName = '',
     children,
 }: FocModalPortalProps) {
+    useExecutionOverlayDismiss(Boolean(open && onBackdropClick), onBackdropClick ?? NOOP_CLOSE);
+
     if (!open || typeof document === 'undefined') return null;
     return createPortal(
         <div

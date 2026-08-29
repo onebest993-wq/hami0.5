@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Plus } from '@/app/components/ui/lucideIcons';
+import { Plus } from '@/app/components/ui/icons/Plus';
 import type { DecisionsLedgerKindFilter } from './JudicialDecisionsLedger';
 import type { InvestigationDefendantsPartyMix } from '../juvenileInvestigationRules';
 
@@ -29,7 +29,7 @@ const tabShellClass = (active: boolean): string =>
     [
         'flex flex-row flex-nowrap items-center rounded-lg overflow-hidden transition-all duration-200 border whitespace-nowrap',
         active
-            ? 'bg-white/10 border-white/20 text-white shadow-[0_0_10px_rgba(212,175,55,0.04)]'
+            ? 'bg-white/10 border-white/20 text-white'
             : 'bg-white/[0.03] border-white/10 text-white/70 hover:bg-white/[0.06] hover:text-white/90',
     ].join(' ');
 
@@ -122,7 +122,7 @@ export const DecisionsCommandBar = memo(function DecisionsCommandBar({
             dir="rtl"
         >
             <div
-                className="flex flex-row flex-nowrap justify-center items-center gap-1 w-fit mx-auto bg-[#ffffff05] backdrop-blur-md border border-white/10 p-1.5 rounded-xl whitespace-nowrap"
+                className="flex flex-row flex-nowrap justify-center items-center gap-1 w-fit mx-auto bg-[#ffffff05] backdrop-blur-sm border border-white/10 p-1.5 rounded-xl whitespace-nowrap"
                 role="tablist"
                 aria-label="فلترة سجل القرارات والطعون"
             >

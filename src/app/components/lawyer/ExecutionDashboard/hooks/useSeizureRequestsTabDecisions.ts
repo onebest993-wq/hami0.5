@@ -1,15 +1,14 @@
 /** Decisions sync + salary/asset request openers for SeizureRequestsTab */
 import React from 'react';
+import type { TimelineEvent } from '@/app/types/execution';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
-import { DECISIONS_RELOAD_EVENT } from '@/app/utils/executorDecisionContracts';
 import {
     closeSeizureSubtypeDecisionCycle,
     getGoverningSeizureDecisionBySubtype,
     isExecutorRowRejectedAndFinal,
     isGuarantorRequestDecisionRow,
-    readExecutorDecisionsArray,
+    type SeizureRequestSubtype,
 } from '@/app/utils/executorSeizureDecisionQueue';
-import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import { isSalarySeizureAsset } from '@/app/components/lawyer/ExecutionDashboard/hooks/useSeizureRegistryAssets';
 import { isSalarySeizureLaneOccupied } from '@/app/components/lawyer/ExecutionDashboard/utils/salarySeizureTabUtils';
 import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
@@ -25,7 +24,6 @@ import type {
     PropertyCompletionDraft,
     VehicleCompletionDraft,
 } from '../components/SeizureRequestCompletionForms';
-import type { InlineActionGateKey } from '../types';
 import { useSeizureInlineFocusBridge } from '@/app/components/lawyer/ExecutionDashboard/hooks/useSeizureInlineFocusBridge';
 import {
     resolveGoverningMovableDecision,
@@ -38,20 +36,18 @@ import {
     mergeSeizureDraftPatch,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/seizureSalaryRequestFlow';
 
-export type UseSeizureRequestsTabDecisionsParams = {
-    executionId: string | undefined;
-    executionData: ExecutionFile | null;
-    seizureActionsDisabled: boolean;
-    coerciveUiLocked?: boolean;
-    showToast: (message: string, type?: 'success' | 'error' | 'warning' | 'info', options?: unknown) => void;
-    saveCoerciveAction: (actionType: string, details: Record<string, string>) => void;
-    pushTimelineEvent: (event: TimelineEvent) => void;
-    nextTimelineId: () => string;
-    inlineActionGateKey: InlineActionGateKey | null;
-    setInlineActionGateKey: (key: InlineActionGateKey | null) => void;
-    persistExecutionMerge?: (patch: Record<string, unknown>) => void;
-    activeDebtorIsDeceased?: boolean;
-};
+export type {
+    SeizureDecisionRow,
+    UseSeizureRequestsTabDecisionsParams,
+} from './useSeizureRequestsTabDecisions.types';
+import {
+    decisionRowId,
+    type SeizureDecisionRow,
+    type UseSeizureRequestsTabDecisionsParams,
+} from './useSeizureRequestsTabDecisions.types';
+import { useSeizureRequestsTabDecisionsSync } from './useSeizureRequestsTabDecisionsSync';
+import { openSalarySeizureRequestFlow } from './openSalarySeizureRequestFlow';
+import { useSeizureRequestsTabOpeners } from './useSeizureRequestsTabOpeners';
 
 export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisionsParams) {
     const {
@@ -97,40 +93,7 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
     const [guarantorExistingWarningOpen, setGuarantorExistingWarningOpen] = React.useState(false);
     const [lastSalaryDecisionId, setLastSalaryDecisionId] = React.useState('');
 
-    const readAllDecisions = React.useCallback((): Record<string, unknown>[] => {
-        const merged: Record<string, unknown>[] = [];
-        for (const id of executionIdsForDecisions) {
-            merged.push(...readExecutorDecisionsArray(id));
-        }
-        const byId = new Map<string, Record<string, unknown>>();
-        for (const row of merged) {
-            const rid = String((row as any)?.id ?? '').trim();
-            if (!rid) continue;
-            const prev = byId.get(rid);
-            if (!prev) {
-                byId.set(rid, row);
-                continue;
-            }
-            const a = String((prev as any)?.resolvedAt ?? (prev as any)?.date ?? '');
-            const b = String((row as any)?.resolvedAt ?? (row as any)?.date ?? '');
-            if (b.localeCompare(a, undefined, { numeric: true }) > 0) byId.set(rid, row);
-        }
-        return Array.from(byId.values());
-    }, [executionIdsForDecisions]);
-
-    const [decisions, setDecisions] = React.useState<Record<string, unknown>[]>(() => readAllDecisions());
-    React.useEffect(() => {
-        const sync = () => setDecisions(readAllDecisions());
-        sync();
-        window.addEventListener(DECISIONS_RELOAD_EVENT, sync);
-        window.addEventListener('hami-execution-decision-outcome', sync as EventListener);
-        window.addEventListener('focus', sync);
-        return () => {
-            window.removeEventListener(DECISIONS_RELOAD_EVENT, sync);
-            window.removeEventListener('hami-execution-decision-outcome', sync as EventListener);
-            window.removeEventListener('focus', sync);
-        };
-    }, [readAllDecisions]);
+    const decisions = useSeizureRequestsTabDecisionsSync(executionIdsForDecisions);
 
     const [thirdPartyNameDraft, setThirdPartyNameDraft] = React.useState('');
     const [thirdPartyAmountDraft, setThirdPartyAmountDraft] = React.useState('');
@@ -141,64 +104,12 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
         Record<string, VehicleCompletionDraft>
     >({});
 
-    const openAppeals = React.useCallback(
-        (decisionId?: string) => {
-            if (!resolvedExecutionId) return;
-            try {
-                window.dispatchEvent(
-                    new CustomEvent('hami-open-decisions-modal', {
-                        detail: {
-                            executionId: resolvedExecutionId,
-                            tab: 'appeals',
-                            decisionId: decisionId || undefined,
-                        },
-                    })
-                );
-            } catch {}
-        },
-        [resolvedExecutionId]
-    );
+    const { openAppeals, openDecisions, openGuarantorDetails } =
+        useSeizureRequestsTabOpeners(resolvedExecutionId);
 
-    const openDecisions = React.useCallback(
-        (decisionId?: string) => {
-            if (!resolvedExecutionId) return;
-            try {
-                window.dispatchEvent(
-                    new CustomEvent('hami-open-decisions-modal', {
-                        detail: {
-                            executionId: resolvedExecutionId,
-                            tab: 'current',
-                            decisionId: decisionId || undefined,
-                        },
-                    })
-                );
-            } catch {
-                /* ignore */
-            }
-        },
-        [resolvedExecutionId]
-    );
-
-    const openGuarantorDetails = React.useCallback(
-        (decisionId?: string) => {
-            if (!resolvedExecutionId) return;
-            try {
-                window.dispatchEvent(
-                    new CustomEvent('hami-open-guarantor-details', {
-                        detail: {
-                            executionId: resolvedExecutionId,
-                            decisionId: decisionId || undefined,
-                        },
-                    })
-                );
-            } catch {}
-        },
-        [resolvedExecutionId]
-    );
-
-    const findLatestGuarantorDecision = React.useMemo(() => {
+    const findLatestGuarantorDecision = React.useMemo((): SeizureDecisionRow | null => {
         const row = decisions.find((r) => isGuarantorRequestDecisionRow(r));
-        return (row as any) || null;
+        return (row as SeizureDecisionRow | undefined) ?? null;
     }, [decisions]);
 
     const acknowledgeSeizureRequestFromLog = React.useCallback(
@@ -225,7 +136,7 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
     );
 
     React.useEffect(() => {
-        const did = String((salaryDecision as any)?.id || '').trim();
+        const did = decisionRowId(salaryDecision);
         if (!did) return;
         setLastSalaryDecisionId(did);
     }, [salaryDecision]);
@@ -253,7 +164,7 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
             actionType: 'salary' | 'property' | 'vehicle' | 'third_party';
             title: string;
             body: string;
-            subtype: any;
+            subtype: SeizureRequestSubtype | string;
         }) => {
             if (
                 args.actionType === 'salary' &&
@@ -288,18 +199,17 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
             }
             const decisionId = result.decisionId;
             const nowIso = new Date().toISOString();
-            pushTimelineEvent(
-                {
-                    id: nextTimelineId(),
-                    type: 'decision',
-                    title: `📋 ${args.title} — قيد البت`,
-                    description: args.body,
-                    date: nowIso.slice(0, 10),
-                    timestamp: nowIso,
-                    source: 'التنفيذ والمحجوزات',
-                    metadata: { timelineThreadKey: `executor_decision:${decisionId}`, decisionRowId: decisionId },
-                } as any
-            );
+            const timelineEvent: TimelineEvent = {
+                id: nextTimelineId(),
+                type: 'decision',
+                title: `📋 ${args.title} — قيد البت`,
+                description: args.body,
+                date: nowIso.slice(0, 10),
+                timestamp: nowIso,
+                source: 'التنفيذ والمحجوزات',
+                metadata: { timelineThreadKey: `executor_decision:${decisionId}`, decisionRowId: decisionId },
+            };
+            pushTimelineEvent(timelineEvent);
             showToast('تم إنشاء الطلب — قرار المنفذ يظهر هنا مباشرة.', 'success');
             if (persistExecutionMerge && decisionId) {
                 const uiActionType =
@@ -332,20 +242,21 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
         ],
     );
 
-    const salaryRowForUi = React.useMemo(() => {
-        const direct = salaryDecision as any;
+    const salaryRowForUi = React.useMemo((): SeizureDecisionRow | null => {
+        const direct = salaryDecision as SeizureDecisionRow | null;
         if (direct?.id) return direct;
         const did = String(lastSalaryDecisionId || '').trim();
         if (!did) return null;
-        const found = decisions.find((r) => String((r as any)?.id || '').trim() === did) as any;
+        const found = decisions.find((r) => decisionRowId(r) === did) as SeizureDecisionRow | undefined;
         if (found?.id) return found;
-        return {
+        const placeholder: SeizureDecisionRow = {
             id: did,
             title: activeDebtorIsDeceased ? 'طلب حجز الحوافز والمخصصات' : 'طلب حجز راتب',
             requestKind: 'seizure',
             seizureSubtype: 'salary',
             executorOutcome: 'pending',
-        } as any;
+        };
+        return placeholder;
     }, [activeDebtorIsDeceased, decisions, lastSalaryDecisionId, salaryDecision]);
 
     const hasActiveSalarySeizure = React.useMemo(
@@ -398,62 +309,25 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
     );
 
     const openSalarySeizureRequest = React.useCallback(async () => {
-        if (seizureActionsDisabled) return;
-        if (hasActiveSalarySeizure) {
-            const open = await SmartDialog.confirm(
-                'تم حجز الراتب فعلاً. هل تريد فتح الطلب؟',
-                {
-                    title: 'حجز الراتب',
-                    confirmText: 'فتح الطلب',
-                    cancelText: 'إلغاء',
-                }
-            );
-            if (!open) return;
-            const did = String(salaryRowForUi?.id || '').trim();
-            if (did) {
-                openDecisions(did);
-                return;
-            }
-            try {
-                window.dispatchEvent(
-                    new CustomEvent('hami-open-unified-seizure-log', { detail: { tab: 'salary' } })
-                );
-            } catch {
-                /* ignore */
-            }
-            return;
-        }
-        const did = String(salaryRowForUi?.id || '').trim();
-        if (did) {
-            const outcome = String(salaryRowForUi?.executorOutcome ?? 'pending').trim();
-            const alternative = outcome === 'alternative';
-            const rejected = isExecutorRowRejectedAndFinal(salaryRowForUi);
-            const approved =
-                !rejected &&
-                (alternative || isExecutorRowApprovedWorkflowActive(salaryRowForUi, decisions));
-            const savedAt = String(salaryRowForUi?.seizureRequestSavedAt || '').trim();
-            const needsCompletion = approved && !savedAt;
-            if (needsCompletion) {
-                const exId = String(resolvedExecutionId || '').trim();
-                if (exId && did) dispatchOpenSeizureCompletion(exId, did);
-                return;
-            }
-            if (approved && savedAt) {
-                openDecisions(did);
-                return;
-            }
-            openDecisions(did);
-            return;
-        }
-        if (coerciveUiLocked) return;
-        setInlineActionGateKey('seizure_salary');
+        await openSalarySeizureRequestFlow({
+            seizureActionsDisabled,
+            hasActiveSalarySeizure,
+            salaryRowForUi,
+            openDecisions,
+            resolvedExecutionId,
+            decisions,
+            coerciveUiLocked,
+            setInlineActionGateKey,
+        });
     }, [
         coerciveUiLocked,
+        decisions,
         hasActiveSalarySeizure,
         openDecisions,
         resolvedExecutionId,
         salaryRowForUi,
         seizureActionsDisabled,
+        setInlineActionGateKey,
     ]);
 
     const salaryRequestTitle = activeDebtorIsDeceased

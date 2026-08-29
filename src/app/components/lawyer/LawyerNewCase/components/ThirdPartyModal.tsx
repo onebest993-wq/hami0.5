@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { motion } from 'motion/react';
-import { MapPin, UserPlus, X } from '@/app/components/ui/lucideIcons';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { MapPin } from '@/app/components/ui/icons/MapPin';
+import { UserPlus } from '@/app/components/ui/icons/UserPlus';
+import { X } from '@/app/components/ui/icons/X';
 import type { ThirdPartyModalProps, ThirdParty } from '../types';
 import { buildThirdPartyRoleLabel, getDefaultThirdPartyStatus } from '../clientRepresentation';
 
@@ -18,7 +20,7 @@ const FILE_ENTRY_OPTIONS: { id: EntryMode; label: string; hint: string }[] = [
 ];
 
 const shellClass =
-    'w-full max-w-xl overflow-hidden rounded-[28px] border border-[#E6C673]/18 bg-[#08101C]/96 shadow-[0_26px_90px_rgba(0,0,0,0.55)] ring-1 ring-inset ring-white/[0.05]';
+    'w-full max-w-xl overflow-hidden rounded-2xl border border-[#E6C673]/16 bg-[#0C1220]/96 shadow-[0_8px_24px_rgba(0,0,0,0.28)]';
 const sectionCardClass =
     'rounded-[22px] border border-white/[0.08] bg-gradient-to-br from-[#101A2B] to-[#0A1220] p-4 sm:p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]';
 const optionBaseClass =
@@ -97,7 +99,7 @@ export const ThirdPartyModal = ({ isOpen, onClose, onSave, currentStage, context
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[rgba(2,6,14,0.82)] backdrop-blur-md p-4 sm:p-6 font-['Tajawal']">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-[rgba(2,6,14,0.82)] backdrop-blur-sm p-4 sm:p-6 font-['Tajawal']">
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className={shellClass}>
                 <div className="border-b border-white/[0.06] bg-gradient-to-r from-[#0F1828] to-[#0A1220] px-5 py-4 sm:px-6 sm:py-5 flex justify-between items-center">
                     <h3 className="font-bold text-white flex items-center gap-3 text-base sm:text-lg">
@@ -110,7 +112,7 @@ export const ThirdPartyModal = ({ isOpen, onClose, onSave, currentStage, context
                         type="button"
                         onClick={onClose}
                         aria-label="إغلاق"
-                        className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04] text-white/45 transition-colors hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-300"
+                        className="flex min-h-[44px] min-w-[44px] h-11 w-11 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04] text-white/45 transition-colors hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-300 touch-manipulation"
                     >
                         <X size={18} />
                     </button>

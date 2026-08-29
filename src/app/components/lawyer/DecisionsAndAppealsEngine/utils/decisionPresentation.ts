@@ -15,7 +15,7 @@ import { DECISION_GLASS_CARD } from './appeal-engine/decisionCardFormatting';
 export type { DecisionCardEnforcementVisual } from '../decisionCardGlassShell';
 
 export const DECISION_CARD_LAYOUT =
-    'flex h-full flex-col justify-between rounded-xl p-2.5 text-right shadow-lg backdrop-blur-xl transition-all duration-300';
+    'flex h-full flex-col justify-between rounded-xl p-2.5 text-right shadow-lg backdrop-blur-sm transition-all duration-300';
 
 export function resolveDecisionCardEnforcementVisual(
     hub: Decision,

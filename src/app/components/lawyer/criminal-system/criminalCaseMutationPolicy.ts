@@ -10,7 +10,7 @@ export function caseMutationBlocked(target: CriminalCase): boolean {
     return target.isArchived === true || target.isFrozen === true || isMergedDossierCase(target);
 }
 
-export function timelineEventAllowedWhenFrozen(event: TimelineEvent): boolean {
+function timelineEventAllowedWhenFrozen(event: TimelineEvent): boolean {
     const category = String(event.category ?? '').trim();
     return (
         category === 'تبليغ رسمي بالحكم الغيابي' ||

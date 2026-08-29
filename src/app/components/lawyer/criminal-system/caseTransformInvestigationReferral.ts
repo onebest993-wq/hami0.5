@@ -56,7 +56,7 @@ import {
     applyStageJourneyTransition,
 } from './caseTransformJourneyLifecycle';
 
-export function formatInvestigationReferralDescription(input: {
+function formatInvestigationReferralDescription(input: {
     details: string;
     courtName: string;
     courtLabel: string;
@@ -81,7 +81,7 @@ export function formatInvestigationReferralDescription(input: {
     return lines.join('\n');
 }
 
-export function applyReferralMetadataToCase(
+function applyReferralMetadataToCase(
     caseRecord: CriminalCase,
     meta?: {
         publicProsecutionNumber?: string;
@@ -118,7 +118,7 @@ export function applyReferralMetadataToCase(
     return applyTrialChargeReferralSeed(syncCaseSovereignContext(next, meta?.referralDecisionText));
 }
 
-export function applyReferralStatusesToDefendants(
+function applyReferralStatusesToDefendants(
     caseRecord: CriminalCase,
     defendantIds: string[],
     defendantStatusAtDecision: StageConclusion['defendantStatusAtDecision'],

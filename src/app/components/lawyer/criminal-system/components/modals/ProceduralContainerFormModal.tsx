@@ -7,7 +7,7 @@ import {
 } from '../../proceduralContainersEngine';
 import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../../criminalModalPortal';
 
-export type ProceduralContainerFormPayload = { title: string; color: string; icon: string };
+type ProceduralContainerFormPayload = { title: string; color: string; icon: string };
 
 export type ProceduralContainerFormModalProps = {
     open: boolean;
@@ -54,7 +54,7 @@ export const ProceduralContainerFormModal = ({
             <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden">
                 <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex items-center justify-between gap-3">
                     <div className="text-white font-black text-sm">{title}</div>
-                    <button type="button" onClick={onClose} className="text-white/70 hover:text-white text-sm font-bold">
+                    <button type="button" onClick={onClose} className="min-h-[44px] min-w-[44px] px-3 text-white/70 hover:text-white text-sm font-bold touch-manipulation">
                         إغلاق
                     </button>
                 </div>
@@ -106,7 +106,7 @@ export const ProceduralContainerFormModal = ({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="rounded-xl border border-slate-700 px-4 py-2 text-sm font-black text-white/75"
+                            className="min-h-[44px] px-4 rounded-xl border border-slate-700 text-sm font-black text-white/75 touch-manipulation"
                         >
                             إلغاء
                         </button>
@@ -120,7 +120,7 @@ export const ProceduralContainerFormModal = ({
                                     icon: normalizeIcon(icon),
                                 })
                             }
-                            className="rounded-xl bg-[#E6C673] text-[#0B1021] px-4 py-2 text-sm font-black disabled:opacity-40"
+                            className="min-h-[44px] px-4 rounded-xl bg-[#E6C673] text-[#0B1021] text-sm font-black disabled:opacity-40 touch-manipulation hover:brightness-110 active:brightness-95 transition"
                         >
                             حفظ
                         </button>

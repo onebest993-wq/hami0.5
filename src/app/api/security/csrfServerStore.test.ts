@@ -55,4 +55,11 @@ describe('csrfServerStore', () => {
     await invalidateCsrfForSubject('user-sub-logout');
     expect(await validateCsrfForSubject('user-sub-logout', token!)).toBe(false);
   });
+
+  it('resetCsrfServerStoreForTests clears the shared memory registry', async () => {
+    const token = await issueCsrfTokenForSubject('user-sub-reset');
+    expect(await validateCsrfForSubject('user-sub-reset', token!)).toBe(true);
+    resetCsrfServerStoreForTests();
+    expect(await validateCsrfForSubject('user-sub-reset', token!)).toBe(false);
+  });
 });

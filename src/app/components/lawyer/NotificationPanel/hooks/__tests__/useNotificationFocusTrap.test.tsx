@@ -26,7 +26,7 @@ describe('useNotificationFocusTrap', () => {
         let promptPromise: Promise<string | null>;
         await act(async () => {
             promptPromise = SmartDialog.prompt('أدخل رقم هاتف الموكل', '', {
-                title: 'مراسلة الموكل',
+                title: 'مستند ناقص',
                 confirmText: 'إرسال',
             });
         });

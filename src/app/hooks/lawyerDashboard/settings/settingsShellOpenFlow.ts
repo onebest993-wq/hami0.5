@@ -1,13 +1,10 @@
-import { flushSync } from 'react-dom';
 import type { MutableRefObject } from 'react';
 
 import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
 import {
-    applySettingsOpaqueChrome,
-    clearSettingsForceVisible,
     paintSettingsInstantChrome,
-    removeSettingsInstantBridge,
 } from '@/app/runtime/settingsInstantPaint';
+import { prefetchSettingsOverlayEntry } from '@/app/runtime/settingsOverlayEntryLoader';
 import { markSettingsPerfPhase } from '@/app/services/settings/settingsPerfMetrics';
 import { persistSettingsSessionOpen } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 
@@ -22,9 +19,20 @@ export type CommitSettingsShellOpenParams = {
     onAfterCommit?: () => void;
 };
 
+function schedulePostOpenWork(showSettingsRef: MutableRefObject<boolean>): void {
+    const run = () => {
+        if (!showSettingsRef.current) return;
+        dismissTransientOverlays('settings');
+        void loadSettingsIntentWarm()
+            .then((m) => m.warmSettingsOnOpen())
+            .catch(() => undefined);
+    };
+    queueMicrotask(run);
+}
+
 /**
- * فتح الإعدادات — نفس نمط الإشعارات:
- * طلاء DOM فوري ثم commit React في الإطار التالي (بلا flushSync إن وُجد Host).
+ * فتح لحظي: جسر/كروم في نفس اللمسة، ثم React دون تجميد الإيماءة
+ * حتى لا تُرمى شجرة المركز دفعة واحدة فوق الجسر.
  */
 export function commitSettingsShellOpen({
     showSettingsRef,
@@ -33,40 +41,14 @@ export function commitSettingsShellOpen({
     onAfterCommit,
 }: CommitSettingsShellOpenParams): void {
     showSettingsRef.current = true;
+    prefetchSettingsOverlayEntry();
+    paintSettingsInstantChrome();
+    markSettingsPerfPhase('first-paint');
 
-    void import('@/app/runtime/deferredAppStyles')
-        .then((m) => m.ensureDeferredAppStylesLoaded())
-        .catch(() => undefined);
-
-    void loadSettingsIntentWarm()
-        .then((m) => m.warmSettingsOnOpen())
-        .catch(() => undefined);
-
-    const commitOpen = () => {
-        ensureSettingsHostMounted();
-        setShowSettings(true);
-        markSettingsPerfPhase('first-paint');
-        onAfterCommit?.();
-    };
-
-    /*
-     * كشف Host + flushSync في نفس الدورة — بلا rAF ولا طلاء body مبكر
-     * (applySettingsOpaqueChrome كان يُظهر شاشة #0B1021 قبل محتوى الإعدادات).
-     */
-    const revealed = paintSettingsInstantChrome();
-    flushSync(commitOpen);
-    if (!revealed) {
-        paintSettingsInstantChrome();
-    } else {
-        applySettingsOpaqueChrome();
-    }
-
-    persistSettingsSessionOpen(true);
-    removeSettingsInstantBridge();
-
-    queueMicrotask(() => {
-        if (!showSettingsRef.current) return;
-        clearSettingsForceVisible();
-        dismissTransientOverlays('settings');
-    });
+    ensureSettingsHostMounted();
+    showSettingsRef.current = true;
+    setShowSettings(true);
+    onAfterCommit?.();
+    queueMicrotask(() => persistSettingsSessionOpen(true));
+    schedulePostOpenWork(showSettingsRef);
 }

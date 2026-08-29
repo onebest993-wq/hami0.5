@@ -4,13 +4,12 @@ import {
     type IraqiLawCodeType,
 } from '@/app/constants/iraqiLawCatalog';
 
+export type LegalCodeType = IraqiLawCodeType;
+
 export {
     IRAQI_LAW_CANONICAL_NAMES as CODE_TYPE_TO_LAW_NAME,
     LAW_NAME_TO_CODE_TYPE,
-    type IraqiLawCodeType as LegalCodeType,
 };
-
-export type LegalCodeType = IraqiLawCodeType;
 
 export type LegalCodeArticle = {
     id: string;
@@ -20,20 +19,7 @@ export type LegalCodeArticle = {
     lawName?: string;
 };
 
-export type LegalCodeRangeFilter = {
-    id: string;
-    label: string;
-    from: number;
-    to: number;
-};
-
 export const LEGAL_CODES_PINNED_IDS_KEY = 'hami_legal_codes_pinned_article_ids';
-
-export const LEGAL_CODE_RANGE_FILTERS: Record<LegalCodeType, LegalCodeRangeFilter[]> = {
-    penal: [],
-    procedure: [],
-    juvenile: [],
-};
 
 export const LEGAL_ARTICLES_PAGE_SIZE = 12;
 

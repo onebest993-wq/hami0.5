@@ -4,16 +4,15 @@ import type { PartyEditModalProps } from './PartyEditModal';
 import type { TimelineEvent } from '@/app/types/execution';
 import type { ExecutionTrashModalProps } from './ExecutionTrashModal';
 import type { ExecutionHeirsQuickViewModalProps } from './ExecutionHeirsQuickViewModal';
-
+import { ExecutionNamedOverlayInstantFrame } from './executionOverlayInstantPresets';
 import {
-    EXEC_OVERLAY_LAZY_FALLBACK,
     LazyDossierMetaEditSection,
     LazyExecutionHeirsQuickViewModal,
     LazyExecutionTrashModal,
     LazyPartyEditModal,
     LazyPermanentDeleteConfirmDialog,
     LazyTimelineEditModal,
-} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell';
+} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistryOverlays';
 
 export type ExecutionDashboardEditOverlaysProps = {
     showExecutionTrashModal: boolean;
@@ -175,7 +174,20 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
         <>
 
             {showExecutionTrashModal ? (
-            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <Suspense
+                fallback={
+                    <ExecutionNamedOverlayInstantFrame
+                        title="سلة مهملات الإضبارة"
+                        onClose={() => {
+                            if (typeof onCloseExecutionTrashModal === 'function') {
+                                onCloseExecutionTrashModal();
+                                return;
+                            }
+                            setShowExecutionTrashModal(false);
+                        }}
+                    />
+                }
+            >
 
                 <LazyExecutionTrashModal
 
@@ -213,7 +225,20 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
             ) : null}
 
             {showTimelineEditModal ? (
-            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <Suspense
+                fallback={
+                    <ExecutionNamedOverlayInstantFrame
+                        title="تعديل الحدث"
+                        onClose={() => {
+                            if (typeof onCloseTimelineEditModal === 'function') {
+                                onCloseTimelineEditModal();
+                                return;
+                            }
+                            setTimelineEditDraft(null);
+                        }}
+                    />
+                }
+            >
 
                 <LazyTimelineEditModal
                     visible={!!timelineEditDraft}
@@ -237,7 +262,20 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
             ) : null}
 
             {showEditDossierMetaModal ? (
-            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <Suspense
+                fallback={
+                    <ExecutionNamedOverlayInstantFrame
+                        title="تعديل بيانات الإضبارة"
+                        onClose={() => {
+                            if (typeof onCloseEditDossierMetaModal === 'function') {
+                                onCloseEditDossierMetaModal();
+                                return;
+                            }
+                            setShowEditDossierMetaModal(false);
+                        }}
+                    />
+                }
+            >
                 <LazyDossierMetaEditSection
 
                     showEditDossierMetaModal={showEditDossierMetaModal}
@@ -269,7 +307,20 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
             ) : null}
 
             {showPartyEditModal ? (
-            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <Suspense
+                fallback={
+                    <ExecutionNamedOverlayInstantFrame
+                        title="تعديل الطرف"
+                        onClose={() => {
+                            if (typeof onCloseEditPartyModal === 'function') {
+                                onCloseEditPartyModal();
+                                return;
+                            }
+                            setEditPartyTarget(null);
+                        }}
+                    />
+                }
+            >
                 <LazyPartyEditModal
 
                     editPartyTarget={editPartyTarget}
@@ -309,7 +360,20 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
             ) : null}
 
             {showHeirsQuickViewModal ? (
-            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <Suspense
+                fallback={
+                    <ExecutionNamedOverlayInstantFrame
+                        title="الورثة"
+                        onClose={() => {
+                            if (typeof onCloseHeirsQuickViewModal === 'function') {
+                                onCloseHeirsQuickViewModal();
+                                return;
+                            }
+                            setHeirsQuickView(null);
+                        }}
+                    />
+                }
+            >
 
                 <LazyExecutionHeirsQuickViewModal
 
@@ -335,7 +399,20 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
             ) : null}
 
             {showPermanentDeleteConfirm ? (
-            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+            <Suspense
+                fallback={
+                    <ExecutionNamedOverlayInstantFrame
+                        title="تأكيد الحذف النهائي"
+                        onClose={() => {
+                            if (typeof onClosePermanentDeleteTimelineConfirm === 'function') {
+                                onClosePermanentDeleteTimelineConfirm();
+                                return;
+                            }
+                            setPermanentDeleteTimelineId(null);
+                        }}
+                    />
+                }
+            >
 
                 <LazyPermanentDeleteConfirmDialog
 

@@ -8,6 +8,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
 import { dismissProductivityBlockers, prepareProductivityE2E } from './helpers/productivityE2EFixtures';
 import { seedSyncedExecutionStorage } from './helpers/executionStorageFixtures';
+import { openExecutionArchiveFromHome, openExecutionDossierByRowText } from './helpers/executionE2EBoot';
 
 const EXECUTION_ROW_TEXT = /بلوب حيّ E2E|2026\/تنفيذ\/880/;
 const RAW_OUT = path.join(process.cwd(), 'perf-reports', 'execution-open-probe-raw.json');
@@ -40,18 +41,13 @@ function writePartial(partial: Record<string, unknown>): void {
 
 async function measureArchiveOpenMs(page: Page): Promise<number> {
     const t0 = Date.now();
-    await page.getByTestId('hub-archive-execution').scrollIntoViewIfNeeded();
-    await page.getByTestId('hub-archive-execution').click({ force: true });
-    await expect(page.getByTestId('execution-archive-shell')).toBeVisible({ timeout: 25_000 });
+    await openExecutionArchiveFromHome(page);
     return Date.now() - t0;
 }
 
 async function measureDossierOpenMs(page: Page): Promise<number> {
     const t0 = Date.now();
-    const row = page.getByText(EXECUTION_ROW_TEXT).first();
-    await row.scrollIntoViewIfNeeded();
-    await row.click();
-    await expect(page.getByTestId('execution-dashboard-dossier')).toBeVisible({ timeout: 25_000 });
+    await openExecutionDossierByRowText(page, EXECUTION_ROW_TEXT);
     return Date.now() - t0;
 }
 

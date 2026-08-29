@@ -12,16 +12,6 @@ export const SURFACE_APPLY_TARGET_OPTIONS: ReadonlyArray<{
     { value: 'blocks', label: 'الأقسام' },
 ];
 
-/** نطاق تطبيق زخرفة الخلفية (خلفية البطاقة) */
-export const PATTERN_APPLY_TARGET_OPTIONS: ReadonlyArray<{
-    value: SurfaceApplyTarget;
-    label: string;
-}> = [
-    { value: 'board', label: 'اللوحة' },
-    { value: 'blocks', label: 'البطاقات' },
-    { value: 'both', label: 'الكل' },
-];
-
 export const COLOR_APPLY_TARGET_OPTIONS: ReadonlyArray<{
     value: ColorApplyTarget;
     label: string;
@@ -53,9 +43,6 @@ export function appliesToBlocks(target: SurfaceApplyTarget | ColorApplyTarget | 
     const t = normalizeColorApplyTarget(target);
     return t === 'blocks' || t === 'both';
 }
-
-/** سطح محايد عندما لا يُطبَّق الثيم على هذا المستوى */
-export const NEUTRAL_SURFACE_BG = '#0A0F1C';
 
 /** لون صلب للهيدر/الكروم عند وجود صورة خلفية */
 export const LAWYER_WALLPAPER_CHROME_BG = '#0B1021';

@@ -44,7 +44,13 @@ export function LawyerDashboardNewCaseOverlayEntry({
         async (payload: unknown) => {
             const saved = await handleNewCaseSave(payload);
             if (saved) {
-                closeLawsuitsWorkspace();
+                /*
+                 * أجّل إغلاق مساحة الدعاوى إطاراً واحداً حتى تُرسم الإضبارة
+                 * في القائمة/الإضبارة المفتوحة قبل اختفاء الشبكة.
+                 */
+                requestAnimationFrame(() => {
+                    closeLawsuitsWorkspace();
+                });
             }
         },
         [handleNewCaseSave, closeLawsuitsWorkspace],

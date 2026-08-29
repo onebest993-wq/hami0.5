@@ -2,7 +2,7 @@
  * طبقة الدومين — القضاء المستعجل والحجج
  * يعيد تصدير أنواع البطاقة ويوسّعها لحقول التخزين/الإقرار.
  */
-export type {
+import type {
     UrgentCase,
     UrgentCaseStatus,
     UrgentCaseType,
@@ -17,7 +17,20 @@ export type {
     InitialNotificationMethod,
 } from '@/app/components/lawyer/Component_Urgent_Card';
 
-import type { UrgentCase } from '@/app/components/lawyer/Component_Urgent_Card';
+export type {
+    UrgentCase,
+    UrgentCaseStatus,
+    UrgentCaseType,
+    ActionPhase,
+    LegalState,
+    CaseNote,
+    CaseAttachment,
+    CaseFollowup,
+    CaseHearing,
+    CasePartyEntry,
+    ExpertModule,
+    InitialNotificationMethod,
+};
 
 /** صف مخزَّن — قد يحمل حقولاً إضافية غير معرّفة بعد في UrgentCase */
 export type UrgentCaseStorageRow = UrgentCase &

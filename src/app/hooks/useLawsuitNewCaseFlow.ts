@@ -1,41 +1,30 @@
 import { useCallback, useState } from 'react';
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
-import { persistLawsuitFiles } from '@/app/domain/lawsuit/lawsuitFilesRepository';
 import {
     clearPendingIncidentalSpawnContext,
     prefetchLawyerNewCaseModule,
     setPendingIncidentalSpawnContext,
 } from '@/app/runtime/lawyerNewCaseLoader';
-import type { IncidentalSpawnContext } from '@/app/components/lawyer/smart-modal/smartFile/incidentalCaseLinking';
-import {
-    resolveConsolidationMergedOpenTarget,
-    type ConsolidationSpawnContext,
-} from '@/app/components/lawyer/smart-modal/smartFile/caseConsolidationLinking';
+import type { IncidentalSpawnContext } from '@/app/domain/lawsuit/incidentalSpawnPrefill';
+import { type ConsolidationSpawnContext } from '@/app/components/lawyer/smart-modal/smartFile/caseConsolidationLinking';
 import {
     enrichIncidentalSpawnContext,
     isCounterClaimAllowedStage,
     type IncidentalSpawnContextEnriched,
 } from '@/app/domain/lawsuit/incidentalSpawnPrefill';
-import { findLawsuitFileById, loadCaseLinkingRuntime } from '@/app/hooks/caseLinkingRuntime';
+import { findLawsuitFileById } from '@/app/hooks/caseLinkingRuntime';
+import {
+    consolidateLawsuitWithExisting,
+    linkLawsuitWithExistingCase,
+} from '@/app/hooks/lawsuitNewCaseLinking';
+import { performLawsuitNewCaseSave } from '@/app/hooks/lawsuitNewCaseSave';
+import {
+    saveCaseDeferred,
+    syncLawsuitFileToCalendarDeferred,
+} from '@/app/hooks/lawsuitPersistDeferred';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { debug } from '@/app/utils/debug';
-import { dismissTransientOverlays, reconcileBodyScrollLock } from '@/app/utils/bodyScrollLock';
-
-function saveCaseDeferred(userId: string, caseData: Record<string, unknown>): void {
-    void import('@/app/services/lawyerDbRuntime')
-        .then(({ LawyerDB }) => LawyerDB.saveCase(userId, caseData))
-        .catch(debug.error);
-}
-
-function syncLawsuitFileToCalendarDeferred(
-    file: Record<string, unknown>,
-    userId?: string | null,
-): void {
-    void import('@/app/services/calendar/dossierSyncLazy')
-        .then((m) => m.syncLawsuitFileToCalendar(file, userId))
-        .catch(() => undefined);
-}
+import type { LawsuitFileSegments } from '@/app/domain/lawsuit/lawsuitFilesRepository';
 
 /** خفيف — بلا سحب LawyerDashboardParts/utils إلى stem اللوحة */
 function isFileData(value: unknown): value is FileData {
@@ -57,6 +46,7 @@ type CriminalBridge = {
 export type UseLawsuitNewCaseFlowOptions = {
     files: FileData[];
     setFiles: React.Dispatch<React.SetStateAction<FileData[]>>;
+    setLawsuitSegments: React.Dispatch<React.SetStateAction<LawsuitFileSegments>>;
     activeFile: ActiveFile;
     setActiveFile: React.Dispatch<React.SetStateAction<ActiveFile>>;
     userId?: string | null;
@@ -67,6 +57,7 @@ export type UseLawsuitNewCaseFlowOptions = {
 export function useLawsuitNewCaseFlow({
     files,
     setFiles,
+    setLawsuitSegments,
     activeFile,
     setActiveFile,
     userId,
@@ -96,10 +87,11 @@ export function useLawsuitNewCaseFlow({
 
     const openNormalNewCaseModal = useCallback(() => {
         prefetchLawyerNewCaseModule();
-        criminalBridge.prepareNormalCriminalCaseForm();
+        // لا نستدعي prepareNormal هنا: يصفّر pendingSeverance ويُفسِد الشطر.
+        // مسار الجزائي من FAB يستدعي prepare في LawsuitsWorkspaceHost عند اختيار الاختصاص.
         setIsCriminalSeveranceRedirect(false);
         setIsNewCaseModalOpen(true);
-    }, [criminalBridge]);
+    }, []);
 
     const openSeveranceNewCaseModal = useCallback(() => {
         if (!criminalBridge.resumePendingSeveranceForm()) return;
@@ -146,7 +138,10 @@ export function useLawsuitNewCaseFlow({
                 saveCaseDeferred(userId, archivedSecondary as unknown as Record<string, unknown>);
             }
             syncLawsuitFileToCalendarDeferred(mergedPrimary as unknown as Record<string, unknown>, userId);
-            syncLawsuitFileToCalendarDeferred(archivedSecondary as unknown as Record<string, unknown>, userId);
+            syncLawsuitFileToCalendarDeferred(
+                archivedSecondary as unknown as Record<string, unknown>,
+                userId,
+            );
         },
         [userId],
     );
@@ -172,45 +167,17 @@ export function useLawsuitNewCaseFlow({
             secondaryFileId: number,
             meta: { consolidationDate: string; notes?: string },
         ) => {
-            void (async () => {
-                const { assertDistinctConsolidationPair, mergeLawsuitFilesForConsolidation } =
-                    await loadCaseLinkingRuntime();
-                const pair = assertDistinctConsolidationPair(primaryFileId, secondaryFileId);
-                if (!pair) {
-                    SmartToast.error('لا يمكن توحيد الإضبارة مع نفسها');
-                    return;
-                }
-                const primary = findLawsuitFileById(files, pair.primary);
-                const secondary = findLawsuitFileById(files, pair.secondary);
-                if (!primary || !secondary) {
-                    SmartToast.error('تعذّر العثور على إحدى الإضابير للتوحيد');
-                    return;
-                }
-                const mergeResult = mergeLawsuitFilesForConsolidation(primary, secondary, meta);
-                if ('error' in mergeResult) {
-                    SmartToast.error(mergeResult.error);
-                    return;
-                }
-                const { mergedPrimary, archivedSecondary } = mergeResult;
-                setFiles((prev) => {
-                    const next = prev.map((f) => {
-                        const id = String(f.id);
-                        if (id === String(pair.primary)) return mergedPrimary;
-                        if (id === String(pair.secondary)) return archivedSecondary;
-                        return f;
-                    });
-                    return persistLawsuitFiles(next);
-                });
-                persistConsolidatedFiles(mergedPrimary, archivedSecondary);
-                dismissTransientOverlays();
-                reconcileBodyScrollLock();
-                setActiveFile(mergedPrimary);
-                SmartToast.success(
-                    `تم توحيد الدعويين — الإضبارة الموحّدة (${mergedPrimary.caseNo}) جاهزة`,
-                );
-            })();
+            void consolidateLawsuitWithExisting({
+                primaryFileId,
+                secondaryFileId,
+                meta,
+                files,
+                setLawsuitSegments,
+                setActiveFile,
+                persistConsolidatedFiles,
+            });
         },
-        [files, persistConsolidatedFiles, setActiveFile, setFiles],
+        [files, persistConsolidatedFiles, setActiveFile, setLawsuitSegments],
     );
 
     const handleLinkWithExistingCase = useCallback(
@@ -224,214 +191,38 @@ export function useLawsuitNewCaseFlow({
             },
             meta: { linkDate: string; reason?: string },
         ) => {
-            void (async () => {
-                const {
-                    rejectCaseLinkPair,
-                    linkExistingLawsuitFiles,
-                    linkCriminalPeerToOrigin,
-                } = await loadCaseLinkingRuntime();
-                const primary = findLawsuitFileById(files, primaryFileId);
-                if (!primary) {
-                    SmartToast.error('تعذّر العثور على الإضبارة الأصلية للربط');
-                    return;
-                }
-
-                let updatedPrimary: FileData;
-                if (peer.dossierKind === 'criminal') {
-                    const rejection = rejectCaseLinkPair(primary);
-                    if (rejection) {
-                        SmartToast.error(rejection);
-                        return;
-                    }
-                    const criminalId = String(peer.criminalId ?? '').trim();
-                    if (!criminalId) {
-                        SmartToast.error('تعذّر تحديد الإضبارة الجزائية');
-                        return;
-                    }
-                    ({ updatedPrimary } = linkCriminalPeerToOrigin(
-                        primary,
-                        { criminalId, caseNo: peer.caseNo },
-                        meta,
-                    ));
-                } else {
-                    const secondaryId = peer.lawsuitFileId;
-                    if (secondaryId == null || Number(primaryFileId) === Number(secondaryId)) {
-                        SmartToast.error('لا يمكن ربط الإضبارة مع نفسها');
-                        return;
-                    }
-                    const secondary = findLawsuitFileById(files, secondaryId);
-                    if (!secondary) {
-                        SmartToast.error('تعذّر العثور على الإضبارة المربوطة');
-                        return;
-                    }
-                    const rejection = rejectCaseLinkPair(primary, secondary);
-                    if (rejection) {
-                        SmartToast.error(rejection);
-                        return;
-                    }
-                    ({ updatedPrimary } = linkExistingLawsuitFiles(primary, secondary, meta));
-                }
-
-                setFiles((prev) => {
-                    const next = prev.map((f) => {
-                        const id = String(f.id);
-                        if (id === String(primaryFileId)) return updatedPrimary;
-                        return f;
-                    });
-                    return persistLawsuitFiles(next);
-                });
-                if (userId) {
-                    saveCaseDeferred(userId, updatedPrimary as unknown as Record<string, unknown>);
-                }
-                syncLawsuitFileToCalendarDeferred(
-                    updatedPrimary as unknown as Record<string, unknown>,
-                    userId,
-                );
-                const activeId = activeFile?.id != null ? String(activeFile.id) : '';
-                setActiveFile(
-                    activeId === String(primaryFileId) ? updatedPrimary : activeFile,
-                );
-                SmartToast.success('تم ربط الإضبارة بنجاح — نسخة للاطلاع فقط');
-            })();
+            void linkLawsuitWithExistingCase({
+                primaryFileId,
+                peer,
+                meta,
+                files,
+                activeFile,
+                setFiles,
+                setActiveFile,
+                userId,
+            });
         },
         [files, activeFile, setActiveFile, setFiles, userId],
     );
 
     const handleNewCaseSave = useCallback(
-        async (data: unknown): Promise<boolean> => {
-            try {
-                const { buildFileDataFromNewCaseSave } = await import(
-                    '@/app/domain/lawsuit/lawsuitFileFactory'
-                );
-                const newFile = buildFileDataFromNewCaseSave(data);
-                if (!newFile) {
-                    SmartToast.error('تعذّر إنشاء الملف — تحقق من البيانات المدخلة');
-                    return false;
-                }
-
-                let created: FileData = subFileBase ? { ...newFile, parentId: subFileBase.id } : newFile;
-
-                // يُقرآن في كتلتَي incidentalSpawnContext المنفصلتين أدناه — إعادتهما
-                // إلى داخل إحداهما تُخرجهما عن نطاق الأخرى بلا خطأ ترجمة ظاهر.
-                const spawnMeta =
-                    data &&
-                    typeof data === 'object' &&
-                    'incidentalSpawnMeta' in data &&
-                    data.incidentalSpawnMeta &&
-                    typeof data.incidentalSpawnMeta === 'object'
-                        ? (data.incidentalSpawnMeta as {
-                              filingPartyId?: string;
-                              filingPartyName?: string;
-                              opposingPartyId?: string;
-                              opposingPartyName?: string;
-                          })
-                        : undefined;
-                const incidentalPartyLabel = [spawnMeta?.filingPartyName, spawnMeta?.opposingPartyName]
-                    .filter((name) => Boolean(String(name ?? '').trim()))
-                    .join(' ضد ');
-
-                if (incidentalSpawnContext) {
-                    created = {
-                        ...created,
-                        parentId: incidentalSpawnContext.parentFileId,
-                        incidentalLink: {
-                            parentFileId: incidentalSpawnContext.parentFileId,
-                            parentCaseNo: incidentalSpawnContext.parentCaseNo,
-                            incidentalId: incidentalSpawnContext.incidentalId,
-                            type: incidentalSpawnContext.type,
-                            filingPartyId: spawnMeta?.filingPartyId,
-                            filingPartyName: spawnMeta?.filingPartyName,
-                            opposingPartyId: spawnMeta?.opposingPartyId,
-                            opposingPartyName: spawnMeta?.opposingPartyName,
-                        },
-                    };
-                }
-
-                if (consolidationSpawnContext) {
-                    const ctx = consolidationSpawnContext;
-                    const primary = findLawsuitFileById(files, ctx.primaryFileId) || subFileBase;
-                    if (!primary) {
-                        SmartToast.error('تعذّر تحديد الإضبارة الأولى للتوحيد');
-                        return false;
-                    }
-                    const {
-                        alignSecondaryFileLitigationStage,
-                        mergeLawsuitFilesForConsolidation,
-                    } = await loadCaseLinkingRuntime();
-                    const alignedCreated = alignSecondaryFileLitigationStage(created, primary);
-                    const mergeResult = mergeLawsuitFilesForConsolidation(primary, alignedCreated, {
-                        consolidationDate: ctx.consolidationDate,
-                        notes: ctx.notes,
-                    });
-                    if ('error' in mergeResult) {
-                        SmartToast.error(mergeResult.error);
-                        return false;
-                    }
-                    const { mergedPrimary, archivedSecondary } = mergeResult;
-                    setFiles((prev) =>
-                        persistLawsuitFiles(
-                            prev.map((f) => (f.id === primary.id ? mergedPrimary : f)).concat([archivedSecondary]),
-                        ),
-                    );
-                    persistConsolidatedFiles(mergedPrimary, archivedSecondary);
-                    SmartToast.success('تم توحيد الدعويين — الإضبارة الموحّدة جاهزة');
-                    setIsNewCaseModalOpen(false);
-                    resetSpawnContexts();
-                    dismissTransientOverlays();
-                    reconcileBodyScrollLock();
-                    setActiveFile(mergedPrimary);
-                    return true;
-                }
-
-                if (incidentalSpawnContext) {
-                    const { patchIncidentalLinkedFile } = await loadCaseLinkingRuntime();
-                    setFiles((prev) => {
-                        const withNew = [created, ...prev];
-                        const next = withNew.map((f) => {
-                            if (f.id !== incidentalSpawnContext.parentFileId) return f;
-                            const patched = patchIncidentalLinkedFile(
-                                f,
-                                incidentalSpawnContext.incidentalId,
-                                created.id,
-                                created.caseNo,
-                                incidentalPartyLabel || spawnMeta?.filingPartyName,
-                            );
-                            if (userId) {
-                                saveCaseDeferred(userId, patched as unknown as Record<string, unknown>);
-                            }
-                            syncLawsuitFileToCalendarDeferred(
-                                patched as unknown as Record<string, unknown>,
-                                userId,
-                            );
-                            return patched;
-                        });
-                        return persistLawsuitFiles(next);
-                    });
-                } else {
-                    setFiles((prev) => persistLawsuitFiles([created, ...prev]));
-                }
-
-                if (userId) {
-                    saveCaseDeferred(userId, created as unknown as Record<string, unknown>);
-                }
-                syncLawsuitFileToCalendarDeferred(
-                    created as unknown as Record<string, unknown>,
-                    userId,
-                );
-
-                SmartToast.success('تم إنشاء الملف بنجاح');
-                setIsNewCaseModalOpen(false);
-                setSubFileBase(null);
-                setIncidentalSpawnContext(null);
-                dismissTransientOverlays();
-                reconcileBodyScrollLock();
-                setActiveFile(created);
-                return true;
-            } catch {
-                SmartToast.error('تعذّر حفظ الدعوى الجديدة');
-                return false;
-            }
-        },
+        async (data: unknown): Promise<boolean> =>
+            performLawsuitNewCaseSave({
+                data,
+                files,
+                subFileBase,
+                incidentalSpawnContext,
+                consolidationSpawnContext,
+                userId,
+                setFiles,
+                setLawsuitSegments,
+                setActiveFile,
+                setIsNewCaseModalOpen,
+                setSubFileBase,
+                setIncidentalSpawnContext,
+                persistConsolidatedFiles,
+                resetSpawnContexts,
+            }),
         [
             files,
             subFileBase,
@@ -441,6 +232,7 @@ export function useLawsuitNewCaseFlow({
             resetSpawnContexts,
             setActiveFile,
             setFiles,
+            setLawsuitSegments,
             userId,
         ],
     );

@@ -17,7 +17,6 @@ export interface DossierLifecyclePanelProps {
     handleDossierLifecyclePick: (status: string) => void;
     handleDossierLifecycleConfirmDetails: (reason?: string, date?: string) => void;
     dossierLifecyclePanelPortalRef: React.RefObject<HTMLDivElement | null>;
-    /** @deprecated alias — callers may pass dossierLifecyclePopoverRef */
     dossierLifecyclePopoverRef?: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -98,7 +97,7 @@ export const DossierLifecyclePanel: React.FC<DossierLifecyclePanelProps> = ({
                 maxWidth: 'min(19rem, calc(100vw - 2.5rem))',
                 zIndex: 10050,
             }}
-            className="min-w-[14rem] rounded-xl border border-amber-500/40 bg-[#0A0F1C]/98 p-2.5 text-right shadow-2xl shadow-black/50 backdrop-blur-md"
+            className="min-w-[14rem] rounded-lg border border-white/12 bg-[#0B1021] p-2 text-right"
             dir="rtl"
             role="dialog"
             aria-label="حالة الإضبارة"
@@ -127,19 +126,13 @@ export const DossierLifecyclePanel: React.FC<DossierLifecyclePanelProps> = ({
                                         handleDossierLifecyclePick(s);
                                     }
                                 }}
-                                className={`w-full rounded-lg border px-2 py-2 text-right text-[10px] font-bold transition ${
+                                className={`w-full min-h-[44px] rounded-lg border px-2 py-2 text-right text-[10px] font-bold transition touch-manipulation ${
                                     dossierStatusDraft === s
                                         ? 'border-amber-500/50 bg-amber-950/45 text-amber-100'
                                         : 'border-white/10 bg-slate-900/65 text-slate-200 hover:bg-slate-800/85'
                                 }`}
                             >
-                                {s === 'active'
-                                    ? '🟢 نشطة'
-                                    : s === 'paused'
-                                      ? '🟡 متوقفة'
-                                      : s === 'suspended'
-                                        ? '⏸️ مستأخرة'
-                                        : '🔒 انتهاء الإضبارة'}
+                                {dossierLifecycleLabelAr(s)}
                             </button>
                         ))}
                     </div>

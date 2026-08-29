@@ -1,5 +1,7 @@
 import React from 'react';
-import { Calendar, CheckCircle, XCircle } from '@/app/components/ui/lucideIcons';
+import { Calendar } from '@/app/components/ui/icons/Calendar';
+import { CheckCircle } from '@/app/components/ui/icons/CheckCircle';
+import { XCircle } from '@/app/components/ui/icons/XCircle';
 import { formatArTaskDate, ntm } from './notesTasksModalUi';
 
 export type TaskStepView = {

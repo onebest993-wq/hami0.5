@@ -1,6 +1,8 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { X, Check, Info } from '@/app/components/ui/lucideIcons';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
+import { X } from '@/app/components/ui/icons/X';
+import { Check } from '@/app/components/ui/icons/Check';
+import { Info } from '@/app/components/ui/icons/Info';
 import { DatePickerField } from '../components/DatePickerField';
 
 export type MetaEditForm = {
@@ -42,18 +44,19 @@ export function MetaEditModal({
                 onClick={onClose}
             >
                 <motion.div
-                    className="w-full max-w-xl bg-slate-900 border border-white/10 rounded-2xl p-5"
-                    initial={{ y: 18, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: 18, opacity: 0 }}
+                    className="w-full max-w-xl bg-[#0B1021] border border-white/10 rounded-xl p-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                     onClick={(e) => e.stopPropagation()}
                 >
                     <div className="flex items-center justify-between gap-3">
-                        <div className="text-white font-extrabold">تعديل بيانات الإضبارة</div>
+                        <div className="text-white font-bold text-sm">تعديل بيانات الإضبارة</div>
                         <button
                             type="button"
                             onClick={onClose}
-                            className="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white flex items-center justify-center"
+                            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-white touch-manipulation"
+                            aria-label="إغلاق"
                         >
                             <X size={16} />
                         </button>
@@ -65,10 +68,10 @@ export function MetaEditModal({
                                 <div className="text-xs font-semibold text-slate-400">نوع الطلب</div>
                                 {!!khulasaText && (
                                     <div className="relative group">
-                                        <div className="w-7 h-7 rounded-lg bg-white/5 group-hover:bg-white/10 border border-white/10 text-white/70 group-hover:text-white flex items-center justify-center transition-colors">
+                                        <div className="inline-flex min-h-[44px] min-w-[44px] rounded-lg bg-white/5 group-hover:bg-white/10 text-white/70 group-hover:text-white items-center justify-center">
                                             <Info size={14} />
                                         </div>
-                                        <div className="absolute top-full mt-2 left-0 z-20 w-[320px] max-w-[80vw] rounded-xl border border-white/10 bg-slate-950/95 backdrop-blur p-3 text-right opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity">
+                                        <div className="absolute top-full mt-2 left-0 z-20 w-[320px] max-w-[80vw] rounded-lg border border-white/10 bg-[#0B1021] p-3 text-right opacity-0 invisible group-hover:opacity-100 group-hover:visible">
                                             <div className="text-xs font-bold text-slate-200">خلاصة الطلب</div>
                                             <div className="mt-1 text-sm text-slate-300 line-clamp-4">{khulasaText}</div>
                                         </div>
@@ -121,14 +124,14 @@ export function MetaEditModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 rounded-xl bg-transparent text-white/60 hover:text-white hover:bg-white/5 transition-colors font-bold"
+                            className="min-h-[44px] px-4 rounded-lg bg-transparent text-white/60 hover:text-white hover:bg-white/5 font-bold touch-manipulation"
                         >
                             إلغاء
                         </button>
                         <button
                             type="button"
                             onClick={onSave}
-                            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold flex items-center gap-2"
+                            className="min-h-[44px] px-4 rounded-lg bg-[#E6C673]/20 border border-[#E6C673]/35 hover:bg-[#E6C673]/30 text-[#F5F0E6] text-sm font-bold inline-flex items-center gap-2 touch-manipulation"
                         >
                             <Check size={16} />
                             حفظ التعديلات

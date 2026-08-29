@@ -2,28 +2,33 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import {
     warmRepositoryHubOnHover,
     warmRepositoryOnOpen,
+    scheduleRepositoryDockIdlePrefetch,
     resetRepositoryIdlePrefetchForTests,
 } from '@/app/hooks/lawyerDashboard/repositoryIntentWarm';
+import { isSectionBackgroundPrefetchAllowed } from '@/app/runtime/sectionPrefetchPolicy';
 
-vi.mock('@/app/utils/lazyComponents', () => ({
-    prefetchSmartRepositoryModal: vi.fn(),
-}));
+const prefetchRepositoryHubModule = vi.fn();
+const prefetchSmartVaultDocs = vi.fn();
 
 vi.mock('@/app/runtime/repositoryHubLoader', () => ({
-    prefetchRepositoryHubModule: vi.fn(),
+    prefetchRepositoryHubModule: (...args: unknown[]) => prefetchRepositoryHubModule(...args),
 }));
 
 vi.mock('@/app/services/vault/vaultDocsWarmCache', () => ({
-    prefetchSmartVaultDocs: vi.fn(),
+    prefetchSmartVaultDocs: (...args: unknown[]) => prefetchSmartVaultDocs(...args),
+    refreshVaultDocsFromStore: vi.fn(async () => []),
+    seedVaultWarmCacheFromLocalIndex: vi.fn(() => []),
 }));
 
-import { prefetchSmartRepositoryModal } from '@/app/utils/lazyComponents';
-import { prefetchRepositoryHubModule } from '@/app/runtime/repositoryHubLoader';
-import { prefetchSmartVaultDocs } from '@/app/services/vault/vaultDocsWarmCache';
+vi.mock('@/app/runtime/sectionPrefetchPolicy', () => ({
+    isSectionBackgroundPrefetchAllowed: vi.fn(() => true),
+}));
 
 describe('repositoryIntentWarm', () => {
     beforeEach(() => {
-        vi.clearAllMocks();
+        prefetchRepositoryHubModule.mockClear();
+        prefetchSmartVaultDocs.mockClear();
+        vi.mocked(isSectionBackgroundPrefetchAllowed).mockReturnValue(true);
         resetRepositoryIdlePrefetchForTests();
     });
 
@@ -31,24 +36,28 @@ describe('repositoryIntentWarm', () => {
         resetRepositoryIdlePrefetchForTests();
     });
 
-    it('warmRepositoryOnOpen notepad يحمّل المستودع والمفكرة بلا الملف المهني', () => {
+    it('warmRepositoryOnOpen يحمّل المستودع والوثائق', () => {
         warmRepositoryOnOpen('u1', 'notepad');
         expect(prefetchRepositoryHubModule).toHaveBeenCalled();
         expect(prefetchSmartVaultDocs).toHaveBeenCalledWith('u1');
-        expect(prefetchSmartRepositoryModal).toHaveBeenCalled();
     });
 
-    it('warmRepositoryOnOpen vault لا يحمّل المفكرة', () => {
+    it('warmRepositoryOnOpen vault يحمّل الوثائق دون مسار منفصل', () => {
         warmRepositoryOnOpen('u1', 'vault');
         expect(prefetchRepositoryHubModule).toHaveBeenCalled();
         expect(prefetchSmartVaultDocs).toHaveBeenCalledWith('u1');
-        expect(prefetchSmartRepositoryModal).not.toHaveBeenCalled();
     });
 
     it('warmRepositoryHubOnHover يحمّل chunk وبيانات المخزن', () => {
         warmRepositoryHubOnHover('u1');
         expect(prefetchRepositoryHubModule).toHaveBeenCalled();
-        expect(prefetchSmartRepositoryModal).toHaveBeenCalled();
         expect(prefetchSmartVaultDocs).toHaveBeenCalledWith('u1');
+    });
+
+    it('idle prefetch لا يعمل عند منع التسخين الخلفي', () => {
+        vi.mocked(isSectionBackgroundPrefetchAllowed).mockReturnValue(false);
+        scheduleRepositoryDockIdlePrefetch();
+        expect(prefetchRepositoryHubModule).not.toHaveBeenCalled();
+        expect(prefetchSmartVaultDocs).not.toHaveBeenCalled();
     });
 });

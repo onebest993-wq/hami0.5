@@ -1,21 +1,21 @@
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
+import {
+    isSectionBackgroundPrefetchAllowed,
+    sectionBackgroundHydrateDelayMs,
+} from '@/app/runtime/sectionPrefetchPolicy';
 import { prefetchCalendarCloudModule } from '@/app/services/calendar/calendarCloudLoader';
 import { requestCalendarDossierSyncNow } from '@/app/services/calendar/requestCalendarDossierSyncNow';
-import { warmCalendarEventsCache } from '@/app/hooks/lawyerDashboard/scheduleIntentWarm';
+import { warmCalendarEventsCache } from '@/app/services/calendar/calendarEventsWarm';
 import {
     hydrateScheduleShellForInstantOpen,
     isScheduleShellModuleResolved,
     prefetchScheduleHubModule,
-    prefetchScheduleTabHostModule,
 } from '@/app/runtime/scheduleHubLoader';
-import { prefetchRadarWidgets } from '@/app/runtime/radarWidgetLoader';
 import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
 import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
 
 export const SCHEDULE_SHELL_HYDRATED_EVENT = 'hami:schedule-shell-hydrated';
-/** pointerdown/hover على أيقونة التقويم — يركّب Host مخفياً قبل الـ click */
+/** pointerdown/hover على أيقونة التقويم — تسخين مقطع بلا تركيب Host حتى فتح التبويب */
 export const SCHEDULE_PRIME_HOST_EVENT = 'hami:schedule-prime-host';
 
 let bootHydratorArmed = false;
@@ -23,20 +23,11 @@ let hydrateInflight: Promise<boolean> | null = null;
 let coldBootPrefetchStarted = false;
 
 function schedulePrefetchAllowed(): boolean {
-    try {
-        const s = getLawyerSettingsSnapshot();
-        if (s.security.localOnlyMode) return false;
-        if (s.performance.prefetchScreens === false) return false;
-        if (isLitePerformanceActive(s.performance.litePerformance)) return false;
-    } catch {
-        /* ignore */
-    }
-    return true;
+    return isSectionBackgroundPrefetchAllowed();
 }
 
 function hydrateDelayMs(): number {
-    if (!schedulePrefetchAllowed()) return -1;
-    return 0;
+    return sectionBackgroundHydrateDelayMs(0, 0);
 }
 
 function dispatchHydratedOnce(): void {
@@ -50,10 +41,6 @@ export function dispatchSchedulePrimeHost(): void {
     window.dispatchEvent(new Event(SCHEDULE_PRIME_HOST_EVENT));
 }
 
-function warmSecondaryRadarWidgets(): void {
-    prefetchRadarWidgets();
-}
-
 /**
  * تسخين فوري بعد رفع حاجز الإقلاع — قبل نقرة التقويم / استعادة الجلسة.
  */
@@ -63,7 +50,6 @@ export function prefetchScheduleAfterBootReveal(userId?: string | null): void {
     coldBootPrefetchStarted = true;
 
     void ensureDeferredFeatureStylesLoaded();
-    prefetchScheduleTabHostModule();
     prefetchScheduleHubModule();
     prefetchCalendarCloudModule();
     requestCalendarDossierSyncNow();
@@ -79,12 +65,10 @@ export function hydrateScheduleShellForInstantOpenWithData(
     force = false,
 ): Promise<boolean> {
     if (!force && !schedulePrefetchAllowed()) return Promise.resolve(false);
-    prefetchScheduleTabHostModule();
+    prefetchScheduleHubModule();
     if (isScheduleShellModuleResolved()) {
-        prefetchScheduleHubModule();
         prefetchCalendarCloudModule();
         void warmCalendarEventsCache(userId).catch(() => undefined);
-        warmSecondaryRadarWidgets();
         dispatchHydratedOnce();
         return Promise.resolve(true);
     }
@@ -95,7 +79,6 @@ export function hydrateScheduleShellForInstantOpenWithData(
             if (ok) {
                 prefetchCalendarCloudModule();
                 void warmCalendarEventsCache(userId).catch(() => undefined);
-                warmSecondaryRadarWidgets();
                 dispatchHydratedOnce();
             }
             return ok;
@@ -130,7 +113,6 @@ export function bindScheduleBootHydrator(userId?: string | null): () => void {
         cancelIdle?.();
         cancelIdle = scheduleIdleWork(
             () => {
-                prefetchScheduleTabHostModule();
                 prefetchScheduleHubModule();
                 prefetchCalendarCloudModule();
                 void hydrateScheduleShellForInstantOpenWithData(uid);

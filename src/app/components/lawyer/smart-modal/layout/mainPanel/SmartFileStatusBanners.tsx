@@ -1,4 +1,5 @@
-import { PauseCircle, Scale } from '@/app/components/ui/lucideIcons';
+import { PauseCircle } from '@/app/components/ui/icons/PauseCircle';
+import { Scale } from '@/app/components/ui/icons/Scale';
 import type { CaseStage } from '../../../LawyerShared';
 import { daysRemainingUntil } from '../../smartFile/absentJudgmentFlow';
 import {

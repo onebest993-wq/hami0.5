@@ -1,15 +1,15 @@
-// @ts-nocheck
 /** استئخار التنفيذ + رفع الاستئخار + استئناف الإيقاف المؤقت */
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import { syncExecutionTaskDue } from '@/app/services/calendarDossierSync';
+import { toastAfterExecutionPersist } from '../../helpers/toastAfterExecutionPersist';
 
 export type UseExecutionDashboardStayHandlersParams = {
     executionData: ExecutionFile | null | undefined;
     file: ExecutionFile | null | undefined;
     currentFileId: string;
     nextTimelineId: () => string;
-    persistExecutionMerge: (patch: Record<string, unknown>) => void;
+    persistExecutionMerge: (patch: Record<string, unknown>) => boolean | void;
     showToast: (message: string, type?: string) => void;
     setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
     setCaseTasksPending: Dispatch<SetStateAction<NonNullable<ExecutionFile['caseTasksPending']>>>;
@@ -41,19 +41,22 @@ export function useExecutionDashboardStayHandlers({
         setTimelineEvents((prev) => {
             const next = [te, ...prev];
             queueMicrotask(() =>
-                persistExecutionMerge({
-                    stay_of_execution: {
-                        active: false,
-                        decision_number: '',
-                        court_name: '',
-                        next_hearing_date: '',
-                    },
-                    timelineEvents: next,
-                }),
+                toastAfterExecutionPersist(
+                    persistExecutionMerge({
+                        stay_of_execution: {
+                            active: false,
+                            decision_number: '',
+                            court_name: '',
+                            next_hearing_date: '',
+                        },
+                        timelineEvents: next,
+                    }),
+                    showToast,
+                    'تم رفع الاستئخار',
+                ),
             );
             return next;
         });
-        showToast('تم رفع الاستئخار', 'success');
     }, [nextTimelineId, persistExecutionMerge, showToast, setTimelineEvents]);
 
     const handleSpecialCasesStay = useCallback(
@@ -89,16 +92,20 @@ export function useExecutionDashboardStayHandlers({
                 setTimelineEvents((prevTl) => {
                     const nextTl = [te, ...prevTl];
                     queueMicrotask(() => {
-                        persistExecutionMerge({
-                            stay_of_execution: {
-                                active: true,
-                                decision_number,
-                                court_name,
-                                next_hearing_date,
-                            },
-                            timelineEvents: nextTl,
-                            caseTasksPending: nextTasks,
-                        });
+                        toastAfterExecutionPersist(
+                            persistExecutionMerge({
+                                stay_of_execution: {
+                                    active: true,
+                                    decision_number,
+                                    court_name,
+                                    next_hearing_date,
+                                },
+                                timelineEvents: nextTl,
+                                caseTasksPending: nextTasks,
+                            }),
+                            showToast,
+                            'تم تفعيل الاستئخار وتسجيل المهمة.',
+                        );
                         syncExecutionTaskDue({
                             executionId: currentFileId,
                             task,
@@ -122,7 +129,6 @@ export function useExecutionDashboardStayHandlers({
                 });
                 return nextTasks;
             });
-            showToast('تم تفعيل الاستئخار وتسجيل المهمة.', 'success');
             return true;
         },
         [
@@ -159,14 +165,17 @@ export function useExecutionDashboardStayHandlers({
         setTimelineEvents((prev) => {
             const next = [newEvent, ...prev];
             queueMicrotask(() =>
-                persistExecutionMerge({
-                    executionPaused: false,
-                    timelineEvents: next,
-                }),
+                toastAfterExecutionPersist(
+                    persistExecutionMerge({
+                        executionPaused: false,
+                        timelineEvents: next,
+                    }),
+                    showToast,
+                    'تم استئناف التنفيذ',
+                ),
             );
             return next;
         });
-        showToast('تم استئناف التنفيذ', 'success');
     }, [nextTimelineId, persistExecutionMerge, setExecutionPaused, setTimelineEvents, showToast]);
 
     return {

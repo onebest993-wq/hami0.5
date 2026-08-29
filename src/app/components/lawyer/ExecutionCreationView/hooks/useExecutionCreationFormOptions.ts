@@ -5,17 +5,6 @@ export const EXECUTION_DOC_TYPE_OPTIONS: { value: string; label: string }[] = [
     { value: 'قرارات وأحكام المحاكم', label: 'قرارات المحاكم' },
 ];
 
-/** أنواع سندات تُعرض للمعلومة فقط — قيد الدراسة والتطوير */
-export const EXECUTION_DOC_TYPE_COMING_SOON: { label: string }[] = [
-    { label: 'الحجج الشرعية' },
-    { label: 'الأوراق التجارية (صك/كمبيالة)' },
-    { label: 'السندات العادية (إقرار بدين)' },
-    { label: 'سندات التسجيل العقاري' },
-    { label: 'كفالات المنفذ العدل' },
-    { label: 'الأحكام الأجنبية' },
-    { label: 'قرارات المحكمين المصدقة' },
-];
-
 const EXECUTION_DOC_TYPE_LABEL_BY_VALUE: Record<string, string> = {
     'قرارات وأحكام المحاكم': 'قرارات المحاكم',
     'الحجج الشرعية': 'الحجج الشرعية',

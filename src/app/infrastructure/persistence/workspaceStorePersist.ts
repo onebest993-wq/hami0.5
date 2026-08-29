@@ -8,8 +8,10 @@ import {
     FOUNDATION_STORE_PERSIST_V1,
     unwrapPersistedSlice,
 } from '@/app/infrastructure/persistence/zustandPersistFoundation';
+import { StorageDomainKeys } from '@/app/infrastructure/persistence/storageDomains';
 
-export const WORKSPACE_STORE_KEY = 'hami:workspace:pins:v1';export const WORKSPACE_STORE_PERSIST_VERSION = FOUNDATION_STORE_PERSIST_V1;
+export const WORKSPACE_STORE_KEY = StorageDomainKeys.workspacePins;
+export const WORKSPACE_STORE_PERSIST_VERSION = FOUNDATION_STORE_PERSIST_V1;
 
 const MAX_PIN_TITLE = 200;
 

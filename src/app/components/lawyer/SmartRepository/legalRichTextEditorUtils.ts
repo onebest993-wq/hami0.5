@@ -27,6 +27,25 @@ const EDITOR_PURIFY = {
         'data-fmt-reset',
         'data-legal-hl',
     ],
+    FORBID_TAGS: [
+        'svg',
+        'math',
+        'iframe',
+        'object',
+        'embed',
+        'form',
+        'link',
+        'meta',
+        'base',
+        'style',
+        'script',
+        'video',
+        'audio',
+        'source',
+        'canvas',
+        'template',
+    ],
+    FORBID_ATTR: ['srcdoc', 'srcset', 'xlink:href'],
 };
 
 /** خصائص CSS المسموحة فقط في محرر الملاحظات */
@@ -76,6 +95,17 @@ function installEditorPurifyHooks(): void {
 export function sanitizeRichNoteHtml(html: string): string {
     installEditorPurifyHooks();
     return DOMPurify.sanitize(html, EDITOR_PURIFY);
+}
+
+/** يحوّل حافظة المتصفح إلى HTML خام قبل التنظيف — HTML يتقدّم، والنص يُهرَّب */
+export function clipboardPayloadToEditorHtml(html: string, text: string): string {
+    if (html.trim()) return html;
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\r\n/g, '\n')
+        .replace(/\n/g, '<br>');
 }
 
 /** نص عادي للبطاقات — يفكّ &nbsp; والوسوم دون ترك كيانات ظاهرة */
@@ -174,7 +204,3 @@ export function extractQuickTaskLines(html: string): string[] {
     return lines;
 }
 
-/** للاختبارات */
-export function __sanitizeEditorStyleForTests(raw: string): string {
-    return sanitizeStyleDeclaration(raw);
-}

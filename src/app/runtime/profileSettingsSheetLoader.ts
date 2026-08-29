@@ -12,10 +12,6 @@ export type ProfileSettingsSheetComponent = ComponentType<ProfileSettingsSheetPr
 let modulePromise: Promise<ProfileSettingsSheetModule> | null = null;
 let cachedSheet: ProfileSettingsSheetComponent | null = null;
 
-export function isProfileSettingsSheetResolved(): boolean {
-    return cachedSheet !== null;
-}
-
 export function getCachedProfileSettingsSheet(): ProfileSettingsSheetComponent | null {
     return cachedSheet;
 }

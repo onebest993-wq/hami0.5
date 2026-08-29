@@ -1,5 +1,4 @@
 import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
-import { prefetchLawyerHomeTabModule } from '@/app/runtime/homeHubLoader';
 import { prefetchLawyerHomeHubCardModule } from '@/app/runtime/homeHubCardLoader';
 import { scheduleLawyerShellPrefetch } from '@/app/runtime/deferredShellPrefetch';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
@@ -25,16 +24,14 @@ export function warmHomeOnHover(): void {
         m.warmLawyerHomeShellSecondary();
     });
     scheduleLawyerShellPrefetch();
-    prefetchLawyerHomeTabModule();
     prefetchLawyerHomeHubCardModule();
     warmHomeHubRadarFromSession();
 }
 
-/** عند أول عرض للرئيسية — فقط ما يظهر على الشاشة (intent-only للباقي) */
+/** عند أول عرض للرئيسية — فقط ما يظهر على الشاشة (HomeTab sync في MainView) */
 export function warmHomeOnOpen(): void {
     prefetchLawyerHomeHubCardModule();
     void loadLazyComponentsIntent().then((m) => m.warmLawyerHomeShellCritical());
-    prefetchLawyerHomeTabModule();
     warmHomeHubRadarFromSession();
     onDashboardInteractive(() => {
         scheduleLawyerShellPrefetch();

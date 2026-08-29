@@ -63,9 +63,9 @@ describe('calendarAuthenticity', () => {
         expect(isUserAuthoredBridgedCalendarEvent(synthetic)).toBe(false);
     });
 
-    it('تنبيهات البطاقة: تقويم وطلبات فقط', () => {
+    it('تنبيهات البطاقة: تقويم ومهام ميدان فقط', () => {
         expect(isAuthenticSecretaryAlert({ id: 'calendar:x', type: 'HEARING' } as never)).toBe(true);
-        expect(isAuthenticSecretaryAlert({ id: 'request:1', type: 'REQUEST' } as never)).toBe(true);
+        expect(isAuthenticSecretaryAlert({ id: 'request:1', type: 'TASK' } as never)).toBe(false);
         expect(isAuthenticSecretaryAlert({ id: 'file-tx:1', type: 'TASK' } as never)).toBe(false);
         expect(isAuthenticSecretaryAlert({ id: 'community:1', type: 'TASK' } as never)).toBe(false);
     });
@@ -129,7 +129,7 @@ describe('calendarAuthenticity', () => {
         ).toBe(true);
     });
 
-    it('🛡️ المسموح فقط: calendar:* + request:* + field-task مع fieldTaskInjected', () => {
+    it('🛡️ المسموح فقط: calendar:* + field-task مع fieldTaskInjected', () => {
         const tomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
         // calendar مستقبلي حقيقي
         expect(
@@ -139,10 +139,10 @@ describe('calendarAuthenticity', () => {
                 dueAt: tomorrow,
             } as never),
         ).toBe(true);
-        // request:* — طلب موكل من Supabase
+        // request:* بادئة غير مسموحة
         expect(
-            isAuthenticSecretaryAlert({ id: 'request:rq-1', type: 'REQUEST' } as never),
-        ).toBe(true);
+            isAuthenticSecretaryAlert({ id: 'request:rq-1', type: 'TASK' } as never),
+        ).toBe(false);
         // field-task مع fieldTaskInjected
         expect(
             isAuthenticSecretaryAlert({

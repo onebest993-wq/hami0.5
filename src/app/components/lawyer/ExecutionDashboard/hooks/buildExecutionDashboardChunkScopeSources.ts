@@ -1,4 +1,4 @@
-import { spreadExecutionDashboardLazyChunkScope } from './executionDashboardLazyChunkScope';
+import { spreadExecutionDashboardLazyChunkScopeShell } from './executionDashboardLazyChunkScopeShell';
 import { spreadExecutionDashboardRuntimeChunkScope } from '../executionDashboardRuntimeChunkScope';
 import { spreadExecutionDashboardStaticChunkScope } from '../executionDashboardStaticChunkScope';
 import { spreadExecutionDashboardUiChunkScope } from '../executionDashboardUiChunkScope';
@@ -13,7 +13,7 @@ export function buildExecutionDashboardChunkScopeSources(
         ...spreadExecutionDashboardUiChunkScope(),
         ...spreadExecutionDashboardRuntimeChunkScope(),
         ...spreadExecutionDashboardImportedHelpersChunkScope(),
-        ...spreadExecutionDashboardLazyChunkScope(),
+        ...spreadExecutionDashboardLazyChunkScopeShell(),
         ...dynamicSources,
     };
 }

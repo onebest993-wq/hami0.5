@@ -1,7 +1,7 @@
 import React, { useLayoutEffect } from 'react';
 
 import { LawyerDashboardProfileTab } from '@/app/components/lawyer/dashboard/LawyerDashboardProfileTab';
-import { primeProfileForBoot } from '@/app/runtime/profileShellPrime';
+import { markRoyalLawyerProfileModuleResolved } from '@/app/runtime/royalLawyerProfileModuleState';
 
 type ProfileTabProps = React.ComponentProps<typeof LawyerDashboardProfileTab>;
 
@@ -11,7 +11,8 @@ export function ProfileTabHost(props: ProfileTabProps): React.ReactElement | nul
 
     useLayoutEffect(() => {
         if (!visible && !keepAlive) return;
-        primeProfileForBoot();
+        /* المسار الثابت يحمّل Royal دون dynamic import — طابق علامة الجاهزية */
+        markRoyalLawyerProfileModuleResolved();
     }, [keepAlive, visible]);
 
     if (!visible && !keepAlive) {

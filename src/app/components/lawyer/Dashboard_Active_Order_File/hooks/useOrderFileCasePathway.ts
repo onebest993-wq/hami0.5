@@ -3,8 +3,8 @@ import { isIqrarRequest } from '@/app/domain/urgent/formPathwayConstants';
 import { resolveProcedureCategory } from '@/app/domain/urgent/procedureCategory';
 import { isPreDecisionNullifyNotes } from '../utils/hearingRules';
 
-export type UseOrderFileCasePathwayArgs = {
-    caseData: any;
+type UseOrderFileCasePathwayArgs = {
+    caseData: Record<string, unknown> | null | undefined;
     fd: Record<string, unknown>;
     fileStatus: import('../types').FileStatus;
     activeLifecycleStep: 'judge' | 'execution' | 'grievance' | 'cassation' | null;
@@ -31,19 +31,12 @@ export function useOrderFileCasePathway({
         return ['وضع إشارة', 'منع سفر', 'إيقاف', 'حجز'].some((k) => t.includes(k));
     }, [caseData?.specificActionType, caseData?.type, fd?.type]);
 
-    // 🔥 STATUS BADGE CONFIGURATION
-    const getStatusConfig = () => {
+    // حالة الملف — نقطة لونية في الترويسة بلا إيموجي
+    const getStatusConfig = (): { text: string; color: string } => {
         const finalized =
-            !!caseData?.archived || (caseData as any)?.status === 'completed' || (caseData as any)?.phase === 'completed';
+            !!caseData?.archived || caseData?.status === 'completed' || caseData?.phase === 'completed';
         if (finalized) {
-            return {
-                icon: '✅',
-                text: 'اكتسب الدرجة القطعية / منتهي',
-                color: 'green',
-                gradient: 'from-emerald-500/20 to-green-500/20',
-                borderColor: 'border-emerald-500/35',
-                pulse: false,
-            };
+            return { text: 'اكتسب الدرجة القطعية / منتهي', color: 'green' };
         }
 
         const cassationActive =
@@ -52,14 +45,7 @@ export function useOrderFileCasePathway({
             fileStatus === 'cassation' ||
             activeLifecycleStep === 'cassation';
         if (cassationActive) {
-            return {
-                icon: '⚖️',
-                text: 'في مرحلة الطعن التمييزي',
-                color: 'purple',
-                gradient: 'from-violet-500/20 to-purple-500/20',
-                borderColor: 'border-violet-500/35',
-                pulse: true,
-            };
+            return { text: 'في مرحلة الطعن التمييزي', color: 'purple' };
         }
 
         const localShowGrievanceStep = String(caseData?.type ?? fd?.type ?? '').trim() !== 'urgent_action';
@@ -70,14 +56,7 @@ export function useOrderFileCasePathway({
                 fileStatus === 'grievance' ||
                 activeLifecycleStep === 'grievance');
         if (grievanceActive) {
-            return {
-                icon: '⚖️',
-                text: 'في مرحلة التظلم',
-                color: 'purple',
-                gradient: 'from-purple-500/20 to-fuchsia-500/20',
-                borderColor: 'border-purple-500/35',
-                pulse: true,
-            };
+            return { text: 'في مرحلة التظلم', color: 'purple' };
         }
 
         const executionActive =
@@ -85,47 +64,19 @@ export function useOrderFileCasePathway({
             (judgeDecision.decision === 'accepted' || judgeDecision.decision === 'partially_accepted') &&
             fileStatus === 'accepted';
         if (executionActive) {
-            return {
-                icon: '⚡',
-                text: 'قيد المفاتحة والتبليغ',
-                color: 'blue',
-                gradient: 'from-blue-500/20 to-cyan-500/20',
-                borderColor: 'border-blue-500/35',
-                pulse: true,
-            };
+            return { text: 'قيد المفاتحة والتبليغ', color: 'blue' };
         }
 
         if (preDecisionClosed && !judgeDecision.decision) {
-            return {
-                icon: '⏳',
-                text: 'بانتظار النطق بالقرار',
-                color: 'amber',
-                gradient: 'from-amber-500/20 to-orange-500/20',
-                borderColor: 'border-amber-500/40',
-                pulse: true,
-            };
+            return { text: 'بانتظار النطق بالقرار', color: 'amber' };
         }
 
         const hasHearings = hearings.some((h) => h.stage === 'pre_decision');
         if (hasHearings && !preDecisionClosed) {
-            return {
-                icon: '🔄',
-                text: 'قيد المرافعة',
-                color: 'slate',
-                gradient: 'from-slate-500/20 to-blue-500/10',
-                borderColor: 'border-slate-400/30',
-                pulse: true,
-            };
+            return { text: 'قيد المرافعة', color: 'slate' };
         }
 
-        return {
-            icon: '🟡',
-            text: 'قيد انتظار قرار القاضي',
-            color: 'amber',
-            gradient: 'from-amber-500/20 to-yellow-500/20',
-            borderColor: 'border-amber-500/50',
-            pulse: true,
-        };
+        return { text: 'قيد انتظار قرار القاضي', color: 'amber' };
     };
 
     const statusConfig = getStatusConfig();
@@ -139,8 +90,8 @@ export function useOrderFileCasePathway({
     const isIqrar = useMemo(() => isIqrarRequest(resolvedWorkspaceRequestType), [resolvedWorkspaceRequestType]);
     const isIqrarContext = isIqrar;
     const procedureDetailsForPopover = useMemo(() => {
-        const details = String((caseData as any)?.procedureDetails ?? '').trim();
-        const subject = String((caseData as any)?.requestSubject ?? '').trim();
+        const details = String(caseData?.procedureDetails ?? '').trim();
+        const subject = String(caseData?.requestSubject ?? '').trim();
         if (isIqrarContext) return subject || details;
         return details || subject;
     }, [caseData, isIqrarContext]);

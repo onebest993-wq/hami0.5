@@ -25,7 +25,7 @@ vi.mock('@/app/services/calendar/bridge', async () => {
 });
 
 describe('CALENDAR_SYNC_RULES', () => {
-    it('يحصر المسار الحيّ في نقاط الدخول الأربع ويعطّل legacy', () => {
+    it('يحصر المسار الحيّ في نقاط الدخول المفعّلة ويعطّل legacy', () => {
         expect(CALENDAR_SYNC_RULES.active.lawsuit).toBeDefined();
         expect(CALENDAR_SYNC_RULES.active.execution).toBeDefined();
         expect(CALENDAR_SYNC_RULES.active.criminal).toBeDefined();

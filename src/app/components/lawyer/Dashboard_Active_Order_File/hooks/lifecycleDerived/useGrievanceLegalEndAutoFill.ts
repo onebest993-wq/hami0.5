@@ -41,7 +41,7 @@ export function useGrievanceLegalEndAutoFill(args: UseOrderFileLifecycleDerivedA
     useEffect(() => {
     if (grievanceTimingConfirmed) return;
     const base = String(
-        grievanceData.rejectionNotificationDate || (caseData as any)?.notificationDate || '',
+        grievanceData.rejectionNotificationDate || caseData?.notificationDate || '',
     ).trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(base)) return;
     if (String(grievanceLegalEndDate || '').trim()) return;

@@ -36,19 +36,7 @@ describe('useRepositoryLifecycle', () => {
         clearRepositoryPerfMarks();
     });
 
-    it('feedLoading=false عند وجود ملاحظات حتى أثناء تحميل vault', () => {
-        const { result } = renderHook(() => useRepositoryLifecycle('u1', true, 0, 2));
-        expect(result.current.feedLoading).toBe(false);
-        expect(result.current.isShellReady).toBe(true);
-    });
-
-    it('feedLoading=false دائماً — القائمة لا تُحجب بانتظار vault', () => {
-        const { result } = renderHook(() => useRepositoryLifecycle('u1', true, 0, 0));
-        expect(result.current.feedLoading).toBe(false);
-        expect(result.current.isShellReady).toBe(true);
-    });
-
-    it('يسجّل interactive حتى أثناء تحميل vault الفارغ', () => {
+    it('يسجّل interactive فوراً عند الفتح', () => {
         markRepositoryPerfPhase('open-request');
         vi.spyOn(performance, 'mark').mockImplementation(() => undefined);
         vi.spyOn(performance, 'getEntriesByName').mockImplementation((name: string) => {
@@ -61,20 +49,12 @@ describe('useRepositoryLifecycle', () => {
             return [] as PerformanceEntryList;
         });
 
-        renderHook(() => useRepositoryLifecycle('u1', true, 0, 0));
+        renderHook(() => useRepositoryLifecycle('u1', 0, 0, true));
         expect(getRepositoryOpenToInteractiveMs()).toBe(150);
     });
 
-    it('isShellReady فوراً مع كاش vault', () => {
+    it('يسجّل interactive مع كاش vault', () => {
         setVaultDocsWarmCache('u1', [sampleDoc()]);
-        vi.spyOn(performance, 'getEntriesByName').mockReturnValue([] as PerformanceEntryList);
-
-        const { result } = renderHook(() => useRepositoryLifecycle('u1', true, 0, 0));
-        expect(result.current.isShellReady).toBe(true);
-        expect(result.current.feedLoading).toBe(false);
-    });
-
-    it('يسجّل interactive عند shell ready', () => {
         markRepositoryPerfPhase('open-request');
         vi.spyOn(performance, 'mark').mockImplementation(() => undefined);
         vi.spyOn(performance, 'getEntriesByName').mockImplementation((name: string) => {
@@ -87,7 +67,7 @@ describe('useRepositoryLifecycle', () => {
             return [] as PerformanceEntryList;
         });
 
-        renderHook(() => useRepositoryLifecycle('u1', false, 1, 0));
+        renderHook(() => useRepositoryLifecycle('u1', 1, 0, true));
         expect(getRepositoryOpenToInteractiveMs()).toBe(200);
     });
 
@@ -112,7 +92,7 @@ describe('useRepositoryLifecycle', () => {
                 return [] as PerformanceEntryList;
             });
 
-            renderHook(() => useRepositoryLifecycle('u1', true, 0, 0, true, true));
+            renderHook(() => useRepositoryLifecycle('u1', 0, 0, true));
             const afterReady = sentry.mock.calls.length;
             expect(afterReady).toBeGreaterThanOrEqual(1);
 

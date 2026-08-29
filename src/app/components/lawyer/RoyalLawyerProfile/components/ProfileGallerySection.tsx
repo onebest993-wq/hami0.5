@@ -1,14 +1,22 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, X } from '@/app/components/ui/lucideIcons';
+import React, { lazy, Suspense } from 'react';
+import { Camera } from '@/app/components/ui/icons/Camera';
+import { X } from '@/app/components/ui/icons/X';
 import type { EditDraft } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 import type { ProfileGalleryItem } from '@/app/services/lawyer-cloud';
 import { PROFILE_THEME } from '../profileThemeClasses';
 import { ProfileAvatarImage } from './ProfileAvatarImage';
-import { ProfileGalleryViewer } from './ProfileGalleryViewer';
-import { galleryItemImageStyle } from '../utils/profileSections';
-import { discardUnsavedMediaPathUnlessCommitted } from '@/app/services/profile/editDraftMediaPaths';
+import { galleryItemImageStyle } from '@/app/services/profile/profileSections';
+import { useProfileGallerySection } from '../hooks/useProfileGallerySection';
 
-export type ProfileGallerySectionProps = {
+const ProfileGalleryViewerLazy = lazy(() =>
+    import('./ProfileGalleryViewer').then((mod) => ({ default: mod.ProfileGalleryViewer })),
+);
+
+function prefetchProfileGalleryViewerChunk(): void {
+    void import('./ProfileGalleryViewer');
+}
+
+type ProfileGallerySectionProps = {
     isEditing: boolean;
     readOnly: boolean;
     draft: EditDraft | null;
@@ -18,16 +26,11 @@ export type ProfileGallerySectionProps = {
     committedGalleryPaths?: Array<string | undefined | null>;
     uploading: 'avatar' | 'gallery' | null;
     galleryRef: React.RefObject<HTMLInputElement | null>;
-    ornatePattern?: boolean;
     /** false عند إخفاء التبويب — أغلق المعرض فوراً */
     screenActive?: boolean;
     onViewerOpenChange?: (open: boolean) => void;
     onRegisterCloseViewer?: (close: (() => void) | null) => void;
 };
-
-type ViewerState =
-    | { open: false }
-    | { open: true; index: number; mode: 'view' | 'adjust' };
 
 export const ProfileGallerySection = React.memo(function ProfileGallerySection({
     isEditing,
@@ -42,93 +45,26 @@ export const ProfileGallerySection = React.memo(function ProfileGallerySection({
     onViewerOpenChange,
     onRegisterCloseViewer,
 }: ProfileGallerySectionProps) {
-    const [viewer, setViewer] = useState<ViewerState>({ open: false });
-    const prevLenRef = useRef(gallery.length);
-    const prevUploadingRef = useRef(uploading);
-    const canAdjust = isEditing && !readOnly && Boolean(draft);
-
-    useEffect(() => {
-        if (screenActive) return;
-        setViewer({ open: false });
-        onViewerOpenChange?.(false);
-    }, [screenActive, onViewerOpenChange]);
-
-    const openViewer = useCallback(
-        (index: number, mode: 'view' | 'adjust' = 'view') => {
-            setViewer({ open: true, index, mode });
-            onViewerOpenChange?.(true);
-        },
-        [onViewerOpenChange],
-    );
-
-    const closeViewer = useCallback(() => {
-        setViewer({ open: false });
-        onViewerOpenChange?.(false);
-    }, [onViewerOpenChange]);
-
-    useEffect(() => {
-        onRegisterCloseViewer?.(closeViewer);
-        return () => onRegisterCloseViewer?.(null);
-    }, [closeViewer, onRegisterCloseViewer]);
-
-    useEffect(() => {
-        if (viewer.open && (viewer.index < 0 || viewer.index >= gallery.length)) {
-            closeViewer();
-        }
-    }, [viewer, gallery.length, closeViewer]);
-
-    useEffect(() => {
-        const wasUploadingGallery = prevUploadingRef.current === 'gallery';
-        const finishedUpload = wasUploadingGallery && uploading !== 'gallery';
-        const grew = gallery.length > prevLenRef.current;
-        prevLenRef.current = gallery.length;
-        prevUploadingRef.current = uploading;
-
-        if (finishedUpload && grew && canAdjust && gallery.length > 0 && !viewer.open) {
-            openViewer(gallery.length - 1, 'adjust');
-        }
-    }, [gallery.length, uploading, canAdjust, openViewer, viewer.open]);
-
-    const saveAdjust = useCallback(
-        (next: ProfileGalleryItem) => {
-            if (!viewer.open) return;
-            const index = viewer.index;
-            setDraft((prev) => {
-                if (!prev) return prev;
-                return {
-                    ...prev,
-                    gallery: prev.gallery.map((item, idx) => (idx === index ? { ...item, ...next } : item)),
-                };
-            });
-        },
-        [setDraft, viewer],
-    );
-
-    const removeAt = useCallback(
-        (index: number) => {
-            if (viewer.open && viewer.index === index) closeViewer();
-            else if (viewer.open && viewer.index > index) {
-                setViewer({ open: true, index: viewer.index - 1, mode: viewer.mode });
-            }
-            setDraft((prev) => {
-                if (!prev) return prev;
-                const removed = prev.gallery[index];
-                discardUnsavedMediaPathUnlessCommitted(removed?.storagePath, committedGalleryPaths);
-                return {
-                    ...prev,
-                    gallery: prev.gallery.filter((_, idx) => idx !== index),
-                };
-            });
-        },
-        [setDraft, viewer, closeViewer, committedGalleryPaths],
-    );
-
-    const activeItem = viewer.open ? gallery[viewer.index] : null;
+    const { viewer, canAdjust, activeItem, openViewer, closeViewer, saveAdjust, removeAt } =
+        useProfileGallerySection({
+            isEditing,
+            readOnly,
+            draft,
+            setDraft,
+            gallery,
+            committedGalleryPaths,
+            uploading,
+            screenActive,
+            onViewerOpenChange,
+            onRegisterCloseViewer,
+        });
 
     return (
         <section
             className="hami-profile-section hami-profile-gallery-frame"
             aria-labelledby="profile-gallery-heading"
+            data-testid="lawyer-profile-gallery"
+            data-empty={gallery.length === 0 ? 'true' : 'false'}
         >
             <div className="hami-profile-section-head">
                 <h2
@@ -157,7 +93,7 @@ export const ProfileGallerySection = React.memo(function ProfileGallerySection({
             </div>
 
             {gallery.length === 0 ? (
-                <p className="hami-profile-gallery-empty">لا توجد صوره للعرض</p>
+                <p className="hami-profile-gallery-empty">لا صور بعد</p>
             ) : (
                 <div className="hami-profile-gallery-rail">
                     {gallery.map((item, i) => (
@@ -168,6 +104,7 @@ export const ProfileGallerySection = React.memo(function ProfileGallerySection({
                             <button
                                 type="button"
                                 className="hami-profile-gallery-tile__hit"
+                                onPointerDown={prefetchProfileGalleryViewerChunk}
                                 onClick={() => openViewer(i, 'view')}
                                 aria-label="معاينة الصورة"
                                 data-testid={`profile-gallery-tile-${i}`}
@@ -185,7 +122,7 @@ export const ProfileGallerySection = React.memo(function ProfileGallerySection({
                                     }
                                 />
                             </button>
-                            {isEditing && draft ? (
+                            {isEditing && draft && !readOnly ? (
                                 <button
                                     type="button"
                                     onClick={(event) => {
@@ -204,14 +141,16 @@ export const ProfileGallerySection = React.memo(function ProfileGallerySection({
             )}
 
             {activeItem ? (
-                <ProfileGalleryViewer
-                    item={activeItem}
-                    open={viewer.open}
-                    canAdjust={canAdjust}
-                    initialMode={viewer.open ? viewer.mode : 'view'}
-                    onClose={closeViewer}
-                    onSaveAdjust={canAdjust ? saveAdjust : undefined}
-                />
+                <Suspense fallback={null}>
+                    <ProfileGalleryViewerLazy
+                        item={activeItem}
+                        open={viewer.open}
+                        canAdjust={canAdjust}
+                        initialMode={viewer.open ? viewer.mode : 'view'}
+                        onClose={closeViewer}
+                        onSaveAdjust={canAdjust ? saveAdjust : undefined}
+                    />
+                </Suspense>
             ) : null}
         </section>
     );

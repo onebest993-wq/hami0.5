@@ -1,32 +1,8 @@
-@import './theme.css';
-@import 'tailwindcss' source(none);
-
 /**
- * Tailwind لأقسام lazy ثقيلة — يُحمَّل مع deferred-features.css بعد جاهزية اللوحة
- * أو عند intent (تنفيذ/جنائي/مستودع…).
+ * كان يدمج كل أقسام lazy في مسح واحد — استُبدل بـ
+ * tailwind-features-workspace.css + tailwind-features-dossiers.css.
+ * يبقى الملف كي لا تنكسر إشارات قديمة؛ المحتوى يوجّه للتقسيم.
+ * الإدارة: tailwind-features-admin.css — لا تُخلط هنا.
  */
-@source '../app/components/lawyer/ExecutionDashboard/**';
-@source '../app/components/lawyer/criminal-system/**';
-@source '../app/components/lawyer/smart-modal/**';
-@source '../app/components/lawyer/SmartRepository/**';
-@source '../app/components/lawyer/CommunityScreen/**';
-@source '../app/components/lawyer/dossier-notes/**';
-@source '../app/components/lawyer/execution/**';
-@source '../app/components/AdminDashboard.tsx';
-@source '../app/components/admin/**';
-@source '../app/components/lawyer/FinancialOperationsCenter.tsx';
-@source '../app/components/lawyer/Modal_Unified_Summons_Hub.tsx';
-@source '../app/components/lawyer/Form_Urgent_Actions.tsx';
-@source '../app/components/lawyer/ArchivePortal/**';
-@source '../app/components/lawyer/HamiSettings/**';
-@source '../app/components/lawyer/SmartVaultModal/**';
-@source '../app/components/lawyer/GlobalSearchOverlay/**';
-@source '../app/components/lawyer/RoyalLawyerProfile/**';
-@source '../app/components/lawyer/LawyerNewCase/**';
-@source '../app/components/lawyer/TransactionsThreading/**';
-@source '../app/components/lawyer/Component_Urgent_Card.tsx';
-@source '../app/components/lawyer/View_Urgent_And_Orders_Dashboard.tsx';
-@source '../app/components/lawyer/SmartFileModal.tsx';
-@source '../app/components/lawyer/LegalCommandCenterDock.tsx';
-
-@plugin 'tailwindcss-animate';
+@import './tailwind-features-workspace.css';
+@import './tailwind-features-dossiers.css';

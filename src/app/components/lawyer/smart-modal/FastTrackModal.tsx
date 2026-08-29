@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, Scale, Clock, CheckCircle2, XCircle, ShieldCheck } from '@/app/components/ui/lucideIcons';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { X } from '@/app/components/ui/icons/X';
+import { Scale } from '@/app/components/ui/icons/Scale';
+import { Clock } from '@/app/components/ui/icons/Clock';
+import { CheckCircle2 } from '@/app/components/ui/icons/CheckCircle2';
+import { XCircle } from '@/app/components/ui/icons/XCircle';
+import { ShieldCheck } from '@/app/components/ui/icons/ShieldCheck';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import { CIVIL_LAWSUIT_TEST_IDS } from './smartFile/civilLawsuitTestIds';
 import {
     FAST_TRACK_STATUS_UI_OPTIONS,
@@ -84,8 +89,10 @@ export const FastTrackModal = ({ isOpen, onClose, onSave, editMode = false, edit
     const status = storedFastTrackStatus(statusKey);
     const showGrievanceSection = statusKey === 'grievance';
     const isDecided = isFastTrackDecidedStatus(status);
-    const showOutcomePicker = editMode && !isDecided && !showGrievanceSection;
-    const outcomeOptions = FAST_TRACK_STATUS_UI_OPTIONS.filter((opt) => opt.key === 'accepted' || opt.key === 'rejected');
+    const showOutcomePicker = editMode && !isDecided;
+    const outcomeOptions = FAST_TRACK_STATUS_UI_OPTIONS.filter(
+        (opt) => opt.key === 'accepted' || opt.key === 'rejected' || opt.key === 'grievance',
+    );
 
     const handleSubmit = () => {
         const type = requestType.trim();
@@ -113,7 +120,7 @@ export const FastTrackModal = ({ isOpen, onClose, onSave, editMode = false, edit
 
     return (
         <div className={T.overlay} dir="rtl" onClick={onClose}>
-            <div className={`w-full max-w-3xl ${T.shell}`} onClick={(e) => e.stopPropagation()}>
+            <div className={`w-full max-w-xl ${T.shell}`} onClick={(e) => e.stopPropagation()}>
                 <div className={T.shellCard}>
                     <div className={T.header}>
                         <h3 className={T.headerTitle}>
@@ -124,7 +131,7 @@ export const FastTrackModal = ({ isOpen, onClose, onSave, editMode = false, edit
                         </button>
                     </div>
 
-                    <div className={`${T.body} md:min-w-[46rem]`}>
+                    <div className={T.body}>
                     <div>
                         <label className={T.label}>
                             نوع الطلب <span className="text-red-400">*</span>

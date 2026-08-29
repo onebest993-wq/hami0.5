@@ -2,10 +2,11 @@
  * Phase-2: تسخين مسار Instant إضبارة التنفيذ.
  * first-paint للإضبارة لا يُلغى بـ lite — أول فتح على الموبايل كان بارداً دائماً.
  */
-import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
+import {
+    isSectionBackgroundPrefetchAllowed,
+    sectionBackgroundHydrateDelayMs,
+} from '@/app/runtime/sectionPrefetchPolicy';
 import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
 import {
     prefetchExecutionDashboardChromeWarm,
@@ -18,33 +19,20 @@ let bootHydratorArmed = false;
 let coldBootPrefetchStarted = false;
 
 function executionHeavyPrefetchAllowed(): boolean {
-    try {
-        const s = getLawyerSettingsSnapshot();
-        if (s.security.localOnlyMode) return false;
-        if (s.performance.prefetchScreens === false) return false;
-        if (isLitePerformanceActive(s.performance.litePerformance)) return false;
-    } catch {
-        /* ignore */
-    }
-    return true;
+    return isSectionBackgroundPrefetchAllowed();
 }
 
 /** مسار الإضبارة الحرج — يعمل حتى مع lite (ما لم يُعطَّل prefetchScreens / localOnly) */
 function executionDossierPrimeAllowed(): boolean {
-    try {
-        const s = getLawyerSettingsSnapshot();
-        if (s.security.localOnlyMode) return false;
-        if (s.performance.prefetchScreens === false) return false;
-    } catch {
-        /* ignore */
-    }
-    return true;
+    return isSectionBackgroundPrefetchAllowed({ allowOnLite: true });
 }
 
 function hydrateDelayMs(): number {
-    if (!executionHeavyPrefetchAllowed() && !executionDossierPrimeAllowed()) return -1;
-    if (isCapacitorNativePlatform()) return 80;
-    return 0;
+    return sectionBackgroundHydrateDelayMs(
+        80,
+        0,
+        executionHeavyPrefetchAllowed() || executionDossierPrimeAllowed(),
+    );
 }
 
 function dispatchHydratedOnce(): void {
@@ -54,8 +42,8 @@ function dispatchHydratedOnce(): void {
 
 function runExecutionBootPrime(): void {
     if (!executionDossierPrimeAllowed()) return;
-    // جذري: ثبّت بوابة + جسم + base scope قبل أي نقر على بطاقة
-    primeExecutionDossierSurface();
+    // JS فقط بعد كشف اللوحة — CSS الأضابير (~408KB) عند نية/فتح الإضبارة لا مع الإقلاع
+    primeExecutionDossierSurface({ includeFeatureStyles: false });
     if (executionHeavyPrefetchAllowed()) {
         prefetchExecutionDashboardChromeWarm();
     }

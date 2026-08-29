@@ -3,7 +3,7 @@ import type { SmartFileParentData } from './parentDataInit';
 import { resolveDisplayParties } from './resolveDisplayParties';
 
 /** Strip non-JSON-safe values before localStorage / cloud handoff. */
-export function sanitizeForPersist<T>(value: T): T {
+function sanitizeForPersist<T>(value: T): T {
     return JSON.parse(
         JSON.stringify(value, (_key, v) => {
             if (typeof v === 'function' || typeof v === 'symbol') return undefined;
@@ -60,7 +60,7 @@ export function buildCloudSavePayload(
 
     return sanitizeForPersist({
         ...updatedParent,
-        id: updatedParent.id,
+        id: String(updatedParent.id ?? '').trim() || updatedParent.id,
         stages: updatedStages,
         activeStageIndex,
         status,

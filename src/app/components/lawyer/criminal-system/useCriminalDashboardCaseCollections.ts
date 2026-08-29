@@ -7,7 +7,7 @@ import { inferDecisionPresenceFromTrialSessions, sortTrialSessionsAsc } from './
 import { resolveCurrentAccusationArticleFromCase } from './trialChargeEngine';
 import { normalizeVerdictCards, resolveVerdictCardsLifecycle } from './verdictCardsEngine';
 
-export type UseCriminalDashboardCaseCollectionsParams = {
+type UseCriminalDashboardCaseCollectionsParams = {
     id: string;
     criminalCase: CriminalCase;
     rawCase: CriminalCase | null;

@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type LegalSearchHighlightSegment = {
+type LegalSearchHighlightSegment = {
     text: string;
     highlighted: boolean;
 };

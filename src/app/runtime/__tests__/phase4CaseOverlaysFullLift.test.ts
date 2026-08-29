@@ -1,15 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readLawyerDashboardMainViewSurface } from './readLawyerDashboardMainViewSurface';
 
 const root = process.cwd();
 
 describe('Phase 4 — CaseOverlays/Host full lift', () => {
     it('MainView يركّب NewCase + Consolidation + NonExecArchive', () => {
-        const src = readFileSync(
-            join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
-            'utf8',
-        );
+        const src = readLawyerDashboardMainViewSurface();
         expect(src).toContain('LawyerDashboardNewCaseOverlayEntry');
         expect(src).toContain('LawyerDashboardConsolidationNavOverlayEntry');
         expect(src).toContain('LawyerDashboardNonExecArchiveOverlayEntry');

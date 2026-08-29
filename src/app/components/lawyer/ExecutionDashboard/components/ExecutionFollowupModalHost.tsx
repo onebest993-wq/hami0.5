@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, useEffect } from 'react';
 
 import { FollowupModalStoreProvider, type FollowupModalSnapshot } from '../followupModalContext';
-import { ExecutionFollowupModalPortal } from '../ExecutionFollowupModalPortal';
+import { LazyExecutionFollowupModalPortal } from '../executionFollowupModalLazy';
 import { prefetchExecutionCoreHandlers } from '../executionCoreHandlersPrefetch';
 import { prefetchExecutionFollowupTab } from '../executionFollowupTabPrefetch';
 import { useExecutionDashboardStore } from '@/app/stores';
+import { ExecutionFollowupInstantFrame } from './ExecutionFollowupInstantFrame';
 
 type ExecutionFollowupModalHostProps = {
     open: boolean;
@@ -12,7 +13,7 @@ type ExecutionFollowupModalHostProps = {
 };
 
 /**
- * محضر المتابعة — البوابة مضمّنة في ShellOverlays (لا lazy مزدوج).
+ * محضر المتابعة — Host رفيع.
  * Suspense التبويب يبقى داخل اللوحة فقط بعد ظهور هيكل المحضر فوراً.
  */
 export function ExecutionFollowupModalHost({ open: _openFromProp, snapshot }: ExecutionFollowupModalHostProps) {
@@ -34,9 +35,13 @@ export function ExecutionFollowupModalHost({ open: _openFromProp, snapshot }: Ex
 
     if (!open) return null;
 
-    return (
-        <FollowupModalStoreProvider snapshot={snapshot}>
-            <ExecutionFollowupModalPortal />
-        </FollowupModalStoreProvider>
+    const portal = LazyExecutionFollowupModalPortal.isPreloaded() ? (
+        <LazyExecutionFollowupModalPortal />
+    ) : (
+        <Suspense fallback={<ExecutionFollowupInstantFrame />}>
+            <LazyExecutionFollowupModalPortal />
+        </Suspense>
     );
+
+    return <FollowupModalStoreProvider snapshot={snapshot}>{portal}</FollowupModalStoreProvider>;
 }

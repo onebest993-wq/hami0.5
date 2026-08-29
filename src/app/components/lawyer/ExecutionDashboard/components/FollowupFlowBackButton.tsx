@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight } from '@/app/components/ui/lucideIcons';
+import { ArrowRight } from '@/app/components/ui/icons/ArrowRight';
 
 export type FollowupFlowBackButtonProps = {
     onClick: () => void;
@@ -12,7 +12,7 @@ export type FollowupFlowBackButtonProps = {
 };
 
 const BASE =
-    'flex shrink-0 items-center justify-center rounded-full border border-[#E6C673]/25 bg-[#E6C673]/[0.07] text-[#E6C673]/75 transition-all duration-200 hover:border-[#E6C673]/45 hover:bg-[#E6C673]/12 hover:text-[#E6C673] hover:shadow-[0_0_12px_rgba(230,198,115,0.25)] active:scale-95 disabled:opacity-30 disabled:pointer-events-none';
+    'flex shrink-0 items-center justify-center rounded-full border border-[#E6C673]/25 bg-[#E6C673]/[0.07] text-[#E6C673]/75 transition-all duration-200 hover:border-[#E6C673]/45 hover:bg-[#E6C673]/12 hover:text-[#E6C673] hover: active:scale-95 disabled:opacity-30 disabled:pointer-events-none';
 
 /** سهم تراجع — inline في RTL يظهر يمين العنوان */
 export const FollowupFlowBackButton: React.FC<FollowupFlowBackButtonProps> = ({
@@ -37,26 +37,4 @@ export const FollowupFlowBackButton: React.FC<FollowupFlowBackButtonProps> = ({
     >
         <ArrowRight size={16} strokeWidth={2.5} className="shrink-0" aria-hidden />
     </button>
-);
-
-export type FollowupNestedPanelProps = {
-    showBack: boolean;
-    onBack: () => void;
-    children: React.ReactNode;
-    className?: string;
-    bodyClassName?: string;
-};
-
-/** غلاف للمستوى الثاني فما فوق */
-export const FollowupNestedPanel: React.FC<FollowupNestedPanelProps> = ({
-    showBack,
-    onBack,
-    children,
-    className = '',
-    bodyClassName = '',
-}) => (
-    <div className={`relative ${showBack ? 'z-10' : ''} ${className}`}>
-        {showBack ? <FollowupFlowBackButton onClick={onBack} variant="overlay" /> : null}
-        <div className={showBack ? `pt-1 pr-9 ${bodyClassName}` : bodyClassName}>{children}</div>
-    </div>
 );

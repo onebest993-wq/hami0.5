@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { DossierLifecyclePanel } from '../DossierLifecyclePanel';
+import { dossierLifecycleLabelAr } from '../../helpers/dossierLifecycleUtils';
 
 describe('DossierLifecyclePanel', () => {
     it('renders from the trigger ref when pop style is not ready yet', () => {
@@ -42,7 +43,7 @@ describe('DossierLifecyclePanel', () => {
                 setDossierReasonDraft={vi.fn()}
                 dossierDateDraft=""
                 setDossierDateDraft={vi.fn()}
-                dossierLifecycleLabelAr={(value: string) => value}
+                dossierLifecycleLabelAr={dossierLifecycleLabelAr}
                 handleDossierLifecyclePick={handlePick}
                 handleDossierLifecycleConfirmDetails={vi.fn()}
                 dossierLifecyclePanelPortalRef={React.createRef<HTMLDivElement>()}
@@ -94,7 +95,7 @@ describe('DossierLifecyclePanel', () => {
                 setDossierReasonDraft={setReasonDraft}
                 dossierDateDraft=""
                 setDossierDateDraft={setDateDraft}
-                dossierLifecycleLabelAr={(value: string) => value}
+                dossierLifecycleLabelAr={dossierLifecycleLabelAr}
                 handleDossierLifecyclePick={vi.fn()}
                 handleDossierLifecycleConfirmDetails={handleConfirm}
                 dossierLifecyclePanelPortalRef={React.createRef<HTMLDivElement>()}

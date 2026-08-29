@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle, Sofa, Truck, XCircle } from '@/app/components/ui/lucideIcons';
+import { CheckCircle } from '@/app/components/ui/icons/CheckCircle';
+import { Sofa } from '@/app/components/ui/icons/Sofa';
+import { Truck } from '@/app/components/ui/icons/Truck';
+import { XCircle } from '@/app/components/ui/icons/XCircle';
 import type { MaritalFurnitureItem, MaritalFurnitureDeliveryOutcome } from '@/app/types/maritalFurniture';
 import {
     areAllMaritalFurnitureItemsDeliveryLocked,
@@ -13,6 +16,7 @@ import {
     sumMaritalFurnitureTotal,
     sumUndeliveredMaritalFurnitureTotal,
 } from '@/app/utils/maritalFurniture';
+import { useExecutionSectionConfirm } from '@/app/components/lawyer/execution/useExecutionSectionConfirm';
 
 export interface MaritalFurnitureDeliveryInventoryFormProps {
     items: MaritalFurnitureItem[];
@@ -74,6 +78,7 @@ export const MaritalFurnitureDeliveryInventoryForm: React.FC<
     onItemDeliveryOutcome,
 }) => {
     const [rows, setRows] = useState<MaritalFurnitureItem[]>(() => items.map((row) => ({ ...row })));
+    const { confirm, dialog: confirmDialog } = useExecutionSectionConfirm();
 
     useEffect(() => {
         setRows(items.map((row) => ({ ...row })));
@@ -90,17 +95,14 @@ export const MaritalFurnitureDeliveryInventoryForm: React.FC<
         onSave(rows.map((row) => ({ ...row, delivered: row.delivered === true })));
     };
 
-    const handleFinalize = () => {
+    const handleFinalize = async () => {
         if (disabled || !onFinalize) return;
-        if (
-            !window.confirm('هل تأكدت من اكتمال جرد التسليم وإغلاق طلب كسر الأقفال والجرد؟')
-        ) {
-            return;
-        }
+        const accepted = await confirm('هل تأكدت من اكتمال جرد التسليم وإغلاق طلب كسر الأقفال والجرد؟');
+        if (!accepted) return;
         onFinalize();
     };
 
-    const confirmOutcome = (
+    const confirmOutcome = async (
         item: MaritalFurnitureItem,
         outcome: Exclude<MaritalFurnitureDeliveryOutcome, 'pending'>,
     ) => {
@@ -109,7 +111,8 @@ export const MaritalFurnitureDeliveryInventoryForm: React.FC<
             failed: `تأكيد تعذّر تسليم «${item.name}» وربطها بالمركز المالي؟`,
             external_delivered: `تأكيد التسليم الخارجي لـ «${item.name}» قبل الموعد؟`,
         };
-        if (!window.confirm(labels[outcome])) return;
+        const accepted = await confirm(labels[outcome]);
+        if (!accepted) return;
         if (perItemMode) {
             const ts = new Date().toISOString();
             setRows((prev) =>
@@ -211,7 +214,7 @@ export const MaritalFurnitureDeliveryInventoryForm: React.FC<
                                         <button
                                             type="button"
                                             disabled={disabled}
-                                            onClick={() => confirmOutcome(row, 'external_delivered')}
+                                            onClick={() => void confirmOutcome(row, 'external_delivered')}
                                             className="rounded-lg border border-sky-500/35 bg-sky-500/10 px-2 py-1 text-[9px] font-bold text-sky-200 hover:bg-sky-500/20 disabled:opacity-40"
                                         >
                                             تسليم خارجي
@@ -221,7 +224,7 @@ export const MaritalFurnitureDeliveryInventoryForm: React.FC<
                                             <button
                                                 type="button"
                                                 disabled={disabled}
-                                                onClick={() => confirmOutcome(row, 'delivered')}
+                                                onClick={() => void confirmOutcome(row, 'delivered')}
                                                 className="rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-2 py-1 text-[9px] font-bold text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-40"
                                             >
                                                 تسليم
@@ -229,7 +232,7 @@ export const MaritalFurnitureDeliveryInventoryForm: React.FC<
                                             <button
                                                 type="button"
                                                 disabled={disabled}
-                                                onClick={() => confirmOutcome(row, 'failed')}
+                                                onClick={() => void confirmOutcome(row, 'failed')}
                                                 className="rounded-lg border border-rose-500/35 bg-rose-500/10 px-2 py-1 text-[9px] font-bold text-rose-200 hover:bg-rose-500/20 disabled:opacity-40"
                                             >
                                                 تعذّر التسليم
@@ -266,13 +269,14 @@ export const MaritalFurnitureDeliveryInventoryForm: React.FC<
                     <button
                         type="button"
                         disabled={disabled}
-                        onClick={handleFinalize}
+                        onClick={() => void handleFinalize()}
                         className="w-full rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-3 py-2 text-[11px] font-extrabold text-emerald-200 disabled:opacity-40"
                     >
                         تأكيد اكتمال الكسر والجرد
                     </button>
                 ) : null}
             </div>
+            {confirmDialog}
         </div>
     );
 };

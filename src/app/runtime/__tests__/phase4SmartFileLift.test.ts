@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readLawyerDashboardMainViewSurface } from './readLawyerDashboardMainViewSurface';
 
 describe('SmartFile lift — خارج Host (Phase 4)', () => {
     it('MainView يركّب LawyerDashboardSmartFileOverlayEntry', () => {
-        const src = readFileSync(
-            join(process.cwd(), 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
-            'utf8',
-        );
-        expect(src).toContain('LawyerDashboardSmartFileOverlayEntry');
+        const src = readLawyerDashboardMainViewSurface();
+        expect(src).toContain('LazySmartFileOverlayEntry');
+        expect(src).toContain('loadSmartFileOverlayEntry');
         expect(src).toContain('smartFileLive');
     });
 

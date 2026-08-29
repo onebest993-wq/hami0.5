@@ -1,0 +1,63 @@
+{
+	"appId": "iq.hami.legal",
+	"appName": "Hami Legal",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	},
+	"ios": {
+		"contentInset": "automatic",
+		"scrollEnabled": true
+	},
+	"android": {
+		"allowMixedContent": false,
+		"backgroundColor": "#0A0F1C"
+	},
+	"plugins": {
+		"SplashScreen": {
+			"launchShowDuration": 0,
+			"launchAutoHide": false,
+			"launchFadeOutDuration": 280,
+			"backgroundColor": "#0A0F1C",
+			"androidSplashResourceName": "splash",
+			"androidScaleType": "CENTER",
+			"showSpinner": false,
+			"splashFullScreen": true,
+			"splashImmersive": true
+		},
+		"Keyboard": {
+			"resize": "body",
+			"style": "DARK",
+			"resizeOnFullScreen": true,
+			"autoBackdropColor": "auto"
+		},
+		"PrivacyScreen": {
+			"enable": true,
+			"preventScreenshots": true
+		},
+		"LocalNotifications": {
+			"smallIcon": "ic_launcher_foreground",
+			"iconColor": "#E6C673",
+			"sound": "hami_arrival.wav"
+		},
+		"PushNotifications": {
+			"presentationOptions": [
+				"badge",
+				"sound",
+				"alert"
+			]
+		}
+	},
+	"packageClassList": [
+		"BiometricAuthNative",
+		"PrivacyScreenPlugin",
+		"AppPlugin",
+		"FilesystemPlugin",
+		"GeolocationPlugin",
+		"KeyboardPlugin",
+		"LocalNotificationsPlugin",
+		"PushNotificationsPlugin",
+		"SharePlugin",
+		"SplashScreenPlugin"
+	]
+}

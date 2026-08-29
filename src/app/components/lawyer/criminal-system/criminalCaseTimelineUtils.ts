@@ -1,4 +1,4 @@
-export type TimelineEventCorruptionCheckInput = {
+type TimelineEventCorruptionCheckInput = {
     date?: string;
     title?: string;
     description?: string;

@@ -91,22 +91,6 @@ export function computePastAlimonyDuration(
     };
 }
 
-/** @deprecated use computePastAlimonyDuration — kept for tests */
-export function computePastAlimonyDurationMonths(
-    pastStartDate: string,
-    endDate: string,
-    pastLawSystem: AlimonyPastLawSystem,
-) {
-    const r = computePastAlimonyDuration(pastStartDate, endDate, pastLawSystem);
-    return {
-        billableMonths: r.billableMonths,
-        rawMonths: r.rawMonths,
-        pastYearCapApplied: r.pastYearCapApplied,
-        totalDays: r.totalDays,
-        billableDays: r.billableDays,
-    };
-}
-
 export type AlimonyCalculatorInsightStatus =
     | 'ready'
     | 'missing_lawsuit_date'
@@ -404,21 +388,4 @@ export function useAlimonyCalculator(
     ]);
 
     return { calculatedAlimonyNew };
-}
-
-/** رؤى لحظية للواجهة — مزامنة وتوضيح العلاقة بين التواريخ */
-export function useAlimonyCalculatorInsights(
-    params: Parameters<typeof resolveAlimonyCalculatorInsights>[0],
-) {
-    return useMemo(() => resolveAlimonyCalculatorInsights(params), [
-        params.alimonyBeneficiary,
-        params.alimonyLawsuitDate,
-        params.alimonyExecutionDate,
-        params.alimonyWifeMonthly,
-        params.alimonyChildrenMonthly,
-        params.alimonyChildrenCount,
-        params.includesPastCalc,
-        params.judgmentDate,
-        params.todayYmd,
-    ]);
 }

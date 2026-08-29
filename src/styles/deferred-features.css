@@ -1,3 +1,6 @@
-@import './tailwind-features.css';
-@import '../app/components/lawyer/SmartLegalRadar/radarTheme.css';
-@import '../app/components/lawyer/ArchivePortal/royalGlassBtn.css';
+/**
+ * نقطة توافق — لا تُستورد ديناميكياً ككتلة واحدة بعد التقسيم.
+ * المسار التشغيلي: deferredFeatureStyles → workspace و/أو dossiers منفصلين.
+ */
+@import './deferred-features-workspace.css';
+@import './deferred-features-dossiers.css';

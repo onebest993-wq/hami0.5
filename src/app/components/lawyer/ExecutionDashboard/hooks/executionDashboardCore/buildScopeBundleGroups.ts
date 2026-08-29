@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C Slice 24 — تعريف مجموعات scope local/rest (من slice 23) */
 
 const LOCAL_GROUPS = {

@@ -4,7 +4,7 @@ import {
     normalizeLegacyFollowupTabOnOpen,
     resolveLegacyFollowupTabRuntimeRedirect,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/followupLegacyTabNormalization';
-import { simulateFollowupModalJourney } from '../followupModalJourneyHarness';
+import { simulateFollowupModalJourney } from './support/followupModalJourneyHarness';
 
 describe('followupLegacyTabNormalization', () => {
     it('maps financial to seizure route on open', () => {
@@ -21,14 +21,14 @@ describe('followupLegacyTabNormalization', () => {
         });
     });
 
-    it('redirects runtime financial to coercive when allowed', () => {
+    it('redirects runtime financial to seizure_requests when that tab exists', () => {
         expect(
             resolveLegacyFollowupTabRuntimeRedirect({
                 unifiedModalTab: 'financial',
-                effectiveFollowupSectionTabOrder: ['personal', 'coercive'],
+                effectiveFollowupSectionTabOrder: ['personal', 'coercive', 'seizure_requests'],
                 hideFollowupCoerciveTab: false,
             }),
-        ).toBe('coercive');
+        ).toBe('seizure_requests');
     });
 
     it('canonicalizes prefetch ids', () => {

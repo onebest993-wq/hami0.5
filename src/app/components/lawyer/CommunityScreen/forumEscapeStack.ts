@@ -1,6 +1,5 @@
 /** لقطة حالة طبقات المنتدى — الأعمق أولاً في resolveForumEscapeAction */
 export type ForumEscapeSnapshot = {
-    fullscreenImage: string | null;
     profileView: boolean;
     pendingDeletePostId: string | null;
     editingPostId: string | null;
@@ -17,7 +16,6 @@ export type ForumEscapeSnapshot = {
 };
 
 export type ForumEscapeAction =
-    | 'close-fullscreen-image'
     | 'close-profile'
     | 'cancel-delete'
     | 'cancel-edit'
@@ -35,7 +33,6 @@ export type ForumEscapeAction =
 
 /** يحدد الإجراء التالي عند Escape — من الداخل إلى الخارج */
 export function resolveForumEscapeAction(snapshot: ForumEscapeSnapshot): ForumEscapeAction {
-    if (snapshot.fullscreenImage) return 'close-fullscreen-image';
     if (snapshot.profileView) return 'close-profile';
     if (snapshot.pendingDeletePostId) return 'cancel-delete';
     if (snapshot.editingPostId) return 'cancel-edit';

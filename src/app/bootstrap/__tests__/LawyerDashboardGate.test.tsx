@@ -17,12 +17,30 @@ vi.mock('@/app/bootstrap/lawyerDashboardChunk', () => ({
         return <div data-testid="lawyer-dashboard-lazy-loaded" />;
     },
     preloadLawyerDashboardChunk: vi.fn(),
-    scheduleLawyerDashboardPrefetch: vi.fn(),
 }));
 
 vi.mock('@/app/runtime/lawyerDashboardLoader', () => ({
     resetLawyerDashboardModuleCache: vi.fn(),
     getLawyerDashboardModuleSync: () => null,
+}));
+
+vi.mock('@/app/context/authHooks', () => ({
+    useAuthSafe: () => ({ user: { id: 'u1' }, isLoading: false, hasRole: () => false }),
+}));
+
+vi.mock('@/boot/shouldPreloadLawyerBoard', () => ({
+    shouldPreloadLawyerDashboardBoard: () => true,
+    shouldEnterLawyerDashboardBoard: () => true,
+    resolveLawyerBoardEnter: ({ forcedAuthLane }: { forcedAuthLane: boolean }) => !forcedAuthLane,
+}));
+
+vi.mock('@/app/runtime/lawyerDashboardInnerLoader', () => ({
+    prefetchLawyerDashboardInner: vi.fn(),
+}));
+
+vi.mock('@/app/services/auth/passwordRecoveryGate', () => ({
+    subscribePasswordRecovery: () => () => undefined,
+    isPasswordRecoveryPending: () => false,
 }));
 
 vi.mock('@/app/bootstrap/useBootReveal', () => ({

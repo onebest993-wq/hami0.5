@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import { Clock } from '@/app/components/ui/lucideIcons';
+import { Clock } from '@/app/components/ui/icons/Clock';
 import {
     CASE_SHARE_SESSION_MINUTES,
     clampCaseShareSessionMinutes,

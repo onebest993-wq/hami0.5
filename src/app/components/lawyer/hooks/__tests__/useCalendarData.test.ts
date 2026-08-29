@@ -2,7 +2,10 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { useCalendarData, buildEventsByDateIndex, calendarEventSetsEqual } from '@/app/components/lawyer/hooks/useCalendarData';
 import { CALENDAR_LOCAL_STORAGE_KEY } from '@/app/services/calendar/calendarLocalSnapshot';
-import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
+import {
+    CALENDAR_BACKGROUND_SYNC_FAILED_EVENT,
+    CALENDAR_UPDATED_EVENT,
+} from '@/app/services/calendarBridge.types';
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
 
 const USER = 'lawyer-cal-1';
@@ -31,11 +34,16 @@ vi.mock('@/app/services/calendar/bridgePersistence/propagate', () => ({
     propagateBridgedCalendarRemoval: vi.fn(),
 }));
 
-vi.mock('@/app/hooks/lawyerDashboard/scheduleIntentWarm', () => ({
+vi.mock('@/app/services/calendar/calendarEventsWarm', () => ({
     awaitCalendarWarmIfInflight: vi.fn(() => Promise.resolve()),
 }));
 
-import { fetchCalendarEvents } from '@/app/services/calendar/calendarCloudRuntime';
+import {
+    fetchCalendarEvents,
+    saveCalendarEvent,
+    updateCalendarEvent,
+    deleteCalendarEvent,
+} from '@/app/services/calendar/calendarCloudRuntime';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
 import { setCachedCalendarEvents, resetCalendarEventsCacheForTests } from '@/app/services/calendar/calendarEventsCache';
 
@@ -49,6 +57,7 @@ describe('useCalendarData — SWR', () => {
 
     afterEach(() => {
         localStorage.clear();
+        vi.useRealTimers();
     });
 
     it('يعرض اللقطة المحلية فوراً دون spinner كامل', async () => {
@@ -257,8 +266,134 @@ describe('useCalendarData — SWR', () => {
         });
 
         expect(fetchCalendarEvents).not.toHaveBeenCalled();
-        expect(result.current.error).toContain('تسجيل الدخول');
+        expect(result.current.error).toBeNull();
         expect(result.current.allEvents).toHaveLength(0);
+    });
+
+    it('يعلن فشل مزامنة الجسر الخلفية بدل الصمت', async () => {
+        vi.mocked(fetchCalendarEvents).mockResolvedValue([]);
+        const { result } = renderHook(() => useCalendarData(USER));
+
+        await waitFor(() => {
+            expect(fetchCalendarEvents).toHaveBeenCalled();
+        });
+
+        act(() => {
+            window.dispatchEvent(new CustomEvent(CALENDAR_BACKGROUND_SYNC_FAILED_EVENT));
+        });
+
+        expect(result.current.error).toBe('تعذّر تحديث التقويم');
+    });
+
+    it('يلغي الإضافة المعلّقة بعد مهلة الحفظ ويعيد القائمة', async () => {
+        vi.mocked(fetchCalendarEvents).mockResolvedValue([]);
+        vi.mocked(saveCalendarEvent).mockImplementation(() => new Promise(() => {}));
+        const { result } = renderHook(() => useCalendarData(USER));
+        await waitFor(() => {
+            expect(fetchCalendarEvents).toHaveBeenCalled();
+        });
+
+        vi.useFakeTimers();
+        try {
+            let created: CalendarEvent | null | undefined;
+            await act(async () => {
+                const pending = result.current.addEvent({
+                    userId: USER,
+                    title: 'موعد معلّق',
+                    date: '2026-06-15',
+                    type: 'custom',
+                });
+                void pending.then((value) => {
+                    created = value;
+                });
+            });
+            expect(result.current.allEvents.some((event) => event.title === 'موعد معلّق')).toBe(true);
+
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(8_000);
+            });
+
+            expect(created).toBeNull();
+            expect(result.current.error).toBe('تعذّر حفظ الموعد');
+            expect(result.current.allEvents.some((event) => event.title === 'موعد معلّق')).toBe(false);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('يفشل التحديث المعلّق بعد المهلة دون إعلان نجاح', async () => {
+        const existing: CalendarEvent = {
+            id: 'evt-hang',
+            userId: USER,
+            title: 'موعد',
+            date: '2026-06-15',
+            type: 'custom',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+        };
+        setCachedCalendarEvents(USER, [existing]);
+        vi.mocked(fetchCalendarEvents).mockResolvedValue([existing]);
+        vi.mocked(updateCalendarEvent).mockImplementation(() => new Promise(() => {}));
+        const { result } = renderHook(() => useCalendarData(USER));
+        await waitFor(() => {
+            expect(result.current.customEvents.some((event) => event.id === 'evt-hang')).toBe(true);
+        });
+
+        vi.useFakeTimers();
+        try {
+            let updated: CalendarEvent | null | undefined;
+            await act(async () => {
+                const pending = result.current.updateEvent({ ...existing, title: 'موعد معلّق' });
+                void pending.then((value) => {
+                    updated = value;
+                });
+            });
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(8_000);
+            });
+            expect(updated).toBeNull();
+            expect(result.current.error).toBe('تعذّر حفظ الموعد');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('يفشل الحذف المعلّق بعد المهلة', async () => {
+        const existing: CalendarEvent = {
+            id: 'evt-del',
+            userId: USER,
+            title: 'موعد',
+            date: '2026-06-15',
+            type: 'custom',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+        };
+        setCachedCalendarEvents(USER, [existing]);
+        vi.mocked(fetchCalendarEvents).mockResolvedValue([existing]);
+        vi.mocked(deleteCalendarEvent).mockImplementation(() => new Promise(() => {}));
+        const { result } = renderHook(() => useCalendarData(USER));
+        await waitFor(() => {
+            expect(result.current.customEvents.some((event) => event.id === 'evt-del')).toBe(true);
+        });
+
+        vi.useFakeTimers();
+        try {
+            let removed: boolean | undefined;
+            await act(async () => {
+                const pending = result.current.deleteEvent('evt-del');
+                void pending.then((value) => {
+                    removed = value;
+                });
+            });
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(8_000);
+            });
+            expect(removed).toBe(false);
+            expect(result.current.error).toBe('تعذّر حفظ الموعد');
+            expect(result.current.customEvents.some((event) => event.id === 'evt-del')).toBe(true);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });
 

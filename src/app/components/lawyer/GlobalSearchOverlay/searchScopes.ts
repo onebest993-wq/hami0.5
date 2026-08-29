@@ -1,7 +1,7 @@
 import type { GlobalSearchCategory, GroupedSearchResults, GlobalSearchEntry } from '@/app/services/globalSearchIndex';
 import { groupSearchResults } from '@/app/services/globalSearchIndex';
 
-/** نطاقات تصنيف البحث — بدون المنتدى القانوني */
+/** نطاقات تصنيف البحث — بدون المنتدى القانوني (community تبقى ضمن «الكل» فقط) */
 export type GlobalSearchScopeId =
     | 'all'
     | 'execution'
@@ -11,7 +11,8 @@ export type GlobalSearchScopeId =
     | 'tasks'
     | 'calendar'
     | 'vault'
-    | 'notes';
+    | 'notes'
+    | 'notifications';
 
 export type GlobalSearchScopeChip = {
     id: GlobalSearchScopeId;
@@ -24,11 +25,12 @@ export const SEARCH_SCOPE_CHIPS: readonly GlobalSearchScopeChip[] = [
     { id: 'execution', label: 'تنفيذ', categories: ['execution'] },
     { id: 'lawsuit', label: 'دعاوى', categories: ['lawsuit', 'case', 'party', 'urgent'] },
     { id: 'criminal', label: 'جزائي', categories: ['criminal'] },
-    { id: 'transactions', label: 'معاملات', categories: ['transaction', 'threading', 'finance'] },
+    { id: 'transactions', label: 'معاملات', categories: ['transaction', 'threading'] },
     { id: 'tasks', label: 'مهام', categories: ['task'] },
     { id: 'calendar', label: 'تقويم', categories: ['calendar'] },
     { id: 'vault', label: 'المستودع', categories: ['vault', 'repository'] },
     { id: 'notes', label: 'ملاحظات', categories: ['note', 'voice'] },
+    { id: 'notifications', label: 'إشعارات', categories: ['notification'] },
 ] as const;
 
 export function resolveSearchScopeCategories(scope: GlobalSearchScopeId): readonly GlobalSearchCategory[] | null {

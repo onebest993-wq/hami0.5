@@ -1,4 +1,8 @@
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
+import {
+    CALENDAR_MUTATION_TIMEOUT_MS,
+    withCalendarTimeout,
+} from '@/app/services/calendar/calendarTimeout';
 
 type CalendarCloudModule = typeof import('@/app/services/cloud/lawyerCalendarCloud');
 
@@ -20,30 +24,35 @@ export async function fetchCalendarEvents(
     return mod.CalendarDB.getEvents(userId, options);
 }
 
-const CALENDAR_SAVE_TIMEOUT_MS = 8_000;
-
-function withSaveTimeout<T>(promise: Promise<T>): Promise<T> {
-    return Promise.race([
-        promise,
-        new Promise<T>((_, reject) => {
-            window.setTimeout(() => reject(new Error('calendar-save-timeout')), CALENDAR_SAVE_TIMEOUT_MS);
-        }),
-    ]);
+function withMutationTimeout<T>(work: Promise<T>): Promise<T> {
+    return withCalendarTimeout(work, CALENDAR_MUTATION_TIMEOUT_MS, 'calendar-save-timeout');
 }
 
 export async function saveCalendarEvent(event: CalendarEvent): Promise<void> {
-    const mod = await loadCalendarCloudModule();
-    await withSaveTimeout(mod.CalendarDB.saveEvent(event));
+    await withMutationTimeout(
+        (async () => {
+            const mod = await loadCalendarCloudModule();
+            await mod.CalendarDB.saveEvent(event);
+        })(),
+    );
 }
 
 export async function updateCalendarEvent(event: CalendarEvent): Promise<void> {
-    const mod = await loadCalendarCloudModule();
-    return mod.CalendarDB.updateEvent(event);
+    await withMutationTimeout(
+        (async () => {
+            const mod = await loadCalendarCloudModule();
+            await mod.CalendarDB.updateEvent(event);
+        })(),
+    );
 }
 
 export async function deleteCalendarEvent(eventId: string, userId: string): Promise<void> {
-    const mod = await loadCalendarCloudModule();
-    return mod.CalendarDB.deleteEvent(eventId, userId);
+    await withMutationTimeout(
+        (async () => {
+            const mod = await loadCalendarCloudModule();
+            await mod.CalendarDB.deleteEvent(eventId, userId);
+        })(),
+    );
 }
 
 /** تحميل مسبق لـ chunk التقويم — hover/idle على الرئيسية */

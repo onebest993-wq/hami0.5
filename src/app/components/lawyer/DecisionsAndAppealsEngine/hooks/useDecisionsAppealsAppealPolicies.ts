@@ -1,12 +1,30 @@
 import { useCallback } from 'react';
 import type { Decision } from '../types';
-import {
-    appealWindowsForDecision,
-    resolveAppealLastDeadlineYmd,
-    EXECUTOR_QUEUE_REQUEST_KINDS,
-    GRIEVANCE_APPEAL_WINDOW_DAYS,
-    CASSATION_APPEAL_WINDOW_DAYS,
-} from '../utils';
+import { appealWindowsForDecision, EXECUTOR_QUEUE_REQUEST_KINDS, type AppealDeadlineWindows } from '../utils';
+
+const CLOSED_APPEAL_WINDOWS: AppealDeadlineWindows = {
+    canTadhallum: false,
+    canTamyeez: false,
+    daysElapsed: 999,
+    grievanceDaysElapsed: 999,
+    cassationDaysElapsed: 999,
+    isPastGrievanceDeadline: true,
+    isPastTamyeezDeadline: true,
+    decisionClockYmd: '',
+    cassationClockYmd: '',
+};
+
+const PENDING_EXECUTOR_APPEAL_WINDOWS: AppealDeadlineWindows = {
+    canTadhallum: false,
+    canTamyeez: false,
+    daysElapsed: 0,
+    grievanceDaysElapsed: 0,
+    cassationDaysElapsed: 0,
+    isPastGrievanceDeadline: false,
+    isPastTamyeezDeadline: false,
+    decisionClockYmd: '',
+    cassationClockYmd: '',
+};
 
 export function useDecisionsAppealsAppealPolicies() {
     const requestNeedsExecutorOutcome = useCallback((d: Decision) => {
@@ -39,60 +57,10 @@ export function useDecisionsAppealsAppealPolicies() {
     );
 
     const getAppealStatus = useCallback(
-        (decision: Decision) => {
-            if (decision.appealStatus === 'final') {
-                return {
-                    tadhallumDeadline: new Date(),
-                    tamyeezDeadline: new Date(),
-                    daysToTadhallum: 0,
-                    daysToTamyeez: 0,
-                    canFileTadhallum: false,
-                    canFileTamyeez: false,
-                    isFinal: true,
-                };
-            }
-            if (requestNeedsExecutorOutcome(decision)) {
-                return {
-                    tadhallumDeadline: new Date(),
-                    tamyeezDeadline: new Date(),
-                    daysToTadhallum: 999,
-                    daysToTamyeez: 999,
-                    canFileTadhallum: false,
-                    canFileTamyeez: false,
-                    isFinal: false,
-                };
-            }
-            const w = appealWindowsForDecision(decision);
-            const tadhEndYmd = resolveAppealLastDeadlineYmd(
-                'tadhallum',
-                w.decisionClockYmd,
-                w.cassationClockYmd,
-            );
-            const tamEndYmd = resolveAppealLastDeadlineYmd(
-                'tamyeez',
-                w.decisionClockYmd,
-                w.cassationClockYmd,
-            );
-            const tadhallumDeadline = new Date(tadhEndYmd);
-            const tamyeezDeadline = new Date(tamEndYmd);
-            const daysToTadhallum =
-                w.canTadhallum && w.grievanceDaysElapsed >= 0
-                    ? Math.max(0, GRIEVANCE_APPEAL_WINDOW_DAYS - w.grievanceDaysElapsed)
-                    : 0;
-            const daysToTamyeez =
-                w.canTamyeez && w.cassationDaysElapsed >= 0
-                    ? Math.max(0, CASSATION_APPEAL_WINDOW_DAYS - w.cassationDaysElapsed)
-                    : 0;
-
-            return {
-                tadhallumDeadline,
-                tamyeezDeadline,
-                daysToTadhallum,
-                daysToTamyeez,
-                canFileTadhallum: w.canTadhallum,
-                canFileTamyeez: w.canTamyeez,
-                isFinal: w.isPastTamyeezDeadline && decision.appealStatus === 'pending',
-            };
+        (decision: Decision): AppealDeadlineWindows => {
+            if (decision.appealStatus === 'final') return CLOSED_APPEAL_WINDOWS;
+            if (requestNeedsExecutorOutcome(decision)) return PENDING_EXECUTOR_APPEAL_WINDOWS;
+            return appealWindowsForDecision(decision);
         },
         [requestNeedsExecutorOutcome],
     );

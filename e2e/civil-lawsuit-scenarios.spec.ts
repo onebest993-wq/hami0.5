@@ -5,8 +5,10 @@ import { test, expect } from '@playwright/test';
 import {
     addAffiliativeThirdParty,
     addInterpleaderThirdParty,
+    bootCivilLawsuitsScreenE2E,
+    buildE2eCivilLawsuitFile,
+    buildE2ePersonalStatusFile,
     buildE2eUndeterminedCivilFile,
-    ensureLawyerDashboard,
     E2E_UNDETERMINED_FILE_ID,
     expectStageSelectValue,
     extractFileFlags,
@@ -15,20 +17,23 @@ import {
     openAppealGatewayAfterJudgment,
     openCivilNewCaseForm,
     openLawsuitDossierById,
+    openLawsuitsWorkspace,
+    prepareCivilLawsuitsE2E,
     readLawyerFilesFromPage,
-    seedLawyerFiles,
     seedMixedJurisdictionFiles,
     seedUndeterminedCivilFile,
     selectCaseFieldOption,
+    clickLawyerNewCaseSave,
     waitForPartyInFiles,
 } from './helpers/civilLawsuitFixtures';
+import { selectArchiveJurisdictionTab } from './helpers/archiveE2EFixtures';
+
+test.describe.configure({ timeout: 120_000 });
 
 test.describe('Civil judiciary scenarios — form branches', () => {
     test.beforeEach(async ({ page }) => {
-        await seedLawyerFiles(page);
-        await page.goto('/');
-        await page.waitForLoadState('domcontentloaded');
-        await ensureLawyerDashboard(page);
+        await prepareCivilLawsuitsE2E(page);
+        await bootCivilLawsuitsScreenE2E(page);
     });
 
     test('high claim (>1M) auto-switches stage to بداءة بدرجة أولى', async ({ page }) => {
@@ -69,7 +74,7 @@ test.describe('Civil judiciary scenarios — form branches', () => {
             type: 'دعوى طلاق شرعي',
             markClient: true,
         });
-        await page.getByTestId('lawyer-new-case-save').click();
+        await clickLawyerNewCaseSave(page);
         await expect(page.getByText('ملاحظة: يرجى التأكد من تطابق المعلومات المدخلة').first()).toBeVisible();
         await expect(page.getByTestId('smart-file-dossier')).toHaveCount(0);
     });
@@ -77,7 +82,7 @@ test.describe('Civil judiciary scenarios — form branches', () => {
     test('save without موكل shows client error', async ({ page }) => {
         await openCivilNewCaseForm(page);
         await fillCivilNewCaseForm(page, { markClient: false });
-        await page.getByTestId('lawyer-new-case-save').click();
+        await clickLawyerNewCaseSave(page);
         await expect(page.getByText('يرجى تحديد الموكل — يجب اختيار طرف واحد على الأقل').first()).toBeVisible();
     });
 
@@ -89,9 +94,14 @@ test.describe('Civil judiciary scenarios — form branches', () => {
             undetermined: true,
             markClient: false,
         });
-        await page.getByTestId('lawyer-new-case-add-third-party').click({ force: true });
-        await expect(page.getByRole('heading', { name: 'إضافة شخص ثالث' })).toBeVisible();
+        await expect(page.getByTestId('lawyer-new-case-save')).toBeVisible({ timeout: 15_000 });
+        const addBtn = page.getByTestId('lawyer-new-case-add-third-party');
+        await addBtn.scrollIntoViewIfNeeded();
+        await expect(addBtn).toBeVisible({ timeout: 15_000 });
+        await addBtn.click({ force: true });
+        await expect(page.getByRole('heading', { name: 'إضافة شخص ثالث' })).toBeVisible({ timeout: 15_000 });
         const interpleaderBtn = page.getByTestId('lawyer-new-case-third-party-mode-interpleader');
+        await expect(interpleaderBtn).toBeVisible({ timeout: 15_000 });
         await expect(interpleaderBtn).toBeDisabled();
         await expect(page.getByText('الإدخال الاختصامي غير متاح في مرحلة الاستئناف')).toBeVisible();
     });
@@ -99,10 +109,8 @@ test.describe('Civil judiciary scenarios — form branches', () => {
 
 test.describe('Civil judiciary scenarios — persistence', () => {
     test.beforeEach(async ({ page }) => {
-        await seedLawyerFiles(page);
-        await page.goto('/');
-        await page.waitForLoadState('domcontentloaded');
-        await ensureLawyerDashboard(page);
+        await prepareCivilLawsuitsE2E(page);
+        await bootCivilLawsuitsScreenE2E(page);
     });
 
     test('creates case with high claim and persists stage + value', async ({ page }) => {
@@ -115,7 +123,7 @@ test.describe('Civil judiciary scenarios — persistence', () => {
             stage: 'بداءة بدرجة أخيرة',
         });
         await expectStageSelectValue(page, 'بداءة بدرجة أولى');
-        await page.getByTestId('lawyer-new-case-save').click({ force: true });
+        await clickLawyerNewCaseSave(page);
         await expect(page.getByTestId('smart-file-dossier')).toBeVisible({ timeout: 25_000 });
         await waitForPartyInFiles(page, plaintiff, 30_000);
 
@@ -134,7 +142,7 @@ test.describe('Civil judiciary scenarios — persistence', () => {
         await openCivilNewCaseForm(page);
         await fillCivilNewCaseForm(page, { plaintiff, undetermined: true });
         await addInterpleaderThirdParty(page, thirdName);
-        await page.getByTestId('lawyer-new-case-save').click({ force: true });
+        await clickLawyerNewCaseSave(page);
         await expect(page.getByTestId('smart-file-dossier')).toBeVisible({ timeout: 25_000 });
         await waitForPartyInFiles(page, thirdName, 30_000);
 
@@ -149,7 +157,7 @@ test.describe('Civil judiciary scenarios — persistence', () => {
         const plaintiff = 'مدعي غير مقدرة';
         await openCivilNewCaseForm(page);
         await fillCivilNewCaseForm(page, { plaintiff, undetermined: true });
-        await page.getByTestId('lawyer-new-case-save').click({ force: true });
+        await clickLawyerNewCaseSave(page);
         await waitForPartyInFiles(page, plaintiff, 30_000);
 
         const files = await readLawyerFilesFromPage(page);
@@ -160,16 +168,13 @@ test.describe('Civil judiciary scenarios — persistence', () => {
 
 test.describe('Civil judiciary scenarios — archive filter', () => {
     test('civil jurisdiction tab hides personal-status files', async ({ page }) => {
+        await prepareCivilLawsuitsE2E(page);
         await seedMixedJurisdictionFiles(page);
-        await page.goto('/');
-        await page.waitForLoadState('domcontentloaded');
-        await ensureLawyerDashboard(page);
+        const mixedFiles = [buildE2eCivilLawsuitFile(), buildE2ePersonalStatusFile()];
+        await bootCivilLawsuitsScreenE2E(page, false, mixedFiles);
 
-        await page.getByTestId('hub-archive-lawsuit').click();
-        await expect(page.getByTestId('lawsuits-workspace')).toBeVisible({ timeout: 15_000 });
-        const civilTab = page.getByTestId('archive-jurisdiction-civil');
-        await civilTab.waitFor({ state: 'visible', timeout: 20_000 });
-        await civilTab.click({ force: true });
+        await openLawsuitsWorkspace(page);
+        await selectArchiveJurisdictionTab(page, 'civil');
 
         await expect(page.getByText('مدعي اختبار')).toBeVisible({ timeout: 10_000 });
         await expect(page.getByText('موكل أحوال')).toHaveCount(0);
@@ -178,10 +183,8 @@ test.describe('Civil judiciary scenarios — archive filter', () => {
 
 test.describe('Civil judiciary scenarios — extended branches', () => {
     test.beforeEach(async ({ page }) => {
-        await seedLawyerFiles(page);
-        await page.goto('/');
-        await page.waitForLoadState('domcontentloaded');
-        await ensureLawyerDashboard(page);
+        await prepareCivilLawsuitsE2E(page);
+        await bootCivilLawsuitsScreenE2E(page);
     });
 
     test('eviction type forces بداءة بدرجة أخيرة stage', async ({ page }) => {
@@ -197,12 +200,12 @@ test.describe('Civil judiciary scenarios — extended branches', () => {
     test('only one موكل active — switching sides moves client mark', async ({ page }) => {
         await openCivilNewCaseForm(page);
         await fillCivilNewCaseForm(page, { markClient: false });
-        const clientPills = page.getByRole('button', { name: 'موكل' });
-        await clientPills.nth(0).click();
-        await expect(clientPills.nth(0)).toHaveClass(/emerald/);
-        await clientPills.nth(1).click();
-        await expect(clientPills.nth(0)).not.toHaveClass(/emerald/);
-        await expect(clientPills.nth(1)).toHaveClass(/rose/);
+        const clientPills = page.getByTestId('lawyer-new-case-mark-client');
+        await clientPills.nth(0).evaluate((el) => (el as HTMLButtonElement).click());
+        await expect(clientPills.nth(0)).toHaveAttribute('aria-pressed', 'true');
+        await clientPills.nth(1).evaluate((el) => (el as HTMLButtonElement).click());
+        await expect(clientPills.nth(0)).toHaveAttribute('aria-pressed', 'false');
+        await expect(clientPills.nth(1)).toHaveAttribute('aria-pressed', 'true');
     });
 
     test('affiliative third party on plaintiff side persists', async ({ page }) => {
@@ -212,7 +215,7 @@ test.describe('Civil judiciary scenarios — extended branches', () => {
         await fillCivilNewCaseForm(page, { undetermined: true });
         await addAffiliativeThirdParty(page, thirdName, 1);
         await expect(page.getByText('انضمامي — جانب المدعي')).toBeVisible();
-        await page.getByTestId('lawyer-new-case-save').click({ force: true });
+        await clickLawyerNewCaseSave(page);
         await waitForPartyInFiles(page, thirdName, 30_000);
     });
 });
@@ -220,10 +223,8 @@ test.describe('Civil judiciary scenarios — extended branches', () => {
 test.describe('Civil judiciary scenarios — extraordinary procedure stages', () => {
     test.beforeEach(async ({ page }) => {
         test.setTimeout(90_000);
-        await seedLawyerFiles(page);
-        await page.goto('/');
-        await page.waitForLoadState('domcontentloaded');
-        await ensureLawyerDashboard(page);
+        await prepareCivilLawsuitsE2E(page);
+        await bootCivilLawsuitsScreenE2E(page);
     });
 
     test('retrial stage hides claim value and shows underlying stage field', async ({ page }) => {
@@ -239,6 +240,7 @@ test.describe('Civil judiciary scenarios — extraordinary procedure stages', ()
     });
 
     test('absent objection underlying stage excludes appeal', async ({ page }) => {
+        test.setTimeout(90_000);
         await openCivilNewCaseForm(page);
         await fillCivilNewCaseForm(page, {
             stage: 'اعتراض على الحكم الغيابي',
@@ -254,12 +256,13 @@ test.describe('Civil judiciary scenarios — extraordinary procedure stages', ()
     });
 
     test('extraordinary stage requires underlying stage before save', async ({ page }) => {
+        test.setTimeout(90_000);
         await openCivilNewCaseForm(page);
         await fillCivilNewCaseForm(page, {
             stage: 'اعتراض الغير',
             markClient: true,
         });
-        await page.getByTestId('lawyer-new-case-save').click();
+        await clickLawyerNewCaseSave(page);
         await expect(page.getByText('ملاحظة: يرجى التأكد من تطابق المعلومات المدخلة').first()).toBeVisible();
         await expect(page.getByTestId('smart-file-dossier')).toHaveCount(0);
     });
@@ -273,7 +276,7 @@ test.describe('Civil judiciary scenarios — extraordinary procedure stages', ()
             stage: 'إعادة المحاكمة',
             retrialTargetStage: 'بداءة بدرجة أولى',
         });
-        await page.getByTestId('lawyer-new-case-save').click({ force: true });
+        await clickLawyerNewCaseSave(page);
         await expect(page.getByTestId('smart-file-dossier')).toBeVisible({ timeout: 25_000 });
         await waitForPartyInFiles(page, plaintiff, 30_000);
 
@@ -288,14 +291,13 @@ test.describe('Civil judiciary scenarios — extraordinary procedure stages', ()
 test.describe('Civil judiciary scenarios — SmartFile appeal route', () => {
     test('undetermined dossier offers تمييز only in appeal gateway', async ({ page }) => {
         test.setTimeout(90_000);
+        await prepareCivilLawsuitsE2E(page);
         await seedUndeterminedCivilFile(page);
-        await page.goto('/');
-        await page.waitForLoadState('domcontentloaded');
-        await ensureLawyerDashboard(page, false, [buildE2eUndeterminedCivilFile()]);
+        await bootCivilLawsuitsScreenE2E(page, false, [buildE2eUndeterminedCivilFile()]);
         await openLawsuitDossierById(page, E2E_UNDETERMINED_FILE_ID);
         await openAppealGatewayAfterJudgment(page);
         await expect(page.getByText('دعوى غير مقدرة القيمة')).toBeVisible();
         await expect(page.getByRole('button', { name: 'تمييز' })).toBeVisible();
-        await expect(page.getByRole('button', { name: /^استئناf$/ })).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'استئناف' })).toHaveCount(0);
     });
 });

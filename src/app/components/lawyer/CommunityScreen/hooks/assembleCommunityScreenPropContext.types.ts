@@ -1,0 +1,33 @@
+import type { CommunityScreenPropBuilderContext } from './communityScreenPropBuilderContext';
+import type { CommunitySection } from '../communitySectionState';
+import type { useCommunityScreenShell } from './useCommunityScreenShell';
+import type { useCommunityScreenSocialGraph } from './useCommunityScreenSocialGraph';
+import type { useCommunityGroupsFeed } from './useCommunityGroupsFeed';
+import type { useCommunityPostsFeed } from './useCommunityPostsFeed';
+import type { useCommunityScreenSearchOverlay } from './useCommunityScreenSearchOverlay';
+import type { useCommunityAddQuestion } from './useCommunityAddQuestion';
+import type { useCommunityPostActions } from './useCommunityPostActions';
+import type { useCommunityScreenPostModeration } from './useCommunityScreenPostModeration';
+import type { useCommunityScreenInteractions } from './useCommunityScreenInteractions';
+import type { CommunityPost } from '@/app/services/lawyer-cloud';
+
+export type AssembleCommunityScreenPropContextParams = {
+    popForumLayer: () => void;
+    forumSurfaceOpen: boolean;
+    currentUserId: string | null;
+    isAdmin: boolean;
+    forumStreamConnected: boolean;
+    userStats: CommunityScreenPropBuilderContext['userStats'];
+    mutedIds: Set<string>;
+    activePostForComments: CommunityPost | null;
+    setActiveSection: (section: CommunitySection) => void;
+    shell: ReturnType<typeof useCommunityScreenShell>;
+    socialGraph: ReturnType<typeof useCommunityScreenSocialGraph>;
+    groupsFeed: ReturnType<typeof useCommunityGroupsFeed>;
+    postsFeed: ReturnType<typeof useCommunityPostsFeed>;
+    searchOverlay: ReturnType<typeof useCommunityScreenSearchOverlay>;
+    addQuestion: ReturnType<typeof useCommunityAddQuestion>;
+    postActions: ReturnType<typeof useCommunityPostActions>;
+    postModeration: ReturnType<typeof useCommunityScreenPostModeration>;
+    interactions: ReturnType<typeof useCommunityScreenInteractions>;
+};

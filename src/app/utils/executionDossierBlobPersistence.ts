@@ -1,24 +1,26 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 import { debug } from '@/app/utils/debug';
 import {
     loadExecutionFilesRaw,
     saveExecutionFilesRaw,
 } from '@/app/utils/executionFilesStorage';
 import { isExecutionDossierTombstoned } from '@/app/utils/executionDossierTombstones';
-import { readScopedDeviceStorageItem, scopeExecutionDeviceStorageKey, stripExecutionDeviceStorageUserScope, isStorageKeyVisibleToCurrentUser } from '@/app/utils/executionDeviceStorageScope';
+import { scopeExecutionDeviceStorageKey, stripExecutionDeviceStorageUserScope, isStorageKeyVisibleToCurrentUser } from '@/app/utils/executionDeviceStorageScope';
+import { readScopedSecureOrDrainLegacySync } from '@/app/utils/readScopedSecureOrDrainLegacySync';
+import {
+    isExecutionDossierMainBlobKey as isExecutionDossierMainBlobKeyLite,
+    parseDossierBlob,
+    shouldRejectExecutionDossierBlobWipe as shouldRejectExecutionDossierBlobWipeLite,
+} from '@/app/utils/executionDossierBlobKeyLite';
 import {
     executionDossierIdFromStorageKey,
     executionStorageKey,
     normalizeExecutionStorageId,
-} from '@/app/utils/executionStorageKeys';
-
-const EXECUTION_BLOB_SATELLITE_MARKERS = [
-    '_decisions_ns_',
-    '_decisions',
-    '_documents',
-    '_document_folders',
-    '_eviction_field_visit',
-] as const;
+} from '@/app/utils/executionStorageKeysLite';
 
 type CacheTouchFn = (key: string, value: unknown) => void;
 
@@ -38,52 +40,28 @@ function touchExecutionBlobCache(key: string, value: unknown, touch?: CacheTouch
 }
 
 
+/*
+ * نسخة ثانية من الحارز كانت هنا حرفاً بحرف، تفترق عن الأصل بتجريد نطاق المستخدم
+ * وحده. إصلاح أحدهما يترك الآخر مكشوفاً بلا إشارة — وهذا ما حدث فعلاً. الفرق
+ * الوحيد يُستهلك هنا، والقرار يبقى في موضع واحد.
+ */
+function logicalBlobKey(key: string): string {
+    return stripExecutionDeviceStorageUserScope(String(key || '').trim());
+}
+
 /** مفتاح الإضبارة الرئيسي execution_{id} — ليس executionFiles ولا مفاتيح قرارات/وثائق */
 export function isExecutionDossierMainBlobKey(key: string): boolean {
-    const k = stripExecutionDeviceStorageUserScope(String(key || '').trim());
-    if (!k.startsWith('execution_')) return false;
-    if (k === 'executionFiles' || k === 'execution_expenses') return false;
-    if (k.startsWith('execution_form_')) return false;
-    return !EXECUTION_BLOB_SATELLITE_MARKERS.some((m) => k.includes(m));
+    return isExecutionDossierMainBlobKeyLite(logicalBlobKey(key));
 }
 
 export function isExecutionSubDossierBlobKey(key: string): boolean {
-    const logical = stripExecutionDeviceStorageUserScope(String(key || '').trim());
-    return isExecutionDossierMainBlobKey(logical) && logical.includes('__sub__');
+    const logical = logicalBlobKey(key);
+    return isExecutionDossierMainBlobKeyLite(logical) && logical.includes('__sub__');
 }
 
 export function isExecutionParentDossierBlobKey(key: string): boolean {
-    const logical = stripExecutionDeviceStorageUserScope(String(key || '').trim());
-    return isExecutionDossierMainBlobKey(logical) && !logical.includes('__sub__');
-}
-
-function parseDossierBlob(raw: string | null | undefined): Record<string, unknown> | null {
-    if (!raw?.trim()) return null;
-    try {
-        const parsed: unknown = JSON.parse(raw);
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-        return parsed as Record<string, unknown>;
-    } catch {
-        return null;
-    }
-}
-
-function countMeaningfulDossierFields(blob: Record<string, unknown>): number {
-    let score = 0;
-    for (const [key, value] of Object.entries(blob)) {
-        if (key === 'id' || key === 'updatedAt') continue;
-        if (value == null) continue;
-        if (Array.isArray(value)) {
-            if (value.length > 0) score += 1;
-            continue;
-        }
-        if (typeof value === 'object') {
-            if (Object.keys(value as object).length > 0) score += 1;
-            continue;
-        }
-        if (String(value).trim() !== '') score += 1;
-    }
-    return score;
+    const logical = logicalBlobKey(key);
+    return isExecutionDossierMainBlobKeyLite(logical) && !logical.includes('__sub__');
 }
 
 /** يمنع استبدال إضبارة غنية ببيانات شبه فارغة */
@@ -92,27 +70,25 @@ export function shouldRejectExecutionDossierBlobWipe(
     incomingRaw: string,
     existingRaw: string | null | undefined,
 ): boolean {
-    if (!isExecutionDossierMainBlobKey(storageKey)) return false;
-    if (!existingRaw?.trim()) return false;
+    return shouldRejectExecutionDossierBlobWipeLite(
+        logicalBlobKey(storageKey),
+        incomingRaw,
+        existingRaw,
+    );
+}
 
-    const trimmed = incomingRaw.trim();
-    if (trimmed === '' || trimmed === 'null' || trimmed === '{}') return true;
-
-    const existing = parseDossierBlob(existingRaw);
-    const incoming = parseDossierBlob(incomingRaw);
-    if (!existing || !incoming) return false;
-
-    const existingScore = countMeaningfulDossierFields(existing);
-    const incomingScore = countMeaningfulDossierFields(incoming);
-    if (existingScore >= 3 && incomingScore === 0) return true;
-
-    const existingTimeline = Array.isArray(existing.timelineEvents) ? existing.timelineEvents.length : 0;
-    const incomingTimeline = Array.isArray(incoming.timelineEvents) ? incoming.timelineEvents.length : 0;
-    if (existingTimeline > 0 && incomingTimeline === 0 && !Array.isArray(incoming.timelineEvents)) {
-        return true;
-    }
-
-    return false;
+function keepIndexListHint(
+    existing: Record<string, unknown>,
+    incoming: Record<string, unknown>,
+    key: string,
+): unknown {
+    const next = incoming[key];
+    if (Array.isArray(next) && next.length > 0) return next;
+    if (next !== undefined && next !== null && String(next).trim() !== '') return next;
+    const prev = existing[key];
+    if (Array.isArray(prev) && prev.length > 0) return prev;
+    if (prev !== undefined && prev !== null && String(prev).trim() !== '') return prev;
+    return next !== undefined ? next : prev;
 }
 
 function mergeExecutionFileIndexRow(
@@ -144,6 +120,22 @@ function mergeExecutionFileIndexRow(
     ) {
         merged.debtor_absence_badge_dismissed_by_debtor =
             existing.debtor_absence_badge_dismissed_by_debtor;
+    }
+    const listHintKeys = [
+        'claimType',
+        'claimTypes',
+        'docType',
+        'classification',
+        'category',
+        'representedParty',
+        'initiatorRole',
+        'debtor_entity_kind',
+        'debtor_entity_type',
+        'total_remaining_balance',
+        'remainingDebt',
+    ] as const;
+    for (const key of listHintKeys) {
+        merged[key] = keepIndexListHint(existing, incoming, key);
     }
     return merged;
 }
@@ -180,28 +172,13 @@ export function syncExecutionFileInIndex(updatedFile: Record<string, unknown>): 
     return true;
 }
 
-function readLocalStorageRaw(storageKey: string): string | null {
-    try {
-        if (typeof globalThis.localStorage === 'undefined') return null;
-        return globalThis.localStorage.getItem(storageKey);
-    } catch {
-        return null;
-    }
-}
-
 function readExistingBlobRaw(key: string): string | null {
     try {
         if (isExecutionDossierMainBlobKey(key)) {
             const logical = stripExecutionDeviceStorageUserScope(key);
-            const fromSecure = readScopedDeviceStorageItem(
-                (k) => SecureStoreService.getItemSync(k),
-                logical,
-            );
-            if (fromSecure != null && fromSecure !== '') return fromSecure;
-            // e2e / زرع مباشر في LS قبل اكتمال مرآة SecureStore
-            return readScopedDeviceStorageItem(readLocalStorageRaw, logical);
+            return readScopedSecureOrDrainLegacySync(logical);
         }
-        return SecureStoreService.getItemSync(key) ?? readLocalStorageRaw(key);
+        return readSecureOrDrainLegacySync(key);
     } catch {
         return null;
     }
@@ -212,21 +189,38 @@ function writeExecutionBlobRaw(
     data: Record<string, unknown>,
     touch?: CacheTouchFn,
 ): boolean {
+    const logicalKey = isExecutionDossierMainBlobKey(key)
+        ? stripExecutionDeviceStorageUserScope(key)
+        : key;
+    const dossierId = executionDossierIdFromStorageKey(logicalKey);
+    if (dossierId && isExecutionDossierTombstoned(dossierId)) {
+        debug.warn(`[ExecutionPersist] رفض إحياء بلوب لمقبرة "${logicalKey}".`);
+        return false;
+    }
     const incomingRaw = JSON.stringify(data);
     const existingRaw = readExistingBlobRaw(key);
     if (shouldRejectExecutionDossierBlobWipe(key, incomingRaw, existingRaw)) {
         debug.warn(`[ExecutionPersist] رفض مسح مفتاح "${key}" — البيانات الحالية محفوظة.`);
         return false;
     }
-    const logicalKey = isExecutionDossierMainBlobKey(key)
-        ? stripExecutionDeviceStorageUserScope(key)
-        : key;
     const writeKey = isExecutionDossierMainBlobKey(key)
         ? scopeExecutionDeviceStorageKey(logicalKey)
         : key;
     try {
-        SecureStoreService.setItemSync(writeKey, incomingRaw);
-        // ترحيل: إن كُتب المقيّد وما زال القديم موجوداً — أبقِ التوافق عبر القراءة المزدوجة فقط
+        if (SecureStoreService.setItemSync(writeKey, incomingRaw) === false) {
+            debug.warn(`[ExecutionPersist] رُفضت كتابة مفتاح "${writeKey}" (setItemSync=false).`);
+            return false;
+        }
+        clearLegacyPlaintextMirror(writeKey);
+        // بعد كتابة مقيّدة ناجحة: احذف التوأم غير المقيّد حتى لا يقرأه حساب لاحق
+        if (writeKey !== logicalKey) {
+            try {
+                SecureStoreService.deleteItemSync(logicalKey);
+            } catch {
+                /* ignore purge failures */
+            }
+            clearLegacyPlaintextMirror(logicalKey);
+        }
     } catch (error) {
         // كان هذا الفرع صامتاً تماماً بينما فرع رفض المسح أعلاه يُحذّر: فقدان
         // كتابة حقيقي لا يُترك بلا أثر، وإلا ظهرت الواجهة محفوظة والقرص خالياً.
@@ -304,6 +298,7 @@ export function persistExecutionDossierBlob(
 ): boolean {
     const id = normalizeExecutionStorageId(dossierId);
     if (!id || id === 'default') return false;
+    if (isExecutionDossierTombstoned(id)) return false;
 
     const key = executionStorageKey(id);
     const stamped = { ...data, id, updatedAt: data.updatedAt ?? new Date().toISOString() };
@@ -329,7 +324,7 @@ export function patchExecutionDossierRecord(
         id,
         updatedAt: new Date().toISOString(),
     };
-    return applyExecutionDossierBlobSet(executionStorageKey(id), merged);
+    return applyExecutionDossierBlobSetWithOutcome(executionStorageKey(id), merged) === 'persisted';
 }
 
 export function readExecutionDossierBlob(
@@ -341,13 +336,9 @@ export function readExecutionDossierBlob(
 }
 
 /**
- * يُسخّن بلوب الإضبارة في ذاكرة فك التشفير قبل القراءة المتزامنة.
- *
- * بعد إضافة `execution_` لبوادئ التشفير، `getItemSync` يعيد `null` للقيم
- * المشفّرة على القرص ما لم تُحمَّل أولاً عبر `getItem` غير المتزامن. بدون
- * هذا التسخين تفتح الإضبارة فارغة بعد إعادة التحميل رغم وجود البيانات.
- *
- * يُعيد الكتابة أيضاً لترحيل النص الصريح القديم إلى تشفير عند الراحة.
+ * يُسخّن بلوب الإضبارة في الذاكرة قبل القراءة المتزامنة.
+ * ترحيل `hami_enc_v2:` → plaintext مرة واحدة فقط عند وجود ciphertext على القرص
+ * (لا إعادة كتابة IDB في كل فتح بعد اكتمال الترحيل).
  */
 export async function ensureExecutionDossierBlobReady(dossierId: string | undefined): Promise<void> {
     const id = normalizeExecutionStorageId(dossierId);
@@ -358,13 +349,16 @@ export async function ensureExecutionDossierBlobReady(dossierId: string | undefi
         executionStorageKey(id),
     ];
     const seen = new Set<string>();
+    const CIPHER_PREFIX = 'hami_enc_v2:';
 
     for (const key of candidates) {
         if (!key || seen.has(key)) continue;
         seen.add(key);
         try {
             const value = await SecureStoreService.getItem(key);
-            if (value) {
+            if (!value) continue;
+            const rawOnDisk = await SecureStoreService.peekRawFromDisk(key);
+            if (rawOnDisk?.startsWith(CIPHER_PREFIX)) {
                 await SecureStoreService.setItem(key, value);
             }
         } catch {
@@ -396,7 +390,7 @@ export function readExecutionDossierBlobScanningScopes(
     try {
         for (const key of SecureStoreService.listKeysSync()) {
             if (!isStorageKeyVisibleToCurrentUser(key)) continue;
-            const hit = tryKey(key, (k) => SecureStoreService.getItemSync(k));
+            const hit = tryKey(key, (k) => readSecureOrDrainLegacySync(k));
             if (hit) return hit;
         }
     } catch {
@@ -406,16 +400,13 @@ export function readExecutionDossierBlobScanningScopes(
     try {
         if (typeof globalThis.localStorage !== 'undefined') {
             const ls = globalThis.localStorage;
+            const leftoverKeys: string[] = [];
             for (let i = 0; i < ls.length; i += 1) {
-                const key = String(ls.key(i) || '');
+                leftoverKeys.push(String(ls.key(i) || ''));
+            }
+            for (const key of leftoverKeys) {
                 if (!isStorageKeyVisibleToCurrentUser(key)) continue;
-                const hit = tryKey(key, (k) => {
-                    try {
-                        return ls.getItem(k);
-                    } catch {
-                        return null;
-                    }
-                });
+                const hit = tryKey(key, (k) => readSecureOrDrainLegacySync(k));
                 if (hit) return hit;
             }
         }

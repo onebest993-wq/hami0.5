@@ -1,12 +1,12 @@
 import type { CaseLinkRecord, CaseStage, FileData, TimelineEvent } from '../../LawyerShared';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import { resolveLawsuitJurisdiction } from '@/app/domain/lawsuit/lawsuitJurisdiction';
 import { findFileById, normalizeFileId } from './incidentalCaseLinking';
 import type { ConsolidationCandidate } from './caseConsolidationLinking';
 import { resolveActiveStageName } from './caseConsolidationLinking';
 import { buildInitialStagesFromFile } from './stageInit';
 
-export type CaseLinkMeta = {
+type CaseLinkMeta = {
     linkDate: string;
     reason?: string;
 };
@@ -115,11 +115,6 @@ export function resolveOutboundCaseLink(
     return readOutboundInternalCaseLink(file);
 }
 
-export function isLawsuitVaultArchived(status?: string | null): boolean {
-    const normalized = String(status ?? 'active').trim();
-    return normalized === 'archived' || normalized === 'archived_stage';
-}
-
 function resolveStrictOutboundFromDossier(
     dossier: FileData | Record<string, unknown>,
     parentData?: Record<string, unknown> | null,
@@ -177,18 +172,6 @@ function isLawsuitPeerLinkedFromAnyOrigin(files: FileData[], candidateId: number
         for (const link of readCaseLinks(f)) {
             if (link.isExternal) continue;
             if (normalizeFileId(link.peerFileId) === candidateId) return true;
-        }
-    }
-    return false;
-}
-
-function isCriminalPeerLinkedFromAnyOrigin(files: FileData[], criminalId: string): boolean {
-    const id = String(criminalId ?? '').trim();
-    if (!id) return false;
-    for (const f of files) {
-        for (const link of readCaseLinks(f)) {
-            if (link.isExternal) continue;
-            if (String(link.peerCriminalId ?? '').trim() === id) return true;
         }
     }
     return false;
@@ -271,10 +254,6 @@ export function readLinkedCriminalIdsFromDossier(
     dossier: FileData | Record<string, unknown>,
 ): Set<string> {
     return readLinkedCriminalIds(dossier);
-}
-
-export function isCriminalCaseLinkTaken(files: FileData[], criminalId: string): boolean {
-    return isCriminalPeerLinkedFromAnyOrigin(files, criminalId);
 }
 
 /**

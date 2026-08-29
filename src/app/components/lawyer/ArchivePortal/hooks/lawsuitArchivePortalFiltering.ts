@@ -1,10 +1,12 @@
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
 import {
     filterByLawsuitJurisdictionTab,
     type LawsuitJurisdictionSource,
     type LawsuitJurisdictionTab,
 } from '@/app/domain/lawsuit/lawsuitJurisdiction';
-import { criminalSearchHaystack } from '../criminalArchiveUtils';
+import { archiveTextMatchesQuery } from '@/app/services/search/normalizeArabicSearch';
+import { clampGlobalSearchQuery } from '@/app/services/search/globalSearchQuerySecurity';
+import { criminalSearchHaystackLite } from '../criminalArchiveReferenceLite';
 import type { LooseArchiveFile } from '../types';
 import type { LawsuitViewMode } from './lawsuitLifecycleTypes';
 
@@ -17,6 +19,19 @@ export function resolveLawsuitLifecycleSourceFiles(
     if (lawsuitViewMode === 'trash') return lawsuitTrashFiles ?? [];
     if (lawsuitViewMode === 'archived') return lawsuitArchivedFiles ?? [];
     return files;
+}
+
+function lawsuitArchiveSearchHaystack(file: FileData): string {
+    const row = file as LooseArchiveFile;
+    const parties = Array.isArray(row.parties) ? row.parties : [];
+    const partyNames = parties
+        .map((p) =>
+            p && typeof p === 'object' && 'name' in p ? String((p as { name?: string }).name) : '',
+        )
+        .join(' ');
+    return [row.caseNo, row.caseNumber, row.title, row.docType, row.court, partyNames]
+        .filter(Boolean)
+        .join(' ');
 }
 
 export function filterLawsuitArchiveFiles(
@@ -33,22 +48,9 @@ export function filterLawsuitArchiveFiles(
             lawsuitJurisdictionTab,
         ) as FileData[];
     }
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return filtered;
-    return filtered.filter((f) => {
-        const row = f as LooseArchiveFile;
-        const parties = Array.isArray(row.parties) ? row.parties : [];
-        const partyNames = parties
-            .map((p) =>
-                p && typeof p === 'object' && 'name' in p ? String((p as { name?: string }).name) : '',
-            )
-            .join(' ');
-        const hay = [row.caseNo, row.caseNumber, row.title, row.docType, row.court, partyNames]
-            .filter(Boolean)
-            .join(' ')
-            .toLowerCase();
-        return hay.includes(q);
-    });
+    const q = clampGlobalSearchQuery(searchQuery);
+    if (!q.trim()) return filtered;
+    return filtered.filter((f) => archiveTextMatchesQuery(lawsuitArchiveSearchHaystack(f), q));
 }
 
 export function filterLawsuitCriminalCases(
@@ -77,9 +79,9 @@ export function filterLawsuitCriminalCases(
         return !archived;
     }) as Record<string, unknown>[];
 
-    const q = searchQuery.trim().toLowerCase();
-    if (q) {
-        list = list.filter((c) => criminalSearchHaystack(c).includes(q));
+    const q = clampGlobalSearchQuery(searchQuery);
+    if (q.trim()) {
+        list = list.filter((c) => archiveTextMatchesQuery(criminalSearchHaystackLite(c), q));
     }
 
     list.sort((a, b) => {

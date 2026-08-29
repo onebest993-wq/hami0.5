@@ -18,11 +18,10 @@ export function shouldMaskLawyerDashboardTabStack(state: LawyerDashboardTabStack
     return (
         state.isCriminalDossierOpen ||
         Boolean(state.archiveType) ||
-        /* دعاوى: overlay z-220 فوق اللوحة — الرئيسية تبقى مرسومة (مثل التقويم) */
+        /* دعاوى/إضبارة: overlay فوق اللوحة المرسومة — لا hidden/unmount حتى لا يُعاد المشهد كإقلاع */
         state.showTransactions ||
         state.isNotepadOpen ||
         state.showCommunity ||
-        Boolean(state.activeFile) ||
         state.showDocs
     );
 }

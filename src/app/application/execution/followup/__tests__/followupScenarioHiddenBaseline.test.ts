@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { FOLLOWUP_SCENARIO_CATALOG } from '../followupScenarioDefinitions';
-import { FOLLOWUP_SCENARIO_HIDDEN_BASELINE } from '../followupScenarioHiddenBaseline';
+import { FOLLOWUP_SCENARIO_CATALOG } from './support/followupScenarioDefinitions';
+import { FOLLOWUP_SCENARIO_HIDDEN_BASELINE } from './support/followupScenarioHiddenBaseline';
 import {
     assertFollowupHiddenInvariants,
     serializeFollowupHiddenSnapshot,
-} from '../followupScenarioHiddenInvariants';
-import { resolveFollowupHiddenActions } from '../resolveFollowupHiddenActions';
+} from './support/followupScenarioHiddenInvariants';
+import { resolveFollowupHiddenActions } from './support/resolveFollowupHiddenActions';
 
 describe('followupScenarioHiddenBaseline', () => {
     it('baseline covers every catalog scenario', () => {

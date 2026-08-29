@@ -1,5 +1,4 @@
-import { SmartToast } from '@/app/components/ui/SmartToast';
-import { isRealSignedIn } from '@/app/services/auth/shellAuth';
+import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
 import { prefetchHubArchiveIntentImmediate } from '@/app/hooks/lawyerDashboard/hubArchivePrefetchGate';
 import {
     hubShellFeature,
@@ -13,11 +12,19 @@ const HUB_ARCHIVE_ROUTE_IDS: Record<string, HubArchiveId> = {
     transaction: 'transaction',
 };
 
+function toastHubSignedOut(archiveId: HubArchiveId): void {
+    void import('@/app/components/ui/SmartToast')
+        .then((m) => {
+            m.SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${hubShellFeature(archiveId)}`);
+        })
+        .catch(() => undefined);
+}
+
 export function resolveHubArchiveRouteId(id: string): HubArchiveId | null {
     return HUB_ARCHIVE_ROUTE_IDS[id] ?? null;
 }
 
-/** فتح بطاقة hub من الرئيسية — تحقق دخول + prefetch قبل التنفيذ */
+/** فتح بطاقة hub من الرئيسية — افتح أولاً ثم سخّن في نفس الدورة */
 export function openHubArchiveFromHomeTile(
     rawId: string,
     userId: string | null | undefined,
@@ -26,29 +33,14 @@ export function openHubArchiveFromHomeTile(
     const archiveId = resolveHubArchiveRouteId(rawId);
     if (!archiveId) return false;
 
-    /** المعاملات: افتح أولاً ثم سخّن — prefetch قبل onOpen كان يؤخر الإطار الأول */
-    if (archiveId === 'transaction') {
-        const opened = openHubArchiveFromShell({
-            signedIn: isRealSignedIn(userId),
-            archiveId,
-            onSignedOut: () =>
-                SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${hubShellFeature(archiveId)}`),
-            onOpen,
-        });
-        /* التسخين الثقيل داخل openTransactionsHub — هنا prefetch خفيف بعد الفتح فقط */
-        if (opened) {
-            queueMicrotask(() => prefetchHubArchiveIntentImmediate(archiveId, userId));
-        }
-        return opened;
-    }
-
-    prefetchHubArchiveIntentImmediate(archiveId, userId);
-
-    return openHubArchiveFromShell({
-        signedIn: isRealSignedIn(userId),
+    const opened = openHubArchiveFromShell({
+        signedIn: hasLocalAppSession(userId),
         archiveId,
-        onSignedOut: () =>
-            SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${hubShellFeature(archiveId)}`),
+        onSignedOut: () => toastHubSignedOut(archiveId),
         onOpen,
     });
+    if (opened) {
+        prefetchHubArchiveIntentImmediate(archiveId, userId);
+    }
+    return opened;
 }

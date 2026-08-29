@@ -14,12 +14,6 @@ export function maxYmd(a?: string, b?: string): string {
     return aa > bb ? aa : bb;
 }
 
-export function safeMaxToday(min?: string, today = todayYmd()): string | undefined {
-    const mm = typeof min === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(min) ? min : '';
-    if (mm && mm > today) return undefined;
-    return today;
-}
-
 export function addDaysYmd(ymd: string, durationDays: number): string {
     const m = String(ymd || '').match(/^(\d{4}-\d{2}-\d{2})/);
     if (!m) return '';

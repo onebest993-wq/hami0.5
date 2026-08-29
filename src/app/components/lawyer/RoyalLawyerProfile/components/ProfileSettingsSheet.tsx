@@ -1,35 +1,30 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import type { ProfilePageCustomization } from '@/app/services/profile/profilePageCustomization';
-import { restoreRemovedCustomBlock } from '@/app/services/profile/restoreRemovedCustomBlock';
+import type { CloseProfileSettingsOptions } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileStudioSettings';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
-import { useProfileSettingsSheetState, type ProfileSettingsTab } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileSettingsSheetState';
 import { useProfileSettingsSheetChrome } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileSettingsSheetChrome';
 import { useProfileSettingsFocusTrap } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileSettingsFocusTrap';
-import { PROFILE_SETTINGS_TAB_IDS } from './settings/profileSettingsTabIds';
+import { useProfileSettingsSheetActions } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileSettingsSheetActions';
 import { ProfileSettingsSheetTabBar } from './settings/ProfileSettingsSheetTabBar';
 import { ProfileSettingsSheetHeader } from './settings/ProfileSettingsSheetHeader';
 import { ProfileSettingsSheetPanels } from './settings/ProfileSettingsSheetPanels';
 import { ProfileSettingsSheetFooter } from './settings/ProfileSettingsSheetFooter';
 import { ProfileSettingsSheetFileInputs } from './settings/ProfileSettingsSheetFileInputs';
 import { useProfileCanvasBackgroundEditorChunk } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileCanvasBackgroundEditorChunk';
-import { profileMediaPathsOnlyIn } from '@/app/services/profile/profileMediaPaths';
-import { removeProfileMediaPaths } from '@/app/services/profileMediaService';
-import { SmartToast } from '@/app/components/ui/SmartToast';
 
 import '@/app/components/lawyer/RoyalLawyerProfile/profileSettingsFx.css';
 
 type ProfileSettingsSheetProps = {
     open: boolean;
-    onClose: () => void;
+    onClose: (options?: CloseProfileSettingsOptions) => void;
     onRegisterDiscard?: (fn: (() => void) | null) => void;
     customization: ProfilePageCustomization;
     userId: string;
     onSave: (next: ProfilePageCustomization, options?: { silent?: boolean }) => Promise<boolean>;
     onDraftChange?: (draft: ProfilePageCustomization) => void;
     saving?: boolean;
-    onExitComplete?: () => void;
 };
 
 export function ProfileSettingsSheet({
@@ -41,27 +36,36 @@ export function ProfileSettingsSheet({
     onSave,
     onDraftChange,
     saving = false,
-    onExitComplete,
 }: ProfileSettingsSheetProps) {
     const sheetRef = useRef<HTMLDivElement>(null);
-    const ignoreBackdropCloseUntilRef = useRef(0);
-    const draftRef = useRef(customization);
-    const customizationRef = useRef(customization);
     const { reduceMotion, keyboardInset, backdropTransition, sheetTransition } =
         useProfileSettingsSheetChrome(open);
     useBodyScrollLock(open);
 
-    /** يمنع تعديل المسودة أثناء حذف صامت قبل أن يصل prop الحفظ للواجهة */
-    const draftMutateLockRef = useRef(false);
-    const [draftLocked, setDraftLocked] = useState(false);
-    const sheetBusy = saving || draftLocked;
-    const state = useProfileSettingsSheetState(open, customization, userId, onDraftChange, {
-        isOwnProfile: true,
-        saving: sheetBusy,
+    const {
+        state,
+        tab,
+        draft,
+        sheetBusy,
+        ignoreBackdropCloseUntilRef,
+        guardedPatchDraft,
+        guardedUpdateBlock,
+        guardedAddBlock,
+        closeStudio,
+        handleSave,
+        handleRemoveBlock,
+        handleTabChange,
+        onTabKeyDown,
+    } = useProfileSettingsSheetActions({
+        open,
+        onClose,
+        onRegisterDiscard,
+        customization,
+        userId,
+        onSave,
+        onDraftChange,
+        saving,
     });
-    const { tab, setTab, draft, patchDraft } = state;
-    draftRef.current = draft;
-    customizationRef.current = customization;
 
     const canvasEditorOpen = Boolean(state.canvasBgEditor);
     const {
@@ -69,111 +73,13 @@ export function ProfileSettingsSheet({
         ProfileCanvasBackgroundEditor,
     } = useProfileCanvasBackgroundEditorChunk(canvasEditorOpen);
 
-    const guardedPatchDraft = useCallback(
-        (updater: (prev: ProfilePageCustomization) => ProfilePageCustomization) => {
-            if (sheetBusy || draftMutateLockRef.current) return;
-            patchDraft(updater);
-        },
-        [patchDraft, sheetBusy],
-    );
-
-    useEffect(() => {
-        if (!onRegisterDiscard) return;
-        if (!open) {
-            onRegisterDiscard(null);
-            return;
-        }
-        onRegisterDiscard(() => {
-            const orphanedUploads = profileMediaPathsOnlyIn(draftRef.current, customizationRef.current);
-            if (orphanedUploads.length > 0) {
-                void removeProfileMediaPaths(orphanedUploads);
-            }
-        });
-        return () => onRegisterDiscard(null);
-    }, [open, onRegisterDiscard]);
-
-    const closeStudio = useCallback(() => {
-        onClose();
-    }, [onClose]);
-
-    const { onKeyDownCapture } = useProfileSettingsFocusTrap(open, sheetRef, closeStudio, {
-        closeEnabled: !sheetBusy,
+    const { onKeyDownCapture } = useProfileSettingsFocusTrap(open, sheetRef, () => closeStudio(), {
+        closeEnabled: !sheetBusy && !canvasEditorOpen,
+        trapTab: !canvasEditorOpen,
     });
 
-    const handleTabChange = useCallback(
-        (next: ProfileSettingsTab) => {
-            /* امنع إغلاق الاستوديو من click-through للخلفية بعد لمس التبويب
-             * (تبديل التبويب يغيّر ارتفاع الورقة → الشريط يتحرك → الـ click يقع على الخلفية) */
-            ignoreBackdropCloseUntilRef.current = Date.now() + 420;
-            setTab(next);
-        },
-        [setTab],
-    );
-
-    const handleSave = useCallback(async () => {
-        if (sheetBusy) return;
-        const snapshot = draft;
-        const saved = await onSave(snapshot);
-        if (!saved) return;
-        /* بعد الحفظ الناجح: لا تحذف وسائط المسودة */
-        onRegisterDiscard?.(null);
-        /* onClose (= closeSettings) يتولى flushSync + تحرير التمرير — لا تغليف مزدوج */
-        onClose();
-    }, [onClose, onSave, draft, sheetBusy, onRegisterDiscard]);
-
-    const handleRemoveBlock = useCallback(
-        async (id: string) => {
-            if (sheetBusy || draftMutateLockRef.current) return;
-            const previousDraft = draft;
-            const existsCommitted = customization.customBlocks.some((block) => block.id === id);
-            draftMutateLockRef.current = true;
-            setDraftLocked(true);
-            state.removeBlock(id);
-            if (!existsCommitted) {
-                draftMutateLockRef.current = false;
-                setDraftLocked(false);
-                SmartToast.success('تم حذف الحاوية');
-                return;
-            }
-            /*
-             * احفظ المسودة بعد الحذف (لا baseline القديمة) لتفادي سباق مع حفظ كامل
-             * يكتب مظهراً/خصوصية قديمة فوق جلسة أحدث.
-             */
-            const next: ProfilePageCustomization = {
-                ...previousDraft,
-                customBlocks: previousDraft.customBlocks.filter((block) => block.id !== id),
-            };
-            draftRef.current = next;
-            try {
-                const saved = await onSave(next, { silent: true });
-                if (!saved) {
-                    state.setDraft((current) => restoreRemovedCustomBlock(current, previousDraft, id));
-                    SmartToast.error('تعذر حذف الحاوية — أُعيدت للمسودة');
-                    return;
-                }
-                SmartToast.success('تم حذف الحاوية');
-            } finally {
-                draftMutateLockRef.current = false;
-                setDraftLocked(false);
-            }
-        },
-        [draft, customization, onSave, state, sheetBusy],
-    );
-
-    const onTabKeyDown = (event: React.KeyboardEvent) => {
-        const idx = PROFILE_SETTINGS_TAB_IDS.indexOf(tab);
-        if (idx < 0) return;
-        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-            event.preventDefault();
-            const delta = event.key === 'ArrowLeft' ? 1 : -1;
-            const next = PROFILE_SETTINGS_TAB_IDS[(idx + delta + PROFILE_SETTINGS_TAB_IDS.length) % PROFILE_SETTINGS_TAB_IDS.length]!;
-            handleTabChange(next);
-            document.getElementById(`profile-settings-tab-${next}`)?.focus();
-        }
-    };
-
     const sheetLayer = (
-        <AnimatePresence onExitComplete={onExitComplete}>
+        <AnimatePresence>
             {open ? (
                 <>
                     <motion.div
@@ -195,6 +101,7 @@ export function ProfileSettingsSheet({
                                 event.stopPropagation();
                                 return;
                             }
+                            if (canvasEditorOpen) return;
                             closeStudio();
                         }}
                         aria-hidden
@@ -209,7 +116,11 @@ export function ProfileSettingsSheet({
                         data-profile-settings-sheet
                         data-testid="profile-settings-sheet"
                         onKeyDownCapture={onKeyDownCapture}
-                        onPointerDown={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => {
+                            event.stopPropagation();
+                            /* تبديل شريحة يغيّر ارتفاع الورقة — الـ click التالي قد يقع على الخلفية */
+                            ignoreBackdropCloseUntilRef.current = Date.now() + 420;
+                        }}
                         onClick={(event) => event.stopPropagation()}
                         style={{
                             marginBottom: keyboardInset > 0 ? keyboardInset : undefined,
@@ -219,7 +130,7 @@ export function ProfileSettingsSheet({
                                   }
                                 : null),
                         }}
-                        className="fixed inset-x-0 bottom-0 z-[97] max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-15vh))] rounded-t-[28px] border flex flex-col overflow-hidden overscroll-none"
+                        className="fixed inset-x-0 bottom-0 z-[97] w-full max-w-[min(100%,32.5rem)] mx-auto max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-15vh))] rounded-t-[28px] border flex flex-col overflow-hidden overscroll-none ps-[max(0px,env(safe-area-inset-left))] pe-[max(0px,env(safe-area-inset-right))]"
                         role="dialog"
                         aria-modal="true"
                         aria-label="استوديو الصفحة"
@@ -244,8 +155,8 @@ export function ProfileSettingsSheet({
                                 uploadingBlockId={state.uploadingBlockId}
                                 uploadingCanvasBlockId={state.uploadingCanvasBlockId}
                                 onDraftChange={guardedPatchDraft}
-                                onAddBlock={state.addBlock}
-                                onUpdateBlock={state.updateBlock}
+                                onAddBlock={guardedAddBlock}
+                                onUpdateBlock={guardedUpdateBlock}
                                 onRemoveBlock={handleRemoveBlock}
                                 onPickBlockImage={state.triggerBlockImage}
                                 onUploadCanvasBg={state.triggerCanvasBg}

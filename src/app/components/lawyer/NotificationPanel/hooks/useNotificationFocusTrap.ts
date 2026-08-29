@@ -15,6 +15,7 @@ export function useNotificationFocusTrap(
             if (e.key !== 'Escape') return;
             e.preventDefault();
             e.stopPropagation();
+            e.stopImmediatePropagation();
             onClose();
         };
         window.addEventListener('keydown', onKey, true);

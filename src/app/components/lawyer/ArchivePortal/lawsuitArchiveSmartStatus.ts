@@ -1,6 +1,5 @@
 import type { ComputedSmartStatus, LooseArchiveFile, StageWithCaseMeta } from './types';
-import type { CaseStage } from '../LawyerShared';
-import { isDossierFinalized } from '../smart-modal/smartFile/extraordinaryAppealGateway';
+import { isDossierFinalized } from '../smart-modal/smartFile/dossierFinality';
 
 const ACTIVE_STATUS: ComputedSmartStatus = {
     type: 'active',
@@ -21,7 +20,7 @@ function calcDaysRemaining(deadline?: string): number {
 function resolveActiveStage(
     file: LooseArchiveFile,
 ): StageWithCaseMeta | undefined {
-    const stages = (file.stages ?? []) as StageWithCaseMeta[];
+    const stages = file.stages ?? [];
     if (!stages.length) return undefined;
     const idx =
         typeof file.activeStageIndex === 'number' && file.activeStageIndex >= 0
@@ -74,7 +73,37 @@ export function computeLawsuitSmartStatus(file: LooseArchiveFile): ComputedSmart
         };
     }
 
-    if (status === 'متروكة للمراجعة' || fd.includes('متروكة للمراجعة')) {
+    // لا نعتمد على حالة الملف العامة وحدها؛ فقد تبقى قديمة بعد التجديد أو
+    // الإنهاء. يجب أن تحمل المرحلة النشطة دليلاً فعلياً على الترك للمراجعة.
+    const hasActiveReviewEvidence =
+        Boolean(stage?.abandonmentDate)
+        || stage?.status === 'abandoned'
+        || (stage?.status === 'completed' && fd.includes('متروكة للمراجعة'));
+
+    // الحالة النهائية تتقدم دائماً على أي بيانات مراجعة قديمة.
+    if (
+        fd.includes('مكتسبة الدرجة القطعية')
+        || (
+            !hasActiveReviewEvidence
+            && (
+                status === 'منتهية'
+                || status.includes('قطعية')
+                || isDossierFinalized(status, stage ? [stage] : [])
+            )
+        )
+    ) {
+        return {
+            type: 'final',
+            label: 'انتهت',
+            title: 'مكتسبة الدرجة القطعية',
+            color: 'text-emerald-300',
+            bgColor: 'bg-emerald-500/10',
+            borderColor: 'border-emerald-500/30',
+            timers: null,
+        };
+    }
+
+    if (hasActiveReviewEvidence) {
         const reviewDays = timers?.reviewDeadline ? calcDaysRemaining(timers.reviewDeadline) : 0;
         if (reviewDays <= 0 && timers?.reviewDeadline) {
             return {
@@ -110,23 +139,6 @@ export function computeLawsuitSmartStatus(file: LooseArchiveFile): ComputedSmart
             bgColor: 'bg-blue-500/10',
             borderColor: 'border-blue-500/30',
             timers: { appeal: appealDays, cassation: cassationDays },
-        };
-    }
-
-    if (
-        fd.includes('مكتسبة الدرجة القطعية')
-        || status === 'منتهية'
-        || status.includes('قطعية')
-        || isDossierFinalized(status, (file.stages ?? []) as CaseStage[])
-    ) {
-        return {
-            type: 'final',
-            label: 'انتهت',
-            title: 'مكتسبة الدرجة القطعية',
-            color: 'text-emerald-300',
-            bgColor: 'bg-emerald-500/10',
-            borderColor: 'border-emerald-500/30',
-            timers: null,
         };
     }
 

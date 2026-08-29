@@ -4,8 +4,7 @@ import type { AttachmentShieldSummary, FastTrackPetitionSummary } from '@/app/co
 import type { CaseStage, TimelineEvent } from '@/app/components/lawyer/LawyerShared';
 import {
     buildSessionRecordPayload,
-    isOpponentProceedingsEvent,
-    isSessionTimelineEvent,
+    isSessionHubFocusEvent,
 } from '@/app/components/lawyer/smart-modal/smartFile/sessionRecordEngine';
 import { storedFastTrackStatus } from '@/app/components/lawyer/smart-modal/smartFile/fastTrackStatus';
 import {
@@ -50,7 +49,7 @@ export function buildPersonalStatusHeaderFormData(input: {
 
 export function buildPersonalStatusSessionHubProps(
     p: SmartFileMainPanelProps,
-    isViewingArchived: boolean,
+    interactionLocked: boolean,
 ): SessionAndRequestsHubProps {
     const {
         displayTimeline,
@@ -66,12 +65,14 @@ export function buildPersonalStatusSessionHubProps(
     } = p;
 
     return {
-        readOnly: isViewingArchived,
+        readOnly: interactionLocked,
         visualVariant: 'personal' as const,
         layoutMode: 'personal-pearl' as const,
         timeline: displayTimeline,
+        firstHearingDate:
+            typeof p.file?.firstHearingDate === 'string' ? p.file.firstHearingDate : null,
         editingSessionRecord:
-            editingEvent && isSessionTimelineEvent(editingEvent) && !isOpponentProceedingsEvent(editingEvent)
+            editingEvent && isSessionHubFocusEvent(editingEvent)
                 ? editingEvent
                 : null,
         onCancelEditSessionRecord: () => setEditingEvent(null),

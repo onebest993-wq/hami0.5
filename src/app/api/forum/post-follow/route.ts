@@ -3,7 +3,7 @@ import { ForumPostFollowRepository } from '../../../services/forum/forumPostFoll
 import { ForumRepository } from '../../../services/forum/forumRepository.ts';
 import { checkForumActionRateLimit } from '../../../services/forum/forumRateLimitServer.ts';
 import { assertForumPostGroupAccess } from '../../../services/forum/forumGroupMutationGate.ts';
-import { requireForumAuth, assertForumWriteAllowed, jsonResponse } from '../_auth.ts';
+import { requireForumAuth, assertForumWriteAllowed, jsonResponse, forumCatchJsonResponse } from '../_auth.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object';
@@ -66,8 +66,6 @@ export async function POST(request: Request): Promise<Response> {
         await ForumPostFollowRepository.subscribe(auth.userId, postId);
         return jsonResponse(200, { ok: true, subscribed: true });
     } catch (err) {
-        const message = err instanceof Error ? err.message : 'Internal server error';
-        const status = message.includes('الانضمام للمجموعة') ? 403 : message.includes('غير موجود') ? 404 : 500;
-        return jsonResponse(status, { ok: false, error: message });
+        return forumCatchJsonResponse(err);
     }
 }

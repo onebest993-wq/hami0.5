@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
-import { motion } from 'motion/react';
-import { Pin, Trash2, Pencil } from '@/app/components/ui/lucideIcons';
+import { motion } from '@/app/motion/overlayMotionRuntime';
+import { Pin } from '@/app/components/ui/icons/Pin';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
+import { Pencil } from '@/app/components/ui/icons/Pencil';
 import type { TimelineEvent as ExecutionTimelineEvent } from '@/app/types/execution';
 import {
     cleanTimelineCardTitle,

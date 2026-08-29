@@ -1,35 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('scheduleHubLoader', () => {
-    beforeEach(async () => {
+    beforeEach(() => {
         vi.resetModules();
-        const mod = await import('@/app/runtime/scheduleHubLoader');
-        mod.resetScheduleHubModuleCacheForTests();
     });
 
-    it('hydrateScheduleShellForInstantOpen يكتفي بتبويب التقويم دون انتظار الرادار', async () => {
-        const tabMod = {
-            LawyerDashboardScheduleTab: () => null,
-        };
-        let resolveRadar: ((v: unknown) => void) | undefined;
-        const radarPromise = new Promise((resolve) => {
-            resolveRadar = resolve;
-        });
+    it('hydrateScheduleShellForInstantOpen يحمّل مضيف التقويم فقط', async () => {
+        vi.doMock('@/app/components/lawyer/dashboard/schedule/ScheduleTabHost', () => ({
+            ScheduleTabHost: () => null,
+        }));
 
-        vi.doMock('@/app/components/lawyer/dashboard/LawyerDashboardScheduleTab', () => tabMod);
-        vi.doMock('@/app/components/lawyer/SmartLegalRadar.tsx', () => radarPromise);
-
-        const { hydrateScheduleShellForInstantOpen, isScheduleTabModuleResolved, isSmartLegalRadarModuleResolved } =
+        const { hydrateScheduleShellForInstantOpen, isScheduleShellModuleResolved, resetScheduleHubModuleCacheForTests } =
             await import('@/app/runtime/scheduleHubLoader');
+        resetScheduleHubModuleCacheForTests();
 
-        const okPromise = hydrateScheduleShellForInstantOpen();
-        const ok = await okPromise;
+        const ok = await hydrateScheduleShellForInstantOpen();
 
         expect(ok).toBe(true);
-        expect(isScheduleTabModuleResolved()).toBe(true);
-        expect(isSmartLegalRadarModuleResolved()).toBe(false);
-
-        resolveRadar?.({ SmartLegalRadar: () => null });
-        await radarPromise;
+        expect(isScheduleShellModuleResolved()).toBe(true);
     });
 });

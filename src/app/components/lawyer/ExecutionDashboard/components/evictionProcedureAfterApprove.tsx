@@ -60,7 +60,7 @@ function buildArabicDateLabel(ymd: string) {
     }
 }
 
-export function saveEvictionFieldVisitSchedule(
+function saveEvictionFieldVisitSchedule(
     decisionId: string,
     d: EvictionAfterApproveDeps,
 ): void {

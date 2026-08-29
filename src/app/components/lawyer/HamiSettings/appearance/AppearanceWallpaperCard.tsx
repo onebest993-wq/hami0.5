@@ -1,143 +1,87 @@
-import React, { useCallback, useEffect, useId, useState } from 'react';
-import { ImageIcon } from '@/app/components/ui/lucideIcons';
-import { SettingCard, SETTING_GLASS_INNER } from '../settings-ui';
+import React, { Suspense, lazy } from 'react';
 import { markSettingsFilePickerOpening } from '../settingsFilePickerGrace';
 import type { AppearanceSectionViewModel } from './useAppearanceSection';
-import { WallpaperEditorPanel } from './WallpaperEditorPanel';
+import { useAppearanceWallpaperCard } from './useAppearanceWallpaperCard';
 
-/** معرّف ثابت بلا ":" — بعض المتصفحات تكسر htmlFor/label مع useId الافتراضي */
-function useWallpaperInputDomId(): string {
-    const reactId = useId().replace(/:/g, '');
-    return `hami-wallpaper-file-${reactId}`;
-}
+const WallpaperEditorPanel = lazy(() =>
+    import('./WallpaperEditorPanel').then((m) => ({ default: m.WallpaperEditorPanel })),
+);
 
 export function AppearanceWallpaperCard({ vm }: { vm: AppearanceSectionViewModel }) {
-    const inputId = useWallpaperInputDomId();
-    const [status, setStatus] = useState<string | null>(null);
-    const [busy, setBusy] = useState(false);
-
-    useEffect(() => {
-        if (!status) return;
-        const t = window.setTimeout(() => setStatus(null), 5_000);
-        return () => window.clearTimeout(t);
-    }, [status]);
-
-    const onFileChange = useCallback(
-        (e: React.ChangeEvent<HTMLInputElement>) => {
-            const file = e.target.files?.[0];
-            e.target.value = '';
-            if (!file) {
-                setStatus('لم يُختر ملف');
-                return;
-            }
-            const ok = vm.beginWallpaperEdit(file);
-            setStatus(ok ? 'اضبط مكان الصورة ثم اضغط تطبيق' : null);
-        },
-        [vm],
-    );
-
-    const onRemove = useCallback(() => {
-        setBusy(true);
-        try {
-            const ok = vm.removeWallpaper();
-            setStatus(ok ? 'تمت إزالة الخلفية' : 'تعذر إزالة الخلفية');
-        } finally {
-            setBusy(false);
-        }
-    }, [vm]);
-
-    const actionLabel = vm.editorDraft
-        ? 'تغيير الصورة'
-        : busy
-          ? 'جاري التطبيق…'
-          : vm.wallpaperSrc
-            ? 'تغيير الخلفية'
-            : 'رفع صورة خلفية';
+    const {
+        inputId,
+        status,
+        busy,
+        actionLabel,
+        onFileChange,
+        onRemove,
+        onApplyEdit,
+        onCancelEdit,
+    } = useAppearanceWallpaperCard(vm);
 
     return (
-        <SettingCard className="mb-4 overflow-visible">
-            <div className="relative z-[1] p-4">
-                <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-2">
-                        <ImageIcon size={16} className="text-[#E6C673]" aria-hidden />
-                        <span className="text-sm font-bold text-white">صورة خلفية</span>
-                    </div>
+        <div className="relative z-[1] overflow-visible px-3.5 py-3">
+            <div className="flex items-center gap-2.5">
+                <div className="relative z-[2] h-12 w-[4.25rem] overflow-hidden rounded-lg ring-1 ring-white/10 shrink-0">
                     {vm.wallpaperSrc ? (
-                        <button
-                            type="button"
-                            disabled={busy || vm.editorBusy}
-                            onClick={onRemove}
-                            className="relative z-[2] text-[10px] font-bold text-rose-400/90 hover:text-rose-300 shrink-0 min-h-[44px] px-2 touch-manipulation disabled:opacity-50"
-                            data-testid="settings-wallpaper-remove"
-                        >
-                            إزالة
-                        </button>
-                    ) : null}
+                        <img src={vm.wallpaperSrc} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="w-full h-full" style={{ backgroundColor: vm.previewBaseColor }} />
+                    )}
                 </div>
-                <div className="flex items-center gap-3">
-                    <div
-                        className={`relative z-[2] w-20 h-14 rounded-xl overflow-hidden shrink-0 ring-1 ring-white/10 ${SETTING_GLASS_INNER}`}
+                <label
+                    data-testid="settings-wallpaper-upload"
+                    onPointerDown={() => markSettingsFilePickerOpening()}
+                    className={`relative z-[2] flex flex-1 min-h-[44px] cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-[12px] font-medium text-white/80 touch-manipulation ${
+                        busy || vm.editorBusy ? 'pointer-events-none opacity-60' : 'hover:bg-white/[0.07]'
+                    }`}
+                >
+                    {actionLabel}
+                    <input
+                        id={inputId}
+                        ref={vm.wallpaperRef}
+                        type="file"
+                        accept="image/*,image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp,.heic,.heif"
+                        disabled={busy || vm.editorBusy}
+                        data-testid="settings-wallpaper-input"
+                        aria-label={actionLabel}
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        style={{ fontSize: 16 }}
+                        onClick={() => markSettingsFilePickerOpening()}
+                        onChange={(e) => void onFileChange(e)}
+                    />
+                </label>
+                {vm.wallpaperSrc ? (
+                    <button
+                        type="button"
+                        disabled={busy || vm.editorBusy}
+                        onClick={onRemove}
+                        className="relative z-[2] text-[12px] font-medium text-rose-400/90 shrink-0 min-h-[44px] min-w-[44px] px-1 inline-flex items-center justify-center touch-manipulation disabled:opacity-50"
+                        data-testid="settings-wallpaper-remove"
                     >
-                        {vm.wallpaperSrc ? (
-                            <img src={vm.wallpaperSrc} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                            <div
-                                className="w-full h-full"
-                                style={{ backgroundColor: vm.previewBaseColor }}
-                            />
-                        )}
-                    </div>
-                    {/* label يغلّف input بلا htmlFor — يمنع فتح/إغلاق فوري لمنتقي الملفات */}
-                    <label
-                        data-testid="settings-wallpaper-upload"
-                        onPointerDown={() => markSettingsFilePickerOpening()}
-                        className={`relative z-[2] flex flex-1 min-h-[44px] cursor-pointer items-center justify-center rounded-xl border border-[#E6C673]/25 bg-[#E6C673]/10 text-[11px] font-bold text-[#E6C673] touch-manipulation ${
-                            busy || vm.editorBusy ? 'pointer-events-none opacity-60' : 'hover:bg-[#E6C673]/15'
-                        }`}
-                    >
-                        {actionLabel}
-                        <input
-                            id={inputId}
-                            ref={vm.wallpaperRef}
-                            type="file"
-                            accept="image/*,image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp,.heic,.heif"
-                            disabled={busy || vm.editorBusy}
-                            data-testid="settings-wallpaper-input"
-                            aria-label={actionLabel}
-                            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                            style={{ fontSize: 16 }}
-                            onClick={() => markSettingsFilePickerOpening()}
-                            onChange={(e) => void onFileChange(e)}
-                        />
-                    </label>
-                </div>
-                {vm.editorDraft ? (
+                        إزالة
+                    </button>
+                ) : null}
+            </div>
+            {vm.editorDraft ? (
+                <Suspense fallback={null}>
                     <WallpaperEditorPanel
                         previewUrl={vm.editorDraft.previewUrl}
                         busy={vm.editorBusy}
-                        onApply={(transform) => {
-                            setBusy(true);
-                            void vm.applyWallpaperEdit(transform).then((ok) => {
-                                setStatus(ok ? 'تم تطبيق الخلفية على اللوحة' : 'تعذر تطبيق الخلفية');
-                                setBusy(false);
-                            });
-                        }}
-                        onCancel={() => {
-                            vm.cancelWallpaperEdit();
-                            setStatus(null);
-                        }}
+                        onApply={onApplyEdit}
+                        onCancel={onCancelEdit}
                     />
-                ) : null}
-                {status ? (
-                    <p
-                        className="mt-2 text-xs font-medium text-[#E6C673]/90"
-                        data-testid="settings-wallpaper-status"
-                        role="status"
-                    >
-                        {status}
-                    </p>
-                ) : null}
-            </div>
-        </SettingCard>
+                </Suspense>
+            ) : null}
+            {status ? (
+                <p
+                    className="mt-2 text-[11px] font-medium text-white/45"
+                    data-testid="settings-wallpaper-status"
+                    role="status"
+                >
+                    {status}
+                </p>
+            ) : null}
+        </div>
     );
 }

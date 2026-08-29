@@ -3,79 +3,26 @@ import {
     buildChromeStageStripItems,
     type ChromeStageStripItem,
 } from '@/app/components/lawyer/smart-modal/smartFile/stepperPipeline';
-import { isCassationStageName } from '@/app/components/lawyer/smart-modal/smartFile/judgmentTypes';
-import { PERSONAL_STATUS_STAGE_OPTIONS, isPersonalStatusFile } from './personalStatusValidation';
+import { isCassationStageName } from '@/app/components/lawyer/smart-modal/smartFile/judgmentStageNames';
+import {
+    containsCivilStageTerminology,
+    filterPersonalStatusAppealMethods,
+    hasCivilLawsuitStageHistory,
+    isPersonalStatusAppealContext,
+    isPersonalStatusCoreStage,
+    isPersonalStatusNoAppealMethod,
+    isPersonalStatusStageName,
+} from './personalStatusAppealStageHelpers';
 
-const CIVIL_STAGE_PATTERN = /بداءة|استئناف|بدرجة\s*أولى/i;
-
-/** هل سجل المراحل يحتوي مسار مدني (بداءة / استئناف)؟ */
-export function hasCivilLawsuitStageHistory(
-    stages?: Array<{ stageName?: string | null; name?: string | null }> | null,
-): boolean {
-    return (stages ?? []).some((s) =>
-        containsCivilStageTerminology(String(s.stageName ?? s.name ?? '')),
-    );
-}
-
-const SHARED_EXTRAORDINARY_STAGE_MARKERS = [
-    'اعتراض على الحكم الغيابي',
-    'اعتراض الغير',
-    'إعادة المحاكمة',
-] as const;
-
-function isCivilLawsuitFile(file: {
-    lawsuitJurisdiction?: string;
-    selectedType?: string;
-    type?: string;
-}): boolean {
-    if (isPersonalStatusFile(file)) return false;
-    const type = String(file.type ?? '').toLowerCase();
-    const selected = String(file.selectedType ?? '').toLowerCase();
-    const jurisdiction = String(file.lawsuitJurisdiction ?? '').toLowerCase();
-    return (
-        type === 'lawsuit'
-        || selected === 'civil'
-        || jurisdiction === 'lawsuit'
-        || jurisdiction === 'civil'
-    );
-}
-
-/**
- * سياق طعن أحوال شخصية — لا يُستدل عليه من اسم مرحلة مشتركة (اعتراض غيابي)
- * إذا وُجدت مراحل مدنية سابقة أو الإضبارة مدنية.
- */
-export function isPersonalStatusAppealContext(
-    stageName?: string | null,
-    stages?: Array<{ stageName?: string | null; name?: string | null }> | null,
-    file?: { lawsuitJurisdiction?: string; selectedType?: string; type?: string } | null,
-): boolean {
-    if (file && isPersonalStatusFile(file)) return true;
-    if (file && isCivilLawsuitFile(file)) return false;
-    if (hasCivilLawsuitStageHistory(stages)) return false;
-    return isPersonalStatusStageName(stageName);
-}
-
-/** هل اسم المرحلة ضمن مسار الأحوال الشخصية (وليس المدني)؟ */
-export function isPersonalStatusStageName(stageName?: string | null): boolean {
-    const s = String(stageName ?? '').trim();
-    if (!s || containsCivilStageTerminology(s)) return false;
-    if (SHARED_EXTRAORDINARY_STAGE_MARKERS.some((marker) => s.includes(marker))) {
-        return false;
-    }
-    if (s.includes('تمييز') || s === 'التمييز') return true;
-    return PERSONAL_STATUS_STAGE_OPTIONS.some(
-        (opt) => s === opt || s === `ال${opt}` || s.includes(opt),
-    );
-}
-
-/** إزالة «استئناف» وجميع صيغه من خيارات الطعن في الأحوال الشخصية. */
-export function isPersonalStatusNoAppealMethod(method?: string | null): boolean {
-    return /استئناف/i.test(String(method ?? '').trim());
-}
-
-export function filterPersonalStatusAppealMethods(methods: readonly string[]): string[] {
-    return methods.filter((m) => !isPersonalStatusNoAppealMethod(m));
-}
+export {
+    containsCivilStageTerminology,
+    filterPersonalStatusAppealMethods,
+    hasCivilLawsuitStageHistory,
+    isPersonalStatusAppealContext,
+    isPersonalStatusCoreStage,
+    isPersonalStatusNoAppealMethod,
+    isPersonalStatusStageName,
+} from './personalStatusAppealStageHelpers';
 
 /** في الأحوال الشخصية: أي طعن استئنافي يُحوَّل تمييزاً (لا استئناف قانونياً). */
 export function normalizePersonalStatusAppealMethod(
@@ -103,11 +50,6 @@ export function isPersonalStatusDossierFromStages(
     );
 }
 
-/** مصطلحات المدني (بداءة / استئناف) — لا تُعرض في واجهة الأحوال الشخصية. */
-export function containsCivilStageTerminology(stageName: string): boolean {
-    return CIVIL_STAGE_PATTERN.test(stageName.trim());
-}
-
 /** تسمية مرحلة للعرض — تُرجع null لإخفاء الشارة أو pill غير المناسب. */
 export function formatPersonalStatusStageDisplayName(
     raw: string,
@@ -123,7 +65,7 @@ export function formatPersonalStatusStageDisplayName(
     return s;
 }
 
-/** إظهار مرحلة الأحوال في الشريط عند وجود تمييز/طعn استثنائي. */
+/** إظهار مرحلة الأحوال في الشريط عند وجود تمييز/طعن استثنائي. */
 export function shouldShowPersonalStatusCoreStageInChrome(stages: CaseStage[]): boolean {
     if (stages.length > 1) return true;
     return stages.some((stage) => {
@@ -134,14 +76,6 @@ export function shouldShowPersonalStatusCoreStageInChrome(stages: CaseStage[]): 
             || name.includes('إعادة المحاكمة')
         );
     });
-}
-
-/** المرحلة الأساسية للدعوى (قبل تمييز / إجراءات استثنائية). */
-export function isPersonalStatusCoreStage(stageName?: string | null): boolean {
-    const s = String(stageName ?? '').trim();
-    if (!s || s.includes('أحوال شخصية') || containsCivilStageTerminology(s)) return true;
-    if (s.includes('تمييز') || s.includes('اعتراض') || s.includes('إعادة المحاكمة')) return false;
-    return true;
 }
 
 export function buildPersonalStatusChromeStageStripItems(

@@ -1,6 +1,6 @@
 import type { CaseStage, NotificationStatus } from '../../LawyerShared';
 
-export function cloneStages(stages: CaseStage[]): CaseStage[] {
+function cloneStages(stages: CaseStage[]): CaseStage[] {
     return [...stages];
 }
 

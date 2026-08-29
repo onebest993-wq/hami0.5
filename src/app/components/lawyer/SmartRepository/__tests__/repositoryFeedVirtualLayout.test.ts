@@ -25,8 +25,8 @@ describe('repositoryFeedVirtualLayout', () => {
         expect(chunkRepositoryFeedItems(['a', 'b'], 1)).toEqual([['a'], ['b']]);
     });
 
-    it('يقدّر ارتفاع الصف حسب نمط العرض', () => {
-        expect(estimateRepositoryFeedRowSize('compact')).toBeLessThan(estimateRepositoryFeedRowSize('grid'));
-        expect(estimateRepositoryFeedRowSize('gallery')).toBeGreaterThan(estimateRepositoryFeedRowSize('list'));
+    it('يقدّر ارتفاع الصف حسب نمط العرض الحي', () => {
+        expect(estimateRepositoryFeedRowSize('list')).toBeLessThan(estimateRepositoryFeedRowSize('grid'));
+        expect(resolveRepositoryFeedColumnCount('list', 1400)).toBe(1);
     });
 });

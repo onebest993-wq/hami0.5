@@ -10,6 +10,11 @@ import {
 function clearBootSession() {
     window.__hamiBootRevealDone__ = undefined;
     try {
+        delete document.documentElement.dataset.hamiBootRevealed;
+    } catch {
+        /* ignore */
+    }
+    try {
         for (const key of HAMI_BOOT_SESSION_KEYS) sessionStorage.removeItem(key);
     } catch {
         /* ignore */
@@ -46,5 +51,11 @@ describe('bootReveal session splash guard', () => {
         expect(isSplashGuardFrozen()).toBe(false);
         markBootRevealDone();
         expect(isSplashGuardFrozen()).toBe(true);
+    });
+
+    it('markBootRevealDone يطبّق DOM حتى لو hami-boot سبق ووسم الجلسة', () => {
+        window.__hamiBootRevealDone__ = true;
+        markBootRevealDone();
+        expect(document.documentElement.dataset.hamiBootRevealed).toBe('1');
     });
 });

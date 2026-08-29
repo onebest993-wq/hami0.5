@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { animate, motion, useMotionValue } from 'motion/react';
-import { Maximize, ZoomIn, ZoomOut } from '@/app/components/ui/lucideIcons';
+import { animate, motion, useMotionValue } from '@/app/motion/overlayMotionRuntime';
+import { Maximize } from '@/app/components/ui/icons/Maximize';
+import { ZoomIn } from '@/app/components/ui/icons/ZoomIn';
+import { ZoomOut } from '@/app/components/ui/icons/ZoomOut';
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;

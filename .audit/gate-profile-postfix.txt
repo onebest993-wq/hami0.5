@@ -1,0 +1,328 @@
+﻿
+> hami-app@10.5.0 gate:profile
+> node scripts/profile-production-gate.mjs
+
+=== Profile production gate ===
+
+ظ£ô src/app/hooks/lawyerDashboard/useLawyerDashboardProfileTab.ts
+ظ£ô src/app/hooks/lawyerDashboard/profile/profileShellOpenFlow.ts
+ظ£ô src/app/hooks/lawyerDashboard/profile/profileLazyImports.ts
+ظ£ô src/app/hooks/lawyerDashboard/profileIntentWarm.ts
+ظ£ô src/app/hooks/lawyerDashboard/useProfileTabMobileSuspend.ts
+ظ£ô src/app/hooks/lawyerDashboard/headerShellIntentWarm.ts
+ظ£ô src/app/services/profile/profileShellOrchestration.ts
+ظ£ô src/app/runtime/royalLawyerProfileLoader.ts
+ظ£ô src/app/services/cloud/lawyerProfileCloud.ts
+ظ£ô src/app/services/profile/profileSaveTimeout.ts
+ظ£ô src/app/components/lawyer/dashboard/LawyerDashboardProfileTab.tsx
+ظ£ô src/app/components/lawyer/RoyalLawyerProfile/profileCanvasFxLoader.ts
+ظ£ô src/app/components/lawyer/RoyalLawyerProfile/ProfileErrorBoundary.tsx
+ظ£ô src/app/components/lawyer/LawyerDashboardParts/components/HeaderProfileTrigger.tsx
+ظ£ô src/app/components/lawyer/RoyalLawyerProfile/lawyerProfileFx-android.css
+ظ£ô src/app/services/profileMediaService.ts
+ظ£ô no RoyalLawyerProfile.tsx shadow stub
+
+Running profile unit test suite...
+
+ RUN  v3.2.7 C:/Users/HEX STORE/Downloads/New folder
+
+ ظ£ô src/app/services/profile/__tests__/profileShellSnap.test.ts (6 tests) 101ms
+ ظ£ô src/app/services/profile/__tests__/profileSentryReporting.test.ts (1 test) 67ms
+ ظ£ô src/app/components/lawyer/RoyalLawyerProfile/components/profileTextCanvas/__tests__/ProfileTextCanvasMaskLayers.test.tsx (2 tests) 59ms
+ ظ£ô src/app/components/lawyer/RoyalLawyerProfile/__tests__/profileCanvasFxLoader.test.ts (2 tests) 65ms
+ ظ£ô src/app/services/profile/__tests__/profileCloudViewerScope.test.ts (1 test) 370ms
+   ظ£ô ProfileDB viewer scope > ┘è╪╣┘è╪» ┘╪│╪«╪ر redacted ┘┘╪▓╪د╪خ╪▒ ╪ص╪ز┘ë ┘┘ê ┘â╪د┘╪ز ╪د┘╪ذ┘è╪د┘╪د╪ز ╪د┘╪«╪د┘à ┘â╪د┘à┘╪ر  368ms
+ ظ£ô src/app/hooks/lawyerDashboard/__tests__/headerShellIntentWarm.test.ts (7 tests) 317ms
+ ظ£ô src/app/hooks/__tests__/useLawyerProfileHeader.test.ts (6 tests) 359ms
+ ظ£ô src/app/hooks/lawyerDashboard/__tests__/lawyerDashboardHeaderPrefetch.test.ts (10 tests) 482ms
+node.exe : stderr | src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileLoader.test.ts > useProfileLoader > ┘è╪ذ╪»╪ث ╪ذ┘╪د ╪ز╪ص┘à┘è┘ ╪╣┘╪» ┘ê╪ش┘ê╪» ┘â╪د╪┤ ╪»╪د┘╪خ
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (stderr | src/ap...┘â╪د╪┤ ╪»╪د┘╪خ:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+
+ ظ£ô src/app/hooks/lawyerDashboard/profile/__tests__/profileShellOpenFlow.test.ts (3 tests) 1278ms
+   ظ£ô profileShellOpenFlow > commitProfileOpen ┘è┘╪ز╪ص ╪د┘┘à┘┘ ┘ê┘è┘╪│╪ش┘ّ┘ perf ┘┘ê╪▒╪د┘ï  1272ms
+stderr | src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileLoader.test.ts > useProfileLoader > ┘╪د ┘è┘à╪│╪ص ╪د┘┘à┘┘ ╪د┘┘à╪╣╪▒┘ê╪╢ ╪╣┘╪» ╪ح╪╣╪د╪»╪ر loadProfile ┘┘┘╪│ ╪د┘┘à╪│╪ز╪«╪»┘à ┘à╪╣ ┘â╪د╪┤
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+
+stderr | src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileLoader.test.ts > useProfileLoader > ┘è╪ص╪»┘ّ╪س ┘à┘ ╪ص╪»╪س LAWYER_PROFILE_UPDATED ╪╣┘╪» ╪ز╪╖╪د╪ذ┘é userId
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+
+stderr | src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileLoader.test.ts > useProfileLoader > ┘è╪╣┘è╪» ╪د┘╪ز╪ص┘à┘è┘ ┘à┘ ╪د┘╪│╪ص╪د╪ذ╪ر ╪╣┘╪» LAWYER_PROFILE_UPDATED ╪ذ┘╪د ┘â╪د╪┤ ╪»╪د┘╪خ ╪ش╪»┘è╪»
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+
+stderr | src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileLoader.test.ts > useProfileLoader > ┘è┘╪«┘┘ّ┘è ╪د┘┘ç╪د╪ز┘ ┘┘╪▓╪د╪خ╪▒ ┘ê┘┘é privacy ╪ص╪ز┘ë ┘à┘ warm cache
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+Warning: An update to TestComponent inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at TestComponent (C:\Users\HEX STORE\Downloads\New folder\node_modules\@testing-library\react\dist\pure.js:307:5)
+
+ ظ£ô src/app/hooks/lawyerDashboard/__tests__/useLawyerDashboardProfileTab.test.ts (13 tests) 327ms
+ ظ£ô src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileLoader.test.ts (8 tests) 457ms
+ ظ£ô src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileScreenEscape.test.ts (7 tests) 30ms
+ ظ£ô src/app/services/profile/__tests__/profileSaveQueue.test.ts (3 tests) 37ms
+ ظ£ô src/app/components/lawyer/RoyalLawyerProfile/components/profileTextCanvas/__tests__/useProfileTextCanvasReveal.test.ts (5 tests) 43ms
+ ظ£ô src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileDisplayCustomization.test.ts (7 tests) 36ms
+ ظ£ô src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileCanvasInView.test.ts (2 tests) 60ms
+ ظ£ô src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileEditSession.test.ts (8 tests) 44ms
+ ظ£ô src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileContentModel.test.ts (3 tests) 40ms
+ ظ£ô src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileLifecycle.test.ts (4 tests) 41ms
+ ظ£ô src/app/services/profile/__tests__/profileMediaUploadSecurity.test.ts (2 tests) 26ms
+ ظ£ô src/app/services/profile/__tests__/refreshProfileCustomizationMedia.test.ts (2 tests) 17ms
+ ظ£ô src/app/services/profile/__tests__/profileShellReadiness.test.ts (2 tests) 27ms
+ ظ£ô src/app/services/profile/__tests__/profileSanitizer.test.ts (6 tests) 10ms
+ ظ£ô src/app/services/profile/__tests__/profileUrlSanitize.test.ts (11 tests) 9ms
+ ظ£ô src/app/services/profile/__tests__/profileVisitorView.test.ts (3 tests) 8ms
+ ظ£ô src/app/services/profile/__tests__/normalizeProfilePageCustomization.test.ts (9 tests) 11ms
+ ظ£ô src/app/services/profile/__tests__/profilePerfMetrics.test.ts (4 tests) 9ms
+ ظ£ô src/app/hooks/lawyerDashboard/__tests__/profileIntentWarm.test.ts (3 tests) 8ms
+ ظ£ô src/app/services/profile/__tests__/profileContactNavigation.test.ts (11 tests) 9ms
+ ظ£ô src/app/services/profile/__tests__/profileWarmCache.test.ts (5 tests) 10ms
+ ظ£ô src/app/runtime/__tests__/worldclassProfileCloseHonesty.test.ts (9 tests) 9ms
+ ظ£ô src/app/runtime/__tests__/profileSectionSurgicalCloseHonesty.test.ts (7 tests) 9ms
+ ظ£ô src/app/services/profile/__tests__/profilePageNormalizeTextStyles.test.ts (4 tests) 8ms
+ ظ£ô src/app/services/profile/__tests__/profileWriteGuard.test.ts (3 tests) 5ms
+ ظ£ô src/app/services/profile/__tests__/editDraftMediaPaths.test.ts (2 tests) 6ms
+ ظ£ô src/app/services/profile/__tests__/profileSparseDetect.test.ts (2 tests) 4ms
+ ظ£ô src/app/services/profile/__tests__/profileKvReadRedact.test.ts (9 tests) 13ms
+ ظ£ô src/app/services/profile/__tests__/filterActionsForVisitor.test.ts (5 tests) 5ms
+ ظ£ô src/app/runtime/__tests__/profileOpenGestureSnappiness.test.ts (4 tests) 7ms
+ ظ£ô src/app/components/lawyer/RoyalLawyerProfile/__tests__/lawyerProfileFx-android.test.ts (7 tests) 6ms
+ ظ£ô src/app/services/profile/__tests__/profileShellNavigation.test.ts (3 tests) 6ms
+ ظ£ô src/app/services/profile/__tests__/profileImageEditor.test.ts (3 tests) 6ms
+ ظ£ô src/app/services/profile/__tests__/profileContactInputSecurity.test.ts (3 tests) 5ms
+ ظ£ô src/app/services/profile/__tests__/profileShellOrchestration.test.ts (1 test) 6ms
+ ظ£ô src/app/services/profile/__tests__/profileCanvasInteractionGate.test.ts (3 tests) 6ms
+ ظ£ô src/app/services/profile/__tests__/profileMediaPaths.test.ts (3 tests) 4ms
+ ظ£ô src/app/services/profile/__tests__/profileShareText.test.ts (3 tests) 4ms
+ ظ£ô src/app/services/profile/__tests__/profilePrivacyVisibility.test.ts (6 tests) 5ms
+ ظ£ô src/app/services/profile/__tests__/restoreRemovedCustomBlock.test.ts (2 tests) 5ms
+ ظ£ô src/app/components/lawyer/RoyalLawyerProfile/__tests__/profilePageFxBudget.test.ts (2 tests) 4ms
+ ظ£ô src/app/services/profile/__tests__/profileRandomAppearance.test.ts (2 tests) 5ms
+ ظ£ô src/app/services/profile/__tests__/profilePageAccess.test.ts (3 tests) 5ms
+ ظ£ô src/app/services/profile/__tests__/profileAccentReadable.test.ts (2 tests) 5ms
+ ظ£ô src/app/services/profile/__tests__/profileGeolocation.test.ts (1 test) 4ms
+ ظ£ô src/app/services/profile/__tests__/profileShellLogic.test.ts (4 tests) 4ms
+ ظ£ô src/app/services/profile/__tests__/profileTouchTargets.test.ts (2 tests) 3ms
+ ظ£ô src/app/services/profile/__tests__/resolveBlockCanvasStyle.test.ts (2 tests) 4ms
+ ظ£ô src/app/services/profile/__tests__/profilePerfBudget.test.ts (1 test) 3ms
+ ظ£ô src/app/components/lawyer/RoyalLawyerProfile/__tests__/profileTouchTargetFloors.test.ts (4 tests) 5ms
+ ظ£ô src/app/services/profile/__tests__/resolveLawyerDisplayName.test.ts (2 tests) 3ms
+ ظ£ô src/app/services/profile/__tests__/profileHeaderLogic.test.ts (3 tests) 3ms
+ ظ£ô src/app/services/profile/__tests__/profileStudioAccessLogic.test.ts (1 test) 3ms
+
+ Test Files  62 passed (62)
+      Tests  264 passed (264)
+   Start at  22:57:05
+   Duration  20.43s (transform 8.40s, setup 45.17s, collect 7.35s, tests 4.53s, environment 123.42s, prepare 10.07s)
+
+ظ£ô all profile unit tests passed
+
+=== Gate result ===
+PASSED
+

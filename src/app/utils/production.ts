@@ -112,26 +112,6 @@ export const optimizeForProduction = (): void => {
 };
 
 // =====================================================
-// Error Reporting
-// =====================================================
-
-/**
- * معالجة الأخطاء في الإنتاج
- */
-export const handleProductionError = (error: Error, context?: string): void => {
-  if (isProduction()) {
-    // ✅ في الإنتاج: تسجيل الخطأ بدون تفاصيل حساسة
-    console.error('Application Error', context || 'Unknown');
-    
-    // ✅ يمكن إضافة خدمة تتبع الأخطاء هنا (مثل Sentry)
-    // مثال: Sentry.captureException(error);
-  } else {
-    // ✅ في التطوير: عرض التفاصيل كاملة
-    console.error('Error:', error, '\nContext:', context);
-  }
-};
-
-// =====================================================
 // API Key Validation
 // =====================================================
 
@@ -265,13 +245,18 @@ export const setDebugMode = (enabled: boolean): void => {
  */
 export const getBuildInfo = (): {
   version: string;
+  buildId: string;
+  release: string;
   environment: string;
   buildDate: string;
 } => {
   return {
-    version: '10.5.0',
+    version: __HAMI_APP_VERSION__,
+    buildId: __HAMI_BUILD_ID__,
+    release: __HAMI_APP_RELEASE__,
     environment: getEnvironment(),
-    buildDate: new Date().toISOString(),
+    // وقت البناء لا وقت الاستدعاء — كان `new Date()` يعيد «الآن» تحت اسم تاريخ بناء
+    buildDate: __HAMI_BUILD_TIME__,
   };
 };
 

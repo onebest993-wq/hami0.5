@@ -9,7 +9,7 @@ export function useExecutionDashboardCoreHandlerClusterSeizureFollowupRequests(
     deps: HandlerClusterPushTimelineDeps,
 ) {
     const { pushTimelineEvent } = deps;
-    const resolved = c as any;
+    const resolved = c as Record<string, unknown>;
 
     const {
         decisionsStorageExecutionId,

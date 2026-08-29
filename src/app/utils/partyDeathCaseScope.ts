@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { ExecutionFile } from '@/app/types/execution';
 
 export type PartyDeathCaseRecord = NonNullable<ExecutionFile['party_death_case']>;
@@ -30,8 +29,13 @@ export function buildScopedPartyDeathPersistPatch(
     nextCase: PartyDeathCaseRecord
 ): Pick<ExecutionFile, 'creditor_party_death_case' | 'debtor_party_death_case'> {
     const creditorCase =
-        role === 'creditor' ? nextCase : (getPartyDeathCaseForRole(base, 'creditor') ?? null);
-    const debtorCase = role === 'debtor' ? nextCase : (getPartyDeathCaseForRole(base, 'debtor') ?? null);
+        role === 'creditor'
+            ? { ...nextCase, deceased_party: 'creditor' as const }
+            : (getPartyDeathCaseForRole(base, 'creditor') ?? null);
+    const debtorCase =
+        role === 'debtor'
+            ? { ...nextCase, deceased_party: 'debtor' as const }
+            : (getPartyDeathCaseForRole(base, 'debtor') ?? null);
     return {
         creditor_party_death_case: creditorCase,
         debtor_party_death_case: debtorCase,

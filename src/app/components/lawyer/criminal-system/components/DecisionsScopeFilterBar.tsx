@@ -12,7 +12,7 @@ const chipClass = (active: boolean): string =>
     [
         'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold whitespace-nowrap transition-colors',
         active
-            ? 'border-white/20 bg-white/10 text-white shadow-[0_0_10px_rgba(212,175,55,0.04)]'
+            ? 'border-white/20 bg-white/10 text-white'
             : 'border-transparent bg-transparent text-white/55 hover:bg-white/[0.06] hover:text-white/80',
     ].join(' ');
 
@@ -33,7 +33,7 @@ export const DecisionsScopeFilterBar = memo(function DecisionsScopeFilterBar({
             dir="rtl"
         >
             <div
-                className="inline-flex flex-row flex-wrap justify-center items-center gap-0.5 w-fit mx-auto bg-[#ffffff05] backdrop-blur-md border border-white/10 p-0.5 rounded-xl whitespace-nowrap"
+                className="inline-flex flex-row flex-wrap justify-center items-center gap-0.5 w-fit mx-auto bg-[#ffffff05] backdrop-blur-sm border border-white/10 p-0.5 rounded-xl whitespace-nowrap"
                 role="tablist"
                 aria-label="فلتر مرحلة القرارات"
             >

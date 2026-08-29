@@ -1,17 +1,16 @@
 import { isAllowedIraqiLawName } from '@/app/constants/iraqiLawCatalog';
-import { sanitizePayload } from '../../security/sanitizer.ts';
+import { isJsonObjectRecord, sanitizePayload } from '../../security/sanitizer.ts';
 import { getSupabaseAdminClient } from '../../security/supabaseAdminClient.ts';
 import { wifeJsonResponse } from '../../security/wifeSecurityHeaders.ts';
 import { buildIraqiLawInsertRow } from '../lawsAdminUtils.ts';
 import { requirePlatformAdmin } from '../lawsAdminAuth.ts';
 import { unwrapWifeUser } from '../../security/bffAuth.ts';
 import { devLocalInsertLaw, shouldUseDevLocalLawsStore } from '../devLawsLocalStore.ts';
+import { IRAQI_LAWS_TABLE_MISSING, isMissingIraqiLawsRelation } from '../iraqiLawsRelation.ts';
+import { consumeRateLimitSlot } from '../../security/wifeRateLimitStore.ts';
+import { recordHeadquartersAudit } from '../../security/headquartersAudit.ts';
 
 export const runtime = 'nodejs';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object';
-}
 
 /**
  * WIFE + platform-admin — insert one law article (replaces Edge add-law).
@@ -22,13 +21,21 @@ export async function POST(request: Request): Promise<Response> {
     if ('response' in authGate) return authGate.response;
     const { userId } = authGate;
 
+    const allowed = await consumeRateLimitSlot(`admin-hq-laws-add:${userId}`, {
+      maxRequests: 20,
+      windowMs: 15 * 60_000,
+    });
+    if (!allowed) {
+      return wifeJsonResponse(429, { ok: false, error: 'تجاوزت حد عمليات المقر — حاول لاحقاً' });
+    }
+
     let payload: unknown = null;
     try {
       payload = sanitizePayload(await request.json());
     } catch {
       payload = null;
     }
-    if (!isRecord(payload)) {
+    if (!isJsonObjectRecord(payload)) {
       return wifeJsonResponse(400, { ok: false, error: 'Invalid payload' });
     }
 
@@ -59,8 +66,14 @@ export async function POST(request: Request): Promise<Response> {
     if (!admin) {
       if (shouldUseDevLocalLawsStore()) {
         const record = await devLocalInsertLaw({ law_name, article_number, content });
+        const auditRecorded = await recordHeadquartersAudit({
+          actorId: userId,
+          action: 'laws.add',
+          details: { law_name, article_number, local: true },
+        });
         return wifeJsonResponse(200, {
           ok: true,
+          auditRecorded,
           message: 'تم حفظ المادة في ملف الحزمة المحلية داخل المشروع.',
           record: {
             id: record.id,
@@ -83,15 +96,26 @@ export async function POST(request: Request): Promise<Response> {
       .single();
 
     if (error) {
+      if (isMissingIraqiLawsRelation(error.message ?? '')) {
+        return wifeJsonResponse(503, {
+          ok: false,
+          error: IRAQI_LAWS_TABLE_MISSING,
+        });
+      }
       return wifeJsonResponse(500, {
         ok: false,
         error: 'فشل حفظ السجل في قاعدة البيانات.',
-        details: error.message,
       });
     }
 
+    const auditRecorded = await recordHeadquartersAudit({
+      actorId: userId,
+      action: 'laws.add',
+      details: { law_name, article_number },
+    });
     return wifeJsonResponse(200, {
       ok: true,
+      auditRecorded,
       message: 'تم حفظ المادة بنجاح.',
       record: data,
     });

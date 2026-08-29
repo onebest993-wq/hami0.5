@@ -18,8 +18,8 @@ export function prefetchArchivePortalForWorkspace(archiveId: 'execution' | 'laws
             '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardExecutionOverlayEntry'
         ).catch(() => undefined);
     } else {
-        void import(
-            '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardLawsuitsOverlayEntry'
-        ).catch(() => undefined);
+        void import('@/app/runtime/lawsuitsOverlayEntryLoader')
+            .then((m) => m.prefetchLawsuitsOverlayEntry())
+            .catch(() => undefined);
     }
 }

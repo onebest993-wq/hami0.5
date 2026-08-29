@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C Slice 21 — تجميع local bundles لحقائب chunk scope */
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import type { ExecutionDashboardProps } from '../../types';

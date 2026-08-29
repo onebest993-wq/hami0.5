@@ -303,19 +303,34 @@ describe('ExecutionSolidaryAndEvictionFollowupModalsContainer', () => {
         expect(props.saveCoerciveActionRef.current).toHaveBeenCalledTimes(1);
     });
 
-    it('uses explicit eviction close intents', () => {
+    it('uses explicit eviction close intents', async () => {
+        // تحميل مسبق لقطعة lazy + مودالات further-lazy حتى لا يتذبذب Suspense تحت ضغط البوابة
+        await import('../EvictionFollowupModalsChunk');
+        await Promise.all([
+            import('../EvictionExpenseFollowupModal'),
+            import('../EvictionLawyerFeeFollowupModal'),
+            import('../EvictionResidentialGraceFollowupModal'),
+        ]);
+
         const props = createSolidaryProps({
             showEvictionExpenseModal: true,
             showEvictionLawyerFeeModal: true,
             showEvictionResidentialGraceModal: true,
             residentialGraceModalShowPrimarySave: false,
+            isEvictionExecutionModule: true,
         });
 
         render(<ExecutionSolidaryAndEvictionFollowupModalsContainer {...props} />);
 
-        fireEvent.click(screen.getAllByRole('button', { name: 'إلغاء' })[0]);
-        fireEvent.click(screen.getAllByRole('button', { name: 'إلغاء' })[1]);
-        fireEvent.click(screen.getAllByRole('button', { name: 'إلغاء' })[2]);
+        const cancelButtons = await screen.findAllByRole(
+            'button',
+            { name: 'إلغاء' },
+            { timeout: 15_000 },
+        );
+        expect(cancelButtons.length).toBeGreaterThanOrEqual(3);
+        fireEvent.click(cancelButtons[0]);
+        fireEvent.click(cancelButtons[1]);
+        fireEvent.click(cancelButtons[2]);
 
         expect(props.onCloseEvictionExpenseModal).toHaveBeenCalledTimes(1);
         expect(props.onCloseEvictionLawyerFeeModal).toHaveBeenCalledTimes(1);

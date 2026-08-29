@@ -39,13 +39,6 @@ export function getSettingsOpenToInteractiveMs(): number | null {
     return Math.round(interactive.startTime - open.startTime);
 }
 
-export function reportSettingsPerfIfDev(context?: string): void {
-    if (!import.meta.env.DEV) return;
-    const ms = getSettingsOpenToInteractiveMs();
-    if (ms == null) return;
-    debug.log(`[SettingsPerf] open→interactive ${ms}ms`, context ?? '');
-}
-
 /** DEV: log — PROD (مع DSN): Sentry breadcrumb + metric */
 export function reportSettingsPerf(context: SettingsPerfReportContext = {}): void {
     const ms = getSettingsOpenToInteractiveMs();

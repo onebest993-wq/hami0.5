@@ -27,7 +27,7 @@ export function useFollowupSpecialRequestInit({
             initOnceRef.current = false;
             return;
         }
-        if (unifiedModalTab !== 'special') return;
+        if (unifiedModalTab !== 'special' && unifiedModalTab !== 'admin') return;
         if (initOnceRef.current) return;
         initOnceRef.current = true;
         setSpecialRequestTemplatePick(SPECIAL_REQUEST_MANUAL_MODE);

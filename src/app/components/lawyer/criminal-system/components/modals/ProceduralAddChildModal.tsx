@@ -21,7 +21,7 @@ export const ProceduralAddChildModal = ({ open, onClose, onPick }: ProceduralAdd
             <div className="w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden">
                 <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex items-center justify-between gap-3">
                     <div className="text-white font-black text-sm">ملاحظة أو إجراء</div>
-                    <button type="button" onClick={onClose} className="text-white/70 hover:text-white text-sm font-bold">
+                    <button type="button" onClick={onClose} className="min-h-[44px] min-w-[44px] px-3 text-white/70 hover:text-white text-sm font-bold touch-manipulation">
                         إغلاق
                     </button>
                 </div>
@@ -31,7 +31,7 @@ export const ProceduralAddChildModal = ({ open, onClose, onPick }: ProceduralAdd
                             key={opt.kind}
                             type="button"
                             onClick={() => onPick(opt.kind)}
-                            className="w-full rounded-xl border border-slate-600/60 bg-slate-800/40 px-3 py-3 text-right hover:border-[#E6C673]/50 transition"
+                            className="w-full min-h-[44px] rounded-xl border border-slate-600/60 bg-slate-800/40 px-3 py-3 text-right hover:border-[#E6C673]/50 transition touch-manipulation"
                         >
                             <div className="text-white font-black text-sm">{opt.label}</div>
                             <div className="text-white/50 text-[10px] font-bold mt-0.5">{opt.hint}</div>

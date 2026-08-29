@@ -1,12 +1,12 @@
 import type { RepositoryFeedLayoutId } from './repositoryFeedLayout';
 import { REPOSITORY_FEED_VIRTUAL_SCROLL_THRESHOLD } from './repositoryFeedConstants';
 
-/** xl: 1280px — sm: 640px — تطابق grid/gallery في repositoryFeedLayout */
+/** xl: 1280px — sm: 640px — تطابق شبكة repositoryFeedLayout */
 export function resolveRepositoryFeedColumnCount(
     layoutId: RepositoryFeedLayoutId,
     containerWidth: number,
 ): number {
-    if (layoutId === 'list' || layoutId === 'compact' || layoutId === 'timeline') {
+    if (layoutId === 'list') {
         return 1;
     }
     if (containerWidth >= 1280) return 3;
@@ -26,19 +26,7 @@ export function chunkRepositoryFeedItems<T>(items: T[], columnCount: number): T[
 }
 
 export function estimateRepositoryFeedRowSize(layoutId: RepositoryFeedLayoutId): number {
-    switch (layoutId) {
-        case 'compact':
-            return 96;
-        case 'list':
-            return 132;
-        case 'timeline':
-            return 148;
-        case 'gallery':
-            return 208;
-        case 'grid':
-        default:
-            return 184;
-    }
+    return layoutId === 'list' ? 132 : 184;
 }
 
 export function repositoryFeedRowGridClass(columnCount: number): string {

@@ -1,4 +1,4 @@
-export type RequestFilterId = 'all' | 'pending' | 'accepted' | 'rejected';
+type RequestFilterId = 'all' | 'pending' | 'accepted' | 'rejected';
 
 export type RequestKind = 'fast_track' | 'attachment';
 
@@ -10,13 +10,6 @@ export interface UnifiedRequestItem {
     status?: string;
     statusTone: 'pending' | 'accepted' | 'rejected' | 'grievance' | 'attachment' | 'neutral';
 }
-
-export const REQUEST_FILTERS: { id: RequestFilterId; label: string }[] = [
-    { id: 'all', label: 'الكل' },
-    { id: 'pending', label: 'انتظار' },
-    { id: 'accepted', label: 'قبول' },
-    { id: 'rejected', label: 'رفض' },
-];
 
 function classifyStatusTone(status?: string, kind?: RequestKind): UnifiedRequestItem['statusTone'] {
     if (kind === 'attachment') return 'attachment';

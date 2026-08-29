@@ -1,22 +1,18 @@
-import { createPortal } from 'react-dom';
-import { X } from '@/app/components/ui/lucideIcons';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import type { SmartAlert } from '../../NeuralAlertsCard/types';
-import { useHomeHubOverlaySheet } from '../hooks/useHomeHubOverlaySheet';
+import type { WorkspacePinnedItem } from '@/app/workspace/types';
 import { HomeHubAlertRow } from './HomeHubAlertRow';
-import { HomeHubOverlaySheetHandle } from './HomeHubOverlaySheetHandle';
-import '../homeHubCardFx.css';
+import { HomeHubMoreOverlayShell } from './HomeHubMoreOverlayShell';
 
-const HUB_CONTENT_BUTTON_A11Y =
-    'outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1C]';
-
-export type HomeHubAlertsMoreOverlayProps = {
+type HomeHubAlertsMoreOverlayProps = {
     open: boolean;
     carouselAlerts: SmartAlert[];
     sourceById: Map<string, SecretaryAlert>;
     onClose: () => void;
     onDismissAlert?: (alertId: string) => void;
     onOpenEntity: (alert: SecretaryAlert) => void;
+    onTogglePin: (item: WorkspacePinnedItem) => void;
+    isPinned: (id: string, type: WorkspacePinnedItem['type']) => boolean;
 };
 
 export function HomeHubAlertsMoreOverlay({
@@ -26,75 +22,44 @@ export function HomeHubAlertsMoreOverlay({
     onClose,
     onDismissAlert,
     onOpenEntity,
+    onTogglePin,
+    isPinned,
 }: HomeHubAlertsMoreOverlayProps) {
-    const { requestBack } = useHomeHubOverlaySheet(open, onClose, 'home-hub-alerts-more');
+    const handleOpenEntity = (alert: SecretaryAlert) => {
+        onOpenEntity(alert);
+        onClose();
+    };
 
-    if (!open || carouselAlerts.length === 0) return null;
-
-    const layer = (
-        <div
-            className="hami-hub-radar-overlay"
-            data-testid="home-hub-alerts-more-overlay"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`مواعيد قادمة — ${carouselAlerts.length} عنصر`}
-            dir="rtl"
+    return (
+        <HomeHubMoreOverlayShell
+            open={open && carouselAlerts.length > 0}
+            overlayId="home-hub-alerts-more"
+            onClose={onClose}
+            testId="home-hub-alerts-more-overlay"
+            panelTestId="home-hub-alerts-more-panel"
+            ariaLabel={`مواعيد قادمة — ${carouselAlerts.length} عنصر`}
+            backdropAriaLabel="إغلاق قائمة المواعيد القادمة"
+            title="قادم"
+            subtitle={`ما بعد غد · ${carouselAlerts.length} عنصر`}
+            count={carouselAlerts.length}
         >
-            <button
-                type="button"
-                className="hami-hub-radar-overlay__backdrop"
-                aria-label="إغلاق قائمة المواعيد القادمة"
-                onClick={requestBack}
-            />
-            <div
-                className="hami-hub-radar-overlay__sheet hami-sovereign-glass hami-sovereign-rim"
-                data-testid="home-hub-alerts-more-panel"
-            >
-                <div className="hami-hub-radar-overlay__rim" aria-hidden />
-                <HomeHubOverlaySheetHandle enabled={open} onClose={requestBack} />
-
-                <header className="hami-hub-radar-overlay__head">
-                    <div className="hami-hub-radar-overlay__head-main">
-                        <div className="min-w-0">
-                            <p className="hami-hub-radar-overlay__title">قادم</p>
-                            <p className="hami-hub-radar-overlay__subtitle">
-                                ما بعد غد · {carouselAlerts.length} عنصر
-                            </p>
-                        </div>
-                    </div>
-                    <div className="hami-hub-radar-overlay__head-actions">
-                        <span className="hami-hub-radar-overlay__count-badge">{carouselAlerts.length}</span>
-                        <button
-                            type="button"
-                            className={`hami-hub-radar-overlay__close ${HUB_CONTENT_BUTTON_A11Y}`}
-                            aria-label="إغلاق"
-                            onClick={requestBack}
-                        >
-                            <X size={18} strokeWidth={2.2} aria-hidden />
-                        </button>
-                    </div>
-                </header>
-
-                <div className="hami-hub-radar-overlay__body">
-                    <ul className="hami-hub-radar-overlay__list">
-                        {carouselAlerts.map((alert) => {
-                            const source = sourceById.get(alert.id);
-                            if (!source) return null;
-                            return (
-                                <HomeHubAlertRow
-                                    key={alert.id}
-                                    alert={alert}
-                                    source={source}
-                                    onDismiss={(id) => onDismissAlert?.(id)}
-                                    onNavigate={onOpenEntity}
-                                />
-                            );
-                        })}
-                    </ul>
-                </div>
-            </div>
-        </div>
+            <ul className="hami-hub-radar-overlay__list">
+                {carouselAlerts.map((alert) => {
+                    const source = sourceById.get(alert.id);
+                    if (!source) return null;
+                    return (
+                        <HomeHubAlertRow
+                            key={alert.id}
+                            alert={alert}
+                            source={source}
+                            onDismiss={(id) => onDismissAlert?.(id)}
+                            onNavigate={handleOpenEntity}
+                            onTogglePin={onTogglePin}
+                            isPinned={isPinned}
+                        />
+                    );
+                })}
+            </ul>
+        </HomeHubMoreOverlayShell>
     );
-
-    return typeof document !== 'undefined' ? createPortal(layer, document.body) : null;
 }

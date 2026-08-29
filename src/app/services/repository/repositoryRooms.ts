@@ -1,4 +1,5 @@
 /** غرف المستودع المخصصة (ملكية/موكل) — منفصلة عن SmartVault وتصنيفات customCategory */
+import { readSecureJsonRawSync, writeSecureJsonValue } from '@/app/services/storage/syncSecureJson';
 
 export type RepositoryRoom = {
     id: string;
@@ -44,7 +45,7 @@ export function itemMatchesRoomFilter(
 export function loadRepositoryRooms(userId: string): RepositoryRoom[] {
     if (!userId.trim()) return [];
     try {
-        const raw = localStorage.getItem(storageKey(userId));
+        const raw = readSecureJsonRawSync(storageKey(userId));
         if (!raw) return [];
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
@@ -62,7 +63,7 @@ export function loadRepositoryRooms(userId: string): RepositoryRoom[] {
 
 export function saveRepositoryRooms(userId: string, rooms: RepositoryRoom[]): void {
     if (!userId.trim()) return;
-    localStorage.setItem(storageKey(userId), JSON.stringify(rooms));
+    writeSecureJsonValue(storageKey(userId), rooms);
 }
 
 export function createRepositoryRoomId(): string {

@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
-import { Calendar, Pencil, Trash2 } from '@/app/components/ui/lucideIcons';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { Calendar } from '@/app/components/ui/icons/Calendar';
+import { Pencil } from '@/app/components/ui/icons/Pencil';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import type { AddAppointmentModalProps } from '../../smartFile/modalFormTypes';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../../smartFile/civilLawsuitTestIds';
+import {
+    confirmSmartFileDestructiveAction,
+    SMART_FILE_DELETE_APPOINTMENT_MESSAGE,
+} from '../../smartFile/smartFileDestructiveConfirm';
 import { MoroccanGlassShell } from '../../smartFile/moroccanGlassShell';
 import { useSmartFileModalTheme } from '../../smartFile/smartFileModalTheme';
 import { ManualClassificationPicker } from '../../smartFile/ManualClassificationPicker';
@@ -81,8 +87,7 @@ export const AddAppointmentModal = ({
         <MoroccanGlassShell
             onOverlayClick={onClose}
             overlayTestId={CIVIL_LAWSUIT_TEST_IDS.appointmentModal}
-            maxWidth="max-w-4xl"
-            className="min-h-[min(82dvh,740px)]"
+            maxWidth="max-w-xl"
         >
             <SmartModalHeader
                 T={T}
@@ -90,17 +95,9 @@ export const AddAppointmentModal = ({
                 title={browseOnly ? 'مواعيد الإضبارة — للاطلاع' : editMode ? 'تعديل موعد' : 'موعد جديد'}
                 onClose={onClose}
             />
-            <div
-                className={
-                    browseOnly
-                        ? 'p-5 sm:p-6'
-                        : T.useMoroccanCorners
-                        ? 'grid gap-5 p-5 sm:p-6 md:min-h-[min(74dvh,620px)] md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:items-start'
-                        : T.body
-                }
-            >
+            <div className={browseOnly ? 'p-3 sm:p-4' : T.body}>
                 {!browseOnly ? (
-                <div className="space-y-5">
+                <div className="space-y-3">
                     <div>
                         <label className={T.label}>
                             الغاية من الموعد <span className="text-red-400">*</span>
@@ -146,7 +143,7 @@ export const AddAppointmentModal = ({
                     </button>
                 </div>
                 ) : null}
-                <div className={browseOnly ? '' : 'flex h-full flex-col gap-5'}>
+                <div className={browseOnly ? '' : 'space-y-3'}>
                     <ModalInlineTimeline
                         title={browseOnly ? 'مواعيد هذه المرحلة' : 'سجل المواعيد داخل هذا القسم'}
                         emptyLabel="لا توجد مواعيد محفوظة في هذه المرحلة بعد"
@@ -176,7 +173,16 @@ export const AddAppointmentModal = ({
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => onDeleteAppointment?.(String(item.id))}
+                                    onClick={() => {
+                                        if (
+                                            !confirmSmartFileDestructiveAction(
+                                                SMART_FILE_DELETE_APPOINTMENT_MESSAGE,
+                                            )
+                                        ) {
+                                            return;
+                                        }
+                                        onDeleteAppointment?.(String(item.id));
+                                    }}
                                     className="inline-flex items-center gap-1 rounded-xl border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[9px] font-bold text-rose-200 transition-colors hover:bg-rose-500/16"
                                 >
                                     <Trash2 size={12} />

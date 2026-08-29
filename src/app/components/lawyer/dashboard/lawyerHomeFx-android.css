@@ -7,6 +7,31 @@
  * Short elevation only — long rgba(0,0,0) blurs band on 8-bit GPU compositors.
  */
 
+/*
+ * إقلاع مبكر: native بلا platform=android بعد (قبل Capacitor JS).
+ * نفس إسقاط blur للزجاج — لا iOS ولا web.
+ */
+html[data-hami-native='1']:not([data-hami-platform='ios']):not([data-hami-platform='android'])
+    [data-hami-lawyer-dashboard]
+    .hami-sovereign-glass,
+html[data-hami-native='1']:not([data-hami-platform='ios']):not([data-hami-platform='android'])
+    [data-hami-lawyer-dashboard]
+    [data-hami-block].hami-sovereign-glass {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html[data-hami-native='1']:not([data-hami-platform='ios']):not([data-hami-platform='android'])
+    [data-hami-lawyer-dashboard]
+    .hami-sovereign-glass::before,
+html[data-hami-native='1']:not([data-hami-platform='ios']):not([data-hami-platform='android'])
+    [data-hami-lawyer-dashboard]
+    [data-hami-block].hami-sovereign-glass::before {
+    content: none !important;
+    display: none !important;
+    background: none !important;
+}
+
 html[data-hami-native='1'][data-hami-platform='android'] {
     --hami-android-card-bg: color-mix(
         in srgb,
@@ -79,6 +104,12 @@ html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashb
         var(--hami-block-accent, var(--hami-primary, #e6c673)) 28%,
         transparent
     ) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] [data-hami-block][data-hami-block-border='0'].hami-home-themed-border,
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] [data-hami-block-border='0'].hami-home-themed-border,
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] [data-hami-block-border='0'] .hami-home-themed-border {
+    border-color: transparent !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-home-block-solid {
@@ -163,12 +194,6 @@ html[data-hami-native='1'][data-hami-platform='android']
 }
 
 /* توهج الأيقونات فقط — الزخارف (.hami-home-block-pattern) مفعّلة على Android */
-html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-home-glass-decor,
-html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-hub-icon-glow,
-html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-hub-glow-orb {
-    display: none !important;
-}
-
 html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-home-block-pattern {
     display: block !important;
     /* بلا blur — بلاطة SVG؛ الشفافية من inline style حتى يُحسّ الشريط */
@@ -193,23 +218,20 @@ html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashb
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid='header-toolbar-nav'] {
-    background-color: color-mix(
-        in srgb,
-        var(--hami-primary, #e6c673) 8%,
-        var(--hami-android-card-bg)
-    ) !important;
-    background-image: none !important;
-    border-color: color-mix(in srgb, var(--hami-primary, #e6c673) 24%, transparent) !important;
-    box-shadow: var(--hami-android-card-elev) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
 }
 
-/* إنزال الهيدر عن شريط الحالة — env(safe-area) غالباً 0 على Android WebView */
+/* رفع الشريط عن زر النظام / شريط التنقل — env(safe-area) غالباً 0 على Android WebView */
 html[data-hami-native='1'][data-hami-platform='android'] {
     --hami-lawyer-header-safe-top: max(
         env(safe-area-inset-top, 0px),
-        var(--hami-android-status-pad, 12px)
+        var(--hami-android-status-pad, 48px)
+    );
+    --hami-android-nav-pad: 28px;
+    --hami-lawyer-header-safe-bottom: max(
+        env(safe-area-inset-bottom, 0px),
+        var(--hami-android-nav-pad, 28px)
     );
 }
 
@@ -222,11 +244,15 @@ html[data-hami-native='1'][data-hami-platform='android'] .hami-lawyer-header {
     background-color: transparent !important;
     background-image: none !important;
     isolation: isolate;
-    padding-top: var(--hami-lawyer-header-safe-top) !important;
+    padding-top: var(--hami-lawyer-header-safe-top, env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: 0.35rem !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] .hami-below-lawyer-header {
-    top: var(--hami-lawyer-header-offset) !important;
+    top: calc(
+        var(--hami-lawyer-header-offset) + var(--hami-lawyer-header-clearance, 0.5rem)
+    ) !important;
+    bottom: var(--hami-lawyer-header-safe-bottom, env(safe-area-inset-bottom, 0px)) !important;
 }
 
 /* مركز المعاملات — نفس إزاحة شريط الحالة */
@@ -263,28 +289,6 @@ html[data-hami-native='1'][data-hami-platform='android'] [data-hami-settings-she
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
 }
 
-/* أزرار تحرير الواجهة — زجاج ذهبي خفيف بلا إطار أبيض صلب */
-html[data-hami-native='1'][data-hami-platform='android'] .hami-edit-widget-drag,
-html[data-hami-native='1'][data-hami-platform='android'] .hami-edit-palette-btn {
-    border: none !important;
-    background: color-mix(in srgb, var(--hami-primary, #e6c673) 14%, rgba(8, 10, 16, 0.82)) !important;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.1),
-        inset 0 0 0 1px color-mix(in srgb, var(--hami-primary, #e6c673) 28%, transparent),
-        var(--hami-android-card-elev) !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-}
-
-/* وضع التحرير — لا will-change/transitions دائمة على كل البطاقات */
-html[data-hami-native='1'][data-hami-platform='android']
-    .hami-home-layout-editing
-    [data-testid='home-main-grid']
-    [data-hami-widget-slot] {
-    transition: none !important;
-    will-change: auto !important;
-}
-
 /* إعدادات — تبويبات/إغلاق بلا ظل ذهبي ضبابي */
 html[data-hami-native='1'][data-hami-platform='android'] .hami-settings-tab--active,
 html[data-hami-native='1'][data-hami-platform='android'] .hami-settings-close,
@@ -292,10 +296,7 @@ html[data-hami-native='1'][data-hami-platform='android'] .hami-settings-tabs {
     box-shadow: none !important;
 }
 
-/* شريط الأدوات / الدوك — ظل قصير صلب؛ سطح أوضح من خلفية الصفحة */
-html[data-hami-native='1'][data-hami-platform='android'] [data-testid='header-toolbar-nav'] {
-    box-shadow: var(--hami-android-card-elev) !important;
-}
+/* شريط الأدوات / الدوك — سطح أوضح من خلفية الصفحة */
 
 html[data-hami-native='1'][data-hami-platform='android'] [data-hami-block='dockShell'].hami-sovereign-glass,
 html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] [data-hami-block='dockShell'] {
@@ -399,44 +400,36 @@ html[data-hami-native='1'][data-hami-platform='android'] [data-testid^='tasks-sn
 
 /* المستودع — تدرجات سفلية تتحول لسواد موحّل على WebView */
 html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-panel {
-    background-color: #0a101c !important;
+    background-color: #0a0f1c !important;
     background-image: none !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-header,
-html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-controls,
-html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-action-grid {
+html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-controls {
     background-image: none !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+    box-shadow: none !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-header {
-    background-color: color-mix(in srgb, #e6c673 10%, #0c1220) !important;
+    background-color: #0a0f1c !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-controls {
-    background-color: #0c1220 !important;
+    background-color: #0a0f1c !important;
 }
 
-html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-action-grid {
-    background-color: color-mix(in srgb, #e6c673 6%, #0b111c) !important;
-}
-
-html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-action-btn {
-    background-image: none !important;
-    background-color: color-mix(in srgb, #ffffff 6%, #10182a) !important;
-    border-color: color-mix(in srgb, #e6c673 22%, rgba(255, 255, 255, 0.1)) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
-}
-
-/* إشعارات — طبقة توهج مكلفة */
-html[data-hami-native='1'][data-hami-platform='android'] .hami-notif-fx-orb {
-    display: none !important;
-}
-
-html[data-hami-native='1'][data-hami-platform='android'] .hami-notif-overlay-btn {
+/* إشعارات + بحث — إسقاط blur حتى قبل استقرار platform=android */
+html[data-hami-native='1']:not([data-hami-platform='ios']) .hami-notif-overlay-btn,
+html[data-hami-native='1']:not([data-hami-platform='ios']) .hami-incoming-notification-popup-card,
+html[data-hami-native='1']:not([data-hami-platform='ios']) .hami-gs-backdrop {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+}
+
+html[data-hami-native='1'] .hami-notif-layer,
+html[data-hami-native='1'] .hami-gs-layer {
+    transform: translateZ(0);
+    backface-visibility: hidden;
 }
 
 /* رادار المواعيد — blur/backdrop يكلّف WebView عند أول فتح */
@@ -451,15 +444,20 @@ html[data-hami-native='1'][data-hami-platform='android'] .hami-radar-scroll {
     -webkit-backdrop-filter: none !important;
 }
 
-html[data-hami-native='1'][data-hami-platform='android'] .hami-radar-form-panel {
-    background-color: #f8f6f2 !important;
-    background-image: linear-gradient(168deg, #ffffff 0%, #f8f6f2 52%, #efe9e0 100%) !important;
-    border-color: #dfe5ec !important;
+html[data-hami-native='1'][data-hami-platform='android'] .hami-radar-form-overlay {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
 }
 
-/* منتدى — زجاج حريري على Android بدون blur مكلف */
+html[data-hami-native='1'][data-hami-platform='android'] .hami-radar-form-panel {
+    background-color: #0a0f1c !important;
+    background-image: none !important;
+    border-color: rgba(230, 198, 115, 0.22) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* منتدى — سطح مسطّح على Android (بدون blur) */
 html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-publish-fab,
 html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-ghost-btn,
 html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-app-bar,
@@ -475,23 +473,21 @@ html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-section-rai
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-app-bar {
-    background: rgba(12, 18, 32, 0.92) !important;
+    background: #0a0f1c !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-publish-fab {
-    background-color: #c9a86c !important;
-    color: #1a150c !important;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28) !important;
+    background-color: #e6c673 !important;
+    color: #0a0f1c !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22) !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-ghost-btn {
-    background: rgba(22, 30, 44, 0.75) !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28) !important;
+    background: #141a28 !important;
+    box-shadow: none !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid='forum-overlay-host'],
-html[data-hami-native='1'][data-hami-platform='android'] [data-testid='forum-instant-shell'],
-html[data-hami-native='1'][data-hami-platform='android'] [data-testid='forum-boot-shell'],
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid='forum-screen-shell'],
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid='forum-screen'],
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid='forum-search-overlay'],
@@ -500,25 +496,25 @@ html[data-hami-native='1'][data-hami-platform='android'] [data-forum-silk='1'] {
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-feed-card {
-    background: rgba(22, 30, 44, 0.82) !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.32) !important;
+    background: #141a28 !important;
+    border: 1px solid rgba(255, 255, 255, 0.07) !important;
+    box-shadow: none !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-feed-skeleton-card {
-    background: rgba(22, 30, 44, 0.75) !important;
-    border-color: rgba(255, 255, 255, 0.1) !important;
+    background: #141a28 !important;
+    border-color: rgba(255, 255, 255, 0.07) !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-panel,
 html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-modal-glass {
-    background: rgba(14, 20, 34, 0.92) !important;
-    border-color: rgba(255, 255, 255, 0.12) !important;
+    background: #141a28 !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-input {
-    background: rgba(20, 28, 42, 0.88) !important;
-    border-color: rgba(255, 255, 255, 0.14) !important;
+    background: #121826 !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-surface-enter {
@@ -528,7 +524,7 @@ html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-surface-ent
 html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-feed-card--pending {
     opacity: 1 !important;
     transform: none !important;
-    background: rgba(22, 30, 44, 0.82) !important;
+    background: #141a28 !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-feed-card--ready {
@@ -572,6 +568,15 @@ html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
 
 html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
     [data-hami-lawyer-dashboard]
+    [data-hami-block][data-hami-block-border='0'].hami-home-themed-border,
+html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-lawyer-dashboard]
+    [data-hami-block-border='0'].hami-home-themed-border {
+    border-color: transparent !important;
+}
+
+html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-lawyer-dashboard]
     .text-white\/45,
 html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
     [data-hami-lawyer-dashboard]
@@ -594,4 +599,15 @@ html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.12),
         0 0 0 1px color-mix(in srgb, var(--hami-hc-border, color-mix(in srgb, var(--hami-primary, #e6c673) 42%, #fff)) 55%, transparent) !important;
+}
+
+html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-lawyer-dashboard]
+    [data-hami-block][data-hami-block-border='0'].hami-sovereign-rim,
+html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-lawyer-dashboard]
+    [data-hami-block-border='0'].hami-sovereign-rim {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 1px 3px rgba(0, 0, 0, 0.38) !important;
 }

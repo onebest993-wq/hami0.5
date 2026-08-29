@@ -4,7 +4,7 @@ const selectMock = vi.fn();
 const eqMock = vi.fn();
 const inMock = vi.fn();
 
-function chainOrderResult(result: { data: unknown[]; error: null }) {
+function chainOrderResult(result: { data: unknown[] | null; error: { message: string } | null }) {
   const order2 = vi.fn().mockResolvedValue(result);
   const order1 = vi.fn().mockReturnValue({ order: order2 });
   return { order: order1 };
@@ -31,13 +31,13 @@ vi.mock('../../security/wifeValidator.ts', () => ({
   getVerifiedTokenSubject: vi.fn(),
   isTokenAuthorized: vi.fn(),
   verifyWifeSignature: vi.fn(),
-  assertWifeSignatureRequest: vi.fn(async () => null),
   wifeForbiddenResponse: () => new Response(null, { status: 403 }),
   wifeUnauthorizedResponse: () => new Response(null, { status: 401 }),
 }));
 
 vi.mock('../../security/sanitizer.ts', () => ({
   sanitizePayload: (v: unknown) => v,
+  isJsonObjectRecord: (v: unknown) => Boolean(v) && typeof v === 'object' && !Array.isArray(v),
 }));
 
 import { POST } from './route';
@@ -85,5 +85,25 @@ describe('laws list route', () => {
     const body = (await res.json()) as { ok?: boolean; items?: unknown[] };
     expect(body.ok).toBe(true);
     expect(Array.isArray(body.items)).toBe(true);
+  });
+
+  it('returns 503 when iraqi_laws table is missing', async () => {
+    eqMock.mockReturnValue(
+      chainOrderResult({
+        data: null,
+        error: { message: 'relation "iraqi_laws" does not exist' },
+      }),
+    );
+    const res = await POST(
+      new Request('http://127.0.0.1/api/laws/list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ law_name: EXECUTION_LAW_CANONICAL_NAME }),
+      }),
+    );
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { ok?: boolean; error?: string };
+    expect(body.ok).toBe(false);
+    expect(body.error).toContain('iraqi_laws');
   });
 });

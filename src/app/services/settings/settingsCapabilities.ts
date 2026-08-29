@@ -18,7 +18,8 @@ const WIRING_HINTS: Record<string, string | undefined> = {
     'performance.enableAnimations': 'إيقافه يُبطئ الانتقالات مع «تقليل الحركة»',
     'performance.prefetchScreens': 'تحميل مسبق عند اللمس/القرب فقط — لا موجات خلفية تلقائية',
     'performance.litePerformance': 'يقلّل الضبابية والتحميل المسبق — يُفعَّل تلقائياً على الهواتف المتواضعة',
-    'security.privacyBlur': 'ضبابية الشاشة عند تبديل التطبيق أو تصغير النافذة — لا تغطّي معاينة النظام على الموبايل',
+    'security.privacyBlur':
+        'غطاء نافذة أصلي لشاشة المهام وFLAG_SECURE — مع تمويه داخل التطبيق عند الإخفاء',
     'security.localOnlyMode': 'يعطّل المزامنة السحابية ويحصر البيانات على الجهاز — مفيد للخصوصية أو العمل دون اتصال',
     'security.biometricLock': 'بصمة/Face ID أصلية في تطبيق Capacitor — WebAuthn على الويب',
     'security.autoLockMinutes': 'قفل التطبيق تلقائياً بعد فترة الخمول',
@@ -26,8 +27,10 @@ const WIRING_HINTS: Record<string, string | undefined> = {
         'يحدّ النسخ على الويب — FLAG_SECURE وإخفاء app-switcher على أندرويد/iOS',
     'data.autoSave': 'حفظ تلقائي للتعديلات على القضايا والملاحظات دون ضغط زر الحفظ',
     'data.cloudSync': 'مزامنة البيانات مع السحابة عند توفر الاتصال — يُعطَّل تلقائياً في الوضع المحلي فقط',
-    'data.businessBackup': 'تصدير واستيراد القضايا والتنفيذ والملاحظات كملف JSON',
-    'data.clearLocal': 'مسح شامل للبيانات المحلية والسحابية — يتطلب تأكيدين مع انتظار 10 ثوانٍ',
+    'data.businessBackup':
+        'ملف JSON مشفّر على الجهاز — تصدير واستيراد محلي، ليست مزامنة سحابية',
+    'data.clearLocal':
+        'مسح شامل للمحلي والسحابة — تأكيدان وتحقق وعدّاد 10 ثوانٍ',
     'data.resetSettings':
         'يعيد تفضيلات المنظر والأمان والبيانات والأداء وتخطيط المنزل — لا يمس ملفات القضايا',
 };

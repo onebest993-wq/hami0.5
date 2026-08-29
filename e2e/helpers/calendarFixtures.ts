@@ -7,6 +7,7 @@ import { writeE2eSecureStoreKey } from './secureStoreE2EFixtures';
 export async function prepareCalendarE2E(page: Page): Promise<void> {
     await prepareBootE2E(page);
     await suppressWeeklyBackupReminder(page);
+    await page.context().grantPermissions(['notifications']).catch(() => undefined);
     await page.route('**/api/kv-proxy**', async (route) => {
         await route.fulfill({
             status: 200,
@@ -18,6 +19,8 @@ export async function prepareCalendarE2E(page: Page): Promise<void> {
 
 export const E2E_CALENDAR_USER_ID = 'dev-user-uuid-1';
 export const CALENDAR_LOCAL_KEY = 'hami:calendar:events:v1';
+/** يُستبدل بتاريخ اليوم المحلي داخل المتصفح عند البذر */
+export const E2E_CALENDAR_TODAY = 'TODAY';
 
 const SECURE_STORE_DB = 'hami-secure-store';
 const SECURE_STORE_VERSION = 2;
@@ -29,21 +32,35 @@ type E2eCalendarEvent = {
     title: string;
     date: string;
     time?: string;
+    endTime?: string;
     type: 'hearing' | 'deadline' | 'consultation' | 'execution' | 'custom';
     location?: string;
     notes?: string;
     createdAt: string;
     updatedAt: string;
+    sourceModule?:
+        | 'lawsuit'
+        | 'execution'
+        | 'urgent'
+        | 'transaction'
+        | 'criminal'
+        | 'threading'
+        | 'task'
+        | 'note'
+        | 'manual';
+    sourceEntityId?: string;
+    sourceEventId?: string;
+    reminderMinutesBefore?: number | null;
+    isCompleted?: boolean;
 };
 
 export function buildE2eCalendarEvent(overrides: Partial<E2eCalendarEvent> = {}): E2eCalendarEvent {
     const now = new Date().toISOString();
-    const today = now.slice(0, 10);
     return {
         id: 'e2e-radar-event-1',
         userId: E2E_CALENDAR_USER_ID,
         title: 'موعد E2E تجريبي',
-        date: today,
+        date: E2E_CALENDAR_TODAY,
         time: '10:00',
         type: 'custom',
         location: 'محكمة اختبار',
@@ -54,11 +71,41 @@ export function buildE2eCalendarEvent(overrides: Partial<E2eCalendarEvent> = {})
     };
 }
 
+export function buildE2eBridgedLawsuitEvent(
+    sourceEntityId: string,
+    overrides: Partial<E2eCalendarEvent> = {},
+): E2eCalendarEvent {
+    return buildE2eCalendarEvent({
+        id: 'e2e-bridged-lawsuit-1',
+        title: 'جلسة — مرافعة مدنية E2E',
+        type: 'hearing',
+        time: '09:00',
+        location: 'محكمة اختبار',
+        sourceModule: 'lawsuit',
+        sourceEntityId,
+        sourceEventId: 'hearing_e2e_1',
+        ...overrides,
+    });
+}
+
 export async function seedCalendarEvents(page: Page, events: E2eCalendarEvent[] = [buildE2eCalendarEvent()]) {
     const payload = JSON.stringify(events);
     await page.addInitScript(
-        ({ key, raw, dbName, dbVersion, storeName }) => {
-            localStorage.setItem(key, raw);
+        ({ key, raw, dbName, dbVersion, storeName, todayToken }) => {
+            const now = new Date();
+            const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            let stored = raw;
+            try {
+                const parsed = JSON.parse(raw) as Array<{ date?: string }>;
+                if (Array.isArray(parsed)) {
+                    stored = JSON.stringify(
+                        parsed.map((event) => (event?.date === todayToken ? { ...event, date: ymd } : event)),
+                    );
+                }
+            } catch {
+                stored = raw;
+            }
+            localStorage.setItem(key, stored);
             try {
                 const req = indexedDB.open(dbName, dbVersion);
                 req.onupgradeneeded = () => {
@@ -70,7 +117,7 @@ export async function seedCalendarEvents(page: Page, events: E2eCalendarEvent[] 
                 req.onsuccess = () => {
                     const db = req.result;
                     const tx = db.transaction(storeName, 'readwrite');
-                    tx.objectStore(storeName).put(raw, key);
+                    tx.objectStore(storeName).put(stored, key);
                     tx.oncomplete = () => db.close();
                 };
             } catch {
@@ -83,6 +130,7 @@ export async function seedCalendarEvents(page: Page, events: E2eCalendarEvent[] 
             dbName: SECURE_STORE_DB,
             dbVersion: SECURE_STORE_VERSION,
             storeName: SECURE_KV_STORE,
+            todayToken: E2E_CALENDAR_TODAY,
         },
     );
 }
@@ -103,14 +151,42 @@ export async function primeCalendarEventsOnPage(
 ): Promise<void> {
     const raw = JSON.stringify(events);
     await page.evaluate(
-        ({ key, payload, calendarUpdatedEvent }) => {
-            localStorage.setItem(key, payload);
+        ({ key, payload, calendarUpdatedEvent, todayToken }) => {
+            const now = new Date();
+            const ymd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            let stored = payload;
+            try {
+                const parsed = JSON.parse(payload) as Array<{ date?: string }>;
+                if (Array.isArray(parsed)) {
+                    stored = JSON.stringify(
+                        parsed.map((event) => (event?.date === todayToken ? { ...event, date: ymd } : event)),
+                    );
+                }
+            } catch {
+                stored = payload;
+            }
+            const bridge = (
+                window as Window & {
+                    __hamiE2eSecureStore?: { setItemSync?: (k: string, v: string) => boolean };
+                }
+            ).__hamiE2eSecureStore;
+            if (bridge?.setItemSync) {
+                bridge.setItemSync(key, stored);
+                try {
+                    localStorage.removeItem(key);
+                } catch {
+                    /* ignore */
+                }
+            } else {
+                localStorage.setItem(key, stored);
+            }
             window.dispatchEvent(new CustomEvent(calendarUpdatedEvent));
         },
         {
             key: CALENDAR_LOCAL_KEY,
             payload: raw,
             calendarUpdatedEvent: 'hami:calendar-updated',
+            todayToken: E2E_CALENDAR_TODAY,
         },
     );
 }

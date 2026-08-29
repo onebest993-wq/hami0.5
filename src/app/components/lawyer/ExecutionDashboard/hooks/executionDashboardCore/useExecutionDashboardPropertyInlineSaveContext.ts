@@ -1,6 +1,6 @@
-// @ts-nocheck
 /** Phase C Slice 16 — سياق حفظ inline لحجز العقار + موعد المزاد */
 import { useMemo } from 'react';
+import type { PushSeizureAuctionCalendarAppointmentInput } from './useExecutionDashboardPushSeizureAuctionCalendarAppointment';
 import type { PropertyInlineSaveContext } from '@/app/components/lawyer/ExecutionDashboard/utils/propertySeizureInlinePersistence';
 import { requireDecisionsStorageExecutionId } from '@/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId';
 

@@ -2,11 +2,17 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { SecuritySettings } from '@/app/services/settings/types';
 import { whenNativeCapacitorBootComplete } from '@/app/runtime/nativeCapacitorBoot';
 import { snapAppLockClose, snapAppLockOpen } from '@/app/runtime/appLockInstantPaint';
+import { HAMI_APP_STATE_EVENT } from '@/app/runtime/appStateEvents';
+import { isNativeSensitivePromptActive } from '@/app/runtime/nativeSensitivePrompt';
 import '@/app/components/lawyer/appLockOverlay.css';
 import {
     hasBiometricSessionEnrollment,
     verifyBiometricSessionUnlock,
 } from '@/app/services/security/biometricSessionService';
+import {
+    isBiometricWorkspaceUnlocked,
+    markBiometricWorkspaceUnlocked,
+} from '@/app/services/security/biometricWorkspaceGate';
 
 const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'touchstart', 'scroll', 'pointerdown'] as const;
 const TICK_MS = 4_000;
@@ -36,7 +42,11 @@ export function useAppLock(security: SecuritySettings) {
     useEffect(() => {
         if (!security.biometricLock) {
             setNativeEnrolled(false);
+            setLocked(false);
             return;
+        }
+        if (hasBiometricSessionEnrollment() && !isBiometricWorkspaceUnlocked()) {
+            setLocked(true);
         }
         let cancelled = false;
         void loadNativeBiometricBridge()
@@ -95,6 +105,9 @@ export function useAppLock(security: SecuritySettings) {
         const onVisibility = () => {
             if (document.hidden) {
                 hiddenAtRef.current = Date.now();
+                if (resumeLockEnabled && !isNativeSensitivePromptActive()) {
+                    setLocked(true);
+                }
                 return;
             }
             const hiddenAt = hiddenAtRef.current;
@@ -118,12 +131,21 @@ export function useAppLock(security: SecuritySettings) {
         };
         document.addEventListener('visibilitychange', onVisibility);
 
+        const onAppState = (event: Event) => {
+            const isActive = (event as CustomEvent<{ isActive?: boolean }>).detail?.isActive;
+            if (isActive === false && resumeLockEnabled && !isNativeSensitivePromptActive()) {
+                setLocked(true);
+            }
+        };
+        window.addEventListener(HAMI_APP_STATE_EVENT, onAppState);
+
         return () => {
             for (const ev of ACTIVITY_EVENTS) {
                 window.removeEventListener(ev, onActivity);
             }
             window.clearInterval(tick);
             document.removeEventListener('visibilitychange', onVisibility);
+            window.removeEventListener(HAMI_APP_STATE_EVENT, onAppState);
         };
     }, [sessionGuardEnabled, idleLockEnabled, resumeLockEnabled, locked, security.autoLockMinutes, touchActivity]);
 
@@ -160,6 +182,7 @@ export function useAppLock(security: SecuritySettings) {
             await whenNativeCapacitorBootComplete();
             const ok = await verifyBiometricSessionUnlock();
             if (ok) {
+                markBiometricWorkspaceUnlocked();
                 setLocked(false);
                 snapAppLockClose();
                 lastActivityRef.current = Date.now();
@@ -171,6 +194,7 @@ export function useAppLock(security: SecuritySettings) {
     }, []);
 
     const unlockContinue = useCallback(() => {
+        markBiometricWorkspaceUnlocked();
         snapAppLockClose();
         setLocked(false);
         lastActivityRef.current = Date.now();

@@ -1,0 +1,113 @@
+{
+  "generatedAt": "2026-08-21T12:51:44.334Z",
+  "totalMb": 16.65,
+  "fileCount": 1022,
+  "byExtMb": {
+    ".js": 9.85,
+    ".css": 1.03,
+    ".html": 0.01,
+    ".pdf": 0,
+    ".svg": 0,
+    ".png": 0.22,
+    ".jpg": 0.11,
+    ".webp": 0.07,
+    ".json": 2.13,
+    ".bcmap": 1.11,
+    "(none)": 0.01,
+    ".mjs": 1.31,
+    ".pfb": 0.19,
+    ".ttf": 0.55,
+    ".wav": 0.05
+  },
+  "js": {
+    "fileCount": 775,
+    "totalMb": 9.84,
+    "microUnder5k": 426,
+    "top": [
+      {
+        "file": "vendor-pdf-BJoAr5aP.js",
+        "rawKb": 326.2
+      },
+      {
+        "file": "criminalStore-BYC02wWw.js",
+        "rawKb": 255
+      },
+      {
+        "file": "vendor-supabase-B4nSU-Ao.js",
+        "rawKb": 196.8
+      },
+      {
+        "file": "Dashboard_Active_Order_File-Cp64CTuz.js",
+        "rawKb": 186.1
+      },
+      {
+        "file": "execution-dashboard-boot-pipeline-MAwMe2Vo.js",
+        "rawKb": 186
+      },
+      {
+        "file": "execution-dashboard-persist-pipeline-BL5x_hOF.js",
+        "rawKb": 180
+      },
+      {
+        "file": "execution-dashboard-claim-pipeline-DwE1Hb_S.js",
+        "rawKb": 169.9
+      },
+      {
+        "file": "CriminalDashboard-DCfGngBY.js",
+        "rawKb": 164
+      },
+      {
+        "file": "SmartFileModal-C_p0Zo6y.js",
+        "rawKb": 158.5
+      },
+      {
+        "file": "ExecutionCreationView-B7cfzymz.js",
+        "rawKb": 153.1
+      },
+      {
+        "file": "archive-portal-execution-CUfMlsXP.js",
+        "rawKb": 150.5
+      },
+      {
+        "file": "FinancialOperationsCenter-CqbXNQt2.js",
+        "rawKb": 142.1
+      },
+      {
+        "file": "CommunityScreen-BDpJJy9K.js",
+        "rawKb": 140
+      },
+      {
+        "file": "vendor-react-BkeE5Emj.js",
+        "rawKb": 139.9
+      },
+      {
+        "file": "vendor-motion-Bf0vI5ND.js",
+        "rawKb": 130.2
+      },
+      {
+        "file": "DecisionsHub-CBW81at5.js",
+        "rawKb": 130.1
+      },
+      {
+        "file": "lawyer-home-paint-BpZC3X6p.js",
+        "rawKb": 125
+      },
+      {
+        "file": "LawyerDashboardInner-CmdNqfsR.js",
+        "rawKb": 118.4
+      },
+      {
+        "file": "LawyerDashboardRepositoryOverlayEntry-aZGaYd7Y.js",
+        "rawKb": 117.7
+      },
+      {
+        "file": "PersonalCoerciveFollowupPanel-BtAsubhn.js",
+        "rawKb": 111.3
+      }
+    ],
+    "hasExecutionLawsChunk": false,
+    "hasVendorCapacitor": true,
+    "hasBundledPdfWorker": false
+  },
+  "pdfAssetsMb": 3.17
+}

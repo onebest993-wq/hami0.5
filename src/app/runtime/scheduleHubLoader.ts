@@ -1,125 +1,53 @@
-import type { ComponentProps, ComponentType } from 'react';
+type ScheduleTabHostModule = typeof import('@/app/components/lawyer/dashboard/schedule/ScheduleTabHost');
 
-type LawyerDashboardScheduleTabModule =
-    typeof import('@/app/components/lawyer/dashboard/LawyerDashboardScheduleTab');
-type SmartLegalRadarModule = typeof import('@/app/components/lawyer/SmartLegalRadar.tsx');
-
-type LawyerDashboardScheduleTabProps = ComponentProps<
-    LawyerDashboardScheduleTabModule['LawyerDashboardScheduleTab']
->;
-type SmartLegalRadarProps = ComponentProps<SmartLegalRadarModule['SmartLegalRadar']>;
-
-export type LawyerDashboardScheduleTabComponent = ComponentType<LawyerDashboardScheduleTabProps>;
-export type SmartLegalRadarComponent = ComponentType<SmartLegalRadarProps>;
-
-type ScheduleHubModule = [LawyerDashboardScheduleTabModule, SmartLegalRadarModule];
-
-let scheduleTabPromise: Promise<LawyerDashboardScheduleTabModule> | null = null;
-let smartLegalRadarPromise: Promise<SmartLegalRadarModule> | null = null;
-let hubModulePromise: Promise<ScheduleHubModule> | null = null;
-let scheduleTabHostPromise: Promise<unknown> | null = null;
-let cachedLawyerDashboardScheduleTab: LawyerDashboardScheduleTabComponent | null = null;
-let cachedSmartLegalRadar: SmartLegalRadarComponent | null = null;
+let scheduleTabHostPromise: Promise<ScheduleTabHostModule> | null = null;
+let hostResolved = false;
 
 export function isScheduleShellModuleResolved(): boolean {
-    return cachedLawyerDashboardScheduleTab !== null && cachedSmartLegalRadar !== null;
-}
-
-export function isScheduleTabModuleResolved(): boolean {
-    return cachedLawyerDashboardScheduleTab !== null;
-}
-
-export function isSmartLegalRadarModuleResolved(): boolean {
-    return cachedSmartLegalRadar !== null;
-}
-
-export function getCachedLawyerDashboardScheduleTab(): LawyerDashboardScheduleTabComponent | null {
-    return cachedLawyerDashboardScheduleTab;
-}
-
-export function getCachedSmartLegalRadar(): SmartLegalRadarComponent | null {
-    return cachedSmartLegalRadar;
+    return hostResolved;
 }
 
 /** للاختبارات */
 export function resetScheduleHubModuleCacheForTests(): void {
-    scheduleTabPromise = null;
-    smartLegalRadarPromise = null;
-    hubModulePromise = null;
     scheduleTabHostPromise = null;
-    cachedLawyerDashboardScheduleTab = null;
-    cachedSmartLegalRadar = null;
+    hostResolved = false;
 }
 
-function ensureScheduleTabModule(): Promise<LawyerDashboardScheduleTabModule> {
-    if (!scheduleTabPromise) {
-        scheduleTabPromise = import('@/app/components/lawyer/dashboard/LawyerDashboardScheduleTab').then(
-            (mod) => {
-                if (mod?.LawyerDashboardScheduleTab) {
-                    cachedLawyerDashboardScheduleTab = mod.LawyerDashboardScheduleTab;
-                }
-                return mod;
-            },
-        );
-    }
-    return scheduleTabPromise;
-}
-
-function ensureSmartLegalRadarModule(): Promise<SmartLegalRadarModule> {
-    if (!smartLegalRadarPromise) {
-        smartLegalRadarPromise = import('@/app/components/lawyer/SmartLegalRadar.tsx').then((mod) => {
-            if (mod?.SmartLegalRadar) {
-                cachedSmartLegalRadar = mod.SmartLegalRadar;
-            }
+function ensureScheduleTabHostModule(): Promise<ScheduleTabHostModule> {
+    if (!scheduleTabHostPromise) {
+        scheduleTabHostPromise = import(
+            '@/app/components/lawyer/dashboard/schedule/ScheduleTabHost'
+        ).then((mod) => {
+            hostResolved = Boolean(mod?.ScheduleTabHost);
             return mod;
         });
     }
-    return smartLegalRadarPromise;
-}
-
-function ensureHubModulePromise(): Promise<ScheduleHubModule> {
-    if (!hubModulePromise) {
-        hubModulePromise = Promise.all([ensureScheduleTabModule(), ensureSmartLegalRadarModule()]);
-    }
-    return hubModulePromise;
+    return scheduleTabHostPromise;
 }
 
 /** chunk المضيف في MainView — أول عنق زجاجة عند النقر قبل أي محتوى */
 export function prefetchScheduleTabHostModule(): void {
     if (typeof window === 'undefined') return;
-    if (!scheduleTabHostPromise) {
-        scheduleTabHostPromise = import(
-            '@/app/components/lawyer/dashboard/schedule/ScheduleTabHost'
-        ).catch(() => undefined);
-    }
+    void ensureScheduleTabHostModule().catch(() => undefined);
 }
 
-export function loadScheduleTabModule(): Promise<LawyerDashboardScheduleTabModule> {
-    return ensureScheduleTabModule();
+/** يضمن جاهزية Host قبل التركيب الكسول — يمنع تعليق Suspense عند النقر المبكر */
+export function loadScheduleTabHostModule(): Promise<ScheduleTabHostModule> {
+    return ensureScheduleTabHostModule();
 }
 
-export function loadSmartLegalRadarModule(): Promise<SmartLegalRadarModule> {
-    return ensureSmartLegalRadarModule();
-}
-
-export function loadScheduleHubModule(): Promise<ScheduleHubModule> {
-    return ensureHubModulePromise();
+/** Host يستورد التبويب والرادار ثابتاً — مسار واحد بلا تسخين ثلاثي */
+export function loadScheduleHubModule(): Promise<ScheduleTabHostModule> {
+    return ensureScheduleTabHostModule();
 }
 
 export function prefetchScheduleHubModule(): void {
-    if (typeof window === 'undefined') return;
     prefetchScheduleTabHostModule();
-    void ensureScheduleTabModule().catch(() => undefined);
-    void ensureSmartLegalRadarModule().catch(() => undefined);
 }
 
-/**
- * يضمن جاهزية تبويب التقويم للفتح الفوري — دون انتظار الرادار (يُسخَّن في الخلفية).
- * يُستخدم للتسخين المسبق؛ المسار الحرج أصبح sync في ScheduleTabHost.
- */
+/** يضمن جاهزية مضيف التقويم للفتح الفوري */
 export function hydrateScheduleShellForInstantOpen(): Promise<boolean> {
-    void ensureSmartLegalRadarModule().catch(() => undefined);
-    return ensureScheduleTabModule()
-        .then(() => isScheduleTabModuleResolved())
+    return ensureScheduleTabHostModule()
+        .then(() => isScheduleShellModuleResolved())
         .catch(() => false);
 }

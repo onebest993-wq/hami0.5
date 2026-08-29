@@ -6,6 +6,7 @@ import {
     filterCriminalCasesForLawyer,
     isCriminalCaseVisibleToLawyer,
     isOrphanCriminalCase,
+    resolveCriminalCaseForSessionOpen,
 } from './criminalCaseOwner';
 import type { CriminalCase } from './criminalCaseModel';
 
@@ -46,9 +47,17 @@ function stubCase(partial: Partial<CriminalCase> & { id: string }): CriminalCase
 }
 
 describe('criminalCaseOwner', () => {
-    it('shows legacy unowned cases to any signed-in lawyer', () => {
-        expect(isCriminalCaseVisibleToLawyer({ ownerLawyerId: undefined }, 'lawyer-a')).toBe(true);
-        expect(isCriminalCaseVisibleToLawyer({ ownerLawyerId: '' }, 'lawyer-a')).toBe(true);
+    it('hides legacy unowned orphans from archive listing (fail-closed)', () => {
+        expect(isCriminalCaseVisibleToLawyer({ ownerLawyerId: undefined }, 'lawyer-a')).toBe(false);
+        expect(isCriminalCaseVisibleToLawyer({ ownerLawyerId: '' }, 'lawyer-a')).toBe(false);
+    });
+
+    it('hides all cases when session lawyer id is empty (fail-closed)', () => {
+        expect(isCriminalCaseVisibleToLawyer({ ownerLawyerId: 'lawyer-a' }, '')).toBe(false);
+        expect(isCriminalCaseVisibleToLawyer({ ownerLawyerId: 'lawyer-a' }, null)).toBe(false);
+        expect(isCriminalCaseVisibleToLawyer({ ownerLawyerId: undefined }, '')).toBe(false);
+        expect(filterCriminalCasesForLawyer([stubCase({ id: '1', ownerLawyerId: 'a' })], '')).toEqual([]);
+        expect(filterCriminalCasesForLawyer([stubCase({ id: '1', ownerLawyerId: 'a' })], null)).toEqual([]);
     });
 
     it('hides cases owned by another lawyer', () => {
@@ -60,15 +69,17 @@ describe('criminalCaseOwner', () => {
         expect(canMutateCriminalCaseForLawyer({ ownerLawyerId: 'lawyer-b' }, 'lawyer-a')).toBe(false);
         expect(canMutateCriminalCaseForLawyer({ ownerLawyerId: 'lawyer-a' }, 'lawyer-a')).toBe(true);
         expect(canMutateCriminalCaseForLawyer({ ownerLawyerId: '' }, 'lawyer-a')).toBe(false);
+        expect(canMutateCriminalCaseForLawyer({ ownerLawyerId: 'lawyer-a' }, '')).toBe(false);
+        expect(canMutateCriminalCaseForLawyer({ ownerLawyerId: 'lawyer-a' }, null)).toBe(false);
     });
 
-    it('filters the archive list by session lawyer', () => {
+    it('filters the archive list by session lawyer — orphans excluded', () => {
         const cases = [
             stubCase({ id: '1', ownerLawyerId: 'a' }),
             stubCase({ id: '2', ownerLawyerId: 'b' }),
             stubCase({ id: '3' }),
         ];
-        expect(filterCriminalCasesForLawyer(cases, 'a').map((c) => c.id)).toEqual(['1', '3']);
+        expect(filterCriminalCasesForLawyer(cases, 'a').map((c) => c.id)).toEqual(['1']);
     });
 
     it('does not silently claim all orphan cases for the first session lawyer', () => {
@@ -94,5 +105,19 @@ describe('criminalCaseOwner', () => {
         expect(claimOrphanCriminalCaseOwnership(orphan, '')).toBeNull();
         const owned = stubCase({ id: 'owned', ownerLawyerId: 'lawyer-b' });
         expect(claimOrphanCriminalCaseOwnership(owned, 'lawyer-a')).toBeNull();
+    });
+
+    it('resolveCriminalCaseForSessionOpen claims orphan on open, denies foreign owner', () => {
+        const orphan = stubCase({ id: 'orphan' });
+        const claimed = resolveCriminalCaseForSessionOpen(orphan, 'lawyer-a');
+        expect(claimed?.ownerLawyerId).toBe('lawyer-a');
+
+        const foreign = stubCase({ id: 'f', ownerLawyerId: 'lawyer-b' });
+        expect(resolveCriminalCaseForSessionOpen(foreign, 'lawyer-a')).toBeNull();
+
+        const mine = stubCase({ id: 'm', ownerLawyerId: 'lawyer-a' });
+        expect(resolveCriminalCaseForSessionOpen(mine, 'lawyer-a')).toBe(mine);
+
+        expect(resolveCriminalCaseForSessionOpen(orphan, '')).toBeNull();
     });
 });

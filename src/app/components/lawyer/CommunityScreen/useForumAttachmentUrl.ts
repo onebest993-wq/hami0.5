@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CommunityAttachment } from '@/app/services/lawyer-cloud';
 import { resolveCommunityAttachmentUrl } from '@/app/services/forumAttachmentService';
 import { isSafeForumAttachmentUrl } from '@/app/services/forum/forumUrlSafety';
@@ -13,17 +13,52 @@ function getImmediateAttachmentUrl(attachment: CommunityAttachment | null | unde
     return initial;
 }
 
-export function useForumAttachmentUrl(attachment: CommunityAttachment | null | undefined): {
+/*
+ * المرفق يصل كثيراً حرفاً داخل JSX، فمرجعه يتبدّل كل رسم. لو عُلِّق الأثر على
+ * المرجع لدارت الحلقة: جلب ← تحديث حالة ← رسم ← كائن جديد ← جلب. المفتاح
+ * محتوى لا عنوان ذاكرة، فلا يعيد الجلب إلا حين يتبدّل المرفق فعلاً.
+ */
+function attachmentIdentity(attachment: CommunityAttachment | null | undefined): string {
+    if (!attachment) return '';
+    const parts = attachment as unknown as Record<string, unknown>;
+    return [
+        String(parts.id ?? ''),
+        String(parts.path ?? ''),
+        String(attachment.storagePath ?? ''),
+        String(attachment.type ?? ''),
+        String(attachment.name ?? ''),
+        String(attachment.url ?? ''),
+    ].join('|');
+}
+
+export function useForumAttachmentUrl(
+    attachment: CommunityAttachment | null | undefined,
+    options?: { enabled?: boolean },
+): {
     url: string | null;
     loading: boolean;
 } {
+    const enabled = options?.enabled !== false;
     const [url, setUrl] = useState<string | null>(() => getImmediateAttachmentUrl(attachment));
-    const [loading, setLoading] = useState(Boolean(attachment && !getImmediateAttachmentUrl(attachment)));
+    const [loading, setLoading] = useState(
+        Boolean(enabled && attachment && !getImmediateAttachmentUrl(attachment)),
+    );
+
+    const attachmentRef = useRef(attachment);
+    attachmentRef.current = attachment;
+    const attachmentKey = attachmentIdentity(attachment);
 
     useEffect(() => {
         let cancelled = false;
         let objectUrlToRevoke: string | null = null;
+        const attachment = attachmentRef.current;
         const immediateUrl = getImmediateAttachmentUrl(attachment);
+
+        if (!enabled) {
+            setLoading(false);
+            if (immediateUrl) setUrl(immediateUrl);
+            return;
+        }
 
         if (!attachment) {
             setUrl(null);
@@ -81,7 +116,7 @@ export function useForumAttachmentUrl(attachment: CommunityAttachment | null | u
                 }
             }
         };
-    }, [attachment]);
+    }, [attachmentKey, enabled]);
 
     return { url, loading };
 }

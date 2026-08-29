@@ -6,7 +6,10 @@ import {
     updateCalendarEvent,
     deleteCalendarEvent,
 } from '@/app/services/calendar/calendarCloudRuntime';
-import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
+import {
+    CALENDAR_BACKGROUND_SYNC_FAILED_EVENT,
+    CALENDAR_UPDATED_EVENT,
+} from '@/app/services/calendarBridge.types';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
 import { isBridgedCalendarEvent } from '@/app/services/calendar/calendarEventAuthorship';
 import { mapStoredEventsToUnified, mapAllCalendarEventsForSparkScan } from '@/app/components/lawyer/SmartLegalRadar/calendarEventMapping';
@@ -17,10 +20,16 @@ import {
     setCachedCalendarEvents,
 } from '@/app/services/calendar/calendarEventsCache';
 import { readLocalCalendarSnapshotSync } from '@/app/services/calendar/calendarLocalSnapshot';
-import { awaitCalendarWarmIfInflight } from '@/app/hooks/lawyerDashboard/scheduleIntentWarm';
+import { awaitCalendarWarmIfInflight } from '@/app/services/calendar/calendarEventsWarm';
+import {
+    CALENDAR_FETCH_TIMEOUT_MS,
+    CALENDAR_MUTATION_TIMEOUT_MS,
+    isCalendarTimeoutError,
+    withCalendarTimeout,
+} from '@/app/services/calendar/calendarTimeout';
 import type { CalendarSourceModule } from '@/app/services/calendarBridge.types';
 
-export type UnifiedEventBridge = {
+type UnifiedEventBridge = {
     sourceModule: CalendarSourceModule;
     sourceEntityId: string;
     sourceEventId: string;
@@ -53,28 +62,20 @@ export type UnifiedEvent = {
 };
 
 const CALENDAR_UPDATE_DEBOUNCE_MS = 300;
-const CALENDAR_FETCH_TIMEOUT_MS = 6_000;
-const CALENDAR_SAVE_TIMEOUT_MS = 8_000;
-
-function withCalendarOpTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-    return Promise.race([
-        promise,
-        new Promise<T>((_, reject) => {
-            window.setTimeout(() => reject(new Error(`${label}:timeout`)), ms);
-        }),
-    ]);
-}
 
 async function fetchCalendarEventsWithTimeout(
     userId: string,
     options?: { forceRefresh?: boolean },
 ): Promise<CalendarEvent[]> {
-    return Promise.race([
+    return withCalendarTimeout(
         fetchCalendarEvents(userId, options),
-        new Promise<CalendarEvent[]>((_, reject) => {
-            window.setTimeout(() => reject(new Error('calendar-fetch-timeout')), CALENDAR_FETCH_TIMEOUT_MS);
-        }),
-    ]);
+        CALENDAR_FETCH_TIMEOUT_MS,
+        'calendar-fetch-timeout',
+    );
+}
+
+function mutationErrorMessage(err: unknown, fallback: string): string {
+    return isCalendarTimeoutError(err) ? 'تعذّر حفظ الموعد' : fallback;
 }
 
 function newCalendarEventId(): string {
@@ -149,12 +150,14 @@ export function useCalendarData(userId: string) {
     const hasLoadedOnceRef = useRef(true);
     const fetchInFlightRef = useRef(false);
     const fetchRequestIdRef = useRef(0);
+    const customEventsRef = useRef(customEvents);
+    customEventsRef.current = customEvents;
 
     const fetchEvents = useCallback(
         async (options?: { background?: boolean; forceRefresh?: boolean }) => {
             if (!effectiveUserId) {
                 setCustomEvents([]);
-                setError('يجب تسجيل الدخول لعرض التقويم');
+                setError(null);
                 setSyncing(false);
                 setBackgroundSyncing(false);
                 return;
@@ -182,8 +185,8 @@ export function useCalendarData(userId: string) {
                 if (snapshot.length > 0) {
                     setCustomEvents((prev) => adoptCalendarEventsIfChanged(prev, snapshot));
                     setCachedCalendarEvents(effectiveUserId, snapshot);
-                } else if (err instanceof Error && err.message === 'calendar-fetch-timeout') {
-                    setError(null);
+                } else if (isCalendarTimeoutError(err)) {
+                    setError('تعذّر تحديث التقويم');
                 } else {
                     setError('فشل تحميل أحداث التقويم');
                 }
@@ -246,9 +249,14 @@ export function useCalendarData(userId: string) {
             }, CALENDAR_UPDATE_DEBOUNCE_MS);
         };
         window.addEventListener(CALENDAR_UPDATED_EVENT, onCalendarUpdated);
+        const onBackgroundSyncFailed = () => {
+            setError('تعذّر تحديث التقويم');
+        };
+        window.addEventListener(CALENDAR_BACKGROUND_SYNC_FAILED_EVENT, onBackgroundSyncFailed);
         return () => {
             if (debounceTimer) clearTimeout(debounceTimer);
             window.removeEventListener(CALENDAR_UPDATED_EVENT, onCalendarUpdated);
+            window.removeEventListener(CALENDAR_BACKGROUND_SYNC_FAILED_EVENT, onBackgroundSyncFailed);
         };
     }, [applyLocalSnapshot]);
 
@@ -299,11 +307,15 @@ export function useCalendarData(userId: string) {
             invalidateCalendarEventsCache(effectiveUserId);
 
             try {
-                await saveCalendarEvent(newEvent);
+                await withCalendarTimeout(
+                    saveCalendarEvent(newEvent),
+                    CALENDAR_MUTATION_TIMEOUT_MS,
+                    'calendar-mutation-timeout',
+                );
                 return newEvent;
-            } catch {
+            } catch (err) {
                 setCustomEvents((prev) => prev.filter((e) => e.id !== newEvent.id));
-                setError('فشل إضافة الموعد');
+                setError(mutationErrorMessage(err, 'فشل إضافة الموعد'));
                 return null;
             }
         },
@@ -313,18 +325,24 @@ export function useCalendarData(userId: string) {
     const updateEvent = useCallback(async (event: CalendarEvent) => {
         const updated = { ...event, updatedAt: new Date().toISOString() };
         try {
-            await updateCalendarEvent(updated);
-            if (isBridgedCalendarEvent(updated)) {
-                const { propagateBridgedCalendarUpdate } = await import(
-                    '@/app/services/calendar/bridgePersistence/propagate'
-                );
-                await propagateBridgedCalendarUpdate(updated);
-            }
+            await withCalendarTimeout(
+                (async () => {
+                    await updateCalendarEvent(updated);
+                    if (isBridgedCalendarEvent(updated)) {
+                        const { propagateBridgedCalendarUpdate } = await import(
+                            '@/app/services/calendar/bridgePersistence/propagate'
+                        );
+                        await propagateBridgedCalendarUpdate(updated);
+                    }
+                })(),
+                CALENDAR_MUTATION_TIMEOUT_MS,
+                'calendar-mutation-timeout',
+            );
             setCustomEvents((prev) => prev.map((e) => (e.id === event.id ? updated : e)));
             invalidateCalendarEventsCache(effectiveUserId);
             return updated;
-        } catch {
-            setError('فشل تحديث الموعد');
+        } catch (err) {
+            setError(mutationErrorMessage(err, 'فشل تحديث الموعد'));
             return null;
         }
     }, [effectiveUserId]);
@@ -332,21 +350,34 @@ export function useCalendarData(userId: string) {
     const deleteEvent = useCallback(
         async (eventId: string) => {
             try {
-                const existing = customEvents.find((e) => e.id === eventId);
-                if (existing && isBridgedCalendarEvent(existing)) {
-                    const { propagateBridgedCalendarRemoval } = await import(
-                        '@/app/services/calendar/bridgePersistence/propagate'
-                    );
-                    await propagateBridgedCalendarRemoval(existing);
-                }
-                await deleteCalendarEvent(eventId, effectiveUserId);
+                await withCalendarTimeout(
+                    (async () => {
+                        const existing = customEventsRef.current.find((e) => e.id === eventId);
+                        if (existing && isBridgedCalendarEvent(existing)) {
+                            const { propagateBridgedCalendarRemoval } = await import(
+                                '@/app/services/calendar/bridgePersistence/propagate'
+                            );
+                            await propagateBridgedCalendarRemoval(existing);
+                        }
+                        await deleteCalendarEvent(eventId, effectiveUserId);
+                    })(),
+                    CALENDAR_MUTATION_TIMEOUT_MS,
+                    'calendar-mutation-timeout',
+                );
                 setCustomEvents((prev) => prev.filter((e) => e.id !== eventId));
                 invalidateCalendarEventsCache(effectiveUserId);
-            } catch {
-                setError('فشل حذف الموعد');
+                return true;
+            } catch (err) {
+                setError(mutationErrorMessage(err, 'فشل حذف الموعد'));
+                return false;
             }
         },
-        [effectiveUserId, customEvents],
+        [effectiveUserId],
+    );
+
+    const refresh = useCallback(
+        () => fetchEvents({ background: false, forceRefresh: true }),
+        [fetchEvents],
     );
 
     return {
@@ -362,6 +393,6 @@ export function useCalendarData(userId: string) {
         addEvent,
         updateEvent,
         deleteEvent,
-        refresh: () => fetchEvents({ background: false, forceRefresh: true }),
+        refresh,
     };
 }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Light handler cluster for notes/appointment/payment flows only. */
 import { useMemo } from 'react';
 import { useExecutionDashboardPushTimelineEvent } from './useExecutionDashboardPushTimelineEvent';
@@ -70,7 +69,7 @@ export function useExecutionDashboardCoreHandlerClusterLight(c: ExecutionDashboa
         timelineEventsRef,
         totalOwed,
         totalWithExecutionFee,
-    } = c as any;
+    } = c as Record<string, unknown>;
 
     const pushTimelineEventBinding = useExecutionDashboardPushTimelineEvent({
         executionId,

@@ -7,6 +7,7 @@ import {
 
 const hubMocks = vi.hoisted(() => ({
     loadExecutionArchiveHubModule: vi.fn(() => Promise.resolve({})),
+    prefetchExecutionArchiveContent: vi.fn(),
 }));
 
 vi.mock('@/app/runtime/hubArchiveLoader', () => hubMocks);
@@ -31,5 +32,6 @@ describe('executionArchiveOpenSession', () => {
 
     it('prefetch يطلق التحميل دون رمي', () => {
         expect(() => prefetchExecutionArchiveOpen()).not.toThrow();
+        expect(hubMocks.prefetchExecutionArchiveContent).toHaveBeenCalled();
     });
 });

@@ -1,48 +1,35 @@
 /**
  * Prefetch overlays التنفيذ — عند hover/قرب الفتح (ومسار حرج للمحضر حتى على lite).
+ * سجل overlays / تبويبات المحضر يُحمَّلان بـ import() حتى لا يسحب أول رسم الحقيبة الثقيلة.
  */
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import {
-    prefetchDecisionsAndAppealsEngine,
     prefetchExecutionDashboardShell,
-    prefetchFinancialOperationsCenter,
     prefetchFollowupMemoPanels,
-    prefetchLawReferencePanel,
-} from './executionDashboardLazyShell';
-import {
-    prefetchCustodyRemovalWardsModule,
-    prefetchExecutionDecisionsModalContainer,
-    prefetchExecutionFinancialHubPortal,
     prefetchUnifiedSeizureLogHost,
-} from './executionDashboardLazyRegistry';
+} from './executionDashboardLazyRegistryShell';
 import { prefetchExecutionCoreHandlers } from './executionCoreHandlersPrefetch';
-import { prefetchExecutionDashboardShellOverlays } from './executionDashboardShellOverlaysLazy';
 import { prefetchExecutionFollowupModalPortal } from './executionFollowupModalLazy';
-import { prefetchExecutionFollowupDefaultTab, prefetchExecutionFollowupTab } from './executionFollowupTabPrefetch';
-
-const notesOverlayImport = () =>
-    import('./components/ExecutionNotesAndAppointmentModals').then((m) => ({
-        default: m.ExecutionNotesAndAppointmentModals,
-    }));
-
-const documentsOverlayImport = () =>
-    import('../DocumentVault').then((m) => ({ default: m.DocumentVault }));
-
-const dossierActionsImport = () =>
-    import('./components/DossierActionsModal').then((m) => ({ default: m.DossierActionsModal }));
-
-const fullTimelineImport = () =>
-    import('./components/ExecutionFullTimelineModalContainer').then((m) => ({
-        default: m.ExecutionFullTimelineModalContainer,
-    }));
-
-const unifiedSummonsImport = () =>
-    import('./components/UnifiedSummonsModalContainer').then((m) => ({
-        default: m.UnifiedSummonsModalContainer,
-    }));
+import { prefetchExecutionFollowupModalHost } from './executionFollowupHostLazy';
+import { prefetchExecutionDashboardShellOverlays } from './executionDashboardShellOverlaysLazy';
 
 function skipExecutionOverlayPrefetch(): boolean {
     return isLitePerformanceActive();
+}
+
+export function prefetchExecutionDossierActionsOverlay(): void {
+    if (skipExecutionOverlayPrefetch()) return;
+    void import('./executionDashboardDossierActionsModalLazy')
+        .then((m) => m.LazyDossierActionsModal.preload())
+        .catch(() => {});
+}
+
+function loadOverlayRegistry() {
+    return import('./executionDashboardLazyRegistryOverlays');
+}
+
+function loadFollowupTabPrefetch() {
+    return import('./executionFollowupTabPrefetch');
 }
 
 export function prefetchExecutionShellIntent(): void {
@@ -52,57 +39,55 @@ export function prefetchExecutionShellIntent(): void {
 
 export function prefetchExecutionNotesOverlay(): void {
     if (skipExecutionOverlayPrefetch()) return;
-    void notesOverlayImport().catch(() => {});
+    prefetchExecutionDashboardShellOverlays();
+    void loadOverlayRegistry()
+        .then((m) => {
+            m.prefetchExecutionNotesAndAppointmentModals();
+        })
+        .catch(() => {});
 }
 
 export function prefetchExecutionDocumentsOverlay(): void {
     if (skipExecutionOverlayPrefetch()) return;
-    void documentsOverlayImport().catch(() => {});
-}
-
-export function prefetchExecutionDossierActionsOverlay(): void {
-    if (skipExecutionOverlayPrefetch()) return;
-    void dossierActionsImport().catch(() => {});
-}
-
-export function prefetchExecutionFullTimelineOverlay(): void {
-    if (skipExecutionOverlayPrefetch()) return;
-    void fullTimelineImport().catch(() => {});
-}
-
-export function prefetchExecutionUnifiedSummonsOverlay(): void {
-    if (skipExecutionOverlayPrefetch()) return;
-    void unifiedSummonsImport().catch(() => {});
+    prefetchExecutionDashboardShellOverlays();
+    void loadOverlayRegistry()
+        .then((m) => {
+            m.prefetchExecutionDocumentVault();
+        })
+        .catch(() => {});
 }
 
 /**
  * مسار محضر المتابعة الحرج — يعمل حتى على lite لتقليل Suspense عند أول فتح.
- * ShellOverlays + Portal + تبويب الحجز الافتراضي + جسور الطلبات.
+ * يُسخَّن البوابة + التبويب الافتراضي فقط؛ بقية التبويبات عند نية التبويب.
  */
 export function prefetchExecutionFollowupOverlay(): void {
     if (!skipExecutionOverlayPrefetch()) {
         prefetchExecutionShellIntent();
         prefetchFollowupMemoPanels();
     }
-    prefetchExecutionDashboardShellOverlays();
+    prefetchExecutionFollowupModalHost();
     prefetchExecutionFollowupModalPortal();
-    prefetchExecutionFollowupDefaultTab();
-    prefetchExecutionFollowupTab('coercive');
-    prefetchExecutionFollowupTab('other_party');
-    prefetchExecutionFollowupTab('personal');
-    prefetchExecutionCoreHandlers('coercive-eviction');
-    prefetchCustodyRemovalWardsModule();
+    void loadFollowupTabPrefetch()
+        .then((m) => {
+            m.prefetchExecutionFollowupDefaultTab();
+        })
+        .catch(() => {});
     prefetchExecutionCoreHandlers('seizure-requests');
 }
 
 export function prefetchExecutionFinanceOverlay(_opts?: { force?: boolean }): void {
     if (skipExecutionOverlayPrefetch()) return;
     prefetchExecutionShellIntent();
-    prefetchFinancialOperationsCenter();
-    prefetchExecutionFinancialHubPortal();
+    void loadOverlayRegistry()
+        .then((m) => {
+            m.prefetchFinancialOperationsCenter();
+            m.prefetchExecutionFinancialHubPortal();
+        })
+        .catch(() => {});
 }
 
-export function prefetchExecutionSeizureLogOverlay(): void {
+function prefetchExecutionSeizureLogOverlay(): void {
     if (skipExecutionOverlayPrefetch()) return;
     prefetchExecutionShellIntent();
     prefetchExecutionCoreHandlers('seizure-log');
@@ -130,8 +115,13 @@ export function prefetchExecutionActionGridTile(tileKey: string): void {
             prefetchExecutionDocumentsOverlay();
             break;
         case 'decisions':
-            prefetchExecutionDecisionsModalContainer();
-            prefetchDecisionsAndAppealsEngine();
+            prefetchExecutionDashboardShellOverlays();
+            void loadOverlayRegistry()
+                .then((m) => {
+                    m.prefetchExecutionDecisionsModalContainer();
+                    m.prefetchDecisionsAndAppealsEngine();
+                })
+                .catch(() => {});
             break;
         case 'finance':
             prefetchExecutionFinanceOverlay();
@@ -140,7 +130,11 @@ export function prefetchExecutionActionGridTile(tileKey: string): void {
             prefetchExecutionSeizureLogOverlay();
             break;
         case 'law':
-            prefetchLawReferencePanel();
+            void loadOverlayRegistry()
+                .then((m) => {
+                    m.prefetchLawReferencePanel();
+                })
+                .catch(() => {});
             break;
         default:
             break;

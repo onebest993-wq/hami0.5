@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { HandHelping, Loader2, Shield } from '@/app/components/ui/lucideIcons';
+import { HandHelping } from '@/app/components/ui/icons/HandHelping';
+import { Loader2 } from '@/app/components/ui/icons/Loader2';
+import { Shield } from '@/app/components/ui/icons/Shield';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import type { ShareScope } from '@/app/types/taskHelpTypes';
+import { clampTaskText, MAX_HELP_NOTE_LENGTH } from '@/app/services/tasks/taskInputGuard';
 import type { NetworkColleague } from '@/app/services/caseShare/caseShareTypes';
 import { CaseShareApiService } from '@/app/services/caseShare/caseShareApiService';
 import {
@@ -12,9 +15,20 @@ import {
     DialogTitle,
 } from '@/app/components/ui/dialog';
 import { TasksManagerDialogContent } from './TasksManagerDialogContent';
+import {
+    TASKS_BTN_BRONZE,
+    TASKS_DIALOG_BTN_CANCEL,
+    TASKS_DIALOG_CONTENT,
+    TASKS_DIALOG_DESC,
+    TASKS_DIALOG_FOOTER,
+    TASKS_INPUT,
+    TASKS_LABEL,
+} from './tasksBoucleTheme';
 
-const TASKS_DIALOG_CONTENT =
-    'border-slate-700 bg-slate-900 text-slate-100 sm:max-w-md max-h-[90dvh] overflow-y-auto';
+const SCOPE_ON =
+    'min-h-[44px] rounded-xl border px-2 py-2 text-[11px] font-extrabold touch-manipulation border-[#E6C673]/50 bg-[#E6C673]/12 text-[#E6C673]';
+const SCOPE_OFF =
+    'min-h-[44px] rounded-xl border px-2 py-2 text-[11px] font-extrabold touch-manipulation border-white/[0.1] bg-[#12182B] text-[#F4F4F5]/85';
 
 export type RequestHelpModalProps = {
     open: boolean;
@@ -89,7 +103,7 @@ export function RequestHelpModal({
                 scope,
                 targetColleagueId: scope === 'PRIVATE_DIRECT' ? colleagueId : undefined,
                 targetColleagueName: selected?.name,
-                note: note.trim() || undefined,
+                note: clampTaskText(note, MAX_HELP_NOTE_LENGTH) || undefined,
             });
             onClose();
         } catch {
@@ -101,13 +115,16 @@ export function RequestHelpModal({
 
     return (
         <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-            <TasksManagerDialogContent className={TASKS_DIALOG_CONTENT} instant>
+            <TasksManagerDialogContent
+                className={`${TASKS_DIALOG_CONTENT} max-h-[90dvh] overflow-y-auto`}
+                instant
+            >
                 <DialogHeader className="text-right space-y-2">
-                    <DialogTitle className="text-slate-100 text-base font-extrabold flex flex-row-reverse items-center gap-2 justify-start">
-                        <HandHelping className="size-4 text-amber-300/90 shrink-0" aria-hidden />
+                    <DialogTitle className="text-[#F4F4F5] text-base font-extrabold flex flex-row-reverse items-center gap-2 justify-start">
+                        <HandHelping className="size-4 text-[#E6C673] shrink-0" aria-hidden />
                         طلب مساعدة في المهمة
                     </DialogTitle>
-                    <DialogDescription className="text-slate-400 text-xs leading-relaxed">
+                    <DialogDescription className={`${TASKS_DIALOG_DESC} !text-xs`}>
                         {task?.title ?? '—'}
                         {userName ? ` · من ${userName}` : ''}
                     </DialogDescription>
@@ -119,11 +136,7 @@ export function RequestHelpModal({
                             type="button"
                             data-testid="task-help-scope-private"
                             onClick={() => setScope('PRIVATE_DIRECT')}
-                            className={`min-h-[44px] rounded-xl border-2 px-2 py-2 text-[11px] font-extrabold touch-manipulation ${
-                                scope === 'PRIVATE_DIRECT'
-                                    ? 'border-amber-500 bg-amber-600/90 text-white shadow-[inset_0_0_0_1px_rgba(251,191,36,0.45)]'
-                                    : 'border-slate-500 bg-slate-800 text-slate-200'
-                            }`}
+                            className={scope === 'PRIVATE_DIRECT' ? SCOPE_ON : SCOPE_OFF}
                         >
                             طلب خاص لزميل
                         </button>
@@ -131,11 +144,7 @@ export function RequestHelpModal({
                             type="button"
                             data-testid="task-help-scope-public"
                             onClick={() => setScope('PUBLIC_FORUM')}
-                            className={`min-h-[44px] rounded-xl border-2 px-2 py-2 text-[11px] font-extrabold touch-manipulation ${
-                                scope === 'PUBLIC_FORUM'
-                                    ? 'border-sky-400 bg-sky-600/90 text-white shadow-[inset_0_0_0_1px_rgba(56,189,248,0.45)]'
-                                    : 'border-slate-500 bg-slate-800 text-slate-200'
-                            }`}
+                            className={scope === 'PUBLIC_FORUM' ? SCOPE_ON : SCOPE_OFF}
                         >
                             طلب عام في المنتدى
                         </button>
@@ -151,14 +160,11 @@ export function RequestHelpModal({
                         </div>
                     ) : (
                         <div>
-                            <label
-                                htmlFor="task-help-colleague"
-                                className="text-[11px] font-bold text-slate-500 block mb-1"
-                            >
+                            <label htmlFor="task-help-colleague" className={TASKS_LABEL}>
                                 الزميل المستهدف
                             </label>
                             {loadingColleagues ? (
-                                <p className="text-xs text-slate-400 flex flex-row-reverse items-center gap-2">
+                                <p className="text-xs text-[#F4F4F5]/55 flex flex-row-reverse items-center gap-2">
                                     <Loader2 className="size-3.5 animate-spin" aria-hidden />
                                     جاري تحميل الشبكة…
                                 </p>
@@ -167,7 +173,7 @@ export function RequestHelpModal({
                                     id="task-help-colleague"
                                     data-testid="task-help-colleague"
                                     dir="rtl"
-                                    className="w-full min-h-[44px] rounded-xl border border-slate-600 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-amber-500/50"
+                                    className={`min-h-[44px] ${TASKS_INPUT}`}
                                     value={colleagueId}
                                     onChange={(e) => setColleagueId(e.target.value)}
                                 >
@@ -183,10 +189,7 @@ export function RequestHelpModal({
                     )}
 
                     <div>
-                        <label
-                            htmlFor="task-help-note"
-                            className="text-[11px] font-bold text-slate-500 block mb-1"
-                        >
+                        <label htmlFor="task-help-note" className={TASKS_LABEL}>
                             ملاحظة توجيهية (اختياري)
                         </label>
                         <textarea
@@ -194,7 +197,7 @@ export function RequestHelpModal({
                             data-testid="task-help-note"
                             dir="rtl"
                             rows={3}
-                            className="w-full rounded-xl border border-slate-600 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-amber-500/50 resize-none min-h-[4.5rem]"
+                            className={`${TASKS_INPUT} resize-none min-h-[4.5rem]`}
                             value={note}
                             onChange={(e) => setNote(e.target.value)}
                             placeholder="تعليمات مختصرة للزميل…"
@@ -208,13 +211,13 @@ export function RequestHelpModal({
                     ) : null}
                 </div>
 
-                <DialogFooter className="flex flex-row-reverse gap-2 sm:justify-start sticky bottom-0 bg-slate-900 pt-2">
+                <DialogFooter className={TASKS_DIALOG_FOOTER}>
                     <button
                         type="button"
                         data-testid="task-help-submit"
                         disabled={submitting || !userId}
                         onClick={() => void handleSubmit()}
-                        className="min-h-[44px] px-4 py-2 rounded-lg border-2 border-amber-400 bg-amber-600 hover:bg-amber-500 text-white text-xs font-extrabold disabled:opacity-40 touch-manipulation inline-flex items-center gap-2 shadow-[0_2px_10px_rgba(217,119,6,0.35)]"
+                        className={`${TASKS_BTN_BRONZE} inline-flex items-center gap-2 disabled:opacity-40`}
                     >
                         {submitting ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
                         إرسال الطلب
@@ -222,7 +225,7 @@ export function RequestHelpModal({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="min-h-[44px] px-4 py-2 rounded-lg border-2 border-slate-500 bg-slate-800 text-slate-100 text-xs font-bold touch-manipulation"
+                        className={TASKS_DIALOG_BTN_CANCEL}
                     >
                         إلغاء
                     </button>

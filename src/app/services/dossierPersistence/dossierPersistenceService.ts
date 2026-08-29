@@ -8,8 +8,13 @@ import {
 import { readLatestDossierBackup, writeDossierBackup } from './dossierBackupStore';
 import { shouldRejectDossierWipe } from './dossierWipeGuard';
 import { debug } from '@/app/utils/debug';
+import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
 import type { DossierCloudSyncOp, DossierDomain } from './dossierPersistenceTypes';
 import { DOSSIER_SYNC_QUEUE_KEY } from './dossierPersistenceTypes';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 type DomainConfig = {
     domain: DossierDomain;
@@ -60,7 +65,7 @@ function mergeUniqueById(primary: unknown[], incoming: unknown[]): unknown[] {
 
 function readRevision(config: DomainConfig): number {
     try {
-        const raw = SecureStoreService.getItemSync(config.revisionKey);
+        const raw = readSecureOrDrainLegacySync(config.revisionKey);
         const n = raw ? Number.parseInt(raw, 10) : 0;
         return Number.isFinite(n) && n >= 0 ? n : 0;
     } catch {
@@ -72,6 +77,7 @@ function bumpRevision(config: DomainConfig): number {
     const next = readRevision(config) + 1;
     try {
         SecureStoreService.setItemSync(config.revisionKey, String(next));
+        clearLegacyPlaintextMirror(config.revisionKey);
     } catch {
         /* ignore */
     }
@@ -79,10 +85,12 @@ function bumpRevision(config: DomainConfig): number {
 }
 
 function readRawSync(key: string): string | null {
-    return SecureStoreService.getItemSync(key);
+    return readSecureOrDrainLegacySync(key);
 }
 
 async function readRawAsync(key: string): Promise<string | null> {
+    const drained = readSecureOrDrainLegacySync(key);
+    if (drained != null) return drained;
     return SecureStoreService.getItem(key);
 }
 
@@ -94,6 +102,7 @@ function writeRawGuarded(key: string, payload: unknown[]): void {
         return;
     }
     SecureStoreService.setItemSync(key, serialized);
+    clearLegacyPlaintextMirror(key);
 }
 
 async function writeRawGuardedAsync(key: string, payload: unknown[]): Promise<void> {
@@ -104,6 +113,7 @@ async function writeRawGuardedAsync(key: string, payload: unknown[]): Promise<vo
         return;
     }
     await SecureStoreService.setItem(key, serialized);
+    clearLegacyPlaintextMirror(key);
 }
 
 async function restoreFromBackupIfNeeded(
@@ -153,9 +163,14 @@ export function loadDossierCollectionSync(domain: DossierDomain): unknown[] {
     return loadFromAllKeysSync(DOMAIN_CONFIG[domain]);
 }
 
-/** تحميل كامل مع استعادة من النسخة الاحتياطية عند الفراغ غير المتوقع */
+/** تحميل كامل مع استعادة من النسخة الاحتياطية عند الفراغ غير المتوقع.
+ * يسخّن مفاتيح هذا النطاق فقط — لا ينتظر فكّ الجزائي/المنتدى. */
 export async function loadDossierCollectionAsync(domain: DossierDomain): Promise<unknown[]> {
-    await SecureStoreService.ensurePersistedReady();
+    if (domain === 'lawsuit') {
+        await SecureStoreService.ensureLawsuitKeysReady();
+    } else {
+        await SecureStoreService.ensureExecutionIndexReady();
+    }
     const config = DOMAIN_CONFIG[domain];
     const loaded = await loadFromAllKeysAsync(config);
     return restoreFromBackupIfNeeded(config, loaded);
@@ -192,7 +207,7 @@ export async function persistDossierCollection(
         }
     }
 
-    if (!options?.skipCloudQueue && payload.length > 0) {
+    if (!options?.skipCloudQueue && payload.length > 0 && isLawyerWorkCloudLive()) {
         enqueueCloudSyncOp({
             id: `${domain}-${Date.now()}`,
             domain,
@@ -231,7 +246,7 @@ export function persistDossierCollectionSync(
         }
     });
 
-    if (!options?.skipCloudQueue && payload.length > 0) {
+    if (!options?.skipCloudQueue && payload.length > 0 && isLawyerWorkCloudLive()) {
         enqueueCloudSyncOp({
             id: `${domain}-${Date.now()}`,
             domain,
@@ -246,12 +261,13 @@ export function persistDossierCollectionSync(
 
 function enqueueCloudSyncOp(op: DossierCloudSyncOp): void {
     try {
-        const raw = SecureStoreService.getItemSync(DOSSIER_SYNC_QUEUE_KEY);
+        const raw = readSecureOrDrainLegacySync(DOSSIER_SYNC_QUEUE_KEY);
         const queue: DossierCloudSyncOp[] = raw ? (JSON.parse(raw) as DossierCloudSyncOp[]) : [];
         if (!Array.isArray(queue)) return;
         queue.push(op);
         const trimmed = queue.slice(-200);
         SecureStoreService.setItemSync(DOSSIER_SYNC_QUEUE_KEY, JSON.stringify(trimmed));
+        clearLegacyPlaintextMirror(DOSSIER_SYNC_QUEUE_KEY);
     } catch {
         /* ignore queue errors — لا يؤثر على الحفظ المحلي */
     }
@@ -259,7 +275,7 @@ function enqueueCloudSyncOp(op: DossierCloudSyncOp): void {
 
 export function listPendingCloudSyncOps(): DossierCloudSyncOp[] {
     try {
-        const raw = SecureStoreService.getItemSync(DOSSIER_SYNC_QUEUE_KEY);
+        const raw = readSecureOrDrainLegacySync(DOSSIER_SYNC_QUEUE_KEY);
         if (!raw) return [];
         const parsed: unknown = JSON.parse(raw);
         return Array.isArray(parsed)

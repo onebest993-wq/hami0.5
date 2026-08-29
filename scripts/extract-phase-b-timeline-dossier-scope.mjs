@@ -10,11 +10,19 @@ const DYNAMIC = path.join(
     ROOT,
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoreDynamicScope.ts',
 );
+if (!fs.existsSync(DYNAMIC)) {
+    console.log('[spent] buildExecutionDashboardCoreDynamicScope.ts — skip');
+    process.exit(0);
+}
 const RESOLVER = path.join(ROOT, 'scripts/lib/resolveExecutionChunkScopeKeys.mjs');
 const TIMELINE_BAG = path.join(
     ROOT,
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardTimelineDossierScopeBag.ts',
 );
+if (!fs.existsSync(TIMELINE_BAG)) {
+    console.log('[spent] timeline/dossier scope bag — skip');
+    process.exit(0);
+}
 
 const TIMELINE_DOSSIER_KEY_PATTERN =
     /timeline|Timeline|dossier|Dossier|note|Note|task|Task|event|Event|accordion|Accordion|lifecycle|Lifecycle|heir|Heir|deceased|Deceased|substitution|Substitution|linkedDossier|commitDossier|voiceUser|notificationCount|seizedAssetsModal|syncSeized|syncSeizure|breakInventory|fieldVisit|appointment|Appointment|graceTask|GraceTask|milestone|Milestone|trashed|Trash|pinned|Pinned|radar|Radar|summons|Summons|memo|Memo|childDossier|parentDossier|partyEdit|PartyEdit|caseNote|CaseNote|caseTask|CaseTask/i;
@@ -178,6 +186,9 @@ fs.writeFileSync(DYNAMIC, newDynamic, 'utf8');
 
 let resolver = fs.readFileSync(RESOLVER, 'utf8');
 if (!resolver.includes('TIMELINE_DOSSIER_BAG_PATH')) {
+    void fs.existsSync(
+        'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardTimelineDossierScopeBag.ts',
+    );
     resolver = resolver.replace(
         'const FINANCIAL_BAG_PATH =',
         `const TIMELINE_DOSSIER_BAG_PATH =

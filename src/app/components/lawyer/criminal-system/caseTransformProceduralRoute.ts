@@ -60,7 +60,7 @@ import {
     patchInvestigationReferralCase,
 } from './caseTransformInvestigationReferral';
 
-export function stageCourtNumberForJourney(caseRecord: CriminalCase, stage: CaseStage): string {
+function stageCourtNumberForJourney(caseRecord: CriminalCase, stage: CaseStage): string {
     if (stage === 'investigation') {
         const inv = String(caseRecord.investigationCaseNumber ?? caseRecord.location.investigationDossierNumber ?? '').trim();
         return inv;
@@ -68,7 +68,7 @@ export function stageCourtNumberForJourney(caseRecord: CriminalCase, stage: Case
     return String(caseRecord.courtCaseNumber ?? caseRecord.location.caseNumber ?? '').trim();
 }
 
-export function partialRouteBranchLabel(
+function partialRouteBranchLabel(
     stage: CaseStage,
     role: 'remain' | 'routed',
     juvenileTrialDisplay = false,
@@ -85,7 +85,7 @@ export function partialRouteBranchLabel(
     return role === 'remain' ? 'مسار — مستمر' : 'مسار — محالون';
 }
 
-export function unlockInvestigationOnCase(caseRecord: CriminalCase, prior: CriminalCase): CriminalCase {
+function unlockInvestigationOnCase(caseRecord: CriminalCase, prior: CriminalCase): CriminalCase {
     const invNum = resolveInvestigationCaseNumberSnapshot(prior);
     return {
         ...caseRecord,

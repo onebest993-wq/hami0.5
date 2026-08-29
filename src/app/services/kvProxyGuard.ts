@@ -2,6 +2,7 @@
  * حارس طلبات kv-proxy — يمنع عاصفة الطلبات التي تجمد المتصفح
  */
 import { debug } from '@/app/utils/debug';
+import { resolveDeniedNetworkFeatureResponse } from '@/app/services/secureApiNetworkFeatures';
 
 type InFlightEntry = { promise: Promise<Response>; startedAt: number };
 
@@ -75,6 +76,12 @@ export async function fetchKvProxyGuarded(
     }
 
     windowCount += 1;
+
+    const denied = resolveDeniedNetworkFeatureResponse('/api/kv-proxy');
+    if (denied) {
+        windowCount = Math.max(0, windowCount - 1);
+        return denied;
+    }
 
     const promise = nativeFetch(url, init).finally(() => {
         inFlight.delete(key);

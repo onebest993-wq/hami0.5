@@ -3,7 +3,7 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
     verifyBiometricSessionUnlock,
 } from '@/app/services/security/biometricSessionService';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
+import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
 
 export type VerifySensitiveSettingsOptions = {
     /** نص يُطلب كتابته حرفياً عند غياب البيومتري */
@@ -15,17 +15,28 @@ export type VerifySensitiveSettingsOptions = {
 const CHALLENGE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 function randomChallengeToken(length = 4): string {
-    const bytes = new Uint8Array(length);
-    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
-        crypto.getRandomValues(bytes);
-    } else {
-        for (let i = 0; i < length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+    if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
+        throw new Error('csprng_unavailable');
     }
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
     let out = '';
     for (let i = 0; i < length; i += 1) {
         out += CHALLENGE_ALPHABET[bytes[i]! % CHALLENGE_ALPHABET.length]!;
     }
     return out;
+}
+
+function timingSafeEqualUtf8(left: string, right: string): boolean {
+    const encoder = new TextEncoder();
+    const a = encoder.encode(left);
+    const b = encoder.encode(right);
+    const len = Math.max(a.length, b.length);
+    let diff = a.length ^ b.length;
+    for (let i = 0; i < len; i += 1) {
+        diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
+    }
+    return diff === 0;
 }
 
 /**
@@ -73,7 +84,7 @@ export async function verifySensitiveSettingsAction(options: VerifySensitiveSett
     );
     const normalized = typed?.trim() ?? '';
     if (!normalized) return false;
-    if (normalized !== confirmPhrase) {
+    if (!timingSafeEqualUtf8(normalized, confirmPhrase)) {
         SmartToast.warning('نص التأكيد غير صحيح');
         return false;
     }

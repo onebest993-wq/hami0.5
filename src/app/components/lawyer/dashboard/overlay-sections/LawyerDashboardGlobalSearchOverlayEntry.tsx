@@ -1,11 +1,22 @@
-import React, { useLayoutEffect, useState } from 'react';
-import { GlobalSearchOverlayHost } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayHost';
-import { isRealSignedIn, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
+﻿import React, { Suspense, useLayoutEffect, useState } from 'react';
+import { GlobalSearchShellPortal } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchShellPortal';
+import { GlobalSearchOverlayLayerFrame } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayLayerFrame';
+import { GlobalSearchInstantSheetChrome } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchInstantSheetChrome';
+import { hasLocalAppSession, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
 import { useGlobalSearchShellLifecycle } from '@/app/hooks/lawyerDashboard/useGlobalSearchShellLifecycle';
 import { useGlobalSearchMobileSuspend } from '@/app/hooks/lawyerDashboard/useGlobalSearchMobileSuspend';
 import { concealGlobalSearchWarmShell } from '@/app/runtime/globalSearchInstantPaint';
 import { snapGlobalSearchShellClose } from '@/app/services/search/globalSearchShellSnap';
+import { deferShellConcealAfterHandoff, isShellHandoffPending } from '@/app/runtime/sectionShellHandoff';
+import { loadGlobalSearchOverlayHost } from '@/app/runtime/globalSearchLoader';
+import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 import type { LawyerDashboardOverlaysBundleProps } from '../lawyerDashboardOverlaysBundles';
+
+const LazyGlobalSearchOverlayHost = lazyWithRetry(() =>
+    loadGlobalSearchOverlayHost().then((m) => ({
+        default: m.GlobalSearchOverlayHost as unknown as LazyComponent,
+    })),
+);
 
 export function LawyerDashboardGlobalSearchOverlayEntry({
     shell,
@@ -26,7 +37,7 @@ export function LawyerDashboardGlobalSearchOverlayEntry({
     const { handleGlobalSearchNavigate, closeGlobalSearch } = nav;
 
     const forumUserId = resolveShellAuthUserId(authUserId, userId);
-    const globalSearchEnabled = isRealSignedIn(forumUserId);
+    const globalSearchEnabled = hasLocalAppSession(forumUserId);
     const shouldMount = globalSearchEnabled && (showGlobalSearch || searchHostMounted);
     const [hasGlobalSearchWarmCache, setHasGlobalSearchWarmCache] = useState(false);
 
@@ -54,31 +65,50 @@ export function LawyerDashboardGlobalSearchOverlayEntry({
 
     useLayoutEffect(() => {
         if (!shouldMount || showGlobalSearch) return;
-        concealGlobalSearchWarmShell();
-        snapGlobalSearchShellClose();
+        return deferShellConcealAfterHandoff(() => {
+            if (isShellHandoffPending('global-search') || showGlobalSearch) return;
+            concealGlobalSearchWarmShell();
+            snapGlobalSearchShellClose();
+        });
     }, [shouldMount, showGlobalSearch]);
 
     if (!shouldMount) return null;
 
     return (
-        <div data-hami-global-search-shell="">
-            <GlobalSearchOverlayHost
-                key="global-search-overlay"
-                open={showGlobalSearch}
-                keepAlive={searchHostMounted}
-                files={files}
-                executionFiles={executionFiles}
-                lawsuitLifecycleIndex={lawsuitLifecycleIndex}
-                globalNotes={globalNotes}
-                notifications={searchNotifications}
-                criminalCases={criminalCasesForCluster}
-                userId={forumUserId}
-                initialQuery={globalSearchInitialQuery}
-                searchSessionKey={globalSearchSessionKey}
-                indexVersion={searchIndexVersion}
-                onClose={closeGlobalSearch}
-                onNavigate={handleGlobalSearchNavigate}
-            />
-        </div>
+        <GlobalSearchShellPortal>
+            <Suspense
+                fallback={
+                    showGlobalSearch ? (
+                        <GlobalSearchOverlayLayerFrame
+                            open
+                            onClose={closeGlobalSearch}
+                            paint
+                            coverTestId="global-search-instant-cover"
+                            armBackdropClose={false}
+                        >
+                            <GlobalSearchInstantSheetChrome onClose={closeGlobalSearch} />
+                        </GlobalSearchOverlayLayerFrame>
+                    ) : null
+                }
+            >
+                <LazyGlobalSearchOverlayHost
+                    key="global-search-overlay"
+                    open={showGlobalSearch}
+                    keepAlive={searchHostMounted}
+                    files={files}
+                    executionFiles={executionFiles}
+                    lawsuitLifecycleIndex={lawsuitLifecycleIndex}
+                    globalNotes={globalNotes}
+                    notifications={searchNotifications}
+                    criminalCases={criminalCasesForCluster}
+                    userId={forumUserId}
+                    initialQuery={globalSearchInitialQuery}
+                    searchSessionKey={globalSearchSessionKey}
+                    indexVersion={searchIndexVersion}
+                    onClose={closeGlobalSearch}
+                    onNavigate={handleGlobalSearchNavigate}
+                />
+            </Suspense>
+        </GlobalSearchShellPortal>
     );
 }

@@ -2,12 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
     clearFieldTasksCloseSuppress,
     clearFieldTasksForceVisible,
-    clearFieldTasksInstantPaint,
     concealFieldTasksWarmSheet,
     isFieldTasksCloseSuppressed,
     isFieldTasksForceVisible,
-    isFieldTasksInstantPaintActive,
-    paintFieldTasksInstantSheet,
     revealFieldTasksWarmSheet,
     suppressFieldTasksClose,
 } from '@/app/runtime/fieldTasksInstantPaint';
@@ -16,14 +13,12 @@ describe('fieldTasksInstantPaint', () => {
     beforeEach(() => {
         clearFieldTasksCloseSuppress();
         clearFieldTasksForceVisible();
-        clearFieldTasksInstantPaint();
         document.body.innerHTML = '';
     });
 
     afterEach(() => {
         clearFieldTasksCloseSuppress();
         clearFieldTasksForceVisible();
-        clearFieldTasksInstantPaint();
     });
 
     it('reveals warm sheet with inline styles and forceVisible', () => {
@@ -44,18 +39,7 @@ describe('fieldTasksInstantPaint', () => {
         expect(layer.style.pointerEvents).toBe('none');
         expect(layer.getAttribute('data-open')).toBe('true');
         expect(sheet.classList.contains('translate-y-0')).toBe(true);
-        expect(sheet.classList.contains('hami-field-tasks-sheet--snap')).toBe(true);
-        expect(isFieldTasksInstantPaintActive()).toBe(false);
-    });
-
-    it('paint is a no-op when warm sheet can be revealed', () => {
-        const layer = document.createElement('div');
-        layer.setAttribute('data-field-tasks-root', '');
-        document.body.appendChild(layer);
-
-        paintFieldTasksInstantSheet();
-        expect(isFieldTasksInstantPaintActive()).toBe(false);
-        expect(isFieldTasksForceVisible()).toBe(true);
+        expect(sheet.classList.contains('hami-field-tasks-sheet--snap')).toBe(false);
     });
 
     it('conceals the warm sheet', () => {

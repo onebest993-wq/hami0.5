@@ -132,9 +132,9 @@ export const JudicialCassationResultModal = ({
     );
 
     return (
-        <div className="fixed inset-0 z-[510] isolate bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden" dir="rtl">
+        <div className="fixed inset-0 z-[510] isolate bg-black/62 backdrop-blur-sm p-4 flex items-center justify-center print:hidden" dir="rtl">
             <div
-                className="relative z-[511] w-full max-w-lg max-h-[min(90vh,720px)] flex flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden"
+                className="relative z-[511] w-full max-w-lg max-h-[min(90vh,720px)] flex flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-lg overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="p-4 border-b border-slate-700 bg-slate-800/50">

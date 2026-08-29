@@ -52,14 +52,6 @@ export function stripSeizureTypeDecorators(tRaw: string): string {
 export { isSalarySeizureAsset } from '@/app/utils/execution/isSalarySeizureAsset';
 
 /**
- * التحقق مما إذا كان الصف يمثل حجز راتب
- */
-export function isSalarySeizureRow(a: SeizedAsset): boolean {
-    const t = String(a.type);
-    return /راتب|salary|خُمس/i.test(t) || a.type === 'salary';
-}
-
-/**
  * التحقق مما إذا كان الصف يمثل حجز مال منقول
  */
 /** صف قرار حجز مكتمل — موافقة منفذ + حفظ التفاصيل */

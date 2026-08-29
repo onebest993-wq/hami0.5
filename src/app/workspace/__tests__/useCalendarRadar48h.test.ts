@@ -190,4 +190,25 @@ describe('useCalendarRadar48h', () => {
         // يجب أن نرى B-evt فقط، لا A-stale
         expect(result.current.events[0]!.id).toBe('B-evt');
     });
+
+    it('10) لا يجلب CalendarDB والمستند مخفي ثم يُفرّغ عند الظهور', async () => {
+        Object.defineProperty(document, 'hidden', {
+            configurable: true,
+            get: () => true,
+        });
+        getEventsMock.mockResolvedValue([inHours(3, { id: 'hidden-skip' })]);
+        renderHook(() => useCalendarRadar48h('lawyer-1'));
+        await Promise.resolve();
+        expect(getEventsMock).not.toHaveBeenCalled();
+
+        Object.defineProperty(document, 'hidden', {
+            configurable: true,
+            get: () => false,
+        });
+        document.dispatchEvent(new Event('visibilitychange'));
+        await waitFor(() => {
+            expect(getEventsMock).toHaveBeenCalled();
+        });
+    });
 });
+

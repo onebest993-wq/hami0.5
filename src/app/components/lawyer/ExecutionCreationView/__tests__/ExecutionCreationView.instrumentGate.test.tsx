@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { ExecutionCreationView } from '@/app/components/lawyer/ExecutionCreationView';
 
@@ -20,7 +20,7 @@ describe('ExecutionCreationView instrument gate', () => {
         });
     });
 
-    it('hides instrument section until directorate inputs are complete', () => {
+    it('hides instrument section until directorate inputs are complete', async () => {
         render(<ExecutionCreationView isOpen onClose={vi.fn()} onSave={vi.fn()} />);
 
         expect(
@@ -39,6 +39,8 @@ describe('ExecutionCreationView instrument gate', () => {
             target: { value: '1540/2026' },
         });
 
-        expect(screen.getByRole('heading', { name: 'السند المنفذ' })).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByRole('heading', { name: 'السند المنفذ' })).toBeInTheDocument();
+        });
     });
 });

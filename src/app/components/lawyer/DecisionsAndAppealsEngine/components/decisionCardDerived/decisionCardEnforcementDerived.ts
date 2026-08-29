@@ -1,4 +1,3 @@
-// @ts-nocheck
 import {
     canArchiveExecutorDecisionCard,
     decisionCardSurfaceClasses,
@@ -63,7 +62,7 @@ export function deriveDecisionCardEnforcementSurface({
             ? resolveDebtorAgentRequestFateLine(enforcementState, appeal.requestAppealGate)
             : null;
     const canArchive = canArchiveExecutorDecisionCard(decision, appeal.pipelineRow, {
-        hubTab: decisionsHubTab,
+        hubTab: decisionsHubTab === 'previous' ? 'previous' : 'current',
         settled,
         appealLegallyFinal,
     });

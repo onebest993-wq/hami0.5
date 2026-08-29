@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C Slice 23 — تجميع rest bundle input من مجموعات */
 export function collectScopeRestBundleInput(g: {
     runtimeFns: Record<string, unknown>;

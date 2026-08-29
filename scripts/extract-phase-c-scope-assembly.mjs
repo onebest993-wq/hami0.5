@@ -9,6 +9,10 @@ const ASSEMBLY = path.join(
     ROOT,
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoreScopeBags.ts',
 );
+if (!fs.existsSync(ASSEMBLY)) {
+    console.log('[spent] buildExecutionDashboardCoreScopeBags.ts — skip');
+    process.exit(0);
+}
 
 const BAGS = [
     { fn: 'buildExecutionDashboardFollowupScopeBag', var: 'followupScopeBag' },

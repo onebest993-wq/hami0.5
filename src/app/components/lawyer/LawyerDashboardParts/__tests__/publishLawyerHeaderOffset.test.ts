@@ -18,6 +18,12 @@ describe('publishLawyerHeaderOffset', () => {
         expect(document.documentElement.style.getPropertyValue('--hami-lawyer-header-offset')).toBe('85px');
     });
 
+    it('يتجاهل اهتزاز القياس دون 2px', () => {
+        publishLawyerHeaderOffset(85);
+        publishLawyerHeaderOffset(85.4);
+        expect(document.documentElement.style.getPropertyValue('--hami-lawyer-header-offset')).toBe('85px');
+    });
+
     it('يتجاهل القيم غير الصالحة', () => {
         publishLawyerHeaderOffset(0);
         expect(document.documentElement.style.getPropertyValue('--hami-lawyer-header-offset')).toBe('');

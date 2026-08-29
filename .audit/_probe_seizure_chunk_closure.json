@@ -1,0 +1,271 @@
+{
+  "visited": 371,
+  "seizureAssignedCount": 9,
+  "seizureAssignedKb": 38,
+  "absorbedCount": 355,
+  "absorbedKb": 1612.5,
+  "otherClusterCount": 7,
+  "otherClusterKb": 36.8,
+  "likelySeizureRawSourceKb": 1650.6,
+  "topAbsorbed": [
+    {
+      "f": "src/app/services/SecureStoreService.ts",
+      "kb": 34.8,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/services/CryptoService.ts",
+      "kb": 20.3,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistry.ts",
+      "kb": 20.1,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueueReadResolve.ts",
+      "kb": 19.6,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/followupSpecializationVisibility.ts",
+      "kb": 18.2,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueueTypes.ts",
+      "kb": 17.3,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionCreationView/hooks/useAlimonyCalculator.ts",
+      "kb": 16.5,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueuePatch.ts",
+      "kb": 15.9,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSeizedPropertyModals.ts",
+      "kb": 15.7,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/smart-modal/parts/civilLawTaxonomy.ts",
+      "kb": 15.7,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executionDossierBlobPersistence.ts",
+      "kb": 15,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/services/settings/backgroundPresets.ts",
+      "kb": 14.4,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/creditorAppealEnforcement.ts",
+      "kb": 14,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/creditorPartyDeathPersistence.ts",
+      "kb": 13.9,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executionDecisionsNamespaceWrite.ts",
+      "kb": 13.9,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealProceedingsManual.ts",
+      "kb": 13.5,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorApprovalWorkflow.ts",
+      "kb": 13.4,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels.ts",
+      "kb": 12.4,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardWindowBridge.ts",
+      "kb": 12.1,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/maritalFurnitureDeliveryWorkflow.ts",
+      "kb": 12,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveActionSeizureSave.ts",
+      "kb": 11.7,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueueReadGoverningPersonal.ts",
+      "kb": 11.7,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/executionDashboardHandlerClusterBridgeLazy.tsx",
+      "kb": 11.7,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/specificDeliveryItemsUtils.ts",
+      "kb": 11.7,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueueAppendCoercive.ts",
+      "kb": 11.3,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/timelineSmartDisplay.ts",
+      "kb": 11.3,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSeizureAssetModalHandlers.ts",
+      "kb": 11.1,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealProceedingsCatalog.ts",
+      "kb": 11.1,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/noticeDebtorScope.ts",
+      "kb": 11,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueueAppendSeizure.ts",
+      "kb": 11,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/services/settings/homeWidgetPlacements.ts",
+      "kb": 11,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/timelineDedup.ts",
+      "kb": 10.9,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executionFilesStorage.ts",
+      "kb": 10.7,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueueReadGoverningEviction.ts",
+      "kb": 10.6,
+      "cluster": "absorbed"
+    },
+    {
+      "f": "src/app/utils/maritalFurniture.ts",
+      "kb": 10.4,
+      "cluster": "absorbed"
+    }
+  ],
+  "topSeizureAssigned": [
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureFollowup.ts",
+      "kb": 8.1,
+      "cluster": "seizure"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureAssetModal.ts",
+      "kb": 7.3,
+      "cluster": "seizure"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureCoercive.ts",
+      "kb": 7,
+      "cluster": "seizure"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogAssetModalBridge.tsx",
+      "kb": 3.2,
+      "cluster": "seizure"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureHeavyBridge.tsx",
+      "kb": 3.1,
+      "cluster": "seizure"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureResolution.ts",
+      "kb": 3,
+      "cluster": "seizure"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogResolutionBridge.tsx",
+      "kb": 2.6,
+      "cluster": "seizure"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureHeavy.ts",
+      "kb": 2.2,
+      "cluster": "seizure"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureFollowupRequests.ts",
+      "kb": 1.5,
+      "cluster": "seizure"
+    }
+  ],
+  "topOtherClusterPulled": [
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardRuntimeSyncEffects.ts",
+      "kb": 14,
+      "cluster": "runtime"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardRuntimeSyncEffectsPersist.ts",
+      "kb": 9.5,
+      "cluster": "runtime"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPushTimelineEvent.ts",
+      "kb": 4.1,
+      "cluster": "runtime"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterFoundationCore.ts",
+      "kb": 3.5,
+      "cluster": "foundation"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/handlerClusterContextShared.ts",
+      "kb": 2.9,
+      "cluster": "shared"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterFoundationSeizure.ts",
+      "kb": 1.7,
+      "cluster": "foundation"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterFoundation.ts",
+      "kb": 1.1,
+      "cluster": "foundation"
+    }
+  ]
+}

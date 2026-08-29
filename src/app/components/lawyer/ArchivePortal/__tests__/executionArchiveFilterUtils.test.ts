@@ -10,7 +10,20 @@ import {
     matchesExecutionArchiveSearch,
     matchesExecutionPerspectiveFilter,
 } from '../executionArchiveFilterUtils';
+import { resolveExecutionArchiveEmptyCopy } from '../executionArchiveFilterPresentation';
 import type { LooseArchiveFile } from '../types';
+
+describe('resolveExecutionArchiveEmptyCopy', () => {
+    it('يعيد نصوص مخزن الأرشيف والفلاتر الضيقة', () => {
+        expect(resolveExecutionArchiveEmptyCopy('archived', false)).toEqual({
+            title: 'مخزن الأرشيف فارغ',
+            hint: 'الإضابير التي تؤرشفها تظهر هنا.',
+        });
+        expect(resolveExecutionArchiveEmptyCopy('archived', true).title).toBe('لا توجد نتائج');
+        expect(resolveExecutionArchiveEmptyCopy('trash', false).hint).toBeNull();
+        expect(resolveExecutionArchiveEmptyCopy('active', false).title).toBe('لا توجد إضابير نشطة');
+    });
+});
 
 describe('executionArchiveFilterUtils', () => {
     it('classifies financial debt as civil not sharia', () => {
@@ -250,5 +263,18 @@ describe('executionArchiveFilterUtils', () => {
         expect(matchesExecutionArchiveSearch(file, 'ex-555')).toBe(true);
         expect(matchesExecutionArchiveSearch(file, 'محمد')).toBe(true);
         expect(matchesExecutionArchiveSearch(file, 'غير موجود')).toBe(false);
+    });
+
+    it('matchesExecutionArchiveSearch folds Arabic alef and Indic digits', () => {
+        const file = {
+            id: 'search-ar',
+            fileNumber: '١٢٣/٤',
+            claimType: 'استحصال دين مالي',
+            creditors: [{ name: 'أحمد الدائن', isClient: true }],
+            debtors: [{ name: 'مدين' }],
+        } as LooseArchiveFile;
+
+        expect(matchesExecutionArchiveSearch(file, 'احمد')).toBe(true);
+        expect(matchesExecutionArchiveSearch(file, '123/4')).toBe(true);
     });
 });

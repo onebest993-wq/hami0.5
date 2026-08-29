@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { buildVisitationScheduleBundle } from '@/app/utils/visitationScheduleEngine';
 import type { VisitationScheduleConfig } from '@/app/types/visitationSchedule';
@@ -51,13 +51,9 @@ function renderModule(
 }
 
 describe('VisitationScheduleModule', () => {
-    beforeEach(() => {
-        vi.stubGlobal('confirm', vi.fn(() => true));
-    });
-
     afterEach(() => {
-        vi.unstubAllGlobals();
         document.body.style.overflow = '';
+        sessionStorage.removeItem('hami:open-execution-visitation-workspace');
     });
 
     it('يعرض بطاقة ملخص مضغوطة ولا يعرض مساحة العمل قبل الفتح', () => {
@@ -95,17 +91,23 @@ describe('VisitationScheduleModule', () => {
         expect(screen.getByText(/نافذة \d+ أشهر/)).toBeInTheDocument();
     });
 
-    it('يدفع حدث procedure عند توثيق النجاح', () => {
+    it('يدفع حدث procedure عند توثيق النجاح', async () => {
         const { pushTimelineEvent } = renderModule();
 
         fireEvent.click(screen.getByTestId('visitation-schedule-launcher'));
         fireEvent.click(screen.getByTestId('visitation-document-success'));
 
-        expect(pushTimelineEvent).toHaveBeenCalledWith(
-            expect.objectContaining({
-                id: 'tl-vs-1',
-                type: 'procedure',
-            }),
+        // التأكيد حوار من التطبيق لا من نظام التشغيل
+        const dialog = await screen.findByRole('dialog', { name: 'تأكيد' });
+        fireEvent.click(within(dialog).getByRole('button', { name: 'تأكيد' }));
+
+        await waitFor(() =>
+            expect(pushTimelineEvent).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    id: 'tl-vs-1',
+                    type: 'procedure',
+                }),
+            ),
         );
     });
 
@@ -118,5 +120,12 @@ describe('VisitationScheduleModule', () => {
         expect(screen.getByText('إعداد الجدول')).toBeInTheDocument();
         fireEvent.click(screen.getByTestId('visitation-schedule-launcher'));
         expect(screen.getByText('إعداد جدول المواعيد')).toBeInTheDocument();
+    });
+
+    it('يفتح مساحة العمل تلقائياً عند نية التقويم visit_next', () => {
+        sessionStorage.setItem('hami:open-execution-visitation-workspace', 'exec-1');
+        renderModule();
+        expect(screen.getByTestId('visitation-schedule-workspace')).toBeInTheDocument();
+        expect(sessionStorage.getItem('hami:open-execution-visitation-workspace')).toBeNull();
     });
 });

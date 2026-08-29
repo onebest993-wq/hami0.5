@@ -43,4 +43,28 @@ describe('useUrgentLifecycleModals', () => {
         expect(cases[0]?.archivedReason).toBe(DEFAULT_URGENT_ARCHIVE_REASON);
         expect(pendingRef.current).toBe(true);
     });
+
+    it('clears archive flags on unarchive', () => {
+        let cases = [{ ...makeCase('c1'), archived: true, archivedAt: '2026-01-01', archivedReason: 'x' } as UrgentCase];
+        const pendingRef = { current: false };
+        const setCases = vi.fn((updater: (prev: UrgentCase[]) => UrgentCase[]) => {
+            cases = updater(cases);
+        });
+
+        const { result } = renderHook(() =>
+            useUrgentLifecycleModals({
+                cases,
+                setCases,
+                pendingCasesPersistRef: pendingRef,
+            }),
+        );
+
+        act(() => {
+            result.current.unarchiveCase('c1');
+        });
+
+        expect(cases[0]?.archived).toBe(false);
+        expect(cases[0]?.archivedAt).toBeNull();
+        expect(pendingRef.current).toBe(true);
+    });
 });

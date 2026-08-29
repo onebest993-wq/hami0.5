@@ -1,9 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link2, Loader2 } from '@/app/components/ui/lucideIcons';
+import { Link2 } from '@/app/components/ui/icons/Link2';
+import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import type { DossierPickerOption } from '@/app/services/repository/repositoryDossierRegistry';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { REPO_TOUCH_CHIP } from './smartRepositoryTheme';
+import { useRepositoryChromeDismiss } from './hooks/useRepositoryChromeDismiss';
 
 type VaultDossierLinkButtonProps = {
     dossiers: DossierPickerOption[];
@@ -19,6 +21,8 @@ export function VaultDossierLinkButton({
     const [open, setOpen] = useState(false);
     const [busy, setBusy] = useState(false);
     const [query, setQuery] = useState('');
+    const closeMenu = useCallback(() => setOpen(false), []);
+    useRepositoryChromeDismiss(open, closeMenu);
     const anchorRef = useRef<HTMLButtonElement>(null);
     const [menuPos, setMenuPos] = useState({ top: 0, left: 0, width: 280 });
 
@@ -70,7 +74,7 @@ export function VaultDossierLinkButton({
 
     const menu = open ? (
         <div
-            className="fixed z-[136] rounded-2xl border border-[#B87333]/25 bg-[#0a0f1c]/96 backdrop-blur-xl shadow-2xl p-2"
+            className="fixed z-[136] rounded-2xl border border-white/10 bg-[#121826] p-2"
             style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}
             dir="rtl"
             data-testid="vault-dossier-link-menu"
@@ -80,7 +84,10 @@ export function VaultDossierLinkButton({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="ابحث عن إضبارة…"
-                className="w-full mb-2 px-3 py-2 rounded-xl bg-white/[0.06] border border-white/10 text-white text-sm outline-none focus:border-[#E6C673]/35"
+                inputMode="search"
+                enterKeyHint="search"
+                autoComplete="off"
+                className="w-full mb-2 px-3 py-2 min-h-[44px] rounded-xl bg-white/[0.05] border-0 text-white text-base outline-none focus:ring-1 focus:ring-[#E6C673]/30"
             />
             <div className="max-h-48 overflow-y-auto space-y-1">
                 {filtered.length === 0 ? (

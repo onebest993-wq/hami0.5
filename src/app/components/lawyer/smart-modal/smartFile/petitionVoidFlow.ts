@@ -3,14 +3,14 @@ import { isAppealStageName, isCassationStageName, isFirstInstanceStageName } fro
 
 export const PETITION_VOID_APPEAL_DAYS = 7;
 
-export type PetitionVoidFlowStatus =
+type PetitionVoidFlowStatus =
     | 'registered'
     | 'appeal_pending'
     | 'upheld_closed'
     | 'quash_revived'
     | 'waived';
 
-export type PetitionVoidFlow = {
+type PetitionVoidFlow = {
     status: PetitionVoidFlowStatus;
     voidLabel: string;
     registeredDate: string;
@@ -18,7 +18,7 @@ export type PetitionVoidFlow = {
     revivalDeadline?: string;
 };
 
-export const PETITION_VOID_JUDGMENT_VALUES = [
+const PETITION_VOID_JUDGMENT_VALUES = [
     'إبطال',
     'إبطال عريضة الاستئناف',
     'إبطال عريضة الدعوى وعريضة التدخل',

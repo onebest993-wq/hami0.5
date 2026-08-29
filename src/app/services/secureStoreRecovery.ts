@@ -49,6 +49,7 @@ function executionDomainForKey(key: string): boolean {
 }
 
 async function readBackup(domain: BackupDomain): Promise<string | null> {
+    if (__HAMI_CLIENT_PRODUCT__ === 'hq') return null;
     const { readLatestDossierBackup } = await import(
         '@/app/services/dossierPersistence/dossierBackupStore'
     );

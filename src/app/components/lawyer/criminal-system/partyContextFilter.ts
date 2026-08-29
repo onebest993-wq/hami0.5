@@ -3,17 +3,23 @@ import type { CriminalActionParty } from './criminalStageUtils';
 import { displayPartyNameForCase } from './criminalStageUtils';
 import { resolveDefendantFullName } from './criminalUnknownDefendant';
 
-export type PartyLifeInput = {
+type PartyLifeInput = {
     status?: string;
     personalStage?: string;
+    accusedStatus?: string;
+    accusedPersonalStage?: string;
 };
 
 /** طرف متوفى — لا يُستخدم في إجراءات تتطلب شخصاً حياً. */
 export function isPartyDeceased(party: PartyLifeInput): boolean {
     const status = String(party.status ?? '').trim().toLowerCase();
     const ps = String(party.personalStage ?? '').trim();
+    const accusedStatus = String(party.accusedStatus ?? '').trim().toLowerCase();
+    const accusedPs = String(party.accusedPersonalStage ?? '').trim();
     if (status === 'متوفى' || status === 'deceased') return true;
+    if (accusedStatus === 'متوفى' || accusedStatus === 'deceased') return true;
     if (ps === 'lawsuit_dropped_death' || ps === 'dropped_death') return true;
+    if (accusedPs === 'lawsuit_dropped_death' || accusedPs === 'dropped_death') return true;
     return false;
 }
 
@@ -40,7 +46,7 @@ export function buildAllParties(
             id: c.id,
             fullName: c.fullName,
             isJuvenile: c.isJuvenile,
-            isUnderSeven: (c as any).isUnderSeven,
+            isUnderSeven: Boolean(c.isUnderSeven),
             source: 'complainant' as const,
             isDeceased: isPartyDeceased(c),
             inMutualComplaint: anyCross,
@@ -51,7 +57,7 @@ export function buildAllParties(
             id: d.id,
             fullName: resolveDefendantFullName(d) || String(d.fullName ?? '').trim(),
             isJuvenile: Boolean(d.isJuvenile),
-            isUnderSeven: (d as any).isUnderSeven,
+            isUnderSeven: Boolean(d.isUnderSeven),
             source: 'defendant' as const,
             isDeceased: isPartyDeceased(d),
             inMutualComplaint: anyCross,
@@ -72,7 +78,7 @@ export function buildActiveParties(
     return getActiveParties(buildAllParties(complainants, defendants, ctx));
 }
 
-export type ConcernedPartyLabelOptions = {
+type ConcernedPartyLabelOptions = {
     /** في خزانة الأدلة — إظهار شارة المتوفى بجانب الاسم. */
     showDeceasedBadge?: boolean;
     /** إضبارة سرية — يُرمَّز اسم الحدث للعرض/التصدير. */

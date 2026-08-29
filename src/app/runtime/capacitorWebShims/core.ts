@@ -40,3 +40,26 @@ export const WebPlugin = class {
 };
 
 export const Plugins: Record<string, unknown> = {};
+
+/**
+ * أشرطة النظام — انتقلت في Capacitor 8 من حزمة @capacitor/status-bar إلى النواة.
+ * على الويب لا شريط نظام يُلوَّن، فالتصديرات موجودة للبناء فقط ولا تفعل شيئاً.
+ */
+export enum SystemBarsStyle {
+    Dark = 'DARK',
+    Light = 'LIGHT',
+    Default = 'DEFAULT',
+}
+
+export enum SystemBarType {
+    StatusBar = 'STATUS_BAR',
+    NavigationBar = 'NAVIGATION_BAR',
+    All = 'ALL',
+}
+
+export const SystemBars = {
+    setStyle: async () => undefined,
+    setAnimation: async () => undefined,
+    show: async () => undefined,
+    hide: async () => undefined,
+};

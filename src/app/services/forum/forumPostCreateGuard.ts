@@ -1,5 +1,6 @@
 import type { CommunityAttachment, CommunityComment, CommunityPost } from '@/app/services/forum/forumTypes';
 import { isSafeForumAttachmentUrl } from '@/app/services/forum/forumUrlSafety';
+import { sanitizeForumPostContent } from '@/app/services/forum/forumInputSecurity';
 
 /** معرّف خادم فقط — لا يُقبل معرّف من العميل في مسارات الإنشاء. */
 export function mintForumEntityId(): string {
@@ -7,6 +8,22 @@ export function mintForumEntityId(): string {
         return crypto.randomUUID();
     }
     return `forum_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
+export function isCloudForumStoragePath(path: string | undefined | null): boolean {
+    const trimmed = path?.trim() ?? '';
+    if (!trimmed) return false;
+    if (trimmed.startsWith('idb:') || trimmed.startsWith('blob:') || trimmed.startsWith('local:')) {
+        return false;
+    }
+    return true;
+}
+
+export function assertPublishableForumAttachment(attachment: CommunityAttachment | null): void {
+    if (!attachment) return;
+    if (!isCloudForumStoragePath(attachment.storagePath)) {
+        throw new Error('يجب رفع المرفق إلى الخادم قبل النشر');
+    }
 }
 
 function sanitizeAttachment(raw: CommunityPost['attachment']): CommunityAttachment | null {
@@ -17,15 +34,20 @@ function sanitizeAttachment(raw: CommunityPost['attachment']): CommunityAttachme
     const name = typeof raw.name === 'string' ? raw.name.trim() : '';
     const storagePath = typeof raw.storagePath === 'string' ? raw.storagePath.trim() : '';
     const hasDurableStorage = storagePath.length > 0;
-    if (!type || !name || (!url && !hasDurableStorage) || (url && !isSafeForumAttachmentUrl(url))) {
+    const persistableUrl =
+        url && !url.startsWith('blob:') && isSafeForumAttachmentUrl(url) ? url : '';
+    if (!type || !name || (!persistableUrl && !hasDurableStorage) || (url && !isSafeForumAttachmentUrl(url))) {
         return null;
     }
+    const bucket = typeof raw.bucket === 'string' ? raw.bucket.trim() : '';
     return {
         type,
-        ...(url ? { url } : {}),
+        ...(persistableUrl ? { url: persistableUrl } : {}),
         name,
         mimeType: typeof raw.mimeType === 'string' ? raw.mimeType : undefined,
         storagePath: storagePath || undefined,
+        ...(bucket ? { bucket } : {}),
+        ...(raw.encrypted === true ? { encrypted: true } : {}),
     };
 }
 
@@ -47,7 +69,7 @@ export function sanitizeCommunityPostForCreate(post: CommunityPost, authorId: st
         authorId,
         author_id: authorId,
         authorName: typeof post.authorName === 'string' ? post.authorName.trim() : '',
-        content: typeof post.content === 'string' ? post.content.trim() : '',
+        content: typeof post.content === 'string' ? sanitizeForumPostContent(post.content) : '',
         tags,
         createdAt: now,
         updatedAt: now,
@@ -74,7 +96,7 @@ export function sanitizeCommunityCommentForCreate(input: {
     content: string;
     parentId?: string;
 }): CommunityComment {
-    const content = input.content.trim();
+    const content = sanitizeForumPostContent(input.content);
     return {
         id: mintForumEntityId(),
         postId: input.postId,

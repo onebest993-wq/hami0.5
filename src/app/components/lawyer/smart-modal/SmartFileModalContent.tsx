@@ -1,14 +1,12 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SmartFileModalsPortal } from './layout/SmartFileModalsPortal';
 import { SmartFileMainPanel } from './layout/SmartFileMainPanel';
-import { PersonalStatusSmartFileChrome } from '@/app/components/lawyer/personal-status/PersonalStatusSmartFileChrome';
 import { SmartFileChrome } from './layout/SmartFileChrome';
 import { CIVIL_LAWSUIT_TEST_IDS } from './smartFile/civilLawsuitTestIds';
 import { useSmartFileModalOrchestrator } from './hooks/useSmartFileModalOrchestrator';
 import { isPersonalStatusFile } from '@/app/components/lawyer/personal-status/personalStatusValidation';
 import { ColleagueConsultationProvider } from '../caseShare/ColleagueConsultationContext';
-import { extractLawsuitShareSource } from '@/app/services/caseShare/caseShareExtractors';
 import {
     PERSONAL_STATUS_DOSSIER_INNER,
     PERSONAL_STATUS_DOSSIER_PANEL,
@@ -17,18 +15,20 @@ import {
 import { SmartFileModalThemeProvider } from './smartFile/smartFileModalTheme';
 import { prefetchSmartFileModalShellWidgets } from './lazySmartFileModalWidgets';
 import { prefetchLegalActionsModalChunks } from './prefetchLegalActionsModalChunks';
+import { prefetchSmartFileMainPanelSecondaryHubs } from './smartFileMainPanelLazyHubs';
 import { HUB_DOSSIER_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { inertProps } from '@/app/utils/inertProps';
 import { isSmartFileNestedOverlayOpen } from './smartFile/smartFileNestedOverlayState';
 import {
     isSmartFileInlineOverlayOpen,
     resetSmartFileInlineOverlayRegistry,
 } from './smartFile/smartFileInlineOverlayRegistry';
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
-import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
+import { registerNativeBackHandler } from '@/app/runtime/nativeBackStack';
 import { useSmartFileDossierHeaderNavigation } from './hooks/useSmartFileDossierHeaderNavigation';
 import { rejectLawsuitFileMutation } from '@/app/domain/lawsuit/lawsuitFileMutationGuard';
 import { CaseLinkBrowseBanner } from './parts/CaseLinkBrowseBanner';
+import { LazyPersonalStatusDossierSurface } from '@/app/components/lawyer/personal-status/personalStatusDossierLazy';
 export type { SmartFileModalProps } from './smartFile/smartFileModalTypes';
 
 function prefetchSmartFileHotModals(): void {
@@ -36,14 +36,51 @@ function prefetchSmartFileHotModals(): void {
     void import('./modals/contentEntryModals').catch(() => undefined);
     void import('./modals/EditCaseInfoModal').catch(() => undefined);
     void import('./parts/LegalActionsMenu').catch(() => undefined);
-    void import('./parts/QuickActions').catch(() => undefined);
-    void import('./parts/TimelineFeed').catch(() => undefined);
-    // Stage-transition modals — avoid first-click jank from lazy chunk load.
-    void import('./SmartJudgmentModal').catch(() => undefined);
+    prefetchSmartFileMainPanelSecondaryHubs();
+    /* Judgment keep-mounted في JudgmentSection — لا prefetch chunk عند كل فتح */
     void import('./AppealTransitionModal').catch(() => undefined);
-    void import('./modals/appealObjectionModals').catch(() => undefined);
+    void import('./CrossAppealModal').catch(() => undefined);
+    /* JudicialNotification فقط — لا سحب barrel كامل عند كل فتح */
+    void import('./modals/appealObjectionModals').then((m) => {
+        void m.JudicialNotificationModal;
+    }).catch(() => undefined);
     prefetchLegalActionsModalChunks();
     void import('./FastTrackModal').catch(() => undefined);
+}
+
+function scheduleSmartFileDeferredModalWarm(): () => void {
+    if (typeof window === 'undefined') return () => undefined;
+    let cancelled = false;
+    const run = () => {
+        if (cancelled) return;
+        void import('./layout/portal/SmartFileModalsFlowSection').catch(() => undefined);
+        void import('./layout/portal/SmartFileModalsAdminSection').catch(() => undefined);
+        void import('./modals/flow-modals/AddIncidentalCaseModal').catch(() => undefined);
+    };
+    const idle =
+        typeof requestIdleCallback === 'function'
+            ? requestIdleCallback(run, { timeout: 3500 })
+            : null;
+    const timer = window.setTimeout(run, 2800);
+    return () => {
+        cancelled = true;
+        window.clearTimeout(timer);
+        if (idle != null && typeof cancelIdleCallback === 'function') cancelIdleCallback(idle);
+    };
+}
+
+function ReportDossierSurfaceReady({
+    active,
+    onReady,
+}: {
+    active: boolean;
+    onReady?: () => void;
+}) {
+    useLayoutEffect(() => {
+        if (!active) return;
+        onReady?.();
+    }, [active, onReady]);
+    return null;
 }
 
 export const SmartFileModalContent = (props: import('./smartFile/smartFileModalTypes').SmartFileModalProps) => {
@@ -58,13 +95,37 @@ export const SmartFileModalContent = (props: import('./smartFile/smartFileModalT
     } = props;
     const { layout, consolidationNavActive, caseLinkNavActive } = useSmartFileModalOrchestrator(props);
     const isPersonalDossier = isPersonalStatusFile(props.file);
+    const surfaceActive = props.surfaceActive !== false;
+    const personalFileId = String((props.file as { id?: unknown } | undefined)?.id ?? '');
+    const [personalReady, setPersonalReady] = useState(
+        () => !isPersonalStatusFile(props.file) || LazyPersonalStatusDossierSurface.isPreloaded(),
+    );
+    const markPersonalReady = useCallback(() => setPersonalReady(true), []);
+    const dossierRevealed = surfaceActive && (!isPersonalDossier || personalReady);
 
-    useBodyScrollLock(true);
+    useLayoutEffect(() => {
+        if (!isPersonalDossier) {
+            setPersonalReady(true);
+            return;
+        }
+        setPersonalReady(LazyPersonalStatusDossierSurface.isPreloaded());
+    }, [isPersonalDossier, personalFileId]);
+
+    useLayoutEffect(() => {
+        if (!layout || !dossierRevealed) return;
+        props.onPainted?.();
+    }, [layout, dossierRevealed, props.onPainted]);
+
+    useBodyScrollLock(dossierRevealed);
 
     useEffect(() => {
         resetSmartFileInlineOverlayRegistry();
         prefetchSmartFileModalShellWidgets();
         prefetchSmartFileHotModals();
+        const cancelDeferred = scheduleSmartFileDeferredModalWarm();
+        return () => {
+            cancelDeferred();
+        };
     }, []);
 
     useEffect(() => {
@@ -95,7 +156,7 @@ export const SmartFileModalContent = (props: import('./smartFile/smartFileModalT
     });
 
     useEffect(() => {
-        if (!layout) return;
+        if (!layout || !dossierRevealed) return;
         const tryClose = (): boolean => {
             if (
                 isSmartFileNestedOverlayOpen(layout.modalsPortal) ||
@@ -124,14 +185,22 @@ export const SmartFileModalContent = (props: import('./smartFile/smartFileModalT
             window.removeEventListener('keydown', onKeyDown, true);
             unregisterNativeBack();
         };
-    }, [layout, handleDossierBack]);
+    }, [layout, handleDossierBack, dossierRevealed]);
 
-    const shareSource = useMemo(() => {
-        const file = props.file as unknown as FileData;
-        const stageIndex = file.activeStageIndex ?? 0;
-        const stage = file.stages?.[stageIndex];
-        return extractLawsuitShareSource(file, stage);
-    }, [props.file]);
+    const resolveShareSource = useMemo(
+        () => () => {
+            const file = props.file as {
+                activeStageIndex?: number;
+                stages?: unknown[];
+            };
+            const stageIndex = file.activeStageIndex ?? 0;
+            const stage = Array.isArray(file.stages) ? file.stages[stageIndex] : undefined;
+            return import('@/app/services/caseShare/caseShareExtractors').then((m) =>
+                m.extractLawsuitShareSource(props.file as never, stage as never),
+            );
+        },
+        [props.file],
+    );
 
     if (!layout) {
         return null;
@@ -160,13 +229,13 @@ export const SmartFileModalContent = (props: import('./smartFile/smartFileModalT
 
     const rootClass = isPersonalDossier
         ? `${PERSONAL_STATUS_DOSSIER_ROOT} ${consolidationNavActive || caseLinkNavActive ? 'pt-12' : ''}`
-        : `fixed inset-0 ${HUB_DOSSIER_Z_CLASS} bg-[#0F121E] font-['Tajawal'] overflow-hidden print:static print:bg-transparent print:overflow-visible pointer-events-auto ${
+        : `fixed inset-0 ${HUB_DOSSIER_Z_CLASS} bg-[#0F121E] font-['Tajawal'] overflow-hidden print:static print:bg-transparent print:overflow-visible pointer-events-auto flex ${
               consolidationNavActive || caseLinkNavActive ? 'pt-12' : ''
           }`;
 
     const panelClass = isPersonalDossier
         ? `${PERSONAL_STATUS_DOSSIER_PANEL} rounded-none border-0 flex flex-col min-h-0 overflow-hidden shadow-none print:h-auto print:bg-white print:text-black print:border-none print:shadow-none print:max-w-none print:rounded-none`
-        : 'w-full h-full max-w-none mx-0 my-0 bg-[#0F121E] rounded-none border-0 flex flex-col min-h-0 overflow-hidden shadow-none print:h-auto print:bg-white print:text-black print:border-none print:shadow-none print:max-w-none print:rounded-none';
+        : 'hami-shell-overlay-column w-full h-full mx-auto my-0 bg-[#0F121E] rounded-none border-0 flex flex-col min-h-0 overflow-hidden shadow-none print:h-auto print:bg-white print:text-black print:border-none print:shadow-none print:max-w-none print:rounded-none';
 
     const innerClass = isPersonalDossier
         ? PERSONAL_STATUS_DOSSIER_INNER
@@ -186,12 +255,19 @@ export const SmartFileModalContent = (props: import('./smartFile/smartFileModalT
         );
 
     return (
-        <ColleagueConsultationProvider source={shareSource}>
+        <ColleagueConsultationProvider resolveSource={resolveShareSource}>
             <SmartFileModalThemeProvider variant={themeVariant}>
                 <div
                     className={rootClass}
                     data-testid={CIVIL_LAWSUIT_TEST_IDS.dossier}
                     data-dossier-variant={isPersonalDossier ? 'personal' : 'civil'}
+                    aria-hidden={!dossierRevealed}
+                    style={
+                        dossierRevealed
+                            ? undefined
+                            : { visibility: 'hidden', pointerEvents: 'none' }
+                    }
+                    {...inertProps(!dossierRevealed)}
                 >
                     <div className={panelClass}>
                         <div className={innerClass}>
@@ -213,11 +289,22 @@ export const SmartFileModalContent = (props: import('./smartFile/smartFileModalT
                                 />
                             ) : null}
                             {isPersonalDossier ? (
-                                <PersonalStatusSmartFileChrome {...chromeProps} />
+                                <Suspense fallback={null}>
+                                    <LazyPersonalStatusDossierSurface
+                                        chrome={chromeProps}
+                                        panel={mainPanelProps}
+                                    />
+                                    <ReportDossierSurfaceReady
+                                        active
+                                        onReady={markPersonalReady}
+                                    />
+                                </Suspense>
                             ) : (
-                                <SmartFileChrome {...chromeProps} />
+                                <>
+                                    <SmartFileChrome {...chromeProps} />
+                                    <SmartFileMainPanel {...mainPanelProps} />
+                                </>
                             )}
-                            <SmartFileMainPanel {...mainPanelProps} />
                         </div>
                     </div>
                 </div>

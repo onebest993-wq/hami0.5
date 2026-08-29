@@ -64,6 +64,7 @@ export function VaultDocDisplayImage({
                     alt={alt}
                     className={className ?? (isThumb || isTile ? REPO_FEED_THUMB_IMAGE : REPO_FEED_IMAGE)}
                     loading={eager ? 'eager' : 'lazy'}
+                    fetchPriority={eager ? 'high' : 'low'}
                     decoding="async"
                     onLoad={isThumb || isTile ? undefined : onImgLoad}
                 />

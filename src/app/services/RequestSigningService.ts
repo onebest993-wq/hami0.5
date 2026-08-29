@@ -1,4 +1,12 @@
 import { supabase } from '@/app/lib/supabase-client';
+import {
+  buildWifeTokenCanonicalPayload,
+  canonicalWifePathAndQuery,
+  randomWifeNonce,
+  sha256Bytes,
+  toBase64Url,
+  toBufferSource,
+} from '@/app/security/wifeRequestSigningShared';
 
 type SigningHeaders = {
   'X-WIFE-Signature': string;
@@ -9,68 +17,6 @@ type SigningHeaders = {
 
 const HMAC_ALGORITHM = 'HMAC';
 const HASH_ALGORITHM = 'SHA-256';
-
-function normalizeMethod(method: string | undefined): string {
-  return (method ?? 'GET').toUpperCase();
-}
-
-function toBase64Url(data: Uint8Array): string {
-  const binary = Array.from(data, (b) => String.fromCharCode(b)).join('');
-  const base64 = btoa(binary);
-  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
-/**
- * SHA-256 helper.
- * We derive fixed-length key material from user token with protocol context.
- * Note: browser-side secrets are not treated as trusted security boundaries.
- */
-async function sha256Bytes(input: string): Promise<Uint8Array> {
-  const bytes = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest(HASH_ALGORITHM, toBufferSource(bytes));
-  return new Uint8Array(digest);
-}
-
-function randomNonce(): string {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return toBase64Url(bytes);
-}
-
-function toBufferSource(bytes: Uint8Array): ArrayBuffer {
-  const buffer = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(buffer).set(bytes);
-  return buffer;
-}
-
-function canonicalPayload(
-  method: string,
-  canonicalPathAndQuery: string,
-  timestamp: string,
-  nonce: string,
-  body: string,
-): string {
-  return [normalizeMethod(method), canonicalPathAndQuery, timestamp, nonce, body].join('\n');
-}
-
-/**
- * Canonical URL representation for WIFE payload.
- * Intentionally excludes origin/protocol and keeps only:
- *   /path?normalized=query
- */
-function canonicalPathAndQuery(url: string): string {
-  const base =
-    typeof window !== 'undefined' && window.location?.origin
-      ? window.location.origin
-      : 'http://localhost';
-  const resolved = new URL(url, base);
-  const normalizedEntries = Array.from(resolved.searchParams.entries()).sort(([ak, av], [bk, bv]) => {
-    if (ak === bk) return av.localeCompare(bv);
-    return ak.localeCompare(bk);
-  });
-  const query = new URLSearchParams(normalizedEntries).toString();
-  return query ? `${resolved.pathname}?${query}` : resolved.pathname;
-}
 
 export class RequestSigningService {
   /**
@@ -139,7 +85,13 @@ export class RequestSigningService {
     body: string,
     explicitToken?: string,
   ): Promise<string> {
-    const payload = canonicalPayload(method, canonicalPathAndQuery(url), timestamp, nonce, body);
+    const payload = buildWifeTokenCanonicalPayload(
+      method,
+      canonicalWifePathAndQuery(url),
+      timestamp,
+      nonce,
+      body,
+    );
     return await this.signRaw(payload, explicitToken);
   }
 
@@ -151,7 +103,7 @@ export class RequestSigningService {
     contentHash?: string,
   ): Promise<SigningHeaders> {
     const timestamp = String(Date.now());
-    const nonce = randomNonce();
+    const nonce = randomWifeNonce();
     const signature = await this.signRequest(method, url, timestamp, nonce, body, explicitToken);
     const headers: SigningHeaders = {
       'X-WIFE-Signature': signature,
@@ -164,4 +116,3 @@ export class RequestSigningService {
     return headers;
   }
 }
-

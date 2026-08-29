@@ -1,5 +1,3 @@
-import type { CSSProperties } from 'react';
-
 export type BackgroundPresetId =
     | 'none'
     | 'moroccan-zellige'
@@ -27,7 +25,7 @@ export type BackgroundPresetId =
     | 'premium-canvas'
     | 'geological-fractures';
 
-export type BackgroundPresetDef = {
+type BackgroundPresetDef = {
     id: BackgroundPresetId;
     label: string;
     backgroundSize: string;
@@ -188,20 +186,6 @@ export const BACKGROUND_PRESETS: BackgroundPresetDef[] = [
 export const BACKGROUND_PRESET_MAP = Object.fromEntries(
     BACKGROUND_PRESETS.map((p) => [p.id, p]),
 ) as Record<BackgroundPresetId, BackgroundPresetDef>;
-
-/** @deprecated استخدم resolvePatternOverlayStyle */
-export function getBackgroundPresetSurfaceStyle(
-    presetId: BackgroundPresetId | unknown,
-    enabled = true,
-): Pick<CSSProperties, 'backgroundImage' | 'backgroundRepeat' | 'backgroundSize' | 'backgroundPosition'> {
-    if (!enabled) return {};
-    const id =
-        typeof presetId === 'string' && presetId in BACKGROUND_PRESET_MAP
-            ? (presetId as BackgroundPresetId)
-            : normalizeBackgroundPreset(presetId);
-    if (id === 'none') return {};
-    return {};
-}
 
 const LEGACY_PRESET_FALLBACK: Record<string, BackgroundPresetId> = {
     'islamic-star': 'moroccan-zellige',

@@ -1,6 +1,8 @@
 import React from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { ArrowDownCircle, ChevronDown, Wallet } from '@/app/components/ui/lucideIcons';
+import { AnimatePresence, motion } from '@/app/motion/overlayMotionRuntime';
+import { ArrowDownCircle } from '@/app/components/ui/icons/ArrowDownCircle';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
+import { Wallet } from '@/app/components/ui/icons/Wallet';
 import { formatNumberInput } from '../utils';
 
 export interface SettlementRepaymentStripProps {

@@ -1,7 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { prefetchExecutionHandlerClusterPartyDeathBridge } from '../../executionDashboardHandlerClusterBridgeLazy';
 import { prefetchExecutionCoreHandlers } from '../../executionCoreHandlersPrefetch';
-import { prefetchEvictionFieldProceduresPanel } from '../../executionDashboardLazyRegistry';
 import { registerExecutionHandlerStubNotifier } from '../executionHandlerClusterStubs';
 import { prefetchExecutionHandlersForStubPath } from './resolveExecutionStubHandlerPrefetchModes';
 import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
@@ -67,7 +66,11 @@ export function useExecutionDashboardCoreHandlerPrefetchEffects({
             if (isEvictionExecutionModule) {
                 prefetchExecutionCoreHandlers('coercive-eviction');
                 prefetchExecutionCoreHandlers('coercive-lifecycle');
-                prefetchEvictionFieldProceduresPanel();
+                void import('../../executionDashboardLazyRegistryOverlays')
+                    .then((m) => {
+                        m.prefetchEvictionFieldProceduresPanel();
+                    })
+                    .catch(() => undefined);
             }
         }, 350);
     }, [executionDataId, isEvictionExecutionModule]);

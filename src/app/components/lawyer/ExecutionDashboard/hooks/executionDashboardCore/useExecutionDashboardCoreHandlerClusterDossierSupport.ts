@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useExecutionDossierLifecycleActionsOrchestrator } from '../../orchestrators/useExecutionDossierLifecycleActionsOrchestrator';
 import { useDossierMeta } from '../useDossierMeta';
 import { useExecutionDashboardParentDossierPersistence } from './useExecutionDashboardParentDossierPersistence';
@@ -46,7 +45,7 @@ export function useExecutionDashboardCoreHandlerClusterDossierSupport(
         setExecutionStorageTick,
         setTimelineEvents,
         showToast,
-    } = c as any;
+    } = c as Record<string, unknown>;
 
     const dossierLifecycleActions = useExecutionDossierLifecycleActionsOrchestrator({
         executionData,

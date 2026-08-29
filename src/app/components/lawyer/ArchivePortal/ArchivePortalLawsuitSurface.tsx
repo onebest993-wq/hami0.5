@@ -1,5 +1,5 @@
-import React, { useLayoutEffect } from 'react';
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import React, { useEffect, useLayoutEffect } from 'react';
+import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
 import type { ArchivePortalProps } from '@/app/types/common';
 import { useLawsuitArchivePortalController } from './hooks/useLawsuitArchivePortalController';
 import { LawsuitArchiveChrome } from './LawsuitArchiveChrome';
@@ -13,8 +13,6 @@ export function ArchivePortalLawsuitSurface(props: ArchivePortalProps) {
         onMoveLawsuitToTrash: props.onMoveLawsuitToTrash,
         onArchiveLawsuit: props.onArchiveLawsuit,
         onRestoreLawsuitFromTrash: props.onRestoreLawsuitFromTrash,
-        dossierSearchOpen: props.dossierSearchOpen,
-        onDossierSearchOpenChange: props.onDossierSearchOpenChange,
         dossierSearchQuery: props.dossierSearchQuery,
         onDossierSearchQueryChange: props.onDossierSearchQueryChange,
         dossierViewMode: props.dossierViewMode,
@@ -27,39 +25,25 @@ export function ArchivePortalLawsuitSurface(props: ArchivePortalProps) {
     });
 
     useLayoutEffect(() => {
-        let cancelled = false;
-        const report = () => {
-            if (cancelled) return;
-            props.onLawsuitShellChrome?.({
-                lawsuitViewMode: portal.lawsuitViewMode,
-                setLawsuitViewMode: portal.setLawsuitViewMode,
-                unifiedArchivedCount: portal.unifiedArchivedCount,
-                lawsuitTrashedCount: portal.lawsuitTrashedCount,
-                hasLawsuitLifecycle: portal.hasLawsuitLifecycle,
-            });
-        };
-        // بعد أول طلاء للشبكة — لا تعِد رسم InstantShell أثناء commit المحتوى
-        const idle =
-            typeof requestIdleCallback !== 'undefined'
-                ? requestIdleCallback(report, { timeout: 400 })
-                : window.setTimeout(report, 0);
-        return () => {
-            cancelled = true;
-            if (typeof cancelIdleCallback !== 'undefined' && typeof idle === 'number') {
-                cancelIdleCallback(idle as number);
-            } else {
-                window.clearTimeout(idle as number);
-            }
-            props.onLawsuitShellChrome?.(null);
-        };
+        props.onLawsuitShellChrome?.({
+            lawsuitViewMode: portal.lawsuitViewMode,
+            setLawsuitViewMode: portal.setLawsuitViewMode,
+            unifiedArchivedCount: portal.unifiedArchivedCount,
+            lawsuitTrashedCount: portal.lawsuitTrashedCount,
+        });
     }, [
         props.onLawsuitShellChrome,
         portal.lawsuitViewMode,
         portal.setLawsuitViewMode,
         portal.unifiedArchivedCount,
         portal.lawsuitTrashedCount,
-        portal.hasLawsuitLifecycle,
     ]);
+
+    useEffect(() => {
+        return () => {
+            props.onLawsuitShellChrome?.(null);
+        };
+    }, [props.onLawsuitShellChrome]);
 
     return <LawsuitArchiveChrome {...props} portal={portal} />;
 }

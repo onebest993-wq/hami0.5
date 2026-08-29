@@ -11,8 +11,6 @@ export type UseExecutionDashboardPhoneBodyNavigationParams = {
     onClose?: () => void;
     showExecutionTrashModal: boolean;
     setShowExecutionTrashModal: (open: boolean) => void;
-    showVisitationCalendarModal: boolean;
-    setShowVisitationCalendarModal: (open: boolean) => void;
     showUnifiedSeizureLogModal: boolean;
     closeUnifiedSeizureLog: () => void;
     propertySeizureRequestModalOpen: boolean;
@@ -41,8 +39,6 @@ export function useExecutionDashboardPhoneBodyNavigation(
         onClose,
         showExecutionTrashModal,
         setShowExecutionTrashModal,
-        showVisitationCalendarModal,
-        setShowVisitationCalendarModal,
         showUnifiedSeizureLogModal,
         closeUnifiedSeizureLog,
         propertySeizureRequestModalOpen,
@@ -77,10 +73,6 @@ export function useExecutionDashboardPhoneBodyNavigation(
             setShowExecutionTrashModal(false);
             return true;
         }
-        if (showVisitationCalendarModal) {
-            setShowVisitationCalendarModal(false);
-            return true;
-        }
         if (showUnifiedSeizureLogModal) {
             closeUnifiedSeizureLog();
             return true;
@@ -106,8 +98,6 @@ export function useExecutionDashboardPhoneBodyNavigation(
         scopeRef,
         showExecutionTrashModal,
         setShowExecutionTrashModal,
-        showVisitationCalendarModal,
-        setShowVisitationCalendarModal,
         showUnifiedSeizureLogModal,
         closeUnifiedSeizureLog,
         propertySeizureRequestModalOpen,
@@ -153,7 +143,6 @@ export function useExecutionDashboardPhoneBodyNavigation(
         () =>
             resolveExecutionDossierNestedNav({
                 showExecutionTrashModal,
-                showVisitationCalendarModal,
                 showUnifiedSeizureLogModal,
                 propertySeizureRequestModalOpen,
                 movableSeizureRequestModalOpen,
@@ -168,7 +157,6 @@ export function useExecutionDashboardPhoneBodyNavigation(
             }),
         [
             showExecutionTrashModal,
-            showVisitationCalendarModal,
             showUnifiedSeizureLogModal,
             propertySeizureRequestModalOpen,
             movableSeizureRequestModalOpen,

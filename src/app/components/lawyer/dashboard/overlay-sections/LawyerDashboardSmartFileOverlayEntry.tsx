@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useLayoutEffect } from 'react';
+import React, { Suspense, useCallback, useRef } from 'react';
 
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 
@@ -8,87 +8,63 @@ import { LazySmartFileModalPortal } from '@/app/components/lawyer/dashboard/smar
 
 import type { LawyerDashboardOverlaysBundleProps } from '@/app/components/lawyer/dashboard/lawyerDashboardOverlaysBundles';
 
-
-
 type Props = Pick<
-
     LawyerDashboardOverlaysBundleProps,
-
     'shell' | 'data' | 'dossier' | 'overlays' | 'newCase' | 'nav' | 'archive'
-
 >;
 
-
-
 /**
-
- * إضبارة الدعوى (SmartFile) — على MainView مباشرة بلا شلال Suspense مزدوج.
-
- * BootChrome فقط كـ fallback داخلي إن لم يكتمل preload.
-
+ * إضبارة الدعوى (SmartFile) — المخزن يبقى ظاهراً حتى يُرسم المودال؛
+ * keep-alive عبر آخر ملف حتى لا يُعاد تحميل الشجرة عند كل عودة.
  */
-
 export function LawyerDashboardSmartFileOverlayEntry({
-
     shell,
-
     data,
-
     dossier,
-
     overlays,
-
     newCase,
-
     nav,
-
     archive,
-
 }: Props): React.ReactElement | null {
-
     const {
-
         activeFile,
-
         setActiveFile,
-
         caseLinkViewOnly,
-
         returnFromCaseLinkBrowse,
-
         clearCaseLinkBrowse,
-
         caseLinkBrowse,
-
         handleUnlinkCaseLink,
-
     } = dossier;
 
     const lawsuitFile =
-
         activeFile && activeFile.type !== 'execution' ? (activeFile as FileData) : null;
+    const heldFileRef = useRef<FileData | null>(null);
+    if (lawsuitFile) heldFileRef.current = lawsuitFile;
+    const displayFile = lawsuitFile ?? heldFileRef.current;
+    const surfaceActive = Boolean(lawsuitFile);
 
-
-
+    const { returnFromLawsuitDossier, exitToHomeDashboard } = overlays;
     const handleCloseDossier = useCallback(() => {
-
         if (caseLinkViewOnly) {
-
-            returnFromCaseLinkBrowse();
-
+            returnFromCaseLinkBrowse?.();
             return;
-
         }
 
-        clearCaseLinkBrowse();
-
-        overlays.returnFromLawsuitDossier();
-
+        clearCaseLinkBrowse?.();
+        returnFromLawsuitDossier?.();
         setActiveFile(null);
+    }, [
+        caseLinkViewOnly,
+        returnFromCaseLinkBrowse,
+        clearCaseLinkBrowse,
+        returnFromLawsuitDossier,
+        setActiveFile,
+    ]);
 
-    }, [caseLinkViewOnly, returnFromCaseLinkBrowse, clearCaseLinkBrowse, overlays, setActiveFile]);
-
-
+    const hideVaultAfterPaint = useCallback(() => {
+        if (!overlays.showLawsuitsWorkspace) return;
+        overlays.setShowLawsuitsWorkspace(false);
+    }, [overlays]);
 
     const maybeArchiveVoidedLawsuit = useCallback(
         (updatedFile: FileData, previousFile: FileData) => {
@@ -110,27 +86,7 @@ export function LawyerDashboardSmartFileOverlayEntry({
         [archive, overlays],
     );
 
-
-
-    useLayoutEffect(() => {
-
-        if (!lawsuitFile) return;
-
-        if (overlays.showLawsuitsWorkspace) {
-
-            overlays.markLawsuitDossierOpenedFromWorkspace();
-
-            overlays.setShowLawsuitsWorkspace(false);
-
-            overlays.setUrgentFocusCaseId(undefined);
-
-        }
-
-    }, [lawsuitFile, overlays]);
-
-
-
-    if (!lawsuitFile) return null;
+    if (!displayFile) return null;
 
     const caseLinkBrowseMeta =
         caseLinkViewOnly && caseLinkBrowse
@@ -141,121 +97,67 @@ export function LawyerDashboardSmartFileOverlayEntry({
               }
             : undefined;
 
-
-
     const {
-
         handleUpdateFile,
-
         handleDeleteFile,
-
         initiateSubFile,
-
         handleSpawnLinkedIncidentalCase,
-
         handleOpenLinkedFile,
-
         handleStartConsolidationNewCase,
-
         handleConsolidateWithExisting,
-
         handleLinkWithExistingCase,
-
         consolidationNavActive,
-
     } = dossier;
 
-
-
-    return (
-
-        <Suspense
-
-            fallback={
-
-                <SmartFileModalBootChrome
-
-                    file={lawsuitFile}
-
-                    onClose={handleCloseDossier}
-
-                />
-
-            }
-
-        >
-
-            <LazySmartFileModalPortal
-
-                file={lawsuitFile}
-
-                onClose={handleCloseDossier}
-
-                onExitToProfile={overlays.exitToHomeDashboard}
-
-                onUpdate={(file) => {
-
-                    if (caseLinkViewOnly) return;
-
-                    const nextFile = file as unknown as FileData;
-
-                    handleUpdateFile(file as unknown as Parameters<typeof handleUpdateFile>[0]);
-
-                    maybeArchiveVoidedLawsuit(nextFile, lawsuitFile);
-
-                }}
-
-                onDelete={() => {
-
-                    if (caseLinkViewOnly) return;
-
-                    handleDeleteFile(lawsuitFile);
-
-                }}
-
-                theme={shell.theme}
-
-                shapeClass={shell.shapeClass}
-
-                onAddStage={() => {
-
-                    if (caseLinkViewOnly) return;
-
-                    initiateSubFile(lawsuitFile);
-
-                }}
-
-                onAddAlert={() => void nav.refreshAppAlerts()}
-
-                onSpawnLinkedIncidentalCase={handleSpawnLinkedIncidentalCase}
-
-                onOpenLinkedFile={caseLinkViewOnly ? undefined : handleOpenLinkedFile}
-
-                lawsuitFiles={data.files}
-
-                onStartConsolidationNewCase={handleStartConsolidationNewCase}
-
-                onConsolidateWithExisting={handleConsolidateWithExisting}
-
-                onLinkWithExistingCase={handleLinkWithExistingCase}
-
-                consolidationNavActive={consolidationNavActive && !newCase.isNewCaseModalOpen}
-
-                caseLinkNavActive={false}
-
-                caseLinkViewOnly={caseLinkViewOnly}
-
-                onReturnFromCaseLinkBrowse={returnFromCaseLinkBrowse}
-
-                onUnlinkCaseLink={handleUnlinkCaseLink}
-
-                caseLinkBrowseMeta={caseLinkBrowseMeta}
-
-            />
-
-        </Suspense>
-
+    const portal = (
+        <LazySmartFileModalPortal
+            file={displayFile}
+            surfaceActive={surfaceActive}
+            coverWhilePending={!overlays.showLawsuitsWorkspace}
+            onPainted={hideVaultAfterPaint}
+            onClose={handleCloseDossier}
+            onExitToProfile={exitToHomeDashboard}
+            onUpdate={(file) => {
+                if (caseLinkViewOnly) return;
+                const nextFile = file as unknown as FileData;
+                handleUpdateFile(file as unknown as Parameters<typeof handleUpdateFile>[0]);
+                maybeArchiveVoidedLawsuit(nextFile, displayFile);
+            }}
+            onDelete={() => {
+                if (caseLinkViewOnly) return;
+                handleDeleteFile(displayFile);
+            }}
+            theme={shell.theme}
+            shapeClass={shell.shapeClass}
+            onAddStage={() => {
+                if (caseLinkViewOnly) return;
+                initiateSubFile(displayFile);
+            }}
+            onAddAlert={() => void nav.refreshAppAlerts()}
+            onSpawnLinkedIncidentalCase={handleSpawnLinkedIncidentalCase}
+            onOpenLinkedFile={caseLinkViewOnly ? undefined : handleOpenLinkedFile}
+            lawsuitFiles={data.files}
+            onStartConsolidationNewCase={handleStartConsolidationNewCase}
+            onConsolidateWithExisting={handleConsolidateWithExisting}
+            onLinkWithExistingCase={handleLinkWithExistingCase}
+            consolidationNavActive={consolidationNavActive && !newCase.isNewCaseModalOpen}
+            caseLinkNavActive={false}
+            caseLinkViewOnly={caseLinkViewOnly}
+            onReturnFromCaseLinkBrowse={returnFromCaseLinkBrowse}
+            onUnlinkCaseLink={handleUnlinkCaseLink}
+            caseLinkBrowseMeta={caseLinkBrowseMeta}
+        />
     );
 
+    return (
+        <Suspense
+            fallback={
+                overlays.showLawsuitsWorkspace ? null : (
+                    <SmartFileModalBootChrome file={displayFile} onClose={handleCloseDossier} />
+                )
+            }
+        >
+            {portal}
+        </Suspense>
+    );
 }
-

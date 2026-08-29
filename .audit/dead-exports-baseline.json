@@ -1,0 +1,4574 @@
+{
+  "deadTotal": 1997,
+  "moduleCount": 1285,
+  "savedAt": "2026-08-26",
+  "perModule": {
+    "src/app/application/execution/dossier/buildExecutionViewData.ts": [
+      "BuildExecutionViewDataInput"
+    ],
+    "src/app/application/execution/followup/buildFollowupDerivedState.ts": [
+      "ExecutorDecisionOutcomeLite",
+      "FollowupDerivedState"
+    ],
+    "src/app/application/execution/followup/buildSubsequentNoticePresentation.ts": [
+      "DebtorAbsenceBadge",
+      "FollowupDebtorNoticeLite"
+    ],
+    "src/app/application/execution/followup/submitOtherPartyFollowupAction.ts": [
+      "SubmitOtherPartyFollowupActionInput"
+    ],
+    "src/app/bootstrap/bootProgressMotion.ts": [
+      "BOOT_PROGRESS_CYCLE_MS"
+    ],
+    "src/app/bootstrap/bootStaticShell.ts": [
+      "purgeStaticBootShellPermanently"
+    ],
+    "src/app/bootstrap/bootWorthySurface.ts": [
+      "isInsideHomeFirstPaintLayer"
+    ],
+    "src/app/bootstrap/dashboardFrame1Snapshot.ts": [
+      "DashboardFrame1DiskSnapshot"
+    ],
+    "src/app/bootstrap/homeMainGridPaintAnnounce.ts": [
+      "readSafeAreaInsetTopPx"
+    ],
+    "src/app/bootstrap/homeMainGridPaintGate.ts": [
+      "installHomeMainGridPaintGate"
+    ],
+    "src/app/components/admin/AdminLawEntry.tsx": [
+      "AdminLawEntryProps"
+    ],
+    "src/app/components/admin/HeadquartersPanel.tsx": [
+      "HeadquartersPanelProps"
+    ],
+    "src/app/components/admin/lawStructure.ts": [
+      "ADMIN_LAW_FILTER_PIN_KEY",
+      "LawStructureSection"
+    ],
+    "src/app/components/admin/RequireTrustedDevice.tsx": [
+      "RequireTrustedDeviceProps",
+      "TrustedDeviceGatePhase"
+    ],
+    "src/app/components/admin/useHeadquarters.ts": [
+      "HeadquartersState",
+      "UseHeadquartersResult"
+    ],
+    "src/app/components/admin/useHeadquartersStatus.ts": [
+      "HeadquartersLiveStatus"
+    ],
+    "src/app/components/figma/ImageWithFallback.tsx": [
+      "ImageWithFallbackProps"
+    ],
+    "src/app/components/lawyer/ActionModals/useVoiceRecorderController.ts": [
+      "VoiceRecorderControllerArgs"
+    ],
+    "src/app/components/lawyer/ArchivePortal/components/ArchiveDossierIdentityBlock.tsx": [
+      "ArchiveDossierIdentityBlockProps"
+    ],
+    "src/app/components/lawyer/ArchivePortal/components/ArchiveDossierToolbar.tsx": [
+      "ArchiveDossierToolbarProps"
+    ],
+    "src/app/components/lawyer/ArchivePortal/components/ArchiveHearingStrip.tsx": [
+      "ArchiveHearingStripProps"
+    ],
+    "src/app/components/lawyer/ArchivePortal/components/ArchivePortalConfirmDialog.tsx": [
+      "ArchivePortalConfirmDialogProps"
+    ],
+    "src/app/components/lawyer/ArchivePortal/components/ArchiveVirtualGrid.tsx": [
+      "ArchiveVirtualGridProps"
+    ],
+    "src/app/components/lawyer/ArchivePortal/components/CriminalArchiveCard.tsx": [
+      "CriminalArchiveCardProps"
+    ],
+    "src/app/components/lawyer/ArchivePortal/components/ExecutionArchiveFileGrid.tsx": [
+      "ExecutionArchiveFileGridProps"
+    ],
+    "src/app/components/lawyer/ArchivePortal/components/ExecutionArchiveLifecycleBars.tsx": [
+      "ExecutionArchiveLifecycleBarsProps"
+    ],
+    "src/app/components/lawyer/ArchivePortal/components/ExecutionArchiveToolbar.tsx": [
+      "ExecutionArchiveToolbarProps"
+    ],
+    "src/app/components/lawyer/ArchivePortal/components/ExecutionArchiveTrashDialogs.tsx": [
+      "ExecutionArchiveTrashDialogsProps"
+    ],
+    "src/app/components/lawyer/ArchivePortal/components/ExecutionSmartCardBody.tsx": [
+      "ExecutionSmartCardBodyProps"
+    ],
+    "src/app/components/lawyer/ArchivePortal/components/executionSmartCardChrome.tsx": [
+      "fireToolbarAction"
+    ],
+    "src/app/components/lawyer/ArchivePortal/components/LawsuitArchiveFileGrid.tsx": [
+      "LawsuitArchiveFileGridProps"
+    ],
+    "src/app/components/lawyer/ArchivePortal/components/LawsuitArchiveLifecycleBars.tsx": [
+      "LawsuitArchiveLifecycleBarsProps"
+    ],
+    "src/app/components/lawyer/ArchivePortal/components/LawsuitArchiveTrashDialogs.tsx": [
+      "LawsuitArchiveTrashDialogsProps"
+    ],
+    "src/app/components/lawyer/ArchivePortal/components/UnifiedDossierCard.tsx": [
+      "UnifiedDossierCardProps"
+    ],
+    "src/app/components/lawyer/CommunityScreen/communityAddQuestionPublishGuard.ts": [
+      "ForumPublishContentResult"
+    ],
+    "src/app/components/lawyer/CommunityScreen/communityCommentContent.ts": [
+      "ForumCommentContentResult"
+    ],
+    "src/app/components/lawyer/CommunityScreen/communityDeepLink.ts": [
+      "CommunityDeepLinkTarget"
+    ],
+    "src/app/components/lawyer/CommunityScreen/communityPermissions.ts": [
+      "canFollowThread",
+      "canMutePostAuthor"
+    ],
+    "src/app/components/lawyer/CommunityScreen/communityScreenLazyEntries.tsx": [
+      "createGroupImport"
+    ],
+    "src/app/components/lawyer/CommunityScreen/components/CommentBottomSheet.tsx": [
+      "CommentBottomSheetProps"
+    ],
+    "src/app/components/lawyer/CommunityScreen/components/CommentSheetComposer.tsx": [
+      "CommentSheetComposerProps"
+    ],
+    "src/app/components/lawyer/CommunityScreen/components/CommunityScreenAccessGate.tsx": [
+      "CommunityScreenAccessGateProps"
+    ],
+    "src/app/components/lawyer/CommunityScreen/components/ForumCommentRow.tsx": [
+      "ForumCommentRowProps"
+    ],
+    "src/app/components/lawyer/CommunityScreen/components/ForumNotificationsPanel.tsx": [
+      "ForumNotificationsPanelProps"
+    ],
+    "src/app/components/lawyer/CommunityScreen/components/QuestionCard.tsx": [
+      "QuestionCardProps"
+    ],
+    "src/app/components/lawyer/CommunityScreen/components/QuestionCardAttachment.tsx": [
+      "QuestionCardAttachmentProps"
+    ],
+    "src/app/components/lawyer/CommunityScreen/components/QuestionCardFooter.tsx": [
+      "QuestionCardFooterProps"
+    ],
+    "src/app/components/lawyer/CommunityScreen/components/QuestionCardMoreMenu.tsx": [
+      "QuestionCardMoreMenuProps"
+    ],
+    "src/app/components/lawyer/CommunityScreen/components/RepositoryCardActions.tsx": [
+      "RepositoryCardActionsProps"
+    ],
+    "src/app/components/lawyer/CommunityScreen/components/repositoryMedia.ts": [
+      "RepositoryMediaIconKind"
+    ],
+    "src/app/components/lawyer/CommunityScreen/components/RepositoryPreviewModal.tsx": [
+      "RepositoryPreviewModalProps"
+    ],
+    "src/app/components/lawyer/CommunityScreen/forumAsync.ts": [
+      "ForumAsyncFallback"
+    ],
+    "src/app/components/lawyer/CommunityScreen/forumFilters.ts": [
+      "ForumFilterLabel"
+    ],
+    "src/app/components/lawyer/CommunityScreen/forumGroupCreateGuard.ts": [
+      "ForumGroupCreateGuardResult"
+    ],
+    "src/app/components/lawyer/CommunityScreen/forumOverlayPortal.ts": [
+      "FORUM_OVERLAY_PORTAL_ID",
+      "FORUM_OVERLAY_PORTAL_Z"
+    ],
+    "src/app/components/lawyer/CommunityScreen/forumPlumTheme.ts": [
+      "FORUM_PAGE_BG"
+    ],
+    "src/app/components/lawyer/CommunityScreen/forumRateLimit.ts": [
+      "ForumRateLimitResult"
+    ],
+    "src/app/components/lawyer/CommunityScreen/forumRepositoryEscapeBridge.ts": [
+      "ForumRepositoryEscapeHandlers",
+      "ForumRepositoryEscapeSnapshot"
+    ],
+    "src/app/components/lawyer/CommunityScreen/forumSectionOrder.ts": [
+      "FORUM_SECTION_ORDER"
+    ],
+    "src/app/components/lawyer/CommunityScreen/hooks/forumEscapeApply.ts": [
+      "ForumEscapeHandlers"
+    ],
+    "src/app/components/lawyer/CommunityScreen/hooks/useCommentThreadWindow.ts": [
+      "COMMENT_WINDOW_STEP"
+    ],
+    "src/app/components/lawyer/CommunityScreen/hooks/useCommunityAddQuestion.ts": [
+      "UseCommunityAddQuestionParams"
+    ],
+    "src/app/components/lawyer/CommunityScreen/hooks/useCommunityForumAccess.ts": [
+      "UseCommunityForumAccessParams"
+    ],
+    "src/app/components/lawyer/CommunityScreen/hooks/useCommunityGroupPostsFeed.ts": [
+      "UseCommunityGroupPostsFeedParams"
+    ],
+    "src/app/components/lawyer/CommunityScreen/hooks/useCommunityGroupsCatalog.ts": [
+      "UseCommunityGroupsCatalogParams"
+    ],
+    "src/app/components/lawyer/CommunityScreen/hooks/useCommunityGroupsFeed.ts": [
+      "UseCommunityGroupsFeedParams"
+    ],
+    "src/app/components/lawyer/CommunityScreen/hooks/useCommunityPostsFeed.ts": [
+      "UseCommunityPostsFeedParams"
+    ],
+    "src/app/components/lawyer/CommunityScreen/hooks/useCommunityScreenSocialGraph.types.ts": [
+      "SocialGraphRecords"
+    ],
+    "src/app/components/lawyer/CommunityScreen/hooks/useForumNotificationFetch.ts": [
+      "ForumNotificationFetchRefs"
+    ],
+    "src/app/components/lawyer/CommunityScreen/hooks/useForumSectionSwipe.ts": [
+      "UseForumSectionSwipeOptions"
+    ],
+    "src/app/components/lawyer/CommunityScreen/hooks/useLegalRepositoryMutations.types.ts": [
+      "LegalRepositoryAuthUser"
+    ],
+    "src/app/components/lawyer/CommunityScreen/legalRepositoryListQuery.ts": [
+      "LegalRepositoryListQuery"
+    ],
+    "src/app/components/lawyer/CommunityScreen/legalRepositoryLocalReports.ts": [
+      "LegalRepositoryLocalReport"
+    ],
+    "src/app/components/lawyer/CommunityScreen/repositoryBlobRegistry.ts": [
+      "resetRepositoryBlobRegistryForTests"
+    ],
+    "src/app/components/lawyer/CommunityScreen/repositoryStorageService.ts": [
+      "ReservedRepositoryFile",
+      "cacheRepositoryFileLocally"
+    ],
+    "src/app/components/lawyer/CommunityScreen/repositoryUploadValidation.ts": [
+      "REPOSITORY_UPLOAD_DESCRIPTION_MAX",
+      "REPOSITORY_UPLOAD_DOCUMENT_EXTENSIONS",
+      "REPOSITORY_UPLOAD_IMAGE_EXTENSIONS",
+      "REPOSITORY_UPLOAD_TITLE_MAX"
+    ],
+    "src/app/components/lawyer/CommunityScreen/useForumUserStats.ts": [
+      "ForumUserStats"
+    ],
+    "src/app/components/lawyer/criminal-system/caseMergeMigrationTypes.ts": [
+      "isCaseFrozen",
+      "isCaseInTrashLike"
+    ],
+    "src/app/components/lawyer/criminal-system/casePhaseJourneyStage.ts": [
+      "orderJourneyNodesForLabels",
+      "resolveJourneyNodeById",
+      "resolveJourneyNodeByRecordDate"
+    ],
+    "src/app/components/lawyer/criminal-system/casePhaseResolveCore.ts": [
+      "resolveStatementCasePhase"
+    ],
+    "src/app/components/lawyer/criminal-system/complainantCassationGovernance.ts": [
+      "isComplainantLawyerRole"
+    ],
+    "src/app/components/lawyer/criminal-system/components/BailForfeitureModal.tsx": [
+      "BailForfeitureModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/CaseJourneyHeader.tsx": [
+      "CaseJourneyHeaderProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/CasePhaseSegmentedControl.tsx": [
+      "CasePhaseSegmentedControlProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/ConcernedPartyDecisionPicker.tsx": [
+      "ConcernedPartyDecisionPickerProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/CriminalDossierStatusBanners.tsx": [
+      "CriminalDossierTopBannersProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/DecisionCardAppealFooter.tsx": [
+      "DecisionCardAppealFooterProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/DecisionCardTrashButton.tsx": [
+      "DecisionCardTrashButtonProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/DecisionCassationAppealsPanel.tsx": [
+      "DecisionCassationAppealsPanelProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/DecisionInterventionCassationPanel.tsx": [
+      "DecisionInterventionCassationPanelProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/DecisionsCommandBar.tsx": [
+      "DecisionsCommandBarProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/DecisionsScopeFilterBar.tsx": [
+      "DecisionsScopeFilterBarProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/DefendantDecisionScopePicker.tsx": [
+      "DefendantDecisionScopePickerProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/ExpirationReasonFields.tsx": [
+      "ExpirationReasonFieldsProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/GuarantorForfeitureStrip.tsx": [
+      "GuarantorForfeitureStripProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/JourneyStageBadge.tsx": [
+      "JourneyStageBadgeProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/JudicialCassationAppealModal.tsx": [
+      "JudicialCassationAppealModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/JudicialCassationResultModal.tsx": [
+      "JudicialCassationResultModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/LawyerRequestCard.tsx": [
+      "LawyerRequestCardProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/LawyerRequestUxAddons.tsx": [
+      "LawyerRequestUxBlockProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/LegalArticleEditModal.tsx": [
+      "LegalArticleEditModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/LiveArrestSummonCard.tsx": [
+      "LiveArrestSummonCardProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/LiveDetentionCard.tsx": [
+      "LiveDetentionCardProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/CaseIdentityCorrectionModal.tsx": [
+      "PartyIdentityCorrectionModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/CriminalCaseTrashModal.tsx": [
+      "CriminalCaseTrashModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/CriminalStatementModal.tsx": [
+      "CriminalStatementModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/CriminalStatementModalContentSection.tsx": [
+      "CriminalStatementModalContentSectionProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/CriminalStatementModalFooter.tsx": [
+      "CriminalStatementModalFooterProps",
+      "CriminalStatementModalSaveConfirmProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/CriminalStatementModalGiverSection.tsx": [
+      "CriminalStatementModalGiverSectionProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/criminalStatementModalPayload.ts": [
+      "StatementCanSaveInput",
+      "StatementPayloadInput"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/CriminalStatementModalShell.tsx": [
+      "CriminalStatementModalShellProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/CriminalStatementModalVenueSection.tsx": [
+      "CriminalStatementModalVenueSectionProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/InvestigationDecisionModal.tsx": [
+      "InvestigationDecisionModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/MergeCaseModal.tsx": [
+      "MergeCaseModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/ProceduralActionFormModal.tsx": [
+      "ProceduralActionFormModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/ProceduralAddChildModal.tsx": [
+      "ProceduralAddChildModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/ProceduralAdvancePhaseModal.tsx": [
+      "ProceduralAdvancePhaseModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/ProceduralContainerFormModal.tsx": [
+      "ProceduralContainerFormModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/ProceduralLinkedTimelineModal.tsx": [
+      "ProceduralLinkedTimelineModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/ProceduralNoteFormModal.tsx": [
+      "ProceduralNoteFormModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/RequestQuickFinalizeModal.tsx": [
+      "RequestQuickFinalizeModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/SeveranceTargetPickerModal.tsx": [
+      "SeveranceTargetPickerModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/StageFinalDecisionModal.tsx": [
+      "StageFinalDecisionModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/stageFinalDecisionModalSubmit.ts": [
+      "StageFinalDecisionSubmitInput",
+      "StageFinalDecisionSubmitResult"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/TrialDepositionModal.tsx": [
+      "TrialDepositionModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/TrialHearingDateModal.tsx": [
+      "TrialHearingDateModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/modals/VenueIdentityCorrectionModal.tsx": [
+      "VenueIdentityCorrectionModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/OtherEvidenceEntryForm.tsx": [
+      "OtherEvidenceEntryFormProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/OtherEvidenceLogCard.tsx": [
+      "OtherEvidenceLogCardProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/PendingSeveranceResumeBar.tsx": [
+      "PendingSeveranceResumeBarProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/ProceduralContextLinkField.tsx": [
+      "ProceduralContextLinkFieldProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RecursiveProceduralCanvas/dragUtils.ts": [
+      "DragPayload"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RecursiveProceduralCanvas/ProceduralCanvasAttentionBoard.tsx": [
+      "ProceduralCanvasAttentionBoardProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RecursiveProceduralCanvas/ProceduralCanvasModalsHost.tsx": [
+      "ProceduralCanvasModalsHostProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RecursiveProceduralCanvas/ProceduralCanvasToolbar.tsx": [
+      "ProceduralCanvasToolbarProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RecursiveProceduralCanvas/ProceduralCanvasTreePanel.tsx": [
+      "ProceduralCanvasTreePanelProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RecursiveProceduralCanvas/ProceduralContainerTreeChildren.tsx": [
+      "ProceduralContainerTreeChildrenProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RecursiveProceduralCanvas/ProceduralContainerTreeDragShell.tsx": [
+      "ProceduralContainerTreeDragShellProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RecursiveProceduralCanvas/ProceduralContainerTreeHeader.tsx": [
+      "ProceduralContainerTreeHeaderProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/ReopenCaseModal.tsx": [
+      "ReopenCaseModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RequestActionComponent.tsx": [
+      "RequestActionComponentProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RequestModalAssetSeizureFields.tsx": [
+      "RequestModalAssetSeizureFieldsProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RequestModalJudicialAppealableToggle.tsx": [
+      "RequestModalJudicialAppealableToggleProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RequestModalJudicialBailFields.tsx": [
+      "RequestModalJudicialBailFieldsProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RequestModalJudicialCustomAndReferralFields.tsx": [
+      "RequestModalJudicialComplaintReferralFieldsProps",
+      "RequestModalJudicialConcernedPartyField",
+      "RequestModalJudicialConcernedPartyFieldProps",
+      "RequestModalJudicialCustomDecisionFieldsProps",
+      "RequestModalJudicialTrialCourtManualFieldsProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RequestModalJudicialDetentionFields.tsx": [
+      "RequestModalJudicialDetentionFieldsProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RequestModalJudicialLane.tsx": [
+      "RequestModalJudicialLaneProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RequestModalJudicialTemplateSelect.tsx": [
+      "RequestModalJudicialTemplateSelectProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RequestModalLawyerLane.tsx": [
+      "RequestModalLawyerLaneProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RequestsEntryModalBody.tsx": [
+      "RequestsEntryModalBodyProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RequestsEntryModalDetailsSection.tsx": [
+      "RequestsEntryModalDetailsSectionProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RequestsEntryModalFooter.tsx": [
+      "RequestsEntryModalFooterProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RequestsEntryModalHeader.tsx": [
+      "RequestsEntryModalHeaderProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RequestsEntryModalIdentitySection.tsx": [
+      "RequestsEntryModalIdentitySectionProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/RequestsEntryModalPartySection.tsx": [
+      "RequestsEntryModalPartySectionProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/SendToCassationModal.tsx": [
+      "SendToCassationModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/StageCloserClosureMetaFields.tsx": [
+      "StageCloserClosureMetaFieldsProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/StageCloserDecisionContextSections.tsx": [
+      "StageCloserDecisionContextSectionsProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/StageCloserDecisionTypeField.tsx": [
+      "StageCloserDecisionTypeFieldProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/StageCloserFormSections.tsx": [
+      "StageCloserFormSectionsProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/StageCloserModalFooter.tsx": [
+      "StageCloserModalFooterProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/StageCloserModalHeader.tsx": [
+      "StageCloserModalHeaderProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/StageCloserReferralFields.tsx": [
+      "StageCloserReferralFieldsProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/StageFinalDecisionCard.tsx": [
+      "StageFinalDecisionCardProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/StatementHighlightedContent.tsx": [
+      "StatementHighlightedContentProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/StatementLogCard.tsx": [
+      "StatementLogCardProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/StatementsPhaseSections.tsx": [
+      "StatementsPhaseSectionsProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/TrialDepositionWitnessCard.tsx": [
+      "TrialDepositionWitnessCardProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/TrialDepositionWitnessCardContent.tsx": [
+      "TrialDepositionWitnessCardContentProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/TrialDepositionWitnessCardCrossExam.tsx": [
+      "TrialDepositionWitnessCardCrossExamProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/TrialDepositionWitnessCardHeader.tsx": [
+      "TrialDepositionWitnessCardHeaderProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/TrialDepositionWitnessCardLinkPicker.tsx": [
+      "TrialDepositionWitnessCardLinkPickerProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/TrialDepositionWitnessCardReplicas.tsx": [
+      "StatementReplica"
+    ],
+    "src/app/components/lawyer/criminal-system/components/TrialHearingDateHint.tsx": [
+      "TrialHearingDateHintProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/TrialsAddSessionModal.tsx": [
+      "TrialsAddSessionModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/TrialSessionPreparatoryAppealBlock.tsx": [
+      "TrialSessionPreparatoryAppealBlockProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/TrialsPostponeModal.tsx": [
+      "TrialsPostponeModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/TrialsSessionCard.tsx": [
+      "TrialsSessionCardProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/TrialsSessionList.tsx": [
+      "TrialsSessionListProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/TrialsTabHeader.tsx": [
+      "TrialsTabHeaderProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/UnknownDefendantPartyBlockedRow.tsx": [
+      "UnknownDefendantPartyBlockedRowProps"
+    ],
+    "src/app/components/lawyer/criminal-system/components/VerdictCassationModals.tsx": [
+      "VerdictCassationCorrectionModalProps",
+      "VerdictCassationFilingModalProps",
+      "VerdictCassationResultModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/ConfirmActionModal.tsx": [
+      "ConfirmActionModalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalDashboardHeader.tsx": [
+      "CriminalDashboardHeaderProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalDashboardHeaderStatusPills.tsx": [
+      "CriminalDashboardHeaderMergedLink",
+      "CriminalDashboardHeaderStatusPillsProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalDashboardHeaderTitleBlock.tsx": [
+      "CriminalDashboardHeaderTitleBlockProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalDashboardHeaderToolbar.tsx": [
+      "CriminalDashboardHeaderToolbarProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalDashboardModalsHostCassation.tsx": [
+      "CriminalDashboardModalsHostCassationProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalDashboardModalsHostIdentity.tsx": [
+      "CriminalDashboardModalsHostIdentityProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalDashboardModalsHostInvestigation.tsx": [
+      "CriminalDashboardModalsHostInvestigationProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalDashboardModalsHostRequests.tsx": [
+      "CriminalDashboardModalsHostRequestsProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalDashboardModalsHostTrial.tsx": [
+      "CriminalDashboardModalsHostTrialProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalDashboardRequestsTabDecisionsList.tsx": [
+      "CriminalDashboardRequestsTabDecisionsListProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalDashboardRequestsTabFilters.tsx": [
+      "CriminalDashboardRequestsTabFiltersProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalDashboardRequestsTabHearingTools.tsx": [
+      "CriminalDashboardRequestsTabHearingToolsProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalDashboardRequestsTabVerdictSection.tsx": [
+      "CriminalDashboardRequestsTabVerdictSectionProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalDashboardResolvedRuntimeShell.tsx": [
+      "CriminalDashboardResolvedRuntimeShellProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalDossierStatementsChrome.tsx": [
+      "CriminalDossierStatementsChromeProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalDossierTabBar.tsx": [
+      "CriminalDossierTabBarProps"
+    ],
+    "src/app/components/lawyer/criminal-system/criminalModalPortal.tsx": [
+      "CriminalModalPortalProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalNewCase/CaseInfoSection.tsx": [
+      "CaseInfoSectionProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalNewCase/ComplainantSection.tsx": [
+      "ComplainantSectionProps"
+    ],
+    "src/app/components/lawyer/criminal-system/CriminalNewCase/DefendantSection.tsx": [
+      "DefendantSectionProps"
+    ],
+    "src/app/components/lawyer/criminal-system/criminalRequestCommitCreateHelpers.ts": [
+      "CommitCreateLawyerRequestDeps"
+    ],
+    "src/app/components/lawyer/criminal-system/criminalRequestCommitFinalizeHelpers.ts": [
+      "CommitFinalizeLawyerRequestDeps",
+      "buildInvestigationExpirationConclusion"
+    ],
+    "src/app/components/lawyer/criminal-system/criminalRequestCommitPayloadBuilders.ts": [
+      "AssetItemPayload",
+      "PerDefendantAssetSeizurePayload"
+    ],
+    "src/app/components/lawyer/criminal-system/decisionAppealPeriodCalendar.ts": [
+      "addCalendarDaysFromIso"
+    ],
+    "src/app/components/lawyer/criminal-system/investigationDossierClosureUtils.ts": [
+      "sealInvestigationDossier"
+    ],
+    "src/app/components/lawyer/criminal-system/legalCodes/LegalCodesEditorSection.tsx": [
+      "LegalCodesEditorSectionProps"
+    ],
+    "src/app/components/lawyer/criminal-system/legalCodes/LegalCodesEmptySection.tsx": [
+      "LegalCodesEmptySectionProps"
+    ],
+    "src/app/components/lawyer/criminal-system/legalCodes/LegalCodesListSection.tsx": [
+      "LegalCodesListSectionProps"
+    ],
+    "src/app/components/lawyer/criminal-system/legalCodes/LegalCodesSearchFiltersSection.tsx": [
+      "LegalCodesSearchFiltersSectionProps"
+    ],
+    "src/app/components/lawyer/criminal-system/legalCodes/LegalCodesTab.tsx": [
+      "LegalCodesTabProps"
+    ],
+    "src/app/components/lawyer/criminal-system/proceduralRequestClassify.ts": [
+      "DetentionUrgency",
+      "JUDICIAL_DECISION_FIXED_TEMPLATES",
+      "LAWYER_MOTION_TEMPLATES",
+      "PROCEDURAL_REQUEST_TYPE_OPTIONS",
+      "ProceduralRequestTypeOption",
+      "computeDetentionUrgency",
+      "isArrestSummonDecisionTemplate"
+    ],
+    "src/app/components/lawyer/criminal-system/proceduralRequestTemplateCore.ts": [
+      "INVESTIGATION_EXPIRATION_JUDICIAL_TEMPLATE",
+      "JUDICIAL_DECISION_OPTGROUP_LABEL",
+      "JUVENILE_JUDGE_CASSATION_APPEALABLE_TEMPLATES",
+      "LAWYER_MOTION_OPTGROUP_LABEL",
+      "isInvestigationPersonalFinalClosureTemplate"
+    ],
+    "src/app/components/lawyer/criminal-system/resolveCriminalDashboardStageFlags.ts": [
+      "CriminalDashboardStageFlags"
+    ],
+    "src/app/components/lawyer/criminal-system/stageFinalDecisionPenalty.ts": [
+      "masterPenaltyLabel"
+    ],
+    "src/app/components/lawyer/criminal-system/statementLinking.ts": [
+      "linkableEntryId",
+      "parseLinkableEntryId",
+      "resolveLinkableEntryLabel"
+    ],
+    "src/app/components/lawyer/criminal-system/trialSessionsDisplay.ts": [
+      "CassationRemandPivotCard"
+    ],
+    "src/app/components/lawyer/criminal-system/useCriminalDashboardNavigationGuard.types.ts": [
+      "CassationAppealModalState",
+      "CassationResultContextState",
+      "ForfeitureModalState"
+    ],
+    "src/app/components/lawyer/criminal-system/useCriminalRequestPartyScopeEffects.ts": [
+      "CriminalRequestPartyScopeEffectsArgs"
+    ],
+    "src/app/components/lawyer/criminal-system/verdictCardCassationGates.ts": [
+      "resolveVerdictCassationCorrectionOutcome",
+      "resolveVerdictCassationIssuedBy"
+    ],
+    "src/app/components/lawyer/criminal-system/verdictCardPatch.ts": [
+      "sortVerdictCardsDesc"
+    ],
+    "src/app/components/lawyer/Dashboard_Active_Order_File/components/ConfirmDialogPortal.tsx": [
+      "ConfirmDialogPortalProps"
+    ],
+    "src/app/components/lawyer/Dashboard_Active_Order_File/components/DatePickerField.tsx": [
+      "DatePickerFieldProps"
+    ],
+    "src/app/components/lawyer/Dashboard_Active_Order_File/components/PartyCardItem.tsx": [
+      "PartyCardItemProps"
+    ],
+    "src/app/components/lawyer/Dashboard_Active_Order_File/layout/AdminWorkspaceTabContent.tsx": [
+      "AdminWorkspaceTabContentProps"
+    ],
+    "src/app/components/lawyer/Dashboard_Active_Order_File/layout/ArchiveBanner.tsx": [
+      "ArchiveBannerProps"
+    ],
+    "src/app/components/lawyer/Dashboard_Active_Order_File/layout/PartiesSidebar.tsx": [
+      "PartiesSidebarProps"
+    ],
+    "src/app/components/lawyer/Dashboard_Active_Order_File/modals/MetaEditModal.tsx": [
+      "MetaEditModalProps"
+    ],
+    "src/app/components/lawyer/dashboard/activateHomeFirstPaintWidget.ts": [
+      "HomeFirstPaintActivators"
+    ],
+    "src/app/components/lawyer/dashboard/DossierHeaderNavButtons.tsx": [
+      "DossierHeaderNavButtonsProps"
+    ],
+    "src/app/components/lawyer/dashboard/fieldTasks/FieldCurtainTaskCard.tsx": [
+      "FieldCurtainTaskCardProps"
+    ],
+    "src/app/components/lawyer/dashboard/fieldTasks/FieldTasksSheetHost.tsx": [
+      "FieldTasksSheetHostProps"
+    ],
+    "src/app/components/lawyer/dashboard/fieldTasks/useTasksLifecycle.ts": [
+      "useTasksStorageHydratedSignal"
+    ],
+    "src/app/components/lawyer/dashboard/forumProfile/forumTileProfileQuarterTypes.ts": [
+      "ForumTileProfileQuarterHandlers"
+    ],
+    "src/app/components/lawyer/dashboard/HomeForumSignalsIsland.tsx": [
+      "HomeForumSignalsIslandProps"
+    ],
+    "src/app/components/lawyer/dashboard/homeStemIcons.tsx": [
+      "HomeClockIcon",
+      "HomeHammerIcon",
+      "HomeSmartRepositoryIcon",
+      "HomeUsersIcon",
+      "HomeWalletIcon"
+    ],
+    "src/app/components/lawyer/dashboard/LawyerDashboardDeferredFeatureSurfaces.types.ts": [
+      "DeferredFeatureSurfacesParams",
+      "DeferredFieldTasks",
+      "DeferredGlobalSearch",
+      "DeferredGlobalSearchNav",
+      "DeferredTransactions"
+    ],
+    "src/app/components/lawyer/dashboard/LawyerDashboardFullBootPath.tsx": [
+      "LawyerDashboardFullBootPathProps"
+    ],
+    "src/app/components/lawyer/dashboard/LawyerDashboardFullOrchestrationHost.tsx": [
+      "LawyerDashboardFullOrchestrationHostProps"
+    ],
+    "src/app/components/lawyer/dashboard/LawyerDashboardInner.tsx": [
+      "LawyerDashboardInnerProps"
+    ],
+    "src/app/components/lawyer/dashboard/LawyerDashboardMainViewOverlayHosts.tsx": [
+      "LawyerDashboardMainViewOverlayHostsProps"
+    ],
+    "src/app/components/lawyer/dashboard/lawyerDashboardOverlaysBundles.ts": [
+      "LawyerDashboardDataBundle",
+      "LawyerDashboardNavBundle",
+      "LawyerDashboardShellBundle"
+    ],
+    "src/app/components/lawyer/dashboard/LawyerDashboardPreDockFeatureSurfaces.types.ts": [
+      "PreDockCommunity",
+      "PreDockFeatureSurfacesParams",
+      "PreDockRepository",
+      "PreDockSchedule"
+    ],
+    "src/app/components/lawyer/dashboard/LawyerDashboardScheduleTab.tsx": [
+      "LawyerDashboardScheduleTabProps"
+    ],
+    "src/app/components/lawyer/dashboard/notepadVoiceSave.ts": [
+      "NotepadVoicePayload"
+    ],
+    "src/app/components/lawyer/dashboard/schedule/DashboardTabSurface.tsx": [
+      "DashboardTabSurfaceProps"
+    ],
+    "src/app/components/lawyer/dashboard/schedule/radarOpenInstantChromeModel.ts": [
+      "RADAR_OPEN_INSTANT_MONTHS",
+      "RADAR_OPEN_INSTANT_WEEK_DAYS",
+      "RadarOpenInstantSnapshot",
+      "RadarOpenInstantWeekDay"
+    ],
+    "src/app/components/lawyer/dashboard/TasksManager.tsx": [
+      "TasksManagerProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/CompletedTasksArchiveSection.tsx": [
+      "CompletedTasksArchiveSectionProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/DistantTasksSection.tsx": [
+      "DistantTasksSectionProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/FatalDeadlinesSection.tsx": [
+      "FatalDeadlinesSectionProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/RequestHelpModal.tsx": [
+      "RequestHelpModalProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/SnoozedTaskCard.tsx": [
+      "SnoozedTaskCardProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/subTaskUtils.ts": [
+      "SubTaskKind"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/TaskCardFieldBrief.tsx": [
+      "TaskCardFieldBriefProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/TaskCardMainBrief.tsx": [
+      "TaskCardMainBriefProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/TaskCardPanels.tsx": [
+      "TaskCardBranchPanelProps",
+      "TaskCardDocPanelProps",
+      "TaskCardExpensePanel",
+      "TaskCardExpensePanelProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/taskCardUtils.ts": [
+      "taskRevision"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/TaskHelpInboxPanel.tsx": [
+      "TaskHelpInboxPanelProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/TaskListOrdinalBadge.tsx": [
+      "TaskListOrdinalBadgeProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/TaskRingToggle.tsx": [
+      "TaskRingToggleProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/tasksBoucleTheme.ts": [
+      "TASKS_INK",
+      "TASKS_SCROLL_CHROME"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/TasksManagerDialogContent.tsx": [
+      "TasksManagerDialogContentProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/TasksManagerHeader.tsx": [
+      "TasksManagerHeaderProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/TasksManagerModals.tsx": [
+      "TasksManagerModalsProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/TaskSubTasksCollapsible.tsx": [
+      "TaskSubTasksCollapsibleProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/TaskVoicePlayback.tsx": [
+      "TaskVoicePlaybackProps"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/useTaskCardChrome.ts": [
+      "useTaskCardChrome"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/useTasksManagerController.tsx": [
+      "UseTasksManagerControllerOptions"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/utils.ts": [
+      "AgendaPendingPartition",
+      "AgendaWeeklyDayBlock",
+      "getArchivedTasks",
+      "isSnoozedTaskDueOrOverdue",
+      "purgeExpiredCompletedTasks",
+      "snoozedTaskAgendaWeekStart"
+    ],
+    "src/app/components/lawyer/dashboard/tasksManager/WeeklyAgendaSection.tsx": [
+      "WeeklyAgendaSectionProps",
+      "WeeklyDayBlock"
+    ],
+    "src/app/components/lawyer/dashboard/useCommandCenterDockActions.ts": [
+      "CommandCenterDockActionsOptions"
+    ],
+    "src/app/components/lawyer/dashboard/VoiceNoteAudio.tsx": [
+      "isVoiceNoteContent"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels.ts": [
+      "AppealPauseGateMessageOpts",
+      "appealExecutorSideDebtorPathLabel"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/components/AppealDeadlineLapsePanel.tsx": [
+      "AppealDeadlineLapsePanelProps"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/components/DecisionCardDeleteConfirm.tsx": [
+      "DecisionCardDeleteConfirmProps"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/components/decisionCardDerived/decisionCardPresentationDerived.ts": [
+      "deriveDecisionCardDebtorContext",
+      "deriveDecisionCardTitleClean"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/components/DecisionCardExecutorPanel.tsx": [
+      "DecisionCardExecutorPanelProps"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/components/DecisionCardFollowupShortcuts.tsx": [
+      "DecisionCardFollowupShortcutsProps"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/components/DecisionsAppealsAddDecisionModal.tsx": [
+      "DecisionsAppealsAddDecisionModalProps"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/components/DecisionsAppealsAppealDetailModal.tsx": [
+      "DecisionsAppealsAppealDetailModalProps"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/components/ManualExecutorAppealClockField.tsx": [
+      "ManualExecutorAppealClockFieldProps"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/components/ManualExecutorSmartCardPanel.tsx": [
+      "ManualExecutorSmartCardPanelProps"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/decisionCardPresentation.tsx": [
+      "AppealResultChip",
+      "DECISION_ACTION_BTN_PRIMARY",
+      "DECISION_ACTION_BTN_SECONDARY",
+      "DECISION_HUB_PILL_BASE",
+      "DECISION_HUB_PILL_CLASS",
+      "DecisionStatusBadge",
+      "FollowupShellTone",
+      "followupBlockShellMeta"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/engine/buildDecisionsAppealsCardPropBundles.ts": [
+      "BuildDecisionsAppealsCardPropBundlesParams"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId.ts": [
+      "DecisionsModalOpenMatchContext"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/appeal-renderers/appealRendererButtonClasses.ts": [
+      "DECISION_BTN_SECONDARY"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/useDecisionsAppealsAppealEntryMutations.ts": [
+      "AppealEntryMutationsParams"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/useDecisionsAppealsEngineStorage.ts": [
+      "UseDecisionsAppealsEngineStorageParams"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/useDecisionsAppealsHubLists.ts": [
+      "UseDecisionsAppealsHubListsParams"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/useDecisionsAppealsHubUiState.ts": [
+      "UseDecisionsAppealsHubUiStateParams"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/useDecisionsAppealsMutations.ts": [
+      "UseDecisionsAppealsMutationsParams"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealDates.ts": [
+      "AppealDeadlineExpiryKind",
+      "appealWindowBoundsYmd",
+      "appealWindowsFromClockYmd",
+      "isGrievancePendingAwaitingOutcome",
+      "resolveGrievanceIssuedYmd"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealProceedingsTypes.ts": [
+      "appealTrackSmartPillLabel"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealsHubCatalog.ts": [
+      "decisionAppealActivityTimestamp"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealWorkflowActors.ts": [
+      "appealEntryShowsDebtorFirst"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/creditorAppealDebtorAgentUi.ts": [
+      "COMPACT_APPEAL_PROCEEDINGS_MAX",
+      "debtorAgentAppealStatusInHeaderPill"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/creditorAppealExecutorFollowup.ts": [
+      "resolveExecutorRequestFollowupBlock"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/creditorAppealGate.ts": [
+      "isCreditorApprovedDecisionTemporarilyPaused"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/decisionCardFormatting.ts": [
+      "getStatusBorderClass"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/decisionHubPipeline.tsx": [
+      "renderDecisionHubStatusPill"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/manualExecutorDeadlineEnforcement.ts": [
+      "shouldApplyPerpetualEnforcementAfterCassationLapse"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/cassationCourtDecisionCommit.ts": [
+      "CassationCourtChoice"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/decisionPresentation.ts": [
+      "resolveDecisionCardEnforcementVisual"
+    ],
+    "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/decisionTextUtils.ts": [
+      "arabicLooseNormalize",
+      "isIntroLineRedundantWithTitle",
+      "normComparableDecisionText"
+    ],
+    "src/app/components/lawyer/execution/AlimonyBeneficiaryDeathModal.tsx": [
+      "AlimonyBeneficiaryDeathModalProps"
+    ],
+    "src/app/components/lawyer/execution/BreakInventoryFurnitureInlineForm.tsx": [
+      "BreakInventoryFurnitureInlineFormProps"
+    ],
+    "src/app/components/lawyer/execution/debtorSeizureCategoryBadgeHelpers.ts": [
+      "isRegistryRowEnforceable"
+    ],
+    "src/app/components/lawyer/execution/ExecutionPartySpecialActionsMenu.tsx": [
+      "ExecutionPartySpecialActionsMenuProps",
+      "ExecutionPartySpecialActionsVariant"
+    ],
+    "src/app/components/lawyer/execution/ExecutionSectionConfirmDialog.tsx": [
+      "ExecutionSectionConfirmDialogProps"
+    ],
+    "src/app/components/lawyer/execution/JudicialCustodianCardMenu.tsx": [
+      "JudicialCustodianCardMenuProps"
+    ],
+    "src/app/components/lawyer/execution/JudicialCustodianInlineForm.tsx": [
+      "JudicialCustodianInlineFormProps"
+    ],
+    "src/app/components/lawyer/execution/MaritalFurnitureDeliveryAfterApproveForm.tsx": [
+      "MaritalFurnitureDeliveryAfterApproveFormProps"
+    ],
+    "src/app/components/lawyer/execution/MaritalFurnitureDeliveryInventoryForm.tsx": [
+      "MaritalFurnitureDeliveryInventoryFormProps"
+    ],
+    "src/app/components/lawyer/execution/partyInteractiveBadges/buildExtraPartyBadgeDefinitions.ts": [
+      "BuildExtraPartyBadgeDefinitionsInput"
+    ],
+    "src/app/components/lawyer/execution/partyInteractiveBadges/PartyBadgePopover.tsx": [
+      "PartyBadgePopoverProps"
+    ],
+    "src/app/components/lawyer/execution/personalCoercive/hooks/usePersonalCoerciveActions.ts": [
+      "PersonalCoerciveActions"
+    ],
+    "src/app/components/lawyer/execution/personalCoercive/sections/DossierPresentationSection.tsx": [
+      "DossierPresentationSectionProps"
+    ],
+    "src/app/components/lawyer/execution/personalCoercive/sections/ExecutiveDetentionJudgeSection.tsx": [
+      "ExecutiveDetentionJudgeSectionProps"
+    ],
+    "src/app/components/lawyer/execution/personalCoercive/sections/ForcedBringSection.tsx": [
+      "ForcedBringSectionProps"
+    ],
+    "src/app/components/lawyer/execution/personalCoercive/sections/GuarantorFollowupStrip.tsx": [
+      "GuarantorFollowupStripProps"
+    ],
+    "src/app/components/lawyer/execution/personalCoercive/sections/InvestigationCourtSection.tsx": [
+      "InvestigationCourtSectionProps"
+    ],
+    "src/app/components/lawyer/execution/personalCoercive/sections/TravelBanSection.tsx": [
+      "TravelBanSectionProps"
+    ],
+    "src/app/components/lawyer/execution/PoliceAssistanceInlineForm.tsx": [
+      "PoliceAssistanceInlineFormProps"
+    ],
+    "src/app/components/lawyer/execution/SeizureMatrixExpandLink.tsx": [
+      "SeizureMatrixExpandLinkProps"
+    ],
+    "src/app/components/lawyer/execution/SummonsInlineDateField.tsx": [
+      "SummonsDateAccent",
+      "SummonsInlineDateFieldProps"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/components/ExecutionCreationFormBody.tsx": [
+      "ExecutionCreationFormVm"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/components/ExecutionCreationSection.tsx": [
+      "ExecutionCreationSectionProps"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/components/ExecutionOptionSheet.tsx": [
+      "ExecutionOptionSheetMultiSelectPanel",
+      "ExecutionOptionSheetProps"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/components/IndependentDebtorSharePanel.tsx": [
+      "IndependentDebtorSharePanelProps"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/components/InstrumentClaimAmountsBlock.tsx": [
+      "InstrumentClaimAmountsBlockProps"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/components/InstrumentClaimExtrasSection.tsx": [
+      "InstrumentClaimExtrasSectionProps"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/components/InstrumentCommercialMetaSection.tsx": [
+      "InstrumentCommercialMetaSectionProps"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/components/InstrumentShariaForeignExtras.tsx": [
+      "InstrumentShariaForeignExtrasProps"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/components/InstrumentTypeIdentityFields.tsx": [
+      "InstrumentTypeIdentityFieldsProps"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/components/MaritalFurnitureSetupSection.tsx": [
+      "MaritalFurnitureSetupSectionProps"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/components/PastAlimonySection.tsx": [
+      "PastAlimonyCalculationSlice"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/components/SpecificDeliveryItemsSetupSection.tsx": [
+      "SpecificDeliveryItemsSetupSectionProps"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/components/VisitationScheduleSetupSection.tsx": [
+      "VisitationScheduleSetupSectionProps"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/hooks/executionCreationSubmitClaims.ts": [
+      "hasOngoingAlimonyInClaims"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/hooks/executionFormClaimTypes.ts": [
+      "ONGOING_ALIMONY_CLAIM_TYPES"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/hooks/useAlimonyCalculator.ts": [
+      "AlimonyCalculatorInsightStatus",
+      "useAlimonyCalculatorInsights"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/hooks/useExecutionCreationClaimCascade.ts": [
+      "UseExecutionCreationClaimCascadeParams"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/hooks/useExecutionCreationFormOptions.ts": [
+      "EXECUTION_DOC_TYPE_COMING_SOON"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/hooks/useExecutionCreationFormState.ts": [
+      "ExecutionCreationFormState"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/hooks/useExecutionCreationPartyActions.ts": [
+      "UseExecutionCreationPartyActionsParams"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/hooks/useExecutionCreationSubmit.ts": [
+      "UseExecutionCreationSubmitParams"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/hooks/useLegalWarnings.ts": [
+      "getLegalWarningsAndAttachments"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/hooks/validateExecutionCreationSubmit.ts": [
+      "ValidateExecutionCreationSubmitInput",
+      "ValidateExecutionCreationSubmitResult"
+    ],
+    "src/app/components/lawyer/ExecutionCreationView/types.ts": [
+      "ExecutionPartyMultiplicity",
+      "PartyEntityKind"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/communicationsTab/CommunicationAwaitingResultCard.tsx": [
+      "CommunicationAwaitingResultCardProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/communicationsTab/CommunicationAwaitingResultFlows.tsx": [
+      "CommunicationAwaitingSubStepBackButton"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/communicationsTab/CommunicationCreateForm.tsx": [
+      "CommunicationCreateFormProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/CreditorPartyCardCollapsed.tsx": [
+      "CreditorPartyCardCollapsedProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/CreditorPartyCardExpanded.tsx": [
+      "CreditorPartyCardExpandedProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/custodyRemoval/WardDeliveryRow.tsx": [
+      "WardDeliveryRowProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/debtorCardRow/DebtorCardRowInlineStatusChips.tsx": [
+      "DebtorCardRowInlineStatusChipsProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/debtorCardRow/DebtorCardRowNameHeading.tsx": [
+      "DebtorCardRowNameHeadingProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/DebtorCardRowCollapsed.tsx": [
+      "DebtorCardRowCollapsedProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/DebtorCardRowExpanded.tsx": [
+      "DebtorCardRowExpandedProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/DebtorCardRowExpandedDetails.tsx": [
+      "DebtorCardRowExpandedDetailsProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/DebtorsSection.types.ts": [
+      "EmployeeAssignmentState",
+      "PublicationNoticeState"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/DossierControlsTab.tsx": [
+      "DossierControlsTabProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/DossierExecutorDecisionStrip.tsx": [
+      "DossierExecutorDecisionStripProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/DossierLifecyclePanel.tsx": [
+      "DossierLifecyclePanelProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/DossierMetaEditSectionFields.tsx": [
+      "DOSSIER_META_FIELD_CLASS",
+      "DOSSIER_META_LABEL_CLASS",
+      "parseDossierMetaFileRef"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/EncroachmentRemovalRequestCards.types.ts": [
+      "EncroachmentRemovalCardsVariant"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/evictionProcedures/renderEvictionProcedurePanel.tsx": [
+      "RenderEvictionProcedurePanelInput"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionActiveTaskCard.tsx": [
+      "ExecutionActiveTaskCardProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionAppointmentModal.tsx": [
+      "ExecutionAppointmentModalProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardHandlerClusterGroups.tsx": [
+      "ExecutionDashboardCoerciveHandlerClusterGroupProps",
+      "ExecutionDashboardFollowupHandlerClusterGroupProps",
+      "ExecutionDashboardSeizureHandlerClusterGroupProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardHeavyModals.tsx": [
+      "ExecutionDashboardHeavyModalsProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/executionDashboardPhoneBodyBridges.ts": [
+      "FallbackDossierMetaDraft",
+      "PhoneBodyCommitBridge",
+      "PhoneBodyEditPartyFallbackTarget",
+      "PhoneBodyEditPartyKind",
+      "PhoneBodyModalFlagKey",
+      "PhoneBodyModalSetterKey",
+      "PhoneBodyReadScope",
+      "PhoneBodyScheduleBridge",
+      "PhoneBodyScopeRecord"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodyDeferredScope.ts": [
+      "ExecutionPhoneBodyDeferredViewData",
+      "ExecutionStatusMetadata",
+      "FinancialStatusBadge",
+      "GenericHandler",
+      "JudicialCustodianRow",
+      "ThirdPartyDraftMap"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodyDossierChrome.tsx": [
+      "ExecutionDashboardPhoneBodyDossierChromeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodyHeader.tsx": [
+      "ExecutionDashboardPhoneBodyHeaderProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodyTertiaryHubs.tsx": [
+      "ExecutionDashboardPhoneBodyTertiaryHubsProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodyTertiaryPanels.tsx": [
+      "TertiaryPanelsCtx",
+      "TertiaryPanelsSaveSeizedMovable"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardShellOverlays.tsx": [
+      "ExecutionDashboardShellOverlaysProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDebtorNotificationMemoModalContainer.tsx": [
+      "ExecutionDebtorNotificationMemoModalContainerProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDecisionsModalContainer.tsx": [
+      "ExecutionDecisionsModalContainerProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDoneTasksPanel.tsx": [
+      "ExecutionDoneTasksPanelProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDossierHeaderNavButtons.tsx": [
+      "ExecutionDossierHeaderNavButtonsProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/executionFinancialHub/ExecutionFinancialHubPortalProps.ts": [
+      "ExecutionFinancialHubFundsLedgerPayment",
+      "ExecutionFinancialHubToastOptions"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionFinancialLedgerPortalContainer.tsx": [
+      "ExecutionFinancialLedgerPortalContainerProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionFullTimelineModalContainer.tsx": [
+      "ExecutionFullTimelineModalContainerProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionHeirsNotificationModalContainer.tsx": [
+      "ExecutionHeirsNotificationModalContainerProps",
+      "HeirWorkflowRowState"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionHeirsQuickViewModal.tsx": [
+      "HeirsQuickViewRow"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion.tsx": [
+      "ExecutionInlineStepStatus"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionNotesModalHeader.tsx": [
+      "ExecutionNotesModalHeaderProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionPartyCardFrame.tsx": [
+      "ExecutionPartyCardFrameProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionPauseResumeOverlay.tsx": [
+      "ExecutionPauseResumeOverlayProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionPaymentModalContainer.tsx": [
+      "ExecutionPaymentModalContainerProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionPinnedNotesTray.tsx": [
+      "ExecutionPinnedNotesTrayProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionSeizedAssetsModalContainer.tsx": [
+      "ExecutionSeizedAssetsModalContainerProps",
+      "ModalSeizedAssetsManagerLikeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionTaskComposerForm.tsx": [
+      "ExecutionTaskComposerFormProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionTimelineFilterBar.tsx": [
+      "ExecutionTimelineFilterBarProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionTransferFileNumberModal.tsx": [
+      "ExecutionTransferFileNumberModalProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutorDecisionFollowupMirrorViews.tsx": [
+      "ExecutorDecisionFollowupMirrorViewsProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/FinancialLedgerAmountRow.tsx": [
+      "FinancialLedgerAmountRowProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/FinancialTab.tsx": [
+      "FinancialTabProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/FollowupFlowBackButton.tsx": [
+      "FollowupFlowBackButtonProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/FollowupProcedureCard.tsx": [
+      "FollowupProcedureCardProps",
+      "FollowupProcedureConfirmOpts"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/guarantorAnchoredPopover.tsx": [
+      "useAnchoredRect"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/GuarantorCollapsedSummary.tsx": [
+      "CollapsedSummaryCell"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/GuarantorExternalHub.tsx": [
+      "GuarantorExternalHubProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/GuarantorFollowupStandaloneCard.tsx": [
+      "GuarantorFollowupCardToolbar",
+      "GuarantorFollowupCardToolbarProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/GuarantorOverflowMenu.tsx": [
+      "GuarantorMenuItem"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/GuarantorWorkspaceWrapper.tsx": [
+      "GuarantorWorkspaceWrapperProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/HiddenBreakInventoryRequestOptions.tsx": [
+      "HiddenBreakInventoryRequestOptionsProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils.ts": [
+      "HiddenRequestStatus",
+      "ResolvedHiddenGuarantorRequest",
+      "ResolvedHiddenPersonalRequest"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/InlineActionGate.tsx": [
+      "InlineActionGateMode",
+      "InlineActionGateProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/LawReferencePanel.tsx": [
+      "LawReferencePanelProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/LegalEntitySoftProceduresSection.tsx": [
+      "LegalEntitySoftProceduresSectionProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/maritalFurniture/MaritalFurnitureDeliveryRowActions.tsx": [
+      "MaritalFurnitureDeliveryRowActionsProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/maritalFurniture/MaritalFurnitureDeliveryTable.tsx": [
+      "MaritalFurnitureDeliveryTableProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/maritalFurniture/MaritalFurnitureLauncherCard.tsx": [
+      "MaritalFurnitureLauncherCardProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/maritalFurniture/MaritalFurnitureSchedulePanel.tsx": [
+      "MaritalFurnitureSchedulePanelProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/maritalFurniture/MaritalFurnitureTotalsFooter.tsx": [
+      "MaritalFurnitureTotalsFooterProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/maritalFurniture/MaritalFurnitureWorkspaceBody.tsx": [
+      "MaritalFurnitureWorkspaceBodyProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/maritalFurniture/MaritalFurnitureWorkspaceSheet.tsx": [
+      "MaritalFurnitureWorkspaceSheetProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/MovableSeizureInitInlineCard.tsx": [
+      "MovableSeizureInitInlineCardProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/MovableSeizureInlineSections.tsx": [
+      "MovableSeizureInlineSectionsProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/OtherPartyTab.tsx": [
+      "OtherPartyTabProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/PermanentDeleteConfirmDialog.tsx": [
+      "PermanentDeleteConfirmDialogProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/PersonalTab.tsx": [
+      "PersonalTabProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/PropertySeizureInlineSections.tsx": [
+      "PropertySeizureInlineSectionsProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/RequestLifecycleBadge.tsx": [
+      "RequestLifecycleBadgeProps",
+      "RequestLifecyclePanelProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/RequestsTab.tsx": [
+      "RequestsTabProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/RequestsTabDecisionLog.tsx": [
+      "RequestsTabDecisionLogProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/seizedAssetWorkflow/useSeizedAssetWorkflowPanelState.tsx": [
+      "SeizedAssetWorkflowPanelState"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/seizedMovableWorkflow/useSeizedMovableWorkflowPanelState.tsx": [
+      "SeizedMovableWorkflowPanelState"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/seizedPropertyWorkflow/useSeizedPropertyWorkflowPanelState.tsx": [
+      "SeizedPropertyWorkflowPanelState"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/seizureInlineSections/SeizureInlineLateSections.tsx": [
+      "SeizureInlineLateSectionsProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/seizureRequestsTabDecisionSteps.tsx": [
+      "SeizureDecisionInlineActions"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/SpecificDeliveryMovableValuationExpertPanel.tsx": [
+      "SpecificDeliveryMovableValuationExpertPanelProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/SpecificDeliveryNatureSetupCard.tsx": [
+      "SpecificDeliveryNatureSetupCardProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/SpecificDeliveryPropertyExpertRequestCard.tsx": [
+      "SpecificDeliveryPropertyExpertRequestCardProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/TaskStepDisplayRow.tsx": [
+      "TaskStepView"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/TimelineEditModal.tsx": [
+      "TimelineEditModalProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/UnifiedSeizureLogHost.tsx": [
+      "UnifiedSeizureLogHostProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/UnifiedSummonsModalContainer.types.ts": [
+      "ActiveDebtorNoticeScopeLike",
+      "NotifyOptions",
+      "SummonsMainTab",
+      "SummonsMarkerLike"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/VisitationCalendarPanel.tsx": [
+      "VisitationCalendarPanelProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/visitationSchedule/AppointmentBlock.tsx": [
+      "AppointmentBlockProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/visitationSchedule/VisitationLauncherCard.tsx": [
+      "VisitationLauncherCardProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/components/visitationSchedule/VisitationWorkspaceSheet.tsx": [
+      "VisitationWorkspaceSheetProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/executionDashboardHandlerClusterBridgeLazy.tsx": [
+      "prefetchExecutionHandlerClusterCoerciveActionHandlersBridge",
+      "prefetchExecutionHandlerClusterCoerciveEvictionBridge",
+      "prefetchExecutionHandlerClusterCoerciveLifecycleBridge",
+      "prefetchExecutionHandlerClusterCoerciveOpsBridge",
+      "prefetchExecutionHandlerClusterCoerciveSupportBridge",
+      "prefetchExecutionHandlerClusterSeizureLogAssetModalBridge",
+      "prefetchExecutionHandlerClusterSeizureLogResolutionBridge"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/executionDashboardImportedHelpersChunkScope.ts": [
+      "EXECUTION_DASHBOARD_IMPORTED_HELPERS_CHUNK_SCOPE"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch.ts": [
+      "prefetchExecutionSeizureLogOverlay"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/executionDashboardRuntimeChunkScope.ts": [
+      "EXECUTION_DASHBOARD_RUNTIME_CHUNK_SCOPE"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/executionDashboardStaticChunkScope.ts": [
+      "EXECUTION_DASHBOARD_STATIC_CHUNK_SCOPE"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/executionDashboardUiChunkScope.ts": [
+      "EXECUTION_DASHBOARD_UI_CHUNK_SCOPE"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/executionFollowupTabPrefetch.ts": [
+      "ExecutionFollowupTabPrefetchId",
+      "isExecutionFollowupTabPrefetchId"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/executionModalMobileShell.ts": [
+      "EXEC_MODAL_DOSSIER_META_PANEL_CLASS"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/followupSnapshotFieldKeys.ts": [
+      "ExecutionFollowupSnapshotFieldKey"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/helpers/applyDebtorCardRowNoticeBadgePriority.ts": [
+      "DebtorCardRowNoticeBadgePriorityInput",
+      "DebtorCardRowNoticeBadgePriorityResult"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/helpers/communicationResultValidation.ts": [
+      "CommunicationResultValidation"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/helpers/dossierMetaValidation.ts": [
+      "DossierMetaValidationDraft",
+      "DossierMetaValidationResult"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/helpers/executionAgentPrivilege.ts": [
+      "CreditorAgentOnlyPersistKey"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/helpers/executionPersistPatchSanitizer.ts": [
+      "ExecutionPersistPatchSanitizeResult"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/helpers/heirUtils.ts": [
+      "heirRowCompletenessScore"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/helpers/partyEditDisplayOverlay.ts": [
+      "PartyEditDisplayKind",
+      "PartyEditDisplayOverlay",
+      "applyPartyEditDisplayOverlayToParty",
+      "partyEditSurfaceSelector"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/helpers/partyEditValidation.ts": [
+      "PartyEditValidationDraft",
+      "PartyEditValidationResult"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/helpers/seizureRegistryBridge.ts": [
+      "inferPropertyGenderFromType"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/buildExecutionPhoneBodyProps.ts": [
+      "ExecutionPhoneBodySources"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/buildFollowupModalSnapshotInput.ts": [
+      "FollowupModalSnapshotSources"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardChunkScope.tsx": [
+      "ExecutionDashboardChunkScopeRef"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/assembleFollowupDebtorPipelineReturn.ts": [
+      "AssembleFollowupDebtorPipelineReturnInput"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoreAssemblyHandlers.ts": [
+      "BuildExecutionDashboardCoreAssemblyHandlersInput"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoreScopeLocalBundles.ts": [
+      "ExecutionDashboardCoreScopeLocalBundlesInput"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardModalScope.ts": [
+      "ExecutionModalSetters"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildFollowupModalTabsFromFlags.ts": [
+      "BuildFollowupModalTabsInput",
+      "BuildFollowupSectionTabOrderInput"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardAuctionSessionResult.ts": [
+      "SaveSeizedPropertyAuctionSessionResultDeps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardBaseScopeCache.ts": [
+      "prefetchExecutionDashboardBaseScopeBuilder"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardBreakInventorySave.ts": [
+      "BreakInventoryStorageDeps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveActionRouting.ts": [
+      "CoerciveActionRouteResult",
+      "actionTypeToSeizureSubtype"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveActionTypes.ts": [
+      "SeizedAssetDetailsBag"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveUi.ts": [
+      "BuildExecutionCoerciveUiFlagsInput",
+      "ExecutionCoerciveUiFlags"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardDebtorEmploymentToggle.ts": [
+      "RunDebtorEmploymentToggleParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardDossierBootSync.ts": [
+      "ExecutionFileLocalHydratePatch",
+      "subDossierOpenedThreadKey"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardEmployeeAssignmentSync.ts": [
+      "InvestigationMergeResult"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardFollowupSeizureInits.ts": [
+      "FollowupSeizureInitDeps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterCoerciveActionHandlersBridge.tsx": [
+      "ExecutionDashboardHandlerClusterCoerciveActionHandlersBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterCoerciveEvictionBridge.tsx": [
+      "ExecutionDashboardHandlerClusterCoerciveEvictionBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterCoerciveLifecycleBridge.tsx": [
+      "ExecutionDashboardHandlerClusterCoerciveLifecycleBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterCoerciveOpsBridge.tsx": [
+      "ExecutionDashboardHandlerClusterCoerciveOpsBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterCoerciveSupportBridge.tsx": [
+      "ExecutionDashboardHandlerClusterCoerciveSupportBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterDossierSupportBridge.tsx": [
+      "ExecutionDashboardHandlerClusterDossierSupportBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterEmployeeAssignmentBridge.tsx": [
+      "ExecutionDashboardHandlerClusterEmployeeAssignmentBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterFollowupAdminSpecialBridge.tsx": [
+      "ExecutionDashboardHandlerClusterFollowupAdminSpecialBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterFollowupDossierControlsBridge.tsx": [
+      "ExecutionDashboardHandlerClusterFollowupDossierControlsBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterFollowupOtherPartyBridge.tsx": [
+      "ExecutionDashboardHandlerClusterFollowupOtherPartyBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterFollowupOtherPartyDebtorBridge.tsx": [
+      "ExecutionDashboardHandlerClusterFollowupOtherPartyDebtorBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterLightBridge.tsx": [
+      "ExecutionDashboardHandlerClusterLightBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterPartyDeathBridge.tsx": [
+      "ExecutionDashboardHandlerClusterPartyDeathBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterPaymentBridge.tsx": [
+      "ExecutionDashboardHandlerClusterPaymentBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterPublicationNoticeBridge.tsx": [
+      "ExecutionDashboardHandlerClusterPublicationNoticeBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureHeavyBridge.tsx": [
+      "ExecutionDashboardHandlerClusterSeizureHeavyBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogAssetModalBridge.tsx": [
+      "ExecutionDashboardHandlerClusterSeizureLogAssetModalBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogResolutionBridge.tsx": [
+      "ExecutionDashboardHandlerClusterSeizureLogResolutionBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterThirdPartySeizureBridge.tsx": [
+      "ExecutionDashboardHandlerClusterThirdPartySeizureBridgeProps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardHeirsAndDeceasedSync.ts": [
+      "HeirWorkflowRow"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardPersonalCoerciveDecisionSync.ts": [
+      "FORCED_BRING_MEMO_TITLE_MARKER"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSeizureRequestSubmit.ts": [
+      "SeizureRequestSubmitDeps",
+      "SubmitMovableSeizureRequestParams",
+      "SubmitPropertySeizureRequestParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSeizureRowPatch.ts": [
+      "CreatePatchSeizedRowAndTimelineDeps",
+      "SeizureAssetRowReleasePatch"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardStandaloneMarkSave.ts": [
+      "RunSaveStandaloneExecutionMarkParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardThirdPartyReceive.ts": [
+      "ThirdPartyReceiveValidation"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardThirdPartySeizureSave.ts": [
+      "RunSaveThirdPartySeizureParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardTimelineAndGraceSync.ts": [
+      "TimelineDedupePersistPlan",
+      "scopeTimelineEventsForActiveDossier"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionScopeLazySyncDelta.ts": [
+      "EXECUTION_LAZY_SYNC_CRITICAL_HANDLER_KEYS",
+      "EXECUTION_LAZY_SYNC_STABLE_UI_MODULE_KEYS",
+      "isPlainComparableObject"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/handlerClusterPublishUtils.ts": [
+      "handlerClusterPatchMeaningfullyChanged"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/persistExecutionDashboardSnapshot.ts": [
+      "ExecutionDashboardPersistSnapshot"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/resolveExecutionStubHandlerPrefetchModes.ts": [
+      "ExecutionCoreHandlerPrefetchMode"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardAppointmentHandlers.ts": [
+      "UseExecutionDashboardAppointmentHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardBreakInventoryHandlers.ts": [
+      "UseExecutionDashboardBreakInventoryHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoerciveActionBridge.ts": [
+      "UseExecutionDashboardCoerciveActionBridgeParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoerciveActionHandlers.ts": [
+      "UseExecutionDashboardCoerciveActionHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoerciveUiState.ts": [
+      "ExecutionDashboardCoerciveUiState",
+      "UseExecutionDashboardCoerciveUiStateParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreClaimGraceEarnerFollowup.ts": [
+      "ExecutionDashboardCoreClaimGraceEarnerFollowupParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreDossierAndResidentSegment.ts": [
+      "ExecutionDashboardCoreDossierAndResidentSegmentParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterRuntime.ts": [
+      "ExecutionDashboardHandlerClusterHeavySpreads"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureCoercive.ts": [
+      "SeizureCoerciveClusterDeps"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreResidentHandlers.ts": [
+      "ExecutionDashboardCoreResidentHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreScopeAndChunk.types.ts": [
+      "BaseScopeBuilderInput"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreScopeRuntimeBindings.ts": [
+      "UseExecutionDashboardCoreScopeRuntimeBindingsParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardDebtorEmploymentHandlers.ts": [
+      "UseExecutionDashboardDebtorEmploymentHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardEmployeeAssignmentCoerciveState.ts": [
+      "UseExecutionDashboardEmployeeAssignmentCoerciveStateParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardEmployeeInvestigationSync.ts": [
+      "UseExecutionDashboardEmployeeInvestigationSyncParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardEvictionFinancialHandlers.ts": [
+      "UseExecutionDashboardEvictionFinancialHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardEvictionHeirsMemoHandlers.ts": [
+      "UseExecutionDashboardEvictionHeirsMemoHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardExecutiveDetentionLifecycle.ts": [
+      "UseExecutionDashboardExecutiveDetentionLifecycleParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardFollowupSeizureHandlers.ts": [
+      "UseExecutionDashboardFollowupSeizureHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardFollowupTabAssembly.ts": [
+      "UseExecutionDashboardFollowupTabAssemblyParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardGraceAndSummoning.ts": [
+      "UseExecutionDashboardGraceAndSummoningParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardGracePeriodEndHandler.ts": [
+      "UseExecutionDashboardGracePeriodEndHandlerParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardHeirsNotificationHandlers.ts": [
+      "UseExecutionDashboardHeirsNotificationHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardJudicialCustodianRemove.ts": [
+      "UseExecutionDashboardJudicialCustodianRemoveParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardLedgerSync.ts": [
+      "UseExecutionDashboardLedgerSyncParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardModuleExpenseHandlers.ts": [
+      "UseExecutionDashboardModuleExpenseHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardMovableInlineSaveContext.ts": [
+      "UseExecutionDashboardMovableInlineSaveContextParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardNotifyDebtorHandler.ts": [
+      "UseExecutionDashboardNotifyDebtorHandlerParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardOtherPartyMirror.ts": [
+      "UseExecutionDashboardOtherPartyMirrorParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardParentDossierPersistence.ts": [
+      "UseExecutionDashboardParentDossierPersistenceParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPartyDeathOpeners.ts": [
+      "UseExecutionDashboardPartyDeathOpenersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPaymentSecondaryHandlers.ts": [
+      "UseExecutionDashboardPaymentSecondaryHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPersistExecutionMerge.ts": [
+      "isDurableCustodyWardPersistPatch",
+      "isDurableFollowupTabPersistPatch",
+      "isDurableImmediateExecutionPersistPatch",
+      "isDurableMaritalFurnitureDeliveryPersistPatch",
+      "isDurablePartyDeathPersistPatch"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPersonalCoerciveDecisionSync.ts": [
+      "UseExecutionDashboardPersonalCoerciveDecisionSyncParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPoliceAssistanceHandlers.ts": [
+      "PendingCaseTask",
+      "RunSavePoliceAssistanceEntryParams",
+      "SavePoliceAssistanceEntryInput",
+      "UseExecutionDashboardPoliceAssistanceHandlersParams",
+      "runSavePoliceAssistanceEntry"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPropertyInlineSaveContext.ts": [
+      "UseExecutionDashboardPropertyInlineSaveContextParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPublicationNoticeHandlers.ts": [
+      "UseExecutionDashboardPublicationNoticeHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardRealEstateSeizureModalHandlers.ts": [
+      "UseExecutionDashboardRealEstateSeizureModalHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSalarySeizurePatch.ts": [
+      "UseExecutionDashboardSalarySeizurePatchParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSalarySeizureTabRows.ts": [
+      "UseExecutionDashboardSalarySeizureTabRowsParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSeizureLedgerOutcomeEffects.ts": [
+      "ExecutionDashboardSeizureLedgerOutcomeEffectsInput"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSeizureReleaseHandlers.ts": [
+      "UseExecutionDashboardSeizureReleaseHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardStandaloneMarkHandlers.ts": [
+      "UseExecutionDashboardStandaloneMarkHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardStayHandlers.ts": [
+      "UseExecutionDashboardStayHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardThirdPartyReceiveHandlers.ts": [
+      "UseExecutionDashboardThirdPartyReceiveHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardThirdPartySeizureHandlers.ts": [
+      "UseExecutionDashboardThirdPartySeizureHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardVoluntaryPeriodHandlers.ts": [
+      "UseExecutionDashboardVoluntaryPeriodHandlersParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useFollowupModalTabGuards.ts": [
+      "UseFollowupModalTabGuardsParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useTimelineAssetsFinancialLedger.ts": [
+      "FinancialLedgerRow"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardEarnerFinancialCoerciveGate.ts": [
+      "EarnerFinancialPersonalCoerciveFlagsInput",
+      "resolveHideExecutiveDetentionJudgeCard"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardLazyChunkScope.ts": [
+      "EXECUTION_DASHBOARD_LAZY_CHUNK_SCOPE"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterGate.ts": [
+      "ExecutionHandlerClusterFollowupMode",
+      "ExecutionHandlerClusterHeavyMode",
+      "ExecutionHandlerClusterSeizureMode",
+      "shouldLoadExecutionHandlerClusterFollowupControlsOtherParty",
+      "shouldPreferLightHandlerClusterOnDossierMount"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterStubs.ts": [
+      "HANDLER_STUB_BRAND",
+      "isExecutionHandlerClusterStub"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionPhoneBodyPropKeys.ts": [
+      "ExecutionPhoneBodyPropKey"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/executionShellOverlayPropKeys.ts": [
+      "EXECUTION_SHELL_OVERLAY_PROP_Key"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/pickExecutionPhoneBodyScopeReadBag.ts": [
+      "ExecutionPhoneBodyScopeReadBag"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/pickSeizedPropertyPortalProps.ts": [
+      "SEIZED_PROPERTY_PORTAL_PROP_KEYS",
+      "SeizedPropertyPortalPropKey"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardLazyChunkSetup.ts": [
+      "ExecutionDashboardLazyChunkSetupInput",
+      "ExecutionDashboardLazyChunkSetupResult",
+      "computeExecutionShellOverlayFingerprint"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardPhoneBodyMountStages.ts": [
+      "ExecutionDashboardPhoneBodyMountFlags"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardPhoneBodyNavigation.ts": [
+      "UseExecutionDashboardPhoneBodyNavigationParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardWindowBridge.ts": [
+      "UseExecutionDecisionOutcomeToastBridgeParams",
+      "UseExecutionOpenCoerciveTabListenerParams",
+      "UseExecutionOpenDecisionsModalListenerParams",
+      "UseExecutionResidentialGraceClearedListenerParams",
+      "useExecutionOpenCoerciveTabListener",
+      "useExecutionOpenDecisionsModalListener"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDecisionsModalController.ts": [
+      "UseExecutionDecisionsModalControllerParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDossierHeaderNavigation.ts": [
+      "UseExecutionDossierHeaderNavigationParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionFollowupController.ts": [
+      "UseExecutionFollowupControllerParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionSummonsHub.ts": [
+      "SummonsHubMainTab",
+      "UseExecutionSummonsHubParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionTrashAndPins.ts": [
+      "UseExecutionTrashAndPinsParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/useFollowupModalPersistNavigation.ts": [
+      "UseFollowupModalPersistNavigationParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/hooks/useUnifiedSeizureLog.ts": [
+      "UseUnifiedSeizureLogInput"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/orchestrators/executionFollowupOrchestratorTypes.ts": [
+      "ExecutionFollowupControllerSlice",
+      "ExecutionFollowupOrchestratorDebtorPipelineSlice",
+      "ExecutionSummonsHubSlice"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/orchestrators/executionOrchestratorTypes.ts": [
+      "ExecutionModalSetter",
+      "ExecutionOrchestratorSlice"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/orchestrators/useExecutionDecisionsOrchestrator.ts": [
+      "UseExecutionDecisionsOrchestratorInput"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/orchestrators/useExecutionDossierLifecycleActionsOrchestrator.ts": [
+      "ExecutionDossierLifecycleActionsCoreInput",
+      "UseExecutionDossierLifecycleActionsOrchestratorParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/orchestrators/useExecutionFinancialOrchestrator.ts": [
+      "UseExecutionFinancialOrchestratorParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/orchestrators/useExecutionFollowupOrchestrator.ts": [
+      "UseExecutionFollowupOrchestratorInput"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/orchestrators/useExecutionSeizureOrchestrator.ts": [
+      "UseExecutionSeizureOrchestratorInput"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/applyDossierSpecialFollowupOutcome.helpers.ts": [
+      "DecisionPayload"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/applyPersonalCoerciveExecutorOutcome.ts": [
+      "buildPersonalCoerciveExecutorTimelinePayload",
+      "dispatchPersonalCoerciveOutcomeEvent",
+      "isPersonalCoerciveDecisionWithdrawn"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/buildUnifiedSeizureLogGuarantorEntries.ts": [
+      "BuildUnifiedSeizureLogGuarantorParams"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/buildUnifiedSeizureLogMovableEntries.ts": [
+      "BuildUnifiedSeizureLogMovableResult"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/buildUnifiedSeizureLogPropertyEntries.ts": [
+      "BuildUnifiedSeizureLogPropertyResult"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/buildUnifiedSeizureLogSalaryEntries.ts": [
+      "BuildUnifiedSeizureLogSalaryResult"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/dossierControlDecisions.ts": [
+      "DOSSIER_ACTION_DECISION_TITLES",
+      "DossierControlWorkflowPhase",
+      "dossierDecisionShowsInlineActions"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/executionDossierBackHandlerRegistry.ts": [
+      "runRegisteredExecutionDossierBackStep"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/executionDossierBackNavigation.ts": [
+      "EXECUTION_DOSSIER_STORE_MODAL_BACK_PRIORITY",
+      "RunExecutionDossierBackStepInput"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/executionDossierNavRegistry.ts": [
+      "ExecutionDossierNavHandlers"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/expertCommitteeUtils.ts": [
+      "ExpertObjectionKind"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/financialHubLedgerOpenHandler.ts": [
+      "FinancialHubLedgerOpenDetail"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/financialHubPortalUtils.ts": [
+      "GhuramaaDistributionArgs",
+      "GhuramaaDistributionDetail"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/followupLegacyTabNormalization.ts": [
+      "isLegacyFollowupModalTab"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/followupModalOpen.ts": [
+      "OpenFollowupModalOptions"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/followupModalPersistUtils.ts": [
+      "FollowupModalPersistState"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/inabaCorrespondenceLog.ts": [
+      "InabaCorrespondenceLogStatus"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/movableSeizureFinancialUtils.ts": [
+      "MovableProceedsTrustCreditResult",
+      "movableProceedsLedgerGapIqd"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/propertySeizureFinancialUtils.ts": [
+      "PropertyProceedsTrustCreditResult",
+      "propertyProceedsLedgerGapIqd",
+      "propertyProceedsTrustPaymentId"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId.ts": [
+      "DecisionsStorageIdContext"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureDisplayUtils.ts": [
+      "SalarySeizureSubjectInfo",
+      "buildSalarySeizureDescriptionLines"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureLedgerSync.ts": [
+      "SalaryDeductionBreakdown",
+      "SalaryDeductionLogRow",
+      "applySalaryMonthlyDeduction",
+      "dispatchSalaryDeductionToFinancialCenter",
+      "findSeizedSalaryAssetByDecisionId",
+      "pickPrimarySalarySeizureForDeduction",
+      "readSalaryDeductionLog"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/seizureSalaryRequestFlow.ts": [
+      "PendingSeizureDraftActionType"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/seizureWorkflowRevertUtils.ts": [
+      "buildMovableWorkflowRevertPatch",
+      "buildPropertyWorkflowRevertPatch"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/thirdPartyFundsReceivedOutcomeUtils.ts": [
+      "ThirdPartyFundsReceivedPayload"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/thirdPartySeizureFinancialUtils.ts": [
+      "thirdPartyFundsTrustPaymentId"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/trustDisbursedOutcomeHandler.ts": [
+      "TrustDisbursedDetail"
+    ],
+    "src/app/components/lawyer/ExecutionDashboard/utils/unifiedSeizureLogFooterNavigation.ts": [
+      "UnifiedSeizureLogFooterActionKind"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/alimonyOngoingAccrual.ts": [
+      "ONGOING_ALIMONY_DAYS_PER_MONTH",
+      "computeOngoingAlimonyDailyRate"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/components/DebtorAgentFinancialHubPanel.tsx": [
+      "DebtorAgentFinancialHubPanelProps"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/components/DebtTotalsEditModal.tsx": [
+      "DebtTotalsEditModalProps"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/components/FocCreditorExpandedBody.tsx": [
+      "FocCreditorExpandedBodyProps"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/components/FocDisburseModal.tsx": [
+      "FocDisburseModalProps"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/components/FocEvictionLedgerBody.tsx": [
+      "FocEvictionLedgerBodyProps"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/components/FocExpenseSheet.tsx": [
+      "FocExpenseSheetProps"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/components/FocFeesSheet.tsx": [
+      "FocFeesSheetEvictionStrip",
+      "FocFeesSheetProps"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/components/FocFundsCardHeader.tsx": [
+      "FocFundsCardHeaderProps"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/components/FocGarnishModal.tsx": [
+      "FocGarnishModalProps"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/components/FocGhuramaaModal.tsx": [
+      "FocGhuramaaModalProps"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/components/ReactiveSettlementEntry.tsx": [
+      "ReactiveSettlementEntryProps"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/components/SettlementBuriedKebab.tsx": [
+      "SettlementBuriedKebabProps"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/components/SettlementRepaymentStrip.tsx": [
+      "SettlementRepaymentStripProps"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/components/SettlementScheduleCard.tsx": [
+      "SettlementScheduleCardProps"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/components/UnifiedLedgerSettlementPanel.tsx": [
+      "UnifiedLedgerSettlementPanelProps"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/constants.ts": [
+      "BTN_FULL_PAY",
+      "BTN_GARNISH"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/focGhuramaaDistribution.ts": [
+      "GhuramaaContext",
+      "GhuramaaCreditorInput",
+      "GhuramaaDistributionRow",
+      "GhuramaaEligibleCreditor",
+      "GhuramaaManualResult"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/focLedgerGuards.ts": [
+      "CollectionVesselMismatchPatch"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/focSettlementRegistration.ts": [
+      "SettlementRegistrationValidation"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/settlementContext.ts": [
+      "SettlementContextInput"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/settlementLifecycle.ts": [
+      "SettlementLifecycleResult"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/settlementUxMatrix.ts": [
+      "SETTLEMENT_UX_BURIED_MAX",
+      "SETTLEMENT_UX_SECONDARY_MAX",
+      "SettlementUxTierOptions"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/unifiedLedgerHydrate.ts": [
+      "UnifiedLedgerHydrateOutcome"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/useFocCollectionActions.ts": [
+      "UseFocCollectionActionsParams",
+      "UseFocCollectionActionsResult"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/useFocLedgerDerived.ts": [
+      "UseFocLedgerDerivedParams",
+      "UseFocLedgerDerivedResult"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/useFocLedgerStore.ts": [
+      "UseFocLedgerExternalCollectSyncParams",
+      "UseFocLedgerStoreParams",
+      "UseFocLedgerStoreResult"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/useFocPaymentDisburseActions.ts": [
+      "FocGhuramaaContext",
+      "FocGhuramaaManualDistribution",
+      "UseFocPaymentDisburseActionsParams",
+      "UseFocPaymentDisburseActionsResult"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/useFocSettlementActions.ts": [
+      "UseFocSettlementActionsParams",
+      "UseFocSettlementActionsResult"
+    ],
+    "src/app/components/lawyer/FinancialOperationsCenter/utils.ts": [
+      "ManualDebtTotalsEditResult",
+      "computeNonPrincipalLedgerComponent",
+      "localYmdToDate"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/components/RecentSearchesPanel.tsx": [
+      "RecentSearchesPanelProps"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/components/ResultRow.tsx": [
+      "ResultRowProps"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/components/ResultsBody.tsx": [
+      "ResultsBodyProps"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/components/SearchIdlePanel.tsx": [
+      "SearchIdlePanelProps"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/components/SearchResultsPanel.tsx": [
+      "SearchResultsPanelProps"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/components/SearchScopeChipList.tsx": [
+      "SearchScopeChipListProps"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayHost.tsx": [
+      "GlobalSearchOverlayHostProps"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayLayerFrame.tsx": [
+      "GlobalSearchOverlayLayerFrameProps"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayResultsRegion.tsx": [
+      "GlobalSearchOverlayResultsRegionProps"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/hooks/GlobalSearchRuntimeProvider.tsx": [
+      "GlobalSearchRuntimeProviderProps"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/hooks/searchIndexBuildExecutor.ts": [
+      "SearchIndexBuildCallbacks",
+      "SearchIndexBuildSnapshot"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/hooks/searchIndexBuildPlan.ts": [
+      "SearchIndexBuildPlan",
+      "SearchIndexPlanInput"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/hooks/useGlobalSearch.ts": [
+      "UseGlobalSearchOptions",
+      "UseGlobalSearchReturn"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/hooks/useSearchExtras.ts": [
+      "UseSearchExtrasOptions",
+      "UseSearchExtrasReturn"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/hooks/useSearchIndex.ts": [
+      "UseSearchIndexOptions",
+      "UseSearchIndexReturn"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/hooks/useSearchQuery.ts": [
+      "UseSearchQueryReturn"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/searchScopes.ts": [
+      "GlobalSearchScopeChip",
+      "resolveSearchScopeCategories"
+    ],
+    "src/app/components/lawyer/GlobalSearchOverlay/utils/searchResultSections.ts": [
+      "SearchResultSection"
+    ],
+    "src/app/components/lawyer/HamiSettings/account/accountLegalContent.ts": [
+      "AccountLegalSection"
+    ],
+    "src/app/components/lawyer/HamiSettings/account/AccountSection.tsx": [
+      "AccountSectionProps"
+    ],
+    "src/app/components/lawyer/HamiSettings/appearance/appearanceChapters.ts": [
+      "APPEARANCE_CHAPTER_IDS"
+    ],
+    "src/app/components/lawyer/HamiSettings/appearance/useAppearanceWallpaperControls.ts": [
+      "WallpaperEditorDraft"
+    ],
+    "src/app/components/lawyer/HamiSettings/AsyncSettingToggle.tsx": [
+      "AsyncSettingToggleProps"
+    ],
+    "src/app/components/lawyer/HamiSettings/HamiSettingsHost.tsx": [
+      "HamiSettingsHostProps"
+    ],
+    "src/app/components/lawyer/HamiSettings/hooks/observeSettingsSectionInteractive.ts": [
+      "ObserveSettingsSectionInteractiveInput"
+    ],
+    "src/app/components/lawyer/HamiSettings/security/useSecuritySection.ts": [
+      "SecuritySectionViewModel"
+    ],
+    "src/app/components/lawyer/HamiSettings/settingsEscapeStack.ts": [
+      "SettingsEscapeAction",
+      "SettingsEscapeSnapshot"
+    ],
+    "src/app/components/lawyer/HamiSettings/SettingsSectionRouter.tsx": [
+      "SettingsSectionRouterProps"
+    ],
+    "src/app/components/lawyer/HamiSettings/SettingsShell.tsx": [
+      "SettingsShellProps"
+    ],
+    "src/app/components/lawyer/hooks/smartVault/bootstrap.ts": [
+      "peekBootstrapVaultCache"
+    ],
+    "src/app/components/lawyer/LawyerDashboardParts/cairoFontStyle.ts": [
+      "CAIRO_FONT_STYLE"
+    ],
+    "src/app/components/lawyer/LawyerDashboardParts/components/Header.tsx": [
+      "HeaderProps"
+    ],
+    "src/app/components/lawyer/LawyerDashboardParts/components/HeaderToolbarIcon.tsx": [
+      "HeaderToolbarIconComponent",
+      "HeaderToolbarIconProps"
+    ],
+    "src/app/components/lawyer/LawyerDashboardParts/components/HeaderToolbarNav.tsx": [
+      "HeaderToolbarNavProps"
+    ],
+    "src/app/components/lawyer/LawyerDashboardParts/LawyerLazyFallback.tsx": [
+      "LAWYER_LAZY_FALLBACK"
+    ],
+    "src/app/components/lawyer/LawyerDashboardParts/utils.ts": [
+      "coerceLawsuitStage",
+      "mapFileStatusToCaseStatus"
+    ],
+    "src/app/components/lawyer/LawyerNewCase/clientRepresentation.ts": [
+      "ClientSide"
+    ],
+    "src/app/components/lawyer/LawyerNewCase/components/CaseFieldSelect.tsx": [
+      "CaseFieldSelectProps"
+    ],
+    "src/app/components/lawyer/LawyerNewCase/components/CaseHeader.tsx": [
+      "CaseHeaderProps"
+    ],
+    "src/app/components/lawyer/LawyerNewCase/components/CivilNewCaseForm.tsx": [
+      "CivilNewCaseFormProps"
+    ],
+    "src/app/components/lawyer/LawyerNewCase/components/JurisdictionGlassPanel.tsx": [
+      "JurisdictionGlassPanelProps"
+    ],
+    "src/app/components/lawyer/LawyerNewCase/components/SaveButton.tsx": [
+      "SaveButtonProps"
+    ],
+    "src/app/components/lawyer/LawyerNewCase/components/ThirdPartiesSection.tsx": [
+      "ThirdPartiesSectionProps"
+    ],
+    "src/app/components/lawyer/LawyerNewCase/performLawyerNewCaseSave.ts": [
+      "LawyerNewCaseSaveArgs"
+    ],
+    "src/app/components/lawyer/LawyerNewCase/validation.ts": [
+      "UnderlyingStage",
+      "ValidationResult"
+    ],
+    "src/app/components/lawyer/lawyerShared/lawsuitVisualLite.ts": [
+      "LV_BLUR_SM",
+      "LV_GOLD_FOCUS",
+      "LV_OVERLAY_SCRIM",
+      "LV_SURFACE"
+    ],
+    "src/app/components/lawyer/Modal_Unified_Summons_Hub/summonsHubActiveLocks.ts": [
+      "SummonsHubActiveSnapshot",
+      "SummonsHubKind"
+    ],
+    "src/app/components/lawyer/Modal_Unified_Summons_Hub/SummonsHubGuarantorPanel.tsx": [
+      "SummonsHubGuarantorPanelProps"
+    ],
+    "src/app/components/lawyer/Modal_Unified_Summons_Hub/SummonsHubHeader.tsx": [
+      "SummonsHubHeaderProps"
+    ],
+    "src/app/components/lawyer/Modal_Unified_Summons_Hub/SummonsHubKindSelect.tsx": [
+      "SummonsHubKindSelectProps"
+    ],
+    "src/app/components/lawyer/Modal_Unified_Summons_Hub/SummonsHubNashrPanel.tsx": [
+      "SummonsHubNashrPanelProps"
+    ],
+    "src/app/components/lawyer/Modal_Unified_Summons_Hub/summonsHubStyles.ts": [
+      "HUB_BTN_AMBER",
+      "HUB_BTN_EMERALD",
+      "HUB_BTN_GHOST",
+      "HUB_BTN_GHOST_EMERALD",
+      "HUB_BTN_GHOST_ROSE",
+      "HUB_BTN_ROSE",
+      "HUB_BTN_VIOLET",
+      "HUB_GLASS_INFO_CYAN",
+      "HUB_GLASS_INPUT"
+    ],
+    "src/app/components/lawyer/Modal_Unified_Summons_Hub/summonsHubSubmitHandlers.ts": [
+      "BuildHubTabOptionsArgs",
+      "HandleDebtorSubmitArgs",
+      "HandleTaklifConfirmArgs",
+      "MarkExecutionSummonsArchivedArgs",
+      "SubmitExecutionSummonsDateArgs",
+      "SubmitGuarantorNoticeArgs"
+    ],
+    "src/app/components/lawyer/Modal_Unified_Summons_Hub/SummonsHubTablighPanel.tsx": [
+      "SummonsHubTablighPanelProps"
+    ],
+    "src/app/components/lawyer/Modal_Unified_Summons_Hub/SummonsHubTaklifPanel.tsx": [
+      "SummonsHubTaklifPanelProps"
+    ],
+    "src/app/components/lawyer/Modal_Unified_Summons_Hub/useUnifiedSummonsHubEffects.ts": [
+      "UnifiedSummonsHubEffectsArgs"
+    ],
+    "src/app/components/lawyer/NeuralAlertsCard/alertCardUtils.ts": [
+      "UrgencyTone",
+      "parseAlertDate"
+    ],
+    "src/app/components/lawyer/NeuralAlertsCard/alertContactUtils.ts": [
+      "buildTelUrl"
+    ],
+    "src/app/components/lawyer/NotificationPanel/components/IncomingNotificationPopups.tsx": [
+      "IncomingNotificationPopupsProps"
+    ],
+    "src/app/components/lawyer/NotificationPanel/constants.ts": [
+      "CategoryThemeKey"
+    ],
+    "src/app/components/lawyer/NotificationPanel/notificationEscapeStack.ts": [
+      "NotificationEscapeAction",
+      "NotificationEscapeSnapshot"
+    ],
+    "src/app/components/lawyer/NotificationPanel/NotificationPanelHost.tsx": [
+      "NotificationPanelHostProps"
+    ],
+    "src/app/components/lawyer/NotificationPanel/NotificationShell.tsx": [
+      "NotificationShellProps"
+    ],
+    "src/app/components/lawyer/RoyalLawyerProfile/components/ProfileHeroIdentityZone.tsx": [
+      "ProfileHeroIdentityZoneProps"
+    ],
+    "src/app/components/lawyer/RoyalLawyerProfile/hooks/normalizeLoadedProfile.ts": [
+      "initWarmCachedProfilePeek"
+    ],
+    "src/app/components/lawyer/RoyalLawyerProfile/utils/profilePointerDrag.ts": [
+      "isCoarsePointerType"
+    ],
+    "src/app/components/lawyer/smart-modal/AppealTransitionModal.types.ts": [
+      "AppealTransitionMode"
+    ],
+    "src/app/components/lawyer/smart-modal/AppealTransitionModalAppealTypeSection.tsx": [
+      "AppealTransitionModalAppealTypeSectionProps"
+    ],
+    "src/app/components/lawyer/smart-modal/AppealTransitionModalBody.tsx": [
+      "AppealTransitionModalBodyProps"
+    ],
+    "src/app/components/lawyer/smart-modal/AppealTransitionModalFilingFields.tsx": [
+      "AppealTransitionModalFilingFieldsProps"
+    ],
+    "src/app/components/lawyer/smart-modal/AppealTransitionModalFooter.tsx": [
+      "AppealTransitionModalFooterProps"
+    ],
+    "src/app/components/lawyer/smart-modal/AppealTransitionModalHeader.tsx": [
+      "AppealTransitionModalHeaderProps"
+    ],
+    "src/app/components/lawyer/smart-modal/AppealTransitionModalHint.tsx": [
+      "AppealTransitionModalHintProps"
+    ],
+    "src/app/components/lawyer/smart-modal/AppealTransitionModalPartyPickers.tsx": [
+      "AppealTransitionModalPartyPickersProps"
+    ],
+    "src/app/components/lawyer/smart-modal/layout/mainPanel/buildSmartFileMainPanelFooterPanels.tsx": [
+      "SmartFileMainPanelFooterPanels",
+      "SmartFileMainPanelFooterPanelsInput"
+    ],
+    "src/app/components/lawyer/smart-modal/layout/mainPanel/resolveSmartFileMainPanelFooterFlags.ts": [
+      "SmartFileMainPanelFooterFlagsInput"
+    ],
+    "src/app/components/lawyer/smart-modal/layout/mainPanel/SmartFileAppealDeadlineBanner.tsx": [
+      "SmartFileAppealDeadlineBannerProps"
+    ],
+    "src/app/components/lawyer/smart-modal/layout/mainPanel/SmartFileCaseLinksSection.tsx": [
+      "SmartFileCaseLinksSectionProps"
+    ],
+    "src/app/components/lawyer/smart-modal/layout/mainPanel/SmartFileIncidentalCasesSection.tsx": [
+      "SmartFileIncidentalCasesSectionProps"
+    ],
+    "src/app/components/lawyer/smart-modal/layout/mainPanel/SmartFileMainHeaderSection.tsx": [
+      "SmartFileMainHeaderSectionProps"
+    ],
+    "src/app/components/lawyer/smart-modal/layout/mainPanel/SmartFileStageFooterBar.tsx": [
+      "SmartFileStageFooterBarProps"
+    ],
+    "src/app/components/lawyer/smart-modal/layout/mainPanel/SmartFileStatusBanners.tsx": [
+      "SmartFileStatusBannersProps"
+    ],
+    "src/app/components/lawyer/smart-modal/layout/mainPanel/SmartFileTimelineSection.tsx": [
+      "SmartFileTimelineSectionProps"
+    ],
+    "src/app/components/lawyer/smart-modal/layout/mainPanel/SmartFileWorkflowHubsSection.tsx": [
+      "SmartFileWorkflowHubsSectionProps"
+    ],
+    "src/app/components/lawyer/smart-modal/modals/contentEntry/AddDocumentModalEntryForm.tsx": [
+      "AddDocumentModalEntryFormProps"
+    ],
+    "src/app/components/lawyer/smart-modal/modals/contentEntry/AddDocumentModalSavedActions.tsx": [
+      "AddDocumentModalSavedActionsProps"
+    ],
+    "src/app/components/lawyer/smart-modal/modals/editCaseInfoHelpers.ts": [
+      "createEditCaseParty"
+    ],
+    "src/app/components/lawyer/smart-modal/modals/editCaseInfoPartyLogic.ts": [
+      "applyEditCasePartyFieldUpdate",
+      "buildEditCaseSavePayload",
+      "createEditCaseBlankParty"
+    ],
+    "src/app/components/lawyer/smart-modal/modals/flow-modals/NextHearingResumeModal.tsx": [
+      "NextHearingResumeModalProps"
+    ],
+    "src/app/components/lawyer/smart-modal/parts/CivilLawReferenceHub.tsx": [
+      "CivilLawReferenceHubProps"
+    ],
+    "src/app/components/lawyer/smart-modal/parts/CivilLawReferencePanel.tsx": [
+      "CivilLawReferencePanelProps"
+    ],
+    "src/app/components/lawyer/smart-modal/parts/judgment/JudgmentAbsentRoleActions.tsx": [
+      "JudgmentAbsentRoleActionsProps"
+    ],
+    "src/app/components/lawyer/smart-modal/parts/judgment/JudgmentAppealStageActions.tsx": [
+      "JudgmentAppealStageActionsProps"
+    ],
+    "src/app/components/lawyer/smart-modal/parts/judgment/JudgmentCassationStageActions.tsx": [
+      "JudgmentCassationStageActionsProps"
+    ],
+    "src/app/components/lawyer/smart-modal/parts/judgment/JudgmentCorrectionStageActions.tsx": [
+      "JudgmentCorrectionStageActionsProps"
+    ],
+    "src/app/components/lawyer/smart-modal/parts/judgment/JudgmentFirstInstanceHadoriActions.tsx": [
+      "JudgmentFirstInstanceHadoriActionsProps"
+    ],
+    "src/app/components/lawyer/smart-modal/parts/judgment/JudgmentOutcomeActions.tsx": [
+      "JudgmentOutcomeActionsProps"
+    ],
+    "src/app/components/lawyer/smart-modal/parts/ReadOnlySessionPanel.tsx": [
+      "ReadOnlySessionPanelProps"
+    ],
+    "src/app/components/lawyer/smart-modal/parts/SessionRecordForm.tsx": [
+      "SessionRecordFormProps"
+    ],
+    "src/app/components/lawyer/smart-modal/parts/SmartRequestsList.tsx": [
+      "SmartRequestsListProps"
+    ],
+    "src/app/components/lawyer/smart-modal/parts/SmartRequestsPanel.tsx": [
+      "SmartRequestsPanelProps"
+    ],
+    "src/app/components/lawyer/smart-modal/parts/smartRequestsPanelTheme.ts": [
+      "SmartRequestsVisualFlags"
+    ],
+    "src/app/components/lawyer/smart-modal/parts/SmartRequestsTemplatesSection.tsx": [
+      "SmartRequestsTemplatesProps"
+    ],
+    "src/app/components/lawyer/smart-modal/smart-header/HeaderPartiesStrip.tsx": [
+      "HeaderPartiesStripProps"
+    ],
+    "src/app/components/lawyer/smart-modal/smart-header/SmartHeaderThirdPartyCases.tsx": [
+      "SmartHeaderEntryDecisionActions"
+    ],
+    "src/app/components/lawyer/smart-modal/smartFile/caseConsolidationHelpers.ts": [
+      "LitigationDegree"
+    ],
+    "src/app/components/lawyer/smart-modal/smartFile/ManualClassificationPicker.tsx": [
+      "ManualClassificationPickerProps"
+    ],
+    "src/app/components/lawyer/smart-modal/smartFile/modalFormTypes.ts": [
+      "EditDataProps",
+      "ModalShellProps",
+      "ResumeInterruptionModalProps"
+    ],
+    "src/app/components/lawyer/smart-modal/smartFile/requestsHubEngine.ts": [
+      "RequestKind"
+    ],
+    "src/app/components/lawyer/smart-modal/smartFile/timelineEventVisualPalettes.ts": [
+      "GLASS_CARD_BASE",
+      "ICON_WRAP_BASE",
+      "PAL_PEARL",
+      "PEARL_CARD_BASE",
+      "PEARL_ICON_WRAP_BASE",
+      "PaletteSpec",
+      "activeTimelineTheme",
+      "pearlPalette"
+    ],
+    "src/app/components/lawyer/SmartLegalRadar/calendarFocusIds.ts": [
+      "UNIFIED_CALENDAR_EVENT_PREFIX"
+    ],
+    "src/app/components/lawyer/SmartLegalRadar/radarCalendarMath.ts": [
+      "clampYmdToMonth",
+      "shiftRadarMonth"
+    ],
+    "src/app/components/lawyer/SmartRepository/hooks/repositoryChromeDismiss.ts": [
+      "RepositoryChromeDismisser"
+    ],
+    "src/app/components/lawyer/SmartRepository/hooks/repositoryComposeSaveRules.ts": [
+      "ComposeSaveBlockReason"
+    ],
+    "src/app/components/lawyer/SmartRepository/repositoryFeedLayout.ts": [
+      "REPOSITORY_FEED_LAYOUT_DEFAULT",
+      "RepositoryCardVariant"
+    ],
+    "src/app/components/lawyer/SmartRepository/smartRepositoryTheme.ts": [
+      "REPO_SURFACE_BASE"
+    ],
+    "src/app/components/lawyer/SmartRepository/SmartRepositoryUnifiedFeed.tsx": [
+      "SmartRepositoryUnifiedFeedProps"
+    ],
+    "src/app/components/lawyer/SmartTimelineRadar.tsx": [
+      "SmartTimelineRadarProps"
+    ],
+    "src/app/components/lawyer/SmartVaultModal/scannerCamera.ts": [
+      "SCANNER_JPEG_QUALITY",
+      "ScannerVideoMetrics",
+      "clampScannerCaptureSize"
+    ],
+    "src/app/components/lawyer/SmartVaultModal/useSmartVaultScanner.ts": [
+      "ScanPhase"
+    ],
+    "src/app/components/lawyer/SmartVaultModal/VaultDocEditSheet.tsx": [
+      "VaultDocEditValues"
+    ],
+    "src/app/components/lawyer/SmartVaultModal/vaultDustyRoseTheme.ts": [
+      "VAULT_ACTION_CELL",
+      "VAULT_ACTION_STRIP",
+      "VAULT_BODY",
+      "VAULT_BTN_GHOST",
+      "VAULT_BTN_IVORY",
+      "VAULT_BTN_ROSE",
+      "VAULT_BTN_VIEW",
+      "VAULT_CARD",
+      "VAULT_COPPER",
+      "VAULT_COPPER_DIVIDER",
+      "VAULT_HEADER",
+      "VAULT_NAVY",
+      "VAULT_NAVY_MID",
+      "VAULT_OVERLAY",
+      "VAULT_PANEL",
+      "VAULT_SECTION",
+      "VAULT_TRAVERTINE",
+      "VAULT_TRAVERTINE_MUTED"
+    ],
+    "src/app/components/lawyer/SmartVaultModal/VaultModalRootContext.tsx": [
+      "useVaultModalRoot"
+    ],
+    "src/app/components/lawyer/SmartVaultModal/VaultSearchFilterHub.tsx": [
+      "VaultSearchFilterHubProps"
+    ],
+    "src/app/components/lawyer/SmartVaultModal/VaultUploadMetaSheet.tsx": [
+      "VaultUploadMeta"
+    ],
+    "src/app/components/SettingsScreens.tsx": [
+      "MainSettingsScreen"
+    ],
+    "src/app/components/shared/ZoomableContainer.tsx": [
+      "ZoomableContainerProps"
+    ],
+    "src/app/components/SharedComponents.tsx": [
+      "COLORS",
+      "InputField"
+    ],
+    "src/app/components/ui/dialog.tsx": [
+      "DialogClose",
+      "DialogOverlay",
+      "DialogTrigger"
+    ],
+    "src/app/components/ui/dropdown-menu.tsx": [
+      "DropdownMenuCheckboxItem",
+      "DropdownMenuGroup",
+      "DropdownMenuPortal",
+      "DropdownMenuRadioGroup",
+      "DropdownMenuRadioItem",
+      "DropdownMenuShortcut",
+      "DropdownMenuSub",
+      "DropdownMenuSubContent",
+      "DropdownMenuSubTrigger"
+    ],
+    "src/app/components/ui/HamiDateInput.tsx": [
+      "HamiDateInputProps",
+      "dmyToIsoYmd",
+      "isoYmdToDmy"
+    ],
+    "src/app/components/ui/icons/Circle.ts": [
+      "Circle"
+    ],
+    "src/app/components/ui/icons/Cpu.ts": [
+      "Cpu"
+    ],
+    "src/app/components/ui/icons/Gauge.ts": [
+      "Gauge"
+    ],
+    "src/app/components/ui/icons/SearchX.ts": [
+      "SearchX"
+    ],
+    "src/app/components/ui/icons/UserCircle.ts": [
+      "UserCircle"
+    ],
+    "src/app/components/ui/LoadingStates.tsx": [
+      "LoadingOverlayProps",
+      "LoadingSkeletonProps",
+      "LoadingSpinnerProps"
+    ],
+    "src/app/components/ui/Skeleton.tsx": [
+      "CardSkeleton",
+      "FileListSkeleton",
+      "FormSkeleton",
+      "FullPageLoading",
+      "TableSkeleton",
+      "TimelineSkeleton"
+    ],
+    "src/app/components/ui/smartDialogBus.ts": [
+      "DialogEvent"
+    ],
+    "src/app/components/ui/smartToastBus.ts": [
+      "ToastType",
+      "emitSmartToast"
+    ],
+    "src/app/constants/iraqiLawBundleRegistry.ts": [
+      "IRAQI_LAW_BUNDLE_FILE_SUFFIX",
+      "bundleFileNameForLawName",
+      "resolveLawBundleSlug"
+    ],
+    "src/app/constants/iraqiLawCatalog.ts": [
+      "CIVIL_LAW_NAME_TO_CODE_TYPE"
+    ],
+    "src/app/constants/legal.ts": [
+      "APPEAL_OUTCOMES",
+      "CASE_STAGES",
+      "CASE_STATUS",
+      "COURT_TYPES",
+      "DOCUMENT_CATEGORIES",
+      "EXECUTION_ARTICLES",
+      "INCIDENTAL_TYPES",
+      "INTERRUPTION_REASONS",
+      "JUDGMENT_TYPES",
+      "NOTIFICATION_TYPES",
+      "PAUSE_REASONS",
+      "PRIORITY_LEVELS",
+      "isValidPartyRole"
+    ],
+    "src/app/constants/personalStatusLawCatalog.ts": [
+      "PERSONAL_STATUS_LAW_NAME_TO_CODE"
+    ],
+    "src/app/context/AppContext.tsx": [
+      "ShellThemeConfig"
+    ],
+    "src/app/context/authBoot.ts": [
+      "AuthBootState"
+    ],
+    "src/app/context/AuthContext.tsx": [
+      "ProtectedRoute"
+    ],
+    "src/app/context/authProviderRuntime.ts": [
+      "AuthProviderRuntimeBindings",
+      "AuthRegisterLawyerInput"
+    ],
+    "src/app/domain/admin/AdminUser.ts": [
+      "ADMIN_USER_ROLES"
+    ],
+    "src/app/domain/execution/dossier/ExecutionDossierScope.ts": [
+      "ResolveParentDossierState"
+    ],
+    "src/app/domain/execution/imprisonment/imprisonmentEngine.ts": [
+      "ImprisonmentCalculationInput",
+      "ImprisonmentCalculationResult"
+    ],
+    "src/app/domain/execution/otherParty/creditorOtherPartyMirrorVisibility.ts": [
+      "isCreditorOtherPartyOptionLiveNow",
+      "isForcedBringMirrorSettled"
+    ],
+    "src/app/domain/execution/summons/summoningImmunityEngine.ts": [
+      "EmploymentTypeSummoning",
+      "MonetaryClaimNature",
+      "SummoningBadge",
+      "SummoningBadgeId",
+      "SummoningImmunityInput"
+    ],
+    "src/app/domain/seizure/seizureBasicRequestService.ts": [
+      "findPendingSeizureDecisionBySubtype",
+      "resolveSeizureDossierId"
+    ],
+    "src/app/domain/seizure/seizureInlineFocusSession.ts": [
+      "SeizureInlineFocusSessionEntry"
+    ],
+    "src/app/domain/seizure/seizureOutcomeFocus.ts": [
+      "inferSeizureAssetKindFromSubtype",
+      "resolveInlineFocusAfterApproval"
+    ],
+    "src/app/domain/seizure/seizureOutcomeRouter.ts": [
+      "SeizureOutcomeFocusDispatch",
+      "dispatchGuarantorSeizureInlineFocus"
+    ],
+    "src/app/domain/seizure/seizureSimpleKindPlugins.ts": [
+      "NOTICE_SIMPLE_PLUGIN",
+      "SALARY_SIMPLE_PLUGIN",
+      "SEIZURE_BASIC_INIT_SUBTYPES",
+      "SEIZURE_SIMPLE_PLUGINS",
+      "SeizureSimpleKindPlugin",
+      "THIRD_PARTY_SIMPLE_PLUGIN",
+      "getSeizureSimplePlugin",
+      "inferSeizureSimpleKindFromSubtype"
+    ],
+    "src/app/domain/seizure/seizureWorkflowEngine.ts": [
+      "SeizureWorkflowEngine",
+      "SeizureWorkflowEngineContext"
+    ],
+    "src/app/domain/seizure/seizureWorkflowLaneSession.ts": [
+      "SeizureWorkflowStep2Lane"
+    ],
+    "src/app/domain/seizure/seizureWorkflowMovableAdapter.ts": [
+      "MovableWorkflowHistoryLine",
+      "filterRelevantPendingMovableDecisions",
+      "findApprovedUnsavedMovableDecision",
+      "findConflictingPendingMovableSubtype",
+      "isStaleMovableInitSeizureDecision",
+      "listPendingMovableSeizureDecisions",
+      "movableConflictingSubtypeLabelAr",
+      "movableSeizureRequestBody",
+      "normalizeMovableSeizureStatus"
+    ],
+    "src/app/domain/seizure/seizureWorkflowOptimisticPendingSession.ts": [
+      "SeizureWorkflowOptimisticPendingMap"
+    ],
+    "src/app/domain/seizure/seizureWorkflowPropertyAdapter.ts": [
+      "PropertyWorkflowHistoryLine",
+      "isStalePropertyInitSeizureDecision",
+      "listPendingPropertySeizureDecisions"
+    ],
+    "src/app/domain/seizure/seizureWorkflowTypes.ts": [
+      "SEIZURE_WORKFLOW_STEP_COUNT",
+      "SEIZURE_WORKFLOW_STEP_TITLES",
+      "SeizureWorkflowStepIndex"
+    ],
+    "src/app/domain/seizure/useSeizureAssetWorkflowPanelCore.ts": [
+      "SeizureAssetWorkflowPanelCoreInput"
+    ],
+    "src/app/hooks/lawsuitNewCaseSave.ts": [
+      "LawsuitNewCaseSaveArgs"
+    ],
+    "src/app/hooks/lawyerDashboard/assembleLawyerDashboardReadyView.ts": [
+      "AssembleLawyerDashboardReadyViewParams"
+    ],
+    "src/app/hooks/lawyerDashboard/buildLawyerDashboardShellProps.ts": [
+      "BuildLawyerDashboardShellPropsParams"
+    ],
+    "src/app/hooks/lawyerDashboard/buildLawyerDashboardTabBundle.ts": [
+      "LawyerDashboardTabBundleParams"
+    ],
+    "src/app/hooks/lawyerDashboard/buildLawyerDashboardUltraMinimalHomeFirstPaintModel.ts": [
+      "LawyerDashboardUltraMinimalHomeFirstPaintModel"
+    ],
+    "src/app/hooks/lawyerDashboard/community/communityShellOpenFlow.ts": [
+      "CommitCommunityCloseParams",
+      "CommitCommunityOpenParams"
+    ],
+    "src/app/hooks/lawyerDashboard/dashboardOverlayCoordinator.ts": [
+      "shouldEvictProfileTabOnDismiss"
+    ],
+    "src/app/hooks/lawyerDashboard/dashboardShellFingerprintCache.ts": [
+      "getCachedDashboardShellFingerprint"
+    ],
+    "src/app/hooks/lawyerDashboard/fieldTasks/fieldTasksShellOpenFlow.ts": [
+      "CommitFieldTasksSheetOpenParams",
+      "CommitTasksManagerOpenParams"
+    ],
+    "src/app/hooks/lawyerDashboard/globalSearch/globalSearchShellOpenFlow.ts": [
+      "CommitGlobalSearchShellOpenParams"
+    ],
+    "src/app/hooks/lawyerDashboard/headerShellIntentWarm.ts": [
+      "HeaderShellWarmPhase"
+    ],
+    "src/app/hooks/lawyerDashboard/homeIntentWarm.ts": [
+      "warmHomeHubRadarFromSession",
+      "warmHomeOnHover"
+    ],
+    "src/app/hooks/lawyerDashboard/lawyerDashboardHeaderIntentBridge.ts": [
+      "LawyerDashboardHeaderIntent"
+    ],
+    "src/app/hooks/lawyerDashboard/lawyerDashboardIntentPrefetch.ts": [
+      "prefetchLawyerDashboardCriticalShell",
+      "prefetchProductivityIntent"
+    ],
+    "src/app/hooks/lawyerDashboard/lawyerDashboardNav.ts": [
+      "CriminalReturnTarget",
+      "LAWYER_NOTIFICATIONS_OPEN_KEY",
+      "LAWYER_TASKS_HELP_INBOX_KEY",
+      "LawyerFieldTasksSurface",
+      "LawyerRepositorySessionTab",
+      "persistTasksHelpInboxIntent",
+      "requestOpenTasksHelpInbox"
+    ],
+    "src/app/hooks/lawyerDashboard/lawyerDashboardReturnHome.ts": [
+      "ReturnToLawyerHomeParams"
+    ],
+    "src/app/hooks/lawyerDashboard/notepadIntentWarm.ts": [
+      "warmNotepadOnOpen"
+    ],
+    "src/app/hooks/lawyerDashboard/notifications/notificationShellOpenFlow.ts": [
+      "CommitNotificationShellOpenParams"
+    ],
+    "src/app/hooks/lawyerDashboard/observeGlobalSearchOverlayInteractive.ts": [
+      "ObserveGlobalSearchOverlayInteractiveInput"
+    ],
+    "src/app/hooks/lawyerDashboard/observeNotificationPanelInteractive.ts": [
+      "ObserveNotificationPanelInteractiveInput"
+    ],
+    "src/app/hooks/lawyerDashboard/patchLawyerDashboardHeaderOverlayOpen.ts": [
+      "LawyerDashboardHeaderOverlayPatchInput"
+    ],
+    "src/app/hooks/lawyerDashboard/pickLawyerDashboardWorkspaceOverlayBundles.ts": [
+      "pickLawyerDashboardArchiveBundle",
+      "pickLawyerDashboardExecutionCreateBundle",
+      "pickLawyerDashboardNewCaseBundle",
+      "pickLawyerDashboardNotepadBundle"
+    ],
+    "src/app/hooks/lawyerDashboard/profile/profileShellCloseFlow.ts": [
+      "CommitProfileCloseParams"
+    ],
+    "src/app/hooks/lawyerDashboard/profile/profileShellOpenFlow.ts": [
+      "CommitProfileOpenParams"
+    ],
+    "src/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow.ts": [
+      "CommitRepositoryCloseParams",
+      "CommitRepositoryOpenParams",
+      "OpenRepositoryShellOptions"
+    ],
+    "src/app/hooks/lawyerDashboard/repositoryIntentWarm.ts": [
+      "RepositoryWarmTab"
+    ],
+    "src/app/hooks/lawyerDashboard/schedule/scheduleShellOpenFlow.ts": [
+      "CommitScheduleTabCloseParams",
+      "CommitScheduleTabOpenParams"
+    ],
+    "src/app/hooks/lawyerDashboard/settings/settingsShellOpenFlow.ts": [
+      "CommitSettingsShellOpenParams"
+    ],
+    "src/app/hooks/lawyerDashboard/useLawyerDashboardAuth.tsx": [
+      "UseLawyerDashboardAuthParams"
+    ],
+    "src/app/hooks/lawyerDashboard/useLawyerDashboardCalendarClusterLite.ts": [
+      "UseLawyerDashboardCalendarClusterLiteParams"
+    ],
+    "src/app/hooks/lawyerDashboard/useLawyerDashboardCommunity.ts": [
+      "UseLawyerDashboardCommunityParams"
+    ],
+    "src/app/hooks/lawyerDashboard/useLawyerDashboardFieldTasks.ts": [
+      "UseLawyerDashboardFieldTasksParams"
+    ],
+    "src/app/hooks/lawyerDashboard/useLawyerDashboardGlobalSearch.ts": [
+      "SetShowGlobalSearch",
+      "UseLawyerDashboardGlobalSearchParams"
+    ],
+    "src/app/hooks/lawyerDashboard/useLawyerDashboardProfileTab.ts": [
+      "UseLawyerDashboardProfileTabParams"
+    ],
+    "src/app/hooks/lawyerDashboard/useLawyerDashboardRepository.ts": [
+      "UseLawyerDashboardRepositoryParams"
+    ],
+    "src/app/hooks/lawyerDashboard/useLawyerDashboardScheduleTab.ts": [
+      "UseLawyerDashboardScheduleTabParams"
+    ],
+    "src/app/hooks/lawyerDashboard/useLawyerDashboardTransactions.ts": [
+      "UseLawyerDashboardTransactionsParams"
+    ],
+    "src/app/hooks/lawyerDashboard/useLawyerDashboardWorkspace.ts": [
+      "UseLawyerDashboardWorkspaceParams"
+    ],
+    "src/app/hooks/lawyerDashboard/useLawyerExecutionOverlayEscape.ts": [
+      "UseLawyerExecutionOverlayEscapeParams",
+      "resolveExecutionOverlayBackAction"
+    ],
+    "src/app/hooks/useAutoSave.ts": [
+      "usePreventUnsavedChanges"
+    ],
+    "src/app/hooks/useAutoSync.ts": [
+      "useRestoreFromBackup"
+    ],
+    "src/app/hooks/useCloudSync.ts": [
+      "CloudSyncOptions",
+      "CloudSyncState"
+    ],
+    "src/app/hooks/useDecisionDispatcher.ts": [
+      "ALTERNATIVE_LEGAL_ACTION_LABELS",
+      "AlternativeLegalActionId",
+      "DecisionRowInput",
+      "ExecutorResolutionKind"
+    ],
+    "src/app/hooks/useForumUnreadCount.ts": [
+      "ForumUnreadCountState"
+    ],
+    "src/app/hooks/useHasActiveExecutionAppeals.ts": [
+      "ExecutionAppealBannerState",
+      "decisionsRowsHaveActiveAppealPhase",
+      "executionAppealBannerLabel"
+    ],
+    "src/app/hooks/useIncomingCaseShares.ts": [
+      "UseIncomingCaseSharesOptions"
+    ],
+    "src/app/hooks/useIncrementalCalendarSync.ts": [
+      "bumpDossierCalendarSync"
+    ],
+    "src/app/hooks/useLawsuitActiveDossier.ts": [
+      "UseLawsuitActiveDossierOptions"
+    ],
+    "src/app/hooks/useLawsuitNewCaseFlow.ts": [
+      "UseLawsuitNewCaseFlowOptions"
+    ],
+    "src/app/hooks/useLawyerDashboardGlobalSearchNav.ts": [
+      "UseLawyerDashboardGlobalSearchNavParams"
+    ],
+    "src/app/hooks/useLawyerDashboardOverlays.ts": [
+      "UseLawyerDashboardOverlaysParams"
+    ],
+    "src/app/hooks/useLawyerExecutionFiles.ts": [
+      "UseLawyerExecutionFilesParams"
+    ],
+    "src/app/hooks/useLawyerGlobalNotes.ts": [
+      "UseLawyerGlobalNotesParams"
+    ],
+    "src/app/hooks/useLawyerProfileHeader.ts": [
+      "LawyerProfileHeaderState"
+    ],
+    "src/app/hooks/useQuantumTasks.ts": [
+      "AddTaskOptions",
+      "UseQuantumTasksOptions"
+    ],
+    "src/app/hooks/useQuantumTasksContext.ts": [
+      "useQuantumPendingSnapshot",
+      "useQuantumTasksSnapshot"
+    ],
+    "src/app/hooks/useRealtime.ts": [
+      "UseRealtimeOptions",
+      "UseRealtimeState"
+    ],
+    "src/app/hooks/useSheetSwipeDismiss.ts": [
+      "SheetSwipeDismissOptions"
+    ],
+    "src/app/hooks/useStandardSubmit.ts": [
+      "StandardSubmitShowToast",
+      "UseStandardSubmitParams"
+    ],
+    "src/app/infrastructure/execution/ExecutionDossierRepository.ts": [
+      "writeExecutionDossierByIdToCache",
+      "writeInabaExecutionDossierToCache"
+    ],
+    "src/app/infrastructure/persistence/caseStorePersist.ts": [
+      "CasePersistSlice"
+    ],
+    "src/app/infrastructure/persistence/executionDashboardStorePersist.ts": [
+      "ExecutionDashboardPersistSlice"
+    ],
+    "src/app/infrastructure/persistence/storageDomains.ts": [
+      "CRIMINAL_CASE_SHARD_PREFIX"
+    ],
+    "src/app/infrastructure/persistence/workspaceStorePersist.ts": [
+      "WorkspacePersistSlice"
+    ],
+    "src/app/infrastructure/persistence/zustandPersistFoundation.ts": [
+      "FoundationPersistMeta"
+    ],
+    "src/app/modules/transactionsThreading/transactionsThreadingStoreRuntime.ts": [
+      "TransactionsThreadingStoreSlice"
+    ],
+    "src/app/observability/bootFailureBlackBox.ts": [
+      "BOOT_FAILURE_KEY",
+      "BootFailureRecord",
+      "readBootFailureRecord"
+    ],
+    "src/app/observability/sentryClient.ts": [
+      "resetSentryClientForTests",
+      "sentryMetricDistribution"
+    ],
+    "src/app/runtime/appRuntimeShellLoader.ts": [
+      "prefetchAppRuntimeShellModule",
+      "resetAppRuntimeShellModuleCacheForTests"
+    ],
+    "src/app/runtime/backgroundInterval.ts": [
+      "BackgroundIntervalOptions"
+    ],
+    "src/app/runtime/biometricNative.ts": [
+      "BIOMETRIC_PLUGIN_NAME"
+    ],
+    "src/app/runtime/commandHubTilesLoader.ts": [
+      "resetCommandHubTilesCache"
+    ],
+    "src/app/runtime/communityHubLoader.ts": [
+      "CommunityScreenComponent",
+      "getCachedCommunityScreen"
+    ],
+    "src/app/runtime/communityOverlayEntryLoader.ts": [
+      "resetCommunityOverlayEntryCacheForTests"
+    ],
+    "src/app/runtime/dashboardSurfaceWarm.ts": [
+      "DashboardSurfaceWarmHandle"
+    ],
+    "src/app/runtime/deferredFeatureStyles.ts": [
+      "resetDeferredFeatureStylesForTests"
+    ],
+    "src/app/runtime/deferredShellPrefetch.ts": [
+      "markLawyerShellPrefetchCompleted"
+    ],
+    "src/app/runtime/executionCreationLoader.ts": [
+      "ExecutionCreationViewComponent",
+      "getCachedExecutionCreationView",
+      "loadExecutionCreationPortalModule",
+      "loadExecutionCreationViewModule",
+      "prefetchExecutionCreationPortalModule",
+      "resetExecutionCreationViewLoaderForTests"
+    ],
+    "src/app/runtime/executionDashboardLoader.ts": [
+      "ExecutionDashboardPrefetchOptions"
+    ],
+    "src/app/runtime/executionWorkspaceWarm.ts": [
+      "ExecutionWorkspaceWarmOptions"
+    ],
+    "src/app/runtime/fieldTasksBootHydrator.ts": [
+      "resetFieldTasksBootHydratorForTests"
+    ],
+    "src/app/runtime/fieldTasksHubLoader.ts": [
+      "TasksManagerOverlayComponent",
+      "isTasksManagerModuleResolved",
+      "resetFieldTasksHubModuleCacheForTests"
+    ],
+    "src/app/runtime/fieldTasksInstantPaint.ts": [
+      "FIELD_TASKS_CLOSE_SUPPRESS_MS"
+    ],
+    "src/app/runtime/forumOpenIntent.ts": [
+      "FORUM_OPEN_POST_SESSION_KEY",
+      "HAMI_OPEN_FORUM_EVENT"
+    ],
+    "src/app/runtime/framePacingGuard.ts": [
+      "getFramePacingLastInteractionAt",
+      "isFramePacingLoopRunning"
+    ],
+    "src/app/runtime/globalSearchInstantPaint.ts": [
+      "GLOBAL_SEARCH_DISMISS_UNLOCK_FALLBACK_MS",
+      "removeGlobalSearchInstantBridge"
+    ],
+    "src/app/runtime/globalSearchLoader.ts": [
+      "resetGlobalSearchOverlayModuleCacheForTests"
+    ],
+    "src/app/runtime/homeWidgetStagePolicy.ts": [
+      "HomeWidgetStageDelay",
+      "HomeWidgetStageDelays"
+    ],
+    "src/app/runtime/hubArchiveLoader.ts": [
+      "resetArchivePortalModuleCacheForTests",
+      "subscribeExecutionFileGridReady"
+    ],
+    "src/app/runtime/lawsuitWorkspaceWarm.ts": [
+      "LawsuitWorkspaceWarmOptions"
+    ],
+    "src/app/runtime/lawyerDashboardFirstTabWarm.ts": [
+      "resetLawyerDashboardFirstTabWarmForTests"
+    ],
+    "src/app/runtime/lawyerDashboardGateLoader.ts": [
+      "prefetchLawyerDashboardGateModule",
+      "resetLawyerDashboardGateModuleCacheForTests"
+    ],
+    "src/app/runtime/lawyerNewCaseLoader.ts": [
+      "LawyerNewCaseComponent",
+      "resetLawyerNewCaseModuleCacheForTests"
+    ],
+    "src/app/runtime/lawyerNewCasePendingJurisdiction.ts": [
+      "subscribeLawyerNewCaseJurisdiction"
+    ],
+    "src/app/runtime/localNotificationsNative.ts": [
+      "LOCAL_NOTIFICATIONS_PLUGIN_NAME"
+    ],
+    "src/app/runtime/mobileRenderCore.ts": [
+      "PassiveTouchType",
+      "markGpuHot",
+      "scheduleAnimationFrame"
+    ],
+    "src/app/runtime/mobileRuntimePolicy.ts": [
+      "getAlertsBackgroundDeferMs"
+    ],
+    "src/app/runtime/nativeBiometricBridge.ts": [
+      "NativeBiometricProbe",
+      "isNativeBiometricPluginAvailable",
+      "prepareNativeBiometricPrompt"
+    ],
+    "src/app/runtime/nativeBiometricLifecycle.ts": [
+      "NativeBiometryAvailabilityListener"
+    ],
+    "src/app/runtime/nativeBootSplash.ts": [
+      "NATIVE_BOOT_READY_FAILED_EVENT"
+    ],
+    "src/app/runtime/nativeBootTelemetry.ts": [
+      "NativeBootTelemetryReport",
+      "isNativeBootTelemetryTarget"
+    ],
+    "src/app/runtime/nativeCapacitorPluginRegistry.ts": [
+      "loadPrivacyScreenPlugin",
+      "resetNativeCapacitorPluginRegistryForTests"
+    ],
+    "src/app/runtime/nativeNotificationSheetBridge.ts": [
+      "handleNativeNotificationSheetTap"
+    ],
+    "src/app/runtime/notificationInstantPaintDom.ts": [
+      "resolveNotificationLayer"
+    ],
+    "src/app/runtime/notificationPanelLoader.ts": [
+      "resetNotificationPanelModuleCacheForTests"
+    ],
+    "src/app/runtime/notificationShellLoader.ts": [
+      "NotificationShellComponent",
+      "isNotificationShellModuleResolved",
+      "resetNotificationShellLoaderForTests"
+    ],
+    "src/app/runtime/overlayController.ts": [
+      "OverlayThemeChromeConfig"
+    ],
+    "src/app/runtime/overlayEnterSettle.ts": [
+      "OVERLAY_ENTER_SETTLE_MAX_FRAMES"
+    ],
+    "src/app/runtime/overlayHubLayerMotion.ts": [
+      "resolveHubMotionLayer",
+      "shouldSkipHubLayerMotion"
+    ],
+    "src/app/runtime/overlayLayerHygiene.ts": [
+      "sweepWarmOverlayLayersClosed"
+    ],
+    "src/app/runtime/overlaySnapClose.ts": [
+      "OverlaySnapCloseSteps"
+    ],
+    "src/app/runtime/prefetchScheduler.ts": [
+      "PrefetchJob"
+    ],
+    "src/app/runtime/primeCriminalDossierForOpen.ts": [
+      "injectCaseIntoStore"
+    ],
+    "src/app/runtime/privacyScreenNative.ts": [
+      "probePrivacyScreenPlugin"
+    ],
+    "src/app/runtime/profileInstantPaint.ts": [
+      "PROFILE_BACK_UNLOCK_FALLBACK_MS"
+    ],
+    "src/app/runtime/profileSettingsSheetLoader.ts": [
+      "resetProfileSettingsSheetLoaderForTests"
+    ],
+    "src/app/runtime/profileSettingsStudioTabsLoader.ts": [
+      "ProfileSettingsAppearanceTabComponent",
+      "ProfileSettingsContainersTabComponent",
+      "ProfileStudioChunk",
+      "ProfileStudioMainTab"
+    ],
+    "src/app/runtime/profileShellPrime.ts": [
+      "ProfilePrimeTier",
+      "primeProfileShell"
+    ],
+    "src/app/runtime/repositoryHubLoader.ts": [
+      "loadRepositoryHubModule"
+    ],
+    "src/app/runtime/runtimePhase.ts": [
+      "RuntimePhase",
+      "isBackgroundPhase"
+    ],
+    "src/app/runtime/sameOriginApiProbe.ts": [
+      "SameOriginApiState",
+      "isSameOriginApiAvailable",
+      "whenSameOriginApiReady"
+    ],
+    "src/app/runtime/settingsBootHydrator.ts": [
+      "prefetchSettingsAfterBootReveal"
+    ],
+    "src/app/runtime/settingsInstantPaint.ts": [
+      "ConcealSettingsWarmShellOptions"
+    ],
+    "src/app/runtime/settingsOverlayEntryLoader.ts": [
+      "isSettingsOverlayEntryResolved",
+      "resetSettingsOverlayEntryCacheForTests"
+    ],
+    "src/app/runtime/smartFileBootHydrator.ts": [
+      "prefetchSmartFileChromeWarm"
+    ],
+    "src/app/runtime/smartFileModalLoader.ts": [
+      "resetSmartFileModalModuleCache"
+    ],
+    "src/app/runtime/smartFileOverlayEntryLoader.ts": [
+      "isSmartFileOverlayEntryResolved",
+      "resetSmartFileOverlayEntryCacheForTests"
+    ],
+    "src/app/security/jwtFields.ts": [
+      "JwtSessionFields"
+    ],
+    "src/app/services/admin/adminVerifyClient.ts": [
+      "HeadquartersAdminVerifyResult"
+    ],
+    "src/app/services/alertDisplayMeta.ts": [
+      "AlertDisplayMeta",
+      "buildCourtSubtitle",
+      "sectionMetaForTarget"
+    ],
+    "src/app/services/alertDossierRegistry.ts": [
+      "isActiveCriminalCase",
+      "isActiveUrgentCaseRecord"
+    ],
+    "src/app/services/alertFutureGate.ts": [
+      "compareYmd",
+      "isFutureDueIso"
+    ],
+    "src/app/services/alertMappers.ts": [
+      "HEADER_BADGE_MAX_PRIORITY",
+      "countHighPriorityAlerts",
+      "isHeaderBadgePriority"
+    ],
+    "src/app/services/alertNavigation.ts": [
+      "AlertNavigationAction",
+      "AlertNavigationContext"
+    ],
+    "src/app/services/alertRichContext.ts": [
+      "formatAlertSubtitle",
+      "formatAlertTitle",
+      "hasRichAlertMinimumContext",
+      "isSchedulableDossierAlert"
+    ],
+    "src/app/services/alerts/dockAlertsOpen.ts": [
+      "AlertsDockSheetMode",
+      "DockAlertsOpenInput"
+    ],
+    "src/app/services/alerts/homeHubAlertRevision.ts": [
+      "AlertsHubPushSlice"
+    ],
+    "src/app/services/alertTimeClassification.ts": [
+      "daysUntilAlertDue",
+      "hoursUntilAlertDue"
+    ],
+    "src/app/services/appAlertDismiss.ts": [
+      "APP_ALERTS_DISMISSED_KEY"
+    ],
+    "src/app/services/appAlertPushSync.ts": [
+      "ensurePushPermissionForCriticalAlerts"
+    ],
+    "src/app/services/auditLogPublisher.ts": [
+      "AuditLogService"
+    ],
+    "src/app/services/auth/authSessionBroadcast.ts": [
+      "AuthSessionBroadcastMessage"
+    ],
+    "src/app/services/auth/devUnlockSession.ts": [
+      "DEV_UNLOCK_LAWYER_EMAIL",
+      "DEV_UNLOCK_LAWYER_NAME"
+    ],
+    "src/app/services/auth/humanizeAuthError.ts": [
+      "DUPLICATE_SIGNUP_CODE"
+    ],
+    "src/app/services/auth/iraqiLawyerRegistrationCatalog.ts": [
+      "IRAQI_LAWYER_BAR_ROOMS",
+      "IRAQI_PHONE_REGEX",
+      "LawyerBarRoomId"
+    ],
+    "src/app/services/auth/lawyerAccountStatus.ts": [
+      "NetworkAccessDenial"
+    ],
+    "src/app/services/auth/lawyerVerificationRemote.ts": [
+      "SubmitLawyerVerificationInput"
+    ],
+    "src/app/services/auth/lawyerVerificationStore.ts": [
+      "LawyerVerificationRecord",
+      "listLawyerVerificationRecords"
+    ],
+    "src/app/services/auth/legalTermsAcceptance.ts": [
+      "LegalTermsAcceptanceRecord"
+    ],
+    "src/app/services/auth/registrationCredentialsSecurity.ts": [
+      "RegistrationCredentialsInput",
+      "TRUSTED_EMAIL_PROVIDERS"
+    ],
+    "src/app/services/auth/shellAuth.ts": [
+      "SHELL_NON_AUTH_USER_IDS"
+    ],
+    "src/app/services/calendar/bridge/core.ts": [
+      "CALENDAR_DEV_FALLBACK_USER_ID",
+      "getCanonicalCalendarUserId"
+    ],
+    "src/app/services/calendar/calendarDossierSyncState.ts": [
+      "getLastSyncedDossierFingerprint"
+    ],
+    "src/app/services/calendar/calendarEventReminder.ts": [
+      "CALENDAR_REMINDER_FIRE_WINDOW_MS",
+      "isCalendarReminderKeyFired",
+      "rememberCalendarReminderFired"
+    ],
+    "src/app/services/calendar/calendarPerfBudget.ts": [
+      "CalendarPerfBudgetKey"
+    ],
+    "src/app/services/calendar/calendarPerfMetrics.ts": [
+      "CalendarPerfPhase",
+      "reportCalendarPerfIfDev"
+    ],
+    "src/app/services/calendar/calendarReminderAlarmSound.ts": [
+      "PlayHamiLegalReminderAlarmOptions"
+    ],
+    "src/app/services/calendar/calendarSentryReporting.ts": [
+      "CalendarBridgeSyncFailureContext"
+    ],
+    "src/app/services/calendar/dossierSync/auxiliarySync.ts": [
+      "loadTransactionsLocalForCalendar",
+      "syncTransactions"
+    ],
+    "src/app/services/calendar/dossierSync/orchestrator.ts": [
+      "syncDossierFilesIncremental"
+    ],
+    "src/app/services/calendar/dossierSync/shared.ts": [
+      "moduleLabelArSafe"
+    ],
+    "src/app/services/calendar/dossierSync/urgentSync.ts": [
+      "dispatchUrgentActionsChanged",
+      "syncUrgentCases"
+    ],
+    "src/app/services/calendar/legalDeadlineEngine.ts": [
+      "LegalDeadlineCalculation",
+      "LegalDecisionType",
+      "isLegalDecisionType",
+      "resolveLegalDecisionTypeLabel",
+      "resolveLegalDurationDays"
+    ],
+    "src/app/services/calendar/scheduleConflictDetector.ts": [
+      "CalendarLikeEvent",
+      "CrossSectionConflictInput",
+      "SourceCounts",
+      "TravelConflictDetail",
+      "UnifiedScheduleItem"
+    ],
+    "src/app/services/calendarAuthenticity.ts": [
+      "filterAuthenticCalendarEvents"
+    ],
+    "src/app/services/calendarDateSniffer.ts": [
+      "DiscoveredDate",
+      "isSnifferDiscoveredEventId"
+    ],
+    "src/app/services/calendarModuleVisuals.ts": [
+      "CALENDAR_MODULE_VISUAL",
+      "CalendarModuleVisual"
+    ],
+    "src/app/services/caseShare/caseShareAccessControl.ts": [
+      "applyShareListAccessPolicy",
+      "buildPendingRecipientPreview"
+    ],
+    "src/app/services/caseShare/caseShareCriminalOwnershipApi.ts": [
+      "unregisterCriminalCaseOwnershipOnServer"
+    ],
+    "src/app/services/caseShare/caseShareDossierRevocation.ts": [
+      "LAWSUIT_CASE_SHARE_MODULES",
+      "scheduleRevokeCaseSharesForDeletedDossier"
+    ],
+    "src/app/services/caseShare/caseShareMasking.ts": [
+      "renderMaskedCourt",
+      "renderMaskedParty"
+    ],
+    "src/app/services/caseShare/caseShareTypes.ts": [
+      "CaseShareVisibilityMode",
+      "DEFAULT_EXECUTION_CONSULT_VISIBLE_FIELDS",
+      "EXECUTION_CONSULT_SECTION_KEYS",
+      "ShareCatalogItemKind"
+    ],
+    "src/app/services/caseShare/caseShareVisibility.ts": [
+      "countVisibleItems",
+      "toggleSectionMode"
+    ],
+    "src/app/services/cloud/lawyerCloudKv.ts": [
+      "KvLocalOnlyError"
+    ],
+    "src/app/services/cloud/lawyerCommunityCloud.ts": [
+      "markCommunityPostDeleted"
+    ],
+    "src/app/services/cloudSync/cloudSyncStatusDisplay.ts": [
+      "CloudSyncStatusMessage",
+      "CloudSyncStatusMessageInput"
+    ],
+    "src/app/services/cloudSync/cloudSyncStatusStore.ts": [
+      "CloudSyncBucketId",
+      "CloudSyncBucketStatus"
+    ],
+    "src/app/services/cloudSync/runCloudSyncAllNow.ts": [
+      "CloudSyncAllSummary"
+    ],
+    "src/app/services/cloudSyncEngine.ts": [
+      "canRunCloudSync"
+    ],
+    "src/app/services/criminalEmptyPersistAuth.ts": [
+      "isCriminalEmptyPersistAuthorized",
+      "resetCriminalEmptyPersistAuthForTests"
+    ],
+    "src/app/services/dossier-notes/dossierNoteSyncEvents.ts": [
+      "DossierNotesChangedDetail"
+    ],
+    "src/app/services/dossier-notes/dossierNoteTimestamp.ts": [
+      "formatDossierNoteTimestamp"
+    ],
+    "src/app/services/dossier-notes/smartLawArticleResolver.ts": [
+      "resetSmartLawArticleCacheForTests"
+    ],
+    "src/app/services/dossierPersistence/corruptStorageSignal.ts": [
+      "CorruptStoragePhase"
+    ],
+    "src/app/services/dossierPersistence/dossierPersistenceService.ts": [
+      "PersistDossierOptions",
+      "listPendingCloudSyncOps",
+      "persistDossierCollection",
+      "persistDossierCollectionSync"
+    ],
+    "src/app/services/dossierPersistence/protectedBackupService.ts": [
+      "writeProtectedBackupFromRaw"
+    ],
+    "src/app/services/executionAlerts.helpers.ts": [
+      "safeIso"
+    ],
+    "src/app/services/executionCloudPush.ts": [
+      "pushDirtyExecutionFilesToCloud"
+    ],
+    "src/app/services/executionWarmCoordinator.ts": [
+      "getExecutionWarmCoordinatorSnapshot"
+    ],
+    "src/app/services/fieldTasks/fieldTasksPerfMetrics.ts": [
+      "FieldTasksPerfPhase",
+      "reportFieldTasksPerfIfDev"
+    ],
+    "src/app/services/fieldTasks/fieldTasksShellNavigation.ts": [
+      "OpenFieldTasksShellInput"
+    ],
+    "src/app/services/forum/forumApi/forumApiClientCore.ts": [
+      "ForumApiErr"
+    ],
+    "src/app/services/forum/forumAuthorResolver.ts": [
+      "resetForumAuthorResolverCacheForTests"
+    ],
+    "src/app/services/forum/forumGroupMutationGate.ts": [
+      "loadPostWithGroupAccess"
+    ],
+    "src/app/services/forum/forumGroupTypes.ts": [
+      "ForumGroupRole"
+    ],
+    "src/app/services/forum/forumMapper.ts": [
+      "commentRowToCommunity"
+    ],
+    "src/app/services/forum/forumNotificationDispatch.ts": [
+      "dispatchContentMentions"
+    ],
+    "src/app/services/forum/ForumNotificationStreamService.ts": [
+      "ForumStreamPayload"
+    ],
+    "src/app/services/forum/forumNotificationsWarmCache.ts": [
+      "resetForumNotificationsCacheForTests"
+    ],
+    "src/app/services/forum/forumOfficialStats.ts": [
+      "ForumOfficialStats"
+    ],
+    "src/app/services/forum/forumPerfBudget.ts": [
+      "FORUM_PERF_BUDGET",
+      "ForumPerfBudgetKey"
+    ],
+    "src/app/services/forum/forumPerfMetrics.ts": [
+      "ForumPerfPhase",
+      "reportForumPerfIfDev"
+    ],
+    "src/app/services/forum/forumPostCreateGuard.ts": [
+      "mintForumEntityId"
+    ],
+    "src/app/services/forum/forumPostFollowRepository.ts": [
+      "PostSubscription"
+    ],
+    "src/app/services/forum/forumPostPersistActions.ts": [
+      "saveForumPostToNotepad"
+    ],
+    "src/app/services/forum/forumRateLimitServer.ts": [
+      "ForumRateAction"
+    ],
+    "src/app/services/forum/forumRepositoryComments.ts": [
+      "ForumPostReader"
+    ],
+    "src/app/services/forum/forumRepositoryHydration.ts": [
+      "loadCommentsForPosts"
+    ],
+    "src/app/services/forum/forumSentryReporting.ts": [
+      "resetForumSentryModuleForTests"
+    ],
+    "src/app/services/forum/forumShellNavigation.ts": [
+      "OpenLawyerForumInput"
+    ],
+    "src/app/services/forum/forumShellOrchestration.ts": [
+      "CloseOverlaysBeforeForumInput"
+    ],
+    "src/app/services/forum/forumSocialWarmCache.ts": [
+      "ForumFollowerRow",
+      "resetForumSocialCacheForTests"
+    ],
+    "src/app/services/forum/loadForumSupabaseAdmin.ts": [
+      "ForumSupabaseAdmin"
+    ],
+    "src/app/services/forum/repositoryDocsTombstonesLite.ts": [
+      "isRepositoryDocDeleted"
+    ],
+    "src/app/services/forumAttachmentService.ts": [
+      "cacheForumAttachmentFile",
+      "finalizeForumAttachmentForPersist"
+    ],
+    "src/app/services/globalSearchFuse.ts": [
+      "createGlobalSearchFuse"
+    ],
+    "src/app/services/globalSearchWarm.ts": [
+      "isGlobalSearchPipelineWarm"
+    ],
+    "src/app/services/hub/hubShellNavigation.ts": [
+      "OpenHubArchiveShellInput"
+    ],
+    "src/app/services/lawsuitTimelineCalendarMirror.ts": [
+      "LawsuitLegalCalendarSpec"
+    ],
+    "src/app/services/lawyer-cloud.ts": [
+      "addRepositoryDocument",
+      "deleteRepositoryDocument",
+      "getRepositoryDocuments",
+      "updateRepositoryDocument"
+    ],
+    "src/app/services/notes/globalNotesTombstones.ts": [
+      "isGlobalNoteDeleted"
+    ],
+    "src/app/services/notesSyncBridge.ts": [
+      "NotesSyncMap",
+      "emitVaultNotesChanged"
+    ],
+    "src/app/services/notificationMessageFormat.ts": [
+      "buildAuditActivityMessage",
+      "isNoiseDossierLabel",
+      "isTechnicalNotificationToken",
+      "isUuidLike"
+    ],
+    "src/app/services/notifications/auditLogDisabledDomain.ts": [
+      "DisabledAuditHandler"
+    ],
+    "src/app/services/notifications/fcm/fcmServerSend.server.ts": [
+      "FcmInboxPushInput"
+    ],
+    "src/app/services/notifications/fcm/fcmTokenStore.server.ts": [
+      "FcmDeviceToken"
+    ],
+    "src/app/services/notifications/forumNotificationDbResolver.ts": [
+      "resetForumNotificationDbResolverForTests"
+    ],
+    "src/app/services/notifications/hamiFcmBridge.ts": [
+      "resetHamiFcmBridgeForTests"
+    ],
+    "src/app/services/notifications/notificationBackgroundSync.ts": [
+      "RefreshNotificationShellBadgeOptions"
+    ],
+    "src/app/services/notifications/notificationClientAppend.ts": [
+      "ClientAppendInput"
+    ],
+    "src/app/services/notifications/notificationForumBlobOps.ts": [
+      "NOTIFICATION_BLOB_KEY_PREFIX"
+    ],
+    "src/app/services/notifications/notificationInboxSanitize.ts": [
+      "MAX_FCM_TOKEN_LEN",
+      "MAX_NOTIFICATION_DEDUPE_KEY_LEN",
+      "MIN_FCM_TOKEN_LEN"
+    ],
+    "src/app/services/notifications/notificationLegacyMigration.ts": [
+      "LEGACY_ACTIVITY_NOTIFICATION_TYPES",
+      "LegacyActivityNotificationType",
+      "stripLegacyActivityNotifications",
+      "stripNonIncomingNotifications"
+    ],
+    "src/app/services/notifications/notificationNavigateSecurity.ts": [
+      "MAX_PAYLOAD_STRING_LEN",
+      "NOTIFICATION_NAV_TARGETS"
+    ],
+    "src/app/services/notifications/notificationOwnedNavigate.ts": [
+      "NotificationOwnedCaseLite",
+      "NotificationOwnedNavigateInput",
+      "NotificationOwnedNavigateResult"
+    ],
+    "src/app/services/notifications/notificationPerfBudget.ts": [
+      "NotificationPerfBudgetKey"
+    ],
+    "src/app/services/notifications/notificationPerfMetrics.ts": [
+      "NotificationPerfPhase"
+    ],
+    "src/app/services/notifications/notificationReopenGuard.ts": [
+      "NOTIFICATION_REOPEN_SUPPRESS_MS"
+    ],
+    "src/app/services/notifications/notificationSentryReporting.ts": [
+      "resetNotificationsSentryModuleForTests"
+    ],
+    "src/app/services/notifications/notificationShellNavigation.ts": [
+      "OpenNotificationsShellInput"
+    ],
+    "src/app/services/notifications/notificationShellOrchestration.ts": [
+      "CloseOverlaysBeforeNotificationsInput"
+    ],
+    "src/app/services/notifications/notificationShellSnap.ts": [
+      "hasNotificationOverlayHost"
+    ],
+    "src/app/services/notifications/notificationSupabaseInbox.ts": [
+      "ShellNotificationEventType",
+      "ShellNotificationSchemaStatus",
+      "rebuildInboxFromEventsSupabase"
+    ],
+    "src/app/services/notifications/osTap/calendarAlarmPending.ts": [
+      "consumePendingCalendarAlarmEventId"
+    ],
+    "src/app/services/persistenceFailureSignal.ts": [
+      "PersistenceFailureReason"
+    ],
+    "src/app/services/plaintextFallbackSignal.ts": [
+      "__resetPlaintextFallbackSignalForTests"
+    ],
+    "src/app/services/platform/exportTextFile.ts": [
+      "ExportTextFileResult"
+    ],
+    "src/app/services/platform/nativeShare.ts": [
+      "NativeSharePayload",
+      "NativeShareResult"
+    ],
+    "src/app/services/profile/profileCloudLoader.ts": [
+      "resetProfileCloudLoaderForTests"
+    ],
+    "src/app/services/profile/profileContactNavigation.ts": [
+      "ProfileContactOpenResult"
+    ],
+    "src/app/services/profile/profileGalleryItems.ts": [
+      "normalizeProfileGalleryItem"
+    ],
+    "src/app/services/profile/profileGeolocation.ts": [
+      "GeolocationPickResult",
+      "requestCurrentLocationLabel"
+    ],
+    "src/app/services/profile/profileImageEditor.ts": [
+      "ExportProfileBackgroundOptions",
+      "PROFILE_CANVAS_EXPORT_JPEG_QUALITY",
+      "PROFILE_CANVAS_EXPORT_MAX_EDGE",
+      "ProfileBackgroundCropRect"
+    ],
+    "src/app/services/profile/profileLocalKey.ts": [
+      "LAWYER_PROFILE_LOCAL_KEY_PREFIX"
+    ],
+    "src/app/services/profile/profilePerfBudget.ts": [
+      "ProfilePerfBudgetKey"
+    ],
+    "src/app/services/profile/profilePerfMetrics.ts": [
+      "ProfilePerfPhase",
+      "ProfilePerfReportContext",
+      "ProfilePerfSnapshot"
+    ],
+    "src/app/services/profile/profileShareText.ts": [
+      "BuildProfileShareTextInput"
+    ],
+    "src/app/services/profile/profileShellSnap.ts": [
+      "runProfileShellReactSyncNow"
+    ],
+    "src/app/services/profile/profileUrlSanitize.ts": [
+      "MAX_CANVAS_DATA_IMAGE_LEN"
+    ],
+    "src/app/services/profileMediaService.ts": [
+      "ProfileMediaUploadResult"
+    ],
+    "src/app/services/PushNotificationService.ts": [
+      "NotificationAction",
+      "NotificationPermission"
+    ],
+    "src/app/services/RealtimeService.ts": [
+      "RealtimeEventType",
+      "RealtimePayload",
+      "SubscriptionOptions"
+    ],
+    "src/app/services/repository/repositoryDossierNoteSync.ts": [
+      "ParsedDossierNoteId",
+      "patchLawsuitFileNote"
+    ],
+    "src/app/services/repository/repositoryFeedWarmCache.ts": [
+      "RepositoryFeedBuildInput"
+    ],
+    "src/app/services/repository/repositoryPerfBudget.ts": [
+      "RepositoryPerfBudgetKey"
+    ],
+    "src/app/services/repository/repositoryPerfMetrics.ts": [
+      "RepositoryPerfPhase",
+      "reportRepositoryPerfIfDev"
+    ],
+    "src/app/services/repository/repositoryRoomPresentation.ts": [
+      "RepositoryRoomAlphaGroup",
+      "saveRepositoryPinnedRoomIds"
+    ],
+    "src/app/services/repository/repositoryRooms.ts": [
+      "createRepositoryRoomId",
+      "saveRepositoryRooms"
+    ],
+    "src/app/services/repository/repositorySentryReporting.ts": [
+      "resetRepositorySentryModuleForTests"
+    ],
+    "src/app/services/repository/repositoryShellNavigation.ts": [
+      "OpenRepositoryFromShellParams"
+    ],
+    "src/app/services/repository/repositoryUnifiedFeed.ts": [
+      "REPOSITORY_FEED_FILTERS",
+      "filterRepositoryFeedByCustomCategory"
+    ],
+    "src/app/services/schedule/scheduleShellNavigation.ts": [
+      "OpenScheduleShellInput"
+    ],
+    "src/app/services/schedule/scheduleShellSnap.ts": [
+      "runShellReactSyncNow"
+    ],
+    "src/app/services/search/globalSearchHighlightPattern.ts": [
+      "queryHasHighlightableMatch"
+    ],
+    "src/app/services/search/globalSearchIndexWorkerClient.ts": [
+      "isGlobalSearchWorkerAvailable",
+      "terminateGlobalSearchIndexWorker"
+    ],
+    "src/app/services/search/globalSearchNavigateSecurity.ts": [
+      "GLOBAL_SEARCH_NAV_ID_MAX",
+      "GLOBAL_SEARCH_STAGE_INDEX_MAX",
+      "sanitizeSearchCalendarDate",
+      "sanitizeSearchEntityId",
+      "sanitizeSearchStageIndex"
+    ],
+    "src/app/services/search/globalSearchPerfBudget.ts": [
+      "GLOBAL_SEARCH_PERF_BUDGET"
+    ],
+    "src/app/services/search/globalSearchPerfMetrics.ts": [
+      "GlobalSearchPerfPhase"
+    ],
+    "src/app/services/search/globalSearchShellNavigation.ts": [
+      "OpenGlobalSearchShellInput"
+    ],
+    "src/app/services/search/globalSearchShellOrchestration.ts": [
+      "CloseOverlaysBeforeGlobalSearchInput"
+    ],
+    "src/app/services/search/globalSearchShellSnap.ts": [
+      "isGlobalSearchShellSnappedOpen"
+    ],
+    "src/app/services/SecureAPIClient.ts": [
+      "resetAuthPauseForTests"
+    ],
+    "src/app/services/secureStorageKeys.ts": [
+      "ENCRYPTED_EXACT_KEYS",
+      "ENCRYPTED_KEY_PREFIXES",
+      "NEVER_ENCRYPT_KEYS"
+    ],
+    "src/app/services/SecureStoreService.ts": [
+      "StorageEncryptionError"
+    ],
+    "src/app/services/security/biometricSessionService.ts": [
+      "BiometricChannel",
+      "BiometricEnrollOutcome",
+      "BiometricSessionAvailability"
+    ],
+    "src/app/services/settings/applicationWipe.ts": [
+      "ApplicationWipeResult"
+    ],
+    "src/app/services/settings/businessBackupSecurity.ts": [
+      "BackupImportValidation",
+      "BackupPasswordValidation",
+      "MAX_BACKUP_IMPORT_VALUE_CHARS"
+    ],
+    "src/app/services/settings/deleteLawyerAccount.ts": [
+      "DeleteLawyerAccountResult"
+    ],
+    "src/app/services/settings/homeBlockOverrideSync.ts": [
+      "HOME_BLOCK_GLOBAL_APPEARANCE_KEYS",
+      "HomeBlockGlobalAppearanceKey"
+    ],
+    "src/app/services/settings/homeBlockScale.ts": [
+      "hubExecutionTitleRem",
+      "resolveBlockSizeScale"
+    ],
+    "src/app/services/settings/homeDockChromeLayout.ts": [
+      "DockChromeOccupancyInput",
+      "DockChromeZoneVisibility"
+    ],
+    "src/app/services/settings/localOnlyNetworkIsolation.ts": [
+      "setLocalOnlyNetworkFlag"
+    ],
+    "src/app/services/settings/notificationSettings.ts": [
+      "NotificationQuietHours"
+    ],
+    "src/app/services/settings/patternIntensity.ts": [
+      "PatternIntensityId"
+    ],
+    "src/app/services/settings/settingsCapabilities.ts": [
+      "SettingWiring"
+    ],
+    "src/app/services/settings/settingsPerfBudget.ts": [
+      "SettingsPerfBudgetKey"
+    ],
+    "src/app/services/settings/settingsPerfMetrics.ts": [
+      "SettingsPerfPhase"
+    ],
+    "src/app/services/settings/settingsSentryReporting.ts": [
+      "resetSettingsSentryModuleForTests"
+    ],
+    "src/app/services/settings/settingsShellNavigation.ts": [
+      "OpenSettingsShellInput"
+    ],
+    "src/app/services/settings/settingsShellOrchestration.ts": [
+      "CloseOverlaysBeforeSettingsInput"
+    ],
+    "src/app/services/settings/types.ts": [
+      "AutoLockMinutes"
+    ],
+    "src/app/services/settings/verifySensitiveSettingsAction.ts": [
+      "VerifySensitiveSettingsOptions"
+    ],
+    "src/app/services/storageSchema/runStorageSchemaBoot.ts": [
+      "__resetStorageSchemaBootForTests"
+    ],
+    "src/app/services/storageSchema/storageSchemaVersion.ts": [
+      "StorageSchemaOrigin"
+    ],
+    "src/app/services/SupabaseService.ts": [
+      "LawsuitFile"
+    ],
+    "src/app/services/taskHelp/taskHelpRepository.ts": [
+      "CreateTaskHelpParams"
+    ],
+    "src/app/services/taskHelp/taskHelpScenarios.ts": [
+      "HelpLifecycleResult",
+      "ScenarioActor"
+    ],
+    "src/app/services/tasks/taskInputGuard.ts": [
+      "MAX_EXPENSE_AMOUNT",
+      "MAX_TASKS_IN_STORE",
+      "sanitizeTaskVoiceRef"
+    ],
+    "src/app/services/tasks/taskVoiceAttachment.ts": [
+      "TaskVoiceFields"
+    ],
+    "src/app/services/transactions/transactionsInputSecurity.ts": [
+      "TX_FORUM_AUTHOR_MAX",
+      "TX_ID_MAX",
+      "TX_ISO_MAX",
+      "TX_USER_ID_MAX"
+    ],
+    "src/app/services/urgent-actions-db.ts": [
+      "UrgentActionsState"
+    ],
+    "src/app/services/vault/scheduleVaultTextExtraction.ts": [
+      "resetVaultTextExtractionRuntimeForTests"
+    ],
+    "src/app/services/vault/vaultBlobPathLite.ts": [
+      "VAULT_IDB_PATH_PREFIX"
+    ],
+    "src/app/services/vault/vaultDocsTombstonesLite.ts": [
+      "resetVaultDocsTombstonesForTests"
+    ],
+    "src/app/services/vault/vaultDocsWarmCache.ts": [
+      "forceRefreshVaultDocs"
+    ],
+    "src/app/services/vault/vaultLocalIndex.ts": [
+      "queueVaultLocalIndexPersist"
+    ],
+    "src/app/services/vault/vaultPdfRuntime.ts": [
+      "resetVaultPdfRuntimeForTests"
+    ],
+    "src/app/services/vaultBlobStore.ts": [
+      "deleteVaultBlob",
+      "resolveVaultBlobWriteTimeoutMs"
+    ],
+    "src/app/services/vaultCustomCategories.ts": [
+      "PRIORITIZED_VISIBLE_CATEGORIES",
+      "RepositoryActionCategoryKey",
+      "defaultCategoryForVaultUploadKind",
+      "isRepositoryActionCategory",
+      "listRepositoryActionCategoriesWithContent",
+      "loadCustomCategories",
+      "saveCustomCategories"
+    ],
+    "src/app/services/vaultUploadService.ts": [
+      "SaveVaultFileOptions",
+      "SaveVaultFileResult",
+      "VaultDocViewPayload",
+      "VaultUploadResult",
+      "isVaultDocAudio"
+    ],
+    "src/app/services/voice/speechTranscription.ts": [
+      "LiveTranscriptSession"
+    ],
+    "src/app/services/voice/voiceNoteCodec.ts": [
+      "VOICE_NOTE_REF_PREFIX",
+      "VoiceNoteMeta"
+    ],
+    "src/app/services/voice/voiceRecordingLimits.ts": [
+      "MAX_VOICE_BLOB_BYTES",
+      "blobToDataUrl"
+    ],
+    "src/app/stores/executionDashboardStore/lifecycleActions.ts": [
+      "emptyDossierLifecycleSlice"
+    ],
+    "src/app/types/admin-types.ts": [
+      "SystemStats"
+    ],
+    "src/app/types/common/api.ts": [
+      "APIError",
+      "APIResponse",
+      "APIStatus"
+    ],
+    "src/app/types/common/archive.ts": [
+      "EnrichedFile",
+      "FileSmartStatus"
+    ],
+    "src/app/types/common/base.ts": [
+      "BaseEntity"
+    ],
+    "src/app/types/common/caseFile.ts": [
+      "CaseSubType",
+      "StageStatus",
+      "StageType"
+    ],
+    "src/app/types/common/court.ts": [
+      "CourtType"
+    ],
+    "src/app/types/common/events.ts": [
+      "ClickAction",
+      "ClickEventData",
+      "FileUploadData",
+      "SearchEventData"
+    ],
+    "src/app/types/common/executionArchive.ts": [
+      "AssetStatus",
+      "ExecutionType",
+      "ImprisonmentData",
+      "ImprisonmentStatus",
+      "NotificationRecord"
+    ],
+    "src/app/types/common/financial.ts": [
+      "ExpenseType",
+      "PaymentMethod",
+      "PaymentType"
+    ],
+    "src/app/types/common/form.ts": [
+      "FieldValidation",
+      "FormField",
+      "FormFieldOption",
+      "FormFieldType"
+    ],
+    "src/app/types/common/party.ts": [
+      "PartyRole",
+      "PartyType"
+    ],
+    "src/app/types/common/settings.ts": [
+      "SettingsState"
+    ],
+    "src/app/types/common/ui.ts": [
+      "ButtonVariant",
+      "FileModalProps",
+      "IconProps",
+      "InputType",
+      "MenuAction"
+    ],
+    "src/app/types/common/user.ts": [
+      "AuthState"
+    ],
+    "src/app/types/common/utility.ts": [
+      "RequiredFields",
+      "StringKeys",
+      "ValueOf"
+    ],
+    "src/app/types/components.ts": [
+      "ConfirmDialogProps",
+      "DeadlineItem",
+      "DeadlineWidget",
+      "FileDisplayData",
+      "FinancialWidgetProps",
+      "LawyerNewCaseStructuredSave",
+      "NotificationItem",
+      "NotificationModalProps",
+      "StageFormData",
+      "TransactionItem",
+      "WidgetProps"
+    ],
+    "src/app/types/criminal.ts": [
+      "CASSATION_OUTCOME_TO_APPEAL_RESULT",
+      "CassationProceedingStatus",
+      "InvestigationEventCategory",
+      "JourneyNodeStatus",
+      "ProceduralNodeStatus",
+      "TrialEventCategory"
+    ],
+    "src/app/types/execution/alimony.ts": [
+      "AlimonyCalculation"
+    ],
+    "src/app/types/execution/coercive.ts": [
+      "CoerciveActionType"
+    ],
+    "src/app/types/execution/financial.ts": [
+      "FinancialAmount",
+      "OtherPartyActionOutcome"
+    ],
+    "src/app/types/execution/formAndUi.ts": [
+      "ExecutionFormData",
+      "TimelineEventCardProps"
+    ],
+    "src/app/types/execution/seizure.ts": [
+      "EmployeeSummonsAssignmentPhase",
+      "SeizedMovableStatus",
+      "StandaloneExecutionMarkType",
+      "ThirdPartySeizureReplyStatus",
+      "ThirdPartySeizureStatus"
+    ],
+    "src/app/types/supabase-timeline.ts": [
+      "TimelineEventInsertPayload"
+    ],
+    "src/app/types/TaskEngine.ts": [
+      "LegalTaskStatus"
+    ],
+    "src/app/utils/alimonyFinancialBreakdown.ts": [
+      "recomputePastAlimonyFromClaim"
+    ],
+    "src/app/utils/alimonyPaymentEngine.ts": [
+      "AlimonyInstallment",
+      "calculateOverdueAmount",
+      "countOverdueInstallments",
+      "formatDateArabic",
+      "generateMonthlyInstallments",
+      "getDaysRemainingInCycle",
+      "isGuarantorRequired",
+      "markInstallmentAsPaid"
+    ],
+    "src/app/utils/applyFollowupSpecializationOverlays.ts": [
+      "ApplyFollowupSpecializationOverlaysInput"
+    ],
+    "src/app/utils/bffAuthClient.ts": [
+      "BffSignupVerification"
+    ],
+    "src/app/utils/bffWifeSign.ts": [
+      "WifeSignInput"
+    ],
+    "src/app/utils/bodyScrollLock.ts": [
+      "getBodyScrollLockDebugState",
+      "lockBodyScroll"
+    ],
+    "src/app/utils/buildExecutionTimelineSnapshot.ts": [
+      "ExecutionTimelineSnapshotInput"
+    ],
+    "src/app/utils/bundledIraqiLawLoader.ts": [
+      "BundledLawRow",
+      "bundledLawBundleSlugForLawName"
+    ],
+    "src/app/utils/calendarDateTime.ts": [
+      "CalendarInstantMode",
+      "calendarEventToIso",
+      "parseHmLocal",
+      "parseYmdLocal"
+    ],
+    "src/app/utils/civilLawRemoteCache.ts": [
+      "getCachedCivilLawArticles",
+      "hasCivilLawArticlesCached"
+    ],
+    "src/app/utils/consoleHygiene.ts": [
+      "isBenignConsoleMessage"
+    ],
+    "src/app/utils/constants.ts": [
+      "CACHE_KEY",
+      "LEGAL"
+    ],
+    "src/app/utils/creditorPartyDeathPersistence.ts": [
+      "buildExecutionMergeForDebtorHeirSubstitutionApproval"
+    ],
+    "src/app/utils/creditorPaymentProRata.ts": [
+      "CreditorDebtRow",
+      "CreditorPaymentAllocation",
+      "DistributePaymentResult",
+      "GhuramaaCreditorRow"
+    ],
+    "src/app/utils/criminalCaseCardIndex.ts": [
+      "CRIMINAL_CARD_INDEX_VERSION",
+      "CriminalCaseCardIndexStubMark"
+    ],
+    "src/app/utils/criminalCasesStorageHelpers.ts": [
+      "collectCriminalCaseShardIdsFromKeys"
+    ],
+    "src/app/utils/criminalCasesStorageRead.ts": [
+      "readCasesRootAsync"
+    ],
+    "src/app/utils/criminalCasesStorageWrite.ts": [
+      "writeCasesRoot"
+    ],
+    "src/app/utils/criminalCaseStoreInject.ts": [
+      "InjectCriminalCaseIntoMapResult"
+    ],
+    "src/app/utils/custodyWardDeliveryEngine.ts": [
+      "CommitCustodyWardTimelineActionInput",
+      "CommitCustodyWardTimelineActionResult",
+      "custodyWardAppointmentThreadKey",
+      "custodyWardKey",
+      "custodyWardTimelineCopy",
+      "resetCustodyWardForNewCycle"
+    ],
+    "src/app/utils/debtorEntityKindUtils.ts": [
+      "debtorEntityKindStorageValue",
+      "partyTypeForDebtorEntityKind"
+    ],
+    "src/app/utils/debtorLiabilityGroups.ts": [
+      "DebtorLiabilityGroupId"
+    ],
+    "src/app/utils/debtorSummonsProfile.ts": [
+      "DebtorStatusChip",
+      "buildDebtorStatusChips"
+    ],
+    "src/app/utils/decisionsModalBoot.ts": [
+      "DecisionsModalBootState"
+    ],
+    "src/app/utils/documentTimelineEvent.ts": [
+      "DocumentUploadTimelineInfo"
+    ],
+    "src/app/utils/dossierDeathStatusHeavy.ts": [
+      "DossierDeathStatusHeavyInput"
+    ],
+    "src/app/utils/earnerPersonalCoerciveFinancialGate.ts": [
+      "normalizeFinancialCenterIqd"
+    ],
+    "src/app/utils/employeeSummonsAssignment.ts": [
+      "isAssignmentAutoHideEligible",
+      "materializeEmployeeSummonsAssignmentsMap"
+    ],
+    "src/app/utils/encroachmentRemovalRequests.ts": [
+      "appendEncroachmentRemovalExecutorRequest",
+      "buildEncroachmentCaseExpenseRow"
+    ],
+    "src/app/utils/errorHandler.ts": [
+      "createError",
+      "handleAsyncError",
+      "isNetworkError",
+      "isQuotaError",
+      "logErrorWithContext",
+      "retryWithBackoff",
+      "safeAsync",
+      "safeLocalStorage",
+      "safeSync"
+    ],
+    "src/app/utils/evictionAppealSync.ts": [
+      "EVICTION_APPEAL_SYNC_BRANCHES",
+      "EvictionAppealSyncInput",
+      "getGoverningEvictionAppealRow"
+    ],
+    "src/app/utils/evictionBranchSignals.ts": [
+      "EvictionBranchSubmitGuardResult"
+    ],
+    "src/app/utils/evictionEarnerFeeCollectionMachine.ts": [
+      "EARNER_FEE_BRANCH_B_STEPS",
+      "FeeCollectionPurpose"
+    ],
+    "src/app/utils/executionClaimIsolation.ts": [
+      "executionClaimMatches"
+    ],
+    "src/app/utils/executionDecisionAppealActive.ts": [
+      "computeExecutionAppealBannerKind",
+      "executionRowHasSubstantiveAppealPipeline"
+    ],
+    "src/app/utils/executionDecisionsNamespaceMerge.ts": [
+      "mergeRowsById"
+    ],
+    "src/app/utils/executionDomainReconcile.ts": [
+      "DomainReconcileResult"
+    ],
+    "src/app/utils/executionDossierBlobPersistence.ts": [
+      "ExecutionBlobSetOutcome",
+      "PersistExecutionDossierBlobOptions",
+      "applyExecutionDossierBlobSet",
+      "routeExecutionBlobCacheSet"
+    ],
+    "src/app/utils/executionDossierStorageReconcile.ts": [
+      "ExecutionDossierReconcileResult"
+    ],
+    "src/app/utils/executionDossierTombstones.ts": [
+      "listExecutionDossierTombstoneIds"
+    ],
+    "src/app/utils/executionFilesStorage.ts": [
+      "findExecutionFileRawById",
+      "mergeExecutionFilesById"
+    ],
+    "src/app/utils/executionFilesStorageOwnerLite.ts": [
+      "bindExecutionFilesStorageOwnerLite"
+    ],
+    "src/app/utils/executionHistoricalMode.ts": [
+      "ExecutionHistoricalModeInput"
+    ],
+    "src/app/utils/executionLawArticleUtils.ts": [
+      "buildArabicLooseSearchPattern"
+    ],
+    "src/app/utils/executionModuleStrategies.ts": [
+      "CUSTODY_REMOVAL_CLAIM_VALUE",
+      "ExecutionModuleId",
+      "ExecutionModuleStrategy",
+      "getEvictionHybridClosureReadiness",
+      "hasEvictionHandoverRecorded",
+      "specificDeliveryNatureLabelAr"
+    ],
+    "src/app/utils/executionStorageKeysLite.ts": [
+      "executionEmployeePersonalUnlockStorageKey",
+      "executionEvictionGraceHiddenStorageKey",
+      "executionEvictionGracePinnedStorageKey"
+    ],
+    "src/app/utils/executionSummonsWorkflow.ts": [
+      "ExecutionSummons7DayWindow"
+    ],
+    "src/app/utils/executionTrash.ts": [
+      "EXECUTION_TRASH_RETENTION_MS",
+      "executionTrashExpiresAtMs",
+      "getExecutionArchivedAt",
+      "getExecutionTrashDeletedAt"
+    ],
+    "src/app/utils/executionYmdCalendar.ts": [
+      "EXECUTION_GRACE_PERIOD_DAYS",
+      "YmdWindowCountMode"
+    ],
+    "src/app/utils/executorApprovalWorkflow.ts": [
+      "ExecutorApprovalDecisionType",
+      "ExecutorDecisionLike"
+    ],
+    "src/app/utils/executorDecisionReadQueries.ts": [
+      "ExecutorDecisionRowContext"
+    ],
+    "src/app/utils/executorDecisionSelectors.ts": [
+      "PendingExecutorDecisionHit"
+    ],
+    "src/app/utils/executorDecisionStateSelectors.ts": [
+      "ExecutorOutcomeFlags",
+      "GuarantorApprovalMergeExecutionData"
+    ],
+    "src/app/utils/executorEvictionSelectors.ts": [
+      "EvictionBranchInput"
+    ],
+    "src/app/utils/executorLegacyHubViewSelectors.ts": [
+      "SeizureRequestTargetLegacy"
+    ],
+    "src/app/utils/executorPartyDeathDecisionBuilders.ts": [
+      "DebtorPartyDeathStoredPayload"
+    ],
+    "src/app/utils/executorRequestAppealSync.ts": [
+      "isExecutorDecisionRowEffectivelyEnforcedForExecution",
+      "isExecutorRowApprovedWorkflowActiveForExecution"
+    ],
+    "src/app/utils/executorRequestDecisionBuilders.ts": [
+      "DecisionAppealOrigin",
+      "EvictionWorkflowKeyBuilder",
+      "ExecutorDecisionHubDefaults"
+    ],
+    "src/app/utils/executorRequestGoverningSelectors.ts": [
+      "getPersonalCoerciveSubtypeAppealRowFromRows"
+    ],
+    "src/app/utils/executorRequestLifecycle.ts": [
+      "ExecutorRequestLifecycleEntry",
+      "summarizeHubRequestLifecycle"
+    ],
+    "src/app/utils/followupSpecializationVisibility.ts": [
+      "FollowupSpecializationExecutionInput"
+    ],
+    "src/app/utils/guestLawyerSession.ts": [
+      "DEV_MOCK_LAWYER_EMAIL"
+    ],
+    "src/app/utils/hearingDates.ts": [
+      "HearingSessionLike"
+    ],
+    "src/app/utils/heirSubstitutionAppealGate.ts": [
+      "HeirSubstitutionAppealGateRow"
+    ],
+    "src/app/utils/horizontalTabSwipe.ts": [
+      "UseHorizontalTabSwipeOptions"
+    ],
+    "src/app/utils/humanizeAppError.ts": [
+      "resolveSecureFetchErrorCode"
+    ],
+    "src/app/utils/lawsuitTrash.ts": [
+      "LawsuitTrashFile"
+    ],
+    "src/app/utils/lawyerCassationEntry.ts": [
+      "LawyerCassationEntryResult"
+    ],
+    "src/app/utils/lazy/preloadableLazy.tsx": [
+      "PreloadableLazyComponent"
+    ],
+    "src/app/utils/legalReferenceLocalCache.ts": [
+      "LEGAL_REFERENCE_CACHE_VERSION",
+      "getLegalReferenceCacheTimestamp"
+    ],
+    "src/app/utils/logger.ts": [
+      "logRender",
+      "logStateChange",
+      "measurePerformance"
+    ],
+    "src/app/utils/maritalFurniture.ts": [
+      "createMaritalFurnitureItemId",
+      "stableMaritalFurnitureDetailItemId"
+    ],
+    "src/app/utils/maritalFurnitureDeliveryPersistence.ts": [
+      "MaritalFurnitureDeliveryScheduleInput",
+      "MaritalFurnitureItemOutcomeInput",
+      "MaritalFurnitureTimelineDeps",
+      "buildMaritalFurnitureItemTimelineEvent",
+      "buildMaritalFurnitureScheduleTimelineEvent"
+    ],
+    "src/app/utils/maritalFurnitureDeliveryWorkflow.ts": [
+      "MARITAL_FURNITURE_DELIVERY_BRANCH",
+      "MARITAL_FURNITURE_DELIVERY_WORKFLOW_KEY",
+      "MaritalFurnitureDeliveryMode",
+      "isMaritalFurnitureDeliveryWorkflowComplete",
+      "mergeMaritalDeliveryLifecycleSummaries"
+    ],
+    "src/app/utils/nlpParser.ts": [
+      "IRAQI_LEGAL_LOCATIONS",
+      "ParsedTaskInput",
+      "isSameLocalDay"
+    ],
+    "src/app/utils/noticeDebtorScope.ts": [
+      "DebtorNoticeStateSnapshot",
+      "DebtorSummonsMarker",
+      "DebtorUnservedMemoBadgeContext"
+    ],
+    "src/app/utils/openDecisionsModalFromFollowup.ts": [
+      "OpenDecisionsModalFromFollowupInput"
+    ],
+    "src/app/utils/otherPartyActionLogTimeline.ts": [
+      "otherPartyActionLogEntryToTimelineEvent"
+    ],
+    "src/app/utils/otherPartyManualTrackDecisionSync.ts": [
+      "ManualTrackPhase",
+      "listManualOtherPartyTrackDecisions",
+      "syncTrackEntryFromDecision"
+    ],
+    "src/app/utils/otherPartyRequestTrackUtils.ts": [
+      "EXECUTOR_OUTCOME_OPTIONS",
+      "appendEffectiveTrackToActionLog",
+      "mergeBadgeWithManualTrack",
+      "resolveManualTrackTabBadge",
+      "trackedOutcomeToBadge"
+    ],
+    "src/app/utils/overlayPortal.ts": [
+      "OverlayPortalOptions"
+    ],
+    "src/app/utils/partyDeathCaseScope.ts": [
+      "PartyDeathCaseRecord"
+    ],
+    "src/app/utils/partyDeathClaimPolicy.ts": [
+      "PartyDeathRole",
+      "resolveExecutionClaimForDeathPolicy"
+    ],
+    "src/app/utils/partyDeathPersistGuards.ts": [
+      "pickFresherExecutionBase",
+      "preservePartyDeathFromSource"
+    ],
+    "src/app/utils/partyDisplayName.ts": [
+      "getDeceasedPartyDisplayText"
+    ],
+    "src/app/utils/performanceMonitor.ts": [
+      "PerformanceMetric",
+      "PerformanceReport",
+      "measureRender",
+      "useMountPerformance",
+      "usePerformanceMonitor"
+    ],
+    "src/app/utils/personalCoerciveAppealSync.ts": [
+      "PERSONAL_COERCIVE_APPEAL_SYNC_SUBTYPES",
+      "PersonalCoerciveAppealSyncInput",
+      "isPersonalCoerciveAppealRowActive"
+    ],
+    "src/app/utils/personalStatusLawRemoteCache.ts": [
+      "getCachedPersonalStatusLawArticles",
+      "hasPersonalStatusLawArticlesCached"
+    ],
+    "src/app/utils/production.ts": [
+      "disableConsoleInProduction",
+      "isFeatureEnabled",
+      "optimizeForProduction"
+    ],
+    "src/app/utils/publicationNoticeRegistration.ts": [
+      "PublicationNoticeRegisterInput"
+    ],
+    "src/app/utils/purgeDeletedExecutionDossiers.ts": [
+      "PurgeDeletedExecutionDossiersDeps",
+      "PurgeDeletedExecutionDossiersResult"
+    ],
+    "src/app/utils/quantumTasksStorage.ts": [
+      "invalidateQuantumTasksDiskWarmCache",
+      "persistQuantumTasksImmediate"
+    ],
+    "src/app/utils/residentialEvictionGrace.ts": [
+      "isResidentialGraceYmd"
+    ],
+    "src/app/utils/residentialGraceTimeline.ts": [
+      "ResidentialGraceBounds",
+      "buildResidentialGraceDisplayEvent",
+      "isResidentialGraceTimelineEvent",
+      "normalizeGraceYmd",
+      "parseResidentialGraceBoundsFromText"
+    ],
+    "src/app/utils/resolveSpecificDeliveryUiPhase.ts": [
+      "SpecificDeliveryUiPhase",
+      "SpecificDeliveryUiPhaseInput",
+      "SpecificDeliveryUiPhaseResult"
+    ],
+    "src/app/utils/seizedAssetDisplay.ts": [
+      "formatSeizedAssetDetailsArabic"
+    ],
+    "src/app/utils/seizureMatrix.ts": [
+      "SeizureDebtorJob",
+      "SeizureDebtorType",
+      "SeizureMatrixButtons",
+      "SeizureMatrixInput",
+      "SeizureMatrixRuleId",
+      "SeizureProgressiveDisclosure",
+      "resolveSeizureButtonLadder",
+      "resolveSeizureDebtorJob"
+    ],
+    "src/app/utils/specificDeliveryConversionRequest.ts": [
+      "SPECIFIC_DELIVERY_CONVERSION_INITIAL_BODY",
+      "SPECIFIC_DELIVERY_CONVERSION_PAYLOAD_KIND",
+      "appendSpecificDeliveryConversionRequest"
+    ],
+    "src/app/utils/specificDeliveryExpertVisibility.ts": [
+      "resolveSpecificDeliveryNature"
+    ],
+    "src/app/utils/specificDeliveryItemsUtils.ts": [
+      "SpecificDeliveryItemStatus",
+      "createSpecificDeliveryItemId"
+    ],
+    "src/app/utils/specificDeliveryMovableValuationRequest.ts": [
+      "SPECIFIC_DELIVERY_MOVABLE_VALUATION_INITIAL_BODY",
+      "SPECIFIC_DELIVERY_MOVABLE_VALUATION_PAYLOAD_KIND"
+    ],
+    "src/app/utils/specificDeliveryPropertyExpertRequest.ts": [
+      "SPECIFIC_DELIVERY_PROPERTY_EXPERT_INITIAL_BODY",
+      "SPECIFIC_DELIVERY_PROPERTY_EXPERT_PAYLOAD_KIND",
+      "SPECIFIC_DELIVERY_SURVEYOR_TITLE",
+      "isSpecificDeliverySurveyorDecisionRow",
+      "sendInitialSpecificDeliverySurveyorRequest"
+    ],
+    "src/app/utils/storageUtils.ts": [
+      "getStorageSize",
+      "isLocalStorageAvailable",
+      "safeBatchSet",
+      "safeClear",
+      "safeGetItem",
+      "safeRemoveItem"
+    ],
+    "src/app/utils/syncExecutorDecisionResolution.ts": [
+      "ExecutorDecisionResolution"
+    ],
+    "src/app/utils/timelineCategoryFilter.ts": [
+      "EXECUTION_TIMELINE_FILTER_MAP",
+      "EXECUTION_TIMELINE_FILTER_SHORT_LABELS",
+      "ExecutionTimelineVisibilityContext",
+      "countExecutionTimelineEventsByFilter"
+    ],
+    "src/app/utils/timelineDedup.ts": [
+      "dedupeTimelineEventsByThreadOrDecision",
+      "dedupeTimelineEventsSameSecond",
+      "timelineEventSimilarityKey"
+    ],
+    "src/app/utils/timelineSmartDisplay.ts": [
+      "TIMELINE_TITLE_EMOJI_RE",
+      "TimelineRadarComputedRow",
+      "ensureUniqueTimelineRowIds",
+      "stripTimelineHtmlForDisplay",
+      "timelineDeadlineDaysLeft",
+      "timelineTitleForDisplay"
+    ],
+    "src/app/utils/unifiedFundsLedgerStorage.ts": [
+      "StoredExpenseRow",
+      "StoredLawyerFeeRow",
+      "StoredLocalPaymentRow",
+      "StoredUnifiedLedger"
+    ],
+    "src/app/utils/validationUtils.ts": [
+      "isDateAfter",
+      "isNotFutureDate",
+      "isRequiredText",
+      "isValidAmount",
+      "isValidCaseNumber",
+      "isValidEmail",
+      "isValidIraqiPhone"
+    ],
+    "src/app/utils/waiveCassationAfterDebtorGrievance.ts": [
+      "WaiveCassationApplyResult",
+      "applyWaiveLawyerAwaitingCassationForExecution"
+    ],
+    "src/app/utils/waiveInitialAppeal.ts": [
+      "WaiveInitialAppealApplyResult"
+    ],
+    "src/app/workspace/calendarRadarDisplay.ts": [
+      "isDossierBridgedCalendarModule"
+    ],
+    "src/app/workspace/clusterMatchRules.ts": [
+      "clusterMatchReasonWithKeys",
+      "dedupeClusterLinks",
+      "isCrossSectionLink"
+    ],
+    "src/app/workspace/clusterPinDisplay.ts": [
+      "CLUSTER_MATCH_LABEL",
+      "CLUSTER_TYPE_LABEL",
+      "ClusterPinDisplayMeta",
+      "clusterLinkDisplayMeta"
+    ],
+    "src/app/workspace/workspacePinBuilders.ts": [
+      "HubSectionId",
+      "buildHubSectionPin"
+    ],
+    "src/app/workspace/workspacePinVisuals.ts": [
+      "WORKSPACE_PIN_VISUAL",
+      "WorkspacePinVisual"
+    ],
+    "src/boot/peekBootSessionUserId.ts": [
+      "BootSessionPeek"
+    ],
+    "src/config/clientEnv.ts": [
+      "ClientEnv"
+    ],
+    "src/plugins/hami-notification-sheet/definitions.ts": [
+      "NativeChannelPrefs"
+    ],
+    "src/utils/supabase/clientEnv.ts": [
+      "clientAnonKey",
+      "supabaseFunctionUrl"
+    ],
+    "src/utils/supabase/devFallbackConfig.ts": [
+      "HAMI_DEV_SUPABASE_FALLBACK_MARKER"
+    ],
+    "src/vite-plugins/hamiFaviconIco.ts": [
+      "hamiFaviconIco"
+    ],
+    "src/vite-plugins/hamiShellAssetHash.ts": [
+      "SHELL_ASSETS",
+      "hamiShellAssetHash"
+    ],
+    "src/vite-plugins/preferFileOverDirectory.ts": [
+      "preferFileOverDirectory"
+    ]
+  }
+}

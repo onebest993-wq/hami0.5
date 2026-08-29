@@ -17,8 +17,7 @@ describe('transactions store scoped patches', () => {
     vi.resetModules();
   });
 
-  it('completeTask يحدّث المهمة محلياً دون listFinanceRecords', async () => {
-    const listFinanceRecords = vi.fn(async () => []);
+  it('completeTask يحدّث المهمة محلياً دون إعادة جلب القائمة', async () => {
     const listTasks = vi.fn(async () => []);
     const listDocuments = vi.fn(async () => []);
 
@@ -27,7 +26,6 @@ describe('transactions store scoped patches', () => {
         saveTransaction: vi.fn(async () => undefined),
         listTransactions: vi.fn(async () => []),
         listTasks,
-        listFinanceRecords,
         listDocuments,
         getTask: vi.fn(),
         saveTask: vi.fn(),
@@ -36,10 +34,6 @@ describe('transactions store scoped patches', () => {
         getDocument: vi.fn(),
         saveDocument: vi.fn(),
         deleteDocument: vi.fn(),
-        getFinanceRecord: vi.fn(),
-        saveFinanceRecord: vi.fn(),
-        updateFinanceRecord: vi.fn(),
-        deleteFinanceRecord: vi.fn(),
         getTransaction: vi.fn(),
         updateTransaction: vi.fn(),
       })),
@@ -81,7 +75,6 @@ describe('transactions store scoped patches', () => {
         },
       ],
       tasksByTransactionId: { 'tx-1': [task] },
-      financeByTransactionId: {},
       documentsByTransactionId: {},
     });
 
@@ -100,7 +93,6 @@ describe('transactions store scoped patches', () => {
     await useTransactionsThreadingStore.getState().completeTask('t1', null);
 
     expect(completeSpy).toHaveBeenCalledWith('t1', null);
-    expect(listFinanceRecords).not.toHaveBeenCalled();
     expect(listTasks).not.toHaveBeenCalled();
     expect(listDocuments).not.toHaveBeenCalled();
     expect(useTransactionsThreadingStore.getState().tasksByTransactionId['tx-1']?.[0]?.status).toBe(
@@ -108,15 +100,13 @@ describe('transactions store scoped patches', () => {
     );
   });
 
-  it('refreshTransactionData لا يجلب المالية', async () => {
-    const listFinanceRecords = vi.fn(async () => [{ id: 'f1' }]);
+  it('refreshTransactionData يجلب المهام والمستمسكات', async () => {
     const listTasks = vi.fn(async () => []);
     const listDocuments = vi.fn(async () => []);
 
     vi.doMock('@/app/modules/transactionsThreading/persistentRepository', () => ({
       PersistentTransactionsThreadingRepository: vi.fn().mockImplementation(() => ({
         listTasks,
-        listFinanceRecords,
         listDocuments,
       })),
     }));
@@ -140,18 +130,10 @@ describe('transactions store scoped patches', () => {
         'listDocuments',
       )
       .mockResolvedValue([]);
-    const listFinSpy = vi
-      .spyOn(
-        (await import('@/app/modules/transactionsThreading/service')).TransactionsThreadingService
-          .prototype,
-        'listFinanceRecords',
-      )
-      .mockResolvedValue([]);
 
     await useTransactionsThreadingStore.getState().refreshTransactionData('tx-x');
 
     expect(listTasksSpy).toHaveBeenCalledWith('tx-x');
     expect(listDocsSpy).toHaveBeenCalledWith('tx-x');
-    expect(listFinSpy).not.toHaveBeenCalled();
   });
 });

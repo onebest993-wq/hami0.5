@@ -1,5 +1,6 @@
 import React, { memo, useState } from 'react';
-import { ChevronDown, ChevronUp } from '@/app/components/ui/lucideIcons';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
+import { ChevronUp } from '@/app/components/ui/icons/ChevronUp';
 import type {
     CaseShareSectionMode,
     CaseShareVisibleFields,
@@ -39,7 +40,7 @@ function SectionModeButtons({
                     key={o.id}
                     type="button"
                     onClick={() => onPick(o.id)}
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors ${
+                    className={`px-2.5 py-1 min-h-[44px] min-w-[44px] rounded-md text-[10px] font-bold border transition-colors touch-manipulation ${
                         mode === o.id
                             ? 'bg-[#E6C673]/15 text-[#E6C673] border-[#E6C673]/35'
                             : 'text-white/40 border-white/10'
@@ -107,10 +108,10 @@ export const ColleagueShareCatalogPicker = memo(function ColleagueShareCatalogPi
                         key={section.key}
                         className="rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden"
                     >
-                        <div className="flex items-center gap-2 px-3 py-2.5">
+                        <div className="flex items-center gap-2 px-3 py-2.5 min-h-[44px]">
                             <button
                                 type="button"
-                                className="flex-1 min-w-0 text-right flex items-center gap-2"
+                                className="flex-1 min-w-0 min-h-[44px] text-right flex items-center gap-2 touch-manipulation"
                                 onClick={() =>
                                     mode === 'pick'
                                         ? setExpanded((e) => ({ ...e, [section.key]: !isOpen }))

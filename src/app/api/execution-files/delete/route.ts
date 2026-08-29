@@ -1,6 +1,7 @@
 import { sanitizePayload } from '@/app/api/security/sanitizer';
 import { getSupabaseAdminClient } from '@/app/api/security/supabaseAdminClient';
 import { wifeJsonResponse } from '@/app/api/security/wifeSecurityHeaders';
+import { rejectNonUuidCloudWrite } from '@/app/api/security/postgresUuidSubject';
 import { requireExecutionFilesAuth } from '../_auth';
 
 export const runtime = 'nodejs';
@@ -17,6 +18,8 @@ export async function POST(request: Request): Promise<Response> {
     const authGate = await requireExecutionFilesAuth(request);
     if (authGate.ok === false) return authGate.response;
     const { userId } = authGate;
+    const denied = rejectNonUuidCloudWrite(userId);
+    if (denied) return denied;
 
     let payload: unknown = null;
     try {

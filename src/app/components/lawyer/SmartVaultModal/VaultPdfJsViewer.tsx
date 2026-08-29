@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink, Loader2, RotateCcw } from '@/app/components/ui/lucideIcons';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
+import { ChevronUp } from '@/app/components/ui/icons/ChevronUp';
+import { ExternalLink } from '@/app/components/ui/icons/ExternalLink';
+import { Loader2 } from '@/app/components/ui/icons/Loader2';
+import { RotateCcw } from '@/app/components/ui/icons/RotateCcw';
 import {
     classifyVaultPdfLoadError,
     loadVaultPdfDocument,

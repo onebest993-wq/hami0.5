@@ -1,35 +1,26 @@
-import { useEffect, useCallback, type RefObject } from 'react';
+import { useCallback, type RefObject } from 'react';
 import type { GlobalSearchEntry } from '@/app/services/globalSearchIndex';
-import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
+
+const FOCUSABLE_SELECTOR =
+    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+export function listGlobalSearchFocusables(root: HTMLElement): HTMLElement[] {
+    return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((el) => {
+        if (!el.isConnected) return false;
+        if (el.hidden || el.getAttribute('aria-hidden') === 'true') return false;
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+        return true;
+    });
+}
 
 export function useSearchKeyboard(
-    overlayOpen: boolean,
     overlayRef: RefObject<HTMLDivElement | null>,
     flatResults: GlobalSearchEntry[],
     activeIndex: number,
     setActiveIndex: React.Dispatch<React.SetStateAction<number>>,
-    onClose: () => void,
     onPick: (entry: GlobalSearchEntry) => void,
 ) {
-    useEffect(() => {
-        if (!overlayOpen) return;
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key !== 'Escape') return;
-            e.preventDefault();
-            e.stopPropagation();
-            onClose();
-        };
-        window.addEventListener('keydown', onKey, true);
-        const unregisterNativeBack = registerNativeBackHandler(() => {
-            onClose();
-            return true;
-        });
-        return () => {
-            window.removeEventListener('keydown', onKey, true);
-            unregisterNativeBack();
-        };
-    }, [overlayOpen, onClose]);
-
     const focusResultAt = useCallback(
         (index: number) => {
             const root = overlayRef.current;
@@ -37,7 +28,7 @@ export function useSearchKeyboard(
             const el = root.querySelector<HTMLButtonElement>(`button[data-search-result-index="${index}"]`);
             if (!el) return;
             el.focus();
-            el.scrollIntoView({ block: 'nearest' });
+            el.scrollIntoView?.({ block: 'nearest' });
         },
         [overlayRef],
     );
@@ -49,11 +40,7 @@ export function useSearchKeyboard(
             if (e.key === 'Tab') {
                 const root = overlayRef.current;
                 if (!root) return;
-                const focusables = Array.from(
-                    root.querySelectorAll<HTMLElement>(
-                        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-                    ),
-                ).filter((el) => el.offsetParent !== null);
+                const focusables = listGlobalSearchFocusables(root);
                 if (focusables.length === 0) return;
                 const first = focusables[0];
                 const last = focusables[focusables.length - 1];
@@ -63,11 +50,9 @@ export function useSearchKeyboard(
                         e.preventDefault();
                         last.focus();
                     }
-                } else {
-                    if (active === last) {
-                        e.preventDefault();
-                        first.focus();
-                    }
+                } else if (active === last) {
+                    e.preventDefault();
+                    first.focus();
                 }
                 return;
             }

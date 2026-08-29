@@ -8,7 +8,7 @@ import {
 } from '@/app/services/repository/repositoryDossierNoteSync';
 import { emitDossierNotesChanged } from '@/app/services/dossier-notes/dossierNoteSyncEvents';
 import { sanitizeRichNoteHtml } from '../legalRichTextEditorUtils';
-import { stripEntryHtml } from './universalEntryCardTypes';
+import { stripRepositoryHtml } from '@/app/services/repository/stripRepositoryHtml';
 import type { UniversalEntryCardProps } from './universalEntryCardTypes';
 
 type EditableItem = Extract<UniversalEntryCardProps['item'], { kind: 'global' } | { kind: 'dossier' }>;
@@ -60,7 +60,7 @@ export function useUniversalEntryCardEdit(
 
     const saveEdit = useCallback(() => {
         const safeBody = sanitizeRichNoteHtml(bodyHtml);
-        const plain = stripEntryHtml(safeBody);
+        const plain = stripRepositoryHtml(safeBody);
         if (!title.trim() && !plain) {
             SmartToast.error('أضف عنواناً أو نصاً');
             return;

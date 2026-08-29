@@ -3,8 +3,10 @@ import {
     buildCalendarReminderKey,
     computeCalendarReminderFireAt,
 } from '@/app/services/calendar/calendarEventReminder';
+import type { CalendarReminderSnoozeRecord } from '@/app/services/calendar/calendarReminderSnoozeStore';
 import {
     calendarNativeNotificationKey,
+    calendarNativeSnoozeNotificationKey,
     hashToNativeNotificationId,
     nativeChannelIdForKey,
 } from '@/app/services/notifications/native/nativeNotificationChannels';
@@ -25,7 +27,18 @@ export type NativeScheduledNotification = {
     fireAt: Date;
     silent: boolean;
     extra: Record<string, unknown>;
+    /** بلا جدول AlarmManager — NotificationManager.notify فوراً */
+    immediate?: boolean;
 };
+
+function calendarAlarmExtra(eventId: string, reminderKey: string, date: string): Record<string, unknown> {
+    return {
+        type: 'calendar-reminder',
+        eventId,
+        date,
+        reminderKey,
+    };
+}
 
 export function buildCalendarNativeSchedules(
     events: CalendarEvent[],
@@ -60,14 +73,43 @@ export function buildCalendarNativeSchedules(
             channelId: nativeChannelIdForKey('calendar'),
             fireAt,
             silent: !shouldPlayChannelSound('calendar', settings, true),
-            extra: {
-                type: 'calendar-reminder',
-                eventId: event.id,
-                reminderKey: buildCalendarReminderKey(event.id, event.date, event.time ?? '', minutes),
-            },
+            extra: calendarAlarmExtra(
+                event.id,
+                buildCalendarReminderKey(event.id, event.date, event.time ?? '', minutes),
+                event.date,
+            ),
         });
     }
 
+    return out;
+}
+
+export function buildCalendarSnoozeNativeSchedules(
+    snoozes: CalendarReminderSnoozeRecord[],
+    now: Date = new Date(),
+): NativeScheduledNotification[] {
+    const settings = getLawyerSettingsSnapshot();
+    const nowMs = now.getTime();
+    if (!shouldSendOsPush('calendar', settings, true) && !shouldPlayChannelSound('calendar', settings, true)) {
+        return [];
+    }
+
+    const out: NativeScheduledNotification[] = [];
+    for (const snooze of snoozes) {
+        if (snooze.untilMs <= nowMs) continue;
+        const key = calendarNativeSnoozeNotificationKey(snooze.eventId, snooze.untilMs);
+        const timeLabel = snooze.time ? ` · ${snooze.time}` : '';
+        out.push({
+            id: hashToNativeNotificationId(key),
+            key,
+            title: 'تذكير موعد — حامي',
+            body: `${snooze.title}${timeLabel}`,
+            channelId: nativeChannelIdForKey('calendar'),
+            fireAt: new Date(snooze.untilMs),
+            silent: !shouldPlayChannelSound('calendar', settings, true),
+            extra: calendarAlarmExtra(snooze.eventId, snooze.key, snooze.date),
+        });
+    }
     return out;
 }
 
@@ -92,5 +134,6 @@ export function buildImmediateNativeNotification(input: {
         fireAt: new Date(Date.now() + 800),
         silent: !shouldPlayChannelSound(input.channel, settings, critical),
         extra: input.extra ?? {},
+        immediate: true,
     };
 }

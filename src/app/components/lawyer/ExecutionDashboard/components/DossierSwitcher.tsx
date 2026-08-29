@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Forward, Folder } from '@/app/components/ui/lucideIcons';
+import { Forward } from '@/app/components/ui/icons/Forward';
+import { Folder } from '@/app/components/ui/icons/Folder';
 import {
     useExecutionDashboardStore,
     INABA_SUB_FILE_ID,
@@ -62,10 +63,10 @@ export const DossierSwitcher: React.FC<DossierSwitcherProps> = ({ parentFileId }
 
     useEffect(() => {
         if (!showSwitcher) return;
-        const curId = String((currentFile as any)?.id || '').trim();
+        const curId = String(currentFile?.id || '').trim();
         if (!curId || !isInabaSubFileId(curId)) return;
         if (!activeSubFileId) setActiveSubFileId(curId);
-        const parentId = String((currentFile as any)?.parentId || stableParentId).trim();
+        const parentId = String(currentFile?.parentId || stableParentId).trim();
         if (parentId && !delegationParentFileId) setDelegationParentFileId(parentId);
     }, [
         showSwitcher,
@@ -118,7 +119,7 @@ export const DossierSwitcher: React.FC<DossierSwitcherProps> = ({ parentFileId }
                 <button
                     type="button"
                     onClick={handleParentClick}
-                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-[10px] font-bold transition-all ${!isInaba ? 'bg-amber-500/20 text-amber-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
+                    className={`flex flex-1 min-h-[44px] items-center justify-center gap-1.5 rounded-lg py-1.5 text-[10px] font-bold transition-all touch-manipulation ${!isInaba ? 'bg-amber-500/20 text-amber-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
                 >
                     <Folder size={14} strokeWidth={2} />
                     الإضبارة الأم
@@ -127,7 +128,7 @@ export const DossierSwitcher: React.FC<DossierSwitcherProps> = ({ parentFileId }
                 <button
                     type="button"
                     onClick={handleSubClick}
-                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-[10px] font-bold transition-all ${isInaba ? 'bg-indigo-500/20 text-indigo-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
+                    className={`flex flex-1 min-h-[44px] items-center justify-center gap-1.5 rounded-lg py-1.5 text-[10px] font-bold transition-all touch-manipulation ${isInaba ? 'bg-indigo-500/20 text-indigo-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'}`}
                 >
                     <Forward size={13} strokeWidth={2} />
                     الإضبارة الفرعية

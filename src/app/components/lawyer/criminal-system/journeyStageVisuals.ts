@@ -1,6 +1,6 @@
 import type { CaseStage } from '@/app/types/criminal';
 
-export type JourneyStageTone = {
+type JourneyStageTone = {
     border: string;
     bg: string;
     text: string;
@@ -9,7 +9,7 @@ export type JourneyStageTone = {
 };
 
 /** ألوان موحّدة للمراحل — مسار الإضبارة + شارات البطاقات. */
-export const JOURNEY_STAGE_TONES: Record<CaseStage, JourneyStageTone> = {
+const JOURNEY_STAGE_TONES: Record<CaseStage, JourneyStageTone> = {
     investigation: {
         border: 'border-emerald-500/55',
         bg: 'bg-emerald-500/12',
@@ -54,7 +54,7 @@ export const JOURNEY_STAGE_TONES: Record<CaseStage, JourneyStageTone> = {
     },
 };
 
-export function journeyStageTone(stage: CaseStage): JourneyStageTone {
+function journeyStageTone(stage: CaseStage): JourneyStageTone {
     return JOURNEY_STAGE_TONES[stage] ?? JOURNEY_STAGE_TONES.investigation;
 }
 
@@ -71,11 +71,11 @@ export function journeyStageCapsuleClass(
     }
     const glow =
         stage === 'misdemeanor'
-            ? 'shadow-[0_0_12px_rgba(56,189,248,0.22)]'
+            ? ''
             : stage === 'felony'
-              ? 'shadow-[0_0_12px_rgba(190,18,60,0.22)]'
+              ? ''
               : stage === 'investigation'
-                ? 'shadow-[0_0_10px_rgba(16,185,129,0.18)]'
+                ? ''
                 : '';
     const selectedRing = opts?.selected ? 'ring-1 ring-[#E6C673]/55' : '';
     return `${tone.border} ${tone.bg} ${tone.text} ${glow} ${selectedRing}`.trim();
@@ -90,7 +90,3 @@ export function journeyStageSpineClass(stage: CaseStage): string {
     return `rounded-full ${journeyStageTone(stage).spine}`;
 }
 
-export function journeyStageCardAccentClass(stage: CaseStage): string {
-    const tone = journeyStageTone(stage);
-    return `${tone.border} ${tone.ring}`;
-}

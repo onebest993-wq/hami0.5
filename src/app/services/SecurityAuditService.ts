@@ -350,13 +350,11 @@ if (typeof window !== 'undefined') {
   const g = globalThis as unknown as {
     __hamiSecurityAuditHandlers?: {
       onCsp: (e: SecurityPolicyViolationEvent) => void;
-      onLoad: () => void;
     };
   };
 
   if (g.__hamiSecurityAuditHandlers) {
     document.removeEventListener('securitypolicyviolation', g.__hamiSecurityAuditHandlers.onCsp);
-    window.removeEventListener('load', g.__hamiSecurityAuditHandlers.onLoad);
   }
 
   const onCsp = (e: SecurityPolicyViolationEvent) => {
@@ -369,13 +367,8 @@ if (typeof window !== 'undefined') {
     });
   };
 
-  const onLoad = () => {
-    /* health check handled once by SecurityInitializer — avoid duplicate audit noise */
-  };
-
   document.addEventListener('securitypolicyviolation', onCsp);
-  window.addEventListener('load', onLoad);
-  g.__hamiSecurityAuditHandlers = { onCsp, onLoad };
+  g.__hamiSecurityAuditHandlers = { onCsp };
 
   import.meta.hot?.dispose(() => {
     if (!g.__hamiSecurityAuditHandlers) return;

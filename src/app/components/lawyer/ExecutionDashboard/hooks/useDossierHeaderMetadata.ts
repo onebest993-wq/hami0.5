@@ -1,25 +1,26 @@
 import { useMemo } from 'react';
-import type { ExecutionFile } from '@/app/types/execution';
+import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import type { EvictionPremisesUse } from '@/app/utils/executionModuleStrategies';
 import {
     inferEvictionPremisesUse,
     hasAnyEvictionFieldStepRecorded,
 } from '@/app/utils/executionModuleStrategies';
 import { resolveDossierHeaderFields } from '@/app/utils/executionDossierHeaderFields';
+import type { EncroachmentCaseExpenseRow } from '@/app/utils/encroachmentRemovalRequests';
 import { executionFileContentSignature } from './useExecutionData';
 
 export function useDossierHeaderMetadata(
     executionData: ExecutionFile | null | undefined,
     classification: string | undefined,
     claimType: string,
-    evictionCaseExpenses: any[],
+    evictionCaseExpenses: EncroachmentCaseExpenseRow[],
     visitChildNames: string[],
     custodyWardNamesList: string[],
     evictionPremisesUseRaw: string | undefined,
     evictionPropertyTypeField: string,
     judgmentDate: string | undefined,
-    activeCoerciveActions: any[],
-    activeTimelineEvents: any[],
+    activeCoerciveActions: string[],
+    activeTimelineEvents: TimelineEvent[],
     docType: string,
     docNumber: string,
 ) {

@@ -1,15 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readLawyerDashboardMainViewSurface } from './readLawyerDashboardMainViewSurface';
 
 const root = process.cwd();
 
 describe('phase-7 overlays score push — security + mobile ownership', () => {
     it('MainView يملك Escape/native-back للأرشيف غير التنفيذي', () => {
-        const main = readFileSync(
-            join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
-            'utf8',
-        );
+        const main = readLawyerDashboardMainViewSurface();
         const hook = readFileSync(
             join(root, 'src/app/hooks/lawyerDashboard/useLawyerNonExecArchiveEscape.ts'),
             'utf8',
@@ -47,14 +45,16 @@ describe('phase-7 overlays score push — security + mobile ownership', () => {
         expect(entry).not.toMatch(/onOpenFile\(\{\s*\.\.\./);
     });
 
-    it('resolveOpenableFileData يرفض id غير معروف عند وجود pool', () => {
+    it('resolveOpenableFileData يفضّل pool ثم يقع لصف البطاقة إن غاب عن النشطة', () => {
         const utils = readFileSync(
             join(root, 'src/app/components/lawyer/LawyerDashboardParts/utils.ts'),
             'utf8',
         );
         expect(utils).toContain('resolveOpenableFileData');
-        expect(utils).toContain('if (!hit) return null');
         expect(utils).toContain('pool.find');
+        expect(utils).toContain('if (hit) return normalizeFileDataForOpen(hit)');
+        expect(utils).toContain('return normalizeFileDataForOpen(value)');
+        expect(utils).not.toContain('if (!hit) return null');
     });
 
     it('native back يوازي Escape في الدعاوى / SmartFile / الجزائي', () => {
@@ -75,26 +75,61 @@ describe('phase-7 overlays score push — security + mobile ownership', () => {
         }
     });
 
-    it('ClientRequests: noopener + scroll lock + 44px/safe-area بدون native-back مكرر', () => {
-        const hub = readFileSync(join(root, 'src/app/components/lawyer/ClientRequestsHub.tsx'), 'utf8');
-        expect(hub).toContain("noopener,noreferrer");
-        expect(hub).toContain('useBodyScrollLock');
-        expect(hub).toContain('min-h-[44px]');
-        expect(hub).toContain('safe-area-inset-top');
-        expect(hub).not.toContain('registerNativeBackHandler');
+    it('صندوق طلبات التوكيل محذوف من الواجهة والأرشيف', () => {
+        expect(existsSync(join(root, 'src/app/components/lawyer/ClientRequestsHub.tsx'))).toBe(false);
+        const entry = readFileSync(
+            join(
+                root,
+                'src/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardNonExecArchiveOverlayEntry.tsx',
+            ),
+            'utf8',
+        );
+        expect(entry).not.toContain('LazyClientRequestsHub');
+        expect(entry).not.toContain('client_requests');
+        const lazy = readFileSync(join(root, 'src/app/utils/lazyComponents.tsx'), 'utf8');
+        expect(lazy).not.toContain('LazyClientRequestsHub');
+        expect(lazy).not.toContain('ClientRequestsHub');
+    });
+
+    it('طبقات ملء الشاشة تحجز شريط الحالة عبر --hami-lawyer-header-safe-top', () => {
+        const overlayPortal = readFileSync(join(root, 'src/app/utils/overlayPortal.ts'), 'utf8');
+        const tasks = readFileSync(
+            join(root, 'src/app/components/lawyer/dashboard/TasksManagerOverlay.tsx'),
+            'utf8',
+        );
+        const forum = readFileSync(
+            join(root, 'src/app/components/lawyer/CommunityScreen/forumPlumTheme.ts'),
+            'utf8',
+        );
+        const repo = readFileSync(
+            join(root, 'src/app/components/lawyer/SmartRepository/smartRepositoryTheme.ts'),
+            'utf8',
+        );
+        expect(overlayPortal).toContain('HAMI_OVERLAY_SAFE_INSETS_CLASS');
+        expect(overlayPortal).toContain('--hami-lawyer-header-safe-top');
+        expect(tasks).toContain('HAMI_OVERLAY_SAFE_INSETS_CLASS');
+        expect(forum).toContain('--hami-lawyer-header-safe-top');
+        expect(repo).toContain('--hami-lawyer-header-safe-top');
+        const gesture = readFileSync(join(root, 'src/app/runtime/overlayEdgeBackGesture.ts'), 'utf8');
+        expect(gesture).toContain('dispatchNativeBack');
+        const lifecycle = readFileSync(join(root, 'src/app/runtime/capacitorAppLifecycle.ts'), 'utf8');
+        expect(lifecycle).toContain('wireOverlayEdgeBackGesture');
     });
 
     it('بوابات signed-in على فتح الأرشيف / الدعاوى / الجزائي', () => {
-        const lawsuit = readFileSync(join(root, 'src/app/hooks/useLawsuitActiveDossier.ts'), 'utf8');
+        const lawsuitOpen = readFileSync(
+            join(root, 'src/app/hooks/useLawsuitActiveDossierOpenUpdate.ts'),
+            'utf8',
+        );
         const overlays = readFileSync(join(root, 'src/app/hooks/useLawyerDashboardOverlays.ts'), 'utf8');
         const tabBundle = readFileSync(
             join(root, 'src/app/hooks/lawyerDashboard/buildLawyerDashboardTabBundle.ts'),
             'utf8',
         );
-        expect(lawsuit).toContain('isRealSignedIn');
-        expect(lawsuit).toContain('openLawsuitDossierWithContract');
+        expect(lawsuitOpen).toContain('hasLocalAppSession');
+        expect(lawsuitOpen).toContain('openLawsuitDossierWithContract');
         expect(overlays).toContain('openCriminalDossierWithContract');
-        expect(overlays).toContain('isRealSignedIn');
-        expect(tabBundle).toContain('isRealSignedIn');
+        expect(overlays).toContain('hasLocalAppSession');
+        expect(tabBundle).toContain('hasLocalAppSession');
     });
 });

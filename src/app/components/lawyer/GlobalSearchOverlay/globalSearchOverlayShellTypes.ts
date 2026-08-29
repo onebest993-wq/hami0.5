@@ -3,11 +3,11 @@ import type { GroupedSearchResults, GlobalSearchEntry } from '@/app/services/glo
 import type { WorkspacePinLookupContext } from '@/app/workspace/buildPinFromSearchEntry';
 import type { ClusterScanRecord } from '@/app/workspace/types';
 import type { GlobalSearchScopeId } from '@/app/components/lawyer/GlobalSearchOverlay/searchScopes';
+import type { GlobalSearchUiState } from '@/app/components/lawyer/GlobalSearchOverlay/utils/searchUiState';
 
 export type GlobalSearchOverlayShellContentProps = {
     onKeyDownCapture: (event: KeyboardEvent<HTMLDivElement>) => void;
     keyboardInset: number;
-    resultsMaxHeight: string;
     query: string;
     setQuery: (value: string) => void;
     showEmptyState: boolean;
@@ -15,8 +15,7 @@ export type GlobalSearchOverlayShellContentProps = {
     isEnrichingIndex: boolean;
     recentSearches: string[];
     clearRecent: () => void;
-    isSearching: boolean;
-    isLoadingIndex: boolean;
+    searchUiState?: GlobalSearchUiState;
     results: GroupedSearchResults | null;
     flatResults: GlobalSearchEntry[];
     pick: (entry: GlobalSearchEntry) => void;
@@ -39,3 +38,29 @@ export type GlobalSearchOverlayShellProps = GlobalSearchOverlayShellContentProps
     /** false أثناء فتح الورقة — يمنع autofocus والكيبورد المبكر على الموبايل */
     focusArmed?: boolean;
 };
+
+export type GlobalSearchOverlayDialogChromeProps = Pick<
+    GlobalSearchOverlayShellProps,
+    | 'open'
+    | 'onClose'
+    | 'inputRef'
+    | 'query'
+    | 'setQuery'
+    | 'showEmptyState'
+    | 'headerBusy'
+    | 'recentSearches'
+    | 'clearRecent'
+    | 'searchUiState'
+    | 'results'
+    | 'flatResults'
+    | 'pick'
+    | 'pinLookup'
+    | 'scanIndexForPreview'
+    | 'activeIndex'
+    | 'setActiveIndex'
+    | 'searchScope'
+    | 'onSearchScopeChange'
+    | 'focusArmed'
+    | 'keyboardInset'
+>;
+

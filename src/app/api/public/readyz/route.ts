@@ -1,16 +1,8 @@
 import { getSupabaseAdminClient } from '@/app/api/security/supabaseAdminClient';
 import { wifeJsonResponse } from '@/app/api/security/wifeSecurityHeaders';
+import { hasWifeRedisConfig } from '@/app/api/security/wifeStoreEnv';
 
 export const runtime = 'nodejs';
-
-function getEnv(name: string): string {
-  const raw = process.env[name];
-  return typeof raw === 'string' ? raw.trim() : '';
-}
-
-function hasRedisConfig(): boolean {
-  return Boolean(getEnv('WIFE_REDIS_REST_URL') && getEnv('WIFE_REDIS_REST_TOKEN'));
-}
 
 async function checkSupabase(timeoutMs = 1500): Promise<{ ok: boolean; error?: string }> {
   const admin = getSupabaseAdminClient();
@@ -33,17 +25,21 @@ async function checkSupabase(timeoutMs = 1500): Promise<{ ok: boolean; error?: s
 }
 
 export async function GET(): Promise<Response> {
-  const redisConfigured = hasRedisConfig();
+  const redisConfigured = hasWifeRedisConfig();
   const supabase = await checkSupabase();
   const ready = Boolean(supabase.ok);
 
-  return wifeJsonResponse(ready ? 200 : 503, {
+  const payload: Record<string, unknown> = {
     ok: ready,
     ts: Date.now(),
-    checks: {
+  };
+  if ((process.env.NODE_ENV ?? '').toLowerCase() !== 'production') {
+    payload.checks = {
       supabase,
       redisConfigured,
-    },
-  });
+    };
+  }
+
+  return wifeJsonResponse(ready ? 200 : 503, payload);
 }
 

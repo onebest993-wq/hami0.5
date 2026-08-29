@@ -77,7 +77,9 @@ export async function hydrateForumPosts(rows: ForumPostRow[]): Promise<Community
         for (const c of list) allCommentIds.push(c.id);
     }
     const upvotesMap = await loadCommentUpvotes(allCommentIds);
-    return rows.map((row) => postRowToCommunity(row, commentMap.get(row.id) ?? [], upvotesMap));
+    const posts = rows.map((row) => postRowToCommunity(row, commentMap.get(row.id) ?? [], upvotesMap));
+    const { signForumPostAttachments } = await import('./forumAttachmentSigning');
+    return signForumPostAttachments(posts);
 }
 
 let migrationAttempted = false;
@@ -85,13 +87,19 @@ let migrationAttempted = false;
 export async function migrateForumFromLegacyKvIfEmpty(): Promise<void> {
     if (migrationAttempted) return;
     migrationAttempted = true;
+    if (typeof window === 'undefined') return;
+
     const admin = await loadForumSupabaseAdmin();
     if (!admin) return;
 
     const { count, error } = await admin.from('forum_posts').select('*', { count: 'exact', head: true });
     if (error || (count ?? 0) > 0) return;
 
-    const legacy = await getCommunityPosts();
+    const UUID_RE =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const legacy = (await getCommunityPosts()).filter(
+        (post) => UUID_RE.test(post.id) && UUID_RE.test(post.authorId),
+    );
     if (!legacy.length) return;
 
     for (const post of legacy) {

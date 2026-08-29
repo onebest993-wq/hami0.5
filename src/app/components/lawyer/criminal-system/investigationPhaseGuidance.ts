@@ -1,18 +1,12 @@
 import type { CriminalDefendant } from './criminalStore';
 import { filterSeveranceSelectableDefendants } from './investigationDefendantPurge';
 
-/** شطر إضبارة — ملف تحقيق مستقل (المسار الكامل عبر `beginSeveranceFromDossier`). */
-export const INVESTIGATION_DOSSIER_SEVERANCE_ACTION_LABEL = 'تفريق وشطر الإضبارة (ملف تحقيق مستقل)';
-
 export const INVESTIGATION_DOSSIER_SEVERANCE_HINT =
     'يُنشئ إضبارة تحقيق جديدة ويُزيل المتهمين المفرّقين من الأم مع ترحيل ما يخصّهم حصرياً من الطلبات والقرارات والإفادات.';
 
 /** تجزئة مسار هارب — إحالة موازية دون ملف مستقل (`case_split_fugitive_referral`). */
 export const INVESTIGATION_FUGITIVE_PARALLEL_SPLIT_LABEL =
     'تجزئة مسار: إحالة غير الهاربين + استمرار التحقيق بحق الهارب';
-
-export const INVESTIGATION_FUGITIVE_PARALLEL_SPLIT_HINT =
-    'لا يُنشئ إضبارة مستقلة — يُفرّع المسار الإجرائي ويُحيل المتهمين المحدّدين للمحكمة مع استمرار التحقيق بالباقين (عادةً الهارب).';
 
 /** يُعرَض عند محاولة الإحالة قبل تفريق إضبارة مختلطة (حدث + بالغ). */
 export const INVESTIGATION_MIXED_JUVENILE_ADULT_REFERRAL_BLOCKED_MESSAGE =
@@ -37,10 +31,6 @@ export const NEW_CASE_ALL_UNKNOWN_INVESTIGATION_ONLY_MESSAGE =
 /** إضبارة جديدة — متهم مجهول مع متهم معلوم ومحاولة اختيار مرحلة غير التحقيق. */
 export const NEW_CASE_MIXED_UNKNOWN_IDENTIFIED_STAGE_BLOCKED_MESSAGE =
     'لا يمكن تسجيل الإضبارة بمرحلة محكمة (جنح/جنايات/تمييز…) مع وجود متهم مجهول ومتهم معلوم — تبقى الإضبارة في مرحلة التحقيق حتى كشف هوية المجهول أو تفريق الإضبارة.';
-
-/** إضبارة جديدة — محاولة إضافة مجهول ثانٍ. */
-export const NEW_CASE_SINGLE_UNKNOWN_DEFENDANT_ONLY_MESSAGE =
-    'يُسمح بمتهم مجهول واحد فقط في الإضبارة — أزل المجهول الحالي أو حوّله إلى معلوم قبل إضافة آخر.';
 
 export function hasFugitiveDefendant(defendants: CriminalDefendant[] | undefined): boolean {
     return (Array.isArray(defendants) ? defendants : []).some(

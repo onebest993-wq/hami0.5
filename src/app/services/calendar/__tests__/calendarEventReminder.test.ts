@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import {
     computeCalendarReminderFireAt,
     formatCalendarReminderLabel,
+    formatCalendarReminderSnoozeLabel,
     resetCalendarReminderFiredKeysForTests,
     scanAndFireCalendarReminders,
 } from '@/app/services/calendar/calendarEventReminder';
@@ -57,5 +58,8 @@ describe('calendarEventReminder', () => {
     it('يُنسّق تسمية التذكير', () => {
         expect(formatCalendarReminderLabel(10)).toBe('قبل 10 د');
         expect(formatCalendarReminderLabel(60)).toBe('قبل ساعة');
+        expect(formatCalendarReminderSnoozeLabel(5)).toBe('5 دقائق');
+        expect(formatCalendarReminderSnoozeLabel(15)).toBe('15 دقيقة');
+        expect(formatCalendarReminderSnoozeLabel(30)).toBe('30 دقيقة');
     });
 });

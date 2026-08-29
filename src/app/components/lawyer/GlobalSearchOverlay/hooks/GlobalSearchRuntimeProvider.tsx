@@ -10,7 +10,6 @@ import { useSearchIndex } from '@/app/components/lawyer/GlobalSearchOverlay/hook
 export type GlobalSearchRuntimeProviderProps = {
     children: React.ReactNode;
     overlayOpen: boolean;
-    warmIndex?: boolean;
     files: FileData[];
     executionFiles?: (FileData & { executionTrashDeletedAt?: string | null })[];
     lawsuitLifecycleIndex?: LawsuitLifecycleIndex;
@@ -33,7 +32,6 @@ const GlobalSearchRuntimeContext = createContext<GlobalSearchRuntimeValue | null
 export function GlobalSearchRuntimeProvider({
     children,
     overlayOpen,
-    warmIndex = false,
     files,
     executionFiles,
     lawsuitLifecycleIndex,
@@ -43,10 +41,9 @@ export function GlobalSearchRuntimeProvider({
     userId,
     indexVersion = 0,
 }: GlobalSearchRuntimeProviderProps) {
-    const indexActive = overlayOpen || warmIndex;
     const { extras, profileLine, isLoadingExtras } = useSearchExtras({
         userId,
-        overlayOpen: indexActive,
+        overlayOpen,
     });
 
     const { fuse, isBuildingIndex } = useSearchIndex({
@@ -61,7 +58,7 @@ export function GlobalSearchRuntimeProvider({
         extras,
         isLoadingExtras,
         indexVersion,
-        overlayOpen: indexActive,
+        overlayOpen,
     });
 
     const value = useMemo<GlobalSearchRuntimeValue>(

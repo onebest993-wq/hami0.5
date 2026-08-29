@@ -6,7 +6,7 @@ import type { ExecutionFile } from '@/app/types/execution';
  * ═══════════════════════════════════════════════════════════════════════════
  * 
  * تحسين Type Safety لمكون ExecutionDashboard
- * استبدال any بـ types محددة ودقيقة
+ * استبدال الأنواع الفضفاضة بـ types محددة ودقيقة
  * 
  * @version 1.0.0
  * @author Hami Legal System - Type Safety Enhancement
@@ -80,6 +80,8 @@ export interface ExecutionDashboardProps {
     executionId?: string;
     onClose: () => void;
     onUpdate?: (data: ExecutionFile) => void;
+    /** مغادرة للرئيسية — تُستخدم أثناء الهيكل الفوري قبل الجسم الحي */
+    onExitToHome?: () => void;
 }
 
 /** مفاتيح بوابة التأكيد المضمنة (Inline Action Gate) */

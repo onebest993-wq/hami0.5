@@ -9,6 +9,9 @@ import {
     itemMatchesRoomFilter,
     type RepositoryRoomFilter,
 } from './repositoryRooms';
+import { stripRepositoryHtml } from './stripRepositoryHtml';
+import { archiveTextMatchesQuery } from '@/app/services/search/normalizeArabicSearch';
+import { clampGlobalSearchQuery } from '@/app/services/search/globalSearchQuerySecurity';
 
 export type RepositoryFeedFilter = 'all' | 'media' | 'drafts' | 'dossier';
 
@@ -172,14 +175,10 @@ export function buildRepositoryVisibleFeedByMainFilter(
     return result;
 }
 
-function stripHtmlForSearch(text: string): string {
-    return text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
 function haystackForItem(item: RepositoryFeedItem, vaultDocs: SmartVaultDoc[]): string[] {
     if (item.kind === 'global') {
         const note = item.note;
-        const parts = [note.title, stripHtmlForSearch(note.body || ''), ...(note.tags ?? []), ...(note.quickTaskLines ?? [])];
+        const parts = [note.title, stripRepositoryHtml(note.body || ''), ...(note.tags ?? []), ...(note.quickTaskLines ?? [])];
         if (note.attachmentDocId) {
             const doc = vaultDocs.find((d) => d.id === note.attachmentDocId);
             if (doc) {
@@ -193,7 +192,7 @@ function haystackForItem(item: RepositoryFeedItem, vaultDocs: SmartVaultDoc[]): 
             item.ref.title,
             item.ref.excerpt,
             item.ref.dossierLabel,
-            stripHtmlForSearch(item.body),
+            stripRepositoryHtml(item.body),
             item.ref.dossierKind === 'lawsuit' ? 'دعوى' : 'تنفيذ',
         ];
     }
@@ -206,10 +205,10 @@ export function searchRepositoryFeed(
     query: string,
     vaultDocs: SmartVaultDoc[] = [],
 ): RepositoryFeedItem[] {
-    const q = query.trim().toLowerCase();
-    if (!q) return items;
+    const q = clampGlobalSearchQuery(query);
+    if (!q.trim()) return items;
     return items.filter((item) =>
-        haystackForItem(item, vaultDocs).some((part) => part.toLowerCase().includes(q)),
+        archiveTextMatchesQuery(haystackForItem(item, vaultDocs).join(' '), q),
     );
 }
 
@@ -244,7 +243,7 @@ export function resolveRepositoryEntryLayout(
     bodyHtml: string,
     attachment?: SmartVaultDoc | null,
 ): RepositoryEntryLayoutMode {
-    const plainLen = stripHtmlForSearch(bodyHtml).length;
+    const plainLen = stripRepositoryHtml(bodyHtml).length;
     const hasImage = Boolean(attachment?.signedUrl && attachment.type === 'image');
     if (!hasImage) return 'text-only';
     if (plainLen <= 100) return 'image-dominant';

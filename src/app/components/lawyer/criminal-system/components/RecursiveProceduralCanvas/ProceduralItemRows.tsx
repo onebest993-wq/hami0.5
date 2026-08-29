@@ -180,7 +180,7 @@ export const ActionRow = ({
                     done ? 'grayscale-[0.35]' : ''
                 } ${
                     focusPulse && !done
-                        ? 'ring-2 ring-[#E6C673]/75 shadow-[0_0_14px_rgba(230,198,115,0.35)] motion-safe:animate-pulse'
+                        ? 'ring-2 ring-[#E6C673]/75 motion-safe:animate-pulse'
                         : ''
                 } ${searchHighlight ? 'ring-1 ring-sky-400/50' : ''}`,
                 starred && !done,

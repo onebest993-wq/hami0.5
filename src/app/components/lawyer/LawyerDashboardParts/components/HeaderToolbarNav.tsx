@@ -1,7 +1,11 @@
-import React, { memo } from 'react';
+import React, { memo, useLayoutEffect, useRef } from 'react';
 import { HeaderSearchTrigger } from './HeaderSearchTrigger';
 import { HeaderNotificationsTrigger } from './HeaderNotificationsTrigger';
 import { HeaderSettingsTrigger } from './HeaderSettingsTrigger';
+import { HeaderToolbarReveal } from './HeaderToolbarReveal';
+import { useHeaderToolsDismiss } from './useHeaderToolsDismiss';
+import { useHeaderToolsReveal } from './useHeaderToolsReveal';
+import { blurFocusWithin, inertProps } from '@/app/utils/inertProps';
 
 export type HeaderToolbarNavProps = {
     interactive?: boolean;
@@ -30,30 +34,61 @@ export const HeaderToolbarNav = memo(function HeaderToolbarNav({
     onSettingsPointerEnter,
     onSettingsPointerDown,
 }: HeaderToolbarNavProps) {
+    const navRef = useRef<HTMLElement>(null);
+    const toolsRef = useRef<HTMLDivElement>(null);
+    const { open, bloom, toggle, close, navPointer } = useHeaderToolsReveal();
+    useHeaderToolsDismiss({ open, close, navRef });
+
+    useLayoutEffect(() => {
+        if (open) return;
+        const tools = toolsRef.current;
+        const nav = navRef.current;
+        if (!tools || !nav) return;
+        const active = document.activeElement;
+        if (!(active instanceof HTMLElement) || !tools.contains(active)) return;
+        blurFocusWithin(tools);
+        const reveal = nav.querySelector('[data-testid="header-tools-reveal"]');
+        if (reveal instanceof HTMLButtonElement) {
+            reveal.focus({ preventScroll: true });
+        }
+    }, [open]);
+
     return (
         <nav
-            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-[1.25rem] hami-sovereign-glass hami-sovereign-rim hami-home-themed-border border border-white/[0.08] shadow-[0_12px_40px_rgba(0,0,0,0.35)] ${interactive ? 'pointer-events-auto' : 'pointer-events-none'}`}
+            ref={navRef}
+            className={`hami-header-tool-strip ${interactive ? 'pointer-events-auto' : 'pointer-events-none'}`}
             aria-label="أدوات اللوحة"
             data-testid="header-toolbar-nav"
+            data-hami-tools-open={open ? '1' : '0'}
+            data-hami-tools-bloom={bloom ? '1' : '0'}
+            {...navPointer}
         >
-            <HeaderSearchTrigger
-                onClick={onSearchClick}
-                onPointerEnter={onSearchPointerEnter}
-                onPointerDown={onSearchPointerDown}
-            />
-            <span className="w-px h-7 bg-white/[0.08] shrink-0" aria-hidden />
-            <HeaderNotificationsTrigger
-                unreadCount={unreadCount}
-                onClick={onNotificationsClick}
-                onPointerEnter={onNotificationsPointerEnter}
-                onPointerDown={onNotificationsPointerDown}
-            />
-            <span className="w-px h-7 bg-white/[0.08] shrink-0" aria-hidden />
-            <HeaderSettingsTrigger
-                onClick={onSettingsClick}
-                onPointerEnter={onSettingsPointerEnter}
-                onPointerDown={onSettingsPointerDown}
-            />
+            <HeaderToolbarReveal open={open} unreadCount={unreadCount} onToggle={toggle} />
+            <div
+                ref={toolsRef}
+                id="header-toolbar-tools"
+                data-testid="header-toolbar-tools"
+                className="hami-header-tool-actions"
+                hidden={!open}
+                {...inertProps(!open)}
+            >
+                <HeaderSearchTrigger
+                    onClick={onSearchClick}
+                    onPointerEnter={onSearchPointerEnter}
+                    onPointerDown={onSearchPointerDown}
+                />
+                <HeaderNotificationsTrigger
+                    unreadCount={unreadCount}
+                    onClick={onNotificationsClick}
+                    onPointerEnter={onNotificationsPointerEnter}
+                    onPointerDown={onNotificationsPointerDown}
+                />
+                <HeaderSettingsTrigger
+                    onClick={onSettingsClick}
+                    onPointerEnter={onSettingsPointerEnter}
+                    onPointerDown={onSettingsPointerDown}
+                />
+            </div>
         </nav>
     );
 });

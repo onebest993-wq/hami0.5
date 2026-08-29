@@ -29,7 +29,7 @@ export function dashboardShellFingerprint(o: Orchestration): string {
     const alertIds = onHome
         ? `${alerts.length}:${alerts[0]?.id ?? ''}:${alerts[alerts.length - 1]?.id ?? ''}`
         : '';
-    const alertsError = onHome ? (appAlerts.appAlertsError ?? '') : '';
+    const alertsError = onHome ? (appAlerts.appAlertsError ? '1' : '0') : '';
     const calendarFocus = overlays.calendarSearchFocus
         ? `${overlays.calendarSearchFocus.date ?? ''}|${overlays.calendarSearchFocus.eventId ?? ''}`
         : '';

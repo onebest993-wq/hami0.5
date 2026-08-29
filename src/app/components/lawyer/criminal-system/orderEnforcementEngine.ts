@@ -66,10 +66,6 @@ export function isLiveOrderEnforcementCard(decision: JudicialDecision): boolean 
     return isOrderEnforcementTemplate(decision.proceduralTemplate ?? decision.title);
 }
 
-export function defaultOrderEnforcementKind(_template: string): OrderEnforcementTracking['kind'] {
-    return 'summons';
-}
-
 export function formatOrderNotificationLabel(tracking?: OrderEnforcementTracking): string {
     if (tracking?.notificationStatus === 'notified') {
         const d = String(tracking.notifiedAt ?? '').trim();
@@ -82,16 +78,6 @@ export function formatOrderAttendanceLabel(tracking?: OrderEnforcementTracking):
     if (tracking?.attendanceStatus === 'attended') return 'حضر';
     if (tracking?.attendanceStatus === 'absent') return 'تخلف عن الحضور';
     return 'بانتظار الحضور';
-}
-
-export function formatOrderArrestLabel(tracking?: OrderEnforcementTracking): string {
-    if (tracking?.arrestExecuted === 'executed') {
-        if (tracking.postArrestOutcome === 'bailed') return 'أُلقي القبض — كفيل';
-        if (tracking.postArrestOutcome === 'detained') return 'أُلقي القبض — موقوف';
-        return 'أُلقي القبض';
-    }
-    if (tracking?.arrestExecuted === 'not_executed') return 'لم يُلقَ القبض';
-    return 'بانتظار تنفيذ القبض';
 }
 
 export function requiresLegalArticleBasis(template: string | undefined): boolean {

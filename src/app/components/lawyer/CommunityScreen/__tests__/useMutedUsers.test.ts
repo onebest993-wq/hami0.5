@@ -1,10 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useMutedUsers } from '../useMutedUsers';
+import SecureStoreService from '@/app/services/SecureStoreService';
 
 describe('useMutedUsers — كتم محلي للمستخدمين', () => {
     beforeEach(() => {
         window.localStorage.clear();
+        SecureStoreService.deleteItemSync('hami:forum:muted-users:v1:me');
+        SecureStoreService.deleteItemSync('hami:forum:muted-users:v1:userA');
+        SecureStoreService.deleteItemSync('hami:forum:muted-users:v1:userB');
+        SecureStoreService.deleteItemSync('hami:forum:muted-users:v1:persisted-user');
     });
 
     it('يبدأ بقائمة فارغة', () => {
@@ -27,13 +32,13 @@ describe('useMutedUsers — كتم محلي للمستخدمين', () => {
         expect(result.current.isMuted('me')).toBe(false);
     });
 
-    it('يحفظ القائمة في localStorage باسم مفتاح مرتبط بالمستخدم', () => {
+    it('يحفظ الكتم في SecureStore ويمحو مرآة localStorage', () => {
         const { result } = renderHook(() => useMutedUsers('userA'));
         act(() => result.current.toggleMute('target'));
-        const raw = window.localStorage.getItem('hami:forum:muted-users:v1:userA');
+        expect(window.localStorage.getItem('hami:forum:muted-users:v1:userA')).toBeNull();
+        const raw = SecureStoreService.getItemSync('hami:forum:muted-users:v1:userA');
         expect(raw).toBeTruthy();
-        const parsed = JSON.parse(raw as string);
-        expect(parsed).toContain('target');
+        expect(JSON.parse(String(raw))).toContain('target');
     });
 
     it('قوائم منفصلة لمستخدمين مختلفين على نفس الجهاز', () => {
@@ -52,7 +57,7 @@ describe('useMutedUsers — كتم محلي للمستخدمين', () => {
         expect(result.current.mutedIds.size).toBe(0);
     });
 
-    it('يقرأ القائمة من localStorage عند الإعادة (persistence)', () => {
+    it('يرحّل مرآة localStorage القديمة ثم يمحوها', () => {
         window.localStorage.setItem(
             'hami:forum:muted-users:v1:persisted-user',
             JSON.stringify(['x', 'y']),
@@ -61,6 +66,7 @@ describe('useMutedUsers — كتم محلي للمستخدمين', () => {
         expect(result.current.isMuted('x')).toBe(true);
         expect(result.current.isMuted('y')).toBe(true);
         expect(result.current.mutedIds.size).toBe(2);
+        expect(window.localStorage.getItem('hami:forum:muted-users:v1:persisted-user')).toBeNull();
     });
 
     it('يتجاهل بيانات تالفة في localStorage', () => {

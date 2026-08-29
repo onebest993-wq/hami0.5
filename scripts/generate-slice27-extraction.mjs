@@ -3,6 +3,7 @@
  */
 import fs from 'fs';
 import path from 'path';
+import { writeCoreRuntimeVarKeys } from './lib/writeCoreRuntimeVarKeys.mjs';
 
 const ROOT = process.cwd();
 const corePath = path.join(
@@ -41,14 +42,7 @@ for (let i = runtimeStart + 1; i < runtimeEnd; i++) {
     if (m) runtimeKeys.push(m[1]);
 }
 
-fs.writeFileSync(
-    path.join(coreDir, 'executionDashboardCoreRuntimeVarKeys.generated.ts'),
-    `// @ts-nocheck
-/** Phase C Slice 27 — مفاتiح coreRuntimeVars (مُولَّد) */
-export const CORE_RUNTIME_VAR_KEYS = ${JSON.stringify(runtimeKeys, null, 4)} as const;
-`.replace('مفاتiح', 'مفاتيح'),
-    'utf8',
-);
+writeCoreRuntimeVarKeys(runtimeKeys);
 
 fs.writeFileSync(
     path.join(coreDir, 'buildExecutionDashboardCoreRuntimeVars.ts'),

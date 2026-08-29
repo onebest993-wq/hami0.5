@@ -1,5 +1,7 @@
 import type { Party, CaseType } from './types';
 import { FIXED_FEE_KEYWORDS, UNIVERSAL_BLOCKED_WORDS, CIVIL_ONLY_BLOCKED_WORDS } from './wordLists';
+import { getAddPartyButtonText as getAddPartyButtonTextBySide } from './partyClientFlags';
+import { computeLawsuitStageOptions } from '@/app/domain/lawsuit/lawsuitStageOptions';
 
 export interface ValidationResult {
     errorMap: Record<string, string>;
@@ -16,7 +18,9 @@ export const UNDERLYING_STAGE_OPTIONS = [
     'استئناف',
 ] as const;
 
-/** @deprecated استخدم UNDERLYING_STAGE_OPTIONS */
+/**
+ * @deprecated ALIAS_ONLY — غلاف فوق UNDERLYING_STAGE_OPTIONS؛ يُبقى لاختبارات civilJudiciaryScenarios.
+ */
 export const RETRIAL_TARGET_STAGE_OPTIONS = UNDERLYING_STAGE_OPTIONS;
 
 export type UnderlyingStage = (typeof UNDERLYING_STAGE_OPTIONS)[number];
@@ -31,7 +35,9 @@ const EXTRAORDINARY_PROCEDURE_MARKERS = [
 export const isExtraordinaryProcedureStage = (stage: string): boolean =>
     EXTRAORDINARY_PROCEDURE_MARKERS.some((m) => stage.includes(m));
 
-/** @deprecated استخدم isExtraordinaryProcedureStage */
+/**
+ * @deprecated ALIAS_ONLY — غلاف فوق isExtraordinaryProcedureStage؛ يُبقى لاختبارات civilJudiciaryScenarios.
+ */
 export const isRetrialStage = isExtraordinaryProcedureStage;
 
 export const getUnderlyingStageFieldLabel = (stage: string): string => {
@@ -56,16 +62,7 @@ export const getUnderlyingStageOptions = (currentStage: string): readonly string
     return UNDERLYING_STAGE_OPTIONS;
 };
 
-export const computeStageOptions = (court: string): string[] => {
-    const c = court.toLowerCase();
-    if (c.includes('بداءة')) {
-        return ['بداءة بدرجة أخيرة', 'بداءة بدرجة أولى', 'اعتراض على الحكم الغيابي', 'اعتراض الغير', 'إعادة المحاكمة'];
-    }
-    if (c.includes('استئناف')) {
-        return ['استئناف', 'اعتراض على الحكم الغيابي', 'اعتراض الغير', 'إعادة المحاكمة'];
-    }
-    return ['بداءة بدرجة أولى', 'بداءة بدرجة أخيرة', 'استئناف', 'اعتراض على الحكم الغيابي', 'اعتراض الغير', 'إعادة المحاكمة'];
-};
+export const computeStageOptions = computeLawsuitStageOptions;
 
 export const getBlockedWordsForJurisdiction = (jurisdiction: CaseType | null): string[] => {
     if (jurisdiction === 'personal') return UNIVERSAL_BLOCKED_WORDS;
@@ -170,18 +167,8 @@ export const getLabels = (mainCategory: string | null) => {
     }
 };
 
-export const getAddPartyButtonText = (parties: Party[], side: 1 | 2) => {
-    if (parties.length === 0) return 'إضافة طرف آخر';
-    const firstStatus = parties[0].status.trim();
-    if (side === 1) {
-        if (firstStatus === 'مدعي') return 'إضافة مدعي آخر';
-        if (firstStatus === 'مستأنف') return 'إضافة مستأنف آخر';
-    } else {
-        if (firstStatus === 'مدعى عليه') return 'إضافة مدعى عليه آخر';
-        if (firstStatus === 'مستأنف عليه') return 'إضافة مستأنف عليه آخر';
-    }
-    return 'إضافة طرف آخر';
-};
+export const getAddPartyButtonText = (parties: Party[], side: 1 | 2) =>
+    getAddPartyButtonTextBySide(side, parties);
 
 export const validateForm = (
     caseDetails: {

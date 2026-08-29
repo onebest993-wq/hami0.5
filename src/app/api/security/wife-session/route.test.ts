@@ -3,18 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const SUBJECT = 'user-wife-session-route';
 const DEVICE_ID = 'routewife000000001';
 
-vi.mock('../../security/wifeValidator.ts', () => ({
-  extractUserTokenFromRequest: vi.fn(() => 'test-user-token-abcdefghijklmnopqrstuvwxyz'),
-  getVerifiedTokenSubject: vi.fn().mockResolvedValue('user-wife-session-route'),
-  isTokenAuthorized: vi.fn().mockResolvedValue(true),
-  wifeUnauthorizedResponse: vi.fn(() =>
-    new Response(JSON.stringify({ ok: false, error: 'Unauthorized user' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-    }),
-  ),
-}));
-
 vi.mock('../../security/bffAuth.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../security/bffAuth.ts')>();
   return {
@@ -23,13 +11,12 @@ vi.mock('../../security/bffAuth.ts', async (importOriginal) => {
   };
 });
 
-vi.mock('../../security/stolenTokenServer.ts', () => ({
-  extractDeviceIdFromRequest: vi.fn(() => DEVICE_ID),
-  isValidWifeDeviceId: vi.fn(() => true),
-}));
-
 import { resetCsrfServerStoreForTests } from '../../security/csrfServerStore.ts';
-import { resolveWifeSessionSecretForSubject, resetWifeSessionStoreForTests } from '../../security/wifeSessionServerStore.ts';
+import {
+  issueWifeSessionForSubject,
+  resolveWifeSessionSecretForSubject,
+  resetWifeSessionStoreForTests,
+} from '../../security/wifeSessionServerStore.ts';
 import { DELETE, GET } from './route.ts';
 
 describe('wife-session route lifecycle', () => {
@@ -39,39 +26,23 @@ describe('wife-session route lifecycle', () => {
     resetWifeSessionStoreForTests();
   });
 
-  it('reuses the active session for the same subject and device', async () => {
-    const req = new Request('https://app.test/api/security/wife-session', {
-      method: 'GET',
-      headers: {
-        origin: 'https://app.test',
-        referer: 'https://app.test/dashboard',
-        'x-wife-device-id': DEVICE_ID,
-      },
-    });
-
-    const first = await GET(req);
-    const firstPayload = (await first.json()) as { sessionId?: string; sessionSecret?: string };
-    const second = await GET(req);
-    const secondPayload = (await second.json()) as { sessionId?: string; sessionSecret?: string };
-
-    expect(first.status).toBe(200);
-    expect(second.status).toBe(200);
-    expect(firstPayload.sessionId).toBeTruthy();
-    expect(firstPayload.sessionId).toBe(secondPayload.sessionId);
-    expect(firstPayload.sessionSecret).toBe(secondPayload.sessionSecret);
+  it('does not bootstrap CSRF or a client signing secret on GET', async () => {
+    const res = await GET(new Request('https://app.test/api/security/wife-session', { method: 'GET' }));
+    const payload = (await res.json()) as {
+      csrfToken?: string;
+      sessionSecret?: string;
+      ok?: boolean;
+    };
+    expect(res.status).toBe(405);
+    expect(payload.ok).toBe(false);
+    expect(payload.csrfToken).toBeUndefined();
+    expect(payload.sessionSecret).toBeUndefined();
+    expect(res.headers.get('allow')).toBe('DELETE');
   });
 
   it('deletes the current WIFE session and clears the CSRF cookie', async () => {
-    const bootstrapReq = new Request('https://app.test/api/security/wife-session', {
-      method: 'GET',
-      headers: {
-        origin: 'https://app.test',
-        referer: 'https://app.test/dashboard',
-        'x-wife-device-id': DEVICE_ID,
-      },
-    });
-    const bootstrapRes = await GET(bootstrapReq);
-    const bootstrapPayload = (await bootstrapRes.json()) as { sessionId: string };
+    const issued = await issueWifeSessionForSubject(SUBJECT, DEVICE_ID);
+    expect(issued?.sessionId).toBeTruthy();
 
     const revokeReq = new Request('https://app.test/api/security/wife-session', {
       method: 'DELETE',
@@ -79,7 +50,7 @@ describe('wife-session route lifecycle', () => {
         origin: 'https://app.test',
         referer: 'https://app.test/dashboard',
         'x-wife-device-id': DEVICE_ID,
-        'x-wife-session': bootstrapPayload.sessionId,
+        'x-wife-session': issued!.sessionId,
         'x-csrf-token': 'csrf-token-value-1234567890',
         cookie: 'hami_csrf_token=csrf-token-value-1234567890',
       },
@@ -89,7 +60,7 @@ describe('wife-session route lifecycle', () => {
     expect(revokeRes.status).toBe(200);
     expect(revokeRes.headers.get('set-cookie')).toContain('Max-Age=0');
     await expect(
-      resolveWifeSessionSecretForSubject(bootstrapPayload.sessionId, SUBJECT, DEVICE_ID),
+      resolveWifeSessionSecretForSubject(issued!.sessionId, SUBJECT, DEVICE_ID),
     ).resolves.toBeNull();
   });
 });

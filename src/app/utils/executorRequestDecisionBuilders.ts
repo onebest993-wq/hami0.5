@@ -145,6 +145,10 @@ export function buildPersonalCoerciveDecisionRow(input: {
     date: string;
     subtype: PersonalCoerciveSubtypeBuilder;
     debtorKey?: string;
+    /**
+     * إرث فقط — كان يُكتب ciphertext محلياً ولم يُقرأ.
+     * المسار الحالي: plaintext محلي؛ تشفير الإضبارة عند المزامنة السحابية فقط.
+     */
     encryptedPayloadJson?: string;
 }) {
     const debtorKey = asTrimmed(input.debtorKey);

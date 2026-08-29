@@ -42,29 +42,6 @@ function mapAppTypeToForumType(
     }
 }
 
-/** تسمية فرعية للواجهة حسب نوع حدث المنتدى الأصلي */
-export function forumEventLabel(forumType: unknown): string | null {
-    switch (forumType) {
-        case 'mention':
-            return 'إشارة';
-        case 'best_answer':
-            return 'إجابة مميزة';
-        case 'follow':
-            return 'متابع جديد';
-        case 'upvote':
-            return 'تفاعل';
-        case 'new_post':
-            return 'منشور جديد';
-        case 'comment':
-        case 'reply':
-            return 'رد';
-        case 'report_update':
-            return 'تحديث بلاغ';
-        default:
-            return null;
-    }
-}
-
 /** تحويل إشعار منتدى → NotificationModel بنفس المعرّف (مصدر واحد للحقيقة). */
 export function mapForumNotificationToModel(n: ForumNotification): NotificationModel {
     const postId = n.postId ?? n.id;

@@ -1,18 +1,17 @@
-import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import React, { useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Maximize2, Move, X, ZoomIn, ZoomOut } from '@/app/components/ui/lucideIcons';
+import { Check } from '@/app/components/ui/icons/Check';
+import { Maximize2 } from '@/app/components/ui/icons/Maximize2';
+import { Move } from '@/app/components/ui/icons/Move';
+import { X } from '@/app/components/ui/icons/X';
+import { ZoomIn } from '@/app/components/ui/icons/ZoomIn';
+import { ZoomOut } from '@/app/components/ui/icons/ZoomOut';
 import type { ProfileGalleryItem } from '@/app/services/lawyer-cloud';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { ProfileAvatarImage } from './ProfileAvatarImage';
-import { galleryItemImageStyle } from '../utils/profileSections';
-
-function clampFocus(value: number) {
-    return Math.max(0, Math.min(100, Math.round(value)));
-}
-
-function clampZoom(value: number) {
-    return Math.max(50, Math.min(400, Math.round(value)));
-}
+import { galleryItemImageStyle } from '@/app/services/profile/profileSections';
+import { useProfileGalleryViewerFocusTrap } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileGalleryViewerFocusTrap';
+import { useProfileGalleryViewerAdjust } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileGalleryViewerAdjust';
 
 type GalleryViewerMode = 'view' | 'adjust';
 
@@ -34,172 +33,49 @@ export function ProfileGalleryViewer({
     onSaveAdjust,
 }: ProfileGalleryViewerProps) {
     const titleId = useId();
-    const stageRef = useRef<HTMLDivElement>(null);
-    const dragging = useRef(false);
-    const [mode, setMode] = useState<GalleryViewerMode>(initialMode);
-    const [draft, setDraft] = useState<ProfileGalleryItem>(item);
-    /** بعد «تم» اعرض المسودة حتى يصل تحديث الأب — يمنع ومضة focus/zoom القديم */
-    const [displayOverride, setDisplayOverride] = useState<ProfileGalleryItem | null>(null);
-
-    useBodyScrollLock(open);
     const dialogRef = useRef<HTMLDivElement>(null);
     const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
-    useEffect(() => {
-        if (!open) return;
-        setMode(canAdjust && initialMode === 'adjust' ? 'adjust' : 'view');
-        setDisplayOverride(null);
-        setDraft({
-            url: item.url,
-            focusX: item.focusX ?? 50,
-            focusY: item.focusY ?? 50,
-            zoom: item.zoom ?? 100,
-            ...(item.storagePath ? { storagePath: item.storagePath } : null),
-        });
-    }, [open, item, canAdjust, initialMode]);
+    useBodyScrollLock(open);
 
-    useEffect(() => {
-        if (!open) return;
-        previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
-        return () => {
-            previouslyFocusedRef.current?.focus?.();
-        };
-    }, [open]);
+    const {
+        stageRef,
+        mode,
+        setMode,
+        setDraft,
+        display,
+        onPointerDown,
+        onPointerMove,
+        finishPointer,
+        onWheel,
+        handleConfirm,
+        handleCancelAdjust,
+        zoomOut,
+        zoomIn,
+        enterAdjust,
+    } = useProfileGalleryViewerAdjust({
+        item,
+        open,
+        canAdjust,
+        initialMode,
+        onClose,
+        onSaveAdjust,
+    });
 
-    useEffect(() => {
-        if (!open) return;
-
-        const collectFocusables = () => {
-            const root = dialogRef.current;
-            if (!root) return [] as HTMLElement[];
-            const sheet = root.querySelector<HTMLElement>('.hami-profile-gallery-viewer__sheet');
-            const scope = sheet ?? root;
-            return Array.from(
-                scope.querySelectorAll<HTMLElement>(
-                    'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
-                ),
-            ).filter((el) => {
-                if (el.classList.contains('hami-profile-gallery-viewer__backdrop')) return false;
-                if (el.getAttribute('aria-hidden') === 'true') return false;
-                if (el.offsetParent !== null) return true;
-                if (!el.isConnected) return false;
-                try {
-                    const style = window.getComputedStyle(el);
-                    if (style.display === 'none' || style.visibility === 'hidden') return false;
-                } catch {
-                    /* ignore */
-                }
-                return true;
-            });
-        };
-
-        const focusables = collectFocusables();
-        const initial =
-            focusables.find((el) => el.getAttribute('aria-label') === 'إغلاق') ?? focusables[0] ?? null;
-        window.requestAnimationFrame(() => initial?.focus());
-
-        const exitAdjustOrClose = () => {
-            if (mode === 'adjust' && initialMode !== 'adjust') {
-                setDraft({
-                    url: item.url,
-                    focusX: item.focusX ?? 50,
-                    focusY: item.focusY ?? 50,
-                    zoom: item.zoom ?? 100,
-                    ...(item.storagePath ? { storagePath: item.storagePath } : null),
-                });
-                setMode('view');
-                return;
-            }
-            onClose();
-        };
-
-        const onKey = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                event.stopPropagation();
-                exitAdjustOrClose();
-                return;
-            }
-            if (event.key !== 'Tab') return;
-            const live = collectFocusables();
-            const root = dialogRef.current;
-            if (!root || live.length === 0) return;
-            const first = live[0]!;
-            const last = live[live.length - 1]!;
-            const active = document.activeElement as HTMLElement | null;
-            if (event.shiftKey) {
-                if (active === first || !root.contains(active)) {
-                    event.preventDefault();
-                    last.focus();
-                }
-            } else if (active === last || !root.contains(active)) {
-                event.preventDefault();
-                first.focus();
-            }
-        };
-        window.addEventListener('keydown', onKey, true);
-        return () => {
-            window.removeEventListener('keydown', onKey, true);
-        };
-    }, [open, mode, initialMode, item, onClose]);
-
-    const computeFocus = useCallback((clientX: number, clientY: number) => {
-        const el = stageRef.current;
-        if (!el) return null;
-        const rect = el.getBoundingClientRect();
-        return {
-            focusX: clampFocus(((clientX - rect.left) / rect.width) * 100),
-            focusY: clampFocus(((clientY - rect.top) / rect.height) * 100),
-        };
-    }, []);
-
-    const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-        if (mode !== 'adjust') return;
-        if ((event.target as HTMLElement).closest('[data-gallery-controls]')) return;
-        dragging.current = true;
-        try {
-            event.currentTarget.setPointerCapture(event.pointerId);
-        } catch {
-            /* بعض WebViews ترفض capture */
-        }
-        const next = computeFocus(event.clientX, event.clientY);
-        if (next) setDraft((prev) => ({ ...prev, ...next }));
-    };
-
-    const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-        if (mode !== 'adjust' || !dragging.current) return;
-        const next = computeFocus(event.clientX, event.clientY);
-        if (next) setDraft((prev) => ({ ...prev, ...next }));
-    };
-
-    const finishPointer = (event: React.PointerEvent<HTMLDivElement>) => {
-        dragging.current = false;
-        try {
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                event.currentTarget.releasePointerCapture(event.pointerId);
-            }
-        } catch {
-            /* ignore */
-        }
-    };
-
-    const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-        if (mode !== 'adjust') return;
-        event.preventDefault();
-        const delta = event.deltaY > 0 ? -8 : 8;
-        setDraft((prev) => ({ ...prev, zoom: clampZoom((prev.zoom ?? 100) + delta) }));
-    };
-
-    const handleConfirm = () => {
-        onSaveAdjust?.(draft);
-        setDisplayOverride(draft);
-        setMode('view');
-        if (initialMode === 'adjust') onClose();
-    };
+    useProfileGalleryViewerFocusTrap({
+        open,
+        mode,
+        initialMode,
+        item,
+        dialogRef,
+        previouslyFocusedRef,
+        setDraft,
+        setMode,
+        onClose,
+    });
 
     if (!open || typeof document === 'undefined') return null;
 
-    const display = mode === 'adjust' ? draft : (displayOverride ?? item);
     const imgStyle = galleryItemImageStyle(display);
 
     return createPortal(
@@ -267,43 +143,31 @@ export function ProfileGalleryViewer({
                                 type="button"
                                 className="hami-profile-gallery-viewer__icon-btn"
                                 aria-label="تصغير"
-                                onClick={() =>
-                                    setDraft((prev) => ({ ...prev, zoom: clampZoom((prev.zoom ?? 100) - 10) }))
-                                }
+                                onClick={zoomOut}
                             >
                                 <ZoomOut size={16} />
                             </button>
-                            <span className="hami-profile-gallery-viewer__zoom-badge">{display.zoom ?? 100}%</span>
+                            <span className="hami-profile-gallery-viewer__zoom-badge">
+                                {display.zoom ?? 100}%
+                            </span>
                             <button
                                 type="button"
                                 className="hami-profile-gallery-viewer__icon-btn"
                                 aria-label="تكبير"
-                                onClick={() =>
-                                    setDraft((prev) => ({ ...prev, zoom: clampZoom((prev.zoom ?? 100) + 10) }))
-                                }
+                                onClick={zoomIn}
                             >
                                 <ZoomIn size={16} />
                             </button>
                         </div>
                         <p className="hami-profile-gallery-viewer__hint">
                             <Move size={12} aria-hidden />
-                            اسحب لتحريك الموضع · عجلة الفأرة أو الأزرار للتكبير
+                            اسحب لتحريك الموضع · قرص الإصبعين أو العجلة للتكبير
                         </p>
                         <div className="hami-profile-gallery-viewer__actions">
                             <button
                                 type="button"
                                 className="hami-profile-gallery-viewer__btn"
-                                onClick={() => {
-                                    setDraft({
-                                        url: item.url,
-                                        focusX: item.focusX ?? 50,
-                                        focusY: item.focusY ?? 50,
-                                        zoom: item.zoom ?? 100,
-                                        ...(item.storagePath ? { storagePath: item.storagePath } : null),
-                                    });
-                                    if (initialMode === 'adjust') onClose();
-                                    else setMode('view');
-                                }}
+                                onClick={handleCancelAdjust}
                             >
                                 إلغاء
                             </button>
@@ -320,19 +184,49 @@ export function ProfileGalleryViewer({
                     </div>
                 ) : (
                     <div className="hami-profile-gallery-viewer__controls" data-gallery-controls>
+                        <div className="hami-profile-gallery-viewer__zoom-row">
+                            <button
+                                type="button"
+                                className="hami-profile-gallery-viewer__icon-btn"
+                                aria-label="تصغير المعاينة"
+                                data-testid="profile-gallery-view-zoom-out"
+                                onClick={zoomOut}
+                            >
+                                <ZoomOut size={16} />
+                            </button>
+                            <span className="hami-profile-gallery-viewer__zoom-badge">
+                                {display.zoom ?? 100}%
+                            </span>
+                            <button
+                                type="button"
+                                className="hami-profile-gallery-viewer__icon-btn"
+                                aria-label="تكبير المعاينة"
+                                data-testid="profile-gallery-view-zoom-in"
+                                onClick={zoomIn}
+                            >
+                                <ZoomIn size={16} />
+                            </button>
+                        </div>
+                        <p className="hami-profile-gallery-viewer__hint">
+                            قرص الإصبعين أو الأزرار لتكبير المعاينة (لا يُحفظ)
+                        </p>
                         <div className="hami-profile-gallery-viewer__actions">
                             {canAdjust ? (
                                 <button
                                     type="button"
                                     className="hami-profile-gallery-viewer__btn hami-profile-gallery-viewer__btn--primary"
                                     data-testid="profile-gallery-adjust-open"
-                                    onClick={() => setMode('adjust')}
+                                    onClick={enterAdjust}
                                 >
                                     <Maximize2 size={14} />
                                     ضبط الموضع
                                 </button>
                             ) : null}
-                            <button type="button" className="hami-profile-gallery-viewer__btn" onClick={onClose}>
+                            <button
+                                type="button"
+                                className="hami-profile-gallery-viewer__btn"
+                                onClick={onClose}
+                            >
                                 إغلاق
                             </button>
                         </div>

@@ -6,7 +6,7 @@ const core = fs.readFileSync(
 );
 const lines = core.split('\n');
 
-const startIdx = lines.findIndex((l) => l.includes('executionCopilotDecisions,')) - 1;
+const startIdx = lines.findIndex((l) => l.includes('executorDecisions,')) - 1;
 const endIdx = lines.findIndex((l) => l.includes('const specificDeliveryConvertedAmount ='));
 
 const body = lines.slice(startIdx, endIdx).join('\n');
@@ -38,7 +38,7 @@ const free = [...used]
     .filter((id) => !id.startsWith('useExecution') && !id.startsWith('useEviction'))
     .filter((id) => !id.startsWith('useDossier') && !id.startsWith('useParty') && !id.startsWith('useFinancial'))
     .filter((id) => id !== 'useMemo' && id !== 'useCallback')
-    .filter((id) => id !== 'useExecutionAICopilot' && id !== 'useExecutionDossierLifecycleActionsOrchestrator')
+    .filter((id) => id !== 'useExecutionDecisionAppealSnapshot' && id !== 'useExecutionDossierLifecycleActionsOrchestrator')
     .filter((id) => id !== 'useDossierMeta' && id !== 'useEvictionProcedures')
     .filter((id) => !['as', 'OF', 'PERIOD', 'TRIGGER', 'CRITICAL', 'END', 'GRACE', 'current', 'd'].includes(id))
     .filter((id) => !/^[A-Z_]+$/.test(id) || ['EVICTION_WORKFLOW_BY_ACTION_ID', 'READY_FOR_COERCIVE'].includes(id))

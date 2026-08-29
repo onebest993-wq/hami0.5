@@ -11,7 +11,7 @@ export type CassationCorrectionUserRole =
     | 'lawyer_of_defendant'
     | 'lawyer_of_claimant';
 
-export type CassationActionKind =
+type CassationActionKind =
     | 'cassation_appeal'
     | 'intervention_cassation'
     | 'cassation_correction'
@@ -79,7 +79,7 @@ export function isVerdictInterventionLockActive(card: VerdictCard): boolean {
 }
 
 /** النتيجة الأصلية للحكم — براءة أو إفراج. */
-export function isOriginalJudicialDecisionAcquittalOrRelease(decision: JudicialDecision): boolean {
+function isOriginalJudicialDecisionAcquittalOrRelease(decision: JudicialDecision): boolean {
     const text = `${decision.title} ${decision.summary} ${decision.proceduralTemplate ?? ''}`;
     if (/إفراج|release/i.test(text)) return true;
     if (/براءة|تبرئة|acquittal/i.test(text) && !/إدانة/i.test(text)) return true;
@@ -94,7 +94,7 @@ export function isOriginalJudicialDecisionAcquittalOrRelease(decision: JudicialD
 }
 
 /** جنح/جنايات — يختفي طعن وكيل المتهم عند البراءة أو الإفراج. */
-export function shouldHideCassationAppealForDefendantCounsel(
+function shouldHideCassationAppealForDefendantCounsel(
     decision: JudicialDecision,
     userRole?: CassationCorrectionUserRole,
     caseStage?: CaseStage,
@@ -105,7 +105,7 @@ export function shouldHideCassationAppealForDefendantCounsel(
     return isOriginalJudicialDecisionAcquittalOrRelease(decision);
 }
 
-export function actionsToStageCassationButtonFlags(
+function actionsToStageCassationButtonFlags(
     actions: CassationActionKind[],
 ): StageCassationButtonFlags {
     return {

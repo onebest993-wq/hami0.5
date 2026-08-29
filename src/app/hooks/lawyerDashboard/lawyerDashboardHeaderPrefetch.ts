@@ -1,7 +1,5 @@
 import { loadHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
 
-import { loadProfileHubModule, prefetchProfileHubModule } from '@/app/runtime/profileHubLoader';
-import { loadProfileTabModule } from '@/app/runtime/profileTabModuleLoader';
 import { loadNotificationPanelModule } from '@/app/runtime/notificationPanelLoader';
 import {
     loadGlobalSearchOverlayModule,
@@ -10,7 +8,11 @@ import {
 import { loadSettingsOverlayEntry } from '@/app/runtime/settingsOverlayEntryLoader';
 
 function loadProfileIntentWarm() {
-    return import('@/app/hooks/lawyerDashboard/profileIntentWarm');
+    return import('@/app/runtime/profileShellPrime');
+}
+
+function loadProfileHub() {
+    return import('@/app/runtime/royalLawyerProfileLoader');
 }
 
 function loadGlobalSearchIntentWarm() {
@@ -23,6 +25,10 @@ function loadSettingsIntentWarm() {
 
 function loadNotificationIntentWarm() {
     return import('@/app/hooks/lawyerDashboard/notificationIntentWarm');
+}
+
+function loadNotificationBootHydrator() {
+    return import('@/app/runtime/notificationBootHydrator');
 }
 
 function loadVaultIntentWarm() {
@@ -54,16 +60,22 @@ export function createLawyerDashboardHeaderPrefetch(
         void loadNotificationIntentWarm().then((m) => m.warmNotificationsOnHover());
     };
     const prefetchNotificationsPress = () => {
-        void loadNotificationIntentWarm().then((m) => m.warmNotificationsOnHover());
+        void loadNotificationIntentWarm().then((m) => m.warmNotificationsOnOpen(resolvedId));
         void loadNotificationPanelModule().catch(() => undefined);
+        void loadNotificationBootHydrator().then((m) => {
+            m.dispatchNotificationPrimeHost();
+            return m.hydrateNotificationShellForInstantOpen(true);
+        });
     };
     const prefetchSettingsHover = () => {
         void loadSettingsIntentWarm().then((m) => m.warmSettingsOnHover());
         void loadHamiSettingsModule().catch(() => undefined);
     };
     const prefetchSettingsPress = () => {
-        void loadSettingsIntentWarm().then((m) => m.primeSettingsShellForOpen());
+        /* تركيب Host فوراً عبر الحدث + تحميل مقطع Entry قبل click */
         void loadSettingsOverlayEntry().catch(() => undefined);
+        void loadHamiSettingsModule().catch(() => undefined);
+        void loadSettingsIntentWarm().then((m) => m.primeSettingsShellForOpen());
         void loadSettingsBootHydrator().then((m) => m.dispatchSettingsPrimeHost());
     };
     const prefetchProfileHover = () => {
@@ -77,9 +89,12 @@ export function createLawyerDashboardHeaderPrefetch(
          * تحميل إلزامي للـ shell قبل click — يقلّل فجوة chunk عند أول فتح.
          * لا warmProfileOnOpen هنا — يُستدعى بعد commit التبويب.
          */
-        prefetchProfileHubModule();
-        void loadProfileHubModule().catch(() => undefined);
-        void loadProfileTabModule().catch(() => undefined);
+        void loadProfileHub()
+            .then((m) => {
+                m.prefetchProfileHubModule();
+                return m.loadProfileHubModule();
+            })
+            .catch(() => undefined);
         void loadProfileBootHydrator().then((m) => m.dispatchProfilePrimeHost());
         opts?.primeProfileTabMount?.();
     };
@@ -110,6 +125,3 @@ export function createLawyerDashboardHeaderPrefetch(
         onVaultPointerDown: prefetchVault,
     } as const;
 }
-
-/** @deprecated استخدم createLawyerDashboardHeaderPrefetch */
-export const lawyerDashboardHeaderPrefetch = createLawyerDashboardHeaderPrefetch();

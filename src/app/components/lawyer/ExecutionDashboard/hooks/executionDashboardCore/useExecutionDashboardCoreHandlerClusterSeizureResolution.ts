@@ -12,7 +12,7 @@ export function useExecutionDashboardCoreHandlerClusterSeizureResolution(
     deps: HandlerClusterPushTimelineDeps,
 ) {
     const { pushTimelineEvent } = deps;
-    const resolved = c as any;
+    const resolved = c as Record<string, unknown>;
 
     const {
         seizedAssets,

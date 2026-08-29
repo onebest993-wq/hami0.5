@@ -25,8 +25,8 @@ function startDeferredAppStylesLoad(): Promise<void> {
 }
 
 /**
- * يحمّل Tailwind + lawyerHomeFx الكامل.
- * يُستدعى بعد content-ready (أو احتياطي بعد الكشف) — لا من أول بايت index.
+ * يحمّل Tailwind + حراسات runtime + lawyerHomeFx الكامل.
+ * يبدأ من preamble تحت الغطاء؛ content-ready احتياطي — لا من index.html.
  */
 export function scheduleDeferredAppStyles(): void {
     if (scheduled || loaded || typeof window === 'undefined') return;

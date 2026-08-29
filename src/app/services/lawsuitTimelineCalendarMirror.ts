@@ -1,4 +1,4 @@
-import type { CaseStage, TimelineEvent } from '@/app/components/lawyer/LawyerShared';
+import type { CaseStage, TimelineEvent } from '@/app/components/lawyer/lawyerShared/stageTimelineTypes';
 import { normalizeDateToYmd } from '@/app/services/calendar/bridge';
 import { syncLawsuitTimelineAppointment } from '@/app/services/calendar/dossierSync/incrementalSync';
 import { isCassationCorrectionStageName } from '@/app/components/lawyer/smart-modal/smartFile/extraordinaryAppealGateway';
@@ -72,7 +72,7 @@ function resolveJudgmentMirrorMeta(stage: CaseStage): { title: string; details?:
 
     if (degree === 'first_instance') {
         return {
-            title: 'تاريخ الحكم البدائي',
+            title: 'تاريخ الحكم',
             details: finalDecision || (stageLabel ? `مرحلة: ${stageLabel}` : undefined),
         };
     }
@@ -106,7 +106,7 @@ function resolveCassationDeadlineMirrorMeta(stage: CaseStage): { title: string; 
     if (degree === 'first_instance') {
         return {
             title: 'مهلة التمييز',
-            details: 'آخر مهلة للتمييز إن لم يُستأنف الحكم البدائي (شهر من صدور القرار)',
+            details: 'آخر مهلة للتمييز إن لم يُستأنف الحكم (شهر من صدور القرار)',
         };
     }
     if (degree === 'cassation') {
@@ -148,7 +148,7 @@ function resolveAppealDeadlineMirrorMeta(stage: CaseStage): { title: string; det
 
     if (degree === 'first_instance') {
         return {
-            title: 'آخر موعد طعن على الحكم البدائي',
+            title: 'آخر موعد طعن على الحكم',
             details: 'آخر موعد للاستئناف (15 يوماً من اليوم التالي لصدور الحكم)',
         };
     }

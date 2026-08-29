@@ -61,7 +61,7 @@ describe('heavyDashboardSectionWarm', () => {
             expect(prefetchExecutionArchiveOpen).toHaveBeenCalledTimes(1);
         });
         expect(warmExecutionWorkspace).toHaveBeenCalledWith({ includeSecondary: true });
-        expect(warmLawsuitWorkspace).toHaveBeenCalledWith({ includeSecondary: true });
+        expect(warmLawsuitWorkspace).toHaveBeenCalledWith({ includeSecondary: false });
         expect(prefetchExecutionDashboardByMode).toHaveBeenCalledWith('deferred');
         expect(prefetchLawsuitArchiveContent).toHaveBeenCalledTimes(1);
         expect(prefetchExecutionArchiveContent).toHaveBeenCalledTimes(1);
@@ -82,5 +82,26 @@ describe('heavyDashboardSectionWarm', () => {
         await vi.waitFor(() => {
             expect(prefetchExecutionArchiveOpen).toHaveBeenCalledTimes(1);
         });
+    });
+
+    it('scheduleLawsuitArchiveEarlyWarm يسخّن الدعاوى قبل heavy warm على الويب', async () => {
+        const native = await import('@/app/runtime/nativePlatform');
+        vi.mocked(native.isCapacitorNativePlatform).mockReturnValue(false);
+
+        const { scheduleLawsuitArchiveEarlyWarm, warmLawsuitArchiveEarly } = await import(
+            '@/app/runtime/heavyDashboardSectionWarm'
+        );
+
+        scheduleLawsuitArchiveEarlyWarm();
+        expect(scheduleIdleWork).toHaveBeenCalledWith(expect.any(Function), {
+            minDelayMs: 2_500,
+            timeoutMs: 6_500,
+        });
+
+        warmLawsuitArchiveEarly();
+        await vi.waitFor(() => {
+            expect(warmLawsuitWorkspace).toHaveBeenCalledWith({ includeSecondary: false });
+        });
+        expect(prefetchLawsuitArchiveContent).toHaveBeenCalled();
     });
 });

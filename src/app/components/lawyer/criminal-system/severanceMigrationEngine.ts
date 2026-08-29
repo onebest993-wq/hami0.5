@@ -2,7 +2,7 @@ import type { CriminalCase, CriminalComplainant, CriminalDefendant, Investigatio
 import type { JudicialDecision } from '@/app/types/criminal';
 import { resolveDefendantFullName } from './criminalUnknownDefendant';
 
-export type SeverancePartyIdMaps = {
+type SeverancePartyIdMaps = {
     defendantId: Map<string, string>;
     complainantId: Map<string, string>;
 };
@@ -61,7 +61,7 @@ function remapIdList(ids: string[] | undefined, maps: SeverancePartyIdMaps): str
 }
 
 /** كل معرّفات الأطراف المرتبطة بطلب المحامي. */
-export function resolveLawyerRequestPartyIds(
+function resolveLawyerRequestPartyIds(
     request: LawyerRequest,
     _parent?: CriminalCase,
 ): string[] {
@@ -72,21 +72,21 @@ export function resolveLawyerRequestPartyIds(
     return uniqueIds(ids.filter(Boolean));
 }
 
-export function resolveJudicialDecisionPartyIds(decision: JudicialDecision): string[] {
+function resolveJudicialDecisionPartyIds(decision: JudicialDecision): string[] {
     return uniqueIds([
         ...collectIds(decision.defendantIds),
         ...collectIds(decision.beneficiaryPartyIds),
     ]);
 }
 
-export function resolveInvestigationLogPartyIds(log: InvestigationLog): string[] {
+function resolveInvestigationLogPartyIds(log: InvestigationLog): string[] {
     return uniqueIds([
         ...collectIds(log.defendantIds),
         ...collectIds(log.linkedPartyId ? [log.linkedPartyId] : []),
     ]);
 }
 
-export function resolveTimelineEventPartyIds(event: TimelineEvent): string[] {
+function resolveTimelineEventPartyIds(event: TimelineEvent): string[] {
     return uniqueIds([
         ...collectIds(event.defendantIds),
         ...collectIds(event.complainantIds),

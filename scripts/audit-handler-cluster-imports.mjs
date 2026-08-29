@@ -1,9 +1,12 @@
 import fs from 'node:fs';
 
-const hc = fs.readFileSync(
-    'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerCluster.ts',
-    'utf8',
-);
+const clusterPath =
+    'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerCluster.ts';
+if (!fs.existsSync(clusterPath)) {
+    console.log('[spent] useExecutionDashboardCoreHandlerCluster.ts — skip');
+    process.exit(0);
+}
+const hc = fs.readFileSync(clusterPath, 'utf8');
 const imports = new Set();
 for (const m of hc.matchAll(/import\s+\{([^}]+)\}\s+from\s+'([^']+)'/g)) {
     for (const part of m[1].split(',')) {

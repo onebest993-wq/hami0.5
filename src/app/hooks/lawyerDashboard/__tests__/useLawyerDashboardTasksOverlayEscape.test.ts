@@ -4,8 +4,10 @@ import { useLawyerDashboardTasksOverlayEscape } from '@/app/hooks/lawyerDashboar
 
 const nativeHandlers: Array<() => boolean> = [];
 
+const overlayEscapeMocks = vi.hoisted(() => ({ blocked: false }));
+
 vi.mock('@/app/components/lawyer/dashboard/fieldTasks/tasksEscapeCoordinator', () => ({
-    isTasksOverlayEscapeBlocked: () => false,
+    isTasksOverlayEscapeBlocked: () => overlayEscapeMocks.blocked,
 }));
 
 vi.mock('@/app/runtime/capacitorAppLifecycle', () => ({
@@ -22,6 +24,7 @@ describe('useLawyerDashboardTasksOverlayEscape', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         nativeHandlers.length = 0;
+        overlayEscapeMocks.blocked = false;
     });
 
     it('closes field tasks sheet on Escape', () => {
@@ -86,5 +89,29 @@ describe('useLawyerDashboardTasksOverlayEscape', () => {
         rerender({ sheet: false, manager: true });
         expect(nativeHandlers[0]?.()).toBe(true);
         expect(onCloseTasksManager).toHaveBeenCalledTimes(1);
+    });
+
+    it('لا يغلق الستارة أو الأجندة عندما يكون Escape محجوزاً لحوار داخلي', () => {
+        overlayEscapeMocks.blocked = true;
+        const onCloseFieldTasksSheet = vi.fn();
+        const onCloseTasksManager = vi.fn();
+
+        renderHook(() =>
+            useLawyerDashboardTasksOverlayEscape({
+                fieldTasksSheetOpen: false,
+                showTasksManager: true,
+                onCloseFieldTasksSheet,
+                onCloseTasksManager,
+            }),
+        );
+
+        act(() => {
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        });
+
+        expect(onCloseTasksManager).not.toHaveBeenCalled();
+        expect(onCloseFieldTasksSheet).not.toHaveBeenCalled();
+        expect(nativeHandlers[0]?.()).toBe(true);
+        expect(onCloseTasksManager).not.toHaveBeenCalled();
     });
 });

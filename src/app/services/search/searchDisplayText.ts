@@ -2,6 +2,8 @@
 export function sanitizeSearchDisplayText(text: string | undefined | null): string {
     if (!text) return '';
     return text
+        .replace(/[\u0000-\u001F\u007F\u202A-\u202E\u2066-\u2069]/g, '')
+        .replace(/<[^>]*>/g, '')
         .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}]/gu, '')
         .replace(/[✨⭐🌟💫🔷🔹▪️•]+/g, ' ')
         .replace(/\s{2,}/g, ' ')

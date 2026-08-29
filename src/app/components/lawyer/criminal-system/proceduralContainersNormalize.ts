@@ -1,38 +1,72 @@
+/**
+ * Normalize / migrate / tags / follow-up date helpers for procedural containers.
+ * Pure data transforms — no UI. Re-exported from proceduralContainersEngine.
+ */
 import { normalizeProceduralItemLink } from './proceduralItemLink';
 import {
-    type ProceduralActionStatus,
-    ProceduralNoteItem,
-    ProceduralActionItem,
-    ProceduralSubItem,
-    ProceduralBranchRole,
-    ProceduralContainer,
-    CONTAINER_COLOR_PRESETS,
-    CONTAINER_ICON_PRESETS,
-    ACTION_STATUS_OPTIONS,
+    isActionStatus,
     isPathStatus,
-    normalizeProceduralTags,
-    normalizeFollowUpDate,
+    type ProceduralActionItem,
+    type ProceduralActionStatus,
+    type ProceduralBranchRole,
+    type ProceduralContainer,
+    type ProceduralNoteItem,
+    type ProceduralSubItem,
 } from './proceduralContainersModel';
-import { createProceduralId } from './proceduralContainersIds';
-export { createProceduralId } from './proceduralContainersIds';
+import {
+    createProceduralId,
+    normalizeColor,
+    normalizeIcon,
+} from './proceduralContainersTreeOps';
 
-export function normalizeColor(raw: unknown): string {
+const MAX_TAG_LEN = 48;
+const MAX_TAGS = 12;
+
+export function normalizeProceduralTags(raw: unknown): string[] | undefined {
+    if (!Array.isArray(raw)) return undefined;
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const item of raw) {
+        const t = String(item ?? '').trim();
+        if (!t || seen.has(t)) continue;
+        seen.add(t);
+        out.push(t.slice(0, MAX_TAG_LEN));
+        if (out.length >= MAX_TAGS) break;
+    }
+    return out.length ? out : undefined;
+}
+
+/** نص مفصول بفواصل → وسوم */
+export function parseTagsInput(text: string): string[] | undefined {
+    const parts = String(text ?? '')
+        .split(/[,،]/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    return normalizeProceduralTags(parts);
+}
+
+export function formatTagsInput(tags: string[] | undefined): string {
+    return Array.isArray(tags) ? tags.join('، ') : '';
+}
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function normalizeFollowUpDate(raw: unknown, status: ProceduralActionStatus): string | undefined {
+    if (status !== 'in_progress') return undefined;
     const v = String(raw ?? '').trim();
-    if (/^#[0-9A-Fa-f]{6}$/.test(v)) return v;
-    return CONTAINER_COLOR_PRESETS[0];
+    return ISO_DATE_RE.test(v) ? v : undefined;
 }
 
-export function normalizeIcon(raw: unknown): string {
-    const v = String(raw ?? '').trim();
-    return CONTAINER_ICON_PRESETS.includes(v as (typeof CONTAINER_ICON_PRESETS)[number]) ? v : '📁';
+/** تاريخ اليوم ISO — للمقارنة مع موعد المراجعة */
+export function todayIsoDate(): string {
+    return new Date().toISOString().slice(0, 10);
 }
 
-export function isActionStatus(v: string): v is ProceduralActionStatus {
-    return v === 'in_progress' || v === 'done' || v === 'postponed';
-}
-
-export function actionStatusLabel(status: ProceduralActionStatus): string {
-    return ACTION_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status;
+/** موعد المراجعة حلّ أو تأخّر (YYYY-MM-DD مقارنة lexicographic) */
+export function isFollowUpDueOrOverdue(followUpDate: string, todayIso = todayIsoDate()): boolean {
+    const d = String(followUpDate ?? '').trim();
+    if (!ISO_DATE_RE.test(d)) return false;
+    return todayIso >= d;
 }
 
 function normalizeNote(raw: unknown): ProceduralNoteItem | null {
@@ -174,162 +208,3 @@ export function migrateLegacyPathsToContainers(rawPaths: unknown): ProceduralCon
     }
     return out;
 }
-
-export function getRootContainers(containers: ProceduralContainer[]): ProceduralContainer[] {
-    return containers.filter((c) => !c.parentId);
-}
-
-export function cloneContainer(c: ProceduralContainer): ProceduralContainer {
-    return {
-        ...c,
-        subItems: c.subItems.map((item) => {
-            if (item.type === 'container') {
-                return { type: 'container', container: cloneContainer(item.container) };
-            }
-            return { ...item };
-        }),
-    };
-}
-
-/** سلسلة ترقيم هيكلي للعرض فقط — لا تُخزَّن. */
-export type ProceduralParentNumber = number[];
-
-export type ProceduralPlacementContext = {
-    /** عناوين المسار من الجذر إلى حاوية الإدراج */
-    breadcrumb: string[];
-    /** سلسلة رقمية: 1.2.3 */
-    numberChain: string;
-    /** سطر واحد للمودال: عنوان أ > عنوان ب */
-    breadcrumbLine: string;
-};
-
-export function formatProceduralNumberChain(chain: ProceduralParentNumber): string {
-    return chain.filter((n) => Number.isFinite(n) && n > 0).join('.');
-}
-
-/** يمدّد سلسلة الأب برقم الطفل حسب ترتيبه في subItems (يبدأ من 1). */
-export function childProceduralNumber(
-    parentNumber: ProceduralParentNumber,
-    subItemIndex: number,
-): ProceduralParentNumber {
-    return [...parentNumber, subItemIndex + 1];
-}
-
-export function formatProceduralBreadcrumbLine(segments: string[]): string {
-    return segments.map((s) => String(s ?? '').trim()).filter(Boolean).join(' › ');
-}
-
-export function containerBreadcrumbTitle(c: ProceduralContainer): string {
-    return String(c.title ?? '').trim() || '—';
-}
-
-/** سياق الإدراج داخل حاوية أب — للواجهة فقط (بدون تغيير المخطط). */
-export function buildProceduralPlacementContext(
-    roots: ProceduralContainer[],
-    parentContainerId: string,
-): ProceduralPlacementContext | null {
-    const targetId = String(parentContainerId ?? '').trim();
-    if (!targetId) return null;
-
-    const searchInSubItems = (
-        subItems: ProceduralSubItem[],
-        indexChain: number[],
-        breadcrumb: string[],
-    ): ProceduralPlacementContext | null => {
-        for (let i = 0; i < subItems.length; i++) {
-            const currentItem = subItems[i];
-            if (currentItem.type !== 'container') continue;
-            const c = currentItem.container;
-            const chain = [...indexChain, i + 1];
-            const crumbs = [...breadcrumb, containerBreadcrumbTitle(c)];
-            if (c.id === targetId) {
-                const numberChain = formatProceduralNumberChain(chain);
-                return {
-                    breadcrumb: crumbs,
-                    numberChain,
-                    breadcrumbLine: formatProceduralBreadcrumbLine(crumbs),
-                };
-            }
-            const hit = searchInSubItems(c.subItems, chain, crumbs);
-            if (hit) return hit;
-        }
-        return null;
-    };
-
-    for (let ri = 0; ri < roots.length; ri++) {
-        const root = roots[ri];
-        const rootChain = [ri + 1];
-        const rootCrumb = containerBreadcrumbTitle(root);
-        if (root.id === targetId) {
-            const numberChain = formatProceduralNumberChain(rootChain);
-            return {
-                breadcrumb: [rootCrumb],
-                numberChain,
-                breadcrumbLine: formatProceduralBreadcrumbLine([rootCrumb]),
-            };
-        }
-        const hit = searchInSubItems(root.subItems, rootChain, [rootCrumb]);
-        if (hit) return hit;
-    }
-    return null;
-}
-
-export function findContainerInTree(
-    roots: ProceduralContainer[],
-    id: string,
-): { container: ProceduralContainer; parent: ProceduralContainer | null; path: ProceduralContainer[] } | null {
-    const walk = (
-        list: ProceduralContainer[],
-        parent: ProceduralContainer | null,
-        path: ProceduralContainer[],
-    ): ReturnType<typeof findContainerInTree> => {
-        for (const c of list) {
-            if (c.id === id) return { container: c, parent, path };
-            for (const item of c.subItems) {
-                if (item.type === 'container') {
-                    const hit = walk([item.container], c, [...path, c]);
-                    if (hit) return hit;
-                }
-            }
-        }
-        return null;
-    };
-    return walk(roots, null, []);
-}
-
-export function mapContainerTree(
-    roots: ProceduralContainer[],
-    fn: (c: ProceduralContainer, parent: ProceduralContainer | null) => ProceduralContainer,
-): ProceduralContainer[] {
-    const mapOne = (c: ProceduralContainer, parent: ProceduralContainer | null): ProceduralContainer => {
-        const next = fn(c, parent);
-        return {
-            ...next,
-            subItems: next.subItems.map((item) => {
-                if (item.type === 'container') {
-                    return {
-                        type: 'container',
-                        container: mapOne(item.container, next),
-                    };
-                }
-                return item;
-            }),
-        };
-    };
-    return roots.map((r) => mapOne(r, null));
-}
-
-export function deleteContainerFromTree(roots: ProceduralContainer[], targetId: string): ProceduralContainer[] {
-    const prune = (c: ProceduralContainer): ProceduralContainer => ({
-        ...c,
-        subItems: c.subItems
-            .filter((item) => item.type !== 'container' || item.container.id !== targetId)
-            .map((item) =>
-                item.type === 'container'
-                    ? { type: 'container', container: prune(item.container) }
-                    : item,
-            ),
-    });
-    return roots.filter((c) => c.id !== targetId).map(prune);
-}
-

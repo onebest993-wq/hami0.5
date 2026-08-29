@@ -1,13 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import { resolveForumStreamHealthCheckMs } from '@/app/components/lawyer/CommunityScreen/communityFeedPolicy';
+import { canReachProtectedServerNetwork } from '@/app/services/secureApiNetworkFeatures';
+
+function canOpenForumNotificationStream(userId: string | null): boolean {
+    return canReachProtectedServerNetwork(userId);
+}
 
 /** بث SSE لتنبيهات المنتدى — يُعوّض الاستطلاع المتكرر عند الاتصال */
 export function useForumNotificationStream(userId: string | null, enabled = true): boolean {
     const [connected, setConnected] = useState(false);
+    const streamEnabled = enabled && canOpenForumNotificationStream(userId);
 
     useEffect(() => {
-        if (!enabled || !userId) {
+        if (!streamEnabled || !userId) {
             setConnected(false);
             return;
         }
@@ -34,16 +40,16 @@ export function useForumNotificationStream(userId: string | null, enabled = true
             release?.();
             setConnected(false);
         };
-    }, [enabled, userId]);
+    }, [streamEnabled, userId]);
 
     useVisibilityAwareInterval(() => {
-        if (!enabled || !userId) return;
+        if (!streamEnabled || !userId) return;
         void import('@/app/services/forum/ForumNotificationStreamService').then((m) => {
             if (!m.ForumNotificationStreamService.isRunning()) {
                 void m.ForumNotificationStreamService.start(userId);
             }
         });
-    }, resolveForumStreamHealthCheckMs(), enabled && Boolean(userId));
+    }, resolveForumStreamHealthCheckMs(), streamEnabled && Boolean(userId));
 
     return connected;
 }

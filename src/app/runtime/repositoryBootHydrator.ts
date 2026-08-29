@@ -1,17 +1,17 @@
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
+import {
+    isSectionBackgroundPrefetchAllowed,
+    sectionBackgroundHydrateDelayMs,
+} from '@/app/runtime/sectionPrefetchPolicy';
 import {
     hydrateRepositoryShellForInstantOpen,
     isRepositoryHubModuleResolved,
-    prefetchRepositoryFeedModule,
     prefetchRepositoryHubModule,
 } from '@/app/runtime/repositoryHubLoader';
 import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
 import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
 
-export const REPOSITORY_SHELL_HYDRATED_EVENT = 'hami:repository-shell-hydrated';
-/** pointerdown/hover على أيقونة المستودع — يركّب Host مخفياً قبل الـ click */
+/** pointerdown/hover على أيقونة المستودع — تسخين مقطع بلا تركيب Host حتى الفتح */
 export const REPOSITORY_PRIME_HOST_EVENT = 'hami:repository-prime-host';
 
 let bootHydratorArmed = false;
@@ -24,34 +24,12 @@ function warmRepositoryDataCache(userId?: string | null): Promise<unknown> {
         .catch(() => []);
 }
 
-function prefetchRepositoryOverlayChunks(): void {
-    if (typeof window === 'undefined') return;
-    void import(
-        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardRepositoryOverlayEntry'
-    ).catch(() => undefined);
-}
-
 function repositoryPrefetchAllowed(): boolean {
-    try {
-        const s = getLawyerSettingsSnapshot();
-        if (s.security.localOnlyMode) return false;
-        if (s.performance.prefetchScreens === false) return false;
-        if (isLitePerformanceActive(s.performance.litePerformance)) return false;
-    } catch {
-        /* ignore */
-    }
-    return true;
+    return isSectionBackgroundPrefetchAllowed();
 }
 
 function hydrateDelayMs(): number {
-    if (!repositoryPrefetchAllowed()) return -1;
-    /* فوري — أي تأخير = InstantShell على أول فتح */
-    return 0;
-}
-
-function dispatchHydratedOnce(): void {
-    if (typeof window === 'undefined') return;
-    window.dispatchEvent(new Event(REPOSITORY_SHELL_HYDRATED_EVENT));
+    return sectionBackgroundHydrateDelayMs(0, 0);
 }
 
 /** يُستدعى من الدوك عند pointerdown — يسبق الـ click بـ ~100ms لتبنّي التغذية */
@@ -65,7 +43,7 @@ export function isRepositoryShellFullyHydrated(): boolean {
 }
 
 /**
- * تسخين فوري بعد رفع حاجز الإقلاع — قبل نقرة المستودع / استعادة الجلسة.
+ * تسخين فوري بعد رفع حاجز الإقلاع — قبل نقرة المستودع.
  */
 export function prefetchRepositoryAfterBootReveal(userId?: string | null): void {
     if (typeof window === 'undefined' || coldBootPrefetchStarted) return;
@@ -73,14 +51,12 @@ export function prefetchRepositoryAfterBootReveal(userId?: string | null): void 
     coldBootPrefetchStarted = true;
 
     void ensureDeferredFeatureStylesLoaded();
-    prefetchRepositoryOverlayChunks();
-    prefetchRepositoryFeedModule();
     prefetchRepositoryHubModule();
     void hydrateRepositoryBootShellForInstantOpen(userId, false).catch(() => undefined);
 }
 
 /**
- * تهيئة shell المستودع + بيانات vault للفتح الفوري.
+ * تهيئة مقطع المستودع + بيانات vault للفتح الفوري.
  * @param force يتجاوز تعطيل prefetch عند فتح المستخدم.
  */
 export function hydrateRepositoryBootShellForInstantOpen(
@@ -90,14 +66,12 @@ export function hydrateRepositoryBootShellForInstantOpen(
     if (!force && !repositoryPrefetchAllowed()) return Promise.resolve(false);
     if (isRepositoryShellFullyHydrated()) {
         if (userId?.trim()) void warmRepositoryDataCache(userId).catch(() => undefined);
-        dispatchHydratedOnce();
         return Promise.resolve(true);
     }
     if (hydrateInflight) return hydrateInflight;
 
     hydrateInflight = hydrateRepositoryShellForInstantOpen()
         .then((ok) => {
-            if (ok) dispatchHydratedOnce();
             if (ok && userId?.trim()) {
                 void warmRepositoryDataCache(userId).catch(() => undefined);
             }
@@ -133,8 +107,6 @@ export function bindRepositoryBootHydrator(userId?: string | null): () => void {
         cancelIdle?.();
         cancelIdle = scheduleIdleWork(
             () => {
-                prefetchRepositoryOverlayChunks();
-                prefetchRepositoryFeedModule();
                 prefetchRepositoryHubModule();
                 void hydrateRepositoryBootShellForInstantOpen(uid).catch(() => undefined);
             },

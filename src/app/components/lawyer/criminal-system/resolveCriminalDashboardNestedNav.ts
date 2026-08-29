@@ -1,6 +1,10 @@
 import type { CriminalDashboardTab } from './criminalDashboardTabChrome';
 
-/** هل زر الرجوع سيُغلق طبقة داخلية قبل مغادرة الإضبارة؟ */
+/**
+ * هل زر الرجوع سيُغلق طبقة داخلية قبل مغادرة الإضبارة؟
+ *
+ * طبقات canvas وموعد المحاكمة محلية — مكدس `criminalLocalOverlayBackStack`؛ لا تُمرَّر هنا.
+ */
 export function resolveCriminalDashboardNestedNav(input: {
     confirmAction: unknown;
     cassationResultContext: unknown;

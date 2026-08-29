@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { ListFilter, Search } from '@/app/components/ui/lucideIcons';
+import { ExecutionArchiveFilterMark, ExecutionArchiveSearchMark } from '../executionArchiveMarks';
 import type {
     ExecutionArchiveLifecycleMode,
     ExecutionDossierStatusFilter,
     ExecutionJurisdictionFilter,
     ExecutionPerspectiveFilter,
-} from '../executionArchiveFilterUtils';
+} from '../executionArchiveFilterPresentation';
 import {
     EXECUTION_DOSSIER_STATUS_CHIP_DEFS,
     EXECUTION_DOSSIER_STATUS_LABELS,
@@ -13,17 +13,24 @@ import {
     EXECUTION_JURISDICTION_TAB_DEFS,
     EXECUTION_PERSPECTIVE_LABELS,
     EXECUTION_PERSPECTIVE_TAB_DEFS,
-} from '../executionArchiveFilterUtils';
+} from '../executionArchiveFilterPresentation';
 import {
-    ARCHIVE_CHIP_ACTIVE,
     ARCHIVE_CHIP_BASE,
-    ARCHIVE_CHIP_INACTIVE,
-    ARCHIVE_SEGMENT_BTN_ACTIVE,
-    ARCHIVE_SEGMENT_BTN_BASE,
-    ARCHIVE_SEGMENT_BTN_INACTIVE,
-    ARCHIVE_SEGMENT_SHELL,
     ARCHIVE_TOOLBAR_LABEL,
 } from '../archiveToolbarStyles';
+import {
+    EXECUTION_ARCHIVE_SEARCH_DECK,
+    EXECUTION_ARCHIVE_SEARCH_GLYPH_SLOT,
+    EXECUTION_ARCHIVE_SEARCH_ICON_CLUSTER,
+    EXECUTION_ARCHIVE_SEARCH_ICON_SLOT,
+    EXECUTION_ARCHIVE_SEARCH_SHELL,
+    EXECUTION_CHIP_INACTIVE,
+    EXECUTION_FILTER_CHIP_ACTIVE,
+    EXECUTION_FILTER_TAB_ACTIVE,
+    EXECUTION_SEGMENT_BTN_BASE,
+    EXECUTION_SEGMENT_BTN_INACTIVE,
+    EXECUTION_SEGMENT_SHELL,
+} from '../executionArchiveVisualLite';
 import { inertProps } from '@/app/utils/inertProps';
 
 export type ExecutionArchiveFilter = ExecutionJurisdictionFilter;
@@ -57,7 +64,7 @@ function FilterTabList<T extends string>({
     counts?: Partial<Record<T, number>>;
 }) {
     return (
-        <div className={`${ARCHIVE_SEGMENT_SHELL} w-full`} role="tablist" aria-label={ariaLabel}>
+        <div className={`${EXECUTION_SEGMENT_SHELL} w-full`} role="tablist" aria-label={ariaLabel}>
             {tabs.map((tab) => {
                 const isActive = activeId === tab.id;
                 return (
@@ -68,8 +75,8 @@ function FilterTabList<T extends string>({
                         aria-selected={isActive}
                         data-testid={`${testIdPrefix}-${tab.id}`}
                         onClick={() => onChange(tab.id)}
-                        className={`${ARCHIVE_SEGMENT_BTN_BASE} inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 min-w-[4.25rem] shrink-0 ${
-                            isActive ? ARCHIVE_SEGMENT_BTN_ACTIVE : ARCHIVE_SEGMENT_BTN_INACTIVE
+                        className={`${EXECUTION_SEGMENT_BTN_BASE} inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 min-w-[4.25rem] shrink-0 ${
+                            isActive ? EXECUTION_FILTER_TAB_ACTIVE : EXECUTION_SEGMENT_BTN_INACTIVE
                         }`}
                     >
                         <span>{tab.label}</span>
@@ -106,10 +113,14 @@ function FilterRow({
     );
 }
 
-function focusToneClass(isTrash: boolean, isArchived: boolean): string {
-    if (isTrash) return 'focus-within:border-rose-400/40 focus-within:ring-rose-400/10';
-    if (isArchived) return 'focus-within:border-amber-400/40 focus-within:ring-amber-400/10';
-    return 'focus-within:border-[#E6C673]/45 focus-within:ring-[#E6C673]/15';
+function searchFocusClass(isTrash: boolean, isArchived: boolean): string {
+    if (isTrash) {
+        return 'focus-within:border-rose-400/40 focus-within:shadow-[inset_0_0_0_1px_rgba(251,113,133,0.28)]';
+    }
+    if (isArchived) {
+        return 'focus-within:border-amber-400/40 focus-within:shadow-[inset_0_0_0_1px_rgba(251,191,36,0.28)]';
+    }
+    return 'focus-within:border-[#E6C673]/45 focus-within:shadow-[inset_0_0_0_1px_rgba(230,198,115,0.32)]';
 }
 
 export const ExecutionArchiveToolbar: React.FC<ExecutionArchiveToolbarProps> = ({
@@ -169,18 +180,16 @@ export const ExecutionArchiveToolbar: React.FC<ExecutionArchiveToolbarProps> = (
         setFiltersExpanded((open) => !open);
     }, []);
 
-    const focusShell = focusToneClass(isTrash, isArchived);
     const showStatusFilters = !isTrash;
+    const focusShell = searchFocusClass(isTrash, isArchived);
 
     return (
         <div
-            className="px-4 sm:px-5 py-2.5 border-b border-white/[0.06]"
+            className={EXECUTION_ARCHIVE_SEARCH_DECK}
             dir="rtl"
             data-testid="execution-archive-search-deck"
         >
-            <div
-                className={`flex h-11 w-full items-stretch overflow-hidden rounded-xl border border-white/10 bg-[#0B1021]/70 transition-colors focus-within:ring-1 ${focusShell}`}
-            >
+            <div className={`${EXECUTION_ARCHIVE_SEARCH_SHELL} ${focusShell}`}>
                 <input
                     type="search"
                     value={searchQuery}
@@ -191,7 +200,7 @@ export const ExecutionArchiveToolbar: React.FC<ExecutionArchiveToolbarProps> = (
                     aria-controls={filtersPanelId}
                     aria-expanded={filtersExpanded}
                 />
-                <div className="flex shrink-0 items-center gap-0.5 border-r border-white/10 px-1">
+                <div className={EXECUTION_ARCHIVE_SEARCH_ICON_CLUSTER}>
                     <button
                         type="button"
                         data-testid="execution-archive-filters-toggle"
@@ -200,19 +209,16 @@ export const ExecutionArchiveToolbar: React.FC<ExecutionArchiveToolbarProps> = (
                         aria-controls={filtersPanelId}
                         title="تصنيفات الإضبارة"
                         onClick={toggleFilters}
-                        className={`inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg px-2 transition-colors touch-manipulation ${
+                        className={`${EXECUTION_ARCHIVE_SEARCH_ICON_SLOT} rounded-lg px-2 touch-manipulation ${
                             filtersExpanded || hasActiveFilters
-                                ? 'hami-royal-glass-chip'
-                                : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                                ? 'bg-white/[0.1] text-white'
+                                : 'text-slate-300'
                         }`}
                     >
-                        <ListFilter size={16} strokeWidth={2.25} aria-hidden />
+                        <ExecutionArchiveFilterMark />
                     </button>
-                    <span
-                        className="flex h-9 w-9 items-center justify-center text-white/40 pointer-events-none"
-                        aria-hidden
-                    >
-                        <Search size={17} />
+                    <span className={EXECUTION_ARCHIVE_SEARCH_GLYPH_SLOT} aria-hidden>
+                        <ExecutionArchiveSearchMark />
                     </span>
                 </div>
             </div>
@@ -228,7 +234,7 @@ export const ExecutionArchiveToolbar: React.FC<ExecutionArchiveToolbarProps> = (
                     {activeFilterChips.map((chip) => (
                         <span
                             key={chip}
-                            className="hami-royal-glass-chip rounded-full px-2 py-0.5 text-[10px] font-bold"
+                            className="rounded-md border border-white/16 bg-white/[0.1] px-2 py-0.5 text-[10px] font-bold text-white"
                         >
                             <span>{chip}</span>
                         </span>
@@ -239,15 +245,11 @@ export const ExecutionArchiveToolbar: React.FC<ExecutionArchiveToolbarProps> = (
             <div
                 id={filtersPanelId}
                 data-testid="execution-archive-filters-panel"
-                className={`grid transition-[grid-template-rows,opacity,margin] duration-200 ease-out ${
-                    filtersExpanded
-                        ? 'mt-2.5 grid-rows-[1fr] opacity-100'
-                        : 'grid-rows-[0fr] opacity-0 pointer-events-none'
-                }`}
+                className={filtersExpanded ? 'mt-2.5' : 'hidden'}
                 aria-hidden={!filtersExpanded}
                 {...inertProps(!filtersExpanded)}
             >
-                <div className="min-h-0 space-y-2.5 overflow-hidden">
+                <div className="space-y-2.5">
                     {showStatusFilters ? (
                         <FilterRow label="الحالة">
                             <div
@@ -267,7 +269,7 @@ export const ExecutionArchiveToolbar: React.FC<ExecutionArchiveToolbarProps> = (
                                             data-testid={`execution-archive-chip-${chip.id}`}
                                             onClick={() => onDossierStatusFilterChange(chip.id)}
                                             className={`${ARCHIVE_CHIP_BASE} ${
-                                                isActive ? ARCHIVE_CHIP_ACTIVE : ARCHIVE_CHIP_INACTIVE
+                                                isActive ? EXECUTION_FILTER_CHIP_ACTIVE : EXECUTION_CHIP_INACTIVE
                                             }`}
                                         >
                                             <span>{chip.label}</span>

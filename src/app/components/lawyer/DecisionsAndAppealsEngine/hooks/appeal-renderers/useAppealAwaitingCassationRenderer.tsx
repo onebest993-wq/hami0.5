@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Decision } from '../../types';
 import type { UseDecisionsAppealsAppealRenderersArgs } from './appealRenderersTypes';
 import {

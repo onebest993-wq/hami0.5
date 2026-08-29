@@ -32,4 +32,32 @@ describe('securePersistStorage', () => {
         await storage.setItem(key, existing);
         expect(setItem).toHaveBeenCalledWith(key, existing);
     });
+
+    it('getItem لا يرمي عندما getItem غير معرّف على المخزن', async () => {
+        const storage = createSecureStateStorage();
+        const store = SecureStoreService as unknown as { getItem?: unknown; ensurePersistedReady?: unknown };
+        const prevGet = store.getItem;
+        const prevReady = store.ensurePersistedReady;
+        store.getItem = undefined;
+        store.ensurePersistedReady = () => Promise.resolve();
+        try {
+            await expect(storage.getItem('execution-dashboard-storage')).resolves.toBeNull();
+        } finally {
+            store.getItem = prevGet;
+            store.ensurePersistedReady = prevReady;
+        }
+    });
+
+    it('getItem يرحّل مرآة localStorage ثم يمحوها', async () => {
+        const key = 'legal-cases-storage';
+        const payload = JSON.stringify({ state: { cases: [{ id: 'c1', clientName: 'أ' }] } });
+        SecureStoreService.listKeysSync().forEach((k) => SecureStoreService.deleteItemSync(k));
+        localStorage.setItem(key, payload);
+
+        const storage = createSecureStateStorage();
+        const raw = await storage.getItem(key);
+        expect(raw).toBe(payload);
+        expect(localStorage.getItem(key)).toBeNull();
+        expect(SecureStoreService.getItemSync(key)).toBe(payload);
+    });
 });

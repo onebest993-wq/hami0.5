@@ -2,7 +2,7 @@
 
 const EMOJI_OR_SYMBOLS = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}]/gu;
 
-export type RadarEventDisplayMeta = {
+type RadarEventDisplayMeta = {
     sourceLabel?: string;
     court?: string;
     partiesSummary?: string;

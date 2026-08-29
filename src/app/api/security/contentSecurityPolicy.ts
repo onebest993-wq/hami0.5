@@ -3,10 +3,11 @@
  * Dev: relaxed for Vite HMR. Production: strict — no unsafe-eval, no inline scripts.
  */
 
-export type CspMode = 'development' | 'production';
+export type CspMode = 'development' | 'production' | 'e2e-preview';
 
 export function buildContentSecurityPolicy(mode: CspMode): string {
   const isDev = mode === 'development';
+  const isE2ePreview = mode === 'e2e-preview';
 
   const connectSrc = [
     "'self'",
@@ -17,9 +18,8 @@ export function buildContentSecurityPolicy(mode: CspMode): string {
     'https://sentry.io',
     'https://*.ingest.sentry.io',
     'https://*.ingest.us.sentry.io',
-    'https://cdn.jsdelivr.net',
   ];
-  if (isDev) {
+  if (isDev || isE2ePreview) {
     connectSrc.push('http://localhost:*', 'http://127.0.0.1:*', 'ws://localhost:*', 'ws://127.0.0.1:*');
   }
 
@@ -40,8 +40,9 @@ export function buildContentSecurityPolicy(mode: CspMode): string {
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",
-    "worker-src 'self' blob: https://cdn.jsdelivr.net",
-    ...(isDev ? [] : ['upgrade-insecure-requests']),
+    /* عامل pdf.js يُشحن معنا — لا أصل خارجي يُنفِّذ شيفرة فوق مستندات الموكّلين */
+    "worker-src 'self' blob:",
+    ...(isDev || isE2ePreview ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
 }
 

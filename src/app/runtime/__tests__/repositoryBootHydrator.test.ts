@@ -9,7 +9,6 @@ vi.mock('@/app/runtime/repositoryHubLoader', () => ({
     hydrateRepositoryShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
     isRepositoryHubModuleResolved: vi.fn(() => false),
     prefetchRepositoryHubModule: vi.fn(),
-    prefetchRepositoryFeedModule: vi.fn(),
 }));
 
 vi.mock('@/app/hooks/lawyerDashboard/repositoryIntentWarm', () => ({
@@ -25,9 +24,10 @@ vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
 
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: () => false,
+    isNativeShellStampedOnDom: () => false,
 }));
 
-vi.mock('@/app/services/settings/settingsRuntime', () => ({
+vi.mock('@/app/services/settings/settingsSnapshot', () => ({
     getLawyerSettingsSnapshot: () => ({
         security: { localOnlyMode: false },
         performance: { prefetchScreens: true, litePerformance: false },

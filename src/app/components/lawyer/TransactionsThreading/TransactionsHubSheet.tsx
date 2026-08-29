@@ -1,5 +1,4 @@
 import { memo, useEffect, type CSSProperties, type ReactNode } from 'react';
-import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 import { TX_DRAWER_SHELL } from './transactionsGlassTheme';
 
@@ -19,7 +18,6 @@ export const TransactionsHubSheet = memo(function TransactionsHubSheet({
     keepMounted?: boolean;
     ariaLabel?: string;
 }) {
-    const reduceMotion = useReduceMotion();
     const keyboardInsetPx = useMobileKeyboardInset(open);
     const mounted = keepMounted || open;
 
@@ -37,8 +35,8 @@ export const TransactionsHubSheet = memo(function TransactionsHubSheet({
 
     if (!mounted) return null;
 
-    const backdropMotion = reduceMotion ? '!transition-none' : 'transition-opacity duration-75 ease-out';
-    const panelMotion = reduceMotion ? '!transition-none' : 'transition-opacity duration-75 ease-out';
+    const backdropMotion = '!transition-none';
+    const panelMotion = '!transition-none';
 
     const panelStyle: CSSProperties | undefined =
         keyboardInsetPx > 0

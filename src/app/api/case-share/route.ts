@@ -1,7 +1,12 @@
-import { requireWifeUser, unwrapWifeUser } from '../security/bffAuth.ts';
+import { requireWifeCloudWrite, requireWifeUser, unwrapWifeUser } from '../security/bffAuth.ts';
 import { sanitizePayload } from '../security/sanitizer.ts';
 import { CaseShareRepository } from '../../services/caseShare/caseShareRepository.ts';
 import { assertRecipientInNetwork } from '../../services/caseShare/caseShareNetworkGuard.ts';
+import {
+    assertShareSourceOwnedByUser,
+    isServerShareCreateAllowed,
+    ShareSourceOwnershipError,
+} from '../../services/caseShare/caseShareDossierOwnership.ts';
 import type { CaseShareVisibleFields, DossierShareSource } from '../../services/caseShare/caseShareTypes.ts';
 import { DEFAULT_CASE_SHARE_VISIBLE_FIELDS } from '../../services/caseShare/caseShareTypes.ts';
 import { clampCaseShareSessionMinutes } from '../../services/caseShare/caseShareSession.ts';
@@ -17,8 +22,10 @@ function json(status: number, body: unknown): Response {
     });
 }
 
-async function auth(request: Request): Promise<{ userId: string } | Response> {
-    const unwrapped = unwrapWifeUser(await requireWifeUser(request));
+async function auth(request: Request, write = false): Promise<{ userId: string } | Response> {
+    const unwrapped = unwrapWifeUser(
+        await (write ? requireWifeCloudWrite(request) : requireWifeUser(request)),
+    );
     if ('response' in unwrapped) return unwrapped.response;
     return { userId: unwrapped.userId };
 }
@@ -36,7 +43,7 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
     try {
-        const authResult = await auth(request);
+        const authResult = await auth(request, true);
         if (authResult instanceof Response) return authResult;
         const { userId } = authResult;
 
@@ -76,6 +83,21 @@ export async function POST(request: Request): Promise<Response> {
             const inNetwork = await assertRecipientInNetwork(userId, payload.recipientId);
             if (!inNetwork) {
                 return json(403, { ok: false, error: 'المستلم ليس ضمن شبكة المتابعة' });
+            }
+            // criminal: يتطلب صفاً في criminal_case_ownership (register قبل create)
+            if (!isServerShareCreateAllowed(source)) {
+                return json(403, {
+                    ok: false,
+                    error: 'وحدة الإضبارة غير مدعومة للمشاركة من الخادم',
+                });
+            }
+            try {
+                await assertShareSourceOwnedByUser(userId, source);
+            } catch (err) {
+                if (err instanceof ShareSourceOwnershipError) {
+                    return json(403, { ok: false, error: 'الإضبارة غير مملوكة لك أو غير موجودة' });
+                }
+                throw err;
             }
             const share = await CaseShareRepository.createShare({
                 ownerId: userId,

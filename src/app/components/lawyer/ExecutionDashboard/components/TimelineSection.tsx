@@ -1,5 +1,4 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
 import type { Dispatch, ElementType, SetStateAction, TransitionStartFunction } from 'react';
 import type { TimelineEvent } from '@/app/types/execution';
 import { useEntityCalendarEvents } from '@/app/hooks/useEntityCalendarEvents';
@@ -10,8 +9,9 @@ import {
     type ExecutionTimelineFilterLabel,
 } from '@/app/utils/timelineCategoryFilter';
 import { dedupeTimelineEventsForDisplay } from '@/app/utils/timelineDedup';
-import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { ExecutionTimelineFilterBar } from './ExecutionTimelineFilterBar';
+import { EXEC_MODAL_TOUCH_TARGET } from '../executionModalMobileShell';
+import { EXEC_OVERLAY_INNER_SILENT_FALLBACK } from '../executionDashboardLazyShellUi';
 
 interface TimelineSectionProps {
     timelineAccordionExpanded: boolean;
@@ -69,7 +69,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
     debtorBrowserTabsMode,
     activeTimelineEventsDebtorScoped,
     activeTimelineEvents,
-    EXEC_OVERLAY_LAZY_FALLBACK,
+    EXEC_OVERLAY_LAZY_FALLBACK: _EXEC_OVERLAY_LAZY_FALLBACK,
     SmartTimelineRadar,
     toggleTimelineEventPin,
     setShowTimelineModal,
@@ -89,7 +89,6 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
     executionEntityId,
     timelineFilterOptions = EXECUTION_TIMELINE_FILTER_OPTIONS,
 }) => {
-    const reduceMotion = useReduceMotion();
     const TIMELINE_PAGE_SIZE = 100;
     const [timelineVisibleCount, setTimelineVisibleCount] = useState(TIMELINE_PAGE_SIZE);
     const [activeAppointmentsVisibleCount, setActiveAppointmentsVisibleCount] = useState(TIMELINE_PAGE_SIZE);
@@ -193,12 +192,12 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                 />
             </div>
 
-            <div className="max-h-[min(70vh,32rem)] overflow-y-auto overscroll-contain px-4 py-5 pb-8">
+            <div className="max-h-[min(70dvh,32rem)] overflow-y-auto overscroll-contain px-4 py-5 pb-8">
                 {activeTimelineFilter === 'مواعيد' && appointmentsSplit ? (
                     <div className="space-y-6" dir="rtl">
                         <div className="space-y-2">
                             <p className="text-xs font-black text-slate-200">المواعيد النشطة</p>
-                            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                            <Suspense fallback={EXEC_OVERLAY_INNER_SILENT_FALLBACK}>
                                 <PremiumTimelineAuditLog
                                     events={appointmentsSplit.active.slice(0, activeAppointmentsVisibleCount)}
                                     onTogglePin={toggleTimelineEventPin}
@@ -213,7 +212,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                                     onClick={() =>
                                         setActiveAppointmentsVisibleCount((v) => v + TIMELINE_PAGE_SIZE)
                                     }
-                                    className="mt-2 rounded-lg border border-slate-600/45 bg-slate-800/40 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-[#E6C673]/35"
+                                    className={`mt-2 rounded-lg border border-slate-600/45 bg-slate-800/40 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-[#E6C673]/35 ${EXEC_MODAL_TOUCH_TARGET}`}
                                 >
                                     تحميل المزيد
                                 </button>
@@ -221,7 +220,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                         </div>
                         <div className="space-y-2">
                             <p className="text-xs font-black text-slate-200">المواعيد المنتهية</p>
-                            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                            <Suspense fallback={EXEC_OVERLAY_INNER_SILENT_FALLBACK}>
                                 <PremiumTimelineAuditLog
                                     events={appointmentsSplit.ended.slice(0, endedAppointmentsVisibleCount)}
                                     onTogglePin={toggleTimelineEventPin}
@@ -236,7 +235,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                                     onClick={() =>
                                         setEndedAppointmentsVisibleCount((v) => v + TIMELINE_PAGE_SIZE)
                                     }
-                                    className="mt-2 rounded-lg border border-slate-600/45 bg-slate-800/40 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-[#E6C673]/35"
+                                    className={`mt-2 rounded-lg border border-slate-600/45 bg-slate-800/40 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-[#E6C673]/35 ${EXEC_MODAL_TOUCH_TARGET}`}
                                 >
                                     تحميل المزيد
                                 </button>
@@ -244,7 +243,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                         </div>
                     </div>
                 ) : (
-                    <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                    <Suspense fallback={EXEC_OVERLAY_INNER_SILENT_FALLBACK}>
                         <PremiumTimelineAuditLog
                             events={effectiveEvents.slice(0, timelineVisibleCount)}
                             onTogglePin={toggleTimelineEventPin}
@@ -258,7 +257,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                     <button
                         type="button"
                         onClick={() => setTimelineVisibleCount((v) => v + TIMELINE_PAGE_SIZE)}
-                        className="mt-2 rounded-lg border border-slate-600/45 bg-slate-800/40 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-[#E6C673]/35"
+                        className={`mt-2 rounded-lg border border-slate-600/45 bg-slate-800/40 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-[#E6C673]/35 ${EXEC_MODAL_TOUCH_TARGET}`}
                     >
                         تحميل المزيد
                     </button>
@@ -281,10 +280,10 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
     );
 
     return (
-        <div className="mx-3 mt-3 rounded-xl border border-slate-500/25 bg-[#0A0F1C]/30 p-0.5 shadow-md shadow-black/25 ring-1 ring-white/[0.05] backdrop-blur-xl">
+        <div className="mx-3 mt-2 rounded-lg border border-white/[0.06] bg-transparent p-0.5">
             <button type="button"
                 onClick={() => startTransition(() => setTimelineAccordionExpanded((prev) => !prev))}
-                className="flex w-full items-center justify-between rounded-t-[0.65rem] px-3 py-2.5 transition-all hover:bg-white/[0.04]"
+                className="flex min-h-[44px] w-full items-center justify-between rounded-t-lg px-3 py-2 transition-colors hover:bg-white/[0.04] touch-manipulation"
             >
                 <ChevronUp
                     size={18}
@@ -299,7 +298,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
             </button>
 
             {!timelineAccordionExpanded && radarEvents.length > 0 && (
-                    <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
+                    <Suspense fallback={EXEC_OVERLAY_INNER_SILENT_FALLBACK}>
                         <SmartTimelineRadar
                             events={radarEvents}
                             onTogglePin={toggleTimelineEventPin}
@@ -310,24 +309,9 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                     </Suspense>
                 )}
 
-            {reduceMotion ? (
-                timelineAccordionExpanded ? (
-                    <div className="border-t border-slate-600/30">{renderExpandedBody()}</div>
-                ) : null
-            ) : (
-                <AnimatePresence>
-                    {timelineAccordionExpanded && (
-                        <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="border-t border-slate-600/30"
-                        >
-                            {renderExpandedBody()}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            )}
+            {timelineAccordionExpanded ? (
+                <div className="border-t border-slate-600/30">{renderExpandedBody()}</div>
+            ) : null}
         </div>
     );
 };

@@ -1,5 +1,3 @@
-import { dockShellLabel } from './homeBlockLabels';
-
 export type DockShellMetrics = {
     itemCount: number;
     buttonBoxPx: number;
@@ -88,5 +86,3 @@ export function scaleDockShellMetrics(metrics: DockShellMetrics, scale: number):
         iconRadiusRem: Math.round(metrics.iconRadiusRem * scale * 100) / 100,
     };
 }
-
-export { dockShellLabel };

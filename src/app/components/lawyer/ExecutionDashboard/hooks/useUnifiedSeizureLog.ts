@@ -3,7 +3,7 @@ import type { ThirdPartySeizure } from '@/app/types/execution';
 import {
     isSeizureLogTab,
     type SeizureLogTab,
-} from '@/app/components/lawyer/execution/UnifiedSeizureLogModal';
+} from '@/app/components/lawyer/execution/unifiedSeizureLogTabTypes';
 import {
     buildUnifiedSeizureLogEntries,
     computeUnifiedSeizureTabCounts,
@@ -12,7 +12,7 @@ import {
 } from '@/app/components/lawyer/ExecutionDashboard/utils/unifiedSeizureLogEntries';
 import { resolveFirstUnifiedSeizureTab } from '@/app/components/lawyer/ExecutionDashboard/utils/unifiedSeizureLogHelpers';
 import { SEIZURE_CLOSE_UNIFIED_LOG_EVENT } from '@/app/components/lawyer/ExecutionDashboard/utils/seizureInlineFocusUtils';
-import { prefetchUnifiedSeizureLogHost } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistry';
+import { prefetchUnifiedSeizureLogHost } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistryShell';
 
 export type UseUnifiedSeizureLogInput = UnifiedSeizureLogBuildInput & {
     thirdPartySeizuresUi: ThirdPartySeizure[];

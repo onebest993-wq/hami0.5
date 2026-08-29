@@ -1,7 +1,9 @@
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import type { ForumNotification } from '@/app/services/forum/forumTypes';
 import { emitForumUnreadCount } from '@/app/services/forum/forumNotificationEvents';
-import { PushNotificationService } from '@/app/services/PushNotificationService';
+import { notifyForumActivity } from '@/app/services/notifications/domainNotifications';
+import { canReachProtectedServerNetwork } from '@/app/services/secureApiNetworkFeatures';
+import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
 
 export type ForumStreamPayload = {
     type?: 'connected';
@@ -18,6 +20,19 @@ let streamUserId: string | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let lastPushedId: string | null = null;
 const handlers = new Set<StreamHandler>();
+
+function canStartForumStream(userId: string): boolean {
+    const persisted = readPersistedSupabaseAuth();
+    const meta = (persisted.user?.user_metadata ?? null) as Record<string, unknown> | null;
+    return canReachProtectedServerNetwork(userId, meta);
+}
+
+function isExpectedStreamDenial(err: unknown): boolean {
+    if (!(err instanceof Error)) return false;
+    if (err.message.startsWith('stream 403')) return true;
+    if (err.message.includes('NETWORK_FEATURES_DENIED')) return true;
+    return false;
+}
 
 function parseSseChunk(buffer: string): { events: ForumStreamPayload[]; rest: string } {
     const events: ForumStreamPayload[] = [];
@@ -71,7 +86,7 @@ function dispatchPayload(payload: ForumStreamPayload): void {
     const notif = payload.notification;
     if (notif && !notif.read && notif.id && notif.id !== lastPushedId) {
         lastPushedId = notif.id;
-        void PushNotificationService.notifyForumActivity({
+        void notifyForumActivity({
             title: notif.title,
             message: notif.message,
             postId: notif.postId,
@@ -132,6 +147,10 @@ export const ForumNotificationStreamService = {
 
     async start(userId: string | null): Promise<void> {
         if (!userId || typeof window === 'undefined') return;
+        if (!canStartForumStream(userId)) {
+            running = false;
+            return;
+        }
         if (running && streamUserId === userId) return;
 
         abortActiveStream();
@@ -148,10 +167,14 @@ export const ForumNotificationStreamService = {
 
         try {
             await consumeStream(dispatchPayload, controller.signal);
-        } catch {
+        } catch (err) {
+            if (isExpectedStreamDenial(err)) {
+                running = false;
+                return;
+            }
             /* reconnect below */
         } finally {
-            if (running && !controller.signal.aborted && refCount > 0) {
+            if (running && !controller.signal.aborted && refCount > 0 && canStartForumStream(userId)) {
                 scheduleReconnect(userId);
             }
         }

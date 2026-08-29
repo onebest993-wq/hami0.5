@@ -21,7 +21,7 @@ export function unknownDefendantDisplayLabel(index: number, isJuvenile = false):
     return `${UNKNOWN_DEFENDANT_LABEL_PREFIX} (${n})`;
 }
 
-export function isUnknownDefendantDisplayName(name: string): boolean {
+function isUnknownDefendantDisplayName(name: string): boolean {
     const n = String(name ?? '').trim();
     return (
         n.startsWith(UNKNOWN_DEFENDANT_LABEL_PREFIX) ||
@@ -150,7 +150,7 @@ export function canAddUnknownDefendantToDraft(_defendants?: CriminalDefendant[] 
     return true;
 }
 
-export function draftHasUnknownDefendant(defendants: CriminalDefendant[] | undefined): boolean {
+function draftHasUnknownDefendant(defendants: CriminalDefendant[] | undefined): boolean {
     return getUnknownIdentityDefendants(defendants).length > 0;
 }
 

@@ -1,0 +1,52 @@
+import type { CommunityScreenFeedPropSlice } from './communityScreenPropBuilderContext';
+import type { AssembleCommunityScreenPropContextParams } from './assembleCommunityScreenPropContext.types';
+
+export function assembleCommunityScreenFeedPropSlice(
+    params: AssembleCommunityScreenPropContextParams,
+): CommunityScreenFeedPropSlice {
+    const { isAdmin, userStats, postsFeed, postActions, postModeration, socialGraph, groupsFeed, interactions } = params;
+    return {
+        loadingPosts: postsFeed.loadingPosts,
+        hasMore: postsFeed.hasMore,
+        loadingMore: postsFeed.loadingMore,
+        visiblePosts: postsFeed.visiblePosts,
+        isAdmin,
+        handleToggleUpvote: postActions.handleToggleUpvote,
+        openCommentSheet: interactions.openCommentSheet,
+        requestDeletePost: postActions.requestDeletePost,
+        handleEditPost: postModeration.handleEditPost,
+        handleReportPost: postModeration.handleReportPost,
+        handleSharePost: postActions.handleSharePost,
+        handleLoadMore: postsFeed.handleLoadMore,
+        handleTogglePin: postModeration.handleTogglePin,
+        followingIds: socialGraph.followingIds,
+        bookmarkedIds: socialGraph.bookmarkedIds,
+        handleToggleBookmark: postModeration.handleToggleBookmark,
+        handleCopyPostText: postModeration.handleCopyPostText,
+        handleSavePostToVault: postModeration.handleSavePostToVault,
+        handleSavePostToDevice: postModeration.handleSavePostToDevice,
+        handleToggleLock: postModeration.handleToggleLock,
+        handleMuteUser: socialGraph.handleMuteUser,
+        userStats,
+        threadFollowingIds: socialGraph.threadFollowingIds,
+        handleToggleThreadFollow: socialGraph.handleToggleThreadFollow,
+        activeGroupId: groupsFeed.activeGroupId,
+        activeGroup: groupsFeed.activeGroup,
+        handleLeaveGroup: groupsFeed.handleLeaveGroup,
+        leavingGroup: groupsFeed.leavingGroup,
+        groupPostsLoading: groupsFeed.groupPostsLoading,
+        groupPostsHasMore: groupsFeed.groupPostsHasMore,
+        groupPostsLoadingMore: groupsFeed.groupPostsLoadingMore,
+        groupVisiblePosts: groupsFeed.groupVisiblePosts,
+        handleLoadMoreGroupPosts: groupsFeed.handleLoadMoreGroupPosts,
+        setActiveGroupId: groupsFeed.setActiveGroupId,
+        groups: groupsFeed.groups,
+        groupsLoading: groupsFeed.groupsLoading,
+        groupsSearchQuery: groupsFeed.groupsSearchQuery,
+        setGroupsSearchQuery: groupsFeed.setGroupsSearchQuery,
+        handleJoinGroup: groupsFeed.handleJoinGroup,
+        handleOpenGroup: groupsFeed.handleOpenGroup,
+        setIsCreateGroupOpen: groupsFeed.setIsCreateGroupOpen,
+        joiningGroupId: groupsFeed.joiningGroupId,
+    };
+}

@@ -4,6 +4,7 @@ import {
     normalizeStoredExpenseRows,
     normalizeStoredLawyerFeeRows,
     normalizeStoredPaymentRows,
+    normalizeStoredPendingSettlement,
     reseedDossierBaselineLedgerRows,
     seedUnifiedLedgerStoreForExecution,
     type UnifiedLedgerHydrateParams,
@@ -53,6 +54,25 @@ describe('normalizeStoredLawyerFeeRows / normalizeStoredExpenseRows / normalizeS
         expect(normalizeStoredLawyerFeeRows(null)).toEqual([]);
         expect(normalizeStoredExpenseRows(undefined)).toEqual([]);
         expect(normalizeStoredPaymentRows('not-an-array')).toEqual([]);
+    });
+});
+
+describe('normalizeStoredPendingSettlement', () => {
+    it('يحافظ على دورة النفقة المستمرة بعد إعادة التحميل', () => {
+        const pending = normalizeStoredPendingSettlement({
+            id: 'stl-alim',
+            amount: 250_000,
+            dueDate: '2026-09-01',
+            createdAt: '2026-08-01T00:00:00.000Z',
+            periodStartYmd: '2026-08-01',
+            tracksOngoingAlimony: true,
+        });
+        expect(pending).toMatchObject({
+            id: 'stl-alim',
+            amount: 250_000,
+            periodStartYmd: '2026-08-01',
+            tracksOngoingAlimony: true,
+        });
     });
 });
 

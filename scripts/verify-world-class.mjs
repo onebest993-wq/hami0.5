@@ -141,6 +141,13 @@ record(
     (noServiceRole.stdout || noServiceRole.stderr).trim().split('\n').pop(),
 );
 
+const noHqRuntime = run('node', ['scripts/guard-dist-no-hq-runtime.mjs']);
+record(
+    'dist-no-hq-runtime',
+    noHqRuntime.status === 0,
+    (noHqRuntime.stdout || noHqRuntime.stderr).trim().split('\n').pop(),
+);
+
 const noKvAdminChunk = run('node', ['scripts/guard-dist-no-kv-admin-chunk.mjs']);
 record(
     'dist-no-kv-admin-chunk',
@@ -246,6 +253,8 @@ if (withTtfi) {
         record('dist-no-service-role-after-ttfi-build', g3.status === 0, 're-check');
         const g4 = run('node', ['scripts/guard-dist-no-kv-admin-chunk.mjs']);
         record('dist-no-kv-admin-chunk-after-ttfi-build', g4.status === 0, 're-check');
+        const gHq = run('node', ['scripts/guard-dist-no-hq-runtime.mjs']);
+        record('dist-no-hq-runtime-after-ttfi-build', gHq.status === 0, 're-check');
     }
 }
 

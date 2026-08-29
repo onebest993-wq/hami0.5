@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * يولّد api/_routeManifest.ts لـ Vercel — يربط مسارات /api/* بملفات route.ts
+ * يولّد src/app/api/vercelRouteManifest.ts لـ Vercel — يربط مسارات /api/* بملفات route.ts.
+ * يبقى خارج مجلد api/ حتى لا تتجاهل Vercel الملف بسبب شرطة اسمية أو تعتبره مساراً.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -9,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const API_SRC = path.join(ROOT, 'src', 'app', 'api');
-const OUT = path.join(ROOT, 'api', '_routeManifest.ts');
+const OUT = path.join(API_SRC, 'vercelRouteManifest.ts');
 
 function walkRoutes(dir, prefix = '') {
     /** @type {string[]} */
@@ -35,7 +36,7 @@ if (routes.length === 0) {
 
 const entries = routes
     .map((slug) => {
-        const importPath = `../src/app/api/${slug.replace(/\\/g, '/')}/route.ts`;
+        const importPath = `./${slug.replace(/\\/g, '/')}/route.ts`;
         return `  ${JSON.stringify(slug)}: () => import(${JSON.stringify(importPath)}),`;
     })
     .join('\n');
@@ -57,4 +58,4 @@ ${entries}
 
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, contents, 'utf8');
-console.log(`[generate-vercel-api] ${routes.length} routes → api/_routeManifest.ts`);
+console.log(`[generate-vercel-api] ${routes.length} routes → src/app/api/vercelRouteManifest.ts`);

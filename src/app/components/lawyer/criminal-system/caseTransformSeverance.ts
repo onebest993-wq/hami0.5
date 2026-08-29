@@ -154,38 +154,3 @@ export function pruneCounterComplaintTargetsAfterPartyRemoval(
         return { ...c, counterComplaintTargetDefendantIds: next };
     });
 }
-
-/**
- * يفحص ما إذا كان مصفوفة المعرّفات (defendantIds الخاصة بعنصر) منتمية حصراً إلى المجموعة `allowed`.
- * - عنصر بلا أي معرّفات لا يُعدّ «حصرياً» (يبقى في الإضبارة الأم) — احتراز ضد الترحيل غير المقصود.
- * - عنصر يحوي معرّفاً واحداً على الأقل خارج المجموعة لا يُرحَّل (مشترك).
- */
-export function itemIsExclusiveToDefendants(itemIds: string[] | undefined, allowed: Set<string>): boolean {
-    const ids = (Array.isArray(itemIds) ? itemIds : [])
-        .map((x) => String(x ?? '').trim())
-        .filter(Boolean);
-    if (!ids.length) return false;
-    return ids.every((id) => allowed.has(id));
-}
-
-/**
- * يُقسّم قائمة عناصر إلى مجموعتين: (kept) لتبقى في الإضبارة الأم،
- * و (migrated) لتُرحَّل إلى الإضبارة الجديدة المُفرَّقة.
- */
-export function partitionItemsByDefendantsExclusive<T>(
-    items: T[] | undefined,
-    allowed: Set<string>,
-    getIds: (item: T) => string[] | undefined,
-): { kept: T[]; migrated: T[] } {
-    const list = Array.isArray(items) ? items : [];
-    const kept: T[] = [];
-    const migrated: T[] = [];
-    for (const item of list) {
-        if (itemIsExclusiveToDefendants(getIds(item), allowed)) {
-            migrated.push(item);
-        } else {
-            kept.push(item);
-        }
-    }
-    return { kept, migrated };
-}

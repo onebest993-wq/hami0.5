@@ -1,6 +1,9 @@
 import React from 'react';
-import { Trash2 } from '@/app/components/ui/lucideIcons';
-import { prefetchCriminalDashboard } from '@/app/utils/lazyComponentsIntent';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
+import {
+    prefetchCriminalDashboard,
+    prefetchCriminalListPath,
+} from '@/app/utils/lazyComponentsIntent';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildCriminalWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import { criminalCaseReference,
@@ -85,10 +88,13 @@ export const CriminalArchiveCard: React.FC<CriminalArchiveCardProps> = ({
             <button
                 type="button"
                 data-testid={CRIMINAL_DOSSIER_TEST_IDS.caseCard(String(record.id))}
-                onClick={onOpen}
-                onPointerEnter={() => prefetchCriminalDashboard()}
-                onFocus={() => prefetchCriminalDashboard()}
-                className="w-full text-right rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20 transition-all duration-300 p-3 flex items-start gap-3"
+                onClick={() => {
+                    prefetchCriminalDashboard();
+                    onOpen();
+                }}
+                onPointerEnter={() => prefetchCriminalListPath()}
+                onFocus={() => prefetchCriminalListPath()}
+                className="w-full text-right rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/20 transition-colors p-2 flex items-center gap-2"
             >
                 <span className="shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full border border-white/10 bg-white/5 text-gray-300">
                     جزائية
@@ -101,7 +107,7 @@ export const CriminalArchiveCard: React.FC<CriminalArchiveCardProps> = ({
                     </span>
                 </span>
                 <span
-                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold ${criminalStageBadgeClass(stage)}`}
+                    className={`shrink-0 rounded-md border px-1.5 py-0.5 text-[9px] font-bold ${criminalStageBadgeClass(stage)}`}
                 >
                     {stageText}
                 </span>
@@ -110,7 +116,6 @@ export const CriminalArchiveCard: React.FC<CriminalArchiveCardProps> = ({
     }
 
     return (
-        <div onPointerEnter={() => prefetchCriminalDashboard()} onFocus={() => prefetchCriminalDashboard()}>
         <UnifiedDossierCard
             kind="criminal"
             statusBadge={{
@@ -124,7 +129,12 @@ export const CriminalArchiveCard: React.FC<CriminalArchiveCardProps> = ({
                         onKeyDown={(event) => event.stopPropagation()}
                         role="presentation"
                     >
-                        <WorkspacePinButton item={pinPayload} />
+                        <WorkspacePinButton
+                            item={pinPayload}
+                            variant="ghost"
+                            size={16}
+                            className="!min-w-[44px] !min-h-[44px] !w-11 !h-11"
+                        />
                     </div>
                 ) : undefined
             }
@@ -163,6 +173,5 @@ export const CriminalArchiveCard: React.FC<CriminalArchiveCardProps> = ({
                     : []
             }
         />
-        </div>
     );
 };

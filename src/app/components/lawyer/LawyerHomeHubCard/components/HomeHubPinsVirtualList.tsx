@@ -1,10 +1,10 @@
 import { memo, useRef, type CSSProperties } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { ClusterPinView } from '@/app/workspace/types';
-import { HOME_HUB_PIN_ROW_ESTIMATE_PX } from '@/app/services/alerts/homeHubCarouselVirtual';
+import { HOME_HUB_PIN_ROW_ESTIMATE_PX } from '@/app/services/alerts/homeHubPinsVirtual';
 import { HomeHubPinRow } from './HomeHubPinRow';
 
-export type HomeHubPinsVirtualListProps = {
+type HomeHubPinsVirtualListProps = {
     clusterViews: ClusterPinView[];
     onNavigate: (routePath: string) => void;
     onUnpin: (id: string, type: ClusterPinView['pin']['type']) => void;
@@ -24,13 +24,13 @@ export const HomeHubPinsVirtualList = memo(function HomeHubPinsVirtualList({
         getScrollElement: () => scrollRef.current,
         estimateSize: () => HOME_HUB_PIN_ROW_ESTIMATE_PX,
         overscan: 3,
-        measureElement: (el) => el.getBoundingClientRect().height,
+        measureElement: (el) => el.offsetHeight,
     });
 
     const scrollStyle: CSSProperties | undefined =
         scrollMaxHeightPx != null
             ? { maxHeight: `calc(${scrollMaxHeightPx}px * var(--hami-content-scale, 1))` }
-            : { maxHeight: 'min(58vh, 420px)' };
+            : { maxHeight: 'min(58dvh, 58vh, 420px)' };
 
     return (
         <div

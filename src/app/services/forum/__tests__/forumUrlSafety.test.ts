@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSafeForumAttachmentUrl } from '@/app/services/forum/forumUrlSafety';
+import { buildRepositoryPublicFileUrl, isSafeForumAttachmentUrl, isSafeRepositorySharePath } from '@/app/services/forum/forumUrlSafety';
 
 describe('forumUrlSafety', () => {
     it('يرفض javascript و data:text/html و file:', () => {
@@ -17,5 +17,18 @@ describe('forumUrlSafety', () => {
         expect(isSafeForumAttachmentUrl('data:audio/webm;base64,aaa')).toBe(true);
         expect(isSafeForumAttachmentUrl('idb:forum:abc')).toBe(true);
         expect(isSafeForumAttachmentUrl('users/u1/drafts/a.jpg')).toBe(true);
+    });
+
+    it('يرفض مسارات مشاركة خبيثة ويبني رابطاً آمناً', () => {
+        expect(isSafeRepositorySharePath('../etc/passwd')).toBe(false);
+        expect(isSafeRepositorySharePath('https://evil.example/a')).toBe(false);
+        expect(isSafeRepositorySharePath('idb:forum:abc')).toBe(true);
+        expect(buildRepositoryPublicFileUrl('https://h.iq', 'p/1.pdf')).toBe('https://h.iq/api/file/p/1.pdf');
+        expect(buildRepositoryPublicFileUrl('javascript:alert(1)', 'p/1.pdf')).toBeNull();
+        expect(buildRepositoryPublicFileUrl('https://h.iq', 'a b.pdf')).toBe('https://h.iq/api/file/a%20b.pdf');
+    });
+    it('يرفض data:image/svg+xml لأنها قابلة لحقن سكربت', () => {
+        expect(isSafeForumAttachmentUrl('data:image/svg+xml;base64,PHN2Zy8+')).toBe(false);
+        expect(isSafeForumAttachmentUrl('DATA:IMAGE/SVG+XML,<svg></svg>')).toBe(false);
     });
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import type { MaritalFurnitureItem } from '@/app/types/maritalFurniture';
 import { MaritalFurnitureModule } from '../MaritalFurnitureModule';
@@ -138,17 +138,20 @@ describe('MaritalFurnitureModule', () => {
         expect(showToast).toHaveBeenCalledWith('تم حفظ قائمة الأثاث', 'success');
     });
 
-    it('يطلب تأكيداً قبل الإغلاق أثناء التعديل', () => {
-        const confirmMock = vi.fn(() => false);
-        vi.stubGlobal('confirm', confirmMock);
-
+    it('يطلب تأكيداً قبل الإغلاق أثناء التعديل', async () => {
         renderModule();
 
         fireEvent.click(screen.getByTestId('marital-furniture-launcher'));
         fireEvent.click(screen.getByTestId('marital-furniture-start-edit'));
         fireEvent.click(screen.getByTestId('marital-furniture-close'));
 
-        expect(confirmMock).toHaveBeenCalled();
+        // حوار من التطبيق لا من نظام التشغيل — الإلغاء يُبقي مساحة الإدارة مفتوحة
+        const dialog = await screen.findByRole('dialog', { name: 'تأكيد' });
+        fireEvent.click(within(dialog).getByRole('button', { name: 'إلغاء' }));
+
+        await waitFor(() =>
+            expect(screen.queryByRole('dialog', { name: 'تأكيد' })).not.toBeInTheDocument(),
+        );
         expect(screen.getByTestId('marital-furniture-workspace')).toBeInTheDocument();
     });
 

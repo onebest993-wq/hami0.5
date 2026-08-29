@@ -6,17 +6,11 @@ const markAsRead = vi.fn(async () => undefined);
 const onClose = vi.fn();
 const onNavigate = vi.fn();
 
-vi.mock('@/app/components/ui/SmartToast', () => ({
-    SmartToast: { success: vi.fn(), error: vi.fn() },
+const forumIntent = vi.hoisted(() => ({
+    requestOpenLawyerForum: vi.fn(),
 }));
 
-vi.mock('@/app/components/ui/SmartDialog', () => ({
-    SmartDialog: { prompt: vi.fn(async () => null) },
-}));
-
-vi.mock('@/app/services/SecureAPIClient', () => ({
-    SecureAPIClient: { fetchSecure: vi.fn() },
-}));
+vi.mock('@/app/runtime/forumOpenIntent', () => forumIntent);
 
 import { useNotificationActions } from '@/app/components/lawyer/NotificationPanel/hooks/useNotificationActions';
 
@@ -33,9 +27,37 @@ const forumNotif: NotificationModel = {
 describe('useNotificationActions', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        onClose.mockReset();
+        onNavigate.mockReset();
+        markAsRead.mockReset();
+        markAsRead.mockResolvedValue(undefined);
+        forumIntent.requestOpenLawyerForum.mockReset();
     });
 
-    it('handleTap يعلّم كمقروء وينتقل للمنتدى', async () => {
+    it('handleTap يفتح المنتدى بنية مباشرة ثم يغلق اللوحة', async () => {
+        const callOrder: string[] = [];
+        forumIntent.requestOpenLawyerForum.mockImplementation(() => {
+            callOrder.push('forum');
+        });
+        onClose.mockImplementation(() => {
+            callOrder.push('close');
+        });
+
+        const { result } = renderHook(() =>
+            useNotificationActions('user-1', onClose, onNavigate, markAsRead),
+        );
+
+        await act(async () => {
+            await result.current.handleTap(forumNotif);
+        });
+
+        expect(callOrder).toEqual(['forum', 'close']);
+        expect(markAsRead).toHaveBeenCalledWith('user-1', 'f1');
+        expect(forumIntent.requestOpenLawyerForum).toHaveBeenCalledWith('p1');
+        expect(onNavigate).not.toHaveBeenCalled();
+    });
+
+    it('handleTap يعلّم كمقروء ويفتح المنتدى دون onNavigate', async () => {
         const { result } = renderHook(() =>
             useNotificationActions('user-1', onClose, onNavigate, markAsRead),
         );
@@ -46,7 +68,8 @@ describe('useNotificationActions', () => {
 
         expect(markAsRead).toHaveBeenCalledWith('user-1', 'f1');
         expect(onClose).toHaveBeenCalled();
-        expect(onNavigate).toHaveBeenCalledWith('community', { postId: 'p1' });
+        expect(forumIntent.requestOpenLawyerForum).toHaveBeenCalledWith('p1');
+        expect(onNavigate).not.toHaveBeenCalled();
     });
 
     it('handleScan يغلق اللوحة ويفتح مسح المستند', () => {

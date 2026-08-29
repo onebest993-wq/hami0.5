@@ -1,0 +1,83 @@
+.hami-radar-event-card {
+    box-shadow: none;
+    background: var(--radar-bg-card);
+    border: 1px solid var(--radar-border);
+    border-inline-start: 3px solid color-mix(in srgb, #e6c673 78%, transparent);
+    border-radius: 0.85rem;
+    padding-inline-start: 0;
+}
+
+.hami-radar-event-card:hover {
+    border-color: color-mix(in srgb, #e6c673 28%, var(--radar-border));
+    background-color: var(--radar-bg-card-hover);
+}
+
+.hami-radar-event-card--highlighted {
+    box-shadow: none;
+    border-color: color-mix(in srgb, #e6c673 42%, transparent);
+    border-inline-start-color: #e6c673;
+    background: color-mix(in srgb, #e6c673 10%, var(--radar-bg-card));
+}
+
+.hami-radar-event-card__actions button {
+    min-height: 44px;
+    min-width: 44px;
+}
+
+.hami-radar-border-nav,
+.hami-radar-border-briefing {
+    border-color: var(--radar-border) !important;
+}
+
+.hami-radar-alert-border-overload {
+    border-color: color-mix(in srgb, #e6c673 44%, transparent) !important;
+}
+
+.hami-radar-alert-border-location {
+    border-color: color-mix(in srgb, #e6c673 28%, transparent) !important;
+}
+
+.hami-radar-alert-border-travel {
+    border-color: color-mix(in srgb, #fb7185 42%, transparent) !important;
+}
+
+.hami-radar-alert-border-default {
+    border-color: color-mix(in srgb, #94a3b8 38%, transparent) !important;
+}
+
+.hami-radar-accent-chip {
+    background-color: transparent;
+    border: 0;
+    color: #e6c673;
+}
+
+.hami-radar-day-today {
+    background-color: color-mix(in srgb, #e6c673 8%, var(--radar-bg-card));
+    color: var(--radar-text-primary);
+    border-color: color-mix(in srgb, #e6c673 32%, transparent);
+}
+
+.hami-radar-day-selected {
+    color: var(--radar-text-primary) !important;
+    background: color-mix(in srgb, #e6c673 14%, var(--radar-bg-card));
+    border-color: color-mix(in srgb, #e6c673 40%, transparent) !important;
+}
+
+.hami-radar-day-has-events {
+    background-color: var(--radar-bg-card);
+    color: var(--radar-text-primary);
+    border-color: var(--radar-border);
+}
+
+.hami-radar-page button[data-testid^='radar-day-']:not(.hami-radar-day-selected):hover {
+    background-color: var(--radar-bg-card-hover);
+}
+
+.hami-radar-day-muted {
+    color: color-mix(in srgb, var(--radar-text-secondary) 72%, transparent);
+}
+
+.hami-radar-day-muted:hover {
+    color: var(--radar-text-secondary);
+    background-color: var(--radar-bg-card-hover);
+}

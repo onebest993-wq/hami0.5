@@ -29,7 +29,7 @@ export function normalizeCassationAppealResultLite(
     return LEGACY_RESULT_MAP[key] ?? (key as CassationAppealResult);
 }
 
-export function remandCourtLabelLite(stage: CassationAppealRemandTarget | undefined): string {
+function remandCourtLabelLite(stage: CassationAppealRemandTarget | undefined): string {
     if (stage === 'investigation') return 'مكتب التحقيق';
     if (stage === 'felony') return 'محكمة الجنايات';
     if (stage === 'misdemeanor') return 'محكمة الجنح';

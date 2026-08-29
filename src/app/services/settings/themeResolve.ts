@@ -3,21 +3,20 @@ import { LAWYER_THEME_TOKENS } from './lawyerThemeTokens';
 import type { AppearanceSettings } from './types';
 import type { HomeBlockStyleOverride } from './homeLayout';
 
-/** دمج المظهر العام مع تجاوزات القسم الواحد */
+/** دمج المظهر العام مع تجاوزات القسم الواحد — يبقى المظهر كاملاً (themeMode/shape/حدود). */
 export function mergeBlockScopedAppearance(
     appearance: AppearanceSettings,
     override?: HomeBlockStyleOverride,
-): Pick<AppearanceSettings, 'theme' | 'cardTheme' | 'patternTheme' | 'brandColor'> {
+): AppearanceSettings {
     const globalCardTheme = appearance.cardTheme ?? appearance.theme;
     const cardTheme = override?.cardTheme ?? globalCardTheme;
     /** لون النقش لا يتبع لون بطاقة القسم إلا إذا عُيِّن صراحةً على القسم */
     const patternTheme =
         override?.patternTheme ?? appearance.patternTheme ?? globalCardTheme;
     return {
-        theme: appearance.theme,
+        ...appearance,
         cardTheme,
         patternTheme,
-        brandColor: appearance.brandColor,
     };
 }
 

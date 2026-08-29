@@ -1,14 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect } from 'react';
 import { EventCard } from './EventCard';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
+import { eventMatchesCalendarFocus } from '@/app/components/lawyer/SmartLegalRadar/calendarFocusIds';
+import {
+    EVENT_LIST_EXPAND_THRESHOLD,
+    useProgressiveEventList,
+} from './hooks/useProgressiveEventList';
 
-/** فوق هذا العدد — دفعة أولى + expand مع render تدريجي */
-export const EVENT_LIST_EXPAND_THRESHOLD = 15;
-/** فوق هذا — قائمة قابلة للتمرير + content-visibility */
-export const EVENT_LIST_VIRTUAL_SCROLL_THRESHOLD = 25;
-const PROGRESSIVE_BATCH_SIZE = 12;
+export { EVENT_LIST_EXPAND_THRESHOLD };
 
-export type EventCardsListProps = {
+type EventCardsListProps = {
     events: UnifiedEvent[];
     highlightEventId?: string;
     onEdit: (event: UnifiedEvent) => void;
@@ -23,72 +24,48 @@ export const EventCardsList = React.memo(function EventCardsList({
     onDelete,
     onOpenSource,
 }: EventCardsListProps) {
-    const [showAll, setShowAll] = useState(false);
-    const [renderCount, setRenderCount] = useState(EVENT_LIST_EXPAND_THRESHOLD);
-
-    const highlightIndex = useMemo(() => {
-        if (highlightEventId == null) return -1;
-        return events.findIndex((e) => String(e.id) === String(highlightEventId));
-    }, [events, highlightEventId]);
-
-    useEffect(() => {
-        setShowAll(false);
-        setRenderCount(EVENT_LIST_EXPAND_THRESHOLD);
-    }, [events]);
+    const { visibleEvents, hiddenCount, expandAll, useVirtualScroll } = useProgressiveEventList(
+        events,
+        highlightEventId,
+    );
+    const visibleHighlightId = visibleEvents.find((e) =>
+        eventMatchesCalendarFocus(e, highlightEventId),
+    )?.id;
 
     useEffect(() => {
-        if (highlightIndex >= EVENT_LIST_EXPAND_THRESHOLD) {
-            setShowAll(true);
+        if (!visibleHighlightId) return;
+        const node = document.querySelector(`[data-testid="radar-event-card-${visibleHighlightId}"]`);
+        if (!(node instanceof HTMLElement) || typeof node.scrollIntoView !== 'function') return;
+        let reduceMotion = false;
+        try {
+            reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        } catch {
+            reduceMotion = false;
         }
-    }, [highlightIndex]);
-
-    const needsExpand = events.length > EVENT_LIST_EXPAND_THRESHOLD;
-    const cap = needsExpand && !showAll ? EVENT_LIST_EXPAND_THRESHOLD : events.length;
-    const visibleEvents = events.slice(0, Math.min(renderCount, cap));
-    const hiddenCount = needsExpand && !showAll ? events.length - EVENT_LIST_EXPAND_THRESHOLD : 0;
-
-    const expandAll = useCallback(() => {
-        setShowAll(true);
-        setRenderCount(EVENT_LIST_EXPAND_THRESHOLD);
-    }, []);
-
-    useEffect(() => {
-        if (!showAll || events.length <= EVENT_LIST_EXPAND_THRESHOLD) return undefined;
-
-        let cancelled = false;
-        let count = EVENT_LIST_EXPAND_THRESHOLD;
-        const step = () => {
-            if (cancelled) return;
-            count = Math.min(count + PROGRESSIVE_BATCH_SIZE, events.length);
-            setRenderCount(count);
-            if (count < events.length) {
-                requestAnimationFrame(step);
-            }
-        };
-        requestAnimationFrame(step);
-        return () => {
-            cancelled = true;
-        };
-    }, [showAll, events.length]);
+        node.scrollIntoView({
+            block: 'nearest',
+            inline: 'nearest',
+            behavior: reduceMotion ? 'auto' : 'smooth',
+        });
+    }, [visibleHighlightId]);
 
     return (
         <div
             className={
-                events.length > EVENT_LIST_VIRTUAL_SCROLL_THRESHOLD
+                useVirtualScroll
                     ? 'space-y-3 max-h-[min(70dvh,640px)] overflow-y-auto overscroll-contain scrollbar-hide'
                     : 'space-y-3'
             }
             data-testid="radar-event-cards-list"
         >
-            {visibleEvents.map((event, idx) => (
+            {visibleEvents.map((event) => (
                 <div
                     key={event.id}
                     className="[content-visibility:auto] [contain-intrinsic-size:auto_120px]"
                 >
                     <EventCard
                         event={event}
-                        index={idx}
-                        highlighted={highlightEventId != null && String(event.id) === String(highlightEventId)}
+                        highlighted={eventMatchesCalendarFocus(event, highlightEventId)}
                         onEdit={onEdit}
                         onDelete={onDelete}
                         onOpenSource={onOpenSource}
@@ -100,7 +77,7 @@ export const EventCardsList = React.memo(function EventCardsList({
                     type="button"
                     data-testid="radar-show-all-events"
                     onClick={expandAll}
-                    className="w-full py-3 rounded-xl border border-white bg-[#1A1A1A] hami-radar-text-secondary text-sm font-bold hami-radar-hover-row transition-colors touch-manipulation min-h-[44px]"
+                    className="w-full py-3 rounded-xl border border-white/10 bg-transparent hami-radar-text-secondary text-sm font-semibold hami-radar-hover-row touch-manipulation min-h-[44px]"
                 >
                     عرض {hiddenCount} موعد إضافي
                 </button>

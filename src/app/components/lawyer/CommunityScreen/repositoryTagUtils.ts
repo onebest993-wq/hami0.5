@@ -1,5 +1,7 @@
 import { FORUM_TOPIC_FILTERS } from './forumFilters';
 import { deriveTagsFromContent, normalizeTagLabel } from './utils';
+import { archiveTextMatchesQuery } from '@/app/services/search/normalizeArabicSearch';
+import { clampGlobalSearchQuery } from '@/app/services/search/globalSearchQuerySecurity';
 
 /** وسوم مقترحة للمستودع (نفس التخصصات القانونية في المنتدى) */
 export const REPOSITORY_SUGGESTED_TAGS = [...FORUM_TOPIC_FILTERS] as const;
@@ -58,16 +60,16 @@ export function repositoryDocMatchesSearch(
     },
     query: string,
 ): boolean {
-    const q = query.trim().toLowerCase();
-    if (!q) return true;
+    const q = clampGlobalSearchQuery(query);
+    if (!q.trim()) return true;
     const docTags = resolveRepositoryDocTags(doc.title, doc.description, doc.tags);
-    const parts = [
+    const hay = [
         doc.title,
         doc.description,
         doc.type,
         doc.authorName ?? '',
         ...docTags,
         ...docTags.map((t) => t.replace(/^#/, '').replace(/_/g, ' ')),
-    ];
-    return parts.some((part) => part.toLowerCase().includes(q));
+    ].join(' ');
+    return archiveTextMatchesQuery(hay, q);
 }

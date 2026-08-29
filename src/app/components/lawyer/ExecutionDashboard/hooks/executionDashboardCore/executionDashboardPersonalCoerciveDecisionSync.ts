@@ -7,7 +7,7 @@ export type ExecutorDecisionRowLite = {
     executorOutcome?: string;
 };
 
-export const FORCED_BRING_MEMO_TITLE_MARKER = 'مسودة مذكرة إحضار';
+const FORCED_BRING_MEMO_TITLE_MARKER = 'مسودة مذكرة إحضار';
 
 export function hasApprovedPersonalCoerciveSubtype(
     rows: ExecutorDecisionRowLite[],

@@ -1,7 +1,9 @@
-// @ts-nocheck
 import React from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { BadgeCheck, ChevronDown, Handshake, Wallet } from '@/app/components/ui/lucideIcons';
+import { AnimatePresence, motion } from '@/app/motion/overlayMotionRuntime';
+import { BadgeCheck } from '@/app/components/ui/icons/BadgeCheck';
+import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
+import { Handshake } from '@/app/components/ui/icons/Handshake';
+import { Wallet } from '@/app/components/ui/icons/Wallet';
 import { formatIqdDisplay, formatNumberInput } from '../utils';
 import type { SettlementDuePhase } from '../utils';
 import type { PendingSettlement, UnifiedLedgerStore } from '../types';
@@ -46,7 +48,7 @@ function CollapsibleActionStrip({
     children,
 }: {
     tone: 'emerald' | 'violet';
-    icon: React.ComponentType<{ size?: number; className?: string }>;
+    icon: React.ElementType;
     title: string;
     expanded: boolean;
     onToggle: () => void;

@@ -15,15 +15,21 @@ vi.mock('@/app/services/calendar/calendarCloudLoader', () => ({
     prefetchCalendarCloudModule: (...args: unknown[]) => prefetchCalendarCloudModule(...args),
 }));
 
-vi.mock('@/app/hooks/lawyerDashboard/scheduleIntentWarm', () => ({
+/*
+ * `calendarEventsWarm` لا `scheduleIntentWarm`: كاش الأحداث انتقل إلى ورقة مستقلّة
+ * حين قُطعت دائرة الاستيراد بين المُرطِّب وخطّاف التسخين. والمحاكاة تتبع ما يستورده
+ * المُرطِّب فعلاً — محاكاة موضعٍ لا يعبره لا تُصيب شيئاً.
+ */
+vi.mock('@/app/services/calendar/calendarEventsWarm', () => ({
     warmCalendarEventsCache: (...args: unknown[]) => warmCalendarEventsCache(...args),
 }));
 
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: vi.fn(() => false),
+    isNativeShellStampedOnDom: vi.fn(() => false),
 }));
 
-vi.mock('@/app/services/settings/settingsRuntime', () => ({
+vi.mock('@/app/services/settings/settingsSnapshot', () => ({
     getLawyerSettingsSnapshot: vi.fn(() => ({
         security: { localOnlyMode: false },
         performance: { prefetchScreens: true, litePerformance: false },
@@ -70,7 +76,7 @@ describe('scheduleBootHydrator', () => {
     });
 
     it('hydrateScheduleShellForInstantOpenWithData(false) يتخطى التحميل عند تعطيل prefetch', async () => {
-        const { getLawyerSettingsSnapshot } = await import('@/app/services/settings/settingsRuntime');
+        const { getLawyerSettingsSnapshot } = await import('@/app/services/settings/settingsSnapshot');
         vi.mocked(getLawyerSettingsSnapshot).mockReturnValue({
             security: { localOnlyMode: true },
             performance: { prefetchScreens: false, litePerformance: false },

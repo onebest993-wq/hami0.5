@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { collectEditDraftOrphanMediaPaths } from '@/app/services/profile/editDraftMediaPaths';
 import type { LawyerProfileData } from '@/app/services/cloud/lawyerProfileTypes';
-import type { EditDraft } from '@/app/components/lawyer/RoyalLawyerProfile/types';
+import type { EditDraft } from '@/app/services/profile/profileEditDraft';
 
 const committed = {
     header: {

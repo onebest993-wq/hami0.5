@@ -16,7 +16,7 @@ export const DirectorateSection: React.FC<DirectorateSectionProps> = ({
     onFileNumberChange,
 }) => (
     <ExecutionCreationSection title="بيانات المديرية">
-        <div className="flex flex-col gap-4 w-full" data-spark-focus="directorate">
+        <div className="flex w-full flex-col gap-2.5">
             <div className="w-full">
                 <label className={ecg.labelGold}>اسم المديرية</label>
                 <input

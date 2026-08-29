@@ -43,4 +43,15 @@ describe('alertDossierRegistry', () => {
         expect(registry.isActive('lawsuit', '9')).toBe(false);
         expect(registry.resolve('lawsuit', '9')).toBeNull();
     });
+
+    it('يعدّ مواعيد Threading نشطة دون إدخالها في سجل الإضابير', () => {
+        const registry = buildDossierRegistry({
+            lawsuitFiles: [],
+            executionFiles: [],
+            urgentCases: [],
+        });
+        expect(registry.isActive('threading', 'tx-9')).toBe(true);
+        expect(registry.isActive('task', 'ft-1')).toBe(true);
+        expect(registry.isActive('lawsuit', 'missing')).toBe(false);
+    });
 });

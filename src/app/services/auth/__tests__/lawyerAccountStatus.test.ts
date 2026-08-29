@@ -138,6 +138,31 @@ describe('lawyerAccountStatus + local guest', () => {
         ).toBeNull();
     });
 
+    it('السجل المحلي pending يتقدّم على app_metadata rejected بعد إعادة الرفع', () => {
+        writeLawyerVerificationPending('lawyer-new-1', {
+            email: 'a@b.com',
+            fullName: 'علي محمد حسن',
+            familyName: 'العلي',
+            phone: '07701234567',
+            governorate: 'بغداد',
+            lawyerBarRoom: 'baghdad-central',
+            idFrontDataUrl: null,
+            idBackDataUrl: null,
+            faceSelfieDataUrl: null,
+            faceAssistOptedIn: false,
+        });
+        expect(
+            resolveLawyerVerificationStatus(
+                'lawyer-new-1',
+                {},
+                { verification_status: 'rejected' },
+            ),
+        ).toBe('pending');
+        expect(
+            forumAccessDenialReason('lawyer-new-1', {}, { verification_status: 'rejected' }),
+        ).toBe('pending');
+    });
+
     it('allows network when local verification record is active', () => {
         writeLawyerVerificationPending('lawyer-new-1', {
             email: 'a@b.com',

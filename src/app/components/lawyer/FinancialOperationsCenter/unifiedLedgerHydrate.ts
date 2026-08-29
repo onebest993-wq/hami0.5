@@ -2,7 +2,8 @@
  * منطق تحميل/تسوية/تطبيع الوعاء الموحّد من التخزين — مستخلص من FinancialOperationsCenter
  * ليبقى خالياً من React (دوال نقيّة قابلة للاختبار بمعزل عن المكوّن).
  */
-import { emptyStore, isUnifiedLedgerLocked, parseStoredMoney, type UnifiedLedgerTotalParams } from './utils';
+import { emptyStore, parseStoredMoney, type UnifiedLedgerTotalParams } from './utils';
+import { isUnifiedLedgerLocked } from './unifiedLedgerLock';
 import type {
     ExpenseRow,
     LawyerFeeRow,
@@ -62,12 +63,17 @@ export function normalizeStoredPaymentRows(raw: unknown): LocalPaymentRow[] {
 export function normalizeStoredPendingSettlement(raw: unknown): PendingSettlement | null {
     if (!raw || typeof raw !== 'object') return null;
     const ps = raw as Partial<PendingSettlement>;
-    return {
+    const amount = Math.max(0, parseStoredMoney(ps.amount) || 0);
+    const next: PendingSettlement = {
         id: String(ps.id || `stl-${Date.now()}`),
-        amount: Math.max(0, parseStoredMoney(ps.amount) || 0),
+        amount,
         dueDate: String(ps.dueDate || ''),
         createdAt: String(ps.createdAt || new Date().toISOString()),
     };
+    const periodStart = String(ps.periodStartYmd || '').trim();
+    if (periodStart) next.periodStartYmd = periodStart;
+    if (ps.tracksOngoingAlimony === true) next.tracksOngoingAlimony = true;
+    return next;
 }
 
 /** يعيد بذر أتعاب المحامي/المصاريف من قيم الإضبارة الحالية — يُستخدم عند التحميل وعند تغيّر خصائص الإضبارة */

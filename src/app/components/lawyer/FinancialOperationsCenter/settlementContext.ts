@@ -24,6 +24,8 @@ export interface SettlementContextInput {
     salarySeizureActive?: boolean;
     /** وفاة المدين — إخفاء زر التسوية (أمر عام في التنفيذ) */
     activeDebtorIsDeceased?: boolean;
+    /** استحصال مالي + موظف — لا كفيل بأي نوع */
+    hideAllGuarantorPresence?: boolean;
 }
 
 export interface SettlementContext {
@@ -77,6 +79,7 @@ export function resolveSettlementContext(input: SettlementContextInput): Settlem
         financialCenterTotalIqd: input.financialCenterTotalIqd,
         settlementBreachTriggeredAt: input.settlementBreachTriggeredAt,
         pendingSettlement: pending,
+        hideAllGuarantorPresence: input.hideAllGuarantorPresence,
     });
 
     return {

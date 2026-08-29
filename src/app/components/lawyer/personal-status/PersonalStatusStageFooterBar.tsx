@@ -1,15 +1,14 @@
 import type { ReactNode } from 'react';
-import { Clock, Scale } from '@/app/components/ui/lucideIcons';
 
 const FOOTER_SHELL =
-    'shrink-0 px-2.5 sm:px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] print:hidden w-full relative z-40 border-t border-[#F0A8B4]/22 bg-[#101018] shadow-[0_-4px_24px_rgba(0,0,0,0.35)]';
+    'shrink-0 px-2 pt-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] print:hidden w-full relative z-40 border-t border-white/[0.12] bg-[#0B1021]';
 
 export { FOOTER_SHELL };
 
 const OPPONENT_APPEAL_BTN =
-    'group w-full py-3.5 rounded-xl bg-gradient-to-l from-[#F5C6D0]/[0.20] via-[#FFD4DC]/[0.10] to-white/[0.05] backdrop-blur-md border border-[#F0A8B4]/32 text-[#FFFEF9] font-bold text-sm shadow-[0_8px_28px_rgba(240,168,180,0.18),inset_0_1px_0_rgba(255,220,228,0.22)] hover:border-[#F0A8B4]/45 hover:from-[#F5C6D0]/[0.26] transition-all flex items-center justify-center gap-2.5';
+    'w-full py-2.5 min-h-[44px] rounded-md border border-white/[0.14] bg-white/[0.05] text-white/90 font-bold text-sm hover:bg-white/[0.08] transition-colors flex items-center justify-center gap-2';
 
-export type PersonalStatusStageFooterBarProps = {
+type PersonalStatusStageFooterBarProps = {
     showAbsentJudgmentFooter: boolean;
     showPetitionVoidFooter: boolean;
     setShowAppealModal: (v: boolean) => void;
@@ -19,24 +18,14 @@ export type PersonalStatusStageFooterBarProps = {
 
 export function PersonalStatusOpponentAppealPanel({ onRegister }: { onRegister: () => void }) {
     return (
-        <div className="rounded-2xl border border-[#F0A8B4]/22 bg-gradient-to-br from-[#F5C6D0]/[0.10] via-white/[0.04] to-[#ECE8E2]/[0.03] backdrop-blur-xl p-4 shadow-[inset_0_1px_0_rgba(255,220,228,0.16)]">
-            <div className="flex items-start gap-3 mb-3.5">
-                <div className="shrink-0 w-10 h-10 rounded-xl border border-[#F0A8B4]/28 bg-gradient-to-br from-[#F5C6D0]/[0.14] to-white/[0.05] flex items-center justify-center">
-                    <Clock size={17} className="text-[#FFD4DC]" strokeWidth={2} />
-                </div>
-                <div className="min-w-0 text-right">
-                    <p className="text-sm font-bold text-[#FFFEF9] leading-snug">
-                        محسومة لصالح الموكل — بانتظار طعن الخصم
-                    </p>
-                    <p className="text-[11px] text-[#9894A0] mt-1 leading-relaxed">
-                        الإضبارة مقفولة. عند تبليغك بطعن الخصم، سجّله من الزر أدناه.
-                    </p>
-                </div>
-            </div>
-            <button type="button" onClick={onRegister} className={OPPONENT_APPEAL_BTN}>
-                <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/[0.08] border border-white/[0.14] group-hover:bg-white/[0.12] transition-colors">
-                    <Scale size={16} strokeWidth={2.25} />
-                </span>
+        <div className="p-2">
+            <p className="text-[12px] font-bold text-white/88 leading-snug text-right">
+                محسومة لصالح الموكل — بانتظار طعن الخصم
+            </p>
+            <p className="text-[10px] text-white/45 mt-0.5 leading-relaxed text-right">
+                عند تبليغك بطعن الخصم، سجّله من الزر أدناه.
+            </p>
+            <button type="button" onClick={onRegister} className={`${OPPONENT_APPEAL_BTN} mt-2`}>
                 قام الخصم بالطعن
             </button>
         </div>

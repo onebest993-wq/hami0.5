@@ -50,7 +50,6 @@ export function useAppearanceThemeControls(
         setThemesExpanded,
         activeThemeKey,
         activeThemeToken,
-        themeToken: activeThemeToken,
         visibleThemeKeys,
         hiddenThemeCount,
         selectTheme,

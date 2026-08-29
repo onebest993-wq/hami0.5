@@ -1,15 +1,13 @@
 /**
  * 🧪 UNIT TESTS - CryptoService
- * 
+ *
  * Test Coverage:
  * - Initialization
  * - Encryption/Decryption
- * - Signature Generation/Verification
- * - Object Encryption
  * - Error Handling
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CryptoService } from '../CryptoService';
 
 describe('CryptoService', () => {
@@ -46,6 +44,85 @@ describe('CryptoService', () => {
             const service = CryptoService as any;
             expect(service.isInitialized).toBe(false);
             expect(service.masterKey).toBeNull();
+        });
+
+        it('does not decrypt ciphertext after live user switch', async () => {
+            const { setLiveAuthUserId } = await import('@/app/utils/liveAuthUserId');
+            CryptoService.destroy();
+            setLiveAuthUserId('user-a');
+            await CryptoService.initialize('test-password-123');
+            const cipher = await CryptoService.encrypt('owner-a-secret');
+            setLiveAuthUserId('user-b');
+            await CryptoService.initialize('test-password-123');
+            await expect(CryptoService.decrypt(cipher)).rejects.toThrow();
+            setLiveAuthUserId(null);
+        });
+
+        it('refuses to mint a new master key when encrypted lawsuit ciphertext exists on disk', async () => {
+            const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
+            const { LAWSUIT_FILES_ACTIVE_KEY } = await import(
+                '@/app/services/dossierPersistence/dossierStorageKeys'
+            );
+            await SecureStoreService.setItem(
+                LAWSUIT_FILES_ACTIVE_KEY,
+                JSON.stringify([{ id: 1, type: 'lawsuit' }]),
+            );
+            const raw = await SecureStoreService.peekRawFromDisk(LAWSUIT_FILES_ACTIVE_KEY);
+            expect(raw?.startsWith('ENC:') || (raw != null && raw.length > 0)).toBe(true);
+
+            CryptoService.destroy();
+            const spyRestore = vi
+                .spyOn(
+                    CryptoService as unknown as {
+                        tryRestoreKeyFromPersistentStore: () => Promise<boolean>;
+                    },
+                    'tryRestoreKeyFromPersistentStore',
+                )
+                .mockResolvedValue(false);
+            const spySession = vi
+                .spyOn(
+                    CryptoService as unknown as { tryRestoreKeyFromSession: () => Promise<boolean> },
+                    'tryRestoreKeyFromSession',
+                )
+                .mockResolvedValue(false);
+            const spyLegacyShared = vi
+                .spyOn(
+                    CryptoService as unknown as {
+                        tryClaimLegacySharedMasterKey: () => Promise<boolean>;
+                    },
+                    'tryClaimLegacySharedMasterKey',
+                )
+                .mockResolvedValue(false);
+            const spyLegacyDevice = vi
+                .spyOn(
+                    CryptoService as unknown as {
+                        tryRestoreLegacyDeviceKey: () => Promise<boolean>;
+                    },
+                    'tryRestoreLegacyDeviceKey',
+                )
+                .mockResolvedValue(false);
+            const spyMint = vi.spyOn(
+                CryptoService as unknown as { generateMasterKey: () => Promise<CryptoKey> },
+                'generateMasterKey',
+            );
+
+            await CryptoService.initialize('unrelated-password-xyz');
+            expect(spyMint).not.toHaveBeenCalled();
+            expect((CryptoService as unknown as { isInitialized: boolean }).isInitialized).toBe(
+                false,
+            );
+
+            spyRestore.mockRestore();
+            spySession.mockRestore();
+            spyLegacyShared.mockRestore();
+            spyLegacyDevice.mockRestore();
+            spyMint.mockRestore();
+            SecureStoreService.deleteItemSync(LAWSUIT_FILES_ACTIVE_KEY);
+            CryptoService.destroy();
+            await CryptoService.initialize('test-password-123');
+            expect((CryptoService as unknown as { isInitialized: boolean }).isInitialized).toBe(
+                true,
+            );
         });
     });
     
@@ -95,127 +172,13 @@ describe('CryptoService', () => {
         });
     });
     
-    describe('Signature Generation & Verification', () => {
-        it('should generate consistent signature for same data', async () => {
-            const data = { name: 'علي', amount: '5000000' };
-            
-            const sig1 = await CryptoService.generateSignature(data);
-            const sig2 = await CryptoService.generateSignature(data);
-            
-            expect(sig1).toBe(sig2);
-        });
-        
-        it('should generate different signatures for different data', async () => {
-            const data1 = { name: 'علي', amount: '5000000' };
-            const data2 = { name: 'أحمد', amount: '5000000' };
-            
-            const sig1 = await CryptoService.generateSignature(data1);
-            const sig2 = await CryptoService.generateSignature(data2);
-            
-            expect(sig1).not.toBe(sig2);
-        });
-        
-        it('should verify signature correctly', async () => {
-            const data = { debtor: 'علي حسن', debt: '1000000' };
-            
-            const signature = await CryptoService.generateSignature(data);
-            const isValid = await CryptoService.verifySignature(data, signature);
-            
-            expect(isValid).toBe(true);
-        });
-        
-        it('should detect tampered data', async () => {
-            const originalData = { debtor: 'علي حسن', debt: '1000000' };
-            const signature = await CryptoService.generateSignature(originalData);
-            
-            const tamperedData = { debtor: 'علي حسن', debt: '9999999' }; // Changed!
-            const isValid = await CryptoService.verifySignature(tamperedData, signature);
-            
-            expect(isValid).toBe(false);
-        });
-        
-        it('should be order-independent for object keys', async () => {
-            const data1 = { a: '1', b: '2', c: '3' };
-            const data2 = { c: '3', a: '1', b: '2' }; // Different order
-            
-            const sig1 = await CryptoService.generateSignature(data1);
-            const sig2 = await CryptoService.generateSignature(data2);
-            
-            expect(sig1).toBe(sig2);
-        });
-    });
-    
-    describe('Object Encryption', () => {
-        it('should encrypt all string fields in object', async () => {
-            const obj = {
-                debtor_name: 'علي حسن',
-                phone: '07701234567',
-                address: 'بغداد - الكرادة'
-            };
-            
-            const { encrypted, signature } = await CryptoService.encryptObject(obj);
-            
-            expect(encrypted.debtor_name).not.toBe(obj.debtor_name);
-            expect(encrypted.phone).not.toBe(obj.phone);
-            expect(encrypted.address).not.toBe(obj.address);
-            expect(signature).toBeTruthy();
-            expect(signature.length).toBe(64); // SHA-256 hex
-        });
-        
-        it('should preserve non-string values', async () => {
-            const obj = {
-                name: 'علي',
-                amount: 5000000, // number
-                active: true,    // boolean
-                data: null       // null
-            };
-            
-            const { encrypted } = await CryptoService.encryptObject(obj);
-            
-            expect(encrypted.name).not.toBe(obj.name); // Encrypted
-            expect(encrypted.amount).toBe(5000000);    // Preserved
-            expect(encrypted.active).toBe(true);       // Preserved
-            expect(encrypted.data).toBe(null);         // Preserved
-        });
-        
-        it('should decrypt object and verify integrity', async () => {
-            const original = {
-                debtor_name: 'محمد علي',
-                total_debt: 3000000,
-                status: 'active'
-            };
-            
-            const { encrypted, signature } = await CryptoService.encryptObject(original);
-            const { decrypted, isIntegrityValid } = await CryptoService.decryptObject(
-                encrypted,
-                signature
-            );
-            
-            expect(decrypted.debtor_name).toBe(original.debtor_name);
-            expect(decrypted.total_debt).toBe(original.total_debt);
-            expect(decrypted.status).toBe(original.status);
-            expect(isIntegrityValid).toBe(true);
-        });
-        
-        it('should detect integrity violation', async () => {
-            const original = { name: 'علي', amount: '1000000' };
-            
-            const { encrypted, signature } = await CryptoService.encryptObject(original);
-            
-            // Tamper with encrypted data (decrypt, modify, re-encrypt)
-            const tamperedName = await CryptoService.encrypt('أحمد'); // Different name!
-            encrypted.name = tamperedName;
-            
-            const { isIntegrityValid } = await CryptoService.decryptObject(
-                encrypted,
-                signature
-            );
-            
-            expect(isIntegrityValid).toBe(false);
-        });
-    });
-    
     describe('Error Handling', () => {
+        it('hasMasterKey reflects whether a master key is in memory', () => {
+            expect(CryptoService.hasMasterKey()).toBe(true);
+            CryptoService.destroy();
+            expect(CryptoService.hasMasterKey()).toBe(false);
+        });
+
         it('should throw error when encrypting without initialization', async () => {
             CryptoService.destroy();
             

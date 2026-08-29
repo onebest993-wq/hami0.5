@@ -4,6 +4,16 @@
  */
 
 import { isGracePeriodExpired } from '@/app/utils/executionStateMachine';
+import {
+    isEncroachmentRemovalClaim,
+    isEvictionClaim,
+    isSpecificDeliveryClaim,
+} from '@/app/utils/executionModuleStrategies';
+import {
+    isMaritalFurnitureClaim,
+    isMatwaaClaim,
+    isVisitationClaim,
+} from '@/app/utils/followupSpecializationVisibility';
 
 export type EmploymentTypeSummoning = 'موظف' | 'كاسب' | 'متقاعد';
 export type MonetaryClaimNature = 'مالي' | 'غير مالي';
@@ -325,17 +335,19 @@ export function deriveMonetaryClaimNature(
     explicit?: MonetaryClaimNature | null
 ): MonetaryClaimNature {
     if (explicit === 'مالي' || explicit === 'غير مالي') return explicit;
-    const NON_FINANCIAL = [
-        'مشاهدة',
-        'استصحاب',
-        'مبيت',
-        'تخلية مأجور',
-        'مطاوعة',
-        'تسليم طفل',
-        'تسليم ولد',
-    ];
-    if (NON_FINANCIAL.some((k) => claimType?.includes(k))) return 'غير مالي';
-    if (claimType === 'eviction') return 'غير مالي';
+    const ct = String(claimType || '').trim();
+    if (
+        isVisitationClaim(ct) ||
+        isMatwaaClaim(ct) ||
+        isEncroachmentRemovalClaim(ct) ||
+        isEvictionClaim(ct) ||
+        isSpecificDeliveryClaim(ct) ||
+        isMaritalFurnitureClaim(ct)
+    ) {
+        return 'غير مالي';
+    }
+    const NON_FINANCIAL = ['استصحاب', 'مبيت', 'تسليم طفل', 'تسليم ولد'];
+    if (NON_FINANCIAL.some((k) => ct.includes(k))) return 'غير مالي';
     return 'مالي';
 }
 

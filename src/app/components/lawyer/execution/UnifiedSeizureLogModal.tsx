@@ -1,22 +1,25 @@
-// @ts-nocheck
 import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, Car, Home, Wallet, X } from '@/app/components/ui/lucideIcons';
-import { EXEC_MODAL_BACKDROP_STRONG, EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
+import { Briefcase } from '@/app/components/ui/icons/Briefcase';
+import { Car } from '@/app/components/ui/icons/Car';
+import { Home } from '@/app/components/ui/icons/Home';
+import { Wallet } from '@/app/components/ui/icons/Wallet';
+import { X } from '@/app/components/ui/icons/X';
+import { EXEC_MODAL_BACKDROP_STRONG, EXEC_MODAL_Z } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
+import { EXEC_MODAL_CLOSE_BTN_CLASS } from '@/app/components/lawyer/ExecutionDashboard/executionModalMobileShell';
+import { useExecutionOverlayDismiss } from '@/app/components/lawyer/ExecutionDashboard/useExecutionOverlayDismiss';
 import { UNIFIED_SEIZURE_TAB_ORDER } from '@/app/components/lawyer/ExecutionDashboard/utils/unifiedSeizureLogHelpers';
+import {
+    type SeizureLogTab,
+} from '@/app/components/lawyer/execution/unifiedSeizureLogTabTypes';
+import type { UnifiedSeizureLogEntry } from '@/app/components/lawyer/execution/unifiedSeizureLogEntryTypes';
 
-export type UnifiedSeizureLogEntry = {
-    id: string;
-    kind: 'property' | 'salary' | 'movable' | 'third_party' | 'marks';
-    dateYmd: string;
-    title: string;
-    statusLabel: string;
-    statusCode: string;
-    description: string;
-    entityId?: string;
-};
-
-export type SeizureLogTab = 'property' | 'salary' | 'movable' | 'third_party';
+export type { SeizureLogTab } from '@/app/components/lawyer/execution/unifiedSeizureLogTabTypes';
+export { isSeizureLogTab } from '@/app/components/lawyer/execution/unifiedSeizureLogTabTypes';
+export type {
+    UnifiedSeizureLogEntry,
+    UnifiedSeizureLogEntryKind,
+} from '@/app/components/lawyer/execution/unifiedSeizureLogEntryTypes';
 
 const TAB_META: Record<
     SeizureLogTab,
@@ -86,6 +89,7 @@ export function UnifiedSeizureLogModal(props: {
     );
 
     const tabMeta = TAB_META[props.activeTab];
+    useExecutionOverlayDismiss(props.open, props.onClose);
 
     if (!props.open || typeof document === 'undefined') return null;
 
@@ -108,7 +112,7 @@ export function UnifiedSeizureLogModal(props: {
                     <button
                         type="button"
                         onClick={props.onClose}
-                        className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white"
+                        className={`${EXEC_MODAL_CLOSE_BTN_CLASS} text-slate-400 hover:bg-white/5 hover:text-white`}
                         aria-label="إغلاق"
                     >
                         <X size={18} />
@@ -197,8 +201,4 @@ export function UnifiedSeizureLogModal(props: {
         </div>,
         document.body
     );
-}
-
-export function isSeizureLogTab(v: string): v is SeizureLogTab {
-    return v === 'property' || v === 'salary' || v === 'movable' || v === 'third_party';
 }

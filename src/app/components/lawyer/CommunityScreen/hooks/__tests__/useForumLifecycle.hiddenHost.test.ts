@@ -34,4 +34,17 @@ describe('useForumLifecycle hidden keepAlive', () => {
         renderHook(() => useForumLifecycle('lawyer-1', true, 0, true));
         expect(listPostsMock).toHaveBeenCalledTimes(1);
     });
+
+    it('يسجّل first-paint و interactive عند فتح السطح ولو المنشورات ما زالت تُحمَّل', async () => {
+        const { markForumPerfPhase } = await import('@/app/services/forum/forumPerfMetrics');
+        renderHook(() => useForumLifecycle('lawyer-1', true, 0, true));
+        expect(markForumPerfPhase).toHaveBeenCalledWith('first-paint');
+        expect(markForumPerfPhase).toHaveBeenCalledWith('interactive');
+    });
+
+    it('لا يسجّل علامات الأداء بينما keepAlive مغلق', async () => {
+        const { markForumPerfPhase } = await import('@/app/services/forum/forumPerfMetrics');
+        renderHook(() => useForumLifecycle('lawyer-1', true, 0, false));
+        expect(markForumPerfPhase).not.toHaveBeenCalled();
+    });
 });

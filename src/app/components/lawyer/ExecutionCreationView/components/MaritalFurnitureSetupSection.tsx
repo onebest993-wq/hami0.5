@@ -1,5 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Search, Sofa, Trash2 } from '@/app/components/ui/lucideIcons';
+import { Plus } from '@/app/components/ui/icons/Plus';
+import { Search } from '@/app/components/ui/icons/Search';
+import { Sofa } from '@/app/components/ui/icons/Sofa';
+import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import type { MaritalFurnitureItem } from '@/app/types/maritalFurniture';
 import {
     createEmptyMaritalFurnitureItem,

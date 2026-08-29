@@ -1,6 +1,7 @@
 import { useNotificationStore } from '@/app/stores/notificationStore';
 import { emitForumUnreadCount } from '@/app/services/forum/forumNotificationEvents';
 import { syncForumNotificationsToAppStore } from '@/app/services/forum/forumNotificationBridge';
+import { invalidateAccountNetworkGateCache } from '@/app/services/auth/accountNetworkGate';
 
 export type RefreshNotificationShellBadgeOptions = {
     /** جلب blob الإشعارات من KV — يُتخطّى عند فتح اللوحة (polling اللوحة يكفي). */
@@ -11,7 +12,7 @@ export type RefreshNotificationShellBadgeOptions = {
     includeLegacyPurge?: boolean;
 };
 
-/** تحديث شارة الجرس: blob النظام + مزامنة المنتدى. */
+/** تحديث شارة الجرس: blob النظام + مزامنة المنتدى + حالة المقر على الحساب. */
 export async function refreshNotificationShellBadge(
     userId: string,
     options?: RefreshNotificationShellBadgeOptions,
@@ -46,6 +47,15 @@ export async function refreshNotificationShellBadge(
         );
     }
 
-    if (tasks.length === 0) return;
+    invalidateAccountNetworkGateCache();
+    tasks.push(
+        import('@/app/services/auth/lawyerVerificationRemote').then((m) =>
+            m.syncLawyerVerificationFromServer(userId),
+        ),
+    );
+    tasks.push(
+        import('@/app/services/auth/accountNetworkGate').then((m) => m.fetchAccountNetworkGate(userId)),
+    );
+
     await Promise.allSettled(tasks);
 }

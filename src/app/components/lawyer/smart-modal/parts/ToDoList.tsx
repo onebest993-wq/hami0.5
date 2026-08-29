@@ -1,6 +1,11 @@
 import React, { useState, memo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { CheckSquare, Plus, Clock, Check, Edit3 } from '@/app/components/ui/lucideIcons';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
+import { CheckSquare } from '@/app/components/ui/icons/CheckSquare';
+import { Plus } from '@/app/components/ui/icons/Plus';
+import { Clock } from '@/app/components/ui/icons/Clock';
+import { Check } from '@/app/components/ui/icons/Check';
+import { Edit3 } from '@/app/components/ui/icons/Edit3';
 import type { Task } from '../../LawyerShared';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 import { filterCivilLawsuitVisibleTasks } from '../smartFile/civilLawsuitTaskFilter';
@@ -191,6 +196,7 @@ export const ToDoList = memo(function ToDoList({
     visualVariant?: 'civil' | 'personal' | 'personal-pearl';
     readOnly?: boolean;
 }) {
+    const reduceMotion = useReduceMotion();
     const [expandedAppealTaskId, setExpandedAppealTaskId] = useState<string | null>(null);
     const [expandedCorrespondenceTaskId, setExpandedCorrespondenceTaskId] = useState<string | null>(null);
     const sortedTasks = filterCivilLawsuitVisibleTasks(tasks).sort((a, b) => (a.isCompleted === b.isCompleted ? 0 : a.isCompleted ? 1 : -1));
@@ -217,7 +223,7 @@ export const ToDoList = memo(function ToDoList({
     return (
         <div className={isPearl ? '' : 'mb-2'}>
             {!isPearl ? (
-            <div className={`flex items-center justify-between rounded-xl border px-3 py-2 mb-2 ${isPersonal ? 'border-white/[0.07] bg-[#141214]' : 'border-[#E6C673]/14 bg-[radial-gradient(circle_at_top,rgba(230,198,115,0.06),transparent_42%),linear-gradient(180deg,rgba(22,28,42,0.96),rgba(12,16,28,0.98))] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]'}`} dir="rtl">
+            <div className={`flex items-center justify-between rounded-xl border px-3 py-2 mb-2 ${isPersonal ? 'border-white/[0.07] bg-[#141214]' : 'border-[#E6C673]/14 bg-[linear-gradient(165deg,rgba(16,22,36,0.96),rgba(10,15,28,0.99))]'}`} dir="rtl">
                 <div className="flex items-center gap-2 min-w-0">
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center border shrink-0 ${isPersonal ? 'bg-[#C4A574]/10 border-[#C4A574]/22' : 'bg-[#E6C673]/10 border-[#E6C673]/22'}`}>
                         <CheckSquare size={13} className={isPersonal ? 'text-[#C4A574]' : 'text-[#E6C673]'} />
@@ -241,7 +247,7 @@ export const ToDoList = memo(function ToDoList({
                     type="button"
                     data-testid={CIVIL_LAWSUIT_TEST_IDS.taskAdd}
                     onClick={onAddTask}
-                    className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg border border-[#E6C673]/20 bg-[#E6C673]/10 text-[#E6C673] hover:bg-[#E6C673]/18 hover:border-[#E6C673]/30 transition-colors shrink-0"
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-[#E6C673]/20 bg-[#E6C673]/10 text-[#E6C673] hover:bg-[#E6C673]/18 hover:border-[#E6C673]/30 transition-colors shrink-0 touch-manipulation"
                     title="إضافة مهمة جديدة"
                     aria-label="إضافة مهمة جديدة"
                 >
@@ -268,9 +274,10 @@ export const ToDoList = memo(function ToDoList({
                                 <motion.div
                                     key={task.id}
                                     data-testid={CIVIL_LAWSUIT_TEST_IDS.taskRow(task.id)}
-                                    initial={{ opacity: 0, y: -5 }}
+                                    initial={reduceMotion ? false : { opacity: 0, y: -5 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, height: 0 }}
+                                    exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
+                                    transition={reduceMotion ? { duration: 0 } : undefined}
                                     className={`flex items-start gap-3 ${isPearl ? 'py-1.5' : 'py-2.5 px-2.5 rounded-xl border border-white/[0.05] bg-white/[0.02] hover:border-[#E6C673]/12 hover:bg-white/[0.035] transition-colors'} group ${idx !== sortedTasks.length - 1 && isPearl ? `border-b ${isPearl ? 'border-[#C9B89A]/08' : ''}` : ''}`}
                                 >
                                     <button
@@ -283,7 +290,7 @@ export const ToDoList = memo(function ToDoList({
                                             task.isCompleted
                                                 ? isPearl
                                                     ? 'bg-[#C9B89A] border-[#C9B89A] text-[#131211]'
-                                                    : 'bg-[#E6C673] border-[#E6C673] text-black shadow-[0_0_10px_rgba(230,198,115,0.4)]'
+                                                    : 'bg-[#E6C673] border-[#E6C673] text-black'
                                                 : appealTask
                                                   ? appealExpanded
                                                       ? 'border-[#E6C673] bg-[#E6C673]/20 text-[#E6C673]'

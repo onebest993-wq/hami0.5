@@ -15,13 +15,13 @@ export const PermanentDeleteConfirmDialog: React.FC<PermanentDeleteConfirmDialog
 
     return (
         <div
-            className="fixed inset-0 z-[130] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-[130] flex items-center justify-center bg-black/85 p-4"
             dir="rtl"
             onClick={() => setPermanentDeleteTimelineId(null)}
             role="presentation"
         >
             <div
-                className="w-full max-w-sm rounded-xl border border-rose-500/40 bg-[#0A0F1C] p-4 text-right shadow-2xl"
+                className="w-full max-w-sm rounded-xl border border-rose-500/40 bg-[#0A0F1C] p-4 text-right shadow-lg"
                 onClick={(e) => e.stopPropagation()}
                 role="alertdialog"
             >

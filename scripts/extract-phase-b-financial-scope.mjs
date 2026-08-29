@@ -10,11 +10,19 @@ const DYNAMIC = path.join(
     ROOT,
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoreDynamicScope.ts',
 );
+if (!fs.existsSync(DYNAMIC)) {
+    console.log('[spent] buildExecutionDashboardCoreDynamicScope.ts — skip');
+    process.exit(0);
+}
 const RESOLVER = path.join(ROOT, 'scripts/lib/resolveExecutionChunkScopeKeys.mjs');
 const FINANCIAL_BAG = path.join(
     ROOT,
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardFinancialScopeBag.ts',
 );
+if (!fs.existsSync(FINANCIAL_BAG)) {
+    console.log('[spent] financial scope bag — skip');
+    process.exit(0);
+}
 
 const FINANCIAL_KEY_PATTERN =
     /financial|Financial|payment|Payment|ledger|Ledger|expense|Expense|claim|Claim|fee|Fee|salary|Salary|principal|Principal|balance|Balance|totals|Totals|receipt|Receipt|invoice|Invoice|eviction.*Fee|eviction.*Expense|unifiedLedger|maritalFurniture|total_execution_expenses|totalExecutionExpenses|totalWithExecutionFee|calculatedExecutionFee|shouldCalculateExecutionFee|parsedClientFees|parsedCourtFees|parsedDirectorateFees|parsedLawyerFees|paidClientFees|paidCourtFees|paidDirectorateFees|judicialCustodianSalaries/i;
@@ -165,6 +173,9 @@ fs.writeFileSync(DYNAMIC, newDynamic, 'utf8');
 
 let resolver = fs.readFileSync(RESOLVER, 'utf8');
 if (!resolver.includes('FINANCIAL_BAG_PATH')) {
+    void fs.existsSync(
+        'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardFinancialScopeBag.ts',
+    );
     resolver = resolver.replace(
         'const COERCIVE_BAG_PATH =',
         `const FINANCIAL_BAG_PATH =

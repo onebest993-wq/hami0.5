@@ -1,5 +1,9 @@
 import React from 'react';
-import { HomeSearchIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
+import { HeaderSearchMark } from './headerToolbarIcons';
+import {
+    beginGlobalSearchDismissLock,
+    paintGlobalSearchInstantChrome,
+} from '@/app/runtime/globalSearchInstantPaint';
 import { HeaderToolbarIcon } from './HeaderToolbarIcon';
 
 interface HeaderSearchTriggerProps {
@@ -11,12 +15,17 @@ interface HeaderSearchTriggerProps {
 export function HeaderSearchTrigger({ onClick, onPointerEnter, onPointerDown }: HeaderSearchTriggerProps) {
     return (
         <HeaderToolbarIcon
-            icon={HomeSearchIcon}
+            icon={HeaderSearchMark}
             label="بحث شامل"
             onClick={onClick}
             onPointerEnter={onPointerEnter}
-            onPointerDown={onPointerDown}
-            /* فتح عند pointerdown — أسرع على اللمس من انتظار click (مثل الإعدادات) */
+            onPointerDown={() => {
+                beginGlobalSearchDismissLock();
+                paintGlobalSearchInstantChrome();
+                onPointerDown?.();
+            }}
+            /* الجسر يغطي العدسة فيبتلع click — الفتح في pointerdown مثل الإشعارات/الإعدادات.
+             * لا تركيز تحت الإصبع: useGlobalSearchFocusArm يعطّل autofocus على الأصل. */
             activateOnPointerDown
             accent
             testId="header-search-trigger"

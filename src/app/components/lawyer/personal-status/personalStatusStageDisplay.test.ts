@@ -36,6 +36,20 @@ describe('isPersonalStatusAppealContext', () => {
         expect(isPersonalStatusStageName('الاعتراض على الحكم الغيابي')).toBe(false);
     });
 
+    it('treats shared objection stage as personal when أحوال شخصية exists in history', () => {
+        expect(
+            isPersonalStatusAppealContext('الاعتراض على الحكم الغيابي', [
+                { stageName: 'أحوال شخصية' },
+                { stageName: 'الاعتراض على الحكم الغيابي' },
+            ]),
+        ).toBe(true);
+        expect(
+            isPersonalStatusAppealContext('اعتراض على الحكم الغيابي', [
+                { stageName: 'أحوال شخصية' },
+            ]),
+        ).toBe(true);
+    });
+
     it('keeps personal-status dossier on cassation-only appeal rules', () => {
         expect(
             isPersonalStatusAppealContext('اعتراض على الحكم الغيابي', [], {

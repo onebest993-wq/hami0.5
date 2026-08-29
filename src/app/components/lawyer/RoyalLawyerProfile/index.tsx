@@ -1,47 +1,37 @@
-import React, { useEffect, useLayoutEffect } from 'react';
+import React from 'react';
 import type { RoyalLawyerProfileProps } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 import { useRoyalLawyerProfile } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useRoyalLawyerProfile';
 import { ProfileErrorBoundary } from '@/app/components/lawyer/RoyalLawyerProfile/ProfileErrorBoundary';
-import { ProfileBackBar } from '@/app/components/lawyer/RoyalLawyerProfile/components/ProfileBackBar';
 import { ProfileContent } from '@/app/components/lawyer/RoyalLawyerProfile/components/ProfileContent';
-import { ProfileInstantShell } from '@/app/components/lawyer/RoyalLawyerProfile/ProfileInstantShell';
-import { resolveProfileAccentHex, resolveProfileAccentInkHex, resolveProfileAccentOnSolidHex, resolveProfilePageBackground } from '@/app/services/profile/profilePageCustomization';
+import { ProfilePageSurfaceFrame } from '@/app/components/lawyer/RoyalLawyerProfile/components/ProfilePageSurfaceFrame';
 import { getLiveProfileAppearance } from '@/app/services/profile/profileThemeRuntime';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 import { isAndroidNativeShell } from '@/app/runtime/nativePlatform';
 import { useProfilePageHidden } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfilePageHidden';
-import { ensureProfilePageSecondaryFxLoaded } from '@/app/components/lawyer/RoyalLawyerProfile/profilePageFxLoader';
-import '@/app/components/lawyer/RoyalLawyerProfile/profilePageFx.css';
-import '@/app/components/lawyer/RoyalLawyerProfile/profileChrome.css';
+import { prefetchProfileAndroidFx } from '@/app/runtime/profileAndroidFxLoader';
 
+/* Capacitor Android: FX overrides خارج برميل الويب — تسخين فوري عند دخول الوحدة */
+prefetchProfileAndroidFx();
 export type { RoyalLawyerProfileProps } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 
 /**
- * فتح مستقر: محتوى فوري من الكاش — بلا بوابة settle / غطاء / تبديل قشرة فوق محتوى جاهز.
- * تلك الطبقات كانت تزيد الوميض على Android WebView.
+ * فتح مستقر: محتوى فوري من الكاش — بلا قشرة InstantShell ولا بوابة settle فوق محتوى جاهز.
  */
 function RoyalLawyerProfileInner(props: RoyalLawyerProfileProps) {
     const { isScreenMode, onBack, forumFollow, screenActive = true } = props;
     const profile = useRoyalLawyerProfile(props);
     const reduceMotion = useReduceMotion() || isAndroidNativeShell();
     const contentReady = profile.contentReady;
-    const pageHidden = useProfilePageHidden(screenActive);
+    const browserTabHidden = useProfilePageHidden(screenActive);
     const hasRenderableProfile = Boolean(profile.header) || contentReady;
+    /* التفاعل فقط — لا تُربط أنماط الرسم بـ page-hidden أثناء keepAlive */
+    const interactionsOff = !screenActive || browserTabHidden;
     const reveal = Boolean(screenActive && hasRenderableProfile);
     const editKeyboardInset = useMobileKeyboardInset(
-        profile.isEditing && !profile.settingsOpen && screenActive && !pageHidden,
+        profile.isEditing && !profile.settingsOpen && screenActive && !browserTabHidden,
         true,
     );
-
-    useLayoutEffect(() => {
-        ensureProfilePageSecondaryFxLoaded();
-    }, []);
-
-    useEffect(() => {
-        if (!profile.paintReady) return;
-        ensureProfilePageSecondaryFxLoaded();
-    }, [profile.paintReady]);
 
     /*
      * أثناء الاستوديو: الثيم الحي من applyProfileRootTheme (قد لا يمرّ عبر React).
@@ -49,46 +39,21 @@ function RoyalLawyerProfileInner(props: RoyalLawyerProfileProps) {
      */
     const liveAppearance = profile.settingsOpen ? getLiveProfileAppearance() : null;
     const appearance = liveAppearance ?? profile.customization.appearance;
-    const accent = appearance.accentColor;
-    const material = appearance.material;
-    const portraitFrame = appearance.portraitFrame ?? 'classic';
-    const pageBg = resolveProfilePageBackground(accent);
 
     return (
-        <div
-            className="relative z-[1] min-h-full text-white overflow-x-clip"
-            dir="rtl"
-            data-lawyer-profile-root
-            data-profile-material={material}
-            data-profile-portrait-frame={portraitFrame}
-            data-profile-settings-open={profile.settingsOpen ? 'true' : undefined}
-            data-profile-editing={profile.isEditing ? 'true' : undefined}
-            data-profile-keyboard-open={editKeyboardInset > 0 ? 'true' : undefined}
-            data-profile-reduce-motion={reduceMotion ? 'true' : undefined}
-            data-profile-page-hidden={pageHidden ? 'true' : undefined}
-            data-profile-paint-ready={profile.paintReady ? 'true' : undefined}
-            style={
-                {
-                    '--profile-accent': resolveProfileAccentHex(accent),
-                    '--profile-accent-ink': resolveProfileAccentInkHex(accent),
-                    '--profile-accent-on-solid': resolveProfileAccentOnSolidHex(accent),
-                    '--profile-page-bg': pageBg,
-                    backgroundColor: pageBg,
-                    paddingBottom: `max(8rem, calc(env(safe-area-inset-bottom) + 6rem + ${editKeyboardInset}px))`,
-                    ...(pageHidden ? { pointerEvents: 'none' as const } : null),
-                } as React.CSSProperties
-            }
-            aria-hidden={pageHidden || (!reveal && !profile.loadError)}
+        <ProfilePageSurfaceFrame
+            appearance={appearance}
+            liveTree
+            settingsOpen={profile.settingsOpen}
+            editing={profile.isEditing}
+            keyboardInsetPx={editKeyboardInset}
+            reduceMotion={reduceMotion}
+            pageHidden={browserTabHidden}
+            paintReady={profile.paintReady}
+            interactionsOff={interactionsOff}
+            ariaHidden={interactionsOff || (!reveal && !profile.loadError)}
         >
-            <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
-                <div data-profile-page-texture className="absolute inset-0" />
-            </div>
-
-            {isScreenMode && onBack && screenActive ? (
-                <ProfileBackBar onBack={() => void profile.handleBack()} />
-            ) : null}
-
-            {hasRenderableProfile ? (
+            {hasRenderableProfile || (isScreenMode && !profile.loadError) ? (
                 <ProfileContent
                     saving={profile.saving}
                     isEditing={profile.isEditing}
@@ -125,8 +90,13 @@ function RoyalLawyerProfileInner(props: RoyalLawyerProfileProps) {
                     onGalleryViewerOpenChange={profile.onGalleryViewerOpenChange}
                     onRegisterCloseGalleryViewer={profile.onRegisterCloseGalleryViewer}
                     screenActive={screenActive}
-                    pageHidden={pageHidden}
+                    pageHidden={interactionsOff}
                     isScreenMode={isScreenMode}
+                    onBack={
+                        /* دائماً في وضع الشاشة — وإلا يُركَّب الكروم بعد snap ويدفع الهيرو */
+                        isScreenMode && onBack ? () => void profile.handleBack() : undefined
+                    }
+                    displayNamePolicy={profile.displayNamePolicy}
                 />
             ) : profile.loadError ? (
                 <div
@@ -143,11 +113,8 @@ function RoyalLawyerProfileInner(props: RoyalLawyerProfileProps) {
                         إعادة المحاولة
                     </button>
                 </div>
-            ) : (
-                /* keepAlive تحت الغطاء: أظهر قشرة بدل فراغ أسود عند أول snap */
-                <ProfileInstantShell embedded />
-            )}
-        </div>
+            ) : null}
+        </ProfilePageSurfaceFrame>
     );
 }
 

@@ -1,30 +1,46 @@
-let registerPromise: Promise<ServiceWorkerRegistration | null> | null = null;
-const APP_SHELL_CACHE_NAME = 'legal-system-v1.1.0';
-const SW_WARM_READY_ATTR = 'data-hami-sw-warm-ready';
+import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 
-function canRegisterServiceWorker(): boolean {
-    return (
-        import.meta.env.PROD &&
-        typeof window !== 'undefined' &&
-        typeof navigator !== 'undefined' &&
-        'serviceWorker' in navigator
-    );
+let registerPromise: Promise<ServiceWorkerRegistration | null> | null = null;
+const SW_WARM_READY_ATTR = 'data-hami-sw-warm-ready';
+const WARM_REPLY_TIMEOUT_MS = 10_000;
+
+function isEmbeddedFrame(): boolean {
+    try {
+        return window.self !== window.top;
+    } catch {
+        return true;
+    }
 }
 
-async function waitForServiceWorkerControl(timeoutMs = 8_000): Promise<void> {
-    if (!('serviceWorker' in navigator) || navigator.serviceWorker.controller) return;
+function canRegisterServiceWorker(): boolean {
+    if (!import.meta.env.PROD) return false;
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+    if (!('serviceWorker' in navigator)) return false;
+    if (isEmbeddedFrame()) return false;
+    /*
+     * الغلاف الأصلي يقدّم الأصول من الحزمة عبر خادمه المحلي: لا شبكة تُوفَّر ولا
+     * وضع دون اتصال يُكتسب. ما يبقى هو نسخة ثانية من القشرة تشغل مساحة الجهاز،
+     * وطبقة قد تُقدّم قشرة الإصدار السابق بعد تحديث التطبيق.
+     */
+    if (isCapacitorNativePlatform()) return false;
+    return true;
+}
 
-    await new Promise<void>((resolve) => {
+async function waitForServiceWorkerControl(timeoutMs = 8_000): Promise<boolean> {
+    if (navigator.serviceWorker.controller) return true;
+
+    return new Promise<boolean>((resolve) => {
         let settled = false;
-        const finish = () => {
+        const finish = (controlled: boolean) => {
             if (settled) return;
             settled = true;
-            navigator.serviceWorker.removeEventListener('controllerchange', finish);
+            navigator.serviceWorker.removeEventListener('controllerchange', onChange);
             window.clearTimeout(timeoutId);
-            resolve();
+            resolve(controlled);
         };
-        const timeoutId = window.setTimeout(finish, timeoutMs);
-        navigator.serviceWorker.addEventListener('controllerchange', finish, { once: true });
+        const onChange = () => finish(true);
+        const timeoutId = window.setTimeout(() => finish(Boolean(navigator.serviceWorker.controller)), timeoutMs);
+        navigator.serviceWorker.addEventListener('controllerchange', onChange, { once: true });
     });
 }
 
@@ -38,9 +54,8 @@ function sameOriginPathFromUrl(rawUrl: string): string | null {
     }
 }
 
-async function warmControlledAppShellAssets(): Promise<void> {
+function collectAppShellUrls(): string[] {
     const urls = new Set<string>(['/', '/index.html', '/manifest.json', '/favicon.svg']);
-    const cache = 'caches' in window ? await caches.open(APP_SHELL_CACHE_NAME).catch(() => null) : null;
 
     for (const node of Array.from(
         document.querySelectorAll<HTMLScriptElement | HTMLLinkElement>(
@@ -52,47 +67,86 @@ async function warmControlledAppShellAssets(): Promise<void> {
         if (next) urls.add(next);
     }
 
-    const mainModuleScript = document.querySelector<HTMLScriptElement>('script[type="module"][src]');
-    const mainModulePath = mainModuleScript?.src ? sameOriginPathFromUrl(mainModuleScript.src) : null;
-    if (mainModulePath) urls.add(mainModulePath);
-
     for (const entry of performance.getEntriesByType('resource')) {
         const next = sameOriginPathFromUrl(entry.name);
         if (next) urls.add(next);
     }
 
-    await Promise.all(
-        Array.from(urls).map(async (url) => {
-            try {
-                const response = await fetch(url, {
-                    credentials: 'same-origin',
-                    cache: 'reload',
-                });
-                if (response.ok && cache) {
-                    await cache.put(url, response.clone());
-                }
-            } catch {
-                /* ignore */
-            }
-        }),
-    );
+    return Array.from(urls);
+}
 
-    if (cache && mainModulePath) {
-        const cachedMain = await cache.match(mainModulePath);
-        if (cachedMain) {
-            document.documentElement.setAttribute(SW_WARM_READY_ATTR, '1');
-            return;
+/**
+ * يُسلّم قائمة القشرة إلى العامل ليملأ ذاكرته بنفسه.
+ *
+ * كانت الصفحة تُعيد جلب كل أصل بـ`cache: 'reload'` عند كل إقلاع — أي تنزيل
+ * ثانٍ كامل لحمولة الإقلاع، على بيانات الهاتف وبطاريته، بلا مقابل. العامل
+ * يتخطى ما لديه أصلاً ويقرأ الباقي من ذاكرة HTTP.
+ */
+function requestAppShellWarm(worker: ServiceWorker, urls: string[]): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+        let settled = false;
+        const done = (ok: boolean) => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timeoutId);
+            channel.port1.close();
+            resolve(ok);
+        };
+        const channel = new MessageChannel();
+        const timeoutId = window.setTimeout(() => done(false), WARM_REPLY_TIMEOUT_MS);
+        channel.port1.onmessage = (event) => done(Boolean(event.data?.ok));
+        try {
+            worker.postMessage({ type: 'WARM_APP_SHELL', urls }, [channel.port2]);
+        } catch {
+            done(false);
         }
+    });
+}
+
+async function warmAppShellOnFirstControl(): Promise<void> {
+    const controlled = await waitForServiceWorkerControl();
+    const worker = controlled ? navigator.serviceWorker.controller : null;
+    if (!worker) {
         document.documentElement.setAttribute(SW_WARM_READY_ATTR, '0');
         return;
     }
+    const ok = await requestAppShellWarm(worker, collectAppShellUrls());
+    document.documentElement.setAttribute(SW_WARM_READY_ATTR, ok ? '1' : '0');
+}
 
-    document.documentElement.setAttribute(SW_WARM_READY_ATTR, '1');
+/**
+ * إزالة عامل بقي من نسخة ويب سابقة داخل الغلاف الأصلي.
+ *
+ * الامتناع عن التسجيل لا يُزيل عاملاً مُسجَّلاً: يبقى مسيطراً على المصدر إلى
+ * أن يُفكَّ تسجيله. ولو بقي بعد تحديث التطبيق لقدّم قشرة الإصدار السابق من
+ * ذاكرته، وهو عطلٌ لا يفسّره شيء ظاهر للمستخدم.
+ */
+async function unregisterStaleNativeServiceWorker(): Promise<void> {
+    try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+        if (!registrations.length || typeof caches === 'undefined') return;
+        const names = await caches.keys();
+        await Promise.all(names.filter((name) => name.startsWith('legal-system-')).map((name) => caches.delete(name)));
+    } catch {
+        /* لا شيء يعتمد على نجاح التنظيف */
+    }
 }
 
 export function registerAppServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-    if (!canRegisterServiceWorker()) return Promise.resolve(null);
+    if (!canRegisterServiceWorker()) {
+        if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && isCapacitorNativePlatform()) {
+            void unregisterStaleNativeServiceWorker();
+        }
+        return Promise.resolve(null);
+    }
     if (registerPromise) return registerPromise;
+
+    /*
+     * تُقرأ قبل التسجيل: بعده قد يُطالب عاملٌ منتظِر بالتحكّم فتضيع الإجابة عن
+     * «هل كانت هذه الصفحة مُدارة منذ البداية؟» — وعليها وحدها يتوقّف التسخين.
+     */
+    const wasControlledAtStart = Boolean(navigator.serviceWorker.controller);
 
     registerPromise = navigator.serviceWorker
         .register('/sw.js', { scope: '/', updateViaCache: 'none' })
@@ -111,10 +165,15 @@ export function registerAppServiceWorker(): Promise<ServiceWorkerRegistration | 
                 });
             });
 
-            void navigator.serviceWorker.ready
-                .then(() => waitForServiceWorkerControl())
-                .then(() => warmControlledAppShellAssets())
-                .catch(() => undefined);
+            /*
+             * صفحة مُدارة منذ انطلاقها جاءت أصولها عبر العامل فهي في ذاكرته.
+             * التسخين لأول تحميل بعد التثبيت فقط.
+             */
+            if (wasControlledAtStart) {
+                document.documentElement.setAttribute(SW_WARM_READY_ATTR, '1');
+            } else {
+                void navigator.serviceWorker.ready.then(() => warmAppShellOnFirstControl()).catch(() => undefined);
+            }
 
             return registration;
         })

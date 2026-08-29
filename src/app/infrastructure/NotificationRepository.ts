@@ -3,6 +3,7 @@ import { capNotificationList } from '@/app/services/notifications/notificationLi
 import {
     capMergedNotificationLists,
     mergeNotificationRecord,
+    notificationListsContentEqual,
 } from '@/app/services/notifications/notificationMerge';
 import { appendNotificationClient } from '@/app/services/notifications/notificationClientAppend';
 import {
@@ -13,6 +14,10 @@ import {
 } from '@/app/services/notifications/notificationClientPersist';
 import { isNotificationServerSyncEnabled } from '@/app/services/notifications/notificationServerSync';
 import type { NotificationModel } from '@/app/infrastructure/notificationModel';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 export type {
     NotificationType,
@@ -34,9 +39,14 @@ function getLocalKey(userId: string): string {
     return `${LOCAL_KEY_PREFIX}${userId}`;
 }
 
-function loadLocal(userId: string): NotificationModel[] {
+/*
+ * leftover يُرحَّل هنا لا في peek أول الطلاء. ثم getItem يفكّ المفتاح إن بقي بارداً.
+ */
+async function loadLocal(userId: string): Promise<NotificationModel[]> {
     try {
-        const raw = SecureStoreService.getItemSync(getLocalKey(userId));
+        const key = getLocalKey(userId);
+        const drained = readSecureOrDrainLegacySync(key);
+        const raw = drained ?? (await SecureStoreService.getItem(key));
         if (raw) {
             const parsed: unknown = JSON.parse(raw);
             if (Array.isArray(parsed)) return parsed as NotificationModel[];
@@ -45,9 +55,10 @@ function loadLocal(userId: string): NotificationModel[] {
     return [];
 }
 
-function saveLocal(userId: string, list: NotificationModel[]) {
+async function saveLocal(userId: string, list: NotificationModel[]): Promise<void> {
     try {
-        SecureStoreService.setItemSync(getLocalKey(userId), JSON.stringify(list));
+        await SecureStoreService.setItem(getLocalKey(userId), JSON.stringify(list));
+        clearLegacyPlaintextMirror(getLocalKey(userId));
     } catch { /* ignore */ }
 }
 
@@ -66,13 +77,13 @@ async function persistMergedList(
     options?: { skipRemote?: boolean },
 ): Promise<NotificationModel[]> {
     const capped = capNotificationList(list);
-    saveLocal(userId, capped);
+    await saveLocal(userId, capped);
 
     if (!isNotificationServerSyncEnabled() || options?.skipRemote) return capped;
 
     const serverMerged = await mergeNotificationsClient(capped);
     if (serverMerged) {
-        saveLocal(userId, serverMerged);
+        await saveLocal(userId, serverMerged);
         return serverMerged;
     }
 
@@ -103,7 +114,7 @@ async function persistAddedNotification(
         });
 
         const authoritative = serverNotif ?? notif;
-        const local = loadLocal(userId);
+        const local = await loadLocal(userId);
         const remote = serverNotif ? [] : await fetchRemoteKv(userId);
         const merged = capMergedNotificationLists(local, remote);
         const existing = merged.find(
@@ -131,7 +142,7 @@ export const NotificationRepository = {
     addNotification: persistAddedNotification,
 
     fetchNotifications: async (userId: string): Promise<NotificationModel[]> => {
-        const local = loadLocal(userId);
+        const local = await loadLocal(userId);
         if (!isNotificationServerSyncEnabled()) {
             return local;
         }
@@ -139,7 +150,15 @@ export const NotificationRepository = {
         try {
             const remote = await fetchRemoteKv(userId);
             const merged = capMergedNotificationLists(remote, local);
-            saveLocal(userId, merged);
+            /*
+             * المفتاح مشفَّر الآن — كتابة غير مشروطة على كل poll (٣٠–٦٠ث) تعني
+             * تشفيراً جديداً حتى حين لا يصل شيء جديد، وهي الحالة الغالبة.
+             * `local` هنا JSON.parse جديد كل نداء (لا ثبات مرجعي ممكن)، فالمقارنة
+             * بالمحتوى — لا بالمرجع — هي الصحيحة لتخطّي الكتابة عند غياب تغيّر فعلي.
+             */
+            if (!notificationListsContentEqual(merged, local)) {
+                await saveLocal(userId, merged);
+            }
             return merged;
         } catch {
             return local;
@@ -149,13 +168,13 @@ export const NotificationRepository = {
     markAsRead: async (userId: string, notificationId: string, currentList: NotificationModel[]) => {
         const serverList = await syncMarkReadClient(notificationId);
         if (serverList) {
-            const local = loadLocal(userId);
+            const local = await loadLocal(userId);
             const merged = capMergedNotificationLists(local, serverList, currentList);
-            saveLocal(userId, merged);
+            await saveLocal(userId, merged);
             return true;
         }
 
-        const local = loadLocal(userId);
+        const local = await loadLocal(userId);
         const remote = await fetchRemoteKv(userId);
         const base = capMergedNotificationLists(local, remote, currentList);
         const updatedList = base.map((n) =>
@@ -169,13 +188,13 @@ export const NotificationRepository = {
     markAllAsRead: async (userId: string, currentList: NotificationModel[]) => {
         const serverList = await syncMarkAllReadClient();
         if (serverList) {
-            const local = loadLocal(userId);
+            const local = await loadLocal(userId);
             const merged = capMergedNotificationLists(local, serverList, currentList);
-            saveLocal(userId, merged);
+            await saveLocal(userId, merged);
             return true;
         }
 
-        const local = loadLocal(userId);
+        const local = await loadLocal(userId);
         const remote = await fetchRemoteKv(userId);
         const base = capMergedNotificationLists(local, remote, currentList);
         const updatedList = base.map((n) => ({ ...n, isRead: true }));
@@ -191,13 +210,13 @@ export const NotificationRepository = {
 
     /** حفظ مع دمج المحلي/البعيد — للمزامنة اليومية (isRead أحادي). */
     saveNotifications: async (userId: string, list: NotificationModel[]) => {
-        const local = loadLocal(userId);
+        const local = await loadLocal(userId);
         const remote = await fetchRemoteKv(userId);
         const merged = capMergedNotificationLists(local, remote, list);
 
         const serverMerged = await mergeNotificationsClient(merged);
         if (serverMerged) {
-            saveLocal(userId, serverMerged);
+            await saveLocal(userId, serverMerged);
             return serverMerged;
         }
 

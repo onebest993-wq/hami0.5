@@ -49,6 +49,8 @@ describe('execution dossier radical instant — kill staged skeleton', () => {
         );
         expect(src).toContain('key={`exec-${file.id}`}');
         expect(src).toContain('open?: boolean');
-        expect(src).toContain('execution-dashboard-portal-keepalive');
+        expect(src).toContain('if (!open) return null');
+        expect(src).toContain('execution-dashboard-portal-open');
+        expect(src).not.toContain('execution-dashboard-portal-keepalive');
     });
 });

@@ -82,7 +82,8 @@ const statementHighlightedContentImport = () =>
 export const LazyLegalCodesTab = createPreloadableLazyComponent(legalCodesTabImport);
 export const LazyRecursiveProceduralCanvas = createPreloadableLazyComponent(recursiveProceduralCanvasImport);
 export const LazyStatementsPhaseSections = createPreloadableLazyComponent(statementsPhaseSectionsImport);
-export const LazyTrialsTab = lazy(trialsTabImport);
+/** جلسات المحاكمة — يُحمَّل مع نية تبويب الطلبات / فلتر trial_sessions */
+export const LazyTrialsTab = createPreloadableLazyComponent(trialsTabImport);
 export const LazyCriminalDashboardRequestsTab = createPreloadableLazyComponent(
     criminalDashboardRequestsTabImport,
 );
@@ -94,16 +95,16 @@ export const LazyCriminalDashboardTrackingTab = createPreloadableLazyComponent(
 );
 export const LazyCriminalNewCase = lazy(criminalNewCaseImport);
 export const LazyCriminalDashboardHeader = createPreloadableLazyComponent(criminalDashboardHeaderImport);
-export const LazyJudicialDecisionsLedger = lazy(judicialDecisionsLedgerImport);
 export const LazyCriminalPartiesGrid = createPreloadableLazyComponent(criminalPartiesGridImport);
-
-export const LazyDecisionsCommandBar = lazy(decisionsCommandBarImport);
-export const LazyDecisionsScopeFilterBar = lazy(decisionsScopeFilterBarImport);
-export const LazyVerdictCardsPanel = lazy(verdictCardsPanelImport);
-export const LazyLiveDetentionCard = lazy(liveDetentionCardImport);
-export const LazyLiveArrestSummonCard = lazy(liveArrestSummonCardImport);
 export const LazyTrialDepositionWitnessCard = lazy(trialDepositionWitnessCardImport);
-export const LazyStatementHighlightedContent = lazy(statementHighlightedContentImport);
+
+/** سطوح قرارات/طلبات — نفس هوية التحميل مع tabPrefetchers */
+export const LazyDecisionsCommandBar = createPreloadableLazyComponent(decisionsCommandBarImport);
+export const LazyDecisionsScopeFilterBar = createPreloadableLazyComponent(decisionsScopeFilterBarImport);
+export const LazyJudicialDecisionsLedger = createPreloadableLazyComponent(judicialDecisionsLedgerImport);
+export const LazyLiveArrestSummonCard = createPreloadableLazyComponent(liveArrestSummonCardImport);
+export const LazyLiveDetentionCard = createPreloadableLazyComponent(liveDetentionCardImport);
+export const LazyVerdictCardsPanel = createPreloadableLazyComponent(verdictCardsPanelImport);
 
 /** محركات ثقيلة — فقط عند نية التبويب، لا من idle الـ store قبل أول فتح */
 function prefetchCriminalHeavyEnginesOnTabIntent(): void {
@@ -115,29 +116,29 @@ function prefetchCriminalHeavyEnginesOnTabIntent(): void {
 const tabPrefetchers: Record<CriminalDashboardTab, () => void> = {
     requests: () => {
         prefetchCriminalHeavyEnginesOnTabIntent();
-        void criminalDashboardRequestsTabImport().catch(() => undefined);
-        void decisionsCommandBarImport().catch(() => undefined);
-        void decisionsScopeFilterBarImport().catch(() => undefined);
-        void verdictCardsPanelImport().catch(() => undefined);
-        void liveDetentionCardImport().catch(() => undefined);
-        void liveArrestSummonCardImport().catch(() => undefined);
-        void judicialDecisionsLedgerImport().catch(() => undefined);
-        void trialsTabImport().catch(() => undefined);
+        void LazyCriminalDashboardRequestsTab.preload();
+        void LazyDecisionsCommandBar.preload();
+        void LazyDecisionsScopeFilterBar.preload();
+        void LazyVerdictCardsPanel.preload();
+        void LazyLiveDetentionCard.preload();
+        void LazyLiveArrestSummonCard.preload();
+        void LazyJudicialDecisionsLedger.preload();
+        void LazyTrialsTab.preload();
     },
     statements: () => {
         void import('./trialSessionsEngine').catch(() => undefined);
-        void criminalDashboardStatementsTabImport().catch(() => undefined);
-        void statementsPhaseSectionsImport().catch(() => undefined);
+        void LazyCriminalDashboardStatementsTab.preload();
+        void LazyStatementsPhaseSections.preload();
         void statementHighlightedContentImport().catch(() => undefined);
         void trialDepositionWitnessCardImport().catch(() => undefined);
     },
     tracking: () => {
         void import('./proceduralContainersEngine').catch(() => undefined);
-        void criminalDashboardTrackingTabImport().catch(() => undefined);
-        void recursiveProceduralCanvasImport().catch(() => undefined);
+        void LazyCriminalDashboardTrackingTab.preload();
+        void LazyRecursiveProceduralCanvas.preload();
     },
     legal_codes: () => {
-        void legalCodesTabImport().catch(() => undefined);
+        void LazyLegalCodesTab.preload();
     },
 };
 
@@ -155,14 +156,6 @@ export function prefetchCriminalPartiesGrid(): void {
     void criminalPartiesGridImport().catch(() => undefined);
 }
 
-export function prefetchCriminalLegalCodesTab(): void {
-    prefetchCriminalDashboardTab('legal_codes');
-}
-
-export function prefetchCriminalProceduralCanvas(): void {
-    prefetchCriminalDashboardTab('tracking');
-}
-
 export function prefetchCriminalJudicialDecisionsLedger(): void {
     if (typeof window === 'undefined') return;
     void judicialDecisionsLedgerImport().catch(() => undefined);
@@ -178,15 +171,14 @@ export function prefetchCriminalRequestsDecisionSurfaces(): void {
     tabPrefetchers.requests();
 }
 
-/** يثبّت الرأس + الأطراف + التبويب الافتراضي فقط — باقي التبويبات عند النية/idle. */
+/** يثبّت الرأس + الأطراف فقط — تبويب الطلبات عند النية أو idle أطول. */
 export function preloadCriminalDashboardShellSurfaces(): void {
     if (typeof window === 'undefined') return;
     void LazyCriminalDashboardHeader.preload();
     void LazyCriminalPartiesGrid.preload();
-    void LazyCriminalDashboardRequestsTab.preload();
 }
 
-/** تسخين ثانوي لبقية أسطح القشرة — بعد idle حتى لا تنافس أول رسم. */
+/** تسخين ثانوي — تبويبات غير الطلبات بعد idle. */
 export function preloadCriminalDashboardSecondaryShellSurfaces(): void {
     if (typeof window === 'undefined') return;
     void LazyCriminalDashboardStatementsTab.preload();
@@ -194,4 +186,10 @@ export function preloadCriminalDashboardSecondaryShellSurfaces(): void {
     void LazyLegalCodesTab.preload();
     void LazyStatementsPhaseSections.preload();
     void LazyRecursiveProceduralCanvas.preload();
+}
+
+/** تبويب الطلبات — نية التبويب أو idle أطول من قشرة الرأس/الأطراف. */
+export function preloadCriminalDashboardRequestsTabSurface(): void {
+    if (typeof window === 'undefined') return;
+    void LazyCriminalDashboardRequestsTab.preload();
 }

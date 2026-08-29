@@ -1,7 +1,5 @@
 import {
     normalizeLegacyFollowupTabOnOpen,
-    type LegacyFollowupModalTab,
-    LEGACY_FOLLOWUP_MODAL_TABS,
 } from './followupLegacyTabNormalization';
 
 export type FollowupModalTabId =
@@ -14,9 +12,6 @@ export type FollowupModalTabId =
     | 'admin'
     | 'special'
     | 'dossier_controls';
-
-export type { LegacyFollowupModalTab };
-export { LEGACY_FOLLOWUP_MODAL_TABS };
 
 export type FollowupModalPersistState = {
     tab?: string;

@@ -29,8 +29,19 @@ export type DossierSyncStats = {
 export type SyncScope = {
     /** عند false: لا تُزامَن مهام الاستحقاق تلقائياً (تجنّب مواعيد «مختلقة» من مهام النظام) */
     includeTasks?: boolean;
-    /** مسار حيّ — فقط نقاط الدخول الأربع في CALENDAR_SYNC_RULES.active */
+    /** مسار حيّ — مواعيد صريحة + مهل قانونية مخزّنة؛ بلا مهام/ملاحظات/nextDate */
     whitelistOnly?: boolean;
+};
+
+/** فتح التقويم / لقطة الذاكرة — لا يغرق الرادر بمهام النظام */
+export const CALENDAR_LIVE_SYNC_SCOPE: SyncScope = {
+    whitelistOnly: true,
+    includeTasks: false,
+};
+
+/** حفظ إضبارة واحدة أو reconcile — مواعيد + مهام استحقاق غير ephemeral */
+export const CALENDAR_FILE_SAVE_SYNC_SCOPE: SyncScope = {
+    includeTasks: true,
 };
 
 /** لقطة حية من الذاكرة — تُدمج مع التخزين عند التنظيف لتفادي حذف مواعيد غير محفوظة بعد */

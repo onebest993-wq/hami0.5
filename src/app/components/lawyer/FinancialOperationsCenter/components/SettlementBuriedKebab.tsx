@@ -1,5 +1,5 @@
 import React from 'react';
-import { MoreVertical } from '@/app/components/ui/lucideIcons';
+import { MoreVertical } from '@/app/components/ui/icons/MoreVertical';
 
 export interface SettlementBuriedKebabProps {
     onActivate: () => void;

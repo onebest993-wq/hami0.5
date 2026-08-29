@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import { applyDossierSpecialFollowupOutcome } from '@/app/components/lawyer/ExecutionDashboard/utils/applyDossierSpecialFollowupOutcome';
 import {
@@ -154,7 +153,7 @@ export function useDecisionsAppealsExecutorResolve(params: DecisionsAppealsMutat
             if (row.requestKind === 'special_followup') {
                 applyDossierSpecialFollowupOutcome({
                     executionId,
-                    row: row as Record<string, unknown>,
+                    row: row as unknown as Record<string, unknown>,
                     resolution,
                 });
             }

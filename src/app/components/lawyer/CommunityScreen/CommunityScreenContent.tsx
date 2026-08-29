@@ -24,8 +24,9 @@ export function CommunityScreenContent(props: CommunityScreenContentProps) {
     const surfaceOpen = props.isOpen !== false;
 
     useEffect(() => {
+        if (!surfaceOpen) return;
         ensureDeferredFeatureStylesLoaded();
-    }, []);
+    }, [surfaceOpen]);
 
     if (gateBlocked) {
         return <CommunityScreenAccessGate {...accessGateProps} onBack={props.onBack} />;

@@ -1,9 +1,11 @@
 /**
- * Canonical stage-journey runtime helpers — re-exported from stageJourney.ts
+ * Canonical stage-journey runtime helpers — re-exported from split modules
  * to avoid logic drift between duplicate implementations.
+ * Imports leaf modules (not stageJourney barrel) to keep the graph acyclic.
  */
+
 export type { JourneyNode } from '@/app/types/criminal';
-export type { JourneyBranchTrack } from './stageJourney';
+export type { JourneyBranchTrack } from './stageJourneyTypes';
 
 export {
     buildInitialStageJourney,
@@ -12,13 +14,19 @@ export {
     forkStageJourneyFromCurrent,
     appendStageJourneyPhaseOverlay,
     migrateProceduralNodesToStageJourney,
+    appendStageJourneyNode,
+} from './stageJourneyBuild';
+
+export {
     repairSameCourtRemandJourneyNodes,
     reactivateSameCourtRemandJourney,
-    appendStageJourneyNode,
+} from './stageJourneyRepair';
+
+export {
     isJourneyTenureArchived,
     getCurrentJourneyNode,
     resolveCurrentJourneyNodeId,
     parseEventDateKey,
     eventBelongsToJourneyBranch,
     eventBelongsToJourneyNode,
-} from './stageJourney';
+} from './stageJourneyQuery';

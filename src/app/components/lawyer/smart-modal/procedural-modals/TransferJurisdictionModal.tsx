@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeftRight, Check, Scale, X } from '@/app/components/ui/lucideIcons';
+import { ArrowLeftRight } from '@/app/components/ui/icons/ArrowLeftRight';
+import { Check } from '@/app/components/ui/icons/Check';
+import { Scale } from '@/app/components/ui/icons/Scale';
+import { X } from '@/app/components/ui/icons/X';
 import { HamiDateInput } from '@/app/components/ui/HamiDateInput';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import type { PendingCourtReferral } from '@/app/domain/lawsuit/courtReferral';
 import { MoroccanGlassShell } from '../smartFile/moroccanGlassShell';
 import { SmartModalHeader, useSmartModalAccent } from '../smartFile/smartModalChrome';
@@ -142,7 +145,7 @@ export const TransferJurisdictionModal = ({
     return (
         <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-2xl">
             <SmartModalHeader icon={Scale} title="إحالة لعدم الاختصاص" onClose={onClose} />
-            <div className={`${T.body} md:min-h-[26rem] md:space-y-6`}>
+            <div className={`${T.body} md:min-h-[26rem] md:space-y-4`}>
                 <div className="rounded-2xl border border-violet-400/18 bg-violet-500/[0.06] p-4">
                     <p className="text-[10px] font-bold text-violet-200/70 mb-2">المحكمة الحالية</p>
                     <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/[0.1] bg-black/20 px-3 py-2 text-sm font-bold text-white/90">

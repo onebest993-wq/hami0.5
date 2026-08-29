@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { wipeAllApplicationData } from '@/app/services/settings/applicationWipe';
@@ -6,79 +6,35 @@ import {
     mintSensitiveConfirmChallenge,
     verifySensitiveSettingsAction,
 } from '@/app/services/settings/verifySensitiveSettingsAction';
-import { registerSettingsWipeCountdownGuard } from '@/app/components/lawyer/HamiSettings/settingsEscapeStack';
+import { useWipeCountdown } from './useWipeCountdown';
 
-const COUNTDOWN_SECONDS = 10;
 const WIPE_CONFIRM_PHRASE = 'مسح نهائي';
 
-export function useLocalDataClear(resetToDefaults: () => void) {
-    const countdownTimerRef = useRef<number | null>(null);
-    const cancelledRef = useRef(false);
-    const [wipePhase, setWipePhase] = useState<'idle' | 'countdown' | 'wiping'>('idle');
-    const [countdown, setCountdown] = useState(0);
-
-    const cancelCountdown = useCallback(() => {
-        cancelledRef.current = true;
-        if (countdownTimerRef.current) {
-            window.clearInterval(countdownTimerRef.current);
-            countdownTimerRef.current = null;
-        }
-        registerSettingsWipeCountdownGuard(false);
-        setWipePhase('idle');
-        setCountdown(0);
-        SmartToast.info('تم إلغاء المسح');
-    }, []);
-
-    useEffect(() => {
-        return () => {
-            if (countdownTimerRef.current) window.clearInterval(countdownTimerRef.current);
-            registerSettingsWipeCountdownGuard(false);
-        };
-    }, []);
-
-    useEffect(() => {
-        if (wipePhase === 'countdown') {
-            registerSettingsWipeCountdownGuard(true, cancelCountdown);
-            return;
-        }
-        registerSettingsWipeCountdownGuard(false);
-    }, [wipePhase, cancelCountdown]);
-
-    const waitCountdown = useCallback((): Promise<boolean> => {
-        cancelledRef.current = false;
-        setWipePhase('countdown');
-        setCountdown(COUNTDOWN_SECONDS);
-
-        return new Promise((resolve) => {
-            let remaining = COUNTDOWN_SECONDS;
-            countdownTimerRef.current = window.setInterval(() => {
-                remaining -= 1;
-                if (cancelledRef.current) {
-                    if (countdownTimerRef.current) window.clearInterval(countdownTimerRef.current);
-                    countdownTimerRef.current = null;
-                    resolve(false);
-                    return;
-                }
-                if (remaining <= 0) {
-                    if (countdownTimerRef.current) window.clearInterval(countdownTimerRef.current);
-                    countdownTimerRef.current = null;
-                    setCountdown(0);
-                    resolve(true);
-                    return;
-                }
-                setCountdown(remaining);
-            }, 1000);
-        });
-    }, []);
+export function useLocalDataClear(
+    resetToDefaults: () => void,
+    onLogout?: (options?: { skipLocalPurge?: boolean }) => void | Promise<void>,
+) {
+    const {
+        COUNTDOWN_SECONDS,
+        wipePhase,
+        setWipePhase,
+        countdown,
+        setCountdown,
+        cancelCountdown,
+        waitCountdown,
+        sectionActiveRef,
+        mountedRef,
+    } = useWipeCountdown();
 
     const requestFullWipe = useCallback(async () => {
-        if (wipePhase !== 'idle') return;
+        if (wipePhase !== 'idle' || !sectionActiveRef.current) return;
 
         const okFirst = await SmartDialog.confirm(
             'سيتم حذف جميع بيانات التطبيق محلياً وسحابياً: القضايا، الملاحظات، المخزن، التنفيذ، التنبيهات، والإعدادات. لا يمكن التراجع عن هذا الإجراء.',
             { title: 'مسح كل البيانات؟', confirmText: 'متابعة', cancelText: 'إلغاء' },
         );
         if (!okFirst) return;
+        if (!sectionActiveRef.current) return;
 
         const challenge = mintSensitiveConfirmChallenge(WIPE_CONFIRM_PHRASE);
         const verified = await verifySensitiveSettingsAction({
@@ -87,38 +43,55 @@ export function useLocalDataClear(resetToDefaults: () => void) {
             promptMessage: challenge.promptMessage,
         });
         if (!verified) return;
+        if (!sectionActiveRef.current) return;
 
         SmartToast.warning(`انتظر ${COUNTDOWN_SECONDS} ثوانٍ قبل التأكيد النهائي`);
         const completed = await waitCountdown();
         if (!completed) {
-            setWipePhase('idle');
+            if (mountedRef.current) setWipePhase('idle');
             return;
         }
+        if (!sectionActiveRef.current) return;
 
         const okFinal = await SmartDialog.confirm(
             'هذا تأكيد نهائي. سيتم مسح كل شيء في التطبيق — محلياً وسحابياً — الآن.',
             { title: 'التأكيد النهائي', confirmText: 'مسح الآن', cancelText: 'إلغاء' },
         );
         if (!okFinal) {
-            setWipePhase('idle');
+            if (mountedRef.current) setWipePhase('idle');
             return;
         }
+        if (!sectionActiveRef.current) return;
 
         setWipePhase('wiping');
         try {
-            const result = await wipeAllApplicationData(resetToDefaults);
-            if (result.cloudAttempted) {
+            const result = await wipeAllApplicationData(resetToDefaults, onLogout);
+            if (result.cloudAttempted && result.cloudCompleted && result.localCompleted) {
                 SmartToast.success('تم مسح البيانات المحلية والسحابية');
-            } else {
+            } else if (!result.cloudAttempted && result.localCompleted) {
                 SmartToast.success('تم مسح البيانات المحلية');
+            } else {
+                SmartToast.warning('لم يكتمل المسح — احتُفظ بحالة قابلة لإعادة المحاولة');
             }
         } catch {
             SmartToast.warning('تعذر إكمال المسح — راجع الاتصال وحاول مرة أخرى');
         } finally {
-            setWipePhase('idle');
-            setCountdown(0);
+            if (mountedRef.current) {
+                setWipePhase('idle');
+                setCountdown(0);
+            }
         }
-    }, [resetToDefaults, waitCountdown, wipePhase]);
+    }, [
+        COUNTDOWN_SECONDS,
+        mountedRef,
+        onLogout,
+        resetToDefaults,
+        sectionActiveRef,
+        setCountdown,
+        setWipePhase,
+        waitCountdown,
+        wipePhase,
+    ]);
 
     return {
         wipePhase,

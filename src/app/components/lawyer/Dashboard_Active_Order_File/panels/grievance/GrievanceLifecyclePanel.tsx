@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import { ValidationBanner } from '../../components/ValidationBanner';
 import type { GrievanceLifecyclePanelProps } from '../GrievanceLifecyclePanelProps';
 import { GrievancePhaseHeader } from './GrievancePhaseHeader';
@@ -42,7 +42,7 @@ export function GrievanceLifecyclePanel(props: GrievanceLifecyclePanelProps) {
                         transition={{ duration: 0.25, ease: 'easeInOut' }}
                         className="pt-2 space-y-3"
                     >
-                                                <div className="space-y-6">
+                                                <div className="space-y-4">
                                                     {!!grievanceError && <ValidationBanner text={grievanceError} />}
                                                     {!!grievanceDecisionError && <ValidationBanner text={grievanceDecisionError} />}
                                                     {!!hearingsError && <ValidationBanner text={hearingsError} />}
@@ -65,9 +65,9 @@ export function GrievanceLifecyclePanel(props: GrievanceLifecyclePanelProps) {
 
                                                     <GrievanceFinalizeBar {...props} />
                                                 </div>
-                                            </motion.div>
+                    </motion.div>
                                         )}
-                                    </AnimatePresence>
-                                </div>
+            </AnimatePresence>
+        </div>
     );
 }

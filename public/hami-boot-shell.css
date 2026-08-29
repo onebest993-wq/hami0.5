@@ -1,8 +1,14 @@
-/* شاشة الإقلاع — navy + كلمة «حامي» (نص في index.html) */
+/* شاشة الإقلاع — هوية + شعار */
 :root {
     --hami-boot-canvas: #0a0f1c;
     --hami-boot-canvas-deep: #05060d;
     --hami-boot-gold: #e6c673;
+    color-scheme: dark;
+}
+
+html {
+    color-scheme: dark;
+    background: var(--hami-boot-canvas, #0a0f1c);
 }
 
 .hami-boot-cinematic,
@@ -10,77 +16,35 @@
     position: fixed;
     inset: 0;
     z-index: 99990;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     min-height: 100vh;
     min-height: 100dvh;
     width: 100%;
     overflow: hidden;
     background: var(--hami-boot-canvas, #0a0f1c);
-    color: var(--hami-boot-gold);
     direction: rtl;
+    pointer-events: auto;
+}
+
+#hami-static-boot,
+.hami-boot-cinematic {
+    opacity: 1;
+    transition: opacity 180ms linear;
 }
 
 .hami-boot-cinematic--exiting {
     opacity: 0 !important;
-    visibility: hidden !important;
     pointer-events: none;
     animation: none !important;
-    transition: opacity 60ms linear, visibility 60ms linear;
-}
-
-/* هيكل إقلاع قديم — لم يعد يُستخدم */
-.hami-boot-skeleton {
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    min-height: 100%;
-    padding: calc(12px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px));
-}
-
-.hami-boot-skeleton__header {
-    height: 56px;
-    border-radius: 14px;
-    background: linear-gradient(
-        90deg,
-        rgba(230, 198, 115, 0.06) 0%,
-        rgba(230, 198, 115, 0.12) 50%,
-        rgba(230, 198, 115, 0.06) 100%
-    );
-    background-size: 200% 100%;
-    animation: hami-boot-shimmer 1.4s ease-in-out infinite;
-}
-
-.hami-boot-skeleton__hub {
-    height: 132px;
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.04);
-}
-
-.hami-boot-skeleton__grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    flex: 1;
-}
-
-.hami-boot-skeleton__tile {
-    min-height: 108px;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.035);
-}
-
-@keyframes hami-boot-shimmer {
-    0% {
-        background-position: 100% 0;
-    }
-    100% {
-        background-position: -100% 0;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .hami-boot-skeleton__header {
-        animation: none;
+    #hami-static-boot,
+    .hami-boot-cinematic,
+    .hami-boot-cinematic--exiting {
+        transition: none !important;
     }
 }
 
@@ -89,8 +53,7 @@ html.hami-boot-static-active body {
     background: var(--hami-board-surface-bg, var(--hami-boot-canvas));
 }
 
-html.hami-native-shell,
-html[data-hami-native='1'] {
+html[data-hami-app='handheld'] {
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
     overscroll-behavior-x: none;
@@ -109,16 +72,14 @@ html[data-hami-native='1'] .hami-lawyer-header {
     pointer-events: none !important;
 }
 
-html.hami-native-shell body,
-html[data-hami-native='1'] body {
+html[data-hami-app='handheld'] body {
     min-height: 100dvh;
     overscroll-behavior-y: none;
     touch-action: manipulation;
     background: var(--hami-board-surface-bg, var(--hami-boot-canvas));
 }
 
-html.hami-native-shell #root,
-html[data-hami-native='1'] #root {
+html[data-hami-app='handheld'] #root {
     min-height: 100dvh;
     background: var(--hami-board-surface-bg, var(--hami-boot-canvas));
 }
@@ -130,7 +91,45 @@ html.hami-native-shell #hami-static-boot {
     background: var(--hami-board-surface-bg, var(--hami-boot-canvas, #0a0f1c)) !important;
 }
 
-/* شعار الإقلاع — يُخفى بعد إزالة DOM أو أثناء البحث (لا يطفو فوق الكيبورد) */
+/* طبقة الإقلاع — شعار مقفول النسبة + شريط CSS */
+.hami-boot-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    pointer-events: none;
+}
+
+.hami-boot-logo {
+    display: block;
+    width: 160px;
+    height: 160px;
+    object-fit: contain;
+    object-position: center;
+}
+
+.hami-boot-progress {
+    position: relative;
+    width: 168px;
+    height: 3px;
+    border-radius: 999px;
+    background: rgba(197, 160, 89, 0.2);
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.hami-boot-progress-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 34%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #c5a059, #d4af37, #e6c673);
+    transform: none;
+    will-change: left;
+}
+
 html[data-hami-global-search-open='1'] #hami-static-boot {
     display: none !important;
     visibility: hidden !important;

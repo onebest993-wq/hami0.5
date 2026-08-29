@@ -1,482 +1,165 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, CheckCircle2, MoreVertical, Share2 } from '@/app/components/ui/lucideIcons';
-import {
-  TransactionsDropdownMenu,
-  TransactionsDropdownMenuContent,
-  TransactionsDropdownMenuItem,
-  TransactionsDropdownMenuTrigger,
-  runAfterTransactionsMenuClose,
-} from './TransactionsDropdownMenu';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/app/components/ui/tabs';
-import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
-import { listTaskTemplates, saveTaskTemplate, deleteTaskTemplate } from '@/app/modules/transactionsThreading/taskTemplates';
-import { TransactionStatus } from '@/app/modules/transactionsThreading/types';
-import type { Transaction, TransactionDocument, TransactionTask } from '@/app/modules/transactionsThreading/types';
+import { memo } from 'react';
+import { Tabs, TabsContent } from '@/app/components/ui/tabs';
+import type { Transaction } from '@/app/modules/transactionsThreading/types';
 import { TaskThreadView } from './TaskThreadView';
 import { AddTaskBottomSheet } from './AddTaskBottomSheet';
 import { DocumentsTabView } from './DocumentsTabView';
-import { generateClientReport } from './generateClientReport';
-import {
-    canImportTaskTemplate,
-    importTaskTemplateToTransaction,
-} from '@/app/services/transactions/importTaskTemplateToTransaction';
-import { sanitizeTransactionTemplateName } from '@/app/services/transactions/transactionsInputSecurity';
-import {
-    sanitizeTemplateForSharing,
-    sanitizeTransactionForSharing,
-    type ShareProcedureDraft,
-} from '@/app/services/transactions/sanitizeTransactionForSharing';
-import { SmartToast } from '@/app/components/ui/SmartToast';
 import { ShareProcedureModal } from './ShareProcedureModal';
 import {
-    TX_ACCENT_SURFACE,
-    TX_DROPDOWN_FOCUS,
-    TX_GOLD_BTN,
-    TX_ICON_BTN,
-    TX_OCHRE_BTN,
-    TX_STAGE_DOT,
-    TX_TAB_TRIGGER,
+    TX_PAGE_SCROLL,
     TX_TEXT_MUTED,
-    TX_TEXT_OCHRE,
     TxGlassFab,
-    TxGlassHeader,
     TxGlassPage,
     TxGlassPanel,
-    TxGlassTabsList,
-    TxHeaderRow,
 } from './transactionsGlassTheme';
 import type { TransactionsDetailsEscapeSnapshot } from './transactionsEscapeStack';
-import { txStatusBadgeClass, txStatusLabelAr } from './transactionDetails/transactionDetailsUtils';
 import { TransactionDetailsDialogs } from './transactionDetails/TransactionDetailsDialogs';
+import { TransactionDetailsHeader } from './transactionDetails/TransactionDetailsHeader';
+import { useTransactionDetailsController } from './transactionDetails/useTransactionDetailsController';
 
-const EMPTY_TASKS: TransactionTask[] = [];
-const EMPTY_DOCS: TransactionDocument[] = [];
-
-export function TransactionDetailsScreen({
-  transactionId,
-  onBack,
-  onEscapeSnapshotChange,
-  registerEscapeCloser,
-  hubOpen = true,
-}: {
-  transactionId: string;
-  onBack?: () => void;
-  onEscapeSnapshotChange?: (snapshot: TransactionsDetailsEscapeSnapshot) => void;
-  registerEscapeCloser?: (
-    closer: ((patch: Partial<TransactionsDetailsEscapeSnapshot>) => void) | null,
-  ) => void;
-  hubOpen?: boolean;
-}) {
-  const tx = useTransactionsThreadingStore((s) => s.transactions.find((t) => t.id === transactionId));
-  const refreshTransactionData = useTransactionsThreadingStore((s) => s.refreshTransactionData);
-  const tasks = useTransactionsThreadingStore((s) => s.tasksByTransactionId[transactionId] ?? EMPTY_TASKS);
-  const documents = useTransactionsThreadingStore(
-    (s) => s.documentsByTransactionId[transactionId] ?? EMPTY_DOCS,
-  );
-  const setTransactionStatus = useTransactionsThreadingStore((s) => s.setTransactionStatus);
-  const addTask = useTransactionsThreadingStore((s) => s.addTask);
-  const userId = useTransactionsThreadingStore((s) => s.userId);
-
-  const [tab, setTab] = useState<'path' | 'docs'>('path');
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [parent, setParent] = useState<TransactionTask | null>(null);
-  const [reportOpen, setReportOpen] = useState(false);
-  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
-  const [templatesOpen, setTemplatesOpen] = useState(false);
-  const [templatesVersion, setTemplatesVersion] = useState(0);
-  const [templateName, setTemplateName] = useState('');
-  const [completeOpen, setCompleteOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
-  const [shareDraft, setShareDraft] = useState<ShareProcedureDraft | null>(null);
-  const [shareClientName, setShareClientName] = useState<string | null>(null);
-  const [taskEscape, setTaskEscape] = useState({
-    taskEditOpen: false,
-    taskDeleteOpen: false,
-  });
-  const closeTaskOverlayRef = useRef<(patch: Partial<TransactionsDetailsEscapeSnapshot>) => void>(
-    () => undefined,
-  );
-
-  const onTaskEscapeSnapshotChange = useCallback(
-    (next: Pick<TransactionsDetailsEscapeSnapshot, 'taskEditOpen' | 'taskDeleteOpen'>) => {
-      setTaskEscape((prev) =>
-        prev.taskEditOpen === next.taskEditOpen && prev.taskDeleteOpen === next.taskDeleteOpen
-          ? prev
-          : next,
-      );
-    },
-    [],
-  );
-
-  const closeOverlay = useCallback((patch: Partial<TransactionsDetailsEscapeSnapshot>) => {
-    if (patch.reportOpen === false) setReportOpen(false);
-    if (patch.completeOpen === false) setCompleteOpen(false);
-    if (patch.saveTemplateOpen === false) setSaveTemplateOpen(false);
-    if (patch.templatesOpen === false) setTemplatesOpen(false);
-    if (patch.shareProcedureOpen === false) {
-      setShareOpen(false);
-      setShareDraft(null);
-      setShareClientName(null);
-    }
-    if (patch.addTaskSheetOpen === false) {
-      setSheetOpen(false);
-      setParent(null);
-    }
-    const taskPatch: Partial<TransactionsDetailsEscapeSnapshot> = {};
-    if (patch.taskEditOpen === false) taskPatch.taskEditOpen = false;
-    if (patch.taskDeleteOpen === false) taskPatch.taskDeleteOpen = false;
-    if (Object.keys(taskPatch).length > 0) {
-      closeTaskOverlayRef.current(taskPatch);
-    }
-  }, []);
-
-  useEffect(() => {
-    registerEscapeCloser?.(closeOverlay);
-    return () => registerEscapeCloser?.(null);
-  }, [closeOverlay, registerEscapeCloser]);
-
-  useEffect(() => {
-    onEscapeSnapshotChange?.({
-      addTaskSheetOpen: sheetOpen,
-      reportOpen,
-      completeOpen,
-      saveTemplateOpen,
-      templatesOpen,
-      shareProcedureOpen: shareOpen,
-      ...taskEscape,
-    });
-  }, [
-    sheetOpen,
-    reportOpen,
-    completeOpen,
-    saveTemplateOpen,
-    templatesOpen,
-    shareOpen,
-    taskEscape,
+export const TransactionDetailsScreen = memo(function TransactionDetailsScreen({
+    transactionId,
+    onBack,
     onEscapeSnapshotChange,
-  ]);
+    registerEscapeCloser,
+    hubOpen = true,
+    detailsActive = true,
+}: {
+    transactionId: string;
+    onBack?: () => void;
+    onEscapeSnapshotChange?: (snapshot: TransactionsDetailsEscapeSnapshot) => void;
+    registerEscapeCloser?: (
+        closer: ((patch: Partial<TransactionsDetailsEscapeSnapshot>) => void) | null,
+    ) => void;
+    hubOpen?: boolean;
+    detailsActive?: boolean;
+}) {
+    const overlaysLive = hubOpen && detailsActive;
+    const vm = useTransactionDetailsController({
+        transactionId,
+        onEscapeSnapshotChange,
+        registerEscapeCloser,
+        detailsActive,
+    });
 
-  const parentHint = useMemo(() => {
-    if (!parent) return null;
-    return { id: parent.id, title: parent.title };
-  }, [parent]);
+    if (!vm.tx) {
+        return (
+            <div data-testid="transactions-details-screen" className="h-full min-h-0">
+                <TxGlassPage>
+                    <div className="flex items-center justify-center min-h-[60dvh] px-6">
+                        <TxGlassPanel className="px-5 py-5 text-center">
+                            <p className={`${TX_TEXT_MUTED} text-sm font-medium`}>تعذر العثور على المعاملة</p>
+                        </TxGlassPanel>
+                    </div>
+                </TxGlassPage>
+            </div>
+        );
+    }
 
-  useEffect(() => {
-    refreshTransactionData(transactionId);
-  }, [refreshTransactionData, transactionId]);
-
-  const isReadOnly = tx?.status === TransactionStatus.Completed;
-  const templates = useMemo(
-    () => {
-      void templatesVersion;
-      return tx && userId ? listTaskTemplates(userId) : [];
-    },
-    [templatesVersion, userId, tx],
-  );
-  const reportText = useMemo(
-    () => (tx ? generateClientReport(tx as Transaction, tasks) : ''),
-    [tx, tasks],
-  );
-
-  if (!tx) {
     return (
-      <div data-testid="transactions-details-screen">
-        <TxGlassPage>
-          <div className="flex items-center justify-center min-h-[60vh] px-6">
-            <TxGlassPanel className="px-6 py-8 text-center">
-              <p className={`${TX_TEXT_MUTED} text-sm font-medium`}>تعذر العثور على المعاملة</p>
-            </TxGlassPanel>
-          </div>
-        </TxGlassPage>
-      </div>
-    );
-  }
+        <div data-testid="transactions-details-screen" className="h-full min-h-0">
+            <TxGlassPage>
+                <Tabs dir="rtl" value={vm.tab} onValueChange={(v) => vm.setTab(v as 'path' | 'docs')} className="flex min-h-0 w-full flex-1 flex-col gap-0">
+                    <TransactionDetailsHeader
+                        tx={vm.tx}
+                        isReadOnly={vm.isReadOnly}
+                        onBack={onBack}
+                        taskCount={vm.tasks.length}
+                        onReopen={() => void vm.reopenTransaction()}
+                        onRequestComplete={() => vm.setCompleteOpen(true)}
+                        onBeginSaveTemplate={vm.beginSaveTemplate}
+                        onOpenImportTemplates={() => vm.setTemplatesOpen(true)}
+                        onShareProcedure={vm.openShareFromTransaction}
+                        onOpenReport={() => vm.setReportOpen(true)}
+                    />
 
-  const canSaveTemplate = !isReadOnly && tasks.length > 0 && !!userId;
+                    <div
+                        data-testid="transactions-details-scroll"
+                        className={`${TX_PAGE_SCROLL} max-w-[520px] mx-auto px-4 sm:px-5 pb-24 w-full`}
+                    >
+                        <TabsContent value="path" className="mt-0 focus-visible:outline-none w-full">
+                            <TaskThreadView
+                                transactionId={transactionId}
+                                onRequestAddTask={vm.requestAddTask}
+                                onImportFromMyTemplates={() => vm.setTemplatesOpen(true)}
+                                readOnly={vm.isReadOnly}
+                                onTaskEscapeSnapshotChange={vm.onTaskEscapeSnapshotChange}
+                                registerTaskEscapeCloser={vm.registerTaskEscapeCloser}
+                                detailsActive={detailsActive}
+                            />
+                        </TabsContent>
+                        <TabsContent value="docs" className="mt-0 focus-visible:outline-none">
+                            <DocumentsTabView
+                                transaction={vm.tx as Transaction}
+                                readOnly={vm.isReadOnly}
+                                detailsActive={detailsActive}
+                                onDocumentsEscapeSnapshotChange={vm.onDocumentsEscapeSnapshotChange}
+                                registerDocumentsEscapeCloser={vm.registerDocumentsEscapeCloser}
+                            />
+                        </TabsContent>
+                    </div>
+                </Tabs>
 
-  const requestAddTask = (p: TransactionTask | null) => {
-    if (isReadOnly) return;
-    setParent(p);
-    setSheetOpen(true);
-  };
+                {vm.tab === 'path' && !vm.isReadOnly && (
+                    <TxGlassFab label="إضافة مهمة" extended onClick={() => vm.requestAddTask(null)} />
+                )}
 
-  const copyReport = async () => {
-    try {
-      if (typeof window !== 'undefined' && navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(reportText);
-      } else if (typeof document !== 'undefined') {
-        const el = document.createElement('textarea');
-        el.value = reportText;
-        el.style.position = 'fixed';
-        el.style.left = '-9999px';
-        document.body.appendChild(el);
-        el.select();
-        document.execCommand('copy');
-        document.body.removeChild(el);
-      }
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    } catch {
-      setCopied(false);
-    }
-  };
+                {vm.sheetOpen && overlaysLive ? (
+                    <AddTaskBottomSheet
+                        open
+                        onOpenChange={(open) => {
+                            vm.setSheetOpen(open);
+                            if (!open) vm.setParent(null);
+                        }}
+                        transactionId={transactionId}
+                        parentTask={vm.parentHint}
+                        readOnly={vm.isReadOnly}
+                    />
+                ) : null}
 
-  const completeTransaction = async () => {
-    await setTransactionStatus(transactionId, TransactionStatus.Completed);
-    setCompleteOpen(false);
-  };
+                {(overlaysLive &&
+                    (vm.completeOpen || vm.saveTemplateOpen || vm.templatesOpen || vm.reportOpen)) ? (
+                    <TransactionDetailsDialogs
+                        completeOpen={vm.completeOpen}
+                        onCompleteOpenChange={vm.setCompleteOpen}
+                        onCompleteTransaction={vm.completeTransaction}
+                        saveTemplateOpen={vm.saveTemplateOpen}
+                        onSaveTemplateOpenChange={vm.setSaveTemplateOpen}
+                        canSaveTemplate={vm.canSaveTemplate}
+                        templateName={vm.templateName}
+                        onTemplateNameChange={vm.setTemplateName}
+                        onSaveTemplate={vm.doSaveTemplate}
+                        templatesOpen={vm.templatesOpen}
+                        onTemplatesOpenChange={vm.setTemplatesOpen}
+                        templates={vm.templates}
+                        isReadOnly={vm.isReadOnly}
+                        existingTaskCount={vm.tasks.length}
+                        userId={vm.userId}
+                        onImportTemplate={vm.importTemplate}
+                        onDeleteTemplate={vm.deleteTemplate}
+                        reportOpen={vm.reportOpen}
+                        onReportOpenChange={vm.setReportOpen}
+                        reportText={vm.reportText}
+                        copied={vm.copied}
+                        onCopyReport={vm.copyReport}
+                    />
+                ) : null}
 
-  const reopenTransaction = async () => {
-    await setTransactionStatus(transactionId, TransactionStatus.Active);
-  };
-
-  const doSaveTemplate = () => {
-    if (!canSaveTemplate) return;
-    const name = sanitizeTransactionTemplateName(templateName, tx.title);
-    if (!userId) return;
-    saveTaskTemplate(userId, {
-      name,
-      tasks: tasks.map((t) => ({
-        id: t.id,
-        title: t.title,
-        parentTaskId: t.parentTaskId,
-        deadline: t.deadline,
-      })),
-    });
-    setSaveTemplateOpen(false);
-    setTemplateName('');
-    setTemplatesVersion((v) => v + 1);
-  };
-
-  const importTemplate = async (templateId: string) => {
-    if (!canImportTaskTemplate({ isReadOnly, existingTaskCount: tasks.length })) return;
-    if (!userId) return;
-    const template = listTaskTemplates(userId).find((t) => t.id === templateId);
-    if (!template) return;
-
-    await importTaskTemplateToTransaction(transactionId, template, {
-      addTask,
-      refreshTransactionData,
-    });
-    setTemplatesOpen(false);
-  };
-
-  const openShareFromTransaction = () => {
-    if (!tx) return;
-    if (tasks.length === 0) {
-      SmartToast.warning('أضف خطوة واحدة على الأقل قبل مشاركة الإجراءات');
-      return;
-    }
-    setShareDraft(sanitizeTransactionForSharing(tx, tasks, documents));
-    setShareClientName(tx.clientName);
-    setShareOpen(true);
-  };
-
-  const openShareFromTemplate = (templateId: string) => {
-    if (!userId) return;
-    const template = listTaskTemplates(userId).find((t) => t.id === templateId);
-    if (!template) return;
-    if (template.tasks.length === 0) {
-      SmartToast.warning('القالب فارغ — لا خطوات للمشاركة');
-      return;
-    }
-    setShareDraft(sanitizeTemplateForSharing(template));
-    setShareClientName(null);
-    setTemplatesOpen(false);
-    setShareOpen(true);
-  };
-
-  return (
-    <div data-testid="transactions-details-screen">
-    <TxGlassPage>
-      <Tabs dir="rtl" value={tab} onValueChange={(v) => setTab(v as 'path' | 'docs')} className="w-full">
-        <TxGlassHeader>
-          <TxHeaderRow
-            title={tx.title}
-            subtitle={tx.clientName}
-            onBack={onBack}
-            backTestId="transactions-back"
-            trailing={
-              <div className={`px-2.5 py-0.5 rounded-[3px] border text-[10px] font-bold shrink-0 ${txStatusBadgeClass(tx.status)}`}>
-                {txStatusLabelAr(tx.status)}
-              </div>
-            }
-          />
-
-          <div className="mt-3 flex items-center gap-2 flex-wrap justify-end">
-            {isReadOnly ? (
-              <button type="button" onClick={reopenTransaction} className={TX_GOLD_BTN} aria-label={`إعادة فتح المعاملة ${tx.title}`}>
-                إعادة فتح
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setCompleteOpen(true)}
-                className={TX_OCHRE_BTN}
-                aria-haspopup="dialog"
-                aria-label={`إنهاء المعاملة ${tx.title}`}
-              >
-                إنهاء المعاملة
-              </button>
-            )}
-
-            <TransactionsDropdownMenu>
-              <TransactionsDropdownMenuTrigger asChild>
-                <button type="button" className={TX_ICON_BTN} aria-label="قائمة المعاملة" aria-haspopup="menu">
-                  <MoreVertical className="w-5 h-5" />
-                </button>
-              </TransactionsDropdownMenuTrigger>
-              <TransactionsDropdownMenuContent>
-                <TransactionsDropdownMenuItem
-                  onSelect={() => {
-                    runAfterTransactionsMenuClose(() => {
-                      setTemplateName(tx.title);
-                      setSaveTemplateOpen(true);
-                    });
-                  }}
-                  className={TX_DROPDOWN_FOCUS}
-                >
-                  حفظ المسار كقالب
-                </TransactionsDropdownMenuItem>
-              </TransactionsDropdownMenuContent>
-            </TransactionsDropdownMenu>
-
-            <button
-              type="button"
-              onClick={openShareFromTransaction}
-              disabled={tasks.length === 0}
-              data-testid="transactions-share-procedure"
-              className={`${TX_GOLD_BTN} inline-flex items-center gap-1.5 disabled:opacity-45`}
-              aria-label="مشاركة الإجراءات للمنتدى"
-              aria-haspopup="dialog"
-            >
-              <BookOpen className="w-4 h-4" aria-hidden />
-              مشاركة الإجراءات
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setReportOpen(true)}
-              className={TX_ICON_BTN}
-              aria-label="مشاركة تحديث الموكل"
-              aria-haspopup="dialog"
-            >
-              <Share2 className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="mt-4">
-            <TxGlassTabsList>
-              <TabsList className="w-full h-auto p-0 m-0 bg-transparent border-0 shadow-none rounded-none flex flex-row items-stretch gap-1">
-                <TabsTrigger value="path" className={TX_TAB_TRIGGER} data-testid="transactions-tab-path">
-                  <span className={TX_STAGE_DOT} aria-hidden>
-                    1
-                  </span>
-                  <span>الإجراءات</span>
-                </TabsTrigger>
-                <TabsTrigger value="docs" className={TX_TAB_TRIGGER} data-testid="transactions-tab-docs">
-                  <span className={TX_STAGE_DOT} aria-hidden>
-                    2
-                  </span>
-                  <span>المرفقات</span>
-                </TabsTrigger>
-              </TabsList>
-            </TxGlassTabsList>
-
-            {isReadOnly ? (
-              <TxGlassPanel className="mt-3 px-3.5 py-2.5">
-                <div className="flex items-start gap-2.5">
-                  <div className={`w-8 h-8 rounded-[3px] ${TX_ACCENT_SURFACE} flex items-center justify-center ${TX_TEXT_OCHRE} shrink-0`}>
-                    <CheckCircle2 className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className={`${TX_TEXT_OCHRE} font-bold text-xs`}>معاملة مكتملة</div>
-                    <div className={`${TX_TEXT_MUTED} text-[10px] mt-0.5 font-medium`}>وضع للقراءة فقط — لا يمكن تعديل المسار أو المستندات</div>
-                  </div>
-                </div>
-              </TxGlassPanel>
-            ) : null}
-          </div>
-        </TxGlassHeader>
-
-        <div className="max-w-[520px] mx-auto px-4 sm:px-5 pb-28 w-full">
-          <TabsContent value="path" className="mt-0 focus-visible:outline-none w-full">
-            <TaskThreadView
-              transactionId={transactionId}
-              onRequestAddTask={requestAddTask}
-              onImportFromMyTemplates={() => setTemplatesOpen(true)}
-              readOnly={isReadOnly}
-              onTaskEscapeSnapshotChange={onTaskEscapeSnapshotChange}
-              registerTaskEscapeCloser={(closer) => {
-                closeTaskOverlayRef.current = closer ?? (() => undefined);
-              }}
-            />
-          </TabsContent>
-          <TabsContent value="docs" className="mt-0 focus-visible:outline-none">
-            <DocumentsTabView transaction={tx as Transaction} readOnly={isReadOnly} />
-          </TabsContent>
+                {vm.shareOpen && overlaysLive ? (
+                    <ShareProcedureModal
+                        open
+                        onOpenChange={(open) => {
+                            vm.setShareOpen(open);
+                            if (!open) {
+                                vm.setShareDraft(null);
+                                vm.setShareClientName(null);
+                            }
+                        }}
+                        draft={vm.shareDraft}
+                        clientNameForScrub={vm.shareClientName}
+                    />
+                ) : null}
+            </TxGlassPage>
         </div>
-      </Tabs>
-
-      {tab === 'path' && !isReadOnly && (
-        <TxGlassFab label="إضافة مهمة" extended onClick={() => requestAddTask(null)} />
-      )}
-
-      <AddTaskBottomSheet
-        open={sheetOpen && hubOpen}
-        onOpenChange={(open) => {
-          setSheetOpen(open);
-          if (!open) setParent(null);
-        }}
-        transactionId={transactionId}
-        parentTask={parentHint}
-        readOnly={isReadOnly}
-      />
-
-      <TransactionDetailsDialogs
-        completeOpen={completeOpen && hubOpen}
-        onCompleteOpenChange={setCompleteOpen}
-        onCompleteTransaction={completeTransaction}
-        saveTemplateOpen={saveTemplateOpen && hubOpen}
-        onSaveTemplateOpenChange={setSaveTemplateOpen}
-        canSaveTemplate={canSaveTemplate}
-        templateName={templateName}
-        onTemplateNameChange={setTemplateName}
-        onSaveTemplate={doSaveTemplate}
-        templatesOpen={templatesOpen && hubOpen}
-        onTemplatesOpenChange={setTemplatesOpen}
-        templates={templates}
-        isReadOnly={isReadOnly}
-        existingTaskCount={tasks.length}
-        userId={userId}
-        onImportTemplate={importTemplate}
-        onDeleteTemplate={(templateId) => {
-          if (!userId) return;
-          deleteTaskTemplate(userId, templateId);
-          setTemplatesVersion((v) => v + 1);
-        }}
-        onShareTemplate={openShareFromTemplate}
-        reportOpen={reportOpen && hubOpen}
-        onReportOpenChange={setReportOpen}
-        reportText={reportText}
-        copied={copied}
-        onCopyReport={copyReport}
-      />
-
-      <ShareProcedureModal
-        open={shareOpen && hubOpen}
-        onOpenChange={(open) => {
-          setShareOpen(open);
-          if (!open) {
-            setShareDraft(null);
-            setShareClientName(null);
-          }
-        }}
-        draft={shareDraft}
-        clientNameForScrub={shareClientName}
-      />
-    </TxGlassPage>
-    </div>
-  );
-}
+    );
+});

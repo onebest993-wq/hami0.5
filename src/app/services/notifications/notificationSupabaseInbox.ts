@@ -88,12 +88,16 @@ async function appendEvent(
     });
 }
 
-export async function listShellNotificationsSupabase(
+export type ShellInboxQueryResult =
+    | { ok: true; rows: NotificationModel[] }
+    | { ok: false; rows: [] };
+
+export async function queryShellNotificationInbox(
     userId: string,
     limit = DEFAULT_LIST_LIMIT,
-): Promise<NotificationModel[]> {
+): Promise<ShellInboxQueryResult> {
     const admin = await loadForumSupabaseAdmin();
-    if (!admin) return [];
+    if (!admin) return { ok: false, rows: [] };
 
     const { data, error } = await admin
         .from(INBOX_VIEW)
@@ -102,8 +106,17 @@ export async function listShellNotificationsSupabase(
         .order('created_at', { ascending: false })
         .limit(limit);
 
-    if (error || !Array.isArray(data)) return [];
-    return (data as ShellNotificationRow[]).map(mapRowToNotificationModel);
+    if (error) return { ok: false, rows: [] };
+    if (!Array.isArray(data)) return { ok: true, rows: [] };
+    return { ok: true, rows: (data as ShellNotificationRow[]).map(mapRowToNotificationModel) };
+}
+
+export async function listShellNotificationsSupabase(
+    userId: string,
+    limit = DEFAULT_LIST_LIMIT,
+): Promise<NotificationModel[]> {
+    const listed = await queryShellNotificationInbox(userId, limit);
+    return listed.rows;
 }
 
 export type ShellNotificationSchemaStatus = {

@@ -12,6 +12,10 @@ import {
     workflowActiveStepIndex,
 } from './seizureWorkflowDecisionQueries';
 import { normalizeSeizureWorkflowStatus } from './seizureWorkflowStatus';
+import {
+    readSeizureWorkflowOptimisticPending,
+    writeSeizureWorkflowOptimisticPending,
+} from './seizureWorkflowOptimisticPendingSession';
 import type { SeizureAssetKind, SeizureEntityBase, SeizureWorkflowDossierInput } from './seizureWorkflowTypes';
 
 export type SeizureAssetWorkflowPanelCoreInput = {
@@ -126,7 +130,7 @@ export function useSeizureAssetWorkflowPanelCore(input: SeizureAssetWorkflowPane
     const [pendingDecisionId, setPendingDecisionId] = React.useState<string | null>(null);
     const [optimisticPendingBySubtype, setOptimisticPendingBySubtype] = React.useState<
         Record<string, string>
-    >({});
+    >(() => readSeizureWorkflowOptimisticPending(input.assetKind, entityId));
     const [optimisticObjectionDecisionId, setOptimisticObjectionDecisionId] = React.useState<
         string | null
     >(null);
@@ -167,9 +171,13 @@ export function useSeizureAssetWorkflowPanelCore(input: SeizureAssetWorkflowPane
                     changed = true;
                 }
             }
-            return changed ? next : prev;
+            if (changed) {
+                writeSeizureWorkflowOptimisticPending(input.assetKind, entityId, next);
+                return next;
+            }
+            return prev;
         });
-    }, [workflowDecisions, entityId, input.decisionsReloadEpoch]);
+    }, [workflowDecisions, entityId, input.decisionsReloadEpoch, input.assetKind]);
 
     React.useEffect(() => {
         const handler = (e: Event) => {
@@ -191,7 +199,11 @@ export function useSeizureAssetWorkflowPanelCore(input: SeizureAssetWorkflowPane
                         changed = true;
                     }
                 }
-                return changed ? next : prev;
+                if (changed) {
+                    writeSeizureWorkflowOptimisticPending(input.assetKind, entityId, next);
+                    return next;
+                }
+                return prev;
             });
             if (String(ce.detail?.outcome || '') === 'approved') {
                 setOptimisticObjectionDecisionId((prev) =>
@@ -202,7 +214,7 @@ export function useSeizureAssetWorkflowPanelCore(input: SeizureAssetWorkflowPane
         window.addEventListener('hami-execution-decision-outcome', handler as EventListener);
         return () =>
             window.removeEventListener('hami-execution-decision-outcome', handler as EventListener);
-    }, [dossierId]);
+    }, [dossierId, input.assetKind, entityId]);
 
     const submitSubtype = React.useCallback(
         (
@@ -243,14 +255,18 @@ export function useSeizureAssetWorkflowPanelCore(input: SeizureAssetWorkflowPane
             }
             const did = result.decisionId;
             if (!did) return null;
-            setOptimisticPendingBySubtype((prev) => ({ ...prev, [subtype]: did }));
+            setOptimisticPendingBySubtype((prev) => {
+                const next = { ...prev, [subtype]: did };
+                writeSeizureWorkflowOptimisticPending(input.assetKind, entityId, next);
+                return next;
+            });
             setWorkflowExpanded(true);
             setDecisionsLiveTick((t) => t + 1);
             dispatchDecisionsReload();
             input.showToast('تم إرسال الطلب — قرار المنفذ يظهر أدناه.', 'success');
             return did;
         },
-        [engine, dossierId, input.entity, entityId, workflowDecisions, input.showToast],
+        [engine, dossierId, input.entity, entityId, workflowDecisions, input.showToast, input.assetKind],
     );
 
     const hasPendingSubtype = React.useCallback(
@@ -283,6 +299,7 @@ export function useSeizureAssetWorkflowPanelCore(input: SeizureAssetWorkflowPane
                 subtypes,
             );
             if (withdrawn > 0) {
+                writeSeizureWorkflowOptimisticPending(input.assetKind, entityId, {});
                 setOptimisticPendingBySubtype({});
                 setOptimisticObjectionDecisionId(null);
                 setDecisionsLiveTick((t) => t + 1);
@@ -292,7 +309,7 @@ export function useSeizureAssetWorkflowPanelCore(input: SeizureAssetWorkflowPane
             input.showToast('لا يوجد طلب معلّق لسحبه.', 'info');
             return false;
         },
-        [engine, dossierId, workflowDecisions, entityId, input.showToast],
+        [engine, dossierId, workflowDecisions, entityId, input.showToast, input.assetKind],
     );
 
     const hasWithdrawablePending =

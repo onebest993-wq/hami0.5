@@ -16,9 +16,11 @@ describe('calendar open gesture snappiness', () => {
         );
 
         expect(openFlow).toContain('snapScheduleShellOpen');
+        expect(openFlow).toContain('beginHubLayerExit');
         expect(openFlow).toContain('scheduleShellReactSync');
         expect(criticalCss).toContain("data-hami-schedule-open='1'");
         expect(criticalCss).toContain('lawyer-dashboard-schedule-surface');
+        expect(criticalCss).toContain('.hami-home-scroll-root');
         expect(criticalCss).toContain('lawyer-dashboard-profile-surface');
         expect(criticalCss).toContain('lawyer-profile-back');
     });

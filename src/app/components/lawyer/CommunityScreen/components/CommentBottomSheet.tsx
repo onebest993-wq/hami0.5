@@ -1,31 +1,16 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
-import {
-  MessageCircle, MessageSquare, Lock,
-  X, ArrowDownUp,
-} from '@/app/components/ui/lucideIcons';
-import type { CommunityPost, CommunityComment } from '@/app/services/lawyer-cloud';
+import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import type { MentionCandidate } from '@/app/hooks/useForumMentionAutocomplete';
-import { useForumMentionAutocomplete } from '@/app/hooks/useForumMentionAutocomplete';
 import { useCommunitySheetChrome } from '@/app/hooks/useCommunitySheetChrome';
+import { ForumSheetSwipeHandle } from './ForumSheetSwipeHandle';
 import { CommentSheetComposer } from './CommentSheetComposer';
-import { ForumCommentRow } from './ForumCommentRow';
-import { useCommentThreadTree, type CommentSortMode } from '../hooks/useCommentThreadTree';
-import {
-    FORUM_ICON_BTN,
-    FORUM_SHEET,
-    FORUM_SURFACE_INPUT,
-    FORUM_TEXT_APRICOT,
-    FORUM_TEXT_PRIMARY,
-} from '../forumPlumTheme';
-
-/** خيارات ترتيب التعليقات — re-export للتوافق */
-export type { CommentSortMode } from '../hooks/useCommentThreadTree';
-
-const COMMENT_INITIAL_WINDOW = 30;
-const COMMENT_WINDOW_STEP = 20;
+import { CommentBottomSheetHeader } from './CommentBottomSheetHeader';
+import { CommentBottomSheetThreadList } from './CommentBottomSheetThreadList';
+import { useCommentBottomSheetModel } from '../hooks/useCommentBottomSheetModel';
+import { FORUM_SHEET } from '../forumPlumTheme';
+import { getForumOverlayPortalRoot } from '../forumOverlayPortal';
 
 export interface CommentBottomSheetProps {
   post: CommunityPost;
@@ -66,111 +51,13 @@ export const CommentBottomSheet = ({
   mentionCandidates = [],
   onOpenProfile,
 }: CommentBottomSheetProps) => {
-  const [comment, setComment] = useState('');
-  const mention = useForumMentionAutocomplete(comment, setComment, mentionCandidates);
-  const [submittingComment, setSubmittingComment] = useState(false);
-  const [sortMode, setSortMode] = useState<CommentSortMode>('oldest');
-  const bestCommentId = post.bestCommentId ?? null;
-  const canSelectBest = currentUserId === (post.authorId || post.author_id || '');
-  const isLocked = post.isLocked === true;
-  const [replyingToCommentId, setReplyingToCommentId] = useState<string | null>(null);
-  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState('');
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const reduceMotion = useReduceMotion();
   const { sheetStyle, composerStyle } = useCommunitySheetChrome();
+  const canSelectBest = currentUserId === (post.authorId || post.author_id || '');
+  const model = useCommentBottomSheetModel(post, mentionCandidates);
 
-  const { commentById, childrenByParentId, bestComment, bestSubtreeIds } = useCommentThreadTree(
-    post.comments,
-    bestCommentId,
-    sortMode,
-  );
-
-  const replyingTo = replyingToCommentId ? commentById.get(replyingToCommentId) ?? null : null;
-
-  // نافذة تدريجية لخيوط التعليقات — تمنع تركيب شجرة ضخمة دفعة واحدة (بدون تغيير بصري)
-  const [topThreadCount, setTopThreadCount] = useState(COMMENT_INITIAL_WINDOW);
-  const commentSentinelRef = useRef<HTMLDivElement | null>(null);
-  const excludedTopIds = useMemo(
-    () => (bestComment ? new Set<string>(bestSubtreeIds) : new Set<string>()),
-    [bestComment, bestSubtreeIds],
-  );
-  const topLevelThreads = useMemo(
-    () => (childrenByParentId.get(null) ?? []).filter((c) => !excludedTopIds.has(c.id)),
-    [childrenByParentId, excludedTopIds],
-  );
-  const windowedTopThreads = useMemo(
-    () => topLevelThreads.slice(0, Math.min(topThreadCount, topLevelThreads.length)),
-    [topLevelThreads, topThreadCount],
-  );
-  const hiddenThreadCount = topLevelThreads.length - windowedTopThreads.length;
-
-  useEffect(() => {
-    setTopThreadCount(COMMENT_INITIAL_WINDOW);
-  }, [post.id, sortMode]);
-
-  useEffect(() => {
-    const node = commentSentinelRef.current;
-    if (!node || hiddenThreadCount <= 0) return undefined;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setTopThreadCount((prev) => prev + COMMENT_WINDOW_STEP);
-        }
-      },
-      { rootMargin: '240px 0px' },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [hiddenThreadCount]);
-
-  const renderComment = (c: CommunityComment, depth: number, forceBestStyle: boolean) => (
-    <ForumCommentRow
-      key={c.id}
-      comment={c}
-      post={post}
-      depth={depth}
-      forceBestStyle={forceBestStyle}
-      bestCommentId={bestCommentId}
-      currentUserId={currentUserId}
-      isAdmin={isAdmin}
-      isLocked={isLocked}
-      canSelectBest={canSelectBest}
-      followingIds={followingIds}
-      userStats={userStats}
-      mutedUserIds={mutedUserIds}
-      editingCommentId={editingCommentId}
-      editContent={editContent}
-      confirmDeleteId={confirmDeleteId}
-      onSetEditingCommentId={setEditingCommentId}
-      onSetEditContent={setEditContent}
-      onSetConfirmDeleteId={setConfirmDeleteId}
-      onSetReplyingToCommentId={setReplyingToCommentId}
-      onFollow={onFollow}
-      onToggleBestAnswer={onToggleBestAnswer}
-      onEditComment={onEditComment}
-      onDeleteComment={onDeleteComment}
-      onToggleCommentUpvote={onToggleCommentUpvote}
-      onReportComment={onReportComment}
-      onMuteUser={onMuteUser}
-      onOpenProfile={onOpenProfile}
-    />
-  );
-
-  const renderThread = (parentId: string | null, depth: number, excluded: Set<string>) => {
-    const kids = childrenByParentId.get(parentId) ?? [];
-    return kids
-      .filter((c) => !excluded.has(c.id))
-      .map((c) => (
-        <React.Fragment key={c.id}>
-          {renderComment(c, depth, false)}
-          {renderThread(c.id, Math.min(depth + 1, 3), excluded)}
-        </React.Fragment>
-      ));
-  };
-
-    const sheetLayer = (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center pointer-events-none" data-testid="forum-comment-sheet">
+  const sheetLayer = (
+    <div className="fixed inset-0 z-[120] flex items-end justify-center sm:items-center pointer-events-none" data-testid="forum-comment-sheet">
       <AnimatePresence>
         <motion.div
           key="backdrop"
@@ -178,7 +65,7 @@ export const CommentBottomSheet = ({
           animate={{ opacity: 1 }}
           exit={reduceMotion ? undefined : { opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0 bg-black/60 backdrop-blur-[2px] pointer-events-auto"
+          className="absolute inset-0 bg-black/55 pointer-events-auto"
         />
 
         <motion.div
@@ -188,104 +75,71 @@ export const CommentBottomSheet = ({
           exit={reduceMotion ? undefined : { y: '100%' }}
           transition={reduceMotion ? { duration: 0 } : { type: 'spring', damping: 25, stiffness: 200 }}
           style={sheetStyle}
-          className={`${FORUM_SHEET} w-full max-w-2xl h-[70vh] rounded-t-3xl flex flex-col pointer-events-auto relative z-10 border-t-[#8A4D5C]/25 pb-[env(safe-area-inset-bottom)]`}
+          className={`${FORUM_SHEET} w-full max-w-2xl max-h-[min(78dvh,100%)] h-[70vh] rounded-t-3xl flex flex-col pointer-events-auto relative z-10 border-t-white/10 pb-[max(0.75rem,env(safe-area-inset-bottom))]`}
         >
-          <div className="w-full flex justify-center pt-3 pb-1" onClick={onClose}>
-            <div className="w-12 h-1.5 rounded-full bg-white/10" />
-          </div>
+          <ForumSheetSwipeHandle onClose={onClose} barClassName="w-12 h-1.5 rounded-full bg-white/10" />
 
-          <div className="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between gap-3">
-            <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-lg flex items-center gap-2`}>
-              <MessageCircle size={20} className={FORUM_TEXT_APRICOT} />
-              التعليقات
-              {isLocked && (
-                <span className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-red-500/10 text-red-200 border border-red-500/30">
-                  <Lock size={11} />
-                  مقفل
-                </span>
-              )}
-            </h3>
-            <div className="flex items-center gap-2">
-              {post.comments.length > 1 && (
-                <div className="flex items-center gap-1 text-[11px]">
-                  <ArrowDownUp size={12} className="text-white/40" />
-                  <select
-                    value={sortMode}
-                    onChange={(e) => setSortMode(e.target.value as CommentSortMode)}
-                    className={`${FORUM_SURFACE_INPUT} rounded-md px-2 py-1 text-sm`}
-                    title="ترتيب التعليقات"
-                  >
-                    <option value="oldest" className="bg-[#161E2C]">الأقدم</option>
-                    <option value="newest" className="bg-[#161E2C]">الأحدث</option>
-                    <option value="top" className="bg-[#161E2C]">الأعلى تصويتاً</option>
-                  </select>
-                </div>
-              )}
-              <button type="button" onClick={onClose} className={FORUM_ICON_BTN} aria-label="إغلاق">
-                <X size={20} />
-              </button>
-            </div>
-          </div>
+          <CommentBottomSheetHeader
+            commentCount={post.comments.length}
+            isLocked={model.isLocked}
+            sortMode={model.sortMode}
+            onSortModeChange={model.setSortMode}
+            onClose={onClose}
+          />
 
-          <div className="flex-1 overflow-y-auto scrollbar-hide p-6 space-y-3">
-            {post.comments.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-80">
-                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
-                  <MessageSquare size={32} className="text-white/20" />
-                </div>
-                <div>
-                  <p className="text-white font-bold mb-1">لا توجد تعليقات بعد</p>
-                  <p className="text-white/40 text-sm">ابدأ النقاش بشكل مهني وآمن</p>
-                </div>
-              </div>
-            ) : (
-              <>
-                {bestComment ? (
-                  <>
-                    {renderComment(bestComment, 0, true)}
-                    {renderThread(bestComment.id, 1, new Set())}
-                  </>
-                ) : null}
-
-                {windowedTopThreads.map((c) => (
-                  <React.Fragment key={c.id}>
-                    {renderComment(c, 0, false)}
-                    {renderThread(c.id, 1, excludedTopIds)}
-                  </React.Fragment>
-                ))}
-
-                {hiddenThreadCount > 0 ? (
-                  <div
-                    ref={commentSentinelRef}
-                    className="h-1"
-                    aria-hidden
-                    data-testid="forum-comment-window-sentinel"
-                  />
-                ) : null}
-              </>
-            )}
-          </div>
+          <CommentBottomSheetThreadList
+            post={post}
+            currentUserId={currentUserId}
+            isAdmin={isAdmin}
+            isLocked={model.isLocked}
+            canSelectBest={canSelectBest}
+            followingIds={followingIds}
+            userStats={userStats}
+            mutedUserIds={mutedUserIds}
+            editingCommentId={model.editingCommentId}
+            editContent={model.editContent}
+            confirmDeleteId={model.confirmDeleteId}
+            bestComment={model.bestComment}
+            bestCommentId={model.bestCommentId}
+            excludedTopIds={model.excludedTopIds}
+            windowedTopThreads={model.windowedTopThreads}
+            hiddenThreadCount={model.hiddenThreadCount}
+            commentSentinelRef={model.commentSentinelRef}
+            childrenByParentId={model.childrenByParentId}
+            onSetEditingCommentId={model.setEditingCommentId}
+            onSetEditContent={model.setEditContent}
+            onSetConfirmDeleteId={model.setConfirmDeleteId}
+            onSetReplyingToCommentId={model.setReplyingToCommentId}
+            onFollow={onFollow}
+            onToggleBestAnswer={onToggleBestAnswer}
+            onEditComment={onEditComment}
+            onDeleteComment={onDeleteComment}
+            onToggleCommentUpvote={onToggleCommentUpvote}
+            onReportComment={onReportComment}
+            onMuteUser={onMuteUser}
+            onOpenProfile={onOpenProfile}
+          />
 
           <CommentSheetComposer
             post={post}
-            isLocked={isLocked}
-            replyingTo={replyingTo}
-            onCancelReply={() => setReplyingToCommentId(null)}
-            comment={comment}
-            mention={mention}
-            submittingComment={submittingComment}
+            isLocked={model.isLocked}
+            replyingTo={model.replyingTo}
+            onCancelReply={() => model.setReplyingToCommentId(null)}
+            comment={model.comment}
+            mention={model.mention}
+            submittingComment={model.submittingComment}
             composerStyle={composerStyle}
             onSubmitComment={async (text, parentId) => {
-              setSubmittingComment(true);
+              model.setSubmittingComment(true);
               try {
                 const result = onAddComment(post.id, text, parentId);
                 const ok = result instanceof Promise ? await result : true;
                 if (ok !== false) {
-                  setComment('');
-                  setReplyingToCommentId(null);
+                  model.setComment('');
+                  model.setReplyingToCommentId(null);
                 }
               } finally {
-                setSubmittingComment(false);
+                model.setSubmittingComment(false);
               }
             }}
           />
@@ -294,5 +148,5 @@ export const CommentBottomSheet = ({
     </div>
   );
 
-  return typeof document !== 'undefined' ? createPortal(sheetLayer, document.body) : sheetLayer;
+  return typeof document !== 'undefined' ? createPortal(sheetLayer, getForumOverlayPortalRoot()) : sheetLayer;
 };

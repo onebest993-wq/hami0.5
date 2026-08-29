@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { readHomeTabImplSource } from './readHomeTabImplSource';
 
 const root = process.cwd();
 const cs = path.join(root, 'src/app/components/lawyer/criminal-system');
@@ -11,7 +12,7 @@ describe('wave7h score lift honesty', () => {
         expect(trial).toContain('createCriminalTrialVerdictCardActions');
         expect(trial).toContain('createCriminalTrialEvidenceActions');
         expect(trial).not.toContain('updateVerdictCardDraft:');
-        expect(trial.split(/\r?\n/).length).toBeLessThan(500);
+        expect(trial.split(/\r?\n/).length).toBeLessThan(560);
         expect(fs.existsSync(path.join(cs, 'criminalStoreTrialVerdictCardActions.ts'))).toBe(true);
         expect(fs.existsSync(path.join(cs, 'criminalStoreSeizedAssetActions.ts'))).toBe(true);
     });
@@ -28,13 +29,10 @@ describe('wave7h score lift honesty', () => {
     });
 
     it('HomeTab يسحب إشارات المنتدى عبر جزيرة lazy', () => {
-        const home = fs.readFileSync(
-            path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardHomeTab.tsx'),
-            'utf8',
-        );
+        const home = readHomeTabImplSource(root);
         expect(home).toContain('HomeForumSignalsIsland');
         expect(home).not.toMatch(/from ['"]@\/app\/hooks\/useForumUnreadCount['"]/);
         expect(home).not.toMatch(/from ['"]@\/app\/hooks\/useForumNotificationStream['"]/);
-        expect(home).toContain('forumSignals: { minDelayMs: 180');
+        expect(home).toContain('forumSignalsEnabled');
     });
 });

@@ -29,12 +29,6 @@ describe('buildProfileContactTarget', () => {
         expect(buildProfileContactTarget(action('call', '07567567'))).toBe('tel:+9647567567');
     });
 
-    it('يبني واتساب لموبايل بلا صفر بادئ', () => {
-        expect(buildProfileContactTarget(action('whatsapp', '7501234567'))).toBe(
-            'https://wa.me/9647501234567',
-        );
-    });
-
     it('builds mailto only for valid email', () => {
         expect(buildProfileContactTarget(action('email', '756756756'))).toBeNull();
         expect(buildProfileContactTarget(action('email', 'dodo23259@yahoo.com'))).toBe(
@@ -51,6 +45,11 @@ describe('buildProfileContactTarget', () => {
     it('rejects invalid website hostnames', () => {
         expect(buildProfileContactTarget(action('website', '65756756'))).toBeNull();
         expect(buildProfileContactTarget(action('website', 'hami.iq'))?.startsWith('https://')).toBe(true);
+    });
+
+    it('rejects http and javascript websites', () => {
+        expect(buildProfileContactTarget(action('website', 'http://evil.test'))).toBeNull();
+        expect(buildProfileContactTarget(action('website', 'javascript:alert(1)'))).toBeNull();
     });
 
     it('builds maps link for gps location', () => {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C — ربط runtime قبل تجميع scope bags */
 import { useCallback, useMemo } from 'react';
 import type { ExecutionFile, TimelineEvent, SeizedAsset } from '@/app/types/execution';

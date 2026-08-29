@@ -3,6 +3,7 @@
  * متغيّرات بناء Vite لبوابات E2E — يحقن هوية Supabase من info.ts (تطوير/اختبار)
  * حتى لا يرفض clientEnv الإقلاع في حزمة production preview.
  */
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +26,11 @@ export function readDevSupabaseFromInfoTs() {
     };
 }
 
+export function hamiBootScriptFingerprint() {
+    const boot = path.join(ROOT, 'public', 'hami-boot.js');
+    return createHash('sha256').update(fs.readFileSync(boot)).digest('hex').slice(0, 16);
+}
+
 /** @param {Record<string, string>} [overrides] */
 export function e2eViteBuildEnv(overrides = {}) {
     const { url, anonKey } = readDevSupabaseFromInfoTs();
@@ -37,14 +43,15 @@ export function e2eViteBuildEnv(overrides = {}) {
     };
 }
 
-/** بناء Capacitor — plugins أصلية (بيومتري، PrivacyScreen…) + واجهة مفتوحة للتطوير */
+/** بناء Capacitor — plugins أصلية + بوابة دخول مغلقة افتراضياً (إنتاج-مثل) */
 export function nativeViteBuildEnv(overrides = {}) {
     return {
         ...e2eViteBuildEnv(),
         VITE_BUILD_NATIVE: 'true',
         VITE_E2E: '0',
-        /* يبقى VITE_SHELL_AUTH_OPEN=true من e2eViteBuildEnv — لا دخول في التطوير.
-         * للإنتاج على الجهاز: مرّر VITE_SHELL_AUTH_OPEN=false صراحةً في البيئة. */
+        VITE_NATIVE_NOTIFICATION_SHEET: 'false',
+        /* إظهار شاشة الدخول قبل اللوحة — E2E يبقي true عبر e2eViteBuildEnv إن لزم */
+        VITE_SHELL_AUTH_OPEN: 'false',
         ...overrides,
     };
 }

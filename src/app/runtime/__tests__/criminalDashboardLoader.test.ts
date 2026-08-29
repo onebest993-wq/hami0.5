@@ -8,7 +8,7 @@ describe('criminalDashboardLoader first-open contract', () => {
     it('لا يُسخّن cassation/trial/procedural من idle بعد الـ store', () => {
         const source = fs.readFileSync(loaderPath, 'utf8');
         expect(source).toContain('prefetchCriminalPartiesGrid');
-        expect(source).toContain('prefetchCriminalHeavyEnginesOnIntent');
+        expect(source).not.toContain('prefetchCriminalHeavyEnginesOnIntent');
 
         const storePrefetchBlock = source.slice(
             source.indexOf('function prefetchCriminalStore'),
@@ -23,7 +23,6 @@ describe('criminalDashboardLoader first-open contract', () => {
         const source = fs.readFileSync(loaderPath, 'utf8');
         const chromeWarmBlock = source.slice(
             source.indexOf('export function prefetchCriminalDashboardChromeWarm'),
-            source.indexOf('export function prefetchCriminalHeavyEnginesOnIntent'),
         );
         expect(chromeWarmBlock).toContain('CriminalDashboardBootChrome');
         expect(chromeWarmBlock).not.toContain('createCriminalModuleImport');

@@ -1,9 +1,17 @@
 import React from 'react';
-import { AlertTriangle, Clock, CheckCircle2, FileArchive, Trash2 } from '@/app/components/ui/lucideIcons';
+import { AlertTriangle } from '@/app/components/ui/icons/AlertTriangle';
+import { Clock } from '@/app/components/ui/icons/Clock';
 import type { UrgentCase } from '../Component_Urgent_Card';
-import { DashboardSection } from './DashboardSection';
+import { DashboardSection, UrgentCardsGrid } from './DashboardSection';
 import type { ViewMode } from './types';
-import type { UrgentQuickLogAction } from './hooks/useUrgentQuickLog';
+
+function UrgentEmptyState({ message }: { message: string }) {
+    return (
+        <div className="text-center py-6">
+            <p className="text-white/45 text-sm">{message}</p>
+        </div>
+    );
+}
 
 type UrgentDashboardSectionsProps = {
     scope: 'active' | 'archive' | 'trash';
@@ -11,22 +19,17 @@ type UrgentDashboardSectionsProps = {
     viewMode: ViewMode;
     criticalCases: UrgentCase[];
     pendingCases: UrgentCase[];
-    completedCases: UrgentCase[];
     archivedCases: UrgentCase[];
     trashedCases: UrgentCase[];
     isCriticalExpanded: boolean;
     isPendingExpanded: boolean;
-    isCompletedExpanded: boolean;
     onToggleCritical: () => void;
     onTogglePending: () => void;
-    onToggleCompleted: () => void;
-    onQuickAction: (actionType: UrgentQuickLogAction, caseId: string) => void;
     onCaseClick: (caseId: string) => void;
-    onArchive: (caseId: string) => void;
     onTrash: (caseId: string) => void;
-    onUnarchive: (caseId: string) => void;
     onRestore: (caseId: string) => void;
     onPermanentDelete: (caseId: string) => void;
+    storageReady?: boolean;
 };
 
 export function UrgentDashboardSections({
@@ -35,145 +38,90 @@ export function UrgentDashboardSections({
     viewMode,
     criticalCases,
     pendingCases,
-    completedCases,
     archivedCases,
     trashedCases,
     isCriticalExpanded,
     isPendingExpanded,
-    isCompletedExpanded,
     onToggleCritical,
     onTogglePending,
-    onToggleCompleted,
-    onQuickAction,
     onCaseClick,
-    onArchive,
     onTrash,
-    onUnarchive,
     onRestore,
     onPermanentDelete,
+    storageReady = true,
 }: UrgentDashboardSectionsProps) {
+    const cardHandlers = {
+        viewMode,
+        onCaseClick,
+        onTrash,
+        onRestore,
+        onPermanentDelete,
+    };
+
     return (
         <>
             {scope === 'active' && criticalCases.length > 0 ? (
                 <DashboardSection
-                    title="مواعيد حرجة (تنتهي خلال 48 ساعة)"
-                    subtitle="يتطلب تدخل فوري"
+                    title="حرجة"
                     icon={AlertTriangle}
                     variant="critical"
                     count={criticalCases.length}
                     isExpanded={isCriticalExpanded}
                     onToggle={onToggleCritical}
                     cases={criticalCases}
-                    viewMode={viewMode}
-                    onQuickAction={onQuickAction}
-                    onCaseClick={onCaseClick}
-                    onArchive={(caseId) => onArchive(caseId)}
-                    onTrash={onTrash}
                     scope="active"
+                    {...cardHandlers}
                 />
             ) : null}
 
             {scope === 'active' && pendingCases.length > 0 ? (
                 <DashboardSection
-                    title="قيد الانتظار / ضمن المدة"
-                    subtitle="نشط"
+                    title="ضمن المدة"
                     icon={Clock}
                     variant="pending"
                     count={pendingCases.length}
                     isExpanded={isPendingExpanded}
                     onToggle={onTogglePending}
                     cases={pendingCases}
-                    viewMode={viewMode}
-                    onQuickAction={onQuickAction}
-                    onCaseClick={onCaseClick}
-                    onArchive={(caseId) => onArchive(caseId)}
-                    onTrash={onTrash}
                     scope="active"
-                />
-            ) : null}
-
-            {scope === 'active' && completedCases.length > 0 ? (
-                <DashboardSection
-                    title="منجزة ومكتسبة الدرجة القطعية"
-                    subtitle="مكتمل"
-                    icon={CheckCircle2}
-                    variant="completed"
-                    count={completedCases.length}
-                    isExpanded={isCompletedExpanded}
-                    onToggle={onToggleCompleted}
-                    cases={completedCases}
-                    viewMode={viewMode}
-                    onQuickAction={onQuickAction}
-                    onCaseClick={onCaseClick}
-                    onArchive={(caseId) => onArchive(caseId)}
-                    onTrash={onTrash}
-                    scope="active"
+                    {...cardHandlers}
                 />
             ) : null}
 
             {scope === 'archive' && archivedCases.length > 0 ? (
-                <DashboardSection
-                    title="الأرشيف"
-                    subtitle="مؤرشف"
-                    icon={FileArchive}
-                    variant="neutral"
-                    count={archivedCases.length}
-                    isExpanded={true}
-                    onToggle={() => undefined}
-                    cases={archivedCases}
-                    viewMode={viewMode}
-                    onQuickAction={onQuickAction}
-                    onCaseClick={onCaseClick}
-                    onUnarchive={onUnarchive}
-                    onTrash={onTrash}
-                    scope="archive"
-                    hideHeader
-                />
+                <div className="mb-3">
+                    <UrgentCardsGrid cases={archivedCases} scope="archive" {...cardHandlers} />
+                </div>
             ) : null}
 
             {scope === 'trash' && trashedCases.length > 0 ? (
-                <DashboardSection
-                    title="سلة المهملات"
-                    subtitle="محذوف"
-                    icon={Trash2}
-                    variant="trash"
-                    count={trashedCases.length}
-                    isExpanded={true}
-                    onToggle={() => undefined}
-                    cases={trashedCases}
-                    viewMode={viewMode}
-                    onQuickAction={onQuickAction}
-                    onCaseClick={onCaseClick}
-                    onRestore={onRestore}
-                    onPermanentDelete={onPermanentDelete}
-                    scope="trash"
-                    hideHeader
+                <div className="mb-3">
+                    <UrgentCardsGrid cases={trashedCases} scope="trash" {...cardHandlers} />
+                </div>
+            ) : null}
+
+            {!storageReady ? (
+                <div className="text-center py-6" aria-busy="true" data-testid="urgent-dashboard-hydrating">
+                    <p className="text-white/45 text-sm">جاري التحميل...</p>
+                </div>
+            ) : null}
+
+            {storageReady && scope === 'active' && criticalCases.length === 0 && pendingCases.length === 0 ? (
+                <UrgentEmptyState
+                    message={
+                        searchQuery
+                            ? 'لم يتم العثور على نتائج للبحث'
+                            : 'لا توجد مواعيد حرجة أو طلبات مستعجلة حالياً'
+                    }
                 />
             ) : null}
 
-            {scope === 'active' &&
-            criticalCases.length === 0 &&
-            pendingCases.length === 0 &&
-            completedCases.length === 0 ? (
-                <div className="text-center py-20">
-                    <h3 className="text-white/60 font-bold text-lg">
-                        {searchQuery
-                            ? 'لم يتم العثور على نتائج للبحث'
-                            : 'لا توجد مواعيد حرجة أو طلبات مستعجلة حالياً'}
-                    </h3>
-                </div>
+            {storageReady && scope === 'archive' && archivedCases.length === 0 ? (
+                <UrgentEmptyState message="لا توجد ملفات مؤرشفة" />
             ) : null}
 
-            {scope === 'archive' && archivedCases.length === 0 ? (
-                <div className="text-center py-20">
-                    <h3 className="text-white/60 font-bold text-lg">لا توجد ملفات مؤرشفة</h3>
-                </div>
-            ) : null}
-
-            {scope === 'trash' && trashedCases.length === 0 ? (
-                <div className="text-center py-20">
-                    <h3 className="text-white/60 font-bold text-lg">سلة المهملات فارغة</h3>
-                </div>
+            {storageReady && scope === 'trash' && trashedCases.length === 0 ? (
+                <UrgentEmptyState message="سلة المهملات فارغة" />
             ) : null}
         </>
     );

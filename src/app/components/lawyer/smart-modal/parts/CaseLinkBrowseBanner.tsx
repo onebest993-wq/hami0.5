@@ -1,4 +1,4 @@
-import { ArrowRight } from '@/app/components/ui/lucideIcons';
+import { ArrowRight } from '@/app/components/ui/icons/ArrowRight';
 import { CaseLinkUnlinkButton } from './CaseLinkUnlinkButton';
 
 type CaseLinkBrowseBannerProps = {

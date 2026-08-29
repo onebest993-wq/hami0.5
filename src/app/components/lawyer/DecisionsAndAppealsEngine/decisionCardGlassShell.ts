@@ -9,7 +9,7 @@ export type DecisionCardEnforcementVisual =
 
 /** زجاج سائل هادئ — أساس البطاقة */
 export const DECISION_CARD_GLASS_SHELL =
-    'relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-slate-900/45 via-slate-900/35 to-slate-950/50 p-3 text-right shadow-[0_10px_40px_rgba(0,0,0,0.22)] backdrop-blur-2xl transition-all duration-300 hover:border-white/[0.12] hover:shadow-[0_12px_44px_rgba(0,0,0,0.28)]';
+    'relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0C1220]/90 p-3 text-right shadow-[0_6px_18px_rgba(0,0,0,0.2)] transition-colors duration-200 hover:border-white/[0.12]';
 
 const CARD_ACCENT: Record<DecisionCardEnforcementVisual, string> = {
     enforced:

@@ -1,4 +1,8 @@
-export { CALENDAR_UPDATED_EVENT, CALENDAR_SOURCE_PATCHED_EVENT } from '@/app/services/calendarBridge.types';
+export {
+    CALENDAR_UPDATED_EVENT,
+    CALENDAR_SOURCE_PATCHED_EVENT,
+    CALENDAR_BACKGROUND_SYNC_FAILED_EVENT,
+} from '@/app/services/calendarBridge.types';
 export type { CalendarBridgePayload, CalendarSourceModule } from '@/app/services/calendarBridge.types';
 export * from './core';
 export * from './syncEngine';

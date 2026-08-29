@@ -19,11 +19,20 @@ vi.mock('@/app/services/forum/forumPostsWarmCache', () => ({
     warmForumPostsCache: (...args: unknown[]) => warmForumPostsCache(...args),
 }));
 
-vi.mock('@/app/runtime/devicePerformanceTier', () => ({
-    isLitePerformanceActive: vi.fn(() => false),
+vi.mock('@/app/services/auth/lawyerAccountStatus', () => ({
+    canUseNetworkFeatures: () => true,
 }));
 
-vi.mock('@/app/services/settings/settingsRuntime', () => ({
+vi.mock('@/app/utils/liveAuthUserId', () => ({
+    getLiveAuthUserId: () => 'lawyer-1',
+}));
+
+vi.mock('@/app/runtime/devicePerformanceTier', () => ({
+    isLitePerformanceActive: vi.fn(() => false),
+    isNativeShellStampedOnDom: vi.fn(() => false),
+}));
+
+vi.mock('@/app/services/settings/settingsSnapshot', () => ({
     getLawyerSettingsSnapshot: vi.fn(() => ({
         security: { localOnlyMode: false },
         performance: { prefetchScreens: true, litePerformance: false },
@@ -70,7 +79,7 @@ describe('communityBootHydrator', () => {
     });
 
     it('hydrateCommunityShellForInstantOpen(false) يتخطى التحميل عند تعطيل prefetch', async () => {
-        const { getLawyerSettingsSnapshot } = await import('@/app/services/settings/settingsRuntime');
+        const { getLawyerSettingsSnapshot } = await import('@/app/services/settings/settingsSnapshot');
         vi.mocked(getLawyerSettingsSnapshot).mockReturnValue({
             security: { localOnlyMode: true },
             performance: { prefetchScreens: false, litePerformance: false },

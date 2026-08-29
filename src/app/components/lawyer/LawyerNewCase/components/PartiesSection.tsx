@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus } from '@/app/components/ui/lucideIcons';
+import { Plus } from '@/app/components/ui/icons/Plus';
 import { PartyCard } from './PartyCard';
 import type { Party } from '../types';
 import { NC_GLASS_CARD } from '../newCaseGlassTheme';

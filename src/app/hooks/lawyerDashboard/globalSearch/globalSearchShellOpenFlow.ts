@@ -1,10 +1,8 @@
-import { flushSync } from 'react-dom';
 import type { MutableRefObject } from 'react';
 
 import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
 import { persistGlobalSearchSessionOpen } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
-import { revealGlobalSearchWarmShell } from '@/app/runtime/globalSearchInstantPaint';
-import { snapGlobalSearchShellOpen } from '@/app/services/search/globalSearchShellSnap';
+import { paintGlobalSearchInstantChrome } from '@/app/runtime/globalSearchInstantPaint';
 import { takeGlobalSearchDraftQuery } from '@/app/runtime/globalSearchDraftQuery';
 import {
     isGlobalSearchOverlayModuleResolved,
@@ -45,16 +43,17 @@ export function commitGlobalSearchShellOpen({
     const resolvedSeed =
         (typeof querySeed === 'string' && querySeed.trim()) || takeGlobalSearchDraftQuery() || '';
 
-    /* علم html + ستارة فورية قبل commit — بلا فجوة خلفية عارية */
-    snapGlobalSearchShellOpen();
+    showGlobalSearchRef.current = true;
 
-    flushSync(() => {
-        setSearchHostMounted(true);
-        setGlobalSearchInitialQuery(resolvedSeed);
-        setShowGlobalSearch(true);
-    });
+    /*
+     * طلاء DOM أولاً. بلا flushSync: كان يرمي شجرة الحقل دفعة فوق الستارة
+     * ويُسابق IME على أندرويد. التركيز يبقى useGlobalSearchFocusArm (ويب فقط).
+     */
+    paintGlobalSearchInstantChrome();
 
-    revealGlobalSearchWarmShell();
+    setSearchHostMounted(true);
+    setGlobalSearchInitialQuery(resolvedSeed);
+    setShowGlobalSearch(true);
     persistGlobalSearchSessionOpen(true);
 
     if (isGlobalSearchOverlayModuleResolved()) {

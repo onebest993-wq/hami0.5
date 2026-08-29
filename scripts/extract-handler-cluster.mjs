@@ -3,12 +3,16 @@ import fs from 'fs';
 const corePath = 'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts';
 const outPath =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerCluster.ts';
+if (!fs.existsSync(outPath)) {
+    console.log('[spent] useExecutionDashboardCoreHandlerCluster.ts — skip');
+    process.exit(0);
+}
 const keysPath = 'scripts/handler-cluster-ctx-keys.json';
 
 const core = fs.readFileSync(corePath, 'utf8');
 const lines = core.split('\n');
 
-const startIdx = lines.findIndex((l) => l.includes('executionCopilotDecisions,')) - 1;
+const startIdx = lines.findIndex((l) => l.includes('executorDecisions,')) - 1;
 const endIdx = lines.findIndex((l) => l.includes('const specificDeliveryConvertedAmount ='));
 const body = lines.slice(startIdx, endIdx).join('\n');
 
@@ -16,7 +20,7 @@ const ctxKeys = JSON.parse(fs.readFileSync(keysPath, 'utf8'));
 
 const returnKeys = [
     'firstActiveAppealDecisionId',
-    'executionCopilotDecisions',
+    'executorDecisions',
     'removeJudicialCustodianEntry',
     'pushTimelineEventBinding',
     'pushTimelineEvent',
@@ -101,7 +105,7 @@ import { useExecutionDashboardNotesTasksHandlers } from './useExecutionDashboard
 import { useExecutionDashboardAppointmentHandlers } from './useExecutionDashboardAppointmentHandlers';
 import { useExecutionDashboardDebtorEmploymentHandlers } from './useExecutionDashboardDebtorEmploymentHandlers';
 import { useExecutionDashboardSupabaseTimelineHydrate } from './useExecutionDashboardRuntimeSyncEffects';
-import { useExecutionAICopilot } from '../useExecutionAICopilot';
+import { useExecutionDecisionAppealSnapshot } from '../useExecutionDecisionAppealSnapshot';
 import {
     useExecutionDossierLifecycleActionsOrchestrator,
 } from '../../orchestrators';

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C Slice 21 — تجميع rest bundles لحقائب chunk scope */
 import { FollowupModalContext } from '../../followupModalContext';
 import {

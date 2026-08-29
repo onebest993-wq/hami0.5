@@ -2,6 +2,12 @@ import type {
     DeferredFeatureBag,
     DeferredPendingOp,
 } from '@/app/components/lawyer/dashboard/LawyerDashboardDeferredFeatureSurfaces.types';
+import { snapTransactionsShellOpen } from '@/app/services/transactions/transactionsShellSnap';
+import {
+    snapFieldTasksShellOpen,
+    snapTasksManagerShellOpen,
+} from '@/app/services/fieldTasks/fieldTasksShellSnap';
+import { snapGlobalSearchShellOpen } from '@/app/services/search/globalSearchShellSnap';
 
 const noop = () => undefined;
 
@@ -11,7 +17,6 @@ export function createDeferredFeatureStubs(
 ): DeferredFeatureBag {
     const transactions = {
         showTransactions: false,
-        transactionsHostMounted: false,
         setShowTransactions: noop as DeferredFeatureBag['transactions']['setShowTransactions'],
         closeTransactionsHub: noop,
         transactionsSessionKey: 0,
@@ -19,20 +24,11 @@ export function createDeferredFeatureStubs(
         setTransactionsFocusId: noop as DeferredFeatureBag['transactions']['setTransactionsFocusId'],
         primeTransactionsHubMount: () => requestArm('transactions'),
         resetTransactionsShell: noop,
-        openTransactionsHub: (_focusId?: string) => requestArm('transactions'),
+        openTransactionsHub: (_focusId?: string) => {
+            snapTransactionsShellOpen();
+            requestArm('transactions');
+        },
     } satisfies DeferredFeatureBag['transactions'];
-
-    const profile = {
-        profileTabSessionKey: 0,
-        profileOpenEpoch: 0,
-        profileHostMounted: false,
-        profileShellReady: false,
-        profileShellWarming: false,
-        primeProfileTabMount: () => requestArm('profile'),
-        resetProfileTabShell: noop,
-        openProfileTab: () => requestArm('profile'),
-        closeProfileTab: noop,
-    } satisfies DeferredFeatureBag['profile'];
 
     const fieldTasks = {
         fieldTasksSheetSessionKey: 0,
@@ -44,8 +40,14 @@ export function createDeferredFeatureStubs(
         tasksManagerSessionKey: 0,
         primeFieldTasksShellMount: () => requestArm('fieldTasks'),
         resetFieldTasksShell: noop,
-        openFieldTasksSheet: () => requestArm('fieldTasks'),
-        openTasksManager: () => requestArm('tasksManager'),
+        openFieldTasksSheet: () => {
+            snapFieldTasksShellOpen();
+            requestArm('fieldTasks');
+        },
+        openTasksManager: () => {
+            snapTasksManagerShellOpen();
+            requestArm('tasksManager');
+        },
         switchToTasksManager: noop,
         closeFieldTasksSheet: noop,
         closeTasksManager: noop,
@@ -64,7 +66,10 @@ export function createDeferredFeatureStubs(
         setSearchIndexVersion: noop as DeferredFeatureBag['globalSearch']['setSearchIndexVersion'],
         bumpSearchIndex: noop,
         resetGlobalSearchShell: noop,
-        openGlobalSearch: (_seed = '') => requestArm('globalSearch'),
+        openGlobalSearch: (_seed = '') => {
+            snapGlobalSearchShellOpen();
+            requestArm('globalSearch');
+        },
         closeGlobalSearch: noop,
     } satisfies DeferredFeatureBag['globalSearch'];
 
@@ -75,7 +80,6 @@ export function createDeferredFeatureStubs(
 
     return {
         transactions,
-        profile,
         fieldTasks,
         globalSearch,
         globalSearchNav,
@@ -85,8 +89,23 @@ export function createDeferredFeatureStubs(
 export function runDeferredPendingOp(bag: DeferredFeatureBag, op: DeferredPendingOp): void {
     if (!op) return;
     if (op === 'transactions') bag.transactions.openTransactionsHub();
-    else if (op === 'profile') bag.profile.openProfileTab();
     else if (op === 'fieldTasks') bag.fieldTasks.openFieldTasksSheet();
     else if (op === 'tasksManager') bag.fieldTasks.openTasksManager();
     else if (op === 'globalSearch') bag.globalSearch.openGlobalSearch();
+}
+
+export function deferredHandoffId(op: Exclude<DeferredPendingOp, null>): string {
+    if (op === 'fieldTasks') return 'field-tasks';
+    if (op === 'tasksManager') return 'tasks-manager';
+    if (op === 'globalSearch') return 'global-search';
+    return op;
+}
+
+export function isDeferredPendingOpSatisfied(bag: DeferredFeatureBag, op: DeferredPendingOp): boolean {
+    if (!op) return true;
+    if (op === 'transactions') return bag.transactions.showTransactions;
+    if (op === 'fieldTasks') return bag.fieldTasks.fieldTasksSheetOpen;
+    if (op === 'tasksManager') return bag.fieldTasks.showTasksManager;
+    if (op === 'globalSearch') return bag.globalSearch.showGlobalSearch;
+    return false;
 }

@@ -44,8 +44,6 @@ export function buildSmartFileModalLayoutFlags(flags: ModalFlags): SmartFileLayo
         setShowInterlocutoryModal: flags.setShowInterlocutoryModal,
         showObjectionRegistrationModal: flags.showObjectionRegistrationModal,
         setShowObjectionRegistrationModal: flags.setShowObjectionRegistrationModal,
-        showObjectionJudgmentModal: flags.showObjectionJudgmentModal,
-        setShowObjectionJudgmentModal: flags.setShowObjectionJudgmentModal,
         showAbsentJudgmentNotificationModal: flags.showAbsentJudgmentNotificationModal,
         setShowAbsentJudgmentNotificationModal: flags.setShowAbsentJudgmentNotificationModal,
         showOpponentAbsentObjectionModal: flags.showOpponentAbsentObjectionModal,

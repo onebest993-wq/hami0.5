@@ -10,35 +10,35 @@ import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequest
 
 export const COMMUNICATION_KEYWORD = 'إرسال كتاب / مخاطبة جهة';
 
-export function isCommunicationDecision(decision: any): boolean {
+export function isCommunicationDecision(decision: Record<string, unknown>): boolean {
     const t = String(decision?.title || '');
     return t.includes(COMMUNICATION_KEYWORD) || /مخاطبة جهة/i.test(t);
 }
 
 /** المخاطبات تُسجَّل في السجل — لا تمرّ بموافقة/رفض المنفذ داخل محضر المتابعة */
-export function isCommunicationJournalOnlyWorkflow(decision: unknown): boolean {
+function isCommunicationJournalOnlyWorkflow(decision: Record<string, unknown>): boolean {
     return isCommunicationDecision(decision);
 }
 
-export function hasResult(decision: any): boolean {
+function hasResult(decision: Record<string, unknown>): boolean {
     if (isNoResponseConfirmed(decision)) return false;
     return Boolean(decision?.deputationResultDetails) || decision?.deputationClosed === true;
 }
 
-export function isFollowupDismissed(decision: any): boolean {
+function isFollowupDismissed(decision: Record<string, unknown>): boolean {
     return decision?.deputationFollowupDismissed === true;
 }
 
-export function isNoResponseConfirmed(decision: any): boolean {
+export function isNoResponseConfirmed(decision: Record<string, unknown>): boolean {
     return decision?.deputationNoResponseConfirmed === true;
 }
 
-export function isCommunicationFollowupComplete(decision: any): boolean {
+function isCommunicationFollowupComplete(decision: Record<string, unknown>): boolean {
     return hasResult(decision) || isFollowupDismissed(decision);
 }
 
 export function isAwaitingCommunicationResult(
-    decision: any,
+    decision: Record<string, unknown>,
     decisionRows: Record<string, unknown>[],
 ): boolean {
     if (!isCommunicationDecision(decision)) return false;
@@ -48,7 +48,7 @@ export function isAwaitingCommunicationResult(
     return true;
 }
 
-export type CommunicationEventTrailItem = {
+type CommunicationEventTrailItem = {
     date: string;
     label: string;
     detail?: string;
@@ -90,7 +90,7 @@ export function buildNoResponseConfirmationDetails(input: {
     return `${base}\nتاريخ كتاب التأكيد: ${conf}`;
 }
 
-export function extractLetterBodyFromDecision(decision: unknown): string {
+function extractLetterBodyFromDecision(decision: unknown): string {
     const rawBody = String((decision as { body?: string })?.body || '').trim();
     return rawBody.replace(/^بتاريخ\s+[\d-]+:\s*/i, '').trim() || rawBody;
 }
@@ -189,7 +189,7 @@ function buildStateEventTrail(decision: Record<string, unknown>): CommunicationE
     return trail;
 }
 
-export function buildCommunicationEventTrail(
+function buildCommunicationEventTrail(
     decision: unknown,
     timelineEvents?: TimelineEventLike[],
 ): CommunicationEventTrailItem[] {
@@ -208,7 +208,7 @@ export function buildCommunicationEventTrail(
 }
 
 export function buildCommunicationDisplayContext(
-    decision: any,
+    decision: Record<string, unknown>,
     decisionRows: Record<string, unknown>[],
     timelineEvents?: TimelineEventLike[],
 ): CommunicationDisplayContext {
@@ -330,8 +330,3 @@ export const STATUS_TONE_CLASS: Record<CommunicationDisplayContext['statusTone']
     neutral: 'border-slate-500/35 bg-slate-500/10 text-slate-200',
     muted: 'border-slate-600/35 bg-slate-800/50 text-slate-400',
 };
-
-export function extractDirectorate(title: string): string {
-    if (!title.includes('— ')) return title;
-    return title.split('— ').slice(1).join('— ').trim() || title;
-}

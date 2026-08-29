@@ -1,4 +1,4 @@
-import type { FinanceRecord, Transaction, TransactionDocument, TransactionTask } from './types';
+import type { Transaction, TransactionDocument, TransactionTask } from './types';
 
 export interface TransactionsThreadingRepository {
   listTransactions(): Promise<Transaction[]>;
@@ -12,12 +12,6 @@ export interface TransactionsThreadingRepository {
   updateTask(id: string, updates: Partial<TransactionTask>): Promise<TransactionTask>;
   deleteTask(id: string): Promise<void>;
 
-  listFinanceRecords(transactionId: string): Promise<FinanceRecord[]>;
-  getFinanceRecord(id: string): Promise<FinanceRecord | undefined>;
-  saveFinanceRecord(record: FinanceRecord): Promise<void>;
-  updateFinanceRecord(id: string, updates: Partial<FinanceRecord>): Promise<FinanceRecord>;
-  deleteFinanceRecord(id: string): Promise<void>;
-
   listDocuments(transactionId: string): Promise<TransactionDocument[]>;
   getDocument(id: string): Promise<TransactionDocument | undefined>;
   saveDocument(doc: TransactionDocument): Promise<void>;
@@ -27,18 +21,16 @@ export interface TransactionsThreadingRepository {
 export class InMemoryTransactionsThreadingRepository implements TransactionsThreadingRepository {
   private transactions: Transaction[] = [];
   private tasks: TransactionTask[] = [];
-  private financeRecords: FinanceRecord[] = [];
   private documents: TransactionDocument[] = [];
 
   constructor(seed?: {
     transactions?: Transaction[];
     tasks?: TransactionTask[];
-    financeRecords?: FinanceRecord[];
+    financeRecords?: unknown[];
     documents?: TransactionDocument[];
   }) {
     if (seed?.transactions) this.transactions = seed.transactions.map((t) => ({ ...t }));
     if (seed?.tasks) this.tasks = seed.tasks.map((t) => ({ ...t }));
-    if (seed?.financeRecords) this.financeRecords = seed.financeRecords.map((r) => ({ ...r }));
     if (seed?.documents) this.documents = seed.documents.map((d) => ({ ...d }));
   }
 
@@ -46,7 +38,7 @@ export class InMemoryTransactionsThreadingRepository implements TransactionsThre
     return {
       transactions: this.transactions.map((t) => ({ ...t })),
       tasks: this.tasks.map((t) => ({ ...t })),
-      financeRecords: this.financeRecords.map((r) => ({ ...r })),
+      financeRecords: [] as unknown[],
       documents: this.documents.map((d) => ({ ...d })),
     };
   }
@@ -54,12 +46,11 @@ export class InMemoryTransactionsThreadingRepository implements TransactionsThre
   replace(seed: {
     transactions?: Transaction[];
     tasks?: TransactionTask[];
-    financeRecords?: FinanceRecord[];
+    financeRecords?: unknown[];
     documents?: TransactionDocument[];
   }) {
     this.transactions = (seed.transactions ?? []).map((t) => ({ ...t }));
     this.tasks = (seed.tasks ?? []).map((t) => ({ ...t }));
-    this.financeRecords = (seed.financeRecords ?? []).map((r) => ({ ...r }));
     this.documents = (seed.documents ?? []).map((d) => ({ ...d }));
   }
 
@@ -75,13 +66,13 @@ export class InMemoryTransactionsThreadingRepository implements TransactionsThre
   async saveTransaction(transaction: Transaction): Promise<void> {
     const exists = this.transactions.some((t) => t.id === transaction.id);
     if (exists) return;
-    this.transactions = [transaction, ...this.transactions].map((t) => ({ ...t }));
+    this.transactions = [{ ...transaction, agreedFees: 0 }, ...this.transactions].map((t) => ({ ...t }));
   }
 
   async updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction> {
     const idx = this.transactions.findIndex((t) => t.id === id);
     if (idx === -1) throw new Error('Transaction not found');
-    const next = { ...this.transactions[idx], ...updates };
+    const next = { ...this.transactions[idx], ...updates, agreedFees: 0 };
     this.transactions = this.transactions.map((t, i) => (i === idx ? next : t));
     return { ...next };
   }
@@ -111,33 +102,6 @@ export class InMemoryTransactionsThreadingRepository implements TransactionsThre
 
   async deleteTask(id: string): Promise<void> {
     this.tasks = this.tasks.filter((t) => t.id !== id);
-  }
-
-  async listFinanceRecords(transactionId: string): Promise<FinanceRecord[]> {
-    return this.financeRecords.filter((r) => r.transactionId === transactionId).map((r) => ({ ...r }));
-  }
-
-  async getFinanceRecord(id: string): Promise<FinanceRecord | undefined> {
-    const r = this.financeRecords.find((x) => x.id === id);
-    return r ? { ...r } : undefined;
-  }
-
-  async saveFinanceRecord(record: FinanceRecord): Promise<void> {
-    const exists = this.financeRecords.some((r) => r.id === record.id);
-    if (exists) return;
-    this.financeRecords = [...this.financeRecords, record].map((r) => ({ ...r }));
-  }
-
-  async updateFinanceRecord(id: string, updates: Partial<FinanceRecord>): Promise<FinanceRecord> {
-    const idx = this.financeRecords.findIndex((r) => r.id === id);
-    if (idx === -1) throw new Error('Finance record not found');
-    const next = { ...this.financeRecords[idx], ...updates };
-    this.financeRecords = this.financeRecords.map((r, i) => (i === idx ? next : r));
-    return { ...next };
-  }
-
-  async deleteFinanceRecord(id: string): Promise<void> {
-    this.financeRecords = this.financeRecords.filter((r) => r.id !== id);
   }
 
   async listDocuments(transactionId: string): Promise<TransactionDocument[]> {

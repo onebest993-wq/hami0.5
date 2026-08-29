@@ -1,10 +1,8 @@
 import { getOrCreateDeviceId } from '@/app/security/deviceId';
 import { getBffCryptoWrapCredential } from '@/app/utils/bffCryptoSession';
+import { resolveLiveAuthUserIdForStorage } from '@/app/utils/liveAuthUserId';
 
 const __DEV__ = import.meta.env.DEV;
-const _log = (...a: unknown[]) => {
-  if (__DEV__) console.warn(...a);
-};
 const _warn = (...a: unknown[]) => {
   if (__DEV__) console.warn(...a);
 };
@@ -20,6 +18,16 @@ const CRYPTO_DB_NAME = 'hami-crypto-keystore';
 const CRYPTO_DB_VERSION = 1;
 const CRYPTO_KEY_STORE = 'crypto_keys';
 const MASTER_KEY_RECORD_ID = 'master-key-v3';
+
+/**
+ * PBKDF2 لـ AES-KW حول مفتاح عشوائي (ليس تجزئة كلمة مرور مستخدم).
+ * الإرث: 600k. اللفّ الجديد: 310k — يُخزَّن `iterations` مع اللفّة لفكّ مزدوج.
+ */
+export const WRAP_KDF_ITERATIONS_LEGACY = 600_000;
+export const WRAP_KDF_ITERATIONS = 310_000;
+
+/** كاش جلسة لـ deriveWrappingKey — يمنع تكرار PBKDF2 لنفس الاعتمادية */
+const wrappingKeyCache = new Map<string, CryptoKey>();
 
 async function getWrapCredential(): Promise<string | null> {
   try {
@@ -40,7 +48,14 @@ function normalizeExplicitCredential(credential: string | undefined): string | n
   return normalized || null;
 }
 
-async function deriveWrappingKey(credential: string): Promise<CryptoKey> {
+async function deriveWrappingKey(
+  credential: string,
+  iterations: number = WRAP_KDF_ITERATIONS,
+): Promise<CryptoKey> {
+  const cacheKey = `${iterations}\0${credential}`;
+  const cached = wrappingKeyCache.get(cacheKey);
+  if (cached) return cached;
+
   const wrapInput = credential.startsWith('bff:')
     ? credential
     : `hami-crypto-wrap:${credential}`;
@@ -51,11 +66,11 @@ async function deriveWrappingKey(credential: string): Promise<CryptoKey> {
     false,
     ['deriveKey']
   );
-  return crypto.subtle.deriveKey(
+  const key = await crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
       salt: new TextEncoder().encode(KEY_SALT),
-      iterations: 600000,
+      iterations,
       hash: 'SHA-256',
     },
     keyMaterial,
@@ -63,16 +78,20 @@ async function deriveWrappingKey(credential: string): Promise<CryptoKey> {
     false,
     ['wrapKey', 'unwrapKey']
   );
+  wrappingKeyCache.set(cacheKey, key);
+  return key;
 }
 
-function toBase64Url(data: ArrayBuffer): string {
-  const bytes = new Uint8Array(data);
-  let binary = '';
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+function resolveStoredWrapIterations(parsed: { iterations?: unknown; v?: unknown }): number {
+  if (
+    typeof parsed.iterations === 'number' &&
+    Number.isSafeInteger(parsed.iterations) &&
+    parsed.iterations >= 100_000 &&
+    parsed.iterations <= 2_000_000
+  ) {
+    return parsed.iterations;
   }
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  return WRAP_KDF_ITERATIONS_LEGACY;
 }
 
 function fromBase64Url(data: string): ArrayBuffer {
@@ -89,6 +108,8 @@ export class CryptoService {
   private static masterKey: CryptoKey | null = null;
   private static isInitialized = false;
   private static sessionWrapCredential: string | null = null;
+  /** معرّف المستخدم الذي رُبط به المفتاح في الذاكرة — يمنع فك تشفير حساب آخر */
+  private static boundStorageUserId: string | null | undefined = undefined;
 
   private static openCryptoDatabase(): Promise<IDBDatabase | null> {
     if (typeof indexedDB === 'undefined') return Promise.resolve(null);
@@ -106,13 +127,18 @@ export class CryptoService {
     });
   }
 
+  private static resolveMasterKeyRecordId(): string {
+    const uid = String(this.boundStorageUserId ?? '').trim();
+    return uid ? `${MASTER_KEY_RECORD_ID}:u:${uid}` : MASTER_KEY_RECORD_ID;
+  }
+
   private static async tryRestoreKeyFromPersistentStore(): Promise<boolean> {
     const db = await this.openCryptoDatabase();
     if (!db) return false;
     return new Promise((resolve) => {
       try {
         const tx = db.transaction(CRYPTO_KEY_STORE, 'readonly');
-        const req = tx.objectStore(CRYPTO_KEY_STORE).get(MASTER_KEY_RECORD_ID);
+        const req = tx.objectStore(CRYPTO_KEY_STORE).get(this.resolveMasterKeyRecordId());
         req.onsuccess = () => {
           const record = req.result as { key?: unknown } | undefined;
           if (record?.key instanceof CryptoKey) {
@@ -142,7 +168,7 @@ export class CryptoService {
       try {
         const tx = db.transaction(CRYPTO_KEY_STORE, 'readwrite');
         tx.objectStore(CRYPTO_KEY_STORE).put({
-          id: MASTER_KEY_RECORD_ID,
+          id: this.resolveMasterKeyRecordId(),
           key: this.masterKey,
           v: 3,
         });
@@ -165,11 +191,6 @@ export class CryptoService {
     });
   }
 
-  static setMasterKey(key: CryptoKey): void {
-    this.masterKey = key;
-    this.isInitialized = true;
-  }
-
   static async generateMasterKey(): Promise<CryptoKey> {
     const key = await crypto.subtle.generateKey(
       { name: 'AES-GCM', length: 256 },
@@ -181,14 +202,124 @@ export class CryptoService {
     return key;
   }
 
+  private static async deleteMasterKeyRecord(recordId: string): Promise<void> {
+    const db = await this.openCryptoDatabase();
+    if (!db) return;
+    await new Promise<void>((resolve) => {
+      try {
+        const tx = db.transaction(CRYPTO_KEY_STORE, 'readwrite');
+        tx.objectStore(CRYPTO_KEY_STORE).delete(recordId);
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onerror = () => {
+          db.close();
+          resolve();
+        };
+        tx.onabort = () => {
+          db.close();
+          resolve();
+        };
+      } catch {
+        db.close();
+        resolve();
+      }
+    });
+  }
+
+  private static readLegacyKeyClaimedBy(): string {
+    try {
+      return String(localStorage.getItem('hami-crypto-legacy-key-claimed-by') ?? '').trim();
+    } catch {
+      return '';
+    }
+  }
+
+  private static writeLegacyKeyClaimedBy(uid: string): void {
+    try {
+      localStorage.setItem('hami-crypto-legacy-key-claimed-by', uid);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private static async tryClaimLegacySharedMasterKey(): Promise<boolean> {
+    const uid = String(this.boundStorageUserId ?? '').trim();
+    if (!uid) return false;
+    const claimedBy = this.readLegacyKeyClaimedBy();
+    if (claimedBy && claimedBy !== uid) return false;
+
+    const db = await this.openCryptoDatabase();
+    if (!db) return false;
+    const restored = await new Promise<boolean>((resolve) => {
+      try {
+        const tx = db.transaction(CRYPTO_KEY_STORE, 'readonly');
+        const req = tx.objectStore(CRYPTO_KEY_STORE).get(MASTER_KEY_RECORD_ID);
+        req.onsuccess = () => {
+          const record = req.result as { key?: unknown } | undefined;
+          if (record?.key instanceof CryptoKey) {
+            this.masterKey = record.key;
+            this.isInitialized = true;
+            resolve(true);
+            return;
+          }
+          resolve(false);
+        };
+        req.onerror = () => resolve(false);
+        tx.oncomplete = () => db.close();
+        tx.onerror = () => db.close();
+        tx.onabort = () => db.close();
+      } catch {
+        db.close();
+        resolve(false);
+      }
+    });
+    if (restored) {
+      this.writeLegacyKeyClaimedBy(uid);
+    }
+    return restored;
+  }
+
+  static hasMasterKey(): boolean {
+    return Boolean(this.masterKey);
+  }
+
   static async initialize(userCredential?: string): Promise<void> {
-    if (this.isInitialized && this.masterKey) return;
+    const uid = resolveLiveAuthUserIdForStorage();
+    const incomingWrap =
+      normalizeExplicitCredential(userCredential) ?? getBffCryptoWrapCredential();
+    const wrapChanged = Boolean(incomingWrap) && incomingWrap !== this.sessionWrapCredential;
 
-    this.sessionWrapCredential = normalizeExplicitCredential(userCredential);
+    if (this.isInitialized && this.masterKey && this.boundStorageUserId === uid && !wrapChanged) {
+      return;
+    }
+    if (this.boundStorageUserId !== uid || wrapChanged) {
+      this.masterKey = null;
+      this.isInitialized = false;
+    }
+    this.boundStorageUserId = uid;
+    this.sessionWrapCredential = incomingWrap;
 
+    /*
+     * IDB أولاً — مفتاح AES غير قابل للاستخراج بلا PBKDF2.
+     * سابقاً: مسار الجلسة (600k) يسبق حتى مع وجود المفتاح في IDB.
+     */
     const restoredPersistent = await this.tryRestoreKeyFromPersistentStore();
     if (restoredPersistent) return;
 
+    const restoredLegacyShared = await this.tryClaimLegacySharedMasterKey();
+    if (restoredLegacyShared) {
+      await this.persistKeyToPersistentStore();
+      // امسح السجل المشترك حتى لا يرثه حساب لاحق على نفس الجهاز
+      await this.deleteMasterKeyRecord(MASTER_KEY_RECORD_ID);
+      return;
+    }
+
+    /*
+     * لفّ جلسة قديم في sessionStorage — الكتابة متوقفة (المفتاح في IDB غير قابل
+     * للاستخراج). الإبقاء على القراءة يفكّ أجهزة ما زالت تحمل اللفّة القديمة.
+     */
     const restoredSession = await this.tryRestoreKeyFromSession();
     if (restoredSession) {
       await this.persistKeyToPersistentStore();
@@ -199,6 +330,46 @@ export class CryptoService {
     if (restoredLegacyDevice) {
       await this.persistKeyToPersistentStore();
       this.purgeLegacyDeviceWrappedKey();
+      return;
+    }
+
+    /*
+     * لا تسكّ مفتاحاً جديداً إن وُجدت إضابير مشفّرة على القرص — وإلا تُعمى البيانات
+     * ويظهر الأرشيف فارغاً بعد كل إعادة تحميل.
+     */
+    try {
+      const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
+      const {
+        LAWSUIT_SEGMENT_WARM_KEYS,
+        EXECUTION_FILES_STORAGE_KEY,
+        EXECUTION_FILES_STORAGE_KEYS_LEGACY,
+      } = await import('@/app/services/dossierPersistence/dossierStorageKeys');
+      const probeKeys = new Set<string>([
+        ...LAWSUIT_SEGMENT_WARM_KEYS,
+        EXECUTION_FILES_STORAGE_KEY,
+        ...EXECUTION_FILES_STORAGE_KEYS_LEGACY,
+      ]);
+      try {
+        const allKeys = await SecureStoreService.listKeys();
+        for (const key of allKeys) {
+          if (key.startsWith(`${EXECUTION_FILES_STORAGE_KEY}:`)) probeKeys.add(key);
+        }
+      } catch {
+        /* فهرس المفاتيح اختياري — المفاتيح الثابتة تكفي للمسار الشائع */
+      }
+      const hasCipher = await SecureStoreService.hasEncryptedCiphertextOnDisk([...probeKeys]);
+      if (hasCipher) {
+        _err(
+          '[CryptoService] Encrypted dossier data on disk but master key restore failed — refusing to mint a new key',
+        );
+        return;
+      }
+    } catch (error) {
+      /*
+       * فشل الفحص ≠ «لا بيانات». سكّ مفتاح جديد هنا يُعمي ciphertext قائماً.
+       * نرفض السكّ؛ المستخدم يُبقي بياناته حتى تُستعاد الجلسة/المفتاح.
+       */
+      _err('[CryptoService] Ciphertext probe failed — refusing to mint a new key:', error);
       return;
     }
 
@@ -218,6 +389,14 @@ export class CryptoService {
   private static async tryRestoreLegacyDeviceKey(): Promise<boolean> {
     if (typeof window === 'undefined') return false;
     try {
+      const uid = String(this.boundStorageUserId ?? '').trim();
+      const claimedBy = this.readLegacyKeyClaimedBy();
+      // مفتاح الجهاز مشترك — لا يُستعاد لحساب غير صاحب الادعاء
+      if (claimedBy && uid && claimedBy !== uid) {
+        this.purgeLegacyDeviceWrappedKey();
+        return false;
+      }
+
       const deviceId = getOrCreateDeviceId();
       if (!deviceId) return false;
 
@@ -237,7 +416,11 @@ export class CryptoService {
         return false;
       }
 
-      const wrappingKey = await deriveWrappingKey(`${DEVICE_WRAP_PREFIX}${deviceId}`);
+      /* إرث الجهاز دائماً 600k — لا نغيّر صيغة التخزين القديمة */
+      const wrappingKey = await deriveWrappingKey(
+        `${DEVICE_WRAP_PREFIX}${deviceId}`,
+        WRAP_KDF_ITERATIONS_LEGACY,
+      );
       const wrappedKeyBuffer = fromBase64Url(parsed.wrapped);
       const unwrapped = await crypto.subtle.unwrapKey(
         'raw',
@@ -251,6 +434,7 @@ export class CryptoService {
 
       this.masterKey = unwrapped;
       this.isInitialized = true;
+      if (uid) this.writeLegacyKeyClaimedBy(uid);
       return true;
     } catch (error) {
       _warn('[CryptoService] Legacy device key restore failed:', error);
@@ -267,9 +451,9 @@ export class CryptoService {
       const sessionData = sessionStorage.getItem(SESSION_KEY_STORAGE_KEY);
       if (!sessionData) return false;
 
-      let parsed: { wrapped: string };
+      let parsed: { wrapped?: string; iterations?: unknown; v?: unknown };
       try {
-        parsed = JSON.parse(sessionData);
+        parsed = JSON.parse(sessionData) as { wrapped?: string; iterations?: unknown; v?: unknown };
       } catch {
         sessionStorage.removeItem(SESSION_KEY_STORAGE_KEY);
         return false;
@@ -280,7 +464,10 @@ export class CryptoService {
         return false;
       }
 
-      const wrappingKey = await deriveWrappingKey(credential);
+      const wrappingKey = await deriveWrappingKey(
+        credential,
+        resolveStoredWrapIterations(parsed),
+      );
       const wrappedKeyBuffer = fromBase64Url(parsed.wrapped);
 
       const unwrapped = await crypto.subtle.unwrapKey(
@@ -300,30 +487,6 @@ export class CryptoService {
       _warn('[CryptoService] Session key restore failed, will generate a new key:', error);
       sessionStorage.removeItem(SESSION_KEY_STORAGE_KEY);
       return false;
-    }
-  }
-
-  private static async persistKeyToSession(): Promise<void> {
-    try {
-      if (!this.masterKey) return;
-      if (!this.masterKey.extractable) return;
-      const credential = this.sessionWrapCredential ?? (await getWrapCredential());
-      if (!credential) return;
-
-      const wrappingKey = await deriveWrappingKey(credential);
-      const wrapped = await crypto.subtle.wrapKey(
-        'raw',
-        this.masterKey,
-        wrappingKey,
-        { name: 'AES-KW' }
-      );
-
-      sessionStorage.setItem(SESSION_KEY_STORAGE_KEY, JSON.stringify({
-        wrapped: toBase64Url(wrapped),
-        v: 2,
-      }));
-    } catch (error) {
-      _warn('[CryptoService] Session key persist failed:', error);
     }
   }
 
@@ -374,6 +537,18 @@ export class CryptoService {
     return this.arrayBufferToHex(hashBuffer);
   }
 
+  /** يطابق SHA-256(encrypted_data) الذي يولّده generateDataSignature — رفض عبث الحمولة */
+  static async verifyDataSignature(data: string, expectedSignature: string): Promise<boolean> {
+    try {
+      const current = await this.generateDataSignature(data);
+      const expected = String(expectedSignature ?? '').trim().toLowerCase();
+      if (!/^[0-9a-f]{64}$/.test(current) || !/^[0-9a-f]{64}$/.test(expected)) return false;
+      return current === expected;
+    } catch {
+      return false;
+    }
+  }
+
   static async encrypt(plaintext: string): Promise<string> {
     return await this.encryptData(plaintext);
   }
@@ -382,130 +557,17 @@ export class CryptoService {
     return await this.decryptData(ciphertext);
   }
 
-  static async generateSignature(data: Record<string, unknown>): Promise<string> {
-    const cleanedEntries = Object.entries(data).filter(([, v]) => v !== undefined && v !== null && v !== '');
-    const criticalFields = cleanedEntries
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => `${k}:${typeof v === 'string' ? v : JSON.stringify(v)}`)
-      .join('|');
-    return await this.generateDataSignature(criticalFields);
-  }
-
-  static async verifySignature(
-    data: Record<string, unknown>,
-    expectedSignature: string
-  ): Promise<boolean> {
-    try {
-      const currentSignature = await this.generateSignature(data);
-      return currentSignature === expectedSignature;
-    } catch {
-      return false;
-    }
-  }
-
-  static async encryptObject(obj: Record<string, unknown>): Promise<{
-    encrypted: Record<string, unknown>;
-    signature: string;
-  }> {
-    const encrypted: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === 'string' && value.trim()) {
-        encrypted[key] = await this.encryptData(value);
-      } else {
-        encrypted[key] = value;
-      }
-    }
-    const signature = await this.generateSignature(obj);
-    return { encrypted, signature };
-  }
-
-  static async decryptObject(
-    encryptedObj: Record<string, unknown>,
-    expectedSignature?: string
-  ): Promise<{
-    decrypted: Record<string, unknown>;
-    isIntegrityValid: boolean;
-    needsReEncryption?: boolean;
-  }> {
-    if (!encryptedObj || typeof encryptedObj !== 'object') {
-      _warn('[CryptoService] Invalid input - expected object, got:', typeof encryptedObj);
-      return {
-        decrypted: {},
-        isIntegrityValid: false,
-        needsReEncryption: false
-      };
-    }
-
-    const decrypted: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(encryptedObj)) {
-      if (typeof value !== 'string') {
-        decrypted[key] = value;
-        continue;
-      }
-      const trimmed = value.trim();
-      if (!trimmed) {
-        decrypted[key] = value;
-        continue;
-      }
-      if (trimmed.includes(':')) {
-        try {
-          decrypted[key] = await this.decryptData(trimmed);
-        } catch (error) {
-          _warn('[CryptoService] Field decrypt failed:', key, error);
-          decrypted[key] = '[DECRYPT_FAILED]';
-        }
-        continue;
-      }
-      if (/^[A-Za-z0-9+/]+={0,2}$/.test(trimmed) && trimmed.length >= 24) {
-        try {
-          decrypted[key] = await this.decryptData(trimmed);
-        } catch {
-          _warn('[CryptoService] Field decrypt failed (base64 but not encrypted):', key);
-          decrypted[key] = value;
-        }
-        continue;
-      }
-      decrypted[key] = value;
-    }
-
-    let isIntegrityValid = true;
-    let needsReEncryption = false;
-
-    if (expectedSignature) {
-      isIntegrityValid = await this.verifySignature(decrypted, expectedSignature);
-      if (!isIntegrityValid) {
-        needsReEncryption = true;
-      }
-    }
-
-    return { decrypted, isIntegrityValid, needsReEncryption };
-  }
-
-  static async reEncryptObject(
-    oldEncryptedObj: Record<string, unknown>,
-    oldSignature: string
-  ): Promise<{
-    encrypted: Record<string, unknown>;
-    signature: string;
-  } | null> {
-    try {
-      const { decrypted } = await this.decryptObject(oldEncryptedObj, oldSignature);
-      return await this.encryptObject(decrypted);
-    } catch (error) {
-      _err('[CryptoService] Re-encryption failed:', error);
-      return null;
-    }
-  }
-
   static destroy(): void {
     try {
       sessionStorage.removeItem(SESSION_KEY_STORAGE_KEY);
     } catch {
       /* ignore */
     }
+    wrappingKeyCache.clear();
     this.masterKey = null;
     this.isInitialized = false;
     this.sessionWrapCredential = null;
+    this.boundStorageUserId = undefined;
   }
 
   private static arrayBufferToBase64(buffer: ArrayBuffer): string {

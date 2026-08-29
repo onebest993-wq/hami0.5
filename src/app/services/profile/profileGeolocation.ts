@@ -1,4 +1,3 @@
-import { SmartToast } from '@/app/components/ui/SmartToast';
 import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 
 export type GeolocationPickResult = {
@@ -112,25 +111,21 @@ export function requestCurrentLocationLabel(): Promise<GeolocationPickResult> {
     });
 }
 
+/** يختار موقعاً للملف — بدون toast (طبقة خدمة نقية؛ الواجهة تعلن الأخطاء) */
 export async function pickCurrentLocationForProfile(): Promise<string | null> {
-    try {
-        const picked = await requestCurrentLocationLabel();
-        /* لا toast هنا — المستدعي يتحقق من gen/القناة قبل الإعلان عن النجاح */
-        return picked.label;
-    } catch (err) {
-        if (err instanceof Error && err.message === 'unsupported') {
-            SmartToast.error('المتصفح لا يدعم تحديد الموقع — أدخل الإحداثيات أو العنوان يدوياً');
-            return null;
-        }
-        if (err instanceof Error && err.message === 'insecure') {
-            SmartToast.error('تحديد الموقع يتطلب اتصالاً آمناً (HTTPS)');
-            return null;
-        }
-        if (typeof err === 'object' && err !== null && 'code' in err) {
-            SmartToast.error(geolocationErrorMessage(Number((err as GeolocationPositionError).code)));
-            return null;
-        }
-        SmartToast.error('تعذر تحديد الموقع — تحقق من صلاحية الموقع أو أدخل العنوان يدوياً');
-        return null;
+    const picked = await requestCurrentLocationLabel();
+    return picked.label;
+}
+
+export function messageForGeolocationFailure(err: unknown): string {
+    if (err instanceof Error && err.message === 'unsupported') {
+        return 'المتصفح لا يدعم تحديد الموقع — أدخل الإحداثيات أو العنوان يدوياً';
     }
+    if (err instanceof Error && err.message === 'insecure') {
+        return 'تحديد الموقع يتطلب اتصالاً آمناً (HTTPS)';
+    }
+    if (typeof err === 'object' && err !== null && 'code' in err) {
+        return geolocationErrorMessage(Number((err as GeolocationPositionError).code));
+    }
+    return 'تعذر تحديد الموقع — تحقق من صلاحية الموقع أو أدخل العنوان يدوياً';
 }

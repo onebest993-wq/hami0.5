@@ -1,17 +1,47 @@
-import type { FileData, Party } from '@/app/components/lawyer/LawyerShared';
-import type { Party as FormParty } from '@/app/components/lawyer/LawyerNewCase/types';
-import type { IncidentalSpawnContext } from '@/app/components/lawyer/smart-modal/smartFile/incidentalCaseLinking';
+import type { FileData } from './lawsuitFileTypes';
+import type { Party } from '@/app/components/lawyer/lawyerShared/fileDataTypes';
+import { computeLawsuitStageOptions } from './lawsuitStageOptions';
 import { partitionPartiesBySide } from '@/app/components/lawyer/smart-modal/smartFile/partyRoleClassification';
-import { computeStageOptions } from '@/app/components/lawyer/LawyerNewCase/validation';
 
-export type IncidentalSpawnParentSnapshot = {
+/** طرف نموذج الإنشاء — حقول النواة فقط، بلا استيراد LawyerNewCase. */
+export type IncidentalSpawnFormParty = {
+    id: string;
+    name: string;
+    status: string;
+    isClient: boolean;
+    phone: string;
+    address: string;
+};
+
+export type IncidentalSpawnStageOverride = {
+    stageIndex: number;
+    stageName: string;
+    court: string;
+    judge: string;
+    docType: string;
+    retrialTargetStage?: string;
+    parties: Party[];
+};
+
+export type IncidentalSpawnContext = {
+    parentFileId: number;
+    parentCaseNo: string;
+    incidentalId: string;
+    type: 'joined' | 'counter';
+    details?: string;
+    stageOverride?: IncidentalSpawnStageOverride;
+    filingPartyId?: string;
+    filingPartyName?: string;
+};
+
+type IncidentalSpawnParentSnapshot = {
     court: string;
     judge: string;
     docType: string;
     stage: string;
     retrialTargetStage?: string;
-    plaintiffs: FormParty[];
-    defendants: FormParty[];
+    plaintiffs: IncidentalSpawnFormParty[];
+    defendants: IncidentalSpawnFormParty[];
 };
 
 export type IncidentalSpawnContextEnriched = IncidentalSpawnContext & {
@@ -35,13 +65,13 @@ export type IncidentalSpawnPrefill = {
         totalAgreedFees: string;
         retrialTargetStage: string;
     };
-    parties1: FormParty[];
-    parties2: FormParty[];
+    parties1: IncidentalSpawnFormParty[];
+    parties2: IncidentalSpawnFormParty[];
     stageOptions: string[];
     requiresFilingPartyPick: boolean;
     requiresOpposingPartyPick: boolean;
-    filingPartyCandidates: FormParty[];
-    opposingPartyCandidates: FormParty[];
+    filingPartyCandidates: IncidentalSpawnFormParty[];
+    opposingPartyCandidates: IncidentalSpawnFormParty[];
     filingPartySide: 'plaintiff' | 'defendant';
     headerBadge: { label: string; tone: 'joined' | 'counter' };
 };
@@ -60,12 +90,12 @@ export function isCounterClaimAllowedStage(stage: string): boolean {
     return COUNTER_ALLOWED_STAGE_MARKERS.some((marker) => s.includes(marker));
 }
 
-export type IncidentalSpawnConfirmPreview = {
+type IncidentalSpawnConfirmPreview = {
     court: string;
     judge: string;
     stage: string;
-    plaintiffs: FormParty[];
-    defendants: FormParty[];
+    plaintiffs: IncidentalSpawnFormParty[];
+    defendants: IncidentalSpawnFormParty[];
 };
 
 export function buildIncidentalSpawnConfirmPreview(
@@ -91,7 +121,7 @@ export function buildIncidentalSpawnConfirmPreview(
     };
 }
 
-export function resolveParentActiveStageSnapshot(
+function resolveParentActiveStageSnapshot(
     file: FileData,
     stageIndex?: number,
 ): {
@@ -124,7 +154,7 @@ export function resolveParentActiveStageSnapshot(
     };
 }
 
-function toFormParty(party: Party, index: number): FormParty {
+function toFormParty(party: Party, index: number): IncidentalSpawnFormParty {
     const id = String(party.id ?? `p_${index}`);
     return {
         id,
@@ -136,7 +166,7 @@ function toFormParty(party: Party, index: number): FormParty {
     };
 }
 
-function cloneFormParties(parties: FormParty[]): FormParty[] {
+function cloneFormParties(parties: IncidentalSpawnFormParty[]): IncidentalSpawnFormParty[] {
     return parties.map((p, idx) => ({
         ...p,
         id: `${p.id}_spawn_${idx}`,
@@ -189,21 +219,21 @@ export function enrichIncidentalSpawnContext(
     };
 }
 
-export function computeIncidentalSpawnStageOptions(
+function computeIncidentalSpawnStageOptions(
     court: string,
     spawnType: 'joined' | 'counter',
     parentStage: string,
 ): string[] {
     if (spawnType === 'joined') {
-        const base = computeStageOptions(court);
+        const base = computeLawsuitStageOptions(court);
         return parentStage && base.includes(parentStage) ? [parentStage] : base;
     }
-    const base = computeStageOptions(court).filter(isCounterClaimAllowedStage);
+    const base = computeLawsuitStageOptions(court).filter(isCounterClaimAllowedStage);
     return parentStage && base.includes(parentStage) ? [parentStage] : base;
 }
 
 function resolveSelectedId(
-    candidates: FormParty[],
+    candidates: IncidentalSpawnFormParty[],
     selectedId: string | null | undefined,
 ): string | null {
     if (candidates.length <= 1) return candidates[0]?.id ?? null;
@@ -211,7 +241,11 @@ function resolveSelectedId(
     return null;
 }
 
-function filterToSelected(list: FormParty[], selectedId: string | null, requiresPick: boolean): FormParty[] {
+function filterToSelected(
+    list: IncidentalSpawnFormParty[],
+    selectedId: string | null,
+    requiresPick: boolean,
+): IncidentalSpawnFormParty[] {
     if (!requiresPick || !selectedId) return list;
     const picked = list.filter((p) => p.id === selectedId);
     return picked.length > 0 ? picked : list;
@@ -227,8 +261,8 @@ export function buildIncidentalSpawnPrefill(
     const parentPlaintiffs = cloneFormParties(parent.plaintiffs);
     const parentDefendants = cloneFormParties(parent.defendants);
 
-    let filingPartyCandidates: FormParty[];
-    let opposingPartyCandidates: FormParty[];
+    let filingPartyCandidates: IncidentalSpawnFormParty[];
+    let opposingPartyCandidates: IncidentalSpawnFormParty[];
 
     if (type === 'joined') {
         filingPartyCandidates = parentPlaintiffs;
@@ -244,8 +278,8 @@ export function buildIncidentalSpawnPrefill(
     const resolvedFilingId = resolveSelectedId(filingPartyCandidates, selection.filingPartyId);
     const resolvedOpposingId = resolveSelectedId(opposingPartyCandidates, selection.opposingPartyId);
 
-    let parties1: FormParty[];
-    let parties2: FormParty[];
+    let parties1: IncidentalSpawnFormParty[];
+    let parties2: IncidentalSpawnFormParty[];
 
     if (type === 'joined') {
         parties1 = filterToSelected(parentPlaintiffs, resolvedFilingId, requiresFilingPartyPick);

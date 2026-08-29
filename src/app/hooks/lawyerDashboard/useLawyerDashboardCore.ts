@@ -2,8 +2,8 @@ import { createElement, lazy, Suspense, useMemo, useRef } from 'react';
 import { isSplashGuardFrozen } from '@/app/bootstrap/bootReveal';
 import { assembleLawyerDashboardReadyView } from '@/app/hooks/lawyerDashboard/assembleLawyerDashboardReadyView';
 import { buildLawyerDashboardTabStackMask } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardTabStackMask';
-import { useLawyerDashboardCoreOrchestration } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCoreOrchestration';
 import { patchLawyerDashboardHeaderOverlayOpen } from '@/app/hooks/lawyerDashboard/patchLawyerDashboardHeaderOverlayOpen';
+import type { useLawyerDashboardCoreOrchestration } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCoreOrchestration';
 import type {
     LawyerDashboardCoreViewModel,
     UseLawyerDashboardCoreParams,
@@ -34,6 +34,10 @@ function createLawyerBootShellGateNode() {
     );
 }
 
+export function LawyerDashboardBootShellGate() {
+    return createLawyerBootShellGateNode();
+}
+
 export function useLawyerDashboardCore({
     onLogout,
     onNavigateToCase,
@@ -42,14 +46,10 @@ export function useLawyerDashboardCore({
     pendingFieldTasksCount,
     quantumTasksFingerprint,
     backgroundRuntimeEnabled,
-}: UseLawyerDashboardCoreParams): LawyerDashboardCoreViewModel {
-    const orchestration = useLawyerDashboardCoreOrchestration({
-        authUser,
-        onNavigateToCase,
-        pendingFieldTasksCount,
-        quantumTasksFingerprint,
-        backgroundRuntimeEnabled,
-    });
+    orchestration,
+}: UseLawyerDashboardCoreParams & {
+    orchestration: ReturnType<typeof useLawyerDashboardCoreOrchestration>;
+}): LawyerDashboardCoreViewModel {
 
     /** يثبت هيكل اللوحة بعد أول ready — يمنع تفريغ الهيدر/الدوك لشعار الإقلاع عند وميض auth */
     const latchedReadyRef = useRef<ReadyViewModel | null>(null);

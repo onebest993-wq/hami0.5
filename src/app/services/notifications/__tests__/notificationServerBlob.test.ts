@@ -17,6 +17,7 @@ vi.mock('@/app/api/security/loadKvStoreAdmin', () => ({
 
 vi.mock('@/app/services/notifications/notificationSupabaseInbox', () => ({
     isShellNotificationSupabaseEnabled: () => false,
+    queryShellNotificationInbox: vi.fn(async () => ({ ok: false, rows: [] })),
     listShellNotificationsSupabase: vi.fn(async () => []),
     upsertShellNotificationsSupabase: vi.fn(async () => []),
     upsertShellNotificationSupabase: vi.fn(async () => null),

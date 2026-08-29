@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { isRealSignedIn } from '@/app/services/auth/shellAuth';
+import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
 import {
     GLOBAL_SEARCH_SHELL_FEATURE,
     openGlobalSearchFromShell,
@@ -14,17 +14,22 @@ import {
 } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import {
     concealGlobalSearchWarmShell,
+    GLOBAL_SEARCH_INSTANT_DISMISS_EVENT,
+    paintGlobalSearchInstantChrome,
     revealGlobalSearchWarmShell,
 } from '@/app/runtime/globalSearchInstantPaint';
-import { executeOverlaySnapClose } from '@/app/runtime/overlaySnapClose';
+import { executeGlobalSearchOverlayClose } from '@/app/runtime/overlaySnapClose';
 import { snapGlobalSearchShellClose } from '@/app/services/search/globalSearchShellSnap';
 import { clearGlobalSearchDraftQuery } from '@/app/runtime/globalSearchDraftQuery';
 import { commitGlobalSearchShellOpen } from '@/app/hooks/lawyerDashboard/globalSearch/globalSearchShellOpenFlow';
+import { beginGlobalSearchShellExit } from '@/app/hooks/lawyerDashboard/globalSearch/globalSearchShellExit';
 import {
     useGlobalSearchHostLifecycle,
     usePrimeGlobalSearchShellMount,
 } from '@/app/hooks/lawyerDashboard/globalSearch/useGlobalSearchHostLifecycle';
 import { useGlobalSearchKeyboardShortcut } from '@/app/hooks/lawyerDashboard/globalSearch/useGlobalSearchKeyboardShortcut';
+import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
+import { isViteE2eHooksEnabled } from '@/app/utils/viteE2eHooks';
 
 export type UseLawyerDashboardGlobalSearchParams = {
     userId: string | null;
@@ -36,30 +41,38 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
     const [searchHostMounted, setSearchHostMounted] = useState(() => initialSession.open);
     const showGlobalSearchRef = useRef(initialSession.open);
     const openInFlightRef = useRef(false);
+    const closingRef = useRef(false);
     showGlobalSearchRef.current = showGlobalSearch;
     const [globalSearchInitialQuery, setGlobalSearchInitialQuery] = useState('');
     const [globalSearchSessionKey, setGlobalSearchSessionKey] = useState(0);
     const [searchIndexVersion, setSearchIndexVersion] = useState(0);
 
     const closeGlobalSearch = useCallback(() => {
-        showGlobalSearchRef.current = false;
-        executeOverlaySnapClose({
-            conceal: () => {
-                concealGlobalSearchWarmShell();
-                snapGlobalSearchShellClose();
-            },
-            commit: () => {
-                setShowGlobalSearch(false);
-                setGlobalSearchInitialQuery('');
-                setGlobalSearchSessionKey((k) => k + 1);
-                persistGlobalSearchSessionOpen(false);
-                clearGlobalSearchDraftQuery();
-            },
+        if (closingRef.current) return;
+        closingRef.current = true;
+        openInFlightRef.current = false;
+        beginGlobalSearchShellExit(() => {
+            showGlobalSearchRef.current = false;
+            executeGlobalSearchOverlayClose({
+                conceal: () => {
+                    concealGlobalSearchWarmShell();
+                    snapGlobalSearchShellClose();
+                },
+                commit: () => {
+                    setShowGlobalSearch(false);
+                    setSearchHostMounted(false);
+                    setGlobalSearchInitialQuery('');
+                    setGlobalSearchSessionKey((k) => k + 1);
+                    persistGlobalSearchSessionOpen(false);
+                    clearGlobalSearchDraftQuery();
+                    closingRef.current = false;
+                },
+            });
         });
     }, []);
 
     useEffect(() => {
-        if (isRealSignedIn(userId)) return;
+        if (hasLocalAppSession(userId)) return;
         if (!showGlobalSearchRef.current && !initialSession.open && !searchHostMounted) return;
         closeGlobalSearch();
         setSearchHostMounted(false);
@@ -68,20 +81,23 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
     useGlobalSearchHostLifecycle({
         userId,
         initialSessionOpen: initialSession.open,
-        setSearchHostMounted,
     });
 
-    const primeGlobalSearchShellMount = usePrimeGlobalSearchShellMount(setSearchHostMounted);
+    const primeGlobalSearchShellMount = usePrimeGlobalSearchShellMount();
 
     const openGlobalSearch = useCallback(
         (seed = '') => {
             openGlobalSearchFromShell({
-                signedIn: isRealSignedIn(userId),
+                signedIn: hasLocalAppSession(userId),
                 seed,
-                onSignedOut: () =>
-                    SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${GLOBAL_SEARCH_SHELL_FEATURE}`),
+                onSignedOut: () => {
+                    concealGlobalSearchWarmShell();
+                    snapGlobalSearchShellClose();
+                    SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${GLOBAL_SEARCH_SHELL_FEATURE}`);
+                },
                 onOpen: (querySeed) => {
                     if (showGlobalSearchRef.current) {
+                        paintGlobalSearchInstantChrome();
                         revealGlobalSearchWarmShell();
                         return;
                     }
@@ -114,6 +130,7 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
     const resetGlobalSearchShell = useCallback(() => {
         setGlobalSearchSessionKey((k) => k + 1);
         setShowGlobalSearch(false);
+        setSearchHostMounted(false);
         setGlobalSearchInitialQuery('');
         persistGlobalSearchSessionOpen(false);
     }, []);
@@ -131,20 +148,61 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
     }, [closeGlobalSearch]);
 
     useEffect(() => {
-        if (!import.meta.env.DEV || typeof window === 'undefined') return;
+        if (typeof window === 'undefined') return undefined;
+        const onInstantDismiss = () => {
+            closeGlobalSearch();
+        };
+        window.addEventListener(GLOBAL_SEARCH_INSTANT_DISMISS_EVENT, onInstantDismiss);
+        return () => {
+            window.removeEventListener(GLOBAL_SEARCH_INSTANT_DISMISS_EVENT, onInstantDismiss);
+        };
+    }, [closeGlobalSearch]);
+
+    useEffect(() => {
+        if (!isViteE2eHooksEnabled() || typeof window === 'undefined') return;
         const w = window as Window & {
+            __hamiE2eForceCloseGlobalSearch?: () => void;
             __hamiE2eForceOpenGlobalSearch?: (seed?: string) => void;
             __hamiE2eGlobalSearchDebug?: () => { showGlobalSearch: boolean };
         };
-        w.__hamiE2eForceOpenGlobalSearch = (seed = '') => openGlobalSearch(seed);
+        w.__hamiE2eForceCloseGlobalSearch = () => {
+            openInFlightRef.current = false;
+            closeGlobalSearch();
+        };
+        w.__hamiE2eForceOpenGlobalSearch = (seed = '') => {
+            dismissTransientOverlays('global-search');
+            openInFlightRef.current = false;
+            if (showGlobalSearchRef.current) {
+                concealGlobalSearchWarmShell();
+                snapGlobalSearchShellClose();
+                showGlobalSearchRef.current = false;
+                setShowGlobalSearch(false);
+                persistGlobalSearchSessionOpen(false);
+                clearGlobalSearchDraftQuery();
+            }
+            commitGlobalSearchShellOpen({
+                querySeed: seed,
+                showGlobalSearchRef,
+                setSearchHostMounted,
+                setGlobalSearchInitialQuery,
+                setShowGlobalSearch,
+            });
+        };
         w.__hamiE2eGlobalSearchDebug = () => ({
             showGlobalSearch,
         });
         return () => {
+            delete w.__hamiE2eForceCloseGlobalSearch;
             delete w.__hamiE2eForceOpenGlobalSearch;
             delete w.__hamiE2eGlobalSearchDebug;
         };
-    }, [openGlobalSearch, showGlobalSearch]);
+    }, [
+        closeGlobalSearch,
+        setGlobalSearchInitialQuery,
+        setSearchHostMounted,
+        setShowGlobalSearch,
+        showGlobalSearch,
+    ]);
 
     return {
         showGlobalSearch,

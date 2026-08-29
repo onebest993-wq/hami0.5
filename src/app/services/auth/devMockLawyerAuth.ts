@@ -1,5 +1,10 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { createGuestLawyerSession } from '@/app/utils/guestLawyerSession';
+import {
+    createDevUnlockLawyerSession,
+    isExplicitDevUnlock,
+} from '@/app/services/auth/devUnlockSession';
+import { isExplicitLocalGuest } from '@/app/services/auth/localGuestSession';
 import { isShellAuthBypassed } from '@/app/services/auth/shellAuth';
 
 let cachedGuest: ReturnType<typeof createGuestLawyerSession> | null = null;
@@ -9,10 +14,11 @@ export function getDevMockLawyerSession(): ReturnType<typeof createGuestLawyerSe
     return cachedGuest;
 }
 
-/** مستخدم تجريبي ثابت عند غياب الجلسة (تطوير / VITE_SHELL_AUTH_OPEN) */
+/** مستخدم تجريبي ثابت عند غياب الجلسة (تطوير / VITE_SHELL_AUTH_OPEN / دخول صريح بدون تسجيل) */
 export function resolveDevMockLawyerUser(user: User | null | undefined): User | null {
     if (user?.id) return user;
-    if (!isShellAuthBypassed()) return null;
+    if (isExplicitDevUnlock()) return createDevUnlockLawyerSession().user;
+    if (!isShellAuthBypassed() && !isExplicitLocalGuest()) return null;
     return getDevMockLawyerSession().user;
 }
 

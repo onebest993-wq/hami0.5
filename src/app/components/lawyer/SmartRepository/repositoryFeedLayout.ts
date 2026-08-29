@@ -2,77 +2,34 @@ import type { RepositoryFeedItem } from '@/app/services/repository/repositoryUni
 import { isVoiceNote } from '@/app/components/lawyer/dashboard/notepadNoteUtils';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 
-/** أنماط عرض خلاصة المستودع — مستقلة عن عرض الخزنة */
-export type RepositoryFeedLayoutId = 'grid' | 'list' | 'compact' | 'timeline' | 'gallery';
+/** أنماط عرض خلاصة المستودع الحية — شبكة أو قائمة فقط */
+export type RepositoryFeedLayoutId = 'grid' | 'list';
 
 export type RepositoryCardVariant = 'manuscript' | 'voice' | 'dossier' | 'media' | 'document';
 
-export type RepositoryCardInnerLayout = 'stack' | 'row' | 'compact' | 'timeline';
+export type RepositoryCardInnerLayout = 'stack' | 'row';
 
 const REPO_FEED_LAYOUT_STORAGE_KEY = 'hami:repository-feed-layout';
 
 export const REPOSITORY_FEED_LAYOUT_DEFAULT: RepositoryFeedLayoutId = 'grid';
 
-/** أنماط العرض الأساسية في واجهة المستخدم — شبكة أو قائمة فقط */
-export const REPOSITORY_PRIMARY_LAYOUT_IDS = ['grid', 'list'] as const;
-export type RepositoryPrimaryFeedLayoutId = (typeof REPOSITORY_PRIMARY_LAYOUT_IDS)[number];
+/** مفاتيح تخزين قديمة تُطبَّع إلى شبكة/قائمة دون كسر الحسابات المحفوظة */
+const LEGACY_STORED_LAYOUT_IDS = new Set(['grid', 'list', 'compact', 'timeline', 'gallery']);
 
 /** يحوّل التخطيطات القديمة (مدمج، زمني، معرض) إلى أقرب نمط أساسي */
-export function normalizeRepositoryFeedLayout(id: RepositoryFeedLayoutId): RepositoryPrimaryFeedLayoutId {
+export function normalizeRepositoryFeedLayout(id: string): RepositoryFeedLayoutId {
     return id === 'list' ? 'list' : 'grid';
 }
 
-export interface RepositoryFeedLayoutOption {
-    id: RepositoryFeedLayoutId;
-    label: string;
-    shortLabel: string;
-    hint: string;
-}
-
-export const REPOSITORY_FEED_LAYOUT_OPTIONS: RepositoryFeedLayoutOption[] = [
-    {
-        id: 'grid',
-        label: 'شبكة بطاقات',
-        shortLabel: 'شبكة',
-        hint: 'بطاقات متوازنة — مناسبة للملاحظات والملفات معاً',
-    },
-    {
-        id: 'list',
-        label: 'قائمة أفقية',
-        shortLabel: 'قائمة',
-        hint: 'صف واحد لكل عنصر — قراءة سريعة للنصوص الطويلة',
-    },
-    {
-        id: 'compact',
-        label: 'مدمج',
-        shortLabel: 'مدمج',
-        hint: 'صفوف كثيفة — أقصى عدد في الشاشة',
-    },
-    {
-        id: 'timeline',
-        label: 'خط زمني',
-        shortLabel: 'زمني',
-        hint: 'ترتيب زمني بصري — ممتاز للملاحظات الكتابية',
-    },
-    {
-        id: 'gallery',
-        label: 'معرض',
-        shortLabel: 'معرض',
-        hint: 'إبراز الصور والملفات — نصوص بعرض مركزي أنيق',
-    },
-];
-
-const VALID_LAYOUT_IDS = new Set<string>(REPOSITORY_FEED_LAYOUT_OPTIONS.map((o) => o.id));
-
 export function loadRepositoryFeedLayout(): RepositoryFeedLayoutId {
     const stored = persistenceRepository.load<string>(REPO_FEED_LAYOUT_STORAGE_KEY);
-    if (stored && VALID_LAYOUT_IDS.has(stored)) {
-        return normalizeRepositoryFeedLayout(stored as RepositoryFeedLayoutId);
+    if (stored && LEGACY_STORED_LAYOUT_IDS.has(stored)) {
+        return normalizeRepositoryFeedLayout(stored);
     }
     return REPOSITORY_FEED_LAYOUT_DEFAULT;
 }
 
-export function persistRepositoryFeedLayout(id: RepositoryFeedLayoutId): void {
+export function persistRepositoryFeedLayout(id: string): void {
     persistenceRepository.save(REPO_FEED_LAYOUT_STORAGE_KEY, normalizeRepositoryFeedLayout(id));
 }
 
@@ -86,37 +43,14 @@ export function resolveRepositoryCardVariant(item: RepositoryFeedItem): Reposito
 }
 
 export function resolveRepositoryCardInnerLayout(layoutId: RepositoryFeedLayoutId): RepositoryCardInnerLayout {
-    if (layoutId === 'list') return 'row';
-    if (layoutId === 'compact') return 'compact';
-    if (layoutId === 'timeline') return 'timeline';
-    return 'stack';
+    return layoutId === 'list' ? 'row' : 'stack';
 }
 
 export function getRepositoryFeedContainerClass(layoutId: RepositoryFeedLayoutId): string {
-    switch (layoutId) {
-        case 'grid':
-            return 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 sm:gap-3 content-start';
-        case 'list':
-            return 'flex flex-col gap-2.5 sm:gap-3 max-w-none';
-        case 'compact':
-            return 'flex flex-col gap-1.5';
-        case 'timeline':
-            return 'flex flex-col gap-0 relative pr-3 sm:pr-4';
-        case 'gallery':
-            return 'columns-1 sm:columns-2 xl:columns-3 gap-2.5 sm:gap-3 [column-fill:balance]';
-        default:
-            return 'flex flex-col gap-3';
+    if (layoutId === 'list') {
+        return 'flex flex-col gap-2.5 sm:gap-3 max-w-none';
     }
-}
-
-export function getRepositoryFeedItemClass(layoutId: RepositoryFeedLayoutId): string {
-    if (layoutId === 'gallery') {
-        return 'break-inside-avoid mb-2.5 sm:mb-3';
-    }
-    if (layoutId === 'timeline') {
-        return 'relative pb-4 last:pb-0';
-    }
-    return '';
+    return 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 sm:gap-3 content-start';
 }
 
 const VARIANT_SHELL: Record<RepositoryCardVariant, string> = {
@@ -130,9 +64,6 @@ const VARIANT_SHELL: Record<RepositoryCardVariant, string> = {
 const LAYOUT_SHELL: Record<RepositoryFeedLayoutId, string> = {
     grid: 'hami-repo-layout--grid',
     list: 'hami-repo-layout--list',
-    compact: 'hami-repo-layout--compact',
-    timeline: 'hami-repo-layout--timeline',
-    gallery: 'hami-repo-layout--gallery',
 };
 
 export function resolveRepositoryCardArticleClass(args: {
@@ -143,21 +74,12 @@ export function resolveRepositoryCardArticleClass(args: {
     const variant = resolveRepositoryCardVariant(args.item);
     const inner = resolveRepositoryCardInnerLayout(args.layoutId);
     const height =
-        args.layoutId === 'grid' || args.layoutId === 'gallery'
+        args.layoutId === 'grid'
             ? 'h-full flex flex-col'
             : inner === 'row'
               ? 'hami-repo-card--row'
               : '';
-    return [
-        args.baseCardClass,
-        VARIANT_SHELL[variant],
-        LAYOUT_SHELL[args.layoutId],
-        height,
-    ]
+    return [args.baseCardClass, VARIANT_SHELL[variant], LAYOUT_SHELL[args.layoutId], height]
         .filter(Boolean)
         .join(' ');
-}
-
-export function repositoryFeedLayoutLabel(id: RepositoryFeedLayoutId): string {
-    return REPOSITORY_FEED_LAYOUT_OPTIONS.find((o) => o.id === id)?.shortLabel ?? 'العرض';
 }

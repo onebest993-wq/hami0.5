@@ -20,7 +20,7 @@ export function DecisionCardDeleteConfirm({
             onClick={() => setDeleteConfirmId(null)}
         >
             <div
-                className="rounded-xl border border-red-500/30 bg-slate-900 p-5 shadow-2xl max-w-sm w-full mx-4"
+                className="rounded-xl border border-red-500/30 bg-slate-900 p-5 shadow-lg max-w-sm w-full mx-4"
                 onClick={(e) => e.stopPropagation()}
             >
                 <p className="text-sm text-gray-200 text-center leading-relaxed">

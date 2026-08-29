@@ -28,6 +28,14 @@ const BENIGN_WARN_PATTERNS: RegExp[] = [
     /\[CursorBrowser\]/i,
     /Native dialog overrides installed/i,
     /\[SecureStore\].*Refused empty overwrite/i,
+    /\[SecureStore\].*Refused cold empty overwrite/i,
+    /\[SecureStore\].*Guard could not run/i,
+    /\[SecureStore\].*Decryption failed for ".*" — data restored from backup\/legacy store\./i,
+    /\[SecureStore\].*IndexedDB init retry/i,
+    /\[SecureStore\].*IndexedDB transaction skipped/i,
+    /\[lawsuitSegment\] segment exceeds ENCRYPT_MAX_BYTES/i,
+    /Could not Fast Refresh/i,
+    /export is incompatible/i,
     /\[KvGuard\]/i,
     /\[Violation\].*non-passive event listener/i,
     /\[Violation\].*scroll-blocking/i,
@@ -40,6 +48,8 @@ const BENIGN_WARN_PATTERNS: RegExp[] = [
 const BENIGN_LOG_PATTERNS: RegExp[] = [
     /\[CursorBrowser\]/i,
     /Native dialog overrides installed/i,
+    /^\[vite\].*hmr invalidate/i,
+    /^\[vite\].*Could not Fast Refresh/i,
 ];
 
 function messageText(args: unknown[]): string {

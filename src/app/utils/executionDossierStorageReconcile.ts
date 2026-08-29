@@ -9,7 +9,10 @@ import {
     readExecutionDossierBlobScanningScopes,
     syncExecutionFileInIndex,
 } from '@/app/utils/executionDossierBlobPersistence';
-import { loadExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
+import {
+    invalidateExecutionFilesRawCache,
+    loadExecutionFilesRaw,
+} from '@/app/utils/executionFilesStorage';
 import { isExecutionDossierTombstoned } from '@/app/utils/executionDossierTombstones';
 import { executionDossierIdFromStorageKey, executionStorageKey, normalizeExecutionStorageId } from '@/app/utils/executionStorageKeys';
 import {
@@ -18,6 +21,7 @@ import {
     stripExecutionDeviceStorageUserScope,
     isStorageKeyVisibleToCurrentUser,
 } from '@/app/utils/executionDeviceStorageScope';
+import { isViteE2eHooksEnabled } from '@/app/utils/viteE2eHooks';
 
 export type ExecutionDossierReconcileResult = {
     indexRowsHealed: number;
@@ -144,28 +148,6 @@ async function readExecutionDossierBlobForReconcile(
     return null;
 }
 
-function applyBlobReconcile(
-    indexById: Map<string, Record<string, unknown>>,
-    blobIds: Iterable<string>,
-    readBlob: (id: string) => Record<string, unknown> | null,
-): number {
-    let indexRowsHealed = 0;
-    for (const id of blobIds) {
-        if (isExecutionDossierTombstoned(id)) continue;
-        const blob = readBlob(id);
-        if (!blob) continue;
-        const indexRow = indexById.get(id);
-        if (!indexRow) {
-            if (syncExecutionFileInIndex(blob)) indexRowsHealed += 1;
-            continue;
-        }
-        if (shouldPreferBlobOverIndex(indexRow, blob)) {
-            if (syncExecutionFileInIndex(blob)) indexRowsHealed += 1;
-        }
-    }
-    return indexRowsHealed;
-}
-
 function seedMissingBlobs(
     indexById: Map<string, Record<string, unknown>>,
     blobIds: Set<string>,
@@ -173,6 +155,7 @@ function seedMissingBlobs(
     let blobsHealed = 0;
     for (const [id, row] of indexById) {
         if (blobIds.has(id)) continue;
+        if (isExecutionDossierTombstoned(id)) continue;
         if (readExecutionDossierBlobScanningScopes(id)) continue;
         if (!indexRowHasSeedablePayload(row)) continue;
         if (persistExecutionDossierBlob(id, { ...row, id }, { syncIndex: false })) {
@@ -185,11 +168,26 @@ function seedMissingBlobs(
 /** يزامن الفهرس مع الـ blobs ويُنشئ blobs ناقصة من صفوف الفهرس */
 export function reconcileExecutionDossierStorage(): ExecutionDossierReconcileResult {
     const indexById = buildIndexById();
-    const blobIds = new Set(listParentDossierIdsInStore());
-    const indexRowsHealed = applyBlobReconcile(indexById, blobIds, (id) =>
-        readExecutionDossierBlobScanningScopes(id),
-    );
-    const blobsHealed = seedMissingBlobs(indexById, blobIds);
+    const listedBlobIds = new Set(listParentDossierIdsInStore());
+    // مرشّحو القراءة: مفاتيح القائمة + صفوف الفهرس (قد يفوت listKeys بعد زرع IDB)
+    const candidateIds = new Set([...listedBlobIds, ...indexById.keys()]);
+    const presentBlobIds = new Set(listedBlobIds);
+    let indexRowsHealed = 0;
+    for (const id of candidateIds) {
+        if (isExecutionDossierTombstoned(id)) continue;
+        const blob = readExecutionDossierBlobScanningScopes(id);
+        if (!blob) continue;
+        presentBlobIds.add(id);
+        const indexRow = indexById.get(id);
+        if (!indexRow) {
+            if (syncExecutionFileInIndex(blob)) indexRowsHealed += 1;
+            continue;
+        }
+        if (shouldPreferBlobOverIndex(indexRow, blob)) {
+            if (syncExecutionFileInIndex(blob)) indexRowsHealed += 1;
+        }
+    }
+    const blobsHealed = seedMissingBlobs(indexById, presentBlobIds);
     return {
         indexRowsHealed,
         blobsHealed,
@@ -201,13 +199,16 @@ export function reconcileExecutionDossierStorage(): ExecutionDossierReconcileRes
 export async function reconcileExecutionDossierStorageAsync(): Promise<ExecutionDossierReconcileResult> {
     await SecureStoreService.ensurePersistedReady();
     const indexById = buildIndexById();
-    const blobIds = new Set(listParentDossierIdsInStore());
+    const listedBlobIds = new Set(listParentDossierIdsInStore());
+    const candidateIds = new Set([...listedBlobIds, ...indexById.keys()]);
+    const presentBlobIds = new Set(listedBlobIds);
 
     let indexRowsHealed = 0;
-    for (const id of blobIds) {
+    for (const id of candidateIds) {
         if (isExecutionDossierTombstoned(id)) continue;
         const blob = await readExecutionDossierBlobForReconcile(id);
         if (!blob) continue;
+        presentBlobIds.add(id);
         const indexRow = indexById.get(id);
         if (!indexRow) {
             if (syncExecutionFileInIndex(blob)) indexRowsHealed += 1;
@@ -218,7 +219,7 @@ export async function reconcileExecutionDossierStorageAsync(): Promise<Execution
         }
     }
 
-    const blobsHealed = seedMissingBlobs(indexById, blobIds);
+    const blobsHealed = seedMissingBlobs(indexById, presentBlobIds);
     return {
         indexRowsHealed,
         blobsHealed,
@@ -229,15 +230,15 @@ export async function reconcileExecutionDossierStorageAsync(): Promise<Execution
 /** مسار E2E/تشخيص — يُعرَّض في DEV أو حزمة VITE_E2E */
 export function exposeExecutionReconcileForDev(): void {
     if (typeof window === 'undefined') return;
-    const allowHooks =
-        import.meta.env.DEV ||
-        import.meta.env.VITE_E2E === '1' ||
-        import.meta.env.VITE_E2E === 'true';
-    if (!allowHooks) return;
+    if (!isViteE2eHooksEnabled()) return;
     const w = window as unknown as {
         __hamiReconcileExecutionStorage?: () => Promise<ExecutionDossierReconcileResult>;
         __hamiLoadExecutionFilesIndex?: () => unknown[];
     };
     w.__hamiReconcileExecutionStorage = reconcileExecutionDossierStorageAsync;
-    w.__hamiLoadExecutionFilesIndex = () => loadExecutionFilesRaw();
+    w.__hamiLoadExecutionFilesIndex = () => {
+        // لا تعتمد على كاش قديم بعد زرع متباعد في E2E
+        invalidateExecutionFilesRawCache();
+        return loadExecutionFilesRaw();
+    };
 }

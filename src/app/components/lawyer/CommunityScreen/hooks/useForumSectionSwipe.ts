@@ -1,6 +1,7 @@
 import { useCallback, useRef, type RefObject } from 'react';
 import type { CommunitySection } from '@/app/components/lawyer/CommunityScreen/communitySectionState';
 import { resolveForumSectionSwipe } from '@/app/components/lawyer/CommunityScreen/forumSectionOrder';
+import { isForumSwipeFromSystemGestureEdge } from '@/app/components/lawyer/CommunityScreen/forumSwipeEdgeGuard';
 
 type PointerOrigin = {
     x: number;
@@ -13,6 +14,17 @@ export type UseForumSectionSwipeOptions = {
     onSectionChange: (section: CommunitySection) => void;
     enabled?: boolean;
 };
+
+export function shouldIgnoreForumSectionSwipeTarget(target: EventTarget | null): boolean {
+    return (
+        target instanceof Element &&
+        Boolean(
+            target.closest(
+                'button, a, input, textarea, select, label, [role="button"], [data-forum-no-swipe]',
+            ),
+        )
+    );
+}
 
 /**
  * إيماءة سحب أفقي بين أقسام المنتدى (المنتدى ↔ المجموعات ↔ المستودع).
@@ -27,6 +39,8 @@ export function useForumSectionSwipe(
     const onPointerDown = useCallback(
         (event: React.PointerEvent<HTMLElement>) => {
             if (!enabled || event.button !== 0) return;
+            if (shouldIgnoreForumSectionSwipeTarget(event.target)) return;
+            if (isForumSwipeFromSystemGestureEdge(event.clientX)) return;
             originRef.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
         },
         [enabled],

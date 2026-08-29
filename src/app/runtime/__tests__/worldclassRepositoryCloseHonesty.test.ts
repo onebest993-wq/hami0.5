@@ -20,7 +20,7 @@ describe('world-class repository close honesty', () => {
             path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardRepository.ts'),
             'utf8',
         );
-        expect(hook).toMatch(/isRealSignedIn\(userId\)/);
+        expect(hook).toMatch(/hasLocalAppSession\(userId\)/);
         expect(hook).toMatch(/setRepositoryHostMounted\(false\)/);
         expect(hook).toMatch(/setIsRepositoryOpen\(false\)/);
         const authEffect = hook.match(
@@ -82,12 +82,14 @@ describe('world-class repository close honesty', () => {
         expect(warmBlock).not.toContain('armRepositoryHost');
     });
 
-    it('R8: InstantShell داخل Host فقط؛ Entry sync بلا Suspense مزدوج', () => {
+    it('R8: Host يستورد المودال ثابتاً ويحترم keepAlive', () => {
         const host = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/SmartRepository/SmartRepositoryHost.tsx'),
             'utf8',
         );
-        expect(host).toContain('RepositoryInstantShell');
+        expect(host).toMatch(/import \{ SmartRepositoryModal \} from/);
+        expect(host).toMatch(/if \(!isOpen && !keepAlive\)/);
+        expect(host).not.toContain('RepositoryInstantShell');
         const entry = fs.readFileSync(
             path.join(
                 root,
@@ -98,6 +100,11 @@ describe('world-class repository close honesty', () => {
         expect(entry).toContain('SmartRepositoryHost');
         expect(entry).not.toContain('RepositoryInstantShell');
         expect(entry).not.toMatch(/<Suspense\b/);
+        expect(
+            fs.existsSync(
+                path.join(root, 'src/app/components/lawyer/SmartRepository/RepositoryInstantShell.tsx'),
+            ),
+        ).toBe(false);
     });
 
     it('R4: طبقات Escape متدرجة في useRepositoryEscapeStack', () => {

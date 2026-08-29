@@ -2,16 +2,28 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { CriminalDefendant, OurRepresentation, StageConclusion } from './criminalStore';
 import type { CriminalActionParty } from './criminalStagePresentationCore';
 import type { DecisionsPartyScope } from './juvenileInvestigationRules';
-import { isDefendantBailTemplate, isInvestigationExpirationJudicialTemplate, isJudicialDecisionTemplate, isPrivateRightWaiverTemplate } from './proceduralRequestTypes';
-import { resolveEffectiveDefendantScopeIds } from './partyPersonalStage';
-import { resolveRequestPartyIdsForPayload } from './requestPartySelection';
-import { resolveStoredRequestTypeFields } from './proceduralRequestTypes';
-import { buildRequestFatalLockMessage } from './lawyerRequestStatusMachine';
-import { emptyPartyBailDraft } from './components/concernedPartyDecisionPickerDraft';
+import {
+    isDefendantBailTemplate,
+    isInvestigationExpirationJudicialTemplate,
+    isPrivateRightWaiverTemplate,
+} from './proceduralRequestTypes';
 import { validateDetentionDateRange } from './detentionEngine';
 import { validateExpirationReasonSelection } from './stageExpirationReasons';
 import type { ConfirmActionState } from './CriminalDashboardModalsHost';
 import type { CriminalRequestsOrchestratorSlice } from './orchestrators/criminalOrchestratorSliceTypes';
+import {
+    buildCriminalRequestPayloadBase,
+    type PartyBailDraftLike,
+    type SeizureDraftLike,
+} from './criminalRequestCommitPayloadBuilders';
+import {
+    commitCreateLawyerRequest,
+    type DetentionDraftLike,
+} from './criminalRequestCommitCreateHelpers';
+import {
+    commitFinalizeLawyerRequest,
+    promptFatalRequestLockConfirm,
+} from './criminalRequestCommitFinalizeHelpers';
 
 type RequestPartyCtx = {
     isUnknownPerpetrator: boolean;
@@ -29,7 +41,7 @@ type CommitFlowOrchestratorKeys =
     | 'reqSeizureDraftsByDefendant' | 'reqInvestigationExpirationReason'
     | 'reqInvestigationExpirationCustomDetail';
 
-export type CriminalRequestCommitFlowParams = Pick<CriminalRequestsOrchestratorSlice, CommitFlowOrchestratorKeys> & {
+type CriminalRequestCommitFlowParams = Pick<CriminalRequestsOrchestratorSlice, CommitFlowOrchestratorKeys> & {
     id: string;
     showLegalToast: (message: string, durationMs?: number) => void;
     setConfirmAction: Dispatch<SetStateAction<ConfirmActionState | null>>;
@@ -155,321 +167,101 @@ export function useCriminalRequestCommitFlow(params: CriminalRequestCommitFlowPa
         });
     };
 
-    const buildRequestPayloadBase = () => {
-        const cleanedSelectedIds = Array.isArray(reqDefendantIds)
-            ? reqDefendantIds.map((x) => String(x ?? '').trim()).filter((x) => x.length > 0)
-            : [];
-        const defendantIds = reqNeedsPurgeDefendantScope
-            ? resolveEffectiveDefendantScopeIds(defendants, cleanedSelectedIds, reqTypeTemplate.trim())
-            : (resolveRequestPartyIdsForPayload(
-                    cleanedSelectedIds,
-                    autoRequestPartyId,
-                    requestEligibleParties,
-                    reqTypeTemplate.trim(),
-                    ourRepresentation,
-                    requestPartyCtx,
-                    requestDecisionsScope,
-                ) ?? []);
-        const resolved = resolveStoredRequestTypeFields(
-            reqTypeTemplate.trim(),
-            reqCustomTypeName.trim(),
+    const buildRequestPayloadBase = () =>
+        buildCriminalRequestPayloadBase({
+            reqDefendantIds,
+            reqNeedsPurgeDefendantScope,
+            defendants,
+            reqTypeTemplate,
+            autoRequestPartyId,
+            requestEligibleParties,
+            ourRepresentation,
+            requestPartyCtx,
+            requestDecisionsScope,
+            reqCustomTypeName,
             reqIsAppealable,
-        );
-        return {
-            requestDate: reqDate.trim(),
-            type: resolved.type,
-            lawyerNote: reqNote.trim(),
-            defendantIds: defendantIds.length ? defendantIds : undefined,
-            proceduralTemplate: resolved.proceduralTemplate,
-            isAppealable: resolved.isAppealable,
-        };
-    };
-
-    const commitCreateRequest = (opts?: { silent?: boolean }) => {
-        const buildDefendantBailPayload = (partyId: string) => {
-            const draft = reqBailByPartyId[partyId] ?? emptyPartyBailDraft();
-            if (draft.kind === 'financial') {
-                const amt = draft.bailAmount.trim();
-                if (!amt) return undefined;
-                return { kind: 'financial' as const, bailAmount: amt };
-            }
-            if (draft.kind === 'personal') {
-                const guarantors = draft.guarantors
-                    .map((g) => ({
-                        id: g.id,
-                        fullName: String(g.fullName ?? '').trim(),
-                    }))
-                    .filter((g) => g.fullName.length > 0);
-                if (!guarantors.length) return undefined;
-                return { kind: 'personal' as const, guarantors };
-            }
-            return undefined;
-        };
-
-        /**
-         * بيانات «حجز الأموال» — تُجمَّع لكل متهم هارب مُختار.
-         * نُسقط الأصناف الفارغة (بدون وصف) قبل التمرير للمتجر.
-         * نمرّر `id` مسوّدة محلّية ليُولّد المتجر معرّفاً نهائياً.
-         */
-        type AssetItemPayload = {
-            description: string;
-            referenceNumber?: string;
-            seizureDate?: string;
-            notes?: string;
-        };
-        type PerDefendantPayload = { defendantId: string; assets: AssetItemPayload[] };
-        const assetSeizureInput = (() => {
-            if (!reqIsAssetSeizureEntry) return undefined;
-            const perDefendant = reqSeizureSelectedDefendantIds
-                .map((did): PerDefendantPayload | null => {
-                    const drafts = Array.isArray(reqSeizureDraftsByDefendant[did])
-                        ? reqSeizureDraftsByDefendant[did]
-                        : [];
-                    const assets = drafts
-                        .map((d): AssetItemPayload | null => {
-                            const description = String(d?.description ?? '').trim();
-                            if (!description) return null;
-                            return {
-                                description,
-                                referenceNumber: String(d?.referenceNumber ?? '').trim() || undefined,
-                                seizureDate: String(d?.seizureDate ?? '').trim() || undefined,
-                                notes: String(d?.notes ?? '').trim() || undefined,
-                            };
-                        })
-                        .filter((x): x is AssetItemPayload => x !== null);
-                    if (!assets.length) return null;
-                    return { defendantId: did, assets };
-                })
-                .filter((x): x is PerDefendantPayload => x !== null);
-            return perDefendant.length ? { perDefendant } : undefined;
-        })();
-
-        /**
-         * `defendantIds` لإجراء حجز الأموال = الهاربون المُختارون داخل المُحرِّر،
-         * وليس قائمة `reqDefendantIds` الافتراضية (التي يُديرها party picker المغلق
-         * لهذا القالب لأنّه يدير اختياره داخلياً).
-         */
-        const defendantIdsForPayload = reqIsAssetSeizureEntry
-            ? reqSeizureSelectedDefendantIds.length > 0
-                ? reqSeizureSelectedDefendantIds.slice()
-                : undefined
-            : reqIsDefendantBailEntry
-              ? bailTargetDefendantIds.length
-                  ? bailTargetDefendantIds.slice()
-                  : buildRequestPayloadBase().defendantIds
-              : buildRequestPayloadBase().defendantIds;
-
-        const resolveDetentionDates = (partyId: string) => {
-            const draft = reqDetentionByPartyId[partyId];
-            return {
-                start: (draft?.startDate ?? reqDetentionStartDate).trim() || undefined,
-                end: (draft?.endDate ?? reqDetentionEndDate).trim() || undefined,
-            };
-        };
-
-        const basePayload = {
-            requestDate: reqDate.trim(),
-            lawyerNote: reqNote.trim(),
-            proceduralTemplate: reqTypeTemplate.trim(),
-            customTypeName: reqCustomTypeName.trim(),
-            isAppealable: reqIsAppealable,
-            legalArticleBasis: reqLegalArticleBasis.trim() || undefined,
-            referredCourtName: reqReferredCourtName.trim() || undefined,
-            assetSeizure: assetSeizureInput,
-        };
-
-        const bailTargetIds = reqIsDefendantBailEntry
-            ? bailTargetDefendantIds.length
-                ? bailTargetDefendantIds
-                : effectiveRequestPartyIds
-            : [];
-
-        if (reqIsDefendantBailEntry && bailTargetIds.length > 0) {
-            if (reqBailUnified && bailTargetIds.length > 1) {
-                const defendantBail = buildDefendantBailPayload(bailTargetIds[0]!);
-                if (!defendantBail) {
-                    showLegalToast('أكمل تفاصيل الكفالة لجميع المتهمين المُؤشَّرين.', 5000);
-                    return null;
-                }
-                const { error, requestId } = createLawyerRequest(id, {
-                    ...basePayload,
-                    defendantIds: bailTargetIds.slice(),
-                    defendantBail,
-                });
-                if (error) {
-                    showLegalToast(error, 5000);
-                    return null;
-                }
-                if (requestId) syncRequestUxAfterCreate(requestId);
-                if (!opts?.silent) {
-                    showLegalToast('✓ تم توثيق القرار في السجل.', 5000);
-                }
-                return requestId;
-            }
-
-            let lastRequestId: string | null = null;
-            for (const partyId of bailTargetIds) {
-                const defendantBail = buildDefendantBailPayload(partyId);
-                if (!defendantBail) {
-                    showLegalToast('أكمل تفاصيل الكفالة لكل متهم مُؤشَّر.', 5000);
-                    return null;
-                }
-                const { error, requestId } = createLawyerRequest(id, {
-                    ...basePayload,
-                    defendantIds: [partyId],
-                    defendantBail,
-                });
-                if (error) {
-                    showLegalToast(error, 5000);
-                    return null;
-                }
-                if (requestId) {
-                    syncRequestUxAfterCreate(requestId);
-                    lastRequestId = requestId;
-                }
-            }
-            if (!opts?.silent) {
-                showLegalToast('✓ تم توثيق القرار في السجل.', 5000);
-            }
-            return lastRequestId;
-        }
-
-        const detentionTargetIds =
-            reqNeedsDetentionDateRange && Array.isArray(defendantIdsForPayload)
-                ? defendantIdsForPayload
-                : [];
-
-        if (reqNeedsDetentionDateRange && detentionTargetIds.length > 1 && !reqDetentionUnified) {
-            let lastRequestId: string | null = null;
-            for (const partyId of detentionTargetIds) {
-                const { start, end } = resolveDetentionDates(partyId);
-                const { error, requestId } = createLawyerRequest(id, {
-                    ...basePayload,
-                    defendantIds: [partyId],
-                    detentionStartDate: start,
-                    detentionEndDate: end,
-                });
-                if (error) {
-                    showLegalToast(error, 5000);
-                    return null;
-                }
-                if (requestId) {
-                    syncRequestUxAfterCreate(requestId);
-                    lastRequestId = requestId;
-                }
-            }
-            if (!opts?.silent) {
-                const msg = isJudicialDecisionTemplate(reqTypeTemplate)
-                    ? '✓ تم توثيق القرار في السجل.'
-                    : '✓ تم تسجيل الطلب.';
-                showLegalToast(msg, 5000);
-            }
-            return lastRequestId;
-        }
-
-        const singleDetentionPartyId =
-            reqNeedsDetentionDateRange && detentionTargetIds.length >= 1
-                ? detentionTargetIds.length === 1 || reqDetentionUnified
-                    ? detentionTargetIds[0]
-                    : undefined
-                : undefined;
-        const singleDetention = singleDetentionPartyId
-            ? resolveDetentionDates(singleDetentionPartyId)
-            : {
-                  start: reqDetentionStartDate.trim() || undefined,
-                  end: reqDetentionEndDate.trim() || undefined,
-              };
-
-        const { error, requestId } = createLawyerRequest(id, {
-            ...basePayload,
-            defendantIds: defendantIdsForPayload,
-            detentionStartDate: singleDetention.start,
-            detentionEndDate: singleDetention.end,
+            reqDate,
+            reqNote,
         });
-        if (error) {
-            showLegalToast(error, 5000);
-            return null;
-        }
-        if (requestId) syncRequestUxAfterCreate(requestId);
-        if (!opts?.silent) {
-            const msg = isJudicialDecisionTemplate(reqTypeTemplate)
-                ? '✓ تم توثيق القرار في السجل.'
-                : '✓ تم تسجيل الطلب.';
-            showLegalToast(msg, 5000);
-        }
-        return requestId;
-    };
+
+    const commitCreateRequest = (opts?: { silent?: boolean }) =>
+        commitCreateLawyerRequest(
+            {
+                id,
+                showLegalToast,
+                createLawyerRequest,
+                syncRequestUxAfterCreate,
+                reqDefendantIds,
+                reqNeedsPurgeDefendantScope,
+                defendants,
+                reqTypeTemplate,
+                autoRequestPartyId,
+                requestEligibleParties,
+                ourRepresentation,
+                requestPartyCtx,
+                requestDecisionsScope,
+                reqCustomTypeName,
+                reqIsAppealable,
+                reqDate,
+                reqNote,
+                reqLegalArticleBasis,
+                reqReferredCourtName,
+                reqBailByPartyId: reqBailByPartyId as Record<string, PartyBailDraftLike | undefined>,
+                reqBailUnified,
+                reqDetentionByPartyId: reqDetentionByPartyId as Record<
+                    string,
+                    DetentionDraftLike | undefined
+                >,
+                reqDetentionStartDate,
+                reqDetentionEndDate,
+                reqDetentionUnified,
+                reqSeizureSelectedDefendantIds,
+                reqSeizureDraftsByDefendant: reqSeizureDraftsByDefendant as Record<
+                    string,
+                    SeizureDraftLike[] | undefined
+                >,
+                reqIsAssetSeizureEntry,
+                reqIsDefendantBailEntry,
+                bailTargetDefendantIds,
+                reqNeedsDetentionDateRange,
+                effectiveRequestPartyIds,
+            },
+            opts,
+        );
 
     const commitFinalizeRequest = (
         status: 'approved' | 'rejected',
         requestId: string,
         fields?: { judgeMargin: string; decisionDate: string },
     ) => {
-        const judgeMargin = (fields?.judgeMargin ?? reqJudgeMargin).trim();
-        const decisionDate = (fields?.decisionDate ?? reqDecisionDate).trim();
-        const finalizedTemplate = reqTypeTemplate;
-        const expirationReasonSnapshot = reqInvestigationExpirationReason;
-        const expirationCustomSnapshot = reqInvestigationExpirationCustomDetail;
-        const expirationDefendantIdsSnapshot = [...reqDefendantIds];
-        const err = finalizeLawyerRequest(id, requestId, {
+        commitFinalizeLawyerRequest(
+            {
+                id,
+                showLegalToast,
+                finalizeLawyerRequest,
+                issueStageDecision,
+                closeRequestsModal,
+                closeQuickFinalizeModal,
+                reqJudgeMargin,
+                reqDecisionDate,
+                reqTypeTemplate,
+                reqInvestigationExpirationReason,
+                reqInvestigationExpirationCustomDetail,
+                reqDefendantIds,
+                reqNote,
+                isInvestigationPhase,
+            },
             status,
-            judgeMargin,
-            decisionDate,
-        });
-        if (err) {
-            showLegalToast(err, 5000);
-            return;
-        }
-        if (
-            status === 'approved' &&
-            isInvestigationPhase &&
-            isInvestigationExpirationJudicialTemplate(finalizedTemplate) &&
-            expirationReasonSnapshot &&
-            expirationDefendantIdsSnapshot.length
-        ) {
-            const expirationDetails =
-                expirationReasonSnapshot === 'custom_manual'
-                    ? expirationCustomSnapshot.trim() ||
-                      reqNote.trim() ||
-                      'انقضاء / سقوط الدعوى الجزائية'
-                    : reqNote.trim() || 'انقضاء / سقوط الدعوى الجزائية';
-            const conclusion: StageConclusion = {
-                id:
-                    globalThis.crypto && 'randomUUID' in globalThis.crypto
-                        ? globalThis.crypto.randomUUID()
-                        : `${Date.now()}_${Math.random().toString(16).slice(2)}`,
-                stageType: 'investigation',
-                decisionType: 'expiration',
-                date: decisionDate || new Date().toISOString().slice(0, 10),
-                details: expirationDetails,
-                defendantStatusAtDecision: 'bailed',
-                expirationReason: expirationReasonSnapshot,
-                defendantIds: expirationDefendantIdsSnapshot,
-            };
-            const stageErr = issueStageDecision(id, conclusion);
-            if (stageErr) {
-                showLegalToast(stageErr, 5000);
-                closeRequestsModal();
-                closeQuickFinalizeModal();
-                return;
-            }
-        }
-        showLegalToast('تم تدوين هامش القاضي وقفل الطلب — أُدرج في سجل الطلب والقرار القضائي.', 5000);
-        closeRequestsModal();
-        closeQuickFinalizeModal();
+            requestId,
+            fields,
+        );
     };
 
     const promptFatalRequestLock = (
         status: 'approved' | 'rejected',
         onConfirm: () => void,
     ) => {
-        setConfirmAction({
-            title: 'تأكيد الحفظ النهائي',
-            message: buildRequestFatalLockMessage(status),
-            confirmText: 'تأكيد الحفظ',
-            cancelText: 'إلغاء',
-            onConfirm,
-        });
+        promptFatalRequestLockConfirm(setConfirmAction, status, onConfirm);
     };
 
     const submitRequest = () => {

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Scissors } from '@/app/components/ui/lucideIcons';
+import { Scissors } from '@/app/components/ui/icons/Scissors';
 import type { CriminalDefendant, JudicialSeveranceDraft } from '../../criminalStore';
 import { resolveDefendantFullName } from '../../criminalUnknownDefendant';
 import {
@@ -101,7 +101,7 @@ export const SeveranceTargetPickerModal = ({
 
     return (
         <div
-            className="fixed inset-0 z-[500] isolate bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center print:hidden"
+            className="fixed inset-0 z-[500] isolate bg-black/62 backdrop-blur-sm p-4 flex items-center justify-center print:hidden"
             dir="rtl"
             role="dialog"
             aria-modal="true"
@@ -110,7 +110,7 @@ export const SeveranceTargetPickerModal = ({
         >
             <div
                 onClick={(e) => e.stopPropagation()}
-                className="relative z-[501] w-full max-w-md max-h-[min(88vh,640px)] flex flex-col rounded-2xl overflow-hidden border border-white/10 bg-slate-900/85 backdrop-blur-xl shadow-2xl shadow-black/60"
+                className="relative z-[501] w-full max-w-md max-h-[min(88vh,640px)] flex flex-col rounded-2xl overflow-hidden border border-white/10 bg-slate-900/85 backdrop-blur-sm shadow-lg shadow-black/35"
             >
                 <span
                     aria-hidden
@@ -136,7 +136,7 @@ export const SeveranceTargetPickerModal = ({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="text-white/65 hover:text-white text-xs font-bold rounded-md px-2 py-1 hover:bg-white/5 transition"
+                        className="min-h-[44px] min-w-[44px] px-3 text-white/65 hover:text-white text-xs font-bold rounded-md hover:bg-white/5 transition touch-manipulation"
                     >
                         إغلاق
                     </button>
@@ -265,7 +265,7 @@ export const SeveranceTargetPickerModal = ({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-xs font-black text-white/75 hover:text-white hover:bg-white/[0.08] hover:border-white/20 transition"
+                        className="min-h-[44px] px-4 rounded-xl border border-white/10 bg-white/[0.03] text-xs font-black text-white/75 hover:text-white hover:bg-white/[0.08] hover:border-white/20 transition touch-manipulation"
                     >
                         إلغاء
                     </button>
@@ -273,7 +273,7 @@ export const SeveranceTargetPickerModal = ({
                         type="button"
                         onClick={handleContinue}
                         disabled={isContinueDisabled}
-                        className="rounded-xl bg-[#E6C673] text-[#0B1021] font-black py-2 px-4 text-xs hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                        className="min-h-[44px] px-4 rounded-xl bg-[#E6C673] text-[#0B1021] font-black text-xs hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition touch-manipulation"
                     >
                         متابعة لإنشاء الإضبارة
                     </button>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { PauseCircle, X } from '@/app/components/ui/lucideIcons';
+import { PauseCircle } from '@/app/components/ui/icons/PauseCircle';
+import { X } from '@/app/components/ui/icons/X';
 import {
     GLASS_MODAL_HEADER,
     MoroccanCloseButton,

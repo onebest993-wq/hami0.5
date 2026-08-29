@@ -33,7 +33,10 @@ const checkAgeConstraint = (age: number | string): { blocked: boolean; reason?: 
     const ageNum = typeof age === 'string' ? parseInt(age) : age;
     
     if (isNaN(ageNum) || ageNum === 0) {
-        return { blocked: false }; // No age provided, no constraint
+        return {
+            blocked: true,
+            reason: '⚠️ لم يُحدد عمر المدين — لا يُطلب الحبس حتى التحقق من الأهلية',
+        };
     }
     
     if (ageNum < 18) {

@@ -1,0 +1,2810 @@
+{
+  "unused": [
+    {
+      "sym": "PublicationNoticeState",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/DebtorsSection.types.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "EmployeeAssignmentState",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/DebtorsSection.types.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "PhoneBodyScopeRecord",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/executionDashboardPhoneBodyBridges.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "PhoneBodyScheduleBridge",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/executionDashboardPhoneBodyBridges.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "PhoneBodyReadScope",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/executionDashboardPhoneBodyBridges.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "PhoneBodyCommitBridge",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/executionDashboardPhoneBodyBridges.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "PhoneBodyModalFlagKey",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/executionDashboardPhoneBodyBridges.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "PhoneBodyModalSetterKey",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/executionDashboardPhoneBodyBridges.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "PhoneBodyEditPartyKind",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/executionDashboardPhoneBodyBridges.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "PhoneBodyEditPartyFallbackTarget",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/executionDashboardPhoneBodyBridges.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "GenericHandler",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodyDeferredScope.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "FinancialStatusBadge",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodyDeferredScope.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ThirdPartyDraftMap",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodyDeferredScope.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionStatusMetadata",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodyDeferredScope.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionPhoneBodyDeferredViewData",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodyDeferredScope.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionFinancialHubToastOptions",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/executionFinancialHub/ExecutionFinancialHubPortalProps.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionFinancialHubFundsLedgerPayment",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/executionFinancialHub/ExecutionFinancialHubPortalProps.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "HIDDEN_FOLLOWUP_LOCKED_REASON",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/hiddenFollowup/shared/hiddenFollowupSubmitHelpers.ts",
+        "src/app/components/lawyer/ExecutionDashboard/components/hiddenFollowup/shared/index.ts"
+      ],
+      "hitCount": 3,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/components/__tests__/hiddenFollowupSharedChromeHonesty.test.ts"
+      ]
+    },
+    {
+      "sym": "HiddenFollowupToastFn",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/hiddenFollowup/shared/hiddenFollowupSubmitHelpers.ts",
+        "src/app/components/lawyer/ExecutionDashboard/components/hiddenFollowup/shared/index.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "HiddenRequestStatus",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ResolvedHiddenPersonalRequest",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ResolvedHiddenGuarantorRequest",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "SeizureRequestSubjectModalTone",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/components/SeizureRequestSubjectModal.tsx",
+        "src/app/components/lawyer/ExecutionDashboard/components/SeizureRequestSubjectModal.types.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "prefetchExecutionHandlerClusterSeizureLogAssetModalBridge",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/executionDashboardHandlerClusterBridgeLazy.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "prefetchExecutionHandlerClusterSeizureLogResolutionBridge",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/executionDashboardHandlerClusterBridgeLazy.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "prefetchExecutionHandlerClusterCoerciveLifecycleBridge",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/executionDashboardHandlerClusterBridgeLazy.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "prefetchExecutionHandlerClusterCoerciveOpsBridge",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/executionDashboardHandlerClusterBridgeLazy.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "prefetchExecutionHandlerClusterCoerciveSupportBridge",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/executionDashboardHandlerClusterBridgeLazy.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "prefetchExecutionHandlerClusterCoerciveActionHandlersBridge",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/executionDashboardHandlerClusterBridgeLazy.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "prefetchExecutionHandlerClusterCoerciveEvictionBridge",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/executionDashboardHandlerClusterBridgeLazy.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "prefetchExecutionShellIntent",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/__tests__/executionDashboardOverlayPrefetch.test.ts"
+      ]
+    },
+    {
+      "sym": "prefetchExecutionSeizureLogOverlay",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "EXECUTION_DASHBOARD_RUNTIME_CHUNK_SCOPE",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/executionDashboardRuntimeChunkScope.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "EXECUTION_DASHBOARD_STATIC_CHUNK_SCOPE",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/executionDashboardStaticChunkScope.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionFollowupTabPrefetchId",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/executionFollowupTabPrefetch.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "isExecutionFollowupTabPrefetchId",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/executionFollowupTabPrefetch.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "EXEC_MODAL_DOSSIER_META_PANEL_CLASS",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/executionModalMobileShell.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionFollowupSnapshotFieldKey",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/followupSnapshotFieldKeys.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/followupPortalSnapshotContract.test.ts"
+      ]
+    },
+    {
+      "sym": "DebtorCardRowNoticeBadgePriorityInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/applyDebtorCardRowNoticeBadgePriority.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "DebtorCardRowNoticeBadgePriorityResult",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/applyDebtorCardRowNoticeBadgePriority.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "CommunicationResultValidation",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/communicationResultValidation.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "DossierMetaValidationDraft",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/dossierMetaValidation.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "DossierMetaValidationResult",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/dossierMetaValidation.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "CREDITOR_AGENT_ONLY_PERSIST_KEYS",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/executionAgentPrivilege.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/__tests__/executionAgentPrivilegeAndStorageScope.test.ts"
+      ]
+    },
+    {
+      "sym": "CreditorAgentOnlyPersistKey",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/executionAgentPrivilege.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "isCreditorAgentOnlyBlocked",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/executionAgentPrivilege.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/__tests__/executionAgentPrivilegeAndStorageScope.test.ts"
+      ]
+    },
+    {
+      "sym": "ExecutionPersistPatchSanitizeResult",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/executionPersistPatchSanitizer.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "heirRowCompletenessScore",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/heirUtils.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/components/__tests__/executionDeadCodeCleanupHonesty.test.ts"
+      ]
+    },
+    {
+      "sym": "PartyEditDisplayKind",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/partyEditDisplayOverlay.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "partyEditSurfaceSelector",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/partyEditDisplayOverlay.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "clearAllPartyEditDisplayOverlays",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/partyEditDisplayOverlay.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/__tests__/partyEditDisplayOverlay.test.ts"
+      ]
+    },
+    {
+      "sym": "applyPartyEditDisplayOverlayToParty",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/partyEditDisplayOverlay.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "PartyEditValidationDraft",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/partyEditValidation.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "PartyEditValidationResult",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/partyEditValidation.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "inferPropertyGenderFromType",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/helpers/seizureRegistryBridge.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "assignShellOverlayScopeWithFallback",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/assignShellOverlayScopeWithFallback.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/assignShellOverlayScopeWithFallback.test.ts"
+      ]
+    },
+    {
+      "sym": "ExecutionPhoneBodySources",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/buildExecutionPhoneBodyProps.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "FollowupModalSnapshotSources",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/buildFollowupModalSnapshotInput.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "BuildExecutionDashboardCoreAssemblyHandlersInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoreAssemblyHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardCoreScopeLocalBundlesInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoreScopeLocalBundles.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionModalSetters",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardModalScope.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/pickExecutionModalSetters.test.ts"
+      ]
+    },
+    {
+      "sym": "pickExecutionModalSetters",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardModalScope.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/pickExecutionModalSetters.test.ts"
+      ]
+    },
+    {
+      "sym": "FollowupModalTabEntry",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildFollowupModalTabsFromFlags.ts",
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardFollowupSeizureTabs.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "BuildFollowupModalTabsInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildFollowupModalTabsFromFlags.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "BuildFollowupSectionTabOrderInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildFollowupModalTabsFromFlags.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "collectFollowupAdminSpecialHandlerClusterContext",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/collectFollowupAdminSpecialHandlerClusterContext.ts",
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/collectHandlerClusterContext.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "collectFollowupOtherPartyHandlerClusterContext",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/collectFollowupOtherPartyHandlerClusterContext.ts",
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/collectHandlerClusterContext.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "SaveSeizedPropertyAuctionSessionResultDeps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardAuctionSessionResult.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "prefetchExecutionDashboardBaseScopeBuilder",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardBaseScopeCache.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "resetExecutionDashboardBaseScopeCacheForTests",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardBaseScopeCache.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardBaseScopeCache.test.ts"
+      ]
+    },
+    {
+      "sym": "BreakInventoryStorageDeps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardBreakInventorySave.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "parseExecutionMoneyLike",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardClaimFinancials.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardClaimFinancials.test.ts"
+      ]
+    },
+    {
+      "sym": "CoerciveActionRouteResult",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveActionRouting.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "actionTypeToSeizureSubtype",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveActionRouting.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "isApprovedExecutorSeizureDecision",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveActionRouting.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardCoerciveActionRouting.test.ts"
+      ]
+    },
+    {
+      "sym": "inferSeizureSubtypeFromRow",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveActionRouting.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardCoerciveActionRouting.test.ts"
+      ]
+    },
+    {
+      "sym": "SeizedAssetDetailsBag",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveActionTypes.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "BuildExecutionCoerciveUiFlagsInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveUi.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "RunDebtorEmploymentToggleParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardDebtorEmploymentToggle.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "buildDossierActionContentParts",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardDossierAction.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardDossierAction.test.ts"
+      ]
+    },
+    {
+      "sym": "scopeTimelineEventsOnExecutionSwitch",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardDossierBootSync.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardDossierBootSync.test.ts"
+      ]
+    },
+    {
+      "sym": "subDossierOpenedThreadKey",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardDossierBootSync.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDossierIdentity",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardDossierIdentity.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardDossierIdentity.test.ts"
+      ]
+    },
+    {
+      "sym": "resolveExecutionDossierIdentity",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardDossierIdentity.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardDossierIdentity.test.ts"
+      ]
+    },
+    {
+      "sym": "InvestigationMergeResult",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardEmployeeAssignmentSync.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "FollowupSeizureInitDeps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardFollowupSeizureInits.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "buildExecutionFeeGraceEndEvent",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardGraceSummoning.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardGraceSummoning.test.ts"
+      ]
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterCoerciveActionHandlersBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterCoerciveActionHandlersBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterCoerciveEvictionBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterCoerciveEvictionBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterCoerciveLifecycleBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterCoerciveLifecycleBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterCoerciveOpsBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterCoerciveOpsBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterCoerciveSupportBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterCoerciveSupportBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterDossierSupportBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterDossierSupportBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterEmployeeAssignmentBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterEmployeeAssignmentBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterFollowupAdminSpecialBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterFollowupAdminSpecialBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterFollowupDossierControlsBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterFollowupDossierControlsBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterFollowupOtherPartyBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterFollowupOtherPartyBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterFollowupOtherPartyDebtorBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterFollowupOtherPartyDebtorBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterLightBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterLightBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterPartyDeathBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterPartyDeathBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterPaymentBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterPaymentBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterPublicationNoticeBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterPublicationNoticeBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterSeizureHeavyBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureHeavyBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterSeizureLogAssetModalBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogAssetModalBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterSeizureLogResolutionBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogResolutionBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterThirdPartySeizureBridgeProps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterThirdPartySeizureBridge.tsx"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "mapExecutorOutcomeToHeirInvestigationStatus",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardHeirsAndDeceasedSync.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardHeirsAndDeceasedSync.test.ts"
+      ]
+    },
+    {
+      "sym": "FORCED_BRING_MEMO_TITLE_MARKER",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardPersonalCoerciveDecisionSync.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "SeizureRequestSubmitDeps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSeizureRequestSubmit.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "SubmitPropertySeizureRequestParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSeizureRequestSubmit.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "SubmitMovableSeizureRequestParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSeizureRequestSubmit.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "CreatePatchSeizedRowAndTimelineDeps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSeizureRowPatch.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "buildStandaloneMarkSeizureRequestDetails",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardStandaloneMarkMutations.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardStandaloneMarkMutations.test.ts"
+      ]
+    },
+    {
+      "sym": "RunSaveStandaloneExecutionMarkParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardStandaloneMarkSave.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ThirdPartyReceiveValidation",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardThirdPartyReceive.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "RunSaveThirdPartySeizureParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardThirdPartySeizureSave.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "scopeTimelineEventsForActiveDossier",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardTimelineAndGraceSync.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "TimelineDedupePersistPlan",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardTimelineAndGraceSync.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "EXECUTION_LAZY_SYNC_CRITICAL_HANDLER_KEYS",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionScopeLazySyncDelta.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "EXECUTION_LAZY_SYNC_STABLE_UI_MODULE_KEYS",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionScopeLazySyncDelta.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "fingerprintLazySyncPrimitiveBucket",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionScopeLazySyncDelta.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionScopeLazySyncDelta.test.ts"
+      ]
+    },
+    {
+      "sym": "isPlainComparableObject",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionScopeLazySyncDelta.ts",
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterEquality.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "areScopeValuesEqual",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionScopeLazySyncDelta.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionScopeLazySyncDelta.test.ts"
+      ]
+    },
+    {
+      "sym": "handlerClusterPatchMeaningfullyChanged",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/handlerClusterPublishUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "normalizePaymentAmountInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/normalizePaymentAmountInput.ts",
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPaymentHandlers.ts"
+      ],
+      "hitCount": 3,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardPaymentHandlers.test.ts"
+      ]
+    },
+    {
+      "sym": "ExecutionDashboardPersistSnapshot",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/persistExecutionDashboardSnapshot.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionCoreHandlerPrefetchMode",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/resolveExecutionStubHandlerPrefetchModes.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardAppointmentHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardAppointmentHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardBreakInventoryHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardBreakInventoryHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardCoerciveActionBridgeParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoerciveActionBridge.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardCoerciveActionHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoerciveActionHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardCoerciveUiStateParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoerciveUiState.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardCoreClaimGraceEarnerFollowupParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreClaimGraceEarnerFollowup.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardCoreDossierAndResidentSegmentParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreDossierAndResidentSegment.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardHandlerClusterHeavySpreads",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterRuntime.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "SeizureCoerciveClusterDeps",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureCoercive.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardCoreResidentHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreResidentHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "BaseScopeBuilderInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreScopeAndChunk.types.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardCoreScopeRuntimeBindingsParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreScopeRuntimeBindings.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardDebtorEmploymentHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardDebtorEmploymentHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardDebtorWorkspaceContextParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardDebtorWorkspaceContext.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardEmployeeAssignmentCoerciveStateParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardEmployeeAssignmentCoerciveState.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardEmployeeInvestigationSyncParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardEmployeeInvestigationSync.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardEvictionFinancialHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardEvictionFinancialHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardEvictionHeirsMemoHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardEvictionHeirsMemoHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardExecutiveDetentionLifecycleParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardExecutiveDetentionLifecycle.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardFollowupSeizureHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardFollowupSeizureHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardFollowupTabAssemblyParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardFollowupTabAssembly.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardGraceAndSummoningParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardGraceAndSummoning.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardGracePeriodEndHandlerParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardGracePeriodEndHandler.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardHeirsNotificationHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardHeirsNotificationHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardJudicialCustodianRemoveParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardJudicialCustodianRemove.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardLedgerSyncParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardLedgerSync.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardModuleExpenseHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardModuleExpenseHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardMovableInlineSaveContextParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardMovableInlineSaveContext.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardNotifyDebtorHandlerParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardNotifyDebtorHandler.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "useExecutionDashboardOtherPartyCreditorHandlers",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardOtherPartyCreditorHandlers.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/useExecutionDashboardOtherPartyCreditorHandlers.test.ts"
+      ]
+    },
+    {
+      "sym": "UseExecutionDashboardOtherPartyMirrorParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardOtherPartyMirror.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardParentDossierPersistenceParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardParentDossierPersistence.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardPartyDeathOpenersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPartyDeathOpeners.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardPartyEditClusterInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPartyEditCluster.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "useExecutionDashboardPartyEditCluster",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPartyEditCluster.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/useExecutionDashboardPartyEditCluster.test.ts"
+      ]
+    },
+    {
+      "sym": "UseExecutionDashboardPaymentSecondaryHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPaymentSecondaryHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardPersistEffectsClusterInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPersistEffectsCluster.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "useExecutionDashboardPersistEffectsCluster",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPersistEffectsCluster.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/useExecutionDashboardPersistEffectsCluster.test.ts"
+      ]
+    },
+    {
+      "sym": "isDurablePartyDeathPersistPatch",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPersistExecutionMerge.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "isDurableCustodyWardPersistPatch",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPersistExecutionMerge.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "isDurableFollowupTabPersistPatch",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPersistExecutionMerge.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "isDurableMaritalFurnitureDeliveryPersistPatch",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPersistExecutionMerge.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "isDurableImmediateExecutionPersistPatch",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPersistExecutionMerge.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardPersonalCoerciveDecisionSyncParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPersonalCoerciveDecisionSync.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "PendingCaseTask",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPoliceAssistanceHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "SavePoliceAssistanceEntryInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPoliceAssistanceHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "RunSavePoliceAssistanceEntryParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPoliceAssistanceHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "runSavePoliceAssistanceEntry",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPoliceAssistanceHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardPoliceAssistanceHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPoliceAssistanceHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardPropertyInlineSaveContextParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPropertyInlineSaveContext.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardPublicationNoticeHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPublicationNoticeHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardRealEstateSeizureModalHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardRealEstateSeizureModalHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardSalarySeizurePatchParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSalarySeizurePatch.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardSalarySeizureTabRowsParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSalarySeizureTabRows.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardSeizureLedgerOutcomeEffectsInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSeizureLedgerOutcomeEffects.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardSeizureReleaseHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSeizureReleaseHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardStandaloneMarkHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardStandaloneMarkHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardStayHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardStayHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardThirdPartyReceiveHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardThirdPartyReceiveHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardThirdPartySeizureHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardThirdPartySeizureHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardTrashPinsClusterInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardTrashPinsCluster.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "useExecutionDashboardTrashPinsCluster",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardTrashPinsCluster.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/useExecutionDashboardTrashPinsCluster.test.ts"
+      ]
+    },
+    {
+      "sym": "UseExecutionDashboardVoluntaryPeriodHandlersParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardVoluntaryPeriodHandlers.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "useExecutionDashboardWorkspaceControlCenterCluster",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardWorkspaceControlCenterCluster.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/useExecutionDashboardWorkspaceControlCenterCluster.test.ts"
+      ]
+    },
+    {
+      "sym": "useExecutionDashboardWorkspaceSessionCluster",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardWorkspaceSessionCluster.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/useExecutionDashboardWorkspaceSessionCluster.test.ts"
+      ]
+    },
+    {
+      "sym": "UseFollowupModalTabGuardsParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useFollowupModalTabGuards.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "FinancialLedgerRow",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useTimelineAssetsFinancialLedger.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "EarnerFinancialPersonalCoerciveFlagsInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardEarnerFinancialCoerciveGate.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "resolveHideExecutiveDetentionJudgeCard",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardEarnerFinancialCoerciveGate.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "resolveEarnerFinancialPersonalCoerciveFlags",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardEarnerFinancialCoerciveGate.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionDashboardEarnerFinancialCoerciveGate.test.ts"
+      ]
+    },
+    {
+      "sym": "areHandlerClusterValuesEqual",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterEquality.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionHandlerClusterEquality.test.ts"
+      ]
+    },
+    {
+      "sym": "hasHandlerClusterDelta",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterEquality.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionHandlerClusterEquality.test.ts"
+      ]
+    },
+    {
+      "sym": "mergeDossierFollowupHandlers",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterEquality.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionHandlerClusterEquality.test.ts"
+      ]
+    },
+    {
+      "sym": "ExecutionHandlerClusterHeavyMode",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterGate.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionHandlerClusterGate.test.ts"
+      ]
+    },
+    {
+      "sym": "ExecutionHandlerClusterFollowupMode",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterGate.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionHandlerClusterGate.test.ts"
+      ]
+    },
+    {
+      "sym": "ExecutionHandlerClusterSeizureMode",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterGate.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionHandlerClusterGate.test.ts"
+      ]
+    },
+    {
+      "sym": "shouldPreferLightHandlerClusterOnDossierMount",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterGate.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "shouldLoadExecutionHandlerClusterHeavy",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterGate.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionHandlerClusterGate.test.ts"
+      ]
+    },
+    {
+      "sym": "shouldLoadExecutionHandlerClusterFollowupControlsOtherParty",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterGate.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "resolveExecutionHandlerClusterFollowupMode",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterGate.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionHandlerClusterGate.test.ts"
+      ]
+    },
+    {
+      "sym": "resolveExecutionHandlerClusterHeavyMode",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterGate.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionHandlerClusterGate.test.ts"
+      ]
+    },
+    {
+      "sym": "resolveExecutionHandlerClusterSeizureMode",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterGate.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionHandlerClusterGate.test.ts"
+      ]
+    },
+    {
+      "sym": "resetExecutionHandlerStubNotifierForTests",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterStubs.ts"
+      ],
+      "hitCount": 3,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/components/__tests__/unifiedSummonsStubWindow.test.tsx",
+        "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionHandlerClusterStubs.test.ts"
+      ]
+    },
+    {
+      "sym": "getExecutionHandlerStubInvocationCountForTests",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterStubs.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/executionHandlerClusterStubs.test.ts"
+      ]
+    },
+    {
+      "sym": "isExecutionHandlerClusterStub",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterStubs.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "HANDLER_STUB_BRAND",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterStubs.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionPhoneBodyScopeReadKey",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/pickExecutionPhoneBodyScopeReadBag.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/components/__tests__/executionHotspotAnyDebtHonesty.test.ts"
+      ]
+    },
+    {
+      "sym": "SeizedPropertyPortalPropKey",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/pickSeizedPropertyPortalProps.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "useExecutionDashboardBootPrefetch",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardBootPrefetch.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/__tests__/useExecutionDashboardBootPrefetch.test.ts"
+      ]
+    },
+    {
+      "sym": "ExecutionDashboardLazyChunkSetupInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardLazyChunkSetup.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardLazyChunkSetupResult",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardLazyChunkSetup.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "computeExecutionShellOverlayFingerprint",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardLazyChunkSetup.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDashboardPhoneBodyMountFlags",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardPhoneBodyMountStages.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardPhoneBodyNavigationParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardPhoneBodyNavigation.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDashboardShellOrchestratorsParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardShellOrchestrators.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionResidentialGraceClearedListenerParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardWindowBridge.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDecisionOutcomeToastBridgeParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardWindowBridge.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionOpenCoerciveTabListenerParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardWindowBridge.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "useExecutionOpenCoerciveTabListener",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardWindowBridge.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionOpenDecisionsModalListenerParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardWindowBridge.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "useExecutionOpenDecisionsModalListener",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardWindowBridge.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDecisionsModalControllerParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDecisionsModalController.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDossierHeaderNavigationParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDossierHeaderNavigation.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionFollowupControllerParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionFollowupController.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionSeizedPropertyStepEventsParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionSeizedAssetModals.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionGuarantorDetailsModalParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionSeizedAssetModals.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "SummonsHubMainTab",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionSummonsHub.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionSummonsHubParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionSummonsHub.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionTrashAndPinsParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionTrashAndPins.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseFollowupModalPersistNavigationParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useFollowupModalPersistNavigation.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseUnifiedSeizureLogInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/hooks/useUnifiedSeizureLog.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionFollowupControllerSlice",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/orchestrators/executionFollowupOrchestratorTypes.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionSummonsHubSlice",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/orchestrators/executionFollowupOrchestratorTypes.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionFollowupOrchestratorDebtorPipelineSlice",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/orchestrators/executionFollowupOrchestratorTypes.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionOrchestratorSlice",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/orchestrators/executionOrchestratorTypes.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDecisionsOrchestratorInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/orchestrators/useExecutionDecisionsOrchestrator.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDossierLifecycleActionsCoreInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/orchestrators/useExecutionDossierLifecycleActionsOrchestrator.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionDossierLifecycleActionsOrchestratorParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/orchestrators/useExecutionDossierLifecycleActionsOrchestrator.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionFinancialOrchestratorParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/orchestrators/useExecutionFinancialOrchestrator.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionFollowupOrchestratorInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/orchestrators/useExecutionFollowupOrchestrator.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UseExecutionSeizureOrchestratorInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/orchestrators/useExecutionSeizureOrchestrator.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "buildPersonalCoerciveExecutorTimelinePayload",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/applyPersonalCoerciveExecutorOutcome.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "dispatchPersonalCoerciveOutcomeEvent",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/applyPersonalCoerciveExecutorOutcome.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "isPersonalCoerciveDecisionWithdrawn",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/applyPersonalCoerciveExecutorOutcome.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "BuildUnifiedSeizureLogGuarantorParams",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/buildUnifiedSeizureLogGuarantorEntries.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "BuildUnifiedSeizureLogMovableResult",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/buildUnifiedSeizureLogMovableEntries.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "BuildUnifiedSeizureLogPropertyResult",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/buildUnifiedSeizureLogPropertyEntries.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "BuildUnifiedSeizureLogSalaryResult",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/buildUnifiedSeizureLogSalaryEntries.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "DOSSIER_ACTION_DECISION_TITLES",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/dossierControlDecisions.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "dossierDecisionShowsInlineActions",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/dossierControlDecisions.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "runRegisteredExecutionDossierBackStep",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/executionDossierBackHandlerRegistry.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "EXECUTION_DOSSIER_STORE_MODAL_BACK_PRIORITY",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/executionDossierBackNavigation.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "closeTopExecutionDashboardStoreModal",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/executionDossierBackNavigation.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/__tests__/executionDossierBackNavigation.test.ts"
+      ]
+    },
+    {
+      "sym": "dismissTopDomDialog",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/executionDossierBackNavigation.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/__tests__/executionDossierBackNavigation.test.ts"
+      ]
+    },
+    {
+      "sym": "RunExecutionDossierBackStepInput",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/executionDossierBackNavigation.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "normalizeOddExpertCount",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/expertCommitteeUtils.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/__tests__/expertCommitteeUtils.test.ts"
+      ]
+    },
+    {
+      "sym": "nextExpertCommitteeSizeAfterReportObjection",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/expertCommitteeUtils.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/__tests__/expertCommitteeUtils.test.ts"
+      ]
+    },
+    {
+      "sym": "FinancialHubLedgerOpenDetail",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/financialHubLedgerOpenHandler.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "GhuramaaDistributionDetail",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/financialHubPortalUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "GhuramaaDistributionArgs",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/financialHubPortalUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "LEGACY_FOLLOWUP_MODAL_TABS",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/followupLegacyTabNormalization.ts",
+        "src/app/components/lawyer/ExecutionDashboard/utils/followupModalPersistUtils.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "isLegacyFollowupModalTab",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/followupLegacyTabNormalization.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "OpenFollowupModalOptions",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/followupModalOpen.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "invokeOpenFollowupModal",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/followupModalOpen.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/__tests__/followupModalOpen.test.ts"
+      ]
+    },
+    {
+      "sym": "FollowupModalPersistState",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/followupModalPersistUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "InabaCorrespondenceLogStatus",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/inabaCorrespondenceLog.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "isOtherPartySpecialFollowupDecision",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/isAdminRequestsTabDecision.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/__tests__/isAdminRequestsTabDecision.test.ts"
+      ]
+    },
+    {
+      "sym": "movableProceedsTrustPaymentId",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/movableSeizureFinancialUtils.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/__tests__/movableSeizureFinancialUtils.test.ts"
+      ]
+    },
+    {
+      "sym": "MovableProceedsTrustCreditResult",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/movableSeizureFinancialUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "movableProceedsLedgerGapIqd",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/movableSeizureFinancialUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "propertyProceedsTrustPaymentId",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/propertySeizureFinancialUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "PropertyProceedsTrustCreditResult",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/propertySeizureFinancialUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "propertyProceedsLedgerGapIqd",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/propertySeizureFinancialUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "DecisionsStorageIdContext",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "SalarySeizureSubjectInfo",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureDisplayUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "buildSalarySeizureDescriptionLines",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureDisplayUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "SalaryDeductionBreakdown",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureLedgerSync.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/__tests__/salarySeizureLedgerSync.test.ts"
+      ]
+    },
+    {
+      "sym": "resolveOngoingMonthlyAlimonyIqd",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureLedgerSync.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/__tests__/salarySeizureLedgerSync.test.ts"
+      ]
+    },
+    {
+      "sym": "resolveSuggestedSalaryDeductionBreakdown",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureLedgerSync.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/__tests__/salarySeizureLedgerSync.test.ts"
+      ]
+    },
+    {
+      "sym": "dispatchSalaryDeductionToFinancialCenter",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureLedgerSync.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "findSeizedSalaryAssetByDecisionId",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureLedgerSync.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "SalaryDeductionLogRow",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureLedgerSync.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "readSalaryDeductionLog",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureLedgerSync.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "pickPrimarySalarySeizureForDeduction",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureLedgerSync.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "applySalaryMonthlyDeduction",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureLedgerSync.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ModalSeizedAssetRow",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/seizedAssetsModalBridge.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "seizedAssetsToModalAssets",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/seizedAssetsModalBridge.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/__tests__/seizedAssetsModalBridge.test.ts"
+      ]
+    },
+    {
+      "sym": "modalAssetsToSeizedAssets",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/seizedAssetsModalBridge.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/__tests__/seizedAssetsModalBridge.test.ts"
+      ]
+    },
+    {
+      "sym": "PendingSeizureDraftActionType",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/seizureSalaryRequestFlow.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "buildPropertyWorkflowRevertPatch",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/seizureWorkflowRevertUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "buildMovableWorkflowRevertPatch",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/seizureWorkflowRevertUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "parseThirdPartyFundsReceivedPayload",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/thirdPartyFundsReceivedOutcomeUtils.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/__tests__/thirdPartyFundsReceivedOutcomeUtils.test.ts"
+      ]
+    },
+    {
+      "sym": "thirdPartyFundsTrustPaymentId",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/thirdPartySeizureFinancialUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "TrustDisbursedDetail",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/trustDisbursedOutcomeHandler.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "UnifiedSeizureLogFooterActionKind",
+      "locs": [
+        "src/app/components/lawyer/ExecutionDashboard/utils/unifiedSeizureLogFooterNavigation.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "BuildExecutionViewDataInput",
+      "locs": [
+        "src/app/application/execution/dossier/buildExecutionViewData.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutorDecisionOutcomeLite",
+      "locs": [
+        "src/app/application/execution/followup/buildFollowupDerivedState.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "FollowupDebtorNoticeLite",
+      "locs": [
+        "src/app/application/execution/followup/buildSubsequentNoticePresentation.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "SubmitOtherPartyFollowupActionInput",
+      "locs": [
+        "src/app/application/execution/followup/submitOtherPartyFollowupAction.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "executionClaimMatches",
+      "locs": [
+        "src/app/utils/executionClaimIsolation.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "executionRowHasSubstantiveAppealPipeline",
+      "locs": [
+        "src/app/utils/executionDecisionAppealActive.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "computeExecutionAppealBannerKind",
+      "locs": [
+        "src/app/utils/executionDecisionAppealActive.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "resolveActiveDecisionsStorageKey",
+      "locs": [
+        "src/app/utils/executionDecisionsNamespace.ts",
+        "src/app/utils/executionDecisionsNamespaceResolve.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "clearDecisionsNamespaceForTests",
+      "locs": [
+        "src/app/utils/executionDecisionsNamespace.ts",
+        "src/app/utils/executionDecisionsNamespaceWrite.ts"
+      ],
+      "hitCount": 18,
+      "onlyTests": [
+        "src/app/utils/__tests__/executionDecisionsNamespace.test.ts",
+        "src/app/utils/__tests__/executionDomainReconcile.test.ts",
+        "src/app/utils/__tests__/executorDecisionPersistenceOps.test.ts",
+        "src/app/utils/__tests__/maritalFurnitureDeliveryParentChild.test.ts",
+        "src/app/utils/__tests__/executorSeizureDecisionQueue.personalCoercive.test.ts",
+        "src/app/utils/__tests__/executorSeizureDecisionQueue.evictionAppend.test.ts",
+        "src/app/utils/__tests__/lawyerCassationEntry.test.ts",
+        "src/app/utils/__tests__/openDecisionsModalFromFollowup.test.ts",
+        "src/app/utils/__tests__/waiveInitialAppeal.test.ts",
+        "src/app/utils/__tests__/waiveInitialAppeal.partyDeath.test.ts",
+        "src/app/utils/__tests__/waiveCassationAfterDebtorGrievance.test.ts",
+        "src/app/components/lawyer/DecisionsAndAppealsEngine/engine/__tests__/readDecisionsUnionAcrossCandidates.test.ts",
+        "src/app/components/lawyer/DecisionsAndAppealsEngine/engine/__tests__/decisionsPersistence.integration.test.ts",
+        "src/app/domain/seizure/__tests__/seizureWorkflowIntegration.test.ts",
+        "src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/__tests__/useDecisionsAppealsEngineStorage.persistReload.test.ts",
+        "src/app/components/lawyer/ExecutionDashboard/components/__tests__/executorDecisionFollowupMirror.test.tsx"
+      ]
+    },
+    {
+      "sym": "mergeRowsById",
+      "locs": [
+        "src/app/utils/executionDecisionsNamespaceMerge.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "DOMAIN_ISOLATION_BLOCKED_EVENT",
+      "locs": [
+        "src/app/utils/executionDomainIsolation.ts",
+        "src/app/utils/executionDomainIsolationGates.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "hiddenGuarantorCatalogKeyToRequestKind",
+      "locs": [
+        "src/app/utils/executionDomainIsolation.ts",
+        "src/app/utils/executionDomainIsolationGates.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "otherPartyCatalogIdToRequestKind",
+      "locs": [
+        "src/app/utils/executionDomainIsolation.ts",
+        "src/app/utils/executionDomainIsolationGates.ts"
+      ],
+      "hitCount": 3,
+      "onlyTests": [
+        "src/app/utils/__tests__/executionDomainIsolation.test.ts"
+      ]
+    },
+    {
+      "sym": "isOtherPartyCatalogOptionAllowed",
+      "locs": [
+        "src/app/utils/executionDomainIsolation.ts",
+        "src/app/utils/executionDomainIsolationGates.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "DomainReconcileResult",
+      "locs": [
+        "src/app/utils/executionDomainReconcile.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "clearDomainReconcileMarker",
+      "locs": [
+        "src/app/utils/executionDomainReconcile.ts"
+      ],
+      "hitCount": 5,
+      "onlyTests": [
+        "src/app/domain/seizure/__tests__/seizureWorkflowIntegration.test.ts",
+        "src/app/utils/__tests__/executionDecisionsNamespace.test.ts",
+        "src/app/utils/__tests__/executionDomainReconcile.test.ts",
+        "src/app/components/lawyer/ExecutionDashboard/components/__tests__/executorDecisionFollowupMirror.test.tsx"
+      ]
+    },
+    {
+      "sym": "isExecutionSubDossierBlobKey",
+      "locs": [
+        "src/app/utils/executionDossierBlobKeyLite.ts",
+        "src/app/utils/executionDossierBlobPersistence.ts"
+      ],
+      "hitCount": 3,
+      "onlyTests": [
+        "src/app/utils/__tests__/executionStorageUnified.test.ts"
+      ]
+    },
+    {
+      "sym": "ExecutionBlobSetOutcome",
+      "locs": [
+        "src/app/utils/executionDossierBlobPersistence.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "routeExecutionBlobCacheSet",
+      "locs": [
+        "src/app/utils/executionDossierBlobPersistence.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "PersistExecutionDossierBlobOptions",
+      "locs": [
+        "src/app/utils/executionDossierBlobPersistence.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionDossierReconcileResult",
+      "locs": [
+        "src/app/utils/executionDossierStorageReconcile.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "listExecutionDossierTombstoneIds",
+      "locs": [
+        "src/app/utils/executionDossierTombstones.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "__resetExecutionFilesStorageOwnerForTests",
+      "locs": [
+        "src/app/utils/executionFilesStorage.ts"
+      ],
+      "hitCount": 5,
+      "onlyTests": [
+        "src/app/utils/__tests__/executionFilesOwnerPersistence.test.ts",
+        "src/app/services/__tests__/executionCloudSyncFilter.test.ts",
+        "src/app/services/__tests__/executionCloudPush.test.ts",
+        "src/app/services/__tests__/cloudSyncTombstoneGuard.test.ts"
+      ]
+    },
+    {
+      "sym": "findExecutionFileRawById",
+      "locs": [
+        "src/app/utils/executionFilesStorage.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "mergeExecutionFilesById",
+      "locs": [
+        "src/app/utils/executionFilesStorage.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "saveExecutionFilesRawImmediate",
+      "locs": [
+        "src/app/utils/executionFilesStorage.ts"
+      ],
+      "hitCount": 3,
+      "onlyTests": [
+        "src/app/utils/__tests__/executionFilesStorage.test.ts",
+        "src/app/utils/__tests__/executionFilesOwnerPersistence.test.ts"
+      ]
+    },
+    {
+      "sym": "bindExecutionFilesStorageOwnerLite",
+      "locs": [
+        "src/app/utils/executionFilesStorageOwnerLite.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "ExecutionHistoricalModeInput",
+      "locs": [
+        "src/app/utils/executionHistoricalMode.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "buildArabicLooseSearchPattern",
+      "locs": [
+        "src/app/utils/executionLawArticleUtils.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "mapRemoteRowsToExecutionArticles",
+      "locs": [
+        "src/app/utils/executionLawRemoteCache.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/utils/__tests__/executionLawArticleUtils.test.ts"
+      ]
+    },
+    {
+      "sym": "ExecutionModuleId",
+      "locs": [
+        "src/app/utils/executionModuleStrategies.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "specificDeliveryNatureLabelAr",
+      "locs": [
+        "src/app/utils/executionModuleStrategies.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "hasEvictionHandoverRecorded",
+      "locs": [
+        "src/app/utils/executionModuleStrategies.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "CUSTODY_REMOVAL_CLAIM_VALUE",
+      "locs": [
+        "src/app/utils/executionModuleStrategies.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "getEvictionHybridClosureReadiness",
+      "locs": [
+        "src/app/utils/executionModuleStrategies.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "isWeekend",
+      "locs": [
+        "src/app/utils/executionStateMachine.ts",
+        "src/app/utils/executionStateMachineChrono.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "isPublicHoliday",
+      "locs": [
+        "src/app/utils/executionStateMachine.ts",
+        "src/app/utils/executionStateMachineChrono.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "isWorkingDay",
+      "locs": [
+        "src/app/utils/executionStateMachine.ts",
+        "src/app/utils/executionStateMachineChrono.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "getNextWorkingDay",
+      "locs": [
+        "src/app/utils/executionStateMachine.ts",
+        "src/app/utils/executionStateMachineChrono.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "calculateDaysElapsed",
+      "locs": [
+        "src/app/utils/executionStateMachine.ts",
+        "src/app/utils/executionStateMachineChrono.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "calculateExecutionStatus",
+      "locs": [
+        "src/app/utils/executionStateMachine.ts",
+        "src/app/utils/executionStateMachineStatus.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "calculateDebtorState",
+      "locs": [
+        "src/app/utils/executionStateMachine.ts",
+        "src/app/utils/executionStateMachineStatus.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "getCountdownText",
+      "locs": [
+        "src/app/utils/executionStateMachine.ts",
+        "src/app/utils/executionStateMachineUiMeta.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "validateStateConsistency",
+      "locs": [
+        "src/app/utils/executionStateMachine.ts",
+        "src/app/utils/executionStateMachineUiMeta.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "buildFreshExecutionDossierBlob",
+      "locs": [
+        "src/app/utils/executionStorageCacheOps.ts",
+        "src/app/utils/executionStorageKeys.ts"
+      ],
+      "hitCount": 3,
+      "onlyTests": [
+        "src/app/utils/__tests__/executionDossierIsolation.test.ts"
+      ]
+    },
+    {
+      "sym": "executionFormStorageKey",
+      "locs": [
+        "src/app/utils/executionStorageKeys.ts",
+        "src/app/utils/executionStorageKeysLite.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "executionBadgesHiddenStorageKey",
+      "locs": [
+        "src/app/utils/executionStorageKeys.ts",
+        "src/app/utils/executionStorageKeysLite.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "executionEvictionGracePinnedStorageKey",
+      "locs": [
+        "src/app/utils/executionStorageKeysLite.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "executionEvictionGraceHiddenStorageKey",
+      "locs": [
+        "src/app/utils/executionStorageKeysLite.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "executionEmployeePersonalUnlockStorageKey",
+      "locs": [
+        "src/app/utils/executionStorageKeysLite.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "EXECUTION_TRASH_RETENTION_MS",
+      "locs": [
+        "src/app/utils/executionTrash.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "getExecutionTrashDeletedAt",
+      "locs": [
+        "src/app/utils/executionTrash.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "executionTrashExpiresAtMs",
+      "locs": [
+        "src/app/utils/executionTrash.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "shouldAutoPurgeExecutionFromTrash",
+      "locs": [
+        "src/app/utils/executionTrash.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/utils/__tests__/executionTrashPurge.test.ts"
+      ]
+    },
+    {
+      "sym": "getExecutionArchivedAt",
+      "locs": [
+        "src/app/utils/executionTrash.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "EXECUTION_WIPE_EXACT_KEYS",
+      "locs": [
+        "src/app/utils/executionWipeKeyPrefixes.ts",
+        "src/app/utils/executionWipeRegistry.ts"
+      ],
+      "hitCount": 2
+    },
+    {
+      "sym": "shouldPurgeExecutionLocalKey",
+      "locs": [
+        "src/app/utils/executionWipeRegistry.ts"
+      ],
+      "hitCount": 3,
+      "onlyTests": [
+        "src/app/utils/__tests__/executionWipeRegistry.test.ts",
+        "src/app/utils/__tests__/executionStorageBundleCoverage.test.ts"
+      ]
+    },
+    {
+      "sym": "YmdWindowCountMode",
+      "locs": [
+        "src/app/utils/executionYmdCalendar.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "EXECUTION_GRACE_PERIOD_DAYS",
+      "locs": [
+        "src/app/utils/executionYmdCalendar.ts"
+      ],
+      "hitCount": 1
+    },
+    {
+      "sym": "gracePeriodWindowBoundsYmd",
+      "locs": [
+        "src/app/utils/executionYmdCalendar.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/utils/__tests__/executionYmdCalendar.test.ts"
+      ]
+    },
+    {
+      "sym": "gracePeriodFirstCoerciveDayYmd",
+      "locs": [
+        "src/app/utils/executionYmdCalendar.ts"
+      ],
+      "hitCount": 2,
+      "onlyTests": [
+        "src/app/utils/__tests__/executionYmdCalendar.test.ts"
+      ]
+    }
+  ],
+  "barrelOnly": [],
+  "scanned": 1921
+}

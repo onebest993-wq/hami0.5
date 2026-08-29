@@ -205,7 +205,8 @@ export function useFocSettlementActions(
     ]);
 
     const markPendingSettlementPaid = useCallback(() => {
-        const pending = store.pendingSettlement;
+        const latest = getLatestLedgerStore();
+        const pending = latest.pendingSettlement;
         if (!pending) {
             notify('لا توجد تسوية مسجلة للدفع.', 'warning');
             return;
@@ -231,7 +232,7 @@ export function useFocSettlementActions(
 
         if (tracksOngoing) {
             persist({
-                ...store,
+                ...latest,
                 pendingSettlement: {
                     ...pending,
                     id: `stl-${Date.now()}`,
@@ -271,8 +272,8 @@ export function useFocSettlementActions(
             trustBalanceAfter: trustAfter,
         };
         persist({
-            ...store,
-            payments: [row, ...store.payments],
+            ...latest,
+            payments: [row, ...latest.payments],
             pendingSettlement: {
                 ...pending,
                 id: `stl-${Date.now()}`,
@@ -281,7 +282,7 @@ export function useFocSettlementActions(
                 createdAt: new Date().toISOString(),
             },
             completed: debtAfter === 0,
-            collectionRequestActive: debtAfter === 0 ? false : store.collectionRequestActive,
+            collectionRequestActive: debtAfter === 0 ? false : latest.collectionRequestActive,
         });
         if (isEvictionFundsModule && debtAfter === 0) setIsEvictionCollectionRequested(false);
         onFundsLedgerPayment?.({
@@ -300,7 +301,7 @@ export function useFocSettlementActions(
             amount: amt,
         });
     }, [
-        store,
+        getLatestLedgerStore,
         remainingUnified,
         trustBalance,
         isAlimonyClaim,
@@ -315,7 +316,7 @@ export function useFocSettlementActions(
     ]);
 
     const cancelPendingSettlement = useCallback(() => {
-        const pending = store.pendingSettlement;
+        const pending = getLatestLedgerStore().pendingSettlement;
         if (!pending) {
             notify('لا توجد تسوية لإلغائها.', 'warning');
             return;
@@ -408,11 +409,12 @@ export function useFocSettlementActions(
     ]);
 
     const endSettlementSimple = useCallback(() => {
-        if (!store.pendingSettlement) {
+        const latest = getLatestLedgerStore();
+        if (!latest.pendingSettlement) {
             notify('لا توجد تسوية لإنهائها.', 'warning');
             return;
         }
-        persist(clearSettlementFromStore(getLatestLedgerStore()));
+        persist(clearSettlementFromStore(latest));
         setSettlementPanelOpen(false);
         setShowSettlementEviction(false);
         recordFinancialTimelineNote('إلغاء التسوية', 'أُلغيت التسوية وعادت دورة التسوية.', 'settlement');
@@ -422,7 +424,6 @@ export function useFocSettlementActions(
         notify,
         persist,
         recordFinancialTimelineNote,
-        store.pendingSettlement,
         setSettlementPanelOpen,
         setShowSettlementEviction,
     ]);

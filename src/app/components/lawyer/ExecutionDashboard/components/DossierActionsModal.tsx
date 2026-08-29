@@ -1,18 +1,23 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
 import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,
-} from '@/app/components/lawyer/execution/executionModalStack';
+} from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
+import { EXEC_MODAL_CLOSE_BTN_CLASS } from '@/app/components/lawyer/ExecutionDashboard/executionModalMobileShell';
+import { useExecutionOverlayDismiss } from '@/app/components/lawyer/ExecutionDashboard/useExecutionOverlayDismiss';
 import {
     DossierActionFormFields,
     DossierActionFormFooter,
     useDossierActionForm,
 } from './DossierActionForm';
-import { Forward, Shuffle, FileText, RefreshCw, MessageSquare } from '@/app/components/ui/lucideIcons';
-
-export type DossierActionType = 'delegation' | 'unify' | 'transfer' | 'renew' | 'inaba_correspondence';
+import type { DossierActionPayload, DossierActionType } from './DossierActionTypes';
+import { Forward } from '@/app/components/ui/icons/Forward';
+import { Shuffle } from '@/app/components/ui/icons/Shuffle';
+import { FileText } from '@/app/components/ui/icons/FileText';
+import { RefreshCw } from '@/app/components/ui/icons/RefreshCw';
+import { MessageSquare } from '@/app/components/ui/icons/MessageSquare';
 
 const ACTION_META: Record<DossierActionType, { label: string; icon: React.ReactNode }> = {
     delegation: { label: 'طلب الإنابة التنفيذية', icon: <Forward size={16} /> },
@@ -22,23 +27,7 @@ const ACTION_META: Record<DossierActionType, { label: string; icon: React.ReactN
     inaba_correspondence: { label: 'طلب مخاطبة الإنابة', icon: <MessageSquare size={16} /> },
 };
 
-export interface DossierActionPayload {
-    actionType: DossierActionType;
-    delegationTargetDirectorate?: string;
-    delegationPurpose?: string;
-    unificationTargetType?: 'own' | 'colleague';
-    unificationTargetId?: string;
-    unificationColleagueToken?: string;
-    unificationTargetMeta?: { directorate?: string; fileNumber?: string; fileYear?: string };
-    transferTargetDirectorate?: string;
-    transferReason?: string;
-    renewalReason?: string;
-    inabaCorrespondenceSubFileId?: string;
-    inabaCorrespondenceDirectorate?: string;
-    inabaCorrespondenceSubject?: string;
-}
-
-interface DossierActionsModalProps {
+export type DossierActionsModalProps = {
     open: boolean;
     actionType: DossierActionType | null;
     onClose: () => void;
@@ -46,7 +35,7 @@ interface DossierActionsModalProps {
     saving?: boolean;
     currentFileId?: string;
     inabaTargets?: { id: string; directorate: string }[];
-}
+};
 
 const DossierActionsModalBody: React.FC<
     Omit<DossierActionsModalProps, 'open'> & { actionType: DossierActionType }
@@ -62,7 +51,7 @@ const DossierActionsModalBody: React.FC<
 
     return (
         <div
-            className="w-full max-w-md overflow-hidden rounded-2xl border border-amber-500/20 bg-[#0A0F1C] shadow-2xl"
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-amber-500/20 bg-[#0A0F1C] shadow-lg"
             role="dialog"
             aria-modal="true"
             aria-labelledby="dossier-action-modal-title"
@@ -77,7 +66,8 @@ const DossierActionsModalBody: React.FC<
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
+                        className={EXEC_MODAL_CLOSE_BTN_CLASS}
+                        aria-label="إغلاق"
                     >
                         <X size={16} />
                     </button>
@@ -105,6 +95,7 @@ export const DossierActionsModal: React.FC<DossierActionsModalProps> = ({
     currentFileId,
     inabaTargets,
 }) => {
+    useExecutionOverlayDismiss(Boolean(open && actionType), onClose);
     if (!open || !actionType) return null;
 
     const layer = (

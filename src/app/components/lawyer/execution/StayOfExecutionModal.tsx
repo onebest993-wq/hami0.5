@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { X } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
 
 export interface StayOfExecutionModalProps {
     open: boolean;
@@ -58,7 +58,7 @@ export const StayOfExecutionModal: React.FC<StayOfExecutionModalProps> = ({
             <div
                 role="dialog"
                 aria-modal="true"
-                className="w-full max-w-sm rounded-xl border border-[#E6C673]/25 bg-[#0A0F1C] shadow-xl text-right flex flex-col max-h-[min(520px,85vh)]"
+                className="w-full max-w-sm rounded-xl border border-[#E6C673]/25 bg-[#0A0F1C] shadow-lg text-right flex flex-col max-h-[min(520px,85vh)]"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-2.5 py-2">

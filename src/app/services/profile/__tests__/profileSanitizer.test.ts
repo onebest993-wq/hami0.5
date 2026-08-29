@@ -141,4 +141,47 @@ describe('sanitizeLawyerProfile', () => {
             zoom: 100,
         });
     });
+
+    it('يحافظ على صورة معرض data:image وعلى هاتف عراقي', () => {
+        const jpeg =
+            'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA8A/9k=';
+        const raw: LawyerProfileData = {
+            header: { name: 'محامٍ', title: 'محامٍ' },
+            sections: [
+                {
+                    id: 'gallery-1',
+                    type: 'gallery',
+                    data: [{ url: jpeg, focusX: 50, focusY: 50, zoom: 100 }],
+                },
+                {
+                    id: 'actions-1',
+                    type: 'actions',
+                    data: [{ id: 'call', type: 'call', label: 'هاتف', value: '07803344524' }],
+                },
+            ],
+            customization: {},
+        };
+        const cleaned = sanitizeLawyerProfile(raw);
+        const gallery = cleaned.sections.find((s) => s.type === 'gallery')?.data as Array<{ url: string }>;
+        const actions = cleaned.sections.find((s) => s.type === 'actions')?.data as Array<{ value: string }>;
+        expect(gallery[0]?.url).toBe(jpeg);
+        expect(actions[0]?.value).toBe('07803344524');
+    });
+
+    it('يسقط قناة واتساب متبقية من بيانات قديمة', () => {
+        const raw = {
+            header: { name: 'محامٍ', title: 'محامٍ' },
+            sections: [
+                {
+                    id: 'actions-1',
+                    type: 'actions',
+                    data: [{ id: 'wa', type: 'whatsapp', label: 'واتساب', value: '07803344524' }],
+                },
+            ],
+            customization: {},
+        } as unknown as LawyerProfileData;
+        const cleaned = sanitizeLawyerProfile(raw);
+        const actions = cleaned.sections.find((s) => s.type === 'actions')?.data as unknown[];
+        expect(actions).toEqual([]);
+    });
 });

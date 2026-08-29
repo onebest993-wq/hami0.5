@@ -58,7 +58,7 @@ import {
     syncCaseSovereignContext,
 } from './caseClassificationEngine';
 
-export function resolveArticleAtReferralFromCase(c: CriminalCase): string {
+function resolveArticleAtReferralFromCase(c: CriminalCase): string {
     const history = Array.isArray(c.legalArticleHistory) ? c.legalArticleHistory : [];
     if (history.length) {
         return String(history[history.length - 1]?.article ?? '').trim();
@@ -123,15 +123,17 @@ export function seedCriminalCaseFromDraftSnapshot(
     caseId: string,
     nowDate: string,
     ownerLawyerId?: string | null,
-): CriminalCase {
+): CriminalCase | null {
     const storedStage = String(snapshotWithUnknown.basics.stage ?? '').trim();
     const resolvedCaseStage = caseStageFromStoredStage(storedStage) ?? 'investigation';
-    const owner = String(ownerLawyerId ?? '').trim() || undefined;
+    const owner = String(ownerLawyerId ?? '').trim();
+    // Refuse orphan create — never persist a case without a session owner stamp.
+    if (!owner) return null;
     let seededCase: CriminalCase = applyTrialChargeReferralSeed({
+        ...snapshotWithUnknown,
         id: caseId,
         createdAt: new Date().toISOString(),
-        ...(owner ? { ownerLawyerId: owner } : {}),
-        ...snapshotWithUnknown,
+        ownerLawyerId: owner,
         location: normalizeCriminalCaseLocation(snapshotWithUnknown.location),
         statements: Array.isArray(snapshotWithUnknown.statements) ? snapshotWithUnknown.statements : [],
         timelineEvents: Array.isArray(snapshotWithUnknown.timelineEvents) ? snapshotWithUnknown.timelineEvents : [],
@@ -209,7 +211,7 @@ export function cloneDraftSnapshot(draft: CriminalCaseDraft): CriminalCaseDraft 
     };
 }
 
-export function copyComplainantsForSeveranceDraft(
+function copyComplainantsForSeveranceDraft(
     parentComplainants: CriminalComplainant[] | undefined,
 ): CriminalComplainant[] {
     const source = Array.isArray(parentComplainants) ? parentComplainants : [];

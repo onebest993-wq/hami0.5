@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import type { CaseStage, TimelineEvent } from '../../LawyerShared';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import type { SmartFileParentData } from '../smartFile/parentDataInit';
 import { patchActiveStage } from '../smartFile/stageMutations';
 import {
@@ -10,11 +10,16 @@ import {
 } from '../smartFile/appealStageTransition';
 import { resolveOpponentRegistrationAppealLayout } from '../smartFile/appealPartyEngine';
 import { isAbsentJudgmentForm } from '../smartFile/absentJudgmentFlow';
+import { resolveAppealStageCaseNumber } from '../smartFile/absentObjectionCaseNumber';
 import {
     normalizePersonalStatusAppealMethod,
 } from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
 
-type SaveToCloud = (updatedStages: CaseStage[], parent?: SmartFileParentData) => void;
+type SaveToCloud = (
+    updatedStages: CaseStage[],
+    parent?: SmartFileParentData,
+    stageIndex?: number,
+) => void;
 
 export function useSmartFilePleadingsActions(options: {
     stages: CaseStage[];
@@ -119,13 +124,18 @@ export function useSmartFilePleadingsActions(options: {
                 const appealType = appealMethod === 'اعتراض غيابي'
                     ? 'اعتراض على الحكم الغيابي'
                     : appealMethod;
+                const resolvedCaseNo = resolveAppealStageCaseNumber(
+                    appealType,
+                    appealCaseNo,
+                    currentStage.caseNo ?? parentData.caseNo,
+                );
 
                 const archiveTitle = isObjectionAppeal
                     ? '🛡️ اعتراض المدعى عليه بالحكم الغيابي'
                     : '⚖️ تسجيل طعن من الخصم';
                 const archiveDetails = isObjectionAppeal
-                    ? `قام المدعى عليه بالاعتراض على الحكم الغيابي.\nرقم دعوى الاعتراض: ${appealCaseNo || 'غير محدد'}\nتاريخ التقديم: ${now}`
-                    : `قام الخصم بالطعن في القرار بطريق (${appealType}).\n\nرقم دعوى الطعن: ${appealCaseNo || 'غير محدد'}\nالمحكمة المختصة: ${appealCourt || 'غير محدد'}\n\n🔒 بقيت إضبارة هذه المرحلة محفوظة ومقفولة، ويمكن الرجوع إليها من شريط المراحل.`;
+                    ? `قام المدعى عليه بالاعتراض على الحكم الغيابي.\nرقم دعوى الاعتراض: ${resolvedCaseNo || 'غير محدد'}\nتاريخ التقديم: ${now}`
+                    : `قام الخصم بالطعن في القرار بطريق (${appealType}).\n\nرقم دعوى الطعن: ${resolvedCaseNo || 'غير محدد'}\nالمحكمة المختصة: ${appealCourt || 'غير محدد'}\n\n🔒 بقيت إضبارة هذه المرحلة محفوظة ومقفولة، ويمكن الرجوع إليها من شريط المراحل.`;
 
                 const archiveEvent: TimelineEvent = {
                     id: `appeal_opp_${Date.now()}`,
@@ -159,7 +169,7 @@ export function useSmartFilePleadingsActions(options: {
                         appealType,
                         appellant,
                         filingDate: now,
-                        newCaseNumber: appealCaseNo,
+                        newCaseNumber: resolvedCaseNo,
                         newCourt: appealCourt,
                         archiveTimelineEvent: archiveEvent,
                         archiveFinalDecision: isObjectionAppeal

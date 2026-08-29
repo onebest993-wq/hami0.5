@@ -5,7 +5,7 @@
  * ملاحظة: لا يوجد src/features/ في المشروع — الموقع الرسمي تحت خدمات التقويم.
  */
 import { LEGAL_DEADLINES } from '@/app/constants/legal';
-import { formatDateToLocalYmd, getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { formatDateToLocalYmd, getLocalTodayYmd } from '@/app/utils/localYmd';
 
 /** أنواع الطعن/المهلة المعتمدة في الثوابت القانونية + مسارات شائعة */
 export type LegalDecisionType =

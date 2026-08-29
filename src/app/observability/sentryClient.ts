@@ -67,6 +67,11 @@ export function ensureSentryInitialized(): Promise<SentryModule | null> {
 
             Sentry.init({
                 dsn: import.meta.env.VITE_SENTRY_DSN,
+                /*
+                 * بلا `release` يصل البلاغ مجهول النسب: لا يُعرف أي بناء أنتجه،
+                 * ولا تجد خرائط المصدر المرفوعة ما تُطابقه فتبقى الآثار مُصغَّرة.
+                 */
+                release: __HAMI_APP_RELEASE__,
                 integrations: [Sentry.browserTracingIntegration()],
                 tracesSampleRate: isProd ? 0.12 : 1,
                 replaysSessionSampleRate: 0,

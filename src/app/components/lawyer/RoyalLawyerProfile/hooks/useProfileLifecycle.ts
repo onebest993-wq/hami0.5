@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { resolveProfileShellReady } from '@/app/services/profile/profileShellLogic';
+import { resolveProfileShellReady } from '@/app/services/profile/profileShellPolicy';
 import {
     markProfilePerfPhase,
     reportProfilePerf,
 } from '@/app/services/profile/profilePerfMetrics';
 import { peekProfileWarmCache } from '@/app/services/profile/profileWarmCache';
 
-export type UseProfileLifecycleParams = {
+type UseProfileLifecycleParams = {
     profileUserId: string;
     loading: boolean;
     hasHeader: boolean;

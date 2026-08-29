@@ -9,7 +9,6 @@ export const SETTINGS_SCHEMA_VERSION = 3 as const;
 
 export type ViewMode = 'list' | 'grid';
 export type AutoLockMinutes = 0 | 1 | 5 | 15 | 30 | 60;
-export type { HomeSectionId } from './homeSections';
 
 export interface AppearanceSettings {
     themeMode: ThemeMode;

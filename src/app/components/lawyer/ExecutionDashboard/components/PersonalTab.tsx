@@ -1,4 +1,11 @@
-import React, { Suspense } from 'react';
+import React from 'react';
+import type { EmployeeSummonsAssignmentState, ExecutionFile, TimelineEvent } from '@/app/types/execution';
+import type { EmployeeAssignmentCoerciveFollowupBlockProps } from '@/app/components/lawyer/execution/EmployeeAssignmentCoerciveFollowupBlock';
+import type { PersonalCoerciveFollowupPanelProps } from '@/app/components/lawyer/execution/personalCoercive/types';
+import type { ActiveDebtorNoticeScope } from '../hooks/executionDashboardCore/useExecutionDashboardVoluntaryPeriodHandlers';
+import { EXEC_MODAL_TOUCH_TARGET } from '../executionModalMobileShell';
+import { EXEC_OVERLAY_INNER_SILENT_FALLBACK } from '../executionDashboardLazyShellUi';
+import { PreloadableOverlayGate } from '../preloadableOverlayGate';
 
 export interface PersonalTabProps {
     personalTabLockedForEmployee: boolean;
@@ -12,12 +19,16 @@ export interface PersonalTabProps {
     debtorArrested: boolean;
     setDebtorArrested: React.Dispatch<React.SetStateAction<boolean>>;
     showEmployeeAssignmentCoerciveBlock: boolean;
-    resolvedEmployeeSummonsAssignment: any;
+    resolvedEmployeeSummonsAssignment: EmployeeSummonsAssignmentState | null;
     EXEC_SECTION_LAZY_FALLBACK: React.ReactNode;
-    LazyEmployeeAssignmentCoerciveFollowupBlock: React.LazyExoticComponent<React.ComponentType<any>>;
+    LazyEmployeeAssignmentCoerciveFollowupBlock: React.LazyExoticComponent<
+        React.ComponentType<EmployeeAssignmentCoerciveFollowupBlockProps>
+    >;
     forcedBringDecisionState: { pending: boolean; approved: boolean; rejected: boolean };
     employeeForcedBringAwaitingPersonalOutcome: boolean;
-    LazyPersonalCoerciveFollowupPanel: React.LazyExoticComponent<React.ComponentType<any>>;
+    LazyPersonalCoerciveFollowupPanel: React.LazyExoticComponent<
+        React.ComponentType<PersonalCoerciveFollowupPanelProps>
+    >;
     decisionsStorageExecutionId?: string;
     decisionsReloadEpoch: number;
     coerciveUiLocked: boolean;
@@ -25,15 +36,15 @@ export interface PersonalTabProps {
     debtorForcedToAttend: boolean;
     voluntaryAttendanceCount: number;
     isEvictionExecutionModule: boolean;
-    executionData: Record<string, any> | null | undefined;
+    executionData: ExecutionFile | null | undefined;
     voluntaryEndOptimistic: boolean;
     noticeVoluntaryPeriodEndOptimistic: boolean;
     forcedSummoningAnalysis: { canForceSummon: boolean; lockReasonAr: string };
-    viewExecutionData: Record<string, any> | null | undefined;
+    viewExecutionData: ExecutionFile | null | undefined;
     isHistoricalMode: boolean;
     remaining: number;
     persistExecutionMerge: (patch: Record<string, unknown>) => void;
-    pushTimelineEvent: (event: any, options?: { mergePatch?: Record<string, unknown> }) => void;
+    pushTimelineEvent: (event: TimelineEvent, options?: { mergePatch?: Record<string, unknown> }) => void;
     nextTimelineId: () => string;
     assignmentWorkspaceCtx: { activeDebtorKey: string };
     primaryDebtorKeyResolved: string;
@@ -47,7 +58,7 @@ export interface PersonalTabProps {
     hidePersonalForcedBringActivation?: boolean;
     hideExecutiveDetentionJudgeCard?: boolean;
     earnerFinancialPersonalCoerciveActive?: boolean;
-    activeDebtorNoticeScope: Record<string, any>;
+    activeDebtorNoticeScope: ActiveDebtorNoticeScope;
     handleEmployeeAssignmentRequestInvestigation: () => void;
     handleEmployeeRegisterArrestOrder: () => void;
     handleEmployeeAssignmentRequestForcedBring: () => void;
@@ -71,7 +82,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
     setDebtorArrested,
     showEmployeeAssignmentCoerciveBlock,
     resolvedEmployeeSummonsAssignment,
-    EXEC_SECTION_LAZY_FALLBACK,
+    EXEC_SECTION_LAZY_FALLBACK: _EXEC_SECTION_LAZY_FALLBACK,
     LazyEmployeeAssignmentCoerciveFollowupBlock,
     forcedBringDecisionState,
     employeeForcedBringAwaitingPersonalOutcome,
@@ -129,7 +140,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                 <button
                     type="button"
                     onClick={onConfirmUnlock}
-                    className="mt-3 w-full rounded-xl border border-amber-400/55 bg-gradient-to-r from-amber-900/40 to-amber-800/30 py-2.5 text-[11px] font-extrabold text-amber-100 hover:from-amber-800/50 hover:to-amber-700/35"
+                    className={`mt-3 w-full rounded-xl border border-amber-400/55 bg-gradient-to-r from-amber-900/40 to-amber-800/30 py-2.5 text-[11px] font-extrabold text-amber-100 hover:from-amber-800/50 hover:to-amber-700/35 ${EXEC_MODAL_TOUCH_TARGET}`}
                 >
                     أتفهم الأمر — افتح
                 </button>
@@ -139,37 +150,24 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
         <div className="space-y-5 p-3 text-right" dir="rtl" onClick={(e) => e.stopPropagation()}>
             {showEmployeeAssignmentCoerciveBlock &&
             resolvedEmployeeSummonsAssignment ? (
-                <Suspense fallback={EXEC_SECTION_LAZY_FALLBACK}>
-                    <LazyEmployeeAssignmentCoerciveFollowupBlock
-                        assignment={resolvedEmployeeSummonsAssignment}
-                        onRequestInvestigation={
-                            handleEmployeeAssignmentRequestInvestigation
-                        }
-                        onRegisterArrestOrder={
-                            handleEmployeeRegisterArrestOrder
-                        }
-                        onRequestForcedBring={
-                            handleEmployeeAssignmentRequestForcedBring
-                        }
-                        forcedBringPending={forcedBringDecisionState.pending}
-                        forcedBringApprovedAwaitingOutcome={
-                            employeeForcedBringAwaitingPersonalOutcome
-                        }
-                        forcedBringRejected={forcedBringDecisionState.rejected}
-                        onWarrantDebtorBrought={() =>
-                            handleEmployeeWarrantOutcome('brought')
-                        }
-                        onWarrantTerminate={() =>
-                            handleEmployeeWarrantOutcome('terminate')
-                        }
-                        onForcedBringOutcome={
-                            handleEmployeeAssignmentResolveForcedBringOutcome
-                        }
-                        onTerminateAssignment={
-                            handleEmployeeAssignmentTerminate
-                        }
-                    />
-                </Suspense>
+                <PreloadableOverlayGate
+                    lazy={LazyEmployeeAssignmentCoerciveFollowupBlock}
+                    lazyProps={{
+                        assignment: resolvedEmployeeSummonsAssignment,
+                        onRequestInvestigation: handleEmployeeAssignmentRequestInvestigation,
+                        onRegisterArrestOrder: handleEmployeeRegisterArrestOrder,
+                        onRequestForcedBring: handleEmployeeAssignmentRequestForcedBring,
+                        forcedBringPending: forcedBringDecisionState.pending,
+                        forcedBringApprovedAwaitingOutcome:
+                            employeeForcedBringAwaitingPersonalOutcome,
+                        forcedBringRejected: forcedBringDecisionState.rejected,
+                        onWarrantDebtorBrought: () => handleEmployeeWarrantOutcome('brought'),
+                        onWarrantTerminate: () => handleEmployeeWarrantOutcome('terminate'),
+                        onForcedBringOutcome: handleEmployeeAssignmentResolveForcedBringOutcome,
+                        onTerminateAssignment: handleEmployeeAssignmentTerminate,
+                    }}
+                    fallback={EXEC_OVERLAY_INNER_SILENT_FALLBACK}
+                />
             ) : activeDebtorIsEmployee && !custodyRemovalClaimActive ? (
                 <div className="rounded-2xl border border-sky-500/30 bg-sky-950/20 p-4 text-right">
                     <p className="text-sky-200 text-sm font-bold mb-2">المدين موظف</p>
@@ -180,12 +178,13 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                     </p>
                 </div>
             ) : (
-                <Suspense fallback={EXEC_SECTION_LAZY_FALLBACK}>
-                    <LazyPersonalCoerciveFollowupPanel
-                        executionId={resolvedExecutionId || undefined}
-                        decisionsReloadEpoch={decisionsReloadEpoch}
-                        coerciveUiLocked={coerciveUiLocked}
-                        gracePeriodEndedFlag={Boolean(
+                <PreloadableOverlayGate
+                    lazy={LazyPersonalCoerciveFollowupPanel}
+                    lazyProps={{
+                        executionId: resolvedExecutionId || undefined,
+                        decisionsReloadEpoch,
+                        coerciveUiLocked,
+                        gracePeriodEndedFlag: Boolean(
                             activeDebtorNoticeScope.memoAnchorDate ||
                                 debtorAttendedVoluntarily ||
                                 debtorForcedToAttend ||
@@ -195,39 +194,35 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                                     ? executionData?.eviction_voluntary_period_end_declared ||
                                       voluntaryEndOptimistic
                                     : executionData?.notice_voluntary_period_end_declared ||
-                                      noticeVoluntaryPeriodEndOptimistic)
-                        )}
-                        forcedSummonAllowed={
-                            forcedSummoningAnalysis.canForceSummon
-                        }
-                        forcedSummonLockReason={
-                            forcedSummoningAnalysis.lockReasonAr
-                        }
-                        executionData={viewExecutionData}
-                        isHistoricalMode={isHistoricalMode}
-                        debtorPresentEffective={Boolean(
-                            debtorAttendedVoluntarily ||
-                                debtorForcedToAttend
-                        )}
-                        debtRemainingIqd={remaining}
-                        persistExecutionMerge={persistExecutionMerge}
-                        pushTimelineEvent={pushTimelineEvent}
-                        nextTimelineId={nextTimelineId}
-                        showToast={showToast}
-                        activeDebtorKey={assignmentWorkspaceCtx.activeDebtorKey}
-                        primaryDebtorKey={primaryDebtorKeyResolved}
-                        onOpenDecisions={onOpenDecisions}
-                        onOpenSummonsCenter={onOpenSummonsCenter}
-                        onOpenGuarantorDetails={onOpenGuarantorDetails}
-                        kasabCoerciveEmphasis={kasabTerminationEmphasis}
-                        kasabRelaxedGates={!activeDebtorIsEmployee || custodyRemovalClaimActive}
-                        hideDossierJudgePresentation={hidePersonalJudgePresentation}
-                        hideExecutiveDetentionJudgeCard={hideExecutiveDetentionJudgeCard}
-                        earnerFinancialPersonalCoerciveActive={earnerFinancialPersonalCoerciveActive}
-                        hideExecutorForcedBringActivation={hidePersonalForcedBringActivation}
-                        activeDebtorIsEmployee={activeDebtorIsEmployee}
-                    />
-                </Suspense>
+                                      noticeVoluntaryPeriodEndOptimistic),
+                        ),
+                        forcedSummonAllowed: forcedSummoningAnalysis.canForceSummon,
+                        forcedSummonLockReason: forcedSummoningAnalysis.lockReasonAr,
+                        executionData: viewExecutionData ?? null,
+                        isHistoricalMode,
+                        debtorPresentEffective: Boolean(
+                            debtorAttendedVoluntarily || debtorForcedToAttend,
+                        ),
+                        debtRemainingIqd: remaining,
+                        persistExecutionMerge,
+                        pushTimelineEvent,
+                        nextTimelineId,
+                        showToast,
+                        activeDebtorKey: assignmentWorkspaceCtx.activeDebtorKey,
+                        primaryDebtorKey: primaryDebtorKeyResolved,
+                        onOpenDecisions,
+                        onOpenSummonsCenter,
+                        onOpenGuarantorDetails,
+                        kasabCoerciveEmphasis: kasabTerminationEmphasis,
+                        kasabRelaxedGates: !activeDebtorIsEmployee || custodyRemovalClaimActive,
+                        hideDossierJudgePresentation: hidePersonalJudgePresentation,
+                        hideExecutiveDetentionJudgeCard,
+                        earnerFinancialPersonalCoerciveActive,
+                        hideExecutorForcedBringActivation: hidePersonalForcedBringActivation,
+                        activeDebtorIsEmployee,
+                    }}
+                    fallback={EXEC_OVERLAY_INNER_SILENT_FALLBACK}
+                />
             )}
         </div>
     );

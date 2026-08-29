@@ -1,6 +1,6 @@
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import { syncLawsuitTimelineAppointment } from '@/app/services/calendar/dossierSync';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
+import { syncLawsuitTimelineAppointment } from '@/app/services/calendar/dossierSyncLazy';
 import type { TimelineEvent } from '../../../LawyerShared';
 import type { UseSmartFileProceduralActionsOptions } from '../../smartFile/proceduralTypes';
 import {

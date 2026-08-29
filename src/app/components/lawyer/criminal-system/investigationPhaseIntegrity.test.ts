@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import SecureStoreService from '@/app/services/SecureStoreService';
 import { syncStoredStageFromJourneyCaseStage } from './criminalStageUtils';
 import { resolveCanCreateDecisionsOrRequests } from './criminalDashboardStageAccess';
 import { isInvestigationDraftLocationIncomplete } from './investigationDraftValidation';
@@ -8,12 +7,7 @@ import {
     useCriminalStore,
     type CriminalCaseStage,
 } from './criminalStore';
-
-function resetCriminalStore() {
-    SecureStoreService.deleteItemSync('hami:criminal:store');
-    useCriminalStore.setState({ casesById: {} });
-    useCriminalStore.getState().resetDraft();
-}
+import { resetCriminalStore } from './__tests__/criminalStoreTestHelpers';
 
 function seedDraftForNewCase(stage: CriminalCaseStage) {
     const s = useCriminalStore.getState();

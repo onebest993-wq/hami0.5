@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
 import {
     appealPipelineRowForCard,
@@ -6,7 +5,11 @@ import {
     isExecutorRequestAppealCycleSupersededFromRecord,
     resolveCreditorDecisionEnforcementState,
 } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
-import { fieldVisitAppointmentStorageKey, inferExecutorApprovalDecisionType } from '@/app/utils/executorApprovalWorkflow';
+import {
+    coerceEvictionExecutorWorkflowKey,
+    inferExecutorApprovalDecisionType,
+    fieldVisitAppointmentStorageKey,
+} from '@/app/utils/executorApprovalWorkflow';
 import { patchExecutorDecisionRow } from '@/app/utils/executorSeizureDecisionQueue';
 import SecureStoreService from '@/app/services/SecureStoreService';
 
@@ -30,8 +33,8 @@ export function syncEvictionAppealClosureIfNeeded(input: {
         return;
     }
 
-    const hub = hubWithInferredAppealOrigin(row as Decision);
-    const pipe = appealPipelineRowForCard(hub, all as Decision[]);
+    const hub = hubWithInferredAppealOrigin(row as unknown as Decision);
+    const pipe = appealPipelineRowForCard(hub, all as unknown as Decision[]);
     const state = resolveCreditorDecisionEnforcementState(hub, pipe, {
         hubTab: 'previous',
         appealLegallyFinal: true,
@@ -52,7 +55,9 @@ export function syncEvictionAppealClosureIfNeeded(input: {
     const branch = inferExecutorApprovalDecisionType({
         title: String((row as { title?: string }).title || ''),
         requestKind: 'eviction_procedure',
-        evictionWorkflowKey: (row as { evictionWorkflowKey?: string }).evictionWorkflowKey,
+        evictionWorkflowKey: coerceEvictionExecutorWorkflowKey(
+            (row as { evictionWorkflowKey?: string }).evictionWorkflowKey,
+        ),
     });
     if (branch === 'Field Visit Date') {
         try {

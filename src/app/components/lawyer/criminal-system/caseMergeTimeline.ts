@@ -6,13 +6,13 @@ import { resolveOfficialCaseNumber } from './criminalCaseReferenceUtils';
 import { resolveMergeStageBucket } from './criminalStageUtils';
 
 /** عرض مؤقت في الذاكرة فقط — لا يُخزَّن في Zustand. */
-export type MergedTimelineEventView = TimelineEvent & {
+type MergedTimelineEventView = TimelineEvent & {
     isMerged?: boolean;
     originCaseNumber?: string;
     originCaseId?: string;
 };
 
-export type MergeCaseTargetOption = {
+type MergeCaseTargetOption = {
     id: string;
     selectLabel: string;
 };
@@ -104,32 +104,6 @@ export function resolveMergedChildIdsForTargetPicker(
 /** رسالة الرفض القانوني — الضم العابر للمراحل ممنوع. */
 export const CROSS_STAGE_MERGE_ERROR_MESSAGE =
     'لا يجوز ضم إضبارات في مراحل إجرائية مختلفة (تحقيق الأحداث ومحكمة الأحداث مسار مستقل عن البالغين).';
-
-/** المرحلة الإجرائية الحالية للمقارنة عند الضم — مُطابقة للوحة وخزانة الأضابير. */
-export function resolveMergeProceduralStageKey(
-    caseRecord: CriminalCase | undefined,
-): CaseStage | null {
-    if (!caseRecord) return null;
-    const bucket = resolveMergeStageBucket(caseRecord);
-    if (bucket === 'juvenile_investigation' || bucket === 'investigation') return 'investigation';
-    if (bucket === 'juvenile_trial') return 'misdemeanor';
-    if (bucket === 'misdemeanor' || bucket === 'felony' || bucket === 'cassation') return bucket;
-    return 'investigation';
-}
-
-/** عدد الإضابير الأخرى القابلة للضم (للتشخيص والواجهة). */
-export function countMergeEligibleTargets(
-    casesById: Record<string, CriminalCase | undefined>,
-    parentCaseId: string,
-    mergedChildIds: ReadonlySet<string>,
-): number {
-    return buildMergeCaseTargetOptions(casesById, parentCaseId, mergedChildIds).length;
-}
-
-/** @deprecated — استخدم resolveMergeProceduralStageKey للمقارنة. */
-export function resolveCaseProceduralStage(caseRecord: CriminalCase | undefined): string {
-    return resolveMergeProceduralStageKey(caseRecord) ?? '';
-}
 
 export function areCasesSameProceduralStage(
     caseA: CriminalCase | undefined,
@@ -260,7 +234,7 @@ export function filterParentOnlyTimelineEvents(events: MergedTimelineEventView[]
 }
 
 /** بيانات شارة الإضبارة المضمومة في رأس اللوحة — معلومات سياقية كافية للقارئ. */
-export type MergedCaseHeaderBadge = {
+type MergedCaseHeaderBadge = {
     id: string;
     caseNumber: string;
     defendants: string[];

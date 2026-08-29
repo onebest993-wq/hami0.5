@@ -3,9 +3,6 @@ import type { LawyerRequest } from '../criminalStore';
 import { canAddLawyerRequestFollowUpMargin } from '../lawyerRequestsEngine';
 import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../criminalModalPortal';
 
-export const requestCardStarredClass = (isStarred?: boolean) =>
-    isStarred === true ? 'border-[#E6C673]/50 ring-1 ring-[#E6C673]/40' : '';
-
 export const RequestStarToggle = ({
     starred,
     disabled,
@@ -105,7 +102,7 @@ export const RequestMarginPromptModal = ({
             className="!bg-black/75"
         >
             <div
-                className="w-full max-w-sm rounded-xl border border-slate-700 bg-slate-900 p-4 space-y-3 shadow-2xl"
+                className="w-full max-w-sm rounded-xl border border-slate-700 bg-slate-900 p-4 space-y-3 shadow-lg"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="text-white font-black text-sm">هامش متابعة (قبل الحكم النهائي)</div>

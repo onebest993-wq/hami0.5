@@ -11,6 +11,7 @@ import {
     openFollowupCoerciveModal,
     type OpenFollowupModalPersistedFn,
 } from '../../utils/followupModalOpen';
+import { toastAfterExecutionPersist } from '../../helpers/toastAfterExecutionPersist';
 
 export type PendingCaseTask = {
     id: string;
@@ -40,7 +41,7 @@ export type RunSavePoliceAssistanceEntryParams = {
     resetModal: () => void;
 };
 
-export function runSavePoliceAssistanceEntry({
+function runSavePoliceAssistanceEntry({
     input,
     evictionProcedureLocked,
     storageId,
@@ -324,12 +325,15 @@ export function useExecutionDashboardPoliceAssistanceHandlers({
         const nextTimeline = [ev, ...timelineEventsRef.current];
         setCaseTasksPending(nextTasks);
         setTimelineEvents(nextTimeline);
-        persistExecutionMerge({
-            eviction_police_assistance: { ...cur, completedAt: now },
-            caseTasksPending: nextTasks,
-            timelineEvents: nextTimeline,
-        });
-        showToast('تم إتمام طلب القوة الجبرية', 'success');
+        toastAfterExecutionPersist(
+            persistExecutionMerge({
+                eviction_police_assistance: { ...cur, completedAt: now },
+                caseTasksPending: nextTasks,
+                timelineEvents: nextTimeline,
+            }),
+            showToast,
+            'تم إتمام طلب القوة الجبرية',
+        );
     }, [
         evictionProcedureLocked,
         executionDataRef,

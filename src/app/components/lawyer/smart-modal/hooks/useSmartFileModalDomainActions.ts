@@ -5,10 +5,11 @@ import { useSmartFileModalJudgmentBundle } from './useSmartFileModalJudgmentBund
 import { useSmartFileModalProceduralLinkingBundle } from './useSmartFileModalProceduralLinkingBundle';
 import type { useSmartFileModalFlags } from './useSmartFileModalFlags';
 import type { SmartFileModalProps } from '../smartFile/smartFileModalTypes';
+import type { SaveToCloud } from './judgment/judgmentHookTypes';
 
 type ModalFlags = ReturnType<typeof useSmartFileModalFlags>;
 
-export type SmartFileModalDomainActionsParams = {
+type SmartFileModalDomainActionsParams = {
     file: SmartFileModalProps['file'];
     lawsuitFiles: SmartFileModalProps['lawsuitFiles'];
     onSpawnLinkedIncidentalCase: SmartFileModalProps['onSpawnLinkedIncidentalCase'];
@@ -40,7 +41,7 @@ export type SmartFileModalDomainActionsParams = {
     isEditingStageName: boolean;
     setIsEditingStageName: Dispatch<SetStateAction<boolean>>;
     tempStageName: string;
-    saveToCloud: () => void;
+    saveToCloud: SaveToCloud;
     calendarUserId: string | undefined;
     lawsuitFileId: string | undefined;
     onCalendarUnlink?: (params: { sourceEventId: string; eventType?: TimelineEvent['type'] }) => void;
@@ -57,7 +58,6 @@ export function useSmartFileModalDomainActions(params: SmartFileModalDomainActio
         handleUpdateCaseInfo: stageTimeline.handleUpdateCaseInfo,
         handleQuickAction: stageTimeline.handleQuickAction,
         handleRegisterObjection: judgment.handleRegisterObjection,
-        handleObjectionJudgment: judgment.handleObjectionJudgment,
         handleAbsentJudgmentNotification: judgment.handleAbsentJudgmentNotification,
         handleOpponentAbsentObjection: judgment.handleOpponentAbsentObjection,
         handleRestoreEvent: stageTimeline.handleRestoreEvent,

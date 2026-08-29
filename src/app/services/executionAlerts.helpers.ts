@@ -36,6 +36,15 @@ export function dayDiff(targetTs: number, nowTs: number): number {
     return Math.floor((targetTs - nowTs) / DAY_MS);
 }
 
+/** أيام تقويمية حتى يوم الهدف (٠ = اليوم نفسه) — بلا انزلاق ساعة منتصف الليل. */
+export function calendarDaysUntil(targetTs: number, nowTs: number): number {
+    const targetDay = new Date(targetTs);
+    targetDay.setHours(0, 0, 0, 0);
+    const nowDay = new Date(nowTs);
+    nowDay.setHours(0, 0, 0, 0);
+    return Math.round((targetDay.getTime() - nowDay.getTime()) / DAY_MS);
+}
+
 /** التحقق من تاريخ ISO آمن. */
 export function safeIso(value: unknown): string | undefined {
     if (typeof value !== 'string') return undefined;

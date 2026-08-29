@@ -1,77 +1,42 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+    writeSecureAndClearLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { mergeSmartVaultDocs } from '@/app/services/vault/vaultDocUtils';
 import { isVaultIdbStoragePath } from '@/app/services/vaultBlobStore';
+import {
+    markVaultDocDeleted,
+    resetVaultDocsTombstonesForTests,
+} from '@/app/services/vault/vaultDocsTombstonesLite';
+
+export {
+    filterDeletedVaultDocs,
+    isVaultDocDeleted,
+    markVaultDocDeleted,
+} from '@/app/services/vault/vaultDocsTombstonesLite';
 
 export const VAULT_LOCAL_KEY = 'hami:smartvault:docs:v1';
-/** مرآة فورية في localStorage — قراءة/كتابة متزامنة بدون انتظار IndexedDB */
-const VAULT_LOCAL_MIRROR_KEY = 'hami:smartvault:mirror:v1';
-/** معرّفات محذوفة محلياً — تمنع إعادة الظهور من KV عند فشل الحذف السحابي */
-const VAULT_DELETED_MIRROR_KEY = 'hami:smartvault:deleted:v1';
+/*
+ * مرآة قديمة نصّاً صريحاً — تُقرأ مرّة للترحيل ثم تُمحى، ولا يُكتب فيها بعد اليوم.
+ *
+ * كانت المرآة موجودة لتُتيح قراءة متزامنة بلا انتظار IndexedDB، وكانت أوسع ثقب في
+ * المخزن: فهرسٌ فيه أسماء مستندات الموكّلين على القرص بلا تشفير، في أسهل موضع
+ * وصولاً. وحين شُفِّر الفهرس بقيت المرآة تنسخه صريحاً — فالتشفير معها زينة.
+ *
+ * بديلها ليس جديداً: `memoryDocs` هنا، و`decryptedCache` في `SecureStoreService`
+ * تُملأ من تسخين مفاتيح القشرة. فالقراءة المتزامنة قائمة على الذاكرة لا على القرص،
+ * وهو ما كان يجب أن تكون عليه من البداية.
+ */
+const VAULT_LEGACY_PLAINTEXT_MIRROR_KEY = 'hami:smartvault:mirror:v1';
 
 const PERSIST_DEBOUNCE_MS = 350;
-const PERSIST_FLUSH_TIMEOUT_MS = 5_000;
 
 let memoryDocs: SmartVaultDoc[] | null = null;
-let memoryDeletedKeys: Set<string> | null = null;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let persistChain: Promise<void> = Promise.resolve();
-
-function vaultDocTombstoneKey(authorId: string, docId: string): string {
-    return `${authorId.trim()}:${docId.trim()}`;
-}
-
-function readDeletedVaultKeysMirror(): string[] {
-    if (typeof localStorage === 'undefined') return [];
-    try {
-        const raw = localStorage.getItem(VAULT_DELETED_MIRROR_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed)
-            ? parsed.filter((k): k is string => typeof k === 'string' && k.includes(':'))
-            : [];
-    } catch {
-        return [];
-    }
-}
-
-function writeDeletedVaultKeysMirror(keys: Set<string>): void {
-    if (typeof localStorage === 'undefined') return;
-    try {
-        localStorage.setItem(VAULT_DELETED_MIRROR_KEY, JSON.stringify([...keys]));
-    } catch {
-        /* ignore */
-    }
-}
-
-function readDeletedVaultKeys(): Set<string> {
-    if (memoryDeletedKeys) return memoryDeletedKeys;
-    memoryDeletedKeys = new Set(readDeletedVaultKeysMirror());
-    return memoryDeletedKeys;
-}
-
-/** يُسجّل حذفاً محلياً — يمنع إعادة دمج الملف من KV/القرص */
-export function markVaultDocDeleted(authorId: string, docId: string): void {
-    const author = authorId.trim();
-    const id = docId.trim();
-    if (!author || !id) return;
-    const keys = readDeletedVaultKeys();
-    keys.add(vaultDocTombstoneKey(author, id));
-    writeDeletedVaultKeysMirror(keys);
-}
-
-export function isVaultDocDeleted(authorId: string, docId: string): boolean {
-    const author = authorId.trim();
-    const id = docId.trim();
-    if (!author || !id) return false;
-    return readDeletedVaultKeys().has(vaultDocTombstoneKey(author, id));
-}
-
-export function filterDeletedVaultDocs(docs: SmartVaultDoc[]): SmartVaultDoc[] {
-    const keys = readDeletedVaultKeys();
-    if (keys.size === 0) return docs;
-    return docs.filter((d) => !keys.has(vaultDocTombstoneKey(d.authorId, d.id)));
-}
 
 /** فهرس خفيف — بدون data URLs ضخمة (الملفات في IDB منفصلة) */
 export function normalizeVaultDocForLocalPersist(doc: SmartVaultDoc): SmartVaultDoc {
@@ -86,21 +51,21 @@ export function normalizeVaultDocForLocalPersist(doc: SmartVaultDoc): SmartVault
     return doc;
 }
 
-function readVaultMirrorPayload(): string | null {
+/**
+ * يقرأ المرآة الصريحة القديمة ويمحوها في النفس نفسه.
+ *
+ * القراءة لأجل الترحيل وحده: جهازٌ حدّث التطبيق قد يحمل فهرسه هنا فقط. والمحو
+ * فوراً لأن تركها يعني إبقاء الأسماء صريحةً على القرص إلى الأبد — وهي الحال التي
+ * جاء هذا التغيير ليُنهيها. الناتج يُعاد كتابته مشفَّراً في مسار الحفظ العادي.
+ */
+function drainLegacyPlaintextMirror(): string | null {
     if (typeof localStorage === 'undefined') return null;
     try {
-        return localStorage.getItem(VAULT_LOCAL_MIRROR_KEY);
+        const raw = localStorage.getItem(VAULT_LEGACY_PLAINTEXT_MIRROR_KEY);
+        if (raw !== null) localStorage.removeItem(VAULT_LEGACY_PLAINTEXT_MIRROR_KEY);
+        return raw;
     } catch {
         return null;
-    }
-}
-
-function writeVaultMirrorPayload(payload: string): void {
-    if (typeof localStorage === 'undefined') return;
-    try {
-        localStorage.setItem(VAULT_LOCAL_MIRROR_KEY, payload);
-    } catch {
-        /* quota — SecureStore remains primary */
     }
 }
 
@@ -117,25 +82,17 @@ function parseVaultDocsPayload(raw: string | null | undefined): SmartVaultDoc[] 
 /** قراءة متزامنة من الذاكرة أو المرآة أو الكاش — بدون انتظار IndexedDB */
 export function readVaultLocalIndexSync(): SmartVaultDoc[] {
     if (memoryDocs !== null) return memoryDocs;
-    const mirror = parseVaultDocsPayload(readVaultMirrorPayload());
-    if (mirror.length > 0) {
-        memoryDocs = mirror;
-        return mirror;
+    /*
+     * الترحيل مرّة واحدة: ما وجدناه في المرآة القديمة يُعاد حفظه مشفَّراً، والمرآة
+     * تُمحى في القراءة نفسها. لا يُنتظر الحفظ — القراءة متزامنة بحكم عقدها.
+     */
+    const legacy = parseVaultDocsPayload(drainLegacyPlaintextMirror());
+    if (legacy.length > 0) {
+        memoryDocs = legacy;
+        scheduleVaultLocalIndexPersist(legacy);
+        return legacy;
     }
-    /* بذور E2E / كتابات مباشرة على المفتاح الأساسي */
-    if (typeof localStorage !== 'undefined') {
-        try {
-            const direct = parseVaultDocsPayload(localStorage.getItem(VAULT_LOCAL_KEY));
-            if (direct.length > 0) {
-                memoryDocs = direct;
-                return direct;
-            }
-        } catch {
-            /* ignore */
-        }
-    }
-    const raw = SecureStoreService.getItemSync(VAULT_LOCAL_KEY);
-    const parsed = parseVaultDocsPayload(raw);
+    const parsed = parseVaultDocsPayload(readSecureOrDrainLegacySync(VAULT_LOCAL_KEY));
     if (parsed.length > 0) memoryDocs = parsed;
     return parsed;
 }
@@ -151,9 +108,6 @@ export async function readVaultLocalIndex(): Promise<SmartVaultDoc[]> {
             return memoryDocs;
         }
         memoryDocs = parseVaultDocsPayload(raw);
-        if (memoryDocs.length > 0) {
-            writeVaultMirrorPayload(JSON.stringify(memoryDocs.map(normalizeVaultDocForLocalPersist)));
-        }
         return memoryDocs;
     } catch {
         memoryDocs = [];
@@ -185,8 +139,12 @@ function mergeVaultLocalDoc(current: SmartVaultDoc[], doc: SmartVaultDoc): Smart
 
 function writeVaultIndexPayload(docs: SmartVaultDoc[]): void {
     const payload = JSON.stringify(docs.map(normalizeVaultDocForLocalPersist));
-    writeVaultMirrorPayload(payload);
-    SecureStoreService.setItemSync(VAULT_LOCAL_KEY, payload);
+    /*
+     * `setItemSync` تُحدّث `decryptedCache` فوراً ثم تُشفّر وتحفظ في IndexedDB خلفياً.
+     * فالقراءة المتزامنة التالية تجدها في الذاكرة — وهو ما كانت المرآة الصريحة تفعله،
+     * بلا نسخة على القرص.
+     */
+    writeSecureAndClearLegacySync(VAULT_LOCAL_KEY, payload);
 }
 
 /**
@@ -225,13 +183,16 @@ function persistVaultLocalIndexNow(docs: SmartVaultDoc[]): void {
 async function persistVaultLocalIndexToDisk(docs: SmartVaultDoc[]): Promise<void> {
     persistVaultLocalIndexNow(docs);
     const payload = JSON.stringify((memoryDocs ?? docs).map(normalizeVaultDocForLocalPersist));
-    await Promise.race([
-        SecureStoreService.setItem(VAULT_LOCAL_KEY, payload),
-        new Promise<void>((resolve) => setTimeout(resolve, PERSIST_FLUSH_TIMEOUT_MS)),
-    ]);
+    /*
+     * لا `Promise.race` يحلّ عند المهلة: ذلك كان يُعلن نجاحاً والقرص ما زال
+     * خلف IndexedDB. `setItemSync` حدّث الكاش؛ هذا الانتظار هو الكتابة الفعلية.
+     * لا تخطَّ الكتابة إن طابق الكاش — وإلا لن تُستدعى `setItem` بعد `setItemSync`.
+     */
+    await SecureStoreService.setItem(VAULT_LOCAL_KEY, payload);
+    clearLegacyPlaintextMirror(VAULT_LOCAL_KEY);
 }
 
-/** حفظ فوري في الذاكرة ثم مزامنة IDB بخلفية محدودة الوقت */
+/** حفظ فوري في الذاكرة ثم انتظار IndexedDB — بلا مهلة تُحسب نجاحاً */
 export async function upsertVaultLocalIndexDocAndFlush(doc: SmartVaultDoc): Promise<void> {
     upsertVaultLocalIndexDocImmediate(doc);
     const snapshot = memoryDocs ?? [doc];
@@ -296,12 +257,12 @@ export function queueVaultLocalIndexPersist(docs: SmartVaultDoc[]): void {
 /** للاختبارات */
 export function resetVaultLocalIndexForTests(): void {
     memoryDocs = null;
-    memoryDeletedKeys = null;
+    resetVaultDocsTombstonesForTests();
     if (persistTimer) clearTimeout(persistTimer);
     persistTimer = null;
     persistChain = Promise.resolve();
     if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem(VAULT_DELETED_MIRROR_KEY);
+        localStorage.removeItem(VAULT_LEGACY_PLAINTEXT_MIRROR_KEY);
     }
 }
 

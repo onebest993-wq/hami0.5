@@ -17,19 +17,29 @@ describe('phase-15 section-first-open cuts', () => {
         expect(src).toMatch(/warmExecutionWorkspaceIntent\(\{[^}]*includeSecondary:\s*false/);
     });
 
-    it('LawsuitsWorkspaceHost يؤجل SmartFile/NewCase بمهلة صلبة (لا idle مبكر)', () => {
+    it('LawsuitsWorkspaceHost: أرشيف على active فوراً؛ NewCase بعد FAB؛ SmartFile عند المساحة الظاهرة', () => {
         const src = readFileSync(
             join(root, 'src/app/components/lawyer/dashboard/LawsuitsWorkspaceHost.tsx'),
             'utf8',
         );
         expect(src).toContain('scheduleSecondaryLawsuitWarm');
-        expect(src).toContain('prefetchSmartFileModalPhased');
-        expect(src).toContain('5_000');
+        expect(src).toContain('prefetchLawyerNewCaseModule');
+        expect(src).toContain('prepareLawsuitDossierChromeOnce');
+        expect(src).toContain(', 200)');
+        expect(src).not.toContain('1_800');
+        expect(src).toContain('lawsuits-jurisdiction-picker');
+        expect(src).not.toContain('12_000');
+        expect(src).toContain('loadLawsuitArchiveHubModule');
+        expect(src).not.toContain('loadArchivePortalModule');
         expect(src).not.toMatch(
             /scheduleSecondaryLawsuitWarm[\s\S]{0,200}requestIdleCallback/,
         );
         expect(src).not.toMatch(
             /primeCivilArchiveCore[\s\S]{0,200}prefetchLawyerNewCaseModule\(\);\s*prefetchSmartFileModalPhased\(\);/,
+        );
+        /* mount يسخّن الـ hub فقط عند الفتح — NewCase عبر onIntent/tab */
+        expect(src).toMatch(
+            /useEffect\(\(\) => \{\s*if \(!active\) \{\s*clearSecondaryLawsuitWarm\(\);\s*return;\s*\}\s*primeCivilArchiveCore\(\);\s*\}, \[active, clearSecondaryLawsuitWarm, primeCivilArchiveCore\]\)/,
         );
     });
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPinned } from '@/app/components/ui/lucideIcons';
+import { MapPinned } from '@/app/components/ui/icons/MapPinned';
 import type { LegalSubTask } from '@/app/types/TaskEngine';
 import { TaskRingToggle } from './TaskRingToggle';
 import { TaskListOrdinalBadge } from './TaskListOrdinalBadge';
@@ -18,7 +18,7 @@ export function TaskCardFieldBrief({ fieldActions, readOnly, onToggleSubComplete
 
     return (
         <div
-            className={`rounded-lg border border-[#E6C673]/18 bg-gradient-to-l from-[#E6C673]/12 to-transparent px-2 py-1.5`}
+            className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-2 py-1.5"
             data-testid="tasks-task-field-brief"
         >
             {showItemOrdinals ? (
@@ -30,7 +30,7 @@ export function TaskCardFieldBrief({ fieldActions, readOnly, onToggleSubComplete
                 {fieldActions.map((st, idx) => (
                     <li
                         key={st.id}
-                        className={`flex flex-row-reverse items-center gap-2 rounded-md px-1.5 py-1 min-h-[36px] ${
+                        className={`flex flex-row-reverse items-center gap-2 rounded-md px-1.5 py-1 min-h-[44px] ${
                             st.isCompleted ? 'opacity-70' : ''
                         }`}
                     >
@@ -46,7 +46,6 @@ export function TaskCardFieldBrief({ fieldActions, readOnly, onToggleSubComplete
                             <TaskListOrdinalBadge
                                 ordinal={{ index: idx, total: fieldActions.length }}
                                 compact
-                                placement="inline"
                                 testId={`tasks-task-field-item-ordinal-${st.id}`}
                             />
                         ) : null}

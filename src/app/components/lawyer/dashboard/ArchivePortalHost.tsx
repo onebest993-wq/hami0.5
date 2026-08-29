@@ -4,15 +4,14 @@ import type { ArchiveDossierViewMode } from '@/app/components/lawyer/ArchivePort
 import {
     getCachedArchivePortal,
     getCachedExecutionSurface,
-    getLawsuitFileGridReady,
     invalidateArchivePortalModuleCache,
     loadArchivePortalModule,
     loadLawsuitArchiveHubModule,
+    loadExecutionArchiveHubModule,
     prefetchLawsuitArchiveContent,
     prefetchExecutionArchiveContent,
     subscribeArchivePortalCache,
     subscribeExecutionSurfaceReady,
-    subscribeLawsuitFileGridReady,
     type ArchivePortalComponent,
 } from '@/app/runtime/hubArchiveLoader';
 import { ArchiveHubInstantShell, ArchiveHubLoadError } from './ArchiveHubInstantShell';
@@ -55,8 +54,8 @@ function ArchivePortalInlineLoadError({
 }
 
 /**
- * Host الأرشيف — للتنفيذ يعتمد Portal فور وجوده في الكاش (بلا بوابة surface/grid متذبذبة).
- * Surface/FileGrid يُسخَّنان عبر loadExecutionArchiveHubModule ويُعرضان sync من الكاش.
+ * Host الأرشيف — للدعاوى يتبنّى Portal من الكاش داخل InstantShell المدني.
+ * للتنفيذ المضمّن (InstantChrome) لا يُرسم ArchiveHubInstantShell فوق القشرة.
  */
 export function ArchivePortalHost({
     loadingVariant,
@@ -65,17 +64,12 @@ export function ArchivePortalHost({
     embedded,
     initialLawsuitJurisdictionTab,
     ...rest
-}: ArchivePortalHostProps): React.ReactElement {
+}: ArchivePortalHostProps): React.ReactElement | null {
     const resolvedLoadingVariant = loadingVariant ?? (embedded ? 'inline' : 'overlay');
     const cachedComponent = useSyncExternalStore(
         subscribeArchivePortalCache,
         getCachedArchivePortal,
         () => null,
-    );
-    const lawsuitFileGridReady = useSyncExternalStore(
-        subscribeLawsuitFileGridReady,
-        getLawsuitFileGridReady,
-        () => false,
     );
     const executionSurface = useSyncExternalStore(
         subscribeExecutionSurfaceReady,
@@ -89,7 +83,6 @@ export function ArchivePortalHost({
     >(initialLawsuitJurisdictionTab ?? 'all');
     const [lifecycleChrome, setLifecycleChrome] = useState<LawsuitShellLifecycleChrome>(null);
     const [archiveScrollParent, setArchiveScrollParent] = useState<HTMLDivElement | null>(null);
-    const [dossierSearchOpen, setDossierSearchOpen] = useState(true);
     const [dossierSearchQuery, setDossierSearchQuery] = useState('');
     const [dossierViewMode, setDossierViewMode] = useState<ArchiveDossierViewMode>('grid');
 
@@ -124,9 +117,22 @@ export function ArchivePortalHost({
 
         let cancelled = false;
         let attempts = 0;
+        let retryTimer: ReturnType<typeof window.setTimeout> | undefined;
 
         if (type === 'executions') {
             prefetchExecutionArchiveContent();
+            void loadExecutionArchiveHubModule()
+                .then(() => {
+                    if (cancelled) return;
+                    setLoadFailed(false);
+                })
+                .catch((error) => {
+                    if (import.meta.env.DEV) {
+                        console.error('[ArchivePortalHost] execution archive load failed', error);
+                    }
+                    if (cancelled) return;
+                    setLoadFailed(true);
+                });
             return () => {
                 cancelled = true;
             };
@@ -151,7 +157,7 @@ export function ArchivePortalHost({
                     if (cancelled) return;
                     attempts += 1;
                     if (attempts < MAX_LOAD_ATTEMPTS) {
-                        window.setTimeout(adoptModule, LOAD_RETRY_MS);
+                        retryTimer = window.setTimeout(adoptModule, LOAD_RETRY_MS);
                         return;
                     }
                     setLoadFailed(true);
@@ -162,22 +168,40 @@ export function ArchivePortalHost({
 
         return () => {
             cancelled = true;
+            if (retryTimer != null) window.clearTimeout(retryTimer);
         };
     }, [loadGeneration, type]);
+
+    useEffect(() => {
+        if (type !== 'lawsuits' || !cachedComponent) return;
+        void import('@/app/runtime/lawsuitOpenContract')
+            .then((m) => m.prepareLawsuitDossierChromeOnce())
+            .catch(() => undefined);
+    }, [cachedComponent, type]);
 
     const Component: ArchivePortalComponent | null = cachedComponent;
 
     if (type === 'executions') {
         const Surface = executionSurface;
+        const inlineFrame = resolvedLoadingVariant === 'inline';
         if (!Surface) {
             if (loadFailed) {
-                return (
+                return inlineFrame ? (
+                    <ArchivePortalInlineLoadError
+                        message={inlineLoadErrorMessage}
+                        onRetry={retryLoad}
+                    />
+                ) : (
                     <ArchiveHubLoadError
                         message="تعذّر تحميل الأرشيف"
                         onRetry={retryLoad}
                         onBack={onClose}
                     />
                 );
+            }
+            /* InstantChrome يملك الترويسة — InstantShell يغطيها بهيكل «جاري فتح» */
+            if (inlineFrame) {
+                return null;
             }
             return (
                 <ArchiveHubInstantShell
@@ -209,15 +233,19 @@ export function ArchivePortalHost({
                 onJurisdictionTabChange={setJurisdictionTab}
                 lifecycleChrome={lifecycleChrome}
                 initialJurisdictionTab={initialLawsuitJurisdictionTab}
-                searchOpen={dossierSearchOpen}
-                onSearchOpenChange={setDossierSearchOpen}
                 searchQuery={dossierSearchQuery}
                 onSearchQueryChange={setDossierSearchQuery}
                 viewMode={dossierViewMode}
                 onViewModeChange={setDossierViewMode}
                 onScrollParentRef={handleScrollParentRef}
+                filesHydrating={
+                    (lifecycleChrome?.lawsuitViewMode === 'trash' && rest.lawsuitTrashFiles == null) ||
+                    (lifecycleChrome?.lawsuitViewMode === 'archived' &&
+                        rest.lawsuitArchivedFiles == null) ||
+                    Boolean(rest.lawsuitFilesHydrating)
+                }
             >
-                {Component && lawsuitFileGridReady ? (
+                {Component ? (
                     <Component
                         embedded={embedded}
                         onClose={onClose}
@@ -226,8 +254,6 @@ export function ArchivePortalHost({
                         initialLawsuitJurisdictionTab={jurisdictionTab}
                         onLawsuitShellChrome={setLifecycleChrome}
                         archiveScrollParent={archiveScrollParent}
-                        dossierSearchOpen={dossierSearchOpen}
-                        onDossierSearchOpenChange={setDossierSearchOpen}
                         dossierSearchQuery={dossierSearchQuery}
                         onDossierSearchQueryChange={setDossierSearchQuery}
                         dossierViewMode={dossierViewMode}
@@ -262,12 +288,6 @@ export function ArchivePortalHost({
                 onBack={onClose}
             />
         );
-    }
-
-    if (resolvedLoadingVariant === 'inline') {
-        if (type === 'executions') {
-            return <div className="h-full bg-[#0B1021]" aria-busy="true" />;
-        }
     }
 
     return (

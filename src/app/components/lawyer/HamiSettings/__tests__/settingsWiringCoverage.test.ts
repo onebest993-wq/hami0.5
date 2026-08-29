@@ -4,19 +4,17 @@ import { settingWiringHint } from '@/app/services/settings/settingsCapabilities'
 /** مفاتيح الإعدادات المعروضة فعلياً في الواجهة — مرجع للتدقيق الذرّي */
 const WIRED_SETTING_KEYS = [
     // المنظر — الإعدادات العامة فقط (تخصيص الأقسام عبر homeLayout.overrides)
-    'appearance.theme',
-    'appearance.wallpaper',
-    'appearance.fontSize',
-    'appearance.highContrast',
-    'appearance.reduceMotion',
-    'performance.enableAnimations',
-    'performance.prefetchScreens',
-    'performance.litePerformance',
+        'appearance.theme',
+        'appearance.wallpaper',
+        'appearance.reduceMotion',
+        'appearance.fontSize',
+        'appearance.highContrast',
+        'performance.litePerformance',
     // الأمان
     'security.localOnlyMode',
-    'security.privacyBlur',
     'security.biometricLock',
     'security.autoLockMinutes',
+    'security.privacyBlur',
     'security.screenshotDeterrent',
     // البيانات
     'data.autoSave',

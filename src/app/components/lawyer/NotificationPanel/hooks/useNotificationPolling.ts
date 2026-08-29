@@ -1,56 +1,23 @@
 import { useEffect } from 'react';
 import { useNotificationStore } from '@/app/stores/notificationStore';
+import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import { TIMING } from '@/app/utils/constants';
-
-function isDocumentVisible(): boolean {
-    return typeof document === 'undefined' || document.visibilityState !== 'hidden';
-}
 
 /** جلب دوري للإشعارات أثناء فتح اللوحة — يتوقف عند إخفاء التبويب. */
 export function useNotificationPolling(isOpen: boolean, userId: string) {
     const fetchNotifications = useNotificationStore((s) => s.fetchNotifications);
+    const enabled = isOpen && Boolean(userId);
 
     useEffect(() => {
-        if (!isOpen || !userId) return;
-
+        if (!enabled) return;
         fetchNotifications(userId);
+    }, [enabled, userId, fetchNotifications]);
 
-        let intervalId: ReturnType<typeof setInterval> | null = null;
-
-        const startPolling = () => {
-            if (intervalId != null) return;
-            intervalId = setInterval(() => {
-                fetchNotifications(userId);
-            }, TIMING.NOTIFICATION_POLL);
-        };
-
-        const stopPolling = () => {
-            if (intervalId != null) {
-                clearInterval(intervalId);
-                intervalId = null;
-            }
-        };
-
-        if (isDocumentVisible()) startPolling();
-
-        const onVisibilityChange = () => {
-            if (isDocumentVisible()) {
-                fetchNotifications(userId);
-                startPolling();
-            } else {
-                stopPolling();
-            }
-        };
-
-        if (typeof document !== 'undefined') {
-            document.addEventListener('visibilitychange', onVisibilityChange);
-        }
-
-        return () => {
-            stopPolling();
-            if (typeof document !== 'undefined') {
-                document.removeEventListener('visibilitychange', onVisibilityChange);
-            }
-        };
-    }, [userId, isOpen, fetchNotifications]);
+    useVisibilityAwareInterval(
+        () => {
+            fetchNotifications(userId);
+        },
+        TIMING.NOTIFICATION_POLL,
+        enabled,
+    );
 }

@@ -4,16 +4,12 @@ import { requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
 import { getSupabaseAdminClient } from '../../security/supabaseAdminClient.ts';
 import { wifeJsonResponse } from '../../security/wifeSecurityHeaders.ts';
 import { devLocalListLaws, shouldUseDevLocalLawsStore } from '../devLawsLocalStore.ts';
+import { IRAQI_LAWS_TABLE_MISSING, isMissingIraqiLawsRelation } from '../iraqiLawsRelation.ts';
 
 export const runtime = 'nodejs';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
-}
-
-function isMissingRelationError(message: string): boolean {
-  const hay = message.toLowerCase();
-  return hay.includes('does not exist') || hay.includes('relation') || hay.includes('schema cache');
 }
 
 /**
@@ -59,8 +55,8 @@ export async function POST(request: Request): Promise<Response> {
       .order('law_name', { ascending: true })
       .order('article_number', { ascending: true });
     if (error) {
-      if (isMissingRelationError(error.message ?? '')) {
-        return wifeJsonResponse(200, { ok: true, items: [] });
+      if (isMissingIraqiLawsRelation(error.message ?? '')) {
+        return wifeJsonResponse(503, { ok: false, error: IRAQI_LAWS_TABLE_MISSING });
       }
       return wifeJsonResponse(500, { ok: false, error: 'Failed to load laws' });
     }

@@ -1,19 +1,15 @@
-import React, { useMemo } from 'react';
-import { SmartToast } from '@/app/components/ui/SmartToast';
-import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import React from 'react';
+import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
 import { SmartLegalRadar } from '@/app/components/lawyer/SmartLegalRadar';
 import { RadarErrorBoundary } from '@/app/components/lawyer/SmartLegalRadar/RadarErrorBoundary';
 import type { FileData } from '../LawyerShared';
-import { isFileData } from '@/app/components/lawyer/LawyerDashboardParts/utils';
 import type { ExecutionFile } from '@/app/types/execution';
 import { RADAR_BG_MAIN } from '@/app/components/lawyer/SmartLegalRadar/radarTheme';
-import type { ClusterScanSources } from '@/app/workspace/clusterScanSources.types';
-import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
-import { buildCalendarSparkSupplementalInput } from '@/app/spark/calendar/calendarSparkSupplementalScan';
+import { openCalendarRadarSource } from '@/app/components/lawyer/dashboard/schedule/openCalendarRadarSource';
 
 export type LawyerDashboardScheduleTabProps = {
     visible: boolean;
-    active?: boolean;
+    /** مفتاح إعادة تركيب الشِل من الجلسة — يُستخدم كمفتاح في MainView */
     scheduleTabSessionKey?: number;
     userId: string | undefined;
     authUserId: string | undefined;
@@ -22,8 +18,6 @@ export type LawyerDashboardScheduleTabProps = {
     onBackToHome: () => void;
     files: FileData[];
     executionFiles: ExecutionFile[];
-    clusterScanSources?: ClusterScanSources;
-    secretaryAlerts?: SecretaryAlert[];
     onOpenLawsuitFile: (file: FileData) => void;
     onOpenExecutionFile: (file: ExecutionFile) => void;
     onOpenCriminalCase: (caseId: string) => void;
@@ -43,8 +37,6 @@ export function LawyerDashboardScheduleTab({
     onBackToHome,
     files,
     executionFiles,
-    clusterScanSources,
-    secretaryAlerts = [],
     onOpenLawsuitFile,
     onOpenExecutionFile,
     onOpenCriminalCase,
@@ -60,17 +52,6 @@ export function LawyerDashboardScheduleTab({
 
     const calendarUserId = resolveCalendarUserId(userId ?? authUserId ?? null);
 
-    const calendarSparkSupplemental = useMemo(() => {
-        if (clusterScanSources) {
-            return buildCalendarSparkSupplementalInput(clusterScanSources, secretaryAlerts);
-        }
-        return {
-            lawsuitFiles: files,
-            executionFiles,
-            secretaryAlerts,
-        };
-    }, [clusterScanSources, files, executionFiles, secretaryAlerts]);
-
     return (
         <div
             className="block h-[100dvh]"
@@ -85,61 +66,20 @@ export function LawyerDashboardScheduleTab({
                     userId={calendarUserId}
                     initialDate={calendarSearchFocus?.date}
                     initialEventId={calendarSearchFocus?.eventId}
-                    calendarSparkSupplemental={calendarSparkSupplemental}
-                    onOpenRepositoryNote={onOpenNote}
-                    onOpenSource={(sourceModule, sourceEntityId) => {
-                        switch (sourceModule) {
-                            case 'lawsuit': {
-                                const f = files.find((file) => String(file.id) === sourceEntityId);
-                                if (f && isFileData(f)) {
-                                    onOpenLawsuitFile(f);
-                                    onBackToHome();
-                                    return;
-                                }
-                                SmartToast.info('الإضبارة غير متاحة');
-                                return;
-                            }
-                            case 'execution': {
-                                const ex = executionFiles.find(
-                                    (file) => String(file.id ?? '') === sourceEntityId,
-                                );
-                                if (ex) {
-                                    onOpenExecutionFile(ex);
-                                    onBackToHome();
-                                    return;
-                                }
-                                SmartToast.info('إضبارة التنفيذ غير متاحة');
-                                return;
-                            }
-                            case 'criminal':
-                                onOpenCriminalCase(sourceEntityId);
-                                return;
-                            case 'urgent':
-                                onOpenUrgentCase(sourceEntityId);
-                                return;
-                            case 'transaction': {
-                                const f = files.find((file) => String(file.id) === sourceEntityId);
-                                if (f && isFileData(f)) {
-                                    onOpenLawsuitFile(f);
-                                    return;
-                                }
-                                onOpenTransaction(sourceEntityId);
-                                return;
-                            }
-                            case 'threading':
-                                onOpenTransaction(sourceEntityId);
-                                return;
-                            case 'note':
-                                onOpenNote(sourceEntityId);
-                                return;
-                            case 'task':
-                                onBackToHome();
-                                onOpenFieldTasks();
-                                return;
-                            default:
-                                SmartToast.info('المصدر غير معروف');
-                        }
-                    }}
+                    onOpenSource={(sourceModule, sourceEntityId, sourceEventId) =>
+                        openCalendarRadarSource(sourceModule, sourceEntityId, {
+                            files,
+                            executionFiles,
+                            onOpenLawsuitFile,
+                            onOpenExecutionFile,
+                            onOpenCriminalCase,
+                            onOpenUrgentCase,
+                            onOpenTransaction,
+                            onOpenNote,
+                            onOpenFieldTasks,
+                            onBackToHome,
+                        }, sourceEventId)
+                    }
                 />
             </RadarErrorBoundary>
         </div>

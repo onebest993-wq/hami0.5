@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion } from '@/app/motion/overlayMotionRuntime';
 import { useCriminalStore } from '../criminalStore';
 import {
     buildProceduralLinkOptions,
@@ -66,7 +66,7 @@ export const ProceduralContextLinkField = ({ caseId, value, onChange }: Procedur
     };
 
     const tabActiveClass =
-        'border-[#E6C673] bg-[#E6C673] text-[#0B1021] shadow-[0_0_14px_rgba(230,198,115,0.45)]';
+        'border-[#E6C673] bg-[#E6C673] text-[#0B1021]';
     const tabIdleClass = 'border-slate-600/50 text-white/55 hover:text-white hover:border-slate-500/70 bg-transparent';
 
     return (

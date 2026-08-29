@@ -23,7 +23,7 @@ export function ExecutionDashboardHandlerClusterCoerciveSupportBridge({
     input,
     onCluster,
 }: ExecutionDashboardHandlerClusterCoerciveSupportBridgeProps) {
-    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads) as any;
+    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads);
 
     const dismissDebtorAbsenceBadge = useCallback(() => {
         if (c.executionData) {

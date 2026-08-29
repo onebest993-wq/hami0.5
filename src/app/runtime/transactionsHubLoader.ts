@@ -1,65 +1,49 @@
-import type { ComponentType } from 'react';
+type TransactionsOverlayEntryModule =
+    typeof import('@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardTransactionsOverlayEntry');
 
-type TransactionsHubModule =
-    typeof import('@/app/components/lawyer/TransactionsThreading/TransactionsThreadingSystemEntry');
-
-export type TransactionsThreadingSystemProps = {
-    onBack: () => void;
-    userId: string;
-    initialTransactionId?: string;
-    onInitialFocusConsumed?: () => void;
-    open?: boolean;
-    /** مركّب مخفياً — الشجرة دافئة؛ الفتح = إظهار فقط */
-    keepAlive?: boolean;
-};
-
-export type TransactionsThreadingSystemComponent = ComponentType<TransactionsThreadingSystemProps>;
-
-let hubModulePromise: Promise<TransactionsHubModule> | null = null;
-let cachedTransactionsThreadingSystem: TransactionsThreadingSystemComponent | null = null;
+let overlayEntryPromise: Promise<TransactionsOverlayEntryModule> | null = null;
+let overlayEntryResolved = false;
 
 export function isTransactionsHubModuleResolved(): boolean {
-    return cachedTransactionsThreadingSystem !== null;
-}
-
-export function getCachedTransactionsThreadingSystem(): TransactionsThreadingSystemComponent | null {
-    return cachedTransactionsThreadingSystem;
+    return overlayEntryResolved;
 }
 
 /** للاختبارات */
 export function resetTransactionsHubModuleCacheForTests(): void {
-    hubModulePromise = null;
-    cachedTransactionsThreadingSystem = null;
+    overlayEntryPromise = null;
+    overlayEntryResolved = false;
 }
 
-function ensureTransactionsHubModulePromise(): Promise<TransactionsHubModule> {
-    if (!hubModulePromise) {
-        hubModulePromise = import('@/app/components/lawyer/TransactionsThreading/TransactionsThreadingSystemEntry')
+function ensureTransactionsOverlayEntry(): Promise<TransactionsOverlayEntryModule> {
+    if (!overlayEntryPromise) {
+        overlayEntryPromise = import(
+            '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardTransactionsOverlayEntry'
+        )
             .then((mod) => {
-                if (mod.default) {
-                    cachedTransactionsThreadingSystem = mod.default;
-                }
+                overlayEntryResolved = Boolean(mod.LawyerDashboardTransactionsOverlayEntry);
                 return mod;
             })
             .catch((err) => {
-                hubModulePromise = null;
+                overlayEntryPromise = null;
+                overlayEntryResolved = false;
                 throw err;
             });
     }
-    return hubModulePromise;
+    return overlayEntryPromise;
 }
 
+/** مقطع Entry (Host + System ثابتان داخله) — مسار واحد بلا تسخين SystemEntry منفصل */
 export function prefetchTransactionsHubModule(): void {
     if (typeof window === 'undefined') return;
-    void ensureTransactionsHubModulePromise().catch(() => undefined);
+    void ensureTransactionsOverlayEntry().catch(() => undefined);
 }
 
-export function loadTransactionsHubModule(): Promise<TransactionsHubModule> {
-    return ensureTransactionsHubModulePromise();
+export function loadTransactionsHubModule(): Promise<TransactionsOverlayEntryModule> {
+    return ensureTransactionsOverlayEntry();
 }
 
 export function hydrateTransactionsShellForInstantOpen(): Promise<boolean> {
-    return ensureTransactionsHubModulePromise()
-        .then(() => true)
+    return ensureTransactionsOverlayEntry()
+        .then(() => isTransactionsHubModuleResolved())
         .catch(() => false);
 }

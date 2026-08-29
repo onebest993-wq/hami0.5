@@ -1,11 +1,19 @@
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { primeProfileAvatarDecode } from '@/app/services/profile/primeProfileAvatarDecode';
 import { LAWYER_PROFILE_UPDATED } from '@/app/services/profile/profileEvents';
 import { fetchLawyerProfile } from '@/app/services/profile/profileCloudLoader';
-import { resolveLawyerDisplayName } from '@/app/services/profile/resolveLawyerDisplayName';
-import { peekProfileWarmCache } from '@/app/services/profile/profileWarmCacheCore';
-import { shouldApplyProfileHeaderUpdate } from '@/app/services/profile/profileHeaderLogic';
+import {
+    preferRicherLawyerDisplayName,
+    resolveFirstPaintLawyerDisplayName,
+} from '@/app/services/profile/resolveLawyerDisplayName';
+import { hydrateProfileWarmCachePeekSync } from '@/app/services/profile/profileWarmCache';
+import { getProfileWarmCacheRaw } from '@/app/services/profile/profileWarmCacheStore';
+import { shouldApplyProfileHeaderUpdate, resolveProfileHeaderInitial } from '@/app/services/profile/profileHeaderLogic';
 import { shouldAwaitCloudProfileSettle } from '@/app/services/profile/profileSparseDetect';
 import { sanitizeProfileMediaUrl } from '@/app/services/profile/profileUrlSanitize';
+import { isLawyerProfileBootWarmPending } from '@/app/services/profile/profileBootWarmPending';
+import { isLawyerProfileLocalUnread } from '@/app/services/profile/lawyerProfileLocalRead';
+import { mergeUserIdentityUiState } from '@/app/services/profile/userIdentityUiState';
 import type { LawyerProfileData } from '@/app/services/cloud/lawyerProfileTypes';
 
 export type LawyerProfileHeaderState = {
@@ -23,55 +31,72 @@ function sanitizeAvatarOrEmpty(raw: string | undefined): string {
 function pickAvatarUrl(profile: LawyerProfileData, prev: string): string {
     const next = sanitizeAvatarOrEmpty(profile.header?.profileImage);
     if (next) return next;
-    // stub شحيح أثناء السباق — لا تمسح صورة ظاهرة
     if (shouldAwaitCloudProfileSettle(profile) && prev) return prev;
     return '';
 }
 
-function applyProfileHeader(
-    p: LawyerProfileData,
-    userId: string,
+function readInitialHeader(
+    userId: string | undefined,
     userMetadata: Record<string, unknown> | undefined,
-    setDisplayName: (v: string) => void,
-    setTitle: (v: string) => void,
-    setAvatarUrl: Dispatch<SetStateAction<string>>,
-) {
-    setDisplayName(resolveLawyerDisplayName(p.header.name, userId, userMetadata));
-    setTitle(p.header.title?.trim() || DEFAULT_TITLE);
-    setAvatarUrl((prev) => pickAvatarUrl(p, prev));
+): LawyerProfileHeaderState {
+    if (!userId) {
+        return { displayName: 'المحامي', title: DEFAULT_TITLE, avatarUrl: '' };
+    }
+    hydrateProfileWarmCachePeekSync(userId, userMetadata, userId);
+    const cached = getProfileWarmCacheRaw(userId);
+    return {
+        displayName: resolveFirstPaintLawyerDisplayName(cached?.header?.name, userId, userMetadata),
+        title: cached?.header?.title?.trim() || DEFAULT_TITLE,
+        avatarUrl: sanitizeAvatarOrEmpty(cached?.header?.profileImage),
+    };
+}
+
+function publishAtomicIdentity(userId: string, header: LawyerProfileHeaderState): void {
+    const pending = isLawyerProfileBootWarmPending() || isLawyerProfileLocalUnread(userId);
+    mergeUserIdentityUiState({
+        userId,
+        displayName: header.displayName,
+        avatarUrl: header.avatarUrl,
+        profileInitial: resolveProfileHeaderInitial(header.displayName || 'م'),
+        isLoaded: !pending,
+    });
 }
 
 export function useLawyerProfileHeader(
     userId: string | undefined,
     userMetadata: Record<string, unknown> | undefined,
 ): LawyerProfileHeaderState {
-    const [displayName, setDisplayName] = useState(() =>
-        userId ? resolveLawyerDisplayName(undefined, userId, userMetadata) : 'المحامي',
-    );
-    const [title, setTitle] = useState(DEFAULT_TITLE);
-    const [avatarUrl, setAvatarUrl] = useState(() => {
-        if (!userId) return '';
-        return sanitizeAvatarOrEmpty(peekProfileWarmCache(userId)?.header?.profileImage);
-    });
+    const [header, setHeader] = useState(() => readInitialHeader(userId, userMetadata));
     const userMetaRef = useRef(userMetadata);
     userMetaRef.current = userMetadata;
+
+    useEffect(() => {
+        primeProfileAvatarDecode(header.avatarUrl);
+    }, [header.avatarUrl]);
 
     useEffect(() => {
         if (!userId) return;
 
         const apply = (p: LawyerProfileData) => {
-            applyProfileHeader(
-                p,
-                userId,
-                userMetaRef.current,
-                setDisplayName,
-                setTitle,
-                setAvatarUrl,
-            );
+            setHeader((prev) => {
+                const resolved = resolveFirstPaintLawyerDisplayName(
+                    p.header.name,
+                    userId,
+                    userMetaRef.current,
+                );
+                const next: LawyerProfileHeaderState = {
+                    displayName: preferRicherLawyerDisplayName(prev.displayName, resolved),
+                    title: p.header.title?.trim() || DEFAULT_TITLE,
+                    avatarUrl: pickAvatarUrl(p, prev.avatarUrl),
+                };
+                publishAtomicIdentity(userId, next);
+                return next;
+            });
         };
 
-        const cached = peekProfileWarmCache(userId);
+        const cached = getProfileWarmCacheRaw(userId);
         if (cached) apply(cached);
+        else publishAtomicIdentity(userId, readInitialHeader(userId, userMetaRef.current));
 
         const refresh = () => {
             void fetchLawyerProfile(userId, userId).then(apply).catch(() => undefined);
@@ -81,7 +106,7 @@ export function useLawyerProfileHeader(
         const onProfileUpdated = (ev: Event) => {
             const detail = (ev as CustomEvent<{ userId?: string }>).detail;
             if (!shouldApplyProfileHeaderUpdate(detail?.userId, userId)) return;
-            const warm = peekProfileWarmCache(userId);
+            const warm = getProfileWarmCacheRaw(userId);
             if (warm) apply(warm);
             refresh();
         };
@@ -89,5 +114,5 @@ export function useLawyerProfileHeader(
         return () => window.removeEventListener(LAWYER_PROFILE_UPDATED, onProfileUpdated);
     }, [userId]);
 
-    return { displayName, title, avatarUrl };
+    return header;
 }

@@ -24,7 +24,7 @@ function buildShellFingerprintCacheKey(o: Orchestration): string {
     const onHome = overlays.activeTab === 'home';
     const alerts = appAlerts.visibleAppAlerts;
     const alertSig = onHome
-        ? `${alerts.length}:${alerts[0]?.id ?? ''}:${alerts[alerts.length - 1]?.id ?? ''}:${appAlerts.appAlertsError ?? ''}`
+        ? `${alerts.length}:${alerts[0]?.id ?? ''}:${alerts[alerts.length - 1]?.id ?? ''}:${appAlerts.appAlertsError ? '1' : '0'}`
         : '';
     const clusterSig =
         onHome && clusterScanSources

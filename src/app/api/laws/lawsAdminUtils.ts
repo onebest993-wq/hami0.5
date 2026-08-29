@@ -1,16 +1,12 @@
-const DELETE_CHUNK_SIZE = 100;
-const IRAQI_LAW_EMBEDDING_DIM = 768;
+import { IRAQI_LAWS_TABLE_MISSING, isMissingIraqiLawsRelation } from './iraqiLawsRelation.ts';
 
-export function buildZeroLawEmbedding(): number[] {
-  return Array.from({ length: IRAQI_LAW_EMBEDDING_DIM }, () => 0);
-}
+const DELETE_CHUNK_SIZE = 100;
 
 export function buildIraqiLawInsertRow(law_name: string, article_number: string, content: string) {
   return {
     law_name,
     article_number,
     content,
-    embedding: buildZeroLawEmbedding(),
   };
 }
 
@@ -70,7 +66,12 @@ export async function clearIraqiLaws(params: {
       .select('id', { count: 'exact', head: true })
       .eq('law_name', lawName);
     if (countError) {
-      return { ok: false, error: countError.message };
+      return {
+        ok: false,
+        error: isMissingIraqiLawsRelation(countError.message)
+          ? IRAQI_LAWS_TABLE_MISSING
+          : countError.message,
+      };
     }
 
     const { error: deleteError } = await admin.from('iraqi_laws').delete().eq('law_name', lawName);
@@ -91,7 +92,12 @@ export async function clearIraqiLaws(params: {
     .eq('law_name', lawName)
     .limit(10000);
   if (selectError) {
-    return { ok: false, error: selectError.message };
+    return {
+      ok: false,
+      error: isMissingIraqiLawsRelation(selectError.message)
+        ? IRAQI_LAWS_TABLE_MISSING
+        : selectError.message,
+    };
   }
 
   const idsToDelete = (rows ?? [])

@@ -1,0 +1,20 @@
+@import './theme.css';
+@import 'tailwindcss' source(none);
+
+/**
+ * Tailwind الملف الذكي / المستعجل / المذكرات — يُحمَّل عند نية تلك الأسطح فقط.
+ */
+@source '../app/components/lawyer/smart-modal/**';
+@source '../app/components/lawyer/dossier-notes/**';
+@source '../app/components/lawyer/Modal_Unified_Summons_Hub.tsx';
+@source '../app/components/lawyer/Form_Urgent_Actions.tsx';
+@source '../app/components/lawyer/Form_Urgent_Actions/**';
+@source '../app/components/lawyer/Component_Urgent_Card.tsx';
+@source '../app/components/lawyer/Component_Urgent_CardView.tsx';
+@source '../app/components/lawyer/View_Urgent_And_Orders_Dashboard.tsx';
+@source '../app/components/lawyer/View_Urgent_And_Orders_Dashboard/**';
+@source '../app/components/lawyer/SmartFileModal.tsx';
+@source not '../app/**/*.test.{ts,tsx,js,jsx}';
+@source not '../app/**/__tests__/**';
+
+@plugin 'tailwindcss-animate';

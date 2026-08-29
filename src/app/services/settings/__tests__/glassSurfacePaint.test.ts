@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
     isAndroidNativeGlassPaint,
+    hexToRgba,
     mixHexColors,
     resolveGlassPanelBackground,
     tintHex,
 } from '../glassSurfacePaint';
 
 describe('glassSurfacePaint', () => {
+    it('hexToRgba يحوّل hex الثيم إلى rgba بألفا مضبوطة', () => {
+        expect(hexToRgba('#0A0F1C', 0.16)).toBe('rgba(10, 15, 28, 0.16)');
+        expect(hexToRgba('#E6C673', 0.94)).toBe('rgba(230, 198, 115, 0.94)');
+        expect(hexToRgba('not-a-color', 0.5)).toBe('not-a-color');
+    });
+
     it('يمزج hex بشكل متوقع', () => {
         expect(mixHexColors('#ffffff', '#000000', 1)).toBe('rgb(255, 255, 255)');
         expect(mixHexColors('#ffffff', '#000000', 0)).toBe('rgb(0, 0, 0)');

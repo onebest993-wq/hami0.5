@@ -1,3 +1,5 @@
+import { readSecureJsonRawSync, writeSecureJsonValue } from '@/app/services/storage/syncSecureJson';
+
 /** إخفاء مواعيد رادار 48 ساعة من البطاقة العامة فقط — لا يحذف الموعد من التقويم */
 
 export const HOME_HUB_RADAR_DISMISSED_KEY_PREFIX = 'hami:home-hub-radar-dismissed:v1';
@@ -9,14 +11,14 @@ const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 type DismissEntry = { id: string; at: number };
 
 function storageKey(lawyerId: string): string {
-    return `${HOME_HUB_RADAR_DISMISSED_KEY_PREFIX}:${lawyerId}`;
+    return `${HOME_HUB_RADAR_DISMISSED_KEY_PREFIX}:${lawyerId.slice(0, 128)}`;
 }
 
 function readEntries(lawyerId: string): DismissEntry[] {
     const safeLawyer = String(lawyerId ?? '').trim();
-    if (!safeLawyer || typeof localStorage === 'undefined') return [];
+    if (!safeLawyer) return [];
     try {
-        const raw = localStorage.getItem(storageKey(safeLawyer));
+        const raw = readSecureJsonRawSync(storageKey(safeLawyer));
         if (!raw) return [];
         const parsed: unknown = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
@@ -30,12 +32,8 @@ function readEntries(lawyerId: string): DismissEntry[] {
 
 function writeEntries(lawyerId: string, entries: DismissEntry[]): void {
     const safeLawyer = String(lawyerId ?? '').trim();
-    if (!safeLawyer || typeof localStorage === 'undefined') return;
-    try {
-        localStorage.setItem(storageKey(safeLawyer), JSON.stringify(entries.slice(-MAX_DISMISSED)));
-    } catch {
-        /* ignore quota */
-    }
+    if (!safeLawyer) return;
+    writeSecureJsonValue(storageKey(safeLawyer), entries.slice(-MAX_DISMISSED));
 }
 
 export function getDismissedHomeHubRadarIds(lawyerId: string | null | undefined): string[] {
@@ -48,7 +46,7 @@ export function getDismissedHomeHubRadarIds(lawyerId: string | null | undefined)
 }
 
 export function dismissHomeHubRadarId(lawyerId: string | null | undefined, eventId: string): void {
-    const safeLawyer = String(lawyerId ?? '').trim();
+    const safeLawyer = String(lawyerId ?? '').trim().slice(0, 128);
     const safeId = String(eventId ?? '').trim().slice(0, 240);
     if (!safeLawyer || !safeId) return;
     const entries = readEntries(safeLawyer).filter((e) => e.id !== safeId);

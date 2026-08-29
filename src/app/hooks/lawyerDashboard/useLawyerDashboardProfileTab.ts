@@ -1,20 +1,21 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
-import { flushSync } from 'react-dom';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { isRealSignedIn } from '@/app/services/auth/shellAuth';
+import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
 import {
     openProfileFromShell,
     PROFILE_SHELL_FEATURE,
-} from '@/app/services/profile/profileShellNavigation';
+} from '@/app/services/profile/profileShellPolicy';
 import { resetProfileShellOnColdDashboardBoot } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import {
     isProfileShellSnappedOpen,
+    clearProfileShellClosing,
 } from '@/app/services/profile/profileShellSnap';
 import {
     concealProfileWarmShell,
-    revealProfileWarmShell,
+    PROFILE_LIVE_SHELL_READY_EVENT,
 } from '@/app/runtime/profileInstantPaint';
+import { deferShellConcealAfterHandoff, isShellHandoffPending } from '@/app/runtime/sectionShellHandoff';
 import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
@@ -30,8 +31,10 @@ import {
     commitProfileClose,
     commitProfileOverlayDismiss,
 } from '@/app/hooks/lawyerDashboard/profile/profileShellCloseFlow';
-import { useProfileShellReadiness } from '@/app/hooks/lawyerDashboard/profile/useProfileShellReadiness';
-import { markProfilePerfPhase, getProfilePerfSnapshot } from '@/app/services/profile/profilePerfMetrics';
+import { wasProfileOpenedThisPage } from '@/app/hooks/lawyerDashboard/profile/profileOpenSession';
+import { scheduleProfileHostIdleRelease } from '@/app/hooks/lawyerDashboard/profile/profileHostIdleRelease';
+import { isViteE2eHooksEnabled } from '@/app/utils/viteE2eHooks';
+import { getProfilePerfSnapshot } from '@/app/services/profile/profilePerfMetrics';
 
 export type UseLawyerDashboardProfileTabParams = {
     userId: string | null;
@@ -50,14 +53,30 @@ export function useLawyerDashboardProfileTab({
     closeSettings,
 }: UseLawyerDashboardProfileTabParams) {
     const profileInitiallyOpen = activeTab === 'profile';
-    const [profileTabSessionKey, setProfileTabSessionKey] = useState(0);
     const [profileOpenEpoch, setProfileOpenEpoch] = useState(0);
     const [profileHostMounted, setProfileHostMounted] = useState(() => profileInitiallyOpen);
     const openInFlightRef = useRef(false);
 
     useLayoutEffect(() => {
+        /* لا تمسح snap قائم: التسليح الكسول بعد نقرة البلاطة كان يغلق الملف ثم يعيد فتحه */
+        if (wasProfileOpenedThisPage() || isProfileShellSnappedOpen()) return;
+        concealProfileWarmShell();
         resetProfileShellOnColdDashboardBoot();
-    }, []);
+        setActiveTab((tab) => (tab === 'profile' ? 'home' : tab));
+    }, [setActiveTab]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const onPageShow = (event: PageTransitionEvent) => {
+            if (!event.persisted) return;
+            if (wasProfileOpenedThisPage()) return;
+            concealProfileWarmShell();
+            resetProfileShellOnColdDashboardBoot();
+            setActiveTab((tab) => (tab === 'profile' ? 'home' : tab));
+        };
+        window.addEventListener('pageshow', onPageShow);
+        return () => window.removeEventListener('pageshow', onPageShow);
+    }, [setActiveTab]);
 
     const armProfileHost = useCallback(() => {
         setProfileHostMounted((prev) => {
@@ -68,43 +87,68 @@ export function useLawyerDashboardProfileTab({
     }, []);
 
     const primeProfileTabMount = useCallback(() => {
-        flushSync(() => {
+        /* لا flushSync إن Host مركّب — تجنّب تجميد إيماءة الفتح (مثل الإعدادات) */
+        const surfaceReady =
+            typeof document !== 'undefined' &&
+            Boolean(document.querySelector('[data-testid="lawyer-dashboard-profile-surface"]'));
+        if (profileHostMounted || surfaceReady) {
+            prefetchProfileShellChunks();
+            void loadProfileIntentWarm().then((m) => m.warmProfileOnHover(userId));
+            return;
+        }
+        /*
+         * لا flushSync داخل دورة React — كان يُحذّر ويُجمّد الإقلاع.
+         * microtask يكفي لتجهيز Host قبل click دون كسر التزامن.
+         */
+        queueMicrotask(() => {
             armProfileHost();
         });
+        prefetchProfileShellChunks();
         void loadProfileIntentWarm().then((m) => m.warmProfileOnHover(userId));
         void loadProfileBootHydrator().then((m) => m.dispatchProfilePrimeHost());
-    }, [armProfileHost, userId]);
+    }, [armProfileHost, profileHostMounted, userId]);
 
     const closeProfileTab = useCallback(() => {
         commitProfileClose({ closeSettings, setActiveTab });
     }, [closeSettings, setActiveTab]);
 
-    const { ready: profileShellReady, warming: profileShellWarming } = useProfileShellReadiness({
-        userId,
-        hostMounted: profileHostMounted,
-    });
-
-    /** ركّب Host مخفياً فور وجود هوية — قبل أول لمسة ملف (مثل التقويم/المعاملات) */
+    /**
+     * جلسة محلية: تسخين بيانات فقط.
+     * لا armProfileHost هنا — تركيب الشجرة عند الإقلاع كان يُظهر الملف بعد F5.
+     * مقطع Royal يُحمَّل عند نية الفتح (prime / pointerdown) لا على كل إقلاع.
+     */
     useLayoutEffect(() => {
         const uid = userId?.trim();
-        if (!uid || !isRealSignedIn(uid)) return;
-        armProfileHost();
-        void loadProfileIntentWarm().then((m) => m.warmProfileOnHover(uid));
+        if (!uid || !hasLocalAppSession(uid)) return;
         void loadProfileBootHydrator()
-            .then((m) => m.hydrateProfileShellForInstantOpenWithData(uid, true))
+            .then((m) => m.prefetchProfileAfterBootReveal(uid))
             .catch(() => undefined);
-        void import('@/app/runtime/profileHubLoader')
-            .then((m) => m.loadProfileHubModule())
-            .catch(() => undefined);
-    }, [armProfileHost, userId]);
+    }, [userId]);
 
     useLayoutEffect(() => {
         if (activeTab !== 'home' || !isProfileShellSnappedOpen()) return;
-        concealProfileWarmShell();
+        return deferShellConcealAfterHandoff(() => {
+            if (isShellHandoffPending('profile')) return;
+            if (!isProfileShellSnappedOpen()) return;
+            /*
+             * snap ما زال مفتوحاً والنية قائمة — أصلح activeTab بدل طرد المستخدم.
+             * (فتح استوديو/ستارة كان يصفّر التبويب للرئيسية فيُخفى الملف فوق الاستوديو.)
+             */
+            if (wasProfileOpenedThisPage()) {
+                setActiveTab('profile');
+                return;
+            }
+            concealProfileWarmShell();
+        });
+    }, [activeTab, setActiveTab]);
+
+    useLayoutEffect(() => {
+        if (wasProfileOpenedThisPage() || isProfileShellSnappedOpen()) return;
+        clearProfileShellClosing();
     }, [activeTab]);
 
     useEffect(() => {
-        if (isRealSignedIn(userId)) return;
+        if (hasLocalAppSession(userId)) return;
         setActiveTab((tab) => (tab === 'profile' ? 'home' : tab));
         setProfileHostMounted(false);
     }, [userId, setActiveTab]);
@@ -123,6 +167,8 @@ export function useLawyerDashboardProfileTab({
         let disposed = false;
         let unbind: (() => void) | undefined;
         const unbindInteractive = onDashboardInteractive(() => {
+            if (disposed) return;
+            armProfileHost();
             void loadProfileBootHydrator().then((m) => {
                 if (disposed) return;
                 unbind = m.bindProfileBootHydrator(userId);
@@ -133,23 +179,39 @@ export function useLawyerDashboardProfileTab({
             unbindInteractive();
             unbind?.();
         };
-    }, [userId]);
+    }, [armProfileHost, userId]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const onLive = () => {
+            setProfileHostMounted(true);
+            /* حدث مؤجّل بعد الإغلاق كان يعيد التبويب بلا snap فيغطّي الرئيسية */
+            if (wasProfileOpenedThisPage() || isProfileShellSnappedOpen()) {
+                setActiveTab('profile');
+            }
+        };
+        window.addEventListener(PROFILE_LIVE_SHELL_READY_EVENT, onLive);
+        return () => window.removeEventListener(PROFILE_LIVE_SHELL_READY_EVENT, onLive);
+    }, [setActiveTab]);
 
     useLayoutEffect(() => {
         if (activeTab !== 'profile') return;
         setProfileHostMounted(true);
-        if (!isProfileShellSnappedOpen()) {
-            revealProfileWarmShell();
-        }
     }, [activeTab]);
 
     useEffect(() => {
+        if (activeTab === 'profile' || !profileHostMounted) return;
+        return scheduleProfileHostIdleRelease(() => {
+            setProfileHostMounted(false);
+        });
+    }, [activeTab, profileHostMounted]);
+
+    useEffect(() => {
         if (typeof window === 'undefined') return;
-        if (!isRealSignedIn(userId)) return;
+        if (!hasLocalAppSession(userId)) return;
 
         const scheduleWarm = () => {
-            /* prefetch فقط — لا تركيب Host هنا (كان يُركّب الملف مخفياً ويظهر أحياناً بعد reload) */
-            void loadProfileIntentWarm().then((m) => m.warmProfileOnHover(userId));
+            /* prefetch بيانات فقط — لا تركيب Host هنا (كان يُركّب الملف مخفياً ويظهر أحياناً بعد reload) */
             void loadProfileBootHydrator()
                 .then((m) => m.prefetchProfileAfterBootReveal(userId))
                 .catch(() => undefined);
@@ -179,7 +241,7 @@ export function useLawyerDashboardProfileTab({
 
     const openProfileTab = useCallback(() => {
         openProfileFromShell({
-            signedIn: isRealSignedIn(userId),
+            signedIn: hasLocalAppSession(userId),
             onSignedOut: () =>
                 SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${PROFILE_SHELL_FEATURE}`),
             onOpen: () => {
@@ -191,51 +253,53 @@ export function useLawyerDashboardProfileTab({
                     setActiveTab,
                     setProfileOpenEpoch,
                 });
-                void loadProfileBootHydrator()
-                    .then((m) => m.hydrateProfileShellForInstantOpenWithData(userId, true))
-                    .catch(() => undefined);
             },
         });
     }, [setActiveTab, setShowCommunity, userId]);
 
-    const resetProfileTabShell = useCallback(() => {
-        setProfileTabSessionKey((k) => k + 1);
-        setProfileOpenEpoch(0);
-    }, []);
+    const openProfileTabRef = useRef(openProfileTab);
+    openProfileTabRef.current = openProfileTab;
+    const e2eDebugRef = useRef({ activeTab, profileHostMounted });
+    e2eDebugRef.current = { activeTab, profileHostMounted };
 
     useEffect(() => {
-        if (!import.meta.env.DEV || typeof window === 'undefined') return;
+        if (!isViteE2eHooksEnabled() || typeof window === 'undefined') return;
         const w = window as Window & {
             __hamiE2eForceOpenProfileTab?: () => void;
             __hamiE2eProfileTabDebug?: () => {
                 activeTab: LawyerDashboardTab;
                 profileHostMounted: boolean;
             };
+            __hamiProfilePerfSnapshot?: () => ReturnType<typeof getProfilePerfSnapshot>;
         };
-        w.__hamiE2eForceOpenProfileTab = () => openProfileTab();
+        w.__hamiE2eForceOpenProfileTab = () => openProfileTabRef.current();
         w.__hamiE2eProfileTabDebug = () => ({
-            activeTab,
-            profileHostMounted,
-            profileShellReady,
-            profileShellWarming,
+            activeTab: e2eDebugRef.current.activeTab,
+            profileHostMounted: e2eDebugRef.current.profileHostMounted,
             perf: getProfilePerfSnapshot(),
         });
         w.__hamiProfilePerfSnapshot = () => getProfilePerfSnapshot();
         return () => {
             delete w.__hamiE2eForceOpenProfileTab;
             delete w.__hamiE2eProfileTabDebug;
+            delete w.__hamiProfilePerfSnapshot;
         };
-    }, [activeTab, openProfileTab, profileHostMounted, profileShellReady, profileShellWarming]);
+    }, []);
 
-    return {
-        profileTabSessionKey,
-        profileOpenEpoch,
-        profileHostMounted,
-        profileShellReady,
-        profileShellWarming,
-        primeProfileTabMount,
-        resetProfileTabShell,
-        openProfileTab,
-        closeProfileTab,
-    };
+    return useMemo(
+        () => ({
+            profileOpenEpoch,
+            profileHostMounted,
+            primeProfileTabMount,
+            openProfileTab,
+            closeProfileTab,
+        }),
+        [
+            closeProfileTab,
+            openProfileTab,
+            primeProfileTabMount,
+            profileHostMounted,
+            profileOpenEpoch,
+        ],
+    );
 }

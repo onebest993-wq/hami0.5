@@ -125,9 +125,9 @@ export function buildPropertyWorkflowStepHistory(
 ): PropertyWorkflowHistoryLine[] {
     return buildSeizureWorkflowStepHistory(
         stepIndex,
-        PROPERTY_PLUGIN,
         p,
         decisions,
+        PROPERTY_PLUGIN,
         propertyId,
     );
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from '@/app/components/ui/lucideIcons';
+import { X } from '@/app/components/ui/icons/X';
 import { hasBlockedWord } from '../utils';
 import type { PartyCardProps } from '../types';
 import { ncFieldClass } from '../newCaseGlassTheme';
@@ -30,11 +30,12 @@ export const PartyCard = ({
                             onClick={() => onUpdate('isClient', !isClient)}
                             title="تحديد كموكل"
                             aria-pressed={isClient}
-                            className={`inline-flex shrink-0 items-center rounded-lg border px-2 py-0.5 text-[10px] font-bold transition-colors touch-manipulation ${
+                            data-testid="lawyer-new-case-mark-client"
+                            className={`inline-flex shrink-0 items-center justify-center rounded-lg border px-2 min-h-[44px] min-w-[44px] text-[10px] font-bold transition-colors touch-manipulation ${
                                 isClient
                                     ? side === 1
-                                        ? 'border-emerald-400/45 bg-emerald-500/14 text-emerald-100 shadow-[0_0_10px_rgba(16,185,129,0.12)]'
-                                        : 'border-rose-400/45 bg-rose-500/14 text-rose-100 shadow-[0_0_10px_rgba(244,63,94,0.12)]'
+                                        ? 'border-emerald-400/45 bg-emerald-500/14 text-emerald-100'
+                                        : 'border-rose-400/45 bg-rose-500/14 text-rose-100'
                                     : 'border-white/10 bg-white/[0.04] text-white/40 hover:border-white/16 hover:text-white/65'
                             }`}
                         >
@@ -45,7 +46,7 @@ export const PartyCard = ({
                         <button
                             type="button"
                             onClick={onRemove}
-                            className="w-6 h-6 flex items-center justify-center rounded bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all shrink-0"
+                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all shrink-0 touch-manipulation"
                             title="حذف هذا الطرف"
                         >
                             <X size={14} />
@@ -59,6 +60,8 @@ export const PartyCard = ({
                         value={party.name}
                         readOnly={lockNames}
                         onChange={(e) => onUpdate('name', e.target.value)}
+                        placeholder="الاسم الكامل"
+                        aria-label={`اسم ${party.status || 'الطرف'}`}
                         className={`${ncFieldClass(Boolean(hasError) || hasBlockedWord(party.name))} text-base font-medium ${lockNames ? 'opacity-80 cursor-default' : ''}`}
                     />
                 </div>
@@ -72,6 +75,8 @@ export const PartyCard = ({
                         type="text"
                         value={party.address}
                         onChange={(e) => onUpdate('address', e.target.value)}
+                        placeholder="العنوان السكني"
+                        aria-label={`عنوان ${party.status || 'الطرف'}`}
                         className={`${ncFieldClass()} text-xs`}
                     />
                 </div>

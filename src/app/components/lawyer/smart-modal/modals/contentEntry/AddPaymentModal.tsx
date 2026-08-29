@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { DollarSign, X } from '@/app/components/ui/lucideIcons';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { DollarSign } from '@/app/components/ui/icons/DollarSign';
+import { X } from '@/app/components/ui/icons/X';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import { SMART_FILE_NESTED_MODAL_OVERLAY_DARK_CLASS } from '../../smartFile/smartFileOverlayZ';
 import type { AddPaymentModalProps } from '../../smartFile/modalFormTypes';
 
@@ -19,7 +20,7 @@ export const AddPaymentModal = ({ isOpen, onClose, onAdd }: AddPaymentModalProps
 
     return (
         <div className={SMART_FILE_NESTED_MODAL_OVERLAY_DARK_CLASS}>
-            <div className="bg-[#1A1E2E] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="bg-[#1A1E2E] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-lg">
                  <div className="bg-[#E6C673] p-4 text-[#0F172A] flex justify-between items-center">
                     <h3 className="font-bold flex items-center gap-2"><DollarSign size={18}/> تسجيل دفعة جديدة</h3>
                     <button type="button" onClick={onClose} className="hover:bg-black/10 rounded-full p-1"><X size={18} /></button>

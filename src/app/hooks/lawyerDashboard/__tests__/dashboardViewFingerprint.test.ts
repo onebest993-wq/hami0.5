@@ -188,4 +188,22 @@ describe('dashboardViewFingerprint', () => {
         );
         expect(open).not.toBe(closed);
     });
+
+    it('لا يضمّن نص خطأ التنبيهات في البصمة', () => {
+        const withError = (message: string | null) =>
+            baseOrchestration({
+                appAlerts: {
+                    visibleAppAlerts: [{ id: 'a1', title: 't', message: 'm', type: 'info' } as never],
+                    appAlertsLoading: false,
+                    appAlertsError: message,
+                },
+            });
+        const stack = dashboardViewFingerprint(withError('https://evil.example/secret-stack'));
+        const other = dashboardViewFingerprint(withError('other-internal-secret'));
+        expect(stack).toBe(other);
+        expect(stack).not.toContain('evil.example');
+        expect(stack).not.toContain('secret-stack');
+        expect(stack).not.toContain('other-internal-secret');
+        expect(dashboardViewFingerprint(withError(null))).not.toBe(stack);
+    });
 });

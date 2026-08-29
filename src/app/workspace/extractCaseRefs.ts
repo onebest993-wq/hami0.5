@@ -1,10 +1,10 @@
-import { normalizeArabic } from '@/app/components/lawyer/LawyerShared';
+import { normalizeArabicSearch } from '@/app/services/search/normalizeArabicSearch';
 
 /** استخراج أرقام قضايا من نص عربي/مختلط — دون لمس schemas الأقسام */
 const CASE_REF_PATTERN = /\d{4}\s*\/\s*[^\s/—–-]+(?:\s*\/\s*[\d/]+)?/g;
 
 export function normalizeCaseKey(value: string): string {
-    return normalizeArabic(value)
+    return normalizeArabicSearch(value)
         .toLowerCase()
         .replace(/\s+/g, '')
         .replace(/[—–\-]/g, '/');

@@ -1,5 +1,12 @@
 import fs from 'fs';
 
+const generatedPath =
+    'src/app/components/lawyer/ExecutionDashboard/hooks/buildShellOverlayProps.generated.ts';
+if (!fs.existsSync(generatedPath)) {
+    console.log('[spent] buildShellOverlayProps.generated.ts — skip');
+    process.exit(0);
+}
+
 const lines = fs.readFileSync('src/app/components/lawyer/ExecutionDashboard.tsx', 'utf8').split(/\r?\n/);
 const chunks = [
     lines.slice(13743, 14058),
@@ -62,8 +69,5 @@ ${followupInner}
 }
 `;
 
-fs.writeFileSync(
-    'src/app/components/lawyer/ExecutionDashboard/hooks/buildShellOverlayProps.generated.ts',
-    out,
-);
+fs.writeFileSync(generatedPath, out);
 console.log('generated', sorted.length, 'keys');

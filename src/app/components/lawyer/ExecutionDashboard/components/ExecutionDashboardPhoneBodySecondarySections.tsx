@@ -1,31 +1,31 @@
-import React, { Suspense, startTransition, useMemo } from 'react';
+import React, { startTransition, useMemo } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import {
-    Activity,
-    Book,
-    Calendar,
-    ChevronUp,
-    ClipboardList,
-    CreditCard,
-    FileText,
-    FolderOpen,
-    History,
-    Scale,
-} from '@/app/components/ui/lucideIcons';
+import { Activity } from '@/app/components/ui/icons/Activity';
+import { Book } from '@/app/components/ui/icons/Book';
+import { Calendar } from '@/app/components/ui/icons/Calendar';
+import { ChevronUp } from '@/app/components/ui/icons/ChevronUp';
+import { ClipboardList } from '@/app/components/ui/icons/ClipboardList';
+import { CreditCard } from '@/app/components/ui/icons/CreditCard';
+import { FileText } from '@/app/components/ui/icons/FileText';
+import { FolderOpen } from '@/app/components/ui/icons/FolderOpen';
+import { History } from '@/app/components/ui/icons/History';
+import { Scale } from '@/app/components/ui/icons/Scale';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import type { VisitationScheduleBundle } from '@/app/types/visitationSchedule';
-import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
 import type { ExecutionTimelineFilterLabel } from '@/app/utils/timelineCategoryFilter';
+import { isCustodyRemovalExecutionClaim } from '@/app/utils/executionClaimIsolation';
 import {
     LazyActionGridSection,
     LazyCustodyRemovalWardsModule,
-    LazyLawReferencePanel,
+    LazyTimelineSection,
+} from '../executionDashboardLazyRegistryShell';
+import { EXEC_OVERLAY_INNER_SILENT_FALLBACK, EXEC_SECTION_LAZY_FALLBACK, EXEC_ACTION_GRID_LAZY_FALLBACK, EXEC_TIMELINE_LAZY_FALLBACK } from '../executionDashboardLazyShellUi';
+import { ExecutionLawOverlayEntry } from './ExecutionLawOverlayEntry';
+import { PreloadableOverlayGate } from '../preloadableOverlayGate';
+import {
     LazyPremiumTimelineAuditLog,
     LazySmartTimelineRadar,
-    LazyTimelineSection,
-} from '../executionDashboardLazyRegistry';
-import { EXEC_OVERLAY_LAZY_FALLBACK, EXEC_SECTION_LAZY_FALLBACK } from '../executionDashboardLazyShellUi';
-import { isCustodyRemovalExecutionClaim } from '@/app/utils/executionClaimIsolation';
+} from '../executionTimelineSurfaceLazy';
 
 type CaseNoteLogRow = NonNullable<ExecutionFile['caseNotesLog']>[number];
 type CaseTaskRow = NonNullable<ExecutionFile['caseTasksPending']>[number];
@@ -68,7 +68,6 @@ export type ExecutionDashboardPhoneBodySecondaryScope = {
     setActiveTimelineFilter: Dispatch<SetStateAction<string>>;
     setEmployeeCompulsoryBannerDismissed: (dismissed: boolean) => void;
     setShowOnlyActiveFileTimeline: Dispatch<SetStateAction<boolean>>;
-    setShowVisitationCalendarModal: Dispatch<SetStateAction<boolean>>;
     showEmployeeCompulsoryProceduresBanner: boolean;
     showOnlyActiveFileTimeline: boolean;
     showToast: ExecutionDashboardShowToast;
@@ -131,9 +130,6 @@ export function ExecutionDashboardPhoneBodySecondarySections({
     directHandleMemoFollowupClick,
     directOpenDecisionsModalWithBoot,
 }: ExecutionDashboardPhoneBodySecondarySectionsProps) {
-    if (!secondaryStageReady) {
-        return null;
-    }
 
     const {
         debtorBrowserTabsMode,
@@ -194,6 +190,11 @@ export function ExecutionDashboardPhoneBodySecondarySections({
             : [];
     }, [viewExecutionData]);
 
+    /* بعد الخطّافات لا قبلها: الإرجاع المبكّر كان يُغيّر عددها عند تبدّل الجاهزية */
+    if (!secondaryStageReady) {
+        return null;
+    }
+
     return (
         <>
             {includeCustodyRemoval &&
@@ -201,102 +202,103 @@ export function ExecutionDashboardPhoneBodySecondarySections({
             typeof nextTimelineId === 'function' &&
             typeof setTimelineEvents === 'function' &&
             typeof persistExecutionMerge === 'function' ? (
-                <Suspense fallback={EXEC_SECTION_LAZY_FALLBACK}>
-                    <LazyCustodyRemovalWardsModule
-                        executionId={executionId}
-                        parentDossierId={parentDossierId}
-                        activeSubFileId={activeSubFileId}
-                        isInabaActive={isInabaActive}
-                        executionData={viewExecutionData}
-                        custodyWardNames={custodyWardNamesResolved}
-                        timelineEvents={activeTimelineEvents}
-                        todayYmd={todayYmd}
-                        setTimelineEvents={setTimelineEvents}
-                        persistExecutionMerge={persistExecutionMerge}
-                        nextTimelineId={nextTimelineId}
-                        showToast={showToast}
-                    />
-                </Suspense>
+                <PreloadableOverlayGate
+                    lazy={LazyCustodyRemovalWardsModule}
+                    fallback={EXEC_SECTION_LAZY_FALLBACK}
+                    lazyProps={{
+                        executionId,
+                        parentDossierId,
+                        activeSubFileId,
+                        isInabaActive,
+                        executionData: viewExecutionData,
+                        custodyWardNames: custodyWardNamesResolved,
+                        timelineEvents: activeTimelineEvents,
+                        todayYmd,
+                        setTimelineEvents,
+                        persistExecutionMerge,
+                        nextTimelineId,
+                        showToast,
+                    }}
+                />
             ) : null}
 
-            {/* حدود Suspense محلية — شبكة الإجراءات/السجل لا يعلّقان الجسم كله عند chunk بارد */}
-            <Suspense fallback={EXEC_SECTION_LAZY_FALLBACK}>
-            <LazyActionGridSection
-                Book={Book}
-                Calendar={Calendar}
-                FileText={FileText}
-                FolderOpen={FolderOpen}
-                Scale={Scale}
-                ClipboardList={ClipboardList}
-                CreditCard={CreditCard}
-                showEmployeeCompulsoryProceduresBanner={showEmployeeCompulsoryProceduresBanner}
-                executionToolsTimelineLockedUi={executionToolsTimelineLockedUi}
-                executionActionsGridLocked={executionActionsGridLocked}
-                setEmployeeCompulsoryBannerDismissed={setEmployeeCompulsoryBannerDismissed}
-                showToast={showToast}
-                onOpenAppointmentModal={safeOpenAppointmentModal}
-                onOpenNotesModal={directOpenNotesModal}
-                onOpenDocumentsModal={directOpenDocumentsModal}
-                onOpenDecisionsModal={
-                    typeof directOpenDecisionsModalWithBoot === 'function'
-                        ? () => directOpenDecisionsModalWithBoot({ tab: 'current' })
-                        : undefined
-                }
-                onOpenFinancialCenter={directOpenFinancialCenter}
-                onMemoFollowupClick={directHandleMemoFollowupClick}
-                showSeizureLogButton={
-                    hasUnifiedSeizureLogContent &&
-                    !isRepresentingDebtor &&
-                    !Boolean(followupSpec.hideDossierFinancialTools)
-                }
-                onOpenSeizureLog={() => openUnifiedSeizureLog()}
-                pinnedNotes={dockPinnedNotes}
-                pinnedTasks={dockPinnedTasks}
-                onToggleNotePin={toggleCaseNotePin}
-                onToggleTaskPin={toggleCaseTaskPin}
-                onTrashPinnedNote={moveCaseNoteToTrash}
+            {/* حدود الانتظار محلية — شبكة الإجراءات/السجل لا يعلّقان الجسم كله عند chunk بارد */}
+            <PreloadableOverlayGate
+                lazy={LazyActionGridSection}
+                fallback={EXEC_ACTION_GRID_LAZY_FALLBACK}
+                lazyProps={{
+                    Book,
+                    Calendar,
+                    FileText,
+                    FolderOpen,
+                    Scale,
+                    ClipboardList,
+                    CreditCard,
+                    showEmployeeCompulsoryProceduresBanner,
+                    executionToolsTimelineLockedUi,
+                    executionActionsGridLocked,
+                    setEmployeeCompulsoryBannerDismissed,
+                    showToast,
+                    onOpenAppointmentModal: safeOpenAppointmentModal,
+                    onOpenNotesModal: directOpenNotesModal,
+                    onOpenDocumentsModal: directOpenDocumentsModal,
+                    onOpenDecisionsModal:
+                        typeof directOpenDecisionsModalWithBoot === 'function'
+                            ? () => directOpenDecisionsModalWithBoot({ tab: 'current' })
+                            : undefined,
+                    onOpenFinancialCenter: directOpenFinancialCenter,
+                    onMemoFollowupClick: directHandleMemoFollowupClick,
+                    showSeizureLogButton:
+                        hasUnifiedSeizureLogContent &&
+                        !isRepresentingDebtor &&
+                        !Boolean(followupSpec.hideDossierFinancialTools),
+                    onOpenSeizureLog: () => openUnifiedSeizureLog(),
+                    pinnedNotes: dockPinnedNotes,
+                    pinnedTasks: dockPinnedTasks,
+                    onToggleNotePin: toggleCaseNotePin,
+                    onToggleTaskPin: toggleCaseTaskPin,
+                    onTrashPinnedNote: moveCaseNoteToTrash,
+                }}
             />
-            </Suspense>
 
-            <Suspense fallback={EXEC_SECTION_LAZY_FALLBACK}>
-            <LazyTimelineSection
-                timelineAccordionExpanded={safeTimelineAccordionExpanded}
-                setTimelineAccordionExpanded={safeSetTimelineAccordionExpanded}
-                startTransition={startTransition}
-                ChevronUp={ChevronUp}
-                Activity={Activity}
-                History={History}
-                debtorBrowserTabsMode={debtorBrowserTabsMode}
-                activeTimelineEventsDebtorScoped={mergedTimelineEventsDebtorScoped}
-                activeTimelineEvents={mergedTimelineEvents}
-                EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
-                SmartTimelineRadar={LazySmartTimelineRadar}
-                toggleTimelineEventPin={toggleTimelineEventPin}
-                onOpenTimelineModal={directOpenTimelineModal}
-                timelineRadarPreviewLimit={mergedTimelineRadarPreviewLimit}
-                isHistoricalMode={isHistoricalMode}
-                activeTimelineFilter={activeTimelineFilter}
-                setActiveTimelineFilter={setActiveTimelineFilter}
-                todayYmd={todayYmd}
-                timelineFilterOptions={timelineFilterOptions}
-                PremiumTimelineAuditLog={LazyPremiumTimelineAuditLog}
-                moveTimelineEventToTrash={moveTimelineEventToTrash}
-                onRequestEditTimelineEvent={requestEditTimelineEvent}
-                showOnlyActiveFileTimeline={showOnlyActiveFileTimeline}
-                setShowOnlyActiveFileTimeline={setShowOnlyActiveFileTimeline}
-                subFilesCount={safeSubFilesCount}
-                calendarUserId={safeResolveCalendarUserId(null)}
-                executionEntityId={String(currentFileId || '')}
+            <PreloadableOverlayGate
+                lazy={LazyTimelineSection}
+                fallback={EXEC_TIMELINE_LAZY_FALLBACK}
+                lazyProps={{
+                    timelineAccordionExpanded: safeTimelineAccordionExpanded,
+                    setTimelineAccordionExpanded: safeSetTimelineAccordionExpanded,
+                    startTransition,
+                    ChevronUp,
+                    Activity,
+                    History,
+                    debtorBrowserTabsMode,
+                    activeTimelineEventsDebtorScoped: mergedTimelineEventsDebtorScoped,
+                    activeTimelineEvents: mergedTimelineEvents,
+                    EXEC_OVERLAY_LAZY_FALLBACK: EXEC_OVERLAY_INNER_SILENT_FALLBACK,
+                    SmartTimelineRadar: LazySmartTimelineRadar,
+                    toggleTimelineEventPin,
+                    onOpenTimelineModal: directOpenTimelineModal,
+                    timelineRadarPreviewLimit: mergedTimelineRadarPreviewLimit,
+                    isHistoricalMode,
+                    activeTimelineFilter,
+                    setActiveTimelineFilter,
+                    todayYmd,
+                    timelineFilterOptions,
+                    PremiumTimelineAuditLog: LazyPremiumTimelineAuditLog,
+                    moveTimelineEventToTrash,
+                    onRequestEditTimelineEvent: requestEditTimelineEvent,
+                    showOnlyActiveFileTimeline,
+                    setShowOnlyActiveFileTimeline,
+                    subFilesCount: safeSubFilesCount,
+                    calendarUserId: safeResolveCalendarUserId(null),
+                    executionEntityId: String(currentFileId || ''),
+                }}
             />
-            </Suspense>
 
-            <Suspense fallback={null}>
-                <LazyLawReferencePanel
-                    EXEC_MODAL_Z={EXEC_MODAL_Z}
-                    isEvictionExecutionModule={isEvictionExecutionModule}
-                    viewExecutionData={viewExecutionData as unknown as Record<string, unknown>}
-                />
-            </Suspense>
+            <ExecutionLawOverlayEntry
+                isEvictionExecutionModule={isEvictionExecutionModule}
+                viewExecutionData={viewExecutionData as unknown as Record<string, unknown>}
+            />
         </>
     );
 }

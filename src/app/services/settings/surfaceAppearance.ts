@@ -9,13 +9,13 @@ import {
 } from './backgroundPresets';
 import type { AppearanceSettings } from './types';
 
-export const BACKGROUND_PATTERN_OPACITY_MIN = 0.05;
+const BACKGROUND_PATTERN_OPACITY_MIN = 0.05;
 export const BACKGROUND_PATTERN_OPACITY_MAX = 0.78;
 
 /** كثافة/شفافية بطاقات لوحة القيادة — 0 شفاف، 1 كثيف */
-export const GLASS_OPACITY_MIN = 0;
-export const GLASS_OPACITY_MAX = 1;
-export const GLASS_OPACITY_DEFAULT = 0.92;
+const GLASS_OPACITY_MIN = 0;
+const GLASS_OPACITY_MAX = 1;
+const GLASS_OPACITY_DEFAULT = 0.92;
 
 export function normalizeGlassOpacity(raw: unknown): number {
     if (typeof raw !== 'number' || Number.isNaN(raw)) return GLASS_OPACITY_DEFAULT;
@@ -23,9 +23,7 @@ export function normalizeGlassOpacity(raw: unknown): number {
 }
 
 /** الوضع الفاتح — رمادي هادئ دافئ لتقليل الوهج */
-export const LAWYER_LIGHT_SURFACE_BG = '#cfd3db';
-export const LAWYER_LIGHT_SURFACE_NAME = 'فاتح هادئ';
-export const LAWYER_LIGHT_TEXT = '#3f4654';
+const LAWYER_LIGHT_SURFACE_BG = '#cfd3db';
 
 /** يُعاد ضبط القيم القديمة المحفوظة إلى النطاق الجديد */
 function remapLegacyPatternOpacity(raw: number): number {
@@ -39,11 +37,6 @@ export function normalizeBackgroundPatternOpacity(raw: unknown): number {
     if (typeof raw !== 'number' || Number.isNaN(raw)) return 0.32;
     const remapped = remapLegacyPatternOpacity(raw);
     return Math.min(BACKGROUND_PATTERN_OPACITY_MAX, Math.max(BACKGROUND_PATTERN_OPACITY_MIN, remapped));
-}
-
-/** @deprecated blur removed — kept for legacy persisted settings */
-export function normalizeBackgroundPatternBlur(_raw: unknown): number {
-    return 0;
 }
 
 function svgDataUrl(svg: string): string {

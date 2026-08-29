@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Decision } from '../types';
 import {
     EXECUTOR_QUEUE_REQUEST_KINDS,
@@ -215,12 +214,7 @@ export function normalizeLoadedDecisionRow(d: Decision): Decision {
                 row.appealWorkflowState =
                     row.executorOutcome === 'approved' ? 'REVOKED_BY_APPEAL' : 'FINAL_ACCEPTED';
             } else if (row.appealResult === 'قبول التظلم' || row.appealResult === 'رد التظلم') {
-                row.appealWorkflowState =
-                    row.appealStatus === 'final'
-                        ? row.status === 'accepted'
-                            ? 'FINAL_ACCEPTED'
-                            : 'FINAL_REJECTED'
-                        : 'NONE';
+                row.appealWorkflowState = 'NONE';
             } else {
                 row.appealWorkflowState = 'FINAL_ACCEPTED';
             }

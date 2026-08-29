@@ -90,9 +90,18 @@ const hotBlobCache = new Map<string, Blob>();
 
 let blobWriteChain: Promise<void> = Promise.resolve();
 
+function enqueueBlobMutation<T>(operation: () => Promise<T>): Promise<T> {
+    const result = blobWriteChain.then(operation);
+    blobWriteChain = result.then(
+        () => undefined,
+        () => undefined,
+    );
+    return result;
+}
 
 
-function useMemoryStore(): boolean {
+
+function shouldUseMemoryStore(): boolean {
 
     return import.meta.env.MODE === 'test' || import.meta.env.VITEST === true;
 
@@ -120,7 +129,7 @@ function resolveWriteTimeoutMs(blobSize: number): number {
 
 function openDbFresh(): Promise<IDBDatabase | null> {
 
-    if (useMemoryStore()) return Promise.resolve(null);
+    if (shouldUseMemoryStore()) return Promise.resolve(null);
 
     if (typeof indexedDB === 'undefined') return Promise.resolve(null);
 
@@ -176,7 +185,7 @@ function openDbFresh(): Promise<IDBDatabase | null> {
 
 function getDb(): Promise<IDBDatabase | null> {
 
-    if (useMemoryStore()) return Promise.resolve(null);
+    if (shouldUseMemoryStore()) return Promise.resolve(null);
 
     if (cachedDb) return Promise.resolve(cachedDb);
 
@@ -314,7 +323,7 @@ function writeVaultBlobRowToIdb(row: VaultBlobRow, db: IDBDatabase): Promise<voi
 
 function writeVaultBlobRow(row: VaultBlobRow): Promise<void> {
 
-    if (useMemoryStore()) {
+    if (shouldUseMemoryStore()) {
 
         testBlobStore.set(row.key, row);
 
@@ -354,6 +363,24 @@ function writeVaultBlobRow(row: VaultBlobRow): Promise<void> {
 
 
 
+function buildVaultBlobRow(
+    authorId: string,
+    docId: string,
+    blob: Blob,
+    mimeType: string,
+): VaultBlobRow {
+    const key = rowKey(authorId, docId);
+    return {
+        key,
+        authorId: authorId.trim(),
+        docId: docId.trim(),
+        mimeType: mimeType || blob.type || 'application/octet-stream',
+        size: blob.size,
+        blob,
+        updatedAt: new Date().toISOString(),
+    };
+}
+
 export function putVaultBlob(
 
     authorId: string,
@@ -366,25 +393,7 @@ export function putVaultBlob(
 
 ): Promise<void> {
 
-    const key = rowKey(authorId, docId);
-
-    const row: VaultBlobRow = {
-
-        key,
-
-        authorId: authorId.trim(),
-
-        docId: docId.trim(),
-
-        mimeType: mimeType || blob.type || 'application/octet-stream',
-
-        size: blob.size,
-
-        blob,
-
-        updatedAt: new Date().toISOString(),
-
-    };
+    const row = buildVaultBlobRow(authorId, docId, blob, mimeType);
 
 
 
@@ -392,12 +401,33 @@ export function putVaultBlob(
 
 
 
-    const writePromise = writeVaultBlobRow(row);
+    return enqueueBlobMutation(() => writeVaultBlobRow(row));
 
-    blobWriteChain = blobWriteChain.then(() => writePromise).catch(() => undefined);
+}
 
-    return writePromise;
-
+/**
+ * Restore-only durable write. Unlike the interactive upload path, this does
+ * not degrade to an in-memory row that would disappear after app restart.
+ */
+export async function putVaultBlobVerified(
+    authorId: string,
+    docId: string,
+    blob: Blob,
+    mimeType: string,
+): Promise<void> {
+    const row = buildVaultBlobRow(authorId, docId, blob, mimeType);
+    if (shouldUseMemoryStore()) {
+        testBlobStore.set(row.key, row);
+        primeVaultBlobCache(authorId, docId, blob);
+        return;
+    }
+    await enqueueBlobMutation(async () => {
+        const db = await getDb();
+        if (!db) throw new Error('vault blob database unavailable');
+        await writeVaultBlobRowToIdb(row, db);
+        runtimeBlobStore.delete(row.key);
+        primeVaultBlobCache(authorId, docId, blob);
+    });
 }
 
 
@@ -426,7 +456,7 @@ export async function getVaultBlob(authorId: string, docId: string): Promise<Blo
 
 
 
-    if (useMemoryStore()) {
+    if (shouldUseMemoryStore()) {
 
         return testBlobStore.get(key)?.blob ?? null;
 
@@ -485,7 +515,7 @@ export async function deleteVaultBlob(authorId: string, docId: string): Promise<
 
     runtimeBlobStore.delete(key);
 
-    if (useMemoryStore()) {
+    if (shouldUseMemoryStore()) {
 
         testBlobStore.delete(key);
 
@@ -495,24 +525,41 @@ export async function deleteVaultBlob(authorId: string, docId: string): Promise<
 
 
 
-    const db = await getDb();
-
-    if (!db) return;
-
-
-
-    await new Promise<void>((resolve) => {
-
-        const tx = db.transaction(STORE, 'readwrite');
-
-        tx.oncomplete = () => resolve();
-
-        tx.onerror = () => resolve();
-
-        tx.objectStore(STORE).delete(key);
-
+    await enqueueBlobMutation(async () => {
+        hotBlobCache.delete(key);
+        runtimeBlobStore.delete(key);
+        const db = await getDb();
+        if (!db) return;
+        await new Promise<void>((resolve) => {
+            const tx = db.transaction(STORE, 'readwrite');
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => resolve();
+            tx.objectStore(STORE).delete(key);
+        });
     });
+}
 
+export async function deleteVaultBlobVerified(authorId: string, docId: string): Promise<void> {
+    const key = rowKey(authorId, docId);
+    hotBlobCache.delete(key);
+    runtimeBlobStore.delete(key);
+    if (shouldUseMemoryStore()) {
+        testBlobStore.delete(key);
+        return;
+    }
+    await enqueueBlobMutation(async () => {
+        hotBlobCache.delete(key);
+        runtimeBlobStore.delete(key);
+        const db = await getDb();
+        if (!db) throw new Error('vault blob database unavailable');
+        await new Promise<void>((resolve, reject) => {
+            const tx = db.transaction(STORE, 'readwrite');
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error ?? new Error('vault blob delete failed'));
+            tx.onabort = () => reject(tx.error ?? new Error('vault blob delete aborted'));
+            tx.objectStore(STORE).delete(key);
+        });
+    });
 }
 
 
@@ -530,39 +577,29 @@ export async function deleteVaultBlobByPath(storagePath: string | undefined | nu
 
 
 export async function clearAllVaultBlobs(): Promise<void> {
-
     hotBlobCache.clear();
-
     runtimeBlobStore.clear();
-
-    if (useMemoryStore()) {
-
+    if (shouldUseMemoryStore()) {
         testBlobStore.clear();
-
         return;
-
     }
-
-
-
-    const db = await getDb();
-
-    if (!db) return;
-
-
-
-    await new Promise<void>((resolve) => {
-
-        const tx = db.transaction(STORE, 'readwrite');
-
-        tx.oncomplete = () => resolve();
-
-        tx.onerror = () => resolve();
-
-        tx.objectStore(STORE).clear();
-
+    await enqueueBlobMutation(async () => {
+        // A queued write may have repopulated the hot cache before this barrier.
+        hotBlobCache.clear();
+        runtimeBlobStore.clear();
+        const db = await getDb();
+        if (!db) throw new Error('vault blob database unavailable');
+        await new Promise<void>((resolve, reject) => {
+            const tx = db.transaction(STORE, 'readwrite');
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error ?? new Error('vault blob clear failed'));
+            tx.onabort = () => reject(tx.error ?? new Error('vault blob clear aborted'));
+            tx.objectStore(STORE).clear();
+        });
+        db.close();
+        if (cachedDb === db) cachedDb = null;
+        openDbPromise = null;
     });
-
 }
 
 

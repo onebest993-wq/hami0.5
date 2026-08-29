@@ -5,10 +5,12 @@ import {
     isVaultDocPdf,
     isVaultDocLocal,
     isVaultPdfFile,
+    isVaultImageFile,
     resolveVaultDocUrl,
     resolveVaultDocForViewing,
     toVaultPdfViewerUrl,
     uploadVaultFileWithFallback,
+    blobFromScanImageSource,
 } from '@/app/services/vaultUploadService';
 
 vi.mock('@/app/services/lawyer-cloud', async (importOriginal) => {
@@ -100,6 +102,12 @@ describe('isVaultPdfFile', () => {
         expect(isVaultPdfFile(new File(['x'], 'a.pdf', { type: '' }))).toBe(true);
         expect(isVaultPdfFile(new File(['x'], 'a.jpg', { type: 'image/jpeg' }))).toBe(false);
     });
+
+    it('rejects svg even with an image mime', () => {
+        expect(isVaultImageFile(new File(['<svg/>'], 'x.svg', { type: 'image/svg+xml' }))).toBe(false);
+        expect(isVaultImageFile(new File(['x'], 'photo.jpg', { type: 'image/jpeg' }))).toBe(true);
+        expect(isVaultPdfFile(new File(['x'], 'a.svg', { type: 'application/pdf' }))).toBe(false);
+    });
 });
 
 describe('resolveVaultDocUrl', () => {
@@ -146,11 +154,27 @@ describe('resolveVaultDocUrl', () => {
         expect(SmartVaultDB.getSignedUrl).toHaveBeenCalledWith('u1/vault/old.pdf');
     });
 
+    it('strips javascript preview urls', async () => {
+        const doc = baseDoc({ storagePath: 'local:vault:u1:1', signedUrl: 'javascript:alert(1)' });
+        await expect(resolveVaultDocUrl(doc)).resolves.toBeNull();
+    });
+
     it('falls back to cached signedUrl when refresh fails', async () => {
         vi.mocked(SmartVaultDB.getSignedUrl).mockResolvedValue(null);
         const cached = 'https://cached.example/pdf';
         const doc = baseDoc({ storagePath: 'u1/vault/file.pdf', signedUrl: cached });
         await expect(resolveVaultDocUrl(doc)).resolves.toBe(cached);
+    });
+
+    it('refuses idb blobs whose path user does not match authorId', async () => {
+        vi.mocked(getVaultBlobObjectUrl).mockResolvedValue('blob:stolen');
+        const doc = baseDoc({
+            authorId: 'u1',
+            storagePath: 'idb:vault:u2:doc-1',
+            signedUrl: null,
+        });
+        await expect(resolveVaultDocUrl(doc)).resolves.toBeNull();
+        expect(getVaultBlobObjectUrl).not.toHaveBeenCalled();
     });
 });
 
@@ -287,5 +311,25 @@ describe('uploadVaultFileWithFallback', () => {
                 value: originalCreateObjectURL,
             });
         }
+    });
+});
+
+describe('blobFromScanImageSource', () => {
+    it('يعيد Blob كما هو دون فك ترميز', async () => {
+        const blob = new Blob(['scan'], { type: 'image/jpeg' });
+        await expect(blobFromScanImageSource(blob)).resolves.toEqual({ blob });
+    });
+
+    it('يفك data URL دون fetch', async () => {
+        const { blob, fallbackDataUrl } = await blobFromScanImageSource('data:image/jpeg;base64,QQ==');
+        expect(blob.size).toBeGreaterThan(0);
+        expect(blob.type).toBe('image/jpeg');
+        expect(fallbackDataUrl).toContain('data:image/jpeg');
+    });
+
+    it('يرفض مصادر المسح الشبكية وdata غير الصورة', async () => {
+        await expect(blobFromScanImageSource('https://evil.example/x.jpg')).rejects.toThrow(/invalid scan source/);
+        await expect(blobFromScanImageSource('data:text/html,<script>x</script>')).rejects.toThrow();
+        await expect(blobFromScanImageSource('javascript:alert(1)')).rejects.toThrow(/invalid scan source/);
     });
 });

@@ -41,7 +41,7 @@ import { revertCaseMergeAfterCassationAnnulment } from './caseMergeMigration';
 import { persistSealedJudicialDecisionOnCase } from './criminalJudicialDecisionSeal';
 import { createCriminalId as createId } from './criminalIdUtils';
 
-export type FileJudicialDecisionAppealPayload = {
+type FileJudicialDecisionAppealPayload = {
     appellantType: JudicialAppellantType;
     appellantIds: string[];
     targetDefendantIds: string[];
@@ -50,7 +50,7 @@ export type FileJudicialDecisionAppealPayload = {
     appealPath?: JudicialCassationAppealPath;
 };
 
-export type DeclareJudicialDecisionFinalPayload = {
+type DeclareJudicialDecisionFinalPayload = {
     declarerType: JudicialAppellantType;
     declarerIds: string[];
     declarerManualLabel?: string;

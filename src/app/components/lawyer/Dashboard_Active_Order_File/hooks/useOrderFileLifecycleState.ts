@@ -26,14 +26,14 @@ export type HearingDraftState = {
     decisionDate: string;
 };
 
-export type UseOrderFileLifecycleStateArgs = {
+type UseOrderFileLifecycleStateArgs = {
     fileData: unknown;
     defaultDeadlineDays: number;
 };
 
 export function useOrderFileLifecycleState({ fileData, defaultDeadlineDays }: UseOrderFileLifecycleStateArgs) {
     const fd = fileData as Record<string, unknown>;
-    const [caseData, setCaseData] = useState<any>(fd);
+    const [caseData, setCaseData] = useState<Record<string, unknown>>(fd);
 
     const [fileStatus, setFileStatus] = useState<FileStatus>('pending');
     const [isSecretMode, setIsSecretMode] = useState(true);
@@ -60,15 +60,15 @@ export function useOrderFileLifecycleState({ fileData, defaultDeadlineDays }: Us
         filingDate: '',
     });
     const [phase2FirstHearingDate, setPhase2FirstHearingDate] = useState<string>(() => {
-        const raw = String((fileData as any)?.grievanceFirstHearingDate ?? (fileData as any)?.phase2FirstHearingDate ?? '').trim();
+        const raw = String(fd.grievanceFirstHearingDate ?? fd.phase2FirstHearingDate ?? '').trim();
         return raw.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? '';
     });
     const [grievanceLegalEndDate, setGrievanceLegalEndDate] = useState<string>(
-        String((fileData as any)?.grievanceLegalEndDate ?? ''),
+        String(fd.grievanceLegalEndDate ?? ''),
     );
     const [grievanceDecisionNotificationConfirmed, setGrievanceDecisionNotificationConfirmed] = useState<boolean>(false);
     const [grievancePetitionNotificationDate, setGrievancePetitionNotificationDate] = useState<string>(
-        String((fileData as any)?.grievancePetitionNotificationDate ?? ''),
+        String(fd.grievancePetitionNotificationDate ?? ''),
     );
     const [grievancePetitionNotificationConfirmed, setGrievancePetitionNotificationConfirmed] = useState<boolean>(false);
     const [decisionNotificationModalOpen, setDecisionNotificationModalOpen] = useState<boolean>(false);
@@ -94,8 +94,8 @@ export function useOrderFileLifecycleState({ fileData, defaultDeadlineDays }: Us
 
     const [guaranteeSubmitted, setGuaranteeSubmitted] = useState<boolean>(false);
     const [guaranteeDetails, setGuaranteeDetails] = useState<{ amount: string; receiptNumber: string }>({
-        amount: String((fileData as any)?.guaranteeAmount ?? ''),
-        receiptNumber: String((fileData as any)?.guaranteeReceiptNumber ?? ''),
+        amount: String(fd.guaranteeAmount ?? ''),
+        receiptNumber: String(fd.guaranteeReceiptNumber ?? ''),
     });
     const [hearings, setHearings] = useState<CaseHearing[]>([]);
     const [hearingDraft, setHearingDraft] = useState<HearingDraftState>({

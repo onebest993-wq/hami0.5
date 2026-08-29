@@ -1,11 +1,10 @@
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
-import { syncNativeScreenshotGuard } from '@/app/runtime/screenshotDeterrentRuntime';
+import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
+import { syncNativePrivacyGuardFromSettings } from '@/app/runtime/nativePrivacyGuard';
 
-/** يطبّق حماية لقطة الشاشة الأصلية حسب الإعدادات — قبل/بعد React */
+/** يطبّق حماية النافذة الأصلية (شاشة المهام + FLAG_SECURE) حسب الإعدادات */
 export async function applyNativeSecurityFromSettings(): Promise<void> {
     try {
-        const { security } = getLawyerSettingsSnapshot();
-        await syncNativeScreenshotGuard(security.screenshotDeterrent);
+        await syncNativePrivacyGuardFromSettings(getLawyerSettingsSnapshot().security);
     } catch {
         /* best effort */
     }

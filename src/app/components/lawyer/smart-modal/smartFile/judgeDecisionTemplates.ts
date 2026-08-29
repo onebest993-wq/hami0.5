@@ -1,3 +1,5 @@
+import { readSecureJsonRawSync, writeSecureJsonValue } from '@/app/services/storage/syncSecureJson';
+
 const STORAGE_KEY = 'hami:session-judge-decision-templates';
 const MAX_TEMPLATES = 24;
 const MAX_TEMPLATE_LENGTH = 120;
@@ -9,7 +11,7 @@ export function normalizeJudgeDecisionTemplate(text: string): string {
 export function loadJudgeDecisionTemplates(): string[] {
     if (typeof window === 'undefined') return [];
     try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = readSecureJsonRawSync(STORAGE_KEY);
         if (!raw) return [];
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
@@ -30,11 +32,7 @@ export function loadJudgeDecisionTemplates(): string[] {
 
 export function persistJudgeDecisionTemplates(templates: string[]): void {
     if (typeof window === 'undefined') return;
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(templates.slice(0, MAX_TEMPLATES)));
-    } catch {
-        /* ignore quota errors */
-    }
+    writeSecureJsonValue(STORAGE_KEY, templates.slice(0, MAX_TEMPLATES));
 }
 
 export function addJudgeDecisionTemplate(templates: string[], text: string): string[] {

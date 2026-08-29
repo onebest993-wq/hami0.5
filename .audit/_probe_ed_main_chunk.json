@@ -1,0 +1,420 @@
+{
+  "visitedCount": 700,
+  "visitedKb": 3388.9,
+  "inEdCount": 259,
+  "inEdKb": 1366.9,
+  "outsideEdCount": 441,
+  "outsideEdKb": 2022,
+  "byBucketKb": {
+    "outside": 797.2,
+    "utils": 760,
+    "components": 751.3,
+    "core-non-cluster": 685.6,
+    "hooks": 394.9
+  },
+  "topInEd": [
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionSeizedAssetModals.ts",
+      "kb": 21.7,
+      "bucket": "hooks"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistry.ts",
+      "kb": 20.1,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/utils/applyDossierSpecialFollowupOutcome.ts",
+      "kb": 19.6,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreFollowupDebtorPipeline.ts",
+      "kb": 18.1,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardChunkHost.tsx",
+      "kb": 17.7,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/useSubsequentNoticeFlow.ts",
+      "kb": 17.4,
+      "bucket": "hooks"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreScopeAndChunk.ts",
+      "kb": 17.2,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreClaimGracePersistSegment.ts",
+      "kb": 16.7,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreBootPipeline.ts",
+      "kb": 16.5,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardTimelineAssetsCluster.ts",
+      "kb": 16.3,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/utils/applyPersonalCoerciveExecutorOutcome.ts",
+      "kb": 16.2,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCorePersistSaveEditSegment.ts",
+      "kb": 16,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCorePipelinesChain.ts",
+      "kb": 15.9,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardDebtorWorkspaceContext.ts",
+      "kb": 15.6,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreGraceMasterEvictionPipeline.ts",
+      "kb": 15.6,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreClaimFinancialLedgerPipeline.ts",
+      "kb": 15.3,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreDossierAndResidentSegment.ts",
+      "kb": 15,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionFollowupController.ts",
+      "kb": 15,
+      "bucket": "hooks"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts",
+      "kb": 14.4,
+      "bucket": "hooks"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardUnifiedDossierMetaWorkflow.ts",
+      "kb": 14.4,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardRuntimeSyncEffects.ts",
+      "kb": 14,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionScopeLazySyncDelta.ts",
+      "kb": 13.7,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardExecutorApprovalActions.ts",
+      "kb": 13.6,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPersistExecutionMerge.ts",
+      "kb": 13.6,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionTrashAndPins.ts",
+      "kb": 13.3,
+      "bucket": "hooks"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreWorkspacePipeline.ts",
+      "kb": 12.7,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardDecisionAndEventSync.ts",
+      "kb": 12.7,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardWindowBridge.ts",
+      "kb": 12.1,
+      "bucket": "hooks"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardOtherPartyHandlers.ts",
+      "kb": 11.9,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/executionDashboardHandlerClusterBridgeLazy.tsx",
+      "kb": 11.7,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardClaimFinancials.ts",
+      "kb": 11.4,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/usePartyEditWorkflow.ts",
+      "kb": 11.4,
+      "bucket": "hooks"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardFollowupTabAssembly.ts",
+      "kb": 11.2,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterRuntime.ts",
+      "kb": 11,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/openPartyEditDraft.ts",
+      "kb": 10.2,
+      "bucket": "hooks"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardModalScope.ts",
+      "kb": 10,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreClaimGraceEarnerFollowup.ts",
+      "kb": 10,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/pipelinesChainInputs/buildPersistHandlerPipelineInput.ts",
+      "kb": 9.9,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/utils/buildUnifiedSeizureLogPropertyEntries.ts",
+      "kb": 9.7,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/helpers/partyEditPersistence.ts",
+      "kb": 9.6,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/orchestrators/useExecutionDossierLifecycleActionsOrchestrator.ts",
+      "kb": 9.5,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterGate.ts",
+      "kb": 9.5,
+      "bucket": "hooks"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/ExecutionDashboardResolvedRuntimeSurface.tsx",
+      "kb": 8.9,
+      "bucket": "hooks"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSaveExecutionData.ts",
+      "kb": 8.7,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/helpers/executionPersistPatchSanitizer.ts",
+      "kb": 8.6,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildScopeBundleGroups.ts",
+      "kb": 8.2,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreModalAndChunkInputs.ts",
+      "kb": 8.2,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardClaimFinancials.ts",
+      "kb": 8.2,
+      "bucket": "core-non-cluster"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/hooks/useFollowupModalPersistNavigation.ts",
+      "kb": 8.1,
+      "bucket": "hooks"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionDashboard/utils/salarySeizureLedgerSync.ts",
+      "kb": 8.1,
+      "bucket": "components"
+    }
+  ],
+  "topOutside": [
+    {
+      "f": "src/app/services/calendar/dossierSync/prune.ts",
+      "kb": 24.1,
+      "bucket": "outside"
+    },
+    {
+      "f": "src/app/services/calendar/bridgePersistence/shared.ts",
+      "kb": 21.5,
+      "bucket": "outside"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueueReadResolve.ts",
+      "kb": 19.6,
+      "bucket": "utils"
+    },
+    {
+      "f": "src/app/utils/followupSpecializationVisibility.ts",
+      "kb": 18.2,
+      "bucket": "utils"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueueTypes.ts",
+      "kb": 17.3,
+      "bucket": "utils"
+    },
+    {
+      "f": "src/app/components/lawyer/ExecutionCreationView/hooks/useAlimonyCalculator.ts",
+      "kb": 16.5,
+      "bucket": "hooks"
+    },
+    {
+      "f": "src/app/utils/executorSeizureDecisionQueuePatch.ts",
+      "kb": 15.9,
+      "bucket": "utils"
+    },
+    {
+      "f": "src/app/components/lawyer/smart-modal/parts/civilLawTaxonomy.ts",
+      "kb": 15.7,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/components/lawyer/LawyerDashboardParts/utils.ts",
+      "kb": 15.4,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/components/lawyer/smart-modal/smartFile/appealRouteEligibility.ts",
+      "kb": 15.2,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/domain/execution/summons/summoningImmunityEngine.ts",
+      "kb": 15.1,
+      "bucket": "outside"
+    },
+    {
+      "f": "src/app/utils/executionDossierBlobPersistence.ts",
+      "kb": 15,
+      "bucket": "utils"
+    },
+    {
+      "f": "src/app/services/settings/backgroundPresets.ts",
+      "kb": 14.4,
+      "bucket": "outside"
+    },
+    {
+      "f": "src/app/services/lawsuitTimelineCalendarMirror.ts",
+      "kb": 14.1,
+      "bucket": "outside"
+    },
+    {
+      "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/creditorAppealEnforcement.ts",
+      "kb": 14,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/utils/executionDecisionsNamespaceWrite.ts",
+      "kb": 13.9,
+      "bucket": "utils"
+    },
+    {
+      "f": "src/app/utils/creditorPartyDeathPersistence.ts",
+      "kb": 13.9,
+      "bucket": "utils"
+    },
+    {
+      "f": "src/app/stores/notificationStore.ts",
+      "kb": 13.5,
+      "bucket": "outside"
+    },
+    {
+      "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealProceedingsManual.ts",
+      "kb": 13.5,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/services/caseShare/caseShareCatalogBuilder.ts",
+      "kb": 13.4,
+      "bucket": "outside"
+    },
+    {
+      "f": "src/app/utils/executorApprovalWorkflow.ts",
+      "kb": 13.4,
+      "bucket": "utils"
+    },
+    {
+      "f": "src/app/services/calendar/dossierSync/orchestrator.ts",
+      "kb": 13.4,
+      "bucket": "outside"
+    },
+    {
+      "f": "src/app/components/lawyer/smart-modal/smartFile/partyRoleClassification.ts",
+      "kb": 13.1,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/domain/execution/visitation/visitationScheduleSessions.ts",
+      "kb": 13,
+      "bucket": "outside"
+    },
+    {
+      "f": "src/app/components/lawyer/smart-modal/smartFile/absentJudgmentFlow.ts",
+      "kb": 12.8,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/services/calendar/bridge/legacyCalendarBridge.ts",
+      "kb": 12.5,
+      "bucket": "outside"
+    },
+    {
+      "f": "src/app/components/lawyer/dashboard/tasksManager/utils.ts",
+      "kb": 12.5,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels.ts",
+      "kb": 12.4,
+      "bucket": "components"
+    },
+    {
+      "f": "src/app/utils/otherPartyManualTrackDecisionSync.ts",
+      "kb": 12.2,
+      "bucket": "utils"
+    },
+    {
+      "f": "src/app/utils/executorDecisionReadQueries.ts",
+      "kb": 12.1,
+      "bucket": "utils"
+    }
+  ],
+  "note": "Dynamic imports stopped (not traversed). Named handler-cluster modules stopped at boundary."
+}

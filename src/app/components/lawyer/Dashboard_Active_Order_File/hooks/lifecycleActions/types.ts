@@ -12,8 +12,8 @@ import type {
 
 export type UseOrderFileLifecycleActionsArgs = {
     caseId: string | null;
-    caseData: any;
-    setCaseData: React.Dispatch<React.SetStateAction<any>>;
+    caseData: Record<string, unknown> | null | undefined;
+    setCaseData: React.Dispatch<React.SetStateAction<Record<string, unknown>>>;
     onCaseUpdated?: (caseId: string, patch: Record<string, unknown>) => void;
     todayYmdValue: string;
     requestDateYmd: string;

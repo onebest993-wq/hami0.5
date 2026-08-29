@@ -9,10 +9,13 @@ import {
     buildRepositoryFeed,
     filterRepositoryFeedByRoom,
 } from '@/app/services/repository/repositoryUnifiedFeed';
+import SecureStoreService from '@/app/services/SecureStoreService';
 
 describe('repositoryRooms', () => {
     beforeEach(() => {
         localStorage.clear();
+        SecureStoreService.deleteItemSync('hami:repository:rooms:v1:u1');
+        SecureStoreService.deleteItemSync('hami:repository:rooms:v1:u2');
     });
 
     it('يحفظ ويحمّل الغرف لكل مستخدم', () => {

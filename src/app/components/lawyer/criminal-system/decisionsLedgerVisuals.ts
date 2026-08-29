@@ -35,7 +35,7 @@ import {
  *   - `judicial`     : قرار قضائي مُسجَّل (Judicial Decision Card).
  *   - `lawyer_motion`: قرار/طلب محامٍ بَعد البتّ به (Lawyer Motion Card).
  */
-export type DecisionLedgerKind = 'judicial' | 'lawyer_motion';
+type DecisionLedgerKind = 'judicial' | 'lawyer_motion';
 
 /**
  * نمط بصريّ يُعكَس في الإطار الزجاجي للحدود/التَوهج.
@@ -45,7 +45,7 @@ export type DecisionLedgerKind = 'judicial' | 'lawyer_motion';
  *   - `release`    : قرارات تكفيل / إخلاء سبيل.
  *   - `general`    : قرارات عامة وطلبات محامٍ غير ماسّة.
  */
-export type DecisionVisualKind = 'restrictive' | 'summon' | 'release' | 'general';
+type DecisionVisualKind = 'restrictive' | 'summon' | 'release' | 'general';
 
 const RESTRICTIVE_KEYWORDS = /قبض|حجز|حرمان|مَنع\s*السفر|منع\s*السفر|إيقاف\s*تنفيذ/u;
 const SUMMON_KEYWORDS = /استقدام|تحذير|إنذار/u;
@@ -68,7 +68,7 @@ export function formatDecisionLedgerKindLabel(kind: DecisionLedgerKind): string 
 }
 
 /** ألوان مميزة لمسار السجل — قرار قضائي (سماوي) مقابل طلب محامٍ (بنفسجي). */
-export const DECISION_LEDGER_KIND_THEME: Record<
+const DECISION_LEDGER_KIND_THEME: Record<
     DecisionLedgerKind,
     {
         border: string;
@@ -84,7 +84,7 @@ export const DECISION_LEDGER_KIND_THEME: Record<
         background: 'bg-sky-950/25',
         chipBg: 'bg-sky-500/18 border-sky-400/50',
         chipText: 'text-sky-100',
-        glow: 'shadow-[0_0_16px_rgba(56,189,248,0.14)]',
+        glow: '',
         spine: 'bg-sky-400/55',
     },
     lawyer_motion: {
@@ -92,7 +92,7 @@ export const DECISION_LEDGER_KIND_THEME: Record<
         background: 'bg-violet-950/25',
         chipBg: 'bg-violet-500/18 border-violet-400/50',
         chipText: 'text-violet-100',
-        glow: 'shadow-[0_0_16px_rgba(139,92,246,0.14)]',
+        glow: '',
         spine: 'bg-violet-400/55',
     },
 };
@@ -149,7 +149,7 @@ export const DECISION_VISUAL_THEME: Record<
         chipBg: 'bg-red-500/12 border-red-500/35',
         chipText: 'text-red-100',
         iconText: 'text-red-200/85',
-        glow: 'shadow-[0_0_18px_rgba(244,63,94,0.12)]',
+        glow: '',
         spine: 'bg-red-500/45',
     },
     summon: {
@@ -158,7 +158,7 @@ export const DECISION_VISUAL_THEME: Record<
         chipBg: 'bg-amber-500/12 border-amber-500/35',
         chipText: 'text-amber-100',
         iconText: 'text-amber-200/85',
-        glow: 'shadow-[0_0_18px_rgba(245,158,11,0.10)]',
+        glow: '',
         spine: 'bg-amber-500/50',
     },
     release: {
@@ -167,7 +167,7 @@ export const DECISION_VISUAL_THEME: Record<
         chipBg: 'bg-cyan-500/12 border-cyan-500/35',
         chipText: 'text-cyan-100',
         iconText: 'text-cyan-200/85',
-        glow: 'shadow-[0_0_18px_rgba(34,211,238,0.12)]',
+        glow: '',
         spine: 'bg-cyan-500/45',
     },
     general: {
@@ -194,7 +194,7 @@ function stripPartyRolePrefix(label: string): string {
 }
 
 /** هل النص اسم طرف صالح للعرض (ليس «—» ولا فراغاً)؟ */
-export function isDisplayablePartyLabel(value: string | undefined): boolean {
+function isDisplayablePartyLabel(value: string | undefined): boolean {
     const s = String(value ?? '').trim();
     return Boolean(s) && s !== '—';
 }
@@ -246,7 +246,7 @@ export function decisionHasConcernedParty(
     return Boolean(resolveConcernedPartyText(decision, partyLabel, { nameOnly: true }));
 }
 
-export type JudicialDecisionBailLike = {
+type JudicialDecisionBailLike = {
     kind?: 'financial' | 'personal' | string;
     bailAmount?: string;
     guarantors?: Array<{ fullName?: string }>;

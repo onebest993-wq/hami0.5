@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** مزامنة مفاتحة التحقيق → تكليف حضور الموظف */
 import { useEffect, useRef } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';

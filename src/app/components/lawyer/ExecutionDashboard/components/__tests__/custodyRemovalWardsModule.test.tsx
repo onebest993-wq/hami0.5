@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CustodyRemovalWardsModule } from '../CustodyRemovalWardsModule';
 import { matchesExecutionTimelineFilter } from '@/app/utils/timelineCategoryFilter';
@@ -219,8 +219,7 @@ describe('CustodyRemovalWardsModule', () => {
         expect(screen.getByText(/موعد التسليم:/)).toBeInTheDocument();
     });
 
-    it('بعد عدم الاستلام يعرض زر تحديد موعد آخر ثم التقويم', () => {
-        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    it('بعد عدم الاستلام يعرض زر تحديد موعد آخر ثم التقويم', async () => {
         const { persistExecutionMerge, rerenderWithTimeline } = renderModule({
             executionData: {
                 id: 'ex-1',
@@ -239,6 +238,10 @@ describe('CustodyRemovalWardsModule', () => {
 
         fireEvent.click(screen.getByRole('button', { name: /أحمد/ }));
         fireEvent.click(screen.getByRole('button', { name: 'لم يُستلم' }));
+
+        // التأكيد صار حواراً من التطبيق لا من نظام التشغيل — يُنقر ثم يُنتظر الوعد
+        fireEvent.click(await screen.findByRole('button', { name: 'تأكيد' }));
+        await waitFor(() => expect(persistExecutionMerge).toHaveBeenCalled());
         rerenderWithTimeline();
 
         expect(screen.queryByRole('button', { name: 'لم يُستلم' })).not.toBeInTheDocument();
@@ -247,9 +250,6 @@ describe('CustodyRemovalWardsModule', () => {
 
         fireEvent.click(screen.getByRole('button', { name: 'تحديد موعد آخر للتسليم' }));
         expect(screen.getByRole('button', { name: 'حفظ الموعد' })).toBeInTheDocument();
-
-        confirmSpy.mockRestore();
-        expect(persistExecutionMerge).toHaveBeenCalled();
     });
 });
 

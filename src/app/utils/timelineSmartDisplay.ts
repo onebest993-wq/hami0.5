@@ -142,10 +142,16 @@ export function prepareTimelineRadarEvents(events: TimelineEvent[]): TimelineEve
     );
 }
 
-/** مصدر السجل للعرض (توحيد تسمية المُحلل) */
+/** مصدر السجل للعرض */
+const LEGACY_AI_SOURCE_RE =
+    /AI Copilot|Copilot|مساعد الذكاء|الذكاء الاصطناعي|محلل|مُحلل/i;
+
+const LEGACY_AI_TITLE_RE =
+    /AI Copilot|Copilot|مساعد الذكاء|الذكاء الاصطناعي|🤖|اقتراح AI|تحليل مساعد/i;
+
 export function timelineSourceForDisplay(source: string | undefined): string | undefined {
     if (!source) return undefined;
-    if (source === 'AI Copilot') return 'مُحلل حامي الذكي';
+    if (LEGACY_AI_SOURCE_RE.test(source)) return undefined;
     if (source === 'المهلة') return 'الإجراءات الجبرية — تخلية';
     return source;
 }
@@ -154,11 +160,15 @@ export function timelineSourceForDisplay(source: string | undefined): string | u
 export function timelineTitleForDisplay(event: TimelineEvent): string {
     const t0 = String(event.title || '');
     let t = t0
-        .replace(/🤖\s*تحليل مساعد الذكاء الاصطناعي للإضبارة/g, 'تحليل مُحلل حامي الذكي للإضبارة')
-        .replace(/🤖\s*حفظ اقتراح AI كملاحظة/g, 'حفظ اقتراح مُحلل حامي الذكي كملاحظة')
-        .replace(/🤖\s*تحويل اقتراح AI إلى مهمة/g, 'تحويل اقتراح مُحلل حامي الذكي إلى مهمة')
-        .replace(/📝\s*نسخ طلب AI جاهز/g, 'نسخ طلب جاهز (مُحلل حامي)')
-        .replace(/^اقتراح AI:/g, 'اقتراح من المُحلل:');
+        .replace(/🤖\s*تحليل مساعد الذكاء الاصطناعي للإضبارة/gi, '')
+        .replace(/🤖\s*حفظ اقتراح AI كملاحظة/gi, '')
+        .replace(/🤖\s*تحويل اقتراح AI إلى مهمة/gi, '')
+        .replace(/📝\s*نسخ طلب AI جاهز/gi, '')
+        .replace(/^اقتراح AI:/gi, '')
+        .replace(LEGACY_AI_SOURCE_RE, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!t) t = 'إجراء على الإضبارة';
     if (!t || !/قيد\s*البت/i.test(t)) return t;
     const fromDecisions =
         event.type === 'decision' || String(event.source || '').includes('قرارات');
@@ -183,11 +193,26 @@ export function timelineTitleForDisplay(event: TimelineEvent): string {
 export const TIMELINE_TITLE_EMOJI_RE =
     /[\u{1F300}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2300}-\u{23FF}\u{1F600}-\u{1F64F}\u{1F004}\u{1F0CF}\uFE0F\u200D]/gu;
 
-export function cleanTimelineCardTitle(event: TimelineEvent): string {
-    return timelineTitleForDisplay(event)
-        .replace(TIMELINE_TITLE_EMOJI_RE, '')
+/** إزالة مصطلحات «بدائي/بداءة» من عناوين العرض فقط — لا تغيّر التخزين */
+function stripFirstInstanceWording(title: string): string {
+    return title
+        .replace(/تاريخ الحكم البدائي/gi, 'تاريخ الحكم')
+        .replace(/طعن على الحكم البدائي/gi, 'طعن على الحكم')
+        .replace(/الحكم البدائي/gi, 'الحكم')
+        .replace(/المرحلة البدائية/gi, 'المرحلة الأولى')
+        .replace(/\s*البدائي\s*/gi, ' ')
+        .replace(/\s*بدائي\s*/gi, ' ')
         .replace(/\s+/g, ' ')
         .trim();
+}
+
+export function cleanTimelineCardTitle(event: TimelineEvent): string {
+    return stripFirstInstanceWording(
+        timelineTitleForDisplay(event)
+            .replace(TIMELINE_TITLE_EMOJI_RE, '')
+            .replace(/\s+/g, ' ')
+            .trim(),
+    );
 }
 
 function normTimelineText(s: string): string {
@@ -244,11 +269,7 @@ export function timelineCardTitleClassName(
     const src = String(event.source || '');
     const title = String(event.title || '');
     const blob = `${src} ${title}`;
-    if (
-        /مُحلل حامي|محلل حامي|AI Copilot|Copilot|مساعد الذكاء|الذكاء الاصطناعي|تحليل مُحلل|اقتراح من المُحلل/i.test(
-            blob
-        )
-    ) {
+    if (LEGACY_AI_TITLE_RE.test(blob)) {
         return 'text-amber-400';
     }
     const t = event.type;

@@ -1,9 +1,14 @@
 import { IPersistenceRepository } from "../../domain/interfaces/IPersistenceRepository";
 import SecureStoreService from "@/app/services/SecureStoreService";
 import { shouldRejectDossierWipe } from '@/app/services/dossierPersistence/dossierWipeGuard';
+import { signalIfUnreadableProtected } from '@/app/services/dossierPersistence/corruptStorageSignal';
 import { scheduleProtectedBackupFromData } from '@/app/services/dossierPersistence/protectedBackupService';
 import { backupDomainForStorageKey } from '@/app/services/dossierPersistence/protectedStorageKeys';
 import { debug } from '@/app/utils/debug';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 /**
  * 💾 LocalStorageRepository
@@ -36,7 +41,16 @@ export class LocalStorageRepository implements IPersistenceRepository {
 
     private flushKey(key: string, serializedData: string, data: unknown): void {
         this.pendingFlushTimers.delete(key);
+        // فهرس التنفيذ/الملفات يُقرأ بـ getItemSync فوراً بعد المزامنة — الكتابة غير المتزامنة وحدها تُظهر بيانات قديمة
+        if (key.includes('execution') || key.includes('files')) {
+            try {
+                SecureStoreService.setItemSync(key, serializedData);
+            } catch {
+                /* المسار غير المتزامن أدناه احتياط */
+            }
+        }
         void SecureStoreService.setItem(key, serializedData);
+        clearLegacyPlaintextMirror(key);
         const backupDomain = backupDomainForStorageKey(key);
         if (backupDomain && backupDomain !== 'lawsuit' && backupDomain !== 'execution') {
             scheduleProtectedBackupFromData(key, data);
@@ -93,7 +107,7 @@ export class LocalStorageRepository implements IPersistenceRepository {
             const serializedData = JSON.stringify(data);
             if (this.memoryCache.get(key) === serializedData) return;
             const fromCache = this.memoryCache.get(key);
-            const fromSync = SecureStoreService.getItemSync(key);
+            const fromSync = readSecureOrDrainLegacySync(key);
             // لا تثق بكاش ذاكرة فارغ إن كان التخزين المتزامن ما زال يحمل بيانات
             let existing = fromCache ?? fromSync ?? null;
             if (
@@ -123,10 +137,15 @@ export class LocalStorageRepository implements IPersistenceRepository {
     }
 
     public load<T>(key: string): T | null {
+        /*
+         * ما جرت محاولة تحليله. بلا الاحتفاظ به لا يعرف `catch` أي نصّ سقط،
+         * فيبقى تلف بيانات المحامي سطراً في وحدة تحكّم لا يراها أحد.
+         */
+        let attempted: string | null = null;
         try {
             const fromCache = this.memoryCache.get(key) ?? null;
             if (!fromCache) {
-                const syncValue = SecureStoreService.getItemSync(key);
+                const syncValue = readSecureOrDrainLegacySync(key);
                 if (syncValue !== null) {
                     if (syncValue.startsWith(LocalStorageRepository.ENCRYPTED_PREFIX)) {
                         void (async () => {
@@ -136,6 +155,7 @@ export class LocalStorageRepository implements IPersistenceRepository {
                         return null;
                     }
                     this.memoryCache.set(key, syncValue);
+                    attempted = syncValue;
                     return JSON.parse(syncValue) as T;
                 }
                 void (async () => {
@@ -152,24 +172,28 @@ export class LocalStorageRepository implements IPersistenceRepository {
                 })();
                 return null;
             }
+            attempted = fromCache;
             return JSON.parse(fromCache) as T;
         } catch (error) {
             console.error("❌ [LocalStorageRepository] Failed to load data:", error);
+            signalIfUnreadableProtected(key, attempted, 'read');
             return null;
         }
     }
 
     public async loadAsync<T>(key: string): Promise<T | null> {
-        await SecureStoreService.ensurePersistedReady();
         const cached = this.load<T>(key);
         if (cached !== null) return cached;
+        let attempted: string | null = null;
         try {
             const raw = await SecureStoreService.getItem(key);
             if (raw === null) return null;
             this.memoryCache.set(key, raw);
+            attempted = raw;
             return JSON.parse(raw) as T;
         } catch (error) {
             console.error('❌ [LocalStorageRepository] Failed to loadAsync:', error);
+            signalIfUnreadableProtected(key, attempted, 'read');
             return null;
         }
     }
@@ -184,40 +208,44 @@ export class LocalStorageRepository implements IPersistenceRepository {
             this.pendingBackupData.delete(key);
             this.memoryCache.delete(key);
             void SecureStoreService.deleteItem(key);
+            clearLegacyPlaintextMirror(key);
         } catch (error) {
             console.error("❌ [LocalStorageRepository] Failed to remove data:", error);
         }
     }
 
-    public clear(): void {
+    /**
+     * Reconciles data written outside this repository (for example a verified
+     * Settings import) so the in-memory cache cannot return stale content.
+     */
+    public synchronizeExternalWrite(key: string, value: string | null): void {
+        const pending = this.pendingFlushTimers.get(key);
+        if (pending !== undefined) {
+            window.clearTimeout(pending);
+            this.pendingFlushTimers.delete(key);
+        }
+        this.pendingBackupData.delete(key);
+        if (value === null) this.memoryCache.delete(key);
+        else this.memoryCache.set(key, value);
+    }
+
+    public async clear(): Promise<void> {
         try {
-            const appKeyPrefixes = [
-                'hami_',
-                'hami:',
-                'lawyer_',
-                'execution_',
-                'lawsuit_',
-                'client_',
-                'notes_',
-                'cache_',
-                'spark_',
-            ];
-            const keys = Array.from(this.memoryCache.keys());
-            keys.forEach((k) => {
-                if (appKeyPrefixes.some((p) => k.startsWith(p))) {
-                    this.memoryCache.delete(k);
-                }
-            });
-            void (async () => {
-                const secureKeys = await SecureStoreService.listKeys();
-                await Promise.all(
-                    secureKeys
-                        .filter((k) => appKeyPrefixes.some((p) => k.startsWith(p)))
-                        .map((k) => SecureStoreService.deleteItem(k))
-                );
-            })();
+            const trackedKeys = new Set([
+                ...this.pendingFlushTimers.keys(),
+                ...this.pendingBackupData.keys(),
+                ...this.memoryCache.keys(),
+            ]);
+            for (const [key, timer] of this.pendingFlushTimers.entries()) {
+                window.clearTimeout(timer);
+            }
+            this.pendingFlushTimers.clear();
+            this.pendingBackupData.clear();
+            this.memoryCache.clear();
+            await Promise.all([...trackedKeys].map((key) => SecureStoreService.deleteItem(key)));
         } catch (error) {
             console.error("❌ [LocalStorageRepository] Failed to clear storage:", error);
+            throw error;
         }
     }
 }

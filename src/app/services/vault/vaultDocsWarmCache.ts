@@ -5,6 +5,7 @@ import { readVaultLocalIndexSync } from '@/app/services/vault/vaultLocalIndex';
 import {
     mergeVaultDocsWarmCache,
     sortVaultDocs,
+    SMART_VAULT_DOCS_UPDATED_EVENT,
     vaultDocsWarmCacheStore as cache,
     vaultDocsWarmInflightStore as inflight,
 } from '@/app/services/vault/vaultDocsWarmState';
@@ -14,9 +15,8 @@ export {
     peekVaultDocsWarmCache,
     removeVaultDocFromWarmCache,
     setVaultDocsWarmCache,
+    SMART_VAULT_DOCS_UPDATED_EVENT,
 } from '@/app/services/vault/vaultDocsWarmState';
-
-export const SMART_VAULT_DOCS_UPDATED_EVENT = 'hami:smart-vault-docs-updated';
 
 export function notifySmartVaultDocsUpdated(userId: string, docs?: SmartVaultDoc[]): void {
     if (typeof window === 'undefined') return;

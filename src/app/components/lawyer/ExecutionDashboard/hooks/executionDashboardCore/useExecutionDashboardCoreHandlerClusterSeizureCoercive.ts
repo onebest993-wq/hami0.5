@@ -1,5 +1,5 @@
-// @ts-nocheck
 /** Phase B Slice 2 — coercive + seizure release/receive (extracted from handler cluster) */
+import type { MutableRefObject } from 'react';
 import { useExecutionDashboardCoerciveActionBridge } from './useExecutionDashboardCoerciveActionBridge';
 import { useExecutionDashboardCoerciveActionHandlers } from './useExecutionDashboardCoerciveActionHandlers';
 import { useExecutionDashboardSeizureReleaseHandlers } from './useExecutionDashboardSeizureReleaseHandlers';
@@ -66,18 +66,11 @@ export function useExecutionDashboardCoreHandlerClusterSeizureCoercive(
         standaloneExecutionMarksSnapshotRef,
         setStandaloneExecutionMarks,
         getLocalTodayYmd,
-        focusSeizurePropertyInlineRef,
-        focusSeizureMovableInlineRef,
-        focusSeizureThirdPartyInlineRef,
-        focusSeizureNoticeInlineRef,
     } = c as Record<string, unknown>;
 
     const { pushTimelineEvent } = deps;
-
-    focusSeizurePropertyInlineRef.current = deps.focusSeizurePropertyInlineCompletion;
-    focusSeizureMovableInlineRef.current = deps.focusSeizureMovableInlineCompletion;
-    focusSeizureThirdPartyInlineRef.current = deps.focusSeizureThirdPartyInlineCompletion;
-    focusSeizureNoticeInlineRef.current = deps.focusSeizureNoticeInlineCompletion;
+    // Focus callbacks from Heavy are thin ref delegates. AssetModal bridge binds the
+    // real implementations onto focusSeizure*InlineRef — do not overwrite those refs.
 
     const coerciveActionBridge = useExecutionDashboardCoerciveActionBridge({
         saveCoerciveActionRef,
@@ -121,9 +114,7 @@ export function useExecutionDashboardCoreHandlerClusterSeizureCoercive(
         effectiveDebtors,
         coerciveSubjectRef,
         openSeizureRequestsTabRef,
-        openFollowupModalPersisted: (c as { openFollowupModalPersisted?: unknown }).openFollowupModalPersisted as
-            | import('../../utils/followupModalOpen').OpenFollowupModalPersistedFn
-            | undefined,
+        openFollowupModalPersisted: c.openFollowupModalPersisted,
         setShowUnifiedExecutionModal,
         showToast,
         saveCoerciveAction,
@@ -178,9 +169,7 @@ export function useExecutionDashboardCoreHandlerClusterSeizureCoercive(
     });
 
     useUnifiedSeizureLogFooterBridge({
-        openFollowupModalPersisted: (c as { openFollowupModalPersisted?: unknown }).openFollowupModalPersisted as
-            | import('../../utils/followupModalOpen').OpenFollowupModalPersistedFn
-            | undefined,
+        openFollowupModalPersisted: c.openFollowupModalPersisted,
         setShowUnifiedExecutionModal: setShowUnifiedExecutionModal as (show: boolean) => void,
         openSeizureRequestsTabRef: openSeizureRequestsTabRef as MutableRefObject<(() => void) | null>,
     });

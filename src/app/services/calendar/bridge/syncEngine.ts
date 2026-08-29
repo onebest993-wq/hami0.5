@@ -146,33 +146,53 @@ async function processFlushBatch(): Promise<void> {
     }
 }
 
+/**
+ * المنفذ الوحيد لتنفيذ دفعة — يسلسل الدفعات ويُسجّل الجارية على الطابور.
+ *
+ * كل من يشغّل دفعة يمرّ من هنا، وإلا فقد ضمانان:
+ *  - `flushPendingCalendarSyncs` كان ينتظر `activeFlushPromise` وحدها، وهي لا
+ *    تُحدَّث إلا في المسار المجدوَل. فإن استنزف نداءٌ مباشر الطابور، وجده
+ *    المنتظِر فارغاً وعاد فوراً بينما الكتابة ما تزال جارية — فيقرأ تقويماً
+ *    ناقصاً (موعد مرافعة أُضيف للتوّ ولا يظهر).
+ *  - دفعتان متزامنتان تقرآن المخزن نفسه وتكتبانه، فتطمس الأخيرة كتابة الأولى.
+ */
+function runFlushBatch(): Promise<void> {
+    const queue = getSyncQueue();
+    const run = queue.activeFlushPromise.catch(() => undefined).then(() => processFlushBatch());
+    queue.activeFlushPromise = run.catch(() => undefined);
+    return run;
+}
+
 function scheduleFlush(): void {
     const queue = getSyncQueue();
     if (queue.flushScheduled) return;
     queue.flushScheduled = true;
     queueMicrotask(() => {
-        const q = getSyncQueue();
-        q.flushScheduled = false;
-        const run = processFlushBatch();
-        q.activeFlushPromise = q.activeFlushPromise
-            .then(() => run)
-            .catch((err) => {
-                debug.warn('[CalendarBridge] scheduled flush failed (non-fatal):', err);
-            });
+        getSyncQueue().flushScheduled = false;
+        void runFlushBatch().catch((err) => {
+            debug.warn('[CalendarBridge] scheduled flush failed (non-fatal):', err);
+        });
     });
 }
 
 /** ينتظر اكتمال كل عمليات الربط الجارية قبل التنظيف أو القراءة */
 export async function flushPendingCalendarSyncs(): Promise<void> {
     const queue = getSyncQueue();
-    if (queue.flushScheduled) {
-        queue.flushScheduled = false;
+    queue.flushScheduled = false;
+    // حلقة استنزاف: قد تُضاف عناصر جديدة بينما ننتظر الدفعة الجارية.
+    // السقف يمنع دوراناً لا ينتهي إن ظلّ منتِجٌ يُغذّي الطابور بلا توقف.
+    for (let guard = 0; guard < 32; guard++) {
+        // فحص الطابور قبل أي await: ما دمنا في نفس الدورة المتزامنة للمنادي،
+        // فالدفعة ما تزال لنا — فيصل خطؤها إليه بدل أن يبتلعه المسار المجدوَل.
+        if (queue.pendingUpserts.length > 0) {
+            await runFlushBatch();
+            continue;
+        }
+        const inflight = queue.activeFlushPromise;
+        await inflight;
+        if (queue.pendingUpserts.length === 0 && queue.activeFlushPromise === inflight) return;
     }
-    if (queue.pendingUpserts.length > 0) {
-        await processFlushBatch();
-        return;
-    }
-    await queue.activeFlushPromise;
+    debug.warn('[CalendarBridge] flush drain hit its cap — queue still filling');
 }
 
 export function fireAndForgetCalendarSync(payload: CalendarBridgePayload): void {

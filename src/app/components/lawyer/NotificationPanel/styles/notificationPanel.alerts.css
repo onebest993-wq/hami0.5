@@ -1,0 +1,58 @@
+/* Notification Panel — alert-controls / DnD / channels */
+
+.hami-notif-alert-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hami-notif-alert-section {
+  border-radius: 0.875rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: color-mix(in srgb, #ffffff 4.5%, #0b1021);
+  padding: 0.85rem 0.9rem;
+}
+
+.hami-notif-section-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgba(244, 234, 208, 0.82);
+}
+
+.hami-notif-toggle-row {
+  border-radius: 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.45rem 0.75rem;
+}
+
+.hami-notif-toggle-row:active {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.hami-notif-channel-card {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.75rem;
+}
+
+.hami-notif-datetime {
+  color-scheme: dark;
+  font-size: 16px;
+}
+
+.hami-notif-alert-controls input[type='time'],
+.hami-notif-alert-controls input[type='datetime-local'] {
+  font-size: 16px;
+}
+
+.hami-notif-datetime:focus {
+  outline: none;
+  border-color: color-mix(in srgb, #e6c673 40%, transparent);
+}
+
+.hami-notif-dnd-unified {
+  padding-bottom: 0.85rem;
+}
