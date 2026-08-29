@@ -2,11 +2,14 @@ import { useFollowupModal } from '../followupModalContext';
 import { useExecutionFollowupModalLiveHandlers } from './useExecutionFollowupModalLiveHandlers';
 import { useExecutionFollowupModalPortalDerived } from './useExecutionFollowupModalPortalDerived';
 import { useExecutionFollowupModalTabNavigation } from './useExecutionFollowupModalTabNavigation';
-import type { ExecutionDashboardCoreRuntimeVars } from './executionDashboardCore/executionDashboardCoreRuntimeVarsTypes';
+import type { HandlerClusterFlatContext } from './executionDashboardCore/handlerClusterContextShared';
 
-type FollowupModalPortalLive = ExecutionDashboardCoreRuntimeVars &
+type FollowupModalPortalLive = HandlerClusterFlatContext &
     ReturnType<typeof useExecutionFollowupModalPortalDerived> &
-    ReturnType<typeof useExecutionFollowupModalTabNavigation>;
+    ReturnType<typeof useExecutionFollowupModalTabNavigation> & {
+        viewExecutionData?: unknown;
+        claimType?: unknown;
+    };
 
 export type ExecutionFollowupModalPortalController = FollowupModalPortalLive;
 

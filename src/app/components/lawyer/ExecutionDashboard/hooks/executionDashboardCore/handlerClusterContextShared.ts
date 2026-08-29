@@ -11,6 +11,7 @@ import type {
     ExecutionFollowupTabAssemblySlice,
     ExecutionGraceAndSummoningSlice,
     ExecutionSubsequentNoticeFlowSlice,
+    MergeLast,
 } from './executionDashboardCoreRuntimeVarsTypes';
 
 export type HandlerClusterContextSpreads = {
@@ -28,8 +29,38 @@ export type HandlerClusterContextSpreads = {
     core: ExecutionDashboardCoreRuntimeVars;
 };
 
-/** حقيبة المعالجات بعد التسطيح — نفس حقيبة runtime المدمجة. */
-export type HandlerClusterFlatContext = ExecutionDashboardCoreRuntimeVars;
+/** نتيجة تسطيح حقائب المنظّم — نفس ترتيب collectFull (آخر انتشار يربح). */
+export type HandlerClusterFlatContext = MergeLast<
+    MergeLast<
+        MergeLast<
+            MergeLast<
+                MergeLast<
+                    MergeLast<
+                        MergeLast<
+                            MergeLast<
+                                MergeLast<
+                                    MergeLast<
+                                        MergeLast<ExecutionDashboardCoreRuntimeVars, ExecutionFollowupOrchestratorSlice>,
+                                        ExecutionSeizureOrchestratorSlice
+                                    >,
+                                    ExecutionCoercionOrchestratorSlice
+                                >,
+                                ExecutionDossierLifecyclePanelOrchestratorSlice
+                            >,
+                            ExecutionClaimFinancialsSlice
+                        >,
+                        ExecutionGraceAndSummoningSlice
+                    >,
+                    ExecutionDebtorWorkspaceSlice
+                >,
+                ExecutionSubsequentNoticeFlowSlice
+            >,
+            ExecutionFollowupTabAssemblySlice
+        >,
+        ExecutionFollowupSeizureTabsSlice
+    >,
+    ExecutionDecisionsOrchestratorSlice
+>;
 
 export function asHandlerClusterSpreads(input: object): HandlerClusterContextSpreads {
     return input as unknown as HandlerClusterContextSpreads;
