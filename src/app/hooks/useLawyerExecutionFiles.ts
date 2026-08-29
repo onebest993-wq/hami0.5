@@ -567,6 +567,12 @@ export function useLawyerExecutionFiles({
 
                 if (expandedIds.length === 0) return;
 
+                // المفتاح مشفّر لم يُفكّ: فكّه ثم أعد المحاولة قبل الاستسلام
+                if (!tombstonesCommitted) {
+                    tombstonesCommitted =
+                        await tombstones.commitExecutionDossierTombstones(expandedIds);
+                }
+
                 // بلا شاهد قبر مُثبَّت يعود الملف من السحابة عند أول مزامنة
                 if (!tombstonesCommitted) {
                     debug.warn('[Execution] تعذّر تثبيت شاهد الحذف:', expandedIds);

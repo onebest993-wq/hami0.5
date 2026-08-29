@@ -145,6 +145,10 @@ jobs:
       - name: No new type errors
         run: npm run guard:tsc
 
+      # مسارات المزامنة/النقطة/المسح: صفر أخطاء مسموح — استيراد ناقص هنا وصل لكوميت سابقاً
+      - name: Cloud checkpoint and wipe paths stay type-clean
+        run: npm run guard:cloud-types
+
       - name: No new lint errors, no new Rules-of-Hooks violations
         run: npm run guard:lint
 

@@ -18,6 +18,15 @@ import {
 
 const ENCRYPTED_PREFIX = 'hami_enc_v2:';
 
+async function waitForPlaintextOnDisk(key: string, tries = 20): Promise<string | null> {
+    for (let i = 0; i < tries; i += 1) {
+        const raw = await SecureStoreService.peekRawFromDisk(key);
+        if (raw && !raw.startsWith(ENCRYPTED_PREFIX)) return raw;
+        await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    return SecureStoreService.peekRawFromDisk(key);
+}
+
 describe('execution local plaintext at rest (wave 8)', () => {
     const execId = 'exec_at_rest_wave8';
     const blobKey = executionStorageKey(execId);
@@ -51,7 +60,7 @@ describe('execution local plaintext at rest (wave 8)', () => {
     });
 
     it('async secure store round-trips plaintext dossier without hami_enc_v2 prefix', async () => {
-        const secretName = 'مدين_لا_يُخزَّن_نصاً_صريحاً';
+        const secretName = 'مدين_لا_يُخزَّن_مشفراً';
         const ok = persistExecutionDossierBlob(execId, {
             id: execId,
             debtors: [{ name: secretName, phone: '07801112222' }],
@@ -69,5 +78,18 @@ describe('execution local plaintext at rest (wave 8)', () => {
 
         const fromBlobReader = readExecutionDossierBlob(execId);
         expect(fromBlobReader?.debtors?.[0]?.name).toBe(secretName);
+    });
+
+    it('يرحّل ciphertext قديماً إلى نص صريح عند أوّل قراءة', async () => {
+        const plain = JSON.stringify({ id: execId, fileNumber: 'legacy-cipher' });
+        const cipher = `${ENCRYPTED_PREFIX}${await CryptoService.encryptData(plain)}`;
+        await SecureStoreService.setItem(blobKey, cipher);
+        expect((await SecureStoreService.peekRawFromDisk(blobKey))?.startsWith(ENCRYPTED_PREFIX)).toBe(
+            true,
+        );
+        SecureStoreService.clearDecryptedMemoryCache();
+
+        expect(await SecureStoreService.getItem(blobKey)).toBe(plain);
+        expect(await waitForPlaintextOnDisk(blobKey)).toBe(plain);
     });
 });

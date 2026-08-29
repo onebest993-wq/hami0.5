@@ -100,9 +100,9 @@ export async function POST(request: Request): Promise<Response> {
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
         const dropIds = (rows ?? [])
-            .slice(KEEP_LATEST)
-            .map((row) => row.id)
-            .filter((id): id is string => typeof id === 'string');
+            .map((row: { id?: unknown }) => row.id)
+            .filter((id: unknown): id is string => typeof id === 'string')
+            .slice(KEEP_LATEST);
         if (dropIds.length > 0) {
             await admin.from(TABLE).delete().in('id', dropIds);
         }

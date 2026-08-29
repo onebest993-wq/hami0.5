@@ -71,7 +71,7 @@ describe('transactions security close honesty', () => {
             'readSecureOrDrainLegacySync',
         );
         const keys = src('src/app/services/secureStorageKeys.ts');
-        expect(keys).toContain('isTransactionsLocalPlaintextKey');
+        expect(keys).toContain('isTransactionsStorageKey');
         expect(keys).toContain("key.startsWith('hami:transactions:')");
         expect(keys).toContain("key.startsWith('hami:transactionsThreading:v1:')");
         expect(src('src/app/services/forumApiService.ts')).toContain('SecureAPIClient');

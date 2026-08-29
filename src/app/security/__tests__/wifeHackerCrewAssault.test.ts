@@ -139,12 +139,13 @@ describe('☠️ CREW WAVE 4 — CSRF على طلب غير مُغيّر لا ي�
 });
 
 describe('☠️ CREW WAVE 5 — التشفير عند الراحة لا يسقط على مفاتيح العمل', () => {
-    it('lawyerdb والمستعجل فوق الحد تبقى مشفّرة؛ المعاملات plaintext محلي', () => {
+    it('lawyerdb والمستعجل والمعاملات فوق الحد تبقى مشفّرة', () => {
         expect(isWarmEncryptAlwaysKey(`hami:lawyerdb:${ATTACKER_ID}:cases`)).toBe(true);
         expect(isWarmEncryptAlwaysKey(`hami:urgentActions:v1:${ATTACKER_ID}`)).toBe(true);
         expect(fallsBackToPlaintextBySize(`hami:lawyerdb:${ATTACKER_ID}:cases`, OVERSIZE)).toBe(false);
-        expect(shouldEncryptValue(`hami:transactions:v1`, OVERSIZE)).toBe(false);
-        expect(isWarmEncryptAlwaysKey('hami:transactions:v1')).toBe(false);
+        expect(shouldEncryptValue(`hami:transactions:v1`, OVERSIZE)).toBe(true);
+        expect(fallsBackToPlaintextBySize('hami:transactions:v1', OVERSIZE)).toBe(false);
+        expect(isWarmEncryptAlwaysKey(`hami:transactionsThreading:v1:${ATTACKER_ID}`)).toBe(true);
     });
 });
 

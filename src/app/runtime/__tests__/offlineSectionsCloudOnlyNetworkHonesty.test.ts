@@ -28,7 +28,7 @@ describe('أقسام محلية: شبكة للمزامنة/الحفظ السحا
         expect(calendar).not.toContain('/api/comms-dispatcher');
     });
 
-    it('المعاملات تحفظ عبر kv-proxy لا المنتدى — وplaintext محلي', () => {
+    it('المعاملات تحفظ عبر kv-proxy لا المنتدى', () => {
         const tx = read('src/app/services/cloud/lawyerTransactionsCloud.ts');
         expect(tx).toContain('lawyerCloudKv');
         expect(tx).toContain('transactionsThreading:');
@@ -37,7 +37,7 @@ describe('أقسام محلية: شبكة للمزامنة/الحفظ السحا
         expect(tx).not.toContain('/api/task-help');
         expect(tx).not.toContain('CryptoService');
         const keys = read('src/app/services/secureStorageKeys.ts');
-        expect(keys).toContain('isTransactionsLocalPlaintextKey');
+        expect(keys).toContain('isTransactionsStorageKey');
     });
 
     it('التنفيذ يزامن الإضابير عبر BFF الملفات لا المنتدى', () => {
@@ -139,15 +139,33 @@ describe('أقسام محلية: شبكة للمزامنة/الحفظ السحا
         const checkpoint = read('src/app/services/cloud/workCloudCheckpoint.ts');
         expect(checkpoint).toContain('/api/work-checkpoints');
         expect(checkpoint).toContain('isLawyerWorkCloudLive');
+        expect(checkpoint).toContain('TextEncoder');
+        expect(checkpoint).toContain('cancelScheduledWorkCloudCheckpoint');
+        expect(checkpoint).not.toMatch(/json\.length\s*>\s*MAX_PLAINTEXT/);
         const checkpointRoute = read('src/app/api/work-checkpoints/route.ts');
         expect(checkpointRoute).toContain('requireWifeCloudWrite');
         expect(checkpointRoute).toContain('isPostgresUuidSubject');
         const supabaseWrites = read('src/app/services/SupabaseService.ts');
         expect(supabaseWrites).toContain('scheduleWorkCheckpointAfterCloudWrite');
+        expect(supabaseWrites).toMatch(
+            /scheduleWorkCheckpointAfterCloudWrite[\s\S]*?\.catch\(\(\)\s*=>\s*undefined\)/,
+        );
         const runAll = read('src/app/services/cloudSync/runCloudSyncAllNow.ts');
         expect(runAll).toContain('pushWorkCloudCheckpointNow');
         const wipeCloud = read('src/app/api/settings/wipe/wipeAuthenticatedUserCloud.ts');
         expect(wipeCloud).toContain('lawyer_work_checkpoints');
+        expect(wipeCloud).not.toContain('from?.(');
+        const wipeFn = wipeCloud.slice(wipeCloud.indexOf('export async function wipeAuthenticatedUserCloud'));
+        const wipeErrReturn = wipeFn.indexOf("code: 'WIPE_DATABASE_FAILED'");
+        const wipeTableCall = wipeFn.indexOf("from('lawyer_work_checkpoints')");
+        expect(wipeErrReturn).toBeGreaterThan(-1);
+        expect(wipeTableCall).toBeGreaterThan(wipeErrReturn);
+        const recovery = read('src/app/domain/lawsuit/lawsuitWorkspaceRecovery.ts');
+        expect(recovery).toContain('awaitLawsuitWorkspaceCommit');
+        expect(recovery).toMatch(
+            /import\s*\{\s*awaitLawsuitWorkspaceCommit\s*\}\s*from\s*'@\/app\/domain\/lawsuit\/lawsuitPersistFlush'/,
+        );
+        expect(recovery).toContain('pulled.skipped !== true');
         const redTeam = read('src/app/security/__tests__/wifeRedTeamHelpers.ts');
         expect(redTeam).toContain("path: '/api/work-checkpoints'");
         const wipeSqlFiles = fs

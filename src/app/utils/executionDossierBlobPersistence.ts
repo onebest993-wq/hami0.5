@@ -337,8 +337,11 @@ export function readExecutionDossierBlob(
 
 /**
  * يُسخّن بلوب الإضبارة في الذاكرة قبل القراءة المتزامنة.
- * ترحيل `hami_enc_v2:` → plaintext مرة واحدة فقط عند وجود ciphertext على القرص
- * (لا إعادة كتابة IDB في كل فتح بعد اكتمال الترحيل).
+ *
+ * لا إعادة كتابة هنا: `SecureStoreService.getItem` يرحّل `hami_enc_v2:` القديم
+ * إلى نص صريح بنفسه للمفاتيح الخارجة من سياسة التشفير، فالقراءة وحدها تكفي
+ * للتسخين والترحيل. (المسار الثاني الوحيد هو `warmPersistedKeys` لأنه يتجاوز
+ * `getItem` تفادياً لقفل الإقلاع.)
  */
 export async function ensureExecutionDossierBlobReady(dossierId: string | undefined): Promise<void> {
     const id = normalizeExecutionStorageId(dossierId);
@@ -349,20 +352,14 @@ export async function ensureExecutionDossierBlobReady(dossierId: string | undefi
         executionStorageKey(id),
     ];
     const seen = new Set<string>();
-    const CIPHER_PREFIX = 'hami_enc_v2:';
 
     for (const key of candidates) {
         if (!key || seen.has(key)) continue;
         seen.add(key);
         try {
-            const value = await SecureStoreService.getItem(key);
-            if (!value) continue;
-            const rawOnDisk = await SecureStoreService.peekRawFromDisk(key);
-            if (rawOnDisk?.startsWith(CIPHER_PREFIX)) {
-                await SecureStoreService.setItem(key, value);
-            }
+            await SecureStoreService.getItem(key);
         } catch {
-            /* ignore per-key warm/migrate failures */
+            /* ignore per-key warm failures */
         }
     }
 }

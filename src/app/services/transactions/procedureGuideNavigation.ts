@@ -81,7 +81,7 @@ function sanitizeProcedureGuidePayload(raw: unknown): ProcedureGuideApplyPayload
             const notes = sanitizeTransactionTaskNotes(typeof row.notes === 'string' ? row.notes : '') ?? '';
             return { id, title, parentTaskId, notes };
         })
-        .filter((s): s is ProcedureGuideApplyPayload['steps'][number] => s != null)
+        .filter((s): s is NonNullable<typeof s> => s != null)
         .slice(0, MAX_GUIDE_STEPS);
     const documents = Array.isArray(parsed.documents)
         ? parsed.documents
@@ -92,7 +92,7 @@ function sanitizeProcedureGuidePayload(raw: unknown): ProcedureGuideApplyPayload
                   if (!title) return null;
                   return { title, ownerTag: sanitizeTransactionDocumentOwnerTag(row.ownerTag) };
               })
-              .filter((d): d is ProcedureGuideApplyPayload['documents'][number] => d != null)
+              .filter((d): d is NonNullable<typeof d> => d != null)
               .slice(0, MAX_GUIDE_DOCUMENTS)
         : [];
     return { v: 1, titleHint, steps, documents };

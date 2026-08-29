@@ -2,7 +2,7 @@
  * الفرع الذي يُسقط التشفير عن أكبر الحمولات — يجب أن يبقى مرئياً ومسمّى.
  *
  * شظايا القضايا الجنائية ومفاتيح التسخين والإشعارات/الملف لا تسقط — تشفير أو فشل.
- * مقاطع الدعاوى (بما فيها archived/trash) تُشفَّر؛ التنفيذ والمعاملات plaintext محلي.
+ * مقاطع الدعاوى والمعاملات تُشفَّر؛ التنفيذ وحده plaintext محلي.
  */
 import { PROTECTED_WARM_KEYS } from '@/app/services/dossierPersistence/protectedStorageKeys';
 import {
@@ -82,6 +82,7 @@ describe('رؤية سقوط التشفير بسبب الحجم', () => {
             'hami:lawsuit:dossier-tombstones:v1',
             'hami:calendar:tombstones:v1',
             'hami:community:deleted-ids:v1',
+            'hami:transactions:v1',
             'hami:smartvault:deleted:v1',
             'hami:repository:deleted:v1',
             'hami:lawyer-notes:deleted:v1',
@@ -107,14 +108,16 @@ describe('رؤية سقوط التشفير بسبب الحجم', () => {
         expect(shouldEncryptValue('hami:profile:v1:user-1', over)).toBe(true);
     });
 
-    it('سجل المعاملات وخيوطها plaintext محلي — بلا تشفير عند الراحة', () => {
+    it('سجل المعاملات وخيوطها يُشفَّران فوق الحدّ — بلا سقوط لنص صريح', () => {
         const over = big(ENCRYPT_MAX_BYTES + 1);
-        expect(isWarmEncryptAlwaysKey('hami:transactions:v1')).toBe(false);
-        expect(isWarmEncryptAlwaysKey('hami:transactionsThreading:v1:user-1')).toBe(false);
-        expect(isWarmEncryptAlwaysKey('hami:transactions:taskTemplates:v1:user-1')).toBe(false);
-        expect(shouldEncryptValue('hami:transactions:v1', over)).toBe(false);
-        expect(shouldEncryptValue('hami:transactionsThreading:v1:user-1', over)).toBe(false);
-        expect(shouldEncryptValue('hami:transactions:taskTemplates:v1:user-1', over)).toBe(false);
+        expect(isWarmEncryptAlwaysKey('hami:transactions:v1')).toBe(true);
+        expect(isWarmEncryptAlwaysKey('hami:transactionsThreading:v1:user-1')).toBe(true);
+        expect(isWarmEncryptAlwaysKey('hami:transactions:taskTemplates:v1:user-1')).toBe(true);
+        expect(fallsBackToPlaintextBySize('hami:transactions:v1', over)).toBe(false);
+        expect(fallsBackToPlaintextBySize('hami:transactionsThreading:v1:user-1', over)).toBe(false);
+        expect(shouldEncryptValue('hami:transactions:v1', over)).toBe(true);
+        expect(shouldEncryptValue('hami:transactionsThreading:v1:user-1', over)).toBe(true);
+        expect(shouldEncryptValue('hami:transactions:taskTemplates:v1:user-1', over)).toBe(true);
         expect(isWarmEncryptAlwaysKey('hami:lawyerdb:u1:cases')).toBe(true);
         expect(isWarmEncryptAlwaysKey('hami:urgentActions:v1:u1')).toBe(true);
         expect(fallsBackToPlaintextBySize('hami:lawyerdb:u1:cases', over)).toBe(false);

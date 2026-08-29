@@ -1,5 +1,6 @@
 import {
     isProtectedStorageKey,
+    isTransactionsThreadingStateKey,
     PROTECTED_ARRAY_STORAGE_KEYS,
     PROTECTED_OBJECT_STORAGE_KEYS,
 } from './protectedStorageKeys';
@@ -64,6 +65,20 @@ export function readProtectedItemCount(
         if (storageKey === QUANTUM_TASKS_STORAGE_KEY) {
             const tasks = (parsed as { tasks?: unknown }).tasks;
             return Array.isArray(tasks) ? tasks.length : 0;
+        }
+        /*
+         * حالة خيوط المعاملات كائن ثابت الحقول: `Object.keys` يعطي ٦ دائماً حتى
+         * والمصفوفات خالية، فيرى الحارس «محتوى» في حمولة فرّغت كل شيء. العدّ هنا
+         * على السجلات لا على أسماء الحقول.
+         */
+        if (isTransactionsThreadingStateKey(storageKey)) {
+            const state = parsed as {
+                transactions?: unknown;
+                tasks?: unknown;
+                documents?: unknown;
+            };
+            const len = (value: unknown) => (Array.isArray(value) ? value.length : 0);
+            return len(state.transactions) + len(state.tasks) + len(state.documents);
         }
         return Object.keys(parsed as object).length;
     }
@@ -136,6 +151,12 @@ export function shouldRejectDossierWipe(
      * جذر شظيّة القضية الجنائية كائن حقول القضية. إدراجه هنا هو ما يُفعّل فحص
      * العدّ أدناه؛ بدونه لا يُرفض إلا `{}` الحرفي، وقضية فُرِّغت إلى كائن بلا
      * حقول تمرّ وتُكتب فوق الأصل.
+     */
+    /*
+     * خيوط المعاملات عمداً خارج فحص العدّ: «احذف كل المعاملات» طريق مشروع يكتب
+     * حالة بمصفوفات خالية، ولا يوجد نظام tombstone هنا يميّزه عن التفريغ العرضي.
+     * الحماية المطلوبة تأتي من فرع `existingCount === null` أعلاه — رفض التفريغ
+     * فوق ciphertext بارد أو حمولة تالفة، وهو مسار فقدان البيانات الفعلي.
      */
     const isObjectKey = PROTECTED_OBJECT_STORAGE_KEYS.has(storageKey) || isCriminalCaseShardRootKey(storageKey);
 

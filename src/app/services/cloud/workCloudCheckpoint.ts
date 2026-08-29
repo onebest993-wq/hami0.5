@@ -16,7 +16,12 @@ import { resolveLiveAuthUserIdForStorage } from '@/app/utils/liveAuthUserId';
 import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
 
 const CHECKPOINT_PATH = '/api/work-checkpoints';
-const MAX_PLAINTEXT_BYTES = 1_400_000;
+/*
+ * سقف الخادم 1.8M محرف على النص المشفّر، وbase64 يتضخّم ×4/3 على البايتات.
+ * القياس بالبايتات إلزامي: المحرف العربي بايتان في UTF-8، فحسابه كمحرف واحد
+ * كان يمرّر حِزماً ترفضها الـ BFF بـ 400 فتفشل النقطة صامتةً.
+ */
+const MAX_PLAINTEXT_BYTES = 1_300_000;
 const DEBOUNCE_MS = 4_000;
 
 export type WorkCloudCheckpointPayload = {
@@ -40,6 +45,23 @@ function asArray(value: unknown): unknown[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function utf8ByteLength(value: string): number {
+    try {
+        return new TextEncoder().encode(value).length;
+    } catch {
+        /* تقدير محافظ: أسوأ حالة 3 بايتات للمحرف قبل الأزواج البديلة */
+        return value.length * 3;
+    }
+}
+
+let checkpointTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** إلغاء النقطة المؤجّلة — يمنع رفعاً مزدوجاً لنفس اللقطة بعد دفع فوري */
+export function cancelScheduledWorkCloudCheckpoint(): void {
+    if (checkpointTimer) clearTimeout(checkpointTimer);
+    checkpointTimer = null;
 }
 
 async function encryptJsonPayload(payload: unknown): Promise<{ encrypted_data: string; data_signature: string }> {
@@ -112,10 +134,10 @@ export async function pushWorkCloudCheckpointNow(): Promise<boolean> {
     ) {
         return false;
     }
+    cancelScheduledWorkCloudCheckpoint();
     const payload = await collectWorkCloudCheckpointPayload();
     if (!payload) return false;
-    const json = JSON.stringify(payload);
-    if (json.length > MAX_PLAINTEXT_BYTES) return false;
+    if (utf8ByteLength(JSON.stringify(payload)) > MAX_PLAINTEXT_BYTES) return false;
     try {
         const sealed = await encryptJsonPayload(payload);
         const res = await SecureAPIClient.fetchSecure<{ ok?: boolean }>(CHECKPOINT_PATH, {
@@ -129,13 +151,11 @@ export async function pushWorkCloudCheckpointNow(): Promise<boolean> {
     }
 }
 
-let checkpointTimer: ReturnType<typeof setTimeout> | null = null;
-
 export function scheduleWorkCloudCheckpoint(): void {
     if (typeof window === 'undefined') return;
     if (typeof process !== 'undefined' && process.env.VITEST) return;
     if (!isLawyerWorkCloudLive()) return;
-    if (checkpointTimer) clearTimeout(checkpointTimer);
+    cancelScheduledWorkCloudCheckpoint();
     checkpointTimer = setTimeout(() => {
         checkpointTimer = null;
         void pushWorkCloudCheckpointNow();

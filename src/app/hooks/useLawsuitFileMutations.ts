@@ -19,11 +19,22 @@ import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 import { SupabaseService } from '@/app/services/SupabaseService';
 import { isLiveCloudSyncBucketEnabled } from '@/app/services/settings/cloudSyncBucket';
 import { scheduleRevokeLawsuitCaseShares } from '@/app/services/caseShare/caseShareDossierRevocation';
-import { markLawsuitDossierTombstone } from '@/app/utils/lawsuitDossierTombstones';
+import { commitLawsuitDossierTombstone } from '@/app/utils/lawsuitDossierTombstones';
 import { commitLawsuitPersistOrWarn } from '@/app/hooks/lawsuitCommitWarn';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 
 type ActiveFile = FileData | ExecutionFile | null;
+
+/** تحذير واحد للدفعة كلها — لا توست لكل معرّف. */
+async function commitLawsuitTombstonesOrWarn(ids: Array<string | number>): Promise<void> {
+    let failed = 0;
+    for (const id of ids) {
+        if (!(await commitLawsuitDossierTombstone(id))) failed++;
+    }
+    if (failed > 0) {
+        SmartToast.warning('حُذف محلياً — تعذّر تثبيت سجل الحذف، قد يعود عند المزامنة');
+    }
+}
 
 type UseLawsuitFileMutationsOptions = {
     setLawsuitSegments: React.Dispatch<React.SetStateAction<LawsuitFileSegments>>;
@@ -103,11 +114,9 @@ export function useLawsuitFileMutations({
     const permanentlyDeleteLawsuits = useCallback(
         (ids: Array<string | number>) => {
             const idSet = new Set(ids.map(String));
+            void commitLawsuitTombstonesOrWarn([...idSet]);
             idSet.forEach((id) => {
                 void removeAllBridgedEventsForEntity('lawsuit', id, calendarUid);
-                if (!markLawsuitDossierTombstone(id)) {
-                    SmartToast.warning('حُذف محلياً — تعذّر تثبيت سجل الحذف، قد يعود عند المزامنة');
-                }
                 if (calendarUid) {
                     scheduleRevokeLawsuitCaseShares(calendarUid, id);
                 }
@@ -132,9 +141,7 @@ export function useLawsuitFileMutations({
             const isHardDelete = fileToDelete.status === 'deleted';
             if (isHardDelete) {
                 void removeAllBridgedEventsForEntity('lawsuit', fileToDelete.id, calendarUid);
-                if (!markLawsuitDossierTombstone(fileToDelete.id)) {
-                    SmartToast.warning('حُذف محلياً — تعذّر تثبيت سجل الحذف، قد يعود عند المزامنة');
-                }
+                void commitLawsuitTombstonesOrWarn([fileToDelete.id]);
                 if (calendarUid) {
                     scheduleRevokeLawsuitCaseShares(calendarUid, fileToDelete.id);
                 }

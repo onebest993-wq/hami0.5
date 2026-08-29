@@ -30,13 +30,18 @@ export async function wipeAuthenticatedUserCloud(
     const { data, error } = await admin.rpc('wipe_user_application_data', {
         p_user_id: userId,
     });
-    try {
-        await admin.from?.('lawyer_work_checkpoints')?.delete()?.eq('user_id', userId);
-    } catch {
-        /* الهجرة قد لا تكون على هذه القاعدة بعد */
-    }
     if (error) {
         return { ok: false, code: 'WIPE_DATABASE_FAILED' };
+    }
+
+    /*
+     * الدالة الذرّية تحذف lawyer_work_checkpoints عند وجود الجدول. هذا شبكة أمان
+     * لقواعد سبقت الهجرة فقط — بعد نجاح المعاملة حتى لا نمسح على معاملة فاشلة.
+     */
+    try {
+        await admin.from('lawyer_work_checkpoints').delete().eq('user_id', userId);
+    } catch {
+        /* الجدول أو الهجرة غير موجودين على هذه القاعدة */
     }
 
     const database =

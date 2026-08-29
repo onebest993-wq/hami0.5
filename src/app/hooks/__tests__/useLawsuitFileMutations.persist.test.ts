@@ -35,7 +35,7 @@ vi.mock('@/app/services/SupabaseService', () => ({
 }));
 
 vi.mock('@/app/utils/lawsuitDossierTombstones', () => ({
-    markLawsuitDossierTombstone: vi.fn(() => true),
+    commitLawsuitDossierTombstone: vi.fn(async () => true),
 }));
 
 vi.mock('@/app/domain/lawsuit/lawsuitPersistFlush', () => ({
@@ -46,7 +46,7 @@ vi.mock('@/app/domain/lawsuit/lawsuitPersistFlush', () => ({
 }));
 
 vi.mock('@/app/components/ui/SmartToast', () => ({
-    SmartToast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+    SmartToast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
 function sampleFile(overrides: Partial<FileData> = {}): FileData {
@@ -99,7 +99,7 @@ describe('useLawsuitFileMutations segment integrity', () => {
     });
 
     it('handleDeleteFile للحذف النهائي يضيف tombstone ويحذف من السحابة', async () => {
-        const { markLawsuitDossierTombstone } = await import('@/app/utils/lawsuitDossierTombstones');
+        const { commitLawsuitDossierTombstone } = await import('@/app/utils/lawsuitDossierTombstones');
         const { SupabaseService } = await import('@/app/services/SupabaseService');
         const { scheduleRevokeLawsuitCaseShares } = await import(
             '@/app/services/caseShare/caseShareDossierRevocation'
@@ -133,7 +133,7 @@ describe('useLawsuitFileMutations segment integrity', () => {
             result.current.handleDeleteFile(trashed);
         });
 
-        expect(markLawsuitDossierTombstone).toHaveBeenCalledWith('f1');
+        expect(commitLawsuitDossierTombstone).toHaveBeenCalledWith('f1');
         expect(SupabaseService.deleteLawsuitFile).toHaveBeenCalledWith('f1');
         expect(scheduleRevokeLawsuitCaseShares).toHaveBeenCalledWith('u1', 'f1');
         expect(segments.trash).toHaveLength(0);
@@ -142,7 +142,7 @@ describe('useLawsuitFileMutations segment integrity', () => {
     it('الحذف النهائي يبقى محلياً عندما سلة الملفات السحابية مطفأة', async () => {
         isLiveCloudSyncBucketEnabled.mockReturnValue(false);
         const { SupabaseService } = await import('@/app/services/SupabaseService');
-        const { markLawsuitDossierTombstone } = await import('@/app/utils/lawsuitDossierTombstones');
+        const { commitLawsuitDossierTombstone } = await import('@/app/utils/lawsuitDossierTombstones');
 
         const trashed = sampleFile({ status: 'deleted', deletedAt: Date.now() });
         const initial = {
@@ -172,7 +172,7 @@ describe('useLawsuitFileMutations segment integrity', () => {
             result.current.handleDeleteFile(trashed);
         });
 
-        expect(markLawsuitDossierTombstone).toHaveBeenCalledWith('f1');
+        expect(commitLawsuitDossierTombstone).toHaveBeenCalledWith('f1');
         expect(SupabaseService.deleteLawsuitFile).not.toHaveBeenCalled();
         expect(segments.trash).toHaveLength(0);
     });

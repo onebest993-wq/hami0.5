@@ -1,12 +1,15 @@
 /**
  * مفاتيح التخزين المحلي التي تُشفَّر عند الراحة (at rest).
  * استثناء: hami:criminal:* — حجم ضخم؛ يُخزَّن مشفراً على مستوى shard لاحقاً أو plaintext للأداء.
- * استثناء التنفيذ/المعاملات اليومي: plaintext محلي — الشبكة وWIFE فقط عند مزامنة العمل
- * (`isLawyerWorkCloudLive` → kv-proxy). تشفير حمولة إضبارة الدعاوى/التنفيذ عند السحابة
- * يبقى في SupabaseService منفصلاً.
+ * استثناء التنفيذ اليومي: plaintext محلي — التشفير عند مزامنة السحابة وحدها.
+ *
+ * المعاملات ليست استثناءً: قطع الشبكة يمنع التسريب إلى خادم ولا يمنع نسخ
+ * IndexedDB من جهاز مسروق، وأسماء الموكّلين نفسها تُنسخ إلى مفتاح التقويم
+ * المشفَّر — فإسقاط التشفير هنا يُبطل تشفير التقويم لنفس السرّ. العزل المطلوب
+ * هو الشبكة وWIFE خلف بوابة مزامنة العمل وحدها.
  */
 
-/** لا تُشفَّر — حجم أو أداء أو سياسة offline-first للتنفيذ/المعاملات */
+/** لا تُشفَّر — حجم أو أداء أو سياسة offline-first للتنفيذ */
 export const NEVER_ENCRYPT_KEYS = new Set<string>([
     'hami:criminal:store',
     '__hami_secure_store_keys__',
@@ -20,8 +23,6 @@ export const NEVER_ENCRYPT_KEYS = new Set<string>([
     'hami:execution-dashboard',
     'execution-dashboard-storage',
     'hami:execution:dossier-tombstones:v1',
-    /** سجل المعاملات — plaintext محلي؛ KV خلف مزامنة العمل فقط */
-    'hami:transactions:v1',
 ]);
 
 export const ENCRYPTED_EXACT_KEYS = new Set<string>([
@@ -112,6 +113,9 @@ export const ENCRYPTED_KEY_PREFIXES = [
      */
     'hami:repository:rooms:',
     'hami:smartvault:custom-categories:v1',
+    /* سجل المعاملات وقوالبها وخيوطها — أسماء موكّلين ورسوم ومستندات */
+    'hami:transactions:',
+    'hami:transactionsThreading:v1:',
     'hami:lawyerdb:',
     'hami:urgentActions:v1:',
     'hami:forum:muted-users:v1:',
@@ -125,8 +129,7 @@ export const ENCRYPTED_KEY_PREFIXES = [
  * فوقه: معظم المفاتيح الحساسة تسقط إلى plaintext عبر `fallsBackToPlaintextBySize`.
  * استثناء: مفاتيح الدعاوى المُسخَّنة، ومفاتيح التسخين الحسّاسة
  * (`isWarmEncryptAlwaysKey`) تُشفَّر أو تفشل — لا نصّ صريح.
- * التنفيذ/المعاملات: plaintext محلي عبر `isExecutionLocalPlaintextKey` /
- * `isTransactionsLocalPlaintextKey` (السحابة منفصلة خلف بوابة المزامنة).
+ * التنفيذ: plaintext محلي عبر `isExecutionLocalPlaintextKey` (السحابة منفصلة).
  */
 export const ENCRYPT_MAX_BYTES = 512 * 1024;
 
@@ -153,7 +156,6 @@ const LAWSUIT_ENCRYPT_ALWAYS_KEYS = new Set<string>([
 export function isNeverEncryptedKey(key: string): boolean {
     if (NEVER_ENCRYPT_KEYS.has(key)) return true;
     if (isExecutionLocalPlaintextKey(key)) return true;
-    if (isTransactionsLocalPlaintextKey(key)) return true;
     return false;
 }
 
@@ -177,12 +179,12 @@ export function isExecutionLocalPlaintextKey(key: string): boolean {
 }
 
 /**
- * مسار المعاملات اليومي — بلا تشفير محلي ولا WIFE.
- * الشبكة فقط عند `isLawyerWorkCloudLive` عبر `lawyerCloudKv` (transactions: / threading).
- * ciphertext قديم `hami_enc_v2:` يُرحَّل إلى plaintext عند التسخين.
+ * مفاتيح قسم المعاملات — تُشفَّر عند الراحة كبقية أقسام العمل.
+ *
+ * المعزول عن الشبكة هو مسار السحابة وWIFE خلف بوابة مزامنة العمل، لا التشفير:
+ * التشفير محلي بلا طلب شبكة، وبعد التسخين يُقرأ من الكاش المفكوك متزامناً.
  */
-export function isTransactionsLocalPlaintextKey(key: string): boolean {
-    if (key === 'hami:transactions:v1') return true;
+export function isTransactionsStorageKey(key: string): boolean {
     if (key.startsWith('hami:transactions:')) return true;
     if (key.startsWith('hami:transactionsThreading:v1:')) return true;
     return false;
@@ -209,15 +211,6 @@ export function isLawsuitEncryptAlwaysKey(key: string): boolean {
 }
 
 /**
- * @deprecated كان يفرض تشفير بلوبات التنفيذ فوق حد الحجم.
- * السياسة الحالية: plaintext محلي (`isExecutionLocalPlaintextKey`) —
- * الدالة تبقى للتوافق مع اختبارات الاستيراد وتُرجع دائماً false.
- */
-export function isExecutionEncryptAlwaysKey(_key: string): boolean {
-    return false;
-}
-
-/**
  * مفاتيح حسّاسة تُسخَّن في `BOOT_SHELL_WARM_KEYS` / `PROTECTED_WARM_KEYS`.
  * بعد التسخين تقرأها `getItemSync` من `decryptedCache` — نفس مسوّغ الدعاوى.
  * بلا هذا الاستثناء تعود أكبر القوائم (جلسات، منشورات، أسماء مستندات) نصاً صريحاً
@@ -227,7 +220,7 @@ export function isExecutionEncryptAlwaysKey(_key: string): boolean {
  * إلى شظايا بعد القراءة دون تشفير الملف الكامل على مسار أول إطار).
  * الإشعارات وملف المحامي: تُسخَّن/تُقرأ async أو قبل الإطار؛ فوق الحدّ تُشفَّر
  * لا تُترك نصاً صريحاً (ملف المحامي يُسخَّن في `warmBootLawyerProfile`).
- * المعاملات: plaintext محلي (`isTransactionsLocalPlaintextKey`) — تُسخَّن عند فتح القسم.
+ * المعاملات: تشفير أو فشل — تُسخَّن عند فتح القسم لا في قشرة الإقلاع.
  */
 const WARM_ENCRYPT_ALWAYS_EXACT_KEYS = new Set<string>([
     'lawyer_notes',
@@ -261,8 +254,8 @@ const WARM_ENCRYPT_ALWAYS_EXACT_KEYS = new Set<string>([
 ]);
 
 export function isWarmEncryptAlwaysKey(key: string): boolean {
-    if (isTransactionsLocalPlaintextKey(key)) return false;
     if (WARM_ENCRYPT_ALWAYS_EXACT_KEYS.has(key)) return true;
+    if (isTransactionsStorageKey(key)) return true;
     if (key.startsWith('hami:profile:v1:')) return true;
     if (key.startsWith('hami:notifications:v1:')) return true;
     if (key.startsWith('hami:lawyerdb:')) return true;
@@ -297,14 +290,13 @@ export function encryptionSizeLimitFor(key: string): number {
  * (encrypt-or-fail عبر CryptoService). archived/trash تُسخَّن عند فتح مساحة
  * الدعاوى عبر `warmLawsuitWorkspace` حتى تبقى `getItemSync` صالحة بعد الفتح.
  *
- * بلوبات التنفيذ والمعاملات: plaintext محلي — لا تشفير فوق الحدّ.
+ * بلوبات التنفيذ: plaintext محلي — لا تشفير فوق الحدّ.
  * مفاتيح التسخين الحسّاسة (`isWarmEncryptAlwaysKey`) — لا مرآة صريحة فوق الحدّ.
  * شظايا القضايا الجنائية: تشفير أو فشل (التجزئة تُبقي كل جزء تحت حدّ التشفير).
  */
 export function fallsBackToPlaintextBySize(key: string, value: string): boolean {
     if (!isSensitiveStorageKey(key)) return false;
     if (isLawsuitEncryptAlwaysKey(key)) return false;
-    if (isExecutionEncryptAlwaysKey(key)) return false;
     if (isWarmEncryptAlwaysKey(key)) return false;
     if (isCriminalShardKey(key)) return false;
     return value.length > encryptionSizeLimitFor(key);

@@ -7,9 +7,11 @@ import { probeSameOriginApi } from '@/app/runtime/sameOriginApiProbe';
 import { isLiveCloudSyncBucketEnabled } from '@/app/services/settings/cloudSyncBucket';
 
 function scheduleWorkCheckpointAfterCloudWrite(): void {
-  void import('@/app/services/cloud/workCloudCheckpoint').then((m) => {
-    m.scheduleWorkCloudCheckpoint();
-  });
+  void import('@/app/services/cloud/workCloudCheckpoint')
+    .then((m) => {
+      m.scheduleWorkCloudCheckpoint();
+    })
+    .catch(() => undefined);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -148,7 +150,10 @@ export class SupabaseService {
       }
 
       return await Promise.race([
-        supabase.auth.getSession().then(({ data, error }) => !error && !!data.session?.user),
+        supabase.auth.getSession().then(
+          (result: { data?: { session?: { user?: unknown } | null }; error?: unknown }) =>
+            !result.error && !!result.data?.session?.user,
+        ),
         new Promise<boolean>((resolve) => {
           window.setTimeout(() => resolve(false), 5_000);
         }),

@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    ENCRYPT_MAX_BYTES,
+    fallsBackToPlaintextBySize,
     isExecutionLocalPlaintextKey,
     isSensitiveStorageKey,
-    isTransactionsLocalPlaintextKey,
+    isTransactionsStorageKey,
+    isWarmEncryptAlwaysKey,
     shouldEncryptValue,
 } from '@/app/services/secureStorageKeys';
 
 /**
- * سياسة offline-first للتنفيذ والمعاملات: لا تشفير محلي يومي.
- * الشبكة/WIFE فقط عند مزامنة العمل؛ تشفير إضبارة الدعاوى/التنفيذ عند السحابة منفصل.
+ * سياسة offline-first للتنفيذ: لا تشفير محلي يومي — الحمولة السحابية وحدها تُشفَّر.
+ * المعاملات ليست ضمن الاستثناء: العزل عندها شبكي لا تشفيري.
  */
 describe('secureStorageKeys execution local plaintext', () => {
     it('بلوب الإضبارة والفهرس plaintext محلي', () => {
@@ -49,18 +52,31 @@ describe('secureStorageKeys execution local plaintext', () => {
     });
 });
 
-describe('secureStorageKeys transactions local plaintext', () => {
-    it('سجل المعاملات والخيوط والقوالب plaintext محلي', () => {
-        expect(isTransactionsLocalPlaintextKey('hami:transactions:v1')).toBe(true);
-        expect(isTransactionsLocalPlaintextKey('hami:transactionsThreading:v1:user-1')).toBe(true);
-        expect(isTransactionsLocalPlaintextKey('hami:transactions:taskTemplates:v1:user-1')).toBe(true);
-        expect(isSensitiveStorageKey('hami:transactions:v1')).toBe(false);
-        expect(shouldEncryptValue('hami:transactions:v1', '[]')).toBe(false);
-        expect(shouldEncryptValue('hami:transactionsThreading:v1:user-1', '{}')).toBe(false);
+describe('secureStorageKeys transactions stay encrypted at rest', () => {
+    const oversize = 'x'.repeat(ENCRYPT_MAX_BYTES + 1);
+
+    it('سجل المعاملات والخيوط والقوالب مفاتيح حسّاسة تُشفَّر', () => {
+        for (const key of [
+            'hami:transactions:v1',
+            'hami:transactionsThreading:v1:user-1',
+            'hami:transactions:taskTemplates:v1:user-1',
+        ] as const) {
+            expect(isTransactionsStorageKey(key)).toBe(true);
+            expect(isSensitiveStorageKey(key)).toBe(true);
+            expect(shouldEncryptValue(key, '[]')).toBe(true);
+        }
+    });
+
+    it('فوق حدّ الحجم تُشفَّر أو تفشل بلا سقوط لنص صريح', () => {
+        for (const key of ['hami:transactions:v1', 'hami:transactionsThreading:v1:user-1'] as const) {
+            expect(isWarmEncryptAlwaysKey(key)).toBe(true);
+            expect(fallsBackToPlaintextBySize(key, oversize)).toBe(false);
+            expect(shouldEncryptValue(key, oversize)).toBe(true);
+        }
     });
 
     it('لا يخلط معاملات مع مفاتيح أخرى', () => {
-        expect(isTransactionsLocalPlaintextKey('hami:calendar:events:v1')).toBe(false);
-        expect(isTransactionsLocalPlaintextKey('lawyer_files_active')).toBe(false);
+        expect(isTransactionsStorageKey('hami:calendar:events:v1')).toBe(false);
+        expect(isTransactionsStorageKey('lawyer_files_active')).toBe(false);
     });
 });

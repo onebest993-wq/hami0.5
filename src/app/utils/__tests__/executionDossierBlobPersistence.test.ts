@@ -324,19 +324,22 @@ describe('executionDossierBlobPersistence', () => {
         setSpy.mockRestore();
     });
 
-    it('ensureExecutionDossierBlobReady ينتظر إعادة الكتابة عند ciphertext على القرص', async () => {
+    it('ensureExecutionDossierBlobReady يقرأ فقط ولا يلمس القرص بكتابة بلوب', async () => {
         persistExecutionDossierBlob(execId, {
             id: execId,
-            fileNumber: 'migrate-me',
+            fileNumber: 'warm-readonly',
             debtors: [{ name: 'مدين' }],
         });
-        vi.spyOn(SecureStoreService, 'peekRawFromDisk').mockResolvedValue('hami_enc_v2:legacy');
-        const setSpy = vi.spyOn(SecureStoreService, 'setItem').mockResolvedValue(undefined as never);
+        await Promise.resolve();
+        await Promise.resolve();
+        const getSpy = vi.spyOn(SecureStoreService, 'getItem');
+        const setSpy = vi.spyOn(SecureStoreService, 'setItem');
         await ensureExecutionDossierBlobReady(execId);
-        expect(setSpy).toHaveBeenCalled();
-        expect(String(setSpy.mock.calls[0]?.[1] || '')).toContain('migrate-me');
+        expect(getSpy).toHaveBeenCalled();
+        const blobWrites = setSpy.mock.calls.filter(([key]) => String(key).includes(blobKey));
+        expect(blobWrites).toEqual([]);
+        getSpy.mockRestore();
         setSpy.mockRestore();
-        vi.restoreAllMocks();
     });
 
     it('يرحّل leftover غير المقيّد إلى المقيّد عند وجود جلسة', () => {

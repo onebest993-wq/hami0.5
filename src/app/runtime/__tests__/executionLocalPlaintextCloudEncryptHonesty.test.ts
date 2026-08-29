@@ -51,16 +51,20 @@ describe('execution local plaintext + cloud encrypt honesty', () => {
         expect(upsert).toContain('computeDossierPayloadMac');
     });
 
-    it('تسخين البلوب يرحّل ciphertext القديم فقط — بلا إعادة كتابة كل فتح', () => {
+    it('تسخين البلوب قراءة فقط — لا إعادة كتابة على مسار الفتح', () => {
         const persist = read('src/app/utils/executionDossierBlobPersistence.ts');
-        expect(persist).toContain('ensureExecutionDossierBlobReady');
-        expect(persist).toContain('hami_enc_v2');
-        expect(persist).toContain('peekRawFromDisk');
-        expect(persist).toContain('startsWith(CIPHER_PREFIX)');
-        expect(persist).not.toContain('ترحيل النص الصريح القديم إلى تشفير');
-        // لا يجب أن يعيد setItem بلا شرط بعد كل getItem
-        expect(persist).not.toMatch(
-            /const value = await SecureStoreService\.getItem\(key\);\s*if \(value\) \{\s*await SecureStoreService\.setItem\(key, value\);/,
+        const warm = persist.slice(
+            persist.indexOf('export async function ensureExecutionDossierBlobReady'),
         );
+        const body = warm.slice(0, warm.indexOf('\n}\n') + 3);
+        expect(body).toContain('SecureStoreService.getItem(key)');
+        expect(body).not.toContain('setItem');
+        expect(body).not.toContain('peekRawFromDisk');
+    });
+
+    it('ترحيل ciphertext القديم يبقى في مسار المخزن وحده', () => {
+        const store = read('src/app/services/SecureStoreService.ts');
+        expect(store).toContain('raw.startsWith(ENCRYPTED_PREFIX) && !isSensitiveKey(key)');
+        expect(store).toContain('warmPersistedKeys');
     });
 });

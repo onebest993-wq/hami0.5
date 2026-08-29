@@ -4,6 +4,7 @@ import {
     type LawsuitFileSegments,
 } from '@/app/domain/lawsuit/lawsuitFilesRepository';
 import { applyLawsuitMonolithicMergeToSegments } from '@/app/domain/lawsuit/lawsuitSegmentStorage';
+import { awaitLawsuitWorkspaceCommit } from '@/app/domain/lawsuit/lawsuitPersistFlush';
 import { loadLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import {
@@ -150,6 +151,15 @@ async function readEmergencyBackupArrays(): Promise<FileData[]> {
     return [];
 }
 
+function hasRecoveredRows(segments: LawsuitFileSegments): boolean {
+    return (
+        segments.active.length > 0 ||
+        segments.index.counts.active > 0 ||
+        segments.index.counts.archived > 0 ||
+        segments.index.counts.trash > 0
+    );
+}
+
 async function applyRecoveredPayload(
     files: FileData[],
     source: LawsuitRecoveryResult['source'],
@@ -157,21 +167,27 @@ async function applyRecoveredPayload(
     if (!Array.isArray(files) || files.length === 0) return null;
     try {
         applyLawsuitMonolithicMergeToSegments(files);
-        await awaitLawsuitWorkspaceCommit({ timeoutMs: 8_000 });
     } catch {
-        try {
-            applyLawsuitMonolithicMergeToSegments(files);
-        } catch {
-            return null;
-        }
+        return null;
     }
-    const segments = reloadLawsuitFilesFromStorage();
-    const ok =
-        segments.active.length > 0 ||
-        segments.index.counts.active > 0 ||
-        segments.index.counts.archived > 0 ||
-        segments.index.counts.trash > 0;
-    if (!ok) return null;
+
+    /*
+     * التحقّق يقرأ المقاطع فوراً بعد الدمج. تثبيت الديمومة يُفرّغ المرآة المتزامنة
+     * مؤقتاً أثناء إعادة الكتابة، فقراءة ما بعده كانت تُبلّغ فشل استعادة زائفاً
+     * ثم تُنسب البيانات لمصدر لاحق (السحابة).
+     */
+    let segments = reloadLawsuitFilesFromStorage();
+    if (!hasRecoveredRows(segments)) return null;
+
+    try {
+        await awaitLawsuitWorkspaceCommit({ timeoutMs: 8_000 });
+        const committed = reloadLawsuitFilesFromStorage();
+        if (hasRecoveredRows(committed) && committed.active.length >= segments.active.length) {
+            segments = committed;
+        }
+    } catch {
+        /* الديمومة أفضل جهد — الدمج والتحقّق نجحا بالفعل */
+    }
     return {
         ok: true,
         segments,
@@ -413,20 +429,27 @@ export async function recoverLawsuitWorkspaceFromLocalDisk(
             }
             try {
                 const { performCloudSyncBucket } = await import('@/app/services/cloudSyncEngine');
-                await performCloudSyncBucket(LAWSUIT_FILES_STORAGE_KEY);
-                boot = reloadLawsuitFilesFromStorage();
-                diagnosis.cloudCount = boot.active.length + boot.index.counts.archived;
-                if (boot.active.length > 0 || boot.index.counts.active > 0 || boot.index.counts.archived > 0) {
-                    return {
-                        ok: true,
-                        segments: boot,
-                        source: 'cloud',
-                        diagnosis,
-                        message:
-                            boot.active.length > 0
-                                ? `تمت الاستعادة من السحابة — ${boot.active.length} إضبارة`
-                                : 'تمت الاستعادة من السحابة — راجع الأرشيف/السلة',
-                    };
+                const pulled = await performCloudSyncBucket(LAWSUIT_FILES_STORAGE_KEY);
+                /* سلة معطّلة أو مزامنة ممتنعة = لا شيء نزل من الشبكة؛ لا تنسب النتيجة للسحابة */
+                if (pulled.ok && pulled.skipped !== true) {
+                    boot = reloadLawsuitFilesFromStorage();
+                    diagnosis.cloudCount = boot.active.length + boot.index.counts.archived;
+                    if (
+                        boot.active.length > 0 ||
+                        boot.index.counts.active > 0 ||
+                        boot.index.counts.archived > 0
+                    ) {
+                        return {
+                            ok: true,
+                            segments: boot,
+                            source: 'cloud',
+                            diagnosis,
+                            message:
+                                boot.active.length > 0
+                                    ? `تمت الاستعادة من السحابة — ${boot.active.length} إضبارة`
+                                    : 'تمت الاستعادة من السحابة — راجع الأرشيف/السلة',
+                        };
+                    }
                 }
             } catch {
                 /* cloud may be offline / unauthenticated */
