@@ -5,15 +5,22 @@ vi.mock('@/app/utils/authStorage', () => ({
     readPersistedSupabaseAuth: vi.fn(() => ({ user: { id: 'session-user' } })),
 }));
 
-const hasForumRemoteSessionMock = vi.fn(async () => true);
+const { canReachProtectedServerNetworkMock } = vi.hoisted(() => ({
+    canReachProtectedServerNetworkMock: vi.fn((..._args: unknown[]) => true),
+}));
 
-vi.mock('@/app/services/forum/forumApi/forumApiClientCore', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@/app/services/forum/forumApi/forumApiClientCore')>();
-    return {
-        ...actual,
-        hasForumRemoteSession: (...args: unknown[]) => hasForumRemoteSessionMock(...args),
-    };
-});
+vi.mock('@/app/services/secureApiNetworkFeatures', () => ({
+    canReachProtectedServerNetwork: (...args: unknown[]) => canReachProtectedServerNetworkMock(...args),
+    resolveDeniedNetworkFeatureResponse: () => null,
+}));
+
+vi.mock('@/app/utils/bffAuthFlags', () => ({
+    isBffAuthEnabled: () => false,
+}));
+
+vi.mock('@/app/utils/liveAuthUserId', () => ({
+    getLiveAuthUserId: () => 'session-user',
+}));
 
 const forumGroupLocalMocks = {
     listGroups: vi.fn(),
@@ -174,8 +181,8 @@ beforeEach(async () => {
     SecureFetchError = secModule.SecureFetchError;
     // إعادة تهيئة mocks
     (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockReset();
-    hasForumRemoteSessionMock.mockReset();
-    hasForumRemoteSessionMock.mockResolvedValue(true);
+    canReachProtectedServerNetworkMock.mockReset();
+    canReachProtectedServerNetworkMock.mockReturnValue(true);
     getCurrentAccessToken.mockReset();
     getCurrentAccessToken.mockResolvedValue('test-access-token');
     for (const fn of Object.values(lawyerCloudMocks)) fn.mockReset();
@@ -327,11 +334,8 @@ describe('ForumApiService.withFallback', () => {
             expect(rows[0]?.id).toBe('g1');
         });
 
-        it('يتخطى API عند غياب جلسة بعيدة (بدون access_token)', async () => {
-            hasForumRemoteSessionMock.mockResolvedValueOnce(false);
-            (supabaseModule.supabase.auth.getSession as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-                data: { session: { user: { id: 'session-user' } } },
-            });
+        it('يتخطى API عندما الميزات الشبكية مغلقة', async () => {
+            canReachProtectedServerNetworkMock.mockReturnValue(false);
             forumGroupLocalMocks.listGroups.mockReturnValueOnce([sampleGroup]);
             const rows = await ForumApiService.listGroups();
             expect(rows[0]?.id).toBe('g1');
