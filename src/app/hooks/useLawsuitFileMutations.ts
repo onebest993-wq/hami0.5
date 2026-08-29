@@ -114,23 +114,29 @@ export function useLawsuitFileMutations({
     const permanentlyDeleteLawsuits = useCallback(
         (ids: Array<string | number>) => {
             const idSet = new Set(ids.map(String));
-            void commitLawsuitTombstonesOrWarn([...idSet]);
-            idSet.forEach((id) => {
-                void removeAllBridgedEventsForEntity('lawsuit', id, calendarUid);
-                if (calendarUid) {
-                    scheduleRevokeLawsuitCaseShares(calendarUid, id);
-                }
-                if (typeof id === 'string' || Number.isFinite(Number(id))) {
-                    const externalId = String(id);
-                    if (isLiveCloudSyncBucketEnabled('files')) {
-                        void SupabaseService.deleteLawsuitFile(externalId).catch(() => undefined);
+            /*
+             * الشاهد أولاً ثم المسح المحلي. عكس ذلك يفتح نافذة: قائمة بلا ملف
+             * وشاهد لم يُكتب بعد، فيعيده دمج السحابة إن تداخلت المزامنة.
+             */
+            return (async () => {
+                await commitLawsuitTombstonesOrWarn([...idSet]);
+                idSet.forEach((id) => {
+                    void removeAllBridgedEventsForEntity('lawsuit', id, calendarUid);
+                    if (calendarUid) {
+                        scheduleRevokeLawsuitCaseShares(calendarUid, id);
                     }
-                }
-            });
-            setLawsuitSegments((prev) => applyLawsuitPermanentDeleteSegments(prev, ids));
-            setActiveFile((cur) => (cur && idSet.has(String(cur?.id)) ? null : cur));
-            void pruneOrphanedBridgeEvents(calendarUid);
-            void commitLawsuitPersistOrWarn('الحذف النهائي', ids);
+                    if (typeof id === 'string' || Number.isFinite(Number(id))) {
+                        const externalId = String(id);
+                        if (isLiveCloudSyncBucketEnabled('files')) {
+                            void SupabaseService.deleteLawsuitFile(externalId).catch(() => undefined);
+                        }
+                    }
+                });
+                setLawsuitSegments((prev) => applyLawsuitPermanentDeleteSegments(prev, ids));
+                setActiveFile((cur) => (cur && idSet.has(String(cur?.id)) ? null : cur));
+                void pruneOrphanedBridgeEvents(calendarUid);
+                void commitLawsuitPersistOrWarn('الحذف النهائي', ids);
+            })();
         },
         [calendarUid, setActiveFile, setLawsuitSegments],
     );
@@ -140,18 +146,7 @@ export function useLawsuitFileMutations({
             const idStr = String(fileToDelete.id);
             const isHardDelete = fileToDelete.status === 'deleted';
             if (isHardDelete) {
-                void removeAllBridgedEventsForEntity('lawsuit', fileToDelete.id, calendarUid);
-                void commitLawsuitTombstonesOrWarn([fileToDelete.id]);
-                if (calendarUid) {
-                    scheduleRevokeLawsuitCaseShares(calendarUid, fileToDelete.id);
-                }
-                if (isLiveCloudSyncBucketEnabled('files')) {
-                    void SupabaseService.deleteLawsuitFile(idStr).catch(() => undefined);
-                }
-                setLawsuitSegments((prev) =>
-                    applyLawsuitPermanentDeleteSegments(prev, [fileToDelete.id]),
-                );
-                void commitLawsuitPersistOrWarn('الحذف النهائي', [fileToDelete.id]);
+                void permanentlyDeleteLawsuits([fileToDelete.id]);
             } else {
                 setLawsuitSegments((prev) => applyLawsuitTrashSegments(prev, fileToDelete.id));
                 setActiveFile((cur) => (cur && String(cur?.id) === idStr ? null : cur));
@@ -162,7 +157,14 @@ export function useLawsuitFileMutations({
             unpinWorkspaceForDeletedFile(fileToDelete);
             void refreshAppAlerts();
         },
-        [calendarUid, refreshAppAlerts, setActiveFile, setLawsuitSegments, unpinWorkspaceForDeletedFile],
+        [
+            calendarUid,
+            permanentlyDeleteLawsuits,
+            refreshAppAlerts,
+            setActiveFile,
+            setLawsuitSegments,
+            unpinWorkspaceForDeletedFile,
+        ],
     );
 
     const handleRestoreFile = useCallback(

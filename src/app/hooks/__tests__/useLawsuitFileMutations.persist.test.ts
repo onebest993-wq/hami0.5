@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useLawsuitFileMutations } from '@/app/hooks/useLawsuitFileMutations';
 import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
 import {
@@ -134,6 +134,12 @@ describe('useLawsuitFileMutations segment integrity', () => {
         });
 
         expect(commitLawsuitDossierTombstone).toHaveBeenCalledWith('f1');
+        expect(segments.trash).toHaveLength(1);
+
+        await waitFor(() => {
+            expect(segments.trash).toHaveLength(0);
+        });
+
         expect(SupabaseService.deleteLawsuitFile).toHaveBeenCalledWith('f1');
         expect(scheduleRevokeLawsuitCaseShares).toHaveBeenCalledWith('u1', 'f1');
         expect(segments.trash).toHaveLength(0);
@@ -173,7 +179,61 @@ describe('useLawsuitFileMutations segment integrity', () => {
         });
 
         expect(commitLawsuitDossierTombstone).toHaveBeenCalledWith('f1');
+        expect(segments.trash).toHaveLength(1);
+
+        await waitFor(() => {
+            expect(segments.trash).toHaveLength(0);
+        });
+
         expect(SupabaseService.deleteLawsuitFile).not.toHaveBeenCalled();
+        expect(segments.trash).toHaveLength(0);
+    });
+
+    it('لا يمسح القائمة المحلية قبل أن يُثبَّت الشاهد', async () => {
+        let release!: (ok: boolean) => void;
+        const { commitLawsuitDossierTombstone } = await import('@/app/utils/lawsuitDossierTombstones');
+        vi.mocked(commitLawsuitDossierTombstone).mockImplementation(
+            () =>
+                new Promise<boolean>((resolve) => {
+                    release = resolve;
+                }),
+        );
+
+        const trashed = sampleFile({ status: 'deleted', deletedAt: Date.now() });
+        const initial = {
+            ...emptyLawsuitFileSegments(),
+            active: [],
+            trash: [trashed],
+        };
+        let segments = initial;
+
+        const { result } = renderHook(() =>
+            useLawsuitFileMutations({
+                setLawsuitSegments: (updater) => {
+                    segments =
+                        typeof updater === 'function'
+                            ? updater(segments)
+                            : updater;
+                },
+                setActiveFile: vi.fn(),
+                userId: 'u1',
+                authUserId: 'u1',
+                refreshAppAlerts: vi.fn(),
+                unpinWorkspaceForDeletedFile: vi.fn(),
+            }),
+        );
+
+        act(() => {
+            result.current.handleDeleteFile(trashed);
+        });
+
+        expect(segments.trash).toHaveLength(1);
+
+        await act(async () => {
+            release(true);
+            await Promise.resolve();
+        });
+
         expect(segments.trash).toHaveLength(0);
     });
 

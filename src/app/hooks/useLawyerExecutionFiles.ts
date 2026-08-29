@@ -543,43 +543,34 @@ export function useLawyerExecutionFiles({
                     loadStorageKeysMod(),
                 ]);
 
-                let expandedIds: string[] = [];
-                let tombstonesCommitted = false;
-
-                setExecutionFiles((prev) => {
-                    const idSet = new Set<string>();
-                    for (const rawId of ids) {
-                        for (const id of lifecycle.collectExecutionCascadeIds(prev, rawId)) {
-                            idSet.add(id);
-                        }
+                const idSet = new Set<string>();
+                for (const rawId of ids) {
+                    for (const id of lifecycle.collectExecutionCascadeIds(
+                        executionFilesRef.current,
+                        rawId,
+                    )) {
+                        idSet.add(id);
                     }
-                    expandedIds = [...idSet];
-                    if (expandedIds.length === 0) return prev;
-
-                    tombstonesCommitted = tombstones.markExecutionDossierTombstones(expandedIds);
-
-                    const next = prev.filter((f) => !idSet.has(String(f.id)));
-
-                    persistExecutionList(next);
-
-                    return next;
-                });
-
+                }
+                const expandedIds = [...idSet];
                 if (expandedIds.length === 0) return;
 
-                // المفتاح مشفّر لم يُفكّ: فكّه ثم أعد المحاولة قبل الاستسلام
-                if (!tombstonesCommitted) {
-                    tombstonesCommitted =
-                        await tombstones.commitExecutionDossierTombstones(expandedIds);
-                }
-
-                // بلا شاهد قبر مُثبَّت يعود الملف من السحابة عند أول مزامنة
+                /*
+                 * الشاهد أولاً ثم المسح المحلي. الكتابة السابقة كانت تُفلش القائمة
+                 * المقصوصة داخل setState قبل فكّ المفتاح — نافذة بعث من السحابة.
+                 */
+                const tombstonesCommitted =
+                    await tombstones.commitExecutionDossierTombstones(expandedIds);
                 if (!tombstonesCommitted) {
                     debug.warn('[Execution] تعذّر تثبيت شاهد الحذف:', expandedIds);
                     SmartToast.warning('حُذف محلياً — تعذّر تثبيت سجل الحذف، قد يعود عند المزامنة');
                 }
 
-                const idSet = new Set(expandedIds);
+                setExecutionFiles((prev) => {
+                    const next = prev.filter((f) => !idSet.has(String(f.id)));
+                    persistExecutionList(next);
+                    return next;
+                });
 
                 setActiveFile((cur) => (cur && idSet.has(String(cur?.id)) ? null : cur));
 
