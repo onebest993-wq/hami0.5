@@ -4,6 +4,13 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+const isLiveCloudSyncBucketEnabled = vi.hoisted(() => vi.fn(() => true));
+
+vi.mock('@/app/services/settings/cloudSyncBucket', () => ({
+  isLiveCloudSyncBucketEnabled: (...args: unknown[]) => isLiveCloudSyncBucketEnabled(...args),
+}));
+
 import { SupabaseService } from '../SupabaseService';
 
 // Mock Supabase client - service uses getUser(), and from().select().limit()
@@ -25,23 +32,63 @@ vi.mock('@/app/lib/supabase-client', () => ({
           error: null,
         })
       ),
+      // الخدمة تحلّ المالك عبر getSession قبل كل كتابة — غيابها كان يُسقط تسعة اختبارات
+      getSession: vi.fn(() =>
+        Promise.resolve({
+          data: {
+            session: {
+              access_token: 'test-token',
+              user: { id: 'test-user-id', email: 'test@test.com' },
+            },
+          },
+          error: null,
+        })
+      ),
     },
   },
 }));
 
-// Mock LocalStorageRepository - SupabaseService uses it for LocalStorage mode
-vi.mock('@/app/infrastructure/persistence/LocalStorageRepository', () => ({
-  LocalStorageRepository: {
-    getInstance: vi.fn(() => ({
-      load: vi.fn(() => []),
-      save: vi.fn(),
-    })),
+/*
+ * البيانات لا تمرّ بعميل Supabase بل بـSecureAPIClient نحو BFF. محاكاة العميل
+ * وحده كانت تترك الاختبارات تطرق الشبكة فعلاً وتسقط قبل أن تفحص شيئاً.
+ */
+const fetchSecure = vi.fn(async (path: string) => {
+  if (path.endsWith('/list')) return { ok: true, rows: [] };
+  return { ok: true };
+});
+
+vi.mock('@/app/services/SecureAPIClient', () => ({
+  SecureAPIClient: {
+    fetchSecure: (path: string, init?: RequestInit) => fetchSecure(path, init),
   },
 }));
+
+function lastRequestBody(): Record<string, unknown> {
+  const call = fetchSecure.mock.calls.at(-1);
+  const init = call?.[1] as RequestInit | undefined;
+  return JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+}
+
+// Mock LocalStorageRepository - SupabaseService uses it for LocalStorage mode
+vi.mock('@/app/infrastructure/persistence/LocalStorageRepository', () => {
+  const instance = {
+    load: vi.fn(() => []),
+    save: vi.fn(),
+    remove: vi.fn(),
+    clear: vi.fn(),
+    flushPending: vi.fn(),
+  };
+  return {
+    LocalStorageRepository: { getInstance: vi.fn(() => instance) },
+    // المستهلكون يستوردون النسخة الجاهزة لا الصنف — وغيابها كان يُسقط تسعة اختبارات
+    persistenceRepository: instance,
+  };
+});
 
 describe('SupabaseService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    isLiveCloudSyncBucketEnabled.mockReturnValue(true);
   });
 
   describe('Connection', () => {
@@ -66,8 +113,9 @@ describe('SupabaseService', () => {
 
     it('should save execution file', async () => {
       const result = await SupabaseService.saveExecutionFile(mockExecutionFile);
-      expect(result).toBeDefined();
-      expect(typeof result).toBe('string');
+      expect(result).toBe('test-exec-1');
+      expect(fetchSecure).toHaveBeenCalledWith('/api/execution-files/upsert', expect.anything());
+      expect(lastRequestBody().external_id).toBe('test-exec-1');
     });
 
     it('should get execution files', async () => {
@@ -76,16 +124,16 @@ describe('SupabaseService', () => {
     });
 
     it('should update execution file', async () => {
-      await SupabaseService.saveExecutionFile(mockExecutionFile as any);
+      // القائمة فارغة في المحاكاة، والتحديث يقرأ قبل أن يكتب — فيرفض ما لا وجود له
       await expect(
         SupabaseService.updateExecutionFile('test-exec-1', { totalAmount: 6000000 })
-      ).rejects.toThrow();
+      ).rejects.toThrow(/not found/i);
     });
 
     it('should delete execution file', async () => {
-      await expect(
-        SupabaseService.deleteExecutionFile('test-exec-1')
-      ).resolves.toBeUndefined();
+      await expect(SupabaseService.deleteExecutionFile('test-exec-1')).resolves.toBeUndefined();
+      expect(fetchSecure).toHaveBeenCalledWith('/api/execution-files/delete', expect.anything());
+      expect(lastRequestBody().external_id).toBe('test-exec-1');
     });
   });
 
@@ -111,7 +159,8 @@ describe('SupabaseService', () => {
 
     it('should save lawsuit file', async () => {
       const result = await SupabaseService.saveLawsuitFile(mockLawsuitFile);
-      expect(result).toBeDefined();
+      expect(result).toBe('test-lawsuit-1');
+      expect(fetchSecure).toHaveBeenCalledWith('/api/lawsuit-files/upsert', expect.anything());
     });
 
     it('should get lawsuit files', async () => {
@@ -130,8 +179,13 @@ describe('SupabaseService', () => {
     };
 
     it('should save global note', async () => {
-      const result = await SupabaseService.saveGlobalNote(mockNote);
-      expect(result).toBeDefined();
+      // المعرّف يأتي من options.id لا من جسم الملاحظة — وإلا يُولَّد
+      const reused = await SupabaseService.saveGlobalNote(mockNote, { id: 'test-note-1' });
+      expect(reused).toBe('test-note-1');
+      expect(lastRequestBody().external_id).toBe('test-note-1');
+
+      const generated = await SupabaseService.saveGlobalNote(mockNote);
+      expect(generated).toMatch(/^note_/);
     });
 
     it('should get global notes', async () => {
@@ -172,8 +226,37 @@ describe('SupabaseService', () => {
         debtor: {},
         totalAmount: 10000000,
       };
-      const result = await SupabaseService.saveExecutionFile(sensitiveFile as any);
-      expect(result).toBeDefined();
+      await SupabaseService.saveExecutionFile(sensitiveFile as any);
+
+      // العقد الحقيقي: لا اسم ولا هاتف يغادر الجهاز نصّاً صريحاً
+      const body = lastRequestBody();
+      const wire = JSON.stringify(body);
+      expect(wire).not.toContain('07901234567');
+      expect(wire).not.toContain('سري');
+      expect(typeof body.encrypted_data).toBe('string');
+      expect(typeof body.data_signature).toBe('string');
+      expect(body.security_version).toBe(3);
+    });
+  });
+
+  describe('عزل سلة العمل', () => {
+    it('لا يستدعي /api ولا يشفّر الحمولة عندما السلة مطفأة', async () => {
+      isLiveCloudSyncBucketEnabled.mockReturnValue(false);
+      fetchSecure.mockClear();
+      const result = await SupabaseService.saveExecutionFile({
+        id: 'local-only-1',
+        caseNo: '1/2026',
+        executionType: 'مدني',
+        executionBasis: 'حكم',
+        court: 'تنفيذ',
+        creditor: { name: 'محلي' },
+        debtor: {},
+        totalAmount: 1,
+      });
+      expect(result).toBe('local-only-1');
+      expect(await SupabaseService.getExecutionFiles()).toEqual([]);
+      await SupabaseService.deleteExecutionFile('local-only-1');
+      expect(fetchSecure).not.toHaveBeenCalled();
     });
   });
 

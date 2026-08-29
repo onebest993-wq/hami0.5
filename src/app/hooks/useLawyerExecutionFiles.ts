@@ -32,12 +32,13 @@ import {
     coerceExecutionFilePreserveId,
 } from '@/app/components/lawyer/LawyerDashboardParts/utils';
 
-import { isRealSignedIn } from '@/app/services/auth/shellAuth';
+import { hasLocalAppSession } from '@/app/services/auth/shellAuth';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { debug } from '@/app/utils/debug';
 import { openExecutionDossierWithContract } from '@/app/runtime/executionOpenContract';
 import { readExecutionFilesBootstrap } from '@/app/utils/executionFilesBootstrap';
 import { purgeDeletedExecutionDossiers } from '@/app/utils/purgeDeletedExecutionDossiers';
+import { scheduleRevokeExecutionCaseShares } from '@/app/services/caseShare/caseShareDossierRevocation';
 
 const EXECUTION_MUTATION_FEATURE = 'تنفيذ';
 
@@ -66,13 +67,12 @@ function normalizeExecutionFiles(rawList: unknown[]): ExecutionFile[] {
 }
 
 function assertExecutionMutationAllowed(userId: string | null | undefined): boolean {
-    if (isRealSignedIn(userId)) return true;
-    SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${EXECUTION_MUTATION_FEATURE}`);
+    if (hasLocalAppSession(userId)) return true;
+    SmartToast.error(`تعذّر استخدام ${EXECUTION_MUTATION_FEATURE} — لا توجد جلسة محلية`);
     return false;
 }
 
 export type LawyerArchiveOverlay =
-    | 'client_requests'
     | 'all'
     | 'deleted'
     | 'lawsuit'
@@ -117,6 +117,8 @@ export function useLawyerExecutionFiles({
     });
 
     const bootstrapExecutionFilesRef = useRef(executionFiles);
+    const executionFilesRef = useRef(executionFiles);
+    executionFilesRef.current = executionFiles;
 
     const [storageHydrated, setStorageHydrated] = useState(false);
 
@@ -372,6 +374,7 @@ export function useLawyerExecutionFiles({
 
     const persistExecutionList = useCallback(
         (next: ExecutionFile[]) => {
+            if (!localAutoSave) return;
             const apply = async (storage: ExecutionFilesStorageMod) => {
                 await storage.saveExecutionFilesRawDurable(next);
                 const storageCache = await loadStorageCache();
@@ -384,7 +387,7 @@ export function useLawyerExecutionFiles({
             }
             void loadStorageMod().then((storage) => apply(storage));
         },
-        [loadStorageMod, loadStorageCache],
+        [loadStorageMod, loadStorageCache, localAutoSave],
     );
 
     const moveExecutionToTrash = useCallback(
@@ -575,6 +578,7 @@ export function useLawyerExecutionFiles({
                 setActiveFile((cur) => (cur && idSet.has(String(cur?.id)) ? null : cur));
 
                 for (const id of idSet) {
+                    scheduleRevokeExecutionCaseShares(sessionUserId, id);
                     void import('@/app/workspace/unpinWorkspaceEntity')
                         .then((m) => m.unpinWorkspaceItem(id, 'execution'))
                         .catch(() => undefined);
@@ -590,9 +594,13 @@ export function useLawyerExecutionFiles({
                                 },
                                 purgeScopedState: async (id) => {
                                     await purgeExecutionDossierScopedState(id);
-                                    void removeAllBridgedEventsForEntity('execution', id, userId);
+                                    void removeAllBridgedEventsForEntity('execution', id, calendarUserId);
                                 },
                                 deleteFromCloud: async (id) => {
+                                    const { isLiveCloudSyncBucketEnabled } = await import(
+                                        '@/app/services/settings/cloudSyncBucket'
+                                    );
+                                    if (!isLiveCloudSyncBucketEnabled('execution')) return;
                                     const { SupabaseService } = await import(
                                         '@/app/services/SupabaseService'
                                     );
@@ -615,19 +623,19 @@ export function useLawyerExecutionFiles({
                             SmartToast.warning('حُذف محلياً — تعذّر مزامنة الحذف مع السحابة');
                         }
 
-                        void pruneOrphanedBridgeEvents(userId);
+                        void pruneOrphanedBridgeEvents(calendarUserId);
                     })();
                 });
             })();
         },
         [
+            calendarUserId,
             loadLifecycleMod,
             loadStorageKeysMod,
             loadTombstonesMod,
             persistExecutionList,
             sessionUserId,
             setActiveFile,
-            userId,
         ],
     );
 
@@ -667,12 +675,12 @@ export function useLawyerExecutionFiles({
                 storageKeys.seedFreshExecutionDossierStorage(rawWithId);
 
                 const fileWithId = coerceActiveFileTarget(rawWithId);
-
-                let nextList: ExecutionFile[] = [];
-                setExecutionFiles((prev) => {
-                    nextList = [fileWithId as unknown as ExecutionFile, ...prev];
-                    return nextList;
-                });
+                const dossierKey = String(dossierId);
+                const nextList: ExecutionFile[] = [
+                    fileWithId as unknown as ExecutionFile,
+                    ...executionFilesRef.current.filter((row) => String(row.id) !== dossierKey),
+                ];
+                setExecutionFiles(nextList);
 
                 await storage.saveExecutionFilesRawDurable(nextList);
                 const storageCache = await loadStorageCache();

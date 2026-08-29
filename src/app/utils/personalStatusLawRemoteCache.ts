@@ -1,12 +1,13 @@
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import {
     PERSONAL_STATUS_LAW_CANONICAL_NAMES,
+    resolvePersonalStatusLawCodeType,
     type PersonalStatusLawCodeType,
 } from '@/app/constants/personalStatusLawCatalog';
 import {
     extractArticleSortNumber,
     normalizeArabicDigits,
-} from '@/app/components/admin/lawStructure';
+} from '@/app/utils/articleNumberRange';
 import { loadBundledLawRows } from '@/app/utils/bundledIraqiLawLoader';
 import {
     clearLegalReferenceCache,
@@ -14,7 +15,9 @@ import {
     readLegalReferenceCache,
     writeLegalReferenceCache,
 } from '@/app/utils/legalReferenceLocalCache';
+import { canReachPublishedLawCatalog } from '@/app/services/settings/localOnlyGuard';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
+import { subscribeLawsCatalogChanged } from '@/app/kernel/laws/lawCatalogSync';
 
 export type PersonalStatusLawArticle = {
     id: string;
@@ -53,6 +56,7 @@ function hydrateFromDeviceStorage(tab: PersonalStatusLawCodeType): PersonalStatu
 async function fetchRemotePersonalStatusArticles(
     tab: PersonalStatusLawCodeType,
 ): Promise<PersonalStatusLawArticle[] | null> {
+    if (!canReachPublishedLawCatalog()) return null;
     const lawName = PERSONAL_STATUS_LAW_CANONICAL_NAMES[tab];
     const data = await SecureAPIClient.fetchSecure<{
         ok?: boolean;
@@ -72,6 +76,7 @@ async function fetchRemotePersonalStatusArticles(
 }
 
 function scheduleBackgroundPersonalStatusSync(tab: PersonalStatusLawCodeType): void {
+    if (!canReachPublishedLawCatalog()) return;
     if (backgroundSyncInflight.has(tab) || !isLegalReferenceCacheStale(localCacheKey(tab))) return;
     backgroundSyncInflight.add(tab);
 
@@ -211,4 +216,11 @@ export function invalidatePersonalStatusLawRemoteCache(tab?: PersonalStatusLawCo
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(PERSONAL_STATUS_LAW_CACHE_INVALIDATED_EVENT));
     }
+}
+
+if (typeof window !== 'undefined') {
+    subscribeLawsCatalogChanged((lawName) => {
+        const tab = resolvePersonalStatusLawCodeType(lawName);
+        if (tab) invalidatePersonalStatusLawRemoteCache(tab);
+    });
 }

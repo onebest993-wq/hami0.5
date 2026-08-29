@@ -6,10 +6,13 @@ import { persistenceRepository } from '@/app/infrastructure/persistence/LocalSto
 import { debug } from '@/app/utils/debug';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { isLocalOnlyModeEnabled } from '@/app/services/settings/localOnlyGuard';
+import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
+import { isLiveCloudSyncBucketEnabled } from '@/app/services/settings/cloudSyncBucket';
 import { EXECUTION_FILES_STORAGE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
 import { STORAGE_KEYS } from '@/app/utils/constants';
 import { isCloudPollingPausedByRealtime } from '@/app/services/realtimeSyncGate';
 import { filterTombstonedExecutionSyncRows } from '@/app/services/executionCloudSyncFilter';
+import { filterTombstonedLawsuitSyncRows } from '@/app/utils/lawsuitDossierTombstones';
 
 export type CloudSyncBucket = 'execution' | 'lawsuit' | 'notes' | 'unsupported';
 
@@ -36,6 +39,7 @@ function idOf(item: unknown): string | null {
 function updatedAtMsOf(item: unknown): number {
     if (!isRecord(item)) return 0;
     const v = item.updatedAt;
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
     if (typeof v !== 'string') return 0;
     const t = Date.parse(v);
     return Number.isNaN(t) ? 0 : t;
@@ -68,6 +72,11 @@ function mergeWithConflictResolution(
         if (!cloudItem) {
             map.set(id, localItem);
         } else {
+            if (cloudItem.decryptIncomplete === true && localItem.decryptIncomplete !== true) {
+                map.set(id, localItem);
+                conflictsResolved++;
+                return;
+            }
             const localTime = updatedAtMsOf(localItem);
             const cloudTime = updatedAtMsOf(cloudItem);
             if (localTime > cloudTime) {
@@ -78,6 +87,60 @@ function mergeWithConflictResolution(
     });
 
     return { merged: Array.from(map.values()), conflictsResolved };
+}
+
+function localRowsNeedingUpload(localRows: SyncItem[], cloudRows: SyncItem[]): SyncItem[] {
+    const cloudById = new Map<string, SyncItem>();
+    for (const row of cloudRows) {
+        const id = idOf(row);
+        if (id) cloudById.set(id, row);
+    }
+    return localRows.filter((local) => {
+        const id = idOf(local);
+        if (!id) return false;
+        const cloud = cloudById.get(id);
+        return (
+            !cloud ||
+            (cloud.decryptIncomplete === true && local.decryptIncomplete !== true) ||
+            updatedAtMsOf(local) > updatedAtMsOf(cloud)
+        );
+    });
+}
+
+async function uploadRowsWithBoundedConcurrency(
+    bucket: Exclude<CloudSyncBucket, 'unsupported'>,
+    rows: SyncItem[],
+): Promise<void> {
+    const queue = [...rows];
+    const worker = async () => {
+        while (queue.length > 0) {
+            const row = queue.shift();
+            if (!row) return;
+            if (bucket === 'execution') {
+                await SupabaseService.saveExecutionFile(
+                    row as Parameters<typeof SupabaseService.saveExecutionFile>[0],
+                );
+            } else if (bucket === 'lawsuit') {
+                await SupabaseService.saveLawsuitFile(
+                    row as Parameters<typeof SupabaseService.saveLawsuitFile>[0],
+                );
+            } else {
+                const id = idOf(row);
+                if (!id) continue;
+                const note = { ...row };
+                delete note.id;
+                delete note.createdAt;
+                delete note.updatedAt;
+                await SupabaseService.saveGlobalNote(
+                    note as Parameters<typeof SupabaseService.saveGlobalNote>[0],
+                    { id },
+                );
+            }
+        }
+    };
+    await Promise.all(
+        Array.from({ length: Math.min(3, queue.length) }, () => worker()),
+    );
 }
 
 function checkOnlineStatus(): boolean {
@@ -100,10 +163,23 @@ export function resolveSyncBucket(localKey: string): CloudSyncBucket {
     return 'unsupported';
 }
 
+/** سلة المحرّك حيّة: الدعاوى تتبع `syncFiles` كما في لوحة المزامنة */
+function isLiveEngineBucketEnabled(bucket: CloudSyncBucket): boolean {
+    if (bucket === 'execution') return isLiveCloudSyncBucketEnabled('execution');
+    if (bucket === 'notes') return isLiveCloudSyncBucketEnabled('notes');
+    if (bucket === 'lawsuit') return isLiveCloudSyncBucketEnabled('files');
+    return false;
+}
+
 let cloudSyncDisabledLogged = false;
 
-export async function canRunCloudSync(): Promise<boolean> {
-    if (isCloudPollingPausedByRealtime()) return false;
+type CloudSyncRunOptions = {
+    /** Explicit user/realtime-triggered reconciliation, not periodic polling. */
+    allowWhenRealtimeActive?: boolean;
+};
+
+export async function canRunCloudSync(options: CloudSyncRunOptions = {}): Promise<boolean> {
+    if (!options.allowWhenRealtimeActive && isCloudPollingPausedByRealtime()) return false;
     if (isLocalOnlyModeEnabled()) return false;
     if (import.meta.env.VITE_ENABLE_CLOUD_SYNC !== 'true') {
         if (import.meta.env.DEV && !cloudSyncDisabledLogged) {
@@ -112,6 +188,7 @@ export async function canRunCloudSync(): Promise<boolean> {
         }
         return false;
     }
+    if (!isLawyerWorkCloudLive()) return false;
     if (!checkOnlineStatus()) return false;
     try {
         const authTimeoutMs = 8_000;
@@ -129,9 +206,10 @@ export async function canRunCloudSync(): Promise<boolean> {
 /** دورة متعددة buckets — فحص auth/شبكة مرة واحدة */
 export async function performCloudSyncBuckets(
     localKeys: string[],
+    options: CloudSyncRunOptions = {},
 ): Promise<Map<string, PerformCloudSyncResult>> {
     const results = new Map<string, PerformCloudSyncResult>();
-    if (!(await canRunCloudSync())) {
+    if (!(await canRunCloudSync(options))) {
         for (const key of localKeys) {
             results.set(key, { ok: true, skipped: true });
         }
@@ -148,11 +226,14 @@ export async function performCloudSyncBuckets(
 
 async function performCloudSyncBucketInternal(localKey: string): Promise<PerformCloudSyncResult> {
     try {
+        const bucket = resolveSyncBucket(localKey);
+        if (!isLiveEngineBucketEnabled(bucket)) {
+            return { ok: true, skipped: true };
+        }
         debug.log(`[CloudSync] بدء المزامنة لـ ${localKey}...`);
 
         let cloudDataRaw: unknown = [];
         let localDataRaw: unknown = [];
-        const bucket = resolveSyncBucket(localKey);
 
         if (bucket === 'execution') {
             // الدمج «الأحدث يفوز» لا يعرف الحذف: بلا هذا الترشيح تعود كل إضبارة
@@ -162,8 +243,20 @@ async function performCloudSyncBucketInternal(localKey: string): Promise<Perform
                 (await persistenceRepository.loadAsync(localKey)) ?? [],
             );
         } else if (bucket === 'lawsuit') {
-            cloudDataRaw = await SupabaseService.getLawsuitFiles();
-            localDataRaw = (await persistenceRepository.loadAsync(localKey)) ?? [];
+            cloudDataRaw = filterTombstonedLawsuitSyncRows(await SupabaseService.getLawsuitFiles());
+            const fromRepo = (await persistenceRepository.loadAsync(localKey)) ?? [];
+            let fromSegments: unknown[] = [];
+            try {
+                const { collectLawsuitLocalRowsForSync } = await import(
+                    '@/app/domain/lawsuit/lawsuitSegmentStorage'
+                );
+                fromSegments = collectLawsuitLocalRowsForSync();
+            } catch {
+                fromSegments = [];
+            }
+            localDataRaw = filterTombstonedLawsuitSyncRows(
+                mergeWithConflictResolution(fromRepo, fromSegments).merged,
+            );
         } else if (bucket === 'notes') {
             cloudDataRaw = await SupabaseService.getGlobalNotes();
             localDataRaw = (await persistenceRepository.loadAsync(localKey)) ?? [];
@@ -176,23 +269,54 @@ async function performCloudSyncBucketInternal(localKey: string): Promise<Perform
         const mergedItems = normalizeArray(merged);
         const localItems = normalizeArray(localDataRaw);
         const cloudItems = normalizeArray(cloudDataRaw);
+        const localUploads = localRowsNeedingUpload(localItems, cloudItems);
 
         if (mergedItems.length === 0 && localItems.length === 0 && cloudItems.length === 0) {
             debug.log(`[CloudSync] تخطي الحفظ — لا بيانات في ${localKey}`);
         } else {
             persistenceRepository.save(localKey, merged);
             if (bucket === 'execution') {
+                persistenceRepository.flushPending(localKey);
+                const { saveExecutionFilesRawImmediate } = await import(
+                    '@/app/utils/executionFilesStorage'
+                );
+                saveExecutionFilesRawImmediate(mergedItems);
+                persistenceRepository.synchronizeExternalWrite(
+                    localKey,
+                    JSON.stringify(mergedItems),
+                );
                 const { reconcileExecutionDossierStorageAsync } = await import(
                     '@/app/utils/executionDossierStorageReconcile'
                 );
                 await reconcileExecutionDossierStorageAsync();
+            } else if (bucket === 'lawsuit') {
+                /*
+                 * لا تمرّر دمجاً فارغاً إلى المقاطع إن وُجدت بيانات محلية في المرآة
+                 * أو المقاطع — الحارس داخل apply يرفض أيضاً؛ هذا يمنع ضوضاء/مسارات قديمة.
+                 */
+                if (mergedItems.length === 0 && localItems.length === 0) {
+                    /* لا شيء للكتابة */
+                } else {
+                    const { applyLawsuitMonolithicMergeToSegments } = await import(
+                        '@/app/domain/lawsuit/lawsuitSegmentStorage'
+                    );
+                    applyLawsuitMonolithicMergeToSegments(mergedItems as never[]);
+                    const { awaitLawsuitWorkspaceCommit } = await import(
+                        '@/app/domain/lawsuit/lawsuitPersistFlush'
+                    );
+                    await awaitLawsuitWorkspaceCommit({ timeoutMs: 8_000 });
+                }
             }
+        }
+        if (localUploads.length > 0) {
+            await uploadRowsWithBoundedConcurrency(bucket, localUploads);
         }
 
         debug.log(`[CloudSync] ✅ ${localKey}:`, {
             cloudItems: cloudItems.length,
             localItems: localItems.length,
             mergedItems: mergedItems.length,
+            uploadedItems: localUploads.length,
         });
         return { ok: true };
     } catch (error: unknown) {
@@ -202,8 +326,14 @@ async function performCloudSyncBucketInternal(localKey: string): Promise<Perform
     }
 }
 
-export async function performCloudSyncBucket(localKey: string): Promise<PerformCloudSyncResult> {
-    if (!(await canRunCloudSync())) {
+export async function performCloudSyncBucket(
+    localKey: string,
+    options: CloudSyncRunOptions = {},
+): Promise<PerformCloudSyncResult> {
+    if (!isLiveEngineBucketEnabled(resolveSyncBucket(localKey))) {
+        return { ok: true, skipped: true };
+    }
+    if (!(await canRunCloudSync(options))) {
         return { ok: true, skipped: true };
     }
     await SecureStoreService.ensurePersistedReady();

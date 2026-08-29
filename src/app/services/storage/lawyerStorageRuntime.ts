@@ -1,6 +1,9 @@
 import { supabase } from '@/app/lib/supabase-client';
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { stripImageMetadata } from '@/app/utils/stripMetadata';
+import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
+
+const WORK_LOCAL_UPLOAD_CATEGORIES = new Set(['vault', 'scans']);
 
 export const LawyerStorage = {
     /**
@@ -9,11 +12,14 @@ export const LawyerStorage = {
     async uploadSmartFile(
         userId: string,
         file: File,
-        category: 'scans' | 'audio' | 'drafts' | 'repository' | 'vault',
+        category: 'scans' | 'audio' | 'drafts' | 'repository' | 'vault' | 'forum-media',
     ) {
         const sessionUserId = (await supabase.auth.getSession()).data.session?.user?.id ?? null;
         if (!sessionUserId || sessionUserId !== userId) {
             throw new Error('Unauthorized upload: session user mismatch');
+        }
+        if (WORK_LOCAL_UPLOAD_CATEGORIES.has(category) && !isLawyerWorkCloudLive()) {
+            throw new Error('work_cloud_upload_disabled');
         }
 
         const looksLikeImage =
@@ -52,6 +58,7 @@ export const LawyerStorage = {
 
         const path = typeof body.path === 'string' ? body.path : '';
         const downloadUrl = typeof body.downloadUrl === 'string' ? body.downloadUrl : null;
+        const bucket = typeof body.bucket === 'string' ? body.bucket : undefined;
         if (!path) {
             throw new Error('Upload response missing path');
         }
@@ -60,10 +67,15 @@ export const LawyerStorage = {
             path,
             fullPath: path,
             downloadUrl,
+            bucket,
         };
     },
 
     async getSignedUrl(path: string): Promise<string | null> {
+        const category = path.replace(/^\/+/, '').split('/')[1] ?? '';
+        if (WORK_LOCAL_UPLOAD_CATEGORIES.has(category) && !isLawyerWorkCloudLive()) {
+            return null;
+        }
         try {
             const res = await SecureAPIClient.fetchSecure<{ ok: boolean; downloadUrl?: string }>(
                 '/api/upload/signed-url',

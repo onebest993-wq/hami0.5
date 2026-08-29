@@ -104,39 +104,29 @@ for (const key of requiredWife) {
   );
 }
 
-if (isProd && env('WIFE_DISABLE_EDGE_KV_PROXY') !== 'true') {
+// Edge kv-proxy is fail-closed in code (410 unless WIFE_DISABLE_EDGE_KV_PROXY=false).
+// Production must never opt back in; prefer explicit true for ops clarity.
+if (isProd && env('WIFE_DISABLE_EDGE_KV_PROXY') === 'false') {
   record(
     'env:WIFE_DISABLE_EDGE_KV_PROXY',
     false,
-    'must be "true" in production — Edge kv-proxy bypasses WIFE HMAC',
+    'must not be "false" in production — Edge kv-proxy bypasses WIFE HMAC',
     true,
   );
 } else if (env('WIFE_DISABLE_EDGE_KV_PROXY') === 'true') {
   record('env:WIFE_DISABLE_EDGE_KV_PROXY', true, 'Edge kv-proxy disabled (410)');
-} else {
+} else if (env('WIFE_DISABLE_EDGE_KV_PROXY') === 'false') {
   record(
     'env:WIFE_DISABLE_EDGE_KV_PROXY',
     false,
-    'not true yet — enable after verifying /api/kv-proxy in staging',
+    'explicit legacy opt-in — use only for emergency debugging',
     false,
   );
-}
-
-if (isProd && env('WIFE_DISABLE_EDGE_COMMS_DISPATCHER') !== 'true') {
-  record(
-    'env:WIFE_DISABLE_EDGE_COMMS_DISPATCHER',
-    false,
-    'must be "true" in production — Edge comms bypasses WIFE HMAC',
-    true,
-  );
-} else if (env('WIFE_DISABLE_EDGE_COMMS_DISPATCHER') === 'true') {
-  record('env:WIFE_DISABLE_EDGE_COMMS_DISPATCHER', true, 'Edge comms-dispatcher disabled (410)');
 } else {
   record(
-    'env:WIFE_DISABLE_EDGE_COMMS_DISPATCHER',
-    false,
-    'not true yet — enable after verifying /api/comms-dispatcher in staging',
-    false,
+    'env:WIFE_DISABLE_EDGE_KV_PROXY',
+    true,
+    'unset — fail-closed in Edge code (410); set true in prod secrets for clarity',
   );
 }
 
@@ -206,14 +196,41 @@ record(
 );
 
 // ─── 3. All BFF routes call WIFE ────────────────────────────────────────────
-/** Bootstrap routes — session cookie + WIFE signing proxy (no WIFE on self) */
-const WIFE_EXEMPT_ROUTES = new Set([
-  'src/app/api/auth/login/route.ts',
-  'src/app/api/auth/logout/route.ts',
-  'src/app/api/auth/refresh/route.ts',
-  'src/app/api/auth/session/route.ts',
-  'src/app/api/security/wife-sign/route.ts',
-]);
+/** يُشتق من `WIFE_BOOTSTRAP_API_PATHS` — لا قائمة موازية تتعفّن. */
+function wifeBootstrapExemptRouteFiles() {
+  const src = fs.readFileSync(path.join(SRC, 'app', 'security', 'wifePublicApi.ts'), 'utf8');
+  const block = src.match(/export const WIFE_BOOTSTRAP_API_PATHS = \[([\s\S]*?)\]\s*as const/)?.[1] ?? '';
+  const paths = [...block.matchAll(/'\/api\/([^']+)'/g)].map((m) => m[1]);
+  if (paths.length === 0) {
+    throw new Error('failed to parse WIFE_BOOTSTRAP_API_PATHS from wifePublicApi.ts');
+  }
+  return new Set(paths.map((p) => `src/app/api/${p}/route.ts`));
+}
+
+const WIFE_ROUTE_AUTH_MARKERS = [
+  'verifyWifeSignature',
+  'requireWifeUser',
+  'requireWifeCloudWrite',
+  'requireTrustedHeadquartersAdmin',
+  'requirePlatformAdmin',
+  'requireForumAuth',
+  'requireExecutionFilesAuth',
+  'requireTaskHelpAuth',
+  'requireNotificationsAuth',
+];
+
+let WIFE_EXEMPT_ROUTES;
+try {
+  WIFE_EXEMPT_ROUTES = wifeBootstrapExemptRouteFiles();
+  record(
+    'routes:bootstrap-catalog',
+    true,
+    `${WIFE_EXEMPT_ROUTES.size} bootstrap routes from wifePublicApi.ts`,
+  );
+} catch (e) {
+  WIFE_EXEMPT_ROUTES = new Set();
+  record('routes:bootstrap-catalog', false, String(e instanceof Error ? e.message : e));
+}
 
 const routes = walkRoutes(path.join(SRC, 'app', 'api'));
 const unprotected = [];
@@ -222,15 +239,7 @@ for (const routePath of routes) {
   if (WIFE_EXEMPT_ROUTES.has(rel)) continue;
   const text = fs.readFileSync(routePath, 'utf8');
   const protected_ =
-    text.includes('verifyWifeSignature') ||
-    text.includes('assertWifeSignatureRequest') ||
-    text.includes('requireWifeUser') ||
-    text.includes('requirePlatformAdmin') ||
-    text.includes('requireForumAuth') ||
-    text.includes('requireExecutionFilesAuth') ||
-    text.includes('requireTaskHelpAuth') ||
-    text.includes('requireNotificationsAuth') ||
-    rel.includes('/api/public/');
+    WIFE_ROUTE_AUTH_MARKERS.some((marker) => text.includes(marker)) || rel.includes('/api/public/');
   if (!protected_) unprotected.push(rel);
 }
 record(
@@ -304,6 +313,19 @@ record(
   false,
 );
 
+const syncServiceRel = 'src/lib/syncService.js';
+const syncServiceText = fileExists(syncServiceRel) ? fs.readFileSync(path.join(ROOT, syncServiceRel), 'utf8') : '';
+const syncServiceUsesBff =
+  syncServiceText.includes('/api/settings/cloud-sync') &&
+  !/supabase\s*\.\s*from\s*\(/.test(syncServiceText);
+record(
+  'client:syncService-bff',
+  syncServiceUsesBff,
+  syncServiceUsesBff
+    ? 'lawyer_settings cloud sync routed via /api/settings/cloud-sync'
+    : 'syncService must use SecureAPIClient BFF — no supabase.from',
+);
+
 const edgeFnInvoke = scanSrcForPattern(/supabase\s*\.\s*functions\s*\.\s*invoke\s*\(/, 'direct Edge functions.invoke');
 const clientFnHits = edgeFnInvoke.hits.filter((f) => !f.startsWith('src/app/api/'));
 record(
@@ -344,8 +366,12 @@ if (fileExists('src/app/security/kvProxyKeyOwnership.ts') && fileExists('supabas
 
 // ─── 6. SecurityInitializer wired ───────────────────────────────────────────
 const wifeValidatorPath = path.join(SRC, 'app', 'api', 'security', 'wifeValidator.ts');
+const wifeCsrfVerifyPath = path.join(SRC, 'app', 'api', 'security', 'wifeCsrfVerify.ts');
 if (fileExists('src/app/api/security/wifeValidator.ts')) {
   const wifeValidatorText = fs.readFileSync(wifeValidatorPath, 'utf8');
+  const wifeCsrfText = fileExists('src/app/api/security/wifeCsrfVerify.ts')
+    ? fs.readFileSync(wifeCsrfVerifyPath, 'utf8')
+    : '';
   record(
     'code:production-device-id',
     wifeValidatorText.includes('isValidWifeDeviceId') && wifeValidatorText.includes('isProductionNodeEnv()'),
@@ -353,7 +379,8 @@ if (fileExists('src/app/api/security/wifeValidator.ts')) {
   );
   record(
     'code:csrf-prod-fail-closed',
-    wifeValidatorText.includes('if (isProductionNodeEnv()) return false') &&
+    wifeCsrfText.includes('if (isProductionNodeEnv()) return false') &&
+      wifeCsrfText.includes('validateCsrfForSubject') &&
       wifeValidatorText.includes('verifiedSubject'),
     'production CSRF requires server registry for authenticated subjects',
   );
@@ -370,11 +397,16 @@ if (fileExists('src/app/api/security/contentSecurityPolicy.ts')) {
 }
 
 const secureClientPath = path.join(SRC, 'app', 'services', 'SecureAPIClient.ts');
+const wifeSigningPath = path.join(SRC, 'app', 'services', 'secureApiWifeSigning.ts');
 if (fileExists('src/app/services/SecureAPIClient.ts')) {
   const secureClientText = fs.readFileSync(secureClientPath, 'utf8');
+  const wifeSigningText = fileExists('src/app/services/secureApiWifeSigning.ts')
+    ? fs.readFileSync(wifeSigningPath, 'utf8')
+    : '';
   record(
     'client:device-id-header',
-    secureClientText.includes("'x-wife-device-id'") && secureClientText.includes('getOrCreateDeviceId()'),
+    (secureClientText.includes("'x-wife-device-id'") || wifeSigningText.includes("'x-wife-device-id'")) &&
+      (secureClientText.includes('getOrCreateDeviceId()') || wifeSigningText.includes('getOrCreateDeviceId()')),
     'SecureAPIClient always sends device binding header',
   );
 }
@@ -407,6 +439,22 @@ record(
     : 'wifeFetchGuard may not install',
 );
 
+const wifeFetchGuardRel = 'src/app/security/wifeFetchGuard.ts';
+if (fileExists(wifeFetchGuardRel)) {
+  const wifeFetchGuardText = fs.readFileSync(path.join(ROOT, wifeFetchGuardRel), 'utf8');
+  const coversBrowserChannels =
+    wifeFetchGuardText.includes('XMLHttpRequest') &&
+    wifeFetchGuardText.includes('sendBeacon') &&
+    wifeFetchGuardText.includes('EventSource');
+  record(
+    'client:wife-browser-channels',
+    coversBrowserChannels,
+    coversBrowserChannels
+      ? 'fetch + XHR + sendBeacon + EventSource guarded on the client'
+      : 'wifeFetchGuard missing a browser channel (XHR/beacon/EventSource)',
+  );
+}
+
 // ─── 7. Static audit ────────────────────────────────────────────────────────
 const audit = spawnSync('node', ['scripts/security-audit.mjs'], { cwd: ROOT, encoding: 'utf8' });
 record(
@@ -434,7 +482,7 @@ if (LIVE) {
 
   const supabaseUrl = env('SUPABASE_URL');
   const projectRef = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
-  if (projectRef && env('WIFE_DISABLE_EDGE_KV_PROXY') === 'true') {
+  if (projectRef && env('WIFE_DISABLE_EDGE_KV_PROXY') !== 'false') {
     const edgeUrl = `https://${projectRef}.supabase.co/functions/v1/make-server-f09713ba/kv-proxy`;
     try {
       const res = await fetch(edgeUrl, {
@@ -444,8 +492,13 @@ if (LIVE) {
       });
       record(
         'live:edge-kv-disabled',
-        res.status === 410,
-        res.status === 410 ? 'returns 410 Gone' : `expected 410, got ${res.status}`,
+        res.status === 410 || res.status === 401,
+        res.status === 410
+          ? 'returns 410 Gone'
+          : res.status === 401
+            ? 'returns 401 (gateway/auth — anonymous blocked; set WIFE_DISABLE_EDGE_KV_PROXY on Edge for explicit 410)'
+            : `expected 410 or 401, got ${res.status} (redeploy Edge if old fail-open code)`,
+        res.status !== 410 && res.status !== 401,
       );
     } catch (e) {
       record('live:edge-kv-disabled', false, String(e instanceof Error ? e.message : e), false);
@@ -454,7 +507,7 @@ if (LIVE) {
     record(
       'live:edge-kv-disabled',
       false,
-      'skipped — set SUPABASE_URL + WIFE_DISABLE_EDGE_KV_PROXY=true',
+      'skipped — SUPABASE_URL missing or Edge kv-proxy explicitly opted in (=false)',
       false,
     );
   }

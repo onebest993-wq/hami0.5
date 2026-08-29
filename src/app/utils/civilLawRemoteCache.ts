@@ -1,12 +1,13 @@
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import {
     CIVIL_LAW_CANONICAL_NAMES,
+    resolveCivilLawCodeTypeFromName,
     type CivilLawCodeType,
 } from '@/app/constants/iraqiLawCatalog';
 import {
     extractArticleSortNumber,
     normalizeArabicDigits,
-} from '@/app/components/admin/lawStructure';
+} from '@/app/utils/articleNumberRange';
 import { loadBundledLawRows } from '@/app/utils/bundledIraqiLawLoader';
 import {
     clearLegalReferenceCache,
@@ -14,7 +15,9 @@ import {
     readLegalReferenceCache,
     writeLegalReferenceCache,
 } from '@/app/utils/legalReferenceLocalCache';
+import { canReachPublishedLawCatalog } from '@/app/services/settings/localOnlyGuard';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
+import { subscribeLawsCatalogChanged } from '@/app/kernel/laws/lawCatalogSync';
 
 export type CivilLawArticle = {
     id: string;
@@ -50,6 +53,7 @@ function hydrateFromDeviceStorage(tab: CivilLawCodeType): CivilLawArticle[] | nu
 }
 
 async function fetchRemoteCivilLawArticles(tab: CivilLawCodeType): Promise<CivilLawArticle[] | null> {
+    if (!canReachPublishedLawCatalog()) return null;
     const data = await SecureAPIClient.fetchSecure<{
         ok?: boolean;
         error?: string;
@@ -68,6 +72,7 @@ async function fetchRemoteCivilLawArticles(tab: CivilLawCodeType): Promise<Civil
 }
 
 function scheduleBackgroundCivilLawSync(tab: CivilLawCodeType): void {
+    if (!canReachPublishedLawCatalog()) return;
     if (backgroundSyncInflight.has(tab) || !isLegalReferenceCacheStale(localCacheKey(tab))) return;
     backgroundSyncInflight.add(tab);
 
@@ -199,4 +204,11 @@ export function invalidateCivilLawRemoteCache(tab?: CivilLawCodeType): void {
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(CIVIL_LAW_CACHE_INVALIDATED_EVENT));
     }
+}
+
+if (typeof window !== 'undefined') {
+    subscribeLawsCatalogChanged((lawName) => {
+        const tab = resolveCivilLawCodeTypeFromName(lawName);
+        if (tab) invalidateCivilLawRemoteCache(tab);
+    });
 }

@@ -2,11 +2,23 @@ import { SecureAPIClient } from './SecureAPIClient';
 import { UserRole } from '../types/admin-types';
 import SecureStoreService from './SecureStoreService';
 import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
+import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
 import { lawyerCloudKv as kv } from '@/app/services/cloud/lawyerCloudKv';
+import { getLiveAuthUserId } from '@/app/utils/liveAuthUserId';
 export { uuidv4 } from '@/app/services/cloud/lawyerCloudKv';
 export { LawyerDB } from '@/app/services/lawyerDbRuntime';
 import { isVaultIdbStoragePath } from '@/app/services/vault/vaultBlobPathLite';
+import {
+    filterDeletedRepositoryDocs,
+    markRepositoryDocDeleted,
+} from '@/app/services/forum/repositoryDocsTombstonesLite';
 import { LawyerStorage } from '@/app/services/storage/lawyerStorageRuntime';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+    readSecurePayloadWhenReady,
+    writeSecureAndClearLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 import {
     BanDB as CommunityBanDB,
     CommunityDB as CommunityRuntimeDB,
@@ -27,6 +39,7 @@ function isRemoteStorageObjectPath(path: string): boolean {
 }
 
 async function removeStoragePathsBestEffort(paths: string[]): Promise<void> {
+    if (!isLawyerWorkCloudLive()) return;
     const toRemove = [...new Set(paths.map((p) => p.trim()).filter(isRemoteStorageObjectPath))];
     if (toRemove.length === 0) return;
     try {
@@ -118,6 +131,10 @@ export type RepositoryDocument = {
 
 const REPOSITORY_LOCAL_KEY = 'hami:repository:docs:v1';
 
+function repositoryCloudDocKey(authorId: string, docId: string): string {
+    return `repository:docs:${authorId}:${docId}`;
+}
+
 function parseRepositoryDocsRaw(raw: string | null | undefined): RepositoryDocument[] | null {
     if (raw == null) return null;
     try {
@@ -129,26 +146,11 @@ function parseRepositoryDocsRaw(raw: string | null | undefined): RepositoryDocum
     }
 }
 
-/** قراءة فورية — localStorage mirror ثم SecureStore sync cache */
+/** قراءة فورية — SecureStore ثم ترحيل مرآة localStorage القديمة */
 function readRepositoryDocsFromMirrors(): RepositoryDocument[] | null {
-    if (typeof localStorage !== 'undefined') {
-        try {
-            if (localStorage.getItem(REPOSITORY_LOCAL_KEY) !== null) {
-                return parseRepositoryDocsRaw(localStorage.getItem(REPOSITORY_LOCAL_KEY)) ?? [];
-            }
-        } catch {
-            /* fall through */
-        }
-    }
-    try {
-        const syncRaw = SecureStoreService.getItemSync(REPOSITORY_LOCAL_KEY);
-        if (syncRaw != null) {
-            return parseRepositoryDocsRaw(syncRaw) ?? [];
-        }
-    } catch {
-        /* fall through */
-    }
-    return null;
+    const raw = readSecureOrDrainLegacySync(REPOSITORY_LOCAL_KEY);
+    if (raw == null) return null;
+    return parseRepositoryDocsRaw(raw);
 }
 
 function sortRepositoryDocs(docs: RepositoryDocument[]): RepositoryDocument[] {
@@ -157,28 +159,17 @@ function sortRepositoryDocs(docs: RepositoryDocument[]): RepositoryDocument[] {
     );
 }
 
-const REPOSITORY_PERSIST_LOAD_MS = 2_500;
-
-async function withRepositoryAsyncTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
-    try {
-        return await Promise.race([
-            promise,
-            new Promise<never>((_, reject) => {
-                setTimeout(() => reject(new Error('repository-async-timeout')), ms);
-            }),
-        ]);
-    } catch {
-        return fallback;
-    }
-}
-
+/*
+ * نقطة العبور الوحيدة لكل قراءة: المرآة، والقرص، والترطيب الخلفي. فتصفية شواهد
+ * القبر هنا تكفي لمنع بعث المحذوف من أي مصدر منها بمصفاة واحدة لا خمس.
+ */
 function normalizeRepositoryDocList(raw: unknown[]): RepositoryDocument[] {
-    return raw
-        .map(normalizeRepositoryDocument)
-        .filter((d): d is RepositoryDocument => d !== null);
+    return filterDeletedRepositoryDocs(
+        raw.map(normalizeRepositoryDocument).filter((d): d is RepositoryDocument => d !== null),
+    );
 }
 
-/** قراءة فورية من مرآة localStorage / SecureStore sync — بدون انتظار IDB */
+/** قراءة فورية من SecureStore / ترحيل المرآة — بدون انتظار IDB */
 export function listRepositoryDocumentsSync(): RepositoryDocument[] {
     const mirrored = readRepositoryDocsFromMirrors();
     if (mirrored === null) return [];
@@ -237,7 +228,7 @@ async function loadLocalRepositoryDocs(): Promise<RepositoryDocument[]> {
     if (mirrored !== null) return mirrored;
 
     try {
-        const raw = await SecureStoreService.getItem(REPOSITORY_LOCAL_KEY);
+        const raw = await readSecurePayloadWhenReady(REPOSITORY_LOCAL_KEY);
         if (!raw) return [];
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
@@ -247,16 +238,23 @@ async function loadLocalRepositoryDocs(): Promise<RepositoryDocument[]> {
     }
 }
 
+/**
+ * الحفظ يكتب SecureStore أولاً ويمحو مرآة localStorage.
+ * حارس المسح يرفض `[]` فوق أصل موجود — بلا تظليل صريح على القرص.
+ */
+async function persistRepositoryDocsToSecureStore(payload: string): Promise<void> {
+    try {
+        await SecureStoreService.setItem(REPOSITORY_LOCAL_KEY, payload);
+        clearLegacyPlaintextMirror(REPOSITORY_LOCAL_KEY);
+    } catch {
+        /* setItemSync يملأ الكاش إن نجح */
+    }
+}
+
 async function saveLocalRepositoryDocs(docs: RepositoryDocument[]): Promise<void> {
     const payload = JSON.stringify(docs);
-    if (typeof localStorage !== 'undefined') {
-        try {
-            localStorage.setItem(REPOSITORY_LOCAL_KEY, payload);
-        } catch {
-            /* ignore mirror write */
-        }
-    }
-    void SecureStoreService.setItem(REPOSITORY_LOCAL_KEY, payload).catch(() => undefined);
+    writeSecureAndClearLegacySync(REPOSITORY_LOCAL_KEY, payload);
+    void persistRepositoryDocsToSecureStore(payload);
 }
 
 function mergeRepositoryDocs(local: RepositoryDocument[], remote: RepositoryDocument[]): RepositoryDocument[] {
@@ -278,13 +276,21 @@ function mergeRepositoryDocs(local: RepositoryDocument[], remote: RepositoryDocu
 let repositoryKvMergeInflight: Promise<void> | null = null;
 
 async function mergeRepositoryDocsFromKvInBackground(localBaseline: RepositoryDocument[]): Promise<void> {
-    if (!isKvProxyNetworkEnabled()) return;
+    if (!isKvProxyNetworkEnabled() || !isLawyerWorkCloudLive()) return;
+    const uid = getLiveAuthUserId()?.trim();
+    if (!uid) return;
     try {
-        const res = await kv.getByPrefix('repository:docs:');
+        const res = await kv.getByPrefix(`repository:docs:${uid}:`);
         const remoteDocs = Array.isArray(res)
             ? res.map(normalizeRepositoryDocument).filter((d): d is RepositoryDocument => d !== null)
             : [];
-        const merged = sortRepositoryDocs(mergeRepositoryDocs(localBaseline, remoteDocs));
+        /*
+         * المصفاة على ناتج الدمج لا على `remoteDocs` وحدها: القاعدة المحلية قد تحمل
+         * مستنداً حُذف في تبويب آخر بعد قراءتها.
+         */
+        const merged = sortRepositoryDocs(
+            filterDeletedRepositoryDocs(mergeRepositoryDocs(localBaseline, remoteDocs)),
+        );
         await saveLocalRepositoryDocs(merged);
     } catch {
         /* background sync — لا نُعطّل التفاعل */
@@ -292,7 +298,7 @@ async function mergeRepositoryDocsFromKvInBackground(localBaseline: RepositoryDo
 }
 
 function kickRepositoryKvMerge(localBaseline: RepositoryDocument[]): void {
-    if (!isKvProxyNetworkEnabled() || repositoryKvMergeInflight) return;
+    if (!isKvProxyNetworkEnabled() || !isLawyerWorkCloudLive() || repositoryKvMergeInflight) return;
     repositoryKvMergeInflight = mergeRepositoryDocsFromKvInBackground(localBaseline).finally(() => {
         repositoryKvMergeInflight = null;
     });
@@ -319,11 +325,7 @@ export const RepositoryDB = {
             return sorted;
         }
 
-        const persisted = await withRepositoryAsyncTimeout(
-            loadLocalRepositoryDocs(),
-            REPOSITORY_PERSIST_LOAD_MS,
-            [],
-        );
+        const persisted = await loadLocalRepositoryDocs();
         const sorted = sortRepositoryDocs(normalizeRepositoryDocList(persisted));
         if (sorted.length > 0) {
             void saveLocalRepositoryDocs(sorted);
@@ -344,8 +346,10 @@ export const RepositoryDB = {
             .filter((d): d is RepositoryDocument => d !== null);
         const merged = sortRepositoryDocs(mergeRepositoryDocs(normalizedLocal, [normalized]));
         await saveLocalRepositoryDocs(merged);
-        if (isKvProxyNetworkEnabled()) {
-            void kv.set(`repository:docs:${normalized.id}`, normalized).catch(() => undefined);
+        if (isKvProxyNetworkEnabled() && isLawyerWorkCloudLive() && normalized.authorId) {
+            void kv
+                .set(repositoryCloudDocKey(normalized.authorId, normalized.id), normalized)
+                .catch(() => undefined);
         }
     },
 
@@ -355,6 +359,14 @@ export const RepositoryDB = {
         const target = localDocs
             .map(normalizeRepositoryDocument)
             .find((d) => d?.id === docId);
+
+        /*
+         * الشاهد يُسجَّل قبل الحفظ: حذف آخر مستند يكتب `[]`، والمفتاح محميّ فيرفضه
+         * الحارس. الشاهد هو ما يُخبر الحارس أن هذا الفراغ قصدُ المستخدم لا خطأ قراءة،
+         * وهو أيضاً ما يمنع دمج KV من إعادة المستند بعد حذفه.
+         */
+        if (target?.authorId) markRepositoryDocDeleted(target.authorId, docId);
+
         await saveLocalRepositoryDocs(
             localDocs
                 .map(normalizeRepositoryDocument)
@@ -366,8 +378,9 @@ export const RepositoryDB = {
             void removeStoragePathsBestEffort([storagePath]);
         }
 
-        if (isKvProxyNetworkEnabled()) {
-            void kv.del(`repository:docs:${docId}`).catch(() => undefined);
+        const cloudAuthor = (target?.authorId || getLiveAuthUserId() || '').trim();
+        if (isKvProxyNetworkEnabled() && isLawyerWorkCloudLive() && cloudAuthor) {
+            void kv.del(repositoryCloudDocKey(cloudAuthor, docId)).catch(() => undefined);
         }
     },
 };

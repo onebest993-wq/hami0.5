@@ -3,7 +3,7 @@ import { EXECUTION_LAW_CANONICAL_NAME } from '@/app/constants/iraqiLawCatalog';
 import type { ExecutionLawArticle } from '@/data/executionLaws';
 import { loadExecutionLawSeedData, prefetchExecutionLawSeedData } from '@/data/executionLawsLoader';
 import { resolveExecutionLawLeaf } from '@/data/executionLawHierarchy';
-import { normalizeArabicDigits } from '@/app/components/admin/lawStructure';
+import { normalizeArabicDigits } from '@/app/utils/articleNumberRange';
 import { mergeLocalTitlesIntoExecutionArticles } from '@/app/utils/executionLawArticleUtils';
 import { loadBundledLawRows } from '@/app/utils/bundledIraqiLawLoader';
 import {
@@ -12,7 +12,9 @@ import {
     readLegalReferenceCache,
     writeLegalReferenceCache,
 } from '@/app/utils/legalReferenceLocalCache';
+import { canReachPublishedLawCatalog } from '@/app/services/settings/localOnlyGuard';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
+import { subscribeLawsCatalogChanged } from '@/app/kernel/laws/lawCatalogSync';
 
 export const EXECUTION_LAW_CACHE_INVALIDATED_EVENT = 'hami-execution-law-cache-invalidated';
 
@@ -37,6 +39,7 @@ function hydrateExecutionFromDeviceStorage(): ExecutionLawArticle[] | null {
 }
 
 function scheduleBackgroundExecutionLawSync(): void {
+    if (!canReachPublishedLawCatalog()) return;
     if (backgroundSyncInflight || !isLegalReferenceCacheStale(EXECUTION_LOCAL_CACHE_KEY)) return;
     backgroundSyncInflight = true;
 
@@ -108,6 +111,7 @@ export function mapRemoteRowsToExecutionArticles(rows: LawRow[]): ExecutionLawAr
 }
 
 async function fetchRemoteLawRows(): Promise<LawRow[]> {
+    if (!canReachPublishedLawCatalog()) return [];
     const data = await SecureAPIClient.fetchSecure<{
         ok?: boolean;
         error?: string;
@@ -181,4 +185,10 @@ export function invalidateExecutionLawRemoteCache(): void {
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent(EXECUTION_LAW_CACHE_INVALIDATED_EVENT));
     }
+}
+
+if (typeof window !== 'undefined') {
+    subscribeLawsCatalogChanged((lawName) => {
+        if (lawName === EXECUTION_LAW_CANONICAL_NAME) invalidateExecutionLawRemoteCache();
+    });
 }

@@ -1,17 +1,13 @@
 import { useCallback } from 'react';
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import {
     applyLawsuitArchiveSegments,
-    applyLawsuitHardDeleteSegments,
     applyLawsuitPermanentDeleteSegments,
     applyLawsuitRestoreFromArchiveSegments,
     applyLawsuitRestoreFromTrashSegments,
-    applyLawsuitSoftDelete,
     applyLawsuitTrashSegments,
-    findLawsuitFile,
     findLawsuitFileInSegments,
-    persistLawsuitActiveRecord,
     type LawsuitFileSegments,
 } from '@/app/domain/lawsuit/lawsuitFilesRepository';
 import {
@@ -20,26 +16,24 @@ import {
     syncLawsuitFileToCalendar,
 } from '@/app/services/calendar/dossierSyncLazy';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
+import { SupabaseService } from '@/app/services/SupabaseService';
+import { isLiveCloudSyncBucketEnabled } from '@/app/services/settings/cloudSyncBucket';
+import { scheduleRevokeLawsuitCaseShares } from '@/app/services/caseShare/caseShareDossierRevocation';
+import { markLawsuitDossierTombstone } from '@/app/utils/lawsuitDossierTombstones';
+import { commitLawsuitPersistOrWarn } from '@/app/hooks/lawsuitCommitWarn';
 
 type ActiveFile = FileData | ExecutionFile | null;
 
 type UseLawsuitFileMutationsOptions = {
-    files: FileData[];
-    setFiles: React.Dispatch<React.SetStateAction<FileData[]>>;
-    lawsuitSegments: LawsuitFileSegments;
     setLawsuitSegments: React.Dispatch<React.SetStateAction<LawsuitFileSegments>>;
     setActiveFile: React.Dispatch<React.SetStateAction<ActiveFile>>;
     userId?: string | null;
     authUserId?: string | null;
     refreshAppAlerts: () => void | Promise<void>;
-    showLawsuitsWorkspace: boolean;
     unpinWorkspaceForDeletedFile: (file: FileData) => void;
 };
 
 export function useLawsuitFileMutations({
-    files,
-    setFiles,
-    lawsuitSegments,
     setLawsuitSegments,
     setActiveFile,
     userId,
@@ -57,6 +51,7 @@ export function useLawsuitFileMutations({
             void removeAllBridgedEventsForEntity('lawsuit', fileId, calendarUid);
             void pruneOrphanedBridgeEvents(calendarUid);
             void refreshAppAlerts();
+            void commitLawsuitPersistOrWarn('النقل إلى المهملات', [fileId]);
         },
         [calendarUid, refreshAppAlerts, setActiveFile, setLawsuitSegments],
     );
@@ -71,6 +66,7 @@ export function useLawsuitFileMutations({
                 }
                 return next;
             });
+            void commitLawsuitPersistOrWarn('الاستعادة من المهملات', [fileId]);
         },
         [setLawsuitSegments, userId],
     );
@@ -83,6 +79,7 @@ export function useLawsuitFileMutations({
             void removeAllBridgedEventsForEntity('lawsuit', fileId, calendarUid);
             void pruneOrphanedBridgeEvents(calendarUid);
             void refreshAppAlerts();
+            void commitLawsuitPersistOrWarn('الأرشفة', [fileId]);
         },
         [calendarUid, refreshAppAlerts, setActiveFile, setLawsuitSegments],
     );
@@ -97,6 +94,7 @@ export function useLawsuitFileMutations({
                 }
                 return next;
             });
+            void commitLawsuitPersistOrWarn('الاستعادة من الأرشيف', [fileId]);
         },
         [setLawsuitSegments, userId],
     );
@@ -105,40 +103,71 @@ export function useLawsuitFileMutations({
         (ids: Array<string | number>) => {
             const idSet = new Set(ids.map(String));
             idSet.forEach((id) => {
-                void removeAllBridgedEventsForEntity('lawsuit', id, userId);
+                void removeAllBridgedEventsForEntity('lawsuit', id, calendarUid);
+                markLawsuitDossierTombstone(id);
+                if (calendarUid) {
+                    scheduleRevokeLawsuitCaseShares(calendarUid, id);
+                }
+                if (typeof id === 'string' || Number.isFinite(Number(id))) {
+                    const externalId = String(id);
+                    if (isLiveCloudSyncBucketEnabled('files')) {
+                        void SupabaseService.deleteLawsuitFile(externalId).catch(() => undefined);
+                    }
+                }
             });
             setLawsuitSegments((prev) => applyLawsuitPermanentDeleteSegments(prev, ids));
             setActiveFile((cur) => (cur && idSet.has(String(cur?.id)) ? null : cur));
-            void pruneOrphanedBridgeEvents(userId);
+            void pruneOrphanedBridgeEvents(calendarUid);
+            void commitLawsuitPersistOrWarn('الحذف النهائي', ids);
         },
-        [setActiveFile, setLawsuitSegments, userId],
+        [calendarUid, setActiveFile, setLawsuitSegments],
     );
 
     const handleDeleteFile = useCallback(
         (fileToDelete: FileData) => {
+            const idStr = String(fileToDelete.id);
             const isHardDelete = fileToDelete.status === 'deleted';
             if (isHardDelete) {
-                void removeAllBridgedEventsForEntity('lawsuit', fileToDelete.id, userId);
-                setLawsuitSegments((prev) => applyLawsuitHardDeleteSegments(prev, fileToDelete.id));
+                void removeAllBridgedEventsForEntity('lawsuit', fileToDelete.id, calendarUid);
+                markLawsuitDossierTombstone(fileToDelete.id);
+                if (calendarUid) {
+                    scheduleRevokeLawsuitCaseShares(calendarUid, fileToDelete.id);
+                }
+                if (isLiveCloudSyncBucketEnabled('files')) {
+                    void SupabaseService.deleteLawsuitFile(idStr).catch(() => undefined);
+                }
+                setLawsuitSegments((prev) =>
+                    applyLawsuitPermanentDeleteSegments(prev, [fileToDelete.id]),
+                );
+                void commitLawsuitPersistOrWarn('الحذف النهائي', [fileToDelete.id]);
             } else {
-                const updated = applyLawsuitSoftDelete(fileToDelete);
-                setLawsuitSegments((prev) => persistLawsuitActiveRecord(updated, prev));
-                void removeAllBridgedEventsForEntity('lawsuit', fileToDelete.id, userId);
+                setLawsuitSegments((prev) => applyLawsuitTrashSegments(prev, fileToDelete.id));
+                setActiveFile((cur) => (cur && String(cur?.id) === idStr ? null : cur));
+                void removeAllBridgedEventsForEntity('lawsuit', fileToDelete.id, calendarUid);
+                void pruneOrphanedBridgeEvents(calendarUid);
+                void commitLawsuitPersistOrWarn('النقل إلى المهملات', [fileToDelete.id]);
             }
             unpinWorkspaceForDeletedFile(fileToDelete);
             void refreshAppAlerts();
         },
-        [refreshAppAlerts, setLawsuitSegments, unpinWorkspaceForDeletedFile, userId],
+        [calendarUid, refreshAppAlerts, setActiveFile, setLawsuitSegments, unpinWorkspaceForDeletedFile],
     );
 
     const handleRestoreFile = useCallback(
         (fileToRestore: FileData) => {
-            const updated: FileData = { ...fileToRestore, status: 'active', deletedAt: undefined };
-            setLawsuitSegments((prev) => persistLawsuitActiveRecord(updated, prev));
-            setActiveFile(updated);
+            setLawsuitSegments((prev) => {
+                const next = applyLawsuitRestoreFromTrashSegments(prev, fileToRestore.id);
+                const restored = findLawsuitFileInSegments(next, fileToRestore.id);
+                if (restored) {
+                    setActiveFile(restored);
+                    syncLawsuitFileToCalendar(restored as unknown as Record<string, unknown>, userId);
+                }
+                return next;
+            });
             void refreshAppAlerts();
+            void commitLawsuitPersistOrWarn('الاستعادة من المهملات', [fileToRestore.id]);
         },
-        [refreshAppAlerts, setActiveFile, setLawsuitSegments],
+        [refreshAppAlerts, setActiveFile, setLawsuitSegments, userId],
     );
 
     return {

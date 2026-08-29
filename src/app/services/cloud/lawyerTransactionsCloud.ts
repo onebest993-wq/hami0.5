@@ -1,5 +1,9 @@
-import SecureStoreService from '@/app/services/SecureStoreService';
 import { lawyerCloudKv } from '@/app/services/cloud/lawyerCloudKv';
+import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
+import {
+    persistSecurePayloadWhenReady,
+    readSecurePayloadWhenReady,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 import type {
     TransactionsThreadingSaveInput,
     TransactionsThreadingState,
@@ -9,6 +13,7 @@ import {
     parseTransactionsThreadingState,
     peekTransactionsThreadingState,
 } from '@/app/services/transactions/transactionsThreadingMirror';
+import { sanitizeTransactionsThreadingSaveInput } from '@/app/services/transactions/sanitizeTransactionsThreadingPersist';
 
 export type { TransactionsThreadingState, TransactionsThreadingSaveInput } from '@/app/services/cloud/lawyerTransactionTypes';
 
@@ -34,35 +39,24 @@ function reviveDates(obj: unknown): unknown {
     return record;
 }
 
+function parseLocalTransactionBag(raw: string | null): unknown[] {
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(reviveDates) : [];
+}
+
 async function loadLocalTransactions(): Promise<unknown[]> {
     try {
-        const raw = await SecureStoreService.getItem(TRANSACTIONS_LOCAL_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed.map(reviveDates) : [];
+        const raw = await readSecurePayloadWhenReady(TRANSACTIONS_LOCAL_KEY);
+        return parseLocalTransactionBag(raw);
     } catch {
-        try {
-            const raw = localStorage.getItem(TRANSACTIONS_LOCAL_KEY);
-            if (!raw) return [];
-            const parsed = JSON.parse(raw);
-            return Array.isArray(parsed) ? parsed.map(reviveDates) : [];
-        } catch {
-            return [];
-        }
+        return [];
     }
 }
 
 async function saveLocalTransactions(transactions: unknown[]): Promise<void> {
     const payload = JSON.stringify(transactions.map(serializeTransaction));
-    try {
-        await SecureStoreService.setItem(TRANSACTIONS_LOCAL_KEY, payload);
-    } catch {
-        try {
-            localStorage.setItem(TRANSACTIONS_LOCAL_KEY, payload);
-        } catch {
-            /* optional mirror */
-        }
-    }
+    await persistSecurePayloadWhenReady(TRANSACTIONS_LOCAL_KEY, payload);
 }
 
 function mergeTransactions(local: unknown[], remote: unknown[]): unknown[] {
@@ -88,21 +82,46 @@ function mergeTransactions(local: unknown[], remote: unknown[]): unknown[] {
     return Array.from(map.values());
 }
 
+export function mergeLocalTransactionsPreservingOtherUsers(
+    allLocal: unknown[],
+    userId: string,
+    userRows: unknown[],
+): unknown[] {
+    const others = allLocal.filter((row) => {
+        if (!row || typeof row !== 'object') return true;
+        return (row as { userId?: unknown }).userId !== userId;
+    });
+    return [...others, ...userRows];
+}
+
 export const TransactionDB = {
     async getTransactions(userId: string): Promise<unknown[]> {
         const local = await loadLocalTransactions();
         const userLocal = local.filter(
             (t) => t && typeof t === 'object' && (t as { userId?: unknown }).userId === userId,
         );
+        if (!isLawyerWorkCloudLive()) {
+            return userLocal.sort(
+                (a, b) =>
+                    new Date(String((b as { createdAt?: unknown }).createdAt ?? 0)).getTime() -
+                    new Date(String((a as { createdAt?: unknown }).createdAt ?? 0)).getTime(),
+            );
+        }
         try {
             const res = await lawyerCloudKv.getByPrefix(`transactions:${userId}:`);
             const remote = Array.isArray(res)
                 ? res
-                      .filter((t) => t && typeof t === 'object' && typeof (t as { id?: unknown }).id === 'string')
+                      .filter((t) => {
+                          if (!t || typeof t !== 'object' || typeof (t as { id?: unknown }).id !== 'string') {
+                              return false;
+                          }
+                          const uid = (t as { userId?: unknown }).userId;
+                          return uid == null || uid === userId;
+                      })
                       .map(reviveDates)
                 : [];
             const merged = mergeTransactions(userLocal, remote);
-            await saveLocalTransactions(merged);
+            await saveLocalTransactions(mergeLocalTransactionsPreservingOtherUsers(local, userId, merged));
             return merged.sort(
                 (a, b) =>
                     new Date(String((b as { createdAt?: unknown }).createdAt ?? 0)).getTime() -
@@ -129,13 +148,15 @@ export const TransactionDB = {
         const tx = transaction as { userId: string; id: string };
         const local = await loadLocalTransactions();
         const merged = mergeTransactions(local, [transaction]);
-        try {
-            await lawyerCloudKv.set(
-                `transactions:${tx.userId}:${tx.id}`,
-                serializeTransaction(transaction),
-            );
-        } catch {
-            /* Cloud-First */
+        if (isLawyerWorkCloudLive()) {
+            try {
+                await lawyerCloudKv.set(
+                    `transactions:${tx.userId}:${tx.id}`,
+                    serializeTransaction(transaction),
+                );
+            } catch {
+                /* Cloud-First */
+            }
         }
         await saveLocalTransactions(merged);
     },
@@ -151,6 +172,7 @@ function kickTransactionsThreadingKvMerge(
     userId: string,
     localBaseline: TransactionsThreadingState | null,
 ): void {
+    if (!isLawyerWorkCloudLive()) return;
     if (threadingKvMergeInflight.has(userId)) return;
     const job = (async () => {
         try {
@@ -181,17 +203,11 @@ function kickTransactionsThreadingKvMerge(
 async function loadLocalTransactionsThreadingState(userId: string): Promise<TransactionsThreadingState | null> {
     const key = getTransactionsThreadingLocalKey(userId);
     try {
-        const raw = await SecureStoreService.getItem(key);
+        const raw = await readSecurePayloadWhenReady(key);
         if (!raw) return null;
         return parseTransactionsThreadingState(userId, JSON.parse(raw));
     } catch {
-        try {
-            const raw = localStorage.getItem(key);
-            if (!raw) return null;
-            return parseTransactionsThreadingState(userId, JSON.parse(raw));
-        } catch {
-            return null;
-        }
+        return null;
     }
 }
 
@@ -200,15 +216,7 @@ async function saveLocalTransactionsThreadingState(
     state: TransactionsThreadingState,
 ): Promise<void> {
     const key = getTransactionsThreadingLocalKey(userId);
-    const payload = JSON.stringify(state);
-    if (typeof localStorage !== 'undefined') {
-        try {
-            localStorage.setItem(key, payload);
-        } catch {
-            /* ignore mirror write */
-        }
-    }
-    void SecureStoreService.setItem(key, payload).catch(() => undefined);
+    await persistSecurePayloadWhenReady(key, JSON.stringify(state));
 }
 
 export const TransactionsThreadingDB = {
@@ -225,16 +233,10 @@ export const TransactionsThreadingDB = {
     },
 
     async saveState(userId: string, input: TransactionsThreadingSaveInput): Promise<void> {
-        const state: TransactionsThreadingState = {
-            schemaVersion: 1,
-            userId,
-            updatedAt: new Date().toISOString(),
-            transactions: Array.isArray(input.transactions) ? input.transactions : [],
-            tasks: Array.isArray(input.tasks) ? input.tasks : [],
-            financeRecords: Array.isArray(input.financeRecords) ? input.financeRecords : [],
-            documents: Array.isArray(input.documents) ? input.documents : [],
-        };
+        const state = sanitizeTransactionsThreadingSaveInput(userId, input);
         await saveLocalTransactionsThreadingState(userId, state);
-        void lawyerCloudKv.set(`transactionsThreading:${userId}:state`, state).catch(() => undefined);
+        if (isLawyerWorkCloudLive()) {
+            void lawyerCloudKv.set(`transactionsThreading:${userId}:state`, state).catch(() => undefined);
+        }
     },
 };

@@ -44,6 +44,10 @@ function walk(dir, out = []) {
   return out
 }
 
+function stripJsComments(text) {
+  return text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/.*$/gm, '$1')
+}
+
 function scanFile(filePath) {
   let text
   try {
@@ -52,9 +56,10 @@ function scanFile(filePath) {
     return
   }
   const rel = path.relative(ROOT, filePath).replace(/\\/g, '/')
+  const code = stripJsComments(text)
   for (const { re, name, skipUnder } of CRITICAL_PATTERNS) {
     if (skipUnder && rel.startsWith(skipUnder.replace(/\\/g, '/'))) continue
-    if (re.test(text)) critical.push(`${rel}: ${name}`)
+    if (re.test(code)) critical.push(`${rel}: ${name}`)
   }
   for (const { re, name } of WARNING_PATTERNS) {
     if (re.test(text)) warnings.push(`${rel}: ${name}`)

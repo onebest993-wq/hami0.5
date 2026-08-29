@@ -4,6 +4,9 @@ import {
     type LegalCodeArticle,
     type LegalCodeType,
 } from './legalCodesConstants';
+import { resolveLawCodeTypeFromName } from '@/app/constants/iraqiLawCatalog';
+import { subscribeLawsCatalogChanged } from '@/app/kernel/laws/lawCatalogSync';
+import { canReachPublishedLawCatalog } from '@/app/services/settings/localOnlyGuard';
 
 const cache = new Map<LegalCodeType, LegalCodeArticle[]>();
 const inflight = new Map<LegalCodeType, Promise<LegalCodeArticle[]>>();
@@ -14,10 +17,6 @@ export function getCachedLegalCodeArticles(tab: LegalCodeType): LegalCodeArticle
 
 export function getAllCachedLegalCodeArticles(): LegalCodeArticle[] {
     return Array.from(cache.values()).flat();
-}
-
-export function getCachedLegalCodeTypes(): LegalCodeType[] {
-    return Array.from(cache.keys());
 }
 
 export function mergeLegalCodeArticlesForTab(
@@ -37,6 +36,7 @@ export async function loadLegalCodeArticles(tab: LegalCodeType): Promise<LegalCo
 
     const promise = (async () => {
         let remoteError: unknown = null;
+        if (canReachPublishedLawCatalog()) {
         try {
             const { SecureAPIClient } = await import('@/app/services/SecureAPIClient');
             const data = await SecureAPIClient.fetchSecure<{
@@ -66,6 +66,7 @@ export async function loadLegalCodeArticles(tab: LegalCodeType): Promise<LegalCo
         } catch (error) {
             remoteError = error;
             /* fallback to bundled project files */
+        }
         }
 
         try {
@@ -127,4 +128,11 @@ export function invalidateLegalCodeArticlesCache(tab?: LegalCodeType): void {
     }
     cache.clear();
     inflight.clear();
+}
+
+if (typeof window !== 'undefined') {
+    subscribeLawsCatalogChanged((lawName) => {
+        const tab = resolveLawCodeTypeFromName(lawName);
+        if (tab) invalidateLegalCodeArticlesCache(tab);
+    });
 }

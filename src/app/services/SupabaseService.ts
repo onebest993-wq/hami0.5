@@ -4,6 +4,7 @@ import { CryptoService } from '@/app/services/CryptoService';
 import { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
 import { isShellAuthBypassed } from '@/app/services/auth/shellAuth';
 import { probeSameOriginApi } from '@/app/runtime/sameOriginApiProbe';
+import { isLiveCloudSyncBucketEnabled } from '@/app/services/settings/cloudSyncBucket';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
@@ -100,8 +101,16 @@ async function encryptJsonPayload(payload: unknown): Promise<{ encrypted_data: s
   return { encrypted_data, data_signature };
 }
 
-async function decryptJsonPayload(encryptedData: string): Promise<unknown> {
+async function decryptJsonPayload(
+  encryptedData: string,
+  dataSignature?: string | null,
+): Promise<unknown> {
   await CryptoService.initialize();
+  const signature = String(dataSignature ?? '').trim();
+  if (signature) {
+    const intact = await CryptoService.verifyDataSignature(encryptedData, signature);
+    if (!intact) return null;
+  }
   const json = await CryptoService.decryptData(encryptedData);
   try {
     return JSON.parse(json) as unknown;
@@ -118,12 +127,18 @@ export class SupabaseService {
         const apiState = await probeSameOriginApi();
         if (apiState !== 'available') return false;
         const res = await Promise.race([
-          fetch('/api/auth/session', { method: 'GET', headers: { Accept: 'application/json' } }),
+          fetch('/api/auth/session', {
+            method: 'GET',
+            credentials: 'include',
+            headers: { Accept: 'application/json' },
+          }),
           new Promise<Response>((_, reject) => {
             setTimeout(() => reject(new Error('timeout')), 5_000);
           }),
         ]);
-        return Boolean(res.ok);
+        if (!res.ok) return false;
+        const body = (await res.json().catch(() => null)) as { user?: { id?: unknown } } | null;
+        return typeof body?.user?.id === 'string' && Boolean(body.user.id.trim());
       }
 
       return await Promise.race([
@@ -141,6 +156,7 @@ export class SupabaseService {
     if (!file?.id || typeof file.id !== 'string') {
       throw new Error('execution_file_id_missing');
     }
+    if (!isLiveCloudSyncBucketEnabled('execution')) return file.id;
     const { encrypted_data, data_signature } = await encryptJsonPayload(file);
 
     const payload = {
@@ -164,6 +180,7 @@ export class SupabaseService {
   }
 
   static async getExecutionFiles(): Promise<ExecutionFileDTO_Supabase[]> {
+    if (!isLiveCloudSyncBucketEnabled('execution')) return [];
     const res = await SecureAPIClient.fetchSecure<{ ok?: boolean; rows?: ExecutionFileRow[]; error?: string }>(
       '/api/execution-files/list',
       { method: 'GET' },
@@ -194,7 +211,7 @@ export class SupabaseService {
       };
 
       try {
-        const decrypted = await decryptJsonPayload(row.encrypted_data);
+        const decrypted = await decryptJsonPayload(row.encrypted_data, row.data_signature);
         if (isRecord(decrypted)) {
           const merged = { ...base, ...decrypted };
           merged.id = row.external_id;
@@ -232,6 +249,7 @@ export class SupabaseService {
   }
 
   static async deleteExecutionFile(fileId: string): Promise<void> {
+    if (!isLiveCloudSyncBucketEnabled('execution')) return;
     await SecureAPIClient.fetchSecure('/api/execution-files/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -243,6 +261,7 @@ export class SupabaseService {
     if (!file?.id || typeof file.id !== 'string') {
       throw new Error('lawsuit_file_id_missing');
     }
+    if (!isLiveCloudSyncBucketEnabled('files')) return file.id;
     const { encrypted_data, data_signature } = await encryptJsonPayload(file);
 
     const payload = {
@@ -266,16 +285,29 @@ export class SupabaseService {
     return file.id;
   }
 
-  static async getLawsuitFiles(): Promise<LawsuitFile[]> {
-    try {
-      const res = await SecureAPIClient.fetchSecure<{ ok?: boolean; rows?: LawsuitFileRow[] }>(
-        '/api/lawsuit-files/list',
-        { method: 'GET' },
-      );
-      const rows = Array.isArray(res.rows) ? res.rows : [];
-      const out: LawsuitFile[] = [];
+  static async deleteLawsuitFile(fileId: string): Promise<void> {
+    if (!isLiveCloudSyncBucketEnabled('files')) return;
+    await SecureAPIClient.fetchSecure('/api/lawsuit-files/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ external_id: fileId }),
+    });
+  }
 
-      for (const row of rows) {
+  static async getLawsuitFiles(): Promise<LawsuitFile[]> {
+    if (!isLiveCloudSyncBucketEnabled('files')) return [];
+    const res = await SecureAPIClient.fetchSecure<{
+      ok?: boolean;
+      rows?: LawsuitFileRow[];
+      error?: string;
+    }>('/api/lawsuit-files/list', { method: 'GET' });
+    if (res && typeof res === 'object' && res.ok === false) {
+      throw new Error(res.error?.trim() || 'lawsuit_files_list_failed');
+    }
+    const rows = Array.isArray(res.rows) ? res.rows : [];
+    const out: LawsuitFile[] = [];
+
+    for (const row of rows) {
         const base: LawsuitFile = {
           id: row.external_id,
           caseNo: row.case_no,
@@ -290,7 +322,7 @@ export class SupabaseService {
         };
 
         try {
-          const decrypted = await decryptJsonPayload(row.encrypted_data);
+          const decrypted = await decryptJsonPayload(row.encrypted_data, row.data_signature);
           if (isRecord(decrypted)) {
             const merged = { ...base, ...decrypted } as LawsuitFile;
             merged.id = row.external_id;
@@ -301,17 +333,14 @@ export class SupabaseService {
             merged.updatedAt = row.updated_at ?? merged.updatedAt;
             out.push(merged);
           } else {
-            out.push(base);
+            out.push({ ...base, decryptIncomplete: true } as LawsuitFile);
           }
         } catch {
-          out.push(base);
+          out.push({ ...base, decryptIncomplete: true } as LawsuitFile);
         }
-      }
-
-      return out;
-    } catch {
-      return [];
     }
+
+    return out;
   }
 
   static async saveGlobalNote(
@@ -320,6 +349,7 @@ export class SupabaseService {
   ): Promise<string> {
     const nowIso = new Date().toISOString();
     const noteId = options?.id?.trim() || generateId('note');
+    if (!isLiveCloudSyncBucketEnabled('notes')) return noteId;
 
     const payload = {
       external_id: noteId,
@@ -340,27 +370,29 @@ export class SupabaseService {
   }
 
   static async getGlobalNotes(): Promise<GlobalNote[]> {
-    try {
-      const res = await SecureAPIClient.fetchSecure<{ ok?: boolean; rows?: GlobalNoteRow[] }>(
-        '/api/global-notes/list',
-        { method: 'GET' },
-      );
-      const rows = Array.isArray(res.rows) ? res.rows : [];
-      return rows.map((row) => ({
-        id: row.external_id,
-        title: row.title ?? undefined,
-        content: row.content,
-        category: (row.category ?? undefined) as GlobalNote['category'] | undefined,
-        tags: row.tags ?? undefined,
-        createdAt: row.created_at ?? undefined,
-        updatedAt: row.updated_at ?? undefined,
-      }));
-    } catch {
-      return [];
+    if (!isLiveCloudSyncBucketEnabled('notes')) return [];
+    const res = await SecureAPIClient.fetchSecure<{
+      ok?: boolean;
+      rows?: GlobalNoteRow[];
+      error?: string;
+    }>('/api/global-notes/list', { method: 'GET' });
+    if (res && typeof res === 'object' && res.ok === false) {
+      throw new Error(res.error?.trim() || 'global_notes_list_failed');
     }
+    const rows = Array.isArray(res.rows) ? res.rows : [];
+    return rows.map((row) => ({
+      id: row.external_id,
+      title: row.title ?? undefined,
+      content: row.content,
+      category: (row.category ?? undefined) as GlobalNote['category'] | undefined,
+      tags: row.tags ?? undefined,
+      createdAt: row.created_at ?? undefined,
+      updatedAt: row.updated_at ?? undefined,
+    }));
   }
 
   static async deleteGlobalNote(noteId: string): Promise<void> {
+    if (!isLiveCloudSyncBucketEnabled('notes')) return;
     await SecureAPIClient.fetchSecure('/api/global-notes/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

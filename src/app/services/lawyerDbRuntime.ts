@@ -1,5 +1,7 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { lawyerCloudKv as kv, uuidv4 } from '@/app/services/cloud/lawyerCloudKv';
+import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
+import { isLiveCloudSyncBucketEnabled } from '@/app/services/settings/cloudSyncBucket';
 
 const LAWYER_LOCAL_PREFIX = 'hami:lawyerdb:';
 
@@ -7,13 +9,58 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object';
 }
 
+function localBagKey(userId: string, bag: 'profile' | 'cases' | 'notes' | 'deadlines'): string {
+    return `${LAWYER_LOCAL_PREFIX}${userId}:${bag}`;
+}
+
+function parseJsonArray(raw: string | null): unknown[] {
+    if (!raw) return [];
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+function parseJsonObject(raw: string | null): Record<string, unknown> | null {
+    if (!raw) return null;
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        return isRecord(parsed) ? parsed : null;
+    } catch {
+        return null;
+    }
+}
+
+function rowId(row: unknown): string | null {
+    if (!isRecord(row) || typeof row.id !== 'string' || !row.id.trim()) return null;
+    return row.id;
+}
+
+async function loadLocalBag(userId: string, bag: 'cases' | 'notes' | 'deadlines'): Promise<unknown[]> {
+    return parseJsonArray(await SecureStoreService.getItem(localBagKey(userId, bag)));
+}
+
+async function saveLocalBag(
+    userId: string,
+    bag: 'cases' | 'notes' | 'deadlines',
+    rows: unknown[],
+): Promise<void> {
+    await SecureStoreService.setItem(localBagKey(userId, bag), JSON.stringify(rows));
+}
+
+function upsertById(existing: unknown[], next: Record<string, unknown>): unknown[] {
+    const id = String(next.id);
+    return [...existing.filter((row) => rowId(row) !== id), next];
+}
+
 export const LawyerDB = {
     async saveUserProfile(userId: string, data: Record<string, unknown>) {
         try {
             await kv.set(`user:${userId}:profile`, data);
         } catch {
-            const key = `${LAWYER_LOCAL_PREFIX}${userId}:profile`;
-            await SecureStoreService.setItem(key, JSON.stringify(data));
+            await SecureStoreService.setItem(localBagKey(userId, 'profile'), JSON.stringify(data));
         }
     },
 
@@ -21,80 +68,82 @@ export const LawyerDB = {
         try {
             return await kv.get(`user:${userId}:profile`);
         } catch {
-            const key = `${LAWYER_LOCAL_PREFIX}${userId}:profile`;
-            const raw = await SecureStoreService.getItem(key);
-            return raw ? JSON.parse(raw) : null;
+            return parseJsonObject(await SecureStoreService.getItem(localBagKey(userId, 'profile')));
         }
     },
 
     async saveCase(userId: string, caseData: Record<string, unknown>) {
         const providedId = typeof caseData.id === 'string' ? caseData.id : undefined;
         const id = providedId ?? uuidv4();
-        const key = `user:${userId}:cases:${id}`;
-        try {
-            await kv.set(key, { ...caseData, id, updatedAt: new Date().toISOString() });
-        } catch {
-            const existing = await this.getCases(userId);
-            const updated = [
-                ...(Array.isArray(existing) ? existing : []).filter((c: any) => c.id !== id),
-                { ...caseData, id, updatedAt: new Date().toISOString() },
-            ];
-            await SecureStoreService.setItem(`${LAWYER_LOCAL_PREFIX}${userId}:cases`, JSON.stringify(updated));
+        const payload = { ...caseData, id, updatedAt: new Date().toISOString() };
+        if (isLiveCloudSyncBucketEnabled('files')) {
+            try {
+                await kv.set(`user:${userId}:cases:${id}`, payload);
+                return id;
+            } catch {
+                /* محلي */
+            }
         }
+        const existing = await loadLocalBag(userId, 'cases');
+        await saveLocalBag(userId, 'cases', upsertById(existing, payload));
         return id;
     },
 
     async getCases(userId: string) {
-        try {
-            const cases = await kv.getByPrefix(`user:${userId}:cases:`);
-            return cases || [];
-        } catch {
-            const raw = await SecureStoreService.getItem(`${LAWYER_LOCAL_PREFIX}${userId}:cases`);
-            return raw ? JSON.parse(raw) : [];
+        if (isLiveCloudSyncBucketEnabled('files')) {
+            try {
+                const cases = await kv.getByPrefix(`user:${userId}:cases:`);
+                return cases || [];
+            } catch {
+                /* محلي */
+            }
         }
+        return loadLocalBag(userId, 'cases');
     },
 
     async saveNote(userId: string, noteData: Record<string, unknown>) {
         const providedId = typeof noteData.id === 'string' ? noteData.id : undefined;
         const id = providedId ?? uuidv4();
-        const key = `user:${userId}:notes:${id}`;
-        try {
-            await kv.set(key, { ...noteData, id, createdAt: new Date().toISOString() });
-        } catch {
-            const existing = await this.getNotes(userId);
-            const updated = [
-                ...(Array.isArray(existing) ? existing : []).filter((n: any) => n.id !== id),
-                { ...noteData, id, createdAt: new Date().toISOString() },
-            ];
-            await SecureStoreService.setItem(`${LAWYER_LOCAL_PREFIX}${userId}:notes`, JSON.stringify(updated));
+        const payload = { ...noteData, id, createdAt: new Date().toISOString() };
+        if (isLiveCloudSyncBucketEnabled('notes')) {
+            try {
+                await kv.set(`user:${userId}:notes:${id}`, payload);
+                return id;
+            } catch {
+                /* محلي */
+            }
         }
+        const existing = await loadLocalBag(userId, 'notes');
+        await saveLocalBag(userId, 'notes', upsertById(existing, payload));
         return id;
     },
 
     async getNotes(userId: string) {
-        try {
-            const notes = await kv.getByPrefix(`user:${userId}:notes:`);
-            return notes || [];
-        } catch {
-            const raw = await SecureStoreService.getItem(`${LAWYER_LOCAL_PREFIX}${userId}:notes`);
-            return raw ? JSON.parse(raw) : [];
+        if (isLiveCloudSyncBucketEnabled('notes')) {
+            try {
+                const notes = await kv.getByPrefix(`user:${userId}:notes:`);
+                return notes || [];
+            } catch {
+                /* محلي */
+            }
         }
+        return loadLocalBag(userId, 'notes');
     },
 
     async saveDeadline(userId: string, deadlineData: Record<string, unknown>) {
         const providedId = typeof deadlineData.id === 'string' ? deadlineData.id : undefined;
         const id = providedId ?? uuidv4();
-        const key = `user:${userId}:deadlines:${id}`;
-        try {
-            await kv.set(key, { ...deadlineData, id, status: 'pending' });
-        } catch {
-            const existing = await this.getDeadlines(userId);
-            const updated = [
-                ...(Array.isArray(existing) ? existing : []).filter((d: any) => d.id !== id),
-                { ...deadlineData, id, status: 'pending' },
-            ];
-            await SecureStoreService.setItem(`${LAWYER_LOCAL_PREFIX}${userId}:deadlines`, JSON.stringify(updated));
+        const payload = { ...deadlineData, id, status: 'pending' };
+        if (isLawyerWorkCloudLive()) {
+            try {
+                await kv.set(`user:${userId}:deadlines:${id}`, payload);
+                return id;
+            } catch {
+                /* محلي */
+            }
         }
+        const existing = await loadLocalBag(userId, 'deadlines');
+        await saveLocalBag(userId, 'deadlines', upsertById(existing, payload));
         return id;
     },
 
@@ -114,11 +163,13 @@ export const LawyerDB = {
     },
 
     async getDeadlines(userId: string) {
-        try {
-            return (await kv.getByPrefix(`user:${userId}:deadlines:`)) || [];
-        } catch {
-            const raw = await SecureStoreService.getItem(`${LAWYER_LOCAL_PREFIX}${userId}:deadlines`);
-            return raw ? JSON.parse(raw) : [];
+        if (isLawyerWorkCloudLive()) {
+            try {
+                return (await kv.getByPrefix(`user:${userId}:deadlines:`)) || [];
+            } catch {
+                /* محلي */
+            }
         }
+        return loadLocalBag(userId, 'deadlines');
     },
 };

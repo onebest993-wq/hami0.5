@@ -1,15 +1,24 @@
 /**
- * تخزين الطلبات المستعجلة — محلي 100% افتراضياً (صفر kv-proxy حتى تفعيل VITE_URGENT_CLOUD_SYNC=true)
+ * تخزين الطلبات المستعجلة — محلي 100% افتراضياً.
+ * السحابة: VITE_URGENT_CLOUD_SYNC + مزامنة العمل، عبر lawyerCloudKv لا عميل KV موازٍ.
  */
-import { SecureAPIClient } from './SecureAPIClient';
-import SecureStoreService from './SecureStoreService';
+import { lawyerCloudKv } from '@/app/services/cloud/lawyerCloudKv';
+import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
+import {
+    persistSecurePayloadWhenReady,
+    readSecureOrDrainLegacySync,
+    readSecurePayloadWhenReady,
+    writeSecureAndClearLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 
-const KV_PROXY_URL = '/api/kv-proxy';
-const CLOUD_KV_TIMEOUT_MS = 6_000;
 const CLOUD_PUSH_DEBOUNCE_MS = 3_000;
 
 /** افتراضياً: لا شبكة — هذا يوقف عاصفة الـ 409 طلب */
 const CLOUD_SYNC_ENABLED = import.meta.env.VITE_URGENT_CLOUD_SYNC === 'true';
+
+function canReachUrgentCloud(): boolean {
+    return CLOUD_SYNC_ENABLED && isLawyerWorkCloudLive();
+}
 
 export function uuidv4(): string {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -18,48 +27,15 @@ export function uuidv4(): string {
     return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error(`${label}: timeout`)), ms);
-        promise
-            .then((v) => {
-                clearTimeout(timer);
-                resolve(v);
-            })
-            .catch((e) => {
-                clearTimeout(timer);
-                reject(e);
-            });
-    });
+async function urgentCloudSet(key: string, value: unknown): Promise<void> {
+    if (!canReachUrgentCloud()) return;
+    await lawyerCloudKv.set(key, value);
 }
 
-const kv = {
-    async set(key: string, value: unknown) {
-        if (!CLOUD_SYNC_ENABLED) return;
-        await withTimeout(
-            SecureAPIClient.fetchSecure(KV_PROXY_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'set', key, value }),
-            }),
-            CLOUD_KV_TIMEOUT_MS,
-            'kv.set',
-        );
-    },
-    async get(key: string) {
-        if (!CLOUD_SYNC_ENABLED) return null;
-        const res = await withTimeout(
-            SecureAPIClient.fetchSecure<{ value?: unknown }>(KV_PROXY_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'get', key }),
-            }),
-            CLOUD_KV_TIMEOUT_MS,
-            'kv.get',
-        );
-        return res?.value ?? null;
-    },
-};
+async function urgentCloudGet(key: string): Promise<unknown> {
+    if (!canReachUrgentCloud()) return null;
+    return lawyerCloudKv.get(key);
+}
 
 export type UrgentActionsState = {
     schemaVersion: 1;
@@ -77,15 +53,6 @@ let cloudPullInFlight: string | null = null;
 
 function getUrgentActionsLocalKey(userId: string) {
     return `${URGENT_ACTIONS_LOCAL_KEY_PREFIX}${userId}`;
-}
-
-function readLocalStorageRaw(key: string): string | null {
-    if (typeof localStorage === 'undefined') return null;
-    try {
-        return localStorage.getItem(key);
-    } catch {
-        return null;
-    }
 }
 
 function parseUrgentActionsRaw(raw: string | null, expectedUserId: string): UrgentActionsState | null {
@@ -106,32 +73,25 @@ function parseUrgentActionsRaw(raw: string | null, expectedUserId: string): Urge
     }
 }
 
-function pickRicherState(a: UrgentActionsState | null, b: UrgentActionsState | null): UrgentActionsState | null {
-    if (!a) return b;
-    if (!b) return a;
-    if (b.cases.length > a.cases.length) return b;
-    if (a.cases.length > b.cases.length) return a;
-    const aTime = Number.isFinite(Date.parse(a.updatedAt)) ? Date.parse(a.updatedAt) : 0;
-    const bTime = Number.isFinite(Date.parse(b.updatedAt)) ? Date.parse(b.updatedAt) : 0;
-    return bTime >= aTime ? b : a;
-}
-
 async function loadStateForKey(storageKey: string, logicalUserId: string): Promise<UrgentActionsState | null> {
-    let fromSecure: UrgentActionsState | null = null;
     try {
-        fromSecure = parseUrgentActionsRaw(await SecureStoreService.getItem(storageKey), logicalUserId);
+        const raw = await readSecurePayloadWhenReady(storageKey);
+        return parseUrgentActionsRaw(raw, logicalUserId);
     } catch {
-        /* localStorage fallback below */
+        return null;
     }
-    const fromLs = parseUrgentActionsRaw(readLocalStorageRaw(storageKey), logicalUserId);
-    return pickRicherState(fromSecure, fromLs);
 }
 
 async function loadLocalUrgentActionsState(userId: string): Promise<UrgentActionsState | null> {
     const key = getUrgentActionsLocalKey(userId);
     let best = await loadStateForKey(key, userId);
 
-    if ((!best || best.cases.length === 0) && userId !== DEV_FALLBACK_USER_ID) {
+    // ترحيل مخزن المطوّر فقط في DEV — لا يُخلط بيانات تجريبية مع حساب حقيقي في الإنتاج
+    if (
+        import.meta.env.DEV === true &&
+        (!best || best.cases.length === 0) &&
+        userId !== DEV_FALLBACK_USER_ID
+    ) {
         const devKey = getUrgentActionsLocalKey(DEV_FALLBACK_USER_ID);
         const devBest = await loadStateForKey(devKey, DEV_FALLBACK_USER_ID);
         if (devBest && devBest.cases.length > 0) {
@@ -152,23 +112,12 @@ async function saveLocalUrgentActionsState(userId: string, state: UrgentActionsS
     const key = getUrgentActionsLocalKey(userId);
     const payload = JSON.stringify(state);
     memoryCache.set(userId, state);
-    // نسخة متزامنة في localStorage — ضرورية لإعادة التحميل وعدم فقدان الإضابير عند المغادرة
-    if (typeof localStorage !== 'undefined') {
-        try {
-            localStorage.setItem(key, payload);
-        } catch {
-            /* quota / private mode */
-        }
-    }
-    try {
-        await SecureStoreService.setItem(key, payload);
-    } catch {
-        /* localStorage أعلاه يكفي للاستمرارية */
-    }
+    writeSecureAndClearLegacySync(key, payload);
+    await persistSecurePayloadWhenReady(key, payload, { skipIfUnchanged: false });
 }
 
 function scheduleCloudPush(userId: string): void {
-    if (!CLOUD_SYNC_ENABLED || typeof window === 'undefined') return;
+    if (!canReachUrgentCloud() || typeof window === 'undefined') return;
     const prev = cloudPushTimers.get(userId);
     if (prev) clearTimeout(prev);
     cloudPushTimers.set(
@@ -177,7 +126,7 @@ function scheduleCloudPush(userId: string): void {
             cloudPushTimers.delete(userId);
             const state = memoryCache.get(userId);
             if (!state) return;
-            void kv.set(`urgentActions:${userId}:state`, state).catch(() => undefined);
+            void urgentCloudSet(`urgentActions:${userId}:state`, state).catch(() => undefined);
         }, CLOUD_PUSH_DEBOUNCE_MS),
     );
 }
@@ -207,18 +156,33 @@ function mergeRemoteState(local: UrgentActionsState | null, remote: UrgentAction
 export const UrgentActionsDB = {
     isCloudEnabled: () => CLOUD_SYNC_ENABLED,
 
+    /**
+     * قراءة فورية من الذاكرة أو الكاش المشفّر / ترحيل مرآة قديمة.
+     * تُدفئ الذاكرة حتى لا يعيد getState فكّ التشفير في نفس الجلسة.
+     */
+    peekState(userId: string): UrgentActionsState | null {
+        const cached = memoryCache.get(userId);
+        if (cached) return cached;
+        const fromStore = parseUrgentActionsRaw(
+            readSecureOrDrainLegacySync(getUrgentActionsLocalKey(userId)),
+            userId,
+        );
+        if (fromStore) memoryCache.set(userId, fromStore);
+        return fromStore;
+    },
+
     async getState(userId: string): Promise<UrgentActionsState | null> {
         return ensureMemoryState(userId);
     },
 
     async syncFromCloud(userId: string): Promise<UrgentActionsState | null> {
         const local = await ensureMemoryState(userId);
-        if (!CLOUD_SYNC_ENABLED) return local;
+        if (!canReachUrgentCloud()) return local;
         if (cloudPullInFlight === userId) return local;
 
         cloudPullInFlight = userId;
         try {
-            const remote = await kv.get(`urgentActions:${userId}:state`);
+            const remote = await urgentCloudGet(`urgentActions:${userId}:state`);
             if (remote && typeof remote === 'object') {
                 const r0 = remote as Partial<UrgentActionsState>;
                 if (r0.userId === userId && Array.isArray(r0.cases)) {

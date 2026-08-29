@@ -6,11 +6,16 @@ import {
 } from '@/app/services/calendar/calendarEventsCache';
 import { notifyCalendarUpdated } from '@/app/services/calendar/bridge/core';
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
+import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
+import {
+    persistSecurePayloadWhenReady,
+    readSecureOrDrainLegacySync,
+    readSecurePayloadWhenReady,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 export type { CalendarEventType, CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
 
 const CALENDAR_LOCAL_KEY = 'hami:calendar:events:v1';
-const CALENDAR_SECURE_READY_MS = 4_000;
 
 function loadCalendarLocalSnapshot() {
     return import('@/app/services/calendar/calendarLocalSnapshot');
@@ -27,27 +32,11 @@ function parseCalendarEventsRaw(raw: string | null | undefined): CalendarEvent[]
     }
 }
 
-/** قراءة فورية — localStorage mirror ثم SecureStore sync cache */
+/** قراءة فورية — SecureStore ثم ترحيل مرآة localStorage القديمة */
 function readCalendarEventsFromMirrors(): CalendarEvent[] | null {
-    if (typeof localStorage !== 'undefined') {
-        try {
-            const lsKey = localStorage.getItem(CALENDAR_LOCAL_KEY);
-            if (lsKey !== null) {
-                return parseCalendarEventsRaw(lsKey) ?? [];
-            }
-        } catch {
-            /* fall through */
-        }
-    }
-    try {
-        const syncRaw = SecureStoreService.getItemSync(CALENDAR_LOCAL_KEY);
-        if (syncRaw != null) {
-            return parseCalendarEventsRaw(syncRaw) ?? [];
-        }
-    } catch {
-        /* fall through */
-    }
-    return null;
+    const raw = readSecureOrDrainLegacySync(CALENDAR_LOCAL_KEY);
+    if (raw == null) return null;
+    return parseCalendarEventsRaw(raw);
 }
 
 async function loadLocalCalendarEvents(): Promise<CalendarEvent[]> {
@@ -55,14 +44,7 @@ async function loadLocalCalendarEvents(): Promise<CalendarEvent[]> {
     if (mirrored !== null) return mirrored;
 
     try {
-        await Promise.race([
-            SecureStoreService.ensurePersistedReady(),
-            new Promise<void>((resolve) => setTimeout(resolve, CALENDAR_SECURE_READY_MS)),
-        ]);
-        const syncRaw = SecureStoreService.getItemSync(CALENDAR_LOCAL_KEY);
-        const fromSync = parseCalendarEventsRaw(syncRaw);
-        if (fromSync !== null) return fromSync;
-        const raw = await SecureStoreService.getItem(CALENDAR_LOCAL_KEY);
+        const raw = await readSecurePayloadWhenReady(CALENDAR_LOCAL_KEY);
         return parseCalendarEventsRaw(raw) ?? [];
     } catch {
         return readCalendarEventsFromMirrors() ?? [];
@@ -79,15 +61,9 @@ type SaveLocalOptions = {
 
 async function persistCalendarEventsToSecureStore(payload: string): Promise<void> {
     try {
-        await Promise.race([
-            SecureStoreService.ensurePersistedReady(),
-            new Promise<void>((resolve) => setTimeout(resolve, CALENDAR_SECURE_READY_MS)),
-        ]);
-        const existing = await SecureStoreService.getItem(CALENDAR_LOCAL_KEY);
-        if (existing === payload) return;
-        await SecureStoreService.setItem(CALENDAR_LOCAL_KEY, payload);
+        await persistSecurePayloadWhenReady(CALENDAR_LOCAL_KEY, payload);
     } catch {
-        /* localStorage mirror already written — UX path complete */
+        /* setItemSync يملأ الكاش إن نجح — مسار العرض لا ينتظر IDB */
     }
 }
 
@@ -108,9 +84,14 @@ async function saveLocalCalendarEvents(
     }
 
     const payload = JSON.stringify(events);
-    snapshot.mirrorCalendarEventsToLocalStorage(payload);
+    try {
+        SecureStoreService.setItemSync(CALENDAR_LOCAL_KEY, payload);
+    } catch {
+        /* الحارس قد يرفض — persist يقرر */
+    }
     if (!silent) notifyCalendarUpdated();
     await persistCalendarEventsToSecureStore(payload);
+    snapshot.clearCalendarEventsLocalStorageMirror();
 }
 
 function mergeCalendarEvents(local: CalendarEvent[], remote: CalendarEvent[]): CalendarEvent[] {
@@ -140,6 +121,12 @@ async function fetchCalendarEventsForUser(userId: string): Promise<CalendarEvent
     })();
     const [local, tombstones] = await Promise.all([loadLocalCalendarEvents(), tombstonesPromise]);
     const userLocal = local.filter((e) => e.userId === userId && !tombstones.has(e.id));
+
+    if (!isLawyerWorkCloudLive()) {
+        return userLocal.sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+    }
 
     try {
         const res = await fetchPrefixOnceInTick(`calendar:${userId}:`);
@@ -190,7 +177,9 @@ export const CalendarDB = {
         const merged = mergeCalendarEvents(local, [event]);
         await saveLocalCalendarEvents(merged);
         invalidateCalendarEventsCache(event.userId);
-        void lawyerCloudKv.set(`calendar:${event.userId}:${event.id}`, event).catch(() => undefined);
+        if (isLawyerWorkCloudLive()) {
+            void lawyerCloudKv.set(`calendar:${event.userId}:${event.id}`, event).catch(() => undefined);
+        }
     },
 
     async saveEventsBatch(events: CalendarEvent[]): Promise<void> {
@@ -202,7 +191,9 @@ export const CalendarDB = {
         const merged = mergeCalendarEvents(local, valid);
         await saveLocalCalendarEvents(merged);
 
-        await Promise.allSettled(valid.map((e) => lawyerCloudKv.set(`calendar:${e.userId}:${e.id}`, e)));
+        if (isLawyerWorkCloudLive()) {
+            await Promise.allSettled(valid.map((e) => lawyerCloudKv.set(`calendar:${e.userId}:${e.id}`, e)));
+        }
         for (const e of valid) invalidateCalendarEventsCache(e.userId);
     },
 
@@ -216,10 +207,12 @@ export const CalendarDB = {
             /* غير حاسم */
         }
 
-        try {
-            await lawyerCloudKv.del(`calendar:${userId}:${eventId}`);
-        } catch {
-            // Cloud-First
+        if (isLawyerWorkCloudLive()) {
+            try {
+                await lawyerCloudKv.del(`calendar:${userId}:${eventId}`);
+            } catch {
+                // Cloud-First
+            }
         }
         const local = await loadLocalCalendarEvents();
         if (!local.some((e) => e.id === eventId)) return;

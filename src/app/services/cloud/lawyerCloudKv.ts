@@ -1,8 +1,22 @@
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
+import { canUseServerBackedNetworkFeatures } from '@/app/services/auth/lawyerAccountStatus';
+import {
+    isLawyerWorkCloudLive,
+    isWorkLocalKvMaterial,
+} from '@/app/services/settings/lawyerWorkCloudGate';
+import { getLiveAuthUserId } from '@/app/utils/liveAuthUserId';
 
 const CLOUD_KV_TIMEOUT_MS = 6_000;
 const KV_PROXY_URL = '/api/kv-proxy';
+
+function assertKvServerSession(material: string): void {
+    if (!isKvProxyNetworkEnabled()) throw new KvLocalOnlyError();
+    if (!canUseServerBackedNetworkFeatures(getLiveAuthUserId())) throw new KvLocalOnlyError();
+    if (isWorkLocalKvMaterial(material) && !isLawyerWorkCloudLive()) {
+        throw new KvLocalOnlyError();
+    }
+}
 
 export class KvLocalOnlyError extends Error {
     constructor() {
@@ -32,7 +46,7 @@ type KvProxyPrefixResponse = { ok?: boolean; values?: unknown[] };
 /** KV BFF — طبقة سحابية منفصلة عن lawyer-cloud monolith */
 export const lawyerCloudKv = {
     async set(key: string, value: unknown) {
-        if (!isKvProxyNetworkEnabled()) throw new KvLocalOnlyError();
+        assertKvServerSession(key);
         await withTimeout(
             SecureAPIClient.fetchSecure(KV_PROXY_URL, {
                 method: 'POST',
@@ -44,7 +58,7 @@ export const lawyerCloudKv = {
         );
     },
     async get(key: string) {
-        if (!isKvProxyNetworkEnabled()) throw new KvLocalOnlyError();
+        assertKvServerSession(key);
         const res = await withTimeout(
             SecureAPIClient.fetchSecure<KvProxyGetResponse>(KV_PROXY_URL, {
                 method: 'POST',
@@ -57,7 +71,7 @@ export const lawyerCloudKv = {
         return res?.value ?? null;
     },
     async getByPrefix(prefix: string) {
-        if (!isKvProxyNetworkEnabled()) throw new KvLocalOnlyError();
+        assertKvServerSession(prefix);
         const res = await SecureAPIClient.fetchSecure<KvProxyPrefixResponse>(KV_PROXY_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -66,7 +80,7 @@ export const lawyerCloudKv = {
         return Array.isArray(res?.values) ? res.values : [];
     },
     async del(key: string) {
-        if (!isKvProxyNetworkEnabled()) throw new KvLocalOnlyError();
+        assertKvServerSession(key);
         await SecureAPIClient.fetchSecure(KV_PROXY_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
