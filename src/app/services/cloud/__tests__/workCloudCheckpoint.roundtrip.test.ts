@@ -129,6 +129,9 @@ vi.mock('@/app/infrastructure/persistence/LocalStorageRepository', () => ({
     },
 }));
 
+import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
+import { saveExecutionFilesRawImmediate } from '@/app/utils/executionFilesStorage';
+import { STORAGE_KEYS } from '@/app/utils/constants';
 import { CryptoService } from '@/app/services/CryptoService';
 import { GET, POST } from '@/app/api/work-checkpoints/route';
 import {
@@ -178,5 +181,16 @@ describe('work checkpoint AES roundtrip through BFF handlers', () => {
         expect(applyMerge).toHaveBeenCalled();
         const merged = applyMerge.mock.calls[0]?.[0] as Array<{ id?: string }>;
         expect(merged.some((row) => row.id === 'ls-roundtrip')).toBe(true);
+        expect(saveExecutionFilesRawImmediate).toHaveBeenCalledWith(
+            expect.arrayContaining([expect.objectContaining({ id: 'ex-roundtrip' })]),
+        );
+        expect(persistenceRepository.save).toHaveBeenCalledWith(
+            'hami:execution:v1:roundtrip',
+            expect.arrayContaining([expect.objectContaining({ id: 'ex-roundtrip' })]),
+        );
+        expect(persistenceRepository.save).toHaveBeenCalledWith(
+            STORAGE_KEYS.LAWYER_NOTES,
+            expect.arrayContaining([expect.objectContaining({ id: 'n-roundtrip' })]),
+        );
     });
 });

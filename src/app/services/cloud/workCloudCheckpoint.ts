@@ -168,29 +168,29 @@ async function applyWorkCloudCheckpointPayload(
     const lawsuits = payload.lawsuits;
     const execution = payload.execution;
     const notes = payload.notes;
+    const restoredKeys: string[] = [];
     if (lawsuits.length > 0) {
         const { applyLawsuitMonolithicMergeToSegments } = await import(
             '@/app/domain/lawsuit/lawsuitSegmentStorage'
         );
         applyLawsuitMonolithicMergeToSegments(lawsuits as FileData[]);
         persistenceRepository.save(STORAGE_KEYS.LAWYER_FILES, lawsuits);
+        restoredKeys.push(STORAGE_KEYS.LAWYER_FILES);
     }
     if (execution.length > 0) {
+        const executionKey = resolveExecutionFilesStorageKey(resolveLiveAuthUserIdForStorage());
         saveExecutionFilesRawImmediate(execution);
-        persistenceRepository.save(
-            resolveExecutionFilesStorageKey(resolveLiveAuthUserIdForStorage()),
-            execution,
-        );
+        persistenceRepository.save(executionKey, execution);
+        restoredKeys.push(executionKey);
     }
     if (notes.length > 0) {
         persistenceRepository.save(STORAGE_KEYS.LAWYER_NOTES, notes);
+        restoredKeys.push(STORAGE_KEYS.LAWYER_NOTES);
     }
-    if (typeof window !== 'undefined' && (lawsuits.length > 0 || execution.length > 0 || notes.length > 0)) {
+    if (typeof window !== 'undefined' && restoredKeys.length > 0) {
         window.dispatchEvent(
             new CustomEvent('hami:data-imported', {
-                detail: {
-                    keys: [STORAGE_KEYS.LAWYER_FILES, STORAGE_KEYS.LAWYER_NOTES],
-                },
+                detail: { keys: restoredKeys },
             }),
         );
     }

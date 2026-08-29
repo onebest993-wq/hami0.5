@@ -52,11 +52,15 @@ import {
     cancelScheduledWorkCloudCheckpoint,
     parseWorkCloudCheckpointPayload,
     pushWorkCloudCheckpointNow,
+    restoreLastWorkCloudCheckpoint,
     scheduleWorkCloudCheckpoint,
 } from '@/app/services/cloud/workCloudCheckpoint';
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
+import { saveExecutionFilesRawImmediate } from '@/app/utils/executionFilesStorage';
+import { STORAGE_KEYS } from '@/app/utils/constants';
+import { CryptoService } from '@/app/services/CryptoService';
 
 describe('parseWorkCloudCheckpointPayload', () => {
     it('يرفض الحمولة بلا إصدار', () => {
@@ -129,5 +133,51 @@ describe('pushWorkCloudCheckpointNow', () => {
         const ok = await pushWorkCloudCheckpointNow();
         expect(ok).toBe(false);
         expect(SecureAPIClient.fetchSecure).not.toHaveBeenCalled();
+    });
+});
+
+describe('restoreLastWorkCloudCheckpoint', () => {
+    const payload = {
+        v: 1 as const,
+        savedAt: '2026-08-29T12:00:00.000Z',
+        lawsuits: [{ id: 'ls-1' }],
+        execution: [{ id: 'ex-1' }],
+        notes: [{ id: 'n-1' }],
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(isLawyerWorkCloudLive).mockReturnValue(true);
+        vi.mocked(CryptoService.decryptData).mockImplementation(async (cipher: string) => {
+            if (cipher.startsWith('plain:')) return cipher.slice(6);
+            return '{}';
+        });
+        vi.mocked(SecureAPIClient.fetchSecure).mockResolvedValue({
+            ok: true,
+            checkpoint: {
+                encrypted_data: `plain:${JSON.stringify(payload)}`,
+                data_signature: 'sig',
+            },
+        });
+    });
+
+    it('يكتب التنفيذ ويضع مفتاحه في data-imported حتى لا يطمسه auto-save', async () => {
+        const dispatch = vi.spyOn(window, 'dispatchEvent');
+        const result = await restoreLastWorkCloudCheckpoint();
+        expect(result).toEqual({ applied: true, lawsuits: 1, execution: 1, notes: 1 });
+        expect(saveExecutionFilesRawImmediate).toHaveBeenCalledWith(payload.execution);
+        expect(persistenceRepository.save).toHaveBeenCalledWith('hami:execution:v1:u1', payload.execution);
+        expect(persistenceRepository.save).toHaveBeenCalledWith(STORAGE_KEYS.LAWYER_NOTES, payload.notes);
+        expect(persistenceRepository.save).toHaveBeenCalledWith(STORAGE_KEYS.LAWYER_FILES, payload.lawsuits);
+
+        const imported = dispatch.mock.calls
+            .map(([event]) => event as Event)
+            .find((event) => event.type === 'hami:data-imported') as CustomEvent<{ keys?: string[] }>;
+        expect(imported?.detail?.keys).toEqual([
+            STORAGE_KEYS.LAWYER_FILES,
+            'hami:execution:v1:u1',
+            STORAGE_KEYS.LAWYER_NOTES,
+        ]);
+        dispatch.mockRestore();
     });
 });
