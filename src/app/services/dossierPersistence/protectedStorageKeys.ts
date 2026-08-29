@@ -120,9 +120,20 @@ export function isDeletedIdsTombstoneStorageKey(key: string): boolean {
     );
 }
 
+/**
+ * حالة خيوط المعاملات حسب المالك — كانت خارج الحماية بينما سجل المعاملات داخلها،
+ * وهي المخزن الفعلي للمهام والمستندات. قراءة فاشلة تُظهر قسماً خالياً، وأول حفظة
+ * بعدها تكتب حالة بمصفوفات خالية فوق العمل.
+ * العدّ في wipe guard على السجلات لا على Object.keys (حقول ثابتة).
+ */
+export function isTransactionsThreadingStateKey(key: string): boolean {
+    return key === 'hami:transactionsThreading:v1' || key.startsWith('hami:transactionsThreading:v1:');
+}
+
 export function isProtectedStorageKey(key: string): boolean {
     if (PROTECTED_ARRAY_STORAGE_KEYS.has(key)) return true;
     if (PROTECTED_OBJECT_STORAGE_KEYS.has(key)) return true;
+    if (isTransactionsThreadingStateKey(key)) return true;
     if (key.includes('lawyer_files')) return true;
     // فهرس التنفيذ حسب المالك: executionFiles:<userId>
     if (key.startsWith(`${EXECUTION_FILES_STORAGE_KEY}:`)) return true;
