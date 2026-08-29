@@ -301,9 +301,12 @@ export async function waitForNotificationInboxSeedHook(page: Page): Promise<void
 }
 
 export async function clickPanelControl(locator: Locator): Promise<void> {
-    await locator.click({ timeout: 8_000, force: true }).catch(async () => {
-        await locator.evaluate((el) => {
-            if (el instanceof HTMLElement) el.click();
+    /* force يتخطّى استقرار الإطار — الورقة تتحرّك 280ms بعد الفتح فيُنقَر مركز قديم */
+    await locator.click({ timeout: 8_000 }).catch(async () => {
+        await locator.click({ timeout: 8_000, force: true }).catch(async () => {
+            await locator.evaluate((el) => {
+                if (el instanceof HTMLElement) el.click();
+            });
         });
     });
 }
@@ -383,6 +386,14 @@ export async function openNotificationsPanel(page: Page): Promise<Locator> {
     }
 
     await expect(layer).toHaveAttribute('data-open', 'true', { timeout: 15_000 });
+    await page
+        .waitForFunction(
+            () => document.documentElement.getAttribute('data-hami-notif-enter') !== '1',
+            undefined,
+            { timeout: 5_000 },
+        )
+        .catch(() => undefined);
+    await expect(panel).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole('alertdialog', { name: 'خطأ في الإشعارات' })).toBeHidden({
         timeout: 2_000,
     }).catch(() => undefined);
@@ -410,8 +421,16 @@ export async function closeNotificationsPanelForE2E(page: Page, timeout = 8_000)
     await expectNotificationsPanelClosed(page, timeout);
 }
 
-export async function expectNotificationsPanelClosed(page: Page, timeout = 8_000): Promise<void> {
+export async function expectNotificationsPanelClosed(
+    page: Page,
+    timeout = 8_000,
+    options?: { allowForceClose?: boolean },
+): Promise<void> {
     const panel = page.getByTestId('notification-panel');
+    if (options?.allowForceClose === false) {
+        await expect(panel).toBeHidden({ timeout });
+        return;
+    }
     await expect(panel).toBeHidden({ timeout }).catch(async () => {
         await forceCloseNotificationsInPage(page);
         await expect(panel).toBeHidden({ timeout: 4_000 });

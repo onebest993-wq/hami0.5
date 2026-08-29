@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const store = new Map<string, string>();
 const fetchSecureMock = vi.fn();
+const canUseServerBackedNetwork = vi.hoisted(() => ({ value: true }));
 
 vi.mock('@/app/services/SecureStoreService', () => ({
     default: {
@@ -14,6 +15,10 @@ vi.mock('@/app/services/SecureStoreService', () => ({
 
 vi.mock('@/app/services/kvProxyConfig', () => ({
     isKvProxyNetworkEnabled: () => true,
+}));
+
+vi.mock('@/app/services/auth/lawyerAccountStatus', () => ({
+    canUseServerBackedNetworkFeatures: () => canUseServerBackedNetwork.value,
 }));
 
 vi.mock('@/app/services/SecureAPIClient', () => ({
@@ -31,6 +36,7 @@ describe('notificationForumKvMigration', () => {
     beforeEach(() => {
         store.clear();
         fetchSecureMock.mockReset();
+        canUseServerBackedNetwork.value = true;
     });
 
     it('يُعلّم partial عند فشل حذف prefix بعد الدمج', async () => {
@@ -62,6 +68,22 @@ describe('notificationForumKvMigration', () => {
 
         expect(saveBlob).toHaveBeenCalledTimes(1);
         expect(store.get('hami:notifications:kv-unified:u1:v1')).toBe('partial');
+    });
+
+    it('لا يلمس blob إن كانت شبكة الخادم مغلقة (حساب غير موثّق)', async () => {
+        canUseServerBackedNetwork.value = false;
+        fetchSecureMock.mockResolvedValue({ values: [{ id: 'legacy-1', userId: 'u1' }] });
+        const saveBlob = vi.fn().mockResolvedValue(undefined);
+
+        const migrated = await migrateLegacyForumKvToBlobIfNeeded(
+            'u1',
+            vi.fn().mockResolvedValue([]),
+            saveBlob,
+        );
+
+        expect(migrated).toBe(false);
+        expect(saveBlob).not.toHaveBeenCalled();
+        expect(fetchSecureMock).not.toHaveBeenCalled();
     });
 
     it('retryLegacyPrefixCleanupIfPartial يُكمّل عند نجاح الحذف', async () => {

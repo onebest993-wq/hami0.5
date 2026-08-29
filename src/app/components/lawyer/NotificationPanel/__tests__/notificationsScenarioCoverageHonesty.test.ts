@@ -33,6 +33,8 @@ describe('notifications scenario coverage honesty', () => {
         expect(fixtures).toContain('waitForNotificationInboxSeedHook');
         expect(fixtures).toContain("E2E_NOTIFICATION_USER_ID = 'guest-lawyer-1'");
         expect(fixtures).toContain('data-notification-root');
+        expect(fixtures).toContain('data-hami-notif-enter');
+        expect(fixtures).toContain('allowForceClose');
     });
 
     it('E2E الموبايل يغطي اللمس و44px والمقبض', () => {

@@ -277,7 +277,7 @@ test.describe('لوحة الإشعارات', () => {
 
         await clickPanelControl(card);
 
-        await expectNotificationsPanelClosed(page);
+        await expectNotificationsPanelClosed(page, 8_000, { allowForceClose: false });
 
         await expect(page.locator('html')).toHaveAttribute('data-hami-forum-open', '1', {
             timeout: 12_000,
@@ -477,7 +477,10 @@ test.describe('لوحة الإشعارات', () => {
 
         const panel = await openNotificationsPanel(page);
         await clickPanelControl(panel.getByTestId('notification-alert-controls-toggle'));
-        await expect(page.getByTestId('notification-alert-controls')).toBeVisible({ timeout: 8_000 });
+        await expect(panel).toHaveAttribute('data-notification-route', 'alert-controls', {
+            timeout: 8_000,
+        });
+        await expect(page.getByTestId('notification-alert-controls')).toBeVisible({ timeout: 15_000 });
         await expect(page.getByTestId('notification-sound-master')).toBeVisible();
 
         await page.keyboard.press('Escape');
@@ -489,7 +492,10 @@ test.describe('لوحة الإشعارات', () => {
         await expect(panel.getByText('رد جديد على سؤالك')).toBeVisible({ timeout: 8_000 });
 
         await clickPanelControl(panel.getByTestId('notification-alert-controls-toggle'));
-        await expect(page.getByTestId('notification-alert-controls')).toBeVisible({ timeout: 8_000 });
+        await expect(panel).toHaveAttribute('data-notification-route', 'alert-controls', {
+            timeout: 8_000,
+        });
+        await expect(page.getByTestId('notification-alert-controls')).toBeVisible({ timeout: 15_000 });
         await clickPanelControl(page.getByTestId('notification-alert-controls-back'));
         await expect(page.getByTestId('notification-alert-controls')).toBeHidden({ timeout: 5_000 });
         await expect(panel.getByText('رد جديد على سؤالك')).toBeVisible({ timeout: 8_000 });
