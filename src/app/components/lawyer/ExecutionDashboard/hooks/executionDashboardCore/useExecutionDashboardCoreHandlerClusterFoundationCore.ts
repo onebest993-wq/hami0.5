@@ -24,7 +24,7 @@ export function useExecutionDashboardCoreHandlerClusterFoundationCore(
         nextTimelineId,
         linkSeizureAuctionToAppointments,
         pushSeizureAuctionCalendarAppointment,
-    } = c as Record<string, unknown>;
+    } = c;
 
     const { firstActiveAppealDecisionId } = useExecutionDecisionAppealSnapshot({
         decisionsStorageExecutionId,

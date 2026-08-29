@@ -66,7 +66,7 @@ export function useExecutionDashboardCoreHandlerClusterSeizureCoercive(
         standaloneExecutionMarksSnapshotRef,
         setStandaloneExecutionMarks,
         getLocalTodayYmd,
-    } = c as Record<string, unknown>;
+    } = c;
 
     const { pushTimelineEvent } = deps;
     // Focus callbacks from Heavy are thin ref delegates. AssetModal bridge binds the

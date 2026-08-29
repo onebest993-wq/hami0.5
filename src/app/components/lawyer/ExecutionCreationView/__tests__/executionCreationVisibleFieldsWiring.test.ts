@@ -37,7 +37,10 @@ describe('Execution creation visible field wiring (O25)', () => {
 
     it('form body threads setters into instrument details', () => {
         const body = read('ExecutionCreationFormBody.tsx');
-        expect(body).toContain('onJudgmentDateChange={setJudgmentDate}');
-        expect(body).toContain('onEvictionPremisesUseChange={setEvictionPremisesUse}');
+        // القسم صار lazy عبر lazyProps، فالربط بصيغة كائن لا سمة JSX
+        expect(body).toMatch(/onJudgmentDateChange[:=]\s*\{?setJudgmentDate\}?/);
+        expect(body).toMatch(
+            /onEvictionPremisesUseChange[:=]\s*\{?setEvictionPremisesUse\}?/,
+        );
     });
 });

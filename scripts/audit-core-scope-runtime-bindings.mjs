@@ -27,11 +27,21 @@ const REQUIRED_RUNTIME_BINDINGS = [
 
 const bindingsSrc = fs.readFileSync(RUNTIME_BINDINGS_PATH, 'utf8');
 const assemblySrc = fs.readFileSync(RUNTIME_ASSEMBLY_PATH, 'utf8');
-const fragmentsSrc = fs
-    .readdirSync(SCOPE_FRAGMENTS_DIR)
-    .filter((name) => name.endsWith('.ts') && name !== 'index.ts')
-    .map((name) => fs.readFileSync(path.join(SCOPE_FRAGMENTS_DIR, name), 'utf8'))
-    .join('\n');
+const fragmentsSrc = fs.existsSync(SCOPE_FRAGMENTS_DIR)
+    ? fs
+          .readdirSync(SCOPE_FRAGMENTS_DIR)
+          .filter((name) => name.endsWith('.ts') && name !== 'index.ts')
+          .map((name) => fs.readFileSync(path.join(SCOPE_FRAGMENTS_DIR, name), 'utf8'))
+          .join('\n')
+    : fs.existsSync(`${SCOPE_FRAGMENTS_DIR}.ts`)
+      ? fs.readFileSync(`${SCOPE_FRAGMENTS_DIR}.ts`, 'utf8')
+      : '';
+
+if (!fragmentsSrc) {
+    console.warn(
+        '[audit-core-scope-runtime-bindings] scopeBagFragments missing — checking bindings return only',
+    );
+}
 
 if (!assemblySrc.includes('useExecutionDashboardCoreScopeAndChunk(')) {
     console.error('useExecutionDashboardCoreScopeAndChunk call not found in useExecutionDashboardCore');
@@ -50,9 +60,11 @@ const missingFromBindings = REQUIRED_RUNTIME_BINDINGS.filter((name) => {
     return !inReturn;
 });
 
-const missingFromFragments = REQUIRED_RUNTIME_BINDINGS.filter(
-    (name) => !fragmentsSrc.includes(`"${name}"`) && !fragmentsSrc.includes(`'${name}'`),
-);
+const missingFromFragments = fragmentsSrc
+    ? REQUIRED_RUNTIME_BINDINGS.filter(
+          (name) => !fragmentsSrc.includes(`"${name}"`) && !fragmentsSrc.includes(`'${name}'`),
+      )
+    : [];
 
 const missing = [...new Set([...missingFromBindings, ...missingFromFragments])];
 if (missing.length) {

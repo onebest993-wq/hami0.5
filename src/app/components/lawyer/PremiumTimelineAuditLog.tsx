@@ -14,7 +14,7 @@ import {
 } from '@/app/utils/timelineSmartDisplay';
 import { dedupeTimelineEventsForDisplay } from '@/app/utils/timelineDedup';
 
-interface PremiumTimelineAuditLogProps {
+export interface PremiumTimelineAuditLogProps {
     events: ExecutionTimelineEvent[];
     onRequestTrash?: (event: ExecutionTimelineEvent) => void;
     onRequestEdit?: (event: ExecutionTimelineEvent) => void;

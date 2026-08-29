@@ -14,7 +14,7 @@ export function useExecutionDashboardCoreHandlerClusterFoundationTimeline(
         setTimelineEvents,
         pushTimelineEventRef,
         timelineEventsRef,
-    } = c as Record<string, unknown>;
+    } = c;
 
     const pushTimelineEventBinding = useExecutionDashboardPushTimelineEvent({
         executionId,

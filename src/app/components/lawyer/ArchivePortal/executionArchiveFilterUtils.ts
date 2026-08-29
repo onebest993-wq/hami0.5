@@ -92,11 +92,11 @@ export function isLegalEntityPerspectiveAllowed(
 }
 
 function isLegalEntityFromIndex(file: LooseArchiveFile): boolean {
-    const rec = file as Record<string, unknown>;
+    const rec = file as unknown as Record<string, unknown>;
     if (isLegalEntityDebtorKind(rec.debtor_entity_kind as string)) return true;
     if (isLegalEntityDebtorKind(rec.debtor_entity_type as string)) return true;
-    const d0 = Array.isArray(file.debtors)
-        ? (file.debtors[0] as Record<string, unknown> | undefined)
+    const d0 = Array.isArray(rec.debtors)
+        ? (rec.debtors[0] as Record<string, unknown> | undefined)
         : undefined;
     if (!d0) return false;
     return isLegalEntityDebtorKind(
@@ -112,8 +112,9 @@ export function matchesExecutionPerspectiveFilter(
     if (filter === 'all') return true;
     if (filter === 'legal_entity' && !isLegalEntityPerspectiveAllowed(jurisdiction)) return false;
 
-    if (filter === 'debtor_agent') return isLawyerRepresentingDebtor(file);
-    if (filter === 'creditor_agent') return !isLawyerRepresentingDebtor(file);
+    const rec = file as unknown as Record<string, unknown>;
+    if (filter === 'debtor_agent') return isLawyerRepresentingDebtor(rec);
+    if (filter === 'creditor_agent') return !isLawyerRepresentingDebtor(rec);
 
     if (isShariaExecutionArchive(file)) return false;
     return isLegalEntityFromIndex(file);

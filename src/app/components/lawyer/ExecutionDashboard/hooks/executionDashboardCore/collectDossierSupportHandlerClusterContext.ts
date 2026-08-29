@@ -40,6 +40,6 @@ const DOSSIER_SUPPORT_HANDLER_CLUSTER_KEYS = Array.from(
 
 export function collectDossierSupportHandlerClusterContext(
     spreads: HandlerClusterContextSpreads,
-): Record<string, unknown> {
+) {
     return pickHandlerClusterKeys(handlerClusterSourceBags(spreads), DOSSIER_SUPPORT_HANDLER_CLUSTER_KEYS);
 }

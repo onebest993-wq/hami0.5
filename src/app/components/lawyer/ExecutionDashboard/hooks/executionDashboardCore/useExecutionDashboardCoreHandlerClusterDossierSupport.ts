@@ -45,7 +45,7 @@ export function useExecutionDashboardCoreHandlerClusterDossierSupport(
         setExecutionStorageTick,
         setTimelineEvents,
         showToast,
-    } = c as Record<string, unknown>;
+    } = c;
 
     const dossierLifecycleActions = useExecutionDossierLifecycleActionsOrchestrator({
         executionData,

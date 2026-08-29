@@ -29,7 +29,7 @@ export function useExecutionDashboardCoreHandlerClusterSeizureHeavy(c: Execution
 
     const seizureFollowupBlock = useExecutionDashboardCoreHandlerClusterSeizureFollowup(c, { pushTimelineEvent });
 
-    const resolved = c as Record<string, unknown>;
+    const resolved = c;
     // Thin delegates — AssetModal bridge populates the real impls on these refs.
     const focusSeizurePropertyInlineCompletion = bindFocusViaRef(resolved.focusSeizurePropertyInlineRef);
     const focusSeizureMovableInlineCompletion = bindFocusViaRef(resolved.focusSeizureMovableInlineRef);

@@ -27,6 +27,8 @@ export type ArchiveDossierIdentityBlockProps = {
     } | null;
     /** inline = صف أرشيف مضغوط · grid = تسمية فوق القيمة (المستعجل) */
     metaLayout?: 'inline' | 'grid';
+    /** يحجز ارتفاع صف الموعد فارغاً لمحاذاة الشبكة عندما لا يوجد hearing */
+    reserveHearingSlot?: boolean;
 };
 
 function roleColor(tone: 'plaintiff' | 'defendant' | 'primary'): string {

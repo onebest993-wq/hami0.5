@@ -1,8 +1,9 @@
 import React from 'react';
 import { ChevronRight } from '@/app/components/ui/icons/ChevronRight';
 import { Send } from '@/app/components/ui/icons/Send';
+import type { HamiIcon } from '@/app/components/ui/icons/hamiIcon';
 
-type IconComponent = React.ComponentType<{ size?: number; className?: string }>;
+type IconComponent = HamiIcon;
 
 const CATALOG_BUTTON_CLASS =
     'flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[10px] font-bold text-slate-300 transition-all hover:border-emerald-500/35 hover:bg-emerald-950/25 hover:text-emerald-100';

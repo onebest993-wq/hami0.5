@@ -132,7 +132,7 @@ export function useExecutionDashboardCoreHandlerClusterEviction(
         timelineEvents,
         timelineEventsRef,
         vacateDeadline,
-    } = c as Record<string, unknown>;
+    } = c;
 
     const gracePeriodEndHandler = useExecutionDashboardGracePeriodEndHandler({
         debtorNotificationDate,

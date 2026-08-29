@@ -1,21 +1,47 @@
+import type { ExecutionFollowupOrchestratorSlice } from '../../orchestrators/executionFollowupOrchestratorTypes';
+import type { ExecutionSeizureOrchestratorSlice } from '../../orchestrators/executionSeizureOrchestratorTypes';
+import type { ExecutionCoercionOrchestratorSlice } from '../../orchestrators/executionCoercionOrchestratorTypes';
+import type { ExecutionDossierLifecyclePanelOrchestratorSlice } from '../../orchestrators/executionOrchestratorSliceTypes';
+import type { ExecutionDecisionsOrchestratorSlice } from '../../orchestrators/executionDecisionsOrchestratorTypes';
+import type { ExecutionDashboardCoreWorkspacePipelineValue } from './executionDashboardCoreWorkspacePipelineTypes';
+
 export type HandlerClusterContextSpreads = {
-    followupOrchestrator: Record<string, unknown>;
-    seizureOrchestrator: Record<string, unknown>;
-    coercionOrchestrator: Record<string, unknown>;
-    dossierLifecyclePanel: Record<string, unknown>;
-    claimFinancials: Record<string, unknown>;
-    graceAndSummoning: Record<string, unknown>;
-    debtorWorkspaceContext: Record<string, unknown>;
-    subsequentNoticeFlow: Record<string, unknown>;
-    followupTabAssembly: Record<string, unknown>;
-    followupSeizureTabs: Record<string, unknown>;
-    decisionsOrchestrator: Record<string, unknown>;
-    core: Record<string, unknown>;
+    followupOrchestrator: ExecutionFollowupOrchestratorSlice;
+    seizureOrchestrator: ExecutionSeizureOrchestratorSlice;
+    coercionOrchestrator: ExecutionCoercionOrchestratorSlice;
+    dossierLifecyclePanel: ExecutionDossierLifecyclePanelOrchestratorSlice;
+    claimFinancials: object;
+    graceAndSummoning: object;
+    debtorWorkspaceContext: object;
+    subsequentNoticeFlow: object;
+    followupTabAssembly: object;
+    followupSeizureTabs: object;
+    decisionsOrchestrator: ExecutionDecisionsOrchestratorSlice;
+    core: ExecutionDashboardCoreWorkspacePipelineValue;
 };
+
+/** نتيجة تسطيح حقائب المنظّم — مصدر حقيقة حقول المعالجات. */
+export type HandlerClusterFlatContext = ExecutionDashboardCoreWorkspacePipelineValue &
+    ExecutionFollowupOrchestratorSlice &
+    ExecutionSeizureOrchestratorSlice &
+    ExecutionCoercionOrchestratorSlice &
+    ExecutionDossierLifecyclePanelOrchestratorSlice &
+    ExecutionDecisionsOrchestratorSlice;
+
+export function asHandlerClusterSpreads(input: object): HandlerClusterContextSpreads {
+    return input as unknown as HandlerClusterContextSpreads;
+}
+
+export function asPickedHandlerClusterContext(value: Record<string, unknown>): HandlerClusterFlatContext {
+    return value as unknown as HandlerClusterFlatContext;
+}
+
+/** سلك الجسر: حقائب متداخلة، حقيبة مسطّحة، أو فارغ قبل التحميل. */
+export type HandlerClusterBridgeInput = object;
 
 export function collectFullHandlerClusterContext(
     spreads: HandlerClusterContextSpreads,
-): Record<string, unknown> {
+): HandlerClusterFlatContext {
     return {
         ...spreads.core,
         ...spreads.followupOrchestrator,
@@ -29,26 +55,27 @@ export function collectFullHandlerClusterContext(
         ...spreads.followupTabAssembly,
         ...spreads.followupSeizureTabs,
         ...spreads.decisionsOrchestrator,
-    };
+    } as HandlerClusterFlatContext;
 }
 
 export function pickHandlerClusterKeys(
-    bags: ReadonlyArray<Record<string, unknown>>,
+    bags: ReadonlyArray<object>,
     keys: readonly string[],
-): Record<string, unknown> {
+): HandlerClusterFlatContext {
     const out: Record<string, unknown> = {};
     for (const bag of bags) {
         if (!bag || typeof bag !== 'object') continue;
+        const rec = bag as Record<string, unknown>;
         for (const key of keys) {
-            if (key in bag) out[key] = bag[key];
+            if (key in rec) out[key] = rec[key];
         }
     }
-    return out;
+    return asPickedHandlerClusterContext(out);
 }
 
 export function handlerClusterSourceBags(
     spreads: HandlerClusterContextSpreads,
-): ReadonlyArray<Record<string, unknown>> {
+): ReadonlyArray<object> {
     return [
         spreads.core,
         spreads.followupOrchestrator,
@@ -72,14 +99,15 @@ export function handlerClusterSourceBags(
  * (الحقيبة اللاحقة تتغلّب على السابقة).
  */
 export function readHandlerClusterContextValue(
-    input: Record<string, unknown>,
+    input: object,
     key: string,
 ): unknown {
-    if (key in input) return input[key];
+    const rec = input as Record<string, unknown>;
+    if (key in rec) return rec[key];
     let out: unknown;
     for (const bag of handlerClusterSourceBags(input as HandlerClusterContextSpreads)) {
         if (bag && typeof bag === 'object' && key in bag) {
-            out = bag[key];
+            out = (bag as Record<string, unknown>)[key];
         }
     }
     return out;

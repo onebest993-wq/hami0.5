@@ -145,14 +145,8 @@ export function buildPersonalCoerciveDecisionRow(input: {
     date: string;
     subtype: PersonalCoerciveSubtypeBuilder;
     debtorKey?: string;
-    /**
-     * إرث فقط — كان يُكتب ciphertext محلياً ولم يُقرأ.
-     * المسار الحالي: plaintext محلي؛ تشفير الإضبارة عند المزامنة السحابية فقط.
-     */
-    encryptedPayloadJson?: string;
 }) {
     const debtorKey = asTrimmed(input.debtorKey);
-    const encryptedPayloadJson = asTrimmed(input.encryptedPayloadJson);
     return {
         id: input.id,
         title: input.title,
@@ -162,7 +156,6 @@ export function buildPersonalCoerciveDecisionRow(input: {
         appealRequestOrigin: 'creditor_side' as const,
         personalCoerciveSubtype: input.subtype,
         ...(debtorKey ? { personalCoerciveDebtorKey: debtorKey } : {}),
-        ...(encryptedPayloadJson ? { encryptedPayloadJson } : {}),
         ...buildHubDefaults(),
     };
 }

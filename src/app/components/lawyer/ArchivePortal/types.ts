@@ -36,9 +36,10 @@ export type LooseArchiveFile = (CaseFile | ExecutionArchiveFile) & {
 };
 
 export type StageWithCaseMeta = Omit<Stage, 'status'> & {
-    status?: Stage['status'] | 'voided';
+    status?: Stage['status'] | 'voided' | 'abandoned';
     isVoided?: boolean;
     interruptionDate?: string;
+    abandonmentDate?: string;
     finalDecision?: string;
     legalTimers?: {
         appealDeadline?: string;

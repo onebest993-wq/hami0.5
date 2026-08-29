@@ -249,7 +249,7 @@ export function useExecutionDashboardCoreWorkspacePipeline(p: ExecutionDashboard
         creditorAttended, executionPaused, setExecutionPaused, showUnifiedSummonsModal, setShowUnifiedSummonsModal,
         coercionOrchestrator, lastActionDate, setLastActionDate, showStatuteWarning, setShowStatuteWarning, dossierLifecyclePanel,
         showExecutionTrashModal, setShowExecutionTrashModal, permanentDeleteTimelineId, setPermanentDeleteTimelineId,
-        paidDebt, paidDebtRef, paidCourtFees, setPaidCourtFees, paidDirectorateFees, setPaidDirectorateFees, paidClientFees, setPaidClientFees,
+        paidDebt, setPaidDebt, paidDebtRef, paidCourtFees, setPaidCourtFees, paidDirectorateFees, setPaidDirectorateFees, paidClientFees, setPaidClientFees,
         ...timelineAssets,
         isPaused, setIsPaused, pauseReason, setPauseReason, executionFeeAdded,
         toastVisible, toastMessage, toastType, toastEpoch, showToast, hideToast, showToastRef,
@@ -261,5 +261,6 @@ export function useExecutionDashboardCoreWorkspacePipeline(p: ExecutionDashboard
         showExecutionFinancialHub, setShowExecutionFinancialHub, financialHubAutoOpenMode, setFinancialHubAutoOpenMode,
         financialHubSeizedMovableId, setFinancialHubSeizedMovableId, financialHubSeizedPropertyId, setFinancialHubSeizedPropertyId,
         openFinancialHubLedger, thirdPartySeizuresUi, setThirdPartySeizuresUi, applyThirdPartySeizuresFromPatch,
+        setShowNotesModal,
     };
 }

@@ -210,7 +210,6 @@ export function useVisitationScheduleModuleState({
 
     const scheduleHint = useMemo(() => {
         if (!ready) {
-            return config
             return config ? '' : 'أكمل إعداد الجدول ثم اضغط «توليد الجدول»';
         }
         if (nearestSession) {

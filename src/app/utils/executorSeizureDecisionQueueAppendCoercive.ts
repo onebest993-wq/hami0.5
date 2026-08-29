@@ -31,7 +31,6 @@ export function appendPersonalCoerciveExecutorRequest(input: {
     debtorKey?: string;
     /** مفتاح المدين الأساسي (لتفسير الطلبات القديمة غير المقيّدة بمفتاح) */
     primaryDebtorKey?: string;
-    encryptedPayloadJson?: string;
 }): { ok: boolean; decisionId?: string } {
     if (
         !assertDomainGate(input.executionId, 'personal_coercive', {
@@ -111,9 +110,6 @@ export function appendPersonalCoerciveExecutorRequest(input: {
             appealRequestOrigin: 'creditor_side' as const,
             personalCoerciveSubtype: input.subtype,
             ...(targetDebtorKey ? { personalCoerciveDebtorKey: targetDebtorKey } : {}),
-            ...(String(input.encryptedPayloadJson || '').trim()
-                ? { encryptedPayloadJson: input.encryptedPayloadJson }
-                : {}),
             ...executorDecisionRowHubDefaults(),
         };
         arr.unshift(row);

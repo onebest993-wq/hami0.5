@@ -99,7 +99,6 @@ describe('executor request decision builders', () => {
             date: '2026-07-11',
             subtype: 'travel_ban',
             debtorKey: ' debtor-1 ',
-            encryptedPayloadJson: '  enc  ',
         });
         const eviction = buildEvictionExecutorDecisionRow({
             id: 'ev-1',
@@ -114,9 +113,9 @@ describe('executor request decision builders', () => {
             requestKind: 'personal_coercive',
             personalCoerciveSubtype: 'travel_ban',
             personalCoerciveDebtorKey: 'debtor-1',
-            encryptedPayloadJson: 'enc',
             appealRequestOrigin: 'creditor_side',
         });
+        expect(personal).not.toHaveProperty('encryptedPayloadJson');
         expect(eviction).toMatchObject({
             requestKind: 'eviction_procedure',
             evictionWorkflowKey: 'field_visit_or_grace',

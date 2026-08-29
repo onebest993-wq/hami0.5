@@ -13,6 +13,7 @@ import {
     type SeizureLogTab,
 } from '@/app/components/lawyer/execution/unifiedSeizureLogTabTypes';
 import type { UnifiedSeizureLogEntry } from '@/app/components/lawyer/execution/unifiedSeizureLogEntryTypes';
+import type { HamiIcon } from '@/app/components/ui/icons/hamiIcon';
 
 export type { SeizureLogTab } from '@/app/components/lawyer/execution/unifiedSeizureLogTabTypes';
 export { isSeizureLogTab } from '@/app/components/lawyer/execution/unifiedSeizureLogTabTypes';
@@ -23,7 +24,7 @@ export type {
 
 const TAB_META: Record<
     SeizureLogTab,
-    { label: string; Icon: React.ComponentType<{ size?: number; className?: string }>; active: string; idle: string }
+    { label: string; Icon: HamiIcon; active: string; idle: string }
 > = {
     property: {
         label: 'عقار',

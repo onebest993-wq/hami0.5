@@ -9,6 +9,7 @@ import { Pin } from '@/app/components/ui/icons/Pin';
 import { formatArTaskDate, ntm } from './notesTasksModalUi';
 import { TaskStepDisplayRow } from './TaskStepDisplayRow';
 import { EXEC_MODAL_TOUCH_TARGET } from '../executionModalMobileShell';
+import type { ExecutionTask, TaskStep } from './executionTasksSection.types';
 
 export type ExecutionActiveTaskCardProps = {
     task: ExecutionTask;

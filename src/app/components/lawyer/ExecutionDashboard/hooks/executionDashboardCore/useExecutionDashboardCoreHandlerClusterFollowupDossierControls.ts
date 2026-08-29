@@ -21,7 +21,7 @@ export function useExecutionDashboardCoreHandlerClusterFollowupDossierControls(
         setDossierActionModalSaving,
         setDossierActionModalType,
         setExecutionStorageTick,
-    } = c as Record<string, unknown>;
+    } = c;
 
     const dossierFollowupHandlers = useExecutionDashboardDossierControlsHandlers({
         executionData,

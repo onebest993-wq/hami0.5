@@ -18,7 +18,7 @@ export function useExecutionDashboardCoreHandlerClusterFoundationSeizure(
         getLocalTodayYmd,
         showToast,
         setThirdPartySeizuresUi,
-    } = c as Record<string, unknown>;
+    } = c;
 
     const realEstateSeizureHandlers = useExecutionDashboardRealEstateSeizureModalHandlers({
         decisionsStorageExecutionId,

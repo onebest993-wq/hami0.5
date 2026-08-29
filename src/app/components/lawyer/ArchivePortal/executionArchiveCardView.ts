@@ -77,18 +77,18 @@ export function resolveExecutionArchiveCardView(
     unifiedMeta?: { unifiedCount?: number; unifiedTotalDemand?: number },
 ): ExecutionArchiveCardView {
     const snap = file as unknown as ExecutionFile;
+    const rec = file as unknown as Record<string, unknown>;
     const { fileNumber, year } = resolveExecutionArchiveFileNumberYear(file);
     const directorateLabel = String((file as { directorate?: string }).directorate || '').trim() || null;
     const courtRaw = typeof file.court === 'string' ? file.court.trim() : '';
     const court = courtRaw || directorateLabel || 'غير محدد';
-    const isRepresentingDebtor = isLawyerRepresentingDebtor(file);
-    const primaryDebtorKey = String(
-        (Array.isArray(file.debtors) && file.debtors[0]
-            ? (file.debtors[0] as { id?: string }).id
-            : '') ?? '',
-    ).trim();
+    const isRepresentingDebtor = isLawyerRepresentingDebtor(snap);
+    const debtorRows = Array.isArray(rec.debtors)
+        ? (rec.debtors as Array<{ id?: string } | null>)
+        : [];
+    const primaryDebtorKey = String(debtorRows[0]?.id ?? '').trim();
     const debtorEntityKind = resolveDebtorEntityKind({
-        executionData: file,
+        executionData: snap,
         debtorKey: primaryDebtorKey,
     });
     const debtorEntityKindLabel = DEBTOR_ENTITY_KIND_LABELS[debtorEntityKind];

@@ -1,4 +1,5 @@
 import type { ExecutionFile } from '@/app/types/execution';
+import { asUnknownRecord } from '@/app/utils/asUnknownRecord';
 import {
     filterTimelineEventsForInabaDossier,
     isInabaSubFileId,
@@ -63,11 +64,11 @@ function fillMissingInstrumentFields(
     ] as const;
     let next: ExecutionFileLegacyShape | null = null;
     for (const key of keys) {
-        const fromTarget = String((target as Record<string, unknown>)[key] ?? '').trim();
-        const fromSource = String((source as Record<string, unknown>)[key] ?? '').trim();
+        const fromTarget = String(asUnknownRecord(target)[key] ?? '').trim();
+        const fromSource = String(asUnknownRecord(source)[key] ?? '').trim();
         if (!fromTarget && fromSource) {
             if (!next) next = { ...target };
-            (next as Record<string, unknown>)[key] = (source as Record<string, unknown>)[key];
+            asUnknownRecord(next)[key] = asUnknownRecord(source)[key];
         }
     }
     return next ?? target;
@@ -210,9 +211,9 @@ export function buildExecutionViewData({
                         maritalFurnitureFinancialContentSignature(resolved),
                         maritalFurnitureFinancialContentSignature(stored),
                     ],
-                    ...PERSONAL_COERCIVE_PERSIST_SIGNATURE_KEYS.map((key) => [
-                        (resolved as Record<string, unknown>)[key] ?? null,
-                        (stored as Record<string, unknown>)[key] ?? null,
+                    ...PERSONAL_COERCIVE_PERSIST_SIGNATURE_KEYS.map((key): [unknown, unknown] => [
+                        asUnknownRecord(resolved)[key] ?? null,
+                        asUnknownRecord(stored)[key] ?? null,
                     ]),
                 ];
                 for (const [fromFile, fromStore] of pairs) {

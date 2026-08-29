@@ -169,7 +169,6 @@ export function appendPersonalCoerciveExecutorRequestRows(input: {
     body: string;
     debtorKey?: string;
     primaryDebtorKey?: string;
-    encryptedPayloadJson?: string;
     todayYmd: string;
     decisionId: string;
     nowIso: string;
@@ -203,7 +202,6 @@ export function appendPersonalCoerciveExecutorRequestRows(input: {
         date: input.todayYmd,
         subtype: input.subtype,
         debtorKey: normalizeText(input.debtorKey),
-        encryptedPayloadJson: input.encryptedPayloadJson,
     });
     rows = [row, ...rows];
     return { rows, ok: true, decisionId: input.decisionId };

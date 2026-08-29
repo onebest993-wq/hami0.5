@@ -24,6 +24,6 @@ const FOLLOWUP_ADMIN_SPECIAL_HANDLER_CLUSTER_KEYS = Array.from(
 
 export function collectFollowupAdminSpecialHandlerClusterContext(
     spreads: HandlerClusterContextSpreads,
-): Record<string, unknown> {
+) {
     return pickHandlerClusterKeys(handlerClusterSourceBags(spreads), FOLLOWUP_ADMIN_SPECIAL_HANDLER_CLUSTER_KEYS);
 }

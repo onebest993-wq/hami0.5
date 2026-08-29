@@ -9,6 +9,7 @@ import { Shield } from '@/app/components/ui/icons/Shield';
 import { ShieldAlert } from '@/app/components/ui/icons/ShieldAlert';
 import { UserX } from '@/app/components/ui/icons/UserX';
 import { Wallet } from '@/app/components/ui/icons/Wallet';
+import type { HamiIcon } from '@/app/components/ui/icons/hamiIcon';
 import { HiddenGuarantorRequestOptions } from './HiddenGuarantorRequestOptions';
 import { HiddenBreakInventoryRequestOptions } from './HiddenBreakInventoryRequestOptions';
 import { HiddenPersonalCoerciveRequestOptions } from './HiddenPersonalCoerciveRequestOptions';
@@ -55,7 +56,7 @@ type HiddenSelection =
 
 const PERSONAL_ICONS: Record<
     HiddenPersonalCoerciveRequestKey,
-    React.ComponentType<{ size?: number; className?: string }>
+    HamiIcon
 > = {
     forced_bring_in: UserX,
     travel_ban: Plane,
@@ -66,7 +67,7 @@ const PERSONAL_ICONS: Record<
 
 const GUARANTOR_ICONS: Record<
     HiddenGuarantorRequestKey,
-    React.ComponentType<{ size?: number; className?: string }>
+    HamiIcon
 > = {
     guarantor_request: Shield,
     guarantor_seizure_salary: Wallet,
@@ -107,7 +108,7 @@ export const HiddenFollowupRequestOptions: React.FC<HiddenFollowupRequestOptions
         const items: Array<{
             id: string;
             label: string;
-            Icon: React.ComponentType<{ size?: number; className?: string }>;
+            Icon: HamiIcon;
             selection: HiddenSelection;
         }> = [];
 

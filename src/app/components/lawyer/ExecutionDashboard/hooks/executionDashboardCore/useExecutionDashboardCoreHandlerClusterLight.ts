@@ -69,7 +69,7 @@ export function useExecutionDashboardCoreHandlerClusterLight(c: ExecutionDashboa
         timelineEventsRef,
         totalOwed,
         totalWithExecutionFee,
-    } = c as Record<string, unknown>;
+    } = c;
 
     const pushTimelineEventBinding = useExecutionDashboardPushTimelineEvent({
         executionId,

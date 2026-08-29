@@ -18,23 +18,13 @@ import { pickFollowupAdminSpecialHandlerClusterInput } from './followupAdminSpec
 import { pickFollowupOtherPartyHandlerClusterInput } from './followupOtherPartyHandlerClusterInput';
 import { mergeHandlerClusterPatch } from './handlerClusterPublishUtils';
 import { prefetchExecutionCoreHandlers } from '../../executionCoreHandlersPrefetch';
+import type { HandlerClusterContextSpreads } from './handlerClusterContextShared';
+import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import type { ExecutionDashboardCoreWorkspacePipelineValue } from './executionDashboardCoreWorkspacePipelineTypes';
 
-const EMPTY_HANDLER_CLUSTER_INPUT = Object.freeze({});
+const EMPTY_HANDLER_CLUSTER_INPUT = Object.freeze({}) as ExecutionDashboardCoreHandlerClusterInput;
 
-export type ExecutionDashboardHandlerClusterHeavySpreads = {
-    followupOrchestrator: Record<string, unknown>;
-    seizureOrchestrator: Record<string, unknown>;
-    coercionOrchestrator: Record<string, unknown>;
-    dossierLifecyclePanel: Record<string, unknown>;
-    claimFinancials: Record<string, unknown>;
-    graceAndSummoning: Record<string, unknown>;
-    debtorWorkspaceContext: Record<string, unknown>;
-    subsequentNoticeFlow: Record<string, unknown>;
-    followupTabAssembly: Record<string, unknown>;
-    followupSeizureTabs: Record<string, unknown>;
-    decisionsOrchestrator: Record<string, unknown>;
-    core: Record<string, unknown>;
-};
+export type ExecutionDashboardHandlerClusterHeavySpreads = HandlerClusterContextSpreads;
 
 export function useExecutionDashboardCoreHandlerClusterRuntime({
     executionId,
@@ -48,7 +38,7 @@ export function useExecutionDashboardCoreHandlerClusterRuntime({
     activeTabId: string;
     activeFollowupDebtorKey: string | null | undefined;
     handlerClusterGateInput: ExecutionHandlerClusterGateInput;
-    coreRuntimeVars: Record<string, unknown>;
+    coreRuntimeVars: ExecutionDashboardCoreWorkspacePipelineValue;
     heavySpreadSources: Omit<ExecutionDashboardHandlerClusterHeavySpreads, 'core'>;
 }) {
     const loadLightHandlerCluster = shouldLoadExecutionHandlerClusterLight(handlerClusterGateInput);

@@ -49,4 +49,36 @@ describe('buildExecutionDashboardCoreAssemblyHandlers', () => {
 
         expect(result.handleDebtorDeathMenuAction).toBe(debtorDeath);
     });
+
+    it('flattens trash / party-edit / dossier-meta bags onto assembly output', () => {
+        const restoreTimeline = vi.fn();
+        const saveParty = vi.fn();
+        const saveDossierMeta = vi.fn();
+        const result = buildExecutionDashboardCoreAssemblyHandlers({
+            handlerCluster: {},
+            coreRuntimeVars: {
+                handleMemoFollowupClick: () => 'memo',
+                openFollowupModalPersisted: () => undefined,
+                trashAndPinsHandlers: {
+                    restoreTimelineEventFromTrash: restoreTimeline,
+                    permanentlyDeleteTimelineEvent: vi.fn(),
+                },
+                partyEditWorkflow: {
+                    savePartyEditDraft: saveParty,
+                    editPartyTarget: null,
+                },
+                dossierMetaWorkflow: {
+                    dossierMetaDraft: { fileNumber: '1' },
+                    saveDossierMetaDraft: saveDossierMeta,
+                },
+            },
+            coreDossierLifecycleActions: {},
+            coreResidentHandlers: {},
+        });
+
+        expect(result.restoreTimelineEventFromTrash).toBe(restoreTimeline);
+        expect(result.savePartyEditDraft).toBe(saveParty);
+        expect(result.saveDossierMetaDraft).toBe(saveDossierMeta);
+        expect(result.dossierMetaDraft).toEqual({ fileNumber: '1' });
+    });
 });

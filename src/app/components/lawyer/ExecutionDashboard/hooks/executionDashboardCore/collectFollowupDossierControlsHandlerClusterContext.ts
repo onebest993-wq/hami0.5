@@ -25,7 +25,7 @@ const FOLLOWUP_DOSSIER_CONTROLS_HANDLER_CLUSTER_KEYS = Array.from(
 
 export function collectFollowupDossierControlsHandlerClusterContext(
     spreads: HandlerClusterContextSpreads,
-): Record<string, unknown> {
+) {
     return pickHandlerClusterKeys(
         handlerClusterSourceBags(spreads),
         FOLLOWUP_DOSSIER_CONTROLS_HANDLER_CLUSTER_KEYS,

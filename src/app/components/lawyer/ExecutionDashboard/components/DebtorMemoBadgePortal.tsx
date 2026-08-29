@@ -3,6 +3,7 @@ import type { ElementType, Dispatch, SetStateAction } from 'react';
 import { createPortal } from 'react-dom';
 import { EXEC_MODAL_CLOSE_BTN_CLASS } from '@/app/components/lawyer/ExecutionDashboard/executionModalMobileShell';
 import { useExecutionOverlayDismiss } from '@/app/components/lawyer/ExecutionDashboard/useExecutionOverlayDismiss';
+import type { MemoNoticeBadge } from './DebtorsSection.types';
 
 export function DebtorMemoBadgePortal({
     open,

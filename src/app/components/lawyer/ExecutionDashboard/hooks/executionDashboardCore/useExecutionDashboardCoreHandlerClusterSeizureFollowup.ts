@@ -21,7 +21,7 @@ export function useExecutionDashboardCoreHandlerClusterSeizureFollowup(
         setPropertySeizureRequestModalOpen,
         setPropertySeizureSubjectDraft,
         showToast,
-    } = c as Record<string, unknown>;
+    } = c;
 
     const followupSeizureHandlers = useExecutionDashboardFollowupSeizureHandlers({
         decisionsStorageExecutionId,

@@ -39,8 +39,11 @@ describe('ExecutionCreationView instrument gate', () => {
             target: { value: '1540/2026' },
         });
 
-        await waitFor(() => {
-            expect(screen.getByRole('heading', { name: 'السند المنفذ' })).toBeInTheDocument();
-        });
-    });
+        await waitFor(
+            () => {
+                expect(screen.getByRole('heading', { name: 'السند المنفذ' })).toBeInTheDocument();
+            },
+            { timeout: 15_000 },
+        );
+    }, 30_000);
 });

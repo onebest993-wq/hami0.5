@@ -26,7 +26,9 @@ export function ExecutionCreationPortal({ isOpen, onClose, onSave }: ExecutionCr
             lazyProps={{
                 isOpen,
                 onClose,
-                onSave: onSave as (fileData: ExecutionArchiveFile) => void,
+                onSave: (fileData: ExecutionArchiveFile) => {
+                    onSave(fileData as unknown as Record<string, unknown>);
+                },
             }}
             fallback={<ExecutionCreationBootShell onClose={onClose} />}
         />

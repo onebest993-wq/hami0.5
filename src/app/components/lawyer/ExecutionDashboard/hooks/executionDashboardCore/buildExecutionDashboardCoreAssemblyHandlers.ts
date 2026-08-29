@@ -68,12 +68,39 @@ export function buildExecutionDashboardCoreAssemblyHandlers({
         !isExecutionHandlerStubLeaf(partyDeathHandlersBag)
             ? (partyDeathHandlersBag as Record<string, unknown>)
             : {};
+    const trashAndPinsBag = coreHandlers.trashAndPinsHandlers;
+    const flattenedTrashAndPins =
+        trashAndPinsBag &&
+        typeof trashAndPinsBag === 'object' &&
+        !Array.isArray(trashAndPinsBag) &&
+        !isExecutionHandlerStubLeaf(trashAndPinsBag)
+            ? (trashAndPinsBag as Record<string, unknown>)
+            : {};
+    const partyEditBag = coreHandlers.partyEditWorkflow;
+    const flattenedPartyEdit =
+        partyEditBag &&
+        typeof partyEditBag === 'object' &&
+        !Array.isArray(partyEditBag) &&
+        !isExecutionHandlerStubLeaf(partyEditBag)
+            ? (partyEditBag as Record<string, unknown>)
+            : {};
+    const dossierMetaBag = coreHandlers.dossierMetaWorkflow;
+    const flattenedDossierMeta =
+        dossierMetaBag &&
+        typeof dossierMetaBag === 'object' &&
+        !Array.isArray(dossierMetaBag) &&
+        !isExecutionHandlerStubLeaf(dossierMetaBag)
+            ? (dossierMetaBag as Record<string, unknown>)
+            : {};
     return {
         ...clusterHandlers,
         ...coreHandlers,
         ...pinnedNotesHandlers,
         ...mergedHandlerGroups,
         ...flattenedPartyDeathHandlers,
+        ...flattenedTrashAndPins,
+        ...flattenedPartyEdit,
+        ...flattenedDossierMeta,
         notesTasksHandlers,
         dossierLifecycleActions,
         ...(dossierFollowupHandlers ? { dossierFollowupHandlers } : {}),

@@ -13,3 +13,6 @@ export type { ExecutionDashboardCoreGraceMasterEvictionPipelineInput } from '../
 export type { ExecutionDashboardCorePersistHandlerPipelineInput } from '../executionDashboardCorePersistHandlerPipelineInput';
 
 export type AnyRecord = Record<string, unknown>;
+
+export type { ExecutionDashboardCoreWorkspacePipelineValue, ExecutionDashboardCoreWorkspacePipelineChainBag } from '../executionDashboardCoreWorkspacePipelineTypes';
+export type { ExecutionDashboardCoreGraceMasterEvictionPipelineValue } from '../executionDashboardCoreGraceMasterEvictionPipelineTypes';

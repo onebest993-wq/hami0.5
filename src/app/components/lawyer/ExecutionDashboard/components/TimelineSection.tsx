@@ -1,6 +1,8 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, ElementType, SetStateAction, TransitionStartFunction } from 'react';
 import type { TimelineEvent } from '@/app/types/execution';
+import type { SmartTimelineRadarProps } from '@/app/components/lawyer/SmartTimelineRadar';
+import type { PremiumTimelineAuditLogProps } from '@/app/components/lawyer/PremiumTimelineAuditLog';
 import { useEntityCalendarEvents } from '@/app/hooks/useEntityCalendarEvents';
 import { mergeTimelineEventsWithCalendar } from '@/app/utils/calendarTimelineMerge';
 import {
@@ -24,13 +26,7 @@ interface TimelineSectionProps {
     activeTimelineEventsDebtorScoped: TimelineEvent[];
     activeTimelineEvents: TimelineEvent[];
     EXEC_OVERLAY_LAZY_FALLBACK: React.ReactNode;
-    SmartTimelineRadar: React.ComponentType<{
-        events: TimelineEvent[];
-        onTogglePin: (ev: TimelineEvent) => void;
-        onOpenFull: () => void;
-        previewLimit: number;
-        isHistoricalMode: boolean;
-    }>;
+    SmartTimelineRadar: React.ComponentType<SmartTimelineRadarProps>;
     toggleTimelineEventPin: (ev: TimelineEvent) => void;
     setShowTimelineModal?: (show: boolean) => void;
     timelineRadarPreviewLimit: number;
@@ -38,13 +34,7 @@ interface TimelineSectionProps {
     activeTimelineFilter: string;
     setActiveTimelineFilter: Dispatch<SetStateAction<string>>;
     todayYmd: string;
-    PremiumTimelineAuditLog: React.ComponentType<{
-        events: TimelineEvent[];
-        onTogglePin: (ev: TimelineEvent) => void;
-        onRequestTrash: (ev: TimelineEvent) => void;
-        onRequestEdit: (ev: TimelineEvent) => void;
-        isHistoricalMode: boolean;
-    }>;
+    PremiumTimelineAuditLog: React.ComponentType<PremiumTimelineAuditLogProps>;
     moveTimelineEventToTrash: (ev: TimelineEvent) => void;
     onRequestEditTimelineEvent: (ev: TimelineEvent) => void;
     /** الإضبارة الأم/الفرعية — أحداث مدمجة */

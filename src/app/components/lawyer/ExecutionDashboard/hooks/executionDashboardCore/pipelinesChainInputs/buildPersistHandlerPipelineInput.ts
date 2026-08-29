@@ -1,5 +1,9 @@
 /** Persist/handler pipeline chain input builder */
-import type { AnyRecord, ExecutionDashboardCorePersistHandlerPipelineInput } from './types';
+import type {
+    ExecutionDashboardCorePersistHandlerPipelineInput,
+    ExecutionDashboardCoreWorkspacePipelineValue,
+    ExecutionDashboardCoreGraceMasterEvictionPipelineValue,
+} from './types';
 
 export function buildExecutionDashboardCorePersistHandlerPipelineInput(input: {
     executionData: ExecutionDashboardCorePersistHandlerPipelineInput['executionData'];
@@ -54,8 +58,8 @@ export function buildExecutionDashboardCorePersistHandlerPipelineInput(input: {
     executionDataRef: ExecutionDashboardCorePersistHandlerPipelineInput['executionDataRef'];
     setExecutionStorageTick: ExecutionDashboardCorePersistHandlerPipelineInput['setExecutionStorageTick'];
     viewExecutionData: ExecutionDashboardCorePersistHandlerPipelineInput['viewExecutionData'];
-    workspacePipeline: AnyRecord;
-    graceMasterPipeline: AnyRecord;
+    workspacePipeline: ExecutionDashboardCoreWorkspacePipelineValue;
+    graceMasterPipeline: ExecutionDashboardCoreGraceMasterEvictionPipelineValue;
     isRepresentingDebtor?: boolean;
     openFollowupModalPersisted?: ExecutionDashboardCorePersistHandlerPipelineInput['openFollowupModalPersisted'];
 }) {

@@ -4,6 +4,7 @@ import { Plane } from '@/app/components/ui/icons/Plane';
 import { Scale } from '@/app/components/ui/icons/Scale';
 import { ShieldAlert } from '@/app/components/ui/icons/ShieldAlert';
 import { UserX } from '@/app/components/ui/icons/UserX';
+import type { HamiIcon } from '@/app/components/ui/icons/hamiIcon';
 import { InlineActionGate } from './InlineActionGate';
 import type { InlineActionGateKey } from '../types';
 import {
@@ -36,7 +37,7 @@ import {
 
 const OPTION_ICONS: Record<
     HiddenPersonalCoerciveRequestKey,
-    React.ComponentType<{ size?: number; className?: string }>
+    HamiIcon
 > = {
     forced_bring_in: UserX,
     travel_ban: Plane,

@@ -20,7 +20,7 @@ export function useExecutionDashboardCoreHandlerClusterFollowupOtherParty(
         showToast,
         openDecisionsModalWithBoot,
         setTimelineEvents,
-    } = c as Record<string, unknown>;
+    } = c;
 
     const dossierFollowupHandlers = useExecutionDashboardOtherPartyHandlers({
         executionDataRef,

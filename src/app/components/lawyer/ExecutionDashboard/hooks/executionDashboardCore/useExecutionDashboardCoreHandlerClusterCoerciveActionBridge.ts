@@ -4,7 +4,7 @@ import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashb
 export function useExecutionDashboardCoreHandlerClusterCoerciveActionBridge(
     c: ExecutionDashboardCoreHandlerClusterInput,
 ) {
-    const resolved = c as Record<string, unknown>;
+    const resolved = c;
     const {
         saveCoerciveActionRef,
         setShowCoerciveActionForm,

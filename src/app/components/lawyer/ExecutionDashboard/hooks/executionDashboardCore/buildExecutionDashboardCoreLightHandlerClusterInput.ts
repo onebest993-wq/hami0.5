@@ -36,7 +36,7 @@ export type ExecutionDashboardCoreLightHandlersParams = {
 export function buildExecutionDashboardCoreLightHandlerClusterInput(
     p: ExecutionDashboardCoreLightHandlersParams,
 ): ExecutionDashboardCoreHandlerClusterInput {
-    const ws = p.workspacePipeline as Record<string, unknown>;
+    const ws = p.workspacePipeline;
     const boot = p.boot;
 
     return {

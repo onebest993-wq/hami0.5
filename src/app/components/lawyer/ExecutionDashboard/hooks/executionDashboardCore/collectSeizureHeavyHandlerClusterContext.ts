@@ -133,6 +133,6 @@ const SEIZURE_HEAVY_HANDLER_CLUSTER_KEYS = Array.from(
 
 export function collectSeizureHeavyHandlerClusterContext(
     spreads: HandlerClusterContextSpreads,
-): Record<string, unknown> {
+) {
     return pickHandlerClusterKeys(handlerClusterSourceBags(spreads), SEIZURE_HEAVY_HANDLER_CLUSTER_KEYS);
 }

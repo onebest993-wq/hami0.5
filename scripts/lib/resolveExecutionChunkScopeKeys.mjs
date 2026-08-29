@@ -2,7 +2,7 @@
  * يحلّ مفاتيح chunk scope من core + ملفات scope المستخرجة (موجة 14+).
  */
 import fs from 'node:fs';
-import { extractConstArrayKeys } from './extractConstArrayKeys.mjs';
+import { extractConstArrayKeys, extractConstArrayKeysFromFile } from './extractConstArrayKeys.mjs';
 
 const CORE_PATH = 'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts';
 const DYNAMIC_SCOPE_PATH =
@@ -224,6 +224,25 @@ function collectPhaseCScopeArchitectureKeys(resolved) {
             followupSrc,
             'EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS',
             followupRegistryPath,
+        )) {
+            resolved.add(k);
+        }
+    }
+
+    /*
+     * سجل shell overlays — وقت التشغيل تُسطَّح حقائب assembly (مثل
+     * trashAndPinsHandlers / partyEditWorkflow / dossierMetaWorkflow) عبر
+     * Object.assign في mergeExecutionDashboardCoreScopeSourceGroups، فيصل
+     * restoreTimelineEventFromTrash وغيره إلى pickExecutionShellOverlayProps.
+     * المدقّق الساكن لا يحاكي ذلك؛ نُعلن مفاتيح السجل ضمن النطاق كما نفعل مع
+     * followup snapshot.
+     */
+    const shellRegistryPath =
+        'src/app/components/lawyer/ExecutionDashboard/hooks/executionShellOverlayPropKeys.ts';
+    if (fs.existsSync(shellRegistryPath)) {
+        for (const k of extractConstArrayKeysFromFile(
+            shellRegistryPath,
+            'EXECUTION_SHELL_OVERLAY_PROP_KEYS',
         )) {
             resolved.add(k);
         }

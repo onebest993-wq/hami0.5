@@ -1,5 +1,6 @@
 /** Followup/debtor pipeline chain input builder */
-import type { AnyRecord, ExecutionDashboardCoreFollowupDebtorPipelineInput } from './types';
+import type { ExecutionDashboardCoreFollowupDebtorPipelineInput } from './types';
+import type { ExecutionDashboardCoreWorkspacePipelineValue } from '../executionDashboardCoreWorkspacePipelineTypes';
 
 export function buildExecutionDashboardCoreFollowupDebtorPipelineInput(input: {
     executionData: ExecutionDashboardCoreFollowupDebtorPipelineInput['executionData'];
@@ -10,7 +11,7 @@ export function buildExecutionDashboardCoreFollowupDebtorPipelineInput(input: {
     claimType: string;
     creditors: ExecutionDashboardCoreFollowupDebtorPipelineInput['creditors'];
     debtors: ExecutionDashboardCoreFollowupDebtorPipelineInput['debtors'];
-    showToast: (msg: string, type?: string) => void;
+    showToast: ExecutionDashboardCoreFollowupDebtorPipelineInput['showToast'];
     dossierFileKey: string;
     executionFileKey: string;
     setShowDecisionsModal: (show: boolean) => void;
@@ -19,7 +20,7 @@ export function buildExecutionDashboardCoreFollowupDebtorPipelineInput(input: {
     setShowExtraDebtors: (show: boolean) => void;
     setDebtorSummonsMarkerLocal:
         ExecutionDashboardCoreFollowupDebtorPipelineInput['setDebtorSummonsMarkerLocal'];
-    workspacePipeline: AnyRecord;
+    workspacePipeline: ExecutionDashboardCoreWorkspacePipelineValue;
 }) {
     const {
         executionData,

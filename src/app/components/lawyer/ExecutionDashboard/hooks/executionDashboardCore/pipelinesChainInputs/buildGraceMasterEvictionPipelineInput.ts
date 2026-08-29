@@ -1,5 +1,8 @@
 /** Grace/master eviction pipeline chain input builder */
-import type { AnyRecord, ExecutionDashboardCoreGraceMasterEvictionPipelineInput } from './types';
+import type {
+    ExecutionDashboardCoreGraceMasterEvictionPipelineInput,
+    ExecutionDashboardCoreWorkspacePipelineValue,
+} from './types';
 
 export function buildExecutionDashboardCoreGraceMasterEvictionPipelineInput(input: {
     executionData: ExecutionDashboardCoreGraceMasterEvictionPipelineInput['executionData'];
@@ -48,7 +51,7 @@ export function buildExecutionDashboardCoreGraceMasterEvictionPipelineInput(inpu
     isHistoricalMode: boolean;
     debtorNotifiedForEvictionGrace: boolean;
     evictionPremisesUseResolved: string;
-    workspacePipeline: AnyRecord;
+    workspacePipeline: ExecutionDashboardCoreWorkspacePipelineValue;
 }) {
     const {
         executionData,

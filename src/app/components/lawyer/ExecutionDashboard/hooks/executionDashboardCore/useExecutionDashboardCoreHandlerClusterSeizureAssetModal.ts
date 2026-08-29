@@ -14,7 +14,7 @@ export function useExecutionDashboardCoreHandlerClusterSeizureAssetModal(
     deps: HandlerClusterPushTimelineDeps,
 ) {
     const { pushTimelineEvent } = deps;
-    const resolved = c as Record<string, unknown>;
+    const resolved = c;
 
     const {
         decisionsStorageExecutionId,
