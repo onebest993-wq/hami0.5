@@ -100,5 +100,5 @@ export function buildExecutionDashboardCoreLightHandlerClusterInput(
         timelineEventsRef: ws.timelineEventsRef,
         totalOwed: p.claimFinancialLedger.totalOwed,
         totalWithExecutionFee: p.graceMasterPipeline.totalWithExecutionFee,
-    } as ExecutionDashboardCoreHandlerClusterInput;
+    } as unknown as ExecutionDashboardCoreHandlerClusterInput;
 }

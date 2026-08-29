@@ -1,22 +1,11 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
+import { asUnknownRecord } from '@/app/utils/asUnknownRecord';
+import type { HandlerClusterContextSpreads } from './handlerClusterContextShared';
 
-type UnknownBag = Record<string, unknown> | undefined;
+type UnknownBag = object | undefined;
 
-type FollowupAdminSpecialHandlerClusterSource = {
-    core?: Record<string, unknown>;
-    followupOrchestrator?: Record<string, unknown>;
-    seizureOrchestrator?: Record<string, unknown>;
-    coercionOrchestrator?: Record<string, unknown>;
-    dossierLifecyclePanel?: Record<string, unknown>;
-    claimFinancials?: Record<string, unknown>;
-    graceAndSummoning?: Record<string, unknown>;
-    debtorWorkspaceContext?: Record<string, unknown>;
-    subsequentNoticeFlow?: Record<string, unknown>;
-    followupTabAssembly?: Record<string, unknown>;
-    followupSeizureTabs?: Record<string, unknown>;
-    decisionsOrchestrator?: Record<string, unknown>;
-};
+type FollowupAdminSpecialHandlerClusterSource = HandlerClusterContextSpreads;
 
 export type FollowupAdminSpecialHandlerClusterInput = {
     executionDataRef: MutableRefObject<ExecutionFile | null | undefined>;
@@ -43,7 +32,7 @@ export type FollowupAdminSpecialHandlerClusterInput = {
 function readBagValue<T>(bags: ReadonlyArray<UnknownBag>, key: string): T {
     for (const bag of bags) {
         if (bag && key in bag) {
-            return bag[key] as T;
+            return asUnknownRecord(bag)[key] as T;
         }
     }
 

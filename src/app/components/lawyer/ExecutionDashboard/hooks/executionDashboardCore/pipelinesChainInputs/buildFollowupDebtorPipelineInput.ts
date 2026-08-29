@@ -1,6 +1,6 @@
 /** Followup/debtor pipeline chain input builder */
 import type { ExecutionDashboardCoreFollowupDebtorPipelineInput } from './types';
-import type { ExecutionDashboardCoreWorkspacePipelineValue } from '../executionDashboardCoreWorkspacePipelineTypes';
+import type { ExecutionDashboardCoreWorkspacePipelineChainBag } from '../executionDashboardCoreWorkspacePipelineTypes';
 
 export function buildExecutionDashboardCoreFollowupDebtorPipelineInput(input: {
     executionData: ExecutionDashboardCoreFollowupDebtorPipelineInput['executionData'];
@@ -20,7 +20,7 @@ export function buildExecutionDashboardCoreFollowupDebtorPipelineInput(input: {
     setShowExtraDebtors: (show: boolean) => void;
     setDebtorSummonsMarkerLocal:
         ExecutionDashboardCoreFollowupDebtorPipelineInput['setDebtorSummonsMarkerLocal'];
-    workspacePipeline: ExecutionDashboardCoreWorkspacePipelineValue;
+    workspacePipeline: ExecutionDashboardCoreWorkspacePipelineChainBag;
 }) {
     const {
         executionData,

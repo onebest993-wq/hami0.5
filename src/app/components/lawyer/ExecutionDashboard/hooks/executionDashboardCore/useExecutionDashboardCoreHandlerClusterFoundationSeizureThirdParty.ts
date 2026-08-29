@@ -14,7 +14,7 @@ export function useExecutionDashboardCoreHandlerClusterFoundationSeizureThirdPar
         nextTimelineId,
         showToast,
         setThirdPartySeizuresUi,
-    } = c as Pick<
+    } = c as unknown as Pick<
         ThirdPartySeizureHandlerInput,
         | 'decisionsStorageExecutionId'
         | 'executionDataRef'

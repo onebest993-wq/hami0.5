@@ -22,7 +22,7 @@ const THIRD_PARTY_SEIZURE_HANDLER_CLUSTER_KEYS = [
 
 export function collectThirdPartySeizureHandlerClusterContext(
     spreads: HandlerClusterContextSpreads,
-): Record<string, unknown> {
+) {
     return pickHandlerClusterKeys(
         handlerClusterSourceBags(spreads),
         THIRD_PARTY_SEIZURE_HANDLER_CLUSTER_KEYS,

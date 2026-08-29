@@ -3,7 +3,7 @@ import type {
     ExecutionDashboardCoreClaimFinancialLedgerPipelineInput,
     UseExecutionDashboardClaimFinancialsParams,
 } from './types';
-import type { ExecutionDashboardCoreWorkspacePipelineValue } from '../executionDashboardCoreWorkspacePipelineTypes';
+import type { ExecutionDashboardCoreWorkspacePipelineChainBag } from '../executionDashboardCoreWorkspacePipelineTypes';
 
 type AnyRecord = Record<string, unknown>;
 
@@ -26,7 +26,7 @@ export function buildExecutionDashboardCoreClaimFinancialLedgerPipelineInput(inp
     decisionsStorageExecutionId: string;
     executionFileKey: string;
     decisionsReloadEpoch: number;
-    showToast: ExecutionDashboardCoreWorkspacePipelineValue['showToast'];
+    showToast: ExecutionDashboardCoreWorkspacePipelineChainBag['showToast'];
     docType: string;
     classification: string;
     activeDebtorEntityKind: string | null | undefined;
@@ -45,7 +45,7 @@ export function buildExecutionDashboardCoreClaimFinancialLedgerPipelineInput(inp
     activeWorkspaceDebtorForFollowup: unknown;
     openFollowupModalPersisted:
         ExecutionDashboardCoreClaimFinancialLedgerPipelineInput['openFollowupModalPersisted'];
-    workspacePipeline: ExecutionDashboardCoreWorkspacePipelineValue;
+    workspacePipeline: ExecutionDashboardCoreWorkspacePipelineChainBag;
 }) {
     const {
         executionData,

@@ -1,7 +1,7 @@
 /** Persist/handler pipeline chain input builder */
 import type {
     ExecutionDashboardCorePersistHandlerPipelineInput,
-    ExecutionDashboardCoreWorkspacePipelineValue,
+    ExecutionDashboardCoreWorkspacePipelineChainBag,
     ExecutionDashboardCoreGraceMasterEvictionPipelineValue,
 } from './types';
 
@@ -58,7 +58,7 @@ export function buildExecutionDashboardCorePersistHandlerPipelineInput(input: {
     executionDataRef: ExecutionDashboardCorePersistHandlerPipelineInput['executionDataRef'];
     setExecutionStorageTick: ExecutionDashboardCorePersistHandlerPipelineInput['setExecutionStorageTick'];
     viewExecutionData: ExecutionDashboardCorePersistHandlerPipelineInput['viewExecutionData'];
-    workspacePipeline: ExecutionDashboardCoreWorkspacePipelineValue;
+    workspacePipeline: ExecutionDashboardCoreWorkspacePipelineChainBag;
     graceMasterPipeline: ExecutionDashboardCoreGraceMasterEvictionPipelineValue;
     isRepresentingDebtor?: boolean;
     openFollowupModalPersisted?: ExecutionDashboardCorePersistHandlerPipelineInput['openFollowupModalPersisted'];
