@@ -202,7 +202,7 @@ export function shouldLoadExecutionHandlerCluster(input: ExecutionHandlerCluster
  */
 export function shouldLoadExecutionEmployeeAssignmentBridge(
     loadCoerciveHeavyHandlerCluster: boolean,
-    coerciveHeavyHandlerClusterInput: Record<string, unknown>,
+    coerciveHeavyHandlerClusterInput: object,
 ): boolean {
     if (!loadCoerciveHeavyHandlerCluster) return false;
     return Boolean(

@@ -16,4 +16,5 @@ export type ExecutionDashboardCoreWorkspacePipelineChainBag = ExecutionDashboard
     isRepresentingDebtor?: boolean;
     effectiveDebtors?: unknown;
     clearThirdPartyFundsDraft?: unknown;
+    executionDataRef?: unknown;
 };
