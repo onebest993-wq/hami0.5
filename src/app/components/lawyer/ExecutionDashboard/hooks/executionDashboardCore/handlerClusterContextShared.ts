@@ -3,30 +3,33 @@ import type { ExecutionSeizureOrchestratorSlice } from '../../orchestrators/exec
 import type { ExecutionCoercionOrchestratorSlice } from '../../orchestrators/executionCoercionOrchestratorTypes';
 import type { ExecutionDossierLifecyclePanelOrchestratorSlice } from '../../orchestrators/executionOrchestratorSliceTypes';
 import type { ExecutionDecisionsOrchestratorSlice } from '../../orchestrators/executionDecisionsOrchestratorTypes';
-import type { ExecutionDashboardCoreWorkspacePipelineValue } from './executionDashboardCoreWorkspacePipelineTypes';
+import type {
+    ExecutionClaimFinancialsSlice,
+    ExecutionDashboardCoreRuntimeVars,
+    ExecutionDebtorWorkspaceSlice,
+    ExecutionFollowupSeizureTabsSlice,
+    ExecutionFollowupTabAssemblySlice,
+    ExecutionGraceAndSummoningSlice,
+    ExecutionSubsequentNoticeFlowSlice,
+} from './executionDashboardCoreRuntimeVarsTypes';
 
 export type HandlerClusterContextSpreads = {
     followupOrchestrator: ExecutionFollowupOrchestratorSlice;
     seizureOrchestrator: ExecutionSeizureOrchestratorSlice;
     coercionOrchestrator: ExecutionCoercionOrchestratorSlice;
     dossierLifecyclePanel: ExecutionDossierLifecyclePanelOrchestratorSlice;
-    claimFinancials: object;
-    graceAndSummoning: object;
-    debtorWorkspaceContext: object;
-    subsequentNoticeFlow: object;
-    followupTabAssembly: object;
-    followupSeizureTabs: object;
+    claimFinancials: ExecutionClaimFinancialsSlice;
+    graceAndSummoning: ExecutionGraceAndSummoningSlice;
+    debtorWorkspaceContext: ExecutionDebtorWorkspaceSlice;
+    subsequentNoticeFlow: ExecutionSubsequentNoticeFlowSlice;
+    followupTabAssembly: ExecutionFollowupTabAssemblySlice;
+    followupSeizureTabs: ExecutionFollowupSeizureTabsSlice;
     decisionsOrchestrator: ExecutionDecisionsOrchestratorSlice;
-    core: ExecutionDashboardCoreWorkspacePipelineValue;
+    core: ExecutionDashboardCoreRuntimeVars;
 };
 
-/** نتيجة تسطيح حقائب المنظّم — مصدر حقيقة حقول المعالجات. */
-export type HandlerClusterFlatContext = ExecutionDashboardCoreWorkspacePipelineValue &
-    ExecutionFollowupOrchestratorSlice &
-    ExecutionSeizureOrchestratorSlice &
-    ExecutionCoercionOrchestratorSlice &
-    ExecutionDossierLifecyclePanelOrchestratorSlice &
-    ExecutionDecisionsOrchestratorSlice;
+/** حقيبة المعالجات بعد التسطيح — نفس حقيبة runtime المدمجة. */
+export type HandlerClusterFlatContext = ExecutionDashboardCoreRuntimeVars;
 
 export function asHandlerClusterSpreads(input: object): HandlerClusterContextSpreads {
     return input as unknown as HandlerClusterContextSpreads;

@@ -22,7 +22,7 @@ import type { HandlerClusterContextSpreads } from './handlerClusterContextShared
 import { asHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import type { FollowupAdminSpecialHandlerClusterInput } from './followupAdminSpecialHandlerClusterInput';
 import type { FollowupOtherPartyHandlerClusterInput } from './followupOtherPartyHandlerClusterInput';
-import type { ExecutionDashboardCoreWorkspacePipelineValue } from './executionDashboardCoreWorkspacePipelineTypes';
+import type { ExecutionDashboardCoreRuntimeVars } from './executionDashboardCoreRuntimeVarsTypes';
 
 const EMPTY_CLUSTER = Object.freeze({});
 const EMPTY_HANDLER_CLUSTER_INPUT = asHandlerClusterInput(EMPTY_CLUSTER);
@@ -43,7 +43,7 @@ export function useExecutionDashboardCoreHandlerClusterRuntime({
     activeTabId: string;
     activeFollowupDebtorKey: string | null | undefined;
     handlerClusterGateInput: ExecutionHandlerClusterGateInput;
-    coreRuntimeVars: ExecutionDashboardCoreWorkspacePipelineValue;
+    coreRuntimeVars: ExecutionDashboardCoreRuntimeVars;
     heavySpreadSources: Omit<ExecutionDashboardHandlerClusterHeavySpreads, 'core'>;
 }) {
     const loadLightHandlerCluster = shouldLoadExecutionHandlerClusterLight(handlerClusterGateInput);

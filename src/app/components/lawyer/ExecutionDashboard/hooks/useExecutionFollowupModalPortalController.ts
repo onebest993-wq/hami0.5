@@ -2,39 +2,74 @@ import { useFollowupModal } from '../followupModalContext';
 import { useExecutionFollowupModalLiveHandlers } from './useExecutionFollowupModalLiveHandlers';
 import { useExecutionFollowupModalPortalDerived } from './useExecutionFollowupModalPortalDerived';
 import { useExecutionFollowupModalTabNavigation } from './useExecutionFollowupModalTabNavigation';
+import type { ExecutionDashboardCoreRuntimeVars } from './executionDashboardCore/executionDashboardCoreRuntimeVarsTypes';
 
-export type ExecutionFollowupModalPortalController = ReturnType<
-    typeof useExecutionFollowupModalPortalController
->;
+type FollowupModalPortalLive = ExecutionDashboardCoreRuntimeVars &
+    ReturnType<typeof useExecutionFollowupModalPortalDerived> &
+    ReturnType<typeof useExecutionFollowupModalTabNavigation>;
 
-export function useExecutionFollowupModalPortalController() {
+export type ExecutionFollowupModalPortalController = FollowupModalPortalLive;
+
+export function useExecutionFollowupModalPortalController(): FollowupModalPortalLive {
     const followup = useFollowupModal();
     const { handleSpecialFollowupSubmit, safeHandleDossierAction } =
         useExecutionFollowupModalLiveHandlers({
-            handleDossierAction: followup.handleDossierAction,
-            submitSpecialFollowupRequest: followup.submitSpecialFollowupRequest,
-            isRepresentingDebtor: followup.isRepresentingDebtor,
-            showToast: followup.showToast,
-            setDossierActionModalSaving: followup.setDossierActionModalSaving,
+            handleDossierAction: followup.handleDossierAction as ((payload: unknown) => unknown) | undefined,
+            submitSpecialFollowupRequest: followup.submitSpecialFollowupRequest as (() => unknown) | undefined,
+            isRepresentingDebtor: Boolean(followup.isRepresentingDebtor),
+            showToast:
+                typeof followup.showToast === 'function'
+                    ? (followup.showToast as (message: string, type?: string) => void)
+                    : () => undefined,
+            setDossierActionModalSaving:
+                typeof followup.setDossierActionModalSaving === 'function'
+                    ? (followup.setDossierActionModalSaving as (saving: boolean) => void)
+                    : () => undefined,
         });
 
     const derived = useExecutionFollowupModalPortalDerived({
-        PersonalTab: followup.PersonalTab,
-        CoerciveTab: followup.CoerciveTab,
-        SeizureRequestsTab: followup.SeizureRequestsTab,
-        FinancialTab: followup.FinancialTab,
-        OtherPartyTab: followup.OtherPartyTab,
-        CommunicationsTab: followup.CommunicationsTab,
-        DossierControlsTab: followup.DossierControlsTab,
-        RequestsTab: followup.RequestsTab,
-        DebtorFinancialProgressBar: followup.DebtorFinancialProgressBar,
+        PersonalTab: followup.PersonalTab as Parameters<
+            typeof useExecutionFollowupModalPortalDerived
+        >[0]['PersonalTab'],
+        CoerciveTab: followup.CoerciveTab as Parameters<
+            typeof useExecutionFollowupModalPortalDerived
+        >[0]['CoerciveTab'],
+        SeizureRequestsTab: followup.SeizureRequestsTab as Parameters<
+            typeof useExecutionFollowupModalPortalDerived
+        >[0]['SeizureRequestsTab'],
+        FinancialTab: followup.FinancialTab as Parameters<
+            typeof useExecutionFollowupModalPortalDerived
+        >[0]['FinancialTab'],
+        OtherPartyTab: followup.OtherPartyTab as Parameters<
+            typeof useExecutionFollowupModalPortalDerived
+        >[0]['OtherPartyTab'],
+        CommunicationsTab: followup.CommunicationsTab as Parameters<
+            typeof useExecutionFollowupModalPortalDerived
+        >[0]['CommunicationsTab'],
+        DossierControlsTab: followup.DossierControlsTab as Parameters<
+            typeof useExecutionFollowupModalPortalDerived
+        >[0]['DossierControlsTab'],
+        RequestsTab: followup.RequestsTab as Parameters<
+            typeof useExecutionFollowupModalPortalDerived
+        >[0]['RequestsTab'],
+        DebtorFinancialProgressBar: followup.DebtorFinancialProgressBar as Parameters<
+            typeof useExecutionFollowupModalPortalDerived
+        >[0]['DebtorFinancialProgressBar'],
         followupSpecialization: followup.followupSpecialization,
         claimType: followup.claimType,
         claimTypeForExecutionModule: followup.claimTypeForExecutionModule,
-        assignmentWorkspaceCtx: followup.assignmentWorkspaceCtx,
-        closeFollowupModalPersisted: followup.closeFollowupModalPersisted,
-        persistFollowupModalViewport: followup.persistFollowupModalViewport,
-        setShowUnifiedExecutionModal: followup.setShowUnifiedExecutionModal,
+        assignmentWorkspaceCtx: followup.assignmentWorkspaceCtx as Parameters<
+            typeof useExecutionFollowupModalPortalDerived
+        >[0]['assignmentWorkspaceCtx'],
+        closeFollowupModalPersisted: followup.closeFollowupModalPersisted as Parameters<
+            typeof useExecutionFollowupModalPortalDerived
+        >[0]['closeFollowupModalPersisted'],
+        persistFollowupModalViewport: followup.persistFollowupModalViewport as Parameters<
+            typeof useExecutionFollowupModalPortalDerived
+        >[0]['persistFollowupModalViewport'],
+        setShowUnifiedExecutionModal: followup.setShowUnifiedExecutionModal as Parameters<
+            typeof useExecutionFollowupModalPortalDerived
+        >[0]['setShowUnifiedExecutionModal'],
         allDebtorsUnified: followup.allDebtorsUnified,
         effectiveFollowupModalTabs: followup.effectiveFollowupModalTabs,
     });
@@ -57,5 +92,5 @@ export function useExecutionFollowupModalPortalController() {
         handleSpecialFollowupSubmit,
         ...derived,
         ...tabs,
-    };
+    } as FollowupModalPortalLive;
 }
