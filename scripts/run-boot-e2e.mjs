@@ -11,7 +11,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { hamiBootScriptFingerprint } from './e2e-build-env.mjs';
+import { distE2eMarkers, hamiBootScriptFingerprint } from './e2e-build-env.mjs';
 import { resolveE2ePlatformProjects } from './e2e-platform-projects.mjs';
 import {
     freePreviewPort,
@@ -31,10 +31,12 @@ const extra = argv.filter((a) => a !== '--full');
 function distNeedsE2eBuild() {
     if (!distReady) return true;
     if (process.env.E2E_FORCE_REBUILD === '1') return true;
+    /* الحقيقة من dist نفسه — الطابع وحده يكذب بعد أي `npm run build` عادي */
+    const markers = distE2eMarkers();
+    if (!markers.bootGuard || !markers.demoBoot) return true;
     if (!existsSync(STAMP)) return true;
     try {
         const stamp = JSON.parse(readFileSync(STAMP, 'utf8'));
-        if (stamp.shellAuthOpen !== true || stamp.viteE2e !== true) return true;
         if (stamp.hamiBootScript !== hamiBootScriptFingerprint()) return true;
     } catch {
         return true;

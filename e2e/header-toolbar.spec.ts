@@ -28,18 +28,17 @@ test.describe('مجموعة أدوات الهيدر', () => {
         await expect(page.getByRole('dialog', { name: 'الإشعارات' })).toHaveCount(0);
     });
 
-    test('على 1440px الأدوات المفتوحة تطابق عمود الشبكة', async ({ page }) => {
+    test('على 1440px الأدوات المفتوحة بعرض عمود الشبكة نفسه', async ({ page }) => {
         await page.setViewportSize({ width: 1440, height: 900 });
         await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         await page.screenshot({ path: 'test-results/home-live-1440-collapsed.png', fullPage: false });
-        const metrics = await expectOpenHeaderMatchesHomeGrid(page, {
+        await expectOpenHeaderMatchesHomeGrid(page, {
             minNavW: 520,
             maxNavW: 808,
             cols: 3,
         });
-        expect(metrics.navW).toBeLessThan(900);
         await page.screenshot({ path: 'test-results/home-live-1440-tools.png', fullPage: false });
     });
 

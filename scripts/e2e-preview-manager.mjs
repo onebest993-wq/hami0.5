@@ -3,13 +3,12 @@
  * يشغّل/يوقف vite preview لجلسة E2E — منفذ واحد لكل البوابة.
  */
 import { spawn, spawnSync } from 'node:child_process';
-import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { e2eMarkersInHtml } from './e2e-build-env.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const E2E_STAMP_PATH = path.join(ROOT, '.audit', 'e2e-dist-stamp.json');
 
 export const E2E_PREVIEW_PORT = process.env.E2E_PREVIEW_PORT ?? '8090';
 const BASE_URL = `http://127.0.0.1:${E2E_PREVIEW_PORT}`;
@@ -43,22 +42,24 @@ async function fetchPreviewHtml() {
     });
 }
 
-/** يتأكد أن preview يخدم حزمة build:e2e وليس dev/قديم */
+/**
+ * يتأكد أن preview يخدم حزمة build:e2e وليس dev/قديم.
+ * الفحص على HTML المخدوم لا على الطابع: خادم معاينة عالق من جلسة سابقة قد يخدم
+ * حزمة إنتاج بينما الطابع على القرص يدّعي E2E — فتظهر بوابة الدخول بلا تفسير.
+ */
 export async function verifyPreviewE2eReady() {
     const html = await fetchPreviewHtml();
-    if (!html.includes('data-hami-boot-guard-ms=')) {
+    const markers = e2eMarkersInHtml(html);
+    if (!markers.bootGuard) {
         throw new Error(
             'preview missing data-hami-boot-guard-ms — run npm run build:e2e before E2E',
         );
     }
-    try {
-        const stamp = JSON.parse(fs.readFileSync(E2E_STAMP_PATH, 'utf8'));
-        if (!stamp?.viteE2e) {
-            throw new Error('e2e-dist-stamp missing viteE2e — run npm run build:e2e');
-        }
-    } catch (error) {
-        if (error instanceof Error && error.message.includes('e2e-dist-stamp')) throw error;
-        throw new Error('missing .audit/e2e-dist-stamp.json — run npm run build:e2e');
+    if (!markers.demoBoot) {
+        throw new Error(
+            `preview at ${BASE_URL} serves a non-E2E bundle (no data-hami-demo-boot) — ` +
+                'run npm run build:e2e, and free the port from any stale vite preview',
+        );
     }
 }
 

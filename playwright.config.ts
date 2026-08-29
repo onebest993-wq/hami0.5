@@ -20,6 +20,9 @@ const skipWebServer = process.env.E2E_SKIP_WEBSERVER === '1';
 
 export default defineConfig({
   testDir: './e2e',
+
+  /* يفشل بسرعة إن كانت dist حزمة إنتاج بدل حزمة E2E */
+  ...(usePreview ? { globalSetup: './e2e/globalSetup.ts' } : {}),
   
     /* Maximum time one test can run for */
     timeout: 30 * 1000,

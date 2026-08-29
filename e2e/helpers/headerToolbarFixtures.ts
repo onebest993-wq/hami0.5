@@ -21,19 +21,30 @@ export async function expectHeaderToolbarCollapsed(page: Page): Promise<void> {
     await expect(page.getByTestId('header-toolbar-tools')).toBeHidden();
 }
 
+const HEADER_TOOL_IDS = [
+    'header-tools-reveal',
+    'header-search-trigger',
+    'header-notifications-trigger',
+    'header-settings-trigger',
+] as const;
+
 export type HomeShellColumnMetrics = {
     navW: number;
     navX: number;
     gridW: number;
     gridX: number;
     cols: number;
+    /** عرض مزراب شريط التمرير المحجوز في جذر تمرير الرئيسية — 0 على الأصل */
+    scrollGutter: number;
+    tools: { id: string; left: number; right: number }[];
 };
 
 export async function readHomeShellColumnMetrics(page: Page): Promise<HomeShellColumnMetrics | null> {
-    return page.evaluate(() => {
+    return page.evaluate((toolIds: readonly string[]) => {
         const navEl = document.querySelector('[data-testid="header-toolbar-nav"]');
         const gridEl = document.querySelector('[data-testid="home-main-grid"]');
         if (!(navEl instanceof HTMLElement) || !(gridEl instanceof HTMLElement)) return null;
+        const scroller = document.querySelector('.hami-home-scroll-root');
         const n = navEl.getBoundingClientRect();
         const g = gridEl.getBoundingClientRect();
         return {
@@ -43,55 +54,56 @@ export async function readHomeShellColumnMetrics(page: Page): Promise<HomeShellC
             gridX: g.x,
             cols: getComputedStyle(gridEl).gridTemplateColumns.trim().split(/\s+/).filter(Boolean)
                 .length,
+            scrollGutter:
+                scroller instanceof HTMLElement ? scroller.offsetWidth - scroller.clientWidth : 0,
+            tools: toolIds.flatMap((id) => {
+                const el = document.querySelector(`[data-testid="${id}"]`);
+                if (!(el instanceof HTMLElement)) return [];
+                const r = el.getBoundingClientRect();
+                return [{ id, left: r.x, right: r.x + r.width }];
+            }),
         };
-    });
+    }, HEADER_TOOL_IDS);
 }
 
-/** بعد فتح النجمة: الشريط داخل عمود اللوحة لا على عرض الشاشة */
+/**
+ * بعد فتح النجمة: الشريط بعرض عمود اللوحة، لا على عرض الشاشة.
+ *
+ * الفرق المسموح مشتقّ من مزراب التمرير لا من رقم مُختار: الهيدر `position: fixed`
+ * على عرض النافذة كاملاً، بينما الشبكة داخل `.hami-home-scroll-root` وله
+ * `scrollbar-gutter: stable`. فوق نقطة تقييد `--hami-shell-max-width` يتقاسم
+ * التوسيط المزراب (نصفه)، وتحتها يبتلعه العمود كاملاً. على الأصل
+ * (`data-hami-native='1'`) المزراب صفر — فيُطلب تطابق تام.
+ */
 export async function expectOpenHeaderMatchesHomeGrid(
     page: Page,
-    bounds: { minNavW: number; maxNavW: number; cols: number; slop?: number },
+    bounds: { minNavW: number; maxNavW: number; cols: number },
 ): Promise<HomeShellColumnMetrics> {
     await revealHeaderToolbarTools(page);
     const metrics = await readHomeShellColumnMetrics(page);
     expect(metrics).not.toBeNull();
-    const slop = bounds.slop ?? 20;
-    expect(metrics?.cols).toBe(bounds.cols);
-    expect(metrics?.navW ?? 0).toBeGreaterThan(bounds.minNavW);
-    expect(metrics?.navW ?? 0).toBeLessThanOrEqual(bounds.maxNavW);
-    expect(Math.abs((metrics?.navW ?? 0) - (metrics?.gridW ?? 0))).toBeLessThan(slop);
-    expect(Math.abs((metrics?.navX ?? 0) - (metrics?.gridX ?? 0))).toBeLessThan(slop);
+    const m = metrics as HomeShellColumnMetrics;
+    const tolerance = m.scrollGutter + 1;
 
-    const tools = await page.evaluate(() => {
-        const grid = document.querySelector('[data-testid="home-main-grid"]');
-        if (!(grid instanceof HTMLElement)) return [];
-        const g = grid.getBoundingClientRect();
-        return [
-            'header-tools-reveal',
-            'header-search-trigger',
-            'header-notifications-trigger',
-            'header-settings-trigger',
-        ].map((id) => {
-            const el = document.querySelector(`[data-testid="${id}"]`);
-            if (!(el instanceof HTMLElement)) return { id, missing: true, left: 0, right: 0, gridLeft: g.x, gridRight: g.x + g.width };
-            const r = el.getBoundingClientRect();
-            return {
-                id,
-                missing: false,
-                left: r.x,
-                right: r.x + r.width,
-                gridLeft: g.x,
-                gridRight: g.x + g.width,
-            };
-        });
-    });
-    expect(tools).toHaveLength(4);
-    for (const tool of tools) {
-        expect(tool.missing, tool.id).toBe(false);
-        expect(tool.left, tool.id).toBeGreaterThanOrEqual(tool.gridLeft - 4);
-        expect(tool.right, tool.id).toBeLessThanOrEqual(tool.gridRight + 4);
+    expect(m.cols).toBe(bounds.cols);
+    expect(m.navW).toBeGreaterThan(bounds.minNavW);
+    expect(m.navW).toBeLessThanOrEqual(bounds.maxNavW);
+    expect(m.navW, 'الشريط لا يضيق عن عمود الشبكة').toBeGreaterThanOrEqual(m.gridW - 1);
+    expect(
+        m.navW,
+        `الشريط أوسع من عمود الشبكة بأكثر من مزراب التمرير (${m.scrollGutter}px)`,
+    ).toBeLessThanOrEqual(m.gridW + tolerance);
+    expect(
+        Math.abs(m.navX - m.gridX),
+        `إزاحة أفقية أكبر من مزراب التمرير (${m.scrollGutter}px)`,
+    ).toBeLessThanOrEqual(tolerance);
+
+    expect(m.tools.map((tool) => tool.id)).toEqual([...HEADER_TOOL_IDS]);
+    for (const tool of m.tools) {
+        expect(tool.left, tool.id).toBeGreaterThanOrEqual(m.gridX - 4);
+        expect(tool.right, tool.id).toBeLessThanOrEqual(m.gridX + m.gridW + 4);
     }
 
-    return metrics as HomeShellColumnMetrics;
+    return m;
 }
 
