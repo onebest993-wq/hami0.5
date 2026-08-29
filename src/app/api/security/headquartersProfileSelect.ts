@@ -11,9 +11,15 @@ export function isMissingProfileColumn(message: string, column: string): boolean
     return hay.includes(column) && (hay.includes('does not exist') || hay.includes('schema cache'));
 }
 
-export async function withHeadquartersProfileColumns<T extends { error?: { message?: string } | null }>(
-    run: (columns: string) => Promise<T>,
-): Promise<T> {
+export type HeadquartersProfileQueryResult = {
+    data?: unknown;
+    error?: { message?: string } | null;
+    count?: number | null;
+};
+
+export async function withHeadquartersProfileColumns(
+    run: (columns: string) => Promise<HeadquartersProfileQueryResult>,
+): Promise<HeadquartersProfileQueryResult> {
     const first = await run(PROFILE_HQ_COLUMNS_NAME);
     if (first.error && isMissingProfileColumn(first.error.message ?? '', 'legal_display_name')) {
         const withoutName = await run(PROFILE_HQ_COLUMNS_BADGE);

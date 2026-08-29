@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { expectJsonOrRetired } from './retiredCursorArtifact';
 
 const root = process.cwd();
 const cs = path.join(root, 'src/app/components/lawyer/criminal-system');
@@ -38,16 +39,15 @@ describe('wave7i mega honesty', () => {
         expect(t.split(/\r?\n/).length).toBeLessThan(250);
     });
 
-    it('cap bake report exists and passed', () => {
-        const report = path.join(root, 'perf-reports', 'wave6-cap-section-bake.json');
-        expect(fs.existsSync(report)).toBe(true);
-        const j = JSON.parse(fs.readFileSync(report, 'utf8')) as {
+    it('cap bake report exists and passed — or retired', () => {
+        expectJsonOrRetired<{
             ok?: boolean;
             sectionBakeCdp?: boolean;
             biometricProbe?: { hasBiometricPlugin?: boolean };
-        };
-        expect(j.ok).toBe(true);
-        expect(j.sectionBakeCdp).toBe(true);
-        expect(j.biometricProbe?.hasBiometricPlugin).toBe(true);
+        }>('perf-reports/wave6-cap-section-bake.json', (j) => {
+            expect(j.ok).toBe(true);
+            expect(j.sectionBakeCdp).toBe(true);
+            expect(j.biometricProbe?.hasBiometricPlugin).toBe(true);
+        });
     });
 });

@@ -17,15 +17,18 @@ export function logErrorWithContext(
     additionalInfo?: Record<string, unknown>,
 ): void {
     logErrorCore(context, error, additionalInfo);
-    if (typeof window !== 'undefined' && (window as { Sentry?: { captureException: (e: unknown, ctx: unknown) => void } }).Sentry) {
-        try {
-            (window as { Sentry: { captureException: (e: unknown, ctx: unknown) => void } }).Sentry.captureException(
-                error,
-                { tags: { context }, extra: additionalInfo },
-            );
-        } catch (e) {
-            console.debug('[ErrorHandler] فشل إرسال الخطأ إلى Sentry:', e);
-        }
+    if (typeof window === 'undefined') return;
+    const sentryHost = window as unknown as {
+        Sentry?: { captureException: (e: unknown, ctx: unknown) => void };
+    };
+    if (!sentryHost.Sentry) return;
+    try {
+        sentryHost.Sentry.captureException(error, {
+            tags: { context },
+            extra: additionalInfo,
+        });
+    } catch (e) {
+        console.debug('[ErrorHandler] فشل إرسال الخطأ إلى Sentry:', e);
     }
 }
 

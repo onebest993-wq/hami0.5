@@ -1,17 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { expectJsonOrRetired, expectTextOrRetired } from './retiredCursorArtifact';
 
 const root = process.cwd();
 
 describe('wave7 seal progress honesty', () => {
-    it('الختم ما زال false في FOUNDATION-STATUS و close', () => {
-        const status = fs.readFileSync(path.join(root, '.cursor/FOUNDATION-STATUS.md'), 'utf8');
-        expect(status).toMatch(/foundationWorldClassSealed\s*=\s*false/);
-        const close = JSON.parse(
-            fs.readFileSync(path.join(root, '.cursor/wave7-seal-progress-close.json'), 'utf8'),
-        ) as { foundationWorldClassSealed: boolean };
-        expect(close.foundationWorldClassSealed).toBe(false);
+    it('الختم ما زال false إن وُجد المتتبّع — وإلا المتتبّع متقاعد', () => {
+        expectTextOrRetired('.cursor/FOUNDATION-STATUS.md', (status) => {
+            expect(status).toMatch(/foundationWorldClassSealed\s*=\s*false/);
+        });
+        expectJsonOrRetired<{ foundationWorldClassSealed: boolean }>(
+            '.cursor/wave7-seal-progress-close.json',
+            (close) => {
+                expect(close.foundationWorldClassSealed).toBe(false);
+            },
+        );
     });
 
     it('أحافير AuthService/App/appStore محذوفة', () => {

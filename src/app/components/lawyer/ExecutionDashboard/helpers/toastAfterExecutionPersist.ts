@@ -4,7 +4,7 @@
  */
 export function toastAfterExecutionPersist(
     persisted: boolean | void,
-    showToast: (message: string, type?: string) => void,
+    showToast: (message: string, type?: 'error' | 'info' | 'warning' | 'success' | string) => void,
     successMessage: string,
     failMessage = 'تعذّر الحفظ — أعد المحاولة',
 ): boolean {

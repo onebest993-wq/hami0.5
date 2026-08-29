@@ -1,9 +1,11 @@
 /** Claim/financial ledger pipeline chain input builder */
 import type {
-    AnyRecord,
     ExecutionDashboardCoreClaimFinancialLedgerPipelineInput,
     UseExecutionDashboardClaimFinancialsParams,
 } from './types';
+import type { ExecutionDashboardCoreWorkspacePipelineValue } from '../executionDashboardCoreWorkspacePipelineTypes';
+
+type AnyRecord = Record<string, unknown>;
 
 export function buildExecutionDashboardCoreClaimFinancialLedgerPipelineInput(input: {
     executionData: ExecutionDashboardCoreClaimFinancialLedgerPipelineInput['executionData'];
@@ -24,7 +26,7 @@ export function buildExecutionDashboardCoreClaimFinancialLedgerPipelineInput(inp
     decisionsStorageExecutionId: string;
     executionFileKey: string;
     decisionsReloadEpoch: number;
-    showToast: (msg: string, type?: string) => void;
+    showToast: ExecutionDashboardCoreWorkspacePipelineValue['showToast'];
     docType: string;
     classification: string;
     activeDebtorEntityKind: string | null | undefined;
@@ -43,7 +45,7 @@ export function buildExecutionDashboardCoreClaimFinancialLedgerPipelineInput(inp
     activeWorkspaceDebtorForFollowup: unknown;
     openFollowupModalPersisted:
         ExecutionDashboardCoreClaimFinancialLedgerPipelineInput['openFollowupModalPersisted'];
-    workspacePipeline: AnyRecord;
+    workspacePipeline: ExecutionDashboardCoreWorkspacePipelineValue;
 }) {
     const {
         executionData,

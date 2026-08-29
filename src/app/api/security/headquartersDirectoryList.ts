@@ -55,7 +55,7 @@ type ProfileChain = {
     range: (
         from: number,
         to: number,
-    ) => PromiseLike<{ data: unknown; error: { message?: string } | null; count?: number | null }>;
+    ) => Promise<{ data: unknown; error: { message?: string } | null; count?: number | null }>;
 };
 
 function escapeIlike(raw: string): string {

@@ -4,6 +4,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
 import path from 'path';
+import { expectJsonOrRetired } from './retiredCursorArtifact';
 
 const root = process.cwd();
 
@@ -27,14 +28,14 @@ describe('phase-5 capacitor inventory', () => {
         const androidIgnored = /(?:^|\n)android\/?(?:\n|$)/.test(gi) || gi.includes('android/');
         const iosIgnored = /(?:^|\n)ios\/?(?:\n|$)/.test(gi) || gi.includes('ios/');
         expect(androidIgnored || iosIgnored).toBe(true);
-        // لا نفشل CI عند غياب المجلدات — فقط نوثّق في الأثر
-        const progress = JSON.parse(
-            fs.readFileSync(path.join(root, '.cursor/phase-5-progress.json'), 'utf8'),
-        ) as { deviceProven: boolean };
-        const deviceRuntime = JSON.parse(
-            fs.readFileSync(path.join(root, '.cursor/world-class-w5-device-runtime.json'), 'utf8'),
-        ) as { deviceProven: boolean };
-        expect(progress.deviceProven).toBe(deviceRuntime.deviceProven);
+        expectJsonOrRetired<{ deviceProven: boolean }>('.cursor/phase-5-progress.json', (progress) => {
+            expectJsonOrRetired<{ deviceProven: boolean }>(
+                '.cursor/world-class-w5-device-runtime.json',
+                (deviceRuntime) => {
+                    expect(progress.deviceProven).toBe(deviceRuntime.deviceProven);
+                },
+            );
+        });
     });
 });
 

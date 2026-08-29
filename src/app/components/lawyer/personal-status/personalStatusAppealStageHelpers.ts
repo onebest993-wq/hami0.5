@@ -2,6 +2,7 @@
  * مساعدات مراحل/طعون الأحوال الشخصية — بلا اعتماد على smart-modal.
  * يكسر دورة: personalStatusStageDisplay ↔ judgmentTypes ↔ stepperPipeline.
  */
+import type { LawsuitJurisdictionSource } from '@/app/domain/lawsuit/lawsuitJurisdiction';
 import { PERSONAL_STATUS_STAGE_OPTIONS, isPersonalStatusFile } from './personalStatusValidation';
 
 const CIVIL_STAGE_PATTERN = /بداءة|استئناف|بدرجة\s*أولى/i;
@@ -12,11 +13,9 @@ const SHARED_EXTRAORDINARY_STAGE_MARKERS = [
     'إعادة المحاكمة',
 ] as const;
 
-function isCivilLawsuitFile(file: {
-    lawsuitJurisdiction?: string;
-    selectedType?: string;
-    type?: string;
-}): boolean {
+type AppealContextFile = LawsuitJurisdictionSource & { type?: string };
+
+function isCivilLawsuitFile(file: AppealContextFile): boolean {
     if (isPersonalStatusFile(file)) return false;
     const type = String(file.type ?? '').toLowerCase();
     const selected = String(file.selectedType ?? '').toLowerCase();
@@ -63,10 +62,11 @@ export function isPersonalStatusStageName(stageName?: string | null): boolean {
 export function isPersonalStatusAppealContext(
     stageName?: string | null,
     stages?: Array<{ stageName?: string | null; name?: string | null }> | null,
-    file?: { lawsuitJurisdiction?: string; selectedType?: string; type?: string } | null,
+    file?: AppealContextFile | Record<string, unknown> | null,
 ): boolean {
-    if (file && isPersonalStatusFile(file)) return true;
-    if (file && isCivilLawsuitFile(file)) return false;
+    const ctx = file && typeof file === 'object' ? (file as AppealContextFile) : null;
+    if (ctx && isPersonalStatusFile(ctx)) return true;
+    if (ctx && isCivilLawsuitFile(ctx)) return false;
     if (hasCivilLawsuitStageHistory(stages)) return false;
     if (isPersonalStatusStageName(stageName)) return true;
     const current = String(stageName ?? '').trim();

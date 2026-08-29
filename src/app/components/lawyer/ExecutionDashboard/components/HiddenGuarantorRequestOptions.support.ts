@@ -1,5 +1,5 @@
-import type { ComponentType } from 'react';
-import { Building2 } from '@/app/components/ui/icons/Building2';
+import type { HamiIcon } from '@/app/components/ui/icons/hamiIcon';
+import { Building2 } from 'lucide-react';
 import { Shield } from '@/app/components/ui/icons/Shield';
 import { Wallet } from '@/app/components/ui/icons/Wallet';
 import { Package } from '@/app/components/ui/icons/Package';
@@ -14,7 +14,7 @@ import type { ExecutionDomainContext } from '@/app/utils/executionDomainIsolatio
 
 export const GUARANTOR_ICONS: Record<
     HiddenGuarantorRequestKey,
-    ComponentType<{ size?: number; className?: string }>
+    HamiIcon
 > = {
     guarantor_request: Shield,
     guarantor_seizure_salary: Wallet,
