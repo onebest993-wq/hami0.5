@@ -5,7 +5,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import SecureStoreService, { StorageEncryptionError } from '@/app/services/SecureStoreService';
 import { CryptoService } from '@/app/services/CryptoService';
-import { ENCRYPT_MAX_BYTES, shouldEncryptValue } from '@/app/services/secureStorageKeys';
+import { ENCRYPT_MAX_BYTES, isEncryptOrFailStorageKey, shouldEncryptValue } from '@/app/services/secureStorageKeys';
 
 const ENCRYPTED_PREFIX = 'hami_enc_v2:';
 const TX_KEY = 'hami:transactions:v1';
@@ -25,6 +25,10 @@ describe('transactions at-rest encryption (behavior)', () => {
             SecureStoreService.deleteItemSync(key);
         }
         SecureStoreService.clearDecryptedMemoryCache();
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
     });
 
     it('سجل المعاملات يُكتب مشفَّراً على القرص ولا يترك اسم الموكّل صريحاً', async () => {
@@ -63,18 +67,12 @@ describe('transactions at-rest encryption (behavior)', () => {
         expect(raw?.startsWith(ENCRYPTED_PREFIX)).toBe(true);
     });
 
-    afterEach(() => {
-        vi.restoreAllMocks();
-    });
-
     it('بلا مفتاح رئيسي تُرفض الكتابة ولا تُخزَّن صريحة ولا تُؤجَّل صامتة', async () => {
         const clientName = 'موكل_مرفوض_لا_يُكتب_صريحاً';
-        /*
-         * `destroy()` لا يكفي: `encryptIfSensitive` يستدعي `initialize()` فيعيد
-         * المفتاح من مخزن IDB الدائم. مسار الرفض الحقيقي هو غياب المفتاح بعد init.
-         */
+        expect(isEncryptOrFailStorageKey(TX_KEY)).toBe(true);
         vi.spyOn(CryptoService, 'initialize').mockResolvedValue(undefined);
         vi.spyOn(CryptoService, 'hasMasterKey').mockReturnValue(false);
+        vi.spyOn(CryptoService, 'encryptData').mockRejectedValue(new Error('no-master-key'));
         await expect(
             SecureStoreService.setItem(TX_KEY, JSON.stringify([{ id: 'x', clientName }])),
         ).rejects.toBeInstanceOf(StorageEncryptionError);
