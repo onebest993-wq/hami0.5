@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { primeProfileAvatarDecode } from '@/app/services/profile/primeProfileAvatarDecode';
 import { LAWYER_PROFILE_UPDATED } from '@/app/services/profile/profileEvents';
 import { fetchLawyerProfile } from '@/app/services/profile/profileCloudLoader';
-import {
-    preferRicherLawyerDisplayName,
-    resolveFirstPaintLawyerDisplayName,
-} from '@/app/services/profile/resolveLawyerDisplayName';
+import { resolveFirstPaintLawyerDisplayName } from '@/app/services/profile/resolveLawyerDisplayName';
 import { hydrateProfileWarmCachePeekSync } from '@/app/services/profile/profileWarmCache';
 import { getProfileWarmCacheRaw } from '@/app/services/profile/profileWarmCacheStore';
-import { shouldApplyProfileHeaderUpdate, resolveProfileHeaderInitial } from '@/app/services/profile/profileHeaderLogic';
+import {
+    shouldApplyProfileHeaderUpdate,
+    resolveProfileHeaderInitial,
+    resolveHeaderDisplayNameAfterLoad,
+} from '@/app/services/profile/profileHeaderLogic';
 import { shouldAwaitCloudProfileSettle } from '@/app/services/profile/profileSparseDetect';
 import { sanitizeProfileMediaUrl } from '@/app/services/profile/profileUrlSanitize';
 import { isLawyerProfileBootWarmPending } from '@/app/services/profile/profileBootWarmPending';
@@ -84,8 +85,13 @@ export function useLawyerProfileHeader(
                     userId,
                     userMetaRef.current,
                 );
+                const warmName = getProfileWarmCacheRaw(userId)?.header?.name ?? '';
                 const next: LawyerProfileHeaderState = {
-                    displayName: preferRicherLawyerDisplayName(prev.displayName, resolved),
+                    displayName: resolveHeaderDisplayNameAfterLoad(
+                        prev.displayName,
+                        resolved,
+                        warmName,
+                    ),
                     title: p.header.title?.trim() || DEFAULT_TITLE,
                     avatarUrl: pickAvatarUrl(p, prev.avatarUrl),
                 };

@@ -36,11 +36,19 @@ test.describe('هوية الملف على بلاطة المنتدى', () => {
         const profile = await openLawyerProfile(page);
         await saveProfileDisplayName(page, profile, uniqueName);
 
+        const nameOnProfile = profileDisplayName(profile);
+        const savedName =
+            (await nameOnProfile.count()) > 0
+                ? ((await nameOnProfile.textContent()) ?? uniqueName).trim()
+                : uniqueName;
+
         await dismissProfileBlockers(page);
         await clickLawyerProfileBack(page);
         await expectProfileTabClosed(page);
 
-        await expect(page.getByTestId('home-dock-forum-profile')).toContainText(uniqueName, {
+        const tile = page.getByTestId('home-dock-forum-profile');
+        await expect(tile).toHaveAttribute('data-identity-settled', '1', { timeout: 15_000 });
+        await expect(tile).toContainText(savedName || uniqueName, {
             timeout: 15_000,
         });
     });

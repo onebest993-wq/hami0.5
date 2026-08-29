@@ -10,6 +10,15 @@ vi.mock('@/app/services/SecureStoreService', () => ({
         setItemSync: (key: string, value: string) => {
             store.set(key, value);
         },
+        getItem: async (key: string) => store.get(key) ?? null,
+        setItem: async (key: string, value: string) => {
+            store.set(key, value);
+        },
+        isUnreadSync: () => false,
+        hasItemSync: (key: string) => store.has(key),
+        deleteItemSync: (key: string) => {
+            store.delete(key);
+        },
     },
 }));
 
@@ -17,9 +26,13 @@ vi.mock('@/app/services/kvProxyConfig', () => ({
     isKvProxyNetworkEnabled: () => true,
 }));
 
-vi.mock('@/app/services/auth/lawyerAccountStatus', () => ({
-    canUseServerBackedNetworkFeatures: () => canUseServerBackedNetwork.value,
-}));
+vi.mock('@/app/services/auth/lawyerAccountStatus', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/app/services/auth/lawyerAccountStatus')>();
+    return {
+        ...actual,
+        canUseServerBackedNetworkFeatures: () => canUseServerBackedNetwork.value,
+    };
+});
 
 vi.mock('@/app/services/SecureAPIClient', () => ({
     SecureAPIClient: {

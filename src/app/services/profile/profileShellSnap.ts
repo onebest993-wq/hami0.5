@@ -3,6 +3,8 @@
  * المصدر الوحيد للحقيقة البصرية: html[data-hami-profile-open]
  * أثناء الإغلاق: html[data-hami-profile-closing] يفرض إخفاء السطح حتى لو
  * React مسح inline styles وأبقى --active (سبب الشاشة السوداء + الهيدر).
+ * React يُزامَن بـ flushSync في مسار الفتح/الإغلاق — بلا rAF معلّق.
+ * التقويم يلغي إطاراً معلّقاً برمز جيل لأن Hostه قد لا يكون في DOM بعد.
  */
 
 import { wasProfileOpenedThisPage } from '@/app/hooks/lawyerDashboard/profile/profileOpenSession';

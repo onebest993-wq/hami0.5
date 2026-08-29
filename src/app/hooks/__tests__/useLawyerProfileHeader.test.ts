@@ -154,4 +154,21 @@ describe('useLawyerProfileHeader', () => {
         expect(result.current.displayName).toBe('');
         await waitFor(() => expect(result.current.displayName).toBe('أحمد مهدي'));
     });
+
+    it('لا يرجع اسم الحفظ في الكاش الدافئ إلى جلب قرص قديم', async () => {
+        vi.mocked(getProfileWarmCacheRaw).mockReturnValue({
+            header: { name: 'محامٍ هيدر 99', title: '', profileImage: '' },
+            sections: [],
+        } as never);
+        vi.mocked(fetchLawyerProfile).mockResolvedValue({
+            header: { name: 'أحمد', title: '', profileImage: '' },
+            sections: [],
+        } as never);
+
+        const { result } = renderHook(() => useLawyerProfileHeader('u1', { full_name: 'أحمد' }));
+
+        expect(result.current.displayName).toBe('محامٍ هيدر 99');
+        await waitFor(() => expect(fetchLawyerProfile).toHaveBeenCalledWith('u1', 'u1'));
+        expect(result.current.displayName).toBe('محامٍ هيدر 99');
+    });
 });

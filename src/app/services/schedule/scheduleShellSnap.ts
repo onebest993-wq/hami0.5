@@ -14,7 +14,7 @@ export type ScheduleShellSnapDetail = {
     hasSurface: boolean;
 };
 
-let shellSyncGen = 0;
+let shellSyncGen = 0; /* يُبطِل rAF معلّق عند الإغلاق قبل وجود السطح — Host التقويم كسول */
 
 function stampCalendarOpenPerfMarksFromSnap(): void {
     if (typeof performance === 'undefined' || typeof performance.mark !== 'function') return;
