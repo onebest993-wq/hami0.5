@@ -55,6 +55,22 @@ export function createPreDockFeatureStubs(
         resetCommunityShell: noop,
     } satisfies PreDockFeatureBag['community'];
 
+    /*
+     * E2E ينتظر window.__hamiE2eForceOpenCommunity قبل الفتح.
+     * الخطاف الحي يُسجَّل فقط بعد تحميل PreDock الكسول — بلا تسليح هنا
+     * يفشل المسار عند alreadyOnHome قبل اكتمال الـ chunk.
+     * الخطاف الحي يستبدل هذا عند onReady.
+     */
+    if (typeof window !== 'undefined') {
+        const w = window as Window & {
+            __hamiE2eForceOpenCommunity?: () => void;
+            __hamiE2eForceOpenCommunityStub?: () => void;
+        };
+        const stubOpen = () => community.openCommunityTab();
+        w.__hamiE2eForceOpenCommunityStub = stubOpen;
+        w.__hamiE2eForceOpenCommunity = stubOpen;
+    }
+
     const schedule = {
         calendarSearchFocus: null,
         setCalendarSearchFocus: noop as PreDockFeatureBag['schedule']['setCalendarSearchFocus'],

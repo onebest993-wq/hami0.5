@@ -241,6 +241,7 @@ export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDash
         if (typeof window === 'undefined') return;
         const w = window as Window & {
             __hamiE2eForceOpenCommunity?: () => void;
+            __hamiE2eForceOpenCommunityStub?: () => void;
             __hamiE2eCommunityDebug?: () => {
                 showCommunity: boolean;
                 communityHostMounted: boolean;
@@ -254,7 +255,13 @@ export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDash
             activeTab,
         });
         return () => {
-            delete w.__hamiE2eForceOpenCommunity;
+            /* أعد stub حتى لا تُفرَّغ النافذة بين cleanup/re-bind أو بعد إغلاق PreDock */
+            const stub = w.__hamiE2eForceOpenCommunityStub;
+            if (typeof stub === 'function') {
+                w.__hamiE2eForceOpenCommunity = stub;
+            } else {
+                delete w.__hamiE2eForceOpenCommunity;
+            }
             delete w.__hamiE2eCommunityDebug;
         };
     }, [activeTab, communityHostMounted, openCommunityTab, showCommunity]);

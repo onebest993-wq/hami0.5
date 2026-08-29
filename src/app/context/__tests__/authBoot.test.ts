@@ -8,6 +8,7 @@ import {
     DEV_UNLOCK_LAWYER_ID,
     markExplicitDevUnlock,
 } from '@/app/services/auth/devUnlockSession';
+import * as authStorage from '@/app/utils/authStorage';
 
 vi.mock('@/app/utils/bffAuthFlags', () => ({
     isBffAuthEnabled: vi.fn(() => false),
@@ -26,6 +27,9 @@ describe('authBoot', () => {
         clearExplicitLocalGuest();
         clearExplicitDevUnlock();
         vi.mocked(isBffAuthEnabled).mockReturnValue(false);
+        vi.mocked(authStorage.readDevMockUser).mockReturnValue(null);
+        vi.mocked(authStorage.readDevMockAccessToken).mockReturnValue(null);
+        vi.mocked(authStorage.readPersistedSupabaseAuth).mockReturnValue({ user: null, session: null });
     });
 
     afterEach(() => {
@@ -46,6 +50,21 @@ describe('authBoot', () => {
         const boot = resolveInitialAuthState();
         expect(boot.user?.id).toBe(GUEST_LAWYER_ID);
         expect(boot.session?.user?.id).toBe(GUEST_LAWYER_ID);
+    });
+
+    it('يفضّل محامياً مزروعاً غير ضيف عند فتح الشِل (مسار E2E المنتدى)', () => {
+        vi.stubEnv('VITE_SHELL_AUTH_OPEN', 'true');
+        vi.mocked(isBffAuthEnabled).mockReturnValue(true);
+        vi.mocked(authStorage.readDevMockUser).mockReturnValue({
+            id: 'dev-user-uuid-1',
+            email: 'e2e.forum@local',
+            user_metadata: { accountType: 'lawyer', verificationStatus: 'active' },
+            app_metadata: { verification_status: 'active', role: 'lawyer' },
+        } as import('@supabase/supabase-js').User);
+        vi.mocked(authStorage.readDevMockAccessToken).mockReturnValue('dev-access-token-dev-user-uuid-1');
+        const boot = resolveInitialAuthState();
+        expect(boot.user?.id).toBe('dev-user-uuid-1');
+        expect(boot.session?.user?.id).toBe('dev-user-uuid-1');
     });
 
     it('restores explicit local guest when bypass is off', () => {

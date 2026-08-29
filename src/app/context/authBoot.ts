@@ -93,7 +93,16 @@ export function resolveInitialAuthState(): AuthBootState {
     if (isBffAuthEnabled()) {
         const unlocked = explicitDevUnlockBootState();
         if (unlocked) return unlocked;
-        if (isShellAuthBypassed()) return getDevMockLawyerSession();
+        if (isShellAuthBypassed()) {
+            /*
+             * E2E يزرع hami:dev-mock-user غير ضيف + توثيق active قبل الإقلاع.
+             * إرجاع ضيف ثابت هنا كان يغلق المنتدى دائماً (canUseForumNetworkFeatures
+             * يرفض GUEST / demo حتى مع فتح الشِل).
+             */
+            const seeded = devMockBootState();
+            if (seeded) return seeded;
+            return getDevMockLawyerSession();
+        }
         const localGuest = explicitLocalGuestBootState();
         if (localGuest) return localGuest;
         return EMPTY_AUTH;

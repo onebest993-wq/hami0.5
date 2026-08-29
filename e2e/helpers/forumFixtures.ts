@@ -125,9 +125,24 @@ async function waitForForumForceOpenHook(page: Page, required = false): Promise<
         );
     } catch (err) {
         if (required) {
-            throw new Error(
-                '__hamiE2eForceOpenCommunity لم يُسجَّل — سطح PreDock للمنتىى غير مسلّح',
-            );
+            /* محاولة أخيرة: نقرة الدوك قد تُسلّح stub بعد تأخر التركيب */
+            const trigger = forumHomeTrigger(page).first();
+            if (await trigger.isVisible().catch(() => false)) {
+                await clickNativeElement(trigger).catch(() => undefined);
+            }
+            try {
+                await page.waitForFunction(
+                    () =>
+                        typeof (window as Window & { __hamiE2eForceOpenCommunity?: () => void })
+                            .__hamiE2eForceOpenCommunity === 'function',
+                    { timeout: 8_000 },
+                );
+                return;
+            } catch {
+                throw new Error(
+                    '__hamiE2eForceOpenCommunity لم يُسجَّل — سطح PreDock للمنتىى غير مسلّح',
+                );
+            }
         }
         void err;
     }
@@ -327,8 +342,16 @@ export function applyForumE2ELawyerSession(): void {
             id: userId,
             email: 'e2e.forum@local',
             role: 'authenticated',
+            app_metadata: {
+                provider: 'email',
+                providers: ['email'],
+                role: 'lawyer',
+                systemRole: 'lawyer',
+                verification_status: 'active',
+            },
             user_metadata: {
                 accountType: 'lawyer',
+                role: 'lawyer',
                 fullName: 'E2E Forum Lawyer',
                 verificationStatus: 'active',
             },
@@ -401,7 +424,28 @@ export function applyForumE2ELawyerSession(): void {
 }
 
 export async function hydrateForumE2ESession(page: Page): Promise<void> {
+    await page.waitForFunction(
+        () =>
+            typeof (window as Window & { __hamiE2eApplyDevMockAuth?: () => boolean })
+                .__hamiE2eApplyDevMockAuth === 'function',
+        { timeout: 12_000 },
+    ).catch(() => undefined);
     await page.evaluate(applyForumE2ELawyerSession);
+    await page.evaluate(() => {
+        (window as Window & { __hamiE2eApplyDevMockAuth?: () => boolean }).__hamiE2eApplyDevMockAuth?.();
+    });
+    const seeded = await page.evaluate(() => {
+        try {
+            const raw = localStorage.getItem('hami:dev-mock-user');
+            const id = raw ? (JSON.parse(raw) as { id?: string }).id : null;
+            return id && id !== 'guest-lawyer-1' ? id : null;
+        } catch {
+            return null;
+        }
+    });
+    if (!seeded) {
+        throw new Error('hydrateForumE2ESession: بذرة المحامي المعتمد غير موجودة بعد الزرع');
+    }
 }
 
 export async function dismissForumBlockers(page: Page): Promise<void> {

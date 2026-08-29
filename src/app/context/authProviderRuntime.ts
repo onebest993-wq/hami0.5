@@ -31,7 +31,7 @@ import {
 } from '@/app/utils/bffAuthClient';
 import { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
 import { clearCsrfSessionToken } from '@/app/security/csrfSession';
-import { shouldApplyGuestFallbackSession } from '@/app/context/authBoot';
+import { shouldApplyGuestFallbackSession, shouldKeepStoredNonGuestDevMock } from '@/app/context/authBoot';
 import {
     isCurrentBffAuthSyncGeneration,
     nextBffAuthSyncGeneration,
@@ -130,9 +130,15 @@ export function startAuthSessionSync(bindings: AuthProviderRuntimeBindings): () 
 
         if (isShellAuthBypassed()) {
             if (!restoreDevMockIfPresent()) {
-                const mock = getDevMockLawyerSession();
-                setSession(mock.session);
-                setUser(mock.user);
+                /*
+                 * لا تستبدل إقلاع E2E (محامٍ مزروع في التخزين) بضيف ثابت —
+                 * restore قد يسبق اكتمال الكتابة؛ الإبقاء على حالة الإقلاع أأمن.
+                 */
+                if (!shouldKeepStoredNonGuestDevMock()) {
+                    const mock = getDevMockLawyerSession();
+                    setSession(mock.session);
+                    setUser(mock.user);
+                }
             }
             setIsLoading(false);
             return () => {

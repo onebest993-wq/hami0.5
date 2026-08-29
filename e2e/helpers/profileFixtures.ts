@@ -57,6 +57,7 @@ export async function bootLawyerDashboardForProfile(page: Page): Promise<void> {
     await bootToHomeDock(page);
     await dismissProfileBlockers(page);
     await expect(page.getByTestId('home-dock-forum-profile')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('home-dock-forum')).toBeVisible({ timeout: 15_000 });
 }
 
 /** يزيل طبقات تحجب النقرات أثناء اختبارات الملف المهني */

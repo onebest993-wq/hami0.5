@@ -31,6 +31,25 @@ export function hamiBootScriptFingerprint() {
     return createHash('sha256').update(fs.readFileSync(boot)).digest('hex').slice(0, 16);
 }
 
+/** علامات حزمة E2E داخل HTML — المصدر الوحيد للحقيقة */
+export function e2eMarkersInHtml(html) {
+    return {
+        bootGuard: html.includes('data-hami-boot-guard-ms='),
+        demoBoot: html.includes('data-hami-demo-boot="1"'),
+    };
+}
+
+/**
+ * هل `dist/` الحالي حزمة E2E فعلاً؟
+ * يقرأ index.html لا الطابع — أي `npm run build` عادي يستبدل dist ويترك الطابع
+ * يدّعي E2E، فتفشل البوابات لاحقاً ببوابة تسجيل دخول غامضة.
+ */
+export function distE2eMarkers() {
+    const distIndex = path.join(ROOT, 'dist', 'index.html');
+    if (!fs.existsSync(distIndex)) return { bootGuard: false, demoBoot: false };
+    return e2eMarkersInHtml(fs.readFileSync(distIndex, 'utf8'));
+}
+
 /** @param {Record<string, string>} [overrides] */
 export function e2eViteBuildEnv(overrides = {}) {
     const { url, anonKey } = readDevSupabaseFromInfoTs();
@@ -39,6 +58,8 @@ export function e2eViteBuildEnv(overrides = {}) {
         VITE_SUPABASE_ANON_KEY: anonKey,
         VITE_E2E: '1',
         VITE_SHELL_AUTH_OPEN: 'true',
+        /* يطابق .env.local الإنتاجي للاختبار — مسار الشِل + بذرة المنتدى في authBoot */
+        VITE_BFF_AUTH: 'true',
         ...overrides,
     };
 }

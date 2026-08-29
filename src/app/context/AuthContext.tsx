@@ -187,6 +187,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         clearStaleDevMockFromSupabaseStorage();
     }, []);
 
+    /*
+     * E2E: hydrateForum يزرع hami:dev-mock-* بعد أول إقلاع؛ بلا إعادة تطبيق
+     * تبقى React على ضيف الشِل وبوابة المنتدى ترفض.
+     */
+    useEffect(() => {
+        if (import.meta.env.VITE_E2E !== '1' || typeof window === 'undefined') return;
+        const w = window as Window & { __hamiE2eApplyDevMockAuth?: () => boolean };
+        w.__hamiE2eApplyDevMockAuth = () => restoreDevMockIfPresent();
+        return () => {
+            delete w.__hamiE2eApplyDevMockAuth;
+        };
+    }, [restoreDevMockIfPresent]);
+
     useEffect(() => {
         let cleanup: (() => void) | undefined;
         let stopWait: (() => void) | undefined;
