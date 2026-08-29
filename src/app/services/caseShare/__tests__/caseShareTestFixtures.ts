@@ -1,4 +1,4 @@
-import type { CaseShareVisibleFields, DossierShareSource } from '../caseShareTypes';
+import type { CaseShareVisibleFields, DossierShareSource, NetworkColleague } from '../caseShareTypes';
 import { DEFAULT_CASE_SHARE_VISIBLE_FIELDS } from '../caseShareTypes';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/types/execution';
@@ -13,6 +13,18 @@ export const PERSONAS = {
     recipient: { id: 'dev-colleague-sara', name: 'أ. سارة الحيدري' },
     outsider: { id: 'lawyer-outsider-unknown', name: 'أ. كريم الجبouri' },
 } as const;
+
+/** شبكة اختبار: المستلم داخلها، والغريب خارجها — الحارس الحقيقي يبقى */
+export function listNetworkColleaguesForShareTests(ownerId: string): NetworkColleague[] {
+    if (!ownerId?.trim()) return [];
+    return [
+        {
+            id: PERSONAS.recipient.id,
+            name: PERSONAS.recipient.name,
+            relation: 'both',
+        },
+    ];
+}
 
 export function resetCaseShareStore(): void {
     const g = globalThis as unknown as { __HAMI_CASE_SHARES?: unknown[] };

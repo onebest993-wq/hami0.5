@@ -1,4 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../lawyerNetworkRepository', async () => {
+    const { listNetworkColleaguesForShareTests } = await import('./caseShareTestFixtures');
+    return { listNetworkColleagues: listNetworkColleaguesForShareTests };
+});
+
 import { CaseShareRepository, CASE_SHARE_DOSSIER_DELETED_ENDED_BY } from '../caseShareRepository';
 import { canFetchShareDetail } from '../caseShareAccessControl';
 import { PERSONAS, fieldsWith, resetCaseShareStore, richLawsuitSource, seedOwnedLawsuitForShareTests } from './caseShareTestFixtures';

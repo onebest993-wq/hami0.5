@@ -1,4 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../lawyerNetworkRepository', async () => {
+    const { listNetworkColleaguesForShareTests } = await import('./caseShareTestFixtures');
+    return { listNetworkColleagues: listNetworkColleaguesForShareTests };
+});
+
 import { CaseShareRepository } from '../caseShareRepository';
 import { buildMaskedView } from '../caseShareMasking';
 import {
