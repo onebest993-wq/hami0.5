@@ -211,6 +211,15 @@ export function isLawsuitEncryptAlwaysKey(key: string): boolean {
 }
 
 /**
+ * كتابة حسّاسة: تشفير أو رفض ظاهر — لا طابور صامت يُظهر «حُفظ» والقرص فارغ.
+ * الدعاوى كانت وحدها في هذا المسار؛ المعاملات تحمل نفس أسماء الموكّلين.
+ */
+export function isEncryptOrFailStorageKey(key: string): boolean {
+    if (isLawsuitEncryptAlwaysKey(key)) return true;
+    return isTransactionsStorageKey(key);
+}
+
+/**
  * مفاتيح حسّاسة تُسخَّن في `BOOT_SHELL_WARM_KEYS` / `PROTECTED_WARM_KEYS`.
  * بعد التسخين تقرأها `getItemSync` من `decryptedCache` — نفس مسوّغ الدعاوى.
  * بلا هذا الاستثناء تعود أكبر القوائم (جلسات، منشورات، أسماء مستندات) نصاً صريحاً

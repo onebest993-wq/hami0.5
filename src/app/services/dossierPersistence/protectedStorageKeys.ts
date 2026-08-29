@@ -130,10 +130,16 @@ export function isTransactionsThreadingStateKey(key: string): boolean {
     return key === 'hami:transactionsThreading:v1' || key.startsWith('hami:transactionsThreading:v1:');
 }
 
+/** قوالب مهام المعاملات حسب المالك — مصفوفة؛ الحماية من التفريغ فوق ciphertext بارد فقط */
+export function isTransactionsTaskTemplatesKey(key: string): boolean {
+    return key.startsWith('hami:transactions:taskTemplates:v1:');
+}
+
 export function isProtectedStorageKey(key: string): boolean {
     if (PROTECTED_ARRAY_STORAGE_KEYS.has(key)) return true;
     if (PROTECTED_OBJECT_STORAGE_KEYS.has(key)) return true;
     if (isTransactionsThreadingStateKey(key)) return true;
+    if (isTransactionsTaskTemplatesKey(key)) return true;
     if (key.includes('lawyer_files')) return true;
     // فهرس التنفيذ حسب المالك: executionFiles:<userId>
     if (key.startsWith(`${EXECUTION_FILES_STORAGE_KEY}:`)) return true;
@@ -170,5 +176,6 @@ export function backupDomainForStorageKey(key: string): BackupDomain | null {
     if (key === 'hami:repository:docs:v1') return 'repository';
     if (key === 'hami:calendar:events:v1') return 'calendar';
     if (key === QUANTUM_TASKS_STORAGE_KEY) return 'tasks';
+    if (key === 'hami:transactions:v1' || isTransactionsTaskTemplatesKey(key)) return 'transactions';
     return null;
 }

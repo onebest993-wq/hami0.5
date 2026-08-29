@@ -81,6 +81,10 @@ export function resolveDeniedNetworkFeatureResponse(pathname: string): Response 
     return null;
 }
 
+export function __resetNetworkFeaturesDeniedForTests(): void {
+    sessionNetworkFeatureDeniedIds.clear();
+}
+
 export function noteProtectedPathForbidden(pathname: string, response: Response, bodyText: string): void {
     if (!isNetworkFeatureProtectedPath(pathname) || response.status !== 403) return;
     const persisted = readPersistedSupabaseAuth();
