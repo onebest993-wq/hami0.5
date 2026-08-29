@@ -158,4 +158,14 @@ export function useShareProcedureModal({
         title,
         setTitle: setTitleSafe,
         bodyText,
-        set
+        setBodyText: (value: string) => setBodyText(clampTransactionText(value, TX_SHARE_BODY_MAX)),
+        steps,
+        documents,
+        tagsText,
+        setTagsText: setTagsTextSafe,
+        submitting,
+        rebuildBodyFromCards,
+        updateStepTitle,
+        publish,
+    };
+}

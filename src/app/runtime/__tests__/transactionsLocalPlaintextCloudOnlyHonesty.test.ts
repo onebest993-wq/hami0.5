@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
     isTransactionsLocalPlaintextKey,
@@ -56,4 +56,38 @@ describe('transactions local plaintext + cloud-only network honesty', () => {
         expect(keys).toContain('ciphertext قديم');
     });
 
-   
+    it('المنتدى فقط من مشاركة الدليل الصريحة — لا في المخزن/الخدمة/المرآة', () => {
+        const uiRoot = join(root, 'src/app/components/lawyer/TransactionsThreading');
+        const forumImporters: string[] = [];
+        const walk = (dir: string) => {
+            for (const name of readdirSync(dir)) {
+                const full = join(dir, name);
+                if (statSync(full).isDirectory()) {
+                    if (name === '__tests__') continue;
+                    walk(full);
+                    continue;
+                }
+                if (!/\.(ts|tsx)$/.test(name)) continue;
+                const src = readFileSync(full, 'utf8');
+                if (src.includes('ForumApiService') || src.includes("'/api/forum")) {
+                    forumImporters.push(full.slice(root.length + 1).replace(/\\/g, '/'));
+                }
+            }
+        };
+        walk(uiRoot);
+        expect(forumImporters).toEqual([
+            'src/app/components/lawyer/TransactionsThreading/hooks/useShareProcedureModal.ts',
+        ]);
+        expect(read('src/app/modules/transactionsThreading/store.ts')).not.toContain('ForumApiService');
+        expect(read('src/app/modules/transactionsThreading/service.ts')).not.toContain('ForumApiService');
+        expect(read('src/app/services/transactions/transactionsThreadingMirror.ts')).not.toContain(
+            'ForumApiService',
+        );
+        const share = read(
+            'src/app/components/lawyer/TransactionsThreading/hooks/useShareProcedureModal.ts',
+        );
+        expect(share).toContain('ForumApiService.createPost');
+        expect(share).toContain('يلزم تسجيل الدخول لنشر الدليل في المنتدى');
+        expect(share).toContain('المسار الشبكي الوحيد داخل قسم المعاملات');
+    });
+});
