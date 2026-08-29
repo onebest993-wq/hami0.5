@@ -1,3 +1,8 @@
+vi.mock('@/app/services/secureApiNetworkFeatures', () => ({
+    canReachProtectedServerNetwork: () => true,
+    resolveDeniedNetworkFeatureResponse: () => null,
+}));
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/app/lib/supabase-client', () => ({

@@ -2,6 +2,11 @@
  * Regression: حارس kv-proxy يمنع عاصفة الطلبات
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/app/services/secureApiNetworkFeatures', () => ({
+    resolveDeniedNetworkFeatureResponse: () => null,
+}));
+
 import { fetchKvProxyGuarded, resetKvProxyGuardForTests } from '../kvProxyGuard';
 
 const KV_URL = 'https://example.supabase.co/functions/v1/make-server/kv-proxy';

@@ -5,6 +5,16 @@ vi.mock('@/app/utils/authStorage', () => ({
     readPersistedSupabaseAuth: vi.fn(() => ({ user: { id: 'session-user' } })),
 }));
 
+const hasForumRemoteSessionMock = vi.fn(async () => true);
+
+vi.mock('@/app/services/forum/forumApi/forumApiClientCore', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/app/services/forum/forumApi/forumApiClientCore')>();
+    return {
+        ...actual,
+        hasForumRemoteSession: (...args: unknown[]) => hasForumRemoteSessionMock(...args),
+    };
+});
+
 const forumGroupLocalMocks = {
     listGroups: vi.fn(),
 };
@@ -164,6 +174,8 @@ beforeEach(async () => {
     SecureFetchError = secModule.SecureFetchError;
     // إعادة تهيئة mocks
     (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockReset();
+    hasForumRemoteSessionMock.mockReset();
+    hasForumRemoteSessionMock.mockResolvedValue(true);
     getCurrentAccessToken.mockReset();
     getCurrentAccessToken.mockResolvedValue('test-access-token');
     for (const fn of Object.values(lawyerCloudMocks)) fn.mockReset();
@@ -316,6 +328,7 @@ describe('ForumApiService.withFallback', () => {
         });
 
         it('يتخطى API عند غياب جلسة بعيدة (بدون access_token)', async () => {
+            hasForumRemoteSessionMock.mockResolvedValueOnce(false);
             (supabaseModule.supabase.auth.getSession as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
                 data: { session: { user: { id: 'session-user' } } },
             });

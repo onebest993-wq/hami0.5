@@ -9,12 +9,14 @@ vi.mock('@/app/services/auth/lawyerAccountStatus', () => ({
 import {
     canReachProtectedServerNetwork,
     resolveDeniedNetworkFeatureResponse,
+    __resetNetworkFeaturesDeniedForTests,
 } from '@/app/services/secureApiNetworkFeatures';
 
 describe('secureApiNetworkFeatures', () => {
     afterEach(() => {
         delete (window as Window & { __HAMI_E2E_FORUM__?: boolean }).__HAMI_E2E_FORUM__;
         setLiveAuthUserId(null);
+        __resetNetworkFeaturesDeniedForTests();
     });
 
     it('يرفض مسار المنتدى عندما الميزات الشبكية مغلقة', () => {
