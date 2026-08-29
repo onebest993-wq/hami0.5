@@ -130,10 +130,12 @@ describe('transactions RouteTile section surgical close honesty', () => {
             path.join(root, 'src/app/services/hub/hubHomeOpen.ts'),
             'utf8',
         );
-        expect(open).toContain("archiveId === 'transaction'");
+        expect(open).toContain("transaction: 'transaction'");
+        expect(open).toContain('openHubArchiveFromHomeTile');
         expect(open).toContain('hasLocalAppSession(userId)');
         expect(open).not.toContain('hasLocalAppSession(null)');
         expect(open).not.toContain('primeTransactionsShellForOpen');
+        expect(open).not.toContain('primeTransactionsHubMount');
     });
 
     it('بعد interactive: تسخين فقط بلا armTransactionsHost', () => {

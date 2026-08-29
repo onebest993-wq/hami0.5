@@ -46,6 +46,7 @@ test.describe('ملف زائر من المنتدى', () => {
 
         await expect(profile.getByTestId('lawyer-profile-edit')).toHaveCount(0);
         await expect(profile.getByTestId('lawyer-profile-settings')).toHaveCount(0);
+        await expect(profile.getByTestId('lawyer-profile-page-access')).toHaveCount(0);
         await expect(profile.getByTestId('lawyer-profile-avatar-input')).toHaveCount(0);
         await expect(profile.getByTestId('lawyer-profile-gallery-input')).toHaveCount(0);
     });
