@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { useProfileOpenFirstPageModel } from '@/app/components/lawyer/dashboard/profile/useProfileOpenFirstPageModel';
 import {
@@ -15,12 +15,18 @@ import {
     normalizeProfilePageCustomization,
     type ProfilePageCustomization,
 } from '@/app/services/profile/profilePageCustomization';
+import { useAuthUser } from '@/app/context/authHooks';
+
+vi.mock('@/app/context/authHooks', () => ({
+    useAuthUser: vi.fn(() => null),
+}));
 
 describe('useProfileOpenFirstPageModel', () => {
     afterEach(() => {
         resetUserIdentityUiStateForTests();
         resetProfileCoverIntentsForTests();
         invalidateProfileWarmCache();
+        vi.mocked(useAuthUser).mockReturnValue(null);
     });
 
     it('يتابع الهوية بعد أول إطار — لا يتجمّد الغطاء على لقطة ناقصة', () => {
@@ -40,7 +46,9 @@ describe('useProfileOpenFirstPageModel', () => {
         expect(result.current.initials).toBe('س');
     });
 
-    it('يتابع الكاش الدافئ حتى تمتلئ القنوات/المعرض قبل الاعتماد', () => {
+    it('يتابع الكاش الدافئ حتى تمتلئ القنوات/المعرض قبل الاعتماد', async () => {
+        const { useAuthUser } = await import('@/app/context/authHooks');
+        vi.mocked(useAuthUser).mockReturnValue({ id: 'lawyer-1' } as import('@supabase/supabase-js').User);
         const { result } = renderHook(() => useProfileOpenFirstPageModel('lawyer-1', () => undefined));
 
         act(() => {
@@ -84,5 +92,23 @@ describe('useProfileOpenFirstPageModel', () => {
 
         expect(result.current.customization.privacy.pageAccess).toBe('followers');
         expect(consumeProfileCoverCustomization()?.privacy.pageAccess).toBe('followers');
+    });
+
+    it('بلا مشاهد معروف — readOnly (fail-closed)', () => {
+        vi.mocked(useAuthUser).mockReturnValue(null);
+        const { result } = renderHook(() => useProfileOpenFirstPageModel('lawyer-1', () => undefined));
+        expect(result.current.readOnly).toBe(true);
+    });
+
+    it('زائر على غطاء غير مالكه — readOnly', () => {
+        vi.mocked(useAuthUser).mockReturnValue({ id: 'viewer-9' } as import('@supabase/supabase-js').User);
+        const { result } = renderHook(() => useProfileOpenFirstPageModel('lawyer-1', () => undefined));
+        expect(result.current.readOnly).toBe(true);
+    });
+
+    it('المالك بعد معرفة المشاهد — ليس readOnly', () => {
+        vi.mocked(useAuthUser).mockReturnValue({ id: 'lawyer-1' } as import('@supabase/supabase-js').User);
+        const { result } = renderHook(() => useProfileOpenFirstPageModel('lawyer-1', () => undefined));
+        expect(result.current.readOnly).toBe(false);
     });
 });

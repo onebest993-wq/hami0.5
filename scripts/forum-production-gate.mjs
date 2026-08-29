@@ -10,6 +10,7 @@ import { existsSync } from 'node:fs';
 
 const criticalPaths = [
     'src/app/hooks/lawyerDashboard/useLawyerDashboardCommunity.ts',
+    'src/app/runtime/forumE2eForceOpen.ts',
     'src/app/hooks/lawyerDashboard/community/communityShellOpenFlow.ts',
     'src/app/hooks/lawyerDashboard/community/communityLazyImports.ts',
     'src/app/hooks/lawyerDashboard/forumIntentWarm.ts',
@@ -22,6 +23,7 @@ const criticalPaths = [
     'src/app/runtime/forumInstantPaint.ts',
     'src/app/components/lawyer/CommunityScreen/hooks/useForumEscapeStack.ts',
     'src/app/components/lawyer/CommunityScreen/hooks/useForumLifecycle.ts',
+    'src/app/components/lawyer/CommunityScreen/components/ForumMemberProfileOverlay.tsx',
     'src/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardCommunityOverlayEntry.tsx',
     'src/app/components/lawyer/dashboard/LawyerDashboardHomeTab.tsx',
 ];
@@ -50,6 +52,7 @@ const test = spawnSync(
     [
         'vitest',
         'run',
+        'src/app/runtime/__tests__/forumE2eForceOpen.test.ts',
         'src/app/hooks/lawyerDashboard/__tests__/useLawyerDashboardCommunity.test.ts',
         'src/app/api/forum/_auth.test.ts',
         'src/app/api/forum/posts.route.test.ts',
@@ -57,6 +60,7 @@ const test = spawnSync(
         'src/app/services/__tests__/secureApiNetworkFeatures.test.ts',
         'src/app/hooks/lawyerDashboard/__tests__/forumIntentWarmBehavior.test.ts',
         'src/app/hooks/lawyerDashboard/community/__tests__/communityShellOpenFlow.test.ts',
+        'src/app/components/lawyer/CommunityScreen/components/__tests__/ForumMemberProfileOverlay.test.tsx',
         'src/app/components/lawyer/CommunityScreen/__tests__/forumEscapeStack.test.ts',
         'src/app/components/lawyer/CommunityScreen/hooks/__tests__/useForumFeedWindow.test.ts',
         'src/app/runtime/__tests__/forumDockSectionSurgicalCloseHonesty.test.ts',

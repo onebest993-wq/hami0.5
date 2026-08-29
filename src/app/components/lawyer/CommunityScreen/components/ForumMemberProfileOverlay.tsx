@@ -1,6 +1,7 @@
-import React, { Suspense } from 'react';
+import { Suspense } from 'react';
 import { LazyRoyalLawyerProfile } from '@/app/utils/lazyComponents';
 import { ProfileLoadingState } from '@/app/components/lawyer/RoyalLawyerProfile/components/ProfileLoadingState';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import type { ForumProfileFollowState } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 
 type ForumMemberProfileOverlayProps = {
@@ -16,8 +17,18 @@ export function ForumMemberProfileOverlay({
     onBack,
     forumFollow,
 }: ForumMemberProfileOverlayProps) {
+    useBodyScrollLock(true);
+    const label = displayName?.trim() ? `ملف ${displayName.trim()}` : 'ملف مهني';
+
     return (
-        <div className="fixed inset-0 z-[200]" dir="rtl" data-testid="forum-member-profile">
+        <div
+            className="fixed inset-0 z-[200]"
+            dir="rtl"
+            role="dialog"
+            aria-modal="true"
+            aria-label={label}
+            data-testid="forum-member-profile"
+        >
             <Suspense fallback={<ProfileLoadingState />}>
                 <LazyRoyalLawyerProfile
                     key={`forum-profile-${userId}`}

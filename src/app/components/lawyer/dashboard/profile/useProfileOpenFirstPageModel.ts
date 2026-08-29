@@ -81,9 +81,12 @@ export function useProfileOpenFirstPageModel(
     }, []);
 
     return useMemo(() => {
+        const viewerId = String(user?.id ?? '').trim();
+        /* fail-closed: بلا مشاهد معروف لا تُعرض أدوات المالك ولا الحمولة الخاصة */
+        const isOwnCover = Boolean(uid) && Boolean(viewerId) && viewerId === uid;
         const seed = uid
-            ? (peekProfileWarmCache(uid, { viewerId: uid }) ??
-              seedFirstPaintProfile(uid, userMeta, true, uid, { viewerId: uid }))
+            ? (peekProfileWarmCache(uid, { viewerId }) ??
+              seedFirstPaintProfile(uid, userMeta, isOwnCover, viewerId, { viewerId }))
             : undefined;
         const header = {
             ...DEFAULT_LAWYER_PROFILE.header,
@@ -99,9 +102,6 @@ export function useProfileOpenFirstPageModel(
         const displayName = header.name.trim() || identity?.displayName?.trim() || '';
         const initials =
             identity?.profileInitial?.trim() || displayName.charAt(0) || 'ح';
-
-        const viewerId = String(user?.id ?? '').trim();
-        const isOwnCover = Boolean(uid) && (!viewerId || viewerId === uid);
 
         return {
             saving: false,

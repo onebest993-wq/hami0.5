@@ -83,6 +83,8 @@ describe('profile first-open split — complete page, lighter first graph', () =
         expect(model).toContain('subscribeUserIdentityUiState');
         expect(model).toContain('subscribeProfileWarmCache');
         expect(model).toContain('setCoverCustomization');
+        expect(model).toContain('viewerId === uid');
+        expect(model).not.toContain('!viewerId || viewerId === uid');
         const commit = flow.slice(flow.indexOf('export function commitProfileOpen'));
         expect(commit).toContain('flushSync');
         expect(commit.indexOf('prepareProfileOpenPaint')).toBeLessThan(commit.indexOf('flushSync'));

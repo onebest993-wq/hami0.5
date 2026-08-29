@@ -641,13 +641,18 @@ describe('profile section surgical close honesty', () => {
             path.join(root, 'src/app/hooks/lawyerDashboard/lawyerDashboardHeaderVisibility.ts'),
             'utf8',
         );
-        expect(vis).toContain("tab === 'notifications'");
+        expect(vis).toContain("tab === 'profile'");
         const mainView = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
             'utf8',
         );
-        expect(mainView).toContain('homeTabProps.visible || !schedulePaintOpen');
-        expect(mainView).toContain('visible={homeActive}');
+        expect(mainView).toContain('const homeActive = homeTabProps.visible;');
+        /* مصدر واحد لحساب visible للرئيسية: البناء والترقيع لا يختلفان تحت الملف */
+        const patch = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/patchLawyerDashboardHeaderOverlayOpen.ts'),
+            'utf8',
+        );
+        expect(patch).toContain('isLawyerDashboardHomeStackTab(input.activeTab)');
         const profileSpec = fs.readFileSync(path.join(root, 'e2e/lawyer-profile.spec.ts'), 'utf8');
         expect(profileSpec).not.toContain('force: true');
         expect(profileSpec).toContain('clickProfileStudioTab');

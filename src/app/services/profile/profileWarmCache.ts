@@ -31,7 +31,7 @@ export {
 
 export { subscribeProfileWarmCache } from '@/app/services/profile/profileWarmCacheStore';
 
-const inflight = new Map<string, Promise<LawyerProfileData>>();
+const inflight = new Map<string, Promise<LawyerProfileData | null>>();
 
 /**
  * يملأ الكاش الدافئ متزامناً من التخزين المحلي أو بذرة الاسم من الجلسة —
@@ -145,9 +145,9 @@ export function warmProfileDataCache(
     if (pending) return pending.catch(() => null);
 
     const run = import('@/app/services/auth/lawyerAccountStatus')
-        .then(async ({ canUseServerBackedNetworkFeatures }) => {
+        .then(async ({ canUseServerBackedNetworkFeatures }): Promise<LawyerProfileData | null> => {
             if (!canUseServerBackedNetworkFeatures(uid)) {
-                return peekProfileWarmCache(uid);
+                return peekProfileWarmCache(uid) ?? null;
             }
             const m = await import('@/app/services/cloud/lawyerProfileCloud');
             const data = await m.ProfileDB.getProfile(uid, viewerId);
@@ -161,8 +161,9 @@ export function warmProfileDataCache(
             }
             if (!viewer || viewer !== uid) {
                 /* زائر أو جلسة مجهولة — لا تُسمّم كاش المالك بعرض منقّح */
-                return data;
+                return data ?? null;
             }
+            if (!data) return peekProfileWarmCache(uid) ?? null;
             return writeWarmPreferRich(uid, data);
         })
         .finally(() => {

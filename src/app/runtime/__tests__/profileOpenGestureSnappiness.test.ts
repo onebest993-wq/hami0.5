@@ -172,7 +172,8 @@ describe('profile open gesture snappiness', () => {
         );
         expect(headerVis).toContain('isLawyerDashboardHomeStackTab');
         expect(headerVis).toContain("tab === 'profile'");
-        expect(headerVis).toContain("tab === 'notifications'");
+        /* الإشعارات طبقة فوق المنزل ولا تصل activeTab — لا فرع ميت لها */
+        expect(headerVis).not.toContain("tab === 'notifications'");
 
         const bundle = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/buildLawyerDashboardTabBundle.ts'),
@@ -181,8 +182,12 @@ describe('profile open gesture snappiness', () => {
         expect(bundle).toContain('isLawyerDashboardHomeStackTab(params.activeTab)');
 
         const main = readLawyerDashboardMainViewSurface();
-        expect(main).toContain('homeTabProps.visible || !schedulePaintOpen');
-        expect(main).toContain('visible={homeActive}');
+        const patch = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/patchLawyerDashboardHeaderOverlayOpen.ts'),
+            'utf8',
+        );
+        expect(patch).toContain('isLawyerDashboardHomeStackTab(input.activeTab)');
+        expect(main).toContain('const homeActive = homeTabProps.visible;');
         expect(main).toContain('data-hami-dashboard-tab-stack');
         expect(main).toContain('LazyProfileTabHost');
         expect(main).toContain('ProfilePagePaintGate');

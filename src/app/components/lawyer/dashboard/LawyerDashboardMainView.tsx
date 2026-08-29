@@ -140,11 +140,8 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
     }, []);
     /** ستارة html أو تبويب React — أيهما يكفي لقشرة InstantChrome وسطح قابل للرجوع */
     const schedulePaintOpen = scheduleActive || scheduleAttrOpen;
-    /**
-     * غطاء الرئيسية يبقى is-active ما لم يُفتح التقويم —
-     * تبويب notifications ليس بديلاً للمنزل (كان يخفي البلاطة بعد إغلاق الملف).
-     */
-    const homeActive = homeTabProps.visible || !schedulePaintOpen;
+    /** visible يأتي من isLawyerDashboardHomeStackTab — يبقى صحيحاً تحت الملف */
+    const homeActive = homeTabProps.visible;
     /** Host عند الفتح أو ستارة snap أو keepAlive بعد زيارة التبويب — ليس عند الإقلاع */
     const scheduleShouldMount = scheduleHostMounted || schedulePaintOpen;
     const profileActive = profileTab.visible;
@@ -236,11 +233,7 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
                         homeStackCover
                         testId="lawyer-dashboard-home-surface"
                     >
-                        <LawyerDashboardHomeTab
-                            announceBootReveal
-                            {...homeTabProps}
-                            visible={homeActive}
-                        />
+                        <LawyerDashboardHomeTab announceBootReveal {...homeTabProps} />
                     </DashboardTabSurface>
 
                     {scheduleShouldMount ? (

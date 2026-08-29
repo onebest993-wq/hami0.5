@@ -74,6 +74,9 @@ describe('مسار ملف المنتدى الشبكي — صدق الربط', ()
         );
         expect(overlay).toContain('targetUserId={userId}');
         expect(overlay).toContain('forum-member-profile');
+        expect(overlay).toContain('role="dialog"');
+        expect(overlay).toContain('aria-modal="true"');
+        expect(overlay).toContain('useBodyScrollLock(true)');
         expect(profileIndex).toContain('readOnly={!profile.isOwnProfile}');
     });
 });

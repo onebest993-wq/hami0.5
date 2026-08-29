@@ -39,6 +39,7 @@ import {
     paintForumInstantChrome,
 } from '@/app/runtime/forumInstantPaint';
 import { consumeForumOpenPostId, isForumOpenIntentPending } from '@/app/runtime/forumOpenIntent';
+import { bindForumE2eForceOpenLive } from '@/app/runtime/forumE2eForceOpen';
 import { deferShellConcealAfterHandoff, isShellHandoffPending } from '@/app/runtime/sectionShellHandoff';
 
 export type UseLawyerDashboardCommunityParams = {
@@ -240,28 +241,20 @@ export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDash
     useEffect(() => {
         if (typeof window === 'undefined') return;
         const w = window as Window & {
-            __hamiE2eForceOpenCommunity?: () => void;
-            __hamiE2eForceOpenCommunityStub?: () => void;
             __hamiE2eCommunityDebug?: () => {
                 showCommunity: boolean;
                 communityHostMounted: boolean;
                 activeTab: LawyerDashboardTab;
             };
         };
-        w.__hamiE2eForceOpenCommunity = () => openCommunityTab();
+        const unbindForceOpen = bindForumE2eForceOpenLive(() => openCommunityTab());
         w.__hamiE2eCommunityDebug = () => ({
             showCommunity,
             communityHostMounted,
             activeTab,
         });
         return () => {
-            /* أعد stub حتى لا تُفرَّغ النافذة بين cleanup/re-bind أو بعد إغلاق PreDock */
-            const stub = w.__hamiE2eForceOpenCommunityStub;
-            if (typeof stub === 'function') {
-                w.__hamiE2eForceOpenCommunity = stub;
-            } else {
-                delete w.__hamiE2eForceOpenCommunity;
-            }
+            unbindForceOpen();
             delete w.__hamiE2eCommunityDebug;
         };
     }, [activeTab, communityHostMounted, openCommunityTab, showCommunity]);

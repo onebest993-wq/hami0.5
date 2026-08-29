@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import type { NotificationPanelProps } from '@/app/components/lawyer/NotificationPanel/types';
 import { useNotificationPanel } from '@/app/components/lawyer/NotificationPanel/hooks/useNotificationPanel';
 import { useNotificationFocusTrap } from '@/app/components/lawyer/NotificationPanel/hooks/useNotificationFocusTrap';
@@ -20,7 +20,7 @@ import { useHorizontalTabSwipe } from '@/app/utils/horizontalTabSwipe';
 import { OVERLAY_EDGE_GESTURE_PX } from '@/app/runtime/overlayEdgeBackGesture';
 import { useLawyerSettings } from '@/app/context/lawyerSettings/lawyerSettingsHooks';
 import { isSessionMuted } from '@/app/services/notifications/notificationSessionMute';
-import { isNotificationShellSnappedOpen } from '@/app/services/notifications/notificationShellSnap';
+import { useNotificationShellSnapSurface } from '@/app/hooks/lawyerDashboard/notifications/useNotificationShellSnap';
 import { useNotificationPanelKeyboardInsetScroll } from '@/app/components/lawyer/NotificationPanel/hooks/useNotificationPanelKeyboardInsetScroll';
 import './notificationPanel.css';
 
@@ -43,21 +43,12 @@ function NotificationPanelInner({
         sheetExit,
     } = useNotificationPanelChrome(isOpen);
 
-    const [snapEpoch, setSnapEpoch] = useState(0);
-    useLayoutEffect(() => {
-        if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return;
-        const bump = () => setSnapEpoch((n) => n + 1);
-        bump();
-        const observer = new MutationObserver(bump);
-        observer.observe(document.documentElement, {
-            attributes: true,
-            attributeFilter: ['data-hami-notifications-open'],
-        });
-        return () => observer.disconnect();
-    }, []);
-    const surfaceOpen = isOpen && snapEpoch >= 0 && isNotificationShellSnappedOpen();
+    /* الستارة هي الحقيقة البصرية: تفاعل عند الفتح، وحضور حتى تنتهي حركة الهبوط */
+    const snap = useNotificationShellSnapSurface();
+    const surfaceInteractive = isOpen && snap.open;
+    const surfacePresent = isOpen && snap.present;
 
-    useBodyScrollLock(surfaceOpen);
+    useBodyScrollLock(surfacePresent);
 
     const panel = useNotificationPanel(isOpen, userId, onClose, onNavigate);
     const route = useNotificationPanelRoute(isOpen);
@@ -76,8 +67,12 @@ function NotificationPanelInner({
     }, [isOpen]);
 
     const panelRef = useRef<HTMLDivElement>(null);
-    const { onKeyDownCapture } = useNotificationFocusTrap(surfaceOpen, panelRef, handleEscapeOrBack);
-    useNotificationPanelKeyboardInsetScroll(panelRef, surfaceOpen, isDesktop, keyboardInset);
+    const { onKeyDownCapture } = useNotificationFocusTrap(
+        surfaceInteractive,
+        panelRef,
+        handleEscapeOrBack,
+    );
+    useNotificationPanelKeyboardInsetScroll(panelRef, surfaceInteractive, isDesktop, keyboardInset);
 
     const viewState = useNotificationPanelViewState({
         isInboxRoute: route.isInboxRoute,
@@ -92,7 +87,7 @@ function NotificationPanelInner({
         order: NOTIFICATION_TAB_ORDER,
         activeId: panel.activeTab,
         onChange: panel.setActiveTab,
-        enabled: surfaceOpen && route.isInboxRoute,
+        enabled: surfaceInteractive && route.isInboxRoute,
         ignoreInlineStartEdgePx: OVERLAY_EDGE_GESTURE_PX,
     });
 
@@ -101,15 +96,17 @@ function NotificationPanelInner({
     }
 
     return (
-        <NotificationPanelRoot isOpen={surfaceOpen} keepAlive={keepAlive}>
+        <NotificationPanelRoot isOpen={surfacePresent} keepAlive={keepAlive}>
             <NotificationPanelSheet
                 panelRef={panelRef}
-                isOpen={surfaceOpen}
+                isOpen={surfaceInteractive}
                 keepAlive={keepAlive}
                 isInboxRoute={route.isInboxRoute}
                 panelRoute={route.panelRoute}
                 showListLoading={viewState.showListLoading}
-                sheetDragEnabled={surfaceOpen && !isDesktop && !reduceMotion && route.isInboxRoute}
+                sheetDragEnabled={
+                    surfaceInteractive && !isDesktop && !reduceMotion && route.isInboxRoute
+                }
                 reduceMotion={reduceMotion}
                 keyboardInset={keyboardInset}
                 isDesktop={isDesktop}

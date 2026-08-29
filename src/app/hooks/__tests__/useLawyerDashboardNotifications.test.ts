@@ -237,6 +237,41 @@ describe('useLawyerDashboardNotifications', () => {
         });
     });
 
+    it('يحفظ هبوط الورقة: closing يصمد وReact لا تُقتطع أثناء الحركة', async () => {
+        const track = document.createElement('div');
+        track.className = 'hami-notif-sheet-track';
+        const sheet = document.createElement('div');
+        sheet.setAttribute('data-testid', 'notification-panel');
+        track.appendChild(sheet);
+        document.body.appendChild(track);
+
+        const { result } = renderHook(() => useLawyerDashboardNotifications('lawyer-1'));
+        act(() => {
+            result.current.openNotifications();
+        });
+        await waitFor(() => {
+            expect(result.current.showNotifications).toBe(true);
+        });
+
+        await act(async () => {
+            result.current.closeNotifications();
+            await Promise.resolve();
+        });
+
+        /* مزامنة الستارة كانت تمسح closing فوراً فتختفي الورقة قطعاً بلا هبوط */
+        expect(document.documentElement.getAttribute('data-hami-notifications-closing')).toBe('1');
+        expect(result.current.showNotifications).toBe(true);
+
+        track.dispatchEvent(
+            new TransitionEvent('transitionend', { propertyName: 'transform', bubbles: true }),
+        );
+        await waitFor(() => {
+            expect(result.current.showNotifications).toBe(false);
+        });
+        expect(document.documentElement.hasAttribute('data-hami-notifications-closing')).toBe(false);
+        track.remove();
+    });
+
     it('يمسح React عندما يُغلق snap دون closeNotifications', async () => {
         const { result } = renderHook(() => useLawyerDashboardNotifications('lawyer-1'));
 

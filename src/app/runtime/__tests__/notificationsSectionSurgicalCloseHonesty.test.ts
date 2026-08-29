@@ -68,8 +68,20 @@ describe('notifications section surgical close honesty', () => {
         expect(hook).toContain('isNotificationShellSnappedOpen');
         expect(hook).toContain('clearNotificationShellClosing');
         expect(hook).toContain('beginNotificationShellOpen');
-        expect(hook).toContain('MutationObserver');
-        expect(hook).toContain("'data-hami-notifications-open'");
+        /* مزامنة الستارة بحدث لا بمراقبة DOM — ولا لمس closing خارج مسار الخروج */
+        expect(hook).toContain('useNotificationShellStateSync');
+        expect(hook).not.toContain('MutationObserver');
+        const stateSync = fs.readFileSync(
+            path.join(
+                root,
+                'src/app/hooks/lawyerDashboard/notifications/useNotificationShellStateSync.ts',
+            ),
+            'utf8',
+        );
+        expect(stateSync).toContain('NOTIFICATION_SHELL_SNAP_EVENT');
+        expect(stateSync).toContain('snap.open || snap.closing');
+        expect(stateSync).not.toContain('clearNotificationShellClosing');
+        expect(stateSync).not.toContain('MutationObserver');
         const openFlow = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/notifications/notificationShellOpenFlow.ts'),
             'utf8',
@@ -120,8 +132,10 @@ describe('notifications section surgical close honesty', () => {
             'utf8',
         );
         expect(panel).toContain('NotificationArrivalAnnouncer');
-        expect(panel).toContain('isNotificationShellSnappedOpen');
-        expect(panel).toContain('surfaceOpen');
+        /* حضور بصري وتفاعل مفصولان: لا سحب/تركيز على ورقة تهبط، ولا بتر للحركة */
+        expect(panel).toContain('useNotificationShellSnapSurface');
+        expect(panel).toContain('const surfaceInteractive = isOpen && snap.open');
+        expect(panel).toContain('const surfacePresent = isOpen && snap.present');
     });
 
     it('مسارات case_details و schedule ضمن allowlist التنقّل', () => {

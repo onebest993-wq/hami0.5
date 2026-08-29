@@ -18,6 +18,8 @@ export function applyNativeResumeFastPath(): void {
         try {
             document.documentElement.dataset.hamiBootRevealed = '1';
             document.documentElement.dataset.hamiInitialBoot = '0';
+            /* أثر دخول الشبكة المحذوف — يبقى المسح حتى تنتهي جلسات WebView
+               التي علّقت السمة قبل الإزالة؛ بلا CSS يقرأها لا ضرر من بقائه. */
             delete document.documentElement.dataset.hamiHomeEntrance;
         } catch {
             /* ignore */

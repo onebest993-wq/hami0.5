@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useIncomingCaseShares } from '@/app/hooks/useIncomingCaseShares';
@@ -35,6 +35,7 @@ import {
 } from '@/app/hooks/lawyerDashboard/notifications/useNotificationStoreSync';
 import { useNotificationOsPanelOpen } from '@/app/hooks/lawyerDashboard/notifications/useNotificationOsPanelOpen';
 import { useNotificationE2eWindow } from '@/app/hooks/lawyerDashboard/notifications/useNotificationE2eWindow';
+import { useNotificationShellStateSync } from '@/app/hooks/lawyerDashboard/notifications/useNotificationShellStateSync';
 
 /**
  * فتح/إغلاق لوحة الإشعارات — نمط الإعدادات:
@@ -74,16 +75,15 @@ export function useLawyerDashboardNotifications(
         setStoreUnreadCount(peekNotificationUnreadCount(userId));
     }, [userId]);
 
-    useEffect(() => {
-        if (hasLocalAppSession(userId)) return;
-        if (!showNotificationsRef.current && !initialSession.open) return;
-        snapNotificationShellClose();
-        concealNotificationWarmPanel();
-        showNotificationsRef.current = false;
-        closingRef.current = false;
-        setShowNotifications(false);
-        persistNotificationsSessionOpen(false);
-    }, [userId, initialSession.open]);
+    useNotificationShellStateSync({
+        userId,
+        initialSessionOpen: initialSession.open,
+        showNotifications,
+        showNotificationsRef,
+        isBusy: () => openInFlightRef.current || closingRef.current,
+        closingRef,
+        setShowNotifications,
+    });
 
     useNotificationStoreSync({
         showNotifications,
@@ -142,34 +142,6 @@ export function useLawyerDashboardNotifications(
     useEffect(() => {
         return registerDashboardOverlayCloser('notifications', closeNotifications);
     }, [closeNotifications]);
-
-    useEffect(() => {
-        persistNotificationsSessionOpen(showNotifications);
-    }, [showNotifications]);
-
-    const syncReactClosedWhenSnapGone = useCallback(() => {
-        if (openInFlightRef.current) return;
-        if (isNotificationShellSnappedOpen()) return;
-        clearNotificationShellClosing();
-        if (!showNotificationsRef.current) return;
-        /* snap أُغلق دون setState — aria-modal كان يخفي بلاطة الرئيسية عن Playwright */
-        showNotificationsRef.current = false;
-        setShowNotifications(false);
-        persistNotificationsSessionOpen(false);
-        closingRef.current = false;
-        concealNotificationWarmPanel();
-    }, []);
-
-    useLayoutEffect(() => {
-        syncReactClosedWhenSnapGone();
-        if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') return;
-        const observer = new MutationObserver(syncReactClosedWhenSnapGone);
-        observer.observe(document.documentElement, {
-            attributes: true,
-            attributeFilter: ['data-hami-notifications-open', 'data-hami-notifications-closing'],
-        });
-        return () => observer.disconnect();
-    }, [showNotifications, syncReactClosedWhenSnapGone]);
 
     const beginNotificationShellOpen = useCallback(() => {
         beginNotificationShellOpenFlow({

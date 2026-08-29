@@ -320,13 +320,12 @@ html[data-hami-initial-boot='1'] [data-hami-lawyer-dashboard] [data-hami-block].
     z-index: 100;
 }
 
-/* عمود الهيدر = عمود اللوحة — الأدوات المفتوحة لا تمتد على الخلفية الكحلية */
+/* عمود الهيدر = عمود اللوحة — الأدوات المفتوحة لا تمتد على الخلفية الكحلية.
+   العرض من `.hami-shell-container` وحده؛ هنا التوسيط الرأسي وحارس الانكماش فقط. */
 .hami-lawyer-header > .hami-shell-container {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 0 1 var(--hami-shell-max-width);
-    width: min(100%, var(--hami-shell-max-width));
     min-width: 0;
 }
 

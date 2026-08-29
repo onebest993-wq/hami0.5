@@ -43,15 +43,14 @@ vi.mock('../../services/forum/forumAuthorResolver.ts', () => ({
 const requireForumAuthMock = vi.fn();
 const requireForumAuthAndUnbannedMock = vi.fn();
 
-vi.mock('./_auth.ts', () => ({
-    requireForumAuth: (...args: unknown[]) => requireForumAuthMock(...args),
-    requireForumAuthAndUnbanned: (...args: unknown[]) => requireForumAuthAndUnbannedMock(...args),
-    jsonResponse: (status: number, body: Record<string, unknown>) =>
-        new Response(JSON.stringify(body), {
-            status,
-            headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        }),
-}));
+vi.mock('./_auth.ts', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./_auth.ts')>();
+    return {
+        ...actual,
+        requireForumAuth: (...args: unknown[]) => requireForumAuthMock(...args),
+        requireForumAuthAndUnbanned: (...args: unknown[]) => requireForumAuthAndUnbannedMock(...args),
+    };
+});
 
 import { POST as postsPost } from './posts/route.ts';
 import { POST as pinPost } from './pin/route.ts';

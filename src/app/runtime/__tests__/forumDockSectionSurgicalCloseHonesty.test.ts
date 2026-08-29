@@ -129,6 +129,7 @@ describe('forum dock section surgical close honesty', () => {
         );
         expect(preDockStubs).toContain("requestArm('community')");
         expect(preDockStubs).toContain('openCommunityTab:');
+        expect(preDockStubs).toContain('armForumE2eForceOpenStub');
         const preDock = fs.readFileSync(
             path.join(
                 root,
@@ -169,6 +170,7 @@ describe('forum dock section surgical close honesty', () => {
             'utf8',
         );
         expect(hook).toContain('commitCommunityOpen');
+        expect(hook).toContain('bindForumE2eForceOpenLive');
     });
 
     it('forum dock بلا lucide MessageCircle وعلى stem بلا أيقونة ميتة', () => {

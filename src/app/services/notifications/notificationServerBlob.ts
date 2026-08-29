@@ -1,11 +1,12 @@
 /**
  * واجهة عامة لصندوق إشعارات الخادم — التنفيذ مفصول تحت inbox/.
  */
-export type { AppendIncomingNotificationInput } from '@/app/services/notifications/inbox/notificationServerInboxOps';
+export type { AppendIncomingNotificationInput } from '@/app/services/notifications/inbox/notificationServerInboxAppend';
 export type { ShellNotificationStorageMeta } from '@/app/services/notifications/inbox/notificationServerInboxQuery';
 
+export { appendIncomingNotificationServer } from '@/app/services/notifications/inbox/notificationServerInboxAppend';
+
 export {
-    appendIncomingNotificationServer,
     upsertNotificationModelsServer,
     saveNotificationBlobServer,
     markNotificationReadServer,

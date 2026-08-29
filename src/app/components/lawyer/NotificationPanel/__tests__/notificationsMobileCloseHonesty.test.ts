@@ -11,7 +11,9 @@ function read(rel: string): string {
 describe('notifications mobile close honesty', () => {
     it('اللوحة تقفل التمرير وتحترم safe-area ولوحة المفاتيح واللمس 44px', () => {
         const panel = read('src/app/components/lawyer/NotificationPanel/index.tsx');
-        expect(panel).toContain('useBodyScrollLock(isOpen)');
+        /* القفل يصمد حتى نهاية هبوط الورقة — لا يُرفع عند بدء الإغلاق */
+        expect(panel).toContain('useBodyScrollLock(surfacePresent)');
+        expect(panel).toContain('const surfacePresent = isOpen && snap.present');
         expect(panel).toContain('useNotificationLayeredEscape');
         expect(panel).toContain('ignoreInlineStartEdgePx');
         expect(panel).toContain('OVERLAY_EDGE_GESTURE_PX');
@@ -48,7 +50,9 @@ describe('notifications mobile close honesty', () => {
 
     it('الورقة تُسحب للإغلاق من الهيدر على الهاتف فقط ومكشوفة للمقبض', () => {
         const panel = read('src/app/components/lawyer/NotificationPanel/index.tsx');
-        expect(panel).toContain('sheetDragEnabled={isOpen && !isDesktop && !reduceMotion && route.isInboxRoute}');
+        /* السحب يتوقف لحظة بدء الإغلاق — لا يُسحَب سطح يهبط */
+        expect(panel).toContain('surfaceInteractive && !isDesktop && !reduceMotion && route.isInboxRoute');
+        expect(panel).toContain('const surfaceInteractive = isOpen && snap.open');
         const sheet = read(
             'src/app/components/lawyer/NotificationPanel/components/NotificationPanelSheet.tsx',
         );

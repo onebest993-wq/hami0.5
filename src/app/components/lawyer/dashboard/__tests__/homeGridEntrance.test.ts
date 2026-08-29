@@ -25,7 +25,6 @@ describe('home grid entrance', () => {
         );
         expect(css).not.toContain('hami-home-slot-enter');
         expect(motion).not.toContain('hami-home-slot-enter');
-        const resume = readFileSync(resolve(root, 'src/app/runtime/nativeResumeFastPath.ts'), 'utf8');
-        expect(resume).toContain('delete document.documentElement.dataset.hamiHomeEntrance');
+        /* مسح سمة الجلسات القديمة سلوكٌ يغطّيه nativeResumeFastPath.test.ts — لا نثبّت نصّه هنا */
     });
 });

@@ -18,12 +18,12 @@ export type LawyerDashboardHeaderVisibilityInput = {
 };
 
 /**
- * الرئيسية + الملف + تبويب الإشعارات الوهمي — نفس مسار طلاء المنزل.
- * الإشعارات طبقة فوق المنزل وليست بديلاً له (إخفاء الهيدر عبر snap الإشعارات).
- * إخفاء الهيدر أثناء الملف يتم عبر html[data-hami-profile-open] فقط.
+ * الرئيسية والملف على نفس مسار طلاء المنزل — الملف طبقة فوقه لا بديل عنه،
+ * فتبقى شبكة الرئيسية مركّبة تحته. إخفاء الهيدر أثناء الملف عبر
+ * html[data-hami-profile-open] فقط. المصدر الوحيد لحساب visible للرئيسية.
  */
 export function isLawyerDashboardHomeStackTab(tab: LawyerDashboardTab): boolean {
-    return tab === 'home' || tab === 'profile' || tab === 'notifications';
+    return tab === 'home' || tab === 'profile';
 }
 
 export function shouldHideLawyerDashboardHeader(input: LawyerDashboardHeaderVisibilityInput): boolean {

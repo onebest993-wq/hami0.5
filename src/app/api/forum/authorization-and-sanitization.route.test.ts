@@ -68,16 +68,15 @@ vi.mock('../../services/forum/forumRateLimitServer.ts', () => ({
 }));
 
 const authIdentityMock = vi.fn();
-vi.mock('./_auth.ts', () => ({
-    requireForumAuth: (...args: unknown[]) => authIdentityMock(...args),
-    requireForumAuthAndUnbanned: (...args: unknown[]) => authIdentityMock(...args),
-    assertForumWriteAllowed: () => ({ ok: true }),
-    jsonResponse: (status: number, body: Record<string, unknown>) =>
-        new Response(JSON.stringify(body), {
-            status,
-            headers: { 'Content-Type': 'application/json; charset=utf-8' },
-        }),
-}));
+vi.mock('./_auth.ts', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./_auth.ts')>();
+    return {
+        ...actual,
+        requireForumAuth: (...args: unknown[]) => authIdentityMock(...args),
+        requireForumAuthAndUnbanned: (...args: unknown[]) => authIdentityMock(...args),
+        assertForumWriteAllowed: () => ({ ok: true }),
+    };
+});
 
 import { POST as deleteRoute } from './delete/route.ts';
 import { POST as updateRoute } from './update/route.ts';

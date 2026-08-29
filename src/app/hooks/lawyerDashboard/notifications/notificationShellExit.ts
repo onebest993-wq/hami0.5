@@ -1,4 +1,5 @@
 import { clearOverlayEnterSettle } from '@/app/runtime/overlayEnterSettle';
+import { emitNotificationShellSnap } from '@/app/services/notifications/notificationShellSnap';
 
 const CLOSING_ATTR = 'data-hami-notifications-closing';
 const OPEN_ATTR = 'data-hami-notifications-open';
@@ -30,7 +31,9 @@ function shouldSkipNotificationSheetMotion(): boolean {
 
 export function clearNotificationShellClosing(): void {
     if (typeof document === 'undefined') return;
+    if (!document.documentElement.hasAttribute(CLOSING_ATTR)) return;
     document.documentElement.removeAttribute(CLOSING_ATTR);
+    emitNotificationShellSnap();
 }
 
 /**
@@ -68,12 +71,14 @@ export function beginNotificationShellExit(onDone: () => void): void {
     clearOverlayEnterSettle('data-hami-notif-enter');
     root.setAttribute(CLOSING_ATTR, '1');
     root.removeAttribute(OPEN_ATTR);
+    /* حالة واحدة: مغلق بصرياً لكن ما زال يهبط — قبل أي مزامنة React */
+    emitNotificationShellSnap();
 
     let settled = false;
     const finish = () => {
         if (settled) return;
         settled = true;
-        window.clearTimeout(fallbackTimer);
+        if (typeof window !== 'undefined') window.clearTimeout(fallbackTimer);
         sheet.removeEventListener('transitionend', onTransitionEnd);
         clearNotificationShellClosing();
         onDone();

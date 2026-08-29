@@ -125,6 +125,20 @@ export function markExecutionDossierTombstones(dossierIds: Iterable<string | num
     return writeTombstoneSet(next);
 }
 
+/**
+ * مسار الحذف النهائي. `mark` المتزامن يرفض فوق مفتاح مشفّر لم يُفكّ، فيبقى الحذف
+ * بلا شاهد وتعود الإضبارة عند أول مزامنة. هنا نفكّ المفتاح ثم نُعيد المحاولة،
+ * ولا نُرجع false إلا إن تعذّر الفكّ فعلاً.
+ */
+export async function commitExecutionDossierTombstones(
+    dossierIds: Iterable<string | number>,
+): Promise<boolean> {
+    const ids = [...dossierIds];
+    if (markExecutionDossierTombstones(ids)) return true;
+    if (!(await ensureExecutionDossierTombstonesReadable())) return false;
+    return markExecutionDossierTombstones(ids);
+}
+
 export function listExecutionDossierTombstoneIds(): string[] {
     return [...readTombstoneSet()];
 }

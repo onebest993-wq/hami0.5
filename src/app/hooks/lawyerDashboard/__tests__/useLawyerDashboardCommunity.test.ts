@@ -191,4 +191,22 @@ describe('useLawyerDashboardCommunity', () => {
         expect(document.documentElement.getAttribute('data-hami-forum-open')).toBe('1');
         resetForumOpenIntentForTests();
     });
+
+    it('cleanup الحي يعيد تسليح stub ولا يفرّغ __hamiE2eForceOpenCommunity', async () => {
+        const stub = vi.fn();
+        const w = window as Window & {
+            __hamiE2eForceOpenCommunity?: () => void;
+            __hamiE2eForceOpenCommunityStub?: () => void;
+        };
+        w.__hamiE2eForceOpenCommunityStub = stub;
+        const { unmount } = renderHook(() =>
+            useLawyerDashboardCommunity({ userId: 'lawyer-1', activeTab: 'home' }),
+        );
+        expect(typeof w.__hamiE2eForceOpenCommunity).toBe('function');
+        expect(w.__hamiE2eForceOpenCommunity).not.toBe(stub);
+        unmount();
+        expect(w.__hamiE2eForceOpenCommunity).toBe(stub);
+        delete w.__hamiE2eForceOpenCommunity;
+        delete w.__hamiE2eForceOpenCommunityStub;
+    });
 });

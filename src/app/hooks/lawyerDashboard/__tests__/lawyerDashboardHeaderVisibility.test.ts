@@ -33,11 +33,11 @@ describe('lawyerDashboardHeaderVisibility', () => {
         expect(computeLawyerDashboardHeaderShouldShow(profile)).toBe(true);
     });
 
-    it('يبقي الرئيسية تحت طبقة الإشعارات (التبويب ليس بديلاً للمنزل)', () => {
-        expect(isLawyerDashboardHomeStackTab('notifications')).toBe(true);
-        const notifications = { ...base, activeTab: 'notifications' as const };
-        expect(shouldHideLawyerDashboardHeader(notifications)).toBe(false);
-        expect(computeLawyerDashboardHeaderShouldShow(notifications)).toBe(true);
+    it('مسار طلاء المنزل: الرئيسية والملف فقط — الإشعارات طبقة لا تبويب', () => {
+        expect(isLawyerDashboardHomeStackTab('home')).toBe(true);
+        expect(isLawyerDashboardHomeStackTab('profile')).toBe(true);
+        expect(isLawyerDashboardHomeStackTab('notifications')).toBe(false);
+        expect(isLawyerDashboardHomeStackTab('schedule')).toBe(false);
     });
 
     it('يخفي الهيدر على تبويب التقويم', () => {

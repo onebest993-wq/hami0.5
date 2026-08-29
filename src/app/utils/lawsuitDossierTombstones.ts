@@ -72,6 +72,19 @@ export function markLawsuitDossierTombstone(dossierId: string | number | undefin
     return writeTombstoneSet(next);
 }
 
+/**
+ * مسار الحذف النهائي. `mark` المتزامن يرفض فوق مفتاح مشفّر لم يُفكّ، فيبقى الحذف
+ * بلا شاهد وتعود الإضبارة عند أول مزامنة. هنا نفكّ المفتاح ثم نُعيد المحاولة،
+ * ولا نُرجع false إلا إن تعذّر الفكّ فعلاً.
+ */
+export async function commitLawsuitDossierTombstone(
+    dossierId: string | number | undefined,
+): Promise<boolean> {
+    if (markLawsuitDossierTombstone(dossierId)) return true;
+    if (!(await ensureLawsuitDossierTombstonesReadable())) return false;
+    return markLawsuitDossierTombstone(dossierId);
+}
+
 export function filterTombstonedLawsuitSyncRows(rows: unknown): unknown[] {
     if (!Array.isArray(rows)) return [];
     return rows.filter((row) => {

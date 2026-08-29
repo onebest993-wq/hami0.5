@@ -2,6 +2,7 @@ import { snapScheduleShellClose, snapScheduleShellOpen } from '@/app/services/sc
 import { applyRepositoryOpaqueChrome, concealRepositoryWarmShell } from '@/app/runtime/repositoryInstantPaint';
 import { applyForumOpaqueChrome, concealForumWarmShell, paintForumInstantChrome } from '@/app/runtime/forumInstantPaint';
 import { markForumOpenIntentPending } from '@/app/runtime/forumOpenIntent';
+import { armForumE2eForceOpenStub } from '@/app/runtime/forumE2eForceOpen';
 import {
     readInitialCommunityOpen,
     readInitialLawyerTab,
@@ -55,21 +56,8 @@ export function createPreDockFeatureStubs(
         resetCommunityShell: noop,
     } satisfies PreDockFeatureBag['community'];
 
-    /*
-     * E2E ينتظر window.__hamiE2eForceOpenCommunity قبل الفتح.
-     * الخطاف الحي يُسجَّل فقط بعد تحميل PreDock الكسول — بلا تسليح هنا
-     * يفشل المسار عند alreadyOnHome قبل اكتمال الـ chunk.
-     * الخطاف الحي يستبدل هذا عند onReady.
-     */
-    if (typeof window !== 'undefined') {
-        const w = window as Window & {
-            __hamiE2eForceOpenCommunity?: () => void;
-            __hamiE2eForceOpenCommunityStub?: () => void;
-        };
-        const stubOpen = () => community.openCommunityTab();
-        w.__hamiE2eForceOpenCommunityStub = stubOpen;
-        w.__hamiE2eForceOpenCommunity = stubOpen;
-    }
+    /* E2E: الخطاف الحي يُسجَّل بعد PreDock الكسول — الـ stub يملأ الفجوة */
+    armForumE2eForceOpenStub(() => community.openCommunityTab());
 
     const schedule = {
         calendarSearchFocus: null,
