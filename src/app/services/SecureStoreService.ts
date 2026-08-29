@@ -214,7 +214,6 @@ import {
   encryptionSizeLimitFor,
   fallsBackToPlaintextBySize,
   isEncryptOrFailStorageKey,
-  isLawsuitEncryptAlwaysKey,
   isSensitiveStorageKey,
   shouldEncryptValue,
 } from './secureStorageKeys';

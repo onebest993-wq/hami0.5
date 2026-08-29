@@ -2,8 +2,8 @@
  * سلوك حقيقي على المخزن: مفاتيح المعاملات تُكتب مشفَّرة وتُقرأ سليمة.
  * لا يُقاس بالسياسة وحدها — تُكتب ثم يُقرأ الخام من القرص.
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import SecureStoreService from '@/app/services/SecureStoreService';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import SecureStoreService, { StorageEncryptionError } from '@/app/services/SecureStoreService';
 import { CryptoService } from '@/app/services/CryptoService';
 import { ENCRYPT_MAX_BYTES, shouldEncryptValue } from '@/app/services/secureStorageKeys';
 
@@ -63,21 +63,23 @@ describe('transactions at-rest encryption (behavior)', () => {
         expect(raw?.startsWith(ENCRYPTED_PREFIX)).toBe(true);
     });
 
-    /*
-     * بلا مفتاح رئيسي لا تُرفض الكتابة برمي: `setItem` يحتجزها في طابور مؤجَّل
-     * (`queueCryptoDeferredWrite`) لأن مفاتيح غير الدعاوى لا تُسقط رميها للمستدعي.
-     * الضمان الذي يهمّ هو أن القرص لا يرى الاسم صريحاً — وهذا ما يُقاس هنا.
-     */
-    it('بلا مفتاح رئيسي: لا نص صريح على القرص — الكتابة تُؤجَّل', async () => {
-        const clientName = 'موكل_مؤجَّل_لا_يُكتب_صريحاً';
-        CryptoService.destroy();
-        try {
-            await SecureStoreService.setItem(TX_KEY, JSON.stringify([{ id: 'x', clientName }]));
-            const raw = await SecureStoreService.peekRawFromDisk(TX_KEY);
-            expect(raw ?? '').not.toContain(clientName);
-            expect(raw == null || raw.startsWith(ENCRYPTED_PREFIX)).toBe(true);
-        } finally {
-            await CryptoService.initialize('tx-at-rest-passphrase');
-        }
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('بلا مفتاح رئيسي تُرفض الكتابة ولا تُخزَّن صريحة ولا تُؤجَّل صامتة', async () => {
+        const clientName = 'موكل_مرفوض_لا_يُكتب_صريحاً';
+        /*
+         * `destroy()` لا يكفي: `encryptIfSensitive` يستدعي `initialize()` فيعيد
+         * المفتاح من مخزن IDB الدائم. مسار الرفض الحقيقي هو غياب المفتاح بعد init.
+         */
+        vi.spyOn(CryptoService, 'initialize').mockResolvedValue(undefined);
+        vi.spyOn(CryptoService, 'hasMasterKey').mockReturnValue(false);
+        await expect(
+            SecureStoreService.setItem(TX_KEY, JSON.stringify([{ id: 'x', clientName }])),
+        ).rejects.toBeInstanceOf(StorageEncryptionError);
+        const raw = await SecureStoreService.peekRawFromDisk(TX_KEY);
+        expect(raw ?? '').not.toContain(clientName);
+        expect(raw == null || raw.startsWith(ENCRYPTED_PREFIX)).toBe(true);
     });
 });

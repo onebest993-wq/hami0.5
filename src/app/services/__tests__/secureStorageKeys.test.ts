@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     ENCRYPT_MAX_BYTES,
     fallsBackToPlaintextBySize,
+    isEncryptOrFailStorageKey,
     isExecutionLocalPlaintextKey,
     isSensitiveStorageKey,
     isTransactionsStorageKey,
@@ -70,6 +71,7 @@ describe('secureStorageKeys transactions stay encrypted at rest', () => {
     it('فوق حدّ الحجم تُشفَّر أو تفشل بلا سقوط لنص صريح', () => {
         for (const key of ['hami:transactions:v1', 'hami:transactionsThreading:v1:user-1'] as const) {
             expect(isWarmEncryptAlwaysKey(key)).toBe(true);
+            expect(isEncryptOrFailStorageKey(key)).toBe(true);
             expect(fallsBackToPlaintextBySize(key, oversize)).toBe(false);
             expect(shouldEncryptValue(key, oversize)).toBe(true);
         }

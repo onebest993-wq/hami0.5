@@ -1,5 +1,5 @@
+import { persistTransactionsSecure } from '@/app/services/transactions/persistTransactionsSecure';
 import {
-    persistSecurePayloadWhenReady,
     readSecureOrDrainLegacySync,
     writeSecureAndClearLegacySync,
 } from '@/app/services/storage/readSecureOrDrainLegacySync';
@@ -65,7 +65,7 @@ function itemTime(item: unknown): number {
 
 function persistThreadingPayload(key: string, payload: string): void {
     writeSecureAndClearLegacySync(key, payload);
-    void persistSecurePayloadWhenReady(key, payload);
+    persistTransactionsSecure(key, payload);
 }
 
 /** دمج بالـ id — المحلي يفوز عند التعادل لحماية الحفظ الفوري من سحابة قديمة */

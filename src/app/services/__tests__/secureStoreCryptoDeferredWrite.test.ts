@@ -25,4 +25,13 @@ describe('SecureStoreService — deferred sensitive writes', () => {
             SecureStoreService.setItem('lawyer_files', JSON.stringify([{ id: 'a' }])),
         ).rejects.toBeInstanceOf(StorageEncryptionError);
     });
+
+    it('still refuses transaction keys without encryption', async () => {
+        vi.spyOn(CryptoService, 'initialize').mockResolvedValue(undefined);
+        vi.spyOn(CryptoService, 'hasMasterKey').mockReturnValue(false);
+
+        await expect(
+            SecureStoreService.setItem('hami:transactions:v1', JSON.stringify([{ id: 't1' }])),
+        ).rejects.toBeInstanceOf(StorageEncryptionError);
+    });
 });

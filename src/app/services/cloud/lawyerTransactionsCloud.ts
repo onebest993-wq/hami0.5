@@ -1,7 +1,7 @@
 import { lawyerCloudKv } from '@/app/services/cloud/lawyerCloudKv';
 import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
+import { persistTransactionsSecureAwait } from '@/app/services/transactions/persistTransactionsSecure';
 import {
-    persistSecurePayloadWhenReady,
     readSecurePayloadWhenReady,
 } from '@/app/services/storage/readSecureOrDrainLegacySync';
 import type {
@@ -56,7 +56,7 @@ async function loadLocalTransactions(): Promise<unknown[]> {
 
 async function saveLocalTransactions(transactions: unknown[]): Promise<void> {
     const payload = JSON.stringify(transactions.map(serializeTransaction));
-    await persistSecurePayloadWhenReady(TRANSACTIONS_LOCAL_KEY, payload);
+    await persistTransactionsSecureAwait(TRANSACTIONS_LOCAL_KEY, payload);
 }
 
 function mergeTransactions(local: unknown[], remote: unknown[]): unknown[] {
@@ -216,7 +216,7 @@ async function saveLocalTransactionsThreadingState(
     state: TransactionsThreadingState,
 ): Promise<void> {
     const key = getTransactionsThreadingLocalKey(userId);
-    await persistSecurePayloadWhenReady(key, JSON.stringify(state));
+    await persistTransactionsSecureAwait(key, JSON.stringify(state));
 }
 
 export const TransactionsThreadingDB = {

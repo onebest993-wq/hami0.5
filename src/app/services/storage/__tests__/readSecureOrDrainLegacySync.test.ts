@@ -127,7 +127,7 @@ describe('readSecureOrDrainLegacySync', () => {
 
         expect(vault).toContain('await SecureStoreService.setItem(VAULT_LOCAL_KEY, payload)');
         expect(vault).not.toMatch(/PERSIST_FLUSH_TIMEOUT/);
-        expect(tx).toContain('persistSecurePayloadWhenReady');
+        expect(tx).toContain('persistTransactionsSecureAwait');
         expect(tx).not.toMatch(/last-resort plaintext/);
         expect(threading).toContain('writeSecureAndClearLegacySync');
         expect(threading).not.toMatch(/localStorage\.setItem\(key/);

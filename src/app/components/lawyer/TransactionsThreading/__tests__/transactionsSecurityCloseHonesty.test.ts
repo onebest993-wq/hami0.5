@@ -47,11 +47,11 @@ describe('transactions security close honesty', () => {
         expect(existsSync(join(root, '_tx_sec_apply.js'))).toBe(false);
     });
 
-    it('الزوجة: شبكة KV فقط خلف مزامنة العمل؛ محلياً plaintext بلا تشفير', () => {
+    it('الزوجة: شبكة KV فقط خلف مزامنة العمل؛ محلياً تشفير عند الراحة', () => {
         const cloud = src('src/app/services/cloud/lawyerTransactionsCloud.ts');
         expect(cloud).toContain('lawyerCloudKv');
         expect(cloud).toContain('isLawyerWorkCloudLive');
-        expect(cloud).toContain('persistSecurePayloadWhenReady');
+        expect(cloud).toContain('persistTransactionsSecureAwait');
         expect(cloud).toContain('readSecurePayloadWhenReady');
         expect(cloud).not.toContain('CryptoService');
         const kv = src('src/app/services/cloud/lawyerCloudKv.ts');
@@ -67,11 +67,13 @@ describe('transactions security close honesty', () => {
         const mirror = src('src/app/services/transactions/transactionsThreadingMirror.ts');
         expect(mirror).toContain('writeSecureAndClearLegacySync');
         expect(mirror).toContain('readSecureOrDrainLegacySync');
+        expect(mirror).toContain('persistTransactionsSecure');
         expect(src('src/app/modules/transactionsThreading/taskTemplates.ts')).toContain(
             'readSecureOrDrainLegacySync',
         );
         const keys = src('src/app/services/secureStorageKeys.ts');
         expect(keys).toContain('isTransactionsStorageKey');
+        expect(keys).toContain('isEncryptOrFailStorageKey');
         expect(keys).toContain("key.startsWith('hami:transactions:')");
         expect(keys).toContain("key.startsWith('hami:transactionsThreading:v1:')");
         expect(src('src/app/services/forumApiService.ts')).toContain('SecureAPIClient');

@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+    isEncryptOrFailStorageKey,
     isSensitiveStorageKey,
     isTransactionsStorageKey,
     shouldEncryptValue,
@@ -29,6 +30,7 @@ describe('transactions network isolation (encryption kept)', () => {
         ] as const) {
             expect(isTransactionsStorageKey(key)).toBe(true);
             expect(isSensitiveStorageKey(key)).toBe(true);
+            expect(isEncryptOrFailStorageKey(key)).toBe(true);
             expect(shouldEncryptValue(key, '[{"id":"t1"}]')).toBe(true);
         }
     });
@@ -59,10 +61,12 @@ describe('transactions network isolation (encryption kept)', () => {
         expect(service).not.toMatch(/\bfetch\s*\(/);
     });
 
-    it('حارس المسح يحمي سجل المعاملات وحالة الخيوط', () => {
+    it('حارس المسح يحمي سجل المعاملات وحالة الخيوط والقوالب', () => {
         const guard = read('src/app/services/dossierPersistence/protectedStorageKeys.ts');
         expect(guard).toContain("'hami:transactions:v1'");
         expect(guard).toContain('isTransactionsThreadingStateKey');
+        expect(guard).toContain('isTransactionsTaskTemplatesKey');
+        expect(guard).toContain("return 'transactions'");
     });
 
     it('المنتدى فقط من مشاركة الدليل الصريحة — لا في المخزن/الخدمة/المرآة', () => {

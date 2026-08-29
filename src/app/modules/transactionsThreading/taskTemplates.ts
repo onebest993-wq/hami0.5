@@ -1,6 +1,6 @@
 import { createThreadingId } from './ids';
+import { persistTransactionsSecure } from '@/app/services/transactions/persistTransactionsSecure';
 import {
-    persistSecurePayloadWhenReady,
     readSecureOrDrainLegacySync,
     writeSecureAndClearLegacySync,
 } from '@/app/services/storage/readSecureOrDrainLegacySync';
@@ -100,7 +100,7 @@ function writeTemplates(userId: string, templates: TaskTemplate[]) {
     const payload = JSON.stringify(next);
     const key = getStorageKey(userId);
     writeSecureAndClearLegacySync(key, payload);
-    void persistSecurePayloadWhenReady(key, payload);
+    persistTransactionsSecure(key, payload);
     if (typeof window === 'undefined') memoryFallback = next;
 }
 
