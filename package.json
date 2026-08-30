@@ -111,6 +111,8 @@
     "db:shell-notifications": "node scripts/apply-shell-notifications-migration.mjs",
     "db:auth-ban-freeze": "node scripts/apply-auth-ban-freeze-migration.mjs",
     "db:auth-ban-freeze:verify": "node scripts/apply-auth-ban-freeze-migration.mjs --verify-only",
+    "db:auth-otp-attempt": "node scripts/apply-auth-otp-attempt-migration.mjs",
+    "db:auth-otp-attempt:verify": "node scripts/apply-auth-otp-attempt-migration.mjs --verify-only",
     "db:lawyer-verification-active": "node scripts/migrate-lawyer-verification-active.mjs",
     "db:lawyer-verification-active:sql": "node scripts/apply-lawyer-verification-active-sql.mjs",
     "db:auth-table-grants": "node scripts/apply-auth-table-grants.mjs",

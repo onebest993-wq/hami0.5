@@ -334,24 +334,20 @@ slot00.bin  slot00.srcpath.txt  slot00_settings.bin  rgb-cleanup/
 
 ## 8. سجل العلاج (بعد طلب التنفيذ) — 2026-08-30 مساءً
 
-نُفِّذ العلاج على نفس الشجرة. **لا إيداع** — لم يُطلب.
+نُفِّذ العلاج على الشجرة ثم أُودع في `a16058a1` (طلب لاحق: تصرّف مهني).
 
 | بند | الحالة | الدليل |
 |---|---|---|
-| 1 gitignore للفضلات | ✅ | `.gitignore`: `resonance_*` / `slot00*` / `rgb-cleanup/` — بلا إيداع |
-| 2 `guard:tsc` | ✅ | الأساس 1195 ← **1191** — لا ملفات متصاعدة |
+| 1 gitignore للفضلات | ✅ | `.gitignore`: `resonance_*` / `slot00*` / `rgb-cleanup/` — في `a16058a1` |
+| 2 `guard:tsc` | ✅ | الأساس 1195 ← **1191** — لا ملفات متصاعدة. **لم يُقفل بـ `--save` والشجرة وسخة** |
 | 3 `guard:lint` | ✅ | تجاهل `api/handler.js` + إصلاح 7 إزاحات JSX مصدرية. الأساس 177 ← **11** |
-| 4 إشارات حمراء حقيقية | ✅ جزئي | `Building2` عبر ملف الأيقونة؛ مطابقة الدليل من `domain/admin`؛ FOC بلا مسار ExecutionDashboard؛ `requireWifeCloudWrite` في اختبار BFF؛ جسر E2E خارج `SecureStoreService` (1565 ≤ 1586). **لم أُخضّر ~20 اختبار phase/wave ميتة** |
+| 4 إشارات حمراء حقيقية | ✅ ثم اكتمل في `9baf7149` | حدود HQ/FOC/lucide في العلاج؛ اختبارات phase/wave حُدِّثت لعقود Vite الحية في الجولة 9 |
 | 5 B3 مسار سريع | ✅ | `wireNativeResumeFastPath` تطبيق مرة عند الإقلاع فقط؛ العودة من `appStateChange` |
-| 6 B4 عدّاد OTP | ✅ في الكود | RPC `auth_otp_register_failed_attempt` + CAS إن غاب RPC. **تطبيق الهجرة على قاعدة الإنتاج يدوي** |
+| 6 B4 عدّاد OTP | ✅ في الكود | RPC `auth_otp_register_failed_attempt` + CAS إن غاب RPC. **تطبيق الهجرة على القاعدة المربوطة: سكربت منفصل** |
 | 7 B5 استقصاء الاستعادة | ✅ | `subscribeAppForeground` يلغي المؤقّت؛ سقف 120 ثانية |
 | 8 B7 أوراكل preview | ✅ موثَّق | 404 يبقى قرار منتج؛ التعليق يسمّي الخطر والحدّ. لا تغيير واجهة |
 | 9 B9 شارة | ✅ | حُذف `subscribeAppForeground` المزدوج؛ النبض من `useVisibilityAwareInterval` + `HAMI_APP_STATE_EVENT` |
-| 10 سياسة إغلاق | ⏸ قرار | البوّابتان خضراوان الآن؛ `vitest src/app/runtime` الشامل ما زال يحوي اختبارات مرحلة ميتة |
-
-**أُعيد تشغيله بعد العلاج:** `guard:tsc` OK · `guard:lint` OK · `gate:auth-onboarding:final` 32/0 / 167 اختباراً.
-
-**ما بقي خارج الجولة الأولى:** إيداع 1160 مساراً معلّقاً؛ تطبيق هجرة OTP؛ اختبارات `phaseN*`/`waveN*` الميتة؛ قياس عتاد وiOS؛ B8 إعادة دخول المايك.
+| 10 سياسة إغلاق | ⏸ قرار | البوّابتان خضراوان؛ `vitest` النطاق runtime/hooks/platform أخضر. المجموعة الكاملة مِسنَنة منفصلة |
 
 ---
 
@@ -372,4 +368,4 @@ slot00.bin  slot00.srcpath.txt  slot00_settings.bin  rgb-cleanup/
 - `__hamiTtfiMs` من `dashboardInteractiveMark.ts`. إغلاق الطبقات في الوحدة مع `prefers-reduced-motion`.
 - أوراكل أمني: `requireWifeCloudWrite` مقبول؛ جسر الملف بلا `innerHTML`.
 
-**ما بقي:** إيداع بقية الشجرة؛ تطبيق هجرة OTP على قاعدة الإنتاج؛ قياس عتاد وiOS؛ `guard:tsc --save` اختياري لتثبيت 1191.
+**ما بقي:** إيداع بقية الشجرة؛ قياس عتاد وiOS. هجرة OTP طُبِّقت على المشروع المربوط (`rpc_exists=true`). `guard:tsc --save` مؤجَّل والشجرة وسخة.
