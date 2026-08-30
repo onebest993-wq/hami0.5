@@ -40,7 +40,10 @@ export function ArchivePortalExecutionPreviewModal({
     useBodyScrollLock(true);
 
     useLayoutEffect(() => {
-        ignoreBackdropUntilRef.current = performance.now() + 400;
+        ignoreBackdropUntilRef.current = Number.POSITIVE_INFINITY;
+        const releaseBackdrop = window.setTimeout(() => {
+            ignoreBackdropUntilRef.current = 0;
+        }, 400);
 
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key !== 'Escape') return;
@@ -56,6 +59,7 @@ export function ArchivePortalExecutionPreviewModal({
             return true;
         });
         return () => {
+            window.clearTimeout(releaseBackdrop);
             window.removeEventListener('keydown', onKeyDown, true);
             unregisterNativeBack();
         };

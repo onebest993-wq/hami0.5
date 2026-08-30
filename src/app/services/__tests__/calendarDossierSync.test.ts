@@ -1,11 +1,12 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { saveLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
-import { reconcileAllDossierDates } from '../calendarDossierSync';
+import { reconcileAllDossierDates, resetReconcileInFlightForTests } from '../calendarDossierSync';
 import { CalendarDB } from '@/app/services/lawyer-cloud';
 
 describe('calendarDossierSync', () => {
     beforeEach(() => {
         saveLawsuitFilesRaw([]);
+        resetReconcileInFlightForTests();
         vi.spyOn(CalendarDB, 'saveEvent').mockResolvedValue(undefined as never);
         vi.spyOn(CalendarDB, 'saveEventsBatch').mockResolvedValue(undefined as never);
         vi.spyOn(CalendarDB, 'getEvents').mockResolvedValue([]);

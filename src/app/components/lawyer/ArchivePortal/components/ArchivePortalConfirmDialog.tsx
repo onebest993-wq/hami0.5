@@ -51,7 +51,10 @@ export function ArchivePortalConfirmDialog({
 
     useLayoutEffect(() => {
         if (!open) return;
-        ignoreBackdropUntilRef.current = performance.now() + 400;
+        ignoreBackdropUntilRef.current = Number.POSITIVE_INFINITY;
+        const releaseBackdrop = window.setTimeout(() => {
+            ignoreBackdropUntilRef.current = 0;
+        }, 400);
 
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key !== 'Escape') return;
@@ -67,6 +70,7 @@ export function ArchivePortalConfirmDialog({
             return true;
         });
         return () => {
+            window.clearTimeout(releaseBackdrop);
             window.removeEventListener('keydown', onKeyDown, true);
             unregisterNativeBack();
         };

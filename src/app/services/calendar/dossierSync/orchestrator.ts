@@ -45,6 +45,10 @@ import SecureStoreService from '@/app/services/SecureStoreService';
 
 let reconcileInFlight: Promise<DossierSyncStats> | null = null;
 
+export function resetReconcileInFlightForTests(): void {
+    reconcileInFlight = null;
+}
+
 /** تطهير موحّد بعد المزامنة — يُستدعى مرة واحدة بدل تكرار الاستدعاءات */
 async function runPostSyncCalendarHygiene(
     uid: string,
@@ -258,7 +262,8 @@ export async function cleanupCalendarForUser(userId?: string | null): Promise<Do
  */
 export async function reconcileAllDossierDates(userId?: string | null): Promise<DossierSyncStats> {
     if (reconcileInFlight) {
-        return reconcileInFlight;
+        await reconcileInFlight.catch(() => undefined);
+        return reconcileAllDossierDates(userId);
     }
 
     const uid = resolveCalendarUserId(userId);

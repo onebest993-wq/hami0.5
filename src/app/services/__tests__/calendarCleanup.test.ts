@@ -6,18 +6,23 @@ import {
     pruneOrphanedBridgeEvents,
     purgeExcludedDossierBridgedEvents,
     purgeInactiveEntityBridgedEvents,
+    resetReconcileInFlightForTests,
     syncLawsuitTaskDue,
 } from '../calendarDossierSync';
 import { CalendarDB } from '@/app/services/lawyer-cloud';
 import { buildStableBridgeId } from '../calendarBridge';
+import { resetCalendarEventsCacheForTests } from '@/app/services/calendar/calendarEventsCache';
+import { flushPendingCalendarSyncs } from '../calendarBridge';
 
 const USER = 'cleanup-test-user';
 const CAL_KEY = 'hami:calendar:events:v1';
 
 describe('calendar cleanup — محذوف ومختلق', () => {
     beforeEach(() => {
+        resetReconcileInFlightForTests();
         SecureStoreService.listKeysSync().forEach((k) => SecureStoreService.deleteItemSync(k));
         localStorage.clear();
+        resetCalendarEventsCacheForTests();
         saveLawsuitFilesRaw([]);
     });
 
@@ -51,7 +56,7 @@ describe('calendar cleanup — محذوف ومختلق', () => {
             fileId: 'f1',
             task: { id: 'auto-task', title: 'مهمة نظام', dueDate: '2026-12-01' },
         });
-        await new Promise((r) => setTimeout(r, 150));
+        await flushPendingCalendarSyncs();
 
         saveLawsuitFilesRaw([
             {
@@ -149,6 +154,7 @@ describe('calendar cleanup — محذوف ومختلق', () => {
         });
 
         await cleanupCalendarForUser(USER);
+        resetCalendarEventsCacheForTests();
         const events = await CalendarDB.getEvents(USER);
 
         expect(events.some((e) => e.id === ghostId)).toBe(false);
