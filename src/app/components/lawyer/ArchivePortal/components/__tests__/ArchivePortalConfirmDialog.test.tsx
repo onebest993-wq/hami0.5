@@ -53,23 +53,28 @@ describe('ArchivePortalConfirmDialog', () => {
     });
 
     it('لا يلغي الحوار من نقرة الخلفية في نفس دورة الفتح', () => {
+        const nowSpy = vi.spyOn(performance, 'now').mockReturnValue(1_000);
         const onCancel = vi.fn();
-        render(
-            <ArchivePortalConfirmDialog
-                open
-                title="تأكيد"
-                titleId="confirm-title"
-                testId="confirm-dialog"
-                confirmLabel="تأكيد"
-                onCancel={onCancel}
-                onConfirm={vi.fn()}
-            >
-                <p>نص</p>
-            </ArchivePortalConfirmDialog>,
-        );
+        try {
+            render(
+                <ArchivePortalConfirmDialog
+                    open
+                    title="تأكيد"
+                    titleId="confirm-title"
+                    testId="confirm-dialog"
+                    confirmLabel="تأكيد"
+                    onCancel={onCancel}
+                    onConfirm={vi.fn()}
+                >
+                    <p>نص</p>
+                </ArchivePortalConfirmDialog>,
+            );
 
-        fireEvent.click(screen.getByRole('presentation'));
-        expect(onCancel).not.toHaveBeenCalled();
-        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+            fireEvent.click(screen.getByRole('presentation'));
+            expect(onCancel).not.toHaveBeenCalled();
+            expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+        } finally {
+            nowSpy.mockRestore();
+        }
     });
 });
