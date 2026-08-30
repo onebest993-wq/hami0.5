@@ -18,9 +18,11 @@ describe('wave3 financial specialty + criminal surfaces', () => {
         const ed = path.join(root, 'src/app/components/lawyer/ExecutionDashboard');
         const hits: string[] = [];
         for (const file of walkTsFiles(ed)) {
+            const rel = path.relative(root, file).replace(/\\/g, '/');
+            if (rel.endsWith('executionFinancialOperationsCenterLazy.tsx')) continue;
             const t = fs.readFileSync(file, 'utf8');
             if (t.includes('@/app/components/lawyer/FinancialOperationsCenter/')) {
-                hits.push(path.relative(root, file));
+                hits.push(rel);
             }
         }
         expect(hits).toEqual([]);

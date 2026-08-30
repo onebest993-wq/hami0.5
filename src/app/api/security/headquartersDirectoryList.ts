@@ -14,7 +14,7 @@ import {
     matchesHqUserCreatedFilter,
     matchesHqUserQuery,
     matchesHqUserStatusFilter,
-} from '@/app/components/admin/hqUserFilters';
+} from '@/app/domain/admin/hqDirectoryMatch';
 import { parseAdminVerificationStatus, resolveHqDirectoryKycStatus } from '@/app/domain/admin/hqUserPresence';
 import { isPostgresUuidSubject } from './postgresUuidSubject.ts';
 import {

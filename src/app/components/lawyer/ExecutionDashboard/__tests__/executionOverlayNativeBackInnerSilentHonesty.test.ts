@@ -10,9 +10,7 @@ function read(rel: string): string {
 
 describe('execution overlay native-back and inner-silent honesty', () => {
     it('خط الرجوع يثبت onClose بالمرجع ولا يعيد التسجيل كل رسم', () => {
-        const hook = read(
-            'src/app/components/lawyer/ExecutionDashboard/useExecutionOverlayDismiss.ts',
-        );
+        const hook = read('src/app/hooks/useOverlayEscapeDismiss.ts');
         expect(hook).toContain('onCloseRef');
         expect(hook).toContain('registerNativeBackHandler');
         expect(hook).toContain('dispatchNativeBack');

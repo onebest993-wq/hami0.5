@@ -32,7 +32,7 @@ export function ConfirmDialogPortal({ open, message, onCancel, onConfirm }: Conf
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     onClick={(e) => e.stopPropagation()}
-                >
+                    >
                     <div className="text-white font-extrabold text-sm">تأكيد</div>
                     <div className="mt-2 text-white/75 text-sm leading-relaxed whitespace-pre-wrap">{message}</div>
                     <div className="mt-4 flex items-center justify-end gap-2">
@@ -57,7 +57,7 @@ export function ConfirmDialogPortal({ open, message, onCancel, onConfirm }: Conf
                             تأكيد
                         </button>
                     </div>
-                </motion.div>
+                    </motion.div>
             </motion.div>
         </AnimatePresence>,
         document.body,

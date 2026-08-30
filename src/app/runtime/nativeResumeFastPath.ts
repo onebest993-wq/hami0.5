@@ -35,30 +35,15 @@ export function applyNativeResumeFastPath(): void {
     }
 }
 
-/** يُربَط مرة واحدة من capacitorAppLifecycle */
+/**
+ * تطبيق فوري إن كانت الشاشة ظاهرة عند الإقلاع.
+ * العودة من الخلفية يملكها `capacitorAppLifecycle` عبر `appStateChange` فقط —
+ * لا مستمع `visibilitychange` هنا حتى لا تُنفَّذ apply مرتين على أندرويد.
+ */
 export function wireNativeResumeFastPath(): void {
     if (typeof window === 'undefined' || wired || !isCapacitorNativePlatform()) return;
     wired = true;
-
-    const onForeground = () => {
-        if (document.hidden) return;
-        applyNativeResumeFastPath();
-    };
-
-    document.addEventListener('visibilitychange', onForeground);
-    void import('@capacitor/app')
-        .then(async ({ App }) => {
-            const handle = await App.addListener('appStateChange', ({ isActive }) => {
-                if (isActive) applyNativeResumeFastPath();
-            });
-            const state = await App.getState();
-            if (state.isActive) applyNativeResumeFastPath();
-
-            return () => {
-                void handle.remove();
-            };
-        })
-        .catch(() => undefined);
+    if (!document.hidden) applyNativeResumeFastPath();
 }
 
 export function resetNativeResumeFastPathForTests(): void {

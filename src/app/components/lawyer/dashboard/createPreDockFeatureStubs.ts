@@ -1,5 +1,6 @@
 import { snapScheduleShellClose, snapScheduleShellOpen } from '@/app/services/schedule/scheduleShellSnap';
-import { applyRepositoryOpaqueChrome, concealRepositoryWarmShell } from '@/app/runtime/repositoryInstantPaint';
+import { applyRepositoryOpaqueChrome, concealRepositoryWarmShell, paintRepositoryInstantChrome } from '@/app/runtime/repositoryInstantPaint';
+import { loadRepositoryHubModule, prefetchRepositoryHubModule } from '@/app/runtime/repositoryHubLoader';
 import { applyForumOpaqueChrome, concealForumWarmShell, paintForumInstantChrome } from '@/app/runtime/forumInstantPaint';
 import { markForumOpenIntentPending } from '@/app/runtime/forumOpenIntent';
 import { armForumE2eForceOpenStub } from '@/app/runtime/forumE2eForceOpen';
@@ -19,8 +20,13 @@ export function readPreDockEarlyArm(): boolean {
     if (typeof window === 'undefined') return false;
     if (readInitialCommunityOpen()) return true;
     if (readInitialLawyerTab() === 'schedule') return true;
-    if (readInitialRepositorySession().open) return true;
     return false;
+}
+
+/** جلسة مستودع مفتوحة — لا يُسلَّح PreDock (منتدى+تقويم) معها */
+export function readRepositoryEarlyArm(): boolean {
+    if (typeof window === 'undefined') return false;
+    return readInitialRepositorySession().open;
 }
 
 function prefetchScheduleHostChunk(): void {
@@ -82,47 +88,58 @@ export function createPreDockFeatureStubs(
         },
     } satisfies PreDockFeatureBag['schedule'];
 
-    const repository = {
+    const repository: PreDockFeatureBag['repository'] = {
         isRepositoryOpen: false,
-        repositoryTab: 'notepad' as const,
-        notepadMode: 'list' as const,
+        repositoryTab: 'notepad',
+        notepadMode: 'list',
         focusNoteId: undefined,
         vaultOpenScanner: false,
         repositorySessionKey: 0,
         repositoryHostMounted: false,
         primeRepositoryShellMount: () => requestArm('repository'),
         resetRepositoryShell: noop,
-        openRepository: () => {
-            applyRepositoryOpaqueChrome();
-            requestArm('repository');
-        },
-        openNotepad: () => {
-            applyRepositoryOpaqueChrome();
-            requestArm('repository');
-        },
-        openVaultModal: () => {
-            applyRepositoryOpaqueChrome();
-            requestArm('repository');
-        },
-        closeRepository: () => {
-            concealRepositoryWarmShell();
-            clearPending?.('repository');
-        },
+        openRepository: () => undefined,
+        openNotepad: () => undefined,
+        openVaultModal: () => undefined,
+        closeRepository: () => undefined,
         isNotepadOpen: false,
-        closeNotepad: () => {
-            concealRepositoryWarmShell();
-            clearPending?.('repository');
-        },
+        closeNotepad: () => undefined,
         showDocs: false,
-        closeVault: () => {
-            concealRepositoryWarmShell();
-            clearPending?.('repository');
-        },
+        closeVault: () => undefined,
         primeNotepadShellMount: () => requestArm('repository'),
         primeVaultShellMount: () => requestArm('repository'),
         notepadSessionKey: 0,
         vaultSessionKey: 0,
-    } satisfies PreDockFeatureBag['repository'];
+    };
+
+    const snapRepositoryStubOpen = () => {
+        /* قشرة فورية. تسليح جزيرة المستودع فوراً — لا ننتظر المقطع ولا PreDock */
+        repository.isRepositoryOpen = true;
+        repository.isNotepadOpen = true;
+        repository.showDocs = true;
+        repository.repositoryHostMounted = true;
+        applyRepositoryOpaqueChrome();
+        paintRepositoryInstantChrome();
+        prefetchRepositoryHubModule();
+        requestArm('repository');
+        void loadRepositoryHubModule().catch(() => undefined);
+    };
+
+    const snapRepositoryStubClose = () => {
+        repository.isRepositoryOpen = false;
+        repository.isNotepadOpen = false;
+        repository.showDocs = false;
+        repository.repositoryHostMounted = false;
+        concealRepositoryWarmShell();
+        clearPending?.('repository');
+    };
+
+    repository.openRepository = snapRepositoryStubOpen;
+    repository.openNotepad = snapRepositoryStubOpen;
+    repository.openVaultModal = snapRepositoryStubOpen;
+    repository.closeRepository = snapRepositoryStubClose;
+    repository.closeNotepad = snapRepositoryStubClose;
+    repository.closeVault = snapRepositoryStubClose;
 
     return { community, schedule, repository };
 }

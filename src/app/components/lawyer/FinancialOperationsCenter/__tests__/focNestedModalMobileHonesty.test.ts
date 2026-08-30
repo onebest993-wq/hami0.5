@@ -21,7 +21,7 @@ describe('FOC nested modal mobile honesty', () => {
         const portal = read(
             'src/app/components/lawyer/FinancialOperationsCenter/components/FocModalPortal.tsx',
         );
-        expect(portal).toContain('useExecutionOverlayDismiss');
+        expect(portal).toContain('useOverlayEscapeDismiss');
         expect(portal).toContain('Boolean(open && onBackdropClick)');
     });
 

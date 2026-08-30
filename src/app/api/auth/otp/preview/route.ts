@@ -28,7 +28,13 @@ function supportWhatsAppUrl(): string | null {
 }
 
 /**
- * POST /api/auth/otp/preview — هل البريد حقيقي ومسجّل؟ ذيل رقم الواتساب فقط، بلا معرّف مستخدم.
+ * POST /api/auth/otp/preview — هل البريد حقيقي ومسجّل؟ جاهزية القنوات فقط.
+ * ذيل الرقم لا يُعاد هنا: المسار مفتوح بلا جلسة، فإعادته تكشف بيانات مالك الحساب
+ * لمن يعرف بريده فقط. الذيل يصل من `/otp/request` بعد إرسال رمز فعلي لصاحب الحساب.
+ *
+ * 404 للحساب الغائب مقصود للمنتج (لوحة الاستعادة تقول صراحة إن غير المسجّل
+ * لن يُتابَع). هذا أوراكل تعداد مقيّد بحدّ الطلبات لكل IP وبريد — لا نوحّده
+ * مع complete لأن إخفاء الغياب يغيّر مسار المحامي الظاهر.
  */
 export async function POST(request: Request): Promise<Response> {
     const ip = readAuthOtpClientIp(request);
@@ -78,12 +84,9 @@ export async function POST(request: Request): Promise<Response> {
         return authOtpJson(404, { ok: false, error: AUTH_OTP_ACCOUNT_MISSING_AR });
     }
 
-    const phoneTail = phoneLastTwoDigits(account.phone);
-
     return authOtpJson(200, {
         ok: true,
-        phoneTail,
-        hasWhatsAppNumber: Boolean(phoneTail),
+        hasWhatsAppNumber: Boolean(phoneLastTwoDigits(account.phone)),
         emailReady: isAuthOtpEmailChannelReady(),
         whatsappSendReady: isAuthOtpWhatsAppChannelReady(),
         adminWhatsappUrl: supportWhatsAppUrl(),

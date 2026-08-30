@@ -90,6 +90,6 @@ export function ExecutionCoerciveEmployeeSalaryOnlyBranch({
                     </div>
                 </button>
                 </div>
-            </>
+</>
     );
 }

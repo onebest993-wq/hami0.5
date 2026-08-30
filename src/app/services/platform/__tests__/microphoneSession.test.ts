@@ -20,10 +20,27 @@ function stubStream(stop = vi.fn()) {
 describe('microphoneSession', () => {
     afterEach(() => {
         clearPendingMicrophoneStream();
+        Object.defineProperty(document, 'hidden', {
+            configurable: true,
+            value: false,
+        });
         Object.defineProperty(document, 'visibilityState', {
             configurable: true,
             value: 'visible',
         });
+        delete document.documentElement.dataset.hamiAppActive;
+    });
+
+    it('يوقف المسار فوراً دون إعادة دخول إن سُلّح والتطبيق مخفى', () => {
+        Object.defineProperty(document, 'hidden', {
+            configurable: true,
+            value: true,
+        });
+        document.documentElement.dataset.hamiAppActive = '0';
+        const { stop, stream } = stubStream();
+        expect(() => setPendingMicrophoneStream(stream)).not.toThrow();
+        expect(stop).toHaveBeenCalledTimes(1);
+        expect(consumePendingMicrophoneStream()).toBeNull();
     });
 
     it('يرفض null/undefined', () => {
@@ -56,6 +73,10 @@ describe('microphoneSession', () => {
     it('يوقف المسار المعلّق عند إخفاء الصفحة', () => {
         const { stop, stream } = stubStream();
         setPendingMicrophoneStream(stream);
+        Object.defineProperty(document, 'hidden', {
+            configurable: true,
+            value: true,
+        });
         Object.defineProperty(document, 'visibilityState', {
             configurable: true,
             value: 'hidden',

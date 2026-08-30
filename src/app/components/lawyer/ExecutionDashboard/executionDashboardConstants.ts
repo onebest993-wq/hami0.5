@@ -1,4 +1,9 @@
 /** أحداث وثوابت نافذة التنفيذ — ملف خفيف بلا استيراد store/utils ثقيلة (يكسر circular chunks). */
+import {
+    NESTED_MODAL_BACKDROP_STRONG,
+    NESTED_OVER_FOLLOWUP_MODAL_Z,
+} from '@/app/components/shared/nestedOverFollowUpModalChrome';
+
 export const HAMI_APPEND_EXECUTION_TIMELINE = 'hami-append-execution-timeline';
 
 /**
@@ -16,10 +21,9 @@ export const EXEC_MODAL_Z = {
     nestedOverDecisions: 256,
     timelineFullModal: 262,
     lawReferencePanel: 266,
-    nestedOverFollowUpPortal: 280,
+    nestedOverFollowUpPortal: NESTED_OVER_FOLLOWUP_MODAL_Z,
     toastAboveExecution: 50000,
 } as const;
 
 /** خلفية معتمة موحّدة للطبقات العلوية */
-export const EXEC_MODAL_BACKDROP_STRONG =
-    'bg-[#05060D]';
+export const EXEC_MODAL_BACKDROP_STRONG = NESTED_MODAL_BACKDROP_STRONG;

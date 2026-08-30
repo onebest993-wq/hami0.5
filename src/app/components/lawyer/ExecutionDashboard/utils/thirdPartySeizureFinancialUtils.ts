@@ -1,5 +1,5 @@
 import { storageCache } from '@/app/utils/storageCache';
-import type { LocalPaymentRow } from '@/app/components/lawyer/FinancialOperationsCenter/types';
+import type { LocalPaymentRow } from '@/app/slices/financial/specialtyPublic';
 import {
     emptyStore,
     parseUnifiedLedgerFromStorage,

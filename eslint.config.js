@@ -40,7 +40,14 @@ const sharedGlobals = {
 
 module.exports = [
     {
-        ignores: ['dist/**', 'node_modules/**', '.next/**', 'coverage/**'],
+        ignores: [
+            'dist/**',
+            'node_modules/**',
+            '.next/**',
+            'coverage/**',
+            /* حزمة Vercel المولَّدة — ليست مصدراً يُحرَّر */
+            'api/handler.js',
+        ],
     },
     {
         files: ['**/*.{js,jsx,mjs,cjs}'],

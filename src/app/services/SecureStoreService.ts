@@ -2,6 +2,7 @@ type SecureStoreValue = string | null;
 
 import { CryptoService } from './CryptoService';
 import { debug } from '@/app/utils/debug';
+import { bindSecureStoreE2eBridge } from '@/app/services/secureStoreE2eBridge';
 
 const KEY_INDEX = '__hami_secure_store_keys__';
 const ENCRYPTED_PREFIX = 'hami_enc_v2:';
@@ -1559,34 +1560,6 @@ if (typeof window !== 'undefined' && !import.meta.env.VITEST) {
   SecureStoreService.kickoffBootShellSync();
 }
 
-/** جسر E2E للقراءة بعد التشفير — preview لا يستطيع import `/src/...` */
-if (
-  typeof window !== 'undefined' &&
-  import.meta.env.VITE_SHELL_AUTH_OPEN === 'true' &&
-  !import.meta.env.VITEST
-) {
-  const w = window as Window & {
-    __hamiE2eSecureStore?: {
-      flushHeavyPersistPending: () => void;
-      waitForAllPendingPersist: () => Promise<void>;
-      ensurePersistedReady: () => Promise<void>;
-      getItemSync: (key: string) => string | null;
-      getItem: (key: string) => Promise<string | null>;
-      setItemSync: (key: string, value: string) => boolean;
-      setItem: (key: string, value: string) => Promise<void>;
-      deleteItem: (key: string) => Promise<void>;
-    };
-  };
-  w.__hamiE2eSecureStore = {
-    flushHeavyPersistPending: () => SecureStoreService.flushHeavyPersistPending(),
-    waitForAllPendingPersist: () => SecureStoreService.waitForAllPendingPersist(),
-    ensurePersistedReady: () => SecureStoreService.ensurePersistedReady(),
-    getItemSync: (key) => SecureStoreService.getItemSync(key),
-    getItem: (key) => SecureStoreService.getItem(key),
-    setItemSync: (key, value) => SecureStoreService.setItemSync(key, value),
-    setItem: (key, value) => SecureStoreService.setItem(key, value),
-    deleteItem: (key) => SecureStoreService.deleteItem(key),
-  };
-}
+bindSecureStoreE2eBridge(SecureStoreService);
 
 export default SecureStoreService;

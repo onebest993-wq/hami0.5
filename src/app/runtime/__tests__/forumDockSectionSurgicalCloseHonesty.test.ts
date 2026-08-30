@@ -153,9 +153,16 @@ describe('forum dock section surgical close honesty', () => {
             'utf8',
         );
         expect(deferred).not.toContain('useLawyerDashboardCommunity');
-        expect(deferred).toContain('params.closeCommunity');
         expect(deferred).toContain('params.openCommunityTab');
         expect(deferred).not.toContain('params.setShowCommunity');
+        const fieldTasksSurfaces = fs.readFileSync(
+            path.join(
+                root,
+                'src/app/components/lawyer/dashboard/LawyerDashboardFieldTasksFeatureSurfaces.tsx',
+            ),
+            'utf8',
+        );
+        expect(fieldTasksSurfaces).toContain('params.closeCommunity');
     });
 
     it('┘à╪│╪د╪▒ ╪د┘┘╪ز╪ص ┘╪د ┘è┘â╪▒╪▒ hydrate ╪ذ╪╣╪» warmForumOnOpen', () => {
@@ -787,7 +794,7 @@ describe('forum dock section surgical close honesty', () => {
             path.join(forumRoot, 'hooks/runLegalRepositoryUploadSubmit.ts'),
             'utf8',
         );
-        expect(uploadRun).toContain('syncRepositoryDocumentToCloud');
+        expect(uploadRun).toContain('await syncRepositoryDocumentToCloud');
         expect(uploadRun).toContain('upload:${');
         expect(uploadRun).toContain('releaseRepositoryBlobUrl');
         expect(uploadRun).toContain('isStillPresent');
@@ -796,6 +803,7 @@ describe('forum dock section surgical close honesty', () => {
             'utf8',
         );
         expect(cloudSync).toContain('isStillPresent');
+        expect(cloudSync).not.toContain('isLawyerWorkCloudLive');
         expect(cloudSync).not.toContain('reportPost');
         const deletion = fs.readFileSync(
             path.join(forumRoot, 'hooks/useLegalRepositoryDelete.ts'),
@@ -806,6 +814,7 @@ describe('forum dock section surgical close honesty', () => {
         expect(deletion).toContain('applyDocuments(snapshot)');
         expect(deletion).toContain('del:${');
         expect(deletion).not.toContain('setDocuments');
+        expect(deletion).toContain('deleteForumRepositoryDocument');
         expect(deletion).not.toContain('ForumApiService');
         expect(deletion).not.toContain('reportPost');
         expect(deletion).not.toContain('handleReportDocument');
@@ -1345,32 +1354,15 @@ describe('forum dock section surgical close honesty', () => {
         expect(controller).toContain('forumSurfaceOpen && canAccessLawyerForum && !accountFrozen');
         expect(controller).toContain('forumSurfaceOpen: forumNetworkLive');
         expect(controller).toContain('forumSurfaceOpen');
-        const feedsHonesty = fs.readFileSync(
-            path.join(
-                root,
-                'src/app/components/lawyer/CommunityScreen/hooks/useCommunityScreenControllerFeeds.ts',
-            ),
-            'utf8',
-        );
+        const feedsHonesty = fs.readFileSync(path.join(root, 'src/app/components/lawyer/CommunityScreen/hooks/useCommunityScreenControllerFeeds.ts'), 'utf8');
         expect(feedsHonesty).toContain('surfaceOpen: forumSurfaceOpen');
-        expect(postsFeed).toContain('[posts, surfaceOpen]');
+        expect(postsFeed).toContain('[hasActiveUrgent, surfaceOpen]');
+        expect(postsFeed).toContain('hasAnyActiveUrgentConsultation(posts)');
         expect(flags).toContain('surfaceOpen === false');
         expect(lists).toContain('surfaceOpen === false');
-        const notif = fs.readFileSync(
-            path.join(
-                root,
-                'src/app/components/lawyer/CommunityScreen/hooks/useForumAppBarNotifications.ts',
-            ),
-            'utf8',
-        );
-        const deep = fs.readFileSync(
-            path.join(
-                root,
-                'src/app/components/lawyer/CommunityScreen/hooks/useCommunityPostsFeedDeepLink.ts',
-            ),
-            'utf8',
-        );
-        expect(notif).toContain('if (surfaceOpen === false) return');
+        const notif = fs.readFileSync(path.join(root, 'src/app/components/lawyer/CommunityScreen/hooks/useForumAppBarNotifications.ts'), 'utf8');
+        const deep = fs.readFileSync(path.join(root, 'src/app/components/lawyer/CommunityScreen/hooks/useCommunityPostsFeedDeepLink.ts'), 'utf8');
+        expect(notif).toContain('if (surfaceOpen === false)');
         expect(notif).toContain('useForumAppBarNotificationActions');
         expect(notif.split('\n').length).toBeLessThan(170);
         expect(deep).toContain('if (surfaceOpen === false) return');

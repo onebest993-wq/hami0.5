@@ -120,6 +120,54 @@ export type ConsumeAuthOtpResult =
     | { ok: true }
     | { ok: false; error: 'invalid' | 'expired' | 'locked' | 'store' };
 
+type AuthOtpAdmin = NonNullable<ReturnType<typeof getSupabaseAdminClient>>;
+
+function readFailedAttemptLock(data: unknown): boolean | null {
+    const row = (Array.isArray(data) ? data[0] : data) as { locked?: unknown } | null;
+    if (!row || typeof row !== 'object') return null;
+    return row.locked === true;
+}
+
+/**
+ * زيادة المحاولات على الخادم (RPC) أو CAS على الصف. الحساب في Node
+ * يفشل تحت التوازي فيسمح بتجاوز السقف.
+ */
+async function registerFailedAuthOtpAttempt(
+    admin: AuthOtpAdmin,
+    challengeId: string,
+    attempts: number,
+): Promise<'invalid' | 'locked' | 'store'> {
+    const nextAttempts = attempts + 1;
+    const locked = nextAttempts >= AUTH_OTP_MAX_ATTEMPTS;
+
+    if (typeof admin.rpc === 'function') {
+        const { data, error } = await admin.rpc('auth_otp_register_failed_attempt', {
+            p_id: challengeId,
+            p_max: AUTH_OTP_MAX_ATTEMPTS,
+        });
+        if (!error) {
+            const rpcLocked = readFailedAttemptLock(data);
+            if (rpcLocked === true) return 'locked';
+            if (rpcLocked === false) return 'invalid';
+        }
+    }
+
+    const patch: Record<string, unknown> = { attempts: nextAttempts };
+    if (locked) patch.consumed_at = new Date().toISOString();
+
+    const { data: bumped, error: casError } = await admin
+        .from('auth_otp_challenges')
+        .update(patch)
+        .eq('id', challengeId)
+        .eq('attempts', attempts)
+        .is('consumed_at', null)
+        .select('id')
+        .maybeSingle();
+    if (casError) return 'store';
+    if (!bumped?.id) return 'invalid';
+    return locked ? 'locked' : 'invalid';
+}
+
 export async function consumeAuthOtpChallenge(input: {
     userId: string;
     purpose: AuthOtpPurpose;
@@ -168,20 +216,23 @@ export async function consumeAuthOtpChallenge(input: {
     }
 
     if (!hashesEqual(String(data.code_hash), expectedHash)) {
-        const nextAttempts = attempts + 1;
-        const patch: Record<string, unknown> = { attempts: nextAttempts };
-        if (nextAttempts >= AUTH_OTP_MAX_ATTEMPTS) {
-            patch.consumed_at = new Date().toISOString();
-        }
-        await admin.from('auth_otp_challenges').update(patch).eq('id', data.id);
-        return { ok: false, error: nextAttempts >= AUTH_OTP_MAX_ATTEMPTS ? 'locked' : 'invalid' };
+        const outcome = await registerFailedAuthOtpAttempt(admin, String(data.id), attempts);
+        if (outcome === 'store') return { ok: false, error: 'store' };
+        return { ok: false, error: outcome };
     }
 
-    const { error: consumeError } = await admin
+    /*
+     * الاستهلاك يجب أن يفوز به طلب واحد فقط: الشرط `consumed_at is null` مع إرجاع
+     * الصف المُحدَّث يجعل الطلب المتزامن الثاني لا يجد صفاً فيُرفَض بدل أن يمرّ.
+     */
+    const { data: consumedRow, error: consumeError } = await admin
         .from('auth_otp_challenges')
         .update({ consumed_at: new Date().toISOString() })
         .eq('id', data.id)
-        .is('consumed_at', null);
+        .is('consumed_at', null)
+        .select('id')
+        .maybeSingle();
     if (consumeError) return { ok: false, error: 'store' };
+    if (!consumedRow?.id) return { ok: false, error: 'invalid' };
     return { ok: true };
 }

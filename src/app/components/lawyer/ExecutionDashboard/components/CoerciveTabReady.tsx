@@ -181,7 +181,7 @@ export const CoerciveTabReady: React.FC<CoerciveTabProps> = ({
                     isMaritalFurnitureClaim={isMaritalFurnitureClaim}
                     maritalFurnitureItems={maritalFurnitureItems}
                     saveMaritalFurnitureDeliveryInventory={saveMaritalFurnitureDeliveryInventory}
-                />
+            />
         ) : null}
 
         {!effectiveEvictionModule ? (

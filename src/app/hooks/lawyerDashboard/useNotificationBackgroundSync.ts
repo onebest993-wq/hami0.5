@@ -106,41 +106,4 @@ export function useNotificationBackgroundSync(
         window.addEventListener(FORUM_UNREAD_CHANGED_EVENT, onForumUnread);
         return () => window.removeEventListener(FORUM_UNREAD_CHANGED_EVENT, onForumUnread);
     }, [enabled, panelOpen, userId]);
-
-    /** Capacitor: visibilitychange وحدها لا تكفي دائماً عند العودة من الخلفية */
-    useEffect(() => {
-        if (!syncEnabled || !userId || panelOpen) return;
-
-        let removeAppListener: (() => void) | undefined;
-        let cancelled = false;
-
-        const onResume = () => {
-            if (typeof document !== 'undefined' && document.hidden) return;
-            void refreshBadgeDynamic(userId, {
-                includeStoreFetch: true,
-                includeForumSync: true,
-                includeLegacyPurge: false,
-            }).finally(() => {
-                dispatchCaseShareChanged();
-            });
-        };
-
-        void import('@/app/runtime/nativePlatform')
-            .then(async ({ isCapacitorNativePlatform }) => {
-                if (cancelled || !isCapacitorNativePlatform()) return;
-                const { App } = await import('@capacitor/app');
-                const handle = await App.addListener('appStateChange', ({ isActive }) => {
-                    if (isActive) onResume();
-                });
-                removeAppListener = () => {
-                    void handle.remove();
-                };
-            })
-            .catch(() => undefined);
-
-        return () => {
-            cancelled = true;
-            removeAppListener?.();
-        };
-    }, [panelOpen, syncEnabled, userId]);
 }

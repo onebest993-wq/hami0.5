@@ -9,16 +9,41 @@ function disarmPendingBackgroundRelease(): void {
     pendingBackgroundUnsub = undefined;
 }
 
+function stopStreamTracks(stream: MediaStream | null): void {
+    if (!stream) return;
+    stream.getTracks().forEach((track) => {
+        try {
+            track.stop();
+        } catch {
+            /* ignore */
+        }
+    });
+}
+
+function releasePendingStream(): void {
+    const held = pendingMicrophoneStream;
+    pendingMicrophoneStream = null;
+    disarmPendingBackgroundRelease();
+    stopStreamTracks(held);
+}
+
 export function setPendingMicrophoneStream(stream: MediaStream | null): void {
     if (pendingMicrophoneStream && pendingMicrophoneStream !== stream) {
-        pendingMicrophoneStream.getTracks().forEach((track) => track.stop());
+        stopStreamTracks(pendingMicrophoneStream);
     }
-    pendingMicrophoneStream = stream;
     disarmPendingBackgroundRelease();
+    pendingMicrophoneStream = stream;
     if (!stream || typeof document === 'undefined') return;
-    pendingBackgroundUnsub = subscribeCaptureBackgroundRelease(() => {
-        clearPendingMicrophoneStream();
+
+    const held = stream;
+    const unsub = subscribeCaptureBackgroundRelease(() => {
+        if (pendingMicrophoneStream !== held) return;
+        releasePendingStream();
     });
+    /* إن أطلق التحرير متزامناً (التطبيق مخفى أصلاً) لا نُسند مُلغياً فوق حالة فارغة */
+    if (pendingMicrophoneStream === held) {
+        pendingBackgroundUnsub = unsub;
+    }
 }
 
 export function consumePendingMicrophoneStream(): MediaStream | null {
@@ -29,7 +54,7 @@ export function consumePendingMicrophoneStream(): MediaStream | null {
 }
 
 export function clearPendingMicrophoneStream(): void {
-    setPendingMicrophoneStream(null);
+    releasePendingStream();
 }
 
 export function hasLiveMicrophoneStream(stream: MediaStream | null | undefined): boolean {

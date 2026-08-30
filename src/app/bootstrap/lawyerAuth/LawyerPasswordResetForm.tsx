@@ -19,11 +19,17 @@ import {
     scrubPasswordRecoveryUrlMarkers,
 } from '@/app/services/auth/passwordRecoveryGate';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { isAppForeground, subscribeAppForeground } from '@/app/runtime/appForegroundGate';
 
 type Props = {
     onCompleted: () => void;
     onCancelToLogin: () => void;
 };
+
+const RECOVERY_PROBE_START_MS = 1_500;
+const RECOVERY_PROBE_MAX_MS = 15_000;
+const RECOVERY_PROBE_BACKOFF = 1.6;
+const RECOVERY_PROBE_GIVE_UP_MS = 120_000;
 
 export function LawyerPasswordResetForm({ onCompleted, onCancelToLogin }: Props): ReactElement {
     useBootGateSurfaceReady();
@@ -35,23 +41,75 @@ export function LawyerPasswordResetForm({ onCompleted, onCancelToLogin }: Props)
     const [sessionReady, setSessionReady] = useState<boolean | null>(null);
     const submittingRef = useRef(false);
 
+    /*
+     * جلسة رابط الاستعادة تصل بعد لحظات من فتح الرابط. الاستقصاء يتوقف نهائياً عند
+     * أول جلسة، ويتباطأ تدريجياً قبلها، ويُلغى في الخلفية، وله سقف زمني كلّي —
+     * مؤقّت يتخطّى الخفاء ثم يعيد الجدولة يوقظ JS بلا عمل.
+     */
     useEffect(() => {
         let cancelled = false;
-        const probe = async () => {
+        let timer = 0;
+        let delay = RECOVERY_PROBE_START_MS;
+        let suspended = false;
+        const startedAt = Date.now();
+
+        const clearTimer = () => {
+            if (timer) {
+                window.clearTimeout(timer);
+                timer = 0;
+            }
+        };
+
+        const schedule = () => {
+            if (cancelled || suspended) return;
+            if (Date.now() - startedAt >= RECOVERY_PROBE_GIVE_UP_MS) return;
+            timer = window.setTimeout(run, delay);
+            delay = Math.min(Math.round(delay * RECOVERY_PROBE_BACKOFF), RECOVERY_PROBE_MAX_MS);
+        };
+
+        const run = async () => {
+            if (cancelled || suspended) return;
+            if (Date.now() - startedAt >= RECOVERY_PROBE_GIVE_UP_MS) {
+                setSessionReady(false);
+                return;
+            }
             try {
                 const { getAuthSupabase } = await import('@/app/utils/authSupabaseLazy');
                 const supabase = await getAuthSupabase();
                 const { data } = await supabase.auth.getSession();
-                if (!cancelled) setSessionReady(Boolean(data.session));
+                if (cancelled || suspended) return;
+                if (data.session) {
+                    setSessionReady(true);
+                    return;
+                }
+                setSessionReady(false);
             } catch {
-                if (!cancelled) setSessionReady(false);
+                if (cancelled || suspended) return;
+                setSessionReady(false);
             }
+            schedule();
         };
-        void probe();
-        const timer = window.setInterval(() => void probe(), 1500);
+
+        const unsub = subscribeAppForeground({
+            onSuspend: () => {
+                suspended = true;
+                clearTimer();
+            },
+            onResume: () => {
+                if (cancelled) return;
+                suspended = false;
+                delay = RECOVERY_PROBE_START_MS;
+                void run();
+            },
+        });
+
+        if (isAppForeground()) void run();
+        else suspended = true;
+
         return () => {
             cancelled = true;
-            window.clearInterval(timer);
+            clearTimer();
+            unsub();
         };
     }, []);
 

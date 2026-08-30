@@ -15,8 +15,12 @@ import {
     applyRepositoryOpaqueChrome,
     concealRepositoryWarmShell,
     paintRepositoryInstantChrome,
+    REPOSITORY_INSTANT_DISMISS_EVENT,
 } from '@/app/runtime/repositoryInstantPaint';
-import { prefetchRepositoryHubModule } from '@/app/runtime/repositoryHubLoader';
+import {
+    loadRepositoryHubModule,
+    prefetchRepositoryHubModule,
+} from '@/app/runtime/repositoryHubLoader';
 import { loadRepositoryIntentWarm } from '@/app/hooks/lawyerDashboard/repository/repositoryLazyImports';
 
 export type OpenRepositoryShellOptions = {
@@ -36,6 +40,9 @@ export type CommitRepositoryOpenParams = {
     setVaultOpenScanner: (open: boolean) => void;
     setRepositoryOpenEpoch: (updater: (epoch: number) => number) => void;
     setIsRepositoryOpen: (open: boolean) => void;
+    hostAlreadyMounted?: boolean;
+    isRepositoryOpen?: boolean;
+    onChunkFailed?: () => void;
 };
 
 export type CommitRepositoryCloseParams = {
@@ -44,6 +51,35 @@ export type CommitRepositoryCloseParams = {
     setVaultOpenScanner: (open: boolean) => void;
     setRepositoryHostMounted: (mounted: boolean) => void;
 };
+
+const REPOSITORY_MODAL_SELECTOR = '[data-testid="smart-repository-modal"]';
+
+let repositoryOpenLoadSeq = 0;
+let repositoryOpenInFlight = false;
+let repositoryInstantDismissBound = false;
+
+export function isRepositoryOpenInFlight(): boolean {
+    return repositoryOpenInFlight;
+}
+
+export function resetRepositoryOpenFlow(): void {
+    repositoryOpenInFlight = false;
+    repositoryOpenLoadSeq += 1;
+}
+
+/** للاختبارات — يصفّر حارس الفتح الجاري بعد إلغاء معلّق */
+export function resetRepositoryOpenFlowForTests(): void {
+    resetRepositoryOpenFlow();
+}
+
+function bindRepositoryInstantDismissCancel(): void {
+    if (repositoryInstantDismissBound || typeof window === 'undefined') return;
+    repositoryInstantDismissBound = true;
+    window.addEventListener(REPOSITORY_INSTANT_DISMISS_EVENT, () => {
+        repositoryOpenInFlight = false;
+        repositoryOpenLoadSeq += 1;
+    });
+}
 
 function applyRepositoryOpenState(
     opts: OpenRepositoryShellOptions | undefined,
@@ -69,7 +105,10 @@ function applyRepositoryOpenState(
     markRepositoryPerfPhase('first-paint');
 }
 
-/** فتح المستودع: طلاء DOM فوري ثم commit React (مثل الإعدادات). */
+/**
+ * فتح المستودع في نفس النقرة: قشرة فورية + Host.
+ * المقطع يُحمَّل بالتوازي — لا ننتظر تسخين الإقلاع.
+ */
 export function commitRepositoryOpen({
     userId,
     opts,
@@ -80,8 +119,21 @@ export function commitRepositoryOpen({
     setVaultOpenScanner,
     setRepositoryOpenEpoch,
     setIsRepositoryOpen,
+    hostAlreadyMounted = false,
+    isRepositoryOpen = false,
+    onChunkFailed,
 }: CommitRepositoryOpenParams): void {
+    if (repositoryOpenInFlight) return;
+    bindRepositoryInstantDismissCancel();
+    const wasClosing =
+        typeof document !== 'undefined' &&
+        document.documentElement.getAttribute(REPOSITORY_HUB_LAYER.closingAttr) === '1';
     clearHubLayerClosing(REPOSITORY_HUB_LAYER);
+    if (isRepositoryOpen && hostAlreadyMounted) {
+        if (wasClosing) paintRepositoryInstantChrome();
+        return;
+    }
+
     try {
         if (typeof performance !== 'undefined') {
             clearRepositoryPerfMarks();
@@ -92,18 +144,22 @@ export function commitRepositoryOpen({
     }
 
     dismissTransientOverlays('repository');
-
     prefetchRepositoryHubModule();
     applyRepositoryOpaqueChrome();
-
-    void loadRepositoryIntentWarm()
-        .then((m) => {
-            void m.warmRepositoryOnOpen(userId, opts?.tab ?? 'notepad');
-            void m.warmRepositoryDataCache(userId);
-        })
-        .catch(() => undefined);
-
     paintRepositoryInstantChrome();
+
+    void loadRepositoryHubModule()
+        .then(() => {
+            void loadRepositoryIntentWarm()
+                .then((m) => {
+                    void m.warmRepositoryOnOpen(userId, opts?.tab ?? 'notepad');
+                    void m.warmRepositoryDataCache(userId);
+                })
+                .catch(() => undefined);
+        })
+        .catch(() => {
+            onChunkFailed?.();
+        });
 
     flushSync(() => {
         applyRepositoryOpenState(opts, {
@@ -117,6 +173,8 @@ export function commitRepositoryOpen({
         });
         persistRepositorySessionOpen(true, opts?.tab ?? 'notepad');
     });
+    paintRepositoryInstantChrome();
+    markRepositoryPerfPhase('interactive');
 }
 
 /** إغلاق المستودع: إخفاء فوري + commit متزامن */
@@ -126,11 +184,13 @@ export function commitRepositoryClose({
     setVaultOpenScanner,
     setRepositoryHostMounted,
 }: CommitRepositoryCloseParams): void {
+    repositoryOpenInFlight = false;
+    repositoryOpenLoadSeq += 1;
     beginHubLayerExit(REPOSITORY_HUB_LAYER, () => {
         executeRepositoryOverlayClose({
             conceal: () => {
                 if (typeof document !== 'undefined') {
-                    const modal = document.querySelector('[data-testid="smart-repository-modal"]');
+                    const modal = document.querySelector(REPOSITORY_MODAL_SELECTOR);
                     blurFocusWithin(modal instanceof HTMLElement ? modal : null);
                 }
                 concealRepositoryWarmShell();

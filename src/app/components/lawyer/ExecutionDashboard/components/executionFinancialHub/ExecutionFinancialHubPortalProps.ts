@@ -8,7 +8,7 @@ import type {
     TimelineEvent,
 } from '@/app/types/execution';
 import type { ExecutionStatusMeta } from '@/app/utils/executionStateMachine';
-import type { FinancialOperationsCenterProps } from '@/app/components/lawyer/FinancialOperationsCenter/focProps';
+import type { FinancialOperationsCenterProps } from '@/app/slices/financial/specialtyPublic';
 import type { FinancialLedgerEntry } from '@/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPaymentHandlers';
 import type { EvictionCaseExpenseRow } from '@/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardEvictionFinancialHandlers';
 

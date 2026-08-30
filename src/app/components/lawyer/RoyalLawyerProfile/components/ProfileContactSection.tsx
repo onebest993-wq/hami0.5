@@ -79,7 +79,7 @@ export function ProfileContactSection({
                                 <ProfileContactChannel key={action.id} action={action} />
                             ),
                         )}
-                    </div>
+                </div>
             )}
         </section>
     );

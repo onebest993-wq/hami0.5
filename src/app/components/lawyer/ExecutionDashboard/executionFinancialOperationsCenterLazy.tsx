@@ -1,5 +1,5 @@
 import { createPreloadableLazyComponent } from '@/app/utils/lazy/preloadableLazy';
-import type { FinancialOperationsCenterProps } from '@/app/components/lawyer/FinancialOperationsCenter/focProps';
+import type { FinancialOperationsCenterProps } from '@/app/slices/financial/specialtyPublic';
 
 export const LazyFinancialOperationsCenter =
     createPreloadableLazyComponent<FinancialOperationsCenterProps>(() =>

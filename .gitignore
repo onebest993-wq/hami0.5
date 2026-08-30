@@ -119,6 +119,11 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# --- فضلات محلية خارج المنتج (بحث ألعاب / تنظيف عتاد) ---
+resonance_*
+slot00*
+rgb-cleanup/
+
 # --- نظام التشغيل ---
 .DS_Store
 .DS_Store?

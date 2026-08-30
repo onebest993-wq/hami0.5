@@ -8,8 +8,19 @@ import {
     snapTasksManagerShellOpen,
 } from '@/app/services/fieldTasks/fieldTasksShellSnap';
 import { snapGlobalSearchShellOpen } from '@/app/services/search/globalSearchShellSnap';
+import {
+    paintFieldTasksInstantChrome,
+    suppressFieldTasksClose,
+} from '@/app/runtime/fieldTasksInstantPaint';
+import { loadFieldTasksSheetModule } from '@/app/runtime/fieldTasksHubLoader';
 
 const noop = () => undefined;
+
+export function isFieldTasksDeferredOp(
+    op: DeferredPendingOp,
+): op is 'fieldTasks' | 'tasksManager' {
+    return op === 'fieldTasks' || op === 'tasksManager';
+}
 
 /** stubs خفيفة قبل تسليح الجزيرة — تفتح عبر requestArm ثم تُنفَّذ عند onReady */
 export function createDeferredFeatureStubs(
@@ -41,11 +52,20 @@ export function createDeferredFeatureStubs(
         primeFieldTasksShellMount: () => requestArm('fieldTasks'),
         resetFieldTasksShell: noop,
         openFieldTasksSheet: () => {
+            suppressFieldTasksClose();
+            paintFieldTasksInstantChrome();
             snapFieldTasksShellOpen();
+            void loadFieldTasksSheetModule().catch(() => undefined);
+            void import(
+                '@/app/components/lawyer/dashboard/LawyerDashboardFieldTasksFeatureSurfaces'
+            ).catch(() => undefined);
             requestArm('fieldTasks');
         },
         openTasksManager: () => {
             snapTasksManagerShellOpen();
+            void import('@/app/services/tasks/quantumTaskCreateLoad')
+                .then((m) => m.loadQuantumTaskCreateBundle())
+                .catch(() => undefined);
             requestArm('tasksManager');
         },
         switchToTasksManager: noop,
@@ -55,17 +75,12 @@ export function createDeferredFeatureStubs(
 
     const globalSearch = {
         showGlobalSearch: false,
-        setShowGlobalSearch: noop as DeferredFeatureBag['globalSearch']['setShowGlobalSearch'],
         searchHostMounted: false,
         globalSearchInitialQuery: '',
-        setGlobalSearchInitialQuery:
-            noop as DeferredFeatureBag['globalSearch']['setGlobalSearchInitialQuery'],
         globalSearchSessionKey: 0,
         primeGlobalSearchShellMount: () => requestArm('globalSearch'),
         searchIndexVersion: 0,
-        setSearchIndexVersion: noop as DeferredFeatureBag['globalSearch']['setSearchIndexVersion'],
         bumpSearchIndex: noop,
-        resetGlobalSearchShell: noop,
         openGlobalSearch: (_seed = '') => {
             snapGlobalSearchShellOpen();
             requestArm('globalSearch');

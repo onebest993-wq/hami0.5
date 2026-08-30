@@ -23,7 +23,9 @@ export {
     type SettlementSalaryConflictChoice,
 } from '@/app/components/lawyer/FinancialOperationsCenter/settlementSalaryExclusion';
 export { buildDebtorAgentSeizedItems } from '@/app/components/lawyer/FinancialOperationsCenter/debtorAgentSeizedItems';
+export type { FinancialOperationsCenterProps } from '@/app/components/lawyer/FinancialOperationsCenter/focProps';
 export type {
+    LocalPaymentRow,
     PendingSettlement,
     UnifiedLedgerStore,
 } from '@/app/components/lawyer/FinancialOperationsCenter/types';

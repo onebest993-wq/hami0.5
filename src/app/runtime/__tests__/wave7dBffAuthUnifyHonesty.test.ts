@@ -44,6 +44,7 @@ describe('wave7d BFF auth unify honesty', () => {
             expect(
                 t.includes('requireWifeUser') ||
                     t.includes('requireForumAuth') ||
+                    t.includes('requireWifeCloudWrite') ||
                     t.includes('requireTrustedHeadquartersAdmin'),
                 rel,
             ).toBe(true);

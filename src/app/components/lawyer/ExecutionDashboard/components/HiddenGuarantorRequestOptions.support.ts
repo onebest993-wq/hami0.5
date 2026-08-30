@@ -1,5 +1,5 @@
 import type { HamiIcon } from '@/app/components/ui/icons/hamiIcon';
-import { Building2 } from 'lucide-react';
+import { Building2 } from '@/app/components/ui/icons/Building2';
 import { Shield } from '@/app/components/ui/icons/Shield';
 import { Wallet } from '@/app/components/ui/icons/Wallet';
 import { Package } from '@/app/components/ui/icons/Package';
