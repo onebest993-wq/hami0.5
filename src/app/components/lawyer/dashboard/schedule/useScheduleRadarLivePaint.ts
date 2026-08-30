@@ -1,10 +1,18 @@
 import { useLayoutEffect, useState } from 'react';
 import {
+    isScheduleRadarChromeSnapshotPending,
     isScheduleRadarLivePaintReady,
     SCHEDULE_RADAR_LIVE_PAINT_SETTLE_FRAMES,
 } from '@/app/components/lawyer/dashboard/schedule/scheduleRadarLivePaint';
 
-const LIVE_PAINT_RAF_CAP = 360;
+export const LIVE_PAINT_RAF_CAP = 90;
+/** سقف أمان إن بقيت بطاقات الصدفة بلا جسم حي */
+export const LIVE_PAINT_RAF_HARD_CAP = 360;
+
+function chromeDayListStillHasEvents(): boolean {
+    if (typeof document === 'undefined') return false;
+    return document.querySelector('[data-testid^="radar-open-instant-event-"]') instanceof HTMLElement;
+}
 
 /** يبقى غطاء الطلاء حتى استقرار كروم الرادار الحي */
 export function useScheduleRadarLivePaint(open: boolean): boolean {
@@ -37,7 +45,15 @@ export function useScheduleRadarLivePaint(open: boolean): boolean {
             } else {
                 readyStreak = 0;
             }
-            if (++ticks > LIVE_PAINT_RAF_CAP) return;
+            ticks += 1;
+            if (ticks > LIVE_PAINT_RAF_HARD_CAP && !chromeDayListStillHasEvents() && !isScheduleRadarChromeSnapshotPending()) {
+                setLive(true);
+                return;
+            }
+            if (ticks > LIVE_PAINT_RAF_CAP && !chromeDayListStillHasEvents() && !isScheduleRadarChromeSnapshotPending()) {
+                setLive(true);
+                return;
+            }
             raf = window.requestAnimationFrame(tick);
         };
         raf = window.requestAnimationFrame(tick);

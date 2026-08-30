@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo } from 'react';
+import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { registerNativeBackHandler } from '@/app/runtime/nativeBackStack';
 import {
     HomeArrowRightIcon,
@@ -6,54 +6,114 @@ import {
     HomeChevronRightIcon,
     HomePlusIcon,
 } from '@/app/components/lawyer/dashboard/homeStemIcons';
-import { buildRadarOpenInstantSnapshot } from '@/app/components/lawyer/dashboard/schedule/radarOpenInstantChromeModel';
+import { SmartToast } from '@/app/components/ui/SmartToast';
+import {
+    buildRadarOpenInstantSnapshot,
+    radarOpenInstantWeekDayClass,
+    type RadarOpenInstantDayEvent,
+} from '@/app/components/lawyer/dashboard/schedule/radarOpenInstantChromeModel';
+import { RadarOpenInstantMonthGrid } from '@/app/components/lawyer/dashboard/schedule/RadarOpenInstantMonthGrid';
+import { RadarOpenInstantDayList } from '@/app/components/lawyer/dashboard/schedule/RadarOpenInstantDayList';
+import { RadarOpenInstantAddHost } from '@/app/components/lawyer/dashboard/schedule/RadarOpenInstantAddHost';
+import { prefetchRadarEventForm } from '@/app/components/lawyer/dashboard/schedule/prefetchRadarEventForm';
+import { getCachedCalendarEvents, subscribeCalendarEventsCache } from '@/app/services/calendar/calendarEventsCache';
+import {
+    isCalendarEventFormOpen,
+    isCalendarReminderOverlayOpen,
+} from '@/app/services/calendar/calendarReminderOverlayGate';
+import { requestCalendarOpenSource } from '@/app/services/calendar/calendarOpenSourceIntent';
+import {
+    focusCalendarShellDate,
+    patchCalendarShellSession,
+    peekCalendarShellSession,
+    seedCalendarShellSession,
+    subscribeCalendarShellSession,
+    applyCalendarShellMonthShift,
+    requestCalendarShellEdit,
+} from '@/app/services/calendar/calendarShellSession';
+import { calendarTodayYmd } from '@/app/services/calendar/calendarMonthMath';
+import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
+import {
+    RADAR_ADD_DOCK,
+    RADAR_BACK_BTN,
+    RADAR_BTN_ADD,
+    RADAR_BTN_GHOST_ACTIVE,
+    RADAR_HEADER,
+    RADAR_MONTH_CALENDAR_BTN,
+    RADAR_MONTH_NAV,
+    RADAR_NAV_ICON_BTN,
+    RADAR_PAGE,
+    RADAR_SCROLL,
+    RADAR_TITLE,
+} from '@/app/components/lawyer/dashboard/schedule/radarOpenInstantChromeClasses';
 import '@/app/components/lawyer/SmartLegalRadar/radarCss/radarPage.css';
 import '@/app/components/lawyer/SmartLegalRadar/radarCss/radarChrome.css';
-import '@/app/components/lawyer/dashboard/schedule/radarOpenInstantPaint.css';
-
-/** نفس سلاسل radarTheme — CSS الكروم فقط؛ بلا استيراد JS SmartLegalRadar إلى جذع MainView */
-const PAGE =
-    'hami-radar-page flex flex-col h-full min-h-[100dvh] overflow-hidden relative isolate ' +
-    'hami-radar-dark-surface hami-radar-text-primary';
-const HEADER =
-    'hami-radar-header relative flex items-center justify-between px-4 py-2 sticky top-0 z-50 ' +
-    'pt-[max(0.75rem,var(--hami-lawyer-header-safe-top,env(safe-area-inset-top,0px)))]';
-const BACK_BTN =
-    'flex min-h-[44px] items-center gap-2 rounded-lg px-3 py-2 hami-radar-text-secondary transition-colors touch-manipulation hami-radar-hover-row';
-const TITLE = 'hami-radar-title text-[15px] sm:text-base font-semibold tracking-tight hami-radar-text-primary';
-const SCROLL = 'hami-radar-scroll flex-1 overflow-y-auto scrollbar-hide px-4 pt-2 pb-3 relative z-[1]';
-const MONTH_NAV = 'hami-radar-month-nav flex flex-col mb-2';
-const MONTH_BTN =
-    'flex min-h-[44px] items-center justify-center px-3 py-1.5 rounded-lg text-[12px] font-semibold touch-manipulation ' +
-    'bg-transparent border-0 hami-radar-text-secondary hami-radar-ghost-hover hami-radar-month-nav__calendar-btn shrink-0';
-const NAV_ICON =
-    'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg hami-radar-text-secondary transition-colors touch-manipulation hami-radar-hover-row';
-const ADD_DOCK =
-    'hami-radar-add-dock shrink-0 relative z-[3] px-4 pt-1.5 ' +
-    'pb-[max(0.75rem,var(--hami-lawyer-header-safe-bottom,env(safe-area-inset-bottom,0px)))]';
-const ADD_BTN =
-    'hami-radar-add-btn flex min-h-[44px] items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold touch-manipulation w-full transition-colors duration-150';
+import '@/app/components/lawyer/SmartLegalRadar/radarCss/radarCards.css';
 
 /**
- * قشرة فتح التقويم — أصناف الرادار الحي + CSS الكروم.
- * لا تستورد JS الرادار حتى لا يدخل جذع MainView.
+ * كروم التقويم الدائم — أسبوع/شهر/قائمة/إضافة من الكاش.
+ * لا تستورد JS SmartLegalRadar حتى لا يدخل جذع MainView.
  */
 export const RadarOpenInstantChrome = memo(function RadarOpenInstantChrome({
     onBack,
+    userId,
+    liveReady = false,
+    liveBody = null,
+    interactive = true,
 }: {
     onBack: () => void;
+    userId?: string | null;
+    liveReady?: boolean;
+    liveBody?: ReactNode;
+    interactive?: boolean;
 }): React.ReactElement {
-    const snapshot = useMemo(() => buildRadarOpenInstantSnapshot(), []);
+    const [cacheTick, setCacheTick] = useState(0);
+    const [shellTick, setShellTick] = useState(0);
+    const [formOpen, setFormOpen] = useState(false);
+    const [editingEventId, setEditingEventId] = useState<string | null>(null);
+
+    const cacheUserId = resolveCalendarUserId(userId ?? null);
+
+    useLayoutEffect(() => {
+        seedCalendarShellSession();
+        const unsubCache = subscribeCalendarEventsCache(() => {
+            setCacheTick((n) => n + 1);
+        });
+        const unsubShell = subscribeCalendarShellSession(() => {
+            setShellTick((n) => n + 1);
+        });
+        if (getCachedCalendarEvents(cacheUserId)?.length) {
+            setCacheTick((n) => n + 1);
+        }
+        return () => {
+            unsubCache();
+            unsubShell();
+        };
+    }, [cacheUserId]);
+
+    const snapshot = useMemo(
+        () => buildRadarOpenInstantSnapshot(new Date(), cacheUserId, peekCalendarShellSession()),
+        [cacheUserId, cacheTick, shellTick],
+    );
+
+    const setFormVisible = useCallback((open: boolean, eventId: string | null = null) => {
+        setFormOpen(open);
+        setEditingEventId(open ? eventId : null);
+        if (open) prefetchRadarEventForm();
+    }, []);
 
     useEffect(() => {
+        if (!interactive) return;
         const onKey = (event: KeyboardEvent) => {
             if (event.key !== 'Escape') return;
+            if (isCalendarReminderOverlayOpen() || isCalendarEventFormOpen()) return;
             event.preventDefault();
             event.stopPropagation();
             onBack();
         };
         window.addEventListener('keydown', onKey, true);
         const unregisterNativeBack = registerNativeBackHandler(() => {
+            if (isCalendarReminderOverlayOpen() || isCalendarEventFormOpen()) return false;
             onBack();
             return true;
         });
@@ -61,18 +121,77 @@ export const RadarOpenInstantChrome = memo(function RadarOpenInstantChrome({
             window.removeEventListener('keydown', onKey, true);
             unregisterNativeBack();
         };
-    }, [onBack]);
+    }, [interactive, onBack]);
+
+    useEffect(() => {
+        prefetchRadarEventForm();
+    }, []);
+
+    const goToToday = useCallback(() => {
+        const today = calendarTodayYmd();
+        const d = new Date(`${today}T12:00:00`);
+        patchCalendarShellSession({
+            selectedDate: today,
+            viewYear: d.getFullYear(),
+            viewMonth: d.getMonth(),
+        });
+    }, []);
+
+    const shiftMonth = useCallback((delta: -1 | 1) => {
+        applyCalendarShellMonthShift(delta);
+    }, []);
+
+    const toggleFullMonth = useCallback(() => {
+        const shell = peekCalendarShellSession() ?? seedCalendarShellSession();
+        patchCalendarShellSession({ showFullMonth: !shell.showFullMonth });
+    }, []);
+
+    const openAdd = useCallback(() => {
+        setFormVisible(true, null);
+    }, [setFormVisible]);
+
+    const openSource = useCallback((event: RadarOpenInstantDayEvent) => {
+        if (!event.sourceModule || !event.sourceEntityId) {
+            SmartToast.info('المصدر غير معروف');
+            return;
+        }
+        requestCalendarOpenSource({
+            sourceModule: event.sourceModule,
+            sourceEntityId: event.sourceEntityId,
+            sourceEventId: event.sourceEventId ?? undefined,
+        });
+    }, []);
+
+    const openEvent = useCallback(
+        (event: RadarOpenInstantDayEvent) => {
+            if (event.bridged) {
+                openSource(event);
+                return;
+            }
+            if (liveReady) {
+                requestCalendarShellEdit(event.id);
+                return;
+            }
+            setFormVisible(true, event.id);
+        },
+        [liveReady, openSource, setFormVisible],
+    );
 
     return (
         <div
-            className={PAGE}
-            data-testid="schedule-tab-loading"
-            role="status"
-            aria-busy="true"
+            className={RADAR_PAGE}
+            data-testid="smart-legal-radar"
+            data-schedule-instant={interactive ? '1' : undefined}
+            data-schedule-snapshot={snapshot.snapshotReady ? 'ready' : 'pending'}
             aria-label="رادار المواعيد"
             dir="rtl"
         >
-            <header className={HEADER}>
+            {!liveReady ? (
+                <span data-testid="schedule-tab-loading" className="sr-only">
+                    رادار المواعيد
+                </span>
+            ) : null}
+            <header className={RADAR_HEADER}>
                 <button
                     type="button"
                     onClick={(event) => {
@@ -80,22 +199,28 @@ export const RadarOpenInstantChrome = memo(function RadarOpenInstantChrome({
                         onBack();
                     }}
                     data-testid="radar-back"
-                    className={BACK_BTN}
+                    className={RADAR_BACK_BTN}
                     style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
                     aria-label="رجوع"
                 >
                     <HomeArrowRightIcon size={20} />
                     <span className="font-semibold text-sm">رجوع</span>
                 </button>
-                <h1 className={TITLE}>رادار المواعيد</h1>
+                <h1 className={RADAR_TITLE}>رادار المواعيد</h1>
                 <div className="w-10 flex items-center justify-end" aria-hidden />
             </header>
 
-            <div className={SCROLL}>
-                <div className={MONTH_NAV} dir="rtl" data-testid="radar-month-nav">
+            <div className={RADAR_SCROLL}>
+                <div className={RADAR_MONTH_NAV} dir="rtl" data-testid="radar-month-nav">
                     <div className="hami-radar-month-nav__month-row flex items-center gap-2 min-w-0 w-full">
                         <div className="flex min-w-0 flex-1 items-center justify-center gap-0.5">
-                            <button type="button" tabIndex={-1} className={NAV_ICON} aria-hidden>
+                            <button
+                                type="button"
+                                data-testid="radar-prev-month"
+                                onClick={() => shiftMonth(-1)}
+                                aria-label="الشهر السابق"
+                                className={RADAR_NAV_ICON_BTN}
+                            >
                                 <HomeChevronRightIcon size={18} />
                             </button>
                             <p
@@ -105,12 +230,30 @@ export const RadarOpenInstantChrome = memo(function RadarOpenInstantChrome({
                             >
                                 {snapshot.monthLabel}
                             </p>
-                            <button type="button" tabIndex={-1} className={NAV_ICON} aria-hidden>
+                            <button
+                                type="button"
+                                data-testid="radar-next-month"
+                                onClick={() => shiftMonth(1)}
+                                aria-label="الشهر التالي"
+                                className={RADAR_NAV_ICON_BTN}
+                            >
                                 <HomeChevronLeftIcon size={18} />
                             </button>
                         </div>
-                        <button type="button" tabIndex={-1} className={MONTH_BTN} aria-hidden>
-                            الشهر
+                        <button
+                            type="button"
+                            onClick={toggleFullMonth}
+                            data-testid="radar-toggle-full-month"
+                            aria-label={snapshot.showFullMonth ? 'إغلاق التقويم' : 'التقويم الكامل'}
+                            aria-expanded={snapshot.showFullMonth}
+                            aria-controls="radar-calendar-grid"
+                            className={
+                                snapshot.showFullMonth
+                                    ? `${RADAR_BTN_GHOST_ACTIVE} hami-radar-month-nav__calendar-btn shrink-0`
+                                    : RADAR_MONTH_CALENDAR_BTN
+                            }
+                        >
+                            {snapshot.showFullMonth ? 'إغلاق' : 'الشهر'}
                         </button>
                     </div>
 
@@ -128,7 +271,18 @@ export const RadarOpenInstantChrome = memo(function RadarOpenInstantChrome({
                                 </p>
                             ) : null}
                         </div>
-                        <span className="hami-radar-month-nav__today-badge shrink-0">اليوم</span>
+                        {snapshot.todaySelected ? (
+                            <span className="hami-radar-month-nav__today-badge shrink-0">اليوم</span>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={goToToday}
+                                className="hami-radar-month-nav__today-btn shrink-0 min-h-[44px] px-3 text-[11px] font-semibold touch-manipulation"
+                                data-testid="radar-today"
+                            >
+                                اليوم
+                            </button>
+                        )}
                     </div>
 
                     <div
@@ -141,42 +295,65 @@ export const RadarOpenInstantChrome = memo(function RadarOpenInstantChrome({
                             <button
                                 key={day.ymd}
                                 type="button"
-                                tabIndex={-1}
                                 data-testid={`radar-week-day-${day.ymd}`}
-                                className={`hami-radar-week-strip__day${
-                                    day.selected ? ' hami-radar-week-strip__day--selected' : ''
-                                }${
-                                    day.muted && !day.selected
-                                        ? ' hami-radar-week-strip__day--muted'
-                                        : ''
-                                }`}
+                                aria-pressed={day.selected}
+                                aria-current={day.today ? 'date' : undefined}
+                                aria-label={day.ariaLabel}
+                                onClick={() => focusCalendarShellDate(day.ymd)}
+                                className={radarOpenInstantWeekDayClass(day)}
+                                data-has-events={day.hasEvents ? '1' : undefined}
                             >
                                 <span className="hami-radar-week-strip__name">{day.name}</span>
                                 <span className="hami-radar-week-strip__num">{day.dayNum}</span>
-                                <span
-                                    className="hami-radar-week-strip__dot hami-radar-week-strip__dot--empty"
-                                    aria-hidden
-                                />
                             </button>
                         ))}
                     </div>
                 </div>
 
-                <div className="relative space-y-2.5 pb-4">
-                    <div className="hami-radar-empty" data-testid="radar-empty-state">
-                        <p className="hami-radar-text-secondary text-[13px] font-medium leading-relaxed">
-                            لا توجد مواعيد لهذا اليوم
-                        </p>
-                    </div>
-                </div>
+                {!liveReady ? (
+                    <>
+                        <RadarOpenInstantMonthGrid
+                            visible={snapshot.showFullMonth}
+                            viewYear={snapshot.viewYear}
+                            viewMonth={snapshot.viewMonth}
+                            firstDayOfMonth={snapshot.firstDayOfMonth}
+                            cells={snapshot.monthCells}
+                            onSelectDay={focusCalendarShellDate}
+                        />
+                        <RadarOpenInstantDayList
+                            events={snapshot.dayEvents}
+                            snapshotReady={snapshot.snapshotReady}
+                            onOpenEvent={openEvent}
+                            onOpenSource={openSource}
+                        />
+                    </>
+                ) : null}
+
+                {liveBody}
             </div>
 
-            <div className={ADD_DOCK} data-testid="radar-day-actions">
-                <div className={`${ADD_BTN} pointer-events-none select-none`} aria-hidden>
+            <div className={RADAR_ADD_DOCK} data-testid="radar-day-actions">
+                <button
+                    type="button"
+                    onClick={openAdd}
+                    onPointerDown={prefetchRadarEventForm}
+                    onFocus={prefetchRadarEventForm}
+                    data-testid="radar-add-event"
+                    className={RADAR_BTN_ADD}
+                    aria-label={`إضافة موعد ليوم ${snapshot.dayTitle}`}
+                >
                     <HomePlusIcon size={16} aria-hidden />
                     إضافة موعد
-                </div>
+                </button>
             </div>
+
+            <RadarOpenInstantAddHost
+                userId={cacheUserId}
+                selectedDate={snapshot.selectedDate}
+                show={formOpen}
+                editingEventId={editingEventId}
+                onClose={() => setFormVisible(false)}
+            />
         </div>
     );
 });

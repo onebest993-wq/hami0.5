@@ -101,17 +101,80 @@ describe('calendar dock section surgical close honesty', () => {
         expect(chrome).toContain('data-testid="radar-week-strip"');
         expect(chrome).toContain('data-testid="radar-month-label"');
         expect(chrome).toContain('buildRadarOpenInstantSnapshot');
-        expect(chrome).toContain('hami-radar-header');
-        expect(chrome).toContain('hami-radar-week-strip__day--selected');
-        expect(chrome).toContain('radarOpenInstantPaint.css');
+        expect(chrome).toContain('RADAR_HEADER');
+        expect(chrome).toContain('radarOpenInstantChromeClasses');
+        expect(chrome).toContain('prefetchRadarEventForm');
+        expect(chrome).toContain('subscribeCalendarEventsCache');
+        expect(chrome).toContain('data-has-events');
+        expect(chrome).toContain('radarOpenInstantWeekDayClass');
+        expect(chrome).toContain('calendarReminderOverlayGate');
+        expect(chrome).toContain('isCalendarEventFormOpen');
+        expect(chrome).toContain('isCalendarReminderOverlayOpen');
+        expect(chrome).toContain('data-schedule-instant');
+        expect(chrome).toContain('data-schedule-snapshot');
+        expect(chrome).toContain('snapshotReady');
+        expect(chrome).toContain('data-testid="smart-legal-radar"');
+        expect(chrome).toContain('resolveCalendarUserId');
+        expect(chrome).toContain('requestCalendarOpenSource');
+        expect(chrome).toContain('liveBody');
+        expect(chrome).toContain('calendarShellSession');
+        expect(chrome).toContain('RadarOpenInstantAddHost');
+        expect(chrome).toContain('RadarOpenInstantDayList');
+        expect(chrome).toContain('RadarOpenInstantMonthGrid');
+        expect(chrome).toContain('radar-add-event');
+        expect(chrome).not.toContain('pointer-events-none');
+        expect(chrome).not.toContain('tabIndex={-1}');
+        expect(chrome).not.toContain('aria-busy');
+        expect(chrome).not.toContain('جاري');
+        expect(chrome).not.toContain('radarOpenInstantPaint.css');
         expect(chrome).toContain('radarCss/radarPage.css');
         expect(chrome).toContain('radarCss/radarChrome.css');
+        expect(chrome).toContain('radarCss/radarCards.css');
         expect(chrome).not.toContain('Array.from({ length: 7 }');
-        expect(chrome).toContain('--hami-lawyer-header-safe-top');
         expect(chrome).toContain('registerNativeBackHandler');
         expect(chrome).toContain("event.key !== 'Escape'");
+        expect(chrome).toContain('useLayoutEffect');
+        expect(chrome).not.toContain('calendarLocalSnapshot');
+        expect(chrome).not.toContain('SecureStoreService');
         expect(chrome).not.toMatch(/from ['"][^'"]*SmartLegalRadar/);
         expect(chrome).not.toMatch(/from ['"][^'"]*radarTheme/);
+        const chromeModel = fs.readFileSync(
+            path.join(
+                root,
+                'src/app/components/lawyer/dashboard/schedule/radarOpenInstantChromeModel.ts',
+            ),
+            'utf8',
+        );
+        expect(chromeModel).toContain('hami-radar-week-strip__day--selected');
+        expect(chromeModel).not.toMatch(/from ['"][^'"]*SmartLegalRadar/);
+        const chromeAdd = fs.readFileSync(
+            path.join(
+                root,
+                'src/app/components/lawyer/dashboard/schedule/RadarOpenInstantAddHost.tsx',
+            ),
+            'utf8',
+        );
+        expect(chromeAdd).toContain('loadRadarEventFormModule');
+        expect(chromeAdd).toContain("import('@/app/services/calendar/calendarCloudRuntime')");
+        expect(chromeAdd).not.toMatch(/from ['"][^'"]*SmartLegalRadar/);
+        const chromeClasses = fs.readFileSync(
+            path.join(
+                root,
+                'src/app/components/lawyer/dashboard/schedule/radarOpenInstantChromeClasses.ts',
+            ),
+            'utf8',
+        );
+        expect(chromeClasses).toContain('hami-radar-header');
+        expect(chromeClasses).toContain('--hami-lawyer-header-safe-top');
+        expect(chromeClasses).toContain('min-h-[44px]');
+        expect(
+            fs.existsSync(
+                path.join(
+                    root,
+                    'src/app/components/lawyer/dashboard/schedule/radarOpenInstantPaint.css',
+                ),
+            ),
+        ).toBe(false);
         const paintGate = fs.readFileSync(
             path.join(
                 root,
@@ -120,18 +183,17 @@ describe('calendar dock section surgical close honesty', () => {
             'utf8',
         );
         expect(paintGate).toContain('RadarOpenInstantChrome');
+        expect(paintGate).toContain('useAuthUser');
+        expect(paintGate).toContain('userId={resolvedUserId}');
         expect(paintGate).toContain('schedule-radar-paint-cover');
+        expect(paintGate).toContain('data-handoff');
+        expect(paintGate).toContain('hami-schedule-radar-paint-cover');
+        expect(paintGate).toContain('liveBody');
+        expect(paintGate).toContain('CalendarLiveHandoffContext');
+        expect(paintGate).not.toContain('onFormOpenChange');
         expect(paintGate).toContain('fallback={null}');
+        expect(paintGate).toContain('InstantChrome هو الصفحة');
         expect(paintGate).toContain('useScheduleRadarLivePaint');
-        expect(paintGate).toContain('invisible');
-        const paintCss = fs.readFileSync(
-            path.join(
-                root,
-                'src/app/components/lawyer/dashboard/schedule/radarOpenInstantPaint.css',
-            ),
-            'utf8',
-        );
-        expect(paintCss).not.toMatch(/^\s*@import\b/m);
         const livePaint = fs.readFileSync(
             path.join(
                 root,
@@ -139,13 +201,36 @@ describe('calendar dock section surgical close honesty', () => {
             ),
             'utf8',
         );
-        expect(livePaint).toContain('radar-back');
+        expect(livePaint).toContain('radar-live-body');
+        expect(livePaint).toContain('radar-open-instant-event-');
         expect(livePaint).toContain('SCHEDULE_RADAR_LIVE_PAINT_SETTLE_FRAMES');
+        expect(livePaint).toContain('data-schedule-snapshot');
+        expect(livePaint).not.toContain('radar-live-pending-empty');
+        const tab = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardScheduleTab.tsx'),
+            'utf8',
+        );
+        expect(tab).toContain('embedInChrome');
+        expect(tab).toContain('subscribeCalendarOpenSource');
+        expect(tab).not.toContain('h-[100dvh]');
+        const radar = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/SmartLegalRadar.tsx'),
+            'utf8',
+        );
+        expect(radar).toContain('embedInChrome');
+        expect(radar).toContain('RadarShell embed');
+        const shell = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/SmartLegalRadar/RadarShell.tsx'),
+            'utf8',
+        );
+        expect(shell).toContain('radar-live-body');
         const openFlow = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/schedule/scheduleShellOpenFlow.ts'),
             'utf8',
         );
         expect(openFlow).toContain('loadScheduleTabHostModule');
+        expect(openFlow).toContain('primeCalendarEventsCacheFromPeek');
+        expect(openFlow).toContain('primeCalendarEventsCacheFromPeek(params.userId)');
         expect(openFlow).toMatch(
             /catch\(\(\) => undefined\);\s*if \(isScheduleShellSnappedOpen\(\)\)/,
         );
@@ -182,6 +267,7 @@ describe('calendar dock section surgical close honesty', () => {
             'utf8',
         );
         expect(warmCore).toContain('warmCalendarEventsCache');
+        expect(warmCore).toContain('primeCalendarEventsCacheFromPeek');
         expect(warmCore).toContain('prefetchCalendarCloudModule');
         expect(warmCore).not.toMatch(/from ['"]@\/app\/runtime\/scheduleBootHydrator['"]/);
     });
@@ -192,6 +278,8 @@ describe('calendar dock section surgical close honesty', () => {
             'utf8',
         );
         expect(warm).toContain('requestCalendarDossierSyncNow');
+        expect(warm).toContain('scheduleIdleWork');
+        expect(warm).toContain('primeCalendarEventsCacheFromPeek');
         expect(warm).toContain('runScheduleWarmCore');
         expect(warm).toContain('warmSchedulePipeline');
         expect(warm).not.toContain('prefetchScheduleHubModule');
@@ -414,6 +502,7 @@ describe('calendar dock section surgical close honesty', () => {
             'utf8',
         );
         expect(view).toContain('selectedDateAfterMonthShift');
+        expect(view).toContain('calendarShellSession');
         const radar = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/SmartLegalRadar.tsx'),
             'utf8',
@@ -457,6 +546,19 @@ describe('calendar dock section surgical close honesty', () => {
         expect(e2e).not.toMatch(
             /await expect\(radar\)\.toBeVisible[\s\S]*radar-empty-state[\s\S]*return radar/,
         );
+        expect(e2e).toContain('bootHomeWithCalendarSeed');
+        expect(e2e).toContain('commitCalendarEventsSeed');
+        const calendarFixtures = fs.readFileSync(
+            path.join(root, 'e2e/helpers/calendarFixtures.ts'),
+            'utf8',
+        );
+        expect(calendarFixtures).toContain('E2E_CALENDAR_USER_ID = GUEST_LAWYER_ID');
+        expect(calendarFixtures).toContain('commitCalendarEventsSeed');
+        const seedFn = calendarFixtures.match(
+            /export async function seedCalendarEvents[\s\S]*?^export async function /m,
+        )?.[0];
+        expect(seedFn).toBeTruthy();
+        expect(seedFn).not.toContain('indexedDB');
     });
 
     it('تذكير الموعد يملك Escape وCap (LIFO فوق أي تبويب)', () => {

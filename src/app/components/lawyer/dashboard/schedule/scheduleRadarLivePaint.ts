@@ -1,27 +1,23 @@
-/** إطارات تأكيد بعد وجود الكروم الحي — يمنح CSS مقطع Host وقت الحقن قبل رفع الغطاء */
+/** جسم الرادار الحي داخل كروم الصدفة — بلا رأس/أسبوع مكرر */
+export const SCHEDULE_RADAR_LIVE_BODY_TEST_ID = 'radar-live-body';
 export const SCHEDULE_RADAR_LIVE_PAINT_SETTLE_FRAMES = 2;
 
-function isLiveRadarRoot(radar: Element): radar is HTMLElement {
-    if (!(radar instanceof HTMLElement)) return false;
-    if (radar.closest('[data-testid="schedule-tab-loading"]')) return false;
-    if (radar.closest('[data-testid="schedule-radar-paint-cover"]')) return false;
-    return true;
+/** لقطة كاش التقويم لم تُزرع بعد — لا جملة فارغة ولا تسليم حي */
+export function isScheduleRadarChromeSnapshotPending(): boolean {
+    if (typeof document === 'undefined') return false;
+    return document.querySelector('[data-schedule-snapshot="pending"]') instanceof HTMLElement;
 }
 
-/** هل رُسم الرادار الحي (لا قشرة الطلاء) بشريط أسبوع ورأس جاهزين؟ */
+/** هل رُسم جسم اليوم الحي جاهزاً لاستبدال قائمة الصدفة؟ */
 export function isScheduleRadarLivePaintReady(): boolean {
     if (typeof document === 'undefined') return false;
-    const radar = document.querySelector('[data-testid="smart-legal-radar"]');
-    if (!radar || !isLiveRadarRoot(radar)) return false;
-
-    const week = radar.querySelector('[data-testid="radar-week-strip"]');
-    if (!(week instanceof HTMLElement)) return false;
-
-    const back = radar.querySelector('[data-testid="radar-back"]');
-    if (!(back instanceof HTMLElement) || !back.querySelector('svg')) return false;
-
-    const month = radar.querySelector('[data-testid="radar-month-label"]');
-    if (!(month instanceof HTMLElement) || !month.textContent?.trim()) return false;
-
-    return true;
+    if (isScheduleRadarChromeSnapshotPending()) return false;
+    const body = document.querySelector(`[data-testid="${SCHEDULE_RADAR_LIVE_BODY_TEST_ID}"]`);
+    if (!(body instanceof HTMLElement)) return false;
+    const liveCard = body.querySelector('[data-testid^="radar-event-card-"]');
+    if (liveCard instanceof HTMLElement) return true;
+    const chromeEvent = document.querySelector('[data-testid^="radar-open-instant-event-"]');
+    if (chromeEvent instanceof HTMLElement) return false;
+    /* جملة الفراغ في كروم الصدفة لا تعني أن الجسم الحي استقر */
+    return body.querySelector('[data-testid="radar-empty-state"]') instanceof HTMLElement;
 }

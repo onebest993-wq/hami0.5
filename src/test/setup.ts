@@ -12,6 +12,9 @@ import path from 'node:path';
 // Cleanup after each test
 afterEach(() => {
   cleanup();
+  if (typeof document !== 'undefined') {
+    document.body.innerHTML = '';
+  }
   process.env.NODE_ENV = 'test';
   try {
     localStorage.removeItem('hami_local_only');

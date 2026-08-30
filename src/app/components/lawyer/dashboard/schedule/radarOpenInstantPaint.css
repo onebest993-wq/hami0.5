@@ -1,5 +1,0 @@
-/*
- * لا استيراد CSS متداخل هنا.
- * Vite dev يطبّق الاستيراد المتداخل في طلب لاحق فيومض رأس الرادار قبل استقرار الكروم.
- * RadarOpenInstantChrome يستورد radarPage.css و radarChrome.css مباشرة.
- */
