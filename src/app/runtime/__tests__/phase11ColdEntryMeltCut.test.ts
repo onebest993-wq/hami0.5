@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { extractViteFunction, readViteConfigSource } from './viteConfigSource';
 
 const root = process.cwd();
 
@@ -47,11 +48,14 @@ describe('phase-11 cold-entry melt cut', () => {
         expect(src).not.toContain("from '@/app/services/calendar/calendarLocalSnapshot'");
     });
 
-    it('vite يعزل forum warm/api و notification network عن entry melt', () => {
-        const src = readFileSync(join(root, 'vite.config.mts'), 'utf8');
-        expect(src).toContain("return 'app-forum-api-service'");
-        expect(src).toContain("return 'app-notification-network-deferred'");
-        expect(src).toContain('/forum/forumNotificationsWarmCache');
+    it('vite يعزل forum moderator/admin عن boot-runtime', () => {
+        const src = readViteConfigSource();
+        expect(src).toContain("return 'forum-moderator-ids'");
+        expect(src).toContain("return 'forum-supabase-admin'");
+        const boot = extractViteFunction(src, 'resolveBootRuntimeChunk');
+        expect(boot).not.toContain('forumApiService');
+        expect(boot).not.toContain('forumNotificationsWarmCache');
+        expect(boot).not.toContain('/forum/supabaseAdmin');
     });
 
     it('alertFutureGate و fieldTaskAlerts لا يستوردان برميل calendarBridge', () => {
@@ -65,28 +69,20 @@ describe('phase-11 cold-entry melt cut', () => {
         expect(alerts).not.toContain('tasksManager/utils');
     });
 
-    it('vite يعزل secureStoreRecovery و LocalStorageRepository عن community/boot-ui', () => {
-        const src = readFileSync(join(root, 'vite.config.mts'), 'utf8');
-        expect(src).toContain('/src/app/services/secureStoreRecovery');
-        expect(src).toContain("return 'app-local-storage-repository'");
-        expect(src).not.toContain("return 'app-secure-store-recovery'");
-        expect(src).toContain("return 'app-field-task-alerts'");
-        expect(src).toContain("return 'app-calendar-authenticity'");
-        // لا يبقى secureStoreRecovery داخل قائمة community-boot-deferred
-        const communityPred = src.slice(
-            src.indexOf('/src/app/runtime/communityBootHydrator'),
-            src.indexOf("return 'app-community-boot-deferred'"),
-        );
-        expect(communityPred).not.toContain('secureStoreRecovery');
+    it('vite لا يمتص secureStoreRecovery داخل boot-runtime', () => {
+        const src = readViteConfigSource();
+        const boot = extractViteFunction(src, 'resolveBootRuntimeChunk');
+        expect(boot).not.toContain('secureStoreRecovery');
+        expect(boot).toContain('/src/app/services/SecureStoreService');
     });
 
-    it('vite يعزل ملوّثات entry (search/kv/consolidation) عن index', () => {
-        const src = readFileSync(join(root, 'vite.config.mts'), 'utf8');
-        expect(src).toContain("return 'app-search-lifecycle-lite'");
-        expect(src).toContain("return 'app-kv-store-admin'");
-        expect(src).toContain("return 'app-consolidation-nav-overlay'");
-        expect(src).toContain("return 'app-global-search-index'");
-        expect(src).toContain("return 'app-criminal-dossier-open-lite'");
+    it('vite لا يمتص search/kv/consolidation داخل boot-runtime', () => {
+        const src = readViteConfigSource();
+        const boot = extractViteFunction(src, 'resolveBootRuntimeChunk');
+        expect(boot).not.toContain('searchLifecycle');
+        expect(boot).not.toContain('kv-store');
+        expect(boot).not.toContain('consolidation');
+        expect(boot).not.toContain('globalSearchIndex');
     });
 
     it('humanizeAppError يستورد SecureFetchError من الملف الخفيف لا SecureAPIClient', () => {

@@ -9,8 +9,8 @@ describe('Phase 3 — SmartFile/Execution lift + Escape ownership (after Phase 4
     it('MainView يركّب SmartFile + Execution dossier/create خارج Host', () => {
         const src = readLawyerDashboardMainViewSurface();
         expect(src).toContain('LazySmartFileOverlayEntry');
-        expect(src).toContain('LawyerDashboardExecutionDossierOverlayEntry');
-        expect(src).toContain('LawyerDashboardExecutionCreateOverlayEntry');
+        expect(src).toContain('LazyExecutionDossierOverlayEntry');
+        expect(src).toContain('LazyExecutionCreateOverlayEntry');
         expect(src).toContain('smartFileLive');
         expect(src).toContain('executionDossierLive');
         expect(src).toContain('executionCreateLive');

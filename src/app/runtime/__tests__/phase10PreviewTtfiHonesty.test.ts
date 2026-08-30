@@ -37,8 +37,9 @@ describe('phase-10 preview TTFI honesty', () => {
     });
 
     it('__hamiTtfiMs يُعرَّض خارج DEV فقط عبر markDashboardInteractiveOnce', () => {
-        const src = readFileSync(join(root, 'src/app/bootstrap/bootMetrics.ts'), 'utf8');
+        const src = readFileSync(join(root, 'src/app/bootstrap/dashboardInteractiveMark.ts'), 'utf8');
         expect(src).toContain('__hamiTtfiMs');
+        expect(src).toContain('exposeTtfiProbe');
         expect(src).not.toMatch(
             /if \(import\.meta\.env\.DEV\) \{\s*\(window as Window[^\n]*__hamiTtfiMs/,
         );

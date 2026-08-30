@@ -114,7 +114,7 @@ describe('perceived boot wait cut honesty', () => {
         expect(postWarm).not.toContain('hami:dashboard-interactive');
         expect(postWarm).toContain('prefetchLawyerHomeHubCardModule');
         expect(postWarm).toContain("import('@/app/runtime/profileInstantPaint')");
-        expect(postWarm).toContain("import('@/app/services/settings/settingsSnapshot')");
+        expect(postWarm).toContain('isSectionBackgroundPrefetchAllowed');
         expect(postWarm).not.toContain("settings/settingsRuntime");
         const preload = fs.readFileSync(path.join(root, 'src/boot/bootCriticalPreload.ts'), 'utf8');
         expect(preload).toContain('homeHubCardLoader');
@@ -386,7 +386,7 @@ describe('perceived boot wait cut honesty', () => {
         expect(openFlow).not.toMatch(/import \{ useNotificationStore \} from '@\/app\/stores\/notificationStore'/);
         expect(openFlow).toContain("import('@/app/stores/notificationStore')");
         const main = readLawyerDashboardMainViewSurface();
-        expect(main).toContain('GlobalSearchInstantPaintCover');
+        expect(main).toContain('GlobalSearchOverlaySuspenseCover');
         expect(main).not.toContain('GlobalSearchInstantShell');
     });
 
@@ -397,6 +397,12 @@ describe('perceived boot wait cut honesty', () => {
             /import \{ CaseShareApiService \} from '@\/app\/services\/caseShare\/caseShareApiService'/,
         );
         expect(shares).toContain("import('@/app/services/caseShare/caseShareApiService')");
+        expect(shares).toContain('localPeekOnly');
+        const dashNotif = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardNotifications.ts'),
+            'utf8',
+        );
+        expect(dashNotif).toContain('localPeekOnly: true');
         const peekLite = fs.readFileSync(
             path.join(root, 'src/app/services/caseShare/caseSharePeekLite.ts'),
             'utf8',

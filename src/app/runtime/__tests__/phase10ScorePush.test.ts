@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { extractViteFunction, readViteConfigSource } from './viteConfigSource';
 
 const root = process.cwd();
 
@@ -60,16 +61,16 @@ describe('phase-10 score push — storage stem + preload denylist', () => {
         );
     });
 
-    it('vite يعزل debug خارج secure-api-client', () => {
-        const src = readFileSync(join(root, 'vite.config.mts'), 'utf8');
-        expect(src).toMatch(/\/src\/app\/utils\/debug/);
-        expect(src).toMatch(/return 'app-debug'/);
+    it('vite يعزل debug خارج boot-runtime', () => {
+        const src = readViteConfigSource();
+        const boot = extractViteFunction(src, 'resolveBootRuntimeChunk');
+        expect(boot).not.toContain('/src/app/utils/debug');
     });
 
-    it('modulePreload denylist يغطي PascalCase LawyerDashboard', () => {
-        const src = readFileSync(join(root, 'vite.config.mts'), 'utf8');
-        expect(src).toMatch(/LawyerDashboard/);
-        expect(src).toMatch(/boot-ui-primitives/);
-        expect(src).toMatch(/vendor-lucide/);
+    it('modulePreload html allowlist ضيّق على React وboot-runtime', () => {
+        const src = readViteConfigSource();
+        expect(src).toContain('vendor-react|boot-runtime');
+        expect(src).toContain('LawyerDashboard');
+        expect(src).toContain('vendor-lucide');
     });
 });

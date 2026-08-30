@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { extractViteFunction, readViteConfigSource } from './viteConfigSource';
 
 const root = process.cwd();
 
@@ -14,7 +15,7 @@ describe('phase-12 TTFI measurement contract', () => {
     });
 
     it('markDashboardInteractiveOnce يعرّض __hamiTtfiMs خارج DEV', () => {
-        const src = readFileSync(join(root, 'src/app/bootstrap/bootMetrics.ts'), 'utf8');
+        const src = readFileSync(join(root, 'src/app/bootstrap/dashboardInteractiveMark.ts'), 'utf8');
         expect(src).toContain('__hamiTtfiMs');
         expect(src).toContain('exposeTtfiProbe');
         expect(src).not.toMatch(
@@ -22,18 +23,20 @@ describe('phase-12 TTFI measurement contract', () => {
         );
     });
 
-    it('عزل TrashModal/heirs عن entry غير مفعّل (يعيد side-hoist)', () => {
-        const src = readFileSync(join(root, 'vite.config.mts'), 'utf8');
-        expect(src).toContain('execution-cold-safe-utils');
+    it('عزل TrashModal/heirs عن boot-runtime', () => {
+        const src = readViteConfigSource();
+        const boot = extractViteFunction(src, 'resolveBootRuntimeChunk');
+        expect(boot).not.toContain('TrashModal');
+        expect(boot).not.toContain('heirs-deceased');
         expect(src).not.toContain("return 'app-smart-file-trash-modal'");
         expect(src).not.toContain("return 'execution-heirs-deceased-sync'");
-        expect(src).toContain('تُترك داخل entry');
     });
 
-    it('vite يعزل executionModuleStrategies عن storage-deferred لكسر TDZ', () => {
-        const src = readFileSync(join(root, 'vite.config.mts'), 'utf8');
-        expect(src).toContain("return 'app-execution-module-strategies'");
-        expect(src).toContain("return 'app-executor-approval-workflow'");
+    it('vite لا يمتص executionModuleStrategies داخل boot-runtime', () => {
+        const src = readViteConfigSource();
+        const boot = extractViteFunction(src, 'resolveBootRuntimeChunk');
+        expect(boot).not.toContain('executionModuleStrategies');
+        expect(boot).not.toContain('executorApprovalWorkflow');
     });
 
     it('تقارير P12 تُكتب بعد القياس (أو تُعلن الفشل صراحة في close)', () => {

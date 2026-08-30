@@ -10,9 +10,10 @@ describe('warm path stem cuts honesty', () => {
             path.join(root, 'src/app/bootstrap/lawyerDashboardChunk.ts'),
             'utf8',
         );
-        expect(chunk).toContain("from '@/app/bootstrap/dashboardInteractiveMark'");
         expect(chunk).not.toContain("from '@/app/bootstrap/bootMetrics'");
+        expect(chunk).not.toContain("from '@/app/utils/debug'");
         expect(chunk).toContain('hami:boot:dashboard-chunk-loaded');
+        expect(chunk).toContain('onBootContentReady');
     });
 
     it('AppResolvedRuntime يحمّل HamiBootOverlay بشكل lazy فقط', () => {

@@ -57,7 +57,7 @@ describe('phase-8 escape + interactive ownership', () => {
             join(root, 'src/app/components/lawyer/dashboard/LawsuitsWorkspaceShell.tsx'),
             'utf8',
         );
-        expect(entry).toContain('escapeEnabled={visible && !overlays.criminalDashboardCaseId}');
+        expect(entry).toContain('escapeEnabled={visible && !overlays.criminalDashboardCaseId && !lawsuitDossierOpen}');
         expect(host).toContain('escapeEnabled={escapeEnabled && active}');
         expect(shell).toContain('escapeEnabled');
         expect(shell).toContain('stopImmediatePropagation');

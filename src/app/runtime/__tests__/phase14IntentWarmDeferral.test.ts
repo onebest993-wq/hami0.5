@@ -11,7 +11,11 @@ describe('phase-14 intent-warm deferral', () => {
             'utf8',
         );
         expect(src.includes("from '@/app/hooks/lawyerDashboard/settingsIntentWarm'")).toBe(false);
-        expect(src).toContain("import('@/app/hooks/lawyerDashboard/settingsIntentWarm')");
+        const openFlow = readFileSync(
+            join(root, 'src/app/hooks/lawyerDashboard/settings/settingsShellOpenFlow.ts'),
+            'utf8',
+        );
+        expect(openFlow).toContain("import('@/app/hooks/lawyerDashboard/settingsIntentWarm')");
     });
 
     it('fieldTasks hook لا يستورد fieldTasksIntentWarm بشكل متزامن', () => {

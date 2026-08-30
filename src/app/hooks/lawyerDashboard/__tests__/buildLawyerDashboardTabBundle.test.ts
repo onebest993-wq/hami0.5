@@ -28,6 +28,10 @@ vi.mock('@/app/runtime/hubArchiveLoader', () => ({
     loadExecutionArchiveHubModule: vi.fn(() => Promise.resolve({})),
     hydrateArchiveHubForInstantOpen: vi.fn(() => Promise.resolve(true)),
     loadArchivePortalModule: vi.fn(() => Promise.resolve({ ArchivePortal: () => null })),
+    prefetchExecutionArchiveContent: vi.fn(),
+    prefetchLawsuitArchiveContent: vi.fn(),
+    prefetchLawsuitArchiveHubModule: vi.fn(),
+    prefetchExecutionArchiveHubModule: vi.fn(),
 }));
 
 import { hydrateArchiveHubForInstantOpen } from '@/app/runtime/hubArchiveLoader';

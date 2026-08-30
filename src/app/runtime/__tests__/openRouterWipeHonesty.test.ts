@@ -33,6 +33,15 @@ const SKIP_FILE = new Set([
     'geminiWipeHonesty.test.ts',
 ]);
 
+function shouldSkipAuditDump(name: string): boolean {
+    return (
+        name === 'vitest-run.json' ||
+        name.startsWith('_runtime_') ||
+        name.startsWith('_tsc_') ||
+        name.startsWith('_supervisor')
+    );
+}
+
 function walk(dir: string, acc: string[]): void {
     if (!existsSync(dir)) return;
     for (const ent of readdirSync(dir, { withFileTypes: true })) {
@@ -45,6 +54,7 @@ function walk(dir: string, acc: string[]): void {
         }
         if (!/\.(ts|tsx|mjs|js|json|toml|example)$/.test(ent.name)) continue;
         if (SKIP_FILE.has(ent.name)) continue;
+        if (shouldSkipAuditDump(ent.name)) continue;
         acc.push(full);
     }
 }

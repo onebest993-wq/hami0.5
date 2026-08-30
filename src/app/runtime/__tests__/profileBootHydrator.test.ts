@@ -20,6 +20,7 @@ vi.mock('@/app/services/profile/profileWarmCache', () => ({
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: vi.fn(() => false),
     isNativeShellStampedOnDom: vi.fn(() => false),
+    isMeteredOrSlowNetwork: vi.fn(() => false),
 }));
 
 vi.mock('@/app/services/settings/settingsSnapshot', () => ({
@@ -48,6 +49,8 @@ describe('profileBootHydrator', () => {
             security: { localOnlyMode: false },
             performance: { prefetchScreens: true, litePerformance: false },
         } as never);
+        const { isLitePerformanceActive } = await import('@/app/runtime/devicePerformanceTier');
+        vi.mocked(isLitePerformanceActive).mockReturnValue(false);
         const mod = await import('@/app/runtime/profileBootHydrator');
         mod.resetProfileBootHydratorForTests();
         vi.mocked(
@@ -95,6 +98,18 @@ describe('profileBootHydrator', () => {
         const forced = await hydrateProfileShellForInstantOpenWithData('lawyer-1', true);
         expect(forced).toBe(true);
         expect(hydrateProfileShellForInstantOpen).toHaveBeenCalledTimes(1);
+    });
+
+    it('prefetchProfileHubAfterInteractive يتخطى على lite', async () => {
+        const { isLitePerformanceActive } = await import('@/app/runtime/devicePerformanceTier');
+        vi.mocked(isLitePerformanceActive).mockReturnValue(true);
+        const { prefetchProfileHubAfterInteractive } = await import(
+            '@/app/runtime/profileBootHydrator'
+        );
+        prefetchProfileHubAfterInteractive();
+        await new Promise((r) => setTimeout(r, 20));
+        expect(prefetchProfileHubModule).not.toHaveBeenCalled();
+        expect(hydrateProfileShellForInstantOpen).not.toHaveBeenCalled();
     });
 
     it('prefetchProfileAfterBootReveal يسخّن بيانات بلا مقطع hub', async () => {

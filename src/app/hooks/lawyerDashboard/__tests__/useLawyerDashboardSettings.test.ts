@@ -8,6 +8,15 @@ import { HAMI_DISMISS_OVERLAYS_EVENT } from '@/app/utils/bodyScrollLock';
 import { resetDashboardInteractiveForTests } from '@/app/bootstrap/bootMetrics';
 import { resetLawyerDashboardBootCycleForTests } from '@/app/bootstrap/lawyerDashboardBootCycle';
 import { LAWYER_SETTINGS_OPEN_KEY } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
+import { resetDashboardOverlayCoordinatorForTests } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
+
+vi.mock('@/app/components/ui/smartDialogBus', () => ({
+    dismissAllSmartDialogs: vi.fn(),
+    dismissSettingsSmartDialogs: vi.fn(),
+    enterSmartDialogScope: vi.fn(),
+    exitSmartDialogScope: vi.fn(),
+    SMART_DIALOG_SCOPE_SETTINGS: 'settings',
+}));
 
 vi.mock('@/app/components/ui/SmartToast', () => ({
     SmartToast: {
@@ -24,7 +33,6 @@ vi.mock('@/app/runtime/hamiSettingsLoader', () => ({
 }));
 
 vi.mock('@/app/runtime/settingsBootHydrator', () => ({
-    SETTINGS_SHELL_HYDRATED_EVENT: 'hami:settings-shell-hydrated',
     hydrateSettingsShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
     isSettingsShellFullyHydrated: vi.fn(() => false),
     bindSettingsBootHydrator: vi.fn(() => () => undefined),
@@ -61,6 +69,8 @@ describe('useLawyerDashboardSettings', () => {
         resetSettingsOpenWarmForTests();
         resetDashboardInteractiveForTests();
         resetLawyerDashboardBootCycleForTests();
+        resetDashboardOverlayCoordinatorForTests();
+        document.documentElement.dataset.hamiReduceMotion = '1';
         try {
             sessionStorage.removeItem(LAWYER_SETTINGS_OPEN_KEY);
         } catch {
@@ -266,5 +276,25 @@ describe('useLawyerDashboardSettings', () => {
             spy.mockRestore();
             clearSettingsReopenSuppress();
         }
+    });
+
+    it('closeSettings يلغي حوارات نطاق الإعدادات', async () => {
+        const { dismissSettingsSmartDialogs } = await import('@/app/components/ui/smartDialogBus');
+        const { result } = renderHook(() => useLawyerDashboardSettings('lawyer-1'));
+
+        act(() => {
+            result.current.openSettings();
+        });
+        await flushOpenFrame();
+        vi.mocked(dismissSettingsSmartDialogs).mockClear();
+
+        act(() => {
+            result.current.closeSettings();
+        });
+
+        expect(dismissSettingsSmartDialogs).toHaveBeenCalled();
+        expect(result.current.showSettings).toBe(false);
+        const { clearSettingsReopenSuppress } = await import('@/app/runtime/settingsInstantPaint');
+        clearSettingsReopenSuppress();
     });
 });

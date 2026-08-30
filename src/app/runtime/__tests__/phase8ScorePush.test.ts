@@ -39,7 +39,7 @@ describe('phase-8 score push — stem cuts + open contracts', () => {
             'utf8',
         );
         const search = readFileSync(
-            join(root, 'src/app/hooks/useLawyerDashboardGlobalSearchNav.ts'),
+            join(root, 'src/app/hooks/globalSearchNavDispatch.ts'),
             'utf8',
         );
         const nav = readFileSync(

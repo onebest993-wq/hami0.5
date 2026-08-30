@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { injectCriticalModulePreloads } from '@/vite-plugins/hamiBootScriptOrder';
+import { extractViteFunction } from './viteConfigSource';
 
 const root = process.cwd();
 
@@ -169,7 +170,6 @@ describe('boot closure honesty', () => {
             'src/app/runtime/nativeSecurityBoot.ts',
             'src/app/runtime/privacyScreenSession.ts',
             'src/app/runtime/nativeBiometricEnrollmentStore.ts',
-            'src/app/runtime/dashboardPostInteractiveWarm.ts',
             'src/app/services/settings/localOnlyGuard.ts',
         ]) {
             const src = fs.readFileSync(path.join(root, rel), 'utf8');
@@ -180,6 +180,12 @@ describe('boot closure honesty', () => {
             expect(src, rel).not.toContain("from '@/app/services/settings/settingsRuntime'");
             expect(src, rel).not.toContain("from './settingsRuntime'");
         }
+        const postWarm = fs.readFileSync(
+            path.join(root, 'src/app/runtime/dashboardPostInteractiveWarm.ts'),
+            'utf8',
+        );
+        expect(postWarm).toContain('isSectionBackgroundPrefetchAllowed');
+        expect(postWarm).not.toContain("from '@/app/services/settings/settingsRuntime'");
         expect(policy).not.toContain("from '@/app/runtime/nativePlatform'");
         const lite = fs.readFileSync(path.join(root, 'src/app/runtime/devicePerformanceTier.ts'), 'utf8');
         expect(lite).not.toContain("from '@/app/runtime/nativePlatform'");
@@ -331,9 +337,9 @@ describe('boot closure honesty', () => {
         expect(vite).toContain('resolveLawyerDashboardStemChunk');
         expect(vite).toContain("return 'lawyer-dashboard-stem'");
         expect(vite).toContain('/src/app/runtime/lawyerDashboardLoader');
-        expect(vite).not.toMatch(
-            /resolveBootRuntimeChunk[\s\S]*LawyerDashboard\.tsx/,
-        );
+        const bootRuntime = extractViteFunction(vite, 'resolveBootRuntimeChunk');
+        expect(bootRuntime).toContain('/src/app/runtime/lawyerDashboardLoader');
+        expect(bootRuntime).not.toContain('LawyerDashboard.tsx');
         expect(vite).toContain('resolveLawyerHomePaintChunk');
         expect(vite).toContain("return 'lawyer-home-paint'");
         expect(vite).toContain("return 'lawyer-home-tab-content'");

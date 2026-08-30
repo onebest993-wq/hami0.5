@@ -17,7 +17,7 @@ describe('wave4 ux stability regress contract', () => {
             ),
             'utf8',
         );
-        expect(src).toMatch(/setTimeout\(\(\) => \{[\s\S]*?\},\s*900\)/);
+        expect(src).toMatch(/isCapacitorNativePlatform\(\) \? 450 : 700/);
         expect(src).toContain('requestIdleCallback');
         expect(src).toContain('onDashboardInteractive');
     });
@@ -28,7 +28,7 @@ describe('wave4 ux stability regress contract', () => {
             'utf8',
         );
         expect(src).toContain('BOOT_REVEAL_DONE_EVENT');
-        expect(src).toMatch(/800|HYDRATOR|hydrator/i);
+        expect(src).toMatch(/isCapacitorNativePlatform\(\) \? 200 : 400/);
     });
 
     it('createDeferredFeatureStubs: Hosts مغلقة افتراضياً (الإعدادات خارج الجزيرة)', () => {

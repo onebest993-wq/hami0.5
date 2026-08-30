@@ -20,12 +20,14 @@ describe('phase-9 execution-storage stem cut', () => {
         expect(src).toContain('@/app/services/dossierPersistence/dossierBackupStore');
     });
 
-    it('calendarAuthenticity يستورد bridgePersistence/lite و bridge/core فقط', () => {
+    it('calendarAuthenticity يستورد authorship و bridge/core بلا جسر كامل', () => {
         const src = readFileSync(join(root, 'src/app/services/calendarAuthenticity.ts'), 'utf8');
-        expect(src).toContain("from '@/app/services/calendar/bridgePersistence/lite'");
+        expect(src).toContain("from '@/app/services/calendar/calendarEventAuthorship'");
         expect(src).toContain("from '@/app/services/calendar/bridge/core'");
         expect(src).not.toContain("from '@/app/services/calendarBridgePersistence'");
         expect(src).not.toContain("from '@/app/services/calendarBridge'");
+        expect(src).not.toContain('export function isUserAuthoredBridgedCalendarEvent');
+        expect(src).not.toContain('export function isEphemeralLawsuitTaskId');
     });
 
     it('caseShareCatalogBuilder يستخدم executionStorageKeysLite', () => {
@@ -40,7 +42,7 @@ describe('phase-9 execution-storage stem cut', () => {
     it('lawyer-cloud و cloudSyncEngine لا يسحبان storage sync', () => {
         const cloud = readFileSync(join(root, 'src/app/services/lawyer-cloud.ts'), 'utf8');
         const sync = readFileSync(join(root, 'src/app/services/cloudSyncEngine.ts'), 'utf8');
-        expect(cloud).toContain("from '@/app/services/vault/vaultBlobPathLite'");
+        expect(cloud).toContain("from '@/app/services/storage/removeRemoteStoragePaths'");
         expect(cloud).not.toContain("from '@/app/services/vaultBlobStore'");
         expect(sync).not.toMatch(/import \{[^}]*reconcileExecutionDossierStorageAsync/);
         expect(sync).toContain('executionDossierStorageReconcile');

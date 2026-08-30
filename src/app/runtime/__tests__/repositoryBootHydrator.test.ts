@@ -25,6 +25,7 @@ vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: () => false,
     isNativeShellStampedOnDom: () => false,
+    isMeteredOrSlowNetwork: () => false,
 }));
 
 vi.mock('@/app/services/settings/settingsSnapshot', () => ({

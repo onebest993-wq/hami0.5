@@ -27,12 +27,16 @@ describe('wave7c BFF + fossils + privileged-role honesty', () => {
         ).toBe(false);
     });
 
-    it('task-help و notifications يستخدمان requireWifeUser عبر _auth', () => {
+    it('task-help و notifications يستخدمان requireWifeUser أو requireWifeCloudWrite عبر _auth', () => {
         const taskHelp = fs.readFileSync(path.join(root, 'src/app/api/task-help/_auth.ts'), 'utf8');
-        expect(taskHelp).toContain('requireWifeUser');
+        expect(
+            taskHelp.includes('requireWifeUser') || taskHelp.includes('requireWifeCloudWrite'),
+        ).toBe(true);
         expect(taskHelp).not.toContain('assertWifeSignatureRequest');
         const notif = fs.readFileSync(path.join(root, 'src/app/api/notifications/_auth.ts'), 'utf8');
-        expect(notif).toContain('requireWifeUser');
+        expect(
+            notif.includes('requireWifeUser') || notif.includes('requireWifeCloudWrite'),
+        ).toBe(true);
         for (const file of walkTs(path.join(root, 'src/app/api/notifications'))) {
             const t = fs.readFileSync(file, 'utf8');
             expect(t).toContain('requireNotificationsAuth');

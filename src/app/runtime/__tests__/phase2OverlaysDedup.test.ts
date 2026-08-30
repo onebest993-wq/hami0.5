@@ -8,9 +8,9 @@ const root = process.cwd();
 describe('Phase 2 — lawyer overlays de-dupe (after Phase 4)', () => {
     it('MainView يركّب execution/lawsuits/criminal خارج Host مع keep-alive للدعاوى', () => {
         const src = readLawyerDashboardMainViewSurface();
-        expect(src).toContain('LawyerDashboardExecutionOverlayEntry');
-        expect(src).toContain('LawyerDashboardLawsuitsOverlayEntry');
-        expect(src).toContain('LawyerDashboardCriminalOverlayEntry');
+        expect(src).toContain('LazyExecutionOverlayEntry');
+        expect(src).toContain('LazyLawsuitsOverlayEntry');
+        expect(src).toContain('LazyCriminalOverlayEntry');
         expect(src).toContain('lawsuitsLive');
         expect(src).toContain('lawsuitsHostMounted');
         expect(src).toContain('criminalLive');

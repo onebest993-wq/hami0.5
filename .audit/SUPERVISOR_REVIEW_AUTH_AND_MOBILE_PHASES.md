@@ -351,4 +351,25 @@ slot00.bin  slot00.srcpath.txt  slot00_settings.bin  rgb-cleanup/
 
 **أُعيد تشغيله بعد العلاج:** `guard:tsc` OK · `guard:lint` OK · `gate:auth-onboarding:final` 32/0 / 167 اختباراً.
 
-**ما بقي خارج هذه الجولة:** إيداع 1160 مساراً معلّقاً؛ تطبيق هجرة OTP؛ اختبارات `phaseN*`/`waveN*` الميتة؛ قياس عتاد وiOS؛ B8 إعادة دخول المايك.
+**ما بقي خارج الجولة الأولى:** إيداع 1160 مساراً معلّقاً؛ تطبيق هجرة OTP؛ اختبارات `phaseN*`/`waveN*` الميتة؛ قياس عتاد وiOS؛ B8 إعادة دخول المايك.
+
+---
+
+## 9. جولة الاختبارات الحمراء — 2026-08-30 ليلاً
+
+نُفِّذ بند الإشراف 4 (فرز أحمر `runtime`/`hooks`/`platform`) على الشجرة الحالية.
+
+| القياس | قبل | بعد |
+|---|---|---|
+| `vitest run src/app/runtime src/app/services/platform src/app/hooks` | 49 فشلاً / 1777 اختباراً | **0 فشل / 1783 اختباراً** |
+| `guard:tsc` | OK 1195 → 1191 | OK — بلا انحدار |
+| `guard:lint` | OK 177 → 11 | OK |
+
+ما غُيِّر في الاختبارات (بلا تزييف `toContain` على نصوص ميتة):
+
+- محاكاة `devicePerformanceTier` كانت ناقصة `isMeteredOrSlowNetwork` فانهارت hydrators و`profileShellPrime` عند الاستيراد.
+- عقود Vite تقرأ جسم `resolveBootRuntimeChunk` الحالي، لا أسماء `app-forum-api-service` المتقاعدة.
+- `__hamiTtfiMs` من `dashboardInteractiveMark.ts`. إغلاق الطبقات في الوحدة مع `prefers-reduced-motion`.
+- أوراكل أمني: `requireWifeCloudWrite` مقبول؛ جسر الملف بلا `innerHTML`.
+
+**ما بقي:** إيداع بقية الشجرة؛ تطبيق هجرة OTP على قاعدة الإنتاج؛ قياس عتاد وiOS؛ `guard:tsc --save` اختياري لتثبيت 1191.

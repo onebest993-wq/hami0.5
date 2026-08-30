@@ -49,7 +49,7 @@ describe('LD MainView overlay mount policy — live truth', () => {
         expect(src).toContain('LazyTransactionsOverlayEntry');
         expect(src).toContain('LazyFieldTasksOverlayEntry');
         expect(src).toContain('LazyProfileTabHost');
-        expect(src).toContain('profile/ProfileTabHost');
+        expect(src).toContain('profileTabHostLoader');
         expect(src).not.toContain('ProfileTabHostGate');
         expect(src).toContain('warmOverlayEntryChunks');
         /* SmartFile + Lawsuits كسولان؛ التسخين بعد content-ready يحفظ الفتح الفوري */

@@ -34,7 +34,7 @@ describe('phase-7 execution commit-first', () => {
         const criminal = readFileSync(join(runtime, 'criminalOpenContract.ts'), 'utf8');
 
         expect(execution).toMatch(/prepareExecutionDossierOpen\(mode\);\s*commit\(\)/);
-        expect(lawsuit).toMatch(/prepareLawsuitDossierOpen\(\);\s*commit\(\)/);
+        expect(lawsuit).toMatch(/prepareLawsuitDossierChrome\(\);\s*commit\(\)/);
         expect(criminal).toMatch(/commit\(trimmed\);\s*prepareCriminalDossierOpen\(trimmed\)/);
     });
 });

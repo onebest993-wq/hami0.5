@@ -8,9 +8,9 @@ const root = process.cwd();
 describe('Phase 4 — CaseOverlays/Host full lift', () => {
     it('MainView يركّب NewCase + Consolidation + NonExecArchive', () => {
         const src = readLawyerDashboardMainViewSurface();
-        expect(src).toContain('LawyerDashboardNewCaseOverlayEntry');
-        expect(src).toContain('LawyerDashboardConsolidationNavOverlayEntry');
-        expect(src).toContain('LawyerDashboardNonExecArchiveOverlayEntry');
+        expect(src).toContain('LazyNewCaseOverlayEntry');
+        expect(src).toContain('LazyConsolidationNavOverlayEntry');
+        expect(src).toContain('LazyNonExecArchiveOverlayEntry');
         expect(src).toContain('newCaseLive');
         expect(src).toContain('consolidationNavLive');
         expect(src).toContain('nonExecArchiveLive');

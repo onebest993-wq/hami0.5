@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { extractViteFunction, readViteConfigSource } from './viteConfigSource';
 
 const root = process.cwd();
 
@@ -21,8 +22,9 @@ describe('phase-13 TDZ eviction action ids cut', () => {
         expect(src).not.toContain("from '@/app/utils/executionStorageKeys'");
     });
 
-    it('vite يعزل executionEvictionActionIds', () => {
-        const src = readFileSync(join(root, 'vite.config.mts'), 'utf8');
-        expect(src).toContain("return 'app-execution-eviction-action-ids'");
+    it('vite لا يمتص executionEvictionActionIds داخل boot-runtime', () => {
+        const src = readViteConfigSource();
+        const boot = extractViteFunction(src, 'resolveBootRuntimeChunk');
+        expect(boot).not.toContain('executionEvictionActionIds');
     });
 });

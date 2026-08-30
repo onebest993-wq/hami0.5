@@ -12,6 +12,7 @@ vi.mock('@/app/runtime/criminalDashboardLoader', () => ({
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: vi.fn(() => false),
     isNativeShellStampedOnDom: vi.fn(() => false),
+    isMeteredOrSlowNetwork: vi.fn(() => false),
 }));
 
 vi.mock('@/app/services/settings/settingsSnapshot', () => ({

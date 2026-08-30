@@ -75,7 +75,7 @@ describe('spark wipe honesty', () => {
         expect(model).not.toContain('@/app/spark');
 
         const tabs = src('src/app/components/lawyer/LawyerHomeHubCard/components/HubPanelTabs.tsx');
-        expect(tabs).toContain("aria-label=\"التنبيهات والتثبيت\"");
+        expect(tabs).toContain('aria-label="تبويبات البطاقة"');
         expect(tabs).not.toContain('السكرتير');
         expect(tabs).not.toContain("'secretary'");
 

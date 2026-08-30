@@ -39,7 +39,7 @@ describe('phase-15 section-first-open cuts', () => {
         );
         /* mount يسخّن الـ hub فقط عند الفتح — NewCase عبر onIntent/tab */
         expect(src).toMatch(
-            /useEffect\(\(\) => \{\s*if \(!active\) \{\s*clearSecondaryLawsuitWarm\(\);\s*return;\s*\}\s*primeCivilArchiveCore\(\);\s*\}, \[active, clearSecondaryLawsuitWarm, primeCivilArchiveCore\]\)/,
+            /useEffect\(\(\) => \{\s*if \(!active\) \{\s*clearSecondaryLawsuitWarm\(\);\s*return;\s*\}\s*primeCivilArchiveCore\(\);\s*prefetchUrgentDashboard\(\);\s*\}, \[active, clearSecondaryLawsuitWarm, prefetchUrgentDashboard, primeCivilArchiveCore\]\)/,
         );
     });
 

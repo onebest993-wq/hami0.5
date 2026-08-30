@@ -2,6 +2,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useLawyerDashboardFieldTasks } from '@/app/hooks/lawyerDashboard/useLawyerDashboardFieldTasks';
 import { HAMI_DISMISS_OVERLAYS_EVENT } from '@/app/utils/bodyScrollLock';
+import { FIELD_TASKS_INSTANT_MANAGE_EVENT, takeFieldTasksInstantManageQueued } from '@/app/runtime/fieldTasksInstantActions';
+import { resetDashboardOverlayCoordinatorForTests } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
 
 vi.mock('@/app/components/ui/SmartToast', () => ({
     SmartToast: {
@@ -15,7 +17,9 @@ vi.mock('@/app/runtime/fieldTasksHubLoader', () => ({
     loadFieldTasksSheetModule: vi.fn(() => Promise.resolve({})),
     loadTasksManagerModule: vi.fn(() => Promise.resolve({})),
     prefetchFieldTasksSheetModule: vi.fn(),
+    prefetchFieldTasksCurtainCardSurfaces: vi.fn(),
     prefetchTasksManagerModule: vi.fn(),
+    prefetchTasksManagerSecondarySurfaces: vi.fn(),
 }));
 
 vi.mock('@/app/runtime/fieldTasksBootHydrator', () => ({
@@ -31,6 +35,9 @@ vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
 describe('useLawyerDashboardFieldTasks', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        takeFieldTasksInstantManageQueued();
+        resetDashboardOverlayCoordinatorForTests();
+        document.documentElement.dataset.hamiReduceMotion = '1';
         try {
             sessionStorage.clear();
         } catch {
@@ -75,7 +82,7 @@ describe('useLawyerDashboardFieldTasks', () => {
         });
 
         expect(result.current.fieldTasksSheetOpen).toBe(false);
-        expect(result.current.fieldTasksHostMounted).toBe(false);
+        expect(result.current.fieldTasksHostMounted).toBe(true);
 
         act(() => {
             result.current.openFieldTasksSheet();
@@ -143,6 +150,7 @@ describe('useLawyerDashboardFieldTasks', () => {
 
         expect(result.current.showTasksManager).toBe(true);
         expect(result.current.fieldTasksSheetOpen).toBe(false);
+        expect(result.current.fieldTasksHostMounted).toBe(false);
     });
 
     it('يغلق عند dismiss-transient-overlays', async () => {
@@ -161,7 +169,7 @@ describe('useLawyerDashboardFieldTasks', () => {
         });
 
         expect(result.current.fieldTasksSheetOpen).toBe(false);
-        expect(result.current.fieldTasksHostMounted).toBe(false);
+        expect(result.current.fieldTasksHostMounted).toBe(true);
     });
 
     it('T2: يمسح host ويغلق عند غياب الهوية', async () => {
@@ -184,5 +192,61 @@ describe('useLawyerDashboardFieldTasks', () => {
         expect(result.current.showTasksManager).toBe(false);
         expect(result.current.fieldTasksHostMounted).toBe(false);
         expect(result.current.fieldTasksManagerHostMounted).toBe(false);
+    });
+
+    it('إدارة فورية من القشرة تفتح مدير المهام', () => {
+        const { result } = renderHook(() =>
+            useLawyerDashboardFieldTasks({ userId: 'lawyer-1', setActiveTab: vi.fn() }),
+        );
+
+        act(() => {
+            window.dispatchEvent(new Event(FIELD_TASKS_INSTANT_MANAGE_EVENT));
+        });
+
+        expect(result.current.showTasksManager).toBe(true);
+        expect(result.current.fieldTasksSheetOpen).toBe(false);
+    });
+
+    it('يغلق الأجندة ويبقي الـ host دافئاً', async () => {
+        const { result } = renderHook(() =>
+            useLawyerDashboardFieldTasks({ userId: 'lawyer-1', setActiveTab: vi.fn() }),
+        );
+
+        act(() => {
+            result.current.openTasksManager();
+        });
+        expect(result.current.showTasksManager).toBe(true);
+        expect(result.current.fieldTasksManagerHostMounted).toBe(true);
+
+        await act(async () => {
+            result.current.closeTasksManager();
+            await new Promise((resolve) => setTimeout(resolve, 200));
+        });
+
+        expect(result.current.showTasksManager).toBe(false);
+        expect(result.current.fieldTasksManagerHostMounted).toBe(true);
+    });
+
+    it('فتح الستارة يفك keep-alive الأجندة', async () => {
+        const { result } = renderHook(() =>
+            useLawyerDashboardFieldTasks({ userId: 'lawyer-1', setActiveTab: vi.fn() }),
+        );
+
+        act(() => {
+            result.current.openTasksManager();
+        });
+        await act(async () => {
+            result.current.closeTasksManager();
+            await new Promise((resolve) => setTimeout(resolve, 200));
+        });
+        expect(result.current.fieldTasksManagerHostMounted).toBe(true);
+
+        act(() => {
+            result.current.openFieldTasksSheet();
+        });
+
+        expect(result.current.fieldTasksSheetOpen).toBe(true);
+        expect(result.current.fieldTasksManagerHostMounted).toBe(false);
+        expect(result.current.showTasksManager).toBe(false);
     });
 });

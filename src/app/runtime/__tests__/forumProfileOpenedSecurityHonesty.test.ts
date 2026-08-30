@@ -75,8 +75,8 @@ describe('forum profile tile + opened profile security honesty', () => {
         expect(kv).toContain('redactProfileKvValueForViewer');
         expect(existsSync(join(root, 'src/app/services/profile/profileVisitorView.ts'))).toBe(true);
         const bridge = read('src/app/runtime/profileInstantPaint.ts');
-        expect(bridge).toContain('bridge.innerHTML');
-        expect(bridge).toContain('جاري فتح الملف المهني');
-        expect(bridge).not.toMatch(/bridge\.innerHTML\s*=\s*[^\n]*\+/);
+        expect(bridge).not.toContain('innerHTML');
+        expect(bridge).toContain('hami-profile-instant-bridge');
+        expect(bridge).not.toMatch(/innerHTML\s*=/);
     });
 });

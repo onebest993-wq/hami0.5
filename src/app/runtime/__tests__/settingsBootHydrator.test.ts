@@ -10,6 +10,7 @@ vi.mock('@/app/runtime/hamiSettingsLoader', () => ({
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: vi.fn(() => false),
     isNativeShellStampedOnDom: vi.fn(() => false),
+    isMeteredOrSlowNetwork: vi.fn(() => false),
 }));
 
 vi.mock('@/app/services/settings/settingsSnapshot', () => ({
@@ -41,9 +42,10 @@ describe('settingsBootHydrator', () => {
     });
 
     it('hydrateSettingsShellForInstantOpen يحمّل مقطع الإعدادات مرة واحدة', async () => {
-        const { hydrateSettingsShellForInstantOpen, SETTINGS_SHELL_HYDRATED_EVENT } = await import(
+        const { hydrateSettingsShellForInstantOpen } = await import(
             '@/app/runtime/settingsBootHydrator'
         );
+        const { SETTINGS_SHELL_HYDRATED_EVENT } = await import('@/app/runtime/settingsShellEvents');
 
         const onHydrated = vi.fn();
         window.addEventListener(SETTINGS_SHELL_HYDRATED_EVENT, onHydrated);

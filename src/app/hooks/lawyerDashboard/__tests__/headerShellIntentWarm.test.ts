@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: vi.fn(() => false),
     isNativeShellStampedOnDom: vi.fn(() => false),
+    isMeteredOrSlowNetwork: vi.fn(() => false),
 }));
 
 vi.mock('@/app/services/settings/settingsSnapshot', () => ({
@@ -57,7 +58,6 @@ vi.mock('@/app/runtime/notificationPanelLoader', () => ({
 vi.mock('@/app/runtime/globalSearchLoader', () => ({
     loadGlobalSearchOverlayModule: vi.fn(() => Promise.resolve({})),
     loadGlobalSearchOverlayWithEngine: vi.fn(() => Promise.resolve({})),
-    prefetchGlobalSearchOverlay: vi.fn(),
     prefetchGlobalSearchOverlayChunk: vi.fn(),
     prefetchGlobalSearchSearchEngine: vi.fn(),
 }));
@@ -80,6 +80,20 @@ vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
     scheduleIdleWork: (fn: () => void) => {
         fn();
         return () => undefined;
+    },
+}));
+
+vi.mock('@/app/runtime/yieldToMain', () => ({
+    yieldToMain: () => Promise.resolve(),
+    yieldToMainIdleTimeoutMs: () => 48,
+    runWarmSteps: async (
+        steps: Array<() => void | Promise<void>>,
+        isCancelled?: () => boolean,
+    ) => {
+        for (const step of steps) {
+            if (isCancelled?.()) return;
+            await step();
+        }
     },
 }));
 
@@ -110,13 +124,18 @@ import {
 } from '@/app/hooks/lawyerDashboard/headerShellIntentWarm';
 
 describe('headerShellIntentWarm', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.clearAllMocks();
         resetHeaderShellIntentWarmForTests();
         vi.mocked(getLawyerSettingsSnapshot).mockReturnValue({
             security: { localOnlyMode: false },
             performance: { prefetchScreens: true, litePerformance: false },
         } as never);
+        const { isLitePerformanceActive, isMeteredOrSlowNetwork } = await import(
+            '@/app/runtime/devicePerformanceTier'
+        );
+        vi.mocked(isLitePerformanceActive).mockReturnValue(false);
+        vi.mocked(isMeteredOrSlowNetwork).mockReturnValue(false);
     });
 
     it('shouldAggressiveHeaderShellWarm يحترم تعطيل prefetchScreens', async () => {
@@ -163,10 +182,10 @@ describe('headerShellIntentWarm', () => {
     it('preloadLawyerDashboardHeaderShellChunks — prefetch فقط بلا تحميل كامل', async () => {
         preloadLawyerDashboardHeaderShellChunks();
 
-        expect(prefetchHamiSettingsModule).toHaveBeenCalledTimes(1);
-        expect(prefetchSettingsOverlayEntry).toHaveBeenCalledTimes(1);
-        expect(prefetchNotificationPanel).toHaveBeenCalledTimes(1);
         await vi.waitFor(() => {
+            expect(prefetchNotificationPanel).toHaveBeenCalledTimes(1);
+            expect(prefetchHamiSettingsModule).toHaveBeenCalledTimes(1);
+            expect(prefetchSettingsOverlayEntry).toHaveBeenCalledTimes(1);
             expect(prefetchGlobalSearchOverlayChunk).toHaveBeenCalledTimes(1);
         });
         expect(hydrateSettingsShellForInstantOpen).not.toHaveBeenCalled();
@@ -174,13 +193,15 @@ describe('headerShellIntentWarm', () => {
         expect(loadGlobalSearchOverlayWithEngine).not.toHaveBeenCalled();
     });
 
-    it('hydrateLawyerDashboardHeaderShellChunks — hover فوراً ثم تحميل idle متدرج', async () => {
+    it('hydrateLawyerDashboardHeaderShellChunks — hover متسلسل ثم idle بلا OnOpen دفعة', async () => {
         hydrateLawyerDashboardHeaderShellChunks('lawyer-1');
 
         await vi.waitFor(() => {
             expect(warmSettingsOnHover).toHaveBeenCalled();
         });
-        expect(warmSettingsOnOpen).toHaveBeenCalled();
+        expect(warmSettingsOnOpen).not.toHaveBeenCalled();
+        expect(warmNotificationsOnHover).toHaveBeenCalled();
+        expect(warmProfileOnHover).toHaveBeenCalledWith('lawyer-1');
         await vi.waitFor(() => {
             expect(hydrateSettingsShellForInstantOpen).toHaveBeenCalled();
         });
@@ -196,6 +217,29 @@ describe('headerShellIntentWarm', () => {
         await vi.waitFor(() => {
             expect(loadRoyalLawyerProfileWithData).toHaveBeenCalledWith('lawyer-1');
         });
+    });
+
+    it('hydrateLawyerDashboardHeaderShellChunks يتخطى التسخين على lite', async () => {
+        const { isLitePerformanceActive } = await import('@/app/runtime/devicePerformanceTier');
+        vi.mocked(isLitePerformanceActive).mockReturnValue(true);
+
+        await hydrateLawyerDashboardHeaderShellChunks('lawyer-1');
+
+        expect(warmSettingsOnHover).not.toHaveBeenCalled();
+        expect(hydrateSettingsShellForInstantOpen).not.toHaveBeenCalled();
+        expect(loadNotificationPanelModule).not.toHaveBeenCalled();
+        expect(loadGlobalSearchOverlayWithEngine).not.toHaveBeenCalled();
+        expect(loadRoyalLawyerProfileWithData).not.toHaveBeenCalled();
+    });
+
+    it('preloadLawyerDashboardHeaderShellChunks يتخطى على lite', async () => {
+        const { isLitePerformanceActive } = await import('@/app/runtime/devicePerformanceTier');
+        vi.mocked(isLitePerformanceActive).mockReturnValue(true);
+
+        preloadLawyerDashboardHeaderShellChunks();
+        await new Promise((r) => setTimeout(r, 20));
+        expect(prefetchNotificationPanel).not.toHaveBeenCalled();
+        expect(prefetchHamiSettingsModule).not.toHaveBeenCalled();
     });
 
     it('hydrateLawyerDashboardHeaderShellChunks — idempotent', async () => {

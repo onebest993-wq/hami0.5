@@ -47,6 +47,7 @@ vi.mock('@/app/runtime/profileAndroidFxLoader', () => ({
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
     isLitePerformanceActive: vi.fn(() => false),
     isNativeShellStampedOnDom: vi.fn(() => false),
+    isMeteredOrSlowNetwork: vi.fn(() => false),
 }));
 
 vi.mock('@/app/services/settings/settingsSnapshot', () => ({

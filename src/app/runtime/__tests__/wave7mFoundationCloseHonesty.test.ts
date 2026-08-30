@@ -37,7 +37,11 @@ describe('wave7m foundation close honesty', () => {
                 text.includes('components/ui/icons/') ||
                 text.includes('ArchiveDossierToolbar') ||
                 text.includes('DossierHeaderNavButtons');
-            expect(usesColdIconSurface, rel).toBe(true);
+            const iconFreeLeaf =
+                !text.includes("from 'react-icons") &&
+                !text.includes('from "react-icons') &&
+                (text.includes('InstantFrame') || text.includes('BootChrome') || usesColdIconSurface);
+            expect(usesColdIconSurface || iconFreeLeaf, rel).toBe(true);
         }
     });
 });

@@ -41,6 +41,7 @@ describe('forum dock section surgical close honesty', () => {
         );
         expect(communityBlock).toContain('LazyCommunityOverlayEntry');
         expect(communityBlock).toContain('Suspense');
+        expect(communityBlock).toContain('ForumInstantPaintCover');
         expect(communityBlock).not.toContain('CommunityScreenLoadingFallback');
         const entry = fs.readFileSync(
             path.join(
@@ -299,6 +300,7 @@ describe('forum dock section surgical close honesty', () => {
             'utf8',
         );
         expect(groupsDir).not.toContain('searchQuery');
+        expect(groupsDir).not.toContain('جاري تحميل المجموعات');
         const groupsSection = fs.readFileSync(
             path.join(
                 root,
@@ -331,6 +333,7 @@ describe('forum dock section surgical close honesty', () => {
         );
         expect(earlyPanes).toContain('LazyLegalRepository');
         expect(earlyPanes).toContain('LazyForumGroupsSection');
+        expect(earlyPanes).toContain('ForumLazySectionInstantSlots');
         const intentWarm = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/forumIntentWarm.ts'),
             'utf8',
@@ -961,8 +964,8 @@ describe('forum dock section surgical close honesty', () => {
         expect(panes).toContain('shouldMountForumLazySection');
         expect(panes).toContain('forumLazySectionPaneClass');
         expect(panes).toContain('CommunityScreenForumFeedPane');
-        expect(panes).toContain('data-testid="forum-legal-repository"');
-        expect(panes).toContain('data-testid="forum-groups-directory"');
+        expect(panes).toContain('testId="forum-legal-repository"');
+        expect(panes).toContain('testId="forum-groups-directory"');
         const forumFeedPane = fs.readFileSync(
             path.join(forumRoot, 'components/CommunityScreenForumFeedPane.tsx'),
             'utf8',
@@ -973,10 +976,11 @@ describe('forum dock section surgical close honesty', () => {
             'utf8',
         );
         expect(lazyMount).toContain('scheduleIdleCommunityLazySectionPrefetch');
-        expect(lazyMount).toContain('prefetchCommunityLazySectionChunks');
+        expect(lazyMount).toContain('prefetchOpenForumInnerSectionChunks');
         expect(lazyMount).toContain('warmLazySection');
         expect(lazyMount).toContain('setRepositoryMounted(true)');
         expect(lazyMount).toContain('setRepositoryMounted(false)');
+        expect(lazyMount).not.toContain('isLitePerformanceActive');
         expect(lazyMount).not.toMatch(
             /scheduleIdleCommunityLazySectionPrefetch\(\(\) => \{[\s\S]*setRepositoryMounted\(true\)/,
         );
@@ -996,6 +1000,8 @@ describe('forum dock section surgical close honesty', () => {
         );
         expect(lazySections).toContain('prefetchCommunityRepositorySectionChunk');
         expect(lazySections).toContain('prefetchCommunityLazySectionChunks');
+        expect(lazySections).toContain('prefetchOpenForumInnerSectionChunks');
+        expect(lazySections).toContain('isOpenSectionInnerJsPrefetchAllowed');
         expect(lazySections).toMatch(
             /Promise\.all\(\[\s*prefetchCommunityRepositorySectionChunk\(\)/,
         );
@@ -1356,7 +1362,7 @@ describe('forum dock section surgical close honesty', () => {
         expect(controller).toContain('forumSurfaceOpen');
         const feedsHonesty = fs.readFileSync(path.join(root, 'src/app/components/lawyer/CommunityScreen/hooks/useCommunityScreenControllerFeeds.ts'), 'utf8');
         expect(feedsHonesty).toContain('surfaceOpen: forumSurfaceOpen');
-        expect(postsFeed).toContain('[hasActiveUrgent, surfaceOpen]');
+        expect(postsFeed).toContain('urgentTickEnabled');
         expect(postsFeed).toContain('hasAnyActiveUrgentConsultation(posts)');
         expect(flags).toContain('surfaceOpen === false');
         expect(lists).toContain('surfaceOpen === false');
