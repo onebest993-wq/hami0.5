@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useProfileLoader } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileLoader';
 import {
@@ -30,6 +30,15 @@ describe('useProfileLoader', () => {
         invalidateProfileWarmCache();
         resetUserIdentityUiStateForTests();
         vi.mocked(fetchLawyerProfile).mockResolvedValue(baseProfile as never);
+        /* jsdom/happy-dom قد يوفّر ric بمهلة 1200ms — الاختبار لا ينتظر الشبكة خلف idle */
+        vi.stubGlobal('requestIdleCallback', (cb: (deadline: IdleDeadline) => void) => {
+            cb({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
+            return 0;
+        });
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
     });
 
     it('يبدأ بلا تحميل عند وجود كاش دافئ', () => {

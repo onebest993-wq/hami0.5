@@ -1157,13 +1157,13 @@ describe('أمان المصدر — مقر القيادة', () => {
         expect(usersPanel).toContain('setQuery(\'\')');
         expect(usersPanel).not.toContain('setQuery(id)');
         expect(usersPanel).toContain('matchesHqUserQuery');
-        const userFilters = fs.readFileSync(
-            path.join(process.cwd(), 'src/app/components/admin/hqUserFilters.ts'),
+        const directoryMatch = fs.readFileSync(
+            path.join(process.cwd(), 'src/app/domain/admin/hqDirectoryMatch.ts'),
             'utf8',
         );
-        expect(userFilters).toContain('previousLegalDisplayName');
-        expect(userFilters).toContain('name_mismatch');
-        expect(userFilters).toContain('hqLiveNameDivergesFromKyc');
+        expect(directoryMatch).toContain('previousLegalDisplayName');
+        expect(directoryMatch).toContain('name_mismatch');
+        expect(directoryMatch).toContain('hqLiveNameDivergesFromKyc');
         expect(usersPanel).not.toContain('HQ_FREEZE_DURATION_OPTIONS');
         expect(usersPanel).toContain('unfreezeAccount');
         expect(usersPanel).toContain('HqSystemNotifyComposer');
