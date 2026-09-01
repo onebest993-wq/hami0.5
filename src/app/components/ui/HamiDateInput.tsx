@@ -142,8 +142,8 @@ export const HamiDateInput: React.FC<HamiDateInputProps> = ({
             if (!rect) return;
             const viewportPadding = 8;
             const gap = 6;
-            const calendarWidth = Math.min(304, window.innerWidth - viewportPadding * 2);
-            const popoverHeight = popoverRef.current?.offsetHeight ?? 392;
+            const calendarWidth = Math.min(272, window.innerWidth - viewportPadding * 2);
+            const popoverHeight = popoverRef.current?.offsetHeight ?? 300;
 
             let left = rect.left + (rect.width - calendarWidth) / 2;
             if (left + calendarWidth > window.innerWidth - viewportPadding) {
@@ -221,43 +221,43 @@ export const HamiDateInput: React.FC<HamiDateInputProps> = ({
                 aria-label="تقويم اختيار التاريخ"
                 dir="rtl"
                 style={{ top: popoverPos.top, left: popoverPos.left, width: popoverPos.width }}
-                className="fixed z-[9999] flex max-h-[min(420px,calc(100dvh-16px))] flex-col overflow-hidden rounded-2xl border border-[#E6C673]/22 bg-[radial-gradient(circle_at_top,rgba(230,198,115,0.08),transparent_38%),linear-gradient(180deg,rgba(12,18,31,0.98),rgba(8,12,22,0.99))] shadow-[0_20px_48px_rgba(0,0,0,0.55)] backdrop-blur-xl p-4 text-white"
+                className="fixed z-[9999] flex max-h-[min(340px,calc(100dvh-24px))] flex-col overflow-hidden rounded-xl border border-[#E6C673]/20 bg-[#0C1220]/98 shadow-[0_12px_28px_rgba(0,0,0,0.45)] p-2.5 text-white"
             >
-                <div className="flex shrink-0 items-center justify-between gap-2 mb-3 pb-2 border-b border-white/[0.06]">
+                <div className="flex shrink-0 items-center justify-between gap-1.5 mb-2 pb-1.5 border-b border-white/[0.06]">
                     <button
                         type="button"
                         onClick={() => shiftMonth(-1)}
-                        className="p-2 rounded-xl border border-white/[0.1] bg-white/[0.04] hover:bg-[#E6C673]/10 hover:border-[#E6C673]/25 transition-colors"
+                        className="p-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] hover:bg-[#E6C673]/10 hover:border-[#E6C673]/25 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
                         aria-label="الشهر السابق"
                     >
-                        <ChevronRight className="size-4 text-[#E6C673]/85" />
+                        <ChevronRight className="size-3.5 text-[#E6C673]/85" />
                     </button>
-                    <div className="text-sm font-black text-center flex-1 text-[#F4E9CD]">
+                    <div className="text-[13px] font-bold text-center flex-1 text-[#F4E9CD]">
                         {MONTH_LABELS[viewMonth]} <span className="text-[#E6C673] tabular-nums">{viewYear}</span>
                     </div>
                     <button
                         type="button"
                         onClick={() => shiftMonth(1)}
-                        className="p-2 rounded-xl border border-white/[0.1] bg-white/[0.04] hover:bg-[#E6C673]/10 hover:border-[#E6C673]/25 transition-colors"
+                        className="p-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] hover:bg-[#E6C673]/10 hover:border-[#E6C673]/25 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
                         aria-label="الشهر التالي"
                     >
-                        <ChevronLeft className="size-4 text-[#E6C673]/85" />
+                        <ChevronLeft className="size-3.5 text-[#E6C673]/85" />
                     </button>
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(230,198,115,0.2)_transparent]">
-                    <div className="grid grid-cols-7 gap-1 mb-2">
+                    <div className="grid grid-cols-7 gap-0.5 mb-1">
                         {WEEKDAY_LABELS.map((label) => (
-                            <div key={label} className="text-center text-[10px] font-bold text-[#E6C673]/55 py-1">
+                            <div key={label} className="text-center text-[9px] font-bold text-[#E6C673]/50 py-0.5">
                                 {label}
                             </div>
                         ))}
                     </div>
 
-                    <div className="grid grid-cols-7 gap-1">
+                    <div className="grid grid-cols-7 gap-0.5">
                         {cells.map((day, idx) => {
                             if (!day) {
-                                return <div key={`empty-${idx}`} className="h-9" />;
+                                return <div key={`empty-${idx}`} className="h-8" />;
                             }
                             const disabledDay = isDisabledDay(day);
                             const isSelected = selected ? isSameDay(day, selected) : false;
@@ -269,11 +269,11 @@ export const HamiDateInput: React.FC<HamiDateInputProps> = ({
                                     disabled={disabledDay}
                                     onClick={() => pickDay(day)}
                                     className={cn(
-                                        'h-9 rounded-xl text-xs font-bold transition-colors',
+                                        'h-8 rounded-lg text-[11px] font-bold transition-colors',
                                         disabledDay && 'opacity-20 cursor-not-allowed',
-                                        !disabledDay && !isSelected && 'hover:bg-white/[0.08] hover:border-white/[0.08] border border-transparent',
-                                        isSelected && 'bg-[#E6C673] text-[#0B1021] shadow-[0_0_16px_rgba(230,198,115,0.35)] border border-[#E6C673]/60',
-                                        !isSelected && isToday && 'ring-1 ring-[#E6C673]/45 bg-[#E6C673]/8 text-[#E6C673]',
+                                        !disabledDay && !isSelected && 'hover:bg-white/[0.08] border border-transparent',
+                                        isSelected && 'bg-[#E6C673] text-[#0B1021] border border-[#E6C673]/50',
+                                        !isSelected && isToday && 'ring-1 ring-[#E6C673]/40 text-[#E6C673]',
                                     )}
                                 >
                                     {day.getDate()}
@@ -283,13 +283,13 @@ export const HamiDateInput: React.FC<HamiDateInputProps> = ({
                     </div>
                 </div>
 
-                <div className="mt-3 shrink-0 pt-2 border-t border-white/[0.06] flex justify-end">
+                <div className="mt-2 shrink-0 pt-1.5 border-t border-white/[0.06] flex justify-end">
                     <button
                         type="button"
                         onClick={() => {
                             if (!isDisabledDay(today)) pickDay(today);
                         }}
-                        className="text-[11px] font-bold text-[#E6C673] px-3 py-1.5 rounded-lg border border-[#E6C673]/25 bg-[#E6C673]/10 hover:bg-[#E6C673]/16 transition-colors"
+                        className="text-[10px] font-bold text-[#E6C673] px-2.5 py-1 rounded-md border border-[#E6C673]/22 bg-[#E6C673]/8 hover:bg-[#E6C673]/14 transition-colors min-h-[32px]"
                     >
                         اليوم
                     </button>
@@ -298,7 +298,7 @@ export const HamiDateInput: React.FC<HamiDateInputProps> = ({
         ) : null;
 
     return (
-        <div ref={rootRef} className="relative z-[999] w-full">
+        <div ref={rootRef} className="relative w-full">
             <button
                 {...rest}
                 ref={triggerRef}

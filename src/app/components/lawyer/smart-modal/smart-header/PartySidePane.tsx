@@ -14,22 +14,18 @@ export const PartySidePane = ({
     accent,
     parties,
     keyPrefix,
-    openPartyKey,
-    onToggleParty,
 }: PartySidePaneProps) => {
     if (parties.length === 0) return null;
     const orderedParties = splitSideParties(parties as Party[]);
 
     return (
-        <section
-            className={`min-w-0 ${openPartyKey?.startsWith(keyPrefix) ? 'overflow-visible relative z-20' : 'overflow-hidden'}`}
-        >
+        <section className="min-w-0 overflow-hidden">
             <div className="mb-2">
                 <span className={`text-[10px] font-black tracking-wide truncate uppercase ${labelClassName}`} title={label}>
                     {label}
                 </span>
             </div>
-            <div className={`flex flex-col gap-1.5 min-w-0 ${openPartyKey?.startsWith(keyPrefix) ? 'overflow-visible' : ''}`}>
+            <div className="flex flex-col gap-1.5 min-w-0">
                 {orderedParties.map((party, idx) => {
                     const role = String(party.role ?? '');
                     const affiliative = isAffiliativeThirdPartyRole(role);
@@ -41,8 +37,6 @@ export const PartySidePane = ({
                             party={party}
                             accent={accent}
                             variant="main"
-                            isOpen={openPartyKey === rowKey}
-                            onToggle={() => onToggleParty(openPartyKey === rowKey ? '' : rowKey)}
                         />
                     );
 
@@ -53,20 +47,10 @@ export const PartySidePane = ({
                     return (
                         <div
                             key={rowKey}
-                            className={
-                                interpleader
-                                    ? 'rounded-[15px] border border-[#E6C673]/20 bg-[#E6C673]/[0.05] backdrop-blur-sm px-1.5 py-1.5 space-y-1'
-                                    : 'rounded-[15px] border border-indigo-400/20 bg-indigo-500/[0.05] backdrop-blur-sm px-1.5 py-1.5 space-y-1'
-                            }
+                            className="rounded-xl border border-[#E6C673]/22 bg-[#E6C673]/[0.05] px-1.5 py-1.5 space-y-1"
                         >
-                            <span
-                                className={
-                                    interpleader
-                                        ? 'block text-[8px] font-bold text-[#E6C673]/85 tracking-wide px-0.5'
-                                        : 'block text-[8px] font-bold text-indigo-300/80 tracking-wide px-0.5'
-                                }
-                            >
-                                {interpleader ? 'اختصام' : 'انضمام'}
+                            <span className="block text-[8px] font-bold text-[#E6C673] tracking-wide px-0.5">
+                                {interpleader ? 'اختصامي' : 'انضمامي'}
                             </span>
                             {chip}
                         </div>

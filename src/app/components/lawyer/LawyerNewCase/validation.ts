@@ -64,6 +64,8 @@ export const getUnderlyingStageOptions = (currentStage: string): readonly string
 
 export const computeStageOptions = computeLawsuitStageOptions;
 
+export { computeOpeningLawsuitStageOptions } from '@/app/domain/lawsuit/lawsuitStageOptions';
+
 export const getBlockedWordsForJurisdiction = (jurisdiction: CaseType | null): string[] => {
     if (jurisdiction === 'personal') return UNIVERSAL_BLOCKED_WORDS;
     return [...UNIVERSAL_BLOCKED_WORDS, ...CIVIL_ONLY_BLOCKED_WORDS];

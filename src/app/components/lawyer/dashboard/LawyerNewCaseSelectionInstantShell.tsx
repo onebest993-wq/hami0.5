@@ -4,6 +4,7 @@ import { JURISDICTIONS, type JurisdictionId } from '@/app/components/lawyer/Lawy
 import { JurisdictionGlassPanel } from '@/app/components/lawyer/LawyerNewCase/components/JurisdictionGlassPanel';
 import { HUB_NESTED_OVERLAY_Z_CLASS, HUB_DOSSIER_SPAWN_NEW_CASE_Z_CLASS } from './hubOverlayStack';
 import { NC_HEADER } from '@/app/components/lawyer/LawyerNewCase/newCaseGlassTheme';
+import { NewCaseInstantPaintSlots } from '@/app/components/lawyer/dashboard/LawyerNewCaseInstantPaintCover';
 
 const noop = () => undefined;
 
@@ -44,7 +45,7 @@ export function LawyerNewCaseSelectionInstantShell({
                     <HomeXIcon size={20} />
                 </button>
                 <h2 className="text-sm font-bold text-white/90">
-                    {isError ? 'تعذّر التحميل' : isLoading ? 'إضبارة جديدة' : 'اختر التصنيف القضائي'}
+                    {isError ? 'تعذّر التحميل' : isLoading ? 'إضبارة الدعوى' : 'اختر التصنيف القضائي'}
                 </h2>
                 <div className="w-9" aria-hidden />
             </div>
@@ -64,13 +65,7 @@ export function LawyerNewCaseSelectionInstantShell({
                     </button>
                 </div>
             ) : isLoading ? (
-                <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 pb-16">
-                    <div
-                        className="h-9 w-9 rounded-full border-2 border-[#E6C673]/25 border-t-[#E6C673] animate-spin"
-                        aria-hidden
-                    />
-                    <p className="text-sm font-bold text-[#E6C673]/85 animate-pulse">جاري تحميل النموذج...</p>
-                </div>
+                <NewCaseInstantPaintSlots />
             ) : (
                 <div className="relative flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y px-5 pt-4 pb-14 max-w-md mx-auto w-full">
                     <h2 className="mb-7 text-right text-lg font-bold text-white/88">اختصاص الدعوى</h2>

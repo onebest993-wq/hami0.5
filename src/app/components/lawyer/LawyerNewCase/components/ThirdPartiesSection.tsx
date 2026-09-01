@@ -90,11 +90,7 @@ export const ThirdPartiesSection = ({
 
                                     <div className="min-w-0">
                                         <p className="text-sm font-bold text-white/90 truncate">{tp.name}</p>
-                                        {tp.address ? (
-                                            <p className="text-[10px] text-white/40 mt-0.5 truncate">{tp.address}</p>
-                                        ) : (
-                                            <p className="text-[10px] text-white/45 mt-0.5">{roleLabel}</p>
-                                        )}
+                                        <p className="text-[10px] text-white/45 mt-0.5">{roleLabel}</p>
                                     </div>
                                 </div>
                             );

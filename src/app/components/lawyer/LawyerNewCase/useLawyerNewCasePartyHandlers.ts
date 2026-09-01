@@ -2,10 +2,10 @@ import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { Party, ThirdParty } from './types';
 import {
+    applyClientMarkForParty,
+    applyClientMarkForThirdParty,
     clearClientFromParty,
     clearClientFromThirdParty,
-    markPartyAsClient,
-    markThirdPartyAsClient,
     otherSideHasClient,
 } from './partyClientFlags';
 
@@ -93,18 +93,21 @@ export function useLawyerNewCasePartyHandlers({
     const updateParty = useCallback(
         (side: 1 | 2, id: string, field: keyof Party, value: string | boolean) => {
             if (field === 'isClient' && value === true) {
+                const next = applyClientMarkForParty({
+                    side,
+                    id,
+                    parties1,
+                    parties2,
+                    thirdParties,
+                });
+                if (!next.ok) {
+                    SmartToast.error('تعارض مصالح: لا يمكن تمثيل الطرفين في نفس الدعوى');
+                    return;
+                }
                 clearLawyerClientError();
-                setParties1((prev) =>
-                    prev.map((p) =>
-                        side === 1 && p.id === id ? markPartyAsClient(p) : clearClientFromParty(p),
-                    ),
-                );
-                setParties2((prev) =>
-                    prev.map((p) =>
-                        side === 2 && p.id === id ? markPartyAsClient(p) : clearClientFromParty(p),
-                    ),
-                );
-                setThirdParties((prev) => prev.map(clearClientFromThirdParty));
+                setParties1(next.parties1);
+                setParties2(next.parties2);
+                setThirdParties(next.thirdParties);
                 return;
             }
 
@@ -118,7 +121,7 @@ export function useLawyerNewCasePartyHandlers({
 
             if (field === 'isMyOffice' && value === true) {
                 if (otherSideHasClient(side, parties1, parties2, thirdParties)) {
-                    SmartToast.error('⚠️ تعارض مصالح: لا يمكن تمثيل الطرفين في نفس الدعوى!');
+                    SmartToast.error('تعارض مصالح: لا يمكن تمثيل الطرفين في نفس الدعوى');
                     return;
                 }
                 clearClientsOnSide(side === 1 ? 2 : 1);
@@ -171,14 +174,20 @@ export function useLawyerNewCasePartyHandlers({
             if (!target) return;
 
             if (field === 'isClient' && value === true) {
+                const next = applyClientMarkForThirdParty({
+                    id,
+                    parties1,
+                    parties2,
+                    thirdParties,
+                });
+                if (!next.ok) {
+                    SmartToast.error('تعارض مصالح: لا يمكن تمثيل الطرفين في نفس الدعوى');
+                    return;
+                }
                 clearLawyerClientError();
-                setParties1((prev) => prev.map(clearClientFromParty));
-                setParties2((prev) => prev.map(clearClientFromParty));
-                setThirdParties((prev) =>
-                    prev.map((tp) =>
-                        tp.id === id ? markThirdPartyAsClient(tp) : clearClientFromThirdParty(tp),
-                    ),
-                );
+                setParties1(next.parties1);
+                setParties2(next.parties2);
+                setThirdParties(next.thirdParties);
                 return;
             }
 
@@ -192,7 +201,7 @@ export function useLawyerNewCasePartyHandlers({
             if (field === 'isMyOffice' && value === true) {
                 const side = target.affiliatedSide;
                 if (side && otherSideHasClient(side, parties1, parties2, thirdParties)) {
-                    SmartToast.error('⚠️ تعارض مصالح: لا يمكن تمثيل الطرفين في نفس الدعوى!');
+                    SmartToast.error('تعارض مصالح: لا يمكن تمثيل الطرفين في نفس الدعوى');
                     return;
                 }
                 if (side) clearClientsOnSide(side === 1 ? 2 : 1);

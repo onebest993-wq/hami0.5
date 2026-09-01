@@ -136,6 +136,12 @@ export async function fillLabeledInput(page: Page, labelText: string, value: str
                 el.dispatchEvent(new InputEvent('input', { bubbles: true }));
                 el.dispatchEvent(new Event('change', { bubbles: true }));
             };
+            const fromNode = (node: Element | null): HTMLInputElement | undefined => {
+                if (!node) return undefined;
+                if (node instanceof HTMLInputElement && !node.disabled) return node;
+                const found = node.querySelector('input');
+                return found instanceof HTMLInputElement && !found.disabled ? found : undefined;
+            };
             const labels = Array.from(document.querySelectorAll('label')).filter((l) =>
                 (l.textContent ?? '').includes(label),
             );
@@ -145,9 +151,7 @@ export async function fillLabeledInput(page: Page, labelText: string, value: str
                 const nested = lab.querySelector('input');
                 const sibling = lab.nextElementSibling;
                 const byFor = lab.htmlFor ? document.getElementById(lab.htmlFor) : null;
-                const el = [nested, sibling, byFor].find(
-                    (n) => n instanceof HTMLInputElement && !n.disabled,
-                ) as HTMLInputElement | undefined;
+                const el = fromNode(nested) ?? fromNode(sibling) ?? fromNode(byFor);
                 if (el) {
                     setNative(el);
                     return;
@@ -313,29 +317,22 @@ async function selectNewCaseJurisdiction(page: Page, jurisdiction: 'civil' | 'pe
     await expect(save).toBeVisible({ timeout: 30_000 });
 }
 
-function civilCourtField(page: Page) {
-    return page
-        .getByLabel('اسم المحكمة المختصة')
-        .or(
-            page
-                .locator('label')
-                .filter({ hasText: 'اسم المحكمة المختصة' })
-                .locator('xpath=following-sibling::input[1]'),
-        );
-}
-
 async function ensureCivilNewCaseFormReady(page: Page): Promise<void> {
     await expect(page.getByTestId('lawyer-new-case-save')).toBeVisible({ timeout: 30_000 });
-    const court = civilCourtField(page);
-    await expect(court).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('lawyer-new-case-number')).toBeVisible({ timeout: 20_000 });
 }
 
 export const E2E_CIVIL_FILE_ID = 990_001;
 export const E2E_CIVIL_FILE_ID_2 = 990_002;
 export const E2E_UNDETERMINED_FILE_ID = 990_004;
 export const LAWYER_FILES_KEY = 'lawyer_files';
+export const LAWYER_FILES_ACTIVE_KEY = 'lawyer_files_active';
+export const LAWYER_FILES_ARCHIVED_KEY = 'lawyer_files_archived';
+export const LAWYER_FILES_TRASH_KEY = 'lawyer_files_trash';
+export const LAWYER_FILES_INDEX_KEY = 'lawyer_files_index';
 export const SUPABASE_AUTH_KEY = 'sb-wldjvjnodvyodmgbgzab-auth-token';
 const LAST_SCREEN_KEY = 'hami:last-screen';
+const E2E_LAWSUIT_SEGMENTS_SEEDED_KEY = 'hami:e2e-lawsuit-segments-seeded';
 
 /** ملف دعوى مدنية كامل الشكل — متوافق مع isFileData و SmartFileModal */
 export function buildE2eCivilLawsuitFile() {
@@ -496,7 +493,7 @@ export async function openAppealGatewayAfterJudgment(
     const gatewayHeading = page.getByRole('heading', { name: /بوابة الطعن|بوابة/ });
     await expect(async () => {
         if (await gatewayHeading.isVisible().catch(() => false)) return;
-        await page.getByRole('button', { name: /حفظ والانتقال لمرحلة/ }).click({ timeout: 8_000 });
+        await page.getByRole('button', { name: /حفظ والانتقال للمرحلة/ }).click({ timeout: 8_000 });
         await expect(gatewayHeading).toBeVisible({ timeout: 12_000 });
     }).toPass({ timeout: 40_000 });
 }
@@ -583,11 +580,80 @@ export async function bootCivilLawsuitsScreenE2E(
     await expect(page.getByTestId('hub-archive-lawsuit')).toBeVisible({ timeout: 30_000 });
 }
 
+type E2eLawsuitSeedFile = {
+    id?: unknown;
+    status?: unknown;
+    caseNo?: unknown;
+    [key: string]: unknown;
+};
+
+function partitionLawsuitSeedFiles(files: unknown[]): {
+    active: E2eLawsuitSeedFile[];
+    archived: E2eLawsuitSeedFile[];
+    trash: E2eLawsuitSeedFile[];
+} {
+    const active: E2eLawsuitSeedFile[] = [];
+    const archived: E2eLawsuitSeedFile[] = [];
+    const trash: E2eLawsuitSeedFile[] = [];
+    for (const raw of files) {
+        if (!raw || typeof raw !== 'object') continue;
+        const file = { ...(raw as E2eLawsuitSeedFile) };
+        const status = String(file.status ?? 'active');
+        if (status === 'deleted' || status === 'trashed') {
+            trash.push({ ...file, status: 'deleted' });
+        } else if (status === 'archived') {
+            archived.push({ ...file, status: 'archived' });
+        } else {
+            active.push({ ...file, status: 'active' });
+        }
+    }
+    return { active, archived, trash };
+}
+
+function buildE2eLawsuitIndex(
+    active: E2eLawsuitSeedFile[],
+    archived: E2eLawsuitSeedFile[],
+    trash: E2eLawsuitSeedFile[],
+) {
+    const entries: Record<string, { id: string; status: 'active' | 'archived' | 'deleted'; caseNo?: string }> =
+        {};
+    const add = (file: E2eLawsuitSeedFile, status: 'active' | 'archived' | 'deleted') => {
+        const id = String(file.id ?? '').trim();
+        if (!id) return;
+        const entry: { id: string; status: typeof status; caseNo?: string } = { id, status };
+        if (file.caseNo) entry.caseNo = String(file.caseNo);
+        entries[id] = entry;
+    };
+    active.forEach((file) => add(file, 'active'));
+    archived.forEach((file) => add(file, 'archived'));
+    trash.forEach((file) => add(file, 'deleted'));
+    return {
+        v: 1 as const,
+        entries,
+        counts: { active: active.length, archived: archived.length, trash: trash.length },
+    };
+}
+
 export async function seedLawyerFiles(page: Page, multi = false) {
     const fileList = multi ? buildE2eCivilLawsuitPair() : [buildE2eCivilLawsuitFile()];
+    const { active, archived, trash } = partitionLawsuitSeedFiles(fileList);
+    const index = buildE2eLawsuitIndex(active, archived, trash);
     await page.addInitScript(
-        ({ storageKey, fileJson, authKey, lastScreenKey }) => {
-            localStorage.setItem(storageKey, fileJson);
+        ({
+            storageKey,
+            fileJson,
+            authKey,
+            lastScreenKey,
+            skipSeedKey,
+            activeKey,
+            archivedKey,
+            trashKey,
+            indexKey,
+            activeJson,
+            archivedJson,
+            trashJson,
+            indexJson,
+        }) => {
             sessionStorage.setItem(lastScreenKey, 'lawyer');
             const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60;
             localStorage.setItem(
@@ -606,12 +672,27 @@ export async function seedLawyerFiles(page: Page, multi = false) {
                     },
                 }),
             );
+            if (sessionStorage.getItem(skipSeedKey)) return;
+            localStorage.setItem(storageKey, fileJson);
+            localStorage.setItem(activeKey, activeJson);
+            localStorage.setItem(archivedKey, archivedJson);
+            localStorage.setItem(trashKey, trashJson);
+            localStorage.setItem(indexKey, indexJson);
         },
         {
             storageKey: LAWYER_FILES_KEY,
             fileJson: JSON.stringify(fileList),
             authKey: SUPABASE_AUTH_KEY,
             lastScreenKey: LAST_SCREEN_KEY,
+            skipSeedKey: E2E_LAWSUIT_SEGMENTS_SEEDED_KEY,
+            activeKey: LAWYER_FILES_ACTIVE_KEY,
+            archivedKey: LAWYER_FILES_ARCHIVED_KEY,
+            trashKey: LAWYER_FILES_TRASH_KEY,
+            indexKey: LAWYER_FILES_INDEX_KEY,
+            activeJson: JSON.stringify(active),
+            archivedJson: JSON.stringify(archived),
+            trashJson: JSON.stringify(trash),
+            indexJson: JSON.stringify(index),
         },
     );
 }
@@ -620,16 +701,52 @@ export function buildE2eLawyerFilesJson(files?: unknown[]): string {
     return JSON.stringify(files ?? [buildE2eCivilLawsuitFile()]);
 }
 
-/** يضمن lawyer_files في SecureStore + localStorage بعد الإقلاع */
+/** يضمن مقاطع الدعوى كنص صريح في IDB+localStorage.
+ * لا تمرّ على setItemSync: التشفير بمفتاح جلسة يُفقد بعد Reload فيرفض السكّ. */
 export async function hydrateLawyerFilesForE2E(page: Page, files?: unknown[]): Promise<void> {
-    const fileJson = buildE2eLawyerFilesJson(files);
-    await writeE2eSecureStoreKey(page, LAWYER_FILES_KEY, fileJson);
+    const seedFiles = files ?? [buildE2eCivilLawsuitFile()];
+    const { active, archived, trash } = partitionLawsuitSeedFiles(seedFiles);
+    const index = buildE2eLawsuitIndex(active, archived, trash);
+    const activeJson = JSON.stringify(active);
+    const archivedJson = JSON.stringify(archived);
+    const trashJson = JSON.stringify(trash);
+    const indexJson = JSON.stringify(index);
+    const mirrorJson = JSON.stringify([...active, ...archived, ...trash]);
+
+    await writeE2eSecureStoreKey(page, LAWYER_FILES_ACTIVE_KEY, activeJson);
+    await writeE2eSecureStoreKey(page, LAWYER_FILES_ARCHIVED_KEY, archivedJson);
+    await writeE2eSecureStoreKey(page, LAWYER_FILES_TRASH_KEY, trashJson);
+    await writeE2eSecureStoreKey(page, LAWYER_FILES_INDEX_KEY, indexJson);
+    await writeE2eSecureStoreKey(page, LAWYER_FILES_KEY, mirrorJson);
+
     await page.evaluate(
-        ({ storageKey, json, lastScreenKey }) => {
-            localStorage.setItem(storageKey, json);
-            sessionStorage.setItem(lastScreenKey, 'lawyer');
+        (payload) => {
+            sessionStorage.setItem(payload.skipSeedKey, '1');
+            sessionStorage.setItem(payload.lastScreenKey, 'lawyer');
+            try {
+                localStorage.setItem(payload.monoKey, payload.mirrorJson);
+                localStorage.setItem(payload.activeKey, payload.activeJson);
+                localStorage.setItem(payload.archivedKey, payload.archivedJson);
+                localStorage.setItem(payload.trashKey, payload.trashJson);
+                localStorage.setItem(payload.indexKey, payload.indexJson);
+            } catch {
+                /* ignore */
+            }
         },
-        { storageKey: LAWYER_FILES_KEY, json: fileJson, lastScreenKey: LAST_SCREEN_KEY },
+        {
+            skipSeedKey: E2E_LAWSUIT_SEGMENTS_SEEDED_KEY,
+            lastScreenKey: LAST_SCREEN_KEY,
+            monoKey: LAWYER_FILES_KEY,
+            activeKey: LAWYER_FILES_ACTIVE_KEY,
+            archivedKey: LAWYER_FILES_ARCHIVED_KEY,
+            trashKey: LAWYER_FILES_TRASH_KEY,
+            indexKey: LAWYER_FILES_INDEX_KEY,
+            activeJson,
+            archivedJson,
+            trashJson,
+            indexJson,
+            mirrorJson,
+        },
     );
 }
 
@@ -855,6 +972,30 @@ export async function selectCaseFieldOption(
     await expect(trigger).toContainText(optionLabel, { timeout: 8_000 });
 }
 
+export async function pickNewCaseFirstHearingToday(page: Page) {
+    const trigger = page.getByRole('button', { name: 'تاريخ أول مرافعة' });
+    await expect(trigger).toBeVisible({ timeout: 15_000 });
+    await trigger.click({ force: true });
+    const dialog = page.getByRole('dialog', { name: 'تقويم اختيار التاريخ' });
+    await expect(dialog).toBeVisible({ timeout: 8_000 });
+    await dialog.getByRole('button', { name: 'اليوم' }).click({ force: true });
+    await expect(dialog).toHaveCount(0, { timeout: 8_000 });
+}
+
+async function selectOpeningStageIfAvailable(page: Page, stage?: string) {
+    const trigger = page.getByRole('button', { name: 'المرحلة الحالية' });
+    await expect(trigger).toBeVisible({ timeout: 10_000 });
+    if (!stage) return;
+    await trigger.click({ force: true });
+    const option = page.getByRole('option', { name: stage, exact: true });
+    if (await option.isVisible().catch(() => false)) {
+        await option.click({ force: true });
+        await expect(trigger).toContainText(stage, { timeout: 8_000 });
+        return;
+    }
+    await page.keyboard.press('Escape').catch(() => undefined);
+}
+
 /** فتح نموذج إنشاء دعوى أحوال شخصية من مخزن الدعاوى */
 export async function openPersonalNewCaseForm(page: Page) {
     await openLawsuitsWorkspace(page);
@@ -916,25 +1057,39 @@ export async function openCivilNewCaseForm(page: Page) {
     await ensureCivilNewCaseFormReady(page);
 }
 
+async function commitNewCaseEnter(page: Page, testId: string) {
+    const loc = page.getByTestId(testId);
+    await expect(loc).toBeVisible({ timeout: 12_000 });
+    await loc.press('Enter');
+}
+
 /** تعبئة نموذج دعوى مدنية minimal وحفظها */
 export async function fillMinimalCivilNewCase(page: Page, opts: {
     court?: string;
     type?: string;
     stage?: string;
+    number?: string;
     plaintiff?: string;
     defendant?: string;
 } = {}) {
     const court = opts.court ?? 'بداءة الكرخ';
     const type = opts.type ?? 'دعوى تعويض';
     const stage = opts.stage ?? 'بداءة بدرجة أخيرة';
+    const number = opts.number ?? '15/ب/2026';
     const plaintiff = opts.plaintiff ?? 'مدعي E2E';
     const defendant = opts.defendant ?? 'مدعى عليه E2E';
 
     await ensureCivilNewCaseFormReady(page);
-    await fillLabeledInput(page, 'اسم المحكمة المختصة', court);
+    await fillLabeledInput(page, 'رقم الدعوى', number);
+    await commitNewCaseEnter(page, 'lawyer-new-case-number');
     await fillLabeledInput(page, 'نوع الدعوى', type);
+    await commitNewCaseEnter(page, 'lawyer-new-case-type');
     await page.getByRole('checkbox', { name: 'دعوى غير مقدرة القيمة' }).click({ force: true });
-    await selectCaseFieldOption(page, 'المرحلة الحالية', stage);
+    await selectOpeningStageIfAvailable(page, stage);
+    await expect(page.getByTestId('lawyer-new-case-court')).toBeVisible({ timeout: 10_000 });
+    await fillLabeledInput(page, 'اسم المحكمة المختصة', court);
+    await commitNewCaseEnter(page, 'lawyer-new-case-court');
+    await pickNewCaseFirstHearingToday(page);
 
     await fillPartyFullNames(page, plaintiff, defendant);
     await markFirstPartyAsClient(page);
@@ -945,50 +1100,49 @@ export async function fillCivilNewCaseForm(page: Page, opts: {
     court?: string;
     type?: string;
     stage?: string;
+    number?: string;
     claimValue?: string;
     undetermined?: boolean;
     fixedFeeToggle?: boolean;
     plaintiff?: string;
     defendant?: string;
     markClient?: boolean;
-    /** مرحلة الحكم الأصلي — إجراءات استثنائية (إعادة محاكمة / اعتراض غيابي / اعتراض الغير) */
-    retrialTargetStage?: string;
 } = {}) {
     const court = opts.court ?? 'بداءة الكرخ';
     const type = opts.type ?? 'دعوى تعويض';
     const stage = opts.stage ?? 'بداءة بدرجة أخيرة';
+    const number = opts.number ?? '15/ب/2026';
     const plaintiff = opts.plaintiff ?? 'مدعي E2E';
     const defendant = opts.defendant ?? 'مدعى عليه E2E';
     const markClient = opts.markClient ?? true;
 
     await ensureCivilNewCaseFormReady(page);
-    await fillLabeledInput(page, 'اسم المحكمة المختصة', court);
+    await fillLabeledInput(page, 'رقم الدعوى', number);
+    await commitNewCaseEnter(page, 'lawyer-new-case-number');
+    await fillLabeledInput(page, 'نوع الدعوى', type);
+    await commitNewCaseEnter(page, 'lawyer-new-case-type');
 
     if (opts.undetermined) {
         await page.getByRole('checkbox', { name: 'دعوى غير مقدرة القيمة' }).click({ force: true });
-    }
-    if (opts.fixedFeeToggle) {
+    } else if (opts.fixedFeeToggle) {
         await page.getByRole('checkbox', { name: 'دعوى خاضعة للرسم المقطوع' }).click({ force: true });
-    }
-
-    // مرحلة أولاً ثم النوع/القيمة — حتى تبقى قواعد التبديل التلقائي هي الأخيرة
-    await selectCaseFieldOption(page, 'المرحلة الحالية', stage);
-
-    if (opts.retrialTargetStage) {
-        await selectCaseFieldOption(
-            page,
-            /مرحلة المطلوب|مرحلة الحكم المُعترض|مرحلة الحكم الأصلي/,
-            opts.retrialTargetStage,
-        );
-    }
-
-    await fillLabeledInput(page, 'نوع الدعوى', type);
-
-    if (opts.claimValue) {
+    } else if (opts.claimValue) {
         await expect(page.getByTestId('lawyer-new-case-claim-value')).toBeEnabled({ timeout: 8_000 });
         await nativeSetInputValue(page, '[data-testid="lawyer-new-case-claim-value"]', 0, opts.claimValue);
-        await page.waitForTimeout(200);
+        await commitNewCaseEnter(page, 'lawyer-new-case-claim-value');
+    } else {
+        const valueInput = page.getByTestId('lawyer-new-case-claim-value');
+        await expect(valueInput).toBeVisible({ timeout: 8_000 });
+        if (await valueInput.isEnabled()) {
+            await page.getByRole('checkbox', { name: 'دعوى غير مقدرة القيمة' }).click({ force: true });
+        }
     }
+
+    await selectOpeningStageIfAvailable(page, stage);
+    await expect(page.getByTestId('lawyer-new-case-court')).toBeVisible({ timeout: 10_000 });
+    await fillLabeledInput(page, 'اسم المحكمة المختصة', court);
+    await commitNewCaseEnter(page, 'lawyer-new-case-court');
+    await pickNewCaseFirstHearingToday(page);
 
     await fillPartyFullNames(page, plaintiff, defendant);
 
@@ -1008,10 +1162,13 @@ export async function addInterpleaderThirdParty(page: Page, name: string) {
     const addBtn = page.getByTestId('lawyer-new-case-add-third-party');
     await addBtn.scrollIntoViewIfNeeded();
     await addBtn.click({ force: true });
-    const heading = page.getByRole('heading', { name: 'إضافة شخص ثالث' });
+    const heading = page.getByRole('heading', { name: /إضافة شخص ثالث/ });
     await expect(heading).toBeVisible({ timeout: 10_000 });
     const modal = page.locator('.max-w-xl').filter({ has: heading });
-    await modal.getByTestId('lawyer-new-case-third-party-mode-interpleader').click({ force: true });
+    const modeBtn = modal.getByTestId('lawyer-new-case-third-party-mode-interpleader');
+    if (await modeBtn.count()) {
+        await modeBtn.click({ force: true });
+    }
     await nativeFillThirdPartyName(page, name);
     await modal.getByTestId('lawyer-new-case-third-party-confirm').click({ force: true });
     await expect(page.getByText(name)).toBeVisible({ timeout: 8_000 });
@@ -1436,7 +1593,6 @@ export async function openCaseLinkModal(page: Page) {
     await expect(page.getByText('ربط الدعوى', { exact: true }).first()).toBeVisible({ timeout: 10_000 });
 }
 
-export const LAWYER_FILES_ACTIVE_KEY = 'lawyer_files_active';
 export const LAWSUIT_PENDING_CREATES_KEY = 'hami_lawsuit_pending_creates_v1';
 export const LAWSUIT_WRITE_JOURNAL_KEY = 'hami_lawsuit_write_journal_v1';
 

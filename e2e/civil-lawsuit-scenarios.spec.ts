@@ -3,7 +3,6 @@
  */
 import { test, expect } from '@playwright/test';
 import {
-    addAffiliativeThirdParty,
     addInterpleaderThirdParty,
     bootCivilLawsuitsScreenE2E,
     buildE2eCivilLawsuitFile,
@@ -22,7 +21,6 @@ import {
     readLawyerFilesFromPage,
     seedMixedJurisdictionFiles,
     seedUndeterminedCivilFile,
-    selectCaseFieldOption,
     clickLawyerNewCaseSave,
     waitForPartyInFiles,
 } from './helpers/civilLawsuitFixtures';
@@ -48,24 +46,27 @@ test.describe('Civil judiciary scenarios — form branches', () => {
 
     test('fixed-fee type locks claim value field', async ({ page }) => {
         await openCivilNewCaseForm(page);
-        await page.getByPlaceholder('اسم المحكمة المختصة...').fill('بداءة الكرخ');
-        await page.getByPlaceholder('أدخل نوع الدعوى...').fill('نزاع مرور');
-        await selectCaseFieldOption(page, 'المرحلة الحالية', 'بداءة بدرجة أخيرة');
-        const valueInput = page.getByTestId('lawyer-new-case-claim-value');
-        await expect(valueInput).toBeDisabled();
-    });
-
-    test('appeal court shows مستأنف / مستأنف عليه roles', async ({ page }) => {
-        await openCivilNewCaseForm(page);
         await fillCivilNewCaseForm(page, {
-            court: 'استئناف بغداد',
-            type: 'طعن استئناف',
-            stage: 'استئناف',
-            undetermined: true,
+            type: 'نزاع مرور',
             markClient: false,
         });
-        await expect(page.getByText('مستأنف', { exact: false }).first()).toBeVisible();
-        await expect(page.getByText('مستأنف عليه', { exact: false }).first()).toBeVisible();
+        const valueInput = page.getByTestId('lawyer-new-case-claim-value');
+        await expect(valueInput).toBeDisabled();
+        await expectStageSelectValue(page, 'بداءة بدرجة أخيرة');
+    });
+
+    test('opening stage list keeps extraordinary and hides first degree when undetermined', async ({ page }) => {
+        await openCivilNewCaseForm(page);
+        await fillCivilNewCaseForm(page, { undetermined: true, markClient: false });
+        const trigger = page.getByRole('button', { name: 'المرحلة الحالية' });
+        await trigger.click({ force: true });
+        await expect(page.getByRole('option', { name: 'استئناف' })).toBeVisible();
+        await expect(page.getByRole('option', { name: 'اعتراض على الحكم الغيابي' })).toBeVisible();
+        await expect(page.getByRole('option', { name: 'اعتراض الغير' })).toBeVisible();
+        await expect(page.getByRole('option', { name: 'إعادة المحاكمة' })).toBeVisible();
+        await expect(page.getByRole('option', { name: 'بداءة بدرجة أولى' })).toHaveCount(0);
+        await page.keyboard.press('Escape');
+        await expect(page.getByText('مدعي', { exact: false }).first()).toBeVisible();
     });
 
     test('blocked personal-status keyword in civil type prevents save', async ({ page }) => {
@@ -86,24 +87,18 @@ test.describe('Civil judiciary scenarios — form branches', () => {
         await expect(page.getByText('يرجى تحديد الموكل — يجب اختيار طرف واحد على الأقل').first()).toBeVisible();
     });
 
-    test('interpleader third party disabled at appeal stage', async ({ page }) => {
+    test('claim under one million hides first-degree opening stage', async ({ page }) => {
         await openCivilNewCaseForm(page);
         await fillCivilNewCaseForm(page, {
-            court: 'استئناف بغداد',
-            stage: 'استئناف',
-            undetermined: true,
+            claimValue: '444444',
             markClient: false,
         });
-        await expect(page.getByTestId('lawyer-new-case-save')).toBeVisible({ timeout: 15_000 });
-        const addBtn = page.getByTestId('lawyer-new-case-add-third-party');
-        await addBtn.scrollIntoViewIfNeeded();
-        await expect(addBtn).toBeVisible({ timeout: 15_000 });
-        await addBtn.click({ force: true });
-        await expect(page.getByRole('heading', { name: 'إضافة شخص ثالث' })).toBeVisible({ timeout: 15_000 });
-        const interpleaderBtn = page.getByTestId('lawyer-new-case-third-party-mode-interpleader');
-        await expect(interpleaderBtn).toBeVisible({ timeout: 15_000 });
-        await expect(interpleaderBtn).toBeDisabled();
-        await expect(page.getByText('الإدخال الاختصامي غير متاح في مرحلة الاستئناف')).toBeVisible();
+        await expectStageSelectValue(page, 'بداءة بدرجة أخيرة');
+        const trigger = page.getByRole('button', { name: 'المرحلة الحالية' });
+        await trigger.click({ force: true });
+        await expect(page.getByRole('option', { name: 'بداءة بدرجة أولى' })).toHaveCount(0);
+        await expect(page.getByRole('option', { name: 'بداءة بدرجة أخيرة' })).toBeVisible();
+        await page.keyboard.press('Escape');
     });
 });
 
@@ -208,83 +203,54 @@ test.describe('Civil judiciary scenarios — extended branches', () => {
         await expect(clientPills.nth(1)).toHaveAttribute('aria-pressed', 'true');
     });
 
-    test('affiliative third party on plaintiff side persists', async ({ page }) => {
-        test.setTimeout(120_000);
-        const thirdName = 'انضمامي E2E';
+    test('two موكل on the same plaintiff side stay marked', async ({ page }) => {
         await openCivilNewCaseForm(page);
-        await fillCivilNewCaseForm(page, { undetermined: true });
-        await addAffiliativeThirdParty(page, thirdName, 1);
-        await expect(page.getByText('انضمامي — جانب المدعي')).toBeVisible();
-        await clickLawyerNewCaseSave(page);
-        await waitForPartyInFiles(page, thirdName, 30_000);
+        await fillCivilNewCaseForm(page, { markClient: false });
+        await page.getByRole('button', { name: /إضافة مدعي آخر|إضافة طرف آخر/ }).click({ force: true });
+        const nameInputs = page.getByPlaceholder('الاسم الكامل');
+        await expect(nameInputs).toHaveCount(3, { timeout: 8_000 });
+        await nameInputs.nth(1).fill('مدعي ثانٍ');
+        const clientPills = page.getByTestId('lawyer-new-case-mark-client');
+        await clientPills.nth(0).evaluate((el) => (el as HTMLButtonElement).click());
+        await clientPills.nth(1).evaluate((el) => (el as HTMLButtonElement).click());
+        await expect(clientPills.nth(0)).toHaveAttribute('aria-pressed', 'true');
+        await expect(clientPills.nth(1)).toHaveAttribute('aria-pressed', 'true');
+        await clientPills.nth(2).evaluate((el) => (el as HTMLButtonElement).click());
+        await expect(clientPills.nth(0)).toHaveAttribute('aria-pressed', 'false');
+        await expect(clientPills.nth(1)).toHaveAttribute('aria-pressed', 'false');
+        await expect(clientPills.nth(2)).toHaveAttribute('aria-pressed', 'true');
     });
 });
 
-test.describe('Civil judiciary scenarios — extraordinary procedure stages', () => {
+test.describe('Civil judiciary scenarios — opening stage gate', () => {
     test.beforeEach(async ({ page }) => {
         test.setTimeout(90_000);
         await prepareCivilLawsuitsE2E(page);
         await bootCivilLawsuitsScreenE2E(page);
     });
 
-    test('retrial stage hides claim value and shows underlying stage field', async ({ page }) => {
-        test.setTimeout(90_000);
+    test('claim over one million hides last-degree opening stage', async ({ page }) => {
         await openCivilNewCaseForm(page);
         await fillCivilNewCaseForm(page, {
-            stage: 'إعادة المحاكمة',
+            claimValue: '1500000',
             markClient: false,
         });
-        await expect(page.getByText('مرحلة المطلوب إعادة محاكمتها')).toBeVisible();
-        await expect(page.getByText('القيمة التقديرية للدعوى')).toHaveCount(0);
-        await expect(page.getByRole('button', { name: 'مرحلة المطلوب إعادة محاكمتها' })).toBeVisible();
-    });
-
-    test('absent objection underlying stage excludes appeal', async ({ page }) => {
-        test.setTimeout(90_000);
-        await openCivilNewCaseForm(page);
-        await fillCivilNewCaseForm(page, {
-            stage: 'اعتراض على الحكم الغيابي',
-            markClient: false,
-        });
-        await expect(page.getByText('مرحلة الحكم المُعترض عليه غيابياً')).toBeVisible();
-        const underlying = page.getByRole('button', { name: 'مرحلة الحكم المُعترض عليه غيابياً' });
-        await underlying.click({ force: true });
-        const options = page.getByRole('option');
-        await expect(options.filter({ hasText: 'بداءة بدرجة أولى' }).first()).toBeVisible();
-        await expect(options.filter({ hasText: 'استئناف' })).toHaveCount(0);
+        await expectStageSelectValue(page, 'بداءة بدرجة أولى');
+        const trigger = page.getByRole('button', { name: 'المرحلة الحالية' });
+        await trigger.click({ force: true });
+        await expect(page.getByRole('option', { name: 'بداءة بدرجة أخيرة' })).toHaveCount(0);
+        await expect(page.getByRole('option', { name: 'بداءة بدرجة أولى' })).toBeVisible();
         await page.keyboard.press('Escape');
     });
 
-    test('extraordinary stage requires underlying stage before save', async ({ page }) => {
-        test.setTimeout(90_000);
+    test('undetermined value hides first-degree opening stage', async ({ page }) => {
         await openCivilNewCaseForm(page);
-        await fillCivilNewCaseForm(page, {
-            stage: 'اعتراض الغير',
-            markClient: true,
-        });
-        await clickLawyerNewCaseSave(page);
-        await expect(page.getByText('ملاحظة: يرجى التأكد من تطابق المعلومات المدخلة').first()).toBeVisible();
-        await expect(page.getByTestId('smart-file-dossier')).toHaveCount(0);
-    });
-
-    test('creates retrial case with underlying stage persisted', async ({ page }) => {
-        test.setTimeout(120_000);
-        const plaintiff = 'مدعي إعادة محاكمة';
-        await openCivilNewCaseForm(page);
-        await fillCivilNewCaseForm(page, {
-            plaintiff,
-            stage: 'إعادة المحاكمة',
-            retrialTargetStage: 'بداءة بدرجة أولى',
-        });
-        await clickLawyerNewCaseSave(page);
-        await expect(page.getByTestId('smart-file-dossier')).toBeVisible({ timeout: 25_000 });
-        await waitForPartyInFiles(page, plaintiff, 30_000);
-
-        const files = await readLawyerFilesFromPage(page);
-        const created = files.find((f) => extractPartyNamesFromFile(f).includes(plaintiff));
-        const flags = extractFileFlags(created);
-        expect(flags.currentStage).toBe('إعادة المحاكمة');
-        expect(flags.retrialTargetStage).toBe('بداءة بدرجة أولى');
+        await fillCivilNewCaseForm(page, { undetermined: true, markClient: false });
+        await expectStageSelectValue(page, 'بداءة بدرجة أخيرة');
+        const trigger = page.getByRole('button', { name: 'المرحلة الحالية' });
+        await trigger.click({ force: true });
+        await expect(page.getByRole('option', { name: 'بداءة بدرجة أولى' })).toHaveCount(0);
+        await page.keyboard.press('Escape');
     });
 });
 

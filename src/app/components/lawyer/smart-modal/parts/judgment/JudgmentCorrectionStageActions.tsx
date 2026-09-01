@@ -2,7 +2,6 @@ import React from 'react';
 import type { JudgmentModalStyles } from '../../smartFile/smartModalChrome';
 import type { AppealClientOutcome } from '../../smartFile/appealStageJudgmentEngine';
 import { Info } from '@/app/components/ui/icons/Info';
-import { ShieldAlert } from '@/app/components/ui/icons/ShieldAlert';
 import { Trophy } from '@/app/components/ui/icons/Trophy';
 import { ArrowLeftRight } from '@/app/components/ui/icons/ArrowLeftRight';
 import { Stamp } from '@/app/components/ui/icons/Stamp';
@@ -31,7 +30,6 @@ export function JudgmentCorrectionStageActions({
                 correctionRejectedOutcome === 'loss' ? (
                     <div className="flex flex-col gap-2 w-full">
                         <p className={`${s.hint} text-rose-300/85 border-rose-500/15 justify-center`}>
-                            <ShieldAlert size={14} className="shrink-0 text-rose-400/80" />
                             رد طلب التصحيح — يُؤيد القرار التمييزي ويكتسب الدرجة القطعية (حكم نهائي ضد موكلك)
                         </p>
                         <button
@@ -93,7 +91,6 @@ export function JudgmentCorrectionStageActions({
                 ) : correctionAcceptedOutcome === 'loss' ? (
                     <div className="flex flex-col gap-2 w-full">
                         <p className={`${s.hint} text-rose-300/85 border-rose-500/15 justify-center`}>
-                            <ShieldAlert size={14} className="shrink-0 text-rose-400/80" />
                             قبول التصحيح — يُعاد النظر ضد موكلك بعد إلغاء القفل القطعي
                         </p>
                         <button

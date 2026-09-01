@@ -162,6 +162,21 @@ export function DiamondJudgmentPicker({
               )
             : null;
 
+    const openMenu = useCallback(() => {
+        if (suppressTriggerClickRef.current) {
+            suppressTriggerClickRef.current = false;
+            return;
+        }
+        if (open) {
+            closeMenu();
+            return;
+        }
+        updateMenuPosition();
+        setOpen(true);
+    }, [open, closeMenu, updateMenuPosition]);
+
+    const handledByPointerRef = useRef(false);
+
     return (
         <>
             <button
@@ -170,33 +185,22 @@ export function DiamondJudgmentPicker({
                 data-testid={CIVIL_LAWSUIT_TEST_IDS.judgmentOutcomePicker}
                 aria-expanded={open}
                 aria-haspopup="listbox"
+                onPointerDown={(event) => {
+                    if (event.button !== 0) return;
+                    handledByPointerRef.current = true;
+                    openMenu();
+                }}
                 onClick={() => {
-                    if (suppressTriggerClickRef.current) {
-                        suppressTriggerClickRef.current = false;
+                    if (handledByPointerRef.current) {
+                        handledByPointerRef.current = false;
                         return;
                     }
-                    if (open) {
-                        closeMenu();
-                        return;
-                    }
-                    updateMenuPosition();
-                    setOpen(true);
+                    openMenu();
                 }}
                 className={s.diamondTrigger}
             >
                 <span className={`min-w-0 flex-1 truncate ${value ? 'text-white' : 'text-white/40'}`}>
-                    {selected ? (
-                        <>
-                            <span className="block truncate">{selected.label}</span>
-                            {selected.hint ? (
-                                <span className="block text-[10px] font-normal text-white/35 truncate mt-0.5">
-                                    {selected.hint}
-                                </span>
-                            ) : null}
-                        </>
-                    ) : (
-                        'اختر النتيجة...'
-                    )}
+                    {selected ? selected.label : 'اختر النتيجة...'}
                 </span>
                 <ChevronDown
                     size={16}

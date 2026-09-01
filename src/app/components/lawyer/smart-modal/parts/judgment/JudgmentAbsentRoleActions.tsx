@@ -1,6 +1,5 @@
 import React from 'react';
 import type { JudgmentModalStyles } from '../../smartFile/smartModalChrome';
-import { ShieldAlert } from '@/app/components/ui/icons/ShieldAlert';
 import { GLASS_BTN_ROSE } from './judgmentGlassButtons';
 
 export type JudgmentAbsentRoleActionsProps = {
@@ -48,7 +47,6 @@ export function JudgmentAbsentRoleActions({
                 ) : (
                     <div className="flex flex-col gap-2 w-full">
                         <p className={`${s.hint} text-rose-300/85 border-rose-500/15 justify-center`}>
-                            <ShieldAlert size={14} className="shrink-0 text-rose-400/80" />
                             صدر حكم غيابي ضد موكلك
                         </p>
                         <button type="button" onClick={() => onSaveJudgment('objection')} className={GLASS_BTN_ROSE}>

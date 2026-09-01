@@ -139,6 +139,22 @@ export function JudgmentOutcomeActions({
                 />
             ) : null}
 
+            {!showAbsentObjectionAppealActions &&
+            !showFirstInstanceHadoriAppealActions &&
+            !showAbsentJudgmentRoleActions &&
+            !isAppealStageName(currentStage) &&
+            !isCassationStageName(currentStage) &&
+            !isCorrectionStage ? (
+                <div className="flex flex-col gap-2 w-full">
+                    <button type="button" onClick={() => onSaveJudgment('appeal')} className={btnGold}>
+                        {appealTransitionLabel}
+                    </button>
+                    <button type="button" onClick={onWaitForOpponent} className={btnWait}>
+                        حفظ الحكم وانتظار طعن الخصم
+                    </button>
+                </div>
+            ) : null}
+
             <button type="button" onClick={onClose} className={`${btnNeutral} text-white/50 hover:text-white/75 mt-0.5`}>
                 إلغاء
             </button>

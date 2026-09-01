@@ -6,6 +6,7 @@ import { FIXED_FEE_KEYWORDS } from '../constants';
 import type { Party } from '../types';
 import { hasLawyerClientMark } from '../clientRepresentation';
 import {
+    computeOpeningLawsuitStageOptions,
     computeStageForValue,
     computeStageOptions,
     getAddPartyButtonText,
@@ -63,6 +64,29 @@ describe('القضاء المدني — خيارات المرحلة حسب ال�
         expect(stages).toHaveLength(6);
         expect(stages).toContain('استئناف');
         expect(stages).toContain('بداءة بدرجة أولى');
+    });
+
+    it('فتح دعوى جديدة: فلترة الدرجة حسب القيمة مع الإبقاء على الطعون', () => {
+        const under = computeOpeningLawsuitStageOptions({
+            claimValue: '444444',
+            isUndeterminedValue: false,
+            isFixedFee: false,
+            caseType: 'كمبيالة',
+        });
+        expect(under[0]).toBe('بداءة بدرجة أخيرة');
+        expect(under).not.toContain('بداءة بدرجة أولى');
+        expect(under).toContain('استئناف');
+        expect(under).toContain('اعتراض الغير');
+        const over = computeOpeningLawsuitStageOptions({
+            claimValue: '1500000',
+            isUndeterminedValue: false,
+            isFixedFee: false,
+            caseType: 'تعويض',
+        });
+        expect(over[0]).toBe('بداءة بدرجة أولى');
+        expect(over).not.toContain('بداءة بدرجة أخيرة');
+        expect(over).toContain('استئناف');
+        expect(over).toContain('إعادة المحاكمة');
     });
 });
 

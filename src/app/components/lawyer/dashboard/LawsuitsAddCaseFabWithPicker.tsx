@@ -3,7 +3,13 @@ import { Plus } from '@/app/components/ui/icons/Plus';
 import { X } from '@/app/components/ui/icons/X';
 import { JURISDICTIONS, type JurisdictionId } from '@/app/components/lawyer/LawyerNewCase/wordLists';
 import { prefetchLawyerNewCaseModule } from '@/app/runtime/lawyerNewCaseLoader';
+import { prefetchNewCaseOverlayEntry } from '@/app/runtime/criminalOverlayEntryLoader';
 import { LAWSUIT_VAULT_TEST_IDS } from '@/app/components/lawyer/smart-modal/smartFile/lawsuitVaultTestIds';
+
+function prefetchNewCaseOpenPath(): void {
+    prefetchLawyerNewCaseModule();
+    prefetchNewCaseOverlayEntry();
+}
 
 function prefetchJurisdictionChunk(id: JurisdictionId) {
     if (id === 'criminal') {
@@ -48,7 +54,7 @@ export function LawsuitsAddCaseFabWithPicker({
     const [reduceMotion, setReduceMotion] = useState(false);
 
     useEffect(() => {
-        prefetchLawyerNewCaseModule();
+        prefetchNewCaseOpenPath();
     }, []);
 
     useEffect(() => {
@@ -61,7 +67,7 @@ export function LawsuitsAddCaseFabWithPicker({
 
     useEffect(() => {
         if (!open) return;
-        prefetchLawyerNewCaseModule();
+        prefetchNewCaseOpenPath();
         for (const item of JURISDICTIONS) prefetchJurisdictionChunk(item.id);
     }, [open]);
 
@@ -82,13 +88,13 @@ export function LawsuitsAddCaseFabWithPicker({
         : 'border-[#E6C673]/50 bg-[linear-gradient(155deg,rgba(230,198,115,0.42)_0%,rgba(11,16,33,0.92)_48%,rgba(201,162,39,0.28)_100%)] text-[#F8F1DE] shadow-[inset_0_1px_0_rgba(255,249,230,0.28),0_10px_28px_rgba(0,0,0,0.35)]';
 
     const handleToggle = () => {
-        prefetchLawyerNewCaseModule();
+        prefetchNewCaseOpenPath();
         onIntent?.();
         setOpen((value) => !value);
     };
 
     const handleSelect = (id: JurisdictionId) => {
-        prefetchLawyerNewCaseModule();
+        prefetchNewCaseOpenPath();
         prefetchJurisdictionChunk(id);
         setOpen(false);
         onSelect(id);
@@ -121,7 +127,7 @@ export function LawsuitsAddCaseFabWithPicker({
                                 data-testid={`new-case-jurisdiction-${item.id}`}
                                 onClick={() => handleSelect(item.id)}
                                 onPointerDown={() => {
-                                    prefetchLawyerNewCaseModule();
+                                    prefetchNewCaseOpenPath();
                                     prefetchJurisdictionChunk(item.id);
                                 }}
                                 onPointerEnter={() => prefetchJurisdictionChunk(item.id)}

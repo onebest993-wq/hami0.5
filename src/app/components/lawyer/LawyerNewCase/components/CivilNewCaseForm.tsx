@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 import type { Party, ThirdParty } from '../types';
 
@@ -124,13 +124,22 @@ export function CivilNewCaseForm({
 
         (incidentalFilingPartyCandidates.length > 1 || incidentalOpposingPartyCandidates.length > 1);
 
+    const [partiesUnlocked, setPartiesUnlocked] = useState(
+        Boolean(basicsProps.lockParentFields),
+    );
+    const showParties = Boolean(basicsProps.lockParentFields) || partiesUnlocked;
+
 
 
     return (
 
         <>
 
-            <CaseBasicsForm errorMap={errorMap} {...basicsProps} />
+            <CaseBasicsForm
+                errorMap={errorMap}
+                {...basicsProps}
+                onPartiesUnlockChange={setPartiesUnlocked}
+            />
 
 
 
@@ -161,6 +170,10 @@ export function CivilNewCaseForm({
             ) : null}
 
 
+
+            {showParties ? (
+
+                <>
 
             <PartiesSection
 
@@ -227,6 +240,10 @@ export function CivilNewCaseForm({
                 clientError={clientError}
 
             />
+
+                </>
+
+            ) : null}
 
         </>
 

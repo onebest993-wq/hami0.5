@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { getLocalTodayYmd } from '@/app/utils/localYmd';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
     isNonMeritTerminationType,
     isFirstInstanceStageName,
@@ -31,6 +31,8 @@ import {
     resolveCorrectionAcceptedClientOutcome,
     resolveCorrectionRejectedClientOutcome,
     resolvePriorAppealJudgmentForCassation,
+    resolvePriorAppealStageOutcome,
+    toAppealClientOutcome,
 } from './smartFile/appealStageJudgmentEngine';
 import type { CaseStage, Party } from '../LawyerShared';
 import { useJudgmentModalStyles } from './smartFile/smartModalChrome';
@@ -57,6 +59,8 @@ interface SmartJudgmentModalProps {
     stages?: CaseStage[];
     caseStatus?: string;
     activeStageIndex?: number;
+    /** تاريخ القرار من شريط ختام المرافعة — إن وُجد يُخفى حقل التاريخ */
+    presetJudgmentDate?: string;
 }
 
 export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
@@ -69,12 +73,14 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
     stages = [],
     caseStatus,
     activeStageIndex = -1,
+    presetJudgmentDate = '',
 }) => {
     const s = useJudgmentModalStyles();
     const [judgmentType, setJudgmentType] = useState<string>('');
     const [judgmentForm, setJudgmentForm] = useState<string>('حضوري');
     const [nextStage, setNextStage] = useState<string>('');
-    const [judgmentDate, setJudgmentDate] = useState<string>(getLocalTodayYmd());
+    const [judgmentDate, setJudgmentDate] = useState<string>('');
+    const [courtName, setCourtName] = useState<string>('');
 
     const lawyerSide = useMemo(
         () => resolveLawyerSide(representedParty, currentParties),
@@ -83,10 +89,13 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
     const isPlaintiffLawyer = lawyerSide === 'المدعي';
     const isDefendantLawyer = lawyerSide === 'المدعى عليه';
 
-    const clientAppealRole = useMemo(
-        () => resolveClientAppealRole(currentParties),
-        [currentParties],
-    );
+    const clientAppealRole = useMemo(() => {
+        const stageIdx = activeStageIndex >= 0 ? activeStageIndex : stages.length - 1;
+        const stage = stages[stageIdx];
+        return resolveClientAppealRole(currentParties, {
+            appealMetadata: stage?.appealMetadata,
+        });
+    }, [currentParties, stages, activeStageIndex]);
 
     const priorAppealJudgment = useMemo(() => {
         if (!isCassationStageName(currentStage)) return null;
@@ -98,17 +107,23 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
 
     const appealStageOutcome = useMemo(() => {
         if (!isAppealStageName(currentStage) || !judgmentType) return null;
-        return resolveAppealStageClientOutcome(judgmentType, clientAppealRole);
+        return toAppealClientOutcome(
+            resolveAppealStageClientOutcome(judgmentType, clientAppealRole),
+        );
     }, [currentStage, judgmentType, clientAppealRole]);
 
     const cassationOutcome = useMemo(() => {
         if (!isCassationStageName(currentStage) || !judgmentType) return null;
+        const idx =
+            activeStageIndex >= 0 ? activeStageIndex : stages.length - 1;
+        const priorAppealOutcome = resolvePriorAppealStageOutcome(stages, idx);
         return resolveCassationClientOutcome(
             judgmentType,
             clientAppealRole,
             priorAppealJudgment,
+            priorAppealOutcome,
         );
-    }, [currentStage, judgmentType, clientAppealRole, priorAppealJudgment]);
+    }, [currentStage, judgmentType, clientAppealRole, priorAppealJudgment, stages, activeStageIndex]);
 
     const judgmentOptions = useMemo(
         () =>
@@ -141,6 +156,14 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
         [currentStage, stages, judgmentForm, judgmentType, activeStageIndex],
     );
     const isCorrectionStage = isCassationCorrectionStageName(currentStage);
+    const hasPresetJudgmentDate = Boolean(String(presetJudgmentDate ?? '').trim());
+    const isNoCourtStage =
+        isCassationStageName(currentStage)
+        || isCorrectionStage
+        || isCassationCorrectionStageName(currentStage)
+        || isAppealStageName(currentStage)
+        || judgmentForm === 'غيابي'
+        || hasPresetJudgmentDate;
     const correctionRejectedOutcome = useMemo(() => {
         if (!isCorrectionStage || judgmentType !== 'رد طلب التصحيح') return null;
         const correctionIdx =
@@ -166,11 +189,12 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
         if (!isOpen) return;
         setJudgmentType('');
         setNextStage('');
-        setJudgmentDate(getLocalTodayYmd());
+        setCourtName('');
+        setJudgmentDate(String(presetJudgmentDate ?? '').trim());
         if (isAbsentObjectionStageName(currentStage)) {
             setJudgmentForm('حضوري');
         }
-    }, [isOpen, currentStage]);
+    }, [isOpen, currentStage, presetJudgmentDate]);
     const absentObjectionAlreadyFiled = hasAbsentObjectionStageInDossier(stages);
     const showJudgmentFormToggle =
         isSubjectMatterJudgmentStage &&
@@ -183,6 +207,10 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
     };
 
     const handleSaveJudgment = (actionType: string) => {
+        if (!String(judgmentDate).trim()) {
+            SmartToast.error('حدد تاريخ الحكم');
+            return;
+        }
         let finalAction = 'waiting_for_appeal';
         let calculatedNextStage = nextStage;
         let openObjectionModal = false;
@@ -190,8 +218,12 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
         let openRegisterOpponentAppealModal = false;
 
         if (actionType === 'appeal') {
-            openAppealTransitionModal = true;
-            finalAction = 'waiting_for_appeal';
+            if (isAppealStageName(currentStage)) {
+                finalAction = 'waiting_for_cassation';
+            } else {
+                openAppealTransitionModal = true;
+                finalAction = 'waiting_for_appeal';
+            }
         } else if (actionType === 'objection') {
             finalAction = 'waiting_for_appeal';
             openObjectionModal = true;
@@ -228,6 +260,10 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
             openRegisterOpponentAppealModal,
             isPleadingsClosed: true,
             lastJudgmentType: savedForm,
+            newCourt:
+                isCassationStageName(currentStage) || isCorrectionStage
+                    ? 'محكمة التمييز الاتحادية'
+                    : String(courtName ?? '').trim() || undefined,
         });
         if (saved !== false) onClose();
     };
@@ -249,6 +285,10 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
     ]);
 
     const handleWaitForOpponent = () => {
+        if (!String(judgmentDate).trim()) {
+            SmartToast.error('حدد تاريخ الحكم');
+            return;
+        }
         const confirmed = window.confirm(
             `سيتم قفل مرحلة المرافعة وحفظ الحكم.\n\n${appealRights.hint}\n\nتبقى الملاحظات والمستندات والسجل الزمني ظاهرة حتى تسجّل طعن الخصم.\n\nهل تريد المتابعة؟`,
         );
@@ -272,8 +312,13 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
             return false;
         }
         if (isNonMeritTerminationType(judgmentType)) return false;
-        if (isInterpleaderJudgmentType(judgmentType)) return false;
-        if (!isSubjectMatterJudgmentType(judgmentType)) return false;
+        if (judgmentType === 'إبطال عريضة الدعوى وعريضة التدخل') return false;
+        if (
+            !isSubjectMatterJudgmentType(judgmentType)
+            && !isInterpleaderJudgmentType(judgmentType)
+        ) {
+            return false;
+        }
 
         return judgmentForm === 'حضوري' || judgmentForm === 'غيابي';
     }, [
@@ -302,16 +347,14 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
     const btnNeutral = s.isPearl ? s.btnNeutral : GLASS_BTN_NEUTRAL;
     const btnWait = s.isPearl ? s.btnWait : GLASS_BTN_INDIGO;
     const waitHintFallback = isAbsentObjectionStage
-        ? 'سيُقفل ملف الاعتراض بانتظار انتهاء المدة القانونية لطعن الخصم.'
+        ? 'سيُقفل ملف الاعتراض بانتظار طعن الخصم.'
         : s.isPearl
-          ? 'سيُقفل الملف بانتظار انتهاء المدة القانونية لطعن الخصم.'
-          : 'سيُقفل ملف البداءة بانتظار انتهاء المدة القانونية لطعن الخصم.';
+          ? 'سيُقفل الملف بانتظار طعن الخصم.'
+          : 'سيُقفل ملف البداءة بانتظار طعن الخصم.';
     const selfAppealHintFallback = isPersonalAppealCtx || s.isPearl
         ? 'يحق لموكلك الطعن تمييزاً — سجّل الطعن في بوابة الانتقال'
         : 'يحق لموكلك الطعن — اختر الاستئناف أو التمييز في بوابة الانتقال';
-    const appealTransitionLabel = isPersonalAppealCtx || s.isPearl
-        ? 'حفظ والانتقال لمرحلة الطعن (تمييز)'
-        : 'حفظ والانتقال لمرحلة الطعن (استئناف/تمييز)';
+    const appealTransitionLabel = 'حفظ والانتقال للمرحلة التالية';
 
     if (typeof document === 'undefined') return null;
 
@@ -364,12 +407,29 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
                                 />
                             </div>
 
-                            <JudgmentDateField
-                                styles={s}
-                                judgmentDate={judgmentDate}
-                                onChange={setJudgmentDate}
-                                judgmentType={judgmentType}
-                            />
+                            {isNoCourtStage && hasPresetJudgmentDate ? (
+                                <p
+                                    className={`${s.hint} text-white/55 border-white/[0.08] bg-white/[0.02]`}
+                                    dir="rtl"
+                                >
+                                    تاريخ القرار المحدَّد:{' '}
+                                    <span className="tabular-nums font-bold text-white/80" dir="ltr">
+                                        {judgmentDate || presetJudgmentDate}
+                                    </span>
+                                </p>
+                            ) : (
+                                <JudgmentDateField
+                                    styles={s}
+                                    judgmentDate={judgmentDate}
+                                    onChange={setJudgmentDate}
+                                    judgmentType={judgmentType}
+                                    mode={hasPresetJudgmentDate ? 'court' : 'date'}
+                                    courtName={courtName}
+                                    onCourtChange={setCourtName}
+                                    showCourtField={!isNoCourtStage}
+                                    label={hasPresetJudgmentDate ? 'المحكمة المختصة' : 'تاريخ الحكم'}
+                                />
+                            )}
 
                             <JudgmentOutcomeActions
                                 styles={s}

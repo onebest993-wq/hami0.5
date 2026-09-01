@@ -67,6 +67,7 @@ describe('DiamondJudgmentPicker', () => {
         expect(onChange).toHaveBeenCalledWith('إجابة الدعوى بالكامل');
         expect(screen.queryByRole('listbox')).toBeNull();
         expect(trigger.textContent ?? '').toContain('تأييد الحكم الغيابي — موكلك ربح الاعتراض');
+        expect(trigger.textContent ?? '').not.toContain('موكلك: المعترض عليه');
         expect(trigger.textContent ?? '').not.toContain('اختر النتيجة...');
     });
 

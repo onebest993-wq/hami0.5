@@ -25,6 +25,8 @@ vi.mock('@/app/services/cloud/workCloudCheckpoint', () => ({
         lawsuits: 0,
         execution: 0,
         notes: 0,
+        calendar: 0,
+        failed: false,
     })),
 }));
 
@@ -83,6 +85,34 @@ describe('recoverLawsuitWorkspaceFromLocalDisk', () => {
         expect(result.ok).toBe(true);
         expect(['monolithic', 'active']).toContain(result.source);
         expect(result.segments.active.some((f) => String(f.id) === '42')).toBe(true);
+    });
+
+    it('لا يستورد المرآة إلى النشط إن وُجدت سلة على القرص', async () => {
+        const { loadLawsuitFilesRaw } = await import('@/app/utils/lawsuitFilesStorage');
+        const {
+            LAWSUIT_FILES_ACTIVE_KEY,
+            LAWSUIT_FILES_INDEX_KEY,
+            LAWSUIT_FILES_TRASH_KEY,
+        } = await import('@/app/services/dossierPersistence/dossierStorageKeys');
+        const { buildLawsuitLifecycleIndex } = await import(
+            '@/app/domain/lawsuit/lawsuitLifecycleIndex'
+        );
+        const trashed = { ...file(42), status: 'deleted' as const, deletedAt: 1 };
+        SecureStoreService.setItemSync(LAWSUIT_FILES_ACTIVE_KEY, '[]');
+        SecureStoreService.setItemSync(LAWSUIT_FILES_TRASH_KEY, JSON.stringify([trashed]));
+        SecureStoreService.setItemSync(
+            LAWSUIT_FILES_INDEX_KEY,
+            JSON.stringify(buildLawsuitLifecycleIndex([], [], [trashed])),
+        );
+        vi.mocked(loadLawsuitFilesRaw).mockReturnValue([file(42)]);
+
+        const { recoverLawsuitWorkspaceFromLocalDisk } = await import(
+            '@/app/domain/lawsuit/lawsuitWorkspaceRecovery'
+        );
+        const result = await recoverLawsuitWorkspaceFromLocalDisk({ includeCloud: false });
+        expect(result.ok).toBe(true);
+        expect(result.segments.active.some((f) => String(f.id) === '42')).toBe(false);
+        expect(result.segments.trash?.some((f) => String(f.id) === '42')).toBe(true);
     });
 
     it('recovers from dossier backup list', async () => {

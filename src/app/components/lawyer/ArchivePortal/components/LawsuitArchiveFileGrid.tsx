@@ -5,6 +5,12 @@ import { LAWSUIT_VAULT_TEST_IDS } from '@/app/components/lawyer/smart-modal/smar
 import { LawsuitArchiveCard } from './LawsuitArchiveCard';
 import { criminalCaseReferenceLite } from '../criminalArchiveReferenceLite';
 import { ArchiveVirtualGrid } from './ArchiveVirtualGrid';
+import {
+    archiveGridClassForColumnCount,
+    readArchiveGridWidthGuess,
+    resolveArchiveGridColumnCount,
+} from '../archiveGridGeometry';
+import { LawsuitArchiveCardPaintSlot } from './LawsuitArchiveCardPaintSlot';
 import type { LooseArchiveFile, ArchiveEnrichedRow } from '../types';
 import type { ArchiveDossierViewMode } from './ArchiveDossierToolbar';
 
@@ -21,7 +27,7 @@ export type LawsuitArchiveFileGridProps = {
     showLawsuitCardsInGrid: boolean;
     onOpenCriminalCase?: (id: string) => void;
     lawsuitViewMode: 'active' | 'archived' | 'trash';
-    onFileClick: (file: unknown) => void;
+    onFileClick: (file: ArchiveEnrichedRow) => void;
     onMoveLawsuitToTrash?: (id: string) => void;
     onArchiveLawsuit?: (id: string) => void;
     onRestoreLawsuitFromTrash?: (id: string) => void;
@@ -41,13 +47,6 @@ export type LawsuitArchiveFileGridProps = {
 type LawsuitVirtualItem =
     | { kind: 'criminal'; id: string; record: Record<string, unknown> & { id?: string | number } }
     | { kind: 'lawsuit'; id: string; file: ArchiveEnrichedRow };
-
-function resolveLawsuitColumns(width: number): number {
-    if (width >= 1280) return 4;
-    if (width >= 1024) return 3;
-    if (width >= 768) return 2;
-    return 1;
-}
 
 export function LawsuitArchiveFileGrid(props: LawsuitArchiveFileGridProps) {
     const {
@@ -104,7 +103,7 @@ export function LawsuitArchiveFileGrid(props: LawsuitArchiveFileGridProps) {
             if (item.kind === 'criminal') {
                 const c = item.record;
                 return (
-                    <Suspense fallback={null}>
+                    <Suspense fallback={<LawsuitArchiveCardPaintSlot />}>
                         <LazyCriminalArchiveCard
                             record={c}
                             variant="grid"
@@ -188,7 +187,7 @@ export function LawsuitArchiveFileGrid(props: LawsuitArchiveFileGridProps) {
             if (item.kind === 'criminal') {
                 const c = item.record;
                 return (
-                    <Suspense fallback={null}>
+                    <Suspense fallback={<LawsuitArchiveCardPaintSlot compact />}>
                         <LazyCriminalArchiveCard
                             record={c}
                             variant="compact"
@@ -200,42 +199,70 @@ export function LawsuitArchiveFileGrid(props: LawsuitArchiveFileGridProps) {
             const file = item.file;
             const row = file as ArchiveEnrichedRow;
             const isTx = String((row as { type?: unknown }).type ?? '') === 'transaction';
+            const fileId = String((file as LooseArchiveFile).id);
+            const canSelectTrash =
+                lawsuitViewMode === 'trash' && Boolean(onPermanentlyDeleteLawsuits);
             return (
-                <button
-                    type="button"
-                    onPointerEnter={() => prepareLawsuitDossierChromeOnce()}
-                    onPointerDown={() => prepareLawsuitDossierChrome()}
-                    onFocus={() => prepareLawsuitDossierChromeOnce()}
-                    onClick={() => onFileClick(file)}
-                    className="w-full text-right rounded-xl border border-white/10 bg-[#151825] p-2.5 hover:border-[#E6C673]/40 flex items-start gap-2.5"
-                >
-                    <span
-                        className={`shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                            isTx
-                                ? 'border-purple-500/35 bg-purple-500/10 text-purple-200'
-                                : 'border-[#E6C673]/35 bg-[#E6C673]/10 text-[#E6C673]'
-                        }`}
+                <div className="flex w-full items-stretch gap-1.5 max-w-4xl mx-auto">
+                    {canSelectTrash ? (
+                        <button
+                            type="button"
+                            role="checkbox"
+                            aria-checked={selectedTrashIds.has(fileId)}
+                            aria-label={
+                                selectedTrashIds.has(fileId)
+                                    ? 'إلغاء تحديد الإضبارة'
+                                    : 'تحديد الإضبارة للحذف النهائي'
+                            }
+                            data-testid={`${LAWSUIT_VAULT_TEST_IDS.lawsuitFilePrefix}-${fileId}-select`}
+                            onClick={() => toggleTrashSelect(fileId)}
+                            className={`flex shrink-0 min-h-[44px] min-w-[44px] items-center justify-center self-center rounded-lg border touch-manipulation ${
+                                selectedTrashIds.has(fileId)
+                                    ? 'border-[#E6C673]/50 bg-[#E6C673]/16 text-[#E6C673]'
+                                    : 'border-white/20 bg-white/[0.05] text-white/55'
+                            }`}
+                        >
+                            {selectedTrashIds.has(fileId) ? '✓' : (
+                                <span className="h-3.5 w-3.5 rounded-[3px] border border-current opacity-80" />
+                            )}
+                        </button>
+                    ) : null}
+                    <button
+                        type="button"
+                        onPointerEnter={() => prepareLawsuitDossierChromeOnce()}
+                        onPointerDown={() => prepareLawsuitDossierChrome()}
+                        onFocus={() => prepareLawsuitDossierChromeOnce()}
+                        onClick={() => onFileClick(file)}
+                        className="min-w-0 flex-1 text-right rounded-xl border border-white/10 bg-[#151825] p-2.5 hover:border-[#E6C673]/40 flex items-start gap-2.5"
                     >
-                        {isTx ? 'معاملة' : 'مدني'}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                        <span className="block text-[12px] font-bold text-white truncate">
-                            {row.docType ?? row.title ?? 'دعوى'}
+                        <span
+                            className={`shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                                isTx
+                                    ? 'border-purple-500/35 bg-purple-500/10 text-purple-200'
+                                    : 'border-[#E6C673]/35 bg-[#E6C673]/10 text-[#E6C673]'
+                            }`}
+                        >
+                            {isTx ? 'معاملة' : 'مدني'}
                         </span>
-                        <span className="block text-[10px] text-white/45 font-mono mt-0.5">
-                            {row.caseNo || row.caseNumber || '—'}
-                            {'court' in row && row.court
-                                ? ` · ${typeof row.court === 'string' ? row.court : row.court.name}`
-                                : ''}
+                        <span className="min-w-0 flex-1">
+                            <span className="block text-[12px] font-bold text-white truncate">
+                                {row.docType ?? row.title ?? 'دعوى'}
+                            </span>
+                            <span className="block text-[10px] text-white/45 font-mono mt-0.5">
+                                {row.caseNo || row.caseNumber || '—'}
+                                {'court' in row && row.court
+                                    ? ` · ${typeof row.court === 'string' ? row.court : row.court.name}`
+                                    : ''}
+                            </span>
                         </span>
-                    </span>
-                    <span className="text-[10px] text-white/40 shrink-0">
-                        {file.smartStatus.label}
-                    </span>
-                </button>
+                        <span className="text-[10px] text-white/40 shrink-0">
+                            {file.smartStatus.label}
+                        </span>
+                    </button>
+                </div>
             );
         },
-        [onOpenCriminalCase, onFileClick],
+        [onOpenCriminalCase, onFileClick, lawsuitViewMode, onPermanentlyDeleteLawsuits, selectedTrashIds, toggleTrashSelect],
     );
 
     const hasLawsuitBody =
@@ -243,20 +270,33 @@ export function LawsuitArchiveFileGrid(props: LawsuitArchiveFileGridProps) {
         (showLawsuitCardsInGrid && enrichedFiles.length > 0);
 
     if (archiveHydrating && !hasLawsuitBody) {
+        if (dossierViewMode === 'compact') {
+            return (
+                <div
+                    className="space-y-2 max-w-4xl mx-auto"
+                    aria-busy="true"
+                    aria-label="الإضابير"
+                    data-testid="lawsuit-archive-loading"
+                >
+                    {Array.from({ length: 4 }, (_, slot) => (
+                        <LawsuitArchiveCardPaintSlot key={slot} compact />
+                    ))}
+                </div>
+            );
+        }
+        const hydrateColumnCount = resolveArchiveGridColumnCount(readArchiveGridWidthGuess(0));
+        const hydrateGridClass = archiveGridClassForColumnCount(hydrateColumnCount);
+        const slotCount = Math.max(hydrateColumnCount * 2, 2);
         return (
             <div
-                className="flex flex-col items-center justify-center h-full text-center py-10 px-4"
+                className={hydrateGridClass}
                 aria-busy="true"
+                aria-label="الإضابير"
                 data-testid="lawsuit-archive-loading"
             >
-                <div
-                    className="mb-4 h-10 w-10 rounded-full border-2 border-[#E6C673]/25 border-t-[#E6C673]/80 animate-spin"
-                    aria-hidden
-                />
-                <h3 className="text-white/55 text-xl font-bold mb-1.5">جاري تجهيز الإضابير…</h3>
-                <p className="text-white/35 text-sm max-w-xs leading-relaxed">
-                    فكّ التشفير المحلي — لحظة واحدة
-                </p>
+                {Array.from({ length: slotCount }, (_, slot) => (
+                    <LawsuitArchiveCardPaintSlot key={slot} />
+                ))}
             </div>
         );
     }
@@ -283,7 +323,7 @@ export function LawsuitArchiveFileGrid(props: LawsuitArchiveFileGridProps) {
                     getItemKey={(item) => item.id}
                     testId="lawsuit-archive-grid"
                     className="grid grid-cols-1 gap-2.5"
-                    resolveColumns={resolveLawsuitColumns}
+                    resolveColumns={resolveArchiveGridColumnCount}
                     getScrollElement={getArchiveScrollElement}
                     renderItem={renderLawsuitGridItem}
                 />
@@ -309,14 +349,11 @@ export function LawsuitArchiveFileGrid(props: LawsuitArchiveFileGridProps) {
                         <p className="text-white/40 text-sm">لا توجد إضابير في مخزن الأرشيف.</p>
                     ) : decryptBlocked ? (
                         <p className="text-white/40 text-sm max-w-sm leading-relaxed">
-                            البيانات موجودة على الجهاز لكن مفتاح الفكّ غير متاح. أعد تسجيل الدخول أو
-                            استورد نسخة العمل من الإعدادات — الإضابير لا تُمسح تلقائياً.
+                            البيانات محفوظة على هذا الجهاز بتشفير محلي. مفتاح الفكّ غير جاهز في هذه
+                            الجلسة — أعد فتح التطبيق أو استورد نسخة العمل من الإعدادات. لا حاجة
+                            لاتصال بالإنترنت، والإضابير لا تُمسح.
                         </p>
-                    ) : (
-                        <p className="text-white/40 text-sm">
-                            السلة والأرشيف من زر الفلاتر بجانب البحث.
-                        </p>
-                    )}
+                    ) : null}
                 </div>
             ) : null}
         </>

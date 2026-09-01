@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { JurisdictionId } from '@/app/components/lawyer/LawyerNewCase/wordLists';
 import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
 import type { ThemeConfig } from '@/app/types/common';
@@ -43,17 +43,28 @@ type LawsuitsWorkspaceHostProps = {
     onDeleteCriminalCase: (id: string) => boolean | void;
     onOpenFile: (file: unknown) => void;
     onAddNewCase: () => void;
-    onMoveLawsuitToTrash?: (id: string | number) => void;
-    onRestoreLawsuitFromTrash?: (id: string | number) => void;
-    onArchiveLawsuit?: (id: string | number) => void;
-    onRestoreArchivedLawsuit?: (id: string | number) => void;
-    onPermanentlyDeleteLawsuits?: (ids: (string | number)[]) => void;
+    onMoveLawsuitToTrash?: (
+        id: string | number,
+    ) => void | boolean | Promise<void | boolean>;
+    onRestoreLawsuitFromTrash?: (
+        id: string | number,
+    ) => void | boolean | Promise<void | boolean>;
+    onArchiveLawsuit?: (id: string | number) => void | boolean | Promise<void | boolean>;
+    onRestoreArchivedLawsuit?: (
+        id: string | number,
+    ) => void | boolean | Promise<void | boolean>;
+    onPermanentlyDeleteLawsuits?: (
+        ids: (string | number)[],
+    ) => void | boolean | Promise<void | boolean>;
     onExitToHome?: () => void;
 };
 
 function prefetchNewCaseModule(): void {
     void import('@/app/runtime/lawyerNewCaseLoader')
         .then((m) => m.prefetchLawyerNewCaseModule())
+        .catch(() => undefined);
+    void import('@/app/runtime/criminalOverlayEntryLoader')
+        .then((m) => m.prefetchNewCaseOverlayEntry())
         .catch(() => undefined);
 }
 
@@ -90,6 +101,9 @@ export function LawsuitsWorkspaceHost(props: LawsuitsWorkspaceHostProps): React.
 
     const lawsuitArchiveFiles = useMemo(() => allLawsuitFilesForArchive(files), [files]);
     const mountLawsuitTrees = active || retainArchive;
+    const [civilLifecycleLocation, setCivilLifecycleLocation] = useState<
+        'active' | 'archived' | 'trash'
+    >('active');
 
     /** Hub الدعاوى فقط — بلا غلاف الأرشيف المشترك (تنفيذ+دعوى). */
     const primeCivilArchiveCore = useCallback(() => {
@@ -207,6 +221,7 @@ export function LawsuitsWorkspaceHost(props: LawsuitsWorkspaceHostProps): React.
             onShellReady={handleShellReady}
             onUrgentTabIntent={primeUrgentTab}
             escapeEnabled={escapeEnabled && active}
+            civilLifecycleLocation={civilLifecycleLocation}
             onTabChange={(nextTab) => {
                 if (nextTab === 'civil') primeCivilArchive();
                 if (nextTab === 'urgent') primeUrgentTab();
@@ -255,6 +270,7 @@ export function LawsuitsWorkspaceHost(props: LawsuitsWorkspaceHostProps): React.
                                     hideHeader
                                     hideTopActionBar
                                     initialLawsuitJurisdictionTab={initialDossierSection}
+                                    onLawsuitViewModeChange={setCivilLifecycleLocation}
                                     onOpenCriminalCase={onOpenCriminalCase}
                                     onDeleteCriminalCase={onDeleteCriminalCase}
                                     onMoveLawsuitToTrash={onMoveLawsuitToTrash}

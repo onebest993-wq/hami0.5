@@ -78,7 +78,9 @@ describe('civil lawsuit section structural closure', () => {
         const hubs = readAt(smartModalRoot, 'layout/mainPanel/SmartFileWorkflowHubsSection.tsx');
         expect(hubs).toContain('CivilLawReferenceHub');
         expect(panel).toContain('const interactionLocked = isViewingArchived || isCaseLinkViewOnly');
-        expect(timeline).toContain('onDelete={!interactionLocked ? handleDeleteEvent : undefined}');
+        expect(timeline).toContain('!interactionLocked');
+        expect(timeline).toContain('onEventClick=');
+        expect(timeline).not.toContain('onDelete=');
         expect(panel).not.toContain('@ts-nocheck');
     });
 
@@ -145,7 +147,8 @@ describe('civil lawsuit section structural closure', () => {
         expect(fixtures).toContain('clickLawyerNewCaseSave');
         expect(fixtures).toContain('markFirstPartyAsClient');
         expect(fixtures).toContain('lawyer-new-case-mark-client');
-        expect(fixtures).toContain('getByLabel(\'اسم المحكمة المختصة\')');
+        expect(fixtures).toContain("fillLabeledInput(page, 'اسم المحكمة المختصة'");
+        expect(fixtures).toContain('commitNewCaseEnter');
         expect(fixtures).toContain('fillPartyFullNames');
         expect(fixtures).toContain('nativeSetInputValue');
         expect(fixtures).toContain("isVisible({ timeout: 8_000 })");

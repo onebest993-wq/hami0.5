@@ -4,14 +4,15 @@ import type { MainCategory, CaseType, Party, ThirdParty } from './LawyerNewCase/
 import type { LawyerNewCaseProps } from '@/app/types/components';
 import { ThirdPartyModal } from './LawyerNewCase/components/ThirdPartyModal';
 import { CaseHeader } from './LawyerNewCase/components/CaseHeader';
+import { NewCaseInstantPaintSlots } from '@/app/components/lawyer/dashboard/LawyerNewCaseInstantPaintCover';
 import {
     getPersonalStatusLabels,
     type PersonalApplicableLaw,
 } from './personal-status/personalStatusValidation';
 import { CivilNewCaseForm } from './LawyerNewCase/components/CivilNewCaseForm';
 import { SaveButton } from './LawyerNewCase/components/SaveButton';
+import { computeOpeningLawsuitStageOptions } from '@/app/domain/lawsuit/lawsuitStageOptions';
 import {
-    computeStageOptions,
     getValuePlaceholder,
     getExceptionWarning,
     getCaseNumberError,
@@ -170,8 +171,19 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
 
     const stageOptions = useMemo(() => {
         if (spawnPrefill) return spawnPrefill.stageOptions;
-        return computeStageOptions(caseDetails.court);
-    }, [spawnPrefill, caseDetails.court]);
+        return computeOpeningLawsuitStageOptions({
+            claimValue: caseDetails.claimValue,
+            isUndeterminedValue,
+            isFixedFee,
+            caseType: caseDetails.type || '',
+        });
+    }, [
+        spawnPrefill,
+        caseDetails.claimValue,
+        caseDetails.type,
+        isUndeterminedValue,
+        isFixedFee,
+    ]);
     const valuePlaceholder = useMemo(
         () => getValuePlaceholder(caseDetails.type || ''),
         [caseDetails.type],
@@ -307,13 +319,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
             <div className="relative flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] scrollbar-hide">
                         <div className="overflow-visible pb-6">
                             {selectedType === 'criminal' && (
-                                <React.Suspense
-                                    fallback={
-                                        <div className="py-12 text-center text-[#E6C673] text-sm font-bold animate-pulse">
-                                            جاري تحميل نموذج الإضبارة الجزائية...
-                                        </div>
-                                    }
-                                >
+                                <React.Suspense fallback={<NewCaseInstantPaintSlots />}>
                                     <LazyCriminalNewCase
                                         severanceFormMode={criminalSeveranceFormMode}
                                         onBack={() => {
@@ -331,13 +337,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                             {selectedType !== 'criminal' && (
                             <>
                             {isPersonalCase ? (
-                                <React.Suspense
-                                    fallback={
-                                        <div className="py-12 text-center text-[#E6C673] text-sm font-bold">
-                                            جاري تحميل نموذج الأحوال الشخصية...
-                                        </div>
-                                    }
-                                >
+                                <React.Suspense fallback={<NewCaseInstantPaintSlots />}>
                                     <LazyPersonalStatusNewCaseForm
                                         caseDetails={caseDetails}
                                         applicableLaw={applicableLaw}

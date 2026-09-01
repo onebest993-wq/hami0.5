@@ -3,8 +3,8 @@ import {
     loadLawsuitBootSegments,
     type LawsuitFileSegments,
 } from '@/app/domain/lawsuit/lawsuitFilesRepository';
-import { rebuildActiveSegmentInIndex } from '@/app/domain/lawsuit/lawsuitLifecycleIndex';
 import {
+    adoptHydratedLawsuitActive,
     applyLawsuitDurabilityOverlaysToSegments,
     bootHasLawsuitRecords,
     pickRicherLawsuitSegments as pickRicherSegments,
@@ -29,7 +29,7 @@ export type LawsuitFilesHydrateCycleHost = {
 
 /**
  * دورة فكّ/دمج/استعادة عند إقلاع مساحة الدعاوى.
- * الدلالة تبقى في الـ hook؛ الجسم هنا لتسهيل القراءة دون تغيير السلوك.
+ * eager-hydrate لا يُعامل كقائمة نشطة إلا بعد إخراج معرّفات السلة/الأرشيف.
  */
 export async function runLawsuitFilesHydrateCycle(
     host: LawsuitFilesHydrateCycleHost,
@@ -47,28 +47,13 @@ export async function runLawsuitFilesHydrateCycle(
             const bootWithPending = applyLawsuitDurabilityOverlaysToSegments(
                 loadLawsuitBootSegments(),
             );
-            const hydratedMerged =
-                hydrated.length > 0
-                    ? mergeLawsuitDurabilityOverlaysInto(hydrated)
-                    : bootWithPending.active;
-            const candidate =
-                hydrated.length > 0
-                    ? {
-                          ...bootWithPending,
-                          active: hydratedMerged,
-                          index: rebuildActiveSegmentInIndex(
-                              bootWithPending.index,
-                              hydratedMerged,
-                          ),
-                      }
-                    : bootWithPending;
+            const candidate = adoptHydratedLawsuitActive(bootWithPending, hydrated);
             return pickRicherSegments(prev, candidate);
         });
 
         const afterBoot = loadLawsuitBootSegments();
         let stillCold =
             !bootHasLawsuitRecords(afterBoot) &&
-            hydrated.length === 0 &&
             (lawsuitSegmentsNeedWarm() ||
                 lawsuitStorageMayHaveUnreadData(afterBoot.index) ||
                 !isLawsuitFilesEagerHydrateSettled());
@@ -138,9 +123,25 @@ export async function runLawsuitFilesHydrateCycle(
                 });
                 if (isStale()) return;
                 if (recovered.ok) {
-                    setSegments(recovered.segments);
+                    setSegments((prev) => pickRicherSegments(prev, recovered.segments));
                 } else if (recovered.diagnosis.decryptLikelyBroken) {
-                    decryptBlocked = true;
+                    try {
+                        const { CryptoService } = await import('@/app/services/CryptoService');
+                        await CryptoService.initialize();
+                        if (isStale()) return;
+                        const retried = await recoverLawsuitWorkspaceFromLocalDisk({
+                            includeCloud: false,
+                            fullPersistReady: false,
+                        });
+                        if (isStale()) return;
+                        if (retried.ok) {
+                            setSegments((prev) => pickRicherSegments(prev, retried.segments));
+                        } else if (retried.diagnosis.decryptLikelyBroken) {
+                            decryptBlocked = true;
+                        }
+                    } catch {
+                        decryptBlocked = true;
+                    }
                 } else {
                     void recoverLawsuitWorkspaceFromLocalDisk({
                         includeCloud: true,
@@ -149,7 +150,9 @@ export async function runLawsuitFilesHydrateCycle(
                         .then((cloudRecovered) => {
                             if (isStale()) return;
                             if (cloudRecovered.ok) {
-                                setSegments(cloudRecovered.segments);
+                                setSegments((prev) =>
+                                    pickRicherSegments(prev, cloudRecovered.segments),
+                                );
                                 setLawsuitStorageHydrated(true);
                             }
                         })

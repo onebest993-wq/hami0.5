@@ -3,11 +3,14 @@ import { getLegalRole } from '../LawyerShared';
 import { getPersonalStatusRoleForSide } from '../personal-status/personalStatusValidation';
 import type { CaseType, Party } from './types';
 import {
+    computeOpeningDegreeOptions,
+    snapOpeningStageToDegrees,
+} from '@/app/domain/lawsuit/lawsuitStageOptions';
+import {
     getBlockedWordsError,
     getRetrialTargetCourtMismatchErrors,
     getStageCourtMismatchErrors,
     isAbsentJudgmentObjectionStage,
-    isEvictionOrSharing,
     isExtraordinaryProcedureStage,
     isFixedFeeType,
 } from './validation';
@@ -184,45 +187,17 @@ export function useLawyerNewCaseFormSync({
         setCaseDetails((prev) => {
             if (isExtraordinaryProcedureStage(prev.stage)) return prev;
 
-            const { type, stage, claimValue: value } = prev;
-            const cleanValue = parseInt(value.replace(/[^0-9]/g, ''), 10) || 0;
-            const typeLower = type.toLowerCase();
-            const evictionOrSharing = isEvictionOrSharing(typeLower);
-
-            if (evictionOrSharing && stage && !stage.includes('استئناف')) {
-                if (stage !== 'بداءة بدرجة أخيرة') {
-                    return { ...prev, stage: 'بداءة بدرجة أخيرة' };
-                }
-                return prev;
-            }
-
-            if ((isFixedFee || isUndeterminedValue) && !evictionOrSharing) {
-                if (value !== '' || (stage !== 'بداءة بدرجة أخيرة' && !stage.includes('استئناف'))) {
-                    return {
-                        ...prev,
-                        claimValue: '',
-                        stage: prev.stage.includes('استئناف') ? prev.stage : 'بداءة بدرجة أخيرة',
-                    };
-                }
-                return prev;
-            }
-
-            if (
-                cleanValue > 0 &&
-                !evictionOrSharing &&
-                !isFixedFee &&
-                !isUndeterminedValue &&
-                stage.includes('بداءة')
-            ) {
-                if (cleanValue > 1000000 && stage !== 'بداءة بدرجة أولى') {
-                    return { ...prev, stage: 'بداءة بدرجة أولى' };
-                }
-                if (cleanValue <= 1000000 && stage !== 'بداءة بدرجة أخيرة') {
-                    return { ...prev, stage: 'بداءة بدرجة أخيرة' };
-                }
-            }
-
-            return prev;
+            const claimValue =
+                (isFixedFee || isUndeterminedValue) && prev.claimValue ? '' : prev.claimValue;
+            const degrees = computeOpeningDegreeOptions({
+                claimValue,
+                isUndeterminedValue,
+                isFixedFee,
+                caseType: prev.type,
+            });
+            const nextStage = snapOpeningStageToDegrees(prev.stage, degrees);
+            if (claimValue === prev.claimValue && nextStage === prev.stage) return prev;
+            return { ...prev, claimValue, stage: nextStage };
         });
     }, [
         caseDetails.claimValue,

@@ -1,11 +1,13 @@
 import type { FileData } from './lawsuitFileTypes';
-import {
-    reloadLawsuitFilesFromStorage,
-    type LawsuitFileSegments,
-} from '@/app/domain/lawsuit/lawsuitFilesRepository';
+import { reloadLawsuitFilesFromStorage, type LawsuitFileSegments } from '@/app/domain/lawsuit/lawsuitFilesRepository';
+import { bootHasLawsuitRecords } from '@/app/domain/lawsuit/lawsuitFilesStatePolicy';
 import { applyLawsuitMonolithicMergeToSegments } from '@/app/domain/lawsuit/lawsuitSegmentStorage';
 import { awaitLawsuitWorkspaceCommit } from '@/app/domain/lawsuit/lawsuitPersistFlush';
 import { loadLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
+import {
+    ensureLawsuitDossierTombstonesReadable,
+    excludeTombstonedLawsuitFiles,
+} from '@/app/utils/lawsuitDossierTombstones';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     LAWSUIT_FILES_ACTIVE_KEY,
@@ -166,7 +168,10 @@ async function applyRecoveredPayload(
 ): Promise<LawsuitRecoveryResult | null> {
     if (!Array.isArray(files) || files.length === 0) return null;
     try {
-        applyLawsuitMonolithicMergeToSegments(files);
+        await ensureLawsuitDossierTombstonesReadable();
+        const stripped = excludeTombstonedLawsuitFiles(files);
+        if (stripped.length === 0) return null;
+        applyLawsuitMonolithicMergeToSegments(stripped);
     } catch {
         return null;
     }
@@ -345,7 +350,7 @@ export async function recoverLawsuitWorkspaceFromLocalDisk(
         } catch {
             /* ignore */
         }
-        if (boot.active.length > 0 || boot.index.counts.active > 0) {
+        if (bootHasLawsuitRecords(boot) || boot.active.length > 0) {
             return {
                 ok: true,
                 segments: boot,
@@ -355,7 +360,10 @@ export async function recoverLawsuitWorkspaceFromLocalDisk(
                     diskActiveCount: boot.active.length,
                     memoryActiveCount: boot.active.length,
                 },
-                message: `تمت استعادة ${boot.active.length} إضبارة نشطة`,
+                message:
+                    boot.active.length > 0
+                        ? `تمت استعادة ${boot.active.length} إضبارة نشطة`
+                        : 'المقاطع على القرص هي مصدر الحقيقة — لا استيراد من المرآة',
             };
         }
 
@@ -464,7 +472,7 @@ export async function recoverLawsuitWorkspaceFromLocalDisk(
 
         if (diagnosis.decryptLikelyBroken) {
             return fail(
-                'وُجدت بيانات مشفّرة على القرص لكن فك التشفير فشل — افتح الإعدادات واستورد نسخة احتياطية للعمل، أو أعد تسجيل الدخول إن كانت السحابة مفعّلة',
+                'وُجدت بيانات مشفّرة محلياً لكن مفتاح الفكّ غير جاهز — أعد فتح التطبيق أو استورد نسخة العمل من الإعدادات. السحابة اختيارية للمزامنة فقط',
             );
         }
 

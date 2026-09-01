@@ -36,6 +36,95 @@ export function markThirdPartyAsClient(tp: ThirdParty): ThirdParty {
     };
 }
 
+export function applyClientMarkForParty(input: {
+    side: 1 | 2;
+    id: string;
+    parties1: Party[];
+    parties2: Party[];
+    thirdParties: ThirdParty[];
+}):
+    | { ok: true; parties1: Party[]; parties2: Party[]; thirdParties: ThirdParty[] }
+    | { ok: false } {
+    const { side, id, parties1, parties2, thirdParties } = input;
+    if (otherSideHasClient(side, parties1, parties2, thirdParties)) {
+        return { ok: false };
+    }
+    const markSameSide = (list: Party[]) =>
+        list.map((p) => (p.id === id ? markPartyAsClient(p) : p));
+    const clearSide = (list: Party[]) => list.map(clearClientFromParty);
+    const nextThird = thirdParties.map((tp) => {
+        if (tp.entryMode === 'affiliative' && tp.affiliatedSide === side) return tp;
+        return clearClientFromThirdParty(tp);
+    });
+    if (side === 1) {
+        return {
+            ok: true,
+            parties1: markSameSide(parties1),
+            parties2: clearSide(parties2),
+            thirdParties: nextThird,
+        };
+    }
+    return {
+        ok: true,
+        parties1: clearSide(parties1),
+        parties2: markSameSide(parties2),
+        thirdParties: nextThird,
+    };
+}
+
+export function applyClientMarkForThirdParty(input: {
+    id: number;
+    parties1: Party[];
+    parties2: Party[];
+    thirdParties: ThirdParty[];
+}):
+    | { ok: true; parties1: Party[]; parties2: Party[]; thirdParties: ThirdParty[] }
+    | { ok: false } {
+    const target = input.thirdParties.find((tp) => tp.id === input.id);
+    if (!target) return { ok: false };
+
+    if (target.entryMode !== 'affiliative' || !target.affiliatedSide) {
+        const otherClient =
+            input.parties1.some((p) => p.isClient || p.isMyOffice) ||
+            input.parties2.some((p) => p.isClient || p.isMyOffice) ||
+            input.thirdParties.some((tp) => tp.id !== input.id && (tp.isClient || tp.isMyOffice));
+        if (otherClient) return { ok: false };
+        return {
+            ok: true,
+            parties1: input.parties1.map(clearClientFromParty),
+            parties2: input.parties2.map(clearClientFromParty),
+            thirdParties: input.thirdParties.map((tp) =>
+                tp.id === input.id ? markThirdPartyAsClient(tp) : clearClientFromThirdParty(tp),
+            ),
+        };
+    }
+
+    const side = target.affiliatedSide;
+    if (otherSideHasClient(side, input.parties1, input.parties2, input.thirdParties)) {
+        return { ok: false };
+    }
+    const clearOther = (list: Party[]) => list.map(clearClientFromParty);
+    const nextThird = input.thirdParties.map((tp) => {
+        if (tp.id === input.id) return markThirdPartyAsClient(tp);
+        if (tp.entryMode === 'affiliative' && tp.affiliatedSide === side) return tp;
+        return clearClientFromThirdParty(tp);
+    });
+    if (side === 1) {
+        return {
+            ok: true,
+            parties1: input.parties1,
+            parties2: clearOther(input.parties2),
+            thirdParties: nextThird,
+        };
+    }
+    return {
+        ok: true,
+        parties1: clearOther(input.parties1),
+        parties2: input.parties2,
+        thirdParties: nextThird,
+    };
+}
+
 export function otherSideHasClient(
     side: 1 | 2,
     parties1: Party[],
