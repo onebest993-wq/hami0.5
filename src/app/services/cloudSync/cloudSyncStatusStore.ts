@@ -21,6 +21,7 @@ type CloudSyncStatusStoreState = {
     setOnline: (isOnline: boolean) => void;
     reportBucket: (bucket: CloudSyncBucketId, partial: Partial<CloudSyncBucketStatus>) => void;
     registerSyncHandler: (bucket: CloudSyncBucketId, fn: () => Promise<void>) => void;
+    unregisterSyncHandler: (bucket: CloudSyncBucketId) => void;
     syncAllNow: () => Promise<{ ok: boolean; skipped: boolean; failed: boolean }>;
 };
 
@@ -99,6 +100,13 @@ export const useCloudSyncStatusStore = create<CloudSyncStatusStoreState>((set, g
             return {
                 syncNowHandlers: { ...s.syncNowHandlers, [bucket]: fn },
             };
+        }),
+    unregisterSyncHandler: (bucket) =>
+        set((s) => {
+            if (!(bucket in s.syncNowHandlers)) return s;
+            const next = { ...s.syncNowHandlers };
+            delete next[bucket];
+            return { syncNowHandlers: next };
         }),
     syncAllNow: async () => {
         const { runCloudSyncAllNow } = await import('@/app/services/cloudSync/runCloudSyncAllNow');

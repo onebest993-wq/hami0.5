@@ -272,6 +272,12 @@ function AdvancedBackgroundRuntime({
         store.registerSyncHandler('notes', notes);
         store.registerSyncHandler('lawsuit', lawsuit);
         store.registerSyncHandler('execution', execution);
+        return () => {
+            const s = useCloudSyncStatusStore.getState();
+            s.unregisterSyncHandler('notes');
+            s.unregisterSyncHandler('lawsuit');
+            s.unregisterSyncHandler('execution');
+        };
     }, [syncNotesNowRef, syncLawsuitFilesNowRef, syncExecutionFilesNowRef]);
 
     const scheduleRealtimeSync = useCallback(
