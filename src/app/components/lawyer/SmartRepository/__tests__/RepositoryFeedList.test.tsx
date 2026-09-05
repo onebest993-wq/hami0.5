@@ -2,14 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { RepositoryFeedList } from '../RepositoryFeedList';
 import type { RepositoryFeedItem } from '@/app/services/repository/repositoryUnifiedFeed';
-import { REPOSITORY_FEED_VIRTUAL_SCROLL_THRESHOLD } from '../repositoryFeedConstants';
 
 vi.mock('../RepositoryFeedVirtualList', () => ({
     RepositoryFeedVirtualList: () => <div data-testid="repository-feed-virtual-scroll" />,
-}));
-
-vi.mock('../RepositoryFeedProgressiveList', () => ({
-    RepositoryFeedProgressiveList: () => <div data-testid="repository-feed-progressive" />,
 }));
 
 function makeItems(count: number): RepositoryFeedItem[] {
@@ -43,23 +38,24 @@ const baseProps = {
 };
 
 describe('RepositoryFeedList virtualization routing', () => {
-    it('يستخدم العرض التدريجي دون العتبة', () => {
+    it('يستخدم التمرير الافتراضي للقوائم القصيرة', () => {
         render(
             <RepositoryFeedList
                 {...baseProps}
-                items={makeItems(REPOSITORY_FEED_VIRTUAL_SCROLL_THRESHOLD - 1)}
+                items={makeItems(3)}
             />,
         );
-        expect(screen.getByTestId('repository-feed-progressive')).toBeInTheDocument();
-        expect(screen.queryByTestId('repository-feed-virtual-scroll')).not.toBeInTheDocument();
+        expect(screen.getByTestId('repository-feed-virtual-scroll')).toBeInTheDocument();
+        expect(screen.queryByTestId('repository-feed-progressive')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('repository-show-all-items')).not.toBeInTheDocument();
     });
 
-    it('يفعّل التمرير الافتراضي عند العتبة أو فوقها', () => {
+    it('يستخدم التمرير الافتراضي للقوائم الطويلة', () => {
         render(
             <RepositoryFeedList
                 {...baseProps}
                 feedLayout="list"
-                items={makeItems(REPOSITORY_FEED_VIRTUAL_SCROLL_THRESHOLD)}
+                items={makeItems(40)}
             />,
         );
         expect(screen.getByTestId('repository-feed-virtual-scroll')).toBeInTheDocument();

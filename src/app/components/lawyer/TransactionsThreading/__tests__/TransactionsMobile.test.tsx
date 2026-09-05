@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import {
-    GLASS_CHIP,
     GLASS_FIELD,
+    TX_DRAWER_CHIP,
     TX_DRAWER_FOOTER,
     TX_DRAWER_SHELL,
     TX_ICON_BTN,
@@ -42,7 +42,7 @@ describe('TransactionsThreading mobile readiness', () => {
         expect(TX_TOUCH_ICON).toContain('touch-manipulation');
         expect(TX_TOUCH_CHIP).toContain('min-h-[44px]');
         expect(TX_ICON_BTN).toContain('min-h-[44px]');
-        expect(GLASS_CHIP).toContain('min-h-[44px]');
+        expect(TX_DRAWER_CHIP).toContain('min-h-[44px]');
         expect(TX_TAB_TRIGGER).toContain('min-h-[44px]');
         expect(GLASS_FIELD).toContain('min-h-[44px]');
     });

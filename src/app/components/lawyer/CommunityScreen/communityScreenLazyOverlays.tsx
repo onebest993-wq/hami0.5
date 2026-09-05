@@ -1,4 +1,5 @@
 import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
+import { forumFilterOverlaysImport } from './communityScreenFilterLazy';
 import {
     addQuestionImport,
     commentSheetImport,
@@ -20,6 +21,11 @@ export function prefetchCommunityAddQuestionOverlay(): void {
 export function prefetchCommunitySearchOverlay(): void {
     if (typeof window === 'undefined') return;
     void searchOverlayImport().catch(() => undefined);
+}
+
+export function prefetchCommunityFilterOverlays(): void {
+    if (typeof window === 'undefined') return;
+    void forumFilterOverlaysImport().catch(() => undefined);
 }
 
 export function prefetchCommunityEditPostOverlay(): void {

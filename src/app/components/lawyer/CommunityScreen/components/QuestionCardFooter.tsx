@@ -41,7 +41,7 @@ export function QuestionCardFooter({
     const commentCount = post.comments.length;
 
     return (
-        <div className="mt-2 flex items-center gap-1 sm:gap-2 min-w-0">
+        <div className="mt-1 flex items-center gap-0.5 sm:gap-1 min-w-0">
             <button
                 type="button"
                 onClick={(event) => {
@@ -49,7 +49,7 @@ export function QuestionCardFooter({
                     onToggleUpvote(post.id);
                 }}
                 aria-disabled={!canUpvote}
-                className={`group/up ${FORUM_INTERACT_BTN} px-2.5 sm:px-3 shrink-0 ${!canUpvote ? 'opacity-50' : ''}`}
+                className={`group/up ${FORUM_INTERACT_BTN} px-2 sm:px-2.5 shrink-0 ${!canUpvote ? 'opacity-50' : ''}`}
                 title={
                     !currentUserId
                         ? 'سجّل الدخول للتصويت'
@@ -59,8 +59,8 @@ export function QuestionCardFooter({
                 }
             >
                 <ArrowUp
-                    size={20}
-                    className={`transition-colors duration-300 ${isUpvoted ? FORUM_INTERACT_ICON_ACTIVE : FORUM_INTERACT_ICON}`}
+                    size={18}
+                    className={`transition-colors duration-150 ${isUpvoted ? FORUM_INTERACT_ICON_ACTIVE : FORUM_INTERACT_ICON}`}
                 />
                 <span className={isUpvoted ? FORUM_INTERACT_LABEL_ACTIVE : FORUM_INTERACT_LABEL}>
                     {upvoteCount}
@@ -73,11 +73,11 @@ export function QuestionCardFooter({
                     event.stopPropagation();
                     onCommentClick(post.id);
                 }}
-                className={`group/c ${FORUM_INTERACT_BTN} px-2.5 sm:px-3 min-w-0 shrink-0`}
+                className={`group/c ${FORUM_INTERACT_BTN} px-2 sm:px-2.5 min-w-0 shrink-0`}
                 title="التعليقات"
                 data-testid="forum-comment-open"
             >
-                <MessageCircle size={20} className={`${FORUM_INTERACT_ICON} group-hover/c:text-[#E6C673] shrink-0`} />
+                <MessageCircle size={18} className={`${FORUM_INTERACT_ICON} group-hover/c:text-[#E6C673] shrink-0`} />
                 <span className={`${FORUM_INTERACT_LABEL} group-hover/c:text-[#E6E0E4] truncate`}>
                     <span className="tabular-nums">{commentCount}</span>
                     <span className="hidden sm:inline"> تعليق</span>
@@ -90,12 +90,12 @@ export function QuestionCardFooter({
                     event.stopPropagation();
                     onShare(post.id);
                 }}
-                className={`group/s ${FORUM_INTERACT_BTN} px-2.5 sm:px-3 shrink-0`}
+                className={`group/s ${FORUM_INTERACT_BTN} px-2 sm:px-2.5 shrink-0`}
                 title="مشاركة"
                 aria-label="مشاركة"
             >
-                <Link2 size={20} className={`${FORUM_INTERACT_ICON} group-hover/s:text-[#E6C673]`} />
-                <span className={`${FORUM_INTERACT_LABEL} group-hover/s:text-[#E6E0E4]`}>مشاركة</span>
+                <Link2 size={18} className={`${FORUM_INTERACT_ICON} group-hover/s:text-[#E6C673]`} />
+                <span className={`${FORUM_INTERACT_LABEL} group-hover/s:text-[#E6E0E4] hidden sm:inline`}>مشاركة</span>
             </button>
 
             {onToggleBookmark && currentUserId ? (
@@ -105,14 +105,14 @@ export function QuestionCardFooter({
                         event.stopPropagation();
                         onToggleBookmark(post.id);
                     }}
-                    className={`${FORUM_INTERACT_BTN} px-2.5 sm:px-3 shrink-0 ms-auto ${
+                    className={`${FORUM_INTERACT_BTN} px-2 sm:px-2.5 shrink-0 ms-auto ${
                         isBookmarked ? `${FORUM_ACCENT_CHIP} ${FORUM_TEXT_APRICOT}` : ''
                     }`}
                     title={isBookmarked ? 'إلغاء الحفظ' : 'حفظ للقراءة لاحقاً'}
                     aria-label={isBookmarked ? 'إلغاء الحفظ' : 'حفظ للقراءة لاحقاً'}
                 >
-                    <Bookmark size={20} fill={isBookmarked ? 'currentColor' : 'none'} />
-                    <span className={isBookmarked ? FORUM_INTERACT_LABEL_ACTIVE : FORUM_INTERACT_LABEL}>
+                    <Bookmark size={18} fill={isBookmarked ? 'currentColor' : 'none'} />
+                    <span className={`${isBookmarked ? FORUM_INTERACT_LABEL_ACTIVE : FORUM_INTERACT_LABEL} hidden sm:inline`}>
                         {isBookmarked ? 'محفوظ' : 'حفظ'}
                     </span>
                 </button>

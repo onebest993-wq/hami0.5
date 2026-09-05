@@ -4,19 +4,15 @@ import type { TimelineEvent } from '@/app/types/execution';
 import {
     ExecutionDecisionsInstantFrame,
     ExecutionDocumentsInstantFrame,
-    ExecutionNamedOverlayInstantFrame,
 } from './executionOverlayInstantPresets';
 import {
     LazyDocumentVault as LazyDocumentVaultStrict,
     LazyExecutionDecisionsModalContainer as LazyExecutionDecisionsModalContainerStrict,
-    LazyRealEstateSeizurePostApprovalModal as LazyRealEstateSeizurePostApprovalModalStrict,
     LazyDecisionsAndAppealsEngine,
 } from '../executionDashboardLazyRegistryOverlays';
 
 type LooseComp = React.ComponentType<Record<string, unknown>>;
 const LazyDocumentVault = LazyDocumentVaultStrict as unknown as LooseComp;
-const LazyRealEstateSeizurePostApprovalModal =
-    LazyRealEstateSeizurePostApprovalModalStrict as unknown as LooseComp;
 const LazyExecutionDecisionsModalContainer =
     LazyExecutionDecisionsModalContainerStrict as unknown as LooseComp;
 
@@ -72,54 +68,6 @@ export function ExecutionDashboardHeavyModalsEarlyDocumentsDecisions({
                     />
                 </Suspense>
             )}
-
-            {s.showRealEstateSeizureModal ? (
-                <Suspense
-                    fallback={
-                        <ExecutionNamedOverlayInstantFrame
-                            title="بيانات حجز العقار — بعد موافقة المنفذ"
-                            onClose={() => {
-                                if (typeof s.onCloseRealEstateSeizureModal === 'function') {
-                                    (s.onCloseRealEstateSeizureModal as () => void)();
-                                    return;
-                                }
-                                if (typeof s.setShowRealEstateSeizureModal === 'function') {
-                                    (s.setShowRealEstateSeizureModal as (v: boolean) => void)(
-                                        false,
-                                    );
-                                }
-                                if (typeof s.setRealEstateSeizureModalDecisionId === 'function') {
-                                    (
-                                        s.setRealEstateSeizureModalDecisionId as (
-                                            v: null,
-                                        ) => void
-                                    )(null);
-                                }
-                            }}
-                        />
-                    }
-                >
-                    <LazyRealEstateSeizurePostApprovalModal
-                        open={s.showRealEstateSeizureModal}
-                        onOpenChange={(open: boolean) => {
-                            if (open) {
-                                s.setShowRealEstateSeizureModal(true);
-                                return;
-                            }
-                            if (typeof s.onCloseRealEstateSeizureModal === 'function') {
-                                s.onCloseRealEstateSeizureModal();
-                            } else {
-                                s.setShowRealEstateSeizureModal(false);
-                                s.setRealEstateSeizureModalDecisionId(null);
-                            }
-                        }}
-                        decisionId={String(s.realEstateSeizureModalDecisionId || '')}
-                        initial={s.realEstateModalInitial}
-                        disabled={s.isHistoricalMode}
-                        onSave={s.saveRealEstateSeizureFromModal}
-                    />
-                </Suspense>
-            ) : null}
 
             {s.showDecisionsModal ? (
                 <Suspense
@@ -221,7 +169,7 @@ export function ExecutionDashboardHeavyModalsEarlyDocumentsDecisions({
                             s.setActiveCoerciveActions(next)
                         }
                         evictionExecutorWorkflow={
-                            s.isEvictionExecutionModule
+                            s.isEvictionExecutionModule && s.executorApprovalActions
                                 ? {
                                       dossierId: String(
                                           s.executionData?.id ?? s.executionId ?? s.file?.id ?? 'default'

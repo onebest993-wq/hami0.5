@@ -17,6 +17,7 @@ export function useExecutionFollowupModalTabNavigation(args: {
     followupModalTabs: Array<{ id: string }> | unknown;
     followupModalSectionTabsRef: RefObject<HTMLElement | null> | unknown;
     openSeizureRequestsTab: (() => void) | unknown;
+    dossierKeepAliveKey?: string | unknown;
 }) {
     const {
         unifiedModalTab,
@@ -28,6 +29,7 @@ export function useExecutionFollowupModalTabNavigation(args: {
         followupModalTabs: followupModalTabsRaw,
         followupModalSectionTabsRef,
         openSeizureRequestsTab,
+        dossierKeepAliveKey,
     } = args;
 
     const followupModalTabs = Array.isArray(followupModalTabsRaw)
@@ -94,7 +96,10 @@ export function useExecutionFollowupModalTabNavigation(args: {
             }),
         [localUnifiedModalTab, showPersonal, hideFollowupCoerciveTab, followupSectionTabOrder],
     );
-    const panelsToRender = useFollowupModalTabKeepAlive(activePanelKey);
+    const panelsToRender = useFollowupModalTabKeepAlive(
+        activePanelKey,
+        String(dossierKeepAliveKey ?? '').trim() || undefined,
+    );
 
     const scrollFollowupChipIntoView = useCallback(
         (tabId: string) => {
@@ -102,7 +107,7 @@ export function useExecutionFollowupModalTabNavigation(args: {
                 const host = sectionTabsRef?.current;
                 if (!host) return;
                 const chip = host.querySelector(`[data-followup-tab="${String(tabId)}"]`) as HTMLElement | null;
-                chip?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+                chip?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
             });
         },
         [sectionTabsRef, queueMicro],

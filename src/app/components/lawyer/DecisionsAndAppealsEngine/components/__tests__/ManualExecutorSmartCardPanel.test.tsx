@@ -70,7 +70,7 @@ describe('ManualExecutorSmartCardPanel — grievance_pending', () => {
         expect(
             screen.getByLabelText('تاريخ إصدار قرار التظلم (معيار بدء احتساب مهلة التمييز)')
         ).toBeInTheDocument();
-        expect(screen.getByText(/سجّل نتيجة قرار المنفذ:/)).toBeInTheDocument();
+        expect(screen.getByText(/مقدّم التظلم: الدائن/)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /^قبول التظلم$/ })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /^رد التظلم$/ })).toBeInTheDocument();
     });
@@ -179,7 +179,7 @@ describe('ManualExecutorSmartCardPanel — cassation_unlocked', () => {
 
         renderPanel(unlocked);
 
-        expect(screen.getByText(/آخر موعد ل/)).toBeInTheDocument();
+        expect(screen.queryByText(/آخر موعد ل/)).not.toBeInTheDocument();
         expect(
             screen.queryByLabelText('تاريخ إصدار قرار التظلم (معيار بدء احتساب مهلة التمييز)')
         ).not.toBeInTheDocument();
@@ -257,19 +257,19 @@ describe('ManualExecutorSmartCardPanel — مسار أولي', () => {
             })
         );
         expect(screen.queryByRole('button', { name: /تسجيل الطعن/ })).not.toBeInTheDocument();
-        expect(screen.getByText(/سجّل نتيجة قرار المنفذ:/)).toBeInTheDocument();
+        expect(screen.getByText(/مقدّم التظلم: الدائن/)).toBeInTheDocument();
     });
 
-    it('يعرض خيار التظلم والتمييز مع آخر موعد عند فتح النموذج', () => {
+    it('يعرض خيار التظلم والتمييز دون تلميح آخر موعد عند فتح النموذج', () => {
         renderPanel(baseDecision());
         fireEvent.click(screen.getByRole('button', { name: /تسجيل الطعن/ }));
 
-        expect(screen.getByText(/آخر موعد ل/)).toBeInTheDocument();
+        expect(screen.queryByText(/آخر موعد ل/)).not.toBeInTheDocument();
         expect(screen.getByRole('button', { name: /تظلم أمام المنفذ/ })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /تمييز أمام الاستئناف/ })).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: /تمييز أمام الاستئناف/ }));
-        expect(screen.getByText(/آخر موعد ل/)).toBeInTheDocument();
+        expect(screen.queryByText(/آخر موعد ل/)).not.toBeInTheDocument();
         expect(screen.getByRole('button', { name: /تمييز أمام الاستئناف/ })).toHaveClass(
             'text-[#E6C673]'
         );

@@ -4,6 +4,7 @@ import type { JudgmentModalStyles } from './smartFile/smartModalChrome';
 export type AppealTransitionModalFooterProps = {
     s: JudgmentModalStyles;
     isOpponentRegistration: boolean;
+    submitLabel?: string;
     onSubmit: () => void;
     onClose: () => void;
 };
@@ -11,6 +12,7 @@ export type AppealTransitionModalFooterProps = {
 export function AppealTransitionModalFooter({
     s,
     isOpponentRegistration,
+    submitLabel,
     onSubmit,
     onClose,
 }: AppealTransitionModalFooterProps) {
@@ -22,7 +24,7 @@ export function AppealTransitionModalFooter({
                     onClick={onSubmit}
                     className={`min-h-[50px] w-full rounded-xl font-bold text-sm transition-colors ${s.btnPrimary}`}
                 >
-                    {isOpponentRegistration ? 'تسجيل الطعن' : 'تأكيد الانتقال'}
+                    {submitLabel ?? (isOpponentRegistration ? 'تسجيل الطعن' : 'تأكيد الانتقال')}
                 </button>
                 <button
                     type="button"

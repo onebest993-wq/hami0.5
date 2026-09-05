@@ -19,7 +19,7 @@ export function AppearanceFramedContainerBorderRow({
 
     return (
         <div
-            className="hami-appearance-framed-toggle-row mb-3 min-h-[44px] touch-manipulation"
+            className="hami-appearance-framed-toggle-row mb-2 min-h-[44px] touch-manipulation"
             data-testid="appearance-block-container-border-row"
             onPointerDown={activateRow}
             onClick={(event) => {

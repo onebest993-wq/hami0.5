@@ -1,13 +1,12 @@
 import React, { Suspense } from 'react';
-import { loadSettingsOverlayEntry } from '@/app/runtime/settingsOverlayEntryLoader';
-import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
+import {
+    LazySettingsOverlayEntry,
+    loadSettingsOverlayEntry,
+} from '@/app/runtime/settingsOverlayEntryLoader';
+import { SettingsInstantPaintCover } from '@/app/components/lawyer/dashboard/SettingsInstantPaintCover';
 import type { LawyerDashboardSettingsFeature } from '@/app/components/lawyer/dashboard/createBootChromeFeatureStubs';
 
-const LazySettingsOverlayEntry = lazyWithRetry(() =>
-    loadSettingsOverlayEntry().then((m) => ({
-        default: m.LawyerDashboardSettingsOverlayEntry as unknown as LazyComponent,
-    })),
-);
+export { loadSettingsOverlayEntry };
 
 type LawyerDashboardSettingsOverlayPortalProps = {
     settingsFeature: LawyerDashboardSettingsFeature;
@@ -18,6 +17,7 @@ type LawyerDashboardSettingsOverlayPortalProps = {
 
 /**
  * بوابة الإعدادات خارج MainView — الطلاء الفوري في DOM يغطي انتظار المقطع.
+ * بعد التسخين تُرسم مباشرة بلا إطار React.lazy.
  */
 export function LawyerDashboardSettingsOverlayPortal({
     settingsFeature,
@@ -28,8 +28,10 @@ export function LawyerDashboardSettingsOverlayPortal({
     const live = settingsFeature.showSettings || settingsFeature.settingsHostMounted;
     if (!live) return null;
 
+    void loadSettingsOverlayEntry();
+
     return (
-        <Suspense fallback={null}>
+        <Suspense fallback={<SettingsInstantPaintCover />}>
             <LazySettingsOverlayEntry
                 shell={{
                     userId,

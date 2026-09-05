@@ -1,8 +1,8 @@
 import { memo } from 'react';
 import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
-import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { QuestionCard } from './QuestionCard';
+import { ForumLazySectionInstantSlots } from './ForumLazySectionInstantSlots';
 import { useForumFeedWindow } from '../hooks/useForumFeedWindow';
 import {
     FORUM_CONTENT_COLUMN,
@@ -64,37 +64,35 @@ export const ForumPostList = memo(function ForumPostList({
 
     if (visiblePosts.length === 0) {
         return (
-            <div className={`${FORUM_CONTENT_COLUMN} pb-28 space-y-4`} data-testid="forum-post-list">
-                <div
-                    className="pt-16 pb-8 flex flex-col items-center justify-end text-center px-3"
-                    data-testid={loadingPosts ? undefined : 'forum-post-empty'}
-                >
-                    {loadingPosts ? (
-                        <p className={`${FORUM_TEXT_MUTED} text-sm`}>جاري تحميل المنشورات…</p>
-                    ) : (
+            <div
+                className={`${FORUM_CONTENT_COLUMN} pb-24 space-y-3`}
+                data-testid="forum-post-list"
+                aria-busy={loadingPosts || undefined}
+            >
+                {loadingPosts ? (
+                    <ForumLazySectionInstantSlots framed={false} />
+                ) : (
+                    <div
+                        className="flex flex-col items-center justify-end px-3 pb-6 pt-12 text-center"
+                        data-testid="forum-post-empty"
+                    >
                         <p className={`${FORUM_TEXT_MUTED} text-sm max-w-xs`}>
                             {emptyHint ?? 'لا منشورات بعد — اطرح أول استشارة من زر النشر.'}
                         </p>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
         );
     }
 
     return (
-        <div className={`${FORUM_CONTENT_COLUMN} pb-4 space-y-4`} data-testid="forum-post-list">
-            {loadingPosts && visiblePosts.length === 0 ? (
-                <div className="flex items-center justify-center gap-2 py-1 text-[#E6C673]/50 text-[11px] font-bold">
-                    <Loader2 size={14} className="animate-spin shrink-0" aria-hidden />
-                    <span>جاري التحديث...</span>
-                </div>
-            ) : null}
+        <div className={`${FORUM_CONTENT_COLUMN} pb-4 space-y-3`} data-testid="forum-post-list">
             {windowedPosts.map((post, index) => (
                 <div
                     key={post.id}
                     style={
                         index > 1
-                            ? { contentVisibility: 'auto', containIntrinsicSize: '0 420px' }
+                            ? { contentVisibility: 'auto', containIntrinsicSize: '0 280px' }
                             : undefined
                     }
                 >
@@ -137,23 +135,15 @@ export const ForumPostList = memo(function ForumPostList({
                         type="button"
                         onClick={() => void onLoadMore()}
                         disabled={loadingMore}
-                        className={`flex items-center gap-2 px-6 py-3 text-sm font-bold transition-all ${
+                        className={`flex min-h-[44px] items-center gap-2 px-6 py-3 text-sm font-bold transition-all touch-manipulation ${
                             loadingMore
                                 ? FORUM_PUBLISH_BTN_DISABLED + ' rounded-xl'
                                 : FORUM_GHOST_BTN + ' ' + FORUM_INTERACT_BTN
                         }`}
+                        aria-busy={loadingMore || undefined}
                     >
-                        {loadingMore ? (
-                            <>
-                                <Loader2 size={16} className="animate-spin" />
-                                جاري التحميل...
-                            </>
-                        ) : (
-                            <>
-                                <span>تحميل المزيد</span>
-                                <ChevronDown size={16} />
-                            </>
-                        )}
+                        <span>تحميل المزيد</span>
+                        {loadingMore ? null : <ChevronDown size={16} />}
                     </button>
                 </div>
             )}

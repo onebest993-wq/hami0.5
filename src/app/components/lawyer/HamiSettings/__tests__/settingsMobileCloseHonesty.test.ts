@@ -12,9 +12,13 @@ describe('settings mobile close honesty', () => {
     it('الطبقة تقفل التمرير وتتبع overlay-safe وإيماءة الحافة', () => {
         const host = read('src/app/components/lawyer/HamiSettings/HamiSettingsHost.tsx');
         expect(host).toContain('useBodyScrollLock(layerOpen)');
-        expect(host).toContain('data-hami-overlay-safe');
-        expect(host).toContain('100dvh');
-        expect(host).toContain('overscroll-none');
+        expect(host).toContain('adoptSettingsOverlayHostNode');
+        expect(host).toContain('syncSettingsOverlayHostAppearance');
+        const constants = read('src/app/runtime/settingsInstantPaintConstants.ts');
+        expect(constants).toContain('h-[100dvh]');
+        expect(constants).toContain('overscroll-none');
+        const adopt = read('src/app/runtime/settingsInstantPaintHostAdopt.ts');
+        expect(adopt).toContain('data-hami-overlay-safe');
         const edge = read('src/app/runtime/overlayEdgeBackGesture.ts');
         expect(edge).toContain("'data-hami-settings-open'");
         const trap = read(

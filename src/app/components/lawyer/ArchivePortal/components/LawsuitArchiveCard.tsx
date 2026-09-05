@@ -8,20 +8,17 @@ import { buildLawsuitWorkspacePin } from '@/app/workspace/lawsuitWorkspacePin';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { resolveLawsuitJurisdiction } from '@/app/domain/lawsuit/lawsuitJurisdiction';
 import {
-    isLawsuitDefendantRecord,
-    isLawsuitPlaintiffRecord,
     normalizeLawsuitPartyRoleLabel,
+    partitionLawsuitPartiesByRole,
 } from '@/app/domain/lawsuit/lawsuitPartyRole';
 import { resolveLawsuitArchiveHearingDisplay } from '../utils/lawsuitArchiveHearing';
 import {
     ArchiveDossierIdentityBlock,
     type ArchivePartySnippet,
 } from './ArchiveDossierIdentityBlock';
-import {
-    UnifiedDossierCard,
-    type DossierKind,
-    type UnifiedDossierFooterIcon,
-} from './UnifiedDossierCard';
+import { UnifiedDossierCard } from './UnifiedDossierCard';
+import { LAWSUIT_VAULT_TEST_IDS } from '@/app/components/lawyer/smart-modal/smartFile/lawsuitVaultTestIds';
+import { linkedDossierClusterRoleLabel } from '../groupLinkedLawsuitArchiveFiles';
 
 type LawsuitCardVariant = 'active' | 'trash' | 'archived';
 
@@ -36,6 +33,8 @@ interface LawsuitArchiveCardProps {
     selected?: boolean;
     onToggleSelect?: () => void;
     testIdPrefix?: string;
+    /** دور داخل عنقود مترابط في المخزن */
+    clusterRole?: 'base' | 'independent' | 'linked';
 }
 
 function partyName(p?: Record<string, unknown>): string {
@@ -56,16 +55,44 @@ function toSnippet(
     };
 }
 
-/** أوّل مدعي وأوّل مدعى عليه مع المركز القانوني وعلامة الموكل */
+/** أوّل مستأنف/مدعي وأوّل مستأنف عليه/مدعى عليه — بلا تكرار نفس الطرف على العمودين */
 function extractPrimaryParties(parties: unknown): {
     plaintiff: ArchivePartySnippet | null;
     defendant: ArchivePartySnippet | null;
 } {
     const list = Array.isArray(parties) ? (parties as Array<Record<string, unknown>>) : [];
-    const plaintiff =
-        toSnippet(list.find(isLawsuitPlaintiffRecord), 'المدعي') || toSnippet(list[0], 'المدعي');
-    const defendant = toSnippet(list.find(isLawsuitDefendantRecord), 'المدعى عليه');
-    return { plaintiff, defendant };
+    const { plaintiffs, defendants } = partitionLawsuitPartiesByRole(list);
+
+    const plaintiffParty = plaintiffs[0];
+    const defendantParty =
+        defendants.find((p) => String(p.id ?? '') !== String(plaintiffParty?.id ?? ''))
+        ?? defendants[0];
+
+    const plaintiff = toSnippet(plaintiffParty, 'المدعي');
+    const defendant = toSnippet(
+        defendantParty && plaintiffParty && String(defendantParty.id ?? '') === String(plaintiffParty.id ?? '')
+            ? undefined
+            : defendantParty,
+        'المدعى عليه',
+    );
+
+    /*
+     * إن وُجد طرف واحد فقط: لا تملأ العمود الثاني بنفس الشخص عبر fallback list[0].
+     * إن وُجد طرفان بلا تصنيف: افصل بالترتيب (يمين/يسار أو [0]/[1]).
+     */
+    if (plaintiff && defendant) return { plaintiff, defendant };
+    if (plaintiff && !defendant) return { plaintiff, defendant: null };
+    if (!plaintiff && defendant) return { plaintiff: null, defendant };
+
+    if (list.length >= 2) {
+        const a = toSnippet(list[0], 'المدعي');
+        const b = toSnippet(list[1], 'المدعى عليه');
+        if (a && b && a.name === b.name && String(list[0]?.id) === String(list[1]?.id)) {
+            return { plaintiff: a, defendant: null };
+        }
+        return { plaintiff: a, defendant: b };
+    }
+    return { plaintiff: toSnippet(list[0], 'المدعي'), defendant: null };
 }
 
 export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
@@ -79,6 +106,7 @@ export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
     selected,
     onToggleSelect,
     testIdPrefix,
+    clusterRole,
 }) => {
     const status = file.smartStatus;
     const row = file;
@@ -181,15 +209,29 @@ export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
                 type="button"
                 role="checkbox"
                 aria-checked={selected}
+                aria-label={selected ? 'إلغاء تحديد الإضبارة' : 'تحديد الإضبارة للحذف النهائي'}
+                title={selected ? 'إلغاء التحديد' : 'تحديد للحذف النهائي'}
                 data-testid={actionTestId('select')}
                 onClick={(event) => {
                     event.stopPropagation();
                     onToggleSelect();
                 }}
-                data-dossier-card-actions
-                className="absolute top-3 right-3 z-30 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-white/25 bg-black/40 touch-manipulation"
+                className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border touch-manipulation ${
+                    selected
+                        ? 'border-[#E6C673]/50 bg-[#E6C673]/16 text-[#E6C673]'
+                        : 'border-white/20 bg-white/[0.05] text-white/55 hover:border-white/35 hover:text-white/80'
+                }`}
             >
-                {selected ? <span className="text-[#d4af37] text-xs font-bold">✓</span> : null}
+                {selected ? (
+                    <span className="text-xs font-black" aria-hidden>
+                        ✓
+                    </span>
+                ) : (
+                    <span
+                        className="h-3.5 w-3.5 rounded-[3px] border border-current opacity-80"
+                        aria-hidden
+                    />
+                )}
             </button>
         ) : null;
 
@@ -228,6 +270,22 @@ export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
     return (
         <UnifiedDossierCard
             kind={kind}
+            relationBadge={
+                clusterRole
+                    ? {
+                          label: linkedDossierClusterRoleLabel(clusterRole),
+                          testId: fileKey
+                              ? `${LAWSUIT_VAULT_TEST_IDS.linkedDossierRole}-${fileKey}`
+                              : undefined,
+                          className:
+                              clusterRole === 'base'
+                                  ? 'border-[#E6C673]/45 bg-[#E6C673]/14 text-[#F3E4B8]'
+                                  : clusterRole === 'independent'
+                                    ? 'border-indigo-400/40 bg-indigo-500/12 text-indigo-100'
+                                    : 'border-white/15 bg-white/[0.06] text-white/70',
+                      }
+                    : undefined
+            }
             statusBadge={statusBadge}
             pinNode={
                 pinPayload ? (

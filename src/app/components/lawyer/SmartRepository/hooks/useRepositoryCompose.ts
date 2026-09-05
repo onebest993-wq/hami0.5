@@ -3,18 +3,17 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
-import { saveFileToVault } from '@/app/services/vaultUploadService';
 import type { DossierLawArticleRichEditorHandle } from '@/app/components/lawyer/dossier-notes/DossierLawArticleRichEditor';
 import { REPOSITORY_ACTION_CATEGORY } from '@/app/services/vaultCustomCategories';
 import { useWorkspaceStore } from '@/app/stores/workspaceStore';
 import { buildNoteWorkspacePin } from '@/app/workspace/workspacePinBuilders';
-import { sanitizeRichNoteHtml } from '../legalRichTextEditorUtils';
 import { stripRepositoryHtml } from '@/app/services/repository/stripRepositoryHtml';
 import type { useSmartVault } from '@/app/components/lawyer/hooks/useSmartVault';
 import { useRepositoryComposeDossier } from './useRepositoryComposeDossier';
 import { useRepositoryComposeVoice } from './useRepositoryComposeVoice';
 import { COMPOSE_SAVE_BLOCK_TOAST, resolveComposeSaveBlock } from './repositoryComposeSaveRules';
-import { buildRepositoryComposeNote } from './buildRepositoryComposeNote';
+import { discardOrphanComposeAttachment } from './discardOrphanComposeAttachment';
+import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
 
 type VaultApi = Pick<
     ReturnType<typeof useSmartVault>,
@@ -62,6 +61,7 @@ export function useRepositoryCompose({
     const [saving, setSaving] = useState(false);
     const editorRef = useRef<DossierLawArticleRichEditorHandle>(null);
     const attachInputRef = useRef<HTMLInputElement>(null);
+    const savingRef = useRef(false);
     const { handleLinkGlobalToDossier, handleBindVaultDoc } = useRepositoryComposeDossier({
         currentUserId,
         lawsuitFiles,
@@ -93,21 +93,34 @@ export function useRepositoryCompose({
     }, []);
 
     const handleComposeSave = useCallback(async () => {
-        const latestHtml = editorRef.current?.getHtml() ?? bodyHtml;
-        const safeBody = sanitizeRichNoteHtml(latestHtml);
-        const plain = stripRepositoryHtml(safeBody);
-        const block = resolveComposeSaveBlock({ title, plain, attachmentFile });
-        if (block) {
-            SmartToast.error(COMPOSE_SAVE_BLOCK_TOAST[block]);
-            return;
-        }
-
-        setSaving(true);
+        if (savingRef.current) return;
+        savingRef.current = true;
         let attachmentDocId: string | undefined;
+        let notePersisted = false;
         const uid = vault.currentUserId || currentUserId || '';
 
         try {
-            if (attachmentFile && uid) {
+            const latestHtml = editorRef.current?.getHtml() ?? bodyHtml;
+            const [{ sanitizeRichNoteHtml }, { buildRepositoryComposeNote }] = await Promise.all([
+                import('../legalRichTextEditorUtils'),
+                import('./buildRepositoryComposeNote'),
+            ]);
+            const safeBody = sanitizeRichNoteHtml(latestHtml);
+            const plain = stripRepositoryHtml(safeBody);
+            const block = resolveComposeSaveBlock({
+                title,
+                plain,
+                attachmentFile,
+                hasSession: Boolean(uid),
+            });
+            if (block) {
+                SmartToast.error(COMPOSE_SAVE_BLOCK_TOAST[block]);
+                return;
+            }
+
+            setSaving(true);
+            if (attachmentFile) {
+                const { saveFileToVault } = await import('@/app/services/vaultUploadService');
                 const saved = await saveFileToVault(uid, attachmentFile, {
                     title: title.trim() || attachmentFile.name,
                     lawyerNote: plain || null,
@@ -129,6 +142,7 @@ export function useRepositoryCompose({
             const noteCategory = REPOSITORY_ACTION_CATEGORY.note;
 
             await onSaveNote(note);
+            notePersisted = true;
             if (isPinned) {
                 const pin = buildNoteWorkspacePin(note);
                 if (pin) useWorkspaceStore.getState().pinItem(pin);
@@ -143,8 +157,20 @@ export function useRepositoryCompose({
             );
             resetComposer();
         } catch {
-            SmartToast.error('تعذّر حفظ المسودة');
+            if (!notePersisted) {
+                await discardOrphanComposeAttachment({
+                    docId: attachmentDocId,
+                    uid,
+                    deleteDoc: (id, authorId) => SmartVaultDB.deleteDoc(id, authorId),
+                    refreshDocs: vault.refreshDocs,
+                }).catch(() => undefined);
+                SmartToast.error('تعذّر حفظ المسودة');
+            } else {
+                SmartToast.error('حُفظت المسودة وتعذّر إكمال التثبيت');
+                resetComposer();
+            }
         } finally {
+            savingRef.current = false;
             setSaving(false);
         }
     }, [

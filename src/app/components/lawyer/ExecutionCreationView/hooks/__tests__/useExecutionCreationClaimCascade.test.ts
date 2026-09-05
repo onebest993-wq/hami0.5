@@ -66,4 +66,27 @@ describe('useExecutionCreationClaimCascade', () => {
 
         expect(setSpecificDeliveryItems).toHaveBeenCalledWith([]);
     });
+
+    it('إعادة اختيار نفس التصنيف لا تمسح المطالبة والمبلغ', () => {
+        const setClaimType = vi.fn();
+        const setClaimAmountsByType = vi.fn();
+        const setActiveClaimTypes = vi.fn();
+        const { result } = renderHook(() =>
+            useExecutionCreationClaimCascade(
+                baseParams({ setClaimType, setClaimAmountsByType, setActiveClaimTypes }) as never,
+            ),
+        );
+
+        setClaimType.mockClear();
+        setClaimAmountsByType.mockClear();
+        setActiveClaimTypes.mockClear();
+
+        act(() => {
+            result.current.handleClassificationChange('مدني');
+        });
+
+        expect(setClaimType).not.toHaveBeenCalled();
+        expect(setClaimAmountsByType).not.toHaveBeenCalled();
+        expect(setActiveClaimTypes).not.toHaveBeenCalled();
+    });
 });

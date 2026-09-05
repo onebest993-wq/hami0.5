@@ -9,11 +9,18 @@ export function ExecutionFollowupModalTabPanels({
 }: {
     c: ExecutionFollowupModalPortalController;
 }) {
+    const p = c.panelsToRender;
     return (
         <>
-            <ExecutionFollowupModalPersonalCoercivePanels c={c} />
-            <ExecutionFollowupModalMidPanels c={c} />
-            <ExecutionFollowupModalLatePanels c={c} />
+            {p.has('personal') || p.has('coercive') ? (
+                <ExecutionFollowupModalPersonalCoercivePanels c={c} />
+            ) : null}
+            {p.has('other_party') || p.has('seizure_requests') ? (
+                <ExecutionFollowupModalMidPanels c={c} />
+            ) : null}
+            {p.has('correspondences') || p.has('dossier_controls') || p.has('admin') ? (
+                <ExecutionFollowupModalLatePanels c={c} />
+            ) : null}
         </>
     );
 }

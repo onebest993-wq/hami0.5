@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { AccountSection } from '@/app/components/lawyer/HamiSettings/account/AccountSection';
 import { GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
+import { SettingsSectionActiveProvider } from '@/app/components/lawyer/HamiSettings/settingsSectionActiveContext';
 
 const confirm = vi.fn();
 vi.mock('@/app/components/ui/SmartDialog', () => ({
@@ -81,6 +82,23 @@ describe('AccountSection', () => {
         expect(body).toHaveTextContent('الخصوصية');
         expect(body).toHaveTextContent('الامتثال');
         expect(body).toHaveTextContent('نقابة المحامين العراقيين');
+    });
+
+    it('يغلق وثيقة الحساب عند مغادرة القسم', async () => {
+        function Harness({ active }: { active: boolean }) {
+            return (
+                <SettingsSectionActiveProvider active={active}>
+                    <AccountSection onClose={vi.fn()} />
+                </SettingsSectionActiveProvider>
+            );
+        }
+
+        const { rerender } = render(<Harness active />);
+        fireEvent.click(screen.getByTestId('settings-account-open-terms'));
+        expect(await screen.findByTestId('account-legal-document-sheet')).toBeInTheDocument();
+
+        rerender(<Harness active={false} />);
+        expect(screen.queryByTestId('account-legal-document-sheet')).not.toBeInTheDocument();
     });
 
     it('يطلب تأكيداً قبل تسجيل الخروج', async () => {

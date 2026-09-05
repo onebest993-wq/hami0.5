@@ -1,13 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { planSearchIndexBuild } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/searchIndexBuildPlan';
+import { planSearchIndexBuild, resolveSearchIndexUiFlags } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/searchIndexBuildPlan';
+import { emptyGlobalSearchExtras } from '@/app/services/globalSearchExtrasCache';
+import { computeGlobalSearchIndexKey } from '@/app/services/globalSearchIndexPrepare';
+import type { BuildGlobalSearchIndexInput } from '@/app/services/globalSearchIndex';
+
+function indexKey(overrides: Partial<BuildGlobalSearchIndexInput> = {}): string {
+    return computeGlobalSearchIndexKey({
+        files: [],
+        globalNotes: [],
+        cases: [],
+        userId: 'u1',
+        extras: emptyGlobalSearchExtras(),
+        ...overrides,
+    });
+}
 
 const base = {
     overlayOpen: true,
     cacheKey: 'index-key',
-    extrasReady: false,
-    isLoadingExtras: false,
     activeKey: null,
-    hasFuseInState: false,
     hasCachedIndex: false,
 };
 
@@ -50,7 +61,6 @@ describe('planSearchIndexBuild', () => {
     it('يُطبّق كاش جديد عند تغيّر المفتاح (وصول extras)', () => {
         const plan = planSearchIndexBuild({
             ...base,
-            extrasReady: true,
             hasCachedIndex: true,
             activeKey: 'old-key',
             cacheKey: 'index-key-with-extras',
@@ -64,7 +74,6 @@ describe('planSearchIndexBuild', () => {
     it('يبني من جديد عند تغيّر المفتاح بلا كاش (extras وصلت لأول مرة)', () => {
         const plan = planSearchIndexBuild({
             ...base,
-            extrasReady: true,
             cacheKey: 'index-key-with-extras',
             activeKey: 'index-key-without-extras',
         });
@@ -72,5 +81,116 @@ describe('planSearchIndexBuild', () => {
             steps: [{ type: 'build' }],
             showsBuildingIndicator: true,
         });
+    });
+});
+
+describe('resolveSearchIndexUiFlags', () => {
+    it('يعامل الفهرس البائد كتحميل أثناء إعادة البناء', () => {
+        expect(
+            resolveSearchIndexUiFlags({
+                hasFuse: true,
+                isBuildingIndex: true,
+                appliedKey: 'old-key',
+                cacheKey: 'new-key',
+            }),
+        ).toEqual({ isLoadingIndex: true, isEnrichingIndex: false });
+    });
+
+    it('لا يُظهر تحميلاً إذا المفتاح الحالي مطبّق', () => {
+        expect(
+            resolveSearchIndexUiFlags({
+                hasFuse: true,
+                isBuildingIndex: false,
+                appliedKey: 'k',
+                cacheKey: 'k',
+            }),
+        ).toEqual({ isLoadingIndex: false, isEnrichingIndex: false });
+    });
+
+    it('التحميل الأول بلا fuse', () => {
+        expect(
+            resolveSearchIndexUiFlags({
+                hasFuse: false,
+                isBuildingIndex: true,
+                appliedKey: null,
+                cacheKey: 'k',
+            }),
+        ).toEqual({ isLoadingIndex: true, isEnrichingIndex: false });
+    });
+
+    it('وصول extras لا يخفي نتائج الملفات إن وُجد fuse', () => {
+        const applied = indexKey();
+        const next = indexKey({
+            extras: { ...emptyGlobalSearchExtras(), communityPosts: [{ id: 'p1' } as never] },
+        });
+        expect(applied).not.toBe(next);
+        expect(
+            resolveSearchIndexUiFlags({
+                hasFuse: true,
+                isBuildingIndex: true,
+                appliedKey: applied,
+                cacheKey: next,
+            }),
+        ).toEqual({ isLoadingIndex: false, isEnrichingIndex: true });
+    });
+
+    it('وصول extras بلا fuse يبقى تحميلاً', () => {
+        const applied = indexKey();
+        const next = indexKey({
+            extras: { ...emptyGlobalSearchExtras(), vaultDocs: [{ id: 'd1' } as never] },
+        });
+        expect(
+            resolveSearchIndexUiFlags({
+                hasFuse: false,
+                isBuildingIndex: true,
+                appliedKey: applied,
+                cacheKey: next,
+            }),
+        ).toEqual({ isLoadingIndex: true, isEnrichingIndex: false });
+    });
+
+    it('تغيّر الملفات يبقى تحميلاً حتى مع fuse', () => {
+        const applied = indexKey();
+        const next = indexKey({
+            files: [{ id: 9, type: 'lawsuit', status: 'active' } as BuildGlobalSearchIndexInput['files'][number]],
+        });
+        expect(
+            resolveSearchIndexUiFlags({
+                hasFuse: true,
+                isBuildingIndex: true,
+                appliedKey: applied,
+                cacheKey: next,
+            }),
+        ).toEqual({ isLoadingIndex: true, isEnrichingIndex: false });
+    });
+
+    it('تغيّر عنوان extras بنفس العدد إثراء لا تحميل', () => {
+        const event = {
+            id: 'c1',
+            userId: 'u1',
+            title: 'جلسة أ',
+            date: '2026-08-30',
+            type: 'hearing' as const,
+            createdAt: 't',
+            updatedAt: 't',
+        };
+        const applied = indexKey({
+            extras: { ...emptyGlobalSearchExtras(), calendarEvents: [event] },
+        });
+        const next = indexKey({
+            extras: {
+                ...emptyGlobalSearchExtras(),
+                calendarEvents: [{ ...event, title: 'جلسة ب' }],
+            },
+        });
+        expect(applied).not.toBe(next);
+        expect(
+            resolveSearchIndexUiFlags({
+                hasFuse: true,
+                isBuildingIndex: true,
+                appliedKey: applied,
+                cacheKey: next,
+            }),
+        ).toEqual({ isLoadingIndex: false, isEnrichingIndex: true });
     });
 });

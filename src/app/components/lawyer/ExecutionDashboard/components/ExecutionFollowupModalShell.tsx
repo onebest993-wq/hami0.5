@@ -3,9 +3,13 @@ import { X } from '@/app/components/ui/icons/X';
 import { EXEC_MODAL_Z } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 import {
     EXEC_MODAL_CLOSE_BTN_CLASS,
-    EXEC_MODAL_HEADER_SAFE_TOP,
-    EXEC_MODAL_SHELL_HEIGHT_CLASS,
     EXEC_MODAL_TOUCH_TARGET,
+    EXEC_OVERLAY_HEADER,
+    EXEC_OVERLAY_PHONE_BACKDROP,
+    EXEC_OVERLAY_PHONE_SHEET_XL,
+    EXEC_OVERLAY_SEG_ACTIVE,
+    EXEC_OVERLAY_SEG_IDLE,
+    EXEC_OVERLAY_TITLE,
     execModalKeyboardPadStyle,
 } from '../executionModalMobileShell';
 import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
@@ -13,7 +17,8 @@ import { assignMutableRefCurrent } from '../utils/assignMutableRefCurrent';
 import type { ExecutionFollowupModalPortalController } from '../hooks/useExecutionFollowupModalPortalController';
 import { prefetchExecutionFollowupTab } from '../executionFollowupTabPrefetch';
 import { useExecutionDashboardStore } from '@/app/stores';
-import { registerNativeBackHandler } from '@/app/runtime/nativeBackStack';
+import { useOverlayBackdropArm } from '@/app/hooks/useOverlayBackdropArm';
+import { useOverlayEscapeDismiss } from '@/app/hooks/useOverlayEscapeDismiss';
 
 export function ExecutionFollowupModalShell({
     c,
@@ -43,6 +48,12 @@ export function ExecutionFollowupModalShell({
     } = c;
 
     const [dismissed, setDismissed] = React.useState(false);
+    const storeOpen = useExecutionDashboardStore((s) => s.modals.showUnifiedExecutionModal);
+    const backdropArmed = useOverlayBackdropArm(storeOpen && !dismissed);
+
+    React.useEffect(() => {
+        if (storeOpen) setDismissed(false);
+    }, [storeOpen]);
 
     // كتابة sessionStorage المتزامنة على كل حدث scroll كانت مصدر jank محسوس —
     // نؤجّلها بمهلة قصيرة (آخر موضع يُكتب دائماً، والإغلاق يكتب فورياً في مساره).
@@ -75,47 +86,31 @@ export function ExecutionFollowupModalShell({
         }
     }, [safeCloseFollowupModalPersisted]);
 
-    React.useEffect(() => {
-        const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key !== 'Escape') return;
-            e.preventDefault();
-            e.stopPropagation();
-            forceCloseFollowup();
-        };
-        window.addEventListener('keydown', onKeyDown, true);
-        const unregisterNativeBack = registerNativeBackHandler(() => {
-            forceCloseFollowup();
-            return true;
-        });
-        return () => {
-            window.removeEventListener('keydown', onKeyDown, true);
-            unregisterNativeBack();
-        };
-    }, [forceCloseFollowup]);
-
     const keyboardInset = useMobileKeyboardInset(!dismissed, true);
+
+    useOverlayEscapeDismiss(!dismissed, forceCloseFollowup);
 
     if (dismissed) return null;
 
     return (
         <div
-            className="fixed inset-0 bg-black/75 px-[max(0px,env(safe-area-inset-left))] py-[max(0px,env(safe-area-inset-top))] pb-[max(0px,env(safe-area-inset-bottom))]"
+            className={`${EXEC_OVERLAY_PHONE_BACKDROP} sm:bg-black/75`}
             style={{ zIndex: EXEC_MODAL_Z.unifiedFollowUp, ...execModalKeyboardPadStyle(keyboardInset) }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="execution-followup-modal-title"
             data-testid="execution-followup-modal"
             onClick={(e) => {
+                if (!backdropArmed) return;
                 if (e.target === e.currentTarget) forceCloseFollowup();
             }}
         >
-            <div className="w-full" onClick={(e) => e.stopPropagation()}>
-                <div
-                    className={`relative mx-auto flex w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0A0F1C] shadow-md ${EXEC_MODAL_SHELL_HEIGHT_CLASS}`}
-                >
-                    <div
-                        className={`flex shrink-0 items-center justify-between border-b border-white/10 bg-[#0A0F1C]/98 px-4 py-3 ${EXEC_MODAL_HEADER_SAFE_TOP}`}
-                    >
+            <div className="flex min-h-0 w-full flex-1 flex-col" onClick={(e) => e.stopPropagation()}>
+                <div className={EXEC_OVERLAY_PHONE_SHEET_XL}>
+                    <div className={EXEC_OVERLAY_HEADER}>
+                        <h2 id="execution-followup-modal-title" className={EXEC_OVERLAY_TITLE}>
+                            محضر المتابعة
+                        </h2>
                         <button
                             type="button"
                             data-testid="execution-followup-modal-close"
@@ -124,24 +119,14 @@ export function ExecutionFollowupModalShell({
                                 e.stopPropagation();
                                 forceCloseFollowup();
                             }}
-                            className={`rounded-full text-slate-200/90 transition-all hover:bg-white/10 hover:text-white ${EXEC_MODAL_CLOSE_BTN_CLASS}`}
+                            className={EXEC_MODAL_CLOSE_BTN_CLASS}
                             aria-label="إغلاق محضر المتابعة"
                         >
-                            <X size={20} className="text-white" />
+                            <X size={22} />
                         </button>
-                        <h2
-                            id="execution-followup-modal-title"
-                            className="text-lg font-bold tracking-wide text-amber-200"
-                        >
-                            محضر المتابعة
-                        </h2>
-                        <span className="w-9" aria-hidden />
                     </div>
 
-                    <div
-                        className="shrink-0 border-b border-white/10 bg-[#0A0F1C] px-3 py-2.5"
-                        dir="rtl"
-                    >
+                    <div className="shrink-0 border-b border-white/10 px-3 py-2" dir="rtl">
                         <div
                             ref={(el) => {
                                 assignMutableRefCurrent(followupModalChipTablistRef, el);
@@ -149,16 +134,7 @@ export function ExecutionFollowupModalShell({
                             }}
                             role="tablist"
                             aria-label="أقسام محضر المتابعة"
-                            className="flex w-full items-center gap-1.5 overflow-x-auto whitespace-nowrap scroll-smooth snap-x pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                            onWheelCapture={(e) => {
-                                const el = e.currentTarget;
-                                if (el.scrollWidth <= el.clientWidth) return;
-                                const delta =
-                                    Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-                                if (delta === 0) return;
-                                e.preventDefault();
-                                el.scrollLeft += delta;
-                            }}
+                            className="flex w-full items-center gap-1.5 overflow-x-auto overscroll-x-contain whitespace-nowrap snap-x pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                         >
                             {followupModalTabs.map((tab) => {
                                 const active = activeChipTabId === tab.id;
@@ -169,21 +145,19 @@ export function ExecutionFollowupModalShell({
                                         role="tab"
                                         data-followup-tab={tab.id}
                                         aria-selected={active}
+                                        onPointerDown={() => {
+                                            prefetchExecutionFollowupTab(tab.id);
+                                        }}
                                         onClick={() => {
                                             switchFollowupTab(tab.id);
-                                        }}
-                                        onPointerEnter={() => {
-                                            prefetchExecutionFollowupTab(tab.id);
                                         }}
                                         title={
                                             tab.id === 'personal' && personalTabLockedForEmployee
                                                 ? 'المدين موظف — الخيارات مقفلة حتى فك القفل'
                                                 : undefined
                                         }
-                                        className={`flex shrink-0 snap-start flex-row-reverse items-center gap-1.5 whitespace-nowrap rounded-xl border px-4 py-2.5 text-[11px] font-bold transition-colors ${
-                                            active
-                                                ? 'border-amber-400/35 bg-amber-500/15 text-amber-50'
-                                                : 'border-transparent bg-white/[0.03] text-slate-400 hover:border-white/10 hover:bg-white/[0.06] hover:text-slate-200'
+                                        className={`flex min-h-[44px] shrink-0 snap-start flex-row-reverse items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-[11px] font-bold touch-manipulation ${
+                                            active ? EXEC_OVERLAY_SEG_ACTIVE : EXEC_OVERLAY_SEG_IDLE
                                         }`}
                                     >
                                         {tab.label}
@@ -196,16 +170,16 @@ export function ExecutionFollowupModalShell({
                     <div
                         ref={followupModalBodyScrollRef}
                         onScroll={schedulePersistViewport}
-                        className="min-h-0 flex-1 overflow-y-auto bg-[#0A0F1C] p-4 md:p-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10"
+                        className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#0A0F1C] p-3 sm:p-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10"
                     >
                         {!isSolidaryLiability && debtorsUnified.length > 1 ? (
-                            <div className="sticky top-0 z-[5] border-b border-slate-700/50 bg-[#0B1120] px-2 pt-2 pb-2">
-                                <p className="mb-1 px-1 text-right text-[9px] text-slate-500">
-                                    مدينو الإضبارة — ذمة مستقلة لكل منهم (اختر التبويب قبل الإجراء)
+                            <div className="sticky top-0 z-[5] mb-3 border-b border-white/10 bg-[#0A0F1C] pb-2">
+                                <p className="mb-1 text-right text-[10px] text-slate-500">
+                                    مدينو الإضبارة — ذمة مستقلة لكل منهم
                                 </p>
                                 <div
                                     ref={followupModalDebtorTabsRef}
-                                    className="scrollbar-hide flex gap-1 overflow-x-auto pb-1"
+                                    className="flex gap-1 overflow-x-auto overscroll-x-contain pb-1"
                                 >
                                     {debtorsUnified.map((d, i) => (
                                         <button
@@ -215,10 +189,10 @@ export function ExecutionFollowupModalShell({
                                                 e.stopPropagation();
                                                 setExecutionDebtorTabIndex(i);
                                             }}
-                                            className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold transition-all ${EXEC_MODAL_TOUCH_TARGET} ${
+                                            className={`shrink-0 rounded-xl border px-3 py-2 text-[11px] font-bold ${EXEC_MODAL_TOUCH_TARGET} ${
                                                 executionDebtorTabIndex === i
-                                                    ? 'border-amber-500/50 bg-amber-950/40 text-amber-100'
-                                                    : 'border-slate-600/40 bg-slate-900/60 text-slate-400 hover:border-slate-500/50'
+                                                    ? EXEC_OVERLAY_SEG_ACTIVE
+                                                    : EXEC_OVERLAY_SEG_IDLE
                                             }`}
                                         >
                                             {`مدين ${i + 1}`}
@@ -252,8 +226,8 @@ export function ExecutionFollowupModalShell({
                         ) : null}
 
                         {isSolidaryLiability && debtorsUnified.length >= 1 ? (
-                            <div className="border-b border-amber-500/25 bg-slate-900/50 px-3 py-2">
-                                <p className="mb-2 text-right text-[10px] font-bold text-amber-200/90">
+                            <div className="mb-3 border-b border-white/10 pb-2">
+                                <p className="mb-2 text-right text-[10px] font-bold text-slate-300">
                                     تضامن — عرض موحّد لجميع المدينين
                                 </p>
                                 <ul className="mb-2 space-y-1 text-right text-[11px] text-slate-300">

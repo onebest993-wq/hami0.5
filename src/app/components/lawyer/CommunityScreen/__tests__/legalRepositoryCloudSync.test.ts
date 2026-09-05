@@ -3,29 +3,18 @@ import type { RepositoryDocument } from '@/app/services/lawyer-cloud';
 
 const uploadSmartFile = vi.fn();
 const getSignedUrl = vi.fn();
-const saveDocument = vi.fn();
-const deleteDocument = vi.fn();
 const releaseRepositoryBlobUrl = vi.fn();
 
-vi.mock('@/app/services/lawyer-cloud', () => ({
+vi.mock('@/app/services/storage/lawyerStorageRuntime', () => ({
     LawyerStorage: {
         uploadSmartFile: (...args: unknown[]) => uploadSmartFile(...args),
         getSignedUrl: (...args: unknown[]) => getSignedUrl(...args),
-    },
-    RepositoryDB: {
-        saveDocument: (...args: unknown[]) => saveDocument(...args),
-        deleteDocument: (...args: unknown[]) => deleteDocument(...args),
     },
 }));
 
 vi.mock('../repositoryStorageService', () => ({
     releaseRepositoryBlobUrl: (...args: unknown[]) => releaseRepositoryBlobUrl(...args),
-}));
-
-const isLawyerWorkCloudLive = vi.fn(() => true);
-
-vi.mock('@/app/services/settings/lawyerWorkCloudGate', () => ({
-    isLawyerWorkCloudLive: () => isLawyerWorkCloudLive(),
+    purgeRepositoryLocalFile: (...args: unknown[]) => releaseRepositoryBlobUrl(...args),
 }));
 
 import { syncRepositoryDocumentToCloud } from '../legalRepositoryCloudSync';
@@ -51,100 +40,70 @@ describe('syncRepositoryDocumentToCloud', () => {
     beforeEach(() => {
         uploadSmartFile.mockReset();
         getSignedUrl.mockReset();
-        saveDocument.mockReset();
-        deleteDocument.mockReset();
         releaseRepositoryBlobUrl.mockReset();
-        isLawyerWorkCloudLive.mockReset().mockReturnValue(true);
-        uploadSmartFile.mockResolvedValue({ path: 'cloud/a.pdf' });
+        uploadSmartFile.mockResolvedValue({ path: 'u1/repository/a.pdf' });
         getSignedUrl.mockResolvedValue('https://signed');
-        saveDocument.mockResolvedValue(undefined);
     });
 
     it('لا يرفع إلى السحابة إن حُذف المستند محلياً', async () => {
         const applyCloudDoc = vi.fn();
-        await syncRepositoryDocumentToCloud({
-            savedDoc: sampleDoc(),
-            file: new File(['x'], 'a.pdf', { type: 'application/pdf' }),
-            ownerId: 'u1',
-            isStillPresent: () => false,
-            applyCloudDoc,
-        });
+        await expect(
+            syncRepositoryDocumentToCloud({
+                savedDoc: sampleDoc(),
+                file: new File(['x'], 'a.pdf', { type: 'application/pdf' }),
+                ownerId: 'u1',
+                isStillPresent: () => false,
+                applyCloudDoc,
+            }),
+        ).rejects.toThrow('cloud-aborted');
         expect(uploadSmartFile).not.toHaveBeenCalled();
-        expect(saveDocument).not.toHaveBeenCalled();
         expect(applyCloudDoc).not.toHaveBeenCalled();
     });
 
-    it('لا يحفظ في المخزن إن حُذف أثناء الرفع', async () => {
+    it('لا يطبّق المسار السحابي إن حُذف أثناء الرفع', async () => {
         let present = true;
         uploadSmartFile.mockImplementation(async () => {
             present = false;
-            return { path: 'cloud/a.pdf' };
+            return { path: 'u1/repository/a.pdf' };
         });
         const applyCloudDoc = vi.fn();
-        await syncRepositoryDocumentToCloud({
-            savedDoc: sampleDoc(),
-            file: new File(['x'], 'a.pdf', { type: 'application/pdf' }),
-            ownerId: 'u1',
-            isStillPresent: () => present,
-            applyCloudDoc,
-        });
-        expect(saveDocument).not.toHaveBeenCalled();
+        await expect(
+            syncRepositoryDocumentToCloud({
+                savedDoc: sampleDoc(),
+                file: new File(['x'], 'a.pdf', { type: 'application/pdf' }),
+                ownerId: 'u1',
+                isStillPresent: () => present,
+                applyCloudDoc,
+            }),
+        ).rejects.toThrow('cloud-aborted');
         expect(applyCloudDoc).not.toHaveBeenCalled();
     });
 
-    it('يحذف من المخزن إن اكتمل الحفظ السحابي بعد حذف محلي', async () => {
-        saveDocument.mockImplementation(async () => {
-            /* الحفظ نجح بينما المستخدم حذف محلياً */
-        });
-        let present = true;
-        getSignedUrl.mockImplementation(async () => {
-            present = false;
-            return 'https://signed';
-        });
+    it('يرفع إلى السحابة ويعيد مسار المخزن', async () => {
         const applyCloudDoc = vi.fn();
-        await syncRepositoryDocumentToCloud({
-            savedDoc: sampleDoc(),
-            file: new File(['x'], 'a.pdf', { type: 'application/pdf' }),
-            ownerId: 'u1',
-            isStillPresent: () => present,
-            applyCloudDoc,
-        });
-        expect(saveDocument).not.toHaveBeenCalled();
-        expect(deleteDocument).not.toHaveBeenCalled();
-        expect(applyCloudDoc).not.toHaveBeenCalled();
-    });
-
-    it('لا يُبقي المستند في المخزن إن حُذف أثناء saveDocument', async () => {
-        let present = true;
-        saveDocument.mockImplementation(async () => {
-            present = false;
-        });
-        deleteDocument.mockResolvedValue(undefined);
-        const applyCloudDoc = vi.fn();
-        await syncRepositoryDocumentToCloud({
-            savedDoc: sampleDoc(),
-            file: new File(['x'], 'a.pdf', { type: 'application/pdf' }),
-            ownerId: 'u1',
-            isStillPresent: () => present,
-            applyCloudDoc,
-        });
-        expect(saveDocument).toHaveBeenCalled();
-        expect(deleteDocument).toHaveBeenCalledWith('doc-1');
-        expect(applyCloudDoc).not.toHaveBeenCalled();
-    });
-
-    it('لا يرفع إلى السحابة عندما مزامنة العمل مطفأة', async () => {
-        isLawyerWorkCloudLive.mockReturnValue(false);
-        const applyCloudDoc = vi.fn();
-        await syncRepositoryDocumentToCloud({
+        const cloud = await syncRepositoryDocumentToCloud({
             savedDoc: sampleDoc(),
             file: new File(['x'], 'a.pdf', { type: 'application/pdf' }),
             ownerId: 'u1',
             isStillPresent: () => true,
             applyCloudDoc,
         });
-        expect(uploadSmartFile).not.toHaveBeenCalled();
-        expect(saveDocument).not.toHaveBeenCalled();
-        expect(applyCloudDoc).not.toHaveBeenCalled();
+        expect(uploadSmartFile).toHaveBeenCalledWith('u1', expect.any(File), 'repository');
+        expect(cloud.storagePath).toBe('u1/repository/a.pdf');
+        expect(applyCloudDoc).toHaveBeenCalled();
+        expect(releaseRepositoryBlobUrl).toHaveBeenCalledWith('idb:forum:a');
+    });
+
+    it('يفشل إن تعذّر مسار المخزن', async () => {
+        uploadSmartFile.mockResolvedValueOnce({});
+        await expect(
+            syncRepositoryDocumentToCloud({
+                savedDoc: sampleDoc(),
+                file: new File(['x'], 'a.pdf', { type: 'application/pdf' }),
+                ownerId: 'u1',
+                isStillPresent: () => true,
+                applyCloudDoc: vi.fn(),
+            }),
+        ).rejects.toThrow('cloud-failed');
     });
 });

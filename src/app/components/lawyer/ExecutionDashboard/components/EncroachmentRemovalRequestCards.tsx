@@ -6,7 +6,7 @@ import { EncroachmentMachineryRequestCard } from './encroachmentRemoval/Encroach
 import {
     useEncroachmentDecisionRows,
     useEncroachmentLatestDecision,
-    useEncroachmentOpenAppeals,
+    useEncroachmentOpenDecisions,
 } from './encroachmentRemoval/encroachmentDecisionHelpers';
 
 export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalRequestCardsProps> = ({
@@ -20,7 +20,7 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
     const { executionId, decisions } = useExecutorDecisions(decisionsStorageExecutionId);
     const decisionRows = useEncroachmentDecisionRows(decisions);
     const latestDecision = useEncroachmentLatestDecision(decisions);
-    const openAppeals = useEncroachmentOpenAppeals(executionId);
+    const openDecisions = useEncroachmentOpenDecisions(executionId);
     const [detailsOpen, setDetailsOpen] = React.useState<Record<string, boolean>>({});
 
     const surveyorRow = latestDecision('surveyor_appointment');
@@ -37,7 +37,7 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
                 setInlineActionGateKey={setInlineActionGateKey}
                 showToast={showToast}
                 onExpenseRecorded={onExpenseRecorded}
-                onOpenAppeals={openAppeals}
+                onOpenDecisions={openDecisions}
                 detailsOpen={detailsOpen}
                 setDetailsOpen={setDetailsOpen}
             />
@@ -51,7 +51,7 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
                     setInlineActionGateKey={setInlineActionGateKey}
                     showToast={showToast}
                     onExpenseRecorded={onExpenseRecorded}
-                    onOpenAppeals={openAppeals}
+                    onOpenDecisions={openDecisions}
                     detailsOpen={detailsOpen}
                     setDetailsOpen={setDetailsOpen}
                 />

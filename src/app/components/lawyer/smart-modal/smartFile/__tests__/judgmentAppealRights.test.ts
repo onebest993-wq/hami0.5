@@ -17,6 +17,7 @@ import {
     resolveAllowedOpponentAppealMethods,
     JUDGMENT_TYPE_WAIVER,
 } from '../judgmentTypes';
+import { stageOutcomeFromFirstInstanceRights } from '../stageOutcomeResolution';
 
 describe('judgmentAppealRights', () => {
     it('excludes extraordinary pleading stages from first-instance classification', () => {
@@ -104,6 +105,18 @@ describe('judgmentAppealRights', () => {
                 'نشطة',
             ),
         ).toBe(false);
+        expect(
+            shouldShowOpponentAppealRegisterButton(
+                {
+                    isPleadingsClosed: true,
+                    awaitingOpponentAppeal: true,
+                    cassationWindowLapsed: true,
+                    stageName: 'بداءة بدرجة أولى',
+                    status: 'active',
+                },
+                'بانتظار الطعن',
+            ),
+        ).toBe(false);
     });
 
     it('detects plaintiff-favorable sealed decisions', () => {
@@ -149,10 +162,16 @@ describe('judgmentAppealRights', () => {
         it('partial loss: both sides may appeal', () => {
             expect(
                 resolveFirstInstanceHadoriAppealRights('رد الدعوى جزئياً', 'المدعي').action,
-            ).toBe('self_appeal');
+            ).toBe('both_paths');
             expect(
                 resolveFirstInstanceHadoriAppealRights('رد الدعوى جزئياً', 'المدعى عليه').action,
-            ).toBe('self_appeal');
+            ).toBe('both_paths');
+            expect(
+                stageOutcomeFromFirstInstanceRights(
+                    resolveFirstInstanceHadoriAppealRights('رد الدعوى جزئياً', 'المدعي'),
+                    'رد الدعوى جزئياً',
+                ),
+            ).toBe('PARTIAL');
         });
 
         it('sulh and waiver finalize without appeal', () => {
@@ -347,6 +366,21 @@ describe('judgmentAppealRights', () => {
             expect(methods).not.toContain('اعتراض غيابي');
         });
 
+        it('offers اعتراض غيابي together with استئناف when first-instance form is mixed', () => {
+            const methods = resolveAllowedOpponentAppealMethods({
+                judgmentForm: 'مختلط',
+                stageName: 'بداءة بدرجة أولى',
+                finalDecision: 'حكم مختلط — بانتظار التبليغ والطعن',
+                partyJudgmentDispositions: [
+                    { partyId: '2', form: 'حضوري' },
+                    { partyId: '3', form: 'غيابي' },
+                ],
+            });
+            expect(methods).toContain('اعتراض غيابي');
+            expect(methods).toContain('استئناف');
+            expect(methods).toContain('تمييز');
+        });
+
         it('hides extraordinary remedies when appellate appeal is allowed', () => {
             const methods = resolveAllowedOpponentAppealMethods({
                 judgmentForm: 'حضوري',
@@ -377,6 +411,16 @@ describe('judgmentAppealRights', () => {
                     judgmentForm: 'حضوري',
                     stageName: 'البداءة',
                     appealRoute: { isFixedFee: true },
+                }),
+            ).toEqual(['تمييز']);
+        });
+
+        it('locks استئناف after the lawyer records appeal-window lapse', () => {
+            expect(
+                resolveAllowedOpponentAppealMethods({
+                    judgmentForm: 'حضوري',
+                    stageName: 'بداءة بدرجة أولى',
+                    appealWindowLapsed: true,
                 }),
             ).toEqual(['تمييز']);
         });
@@ -422,6 +466,21 @@ describe('judgmentAppealRights', () => {
         expect(isClientSelfAppealFinalDecision(fd)).toBe(true);
         expect(shouldShowClientAppealPostJudgmentFooter('المدعي', fd)).toBe(true);
         expect(shouldShowOpponentAppealWatchPostJudgmentFooter('المدعي', fd)).toBe(false);
+    });
+
+    it('post-judgment footer: رد بحق خصم + إلزام آخر = جزئي حتى لو النص لصالح الموكل', () => {
+        const stage = {
+            awaitingOpponentAppeal: true,
+            finalDecision: 'محسومة لصالح الموكل - بانتظار الطعن',
+            partyJudgmentDispositions: [
+                { partyId: '2', form: 'حضوري' as const, operative: 'bound' as const },
+                { partyId: '3', form: 'حضوري' as const, operative: 'released' as const },
+            ],
+        };
+        expect(shouldShowOpponentAppealWatchPostJudgmentFooter('المدعي', stage.finalDecision, stage)).toBe(
+            false,
+        );
+        expect(shouldShowClientAppealPostJudgmentFooter('المدعي', stage.finalDecision, stage)).toBe(true);
     });
 
     it('post-judgment footer: recorded judgment always has merit context', () => {

@@ -37,18 +37,22 @@ export function useRepositoryComposeVoice({
     const handleSaveVoice = useCallback(
         async (payload: Parameters<typeof saveVoiceNoteToNotepad>[0]) => {
             const voiceCategory = REPOSITORY_ACTION_CATEGORY.voice;
-            await saveVoiceNoteToNotepad(payload, {
-                userId: currentUserId,
-                saveNote: (note) =>
-                    onSaveNote({
-                        ...note,
-                        roomId: activeRoomId,
-                        tags: Array.from(new Set([...(note.tags ?? []), voiceCategory])),
-                    }),
-            });
-            vault.addVaultCategory(voiceCategory);
-            vault.setActiveFilter(voiceCategory);
-            setShowVoiceRecorder(false);
+            try {
+                await saveVoiceNoteToNotepad(payload, {
+                    userId: currentUserId,
+                    saveNote: (note) =>
+                        onSaveNote({
+                            ...note,
+                            roomId: activeRoomId,
+                            tags: Array.from(new Set([...(note.tags ?? []), voiceCategory])),
+                        }),
+                });
+                vault.addVaultCategory(voiceCategory);
+                vault.setActiveFilter(voiceCategory);
+                setShowVoiceRecorder(false);
+            } catch {
+                SmartToast.error('تعذّر حفظ التسجيل');
+            }
         },
         [activeRoomId, currentUserId, onSaveNote, vault],
     );

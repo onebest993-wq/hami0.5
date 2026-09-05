@@ -1,37 +1,30 @@
 import React, { memo } from 'react';
-import { Calendar } from '@/app/components/ui/icons/Calendar';
 
 export type SummonsDateAccent = 'gold' | 'indigo' | 'violet' | 'amber' | 'cyan' | 'emerald';
 
 const ACCENT = {
     gold: {
         shell: 'border-[#E6C673]/25 bg-[#E6C673]/[0.06]',
-        icon: 'text-[#E6C673]/90',
         input: 'border-[#E6C673]/35 focus-visible:ring-[#E6C673]/40',
     },
     indigo: {
         shell: 'border-indigo-500/25 bg-indigo-950/15',
-        icon: 'text-indigo-300/85',
         input: 'border-indigo-500/35 focus-visible:ring-indigo-500/50',
     },
     violet: {
         shell: 'border-violet-500/25 bg-violet-950/15',
-        icon: 'text-violet-300/85',
         input: 'border-violet-500/35 focus-visible:ring-violet-500/50',
     },
     amber: {
         shell: 'border-amber-500/25 bg-amber-950/15',
-        icon: 'text-amber-300/85',
         input: 'border-amber-500/35 focus-visible:ring-amber-500/50',
     },
     cyan: {
         shell: 'border-cyan-500/25 bg-cyan-950/15',
-        icon: 'text-cyan-300/85',
         input: 'border-cyan-500/35 focus-visible:ring-cyan-500/50',
     },
     emerald: {
         shell: 'border-emerald-500/25 bg-emerald-950/15',
-        icon: 'text-emerald-300/85',
         input: 'border-emerald-500/35 focus-visible:ring-emerald-500/50',
     },
 } as const;
@@ -69,9 +62,8 @@ export const SummonsInlineDateField = memo(function SummonsInlineDateField({
         >
             <label
                 htmlFor={id}
-                className="mb-2 flex flex-row-reverse items-center gap-2 text-[11px] font-bold text-slate-200"
+                className="mb-2 block text-right text-[11px] font-bold text-slate-200"
             >
-                <Calendar size={14} className={`shrink-0 ${a.icon}`} aria-hidden />
                 {label}
             </label>
             <input

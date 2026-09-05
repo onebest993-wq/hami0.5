@@ -30,7 +30,7 @@ describe('VaultSearchFilterHub', () => {
         await waitFor(() => {
             expect(panel.className).toContain('hami-repository-filter-popover--visible');
         });
-        expect(screen.getByTestId('repository-filter-deck')).toBeInTheDocument();
+        await waitFor(() => expect(screen.getByTestId('repository-filter-deck')).toBeInTheDocument());
         expect(screen.getByTestId('repository-filter-all')).toBeInTheDocument();
         expect(screen.getByText('نوع المحتوى')).toBeInTheDocument();
     });

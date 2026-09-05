@@ -1,11 +1,16 @@
-import { memo } from 'react';
+import { lazy, memo } from 'react';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { TransactionTask } from '@/app/modules/transactionsThreading/types';
 import type { TransactionsDetailsEscapeSnapshot } from './transactionsEscapeStack';
-import { TaskThreadDialogs } from './taskThread/TaskThreadDialogs';
 import { TaskThreadNodeRenderer } from './taskThread/TaskThreadNodeRenderer';
 import { TaskThreadPathEmptyHint } from './taskThread/TaskThreadPathEmptyHint';
 import { TaskThreadProgressPanel } from './taskThread/TaskThreadProgressPanel';
 import { useTaskThreadController } from './taskThread/useTaskThreadController';
+import { TxLazyIsland } from './TransactionsChunkGuard';
+
+const TaskThreadDialogsLazy = lazy(() =>
+    import('./taskThread/TaskThreadDialogs').then((mod) => ({ default: mod.TaskThreadDialogs })),
+);
 
 export const TaskThreadView = memo(function TaskThreadView({
     transactionId,
@@ -66,8 +71,17 @@ export const TaskThreadView = memo(function TaskThreadView({
                 </div>
             )}
 
-            {(dialogState.editOpen || dialogState.deleteOpen || dialogState.completeOpen) ? (
-                <TaskThreadDialogs state={dialogState} actions={dialogActions} />
+            {dialogState.editOpen || dialogState.deleteOpen || dialogState.completeOpen ? (
+                <TxLazyIsland
+                    onFailed={() => {
+                        dialogActions.resetEdit();
+                        dialogActions.resetDelete();
+                        dialogActions.resetComplete();
+                        SmartToast.error('تعذر فتح الحوار — حاول مرة أخرى');
+                    }}
+                >
+                    <TaskThreadDialogsLazy state={dialogState} actions={dialogActions} />
+                </TxLazyIsland>
             ) : null}
         </div>
     );

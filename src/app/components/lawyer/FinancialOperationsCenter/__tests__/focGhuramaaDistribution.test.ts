@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { buildGhuramaaEqualSplitInputs } from '../focGhuramaaEqualSplit';
 import {
     buildGhuramaaContext,
-    buildGhuramaaEqualSplitInputs,
     computeGhuramaaManualDistribution,
 } from '../focGhuramaaDistribution';
 

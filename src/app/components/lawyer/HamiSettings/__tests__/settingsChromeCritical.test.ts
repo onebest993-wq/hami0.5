@@ -17,6 +17,7 @@ describe('settingsChrome critical layout', () => {
         expect(css).toContain('.hami-setting-glass');
         expect(css).toContain('transition: none');
         expect(css).toContain("html[data-hami-settings-open='1'] [data-hami-lawyer-dashboard]");
+        expect(css).toContain("html[data-hami-settings-closing='1'] [data-hami-lawyer-dashboard]");
         expect(css).toContain("html[data-hami-native='1'][data-hami-settings-open='1'] [data-hami-lawyer-dashboard]");
         expect(css).toContain("html:not([data-hami-settings-open='1']):not([data-hami-settings-closing='1']) .hami-settings-overlay-host");
         expect(css).not.toMatch(
@@ -42,10 +43,12 @@ describe('settingsChrome critical layout', () => {
         expect(css).toContain('@media (min-width: 768px)');
         expect(css).toContain('safe-area-inset-left');
         expect(css).toContain('safe-area-inset-right');
-        expect(css).toContain('@media (min-width: 1024px)');
-        expect(css).toContain('max-width: 42rem');
+        expect(css).not.toContain('@media (min-width: 1024px)');
+        expect(css).not.toContain('max-width: 42rem');
+        expect(css).toContain('width: min(36rem, 100%)');
         expect(css).toContain('.hami-settings-section-frame > [hidden]');
         expect(css).toContain('content-visibility: hidden');
+        expect(css).toContain("data-settings-section-park='1'");
     });
 });
 
@@ -58,10 +61,13 @@ describe('settingsInstantChrome phone/tablet insets', () => {
     it('يحجز safe-area أفقياً للهيدر ولوحة التمرير', () => {
         expect(css).toContain('safe-area-inset-left');
         expect(css).toContain('safe-area-inset-right');
-        expect(css).toContain(':not([data-hami-platform=\'ios\'])');
         expect(css).toContain('backdrop-filter: none');
         expect(css).toContain('min-height: 44px');
-        expect(css).toContain('width: min(100%, 22.5rem)');
+        expect(css).toContain('width: min(100%, 36rem)');
+        expect(css).toContain('border-radius: 0.75rem');
+        expect(css).not.toContain('border-radius: 9999px');
+        expect(css).not.toContain('hami-settings-header--glass');
+        expect(css).not.toContain(':not([data-hami-platform=\'ios\'])');
         expect(css).not.toContain('blur(22px)');
         expect(css).not.toContain('text-shadow');
         expect(css).toContain('.hami-settings-scroll-panel');

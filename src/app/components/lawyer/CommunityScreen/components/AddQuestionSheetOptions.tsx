@@ -4,7 +4,7 @@ import {
     URGENT_CONSULTATION_BADGE,
     URGENT_CONSULTATION_HINT,
     URGENT_CONSULTATION_LABEL,
-} from '../forumUrgentConsultation';
+} from '@/app/services/forum/forumUrgentConsultation';
 import {
     FORUM_OPTION_ROW,
     FORUM_OPTION_ROW_ACTIVE,

@@ -69,7 +69,6 @@ export function useExecutionDashboardCorePipelinesChain({
             claimType,
             creditors,
             debtors,
-            showToast,
             dossierFileKey,
             executionFileKey,
             setShowDecisionsModal,

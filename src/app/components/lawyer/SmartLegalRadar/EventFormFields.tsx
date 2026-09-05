@@ -93,7 +93,7 @@ export const EventFormFields = React.memo(function EventFormFields({
                         setLocalFormData((prev) => ({ ...prev, notes: e.target.value }))
                     }
                     rows={3}
-                    className={`${RADAR_FORM_INPUT} resize-none min-h-[96px]`}
+                    className={`${RADAR_FORM_INPUT} resize-none min-h-[72px]`}
                 />
             </div>
         </>

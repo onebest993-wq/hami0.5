@@ -67,8 +67,7 @@ html[data-hami-tasks-manager-enter='1'] [data-testid='tasks-manager-overlay'],
 html[data-hami-tasks-manager-enter='1'] #hami-tasks-manager-instant-chrome,
 html[data-hami-schedule-enter='1'] [data-testid='lawyer-dashboard-schedule-surface'],
 html[data-hami-settings-enter='1'] .hami-settings-overlay-host,
-html[data-hami-settings-enter='1'] .hami-settings-overlay-layer,
-html[data-hami-settings-enter='1'] #hami-settings-instant-bridge {
+html[data-hami-settings-enter='1'] .hami-settings-overlay-layer {
     will-change: transform, opacity;
     transform: translate3d(0, 8px, 0);
     opacity: 0.78 !important;
@@ -96,6 +95,7 @@ html[data-hami-schedule-open='1'] [data-testid='lawyer-dashboard-schedule-surfac
 
 html[data-hami-forum-closing='1'] [data-testid='forum-overlay-host'],
 html[data-hami-repository-closing='1'] .hami-repository-overlay-layer,
+html[data-hami-repository-closing='1'] #hami-repository-instant-chrome,
 html[data-hami-tasks-manager-closing='1'] [data-testid='tasks-manager-overlay'],
 html[data-hami-tasks-manager-closing='1'] #hami-tasks-manager-instant-chrome,
 html[data-hami-schedule-closing='1'] [data-testid='lawyer-dashboard-schedule-surface'],
@@ -109,7 +109,8 @@ html[data-hami-lawsuits-closing='1'] [data-testid='lawsuits-workspace'] {
         opacity 130ms cubic-bezier(0.4, 0, 1, 1);
 }
 
-html[data-hami-field-tasks-closing='1'] [data-testid='field-tasks-sheet'] {
+html[data-hami-field-tasks-closing='1'] [data-testid='field-tasks-sheet'],
+html[data-hami-field-tasks-closing='1'] [data-field-tasks-instant-sheet] {
     transform: translate3d(0, 100%, 0) !important;
     transition: transform 160ms cubic-bezier(0.4, 0, 1, 1) !important;
 }

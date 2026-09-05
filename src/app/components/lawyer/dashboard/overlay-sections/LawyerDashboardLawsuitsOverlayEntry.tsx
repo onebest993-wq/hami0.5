@@ -9,6 +9,7 @@ import type { LawyerDashboardOverlaysBundleProps } from '@/app/components/lawyer
 import { LawsuitsWorkspaceInstantChrome } from '@/app/components/lawyer/dashboard/LawsuitsWorkspaceInstantChrome';
 import { LazyLawsuitsWorkspaceHost } from '@/app/components/lawyer/dashboard/lawsuitsWorkspaceHostLazy';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { useLawsuitVaultCommitHold } from '@/app/runtime/lawsuitVaultCommitHold';
 
 type Props = Pick<
     LawyerDashboardOverlaysBundleProps,
@@ -29,7 +30,8 @@ export function LawyerDashboardLawsuitsOverlayEntry({
     newCase,
     dossier,
 }: Props): React.ReactElement | null {
-    const visible = overlays.showLawsuitsWorkspace;
+    const vaultCommitHold = useLawsuitVaultCommitHold();
+    const visible = overlays.showLawsuitsWorkspace || vaultCommitHold;
     const closingRef = useRef(false);
     const shouldMount = visible || overlays.lawsuitsHostMounted;
     const lawsuitDossierOpen =

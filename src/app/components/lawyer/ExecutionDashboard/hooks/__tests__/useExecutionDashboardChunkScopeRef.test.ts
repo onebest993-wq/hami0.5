@@ -6,7 +6,7 @@ describe('useExecutionPhoneBodyChunkScopeRef', () => {
     it('syncs showExecutionFinancialHub during render when syncToken changes', () => {
         let sources: Record<string, unknown> = {
             showExecutionFinancialHub: false,
-            showUnifiedSeizureLogModal: false,
+            movableSeizureRequestModalOpen: false,
         };
 
         const { result, rerender } = renderHook(
@@ -19,7 +19,7 @@ describe('useExecutionPhoneBodyChunkScopeRef', () => {
 
         sources = {
             showExecutionFinancialHub: true,
-            showUnifiedSeizureLogModal: false,
+            movableSeizureRequestModalOpen: false,
         };
         rerender({ token: '1' });
 
@@ -28,11 +28,11 @@ describe('useExecutionPhoneBodyChunkScopeRef', () => {
 
         sources = {
             showExecutionFinancialHub: false,
-            showUnifiedSeizureLogModal: true,
+            movableSeizureRequestModalOpen: true,
         };
         rerender({ token: '2' });
 
         expect(result.current.current.showExecutionFinancialHub).toBe(false);
-        expect(result.current.current.showUnifiedSeizureLogModal).toBe(true);
+        expect(result.current.current.movableSeizureRequestModalOpen).toBe(true);
     });
 });

@@ -73,7 +73,6 @@ export const AddTransactionBottomSheet = memo(function AddTransactionBottomSheet
             const tx = await createTransaction({
                 ...sanitized,
                 status: TransactionStatus.Active,
-                agreedFees: 0,
             });
 
             const guide = consumePendingProcedureGuide();

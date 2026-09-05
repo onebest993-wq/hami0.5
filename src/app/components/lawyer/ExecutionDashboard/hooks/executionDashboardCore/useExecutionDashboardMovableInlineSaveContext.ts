@@ -1,6 +1,22 @@
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
+import type { SeizedMovable } from '@/app/types/execution';
 import { requireDecisionsStorageExecutionId } from '@/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId';
-import type { MovableInlineSaveContext } from '@/app/components/lawyer/ExecutionDashboard/utils/movableSeizureInlinePersistence';
+
+/** سياق قراءة/حفظ منقولات محجوزة — بلا سير عمل إكمال */
+export type MovableInlineSaveContext = {
+    dossierId: string;
+    showToast: (message: string, type?: string) => void;
+    readMovables: () => SeizedMovable[];
+    persistMovables: (next: SeizedMovable[]) => boolean;
+    pushTimeline: (event: Record<string, unknown>) => void;
+    nextTimelineId: () => string;
+    onAuctionCalendar?: (input: {
+        dossierId: string;
+        decisionId: string;
+        ymd: string;
+        purpose: string;
+    }) => void;
+};
 
 export type UseExecutionDashboardMovableInlineSaveContextParams = {
     decisionsStorageExecutionId: string;
@@ -62,13 +78,16 @@ export function useExecutionDashboardMovableInlineSaveContext(
             pushTimeline: pushTimelineEvent,
             nextTimelineId,
             onAuctionCalendar: linkSeizureAuctionToAppointments
-                ? (input) =>
+                ? (input) => {
+                      if (typeof pushSeizureAuctionCalendarAppointment !== 'function') return;
                       pushSeizureAuctionCalendarAppointment({
                           dossierId: input.dossierId,
                           decisionId: input.decisionId,
                           ymd: input.ymd,
                           purpose: input.purpose,
-                      })
+                          linkToAppointments: true,
+                      });
+                  }
                 : undefined,
         };
     }, [
@@ -76,6 +95,7 @@ export function useExecutionDashboardMovableInlineSaveContext(
         executionDataRef,
         executionDataId,
         executionId,
+        executionData,
         showToast,
         persistExecutionMerge,
         pushTimelineEvent,

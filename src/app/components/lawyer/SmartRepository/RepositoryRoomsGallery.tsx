@@ -62,15 +62,15 @@ export function RepositoryRoomsGallery({
                 aria-label="معرض الغرف المخصصة"
                 data-testid="repository-rooms-gallery"
                 dir="rtl"
-                className="fixed z-[139] inset-x-3 top-[max(12px,env(safe-area-inset-top))] bottom-[max(12px,env(safe-area-inset-bottom))] sm:inset-auto sm:top-[12%] sm:left-1/2 sm:-translate-x-1/2 sm:w-[min(26rem,92vw)] sm:max-h-[72dvh] sm:bottom-auto flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0A0F1C]"
+                className="fixed z-[139] inset-x-3 top-[max(12px,env(safe-area-inset-top))] bottom-[max(12px,env(safe-area-inset-bottom))] sm:inset-auto sm:top-[12%] sm:left-1/2 sm:-translate-x-1/2 sm:w-[min(26rem,92vw)] sm:max-h-[72dvh] sm:bottom-auto flex flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0A0F1C]"
                 style={
                     keyboardInset > 0
                         ? { paddingBottom: `max(12px, ${keyboardInset}px)` }
                         : undefined
                 }
             >
-                <div className="shrink-0 px-4 pt-3.5 pb-2.5 border-b border-white/[0.07]">
-                    <div className="flex items-start justify-between gap-3 mb-2.5">
+                <div className="shrink-0 px-3 pt-2.5 pb-2 border-b border-white/[0.07]">
+                    <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="min-w-0">
                             <h2 className="text-sm font-medium text-[#F4F4F5]">كل الغرف</h2>
                             <p className="text-[10px] text-white/40 mt-0.5">

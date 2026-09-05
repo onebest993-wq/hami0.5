@@ -6,6 +6,23 @@ import {
 } from '../appealStageFooter';
 
 describe('appealStageFooter', () => {
+    it('hides appeal footer before merit judgment is recorded', () => {
+        const stages = [
+            {
+                id: '2',
+                stageName: 'الاستئناف',
+                status: 'active',
+                isPleadingsClosed: true,
+                finalDecision: null,
+            },
+        ] as CaseStage[];
+
+        expect(resolveAppealStageFooterEligibility(stages[0], 'نشطة', stages)).toEqual({
+            show: false,
+            kind: null,
+        });
+    });
+
     it('shows register opponent cassation when appeal won and waiting', () => {
         const stages = [
             { id: '1', stageName: 'البداءة', status: 'locked' },
@@ -37,6 +54,26 @@ describe('appealStageFooter', () => {
 
         const result = resolveAppealStageFooterEligibility(stages[0], 'نشطة', stages);
         expect(result).toEqual({ show: true, kind: 'file_cassation' });
+    });
+
+    it('LOSS metadata يمنع زر تمييز الخصم حتى لو بقي awaitingOpponentAppeal', () => {
+        const stages = [
+            {
+                id: '2',
+                stageName: 'الاستئناف',
+                status: 'active',
+                isPleadingsClosed: true,
+                finalDecision: 'محسومة — بانتظار التمييز (فسخ)',
+                awaitingOpponentAppeal: true,
+                clientStageOutcome: 'LOSS',
+                decisionDate: '2026-06-18',
+            },
+        ] as CaseStage[];
+
+        expect(resolveAppealStageFooterEligibility(stages[0], 'نشطة', stages)).toEqual({
+            show: true,
+            kind: 'file_cassation',
+        });
     });
 
     it('hides when cassation stage is already active', () => {

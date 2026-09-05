@@ -13,6 +13,8 @@ import {
     buildScopedPartyDeathPersistPatch,
     getPartyDeathCaseForRole,
 } from '@/app/utils/partyDeathCaseScope';
+import { seedHeirsNotificationWorkflow } from './heirsWorkflowUpsert';
+import { dispatchOpenHeirsNotificationCenter } from '@/app/utils/partyDeathUiEvents';
 
 export type { PartyDeathSaveDeps } from './executionDashboardPartyDeathSave.types';
 import type { PartyDeathSaveDeps } from './executionDashboardPartyDeathSave.types';
@@ -36,7 +38,15 @@ export function runPartyDeathSave(payload: PartyDeathSavePayload, deps: PartyDea
         setTimelineEvents,
     } = deps;
 
-            const base = executionDataRef.current ?? executionData;
+            const base = executionDataRef?.current ?? executionData;
+            if (!base) {
+                showToast('تعذّر تسجيل الوفاة — بيانات الإضبارة غير جاهزة.', 'warning');
+                return false;
+            }
+            if (typeof persistExecutionMerge !== 'function' || typeof setTimelineEvents !== 'function') {
+                showToast('تعذّر تسجيل الوفاة — أداة الحفظ غير جاهزة.', 'warning');
+                return false;
+            }
             if (
                 (payload.action === 'heir_substitution' ||
                     payload.action === 'seek_heir' ||
@@ -230,11 +240,23 @@ export function runPartyDeathSave(payload: PartyDeathSavePayload, deps: PartyDea
                 ...mergeExtra,
             };
 
+            if (
+                (payload.action === 'heir_substitution' || payload.action === 'seek_heir') &&
+                storedHeirNames.length > 0
+            ) {
+                mergeBase.heirs_notification_workflow = seedHeirsNotificationWorkflow(
+                    base.heirs_notification_workflow,
+                    storedHeirNames,
+                );
+            }
+
             setTimelineEvents((prev) => {
                 const next = [te, ...prev];
-                persistExecutionMerge({
-                    ...mergeBase,
-                    timelineEvents: next,
+                queueMicrotask(() => {
+                    void persistExecutionMerge({
+                        ...mergeBase,
+                        timelineEvents: next,
+                    });
                 });
                 return next;
             });
@@ -257,6 +279,12 @@ export function runPartyDeathSave(payload: PartyDeathSavePayload, deps: PartyDea
                         heirSubstitutionCompletedAt: now,
                     });
                 }
+                dispatchOpenHeirsNotificationCenter({
+                    executionId: String(
+                        (base as { id?: string }).id ?? decisionsStorageExecutionId ?? '',
+                    ),
+                    heirNames: storedHeirNames,
+                });
             }
             return true;
 

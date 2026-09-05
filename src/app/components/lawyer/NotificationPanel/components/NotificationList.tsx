@@ -24,7 +24,7 @@ export const NotificationList = memo(function NotificationList({
     const { visible, hiddenCount, sentinelRef } = useNotificationListWindow(groupedByTime, ensureId);
 
     return (
-        <div className="space-y-5" data-testid="notification-panel-list">
+        <div className="space-y-3" data-testid="notification-panel-list">
             {BUCKET_ORDER.map((bucket) => {
                 const allCount = groupedByTime[bucket].length;
                 const items = visible[bucket];

@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { CaseStage } from '../../../LawyerShared';
+import type { CaseStage, TimelineEvent } from '../../../LawyerShared';
 import type { SmartFileParentData } from '../../smartFile/parentDataInit';
 import type { JudgmentPayload } from '../../smartFile/judgmentTypes';
 
@@ -28,4 +28,7 @@ export type UseSmartFileJudgmentActionsOptions = {
     setShowJudgmentModal: (v: boolean) => void;
     setShowCrossAppealModal: (v: boolean) => void;
     status: string;
+    setEditingEvent?: (event: TimelineEvent | null) => void;
+    onSpawnIndependentChallengeFile?: (input: import('@/app/domain/lawsuit/independentChallengeDossier').IndependentChallengeSpawnInput) => void;
+    sourceFile?: import('../../../LawyerShared').FileData | null;
 };

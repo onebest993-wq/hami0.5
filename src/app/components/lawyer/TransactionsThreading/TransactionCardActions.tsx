@@ -1,8 +1,5 @@
 import { useCallback } from 'react';
-import { Archive } from '@/app/components/ui/icons/Archive';
-import { ArchiveRestore } from '@/app/components/ui/icons/ArchiveRestore';
-import { RotateCcw } from '@/app/components/ui/icons/RotateCcw';
-import { Trash2 } from '@/app/components/ui/icons/Trash2';
+import { ArchiveIcon, ArchiveRestoreIcon, RotateCcwIcon, TrashIcon } from './transactionsTheme/icons';
 import type { Transaction } from '@/app/modules/transactionsThreading/types';
 import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
@@ -12,7 +9,7 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { TransactionsListStatusFilter } from '@/app/services/transactions/filterTransactionsList';
 
 const TX_CARD_ACTION_BTN =
-    'inline-flex items-center justify-center min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl text-white/55 hover:text-[#F4F4F5] hover:bg-white/[0.06] transition-colors touch-manipulation shrink-0';
+    'inline-flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg text-white/55 hover:text-[#F4F4F5] hover:bg-white/[0.06] touch-manipulation shrink-0';
 
 export function TransactionCardActions({
     transaction,
@@ -68,7 +65,7 @@ export function TransactionCardActions({
     return (
         <div className="flex items-center shrink-0">
             {clusterPin ? (
-                <WorkspacePinButton item={clusterPin} className="!min-w-[44px] !min-h-[44px] !w-11 !h-11" size={16} />
+                <WorkspacePinButton item={clusterPin} className="!min-w-[44px] !min-h-[44px]" size={16} />
             ) : null}
             {showArchiveActions ? (
                 <>
@@ -79,7 +76,7 @@ export function TransactionCardActions({
                         data-testid={`transactions-archive-${transaction.id}`}
                         onClick={() => void onArchive()}
                     >
-                        <Archive size={16} />
+                        <ArchiveIcon className="w-4 h-4" />
                     </button>
                     <button
                         type="button"
@@ -88,7 +85,7 @@ export function TransactionCardActions({
                         data-testid={`transactions-delete-${transaction.id}`}
                         onClick={() => void onDelete()}
                     >
-                        <Trash2 size={16} />
+                        <TrashIcon className="w-4 h-4" />
                     </button>
                 </>
             ) : null}
@@ -100,7 +97,7 @@ export function TransactionCardActions({
                     data-testid={`transactions-restore-archive-${transaction.id}`}
                     onClick={() => void onRestoreFromArchive()}
                 >
-                    <ArchiveRestore size={16} />
+                    <ArchiveRestoreIcon className="w-4 h-4" />
                 </button>
             ) : null}
             {listFilter === 'deleted' ? (
@@ -111,7 +108,7 @@ export function TransactionCardActions({
                     data-testid={`transactions-restore-trash-${transaction.id}`}
                     onClick={() => void onRestoreFromTrash()}
                 >
-                    <RotateCcw size={16} />
+                    <RotateCcwIcon className="w-4 h-4" />
                 </button>
             ) : null}
         </div>

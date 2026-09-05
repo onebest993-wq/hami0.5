@@ -1,8 +1,11 @@
 import { useMemo, useCallback } from 'react';
 
+/** الافتراضي عند فتح إضبارة جديدة — النوع الوحيد المتاح حالياً */
+export const DEFAULT_COURT_JUDGMENT_DOC_TYPE = 'قرارات وأحكام المحاكم';
+
 /** الأنواع المتاحة حالياً لإنشاء إضبارة جديدة */
 export const EXECUTION_DOC_TYPE_OPTIONS: { value: string; label: string }[] = [
-    { value: 'قرارات وأحكام المحاكم', label: 'قرارات المحاكم' },
+    { value: DEFAULT_COURT_JUDGMENT_DOC_TYPE, label: 'قرارات المحاكم' },
 ];
 
 const EXECUTION_DOC_TYPE_LABEL_BY_VALUE: Record<string, string> = {

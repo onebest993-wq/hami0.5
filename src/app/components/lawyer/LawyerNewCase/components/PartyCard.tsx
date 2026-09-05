@@ -62,6 +62,8 @@ export const PartyCard = ({
                         onChange={(e) => onUpdate('name', e.target.value)}
                         placeholder="الاسم الكامل"
                         aria-label={`اسم ${party.status || 'الطرف'}`}
+                        data-testid="lawyer-new-case-party-name"
+                        data-party-side={String(side)}
                         className={`${ncFieldClass(Boolean(hasError) || hasBlockedWord(party.name))} text-base font-medium ${lockNames ? 'opacity-80 cursor-default' : ''}`}
                     />
                 </div>

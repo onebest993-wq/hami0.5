@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import { X } from '@/app/components/ui/icons/X';
-import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import {
     FORUM_GHOST_BTN,
     FORUM_ICON_BTN,
@@ -43,7 +42,7 @@ export const EditPostModal = ({ editingPostId, editingText, onTextChange, onSave
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                         className="fixed inset-0 z-[120] flex items-center justify-center p-[max(0.75rem,env(safe-area-inset-left))] pe-[max(0.75rem,env(safe-area-inset-right))] pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-none"
                     >
-                        <div className={`w-full max-w-xl ${FORUM_MODAL} p-6 pointer-events-auto`}>
+                        <div className={`w-full max-w-xl ${FORUM_MODAL} p-4 pointer-events-auto`}>
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-lg`}>تعديل المنشور</h3>
                                 <button type="button" onClick={onCancel} className={FORUM_ICON_BTN} aria-label="إغلاق التعديل">
@@ -53,7 +52,7 @@ export const EditPostModal = ({ editingPostId, editingText, onTextChange, onSave
                             <textarea
                                 value={editingText}
                                 onChange={(e) => onTextChange(e.target.value)}
-                                className={`w-full h-40 rounded-2xl p-4 resize-none text-sm ${FORUM_SURFACE_INPUT}`}
+                                className={`w-full h-32 rounded-xl p-3 resize-none text-sm ${FORUM_SURFACE_INPUT}`}
                                 placeholder="حدّث نص المنشور..."
                             />
                             <div className="mt-5 flex gap-3">
@@ -72,15 +71,9 @@ export const EditPostModal = ({ editingPostId, editingText, onTextChange, onSave
                                         savingEdit ? FORUM_PUBLISH_BTN_DISABLED : FORUM_PUBLISH_BTN
                                     }`}
                                     disabled={savingEdit}
+                                    aria-busy={savingEdit || undefined}
                                 >
-                                    {savingEdit ? (
-                                        <span className="inline-flex items-center gap-2">
-                                            <Loader2 size={16} className="animate-spin" />
-                                            جاري الحفظ...
-                                        </span>
-                                    ) : (
-                                        'حفظ'
-                                    )}
+                                    حفظ
                                 </button>
                             </div>
                         </div>

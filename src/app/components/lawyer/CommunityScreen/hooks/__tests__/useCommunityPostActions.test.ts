@@ -116,12 +116,14 @@ describe('useCommunityPostActions', () => {
         });
 
         expect(syncPost).toHaveBeenCalled();
-        expect(addNotification).toHaveBeenCalledWith(
-            expect.objectContaining({
-                userId: 'commenter-1',
-                type: 'best_answer',
-            }),
-        );
+        await vi.waitFor(() => {
+            expect(addNotification).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    userId: 'commenter-1',
+                    type: 'best_answer',
+                }),
+            );
+        });
     });
 
     it('لا ينبّه المؤلف إن ميّز تعليقه', async () => {
@@ -143,6 +145,7 @@ describe('useCommunityPostActions', () => {
         await act(async () => {
             await result.current.handleToggleBestAnswer('post-1', 'c1');
         });
+        await Promise.resolve();
 
         expect(addNotification).not.toHaveBeenCalled();
     });

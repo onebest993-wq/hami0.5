@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import {
     blockTasksOverlayEscape,
@@ -8,30 +8,29 @@ import { TasksManagerHeader } from './tasksManager/TasksManagerHeader';
 import { useTasksLifecycle } from '@/app/components/lawyer/dashboard/fieldTasks/useTasksLifecycle';
 import { useQuantumTasksActions } from '@/app/hooks/useQuantumTasksContext';
 import { useAuthSafe } from '@/app/context/authHooks';
-import { DistantTasksSection } from './tasksManager/DistantTasksSection';
-import { FatalDeadlinesSection } from './tasksManager/FatalDeadlinesSection';
-import { TasksManagerModals } from './tasksManager/TasksManagerModals';
 import { WeeklyAgendaSection } from './tasksManager/WeeklyAgendaSection';
-import { CompletedTasksArchiveSection } from './tasksManager/CompletedTasksArchiveSection';
 import { useTasksManagerController } from './tasksManager/useTasksManagerController';
-import { snoozeAfterDays, dateFromYmdInput } from './tasksManager/utils';
-import {
-    TASKS_PAGE,
-    TASKS_BODY,
-} from './tasksManager/tasksBoucleTheme';
+import { TASKS_PAGE, TASKS_BODY } from './tasksManager/tasksBoucleTheme';
 import type { ShareScope } from '@/app/types/taskHelpTypes';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 import type { TaskHelpRequest } from '@/app/types/taskHelpTypes';
+import { TasksManagerOverlays } from './tasksManager/TasksManagerOverlays';
+import { blurFocusWithin } from '@/app/utils/inertProps';
 
-const LazyRequestHelpModal = lazyWithRetry(() =>
-    import('./tasksManager/RequestHelpModal').then((m) => ({
-        default: m.RequestHelpModal as LazyComponent,
+const LazyCompletedTasksArchiveSection = lazyWithRetry(() =>
+    import('./tasksManager/CompletedTasksArchiveSection').then((m) => ({
+        default: m.CompletedTasksArchiveSection as LazyComponent,
     })),
 );
-const LazyTaskHelpInboxPanel = lazyWithRetry(() =>
-    import('./tasksManager/TaskHelpInboxPanel').then((m) => ({
-        default: m.TaskHelpInboxPanel as LazyComponent,
+const LazyFatalDeadlinesSection = lazyWithRetry(() =>
+    import('./tasksManager/FatalDeadlinesSection').then((m) => ({
+        default: m.FatalDeadlinesSection as unknown as LazyComponent,
+    })),
+);
+const LazyDistantTasksSection = lazyWithRetry(() =>
+    import('./tasksManager/DistantTasksSection').then((m) => ({
+        default: m.DistantTasksSection as unknown as LazyComponent,
     })),
 );
 
@@ -41,6 +40,8 @@ export type TasksManagerProps = {
     lawsuitFiles?: unknown[];
     executionFiles?: unknown[];
     keyboardInsetPx?: number;
+    surfaceOpen?: boolean;
+    onPaintReady?: () => void;
 };
 
 export const TasksManager: React.FC<TasksManagerProps> = ({
@@ -49,6 +50,8 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
     lawsuitFiles = [],
     executionFiles = [],
     keyboardInsetPx = 0,
+    surfaceOpen = true,
+    onPaintReady,
 }) => {
     const ctrl = useTasksManagerController({ focusTaskId, lawsuitFiles, executionFiles });
     const { flushPersist } = useQuantumTasksActions();
@@ -59,7 +62,38 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
         auth.user?.email ||
         'محامٍ';
     const [managerHydrated, setManagerHydrated] = useState(false);
-    useTasksLifecycle(true, true, () => setManagerHydrated(true));
+    const handlePaintReady = useCallback(() => {
+        setManagerHydrated(true);
+        onPaintReady?.();
+    }, [onPaintReady]);
+    /** رفع القشرة عند أول تخطيط — لا انتظار storageHydrated ولا احتياطي 1200ms */
+    useLayoutEffect(() => {
+        if (!surfaceOpen) return;
+        handlePaintReady();
+    }, [surfaceOpen, handlePaintReady]);
+    /** ثانوي (حتمي/بعيد/حوار) بعد أول طلاء — لا ينافس مقطع Overlay/TasksManager */
+    useEffect(() => {
+        if (!surfaceOpen || !managerHydrated) return;
+        let idleId: number | null = null;
+        let timeoutId: number | null = null;
+        const warmSecondary = () => {
+            void import('@/app/runtime/fieldTasksHubLoader')
+                .then((m) => m.prefetchTasksManagerSecondarySurfaces())
+                .catch(() => undefined);
+        };
+        if (typeof requestIdleCallback === 'function') {
+            idleId = requestIdleCallback(warmSecondary, { timeout: 2200 });
+        } else {
+            timeoutId = window.setTimeout(warmSecondary, 400);
+        }
+        return () => {
+            if (idleId != null && typeof cancelIdleCallback === 'function') {
+                cancelIdleCallback(idleId);
+            }
+            if (timeoutId != null) window.clearTimeout(timeoutId);
+        };
+    }, [surfaceOpen, managerHydrated]);
+    useTasksLifecycle(surfaceOpen, surfaceOpen);
 
     const handleClose = useCallback(() => {
         onClose();
@@ -76,6 +110,9 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
         node.focus({ preventScroll: true });
     }, [reduceMotion]);
 
+    const requestTaskHelp = ctrl.requestTaskHelp;
+    const updateTask = ctrl.updateTask;
+
     const handleRequestHelpSubmit = useCallback(
         async (params: {
             taskId: string;
@@ -88,7 +125,7 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
                 SmartToast.error('يجب تسجيل الدخول لطلب المساعدة');
                 throw new Error('NO_USER');
             }
-            const created = await ctrl.requestTaskHelp({
+            const created = await requestTaskHelp({
                 taskId: params.taskId,
                 scope: params.scope,
                 requesterId: userId,
@@ -107,31 +144,33 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
                     : 'تم إرسال طلب المساعدة للزميل',
             );
         },
-        [userId, userName, ctrl],
+        [userId, userName, requestTaskHelp],
     );
 
     const syncHelpLocal = useCallback(
         (req: TaskHelpRequest) => {
             void import('@/app/services/taskHelp/quantumTaskHelpActions').then((m) => {
-                ctrl.updateTask(req.sourceTaskId, m.helpFieldsPatchFromRequest(req));
+                updateTask(req.sourceTaskId, m.helpFieldsPatchFromRequest(req));
             });
         },
-        [ctrl],
+        [updateTask],
     );
 
-    const nestedModalOpen =
-        ctrl.deleteConfirmId !== null ||
-        ctrl.editOpen ||
-        ctrl.reminderModalTaskId !== null ||
-        ctrl.postponeTaskId !== null ||
-        ctrl.helpTarget !== null ||
-        ctrl.helpInboxOpen;
-
     useEffect(() => {
-        if (!ctrl.helpInboxOpen && ctrl.helpTarget === null) return;
+        if (!surfaceOpen || (!ctrl.helpInboxOpen && ctrl.helpTarget === null)) return;
         blockTasksOverlayEscape('manager-help');
         return () => unblockTasksOverlayEscape('manager-help');
-    }, [ctrl.helpInboxOpen, ctrl.helpTarget]);
+    }, [surfaceOpen, ctrl.helpInboxOpen, ctrl.helpTarget]);
+
+    /**
+     * الحوارات تُنقل إلى hami-tasks-modal-root؛ Radix يخفي #hami-overlay-portal.
+     * لا تُخفَ الأجندة نفسها بـ aria-hidden (الأزرار ما زالت داخلها) — فقط أزل التركيز قبل الإخفاء.
+     */
+    const pageRef = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        if (!ctrl.nestedModalOpen) return;
+        blurFocusWithin(pageRef.current);
+    }, [ctrl.nestedModalOpen]);
 
     const bodyStyle =
         keyboardInsetPx > 0
@@ -145,132 +184,48 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
 
     return (
         <div
-            className={`${TASKS_PAGE} relative`}
+            ref={pageRef}
+            className={TASKS_PAGE}
             role="dialog"
-            aria-modal={nestedModalOpen ? undefined : true}
-            aria-hidden={nestedModalOpen ? true : undefined}
+            aria-modal={ctrl.nestedModalOpen ? undefined : true}
             aria-label="أجندة المهام"
             data-testid="tasks-manager"
             data-tasks-manager-hydrated={managerHydrated ? 'true' : 'false'}
             style={pageStyle}
         >
-            <TasksManagerModals
-                fatalOpen={ctrl.fatalOpen}
-                onFatalOpenChange={ctrl.onFatalOpenChange}
-                onConfirmFatalComplete={ctrl.onConfirmFatalComplete}
-                deleteConfirmId={ctrl.deleteConfirmId}
-                onDismissDelete={() => ctrl.setDeleteConfirmId(null)}
-                onConfirmDelete={ctrl.confirmDelete}
-                editOpen={ctrl.editOpen}
-                onEditOpenChange={(o) => {
-                    if (!o) {
-                        ctrl.setEditOpen(false);
-                        ctrl.setEditTaskId(null);
-                        ctrl.setEditSubTasks([]);
-                    }
-                }}
-                onCancelEdit={() => {
-                    ctrl.setEditOpen(false);
-                    ctrl.setEditTaskId(null);
-                    ctrl.setEditSubTasks([]);
-                }}
-                editTarget={ctrl.editTarget}
-                editTitle={ctrl.editTitle}
-                onEditTitleChange={ctrl.setEditTitle}
-                editLocation={ctrl.editLocation}
-                onEditLocationChange={ctrl.setEditLocation}
-                editSubTasks={ctrl.editSubTasks}
-                onEditSubTaskChange={(subId, patch) => {
-                    ctrl.setEditSubTasks((prev) =>
-                        prev.map((st) => (st.id === subId ? { ...st, ...patch } : st)),
-                    );
-                }}
-                onRemoveEditSubTask={(subId) => {
-                    ctrl.setEditSubTasks((prev) => prev.filter((st) => st.id !== subId));
-                }}
-                onSaveEdit={ctrl.saveEdit}
-                reminderModalTaskId={ctrl.reminderModalTaskId}
-                onDismissReminder={() => ctrl.setReminderModalTaskId(null)}
-                reminderModalTask={ctrl.reminderModalTask}
-                reminderSnoozeCustom={ctrl.reminderSnoozeCustom}
-                onReminderSnoozeCustomChange={ctrl.setReminderSnoozeCustom}
-                weekStartLive={ctrl.weekStartLive}
-                onReminderMoveToDay={(dayDate) => {
-                    if (!ctrl.reminderModalTaskId) return;
-                    ctrl.updateTask(ctrl.reminderModalTaskId, { parsedDate: dayDate, reminderAt: null });
-                    ctrl.setReminderModalTaskId(null);
-                }}
-                onReminderSnoozeDays={(days) => {
-                    if (!ctrl.reminderModalTaskId) return;
-                    ctrl.updateTask(ctrl.reminderModalTaskId, { reminderAt: snoozeAfterDays(days) });
-                    ctrl.setReminderModalTaskId(null);
-                }}
-                onReminderSnoozeCustomDate={() => {
-                    if (!ctrl.reminderModalTaskId || !ctrl.reminderSnoozeCustom) return;
-                    const parsed = dateFromYmdInput(ctrl.reminderSnoozeCustom);
-                    if (!parsed) return;
-                    ctrl.updateTask(ctrl.reminderModalTaskId, { reminderAt: parsed });
-                    ctrl.setReminderSnoozeCustom('');
-                    ctrl.setReminderModalTaskId(null);
-                }}
-                postponeTaskId={ctrl.postponeTaskId}
-                onDismissPostpone={ctrl.dismissPostpone}
-                postponeTarget={ctrl.postponeTarget}
-                postponeDateYmd={ctrl.postponeDateYmd}
-                onPostponeDateYmdChange={ctrl.setPostponeDateYmd}
-                minPostponeIso={ctrl.minPostponeIso}
-                onConfirmPostpone={ctrl.confirmPostpone}
+            <TasksManagerOverlays
+                ctrl={ctrl}
+                userId={userId}
+                userName={userName}
+                onRequestHelpSubmit={handleRequestHelpSubmit}
+                syncHelpLocal={syncHelpLocal}
             />
-
-            {ctrl.helpTarget !== null || ctrl.helpInboxOpen ? (
-                <Suspense fallback={null}>
-                    {ctrl.helpTarget !== null ? (
-                        <LazyRequestHelpModal
-                            open
-                            task={ctrl.helpTarget}
-                            userId={userId}
-                            userName={userName}
-                            onClose={() => ctrl.setHelpTaskId(null)}
-                            onSubmit={handleRequestHelpSubmit}
-                        />
-                    ) : null}
-                    {ctrl.helpInboxOpen ? (
-                        <LazyTaskHelpInboxPanel
-                            open
-                            userId={userId}
-                            userName={userName}
-                            onClose={() => ctrl.setHelpInboxOpen(false)}
-                            onAccepted={syncHelpLocal}
-                            onUpdated={syncHelpLocal}
-                        />
-                    ) : null}
-                </Suspense>
-            ) : null}
 
             <TasksManagerHeader
                 showCompletedArchive={ctrl.showCompletedArchive}
-                onOpenHelpInbox={() => ctrl.setHelpInboxOpen(true)}
-                onToggleCompletedArchive={() => ctrl.setShowCompletedArchive((v) => !v)}
+                onOpenHelpInbox={ctrl.openHelpInbox}
+                onToggleCompletedArchive={ctrl.toggleCompletedArchive}
                 onClose={handleClose}
             />
 
             <div className={`${TASKS_BODY} relative z-[1]`} style={bodyStyle}>
                 {ctrl.showCompletedArchive ? (
-                    <CompletedTasksArchiveSection
-                        tasks={ctrl.tasks}
-                        now={ctrl.now}
-                        onBack={() => ctrl.setShowCompletedArchive(false)}
-                        onReopen={(task) => {
-                            ctrl.reopenTask(task.id);
-                            ctrl.setShowCompletedArchive(false);
-                        }}
-                    />
+                    <Suspense fallback={null}>
+                        <LazyCompletedTasksArchiveSection
+                            tasks={ctrl.tasks}
+                            now={ctrl.now}
+                            onBack={ctrl.hideCompletedArchive}
+                            onReopen={ctrl.reopenArchivedTask}
+                        />
+                    </Suspense>
                 ) : (
                     <>
-                        <FatalDeadlinesSection
-                            fatalTasks={ctrl.fatalTasks}
-                            onSelectFatalTask={scrollToTaskCard}
-                        />
+                        <Suspense fallback={null}>
+                            <LazyFatalDeadlinesSection
+                                fatalTasks={ctrl.fatalTasks}
+                                onSelectFatalTask={scrollToTaskCard}
+                            />
+                        </Suspense>
 
                         <WeeklyAgendaSection
                             weeklyDayBlocks={ctrl.weeklyDayBlocks}
@@ -282,15 +237,17 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
                             now={ctrl.now}
                         />
 
-                        <DistantTasksSection
-                            distantTasks={ctrl.distantTasks}
-                            snoozePanelOpen={ctrl.snoozePanelOpen}
-                            setSnoozePanelOpen={ctrl.setSnoozePanelOpen}
-                            saveSnoozedTask={ctrl.saveSnoozedTask}
-                            minSnoozeIso={ctrl.minSnoozeIso}
-                            renderTaskCard={ctrl.renderTaskCard}
-                            now={ctrl.now}
-                        />
+                        <Suspense fallback={null}>
+                            <LazyDistantTasksSection
+                                distantTasks={ctrl.distantTasks}
+                                snoozePanelOpen={ctrl.snoozePanelOpen}
+                                setSnoozePanelOpen={ctrl.setSnoozePanelOpen}
+                                saveSnoozedTask={ctrl.saveSnoozedTask}
+                                minSnoozeIso={ctrl.minSnoozeIso}
+                                renderTaskCard={ctrl.renderTaskCard}
+                                now={ctrl.now}
+                            />
+                        </Suspense>
                     </>
                 )}
             </div>

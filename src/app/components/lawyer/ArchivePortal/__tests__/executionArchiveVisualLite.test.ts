@@ -141,7 +141,7 @@ describe('execution archive visual lite (explicit design permission)', () => {
         expect(instantFrame).toContain('EXECUTION_SEGMENT_BTN_INACTIVE');
         expect(instantFrame).not.toContain('ARCHIVE_SEGMENT_BTN_INACTIVE');
         expect(instantFrame).toContain('EXECUTION_ARCHIVE_INSTANT_HEADER');
-        expect(instantFrame).toContain('ExecutionArchiveCardPaintSlot');
+        expect(instantFrame).toContain('ExecutionArchiveQueuedPaintSlot');
         expect(instantFrame).not.toContain('ExecutionArchiveToolbar');
         expect(instantFrame).not.toContain('ExecutionArchiveLifecycleBars');
         expect(instantFrame).not.toContain('ExecutionArchiveBoxMark');

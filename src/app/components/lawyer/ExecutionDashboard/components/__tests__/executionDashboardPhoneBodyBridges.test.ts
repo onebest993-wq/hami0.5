@@ -20,6 +20,8 @@ describe('executionDashboardPhoneBodyBridges', () => {
                     judgmentDate: '2026-01-02T10:00:00.000Z',
                     classification: 'مدني',
                     eviction_premises_use: 'commercial',
+                    clientName: 'دائن من الملف',
+                    opponentName: 'مدين من الملف',
                 },
                 evictionPropertyDistrict: 'المنصور',
             }),
@@ -33,6 +35,8 @@ describe('executionDashboardPhoneBodyBridges', () => {
                 classification: 'مدني',
                 district: 'المنصور',
                 eviction_premises_use: 'commercial',
+                'creditorName:0': 'دائن من الملف',
+                'debtorName:0': 'مدين من الملف',
             }),
         );
     });

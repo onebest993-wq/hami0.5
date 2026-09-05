@@ -86,9 +86,7 @@ export function useFollowupModalPersistNavigation({
 
     const openFollowupModalPersisted = useCallback(
         (opts?: { tab?: FollowupModalTabId }) => {
-            prefetchExecutionFollowupOverlay();
             followupModalOpenGenerationRef.current += 1;
-            setShowUnifiedExecutionModal(true);
             const order = (followupSectionTabOrder as readonly string[]).filter(
                 (tabId) => tabId !== 'seizure_requests' || !seizureMatrixRef.current.hideSeizureTab,
             );
@@ -100,14 +98,24 @@ export function useFollowupModalPersistNavigation({
             const tabToPrefetch = resolved.routeSeizureRequests
                 ? 'seizure_requests'
                 : resolved.tab ?? 'seizure_requests';
+            prefetchExecutionFollowupOverlay(tabToPrefetch);
             prefetchExecutionFollowupTab(tabToPrefetch);
-            if (resolved.routeSeizureRequests) {
-                openSeizureRequestsTabRef.current();
-                return;
-            }
-            if (resolved.tab) {
-                setUnifiedModalTab(resolved.tab as FollowupUnifiedModalTab);
-            }
+
+            const commitOpen = () => {
+                setShowUnifiedExecutionModal(true);
+                if (resolved.routeSeizureRequests) {
+                    openSeizureRequestsTabRef.current();
+                    return;
+                }
+                if (resolved.tab) {
+                    setUnifiedModalTab(resolved.tab as FollowupUnifiedModalTab);
+                }
+            };
+
+            commitOpen();
+            void import('../executionFollowupOpenReady')
+                .then((m) => m.ensureExecutionFollowupChromeReady())
+                .catch(() => undefined);
         },
         [
             followupModalOpenGenerationRef,

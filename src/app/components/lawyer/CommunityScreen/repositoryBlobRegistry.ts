@@ -21,10 +21,3 @@ export function releaseRepositoryBlobUrl(storagePath: string | undefined | null)
     URL.revokeObjectURL(url);
     pathToObjectUrl.delete(storagePath);
 }
-
-export function resetRepositoryBlobRegistryForTests(): void {
-    for (const url of pathToObjectUrl.values()) {
-        URL.revokeObjectURL(url);
-    }
-    pathToObjectUrl.clear();
-}

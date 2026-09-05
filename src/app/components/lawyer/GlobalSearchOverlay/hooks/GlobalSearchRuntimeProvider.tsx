@@ -6,8 +6,9 @@ import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { LawsuitLifecycleIndex } from '@/app/domain/lawsuit/lawsuitLifecycleIndex';
 import { useSearchExtras } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useSearchExtras';
 import { useSearchIndex } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useSearchIndex';
+import { resolveSearchIndexUiFlags } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/searchIndexBuildPlan';
 
-export type GlobalSearchRuntimeProviderProps = {
+type GlobalSearchRuntimeProviderProps = {
     children: React.ReactNode;
     overlayOpen: boolean;
     files: FileData[];
@@ -41,12 +42,12 @@ export function GlobalSearchRuntimeProvider({
     userId,
     indexVersion = 0,
 }: GlobalSearchRuntimeProviderProps) {
-    const { extras, profileLine, isLoadingExtras } = useSearchExtras({
+    const { extras, profileLine } = useSearchExtras({
         userId,
         overlayOpen,
     });
 
-    const { fuse, isBuildingIndex } = useSearchIndex({
+    const { fuse, isBuildingIndex, appliedKey, cacheKey } = useSearchIndex({
         files,
         executionFiles,
         lawsuitLifecycleIndex,
@@ -56,20 +57,24 @@ export function GlobalSearchRuntimeProvider({
         userId,
         profileLine,
         extras,
-        isLoadingExtras,
         indexVersion,
         overlayOpen,
     });
 
-    const value = useMemo<GlobalSearchRuntimeValue>(
-        () => ({
+    const value = useMemo<GlobalSearchRuntimeValue>(() => {
+        const flags = resolveSearchIndexUiFlags({
+            hasFuse: Boolean(fuse),
+            isBuildingIndex,
+            appliedKey,
+            cacheKey,
+        });
+        return {
             fuse,
             extras,
-            isLoadingIndex: !fuse && isBuildingIndex,
-            isEnrichingIndex: Boolean(fuse) && isBuildingIndex,
-        }),
-        [fuse, extras, isBuildingIndex],
-    );
+            isLoadingIndex: flags.isLoadingIndex,
+            isEnrichingIndex: flags.isEnrichingIndex,
+        };
+    }, [fuse, extras, isBuildingIndex, appliedKey, cacheKey]);
 
     return <GlobalSearchRuntimeContext.Provider value={value}>{children}</GlobalSearchRuntimeContext.Provider>;
 }

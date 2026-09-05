@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import { HAMI_APP_STATE_EVENT, type HamiAppStateDetail } from '@/app/runtime/appStateEvents';
 import { UrgentActionsDB } from '@/app/services/urgent-actions-db';
 import { normalizeLoadedCases, serializeCasesForStorage } from '@/app/domain/urgent';
@@ -149,52 +150,52 @@ export function useUrgentCasesStorage(userId: string | null) {
         };
     }, [flushPersistCases, casesStorageReady]);
 
+    const runCleanup = useCallback(() => {
+        const snapshot = casesRef.current;
+        const now = Date.now();
+        const threshold = now - 30 * URGENT_MS_PER_DAY;
+        let changed = false;
+
+        const afterCleanup = snapshot.filter((c) => {
+            if (!c.deleted) return true;
+            if (!c.deletedAt) return true;
+            const t = Date.parse(c.deletedAt);
+            if (!Number.isFinite(t)) return true;
+            const keep = t >= threshold;
+            if (!keep) changed = true;
+            return keep;
+        });
+
+        const afterExpiry = afterCleanup.map((c) => {
+            if (c.deleted) return c;
+            if (c.type !== 'state_order') return c;
+            if (c.phase === 'completed' || c.status === 'completed') return c;
+            if (c.legalState !== 'Awaiting_Grievance') return c;
+            if (!c.notificationDate) return c;
+            if (hasUrgentGrievanceLogged(c)) return c;
+            const base = new Date(c.notificationDate);
+            const daysLeft = urgentDaysUntil(urgentGrievanceDeadline(base));
+            if (daysLeft >= 0) return c;
+            changed = true;
+            return {
+                ...c,
+                grievanceOutcome: 'expired' as const,
+                phase: 'completed' as const,
+                status: 'completed' as const,
+            };
+        });
+
+        if (!changed) return;
+        pendingCasesPersistRef.current = true;
+        setCases(afterExpiry);
+    }, []);
+
     useEffect(() => {
         if (!casesStorageReady) return;
-        const runCleanup = () => {
-            const snapshot = casesRef.current;
-            const now = Date.now();
-            const threshold = now - 30 * URGENT_MS_PER_DAY;
-            let changed = false;
-
-            const afterCleanup = snapshot.filter((c) => {
-                if (!c.deleted) return true;
-                if (!c.deletedAt) return true;
-                const t = Date.parse(c.deletedAt);
-                if (!Number.isFinite(t)) return true;
-                const keep = t >= threshold;
-                if (!keep) changed = true;
-                return keep;
-            });
-
-            const afterExpiry = afterCleanup.map((c) => {
-                if (c.deleted) return c;
-                if (c.type !== 'state_order') return c;
-                if (c.phase === 'completed' || c.status === 'completed') return c;
-                if (c.legalState !== 'Awaiting_Grievance') return c;
-                if (!c.notificationDate) return c;
-                if (hasUrgentGrievanceLogged(c)) return c;
-                const base = new Date(c.notificationDate);
-                const daysLeft = urgentDaysUntil(urgentGrievanceDeadline(base));
-                if (daysLeft >= 0) return c;
-                changed = true;
-                return {
-                    ...c,
-                    grievanceOutcome: 'expired' as const,
-                    phase: 'completed' as const,
-                    status: 'completed' as const,
-                };
-            });
-
-            if (!changed) return;
-            pendingCasesPersistRef.current = true;
-            setCases(afterExpiry);
-        };
-
         runCleanup();
-        const intervalId = window.setInterval(runCleanup, 30_000);
-        return () => window.clearInterval(intervalId);
-    }, [casesStorageReady]);
+    }, [casesStorageReady, runCleanup]);
+
+    useVisibilityAwareInterval(runCleanup, 30_000, casesStorageReady);
 
     return {
         cases,

@@ -58,7 +58,7 @@ export function AppealTransitionModalPartyPickers(props: AppealTransitionModalPa
     if (!(showAppellantPicker || showOpponentPicker)) return null;
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start min-h-[10.5rem]">
             {showAppellantPicker ? (
                 <div className={appellantPickerCard}>
                     <p className={`text-xs font-bold ${appellantPickerTitle}`}>
@@ -68,18 +68,22 @@ export function AppealTransitionModalPartyPickers(props: AppealTransitionModalPa
                     </p>
                     <div className="space-y-1.5 mt-3">
                         {visibleAppellantParties.map((party) => {
-                            const selected = selectedAppellantIds.includes(party.id);
+                            const selected = selectedAppellantIds.some(
+                                (id) => String(id) === String(party.id),
+                            );
                             return (
                                 <button
                                     key={String(party.id)}
                                     type="button"
                                     onClick={() => toggleAppellant(party.id)}
-                                    className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg border text-right text-sm transition-all ${
+                                    className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg border text-right text-sm transition-colors ${
                                         selected ? appellantRowSelected : appellantRowIdle
                                     }`}
                                 >
                                     <span className="min-w-0 flex-1 text-right">
-                                        <span className="block truncate font-medium">{party.name}</span>
+                                        <span className="block truncate font-medium">
+                                            {String(party.name ?? '').trim() || String(party.role ?? '').trim() || 'طرف'}
+                                        </span>
                                         {party.role ? (
                                             <span className={`block text-[9px] truncate mt-0.5 ${s.isPearl ? 'text-[#9894A0]/70' : 'text-white/35'}`}>
                                                 {party.role}
@@ -111,18 +115,22 @@ export function AppealTransitionModalPartyPickers(props: AppealTransitionModalPa
                     </p>
                     <div className="space-y-1.5 mt-3">
                         {visibleOpponentParties.map((party) => {
-                            const selected = selectedOpponentIds.includes(party.id);
+                            const selected = selectedOpponentIds.some(
+                                (id) => String(id) === String(party.id),
+                            );
                             return (
                                 <button
                                     key={String(party.id)}
                                     type="button"
                                     onClick={() => toggleOpponent(party.id)}
-                                    className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg border text-right text-sm transition-all ${
+                                    className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg border text-right text-sm transition-colors ${
                                         selected ? opponentRowSelected : opponentRowIdle
                                     }`}
                                 >
                                     <span className="min-w-0 flex-1 text-right">
-                                        <span className="block truncate font-medium">{party.name}</span>
+                                        <span className="block truncate font-medium">
+                                            {String(party.name ?? '').trim() || String(party.role ?? '').trim() || 'طرف'}
+                                        </span>
                                         {party.role ? (
                                             <span className={`block text-[9px] truncate mt-0.5 ${s.isPearl ? 'text-[#9894A0]/70' : 'text-white/35'}`}>
                                                 {party.role}

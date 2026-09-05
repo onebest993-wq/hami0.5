@@ -1,19 +1,16 @@
-import { lazy, memo, Suspense, useMemo } from 'react';
+import { lazy, memo, Suspense } from 'react';
 import { CheckCircle2 } from '@/app/components/ui/icons/CheckCircle2';
 import { MapPin } from '@/app/components/ui/icons/MapPin';
-import { PanelBottom } from '@/app/components/ui/icons/PanelBottom';
-import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
-import { buildTaskWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import type { LinkedCaseLookupIndex } from '@/app/workspace/resolveLinkedCaseMeta';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { isTaskAgendaReadOnly, isTaskMarkedDone } from '@/app/services/tasks/taskAgendaStatusLite';
+import { legalTaskUiSignature } from '@/app/services/tasks/legalTaskUiSignature';
 import {
     CURTAIN_COMPLETE_BTN,
     CURTAIN_DONE_BADGE,
     CURTAIN_DONE_BADGE_READONLY,
     CURTAIN_GLASS_INNER,
     CURTAIN_LOCATION_TEXT,
-    CURTAIN_PIN_BADGE,
     CURTAIN_TASK_TITLE,
 } from '@/app/components/lawyer/dashboard/tasksManager/tasksBoucleTheme';
 import { TaskListOrdinalBadge, type TaskListOrdinal } from '@/app/components/lawyer/dashboard/tasksManager/TaskListOrdinalBadge';
@@ -28,8 +25,13 @@ const TaskVoicePlayback = lazy(() =>
         default: m.TaskVoicePlayback,
     })),
 );
+const FieldCurtainWorkspacePin = lazy(() =>
+    import('@/app/components/lawyer/dashboard/fieldTasks/FieldCurtainWorkspacePin').then((m) => ({
+        default: m.FieldCurtainWorkspacePin,
+    })),
+);
 
-export type FieldCurtainTaskCardProps = {
+type FieldCurtainTaskCardProps = {
     task: LegalTask;
     listOrdinal?: TaskListOrdinal;
     now: Date;
@@ -38,19 +40,6 @@ export type FieldCurtainTaskCardProps = {
     onReopenTask: (task: LegalTask) => void;
     onToggleSubComplete: (parentId: string, subId: string) => void;
 };
-
-function taskCardSignature(task: LegalTask): string {
-    return [
-        task.id,
-        task.title,
-        task.location ?? '',
-        task.isFatalDeadline ? '1' : '0',
-        task.pinnedToFieldCurtain ? '1' : '0',
-        task.completedAt?.getTime() ?? '',
-        task.subTasks.map((st) => `${st.id}:${st.isCompleted}:${st.title}`).join('|'),
-        task.voiceRef ?? '',
-    ].join('~');
-}
 
 export const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
     task,
@@ -64,17 +53,13 @@ export const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
     const markedDone = isTaskMarkedDone(task);
     const readOnly = isTaskAgendaReadOnly(task, now);
     const fatal = task.isFatalDeadline;
-    const hasSubs = task.subTasks.length > 0;
-    const clusterPin = useMemo(
-        () => buildTaskWorkspacePin(task, undefined, undefined, pinLookup),
-        [task, pinLookup],
-    );
+    const hasSubs = (task.subTasks ?? []).length > 0;
     const showOrdinal = (listOrdinal?.total ?? 0) > 1;
 
     return (
         <li
             data-testid={`field-tasks-curtain-card-${task.id}`}
-            className={`hami-field-tasks-list-item relative ${CURTAIN_GLASS_INNER} px-3 py-3 text-right ${
+            className={`hami-field-tasks-list-item relative ${CURTAIN_GLASS_INNER} px-2.5 py-2 text-right ${
                 fatal ? 'border-rose-400/35' : markedDone ? 'border-[#34D399]/25' : ''
             }`}
         >
@@ -88,19 +73,13 @@ export const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
 
             <div className="flex flex-row items-start gap-2">
                 <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-1.5 justify-end mb-1">
-                        {task.pinnedToFieldCurtain ? (
-                            <span className={CURTAIN_PIN_BADGE}>
-                                <PanelBottom className="size-3" aria-hidden />
-                                ستارة
-                            </span>
-                        ) : null}
-                        {fatal ? (
-                            <span className="text-[10px] font-semibold text-rose-200/90 bg-rose-500/15 px-2 py-0.5 rounded-md">
+                    {fatal ? (
+                        <div className="flex flex-wrap items-center gap-1 justify-end mb-0.5">
+                            <span className="text-[10px] font-semibold text-rose-200/90 bg-rose-500/12 px-1.5 py-0.5 rounded-md">
                                 حتمي
                             </span>
-                        ) : null}
-                    </div>
+                        </div>
+                    ) : null}
                     <p className={CURTAIN_TASK_TITLE}>{task.title}</p>
                     {task.location ? (
                         <p className={CURTAIN_LOCATION_TEXT}>
@@ -117,9 +96,9 @@ export const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
                     ) : null}
                 </div>
                 <div className="flex flex-col items-center gap-1.5 shrink-0">
-                    {clusterPin ? (
-                        <WorkspacePinButton item={clusterPin} className="!w-11 !h-11" size={14} />
-                    ) : null}
+                    <Suspense fallback={null}>
+                        <FieldCurtainWorkspacePin task={task} pinLookup={pinLookup} />
+                    </Suspense>
                     {markedDone ? (
                         <div className="flex flex-col items-center gap-1">
                             <span
@@ -158,7 +137,7 @@ export const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
             {hasSubs ? (
                 <Suspense fallback={null}>
                     <TaskSubTasksCollapsible
-                        subTasks={task.subTasks}
+                        subTasks={task.subTasks ?? []}
                         readOnly={readOnly}
                         onToggleSubComplete={(subId) => onToggleSubComplete(task.id, subId)}
                         compactActions
@@ -174,6 +153,6 @@ export const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
     }
     if (prev.now.toDateString() !== next.now.toDateString()) return false;
     if (prev.pinLookup !== next.pinLookup) return false;
-    if (taskCardSignature(prev.task) !== taskCardSignature(next.task)) return false;
+    if (legalTaskUiSignature(prev.task) !== legalTaskUiSignature(next.task)) return false;
     return true;
 });

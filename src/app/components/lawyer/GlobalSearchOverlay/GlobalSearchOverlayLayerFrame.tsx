@@ -12,7 +12,7 @@ import { useOverlayCloseArm } from '@/app/hooks/useOverlayCloseArm';
 import { clearGlobalSearchLayerImperativeStyles } from '@/app/runtime/globalSearchInstantPaint';
 import { inertProps } from '@/app/utils/inertProps';
 
-export type GlobalSearchOverlayLayerFrameProps = {
+type GlobalSearchOverlayLayerFrameProps = {
     open: boolean;
     keepWarm?: boolean;
     keyboardInset?: number;

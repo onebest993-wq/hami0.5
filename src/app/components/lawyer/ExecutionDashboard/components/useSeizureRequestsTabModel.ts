@@ -8,13 +8,12 @@ import type { SeizureMatrixButtonKey } from '@/app/utils/seizureMatrix';
 import { resolveSeizureMatrixFromExecution } from '@/app/utils/seizureMatrix';
 import { shouldShowGuarantorRequestInSeizureTab } from './hiddenFollowupRequestsUtils';
 import { isFollowupRequestKindAllowed } from '@/app/utils/executionDomainIsolation';
-import { resolveGoverningSalaryDecision } from './seizureRequestsTabHelpers';
-import { useSeizureInlineFocusBridge } from '@/app/components/lawyer/ExecutionDashboard/hooks/useSeizureInlineFocusBridge';
 import {
     resolveGoverningMovableDecision,
     resolveGoverningPropertyDecision,
+    resolveGoverningSalaryDecision,
     resolveGoverningThirdPartyDecision,
-} from '@/app/components/lawyer/ExecutionDashboard/utils/seizureInlineFocusUtils';
+} from './seizureRequestsTabHelpers';
 import type {
     DecisionRow,
     UseSeizureRequestsTabModelParams,
@@ -95,7 +94,9 @@ export function useSeizureRequestsTabModel({
     const matrixRecommendsButton = React.useCallback(
         (key: SeizureMatrixButtonKey) => {
             if (!seizureMatrix.showTabContentButtons || effectiveMatrixBlocksSeizure) return false;
-            if (key === 'salary' && (activeDebtorIsEmployee || activeDebtorIsDeceased)) {
+            // وفاة المدين: لا حجز راتب موظف (ولا مسار الحوافز البديل من نفس الزر)
+            if (key === 'salary' && activeDebtorIsDeceased) return false;
+            if (key === 'salary' && activeDebtorIsEmployee) {
                 return financialCenterBalanceIqd > 0;
             }
             return Boolean(seizureMatrix.buttons[key]);
@@ -123,12 +124,14 @@ export function useSeizureRequestsTabModel({
     const showManualButton = React.useCallback(
         (key: SeizureMatrixButtonKey, tier: 'additional' | 'maximum') => {
             if (!seizureMatrix.showTabContentButtons || effectiveMatrixBlocksSeizure) return false;
+            if (key === 'salary' && activeDebtorIsDeceased) return false;
             if (tier === 'additional') {
                 return additionalSeizureExpanded && progressive.additionalButtons.includes(key);
             }
             return maximumSeizureExpanded && progressive.maximumButtons.includes(key);
         },
         [
+            activeDebtorIsDeceased,
             additionalSeizureExpanded,
             maximumSeizureExpanded,
             effectiveMatrixBlocksSeizure,
@@ -176,12 +179,6 @@ export function useSeizureRequestsTabModel({
     }, [executionData?.id, executionId, normalizeExecutionId]);
     const resolvedExecutionId = executionIdsForDecisions[0] || '';
 
-    const { inlineFocusMovableDecisionId, inlineFocusPropertyDecisionId, inlineFocusThirdPartyDecisionId } = useSeizureInlineFocusBridge({
-        executionIds: executionIdsForDecisions,
-        setAdditionalSeizureExpanded,
-        setMaximumSeizureExpanded,
-    });
-
     const [guarantorExistingWarningOpen, setGuarantorExistingWarningOpen] = React.useState(false);
     const [lastSalaryDecisionId, setLastSalaryDecisionId] = React.useState('');
 
@@ -222,10 +219,6 @@ export function useSeizureRequestsTabModel({
 
     const [thirdPartyNameDraft, setThirdPartyNameDraft] = React.useState('');
     const [thirdPartyAmountDraft, setThirdPartyAmountDraft] = React.useState('');
-    const [propertyDetailsDraftByDecisionId, setPropertyDetailsDraftByDecisionId] = React.useState<Record<string, { propertyNumber: string; propertyDistrict: string; propertyType: string }>>({});
-    const [vehicleDetailsDraftByDecisionId, setVehicleDetailsDraftByDecisionId] = React.useState<
-        Record<string, { movableDescription: string; movableLocation: string }>
-    >({});
 
     const {
         openAppeals,
@@ -236,13 +229,8 @@ export function useSeizureRequestsTabModel({
     } = useSeizureRequestsTabOpeners({ resolvedExecutionId, decisions });
 
     const thirdPartyDecision = React.useMemo(
-        () =>
-            resolveGoverningThirdPartyDecision(
-                resolvedExecutionId,
-                decisions,
-                inlineFocusThirdPartyDecisionId,
-            ),
-        [resolvedExecutionId, decisions, inlineFocusThirdPartyDecisionId],
+        () => resolveGoverningThirdPartyDecision(resolvedExecutionId, decisions),
+        [resolvedExecutionId, decisions],
     );
     const salaryDecision = React.useMemo(
         () => resolveGoverningSalaryDecision(resolvedExecutionId, decisions),
@@ -255,22 +243,12 @@ export function useSeizureRequestsTabModel({
         setLastSalaryDecisionId(did);
     }, [salaryDecision]);
     const propertyDecision = React.useMemo(
-        () =>
-            resolveGoverningPropertyDecision(
-                resolvedExecutionId,
-                decisions,
-                inlineFocusPropertyDecisionId,
-            ),
-        [resolvedExecutionId, decisions, inlineFocusPropertyDecisionId],
+        () => resolveGoverningPropertyDecision(resolvedExecutionId, decisions),
+        [resolvedExecutionId, decisions],
     );
     const movableDecision = React.useMemo(
-        () =>
-            resolveGoverningMovableDecision(
-                resolvedExecutionId,
-                decisions,
-                inlineFocusMovableDecisionId,
-            ),
-        [resolvedExecutionId, decisions, inlineFocusMovableDecisionId],
+        () => resolveGoverningMovableDecision(resolvedExecutionId, decisions),
+        [resolvedExecutionId, decisions],
     );
 
     const submitBasicSeizureRequest = React.useCallback(
@@ -352,10 +330,6 @@ export function useSeizureRequestsTabModel({
         setThirdPartyNameDraft,
         thirdPartyAmountDraft,
         setThirdPartyAmountDraft,
-        propertyDetailsDraftByDecisionId,
-        setPropertyDetailsDraftByDecisionId,
-        vehicleDetailsDraftByDecisionId,
-        setVehicleDetailsDraftByDecisionId,
         openAppeals,
         openDecisions,
         openGuarantorDetails,

@@ -1,4 +1,5 @@
 /** Defense-in-depth: sanitize persist patches before merge/storage */
+import { resolvePartyStoredName } from '@/app/utils/executionPartyNormalize';
 import { validateDossierMetaDraft } from './dossierMetaValidation';
 
 function stripUnsafeNoteHtml(raw: string): string {
@@ -32,8 +33,9 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  */
 function sanitizePartyRow(row: unknown): Record<string, unknown> | null {
     if (!isPlainObject(row)) return null;
-    const name = String(row.name ?? '').trim();
-    if (!name || name.length > MAX_PARTY_NAME) return null;
+    // يقبل name أو fullName — رفض الصف بغياب name كان يُسقط حفظ تعديل الإضبارة بصمت
+    const name = resolvePartyStoredName(row);
+    if (name.length > MAX_PARTY_NAME) return null;
 
     let phone = String(row.phone ?? '').trim();
     if (phone) {
@@ -48,6 +50,7 @@ function sanitizePartyRow(row: unknown): Record<string, unknown> | null {
     return {
         ...row,
         name,
+        ...(name ? { fullName: name } : {}),
         phone,
         address,
     };
@@ -301,6 +304,26 @@ export function sanitizeExecutionPersistPatch(
         const debtors = sanitizePartyList(next.debtors);
         if (!debtors) return { ok: false, reason: 'قائمة المدينين غير صالحة' };
         next = { ...next, debtors };
+    }
+    if ('parties' in next) {
+        const parties = sanitizePartyList(next.parties);
+        if (!parties) return { ok: false, reason: 'قائمة الأطراف غير صالحة' };
+        next = { ...next, parties };
+    }
+    if ('clientName' in next) {
+        const clientName = resolvePartyStoredName(next.clientName) || String(next.clientName ?? '').trim();
+        if (clientName.length > MAX_PARTY_NAME) {
+            return { ok: false, reason: 'اسم الدائن طويل جداً' };
+        }
+        next = { ...next, clientName };
+    }
+    if ('opponentName' in next) {
+        const opponentName =
+            resolvePartyStoredName(next.opponentName) || String(next.opponentName ?? '').trim();
+        if (opponentName.length > MAX_PARTY_NAME) {
+            return { ok: false, reason: 'اسم المدين طويل جداً' };
+        }
+        next = { ...next, opponentName };
     }
 
     const metaResult = sanitizeDossierMetaFields(next);

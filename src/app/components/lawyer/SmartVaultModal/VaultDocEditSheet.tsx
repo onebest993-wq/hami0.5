@@ -16,7 +16,7 @@ import {
     VAULT_BTN_CANCEL,
 } from './vaultDustyRoseTheme';
 
-export type VaultDocEditValues = {
+type VaultDocEditValues = {
     title: string;
     lawyerNote: string;
     classification: string;
@@ -68,7 +68,7 @@ export const VaultDocEditSheet: React.FC<VaultDocEditSheetProps> = ({
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={VAULT_SHEET}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
             >
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#F7F3EB]/15 to-transparent" />
                 <div className="px-5 py-4 border-b border-[#C9A9A6]/12 flex items-center justify-between shrink-0">

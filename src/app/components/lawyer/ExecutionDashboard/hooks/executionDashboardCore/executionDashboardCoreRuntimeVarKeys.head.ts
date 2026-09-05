@@ -18,7 +18,6 @@ export const CORE_RUNTIME_VAR_KEYS_HEAD = [
     "caseTasksPendingRef",
     "claimType",
     "classification",
-    "closeUnifiedSeizureLog",
     "coerciveUiLocked",
     "creditorDeathMarked",
     "creditors",
@@ -202,3 +201,4 @@ export const CORE_RUNTIME_VAR_KEYS_HEAD = [
     "activeSubFileId",
     "delegationParentFileId",
 ] as const;
+

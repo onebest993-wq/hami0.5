@@ -1,7 +1,7 @@
 import type { CommunitySection } from './communitySectionState';
 import { resolveHorizontalTabSwipe } from '@/app/utils/horizontalTabSwipe';
 
-export const FORUM_SECTION_ORDER: readonly CommunitySection[] = ['forum', 'groups', 'repository'];
+const FORUM_SECTION_ORDER: readonly CommunitySection[] = ['forum', 'groups', 'repository'];
 
 export function resolveForumSectionSwipe(
     active: CommunitySection,

@@ -4,7 +4,7 @@
   .hami-notif-sheet {
     height: auto;
     max-height: 92dvh;
-    border-radius: 1.65rem 1.65rem 0 0;
+    border-radius: 0.75rem 0.75rem 0 0;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     border-inline: 1px solid rgba(255, 255, 255, 0.05);
     width: 100%;
@@ -21,7 +21,7 @@
     height: auto;
     max-height: min(82dvh, 720px);
     width: min(100%, 420px);
-    border-radius: 1.5rem;
+    border-radius: 0.75rem;
     border: 1px solid rgba(255, 255, 255, 0.08);
   }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { useCalendarData, buildEventsByDateIndex, calendarEventSetsEqual } from '@/app/components/lawyer/hooks/useCalendarData';
-import { CALENDAR_LOCAL_STORAGE_KEY } from '@/app/services/calendar/calendarLocalSnapshot';
+import { CALENDAR_LOCAL_STORAGE_KEY, readLocalCalendarSnapshotSync } from '@/app/services/calendar/calendarLocalSnapshot';
 import {
     CALENDAR_BACKGROUND_SYNC_FAILED_EVENT,
     CALENDAR_UPDATED_EVENT,
@@ -17,15 +17,35 @@ vi.mock('@/app/services/calendar/calendarCloudRuntime', () => ({
     deleteCalendarEvent: vi.fn(),
 }));
 
+const resolveCalendarUserIdMock = vi.hoisted(() =>
+    vi.fn((id: string | null) => (id && String(id).trim()) || 'guest'),
+);
+
 vi.mock('@/app/services/calendar/bridge/core', () => ({
-    resolveCalendarUserId: vi.fn((id: string | null) => id ?? 'guest'),
+    resolveCalendarUserId: (...args: [string | null]) => resolveCalendarUserIdMock(...args),
 }));
 
 vi.mock('@/app/services/SecureStoreService', () => ({
     default: {
-        getItemSync: vi.fn(() => null),
-        getItem: vi.fn(() => Promise.resolve(null)),
-        ensurePersistedReady: vi.fn(() => Promise.resolve()),
+        getItemSync: (key: string) => {
+            try {
+                return localStorage.getItem(key);
+            } catch {
+                return null;
+            }
+        },
+        setItemSync: (key: string, value: string) => {
+            localStorage.setItem(key, value);
+        },
+        isUnreadSync: () => false,
+        getItem: async (key: string) => {
+            try {
+                return localStorage.getItem(key);
+            } catch {
+                return null;
+            }
+        },
+        ensurePersistedReady: () => Promise.resolve(),
     },
 }));
 
@@ -44,7 +64,6 @@ import {
     updateCalendarEvent,
     deleteCalendarEvent,
 } from '@/app/services/calendar/calendarCloudRuntime';
-import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
 import { setCachedCalendarEvents, resetCalendarEventsCacheForTests } from '@/app/services/calendar/calendarEventsCache';
 
 describe('useCalendarData — SWR', () => {
@@ -52,7 +71,9 @@ describe('useCalendarData — SWR', () => {
         localStorage.clear();
         resetCalendarEventsCacheForTests();
         vi.clearAllMocks();
-        vi.mocked(resolveCalendarUserId).mockImplementation((id: string | null) => id ?? 'guest');
+        resolveCalendarUserIdMock.mockImplementation((id: string | null) =>
+            (id && String(id).trim()) || 'guest',
+        );
     });
 
     afterEach(() => {
@@ -97,9 +118,15 @@ describe('useCalendarData — SWR', () => {
                 }),
         );
 
+        const localSnapshot = readLocalCalendarSnapshotSync(USER);
+        expect(localSnapshot.some((e) => e.title === 'موعد محلي')).toBe(true);
+        setCachedCalendarEvents(USER, localSnapshot);
+
         const { result } = renderHook(() => useCalendarData(USER));
 
+        expect(result.current.effectiveUserId).toBe(USER);
         expect(result.current.loading).toBe(false);
+        expect(result.current.customEvents.map((e) => e.title)).toEqual(['موعد محلي']);
         expect(result.current.allEvents.some((e) => e.title === 'موعد محلي')).toBe(true);
 
         await waitFor(() => {
@@ -132,10 +159,15 @@ describe('useCalendarData — SWR', () => {
                 }),
         );
 
+        const localSnapshot = readLocalCalendarSnapshotSync(USER);
+        expect(localSnapshot.some((e) => e.title === 'موعد محلي')).toBe(true);
+        setCachedCalendarEvents(USER, localSnapshot);
+
         const { result } = renderHook(() => useCalendarData(USER));
 
         expect(result.current.syncing).toBe(false);
         expect(result.current.loading).toBe(false);
+        expect(result.current.customEvents.some((e) => e.title === 'موعد محلي')).toBe(true);
         expect(result.current.allEvents.some((e) => e.title === 'موعد محلي')).toBe(true);
 
         await waitFor(() => {
@@ -257,7 +289,7 @@ describe('useCalendarData — SWR', () => {
 
     it('لا يستدعي fetchCalendarEvents عند غياب معرّف المستخدم', async () => {
         vi.mocked(fetchCalendarEvents).mockResolvedValue([]);
-        vi.mocked(resolveCalendarUserId).mockReturnValue('');
+        resolveCalendarUserIdMock.mockReturnValue('');
 
         const { result } = renderHook(() => useCalendarData(''));
 
@@ -448,5 +480,86 @@ describe('buildEventsByDateIndex', () => {
 
         expect(map.get('2026-06-01')).toHaveLength(2);
         expect(map.get('2026-07-01')).toBeUndefined();
+    });
+
+    it('لا ينهار عند موعد بلا تاريخ', () => {
+        const map = buildEventsByDateIndex(
+            [
+                {
+                    id: '1',
+                    title: 'صالح',
+                    date: '2026-06-01',
+                    type: 'custom',
+                    source: 'calendar',
+                },
+                {
+                    id: '2',
+                    title: 'فاسد',
+                    date: undefined as unknown as string,
+                    type: 'custom',
+                    source: 'calendar',
+                },
+            ],
+            2026,
+            5,
+        );
+        expect(map.get('2026-06-01')).toHaveLength(1);
+        expect(map.size).toBe(1);
+    });
+
+    it('لا يُبقي مواعيد المحامي السابق عند تبديل الحساب', async () => {
+        const other = 'lawyer-cal-2';
+        localStorage.setItem(
+            CALENDAR_LOCAL_STORAGE_KEY,
+            JSON.stringify([
+                {
+                    id: 'secret-a',
+                    userId: USER,
+                    title: 'سر المحامي السابق',
+                    date: '2026-06-15',
+                    type: 'custom',
+                    createdAt: '2026-01-01T00:00:00.000Z',
+                    updatedAt: '2026-01-01T00:00:00.000Z',
+                },
+            ]),
+        );
+        setCachedCalendarEvents(USER, readLocalCalendarSnapshotSync(USER));
+        vi.mocked(fetchCalendarEvents).mockResolvedValue([]);
+
+        const { result, rerender } = renderHook(({ uid }: { uid: string }) => useCalendarData(uid), {
+            initialProps: { uid: USER },
+        });
+
+        expect(result.current.customEvents.map((e) => e.title)).toEqual(['سر المحامي السابق']);
+
+        rerender({ uid: other });
+
+        await waitFor(() => {
+            expect(result.current.effectiveUserId).toBe(other);
+            expect(result.current.customEvents).toEqual([]);
+        });
+    });
+
+    it('كاش ذاكرة فارغ لا يخفي leftover على القرص', async () => {
+        const leftover = {
+            id: 'leftover-1',
+            userId: USER,
+            title: 'موعد leftover',
+            date: '2026-06-15',
+            type: 'custom' as const,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+        };
+        localStorage.setItem(CALENDAR_LOCAL_STORAGE_KEY, JSON.stringify([leftover]));
+        setCachedCalendarEvents(USER, []);
+        vi.mocked(fetchCalendarEvents).mockResolvedValue([leftover]);
+
+        const { result } = renderHook(() => useCalendarData(USER));
+
+        expect(result.current.customEvents.map((e) => e.title)).toEqual(['موعد leftover']);
+        expect(result.current.loading).toBe(false);
+        await waitFor(() => {
+            expect(result.current.customEvents.map((e) => e.title)).toEqual(['موعد leftover']);
+        });
     });
 });

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+import React from 'react';
+import { SettingsSectionActiveProvider } from '@/app/components/lawyer/HamiSettings/settingsSectionActiveContext';
 
 const prompt = vi.fn();
 const warning = vi.fn();
@@ -164,5 +166,50 @@ describe('useBusinessBackup — import flow', () => {
             [],
         );
         expect(success).toHaveBeenCalledWith('تم استيراد البيانات');
+    });
+
+    it('لا يفك التشفير إن غادر المستخدم أثناء طلب كلمة المرور', async () => {
+        let active = true;
+        let releasePrompt!: (value: string) => void;
+        prompt.mockImplementation(
+            () =>
+                new Promise<string>((resolve) => {
+                    releasePrompt = resolve;
+                }),
+        );
+
+        const encryptedFile = {
+            size: 120,
+            name: 'backup.protected.json',
+            text: async () =>
+                JSON.stringify({
+                    kind: 'hami-business-backup-encrypted',
+                    version: 1,
+                    ciphertext: '...',
+                }),
+        } as File;
+
+        const { result, rerender } = renderHook(() => useBusinessBackup(), {
+            wrapper: ({ children }) =>
+                React.createElement(SettingsSectionActiveProvider, { active }, children),
+        });
+
+        let prepareDone!: Promise<void>;
+        act(() => {
+            prepareDone = result.current.prepareBusinessImport(encryptedFile);
+        });
+        await vi.waitFor(() => expect(prompt).toHaveBeenCalled());
+
+        active = false;
+        rerender();
+
+        await act(async () => {
+            releasePrompt('secret12chars');
+            await prepareDone;
+        });
+
+        expect(decryptBusinessBackupText).not.toHaveBeenCalled();
+        expect(result.current.pendingBusinessImport).toBeNull();
+        expect(warning).not.toHaveBeenCalled();
     });
 });

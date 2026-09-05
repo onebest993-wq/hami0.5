@@ -16,6 +16,8 @@ interface ExecutionSmartCardProps {
     liveRevision?: number;
     lawsuitFilesForCluster?: unknown[];
     onOpen: () => void;
+    /** الشبكة الأم تملك الإيماءة — البطاقة تُسخّن فقط حتى لا تُفتح مرتين. */
+    deferOpenPress?: boolean;
     onPreview: () => void;
     variant: 'active' | 'archived' | 'trash';
     onRequestMoveToTrash?: () => void;
@@ -33,6 +35,7 @@ function ExecutionSmartCard({
     liveRevision = 0,
     lawsuitFilesForCluster = [],
     onOpen,
+    deferOpenPress = false,
     onPreview,
     variant,
     onRequestMoveToTrash,
@@ -108,7 +111,7 @@ function ExecutionSmartCard({
     );
 
     const press = useScrollSafePress({
-        onPress: handleOpen,
+        onPress: deferOpenPress ? undefined : handleOpen,
         onPointerDown: handleCardPointerDown,
     });
 

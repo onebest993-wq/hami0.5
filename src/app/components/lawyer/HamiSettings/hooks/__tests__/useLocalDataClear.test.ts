@@ -86,4 +86,32 @@ describe('useLocalDataClear', () => {
 
         expect(result.current.wipePhase).toBe('idle');
     });
+
+    it('لا يبدأ مسار مسح ثانياً بينما الحوار الأول ما زال مفتوحاً', async () => {
+        const { SmartDialog } = await import('@/app/components/ui/SmartDialog');
+        vi.mocked(SmartDialog.confirm).mockReset();
+        let release!: (ok: boolean) => void;
+        vi.mocked(SmartDialog.confirm).mockImplementation(
+            () =>
+                new Promise<boolean>((resolve) => {
+                    release = resolve;
+                }),
+        );
+
+        const { result } = renderHook(() => useLocalDataClear(vi.fn()));
+
+        await act(async () => {
+            void result.current.requestFullWipe();
+            void result.current.requestFullWipe();
+            await Promise.resolve();
+        });
+
+        expect(SmartDialog.confirm).toHaveBeenCalledTimes(1);
+        expect(result.current.wipePhase).toBe('confirming');
+
+        await act(async () => {
+            release(false);
+        });
+        expect(result.current.wipePhase).toBe('idle');
+    });
 });

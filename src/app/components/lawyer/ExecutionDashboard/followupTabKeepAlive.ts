@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import type { FollowupTabPanelKey } from './components/FollowupTabKeepAlivePanel';
 import { resolveLegacyFollowupTabRuntimeRedirect } from './utils/followupLegacyTabNormalization';
 
@@ -39,24 +39,24 @@ export function resolveActiveFollowupChipTabId(args: {
     return effectiveTab;
 }
 
-/** تبويبات زُرت مرة واحدة تبقى mounted — التبويب النشط يُعرض فوراً */
-export function useFollowupModalTabKeepAlive(activePanelKey: FollowupTabPanelKey) {
-    const [mountedPanels, setMountedPanels] = useState<Set<FollowupTabPanelKey>>(
-        () => new Set([activePanelKey]),
+/** التبويبات التي زُرتها تبقى مركّبة ومخفية — لا إعادة تحميل عند العودة. غير المزار لا يُركَّب.
+ * تبديل الإضبارة يصفّر المجموعة حتى لا تبقى ألواح الملف السابق. */
+export function useFollowupModalTabKeepAlive(
+    activePanelKey: FollowupTabPanelKey,
+    dossierKeepAliveKey?: string,
+) {
+    const visitedRef = useRef<Set<FollowupTabPanelKey>>(new Set());
+    const dossierKeyRef = useRef(dossierKeepAliveKey);
+    if (dossierKeepAliveKey !== dossierKeyRef.current) {
+        dossierKeyRef.current = dossierKeepAliveKey;
+        visitedRef.current = new Set();
+    }
+    if (!visitedRef.current.has(activePanelKey)) {
+        visitedRef.current.add(activePanelKey);
+    }
+    const visitedCount = visitedRef.current.size;
+    return useMemo(
+        () => new Set(visitedRef.current),
+        [activePanelKey, visitedCount, dossierKeepAliveKey],
     );
-
-    useLayoutEffect(() => {
-        setMountedPanels((prev) => {
-            if (prev.has(activePanelKey)) return prev;
-            const next = new Set(prev);
-            next.add(activePanelKey);
-            return next;
-        });
-    }, [activePanelKey]);
-
-    return useMemo(() => {
-        const next = new Set(mountedPanels);
-        next.add(activePanelKey);
-        return next;
-    }, [mountedPanels, activePanelKey]);
 }

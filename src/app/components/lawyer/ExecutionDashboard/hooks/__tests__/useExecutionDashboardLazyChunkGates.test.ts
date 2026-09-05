@@ -41,7 +41,7 @@ describe('useExecutionDashboardLazyChunkGates', () => {
         expect(prefetchExecutionDashboardShellOverlays).not.toHaveBeenCalled();
     });
 
-    it('forces both gates open when an urgent modal is visible', () => {
+    it('forces both gates open when an urgent modal is visible', async () => {
         prefetchExecutionFollowupOverlay.mockClear();
         prefetchExecutionDashboardShellOverlays.mockClear();
         const { result } = renderHook(() =>
@@ -57,7 +57,9 @@ describe('useExecutionDashboardLazyChunkGates', () => {
         expect(result.current.phoneBodyReady).toBe(true);
         expect(result.current.shellOverlaysReady).toBe(true);
         expect(prefetchExecutionFollowupOverlay).not.toHaveBeenCalled();
-        expect(prefetchExecutionDashboardShellOverlays).toHaveBeenCalledTimes(1);
+        await vi.waitFor(() => {
+            expect(prefetchExecutionDashboardShellOverlays).toHaveBeenCalledTimes(1);
+        });
     });
 
     it('opens the shell overlays barrel for eviction followup windows', () => {

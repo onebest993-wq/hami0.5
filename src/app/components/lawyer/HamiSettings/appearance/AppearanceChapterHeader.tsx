@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
+import { SettingsChevronDownIcon } from '../settingsStemIconsLazy';
 import { SETTING_FOCUS_RING } from '../settings-ui/tokens';
 import {
     APPEARANCE_CHAPTERS,
@@ -33,12 +33,15 @@ export function AppearanceChapterHeader({
                 }
             }}
             onClick={() => onToggle(id)}
-            className={`hami-appearance-chapter-trigger flex w-full items-center gap-2 min-h-[48px] px-3.5 py-2.5 text-right touch-manipulation ${SETTING_FOCUS_RING}`}
+            className={`hami-appearance-chapter-trigger flex w-full items-center gap-2 min-h-[44px] px-3 py-1.5 text-right touch-manipulation ${SETTING_FOCUS_RING}`}
             style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
         >
-            <span className="min-w-0 flex-1 text-[13px] font-medium text-white/95">{meta.label}</span>
-            <ChevronDown
-                size={16}
+            <span className="min-w-0 flex-1 text-right">
+                <span className="block text-[13px] font-medium text-white/95">{meta.label}</span>
+                <span className="block text-[11px] text-white/40 mt-0.5 leading-snug">{meta.hint}</span>
+            </span>
+            <SettingsChevronDownIcon
+                size={14}
                 className={`hami-appearance-chapter-chevron shrink-0 text-white/35 ${open ? 'is-open' : ''}`}
                 aria-hidden
             />

@@ -14,6 +14,11 @@ import { ShieldAlert } from '@/app/components/ui/icons/ShieldAlert';
 import { TrendingUp } from '@/app/components/ui/icons/TrendingUp';
 import { Wallet } from '@/app/components/ui/icons/Wallet';
 import { UserRoundX } from '@/app/components/ui/icons/UserRoundX';
+import { Shield } from '@/app/components/ui/icons/Shield';
+import { hasActiveFinancialGuarantorFollowup } from '@/app/utils/execution/guarantorFollowup';
+import {
+    formatGuarantorIqdForDisplay,
+} from '@/app/components/lawyer/ExecutionDashboard/components/guarantorExternalUtils';
 import {
     isExecutiveDetentionBadgeSuppressed,
     isExecutiveDetentionPathEnforceable,
@@ -311,6 +316,29 @@ export function buildPartyBadgeDefinitions(args: {
                 detailLines: linesForSeizedAssetPopover(a),
             });
         }
+    }
+
+    const gf = ed?.guarantor_followup;
+    const guarantorActive =
+        args.hasGuarantor ||
+        hasActiveFinancialGuarantorFollowup(ed) ||
+        Boolean(String(gf?.guarantor_name || '').trim());
+    if (guarantorActive && args.party === 'debtor' && args.isPrimaryDebtor) {
+        const name = String(gf?.guarantor_name || '').trim() || 'كفيل';
+        out.push({
+            id: 'guarantor_followup',
+            shortLabel: name === 'كفيل' ? 'كفيل' : `كفيل · ${name}`,
+            Icon: Shield,
+            tone: 'sky',
+            dismissMode: 'local',
+            detailLines: [
+                { k: 'الاسم', v: name },
+                {
+                    k: 'الاستقطاع',
+                    v: formatGuarantorIqdForDisplay(gf?.guarantor_deduction_iqd),
+                },
+            ],
+        });
     }
 
     return out;

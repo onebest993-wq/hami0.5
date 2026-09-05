@@ -27,6 +27,14 @@ describe('scannerCamera', () => {
         }
         vi.mocked(isViteE2eHooksEnabled).mockReturnValue(true);
         vi.unstubAllGlobals();
+        Object.defineProperty(document, 'hidden', {
+            configurable: true,
+            value: false,
+        });
+        Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            value: 'visible',
+        });
     });
 
     it('يقرأ اسم خطأ الكاميرا من الكائن', () => {
@@ -113,6 +121,10 @@ describe('scannerCamera', () => {
     it('يحرّر الكاميرا عند إخفاء الصفحة', () => {
         const onRelease = vi.fn();
         const unsub = subscribeScannerCameraBackgroundRelease(onRelease);
+        Object.defineProperty(document, 'hidden', {
+            configurable: true,
+            value: true,
+        });
         Object.defineProperty(document, 'visibilityState', {
             configurable: true,
             value: 'hidden',
@@ -120,6 +132,10 @@ describe('scannerCamera', () => {
         document.dispatchEvent(new Event('visibilitychange'));
         expect(onRelease).toHaveBeenCalledTimes(1);
         unsub();
+        Object.defineProperty(document, 'hidden', {
+            configurable: true,
+            value: false,
+        });
         Object.defineProperty(document, 'visibilityState', {
             configurable: true,
             value: 'visible',

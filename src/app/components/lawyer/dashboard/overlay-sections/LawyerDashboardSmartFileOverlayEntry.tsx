@@ -7,6 +7,7 @@ import { SmartFileModalBootChrome } from '@/app/components/lawyer/dashboard/Smar
 import { LazySmartFileModalPortal } from '@/app/components/lawyer/dashboard/smartFileModalPortalLazy';
 
 import type { LawyerDashboardOverlaysBundleProps } from '@/app/components/lawyer/dashboard/lawyerDashboardOverlaysBundles';
+import { isLawsuitVaultCommitHold } from '@/app/runtime/lawsuitVaultCommitHold';
 
 type Props = Pick<
     LawyerDashboardOverlaysBundleProps,
@@ -39,7 +40,9 @@ export function LawyerDashboardSmartFileOverlayEntry({
     const lawsuitFile =
         activeFile && activeFile.type !== 'execution' ? (activeFile as FileData) : null;
     const heldFileRef = useRef<FileData | null>(null);
+    const liveLawsuitFileRef = useRef<FileData | null>(lawsuitFile);
     if (lawsuitFile) heldFileRef.current = lawsuitFile;
+    liveLawsuitFileRef.current = lawsuitFile;
     const displayFile = lawsuitFile ?? heldFileRef.current;
     const surfaceActive = Boolean(lawsuitFile);
 
@@ -63,6 +66,20 @@ export function LawyerDashboardSmartFileOverlayEntry({
 
     const hideVaultAfterPaint = useCallback(() => {
         if (!overlays.showLawsuitsWorkspace) return;
+        if (isLawsuitVaultCommitHold()) return;
+        /*
+         * النقل إلى السلة من الشبكة يصفّر activeFile. رسم مودال Keep-alive
+         * بعد ذلك لا يعني أن المستخدم فتح الإضبارة — لا تُغلق الخزنة.
+         */
+        if (!liveLawsuitFileRef.current) return;
+        if (typeof document !== 'undefined') {
+            if (
+                document.querySelector('[data-testid="lawsuit-trash-confirm-dialog"]') ||
+                document.querySelector('[data-testid="lawsuit-permanent-delete-dialog"]')
+            ) {
+                return;
+            }
+        }
         overlays.setShowLawsuitsWorkspace(false);
     }, [overlays]);
 
@@ -106,6 +123,7 @@ export function LawyerDashboardSmartFileOverlayEntry({
         handleStartConsolidationNewCase,
         handleConsolidateWithExisting,
         handleLinkWithExistingCase,
+        handleSpawnIndependentChallengeFile,
         consolidationNavActive,
     } = dossier;
 
@@ -140,6 +158,7 @@ export function LawyerDashboardSmartFileOverlayEntry({
             onStartConsolidationNewCase={handleStartConsolidationNewCase}
             onConsolidateWithExisting={handleConsolidateWithExisting}
             onLinkWithExistingCase={handleLinkWithExistingCase}
+            onSpawnIndependentChallengeFile={handleSpawnIndependentChallengeFile}
             consolidationNavActive={consolidationNavActive && !newCase.isNewCaseModalOpen}
             caseLinkNavActive={false}
             caseLinkViewOnly={caseLinkViewOnly}

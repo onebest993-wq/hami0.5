@@ -7,7 +7,6 @@ export const Segmented = memo(function Segmented<T extends string>({
     onChange,
     tone = 'dark',
     equal = false,
-    nowrap = false,
     'aria-labelledby': ariaLabelledBy,
 }: {
     value: T;
@@ -15,8 +14,6 @@ export const Segmented = memo(function Segmented<T extends string>({
     onChange: (v: T) => void;
     tone?: 'dark' | 'light';
     equal?: boolean;
-    /** صف أفقي قابل للتمرير — لخيارات كثيرة مثل قفل تلقائي */
-    nowrap?: boolean;
     'aria-labelledby'?: string;
 }) {
     const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -62,7 +59,7 @@ export const Segmented = memo(function Segmented<T extends string>({
         <div
             role="radiogroup"
             aria-labelledby={ariaLabelledBy}
-            className={`flex gap-0.5 p-0.5 rounded-lg w-full ${nowrap ? 'hami-settings-segmented-nowrap flex-nowrap overflow-x-auto overscroll-x-contain pe-3' : ''} ${SETTING_GLASS_INNER}`}
+            className={`flex gap-0.5 p-0.5 rounded-lg w-full flex-wrap ${SETTING_GLASS_INNER}`}
         >
             {options.map((opt, index) => {
                 const selected = displayed === opt.value;
@@ -82,7 +79,7 @@ export const Segmented = memo(function Segmented<T extends string>({
                             event.preventDefault();
                             select(opt.value, event);
                         }}
-                        className={`${equal ? 'flex-1' : ''} ${nowrap ? 'shrink-0' : ''} min-h-[44px] min-w-[44px] px-2 sm:px-2.5 py-2 rounded-md text-[12px] font-semibold touch-manipulation hami-settings-segment ${SETTING_FOCUS_RING_COMPACT} ${
+                        className={`${equal ? 'flex-1' : 'flex-[1_1_calc(33.333%-0.25rem)]'} min-h-[44px] min-w-[44px] px-2 sm:px-2.5 py-1.5 rounded-md text-[12px] font-semibold touch-manipulation hami-settings-segment ${SETTING_FOCUS_RING_COMPACT} ${
                             selected
                                 ? tone === 'light'
                                     ? 'bg-black/[0.08] text-[#3f4654] ring-1 ring-inset ring-black/[0.08]'
@@ -104,6 +101,5 @@ export const Segmented = memo(function Segmented<T extends string>({
     onChange: (v: T) => void;
     tone?: 'dark' | 'light';
     equal?: boolean;
-    nowrap?: boolean;
     'aria-labelledby'?: string;
 }) => React.ReactElement;

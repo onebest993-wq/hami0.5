@@ -67,7 +67,7 @@ export function QuestionCardHeaderAvatar({
     const accredited = useAccreditedLawyerMark(isAnonymous ? null : authorId);
     return (
         <div
-            className={`relative mt-0.5 p-1.5 rounded-full shrink-0 ${isAnonymous ? `${FORUM_ACCENT_CHIP}` : 'bg-[#1A2333] text-[#9AA3B2]'}`}
+            className={`relative mt-0.5 p-1 rounded-full shrink-0 ${isAnonymous ? `${FORUM_ACCENT_CHIP}` : 'bg-[#1A2333] text-[#9AA3B2]'}`}
         >
             {isAnonymous ? <EyeOff size={16} /> : <User size={16} />}
             {accredited ? <AccreditedLawyerMark /> : null}

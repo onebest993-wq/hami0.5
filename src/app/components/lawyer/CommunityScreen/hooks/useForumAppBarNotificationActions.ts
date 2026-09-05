@@ -100,7 +100,7 @@ export function useForumAppBarNotificationActions({
                 const next = !v;
                 if (next) {
                     seedNotificationsFromLocal(userId);
-                    void fetchNotifications({ background: true });
+                    void fetchNotifications();
                 }
                 onDropdownChange?.(next);
                 return next;

@@ -2,9 +2,16 @@ import React, { useCallback, useState } from 'react';
 import { HomeSearchIcon, HomeXIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
 import { GLOBAL_SEARCH_LISTBOX_ID } from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchA11yIds';
 import {
-    GLOBAL_SEARCH_INSTANT_IDLE_HINT,
-    GLOBAL_SEARCH_INSTANT_SCOPE_CHIPS,
-} from '@/app/runtime/globalSearchInstantSheetHtml';
+    GS_CLOSE_BTN_CLASS,
+    GS_FIELD_ROW_CLASS,
+    GS_SCOPE_ICON_WRAP_CLASS,
+    GS_SEARCH_INPUT_CLASS,
+    GS_TITLE_ROW_CLASS,
+} from '@/app/components/lawyer/GlobalSearchOverlay/searchInstantChromeClasses';
+import {
+    GLOBAL_SEARCH_IDLE_HINT,
+    GLOBAL_SEARCH_SCOPE_CHIP_LABELS,
+} from '@/app/components/lawyer/GlobalSearchOverlay/searchScopeChipLabels';
 import { peekGlobalSearchDraftQuery, writeGlobalSearchDraftQuery } from '@/app/runtime/globalSearchDraftQuery';
 import { clampGlobalSearchQuery } from '@/app/services/search/globalSearchQuerySecurity';
 
@@ -33,28 +40,28 @@ export function GlobalSearchInstantSheetChrome({
                 <div className="hami-gs-handle" />
             </div>
             <div className="hami-gs-header" data-compact="false">
-                <div className="hami-gs-title-row flex items-center justify-between gap-2 mb-1.5">
+                <div className={GS_TITLE_ROW_CLASS}>
                     <div className="hami-gs-title-text min-w-0 text-right">
                         <p className="hami-gs-title">البحث الشامل</p>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="hami-gs-close shrink-0 min-w-[44px] min-h-[44px] w-11 h-11 ms-auto flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/45"
+                        className={`${GS_CLOSE_BTN_CLASS} focus-visible:ring-2 focus-visible:ring-[#E6C673]/45`}
                         aria-label="إغلاق البحث"
                         data-testid="global-search-close"
                     >
-                        <HomeXIcon size={18} strokeWidth={2.2} aria-hidden />
+                        <HomeXIcon size={16} strokeWidth={2.2} aria-hidden />
                     </button>
                 </div>
 
                 <div className="hami-gs-field-shell hami-gs-field-shell--active">
-                    <div className="flex items-center gap-1 min-h-[44px] pe-1 ps-1">
+                    <div className={GS_FIELD_ROW_CLASS}>
                         <span
-                            className="relative shrink-0 min-w-[44px] min-h-[44px] w-11 h-11 rounded-full flex items-center justify-center text-white/50"
+                            className={`${GS_SCOPE_ICON_WRAP_CLASS} text-white/50`}
                             aria-hidden
                         >
-                            <HomeSearchIcon size={18} strokeWidth={2.25} />
+                            <HomeSearchIcon size={16} strokeWidth={2.25} />
                         </span>
                         <input
                             type="text"
@@ -73,7 +80,7 @@ export function GlobalSearchInstantSheetChrome({
                             autoCorrect="off"
                             autoCapitalize="off"
                             spellCheck={false}
-                            className="flex-1 min-w-0 bg-transparent text-[16px] sm:text-base font-medium text-white placeholder-white/28 outline-none border-none py-2"
+                            className={GS_SEARCH_INPUT_CLASS}
                         />
                         <div className="shrink-0 w-11 h-11" />
                     </div>
@@ -83,7 +90,7 @@ export function GlobalSearchInstantSheetChrome({
                         aria-label="تصنيف البحث"
                         data-testid="global-search-scope-menu"
                     >
-                        {GLOBAL_SEARCH_INSTANT_SCOPE_CHIPS.map((chip) => {
+                        {GLOBAL_SEARCH_SCOPE_CHIP_LABELS.map((chip) => {
                             const selected = chip.id === 'all';
                             return (
                                 <button
@@ -106,7 +113,7 @@ export function GlobalSearchInstantSheetChrome({
             </div>
             <div data-testid="global-search-idle">
                 <p className="hami-gs-idle-hint" data-testid="global-search-idle-hint">
-                    {GLOBAL_SEARCH_INSTANT_IDLE_HINT}
+                    {GLOBAL_SEARCH_IDLE_HINT}
                 </p>
             </div>
         </>

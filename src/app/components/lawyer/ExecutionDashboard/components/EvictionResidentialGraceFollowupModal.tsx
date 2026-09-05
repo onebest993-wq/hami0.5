@@ -9,6 +9,7 @@ import {
     EXEC_MODAL_TOUCH_TARGET,
 } from '../executionModalMobileShell';
 import type { EvictionResidentialGraceFollowupModalProps } from './EvictionFollowupModalsChunk.types';
+import { EXEC_MODAL_Z } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 
 /** مودال مهلة السكن للتخلية */
 export function EvictionResidentialGraceFollowupModal(p: EvictionResidentialGraceFollowupModalProps) {
@@ -36,10 +37,16 @@ export function EvictionResidentialGraceFollowupModal(p: EvictionResidentialGrac
 
     if (typeof document === 'undefined') return null;
 
+    const graceModalZ =
+        typeof nestedOverUnifiedZIndex === 'number' &&
+        nestedOverUnifiedZIndex > EXEC_MODAL_Z.unifiedFollowUp
+            ? Math.max(nestedOverUnifiedZIndex, EXEC_MODAL_Z.nestedOverFollowUpPortal)
+            : EXEC_MODAL_Z.nestedOverFollowUpPortal;
+
     return createPortal(
         <div
             className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG} ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
-            style={{ zIndex: nestedOverUnifiedZIndex }}
+            style={{ zIndex: graceModalZ }}
             onClick={() => closeEvictionResidentialGraceModal()}
             role="presentation"
         >

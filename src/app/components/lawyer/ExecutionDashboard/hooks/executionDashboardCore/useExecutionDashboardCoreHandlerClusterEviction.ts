@@ -5,7 +5,6 @@ import { useExecutionDashboardEvictionHeirsMemoHandlers } from './useExecutionDa
 import { useExecutionDashboardEvictionResidentialGraceHandlers } from './useExecutionDashboardEvictionResidentialGraceHandlers';
 import { useExecutionDashboardPoliceAssistanceHandlers } from './useExecutionDashboardPoliceAssistanceHandlers';
 import { useExecutionDashboardBreakInventoryHandlers } from './useExecutionDashboardBreakInventoryHandlers';
-import { useExecutionDashboardGuarantorFollowupHandlers } from './useExecutionDashboardGuarantorFollowupHandlers';
 import { useExecutionDashboardEvictionFinancialHandlers } from './useExecutionDashboardEvictionFinancialHandlers';
 import { useExecutionDashboardModuleExpenseHandlers } from './useExecutionDashboardModuleExpenseHandlers';
 import { useEvictionLawyerFeeOutcome } from '../useEvictionLawyerFeeOutcome';
@@ -26,7 +25,6 @@ export function useExecutionDashboardCoreHandlerClusterEviction(
     const {
         EVICTION_WORKFLOW_BY_ACTION_ID,
         appendEvictionExecutorRequest,
-        assignmentWorkspaceCtx,
         calculatedExecutionFee,
         caseTasksPendingRef,
         currentFileId,
@@ -61,7 +59,6 @@ export function useExecutionDashboardCoreHandlerClusterEviction(
         graceModalEndYmd,
         graceModalStartYmd,
         gracePeriodStart,
-        guarantorDetailsDecisionId,
         hasActiveResidentialEvictionGrace,
         isEvictionExecutionModule,
         isExecutorRowEffectivelyApproved,
@@ -73,9 +70,7 @@ export function useExecutionDashboardCoreHandlerClusterEviction(
         openBreakInventoryCompletion,
         openEvictionExecutorCompletionRef,
         openFinancialHubLedger,
-        openGuarantorDetailsModal,
         openJudicialCustodianCompletion,
-        openSeizureRequestsTabRef,
         parsedLawyerFees,
         persistExecutionMerge,
         persistExecutionMergeRef,
@@ -109,7 +104,6 @@ export function useExecutionDashboardCoreHandlerClusterEviction(
         setGraceModalStartYmd,
         setGracePeriodActive,
         setGracePeriodEnded,
-        setGuarantorDetailsDecisionId,
         setLastActionDate,
         setLawyerFeeDisburseNotes,
         setPoliceAssistanceAgencyDraft,
@@ -117,8 +111,6 @@ export function useExecutionDashboardCoreHandlerClusterEviction(
         setPoliceAssistanceModalOpen,
         setPoliceAssistanceRequestTitle,
         setSeizedAssets,
-        setSeizureDetailCompletion,
-        setShowCoerciveActionForm,
         setShowDecisionsModal,
         setShowEvictionExpenseModal,
         setShowEvictionLawyerFeeModal,
@@ -312,39 +304,6 @@ const {
 
 
 
-    const guarantorFollowupHandlers = useExecutionDashboardGuarantorFollowupHandlers({
-        decisionsStorageExecutionId,
-        executionData,
-        executionId,
-        assignmentWorkspaceCtx,
-        nextTimelineId,
-        pushTimelineEvent,
-        persistExecutionMerge,
-        showToast,
-        openGuarantorDetailsModal,
-        openSeizureRequestsTabRef,
-        setTimelineEvents,
-        setShowCoerciveActionForm,
-        setSeizureDetailCompletion,
-        openFollowupModalPersisted,
-        setShowUnifiedExecutionModal,
-        setUnifiedModalTab,
-        executionDataRef,
-        persistExecutionMergeRef,
-        guarantorDetailsDecisionId,
-        setGuarantorDetailsDecisionId,
-    });
-
-const {
-        requestFollowupSeizureDecision,
-        handleGuarantorRequestFromFollowup,
-        archiveAndClearGuarantor,
-        requestGuarantorSeizure,
-        persistGuarantorFollowupDetails,
-    } = guarantorFollowupHandlers;
-
-
-
     const handleEvictionUnlockAssetsTab = useCallback(() => {
         const persisted = persistExecutionMerge({ eviction_assets_tab_unlocked: true });
         if (
@@ -437,7 +396,6 @@ const {
         evictionResidentialGraceHandlers,
         policeAssistanceHandlers,
         breakInventoryHandlers,
-        guarantorFollowupHandlers,
         evictionFinancialHandlers,
         moduleExpenseHandlers,
     };

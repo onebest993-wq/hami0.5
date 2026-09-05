@@ -83,11 +83,13 @@ html {
  * فتح الإعدادات: أبقِ اللوحة مركَّبة تحت الطبقة المعتمة.
  * content-visibility:hidden كان يعيد تخطيط المنزل عند كل إغلاق فيبدو «إعادة تحميل».
  */
-html[data-hami-settings-open='1'] [data-hami-lawyer-dashboard] {
+html[data-hami-settings-open='1'] [data-hami-lawyer-dashboard],
+html[data-hami-settings-closing='1'] [data-hami-lawyer-dashboard] {
     pointer-events: none !important;
 }
 
-html[data-hami-native='1'][data-hami-settings-open='1'] [data-hami-lawyer-dashboard] {
+html[data-hami-native='1'][data-hami-settings-open='1'] [data-hami-lawyer-dashboard],
+html[data-hami-native='1'][data-hami-settings-closing='1'] [data-hami-lawyer-dashboard] {
     pointer-events: none !important;
 }
 
@@ -96,6 +98,11 @@ html:not([data-hami-settings-open='1']):not([data-hami-settings-closing='1']) .h
 html:not([data-hami-settings-open='1']):not([data-hami-settings-closing='1']) #hami-settings-instant-bridge {
     visibility: hidden !important;
     opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+html[data-settings-close-guard='1'] [data-testid='settings-shell-close'],
+html[data-settings-close-guard='1'] [data-testid='settings-instant-close'] {
     pointer-events: none !important;
 }
 
@@ -148,10 +155,6 @@ html[data-hami-global-search-open='1'] [data-hami-lawyer-dashboard] {
     pointer-events: none !important;
 }
 
-html[data-hami-native='1'][data-hami-global-search-open='1'] [data-hami-lawyer-dashboard] {
-    pointer-events: none !important;
-}
-
 html:not([data-hami-global-search-open='1']):not([data-hami-global-search-closing='1']) .hami-gs-layer {
     visibility: hidden !important;
     opacity: 0 !important;
@@ -191,9 +194,14 @@ html[data-hami-field-tasks-closing='1'] [data-field-tasks-root] {
     pointer-events: none !important;
 }
 
-html:not([data-hami-field-tasks-open='1']):not([data-hami-field-tasks-closing='1']) [data-field-tasks-root] {
+html:not([data-hami-field-tasks-open='1']):not([data-hami-field-tasks-closing='1']) [data-field-tasks-root],
+html:not([data-hami-field-tasks-open='1']):not([data-hami-field-tasks-closing='1']) #hami-field-tasks-instant-chrome {
     visibility: hidden !important;
     opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+html:not([data-hami-field-tasks-open='1']):not([data-hami-field-tasks-closing='1']) [data-field-tasks-root] * {
     pointer-events: none !important;
 }
 
@@ -237,7 +245,8 @@ html[data-hami-native='1'][data-hami-repository-open='1'] [data-hami-lawyer-dash
     pointer-events: none !important;
 }
 
-html:not([data-hami-repository-open='1']):not([data-hami-repository-closing='1']) .hami-repository-overlay-layer {
+html:not([data-hami-repository-open='1']):not([data-hami-repository-closing='1']) .hami-repository-overlay-layer:not(.hami-repository-overlay-layer--visible),
+html:not([data-hami-repository-open='1']):not([data-hami-repository-closing='1']) #hami-repository-instant-chrome {
     visibility: hidden !important;
     opacity: 0 !important;
     pointer-events: none !important;
@@ -2128,6 +2137,15 @@ html[data-hami-repository-open='1'] header[data-header-visible] {
 }
 
 html[data-hami-repository-open='1'] [data-testid='smart-repository-modal'] {
+    pointer-events: auto !important;
+}
+
+/* قشرة الرسم فقط — لا تبلع اللمس عن المودال الحي (كانت auto على الجذر فتتجمّد ثم تُفتح فجأة) */
+html[data-hami-repository-open='1'] #hami-repository-instant-chrome {
+    pointer-events: none !important;
+}
+
+html[data-hami-repository-open='1'] #hami-repository-instant-chrome [data-testid='repository-instant-close'] {
     pointer-events: auto !important;
 }
 

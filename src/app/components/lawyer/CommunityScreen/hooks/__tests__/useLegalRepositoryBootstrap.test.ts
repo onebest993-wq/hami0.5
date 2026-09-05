@@ -13,7 +13,7 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
     SmartToast: { error: vi.fn(), success: vi.fn(), warning: vi.fn(), info: vi.fn() },
 }));
 
-vi.mock('@/app/services/lawyer-cloud', () => ({
+vi.mock('@/app/services/cloud/lawyerRepositoryCloud', () => ({
     listRepositoryDocumentsSync: () => listRepositoryDocumentsSync(),
     RepositoryDB: { listDocuments: (...args: unknown[]) => listDocuments(...args) },
 }));
@@ -26,6 +26,16 @@ vi.mock('@/app/services/forum/repositoryDocsWarmCache', () => ({
 
 vi.mock('../../forumAsync', () => ({
     withForumAsyncTimeout: <T,>(promise: Promise<T>) => promise,
+}));
+
+vi.mock('@/app/services/forumApiService', () => ({
+    ForumApiService: {
+        listRepositoryDocuments: vi.fn(async () => []),
+    },
+}));
+
+vi.mock('@/app/services/forum/forumRepositoryIndexQueue', () => ({
+    flushForumRepositoryIndexQueue: vi.fn(async () => []),
 }));
 
 import { useLegalRepositoryBootstrap } from '../useLegalRepositoryBootstrap';

@@ -1,6 +1,5 @@
 import React from 'react';
 import { Zap } from '@/app/components/ui/icons/Zap';
-import { Scale } from '@/app/components/ui/icons/Scale';
 import { ecg } from './executionCreationGlassUi';
 import { formatMoneyIntegerDisplay, handleMoneyInputChange } from '@/app/utils/moneyInput';
 import type { AlimonyPastLawSystem } from '../hooks/useAlimonyCalculator';
@@ -133,10 +132,7 @@ export const PastAlimonyResultPreview: React.FC<PastAlimonyResultPreviewProps> =
 
     return (
         <div className={ecg.resultCard}>
-            <h5 className="text-emerald-300/95 font-bold text-sm mb-3 flex items-center gap-2">
-                <Scale size={16} />
-                النتائج الفورية
-            </h5>
+            <h5 className="text-emerald-300/95 font-bold text-sm mb-3">النتائج الفورية</h5>
             <div className="space-y-3 text-sm">
                 {calculated.pastDurationDays > 0 ? (
                     <div className={`${ecg.hintPanel} !mt-0 px-2.5 py-2`}>

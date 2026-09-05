@@ -7,7 +7,10 @@ function createLazyFinancialOperationsCenter() {
     return React.lazy(async () => ({
         default: (props: {
             onToggle?: () => void;
-            onGuarantorRequest?: () => void;
+            onPersistSettlementGuarantor?: (
+                guarantorName: string,
+                deductionIqd: number | null,
+            ) => void;
             onPayment?: () => void;
             onSettlement?: () => void;
             onShowLedger?: () => void;
@@ -29,7 +32,10 @@ function createLazyFinancialOperationsCenter() {
                 <button type="button" onClick={props.evictionFinanceStrip?.onRecordExpense}>
                     open eviction expense
                 </button>
-                <button type="button" onClick={props.onGuarantorRequest}>
+                <button
+                    type="button"
+                    onClick={() => props.onPersistSettlementGuarantor?.('كفيل تجريبي', 1000)}
+                >
                     guarantor request
                 </button>
             </div>
@@ -43,7 +49,6 @@ function createBaseProps(
     return {
         showExecutionFinancialHub: true,
         onCloseFinancialHub: vi.fn(),
-        onOpenUnifiedSeizureLog: vi.fn(),
         financialHubAutoOpenMode: null,
         setFinancialHubAutoOpenMode: vi.fn(),
         financialHubSeizedMovableId: null,
@@ -151,18 +156,15 @@ describe('ExecutionFinancialHubPortal', () => {
         expect(onCloseFinancialHub).toHaveBeenCalledTimes(1);
     });
 
-    it('forwards center toggle and guarantor detail opening through explicit callbacks', async () => {
+    it('forwards center toggle and settlement guarantor persist through explicit callbacks', async () => {
         const onToggleFinancialCenterExpanded = vi.fn();
-        const onOpenGuarantorFollowupDetails = vi.fn();
-        const appendGuarantorFollowupRequest = vi.fn(() => ({ ok: true, decisionId: 'd-1' }));
+        const persistGuarantorFollowupDetails = vi.fn(() => true);
 
         render(
             <ExecutionFinancialHubPortal
                 {...createBaseProps({
                     onToggleFinancialCenterExpanded,
-                    onOpenGuarantorFollowupDetails,
-                    appendGuarantorFollowupRequest,
-                    guarantorFollowupAwaitingDetailsSave: vi.fn(() => true),
+                    persistGuarantorFollowupDetails,
                 })}
             />,
         );
@@ -171,8 +173,11 @@ describe('ExecutionFinancialHubPortal', () => {
         fireEvent.click(screen.getByRole('button', { name: 'guarantor request' }));
 
         expect(onToggleFinancialCenterExpanded).toHaveBeenCalledTimes(1);
-        expect(onOpenGuarantorFollowupDetails).toHaveBeenCalledTimes(1);
-        expect(appendGuarantorFollowupRequest).not.toHaveBeenCalled();
+        expect(persistGuarantorFollowupDetails).toHaveBeenCalledWith('كفيل تجريبي', '—', {
+            salaryIqd: null,
+            deductionIqd: 1000,
+            guaranteeType: 'amount',
+        });
     });
 
     it('forwards ledger and eviction expense opening through explicit callbacks', async () => {

@@ -1,5 +1,6 @@
-import React, { type ReactNode, type Ref } from 'react';
-import { SETTINGS_SHELL_CHROME } from './settingsShellStyle';
+import React, { useEffect, useRef, type ReactNode, type Ref } from 'react';
+import { SETTINGS_SHELL_CHROME } from './settingsShellChrome';
+import { isSmartDialogOpen } from '@/app/components/ui/smartDialogBus';
 
 type SettingsNestedSheetFrameProps = {
     testId: string;
@@ -11,6 +12,18 @@ type SettingsNestedSheetFrameProps = {
     extraRootProps?: Record<string, string>;
     children: ReactNode;
 };
+
+const SHEET_FOCUSABLE_SELECTOR =
+    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function bindRef<T>(ref: Ref<T> | undefined, node: T | null): void {
+    if (!ref) return;
+    if (typeof ref === 'function') {
+        ref(node);
+        return;
+    }
+    (ref as React.MutableRefObject<T | null>).current = node;
+}
 
 /**
  * هاتف: ملء الشاشة (نفس الكروم الحالي).
@@ -26,6 +39,20 @@ export function SettingsNestedSheetFrame({
     extraRootProps,
     children,
 }: SettingsNestedSheetFrameProps) {
+    const innerPanelRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        const panel = innerPanelRef.current;
+        if (!panel) return;
+        const focusRaf = requestAnimationFrame(() => {
+            if (isSmartDialogOpen()) return;
+            if (panel.contains(document.activeElement)) return;
+            const first = panel.querySelector<HTMLElement>(SHEET_FOCUSABLE_SELECTOR);
+            first?.focus({ preventScroll: true });
+        });
+        return () => cancelAnimationFrame(focusRaf);
+    }, []);
+
     return (
         <div
             className={`hami-settings-sheet-scrim ${extraRootClassName}`.trim()}
@@ -41,7 +68,10 @@ export function SettingsNestedSheetFrame({
             {...extraRootProps}
         >
             <div
-                ref={panelRef}
+                ref={(node) => {
+                    innerPanelRef.current = node;
+                    bindRef(panelRef, node);
+                }}
                 role="dialog"
                 aria-modal="true"
                 aria-label={label}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
 import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
 import { getCachedCalendarEvents } from '@/app/services/calendar/calendarEventsCache';
-import { readLocalCalendarSnapshotSync } from '@/app/services/calendar/calendarLocalSnapshot';
+import { peekLocalCalendarSnapshotSync } from '@/app/services/calendar/calendarLocalSnapshot';
 import { CalendarReminderModal } from '@/app/components/lawyer/SmartLegalRadar/CalendarReminderModal';
 import { useCalendarEventReminders } from '@/app/components/lawyer/SmartLegalRadar/hooks/useCalendarEventReminders';
 import { useCalendarNativeReminderSync } from '@/app/services/notifications/native/useCalendarNativeReminderSync';
@@ -16,7 +16,7 @@ import {
 
 function loadReminderEvents(userId: string): CalendarEvent[] {
     const cached = getCachedCalendarEvents(userId);
-    const list = cached ?? readLocalCalendarSnapshotSync(userId);
+    const list = cached ?? peekLocalCalendarSnapshotSync(userId);
     if (!Array.isArray(list)) return [];
     return list.filter(
         (event) =>

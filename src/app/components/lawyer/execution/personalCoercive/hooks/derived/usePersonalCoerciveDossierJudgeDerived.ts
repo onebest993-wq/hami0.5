@@ -150,7 +150,6 @@ export function usePersonalCoerciveDossierJudgeDerived(ctx: PersonalCoerciveDeri
             judgeDetentionStored === 'approved') &&
         !detentionActive &&
         !judgeSync.blocksFieldwork &&
-        !judgeSync.cycleSuperseded &&
         (judgeSync.enforced ||
             judgeDetentionStored === 'approved' ||
             Boolean(judgeDecisionIdStored));
@@ -161,10 +160,16 @@ export function usePersonalCoerciveDossierJudgeDerived(ctx: PersonalCoerciveDeri
         dossierEffective.alternative ||
         dossierIdle;
 
+    /** بعد موافقة المنفذ تبقى البطاقة ظاهرة بحالة «مكتمل» حتى لا يختفي المسار فجأة */
+    const dossierHandoffVisible =
+        dossierExecutorPhaseComplete &&
+        !detentionActive &&
+        !detentionLaneEnded;
+
     const showDossierPresentationCard =
         dossierPresentationGloballyAllowed &&
         !detentionLaneEnded &&
-        dossierRequestPhaseActive;
+        (dossierRequestPhaseActive || dossierHandoffVisible);
 
     const dossierHasExpandablePanel =
         dossierEffective.pending ||
@@ -200,8 +205,7 @@ export function usePersonalCoerciveDossierJudgeDerived(ctx: PersonalCoerciveDeri
         !detentionActive &&
         !detentionLaneEnded &&
         (judgeDetention === 'approved' || judgeDetentionStored === 'approved') &&
-        !judgeSync.blocksFieldwork &&
-        !judgeSync.cycleSuperseded;
+        !judgeSync.blocksFieldwork;
     const detentionPeriodActivePanel = detentionActive && !detentionLaneEnded;
     const judgeHasActionablePanel =
         dossierJudgeLaneReady ||
@@ -281,10 +285,19 @@ export function usePersonalCoerciveDossierJudgeDerived(ctx: PersonalCoerciveDeri
 
     useEffect(() => {
         if (!exId || isHistoricalMode || detentionLaneEnded) return;
+        // لا تُصفَّر حالة الحبس أثناء مسار القاضي أو بعد تسجيل النتيجة/بدء المدة
+        if (detentionActive) return;
+        if (judgeDetention === 'approved' || judgeDetention === 'rejected') return;
+        if (
+            dossierPhaseEffective === 'judge_decided' ||
+            dossierPhaseEffective === 'detention_active' ||
+            dossierPhaseEffective === 'handed_to_judge'
+        ) {
+            return;
+        }
         if (
             dossierExecutorPhaseComplete &&
             judgeDetention === null &&
-            !detentionActive &&
             (dossierEffective.approved || dossierPhaseEffective === 'handed_to_judge')
         ) {
             return;
@@ -335,6 +348,7 @@ export function usePersonalCoerciveDossierJudgeDerived(ctx: PersonalCoerciveDeri
         judgeDecisionIdStored,
         dossierShowStartPeriod,
         dossierRequestPhaseActive,
+        dossierHandoffVisible,
         showDossierPresentationCard,
         dossierHasExpandablePanel,
         dossierButtonDisabled,

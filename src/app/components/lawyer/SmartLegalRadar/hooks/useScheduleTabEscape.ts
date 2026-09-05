@@ -1,5 +1,10 @@
 import { useEffect } from 'react';
 import { registerNativeBackHandler } from '@/app/runtime/nativeBackStack';
+import {
+    isCalendarInstantChromeActive,
+    isCalendarPaintCoverInteractive,
+    isCalendarReminderOverlayOpen,
+} from '@/app/services/calendar/calendarReminderOverlayGate';
 
 type UseScheduleTabEscapeParams = {
     enabled: boolean;
@@ -10,8 +15,8 @@ type UseScheduleTabEscapeParams = {
 };
 
 /**
- * Escape/Cap على تبويب التقويم: إغلاق نموذج الموعد أولاً، ثم الرجوع للرئيسية.
- * لوحة المفاتيح: EventForm يملك Escape أثناء showForm — هذا الـ hook لا يسرقها.
+ * Escape/Cap: منبّه التذكير أولاً (طبقة أعلى)، ثم النموذج، ثم الرجوع.
+ * أثناء تحميل نموذج كسول يبقى هذا الـ hook مالك Escape حتى يُركَّب EventForm.
  */
 export function useScheduleTabEscape({
     enabled,
@@ -24,6 +29,9 @@ export function useScheduleTabEscape({
         if (!enabled) return;
 
         const consumeBackStack = (): boolean => {
+            if (isCalendarReminderOverlayOpen()) return false;
+            if (isCalendarInstantChromeActive()) return false;
+            if (isCalendarPaintCoverInteractive()) return false;
             if (showForm) {
                 if (!formSaving) onCloseForm();
                 return true;
@@ -34,8 +42,15 @@ export function useScheduleTabEscape({
 
         const onKey = (e: KeyboardEvent) => {
             if (e.key !== 'Escape') return;
-            /* نموذج الموعد يملك Escape الخاص به */
-            if (showForm) return;
+            if (isCalendarReminderOverlayOpen()) return;
+            if (isCalendarInstantChromeActive()) return;
+            if (isCalendarPaintCoverInteractive()) return;
+            if (showForm) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!formSaving) onCloseForm();
+                return;
+            }
 
             e.preventDefault();
             e.stopPropagation();

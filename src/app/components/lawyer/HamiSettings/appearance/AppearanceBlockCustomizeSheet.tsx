@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronRight } from '@/app/components/ui/icons/ChevronRight';
-import { X } from '@/app/components/ui/icons/X';
+import { SettingsXIcon } from '../settingsStemIconsChrome';
+import { SettingsChevronRightIcon } from '../settingsStemIconsLazy';
 import { useLawyerSettingsAppearance } from '@/app/context/LawyerSettingsContext';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { registerAppearanceCustomizeGuard } from '../settingsEscapeStack';
@@ -68,7 +68,7 @@ export function AppearanceBlockCustomizeSheet({
             onClose={onClose}
             panelRef={panelRef}
         >
-            <header className="hami-settings-sheet-header shrink-0 flex items-center gap-3 pb-3 border-b border-white/[0.06]">
+            <header className="hami-settings-sheet-header shrink-0 flex items-center gap-2 pb-1.5 border-b border-white/[0.06]">
                 <button
                     type="button"
                     onPointerDown={(event) => {
@@ -85,10 +85,10 @@ export function AppearanceBlockCustomizeSheet({
                     aria-label="رجوع إلى إعدادات المنظر"
                     className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/75 hover:text-white touch-manipulation"
                 >
-                    <ChevronRight size={18} aria-hidden />
+                    <SettingsChevronRightIcon size={16} aria-hidden />
                 </button>
                 <div className="min-w-0 flex-1">
-                    <h2 className="text-sm font-bold text-white truncate">تخصيص قسم</h2>
+                    <h2 className="text-[13px] font-semibold text-white truncate">تخصيص قسم</h2>
                 </div>
                 <button
                     type="button"
@@ -105,15 +105,15 @@ export function AppearanceBlockCustomizeSheet({
                     aria-label="إغلاق تخصيص القسم"
                     className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-white/55 hover:text-white touch-manipulation"
                 >
-                    <X size={18} aria-hidden />
+                    <SettingsXIcon size={16} aria-hidden />
                 </button>
             </header>
 
             <div
-                className="hami-settings-sheet-body flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-contain scrollbar-hide py-4"
+                className="hami-settings-sheet-body flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-contain scrollbar-hide py-2"
                 data-keyboard-inset={keyboardInset}
                 style={{
-                    paddingBottom: `calc(max(1.5rem, env(safe-area-inset-bottom, 0px)) + ${keyboardInset}px)`,
+                    paddingBottom: `calc(max(1rem, env(safe-area-inset-bottom, 0px)) + ${keyboardInset}px)`,
                 }}
             >
                 <AppearanceBlockCustomizePanel customize={customize} themePrimary={themePrimary} />

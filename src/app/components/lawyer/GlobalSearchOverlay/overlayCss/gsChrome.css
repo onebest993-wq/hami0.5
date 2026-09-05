@@ -1,6 +1,6 @@
 .hami-gs-title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.2;
@@ -8,8 +8,8 @@
 }
 
 .hami-gs-close {
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.75rem;
+  border: none;
   color: rgba(255, 255, 255, 0.7);
   background: transparent;
 }
@@ -21,16 +21,16 @@
 .hami-gs-header {
   position: relative;
   flex-shrink: 0;
-  padding: 0.2rem 0.75rem 0.45rem;
+  padding: 0.1rem 0.65rem 0.35rem;
 }
 
 .hami-gs-header[data-compact='true'] {
   padding-top: 0.05rem;
-  padding-bottom: 0.3rem;
+  padding-bottom: 0.25rem;
 }
 
 .hami-gs-header[data-compact='true'] .hami-gs-title-row {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.2rem;
 }
 
 .hami-gs-header[data-compact='true'] .hami-gs-title-text {
@@ -39,7 +39,7 @@
 
 @media (min-width: 768px) and (min-height: 560px) {
   .hami-gs-header {
-    padding: 0.7rem 1rem 0.5rem;
+    padding: 0.45rem 0.75rem 0.4rem;
   }
 
   .hami-gs-header[data-compact='true'] .hami-gs-title-text {
@@ -50,8 +50,8 @@
 .hami-gs-field-shell {
   overflow: hidden;
   border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .hami-gs-field-shell--active {
@@ -61,12 +61,12 @@
 
 .hami-gs-scope-rail {
   display: flex;
-  gap: 0.3rem;
+  gap: 0.25rem;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  padding: 0.3rem 0.5rem 0.4rem;
+  padding: 0.25rem 0.4rem 0.3rem;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -86,9 +86,9 @@
   flex-shrink: 0;
   min-height: 44px;
   min-width: 44px;
-  padding: 0 0.75rem;
-  border-radius: 999px;
-  font-size: 0.72rem;
+  padding: 0 0.65rem;
+  border-radius: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   touch-action: manipulation;
   outline: none;
@@ -126,7 +126,7 @@
 
 @media (min-width: 768px) and (min-height: 560px) {
   .hami-gs-scroll {
-    max-height: min(calc(88dvh - 176px), 600px);
+    max-height: min(calc(88dvh - 152px), 560px);
   }
 
   .hami-gs-sheet[data-keyboard-open='true'] .hami-gs-scroll {
@@ -138,10 +138,10 @@
   width: 100%;
   display: flex;
   align-items: stretch;
-  gap: 0.15rem;
-  border-radius: 0.7rem;
+  gap: 0.1rem;
+  border-radius: 0.75rem;
   content-visibility: auto;
-  contain-intrinsic-size: auto 56px;
+  contain-intrinsic-size: auto 52px;
 }
 
 html[data-hami-native='1'] .hami-gs-result-card {
@@ -153,12 +153,12 @@ html[data-hami-native='1'] .hami-gs-result-card {
 }
 
 .hami-gs-section-label {
-  margin: 0 0 0.35rem;
-  padding: 0 0.5rem;
+  margin: 0 0 0.2rem;
+  padding: 0 0.4rem;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.4rem;
   font-size: 0.6875rem;
   font-weight: 700;
   color: #e6c673;
@@ -174,14 +174,14 @@ html[data-hami-native='1'] .hami-gs-result-card {
 .hami-gs-recent-chip {
   flex-shrink: 0;
   min-height: 44px;
-  padding: 0.4rem 0.75rem;
-  border-radius: 0.7rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 0.75rem;
   font-size: 0.8125rem;
   color: rgba(255, 255, 255, 0.8);
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
   touch-action: manipulation;
-  max-width: min(220px, 72vw);
+  max-width: min(200px, 70vw);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -204,11 +204,39 @@ html[data-hami-native='1'] .hami-gs-result-card {
 
 .hami-gs-idle-hint {
   margin: 0;
-  padding: 0.85rem 0.75rem 0.4rem;
+  padding: 0.55rem 0.7rem 0.3rem;
   font-size: 0.75rem;
-  line-height: 1.55;
+  line-height: 1.45;
   color: rgba(255, 255, 255, 0.38);
   text-align: center;
+}
+
+.hami-gs-spinner {
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  border-top-color: rgba(230, 198, 115, 0.75);
+  border-radius: 999px;
+  animation: hami-gs-spin 0.7s linear infinite;
+}
+
+@keyframes hami-gs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hami-gs-spinner {
+    animation: none;
+  }
+}
+
+html.reduce-motion .hami-gs-spinner,
+html[data-hami-reduce-motion='1'] .hami-gs-spinner,
+html[data-hami-lite='1'] .hami-gs-spinner,
+html[data-hami-animations='0'] .hami-gs-spinner {
+  animation: none;
 }
 
 @media (min-width: 768px) and (min-height: 560px) {
@@ -223,36 +251,7 @@ html[data-hami-native='1'] .hami-gs-result-card {
 
   .hami-gs-error-sheet {
     max-width: 22rem;
-    border-radius: 1.25rem;
+    border-radius: 0.75rem;
     border: 1px solid rgba(244, 63, 94, 0.2);
   }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hami-gs-scope-chip,
-  .hami-gs-result-card,
-  .hami-gs-recent-chip,
-  .hami-gs-field-shell {
-    transition: none !important;
-  }
-
-  .hami-gs-recent-chip {
-    transform: none !important;
-  }
-}
-
-html.reduce-motion .hami-gs-scope-chip,
-html.reduce-motion .hami-gs-result-card,
-html.reduce-motion .hami-gs-recent-chip,
-html.reduce-motion .hami-gs-field-shell,
-html[data-hami-reduce-motion='1'] .hami-gs-scope-chip,
-html[data-hami-reduce-motion='1'] .hami-gs-result-card,
-html[data-hami-reduce-motion='1'] .hami-gs-recent-chip,
-html[data-hami-reduce-motion='1'] .hami-gs-field-shell {
-  transition: none !important;
-}
-
-html.reduce-motion .hami-gs-recent-chip,
-html[data-hami-reduce-motion='1'] .hami-gs-recent-chip {
-  transform: none !important;
 }

@@ -42,9 +42,9 @@ export function computeShowGuarantorInSeizureFollowupTab(input: {
     } = input;
 
     if (activeDebtorIsDeceased) return false;
-    if (hasActiveFinancialGuarantorFollowup(viewExecutionData)) return true;
     if (followupSpecialization.hideAllGuarantorPresence) return false;
     if (activeDebtorIsEmployee) return false;
+    if (hasActiveFinancialGuarantorFollowup(viewExecutionData)) return true;
     if (
         followupSpecialization.isFinancialDebtCollection &&
         resolveAmountGuarantorRequestVisible({
@@ -57,7 +57,7 @@ export function computeShowGuarantorInSeizureFollowupTab(input: {
     ) {
         return followupSpecialization.showFinancialGuarantorRequestOnly;
     }
-    return false;
+    return !followupSpecialization.isFinancialDebtCollection;
 }
 
 /** تبويبات مسموحة عند تقييد المحضر (كيان قانوني / وكيل مدين) — ديناميكي حسب أعلام التخصيص */

@@ -12,10 +12,6 @@ vi.mock('@/app/utils/bodyScrollLock', () => ({
     useBodyScrollLock: vi.fn(),
 }));
 
-vi.mock('../ExecutionTasksSection', () => ({
-    ExecutionTasksSection: () => <div>tasks section</div>,
-}));
-
 vi.mock('../ExecutionPinnedNotesTray', () => ({
     ExecutionPinnedNotesTray: () => <div>pinned notes tray</div>,
 }));

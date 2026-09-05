@@ -87,14 +87,16 @@ export function ExecutionFollowupModalCoerciveTabPanel({
         viewExecutionData,
     } = c;
 
-    if (!panelsToRender.has('coercive') || spec.hideFollowupCoerciveTab) return null;
+    if (!panelsToRender.has('coercive')) return null;
+    // لا تُفرَّغ اللوحة بعلم hide قديم — إن وُجد التبويب في الشريط فالمحتوى يُرسم.
+    // (تعارض سابق: التبويب ظاهر وspec.hideFollowupCoerciveTab = true → لوحة فارغة)
 
     return (
         <FollowupTabKeepAlivePanel
             key={`coercive:${String(activeFollowupDebtorKey ?? '')}`}
             panelId="coercive"
             active={activePanelKey === 'coercive'}
-            className="space-y-4 rounded-2xl border border-white/10 bg-[#0B1120]/72 p-4 sm:p-5"
+            className="space-y-3"
         >
             <TabCoercive
                 coerciveUiLocked={coerciveUiLocked}

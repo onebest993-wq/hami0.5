@@ -1,7 +1,7 @@
 import { useInViewOnce } from './useInViewOnce';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { canFollowPostAuthor } from '../communityPermissions';
-import { isActiveUrgentConsultation } from '../forumUrgentConsultation';
+import { isActiveUrgentConsultation } from '@/app/services/forum/forumUrgentConsultation';
 import {
     isProcedureGuidePost,
     stripProcedureGuideMachineLines,

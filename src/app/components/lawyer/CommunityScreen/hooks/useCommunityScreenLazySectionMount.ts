@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CommunitySection } from '@/app/components/lawyer/CommunityScreen/communitySectionState';
-import {
-    prefetchCommunityGroupsSection,
-    prefetchCommunityLazySectionChunks,
-    prefetchCommunityRepositorySection,
-    scheduleIdleCommunityLazySectionPrefetch,
-} from '@/app/components/lawyer/CommunityScreen/communityScreenLazySections';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
+
+function loadCommunityScreenLazySections() {
+    return import('@/app/components/lawyer/CommunityScreen/communityScreenLazySections');
+}
 
 const INTENT_MOUNT_HOLD_MS = 2_400;
 
@@ -24,13 +21,13 @@ export function useCommunityScreenLazySectionMount(
 
     useEffect(() => {
         if (activeSection === 'repository') {
-            void prefetchCommunityRepositorySection();
+            void loadCommunityScreenLazySections().then((m) => m.prefetchCommunityRepositorySection());
             setRepositoryMounted(true);
             setGroupsMounted(false);
             return;
         }
         if (activeSection === 'groups') {
-            void prefetchCommunityGroupsSection();
+            void loadCommunityScreenLazySections().then((m) => m.prefetchCommunityGroupsSection());
             setGroupsMounted(true);
             setRepositoryMounted(false);
             return;
@@ -41,10 +38,17 @@ export function useCommunityScreenLazySectionMount(
 
     useEffect(() => {
         if (!forumSurfaceOpen) return undefined;
-        if (!isLitePerformanceActive()) {
-            void prefetchCommunityLazySectionChunks();
-        }
-        return scheduleIdleCommunityLazySectionPrefetch();
+        let cancelled = false;
+        let cancelIdle: (() => void) | undefined;
+        void loadCommunityScreenLazySections().then((m) => {
+            if (cancelled) return;
+            m.prefetchOpenForumInnerSectionChunks();
+            cancelIdle = m.scheduleIdleCommunityLazySectionPrefetch();
+        });
+        return () => {
+            cancelled = true;
+            cancelIdle?.();
+        };
     }, [forumSurfaceOpen]);
 
     const releaseIntentMounts = useCallback(() => {
@@ -65,10 +69,10 @@ export function useCommunityScreenLazySectionMount(
         (section: CommunitySection) => {
             window.clearTimeout(intentTimerRef.current);
             if (section === 'repository') {
-                void prefetchCommunityRepositorySection();
+                void loadCommunityScreenLazySections().then((m) => m.prefetchCommunityRepositorySection());
                 setRepositoryMounted(true);
             } else if (section === 'groups') {
-                void prefetchCommunityGroupsSection();
+                void loadCommunityScreenLazySections().then((m) => m.prefetchCommunityGroupsSection());
                 setGroupsMounted(true);
             }
             intentTimerRef.current = window.setTimeout(releaseIntentMounts, INTENT_MOUNT_HOLD_MS);

@@ -13,13 +13,11 @@ import {
 } from '@/app/services/repository/repositoryUnifiedFeed';
 import type { RepositoryRoom } from '@/app/services/repository/repositoryRooms';
 import { RepositoryFeedList } from './RepositoryFeedList';
-import { shouldVirtualizeRepositoryFeed } from './repositoryFeedVirtualLayout';
 
 type RepositoryFeedPanelProps = {
     filter: RepositoryFeedFilter;
     items: RepositoryFeedItem[];
     feedLayout: RepositoryFeedLayoutId;
-    layoutClass: string;
     searchQuery: string;
     lawsuitFiles: FileData[];
     executionFiles: ExecutionFile[];
@@ -39,6 +37,7 @@ type RepositoryFeedPanelProps = {
     onViewVaultDoc: (doc: SmartVaultDoc) => void | Promise<void>;
     viewingVaultDocId?: string | null;
     scrollParentRef?: RefObject<HTMLDivElement | null>;
+    focusNoteId?: string;
 };
 
 function emptyCopy(filter: RepositoryFeedFilter, hasSearch: boolean): string {
@@ -51,7 +50,6 @@ export const RepositoryFeedPanel = memo(function RepositoryFeedPanel({
     filter,
     items,
     feedLayout,
-    layoutClass,
     searchQuery,
     lawsuitFiles,
     executionFiles,
@@ -71,12 +69,13 @@ export const RepositoryFeedPanel = memo(function RepositoryFeedPanel({
     onViewVaultDoc,
     viewingVaultDocId,
     scrollParentRef,
+    focusNoteId,
 }: RepositoryFeedPanelProps) {
     if (items.length === 0) {
         const hasSearch = Boolean(searchQuery.trim());
         return (
             <div
-                className="flex min-h-[28vh] flex-col items-center justify-center px-4 py-10 text-center"
+                className="flex min-h-[18vh] flex-col items-center justify-center px-3 py-6 text-center"
                 data-testid={`repository-feed-empty-${filter}`}
             >
                 <p className="text-sm text-white/45 max-w-sm leading-relaxed">
@@ -86,14 +85,11 @@ export const RepositoryFeedPanel = memo(function RepositoryFeedPanel({
         );
     }
 
-    const virtualize = shouldVirtualizeRepositoryFeed(items.length);
-
     return (
         <div
-            className={virtualize ? undefined : layoutClass}
             data-repository-view={feedLayout}
             data-testid={`repository-feed-panel-${filter}`}
-            data-repository-virtualized={virtualize ? 'true' : undefined}
+            data-repository-virtualized="true"
         >
             <RepositoryFeedList
                 key={feedLayout}
@@ -117,6 +113,7 @@ export const RepositoryFeedPanel = memo(function RepositoryFeedPanel({
                 onViewVaultDoc={onViewVaultDoc}
                 viewingVaultDocId={viewingVaultDocId}
                 scrollParentRef={scrollParentRef}
+                focusNoteId={focusNoteId}
             />
         </div>
     );

@@ -1,7 +1,7 @@
 import React from 'react';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { RepositoryEntryLayoutMode } from '@/app/services/repository/repositoryUnifiedFeed';
-import { sanitizeRichNoteHtml } from './legalRichTextEditorUtils';
+import { stripRepositoryHtml } from '@/app/services/repository/stripRepositoryHtml';
 import { REPO_FEED_IMAGE, REPO_FEED_THUMB_IMAGE, VaultDocDisplayImage } from './VaultDocDisplayImage';
 import { REPO_CARD_TITLE } from './smartRepositoryTheme';
 
@@ -16,6 +16,17 @@ type RepositoryEntryContentLayoutProps = {
     titleClassName?: string;
 };
 
+function FeedBodyExcerpt({
+    text,
+    className,
+}: {
+    text: string;
+    className: string;
+}) {
+    if (!text) return null;
+    return <p className={className}>{text}</p>;
+}
+
 export function RepositoryEntryContentLayout({
     layout,
     title,
@@ -26,13 +37,13 @@ export function RepositoryEntryContentLayout({
     bodyClassName = '',
     titleClassName = '',
 }: RepositoryEntryContentLayoutProps) {
-    const safeHtml = sanitizeRichNoteHtml(bodyHtml);
+    const excerpt = stripRepositoryHtml(bodyHtml);
     const imageAttachment = attachment?.type === 'image' ? attachment : null;
 
     if (voiceSlot) {
         return (
             <div className={className}>
-                <h3 className={`${REPO_CARD_TITLE} mb-2 ${titleClassName}`}>{title}</h3>
+                <h3 className={`${REPO_CARD_TITLE} mb-1.5 ${titleClassName}`}>{title}</h3>
                 {voiceSlot}
             </div>
         );
@@ -41,7 +52,7 @@ export function RepositoryEntryContentLayout({
     if (layout === 'image-dominant' && imageAttachment) {
         return (
             <div className={className}>
-                <div className="mb-2 rounded-xl overflow-hidden border border-white/10 bg-[#0A0F1C]/40 flex justify-center">
+                <div className="mb-1.5 rounded-xl overflow-hidden border border-white/10 bg-[#0A0F1C]/40 flex justify-center">
                     <VaultDocDisplayImage
                         doc={imageAttachment}
                         alt={imageAttachment.title ?? title}
@@ -49,12 +60,10 @@ export function RepositoryEntryContentLayout({
                     />
                 </div>
                 <h3 className={`${REPO_CARD_TITLE} mb-1.5`}>{title}</h3>
-                {safeHtml ? (
-                    <p
-                        className={`text-xs text-white/55 leading-relaxed border-t border-white/[0.06] pt-2 line-clamp-3 ${bodyClassName}`}
-                        dangerouslySetInnerHTML={{ __html: safeHtml }}
-                    />
-                ) : null}
+                <FeedBodyExcerpt
+                    text={excerpt}
+                    className={`text-xs text-white/55 leading-relaxed border-t border-white/[0.06] pt-1.5 line-clamp-3 ${bodyClassName}`}
+                />
             </div>
         );
     }
@@ -62,13 +71,13 @@ export function RepositoryEntryContentLayout({
     if (layout === 'text-dominant' && imageAttachment) {
         return (
             <div className={className}>
-                <h3 className={`${REPO_CARD_TITLE} mb-2 ${titleClassName}`}>{title}</h3>
-                <div
-                    className={`text-sm text-white/65 leading-relaxed mb-3 line-clamp-3 ${bodyClassName}`}
-                    dangerouslySetInnerHTML={{ __html: safeHtml }}
+                <h3 className={`${REPO_CARD_TITLE} mb-1.5 ${titleClassName}`}>{title}</h3>
+                <FeedBodyExcerpt
+                    text={excerpt}
+                    className={`text-sm text-white/65 leading-relaxed mb-2 line-clamp-3 ${bodyClassName}`}
                 />
                 <div className="flex justify-end">
-                    <div className="w-24 h-24 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-[#0A0F1C]/40 flex items-center justify-center">
+                    <div className="w-20 h-20 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-[#0A0F1C]/40 flex items-center justify-center">
                         <VaultDocDisplayImage
                             doc={imageAttachment}
                             alt={imageAttachment.title ?? title}
@@ -82,10 +91,10 @@ export function RepositoryEntryContentLayout({
 
     return (
         <div className={className}>
-            <h3 className={`${REPO_CARD_TITLE} mb-2 ${titleClassName}`}>{title}</h3>
-            <div
+            <h3 className={`${REPO_CARD_TITLE} mb-1.5 ${titleClassName}`}>{title}</h3>
+            <FeedBodyExcerpt
+                text={excerpt}
                 className={`text-sm text-white/65 leading-relaxed line-clamp-3 ${bodyClassName}`}
-                dangerouslySetInnerHTML={{ __html: safeHtml }}
             />
         </div>
     );

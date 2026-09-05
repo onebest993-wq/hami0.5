@@ -75,6 +75,7 @@ export function ProfileCanvasBackgroundEditor({
                 onPointerUp={onPointerUp}
                 onPointerCancel={onPointerUp}
                 data-testid="profile-canvas-bg-editor-frame"
+                aria-busy={!bitmap || undefined}
             >
                 {bitmap && previewStyle && previewUrl ? (
                     <img
@@ -85,9 +86,7 @@ export function ProfileCanvasBackgroundEditor({
                         style={previewStyle}
                     />
                 ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-white/40 text-xs">
-                        جاري التحميل...
-                    </div>
+                    <div className="pointer-events-none absolute inset-0 bg-black/25" aria-hidden />
                 )}
                 <div
                     className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-[#E6C673]/35 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.35)]"
@@ -135,11 +134,12 @@ export function ProfileCanvasBackgroundEditor({
                     type="button"
                     onClick={() => void handleConfirm()}
                     disabled={!bitmap || exporting}
+                    aria-busy={exporting || undefined}
                     className="flex-1 min-h-[48px] rounded-xl border border-[#E6C673]/80 bg-[#E6C673] text-[#0A0F1C] text-sm font-bold touch-manipulation disabled:opacity-50 inline-flex items-center justify-center gap-2"
                     data-testid="profile-canvas-bg-apply"
                 >
                     <Check size={16} aria-hidden />
-                    {exporting ? 'جاري الحفظ...' : 'تطبيق الخلفية'}
+                    تطبيق الخلفية
                 </button>
             </div>
         </div>,

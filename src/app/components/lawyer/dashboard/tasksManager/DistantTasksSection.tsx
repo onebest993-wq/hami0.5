@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Hourglass } from '@/app/components/ui/icons/Hourglass';
 import type { LegalTask } from '@/app/types/TaskEngine';
-import { addDays } from '@/app/utils/nlpParser';
+import { addDays } from '@/app/utils/localDay';
 import type { TaskListOrdinal } from './TaskListOrdinalBadge';
 import { SnoozedTaskCard } from './SnoozedTaskCard';
 import {
@@ -19,14 +19,14 @@ export type DistantTasksSectionProps = {
     setSnoozePanelOpen: React.Dispatch<React.SetStateAction<boolean>>;
     saveSnoozedTask: (title: string, dueIso: string) => void;
     minSnoozeIso: string;
-    renderTaskCard: (task: LegalTask, fatalPulse: boolean, listOrdinal?: TaskListOrdinal) => React.ReactNode;
+    renderTaskCard: (task: LegalTask, listOrdinal?: TaskListOrdinal) => React.ReactNode;
     now: Date;
 };
 
 export const DistantTasksSection = React.memo(function DistantTasksSection(props: DistantTasksSectionProps) {
     return (
-        <section className="mt-8 pt-5 border-t border-white/[0.06]" data-testid="tasks-distant-section">
-            <h2 className={`${TASKS_SECTION_TITLE} mb-5`}>
+        <section className="mt-4 pt-3 border-t border-white/[0.06]" data-testid="tasks-distant-section">
+            <h2 className={`${TASKS_SECTION_TITLE} mb-3`}>
                 <Hourglass className="size-5 text-[#E6C673]/70 shrink-0" aria-hidden />
                 المهام المؤجلة
             </h2>
@@ -61,7 +61,7 @@ const SnoozeTaskForm = React.memo(function SnoozeTaskForm({
 
     return (
         <div
-            className={`${TASKS_GLASS_PANEL} p-4 space-y-4 [contain:layout_style_paint]`}
+            className={`${TASKS_GLASS_PANEL} p-3 space-y-3 [contain:layout_style_paint]`}
             data-testid="tasks-snooze-form"
         >
             <input
@@ -140,7 +140,7 @@ function DistantTasksBody(props: DistantTasksSectionProps) {
     );
 
     return (
-        <div className={`rounded-2xl border border-dashed border-[#E6C673]/25 ${TASKS_GLASS_PANEL} px-5 py-6 space-y-5`}>
+        <div className={`rounded-xl border border-dashed border-[#E6C673]/22 ${TASKS_GLASS_PANEL} px-3 py-3 space-y-3`}>
             <div className="flex flex-row-reverse flex-wrap items-center justify-between gap-3">
                 <button
                     type="button"
@@ -168,9 +168,9 @@ function DistantTasksBody(props: DistantTasksSectionProps) {
                 </ul>
             ) : null}
             {otherDistantTasks.length > 0 ? (
-                <ul className="space-y-4">
+                <ul className="space-y-2.5">
                     {otherDistantTasks.map((t, i) =>
-                        renderTaskCard(t, false, { index: i, total: otherDistantTasks.length }),
+                        renderTaskCard(t, { index: i, total: otherDistantTasks.length }),
                     )}
                 </ul>
             ) : null}

@@ -7,20 +7,16 @@
     z-index: 2;
     background: #0b1021 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    padding-inline-start: max(1rem, env(safe-area-inset-left, 0px));
-    padding-inline-end: max(1rem, env(safe-area-inset-right, 0px));
+    padding-inline-start: max(0.75rem, env(safe-area-inset-left, 0px));
+    padding-inline-end: max(0.75rem, env(safe-area-inset-right, 0px));
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
 }
 
 .hami-settings-scroll-panel {
     min-width: 0;
-    padding-inline-start: max(1.25rem, env(safe-area-inset-left, 0px));
-    padding-inline-end: max(1.25rem, env(safe-area-inset-right, 0px));
-}
-
-.hami-settings-header--glass::before {
-    content: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+    padding-inline-start: max(0.75rem, env(safe-area-inset-left, 0px));
+    padding-inline-end: max(0.75rem, env(safe-area-inset-right, 0px));
 }
 
 .hami-settings-header-inner {
@@ -30,7 +26,7 @@
 
 .hami-settings-title {
     margin: 0;
-    font-size: 1.0625rem;
+    font-size: 0.9375rem;
     font-weight: 600;
     letter-spacing: -0.02em;
     line-height: 1.25;
@@ -38,7 +34,7 @@
 }
 
 .hami-settings-close {
-    border-radius: 9999px;
+    border-radius: 0.75rem;
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.78);
     background: transparent;
@@ -60,9 +56,9 @@
     display: flex;
     align-items: stretch;
     gap: 0.15rem;
-    width: min(100%, 22.5rem);
+    width: min(100%, 36rem);
     margin-inline: auto;
-    padding: 0.2rem;
+    padding: 0.15rem;
     overflow-x: auto;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
@@ -87,13 +83,13 @@
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    gap: 0.3rem;
-    padding: 0.35rem 0.35rem;
+    gap: 0.25rem;
+    padding: 0.3rem 0.25rem;
     border: none;
     border-radius: 0.55rem;
     background: transparent;
     color: rgba(255, 255, 255, 0.48);
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 600;
     letter-spacing: 0;
 }
@@ -119,20 +115,4 @@
 .hami-settings-tab--active .hami-settings-tab-icon {
     opacity: 1;
     color: var(--hami-settings-accent, #e6c673);
-}
-
-html[data-hami-native='1']:not([data-hami-platform='ios']) .hami-settings-header--glass::before,
-html[data-hami-native='1']:not([data-hami-platform='ios']) .hami-settings-tabs,
-html[data-hami-native='1']:not([data-hami-platform='ios']) .hami-settings-close {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-}
-
-html[data-hami-native='1'][data-hami-platform='android'] .hami-settings-header--glass::before,
-html[data-hami-native='1'][data-hami-platform='android'] .hami-settings-tabs,
-html[data-hami-native='1'][data-hami-platform='android'] .hami-settings-close,
-html[data-hami-native='1'][data-hami-platform='android'] .hami-settings-tab--active {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    box-shadow: none !important;
 }

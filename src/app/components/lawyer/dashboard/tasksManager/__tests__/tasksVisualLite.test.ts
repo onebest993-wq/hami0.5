@@ -39,23 +39,32 @@ describe('field tasks visual lite', () => {
     });
 
     it('الستارة بلا ظل نصب ولا تدرجات حوار', () => {
-        expect(theme).toContain("shadow-[0_-4px_16px_rgba(0,0,0,0.22)]");
-        expect(theme).not.toContain("shadow-[0_-12px_40px_rgba(0,0,0,0.38)]");
+        expect(theme).not.toContain('shadow-[0_-4px_16px_rgba(0,0,0,0.22)]');
+        expect(theme).not.toContain('shadow-[0_-12px_40px_rgba(0,0,0,0.38)]');
         expect(theme).not.toContain('bg-gradient-to-b from-[#1A2238]');
         expect(theme).not.toContain('CURTAIN_TASK_CARD');
+        expect(theme).not.toContain('CURTAIN_PIN_BADGE');
         expect(sheet).toContain('hami-field-tasks-layer');
         expect(sheet).toContain('CURTAIN_BACKDROP');
     });
 
     it('بطاقة المهمة: قائمة خيارات مستقلة وأزرار 44px', () => {
-        expect(card).toContain('TaskCardOptionsMenu');
+        const statusRow = readFileSync(
+            resolve(process.cwd(), 'src/app/components/lawyer/dashboard/tasksManager/TaskCardStatusRow.tsx'),
+            'utf8',
+        );
+        expect(card).toContain('TaskCardStatusRow');
+        expect(card).toContain('TaskCardToolRow');
+        expect(statusRow).toContain('TaskCardOptionsMenu');
         expect(card).not.toContain('backdrop-blur-sm');
         expect(card).not.toContain('shadow-[0_0_14px_rgba(251,191,36,0.4)]');
+        expect(card).not.toContain('taskListStripeToneClass');
         expect(theme).toContain('min-h-[44px]');
+        expect(theme).not.toContain('min-h-[48px]');
         expect(theme).not.toContain('TASK_CARD_PILL_BTN');
     });
 
-    it('إضافة مستند ومصروف: أهداف لمس 44px لا 40', () => {
+    it('إضافة مستند: أهداف لمس 44px لا 40', () => {
         expect(panels).toContain('min-h-[44px]');
         expect(panels).not.toContain('min-h-[40px]');
         expect(panels).not.toContain('min-w-[40px]');
@@ -117,8 +126,12 @@ describe('field tasks visual lite', () => {
         );
         expect(menu).toContain('طلب مساعدة');
         expect(menu).toContain('onRequestHelp');
-        expect(sheet).toContain('useLiveNow');
-        expect(sheet).toContain('لا مهام ميدانية ظاهرة الآن');
+        const curtainChrome = readFileSync(
+            resolve(process.cwd(), 'src/app/components/lawyer/dashboard/fieldTasks/FieldTasksSheetChrome.tsx'),
+            'utf8',
+        );
+        expect(curtainChrome).toContain('useLiveNow');
+        expect(curtainChrome).toContain('لا مهام ميدانية ظاهرة الآن');
         const modals = readFileSync(
             resolve(
                 process.cwd(),
@@ -127,5 +140,13 @@ describe('field tasks visual lite', () => {
             'utf8',
         );
         expect(modals).toContain('min-h-[44px]');
+        const fields = readFileSync(
+            resolve(
+                process.cwd(),
+                'src/app/components/lawyer/dashboard/tasksManager/TasksManagerModalFields.tsx',
+            ),
+            'utf8',
+        );
+        expect(fields).toContain('min-h-[44px]');
     });
 });

@@ -2,7 +2,10 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import type { RefObject } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { repositoryFeedItemKey, type RepositoryFeedItem } from '@/app/services/repository/repositoryUnifiedFeed';
-import type { RepositoryFeedLayoutId } from './repositoryFeedLayout';
+import {
+    getRepositoryFeedContainerClass,
+    type RepositoryFeedLayoutId,
+} from './repositoryFeedLayout';
 import { REPO_FEED_ITEM } from './smartRepositoryTheme';
 import { UniversalEntryCard, type UniversalEntryCardProps } from './UniversalEntryCard';
 import { useRepositoryFeedColumnCount } from './hooks/useRepositoryFeedColumnCount';
@@ -11,6 +14,11 @@ import {
     estimateRepositoryFeedRowSize,
     repositoryFeedRowGridClass,
 } from './repositoryFeedVirtualLayout';
+import {
+    consumeRepositoryFeedFocus,
+    indexOfRepositoryFeedFocus,
+    scheduleRepositoryFeedCardScroll,
+} from './repositoryFeedFocus';
 
 type RepositoryFeedCardProps = Omit<UniversalEntryCardProps, 'item' | 'feedLayout'>;
 type RepositoryFeedVirtualListProps = RepositoryFeedCardProps & {
@@ -18,6 +26,7 @@ type RepositoryFeedVirtualListProps = RepositoryFeedCardProps & {
     feedLayout: RepositoryFeedLayoutId;
     /** تمرير طبقة المستودع — يتجنّب overflow متداخلاً داخل REPO_BODY */
     scrollParentRef?: RefObject<HTMLDivElement | null>;
+    focusNoteId?: string;
 };
 
 const NESTED_SCROLL_CLASS =
@@ -35,7 +44,9 @@ function RepositoryFeedVirtualRow({
     cardProps: RepositoryFeedCardProps;
 }) {
     const rowClass =
-        columnCount > 1 ? repositoryFeedRowGridClass(columnCount) : 'flex flex-col gap-2.5 sm:gap-3';
+        feedLayout === 'list'
+            ? getRepositoryFeedContainerClass('list')
+            : repositoryFeedRowGridClass(columnCount);
 
     return (
         <div className={rowClass}>
@@ -55,9 +66,11 @@ export const RepositoryFeedVirtualList = React.memo(function RepositoryFeedVirtu
     items,
     feedLayout,
     scrollParentRef,
+    focusNoteId,
     ...cardProps
 }: RepositoryFeedVirtualListProps) {
     const localScrollRef = useRef<HTMLDivElement>(null);
+    const appliedFocusRef = useRef<string | null>(null);
     const scrollRef = scrollParentRef ?? localScrollRef;
     const nestedScroll = !scrollParentRef;
     const columnCount = useRepositoryFeedColumnCount(scrollRef, feedLayout);
@@ -81,6 +94,35 @@ export const RepositoryFeedVirtualList = React.memo(function RepositoryFeedVirtu
         overscan: 2,
         measureElement: (el) => (el as HTMLElement).offsetHeight,
     });
+    const virtualizerRef = useRef(virtualizer);
+    virtualizerRef.current = virtualizer;
+
+    useEffect(() => {
+        if (!focusNoteId) {
+            appliedFocusRef.current = null;
+            return undefined;
+        }
+        const index = indexOfRepositoryFeedFocus(items, focusNoteId);
+        if (index < 0) return undefined;
+        const row = Math.floor(index / Math.max(1, columnCount));
+        virtualizerRef.current.scrollToIndex(row, { align: 'center' });
+        return scheduleRepositoryFeedCardScroll(
+            focusNoteId,
+            () => scrollRef.current,
+            () => consumeRepositoryFeedFocus(focusNoteId, appliedFocusRef, true),
+        );
+    }, [columnCount, focusNoteId, items, scrollRef]);
+
+    const virtualItems = virtualizer.getVirtualItems();
+    const rowSize = estimateRepositoryFeedRowSize(feedLayout);
+    const paintItems =
+        virtualItems.length > 0
+            ? virtualItems
+            : rows.slice(0, Math.min(rows.length, 8)).map((_, index) => ({
+                  key: `first-paint-${index}`,
+                  index,
+                  start: index * rowSize,
+              }));
 
     return (
         <div
@@ -91,9 +133,9 @@ export const RepositoryFeedVirtualList = React.memo(function RepositoryFeedVirtu
         >
             <div
                 className="relative w-full"
-                style={{ height: `${virtualizer.getTotalSize()}px` }}
+                style={{ height: `${Math.max(virtualizer.getTotalSize(), paintItems.length * rowSize)}px` }}
             >
-                {virtualizer.getVirtualItems().map((virtualRow) => {
+                {paintItems.map((virtualRow) => {
                     const rowItems = rows[virtualRow.index];
                     if (!rowItems?.length) return null;
                     return (

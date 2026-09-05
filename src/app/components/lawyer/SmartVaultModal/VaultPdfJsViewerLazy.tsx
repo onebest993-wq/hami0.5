@@ -21,8 +21,12 @@ type VaultPdfJsViewerLazyProps = {
 
 function VaultPdfJsViewerFallback({ className }: { className?: string }) {
     return (
-        <div className={className ?? 'flex h-full items-center justify-center text-sm text-white/45'}>
-            جاري تحميل عارض PDF...
+        <div
+            className={className ?? 'flex h-full items-center justify-center'}
+            aria-busy="true"
+            aria-label="PDF"
+        >
+            <div className="h-10 w-48 rounded-xl border border-white/10 bg-white/[0.04]" aria-hidden />
         </div>
     );
 }

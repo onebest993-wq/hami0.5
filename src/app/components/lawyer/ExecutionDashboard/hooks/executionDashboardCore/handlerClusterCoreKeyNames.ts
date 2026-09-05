@@ -18,7 +18,6 @@ export const HANDLER_CLUSTER_CORE_KEY_NAMES = [
     "caseTasksPendingRef",
     "claimType",
     "classification",
-    "closeUnifiedSeizureLog",
     "coerciveUiLocked",
     "creditorDeathMarked",
     "creditors",

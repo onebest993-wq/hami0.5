@@ -147,7 +147,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
             </div>
         </div>
     ) : (
-        <div className="space-y-5 p-3 text-right" dir="rtl" onClick={(e) => e.stopPropagation()}>
+        <div className="space-y-4 text-right" dir="rtl" onClick={(e) => e.stopPropagation()}>
             {showEmployeeAssignmentCoerciveBlock &&
             resolvedEmployeeSummonsAssignment ? (
                 <PreloadableOverlayGate

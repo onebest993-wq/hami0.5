@@ -7,6 +7,8 @@ export const LAWSUIT_VAULT_TEST_IDS = {
     addLawsuit: 'lawsuits-add-new',
     jurisdictionPicker: 'lawsuits-jurisdiction-picker',
     lawsuitFilePrefix: 'lawsuit-file',
+    linkedDossierCluster: 'lawsuit-linked-dossier-cluster',
+    linkedDossierRole: 'lawsuit-linked-dossier-role',
     lawsuitFile: (id: string | number) => `lawsuit-file-${id}`,
     lawsuitFileArchive: (id: string | number) => `lawsuit-file-${id}-archive`,
     lawsuitFileTrash: (id: string | number) => `lawsuit-file-${id}-trash`,

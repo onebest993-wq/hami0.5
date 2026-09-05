@@ -36,9 +36,18 @@ const LazyRequestMarginPromptModal = lazy(() =>
     })),
 );
 
+function RequestFormInstantSlots() {
+    return (
+        <div className="space-y-2 py-2" aria-busy="true" aria-hidden>
+            <div className="min-h-[44px] rounded-xl border border-white/[0.09] bg-white/[0.035]" />
+            <div className="min-h-[44px] rounded-xl border border-white/[0.09] bg-white/[0.035]" />
+        </div>
+    );
+}
+
 function RequestUiSuspense({
     children,
-    fallback = null,
+    fallback = <RequestFormInstantSlots />,
 }: {
     children: ReactNode;
     fallback?: ReactNode;
@@ -54,9 +63,7 @@ export function RequestModalEntryLanes(
     props: ComponentProps<typeof LazyRequestModalEntryLanes>,
 ) {
     return (
-        <RequestUiSuspense
-            fallback={<div className="text-white/50 text-xs py-2">جاري تحميل نموذج الطلب…</div>}
-        >
+        <RequestUiSuspense>
             <LazyRequestModalEntryLanes {...props} />
         </RequestUiSuspense>
     );
@@ -94,7 +101,7 @@ export function LawyerRequestMarginsMiniTimeline(
 
 export function RequestMarginAddButton(props: ComponentProps<typeof LazyRequestMarginAddButton>) {
     return (
-        <RequestUiSuspense>
+        <RequestUiSuspense fallback={null}>
             <LazyRequestMarginAddButton {...props} />
         </RequestUiSuspense>
     );

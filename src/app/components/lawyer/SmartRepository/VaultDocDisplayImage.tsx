@@ -11,7 +11,7 @@ type VaultDocDisplayImageProps = {
 };
 
 /** حدود التكيّف: لا مبالغة طولية/عرضية */
-const FEED_MAX_H = 16 * 16; // 16rem
+const FEED_MAX_H = 11 * 16;
 const FEED_MIN_RATIO = 0.55;
 const FEED_MAX_RATIO = 1.9;
 

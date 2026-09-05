@@ -75,7 +75,7 @@ export const ForumFollowingPanel = function ForumFollowingPanel({
                 animate={{ y: 0 }}
                 transition={sheetTransition}
                 style={sheetStyle}
-                        className={`fixed inset-x-0 bottom-0 z-[121] max-h-[min(78dvh,100%)] rounded-t-[24px] ${FORUM_PANEL} flex flex-col pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-auto`}
+                        className={`fixed inset-x-0 bottom-0 z-[121] max-h-[min(78dvh,100%)] rounded-t-2xl ${FORUM_PANEL} flex flex-col pb-[max(0.75rem,env(safe-area-inset-bottom))] pointer-events-auto`}
                         role="dialog"
                         aria-modal="true"
                         aria-label="قائمة المتابعة"
@@ -85,7 +85,7 @@ export const ForumFollowingPanel = function ForumFollowingPanel({
                             onClose={requestClose}
                             barClassName="w-10 h-1 rounded-full bg-white/20"
                         />
-                        <div className="px-4 pb-3 flex items-center justify-between gap-3 border-b border-[#2A3344]/40">
+                        <div className="px-3 pb-2 flex items-center justify-between gap-3 border-b border-[#2A3344]/40">
                             <div>
                                 <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-sm`}>المتابعة</h3>
                                 <p className={`${FORUM_TEXT_MUTED} text-[11px] mt-0.5`}>

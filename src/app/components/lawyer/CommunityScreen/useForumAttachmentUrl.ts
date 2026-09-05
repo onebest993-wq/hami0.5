@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CommunityAttachment } from '@/app/services/lawyer-cloud';
-import { resolveCommunityAttachmentUrl } from '@/app/services/forumAttachmentService';
+import { resolveCommunityAttachmentUrl } from '@/app/services/forum/forumAttachmentResolve';
 import { isSafeForumAttachmentUrl } from '@/app/services/forum/forumUrlSafety';
 
 const RESOLVE_TIMEOUT_MS = 4_000;

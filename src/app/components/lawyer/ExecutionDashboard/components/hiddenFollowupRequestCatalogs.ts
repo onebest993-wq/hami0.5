@@ -1,4 +1,3 @@
-import { resolveAmountGuarantorRequestVisible } from '@/app/slices/financial/specialtyPublic';
 import { hasActiveFinancialGuarantorFollowup } from './guarantorExternalUtils';
 import type {
     HiddenFollowupVisibilityInput,
@@ -76,27 +75,14 @@ export const HIDDEN_PERSONAL_COERCIVE_CATALOG: HiddenPersonalCoerciveCatalogItem
     },
 ];
 
-function isPersonalGuarantorClaim(flags: HiddenFollowupVisibilityInput): boolean {
-    return Boolean(flags.isPersonalStatusExecutionClaim || flags.isAlimonyClaim);
-}
-
 export function shouldListGuarantorRequestInHiddenRequests(
     flags: HiddenFollowupVisibilityInput,
     ctx: HiddenGuarantorContext,
 ): boolean {
-    if (ctx.activeDebtorIsDeceased) return false;
-    if (hasActiveFinancialGuarantorFollowup(ctx.executionData)) return false;
-    if (ctx.activeDebtorIsEmployee) return true;
-    if (isPersonalGuarantorClaim(flags)) return false;
-    if (flags.showGuarantorInSeizureTab) return false;
-    if (flags.hideAllGuarantorPresence) return true;
-    return resolveAmountGuarantorRequestVisible({
-        isFinancialDebtCollectionClaim: flags.isFinancialDebtCollection,
-        financialCenterTotalIqd: ctx.financialCenterTotalIqd,
-        settlementBreachTriggeredAt: ctx.settlementBreachTriggeredAt,
-        pendingSettlement: ctx.ledgerPendingSettlement as never,
-        hideAllGuarantorPresence: false,
-    });
+    void flags;
+    void ctx;
+    /** طلب الكفيل المخفي أُلغي — الشارة من التسوية فقط */
+    return false;
 }
 
 function shouldBuriedGuarantorSeizure(

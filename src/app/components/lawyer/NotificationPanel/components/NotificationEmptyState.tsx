@@ -9,7 +9,7 @@ interface NotificationEmptyStateProps {
 export function NotificationEmptyState({ tab }: NotificationEmptyStateProps) {
     return (
         <div
-            className="flex items-center justify-center px-4 py-6"
+            className="flex items-center justify-center px-3 py-5"
             data-testid="notification-panel-empty"
         >
             <p className="max-w-xs text-center text-sm font-medium text-white/42">

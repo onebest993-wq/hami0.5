@@ -10,7 +10,6 @@ export function ExecutionDashboardHeavyModals(props: ExecutionDashboardHeavyModa
     const s = props;
     const showAnyHeavyModal = Boolean(
         s.showDocumentsModal ||
-            s.showRealEstateSeizureModal ||
             s.showDecisionsModal ||
             s.showSeizedAssetsModal ||
             s.showPaymentModal ||

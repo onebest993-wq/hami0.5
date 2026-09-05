@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useState, type ChangeEvent } from 'react';
 import type { WallpaperEditorTransform } from '@/app/services/settings/wallpaperEditorRender';
 import type { AppearanceSectionViewModel } from './useAppearanceSection';
+import { settingsFlowAbandoned, useSettingsSectionActiveRef } from '../settingsFlowGuard';
 
 /** معرّف ثابت بلا ":" — بعض المتصفحات تكسر htmlFor/label مع useId الافتراضي */
 function useWallpaperInputDomId(): string {
@@ -10,6 +11,7 @@ function useWallpaperInputDomId(): string {
 
 export function useAppearanceWallpaperCard(vm: AppearanceSectionViewModel) {
     const inputId = useWallpaperInputDomId();
+    const { sectionActiveRef } = useSettingsSectionActiveRef();
     const [status, setStatus] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
 
@@ -47,8 +49,9 @@ export function useAppearanceWallpaperCard(vm: AppearanceSectionViewModel) {
         (transform: WallpaperEditorTransform) => {
             setBusy(true);
             void vm.applyWallpaperEdit(transform).then((ok) => {
-                setStatus(ok ? 'تم تطبيق الخلفية على اللوحة' : 'تعذر تطبيق الخلفية');
                 setBusy(false);
+                if (settingsFlowAbandoned(sectionActiveRef)) return;
+                setStatus(ok ? 'تم تطبيق الخلفية على اللوحة' : 'تعذر تطبيق الخلفية');
             });
         },
         [vm],
@@ -61,9 +64,7 @@ export function useAppearanceWallpaperCard(vm: AppearanceSectionViewModel) {
 
     const actionLabel = vm.editorDraft
         ? 'تغيير الصورة'
-        : busy
-          ? 'جاري التطبيق…'
-          : vm.wallpaperSrc
+        : vm.wallpaperSrc
             ? 'تغيير الخلفية'
             : 'رفع صورة خلفية';
 

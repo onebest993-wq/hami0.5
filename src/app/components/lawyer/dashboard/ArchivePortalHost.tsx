@@ -27,6 +27,8 @@ type ArchivePortalHostProps = ArchivePortalProps & {
     /** overlay = شاشة كاملة z-200؛ inline = داخل مساحة الدعاوى */
     loadingVariant?: 'overlay' | 'inline';
     initialLawsuitJurisdictionTab?: ArchivePortalProps['initialLawsuitJurisdictionTab'];
+    /** إبلاغ الغلاف بموضع دورة الحياة (نشطة/أرشيف/سلة) */
+    onLawsuitViewModeChange?: (mode: 'active' | 'archived' | 'trash') => void;
 };
 
 function ArchivePortalInlineLoadError({
@@ -63,6 +65,7 @@ export function ArchivePortalHost({
     type,
     embedded,
     initialLawsuitJurisdictionTab,
+    onLawsuitViewModeChange,
     ...rest
 }: ArchivePortalHostProps): React.ReactElement | null {
     const resolvedLoadingVariant = loadingVariant ?? (embedded ? 'inline' : 'overlay');
@@ -95,6 +98,11 @@ export function ArchivePortalHost({
             setJurisdictionTab(initialLawsuitJurisdictionTab);
         }
     }, [initialLawsuitJurisdictionTab]);
+
+    useEffect(() => {
+        if (!onLawsuitViewModeChange) return;
+        onLawsuitViewModeChange(lifecycleChrome?.lawsuitViewMode ?? 'active');
+    }, [lifecycleChrome?.lawsuitViewMode, onLawsuitViewModeChange]);
 
     const title =
         type === 'executions'
@@ -199,7 +207,7 @@ export function ArchivePortalHost({
                     />
                 );
             }
-            /* InstantChrome يملك الترويسة — InstantShell يغطيها بهيكل «جاري فتح» */
+            /* InstantChrome يملك الترويسة — InstantShell يغطيها بهيكل صامت */
             if (inlineFrame) {
                 return null;
             }

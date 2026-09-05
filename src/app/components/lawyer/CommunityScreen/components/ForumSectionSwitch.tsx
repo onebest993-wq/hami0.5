@@ -1,9 +1,8 @@
 import React, { memo } from 'react';
-import {
-    prefetchCommunityGroupsSection,
-    prefetchCommunityRepositorySection,
-    prefetchCommunityRepositorySectionChunk,
-} from '../communityScreenLazySections';
+
+function loadCommunityScreenLazySections() {
+    return import('../communityScreenLazySections');
+}
 
 export type ForumSectionId = 'forum' | 'groups' | 'repository';
 
@@ -20,12 +19,15 @@ const SECTIONS = [
 ];
 
 function prefetchForumSection(id: ForumSectionId, mode: 'full' | 'chunk'): void {
-    if (id === 'repository') {
-        if (mode === 'full') prefetchCommunityRepositorySection();
-        else void prefetchCommunityRepositorySectionChunk();
-        return;
-    }
-    if (id === 'groups') prefetchCommunityGroupsSection();
+    if (id !== 'repository' && id !== 'groups') return;
+    void loadCommunityScreenLazySections().then((m) => {
+        if (id === 'repository') {
+            if (mode === 'full') void m.prefetchCommunityRepositorySection();
+            else void m.prefetchCommunityRepositorySectionChunk();
+            return;
+        }
+        m.prefetchCommunityGroupsSection();
+    });
 }
 
 export const ForumSectionSwitch = memo(function ForumSectionSwitch({
@@ -36,7 +38,7 @@ export const ForumSectionSwitch = memo(function ForumSectionSwitch({
     return (
         <div
             data-testid="forum-section-switch"
-            className="hami-forum-section-rail grid grid-cols-3 gap-1 rounded-2xl p-1"
+            className="hami-forum-section-rail grid grid-cols-3 gap-0.5 rounded-xl p-0.5"
             role="tablist"
             aria-label="تبديل بين أقسام المنتدى"
         >
@@ -60,7 +62,7 @@ export const ForumSectionSwitch = memo(function ForumSectionSwitch({
                         onPointerEnter={() => {
                             prefetchForumSection(id, 'chunk');
                         }}
-                        className={`relative min-h-[44px] rounded-xl px-3 py-2.5 text-center text-sm font-bold transition-colors duration-150 touch-manipulation ${
+                        className={`relative min-h-[44px] rounded-lg px-2 py-2 text-center text-[13px] font-bold transition-colors duration-150 touch-manipulation ${
                             isActive
                                 ? 'hami-forum-section-active'
                                 : 'hami-forum-section-idle'

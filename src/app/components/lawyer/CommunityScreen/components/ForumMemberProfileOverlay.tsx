@@ -1,8 +1,15 @@
-import { Suspense } from 'react';
-import { LazyRoyalLawyerProfile } from '@/app/utils/lazyComponents';
-import { ProfileLoadingState } from '@/app/components/lawyer/RoyalLawyerProfile/components/ProfileLoadingState';
+import { lazy, Suspense } from 'react';
+import { ForumProfileOverlayBodySlots } from '@/app/components/lawyer/CommunityScreen/components/ForumOverlayInstantCovers';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import type { ForumProfileFollowState } from '@/app/components/lawyer/RoyalLawyerProfile/types';
+
+const LazyRoyalLawyerProfile = lazy(() =>
+    import('@/app/runtime/royalLawyerProfileLoader').then((m) =>
+        m.loadRoyalLawyerProfileModule().then((mod) => ({
+            default: mod.RoyalLawyerProfile,
+        })),
+    ),
+);
 
 type ForumMemberProfileOverlayProps = {
     userId: string;
@@ -29,7 +36,7 @@ export function ForumMemberProfileOverlay({
             aria-label={label}
             data-testid="forum-member-profile"
         >
-            <Suspense fallback={<ProfileLoadingState />}>
+            <Suspense fallback={<ForumProfileOverlayBodySlots onClose={onBack} />}>
                 <LazyRoyalLawyerProfile
                     key={`forum-profile-${userId}`}
                     isScreenMode

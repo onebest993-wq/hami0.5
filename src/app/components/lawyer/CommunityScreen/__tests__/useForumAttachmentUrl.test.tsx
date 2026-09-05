@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useForumAttachmentUrl } from '@/app/components/lawyer/CommunityScreen/useForumAttachmentUrl';
 
-vi.mock('@/app/services/forumAttachmentService', () => ({
+vi.mock('@/app/services/forum/forumAttachmentResolve', () => ({
     resolveCommunityAttachmentUrl: vi.fn(async () => null),
 }));
 
-import { resolveCommunityAttachmentUrl } from '@/app/services/forumAttachmentService';
+import { resolveCommunityAttachmentUrl } from '@/app/services/forum/forumAttachmentResolve';
 
 describe('useForumAttachmentUrl', () => {
     beforeEach(() => {

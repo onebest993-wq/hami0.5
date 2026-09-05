@@ -17,6 +17,7 @@ export function useNotificationPanel(
     userId: string,
     onClose: () => void,
     onNavigate: (path: string, payload: Record<string, unknown>) => void,
+    listLive = isOpen,
 ) {
     const notifications = useNotificationStore((s) => s.notifications);
     const unreadCount = useNotificationStore((s) => s.unreadCount);
@@ -59,10 +60,8 @@ export function useNotificationPanel(
 
     const groupedByTime = useMemo(
         () =>
-            isOpen
-                ? groupNotificationsByTime(visibleNotifications)
-                : EMPTY_NOTIFICATION_TIME_GROUPS,
-        [isOpen, visibleNotifications],
+            listLive ? groupNotificationsByTime(visibleNotifications) : EMPTY_NOTIFICATION_TIME_GROUPS,
+        [listLive, visibleNotifications],
     );
 
     const handleMarkAllRead = useCallback(async () => {
@@ -84,6 +83,7 @@ export function useNotificationPanel(
         activeTab,
         setActiveTab,
         unreadCount: combinedUnreadCount,
+        inboxUnreadCount: unreadCount,
         isLoading,
         hasCachedNotifications: notifications.length > 0,
         hasHydratedOnce,

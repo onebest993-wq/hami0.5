@@ -38,7 +38,7 @@ export function AppearanceBlockPatternGrid({
                         aria-pressed={active}
                         onPress={() => customize.setBackgroundPreset(preset.id)}
                         className={`relative rounded-lg overflow-hidden min-h-[44px] ${SETTING_GLASS_INNER} ${
-                            active ? 'ring-2 ring-[#E6C673]/45' : ''
+                            active ? 'ring-1 ring-[#E6C673]/45' : ''
                         }`}
                     >
                         <div

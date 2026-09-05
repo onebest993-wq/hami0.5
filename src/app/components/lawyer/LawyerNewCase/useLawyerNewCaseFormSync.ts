@@ -4,6 +4,7 @@ import { getPersonalStatusRoleForSide } from '../personal-status/personalStatusV
 import type { CaseType, Party } from './types';
 import {
     computeOpeningDegreeOptions,
+    isOpeningExtraordinaryStage,
     snapOpeningStageToDegrees,
 } from '@/app/domain/lawsuit/lawsuitStageOptions';
 import {
@@ -185,7 +186,7 @@ export function useLawyerNewCaseFormSync({
         if (effectiveSpawnContext || isPersonalCase) return;
 
         setCaseDetails((prev) => {
-            if (isExtraordinaryProcedureStage(prev.stage)) return prev;
+            if (isOpeningExtraordinaryStage(prev.stage)) return prev;
 
             const claimValue =
                 (isFixedFee || isUndeterminedValue) && prev.claimValue ? '' : prev.claimValue;

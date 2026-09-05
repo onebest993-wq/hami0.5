@@ -1,5 +1,5 @@
 /** وفاة الخصوم + إحلال الورثة + نفقة مستمرة — handlers وeffects */
-import { useCallback, useEffect, useMemo, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import type { PartyDeathSavePayload } from '@/app/components/lawyer/execution/PartyDeathReportModal';
 import {
@@ -13,10 +13,10 @@ import {
     buildSoleSurvivorDeathInput,
     resolveAlimonyBeneficiaryProfile,
     shouldShowAlimonyBeneficiaryDeathPicker,
-    type AlimonyBeneficiaryProfile,
 } from '@/app/utils/alimonyBeneficiaryDeathUtils';
 import { runPartyDeathSave } from './executionDashboardPartyDeathSave';
 import { usePartyDeathSubstitutionHandlers } from './usePartyDeathSubstitutionHandlers';
+import { HAMI_OPEN_PARTY_DEATH_MODAL } from '@/app/utils/partyDeathUiEvents';
 
 export type { UseExecutionDashboardPartyDeathHandlersParams } from './useExecutionDashboardPartyDeathHandlers.types';
 import type { UseExecutionDashboardPartyDeathHandlersParams } from './useExecutionDashboardPartyDeathHandlers.types';
@@ -41,7 +41,7 @@ export function useExecutionDashboardPartyDeathHandlers({
     debtorDeathMarked,
     heirSubstitutionAllowed,
     ongoingAlimonyClaim,
-    alimonyBeneficiaryProfile,
+    alimonyBeneficiaryProfile: _alimonyBeneficiaryProfile,
     nextTimelineId,
     persistExecutionMerge,
     showToast,
@@ -84,7 +84,7 @@ export function useExecutionDashboardPartyDeathHandlers({
 
     const handleAlimonyBeneficiaryDeathConfirm = useCallback(
         (input: { wifeDeceased: boolean; childrenDiedCount: number }): boolean => {
-            const base = executionDataRef.current ?? executionData;
+            const base = executionDataRef?.current ?? executionData;
             const merge = buildAlimonyBeneficiaryDeathMerge(base, input);
             if (!merge) {
                 showToast('تعذّر تطبيق الإبلاغ — راجع بيانات النفقة المستمرة.', 'warning');
@@ -120,11 +120,15 @@ export function useExecutionDashboardPartyDeathHandlers({
                     ...merge,
                     timelineEvents: next,
                 };
-                persistExecutionMerge({ ...merge, timelineEvents: next });
-                executionDataRef.current = mergedFile as ExecutionFile;
-                setAlimonyBeneficiaryDeathModalProfile(
-                    resolveAlimonyBeneficiaryProfile(mergedFile),
-                );
+                queueMicrotask(() => {
+                    void persistExecutionMerge({ ...merge, timelineEvents: next });
+                    if (executionDataRef) {
+                        executionDataRef.current = mergedFile as ExecutionFile;
+                    }
+                    setAlimonyBeneficiaryDeathModalProfile(
+                        resolveAlimonyBeneficiaryProfile(mergedFile),
+                    );
+                });
                 return next;
             });
             showToast(
@@ -161,6 +165,7 @@ export function useExecutionDashboardPartyDeathHandlers({
         heirSubstitutionAllowed,
         creditorSubstitutionRequestStatus,
         debtorSubstitutionRequestStatus,
+        ongoingAlimonyClaim,
     });
     liveFlagsRef.current = {
         creditorDeathMarked,
@@ -168,6 +173,7 @@ export function useExecutionDashboardPartyDeathHandlers({
         heirSubstitutionAllowed,
         creditorSubstitutionRequestStatus,
         debtorSubstitutionRequestStatus,
+        ongoingAlimonyClaim,
     };
 
     const { handleRequestDebtorSubstitution, handleRequestCreditorSubstitution } =
@@ -187,8 +193,28 @@ export function useExecutionDashboardPartyDeathHandlers({
             setTimelineEvents,
         });
 
+    const actionsRef = useRef({
+        handlePartyDeathSave,
+        handleAlimonyBeneficiaryDeathConfirm,
+        handleRequestDebtorSubstitution,
+        handleRequestCreditorSubstitution,
+    });
+    actionsRef.current = {
+        handlePartyDeathSave,
+        handleAlimonyBeneficiaryDeathConfirm,
+        handleRequestDebtorSubstitution,
+        handleRequestCreditorSubstitution,
+    };
+
     const handleCreditorDeathMenuAction = useCallback(() => {
-        if (ongoingAlimonyClaim) {
+        const {
+            ongoingAlimonyClaim: alimony,
+            heirSubstitutionAllowed: substitutionAllowed,
+            creditorDeathMarked: deathMarked,
+            creditorSubstitutionRequestStatus: substitutionStatus,
+        } = liveFlagsRef.current;
+
+        if (alimony) {
             const profileNow = resolveAlimonyBeneficiaryProfile(
                 executionDataRef.current ?? executionData,
             );
@@ -210,18 +236,24 @@ export function useExecutionDashboardPartyDeathHandlers({
             }
             const soleInput = buildSoleSurvivorDeathInput(profileNow);
             if (soleInput) {
-                handleAlimonyBeneficiaryDeathConfirm(soleInput);
+                actionsRef.current.handleAlimonyBeneficiaryDeathConfirm(soleInput);
                 return;
             }
             showToast('تعذّر تحديد مستحق النفقة المتبقي.', 'warning');
             return;
         }
-        if (!heirSubstitutionAllowed) {
-            handlePartyDeathSave({ action: 'death_only', deceased_party: 'creditor' });
+        if (!substitutionAllowed) {
+            actionsRef.current.handlePartyDeathSave({
+                action: 'death_only',
+                deceased_party: 'creditor',
+            });
             return;
         }
-        if (!creditorDeathMarked) {
-            handlePartyDeathSave({ action: 'death_only', deceased_party: 'creditor' });
+        if (!deathMarked) {
+            actionsRef.current.handlePartyDeathSave({
+                action: 'death_only',
+                deceased_party: 'creditor',
+            });
             return;
         }
         const openId = findLatestHeirSubstitutionDecisionNeedingEntry(
@@ -229,32 +261,28 @@ export function useExecutionDashboardPartyDeathHandlers({
             'creditor',
         );
         if (openId) {
-            setPartyDeathModalParty('creditor');
-            setPartyDeathModalDecisionId(openId);
+            if (typeof setPartyDeathModalParty === 'function') {
+                setPartyDeathModalParty('creditor');
+            }
+            if (typeof setPartyDeathModalDecisionId === 'function') {
+                setPartyDeathModalDecisionId(openId);
+            }
             return;
         }
-        const st = creditorSubstitutionRequestStatus;
+        const st = substitutionStatus;
         if (st === 'pending') {
             showToast('الطلب مُرسل مسبقاً وقيد البت لدى المنفذ.', 'warning');
             return;
         }
-        if (st === 'approved') {
+        if (st === 'approved' || st === 'alternative') {
             showToast('تم إحلال ورثة الدائن مسبقاً.', 'info');
             return;
         }
-        handleRequestCreditorSubstitution();
+        actionsRef.current.handleRequestCreditorSubstitution();
     }, [
-        alimonyBeneficiaryProfile?.anyBeneficiaryAlive,
-        creditorDeathMarked,
-        creditorSubstitutionRequestStatus,
         decisionsStorageExecutionId,
         executionData,
         executionDataRef,
-        handleAlimonyBeneficiaryDeathConfirm,
-        handlePartyDeathSave,
-        handleRequestCreditorSubstitution,
-        heirSubstitutionAllowed,
-        ongoingAlimonyClaim,
         setAlimonyBeneficiaryDeathModalOpen,
         setAlimonyBeneficiaryDeathModalProfile,
         setPartyDeathModalDecisionId,
@@ -270,7 +298,7 @@ export function useExecutionDashboardPartyDeathHandlers({
         } = liveFlagsRef.current;
 
         if (!deathMarked) {
-            handlePartyDeathSave({ action: 'death_only', deceased_party: 'debtor' });
+            actionsRef.current.handlePartyDeathSave({ action: 'death_only', deceased_party: 'debtor' });
             return;
         }
         if (!substitutionAllowed) {
@@ -282,8 +310,12 @@ export function useExecutionDashboardPartyDeathHandlers({
             'debtor',
         );
         if (openId) {
-            setPartyDeathModalParty('debtor');
-            setPartyDeathModalDecisionId(openId);
+            if (typeof setPartyDeathModalParty === 'function') {
+                setPartyDeathModalParty('debtor');
+            }
+            if (typeof setPartyDeathModalDecisionId === 'function') {
+                setPartyDeathModalDecisionId(openId);
+            }
             return;
         }
         const st = substitutionStatus;
@@ -291,11 +323,13 @@ export function useExecutionDashboardPartyDeathHandlers({
             showToast('الطلب مُرسل مسبقاً وقيد البت لدى المنفذ.', 'warning');
             return;
         }
-        handleRequestDebtorSubstitution();
+        if (st === 'approved' || st === 'alternative') {
+            showToast('تم إحلال ورثة المدين مسبقاً.', 'info');
+            return;
+        }
+        actionsRef.current.handleRequestDebtorSubstitution();
     }, [
         decisionsStorageExecutionId,
-        handlePartyDeathSave,
-        handleRequestDebtorSubstitution,
         setPartyDeathModalDecisionId,
         setPartyDeathModalParty,
         showToast,
@@ -317,9 +351,9 @@ export function useExecutionDashboardPartyDeathHandlers({
             const did = String(ce.detail?.decisionId ?? '').trim();
             setPartyDeathModalDecisionId(did || null);
         };
-        window.addEventListener('hami-open-party-death-modal', openHandler as EventListener);
+        window.addEventListener(HAMI_OPEN_PARTY_DEATH_MODAL, openHandler as EventListener);
         return () =>
-            window.removeEventListener('hami-open-party-death-modal', openHandler as EventListener);
+            window.removeEventListener(HAMI_OPEN_PARTY_DEATH_MODAL, openHandler as EventListener);
     }, [executionData?.id, executionId, setPartyDeathModalDecisionId, setPartyDeathModalParty]);
 
     useEffect(() => {

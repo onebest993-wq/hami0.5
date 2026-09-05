@@ -38,11 +38,11 @@ export class CommunityErrorBoundary extends Component<Props, State> {
                 <div
                     dir="rtl"
                     data-testid="forum-error-fallback"
-                    className="w-full h-full flex flex-col items-center justify-center p-6 text-center"
+                    className="w-full h-full flex flex-col items-center justify-center p-4 text-center"
                     style={{ backgroundColor: FORUM_PLUM_DEEP }}
                 >
-                    <div className="w-16 h-16 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
-                        <AlertTriangle size={28} className="text-red-400" />
+                    <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-3">
+                        <AlertTriangle size={22} className="text-red-400" />
                     </div>
                     <h2 className={`${FORUM_TEXT_PRIMARY} font-bold text-base mb-2`}>تعذّر عرض المنتدى</h2>
                     <p className={`${FORUM_TEXT_MUTED} text-sm mb-6 max-w-sm`}>

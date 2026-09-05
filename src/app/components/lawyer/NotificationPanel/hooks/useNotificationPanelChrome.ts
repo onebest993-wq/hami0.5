@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 
@@ -21,24 +21,10 @@ function useDesktopPanelLayout() {
 export function useNotificationPanelChrome(isOpen: boolean) {
     const reduceMotion = useReduceMotion();
     /** مستمعو Visual Viewport فقط واللوحة مفتوحة — توفير بطارية على الهاتف */
-    const keyboardInset = useMobileKeyboardInset(isOpen, true);
+    const keyboardInset = useMobileKeyboardInset(isOpen, true, {
+        ignoreTasksDatePickerGrace: true,
+    });
     const isDesktop = useDesktopPanelLayout();
 
-    const overlayTransition = useMemo(() => ({ duration: 0 }), []);
-
-    const sheetEnterTransition = useMemo(() => ({ duration: 0 }), []);
-
-    const sheetInitial = useMemo(() => false as const, []);
-
-    const sheetExit = useMemo(() => undefined, []);
-
-    return {
-        reduceMotion,
-        keyboardInset,
-        isDesktop,
-        overlayTransition,
-        sheetEnterTransition,
-        sheetExit,
-        sheetInitial,
-    };
+    return { reduceMotion, keyboardInset, isDesktop };
 }

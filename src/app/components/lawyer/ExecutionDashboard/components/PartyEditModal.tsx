@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from '@/app/components/ui/icons/X';
 import { getCreditorHeirSubstitutionRequestStatus, getDebtorHeirSubstitutionRequestStatus } from '@/app/utils/executorSeizureDecisionQueue';
+import { useOverlayEscapeDismiss } from '@/app/hooks/useOverlayEscapeDismiss';
+import { EXEC_MODAL_Z } from '../executionDashboardConstants';
 import {
     EXEC_MODAL_BACKDROP_SAFE_PAD,
     EXEC_MODAL_CLOSE_BTN_CLASS,
@@ -25,16 +27,21 @@ export const PartyEditModal: React.FC<PartyEditModalProps> = ({
     removeHeirFromPartyEditDraftAtIndex,
     decisionsStorageExecutionId,
 }) => {
+    const close = useCallback(() => {
+        setEditPartyTarget(null);
+        setPartyEditDraft(null);
+    }, [setEditPartyTarget, setPartyEditDraft]);
+    useOverlayEscapeDismiss(Boolean(editPartyTarget && partyEditDraft), close);
+
     if (!editPartyTarget || !partyEditDraft) return null;
 
     const modal = (
     <div
-        className={`fixed inset-0 z-[12000] flex items-center justify-center bg-black/70 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
+        className={`fixed inset-0 flex items-center justify-center bg-black/70 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
+        style={{ zIndex: EXEC_MODAL_Z.nestedOverFollowUpPortal }}
         dir="rtl"
-        onClick={() => {
-            setEditPartyTarget(null);
-            setPartyEditDraft(null);
-        }}
+        data-party-edit-modal="true"
+        onClick={close}
         role="presentation"
     >
         <div
@@ -50,10 +57,7 @@ export const PartyEditModal: React.FC<PartyEditModalProps> = ({
                 </h3>
                 <button
                     type="button"
-                    onClick={() => {
-                        setEditPartyTarget(null);
-                        setPartyEditDraft(null);
-                    }}
+                    onClick={close}
                     className={EXEC_MODAL_CLOSE_BTN_CLASS}
                     aria-label="إغلاق"
                 >
@@ -75,33 +79,21 @@ export const PartyEditModal: React.FC<PartyEditModalProps> = ({
                                 className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-2 py-2 text-sm text-white"
                             />
                         </div>
-                        <div>
-                            <label className="mb-1 block text-[10px] text-slate-500">العنوان</label>
-                            <textarea
-                                value={partyEditDraft.address}
-                                onChange={(e) =>
-                                    setPartyEditDraft((d: PartyEditDraft | null) => (d ? { ...d, address: e.target.value } : d))
-                                }
-                                disabled={partyEditDraft.lockBaseInfo}
-                                rows={2}
-                                className="w-full resize-none rounded-lg border border-white/10 bg-slate-900/80 px-2 py-2 text-sm text-white"
-                            />
-                        </div>
                     </>
                 ) : null}
                 {partyEditDraft.lockBaseInfo && !partyEditDraft.heirsOnlyEdit ? (
                     <p className="text-[10px] text-amber-300/90">
                         {editPartyTarget.kind === 'creditor'
                             ? getCreditorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) === 'approved'
-                                ? 'بيانات المتوفى (الاسم/العنوان) مقفلة. يمكن تعديل بيانات الورثة المعتمدة من المنفذ فقط.'
+                                ? 'بيانات المتوفى (الاسم) مقفلة. يمكن تعديل بيانات الورثة المعتمدة من المنفذ فقط.'
                                 : 'بيانات المتوفى مقفلة. تفاصيل الورثة تظهر هنا فقط بعد موافقة المنفذ العدل على طلب الإحلال.'
                             : getDebtorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) === 'approved'
-                                ? 'بيانات المتوفى (الاسم/العنوان) مقفلة. يمكن تعديل بيانات الورثة المعتمدة من المنفذ فقط.'
+                                ? 'بيانات المتوفى (الاسم) مقفلة. يمكن تعديل بيانات الورثة المعتمدة من المنفذ فقط.'
                                 : 'بيانات المتوفى مقفلة. تفاصيل الورثة تظهر هنا فقط بعد موافقة المنفذ العدل على طلب الإحلال.'}
                     </p>
                 ) : partyEditDraft.heirsOnlyEdit ? (
                     <p className="text-[10px] text-amber-300/90">
-                        يمكنك تعديل أسماء وبيانات الورثة المسجّلين فقط؛ بيانات المتوفى مقفلة.
+                        يمكنك تعديل أسماء الورثة المسجّلين فقط؛ بيانات المتوفى مقفلة.
                     </p>
                 ) : null}
                 <div>

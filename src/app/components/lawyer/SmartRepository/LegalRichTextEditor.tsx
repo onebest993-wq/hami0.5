@@ -11,7 +11,7 @@ type LegalRichTextEditorProps = {
     placeholder?: string;
     testId?: string;
     expanded?: boolean;
-    /** محرّر مصغّر بشريط أدوات أفقي (footer ثابت) — لا يغيّر النسخة الافتراضية */
+    /** ارتفاع حقل التحرير فقط — الشريط واحد (مضغوط أفقي) لكل الأسطح */
     compact?: boolean;
 };
 
@@ -39,7 +39,6 @@ export const LegalRichTextEditor = forwardRef<LegalRichTextEditorHandle, LegalRi
         return (
             <div className={`flex flex-col ${compact ? 'gap-1.5' : 'gap-2'}`} data-testid={testId}>
                 <LegalRichTextEditorToolbar
-                    compact={compact}
                     activeBold={editor.activeBold}
                     activeForeColor={editor.activeForeColor}
                     activeHighlightColor={editor.activeHighlightColor}
@@ -62,7 +61,7 @@ export const LegalRichTextEditor = forwardRef<LegalRichTextEditorHandle, LegalRi
                     onMouseUp={editor.syncToolbarFromSelection}
                     onTouchEnd={editor.syncToolbarFromSelection}
                     data-placeholder={placeholder}
-                    className={`overflow-y-auto w-full rounded-2xl border-0 bg-white/[0.05] text-[#F4F4F5] text-right outline-none touch-manipulation text-base focus:ring-1 focus:ring-[#E6C673]/30 empty:before:content-[attr(data-placeholder)] empty:before:text-white/30 ${
+                    className={`overflow-y-auto w-full rounded-xl border-0 bg-white/[0.05] text-[#F4F4F5] text-right outline-none touch-manipulation text-base focus:ring-1 focus:ring-[#E6C673]/30 empty:before:content-[attr(data-placeholder)] empty:before:text-white/30 ${
                         compact ? 'px-3 py-2.5' : 'px-4 py-3'
                     } ${heightClass}`}
                     dir="rtl"

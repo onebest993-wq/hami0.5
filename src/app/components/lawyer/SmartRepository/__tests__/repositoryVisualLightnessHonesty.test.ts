@@ -38,6 +38,10 @@ describe('repository visual lightness honesty', () => {
         expect(cards).not.toContain('backdrop-filter: blur(');
         expect(cards).toContain('hami-repo-card-list-main');
         expect(cards).toContain('hover: hover');
+        expect(cards).toContain('padding: 0.625rem');
+        expect(cards).toContain('max-height: 11rem');
+        expect(cards).not.toContain('max-height: 16rem');
+        expect(cards).not.toContain('max-height: 14rem');
         const theme = readFileSync(join(dir, 'smartRepositoryTheme.ts'), 'utf8');
         expect(theme).toContain('hami-repo-card-title');
         expect(theme).toContain('text-sm');
@@ -60,6 +64,13 @@ describe('repository visual lightness honesty', () => {
         expect(theme).not.toContain('REPO_EMPTY_CTA');
         expect(theme).toContain('min-h-[44px]');
         expect(theme).not.toContain('min-h-[40px]');
+        expect(theme).toContain('px-3 py-2.5');
+        expect(theme).not.toContain('px-5 py-4');
+        expect(theme).toContain("rounded-xl border border-white/[0.07]");
+        expect(theme).not.toContain('rounded-2xl border border-white/[0.07]');
+        expect(theme).toContain('px-3 py-1.5');
+        expect(theme).toContain('p-2.5 mb-2.5');
+        expect(theme).toContain('p-2.5');
     });
 
     it('بلاطة المستودع: عنوان بلا ظل نص', () => {
@@ -112,9 +123,32 @@ describe('repository visual lightness honesty', () => {
         expect(recorder).not.toContain('min-h-[40px]');
     });
 
+    it('معرض الغرف والقوائم العائمة rounded-xl بلا 2xl', () => {
+        const gallery = readFileSync(join(dir, 'RepositoryRoomsGallery.tsx'), 'utf8');
+        expect(gallery).toContain('rounded-xl border border-white/10');
+        expect(gallery).not.toContain('rounded-2xl');
+        expect(gallery).toContain('px-3 pt-2.5 pb-2');
+        const move = readFileSync(join(dir, 'RepositoryMoveToRoomButton.tsx'), 'utf8');
+        expect(move).toContain('rounded-xl border border-white/10');
+        expect(move).not.toContain('rounded-2xl');
+        const link = readFileSync(join(dir, 'VaultDossierLinkButton.tsx'), 'utf8');
+        expect(link).toContain('rounded-xl border border-white/10');
+        expect(link).not.toContain('rounded-2xl');
+        const editor = readFileSync(join(dir, 'LegalRichTextEditor.tsx'), 'utf8');
+        expect(editor).toContain('rounded-xl');
+        expect(editor).not.toContain('rounded-2xl');
+        const hub = readFileSync(
+            join(process.cwd(), 'src/app/components/lawyer/SmartVaultModal/VaultSearchFilterHub.tsx'),
+            'utf8',
+        );
+        expect(hub).toContain('rounded-xl border-0 bg-white/[0.05]');
+        expect(hub).not.toContain('rounded-2xl');
+    });
+
     it('قائمة الفلاتر بلا ظل نصب', () => {
         const css = readChrome();
-        expect(css).toContain('box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22)');
+        expect(css).toContain('box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2)');
+        expect(css).not.toContain('box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22)');
         expect(css).not.toContain('box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28)');
         expect(css).not.toContain('box-shadow: 0 0 0 3px rgba(230, 198, 115, 0.22)');
     });
@@ -150,6 +184,7 @@ describe('repository visual lightness honesty', () => {
         expect(deck).not.toContain('min-h-[36px]');
         const rail = readFileSync(join(dir, 'RepositoryFiltersRail.tsx'), 'utf8');
         expect(rail).toContain('RepositoryRoomMenu');
+        expect(rail).toContain("from './hooks/useRepositoryRoomMenu'");
         expect(rail).toContain('useRepositoryRoomMenu');
         expect(rail).not.toContain('computeMenuPos');
         expect(rail).not.toContain('computeRepositoryRoomMenuPos');
@@ -224,5 +259,8 @@ describe('repository visual lightness honesty', () => {
         );
         expect(vaultTheme).toMatch(/VAULT_BTN_SAVE[\s\S]*min-h-\[44px\]/);
         expect(vaultTheme).toMatch(/VAULT_BTN_CANCEL[\s\S]*min-h-\[44px\]/);
+        expect(vaultTheme).not.toContain('VAULT_CARD');
+        expect(vaultTheme).not.toContain('VAULT_PANEL');
+        expect(vaultTheme).not.toContain('bg-gradient-to');
     });
 });

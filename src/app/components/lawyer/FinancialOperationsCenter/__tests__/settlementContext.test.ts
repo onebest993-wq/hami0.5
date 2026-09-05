@@ -96,7 +96,7 @@ describe('settlementContext', () => {
         expect(ctx.showSettlementEntryButton).toBe(false);
         expect(ctx.showPendingSummary).toBe(true);
         expect(ctx.showSettlementDueActions).toBe(false);
-        expect(ctx.showAmountGuarantorRequest).toBe(false);
+        expect(ctx.showAmountGuarantorRequest).toBe(true);
     });
 
     it('shows pending summary when panel is open', () => {
@@ -115,10 +115,10 @@ describe('settlementContext', () => {
         expect(ctx.showSettlementEntryButton).toBe(false);
         expect(ctx.showPendingSummary).toBe(true);
         expect(ctx.showSettlementDueActions).toBe(false);
-        expect(ctx.showAmountGuarantorRequest).toBe(false);
+        expect(ctx.showAmountGuarantorRequest).toBe(true);
     });
 
-    it('shows due actions on due date and hides guarantor until breach cancel', () => {
+    it('shows due actions on due date and keeps guarantor badge while settlement pending', () => {
         const pending = {
             id: 'stl-2',
             amount: 500_000,
@@ -134,7 +134,7 @@ describe('settlementContext', () => {
         expect(ctx.showSettlementDueActions).toBe(true);
         expect(ctx.showSettlementEntryButton).toBe(false);
         expect(ctx.pendingSettlementDuePhase).toBe('due');
-        expect(ctx.showAmountGuarantorRequest).toBe(false);
+        expect(ctx.showAmountGuarantorRequest).toBe(true);
     });
 
     it('reacts to remaining tier changes for entry placement', () => {
@@ -283,6 +283,6 @@ describe('settlement lifecycle sync with ledger remaining', () => {
                 financialCenterTotalIqd: 5_000_000,
                 settlementBreachTriggeredAt: reg.store.settlementBreachTriggeredAt,
             }).showAmountGuarantorRequest
-        ).toBe(false);
+        ).toBe(true);
     });
 });

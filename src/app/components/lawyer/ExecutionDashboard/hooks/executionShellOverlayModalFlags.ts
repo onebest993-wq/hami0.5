@@ -59,7 +59,6 @@ export function isExecutionOtherShellOverlayUrgent(
             modals.showGuarantorDetailsModal ||
             modals.showHeirsNotificationModal ||
             modals.showTransferFileNumberChangeModal ||
-            modals.showRealEstateSeizureModal ||
             modals.showEvictionExpenseModal ||
             modals.showEvictionLawyerFeeModal ||
             modals.showEvictionResidentialGraceModal ||

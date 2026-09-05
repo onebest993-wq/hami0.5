@@ -25,4 +25,19 @@ describe('useLiveNow', () => {
         });
         expect(result.current.toDateString()).toBe(new Date(2026, 7, 24).toDateString());
     });
+
+    it('يحدّث اليوم عند عودة التطبيق الأصلي دون انتظار المؤقّت', () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date(2026, 7, 23, 23, 50, 0));
+        const { result } = renderHook(() => useLiveNow(true));
+        expect(result.current.toDateString()).toBe(new Date(2026, 7, 23).toDateString());
+
+        act(() => {
+            vi.setSystemTime(new Date(2026, 7, 24, 0, 1, 0));
+            window.dispatchEvent(
+                new CustomEvent('hami-native-app-state', { detail: { isActive: true } }),
+            );
+        });
+        expect(result.current.toDateString()).toBe(new Date(2026, 7, 24).toDateString());
+    });
 });

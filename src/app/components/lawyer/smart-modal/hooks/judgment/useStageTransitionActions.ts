@@ -1,16 +1,9 @@
-import type { CaseStage } from '../../../LawyerShared';
 import { debug } from '@/app/utils/debug';
 import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import { applyStageTransition } from '../../smartFile/stageTransition';
-
-
-import type {
-    StageTransitionPayload,
-} from '../../smartFile/judgmentTypes';
-import {
-    JUDGMENT_TYPE_WAIVER,
-    str,
-} from '../../smartFile/judgmentTypes';
+import type { StageTransitionPayload } from '../../smartFile/judgmentTypes';
+import { str } from '../../smartFile/judgmentTypes';
+import { inferJudgmentTypeFromStage } from '../../smartFile/inferStageJudgmentType';
 
 
 
@@ -57,15 +50,13 @@ const handleTransitionConfirm = (transitionData: StageTransitionPayload) => {
     debug.log(`📦 إجمالي المراحل: ${updatedStages.length}`);
 };
 
-const inferJudgmentTypeFromStage = (stage: CaseStage): string => {
-    const fd = str(stage.finalDecision);
-    if (fd.includes('الصلح') || fd.includes('صلح')) return 'الصلح';
-    if (fd.includes('التنازل') || fd.includes('تنازل')) return JUDGMENT_TYPE_WAIVER;
-    if (fd.includes('إجابة الدعوى')) return 'إجابة الدعوى بالكامل';
-    return 'إجابة الدعوى بالكامل';
-};
-
-const handleOpenDefendantCassationAppeal = () => {
+const handleOpenDefendantCassationAppeal = (
+    preferredChallengerPartyId?: string,
+    options?: { forceIndependentSpawn?: boolean },
+) => {
+    const forceIndependentChallengeSpawn = Boolean(
+        preferredChallengerPartyId || options?.forceIndependentSpawn,
+    );
     setTempJudgmentData({
         action: 'waiting_for_appeal',
         judgmentType: inferJudgmentTypeFromStage(currentStage),
@@ -73,6 +64,10 @@ const handleOpenDefendantCassationAppeal = () => {
         judgmentDate: str(currentStage.decisionDate || getLocalTodayYmd()),
         notes: '',
         openAppealTransitionModal: true,
+        ...(preferredChallengerPartyId
+            ? { preferredChallengerPartyId: String(preferredChallengerPartyId) }
+            : {}),
+        ...(forceIndependentChallengeSpawn ? { forceIndependentChallengeSpawn: true } : {}),
     });
     setShowAppealTransitionModal(true);
 };

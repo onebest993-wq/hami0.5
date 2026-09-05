@@ -62,8 +62,8 @@ export const ForumAppBar = ({
 
     return (
         <div className={FORUM_APP_BAR} data-testid="forum-app-bar">
-            <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="px-3 pt-2 pb-1.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
                     {onBack ? (
                         <button
                             type="button"
@@ -75,7 +75,7 @@ export const ForumAppBar = ({
                             <ArrowRight size={20} />
                         </button>
                     ) : null}
-                    <h1 className={`${FORUM_TEXT_PRIMARY} font-semibold text-[17px] truncate leading-tight tracking-tight`}>
+                    <h1 className={`${FORUM_TEXT_PRIMARY} font-semibold text-[15px] truncate leading-tight tracking-tight`}>
                         منتدى الزملاء
                     </h1>
                 </div>
@@ -99,7 +99,7 @@ export const ForumAppBar = ({
                 />
             </div>
 
-            <div className="px-4 pb-2">
+            <div className="px-3 pb-1.5">
                 <ForumSectionSwitch
                     activeSection={activeSection}
                     onSectionChange={onSectionChange}

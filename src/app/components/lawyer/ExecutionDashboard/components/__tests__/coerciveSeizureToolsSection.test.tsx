@@ -98,9 +98,14 @@ describe('CoerciveSeizureToolsSection', () => {
         expect(container.firstChild).toBeNull();
     });
 
-    it('renders nothing for eviction module (field procedures panel owns that flow)', () => {
-        const { container } = renderSection({ isEvictionExecutionModule: true });
+    it('renders the salary block for employee even without salary-only flag', () => {
+        renderSection({
+            activeDebtorIsEmployee: true,
+            followupEmployeeFinancialSalaryOnlyCoercive: false,
+            followupMonetaryCoerciveLimitedOnly: false,
+        });
 
-        expect(container.firstChild).toBeNull();
+        expect(screen.getByText('طلب حجز راتب (١/٥)')).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'طلب حجز عقار' })).toBeTruthy();
     });
 });

@@ -1,14 +1,48 @@
 import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
-import { loadCommunityOverlayEntry } from '@/app/runtime/communityOverlayEntryLoader';
-import { loadScheduleTabHostModule } from '@/app/runtime/scheduleHubLoader';
-import { loadNotificationShellModule } from '@/app/runtime/notificationShellLoader';
+import { createPreloadableLazyComponent } from '@/app/utils/lazy/preloadableLazy';
+export {
+    LazyCommunityOverlayEntry,
+    loadCommunityOverlayEntry,
+} from '@/app/runtime/communityOverlayEntryLoader';
+export {
+    LazyScheduleTabHost,
+    loadScheduleTabHostModule,
+} from '@/app/runtime/scheduleHubLoader';
+export { LazyNotificationShell } from '@/app/runtime/notificationShellLoader';
+export { LazyRepositoryOverlayEntry } from '@/app/runtime/repositoryHubLoader';
+export { LazyFieldTasksOverlayEntry, loadFieldTasksSheetModule } from '@/app/runtime/fieldTasksHubLoader';
+export { LazyTransactionsOverlayEntry } from '@/app/runtime/transactionsHubLoader';
 export {
     LazySmartFileOverlayEntry,
     loadSmartFileOverlayEntry,
 } from '@/app/runtime/smartFileOverlayEntryLoader';
+export {
+    LazyLawsuitsOverlayEntry,
+    loadLawsuitsOverlayEntry,
+} from '@/app/runtime/lawsuitsOverlayEntryLoader';
+export { LazyGlobalSearchOverlayEntry } from '@/app/runtime/globalSearchLoader';
+export { LazyProfileTabHost, prefetchProfileTabHost } from '@/app/runtime/profileTabHostLoader';
+export {
+    LazyExecutionOverlayEntry,
+    LazyExecutionDossierOverlayEntry,
+    LazyExecutionCreateOverlayEntry,
+} from '@/app/runtime/executionOverlayEntryLoader';
+export {
+    LazyCriminalOverlayEntry,
+    LazyNewCaseOverlayEntry,
+    LazyNonExecArchiveOverlayEntry,
+} from '@/app/runtime/criminalOverlayEntryLoader';
+export { stampMainViewOverlayEntryPreloads } from '@/app/runtime/overlayHeavyStamp';
+
+/**
+ * LawyerDashboardExecutionOverlayEntry / LawyerDashboardExecutionDossierOverlayEntry
+ * LawyerDashboardCriminalOverlayEntry / LawyerDashboardNewCaseOverlayEntry
+ * — محمّلات مستقلة حتى لا تجرّ الموجة الخفيفة برميل المنتدى/الجدول.
+ */
 
 /**
  * تعريفات Lazy لـ LawyerDashboardMainView — منفصلة لتقسيم الملف دون تغيير سلوك التركيب.
+ * مداخل الأقسام الثقيلة في محمّلات مستقلة حتى لا تجرّ الموجة الخفيفة برميل المنتدى/الجدول.
  */
 
 export const LazyLawyerDashboardPostInteractiveRuntime = lazyWithRetry(() =>
@@ -23,9 +57,22 @@ export const LazyLawyerDashboardDeferredFeatureSurfaces = lazyWithRetry(() =>
     })),
 );
 
+export const LazyLawyerDashboardFieldTasksFeatureSurfaces = lazyWithRetry(() =>
+    import('@/app/components/lawyer/dashboard/LawyerDashboardFieldTasksFeatureSurfaces').then((m) => ({
+        default: m.LawyerDashboardFieldTasksFeatureSurfaces as unknown as LazyComponent,
+    })),
+);
+
 export const LazyLawyerDashboardPreDockFeatureSurfaces = lazyWithRetry(() =>
     import('@/app/components/lawyer/dashboard/LawyerDashboardPreDockFeatureSurfaces').then((m) => ({
         default: m.LawyerDashboardPreDockFeatureSurfaces as unknown as LazyComponent,
+    })),
+);
+
+/** preload-aware: تسخين الجزيرة أثناء تركيب اللوحة حتى لا تُفتح على stub بعد الإقلاع */
+export const LazyLawyerDashboardRepositoryFeatureSurfaces = createPreloadableLazyComponent(() =>
+    import('@/app/components/lawyer/dashboard/LawyerDashboardRepositoryFeatureSurfaces').then((m) => ({
+        default: m.LawyerDashboardRepositoryFeatureSurfaces as unknown as LazyComponent,
     })),
 );
 
@@ -35,129 +82,11 @@ export const LazyLawyerDashboardNavigationIsland = lazyWithRetry(() =>
     })),
 );
 
-export const LazyProfileTabHost = lazyWithRetry(() =>
-    import('@/app/components/lawyer/dashboard/profile/ProfileTabHost').then((m) => ({
-        default: m.ProfileTabHost as unknown as LazyComponent,
-    })),
-);
-
-export const LazyExecutionOverlayEntry = lazyWithRetry(() =>
-    import(
-        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardExecutionOverlayEntry'
-    ).then((m) => ({
-        default: m.LawyerDashboardExecutionOverlayEntry as unknown as LazyComponent,
-    })),
-);
-
-export const LazyExecutionDossierOverlayEntry = lazyWithRetry(() =>
-    import(
-        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardExecutionDossierOverlayEntry'
-    ).then((m) => ({
-        default: m.LawyerDashboardExecutionDossierOverlayEntry as unknown as LazyComponent,
-    })),
-);
-
-/** مضيف الجدول — كان sync فيقطع مسار الإقلاع (~١٧٦٥ ك.ب) */
-export const LazyScheduleTabHost = lazyWithRetry(() =>
-    loadScheduleTabHostModule().then((m) => ({
-        default: (m as typeof import('@/app/components/lawyer/dashboard/schedule/ScheduleTabHost'))
-            .ScheduleTabHost as unknown as LazyComponent,
-    })),
-);
-
-/**
- * منتدى الزملاء — كسول عبر المحمّل المشترك. الفتح ينتظر resolve قبل التركيب
- * (communityShellOpenFlow) حتى لا يعلق Suspense عند النقر المبكر.
- */
-export const LazyCommunityOverlayEntry = lazyWithRetry(() =>
-    loadCommunityOverlayEntry().then((m) => ({
-        default: m.LawyerDashboardCommunityOverlayEntry as unknown as LazyComponent,
-    })),
-);
-
-export const LazyNotificationShell = lazyWithRetry(() =>
-    loadNotificationShellModule().then((m) => ({
-        default: m.NotificationShell as unknown as LazyComponent,
-    })),
-);
-
-/** مساحة الدعاوى — Entry كان sync (~٩٣ ك.ب) */
-export {
-    LazyLawsuitsOverlayEntry,
-    loadLawsuitsOverlayEntry,
-} from '@/app/runtime/lawsuitsOverlayEntryLoader';
-
-/** إضبارة الدعوى SmartFile — preload-aware عبر smartFileOverlayEntryLoader */
-
-export const LazyGlobalSearchOverlayEntry = lazyWithRetry(() =>
-    import(
-        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardGlobalSearchOverlayEntry'
-    ).then((m) => ({
-        default: m.LawyerDashboardGlobalSearchOverlayEntry as unknown as LazyComponent,
-    })),
-);
-
-export const LazyTransactionsOverlayEntry = lazyWithRetry(() =>
-    import(
-        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardTransactionsOverlayEntry'
-    ).then((m) => ({
-        default: m.LawyerDashboardTransactionsOverlayEntry as unknown as LazyComponent,
-    })),
-);
-
-export const LazyRepositoryOverlayEntry = lazyWithRetry(() =>
-    import(
-        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardRepositoryOverlayEntry'
-    ).then((m) => ({
-        default: m.LawyerDashboardRepositoryOverlayEntry as unknown as LazyComponent,
-    })),
-);
-
-export const LazyFieldTasksOverlayEntry = lazyWithRetry(() =>
-    import(
-        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardFieldTasksOverlayEntry'
-    ).then((m) => ({
-        default: m.LawyerDashboardFieldTasksOverlayEntry as unknown as LazyComponent,
-    })),
-);
-
 /** نادر — كسول؛ الشريط CSS فقط بلا motion على MainView */
-export const LazyConsolidationNavOverlayEntry = lazyWithRetry(() =>
+export const LazyConsolidationNavOverlayEntry = createPreloadableLazyComponent(() =>
     import(
         '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardConsolidationNavOverlayEntry'
     ).then((m) => ({
         default: m.LawyerDashboardConsolidationNavOverlayEntry as unknown as LazyComponent,
-    })),
-);
-
-export const LazyNonExecArchiveOverlayEntry = lazyWithRetry(() =>
-    import(
-        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardNonExecArchiveOverlayEntry'
-    ).then((m) => ({
-        default: m.LawyerDashboardNonExecArchiveOverlayEntry as unknown as LazyComponent,
-    })),
-);
-
-export const LazyExecutionCreateOverlayEntry = lazyWithRetry(() =>
-    import(
-        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardExecutionCreateOverlayEntry'
-    ).then((m) => ({
-        default: m.LawyerDashboardExecutionCreateOverlayEntry as unknown as LazyComponent,
-    })),
-);
-
-export const LazyNewCaseOverlayEntry = lazyWithRetry(() =>
-    import(
-        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardNewCaseOverlayEntry'
-    ).then((m) => ({
-        default: m.LawyerDashboardNewCaseOverlayEntry as unknown as LazyComponent,
-    })),
-);
-
-export const LazyCriminalOverlayEntry = lazyWithRetry(() =>
-    import(
-        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardCriminalOverlayEntry'
-    ).then((m) => ({
-        default: m.LawyerDashboardCriminalOverlayEntry as unknown as LazyComponent,
     })),
 );

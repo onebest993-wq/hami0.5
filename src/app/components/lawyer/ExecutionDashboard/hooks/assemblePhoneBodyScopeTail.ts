@@ -124,8 +124,6 @@ export function assemblePhoneBodyScopeTail(input: AssembleExecutionDashboardPhon
         primaryMemoNoticeBadge: scope.primaryMemoNoticeBadge,
         primaryDebtorWorkspaceKey: scope.primaryDebtorWorkspaceKey,
         handleMemoFollowupClick: scope.handleMemoFollowupClick,
-        closeUnifiedSeizureLog: scope.closeUnifiedSeizureLog,
-        showUnifiedSeizureLogModal: scope.showUnifiedSeizureLogModal,
         showExecutionTrashModal: scope.showExecutionTrashModal,
         setShowExecutionTrashModal:
             scope.setShowExecutionTrashModal ?? local.safeSetShowExecutionTrashModal,

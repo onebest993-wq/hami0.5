@@ -103,12 +103,12 @@ export function createRenderEvictionBranchPanelBody(
         const pendingActions = renderBranchExecutorActionsStrip(
             branch,
             governingRow,
-            'قرار المنفذ — قيد البت'
+            'قيد البت'
         );
         if (pendingActions) return pendingActions;
         return (
-            <div className="border-t border-white/10 px-3 py-3 text-[10px] leading-relaxed text-amber-200/90 text-right">
-                الطلب قيد البت لدى منفذ العدل — تابع من «القرارات والطعون» أو انتظر التحديث هنا.
+            <div className="border-t border-white/8 px-3 py-2 text-[10px] leading-relaxed text-amber-200/90 text-right">
+                الطلب قيد البت — افتح «قرار المنفذ» للمتابعة.
             </div>
         );
     }

@@ -11,6 +11,7 @@ import { isExecutionCreateCloseGuardArmed } from '@/app/components/lawyer/dashbo
 import { ExecutionArchiveHostOpenContext } from '@/app/components/lawyer/dashboard/executionArchiveHostOpenContext';
 import { ExecutionArchiveInstantBody } from '@/app/components/lawyer/dashboard/ExecutionArchiveInstantBody';
 import { prefetchExecutionArchiveContent } from '@/app/runtime/hubArchiveLoader';
+import { clearExecutionArchiveFirstOpenIndex } from '@/app/runtime/executionArchiveFirstOpenClick';
 
 /**
  * قشرة مخزن التنفيذ — keep-alive: تبقى مركّبة مخفية بعد التسليح؛ الفتح = إظهار فوري بلا إعادة تركيب.
@@ -46,6 +47,7 @@ export const ExecutionArchiveInstantChrome = memo(function ExecutionArchiveInsta
             node.removeAttribute('inert');
             return;
         }
+        clearExecutionArchiveFirstOpenIndex();
         node.setAttribute('inert', '');
         blurFocusWithin(node);
     }, [open]);

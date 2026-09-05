@@ -1,5 +1,6 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { DEFAULT_COURT_JUDGMENT_DOC_TYPE } from './useExecutionCreationFormOptions';
 import { createEmptyVisitationScheduleDraft } from '../components/VisitationScheduleSetupSection';
 import { createEmptyMaritalFurnitureItem } from '@/app/utils/maritalFurniture';
 import type { MaritalFurnitureItem } from '@/app/types/maritalFurniture';
@@ -200,7 +201,7 @@ export function useExecutionCreationFormState(isOpen: boolean): ExecutionCreatio
     /** مدينون إضافيون (المدين الأول يبقى في debtors[0]) */
     const [additionalDebtorsForm, setAdditionalDebtorsForm] = useState<AdditionalDebtorDraft[]>([]);
 
-    const [docType, setDocType] = useState('');
+    const [docType, setDocType] = useState(DEFAULT_COURT_JUDGMENT_DOC_TYPE);
     const [docNumber, setDocNumber] = useState('');
     const [judgmentDate, setJudgmentDate] = useState('');
 

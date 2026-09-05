@@ -12,7 +12,10 @@ import {
     filterTimelineFeed,
     formatTimelineCardBody,
     formatTimelineCardTitle,
+    formatTimelineInlineMeta,
     getTimelineCategoryMeta,
+    isCompactTimelineCardBody,
+    visibleCivilTimelineEvents,
     type TimelineFeedCategory,
 } from '../smartFile/timelineFeedTaxonomy';
 import { resolveTimelineVisual } from '../smartFile/timelineEventVisuals';
@@ -53,15 +56,16 @@ export const TimelineFeed = ({
     const [category, setCategory] = useState<TimelineFeedCategory>('all');
     const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
 
-    const counts = useMemo(() => countTimelineByCategory(events), [events]);
+    const sourceEvents = visualVariant === 'civil' ? visibleCivilTimelineEvents(events) : events;
+    const counts = useMemo(() => countTimelineByCategory(sourceEvents), [sourceEvents]);
     const visibleCategories = useMemo(
         () => TIMELINE_FEED_CATEGORIES.filter((c) => c.id === 'all' || counts[c.id] > 0),
         [counts],
     );
 
     const filteredEvents = useMemo(
-        () => filterTimelineFeed(events, { query, category }),
-        [events, query, category],
+        () => filterTimelineFeed(sourceEvents, { query, category }),
+        [sourceEvents, query, category],
     );
 
     const shellClass = isPearl
@@ -71,7 +75,7 @@ export const TimelineFeed = ({
         : 'rounded-xl border border-[#E6C673]/12 bg-[#0A0F1C]/40';
     const accentIcon = isPearl ? 'text-white/35' : isPersonal ? 'text-[#C4A574]/45' : 'text-[#E6C673]/30';
 
-    const searchBar = events.length > 0 ? (
+    const searchBar = sourceEvents.length > 0 ? (
         <div className={`${isPearl ? 'mb-2 space-y-1.5' : `${shellClass} p-2 mb-3 space-y-2`} print:hidden`}>
             <div className="relative">
                 <SearchIcon
@@ -121,7 +125,7 @@ export const TimelineFeed = ({
         </div>
     ) : null;
 
-    if (events.length === 0) {
+    if (sourceEvents.length === 0) {
         return (
             <>
                 {searchBar}
@@ -168,12 +172,13 @@ export const TimelineFeed = ({
                     const fullDetails = formatTimelineCardBody(event);
                     const simplifyCivilContent = !isPearl && !isPersonal;
                     const hasDetails = Boolean(fullDetails.trim());
+                    const compactDetails = !hasDetails || isCompactTimelineCardBody(fullDetails);
+                    const inlineMeta = simplifyCivilContent && hasDetails
+                        ? formatTimelineInlineMeta(event, fullDetails)
+                        : '';
                     const isExpanded = expandedEventId === event.id;
-                    const displayDetails = simplifyCivilContent
-                        ? isExpanded
-                            ? fullDetails
-                            : ''
-                        : fullDetails;
+                    const showInlineMeta =
+                        simplifyCivilContent && compactDetails && Boolean(inlineMeta) && !isExpanded;
 
                     const isPauseEvent = ext.isPause || event.title?.includes('استئخار');
                     const isInterruptionEvent = ext.isInterruption || event.title?.includes('انقطاع السير');
@@ -183,7 +188,8 @@ export const TimelineFeed = ({
 
                     const isHearingJump =
                         Boolean(onEventClick && isSessionHubFocusEvent(event));
-                    const isExpandable = simplifyCivilContent && hasDetails && !isHearingJump;
+                    const isExpandable = simplifyCivilContent && hasDetails && !isHearingJump && !compactDetails;
+                    const displayDetails = isExpanded && isExpandable ? fullDetails : '';
                     const isClickable = isHearingJump || isExpandable;
 
                     const handleCardClick = () => {
@@ -223,56 +229,57 @@ export const TimelineFeed = ({
                                 onKeyDown={isClickable ? handleCardKeyDown : undefined}
                             >
                                 {simplifyCivilContent ? (
-                                    <div className="flex items-start justify-between gap-2">
-                                        <div className="min-w-0 flex-1">
+                                    <>
+                                    <div className="flex items-center justify-between gap-2 h-8 max-h-8 overflow-hidden">
+                                        <div className="min-w-0 flex-1 flex items-center gap-2 overflow-hidden">
                                             <h4
-                                                className={`font-bold text-[13px] leading-snug ${visual.title}`}
+                                                className={`font-semibold text-[12px] leading-none truncate shrink min-w-0 ${visual.title}`}
                                             >
                                                 {displayTitle}
                                             </h4>
-                                            {hasDetails && !isExpanded ? (
-                                                <p className="text-[10px] text-white/35 mt-1">
-                                                    اضغط لعرض التفاصيل
-                                                </p>
-                                            ) : null}
-                                            {displayDetails ? (
-                                                <p
-                                                    className={`text-[11px] leading-relaxed mt-2 whitespace-pre-line ${visual.detailsText} line-clamp-none`}
-                                                >
-                                                    {displayDetails}
-                                                </p>
+                                            {showInlineMeta ? (
+                                                <span className={`text-[10px] leading-none truncate min-w-0 flex-1 ${visual.detailsText}`}>
+                                                    {inlineMeta}
+                                                </span>
                                             ) : null}
                                         </div>
-                                        <div className="flex items-center gap-2 shrink-0">
-                                            {isExpandable ? (
-                                                <ChevronDown
-                                                    size={14}
-                                                    className={`text-white/35 transition-transform ${
-                                                        isExpanded ? 'rotate-180' : ''
-                                                    }`}
-                                                    aria-hidden
-                                                />
-                                            ) : null}
-                                            <span className="text-[10px] tabular-nums text-white/35">
+                                        <div className="flex items-center gap-1.5 shrink-0">
+                                            <span className="text-[10px] tabular-nums text-white/30 shrink-0">
                                                 {event.date?.slice(0, 10) || '—'}
                                             </span>
-                                            {onDelete ? (
-                                                <div className="flex gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity print:hidden">
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onDelete(event.id);
-                                                        }}
-                                                        className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:border-rose-500/30 text-white/30 hover:text-rose-400 transition-colors touch-manipulation"
-                                                        title="حذف"
-                                                    >
-                                                        <Trash2 size={13} />
-                                                    </button>
-                                                </div>
+                                            {isExpandable ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setExpandedEventId(isExpanded ? null : event.id);
+                                                    }}
+                                                    className={`inline-flex h-8 w-8 min-h-[32px] min-w-[32px] items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.03] text-white/45 transition-transform touch-manipulation ${
+                                                        isExpanded ? 'rotate-180 border-[#E6C673]/25 text-[#E6C673]/75' : ''
+                                                    }`}
+                                                    aria-label={isExpanded ? 'طي التفاصيل' : 'عرض التفاصيل'}
+                                                    aria-expanded={isExpanded}
+                                                >
+                                                    <ChevronDown size={13} />
+                                                </button>
+                                            ) : isHearingJump ? (
+                                                <span
+                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.03] text-white/40"
+                                                    aria-hidden
+                                                >
+                                                    <ChevronDown size={13} className="-rotate-90" />
+                                                </span>
                                             ) : null}
                                         </div>
                                     </div>
+                                    {displayDetails ? (
+                                        <p
+                                            className={`text-[10px] leading-relaxed mt-1 pt-1 border-t border-white/[0.05] whitespace-pre-line ${visual.detailsText}`}
+                                        >
+                                            {displayDetails}
+                                        </p>
+                                    ) : null}
+                                    </>
                                 ) : (
                                     <>
                                         <div className="flex items-start justify-between gap-2">

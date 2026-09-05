@@ -173,7 +173,22 @@ export function useExecutionDashboardCoreBootPipelineImpl({
     const viewExecutionData = executionData;
 
     const executionDataRef = useRef<ExecutionFile | null>(null);
-    executionDataRef.current = executionData ?? null;
+    // لا تستبدل مرجعاً أحدث (persist متفائل) بنسخة عرض أقدم قبل اكتمال onUpdate/tick
+    {
+        const next = executionData ?? null;
+        const prev = executionDataRef.current;
+        if (!next) {
+            executionDataRef.current = null;
+        } else if (!prev || String(prev.id) !== String(next.id)) {
+            executionDataRef.current = next;
+        } else {
+            const prevTs = Date.parse(String(prev.updatedAt ?? prev.createdAt ?? '')) || 0;
+            const nextTs = Date.parse(String(next.updatedAt ?? next.createdAt ?? '')) || 0;
+            if (!Number.isFinite(prevTs) || nextTs >= prevTs) {
+                executionDataRef.current = next;
+            }
+        }
+    }
 
     const partyBadgesExecutionId = String(executionData?.id ?? executionId ?? file?.id ?? 'unknown');
 

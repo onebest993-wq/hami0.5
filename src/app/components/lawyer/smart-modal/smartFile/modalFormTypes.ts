@@ -171,12 +171,14 @@ export type ObjectionRegistrationModalProps = ModalShellProps & {
 };
 
 export type AbsentJudgmentNotificationModalProps = ModalShellProps & {
-    onConfirm: (data: { notificationDate: string }) => void;
+    onConfirm: (data: { notificationDate: string; partyId?: string; partyIds?: string[] }) => void;
+    ghayabiParties?: Array<{ partyId: string; name: string }>;
 };
 
 export type OpponentAbsentObjectionModalProps = ModalShellProps & {
-    onConfirm: (data: { newCaseNumber: string; filingDate: string }) => void;
+    onConfirm: (data: { newCaseNumber: string; filingDate: string; objectorPartyId?: string }) => void;
     sourceCaseNumber?: string;
+    ghayabiParties?: Array<{ partyId: string; name: string }>;
 };
 
 export type { IncidentalType, TimelineEvent };

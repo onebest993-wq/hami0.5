@@ -1,5 +1,5 @@
 import React from 'react';
-import { Database } from '@/app/components/ui/icons/Database';
+import { SettingsDatabaseIcon } from '../settingsStemIconsChrome';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import {
     mintSensitiveConfirmChallenge,
@@ -12,14 +12,16 @@ import { prefetchBusinessBackupEngine } from '../hooks/businessBackupEngine';
 import { BusinessBackupExportPanel } from './BusinessBackupExportPanel';
 import { BusinessBackupImportPreview } from './BusinessBackupImportPreview';
 import type { PendingBusinessImport } from '@/app/services/settings/businessBackupTypes';
+import { settingsFlowAbandoned, useSettingsSectionActiveRef } from '../settingsFlowGuard';
 
 type BackupVm = ReturnType<typeof useBusinessBackup>;
 
 export function BusinessBackupSection({ backup }: { backup: BackupVm }) {
+    const { sectionActiveRef } = useSettingsSectionActiveRef();
     const confirmInFlightRef = React.useRef(false);
 
     const confirmImport = async (pending: PendingBusinessImport) => {
-        if (confirmInFlightRef.current) return;
+        if (confirmInFlightRef.current || settingsFlowAbandoned(sectionActiveRef)) return;
         confirmInFlightRef.current = true;
         try {
             const localFiles = pending.vaultBlobs.length;
@@ -29,19 +31,19 @@ export function BusinessBackupSection({ backup }: { backup: BackupVm }) {
                 }. عند فشل العملية سيُستعاد المحتوى السابق تلقائياً.`,
                 { title: 'تأكيد استيراد النسخة؟', confirmText: 'استيراد', cancelText: 'إلغاء' },
             );
-            if (!ok) return;
+            if (!ok || settingsFlowAbandoned(sectionActiveRef)) return;
             const challenge = mintSensitiveConfirmChallenge('استيراد نسخة');
             const verified = await verifySensitiveSettingsAction({
                 confirmPhrase: challenge.confirmPhrase,
                 title: 'تحقق قبل الاستيراد',
                 promptMessage: challenge.promptMessage,
             });
-            if (!verified) return;
+            if (!verified || settingsFlowAbandoned(sectionActiveRef)) return;
             const imported = await backup.importBusinessBackup(
                 pending.entries,
                 pending.vaultBlobs,
             );
-            if (imported) {
+            if (imported && !settingsFlowAbandoned(sectionActiveRef)) {
                 backup.setPendingBusinessImport(null);
             }
         } finally {
@@ -58,7 +60,7 @@ export function BusinessBackupSection({ backup }: { backup: BackupVm }) {
     return (
         <>
             <SettingRow
-                icon={Database}
+                icon={SettingsDatabaseIcon}
                 label="نسخة احتياطية للبيانات"
                 action={
                     <>
@@ -66,7 +68,9 @@ export function BusinessBackupSection({ backup }: { backup: BackupVm }) {
                             ref={backup.importBusinessInputRef}
                             type="file"
                             accept="application/json,.json"
-                            className="hidden"
+                            className="hami-settings-file-input"
+                            aria-hidden="true"
+                            tabIndex={-1}
                             onClick={() => markSettingsFilePickerOpening()}
                             onChange={(e) => void backup.prepareBusinessImport(e.target.files?.[0])}
                         />

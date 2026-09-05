@@ -46,7 +46,6 @@ export function useExecutionDashboardCoreModalAndChunkInputs(p: {
         unifiedLedgerRevision: unknown;
         financialPrincipalAmount: unknown;
     };
-    followupDebtor: { showUnifiedSeizureLogModal: unknown };
     timelineAccordionExpanded: unknown;
     isFinancialCenterExpanded: unknown;
     coercionOrchestrator: unknown;
@@ -132,7 +131,6 @@ export function useExecutionDashboardCoreModalAndChunkInputs(p: {
                 executionStorageTick: p.boot.executionStorageTick,
                 financialPrincipalAmount: p.claimFinancialLedger.financialPrincipalAmount,
                 followupOrchestrator: p.followupOrchestrator,
-                showUnifiedSeizureLogModal: p.followupDebtor.showUnifiedSeizureLogModal,
                 timelineAccordionExpanded: p.timelineAccordionExpanded,
                 isFinancialCenterExpanded: p.isFinancialCenterExpanded,
                 isHeaderExpanded: p.boot.isHeaderExpanded,
@@ -161,7 +159,6 @@ export function useExecutionDashboardCoreModalAndChunkInputs(p: {
             p.boot.executionStorageTick,
             p.claimFinancialLedger.financialPrincipalAmount,
             p.followupOrchestrator,
-            p.followupDebtor.showUnifiedSeizureLogModal,
             p.timelineAccordionExpanded,
             p.isFinancialCenterExpanded,
             p.boot.isHeaderExpanded,

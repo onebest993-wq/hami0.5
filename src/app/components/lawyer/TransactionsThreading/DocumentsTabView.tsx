@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus } from '@/app/components/ui/icons/Plus';
+import { PlusIcon } from './transactionsTheme/icons';
 import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
 import type { Transaction, TransactionDocument } from '@/app/modules/transactionsThreading/types';
 import { SmartToast } from '@/app/components/ui/SmartToast';
@@ -51,8 +51,14 @@ export function DocumentsTabView({
 
     useEffect(() => {
         registerDocumentsEscapeCloser?.(closeDocumentsOverlay);
-        return () => registerDocumentsEscapeCloser?.(null);
-    }, [closeDocumentsOverlay, registerDocumentsEscapeCloser]);
+        return () => {
+            registerDocumentsEscapeCloser?.(null);
+            onDocumentsEscapeSnapshotChange?.({
+                addDocumentSheetOpen: false,
+                deleteDocumentOpen: false,
+            });
+        };
+    }, [closeDocumentsOverlay, onDocumentsEscapeSnapshotChange, registerDocumentsEscapeCloser]);
 
     useEffect(() => {
         onDocumentsEscapeSnapshotChange?.({
@@ -69,16 +75,16 @@ export function DocumentsTabView({
     }, [detailsActive]);
 
     return (
-        <div dir="rtl" className="pt-2 pb-8">
+        <div dir="rtl" className="pt-1 pb-8">
             <div className="flex items-center justify-end">
                 <button
                     type="button"
                     disabled={!!readOnly}
                     onClick={() => setOpen(true)}
-                    className={`${TX_GOLD_BTN} !px-4 disabled:opacity-50 disabled:cursor-not-allowed`}
+                    className={`${TX_GOLD_BTN} disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                     <span className="inline-flex items-center gap-2">
-                        <Plus className="w-4 h-4" />
+                        <PlusIcon className="w-4 h-4" />
                         إضافة مرفق
                     </span>
                 </button>
@@ -89,7 +95,7 @@ export function DocumentsTabView({
                     <div className={`${TX_TEXT_MUTED} text-sm font-medium`}>لا توجد مرفقات بعد.</div>
                 </div>
             ) : (
-                <div className="mt-2 space-y-2">
+                <div className="mt-1">
                     {sorted.map((doc) => (
                         <DocumentCard
                             key={doc.id}

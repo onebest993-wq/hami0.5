@@ -1,10 +1,6 @@
 import { useCallback } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { ForumApiService } from '@/app/services/forumApiService';
-import type { CommunityPost } from '@/app/services/lawyer-cloud';
-import { saveForumAttachmentToVault } from '@/app/services/forum/forumPostPersistActions';
-import { resolveCommunityAttachmentUrl } from '@/app/services/forumAttachmentService';
-import { downloadRepositoryFile } from '../repositoryStorageService';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
 import { getForumSessionUserId } from '@/app/services/forum/forumApi/forumApiClientCore';
 import { copyTextWithFallback } from '../forumClipboardCopy';
@@ -103,7 +99,9 @@ export function useCommunityScreenPostSaves({
                     persistedUser?.email ||
                     'محامي';
                 try {
-                    await saveForumAttachmentToVault(post, targetUserId, String(authorName));
+                    await (
+                        await import('@/app/services/forum/forumPostPersistActions')
+                    ).saveForumAttachmentToVault(post, targetUserId, String(authorName));
                     SmartToast.success('تم حفظ المرفق في المستودع الذكي');
                 } catch {
                     SmartToast.error('تعذّر حفظ المرفق في المستودع الذكي');
@@ -122,12 +120,16 @@ export function useCommunityScreenPostSaves({
                     return;
                 }
                 try {
+                    const { resolveCommunityAttachmentUrl } = await import(
+                        '@/app/services/forum/forumAttachmentResolve'
+                    );
                     const url = await resolveCommunityAttachmentUrl(post.attachment);
                     if (!url) {
                         SmartToast.warning('الملف غير متاح للحفظ حالياً');
                         return;
                     }
                     const fileName = post.attachment.name?.trim() || `forum-${post.id}`;
+                    const { downloadRepositoryFile } = await import('../repositoryStorageService');
                     await downloadRepositoryFile(url, fileName);
                     SmartToast.success('تم حفظ الملف في الجهاز');
                 } catch {

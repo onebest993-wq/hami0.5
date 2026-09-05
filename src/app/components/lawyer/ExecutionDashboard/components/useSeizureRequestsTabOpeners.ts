@@ -4,9 +4,8 @@ import {
     isGuarantorRequestDecisionRow,
 } from '@/app/utils/executorSeizureDecisionQueue';
 import {
-    SEIZURE_LOG_TAB_SUBTYPE,
-    openUnifiedSeizureLogTab,
-    type UnifiedSeizureLogTab,
+    SEIZURE_LANE_SUBTYPE,
+    type SeizureRequestLaneTab,
 } from './seizureRequestsTabHelpers';
 import type { DecisionRow } from './useSeizureRequestsTabModel.types';
 
@@ -77,15 +76,12 @@ export function useSeizureRequestsTabOpeners(input: {
     }, [decisions]);
 
     const acknowledgeSeizureRequestFromLog = React.useCallback(
-        (tab: UnifiedSeizureLogTab) => {
+        (tab: SeizureRequestLaneTab) => {
             if (!resolvedExecutionId) return;
-            openUnifiedSeizureLogTab(tab);
-            window.setTimeout(() => {
-                closeSeizureSubtypeDecisionCycle({
-                    executionId: resolvedExecutionId,
-                    subtype: SEIZURE_LOG_TAB_SUBTYPE[tab],
-                });
-            }, 0);
+            closeSeizureSubtypeDecisionCycle({
+                executionId: resolvedExecutionId,
+                subtype: SEIZURE_LANE_SUBTYPE[tab],
+            });
         },
         [resolvedExecutionId],
     );

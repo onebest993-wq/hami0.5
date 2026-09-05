@@ -100,7 +100,6 @@ export const EXECUTION_PHONE_BODY_PROP_KEYS_HEAD = [
     'LazyPersonalTab',
     'LazyPoliceAssistanceDetailsModal',
     'LazyPremiumTimelineAuditLog',
-    'LazyRealEstateSeizurePostApprovalModal',
     'LazyRequestsTab',
     'LazySeizureRequestSubjectModal',
     'LazySeizureRequestsTab',
@@ -130,7 +129,6 @@ export const EXECUTION_PHONE_BODY_PROP_KEYS_HEAD = [
     'Shuffle',
     'SmartDialog',
     'Trash2',
-    'UnifiedSeizureLogHost',
     'User',
     'Users',
     'Wallet',
@@ -165,7 +163,6 @@ export const EXECUTION_PHONE_BODY_PROP_KEYS_HEAD = [
     'classificationDisplay',
     'clearActiveSalarySeizurePath',
     'clearDebtorSummonsMarker',
-    'closeUnifiedSeizureLog',
     'completeEvictionResidentialGrace',
     'completePoliceAssistance',
     'computeTaklifDeadlineYmd',
@@ -240,3 +237,4 @@ export const EXECUTION_PHONE_BODY_PROP_KEYS_HEAD = [
     'financialHubSeizedPropertyId',
     'financialLawyerFeesAmount',
 ] as const;
+

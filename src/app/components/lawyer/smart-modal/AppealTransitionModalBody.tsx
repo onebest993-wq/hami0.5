@@ -1,6 +1,5 @@
 import React from 'react';
 import type { JudgmentModalStyles } from './smartFile/smartModalChrome';
-import { AppealTransitionModalHint } from './AppealTransitionModalHint';
 import { AppealTransitionModalAppealTypeSection } from './AppealTransitionModalAppealTypeSection';
 import { AppealTransitionModalPartyPickers } from './AppealTransitionModalPartyPickers';
 import { AppealTransitionModalFilingFields } from './AppealTransitionModalFilingFields';
@@ -9,11 +8,6 @@ type PartyRow = { id: number | string; name: string; role?: string };
 
 export type AppealTransitionModalBodyProps = {
     s: JudgmentModalStyles;
-    hintShell: string;
-    judgmentType?: string;
-    cassationOnlyHint: string | null;
-    showJudgmentFormMeta: boolean;
-    judgmentForm?: string;
     appealType: string;
     setAppealType: (value: string) => void;
     appealTypeOptions: Array<{ value: string; label: string }>;
@@ -44,16 +38,17 @@ export type AppealTransitionModalBodyProps = {
     setNewCaseNumber: (value: string) => void;
     caseNumberLabel: string;
     caseNumberOptional?: boolean;
-    caseNumberHint?: string;
+    offerAppealWindowLapse?: boolean;
+    offerCassationWindowLapse?: boolean;
+    hideFilingFields?: boolean;
+    showCourtField?: boolean;
+    courtName?: string;
+    setCourtName?: (value: string) => void;
+    courtFieldRequired?: boolean;
 };
 
 export function AppealTransitionModalBody({
     s,
-    hintShell,
-    judgmentType,
-    cassationOnlyHint,
-    showJudgmentFormMeta,
-    judgmentForm,
     appealType,
     setAppealType,
     appealTypeOptions,
@@ -84,24 +79,23 @@ export function AppealTransitionModalBody({
     setNewCaseNumber,
     caseNumberLabel,
     caseNumberOptional,
-    caseNumberHint,
+    offerAppealWindowLapse,
+    offerCassationWindowLapse,
+    hideFilingFields,
+    showCourtField,
+    courtName,
+    setCourtName,
+    courtFieldRequired,
 }: AppealTransitionModalBodyProps) {
     return (
         <div className={s.body}>
-            <AppealTransitionModalHint
-                s={s}
-                hintShell={hintShell}
-                judgmentType={judgmentType}
-                cassationOnlyHint={cassationOnlyHint}
-                showJudgmentFormMeta={showJudgmentFormMeta}
-                judgmentForm={judgmentForm}
-            />
-
             <AppealTransitionModalAppealTypeSection
                 s={s}
                 appealType={appealType}
                 setAppealType={setAppealType}
                 appealTypeOptions={appealTypeOptions}
+                offerAppealWindowLapse={offerAppealWindowLapse}
+                offerCassationWindowLapse={offerCassationWindowLapse}
             />
 
             <AppealTransitionModalPartyPickers
@@ -129,16 +123,21 @@ export function AppealTransitionModalBody({
                 toggleOpponent={toggleOpponent}
             />
 
-            <AppealTransitionModalFilingFields
-                s={s}
-                filingDate={filingDate}
-                setFilingDate={setFilingDate}
-                newCaseNumber={newCaseNumber}
-                setNewCaseNumber={setNewCaseNumber}
-                caseNumberLabel={caseNumberLabel}
-                caseNumberOptional={caseNumberOptional}
-                caseNumberHint={caseNumberHint}
-            />
+            {hideFilingFields ? null : (
+                <AppealTransitionModalFilingFields
+                    s={s}
+                    filingDate={filingDate}
+                    setFilingDate={setFilingDate}
+                    newCaseNumber={newCaseNumber}
+                    setNewCaseNumber={setNewCaseNumber}
+                    caseNumberLabel={caseNumberLabel}
+                    caseNumberOptional={caseNumberOptional}
+                    showCourtField={showCourtField}
+                    courtName={courtName}
+                    setCourtName={setCourtName}
+                    courtFieldRequired={courtFieldRequired}
+                />
+            )}
         </div>
     );
 }

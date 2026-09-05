@@ -1,4 +1,7 @@
 import type { DossierLifecycleStatus } from '@/app/types/execution';
+import type { ExecutionFile } from '@/app/types/execution';
+import { encodeDossierPartyNames } from '../helpers/dossierMetaPartyNames';
+import { normalizeDossierMetaFileParts } from '../helpers/dossierMetaValidation';
 
 export type PhoneBodyScopeRecord = Record<string, unknown>;
 
@@ -76,7 +79,7 @@ export function buildFallbackDossierMetaDraftFromScope(
             ? executionData.eviction_premises_use
             : scope.evictionPremisesUseRaw;
 
-    return {
+    const base: FallbackDossierMetaDraft = {
         directorate: String(executionData.directorate ?? scope.directorate ?? ''),
         fileNumber: String(executionData.fileNumber ?? scope.fileNumber ?? ''),
         fileYear: String(executionData.fileYear ?? scope.fileYear ?? ''),
@@ -104,6 +107,10 @@ export function buildFallbackDossierMetaDraftFromScope(
         specificDeliveryItemName: String(executionData.specificDeliveryItemName ?? ''),
         specificDeliveryItemNature: String(executionData.specificDeliveryItemNature ?? ''),
     };
+
+    return normalizeDossierMetaFileParts(
+        encodeDossierPartyNames(base, executionData as ExecutionFile),
+    ) as FallbackDossierMetaDraft & Record<string, string>;
 }
 
 export function applyPhoneBodyDossierLifecycleFallback(params: {

@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import {
+    areCommunityPostListsEquivalent,
     computeVisibleCommunityPosts,
+    normalizeCommunityPostsPage,
     trimCommunityPostsRetention,
 } from '../communityPostFeedUtils';
 
@@ -111,5 +113,26 @@ describe('trimCommunityPostsRetention', () => {
     it('لا يغيّر القائمة إذا كانت ضمن الحد', () => {
         const posts = [post('1'), post('2')];
         expect(trimCommunityPostsRetention(posts, 5)).toEqual(posts);
+    });
+});
+
+describe('areCommunityPostListsEquivalent', () => {
+    it('يحافظ على المرجع المنطقي إن لم يتغيّر المحتوى', () => {
+        const a = [basePost('a', 'u1'), basePost('b', 'u2')];
+        const b = [basePost('a', 'u1'), basePost('b', 'u2')];
+        expect(areCommunityPostListsEquivalent(a, a)).toBe(true);
+        expect(areCommunityPostListsEquivalent(a, b)).toBe(true);
+        expect(areCommunityPostListsEquivalent(a, [{ ...b[0], updatedAt: '2026-03-01T00:00:00.000Z' }, b[1]])).toBe(
+            false,
+        );
+        expect(areCommunityPostListsEquivalent(a, [{ ...b[0], content: 'نص مختلف كفاية' }, b[1]])).toBe(false);
+        expect(areCommunityPostListsEquivalent(a, [{ ...b[0], tags: ['#جنائي'] }, b[1]])).toBe(false);
+    });
+});
+
+describe('normalizeCommunityPostsPage', () => {
+    it('لا يعيد استنباط وسوم من النص عند تطبيع صفحة الشبكة', () => {
+        const page = [{ ...basePost('a', 'u1'), content: 'قضية جناية مخدرات', tags: [] }];
+        expect(normalizeCommunityPostsPage(page)[0]?.tags).toEqual([]);
     });
 });

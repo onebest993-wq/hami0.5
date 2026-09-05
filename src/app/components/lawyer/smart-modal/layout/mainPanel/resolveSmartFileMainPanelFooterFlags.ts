@@ -1,8 +1,9 @@
-import { shouldShowOpponentAppealRegisterButton, isFirstInstanceStageName, isCassationStageName } from '../../smartFile/judgmentTypes';
+import { shouldShowOpponentAppealRegisterButton, isFirstInstanceStageName, isCassationStageName, isAppealStageName, hasMeritJudgmentRecorded } from '../../smartFile/judgmentTypes';
 import { isPersonalStatusCoreStage } from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
 import { isCassationCorrectionStageName } from '../../smartFile/extraordinaryAppealGateway';
 import {
     shouldShowAbsentJudgmentFooter,
+    shouldShowAbsentJudgmentNotificationAction,
     isAbsentObjectionStageName,
 } from '../../smartFile/absentJudgmentFlow';
 import { shouldShowFirstInstanceIncidentalUi } from '../../smartFile/appealStageTransition';
@@ -20,7 +21,20 @@ import {
 import {
     shouldShowExtraordinaryPleadingPostJudgmentUi,
     shouldShowFirstInstancePleadingLockUi,
+    isLockedPriorStage,
 } from '../../smartFile/stageInit';
+import {
+    canOfferArt172AppealResume,
+    canOfferArt172AppealStay,
+    isArt172AppealStayActive,
+} from '../../smartFile/art172AppealStay';
+import { resolvePostHopChallengeChromeActions } from './postHopChallengeChrome';
+import {
+    canOfferJoinCoObjector,
+    resolveJoinableCoObjectors,
+} from '../../smartFile/joinGhayabiObjectorToStage';
+import type { JoinableGhayabiObjector } from '@/app/domain/lawsuit/joinGhayabiObjector';
+import { isPartialBothInterestStage } from '../../smartFile/opponentAppealMethods';
 import type { SmartFileMainPanelProps } from './smartFileMainPanelTypes';
 
 export type SmartFileMainPanelFooterFlagsInput = Pick<
@@ -38,12 +52,15 @@ export type SmartFileMainPanelFooterFlagsInput = Pick<
 > & {
     displayStageLabel: string;
     currentStageLabel: string;
+    /** لتمييز إضبارة الأحوال — بلا استئناف */
+    file?: SmartFileMainPanelProps['file'];
 };
 
 export type SmartFileMainPanelFooterFlags = {
     showOpponentAppealBtn: boolean;
     showFirstInstanceIncidentalUi: boolean;
     showAbsentJudgmentFooter: boolean;
+    showAbsentJudgmentNotificationAction: boolean;
     showOpponentAppealBtnEffective: boolean;
     appealStageFooter: ReturnType<typeof resolveAppealStageFooterEligibility>;
     showAppealStageFooter: boolean;
@@ -56,6 +73,14 @@ export type SmartFileMainPanelFooterFlags = {
     isCaseFlowSuspended: boolean;
     showFlowStatusFooter: boolean;
     showPleadingCloseFooter: boolean;
+    showArt172StayFooter: boolean;
+    showArt172ResumeFooter: boolean;
+    remainingOpponentChallengeLabel: string;
+    showRemainingOpponentChallenge: boolean;
+    /** جزئي + الخصم سبق بالطعن: الموكل مستأنف عليه ويحتاج إضبارة طعن مستقلة */
+    showIndependentClientChallenge: boolean;
+    showJoinCoObjectorFooter: boolean;
+    joinCoObjectorCandidates: JoinableGhayabiObjector[];
     quickActionsVariant: 'notes-only' | 'full';
 };
 
@@ -75,12 +100,15 @@ export function resolveSmartFileMainPanelFooterFlags(
         isInterrupted,
         displayStageLabel,
         currentStageLabel,
+        file,
     } = input;
 
     const stageLabelForAppeal = displayStageLabel || currentStageLabel;
+    const isAppealStage = isAppealStageName(displayStageLabel || displayStage?.stageName);
     const isOpponentAppealWatchStage = (() => {
         const label = String(stageLabelForAppeal ?? '').trim();
         if (!label) return false;
+        if (isAppealStageName(label)) return false;
         if (isFirstInstanceStageName(label)) return true;
         return isPersonalStatusCoreStage(label) && !isAbsentObjectionStageName(label);
     })();
@@ -93,7 +121,8 @@ export function resolveSmartFileMainPanelFooterFlags(
                 finalDecision: displayStage?.finalDecision ?? currentStage?.finalDecision,
                 isPleadingsClosed: displayStage?.isPleadingsClosed ?? currentStage?.isPleadingsClosed,
                 appealDeadline: displayStage?.appealDeadline ?? currentStage?.appealDeadline,
-                wasReopened: displayStage?.wasReopened ?? currentStage?.wasReopened,
+                pleadingDoorReopened:
+                    displayStage?.pleadingDoorReopened ?? currentStage?.pleadingDoorReopened,
                 awaitingOpponentAppeal:
                     displayStage?.awaitingOpponentAppeal ?? currentStage?.awaitingOpponentAppeal,
                 stageName: displayStageLabel || currentStageLabel,
@@ -102,6 +131,8 @@ export function resolveSmartFileMainPanelFooterFlags(
             status,
             parentData.representedParty,
         );
+
+    const partialBothInterest = isPartialBothInterestStage(displayStage ?? currentStage);
 
     const showFirstInstanceIncidentalUi = shouldShowFirstInstanceIncidentalUi(
         displayStage?.stageName,
@@ -113,8 +144,15 @@ export function resolveSmartFileMainPanelFooterFlags(
         viewingStageIndex === activeStageIndex &&
         shouldShowAbsentJudgmentFooter(displayStage, stages, parentData.representedParty);
 
+    const showAbsentJudgmentNotificationAction =
+        (!isViewingArchived || isLockedPriorStage(displayStage)) &&
+        shouldShowAbsentJudgmentNotificationAction(displayStage, stages);
+
+    /** الجزئي: لوحة مزدوجة في تذييل ما بعد الحكم — لا زر خصم منفصل يلغي طعن الموكل. */
     const showOpponentAppealBtnEffective =
-        showOpponentAppealBtn && !showAbsentJudgmentFooter;
+        showOpponentAppealBtn
+        && !partialBothInterest
+        && !(showAbsentJudgmentFooter && !showAbsentJudgmentNotificationAction);
 
     const appealStageFooter = resolveAppealStageFooterEligibility(
         displayStage,
@@ -128,6 +166,7 @@ export function resolveSmartFileMainPanelFooterFlags(
         && appealStageFooter.show
         && !preferPleadingCloseFooter
         && !showAbsentJudgmentFooter
+        && !showAbsentJudgmentNotificationAction
         && !showOpponentAppealBtnEffective;
 
     const showPetitionVoidFooter =
@@ -143,7 +182,8 @@ export function resolveSmartFileMainPanelFooterFlags(
                 finalDecision: displayStage?.finalDecision ?? currentStage?.finalDecision,
                 isPleadingsClosed: displayStage?.isPleadingsClosed ?? currentStage?.isPleadingsClosed,
                 appealDeadline: displayStage?.appealDeadline ?? currentStage?.appealDeadline,
-                wasReopened: displayStage?.wasReopened ?? currentStage?.wasReopened,
+                pleadingDoorReopened:
+                    displayStage?.pleadingDoorReopened ?? currentStage?.pleadingDoorReopened,
                 awaitingOpponentAppeal:
                     displayStage?.awaitingOpponentAppeal ?? currentStage?.awaitingOpponentAppeal,
                 stageName: displayStageLabel || currentStageLabel,
@@ -156,6 +196,7 @@ export function resolveSmartFileMainPanelFooterFlags(
     const showPostJudgmentAppealFooter =
         !isViewingArchived &&
         viewingStageIndex === activeStageIndex &&
+        !isAppealStage &&
         (
             shouldShowFirstInstancePleadingLockUi(displayStage)
             || shouldShowExtraordinaryPleadingPostJudgmentUi(displayStage)
@@ -163,10 +204,11 @@ export function resolveSmartFileMainPanelFooterFlags(
         !isCassationStageName(displayStage?.stageName) &&
         Boolean(displayStage?.isPleadingsClosed) &&
         !showAbsentJudgmentFooter &&
+        !showAbsentJudgmentNotificationAction &&
         !showOpponentAppealBtnEffective &&
         !showAppealStageFooter &&
         !showPetitionVoidFooter &&
-        !awaitingOpponentAppeal;
+        (!awaitingOpponentAppeal || partialBothInterest);
 
     const isNoPleadingLitigationStage =
         isCassationStageName(displayStage?.stageName)
@@ -216,30 +258,77 @@ export function resolveSmartFileMainPanelFooterFlags(
     const showFlowStatusFooter =
         showFlowInterruptionFooter || showFlowAbandonmentFooter || showFlowPauseFooter;
 
+    const showArt172StayFooter =
+        !isViewingArchived
+        && viewingStageIndex === activeStageIndex
+        && canOfferArt172AppealStay({
+            currentStage: displayStage,
+            stages,
+            parentIntegrity: parentData.disputeIntegrity,
+        });
+
+    const showArt172ResumeFooter =
+        !isViewingArchived
+        && viewingStageIndex === activeStageIndex
+        && canOfferArt172AppealResume(displayStage);
+
+    const postHopChallenge = resolvePostHopChallengeChromeActions({
+        stages,
+        displayStage,
+        displayStageLabel: displayStageLabel || currentStageLabel,
+        representedParty: parentData.representedParty,
+        isViewingArchived,
+        viewingStageIndex,
+        activeStageIndex,
+        suppressForArt172Resume: showArt172ResumeFooter,
+        file: file as { lawsuitJurisdiction?: string; selectedType?: string; type?: string } | undefined,
+    });
+    const showRemainingOpponentChallenge = postHopChallenge.showRemainingOpponentChallenge;
+    const showIndependentClientChallenge = postHopChallenge.showIndependentClientChallenge;
+
+    const showJoinCoObjectorFooter =
+        !isViewingArchived
+        && canOfferJoinCoObjector({
+            currentStage: displayStage,
+            stages,
+            viewingStageIndex,
+        });
+    const joinCoObjectorCandidates = showJoinCoObjectorFooter
+        ? resolveJoinableCoObjectors({ stages })
+        : [];
+
     const showPleadingCloseFooter =
         !isViewingArchived &&
         viewingStageIndex === activeStageIndex &&
+        !showArt172StayFooter &&
         !showAbsentJudgmentFooter &&
+        !showAbsentJudgmentNotificationAction &&
         !showOpponentAppealBtnEffective &&
         !showAppealStageFooter &&
         !showPetitionVoidFooter &&
         !showFlowStatusFooter &&
         !showPostJudgmentAppealFooter &&
+        !showArt172ResumeFooter &&
         !isCaseFlowSuspended &&
         (showNoPleadingJudgmentFooter
             || preferPleadingCloseFooter
             || !displayStage?.isPleadingsClosed
+            || (isAppealStage && displayStage?.isPleadingsClosed && !hasMeritJudgmentRecorded(displayStage))
             || Boolean(displayStage?.isUnderObjection)
             || isAbsentObjectionStageName(displayStageLabel)
             || isThirdPartyObjectionStageName(displayStageLabel)
             || isRetrialPleadingStageName(displayStageLabel));
 
-    const quickActionsVariant = displayStage?.isPleadingsClosed ? 'notes-only' : 'full';
+    const quickActionsVariant =
+        displayStage?.isPleadingsClosed || isArt172AppealStayActive(displayStage)
+            ? 'notes-only'
+            : 'full';
 
     return {
         showOpponentAppealBtn,
         showFirstInstanceIncidentalUi,
         showAbsentJudgmentFooter,
+        showAbsentJudgmentNotificationAction,
         showOpponentAppealBtnEffective,
         appealStageFooter,
         showAppealStageFooter,
@@ -252,6 +341,13 @@ export function resolveSmartFileMainPanelFooterFlags(
         isCaseFlowSuspended,
         showFlowStatusFooter,
         showPleadingCloseFooter,
+        showArt172StayFooter,
+        showArt172ResumeFooter,
+        remainingOpponentChallengeLabel: postHopChallenge.remainingOpponentChallengeLabel,
+        showRemainingOpponentChallenge,
+        showIndependentClientChallenge,
+        showJoinCoObjectorFooter,
+        joinCoObjectorCandidates,
         quickActionsVariant,
     };
 }

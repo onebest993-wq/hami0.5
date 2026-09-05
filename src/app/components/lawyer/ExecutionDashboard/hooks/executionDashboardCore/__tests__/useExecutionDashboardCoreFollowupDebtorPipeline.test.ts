@@ -5,8 +5,7 @@ import { useExecutionDashboardCoreFollowupDebtorPipeline } from '../useExecution
 const useExecutionDashboardDebtorWorkspaceContextMock = vi.fn();
 const useActiveDebtorProfileMock = vi.fn();
 const useExecutionDashboardEmployeeAssignmentCoerciveStateMock = vi.fn();
-const useSeizureLogEntityDataMock = vi.fn();
-const useUnifiedSeizureLogMock = vi.fn();
+const useThirdPartyFundsDraftMock = vi.fn();
 const useExecutionDashboardFollowupTabAssemblyMock = vi.fn();
 const useDebtorScopedTimelineMock = vi.fn();
 const resolveDebtorEntityKindMock = vi.fn();
@@ -36,12 +35,8 @@ vi.mock('../useExecutionDashboardEmployeeAssignmentCoerciveState', () => ({
         useExecutionDashboardEmployeeAssignmentCoerciveStateMock(...args),
 }));
 
-vi.mock('../../useSeizureLogEntityData', () => ({
-    useSeizureLogEntityData: (...args: unknown[]) => useSeizureLogEntityDataMock(...args),
-}));
-
-vi.mock('../../useUnifiedSeizureLog', () => ({
-    useUnifiedSeizureLog: (...args: unknown[]) => useUnifiedSeizureLogMock(...args),
+vi.mock('../../useThirdPartyFundsDraft', () => ({
+    useThirdPartyFundsDraft: (...args: unknown[]) => useThirdPartyFundsDraftMock(...args),
 }));
 
 vi.mock('../useExecutionDashboardFollowupTabAssembly', () => ({
@@ -97,7 +92,7 @@ vi.mock('@/app/utils/timelineDebtorScope', () => ({
 }));
 
 describe('useExecutionDashboardCoreFollowupDebtorPipeline', () => {
-    it('wires debtor workspace, followup assembly, seizure log, and runtime bridges through explicit contracts', () => {
+    it('wires debtor workspace, followup assembly, third-party funds draft, and runtime bridges through explicit contracts', () => {
         const activeWorkspaceDebtorForFollowup = {
             key: 'debtor-1',
             isPrimary: true,
@@ -158,24 +153,11 @@ describe('useExecutionDashboardCoreFollowupDebtorPipeline', () => {
         };
         resolveFollowupFlagsForDebtorContextMock.mockReturnValue(followupModalSpecialization);
         applyDebtorDeathFollowupOverlayMock.mockImplementation((value) => value);
-        useSeizureLogEntityDataMock.mockReturnValue({
-            seizedPropertiesForSeizureLog: [{ id: 'property-1' }],
-            seizedMovablesForSeizureLog: [{ id: 'movable-1' }],
-            seizureLogExecutorDecisions: [{ id: 'decision-1' }],
-        });
-        const openUnifiedSeizureLog = vi.fn();
-        useUnifiedSeizureLogMock.mockReturnValue({
-            showUnifiedSeizureLogModal: false,
-            closeUnifiedSeizureLog: vi.fn(),
-            unifiedSeizureLogTab: 'property',
-            setUnifiedSeizureLogTab: vi.fn(),
-            unifiedSeizureLogEntries: [{ id: 'entry-1' }],
-            unifiedSeizureTabCounts: { property: 1 },
-            hasUnifiedSeizureLogContent: true,
-            openUnifiedSeizureLog,
+        const clearThirdPartyFundsDraft = vi.fn();
+        useThirdPartyFundsDraftMock.mockReturnValue({
             thirdPartyFundsDraftById: {},
             setThirdPartyFundsDraftById: vi.fn(),
-            clearThirdPartyFundsDraft: vi.fn(),
+            clearThirdPartyFundsDraft,
         });
         const followupTabAssembly = {
             executionDomainContext: { flags: { hideFollowupCoerciveTab: false } },
@@ -236,12 +218,6 @@ describe('useExecutionDashboardCoreFollowupDebtorPipeline', () => {
             mergedTimelineEvents: [{ id: 'm-1' }],
             activeTimelineEvents: [{ id: 't-1', isPinned: true }],
             activeCoerciveActions: ['salary'],
-            realEstateSeizureRegistryAssets: [{ id: 'property-1' }],
-            salarySeizureRegistryAssets: [{ id: 'salary-1' }],
-            movableSeizureRegistryAssets: [{ id: 'movable-1' }],
-            thirdPartySeizureRegistryAssets: [{ id: 'third-1' }],
-            thirdPartySeizuresUi: [],
-            showToast: vi.fn(),
             showUnifiedExecutionModal: true,
             dossierFileKey: 'dossier-1',
             executionFileKey: 'file-key',
@@ -304,13 +280,7 @@ describe('useExecutionDashboardCoreFollowupDebtorPipeline', () => {
                 dossierFileKey: 'dossier-1',
             }),
         );
-        expect(useUnifiedSeizureLogMock).toHaveBeenCalledWith(
-            expect.objectContaining({
-                decisionsStorageExecutionId: 'exec-1',
-                realEstateSeizureRegistryAssets: [{ id: 'property-1' }],
-                thirdPartySeizuresUi: [],
-            }),
-        );
+        expect(useThirdPartyFundsDraftMock).toHaveBeenCalled();
         expect(useExecutionDashboardActiveTimelineFilterNormalizeMock).toHaveBeenCalledWith(
             ['الكل', 'إجراءات'],
             setActiveTimelineFilter,
@@ -326,6 +296,8 @@ describe('useExecutionDashboardCoreFollowupDebtorPipeline', () => {
         expect(result.current.followupSectionTabOrder).toEqual(['personal', 'coercive']);
         expect(result.current.activeDebtorEntityKind).toBe('person');
         expect(result.current.timelineRadarPreviewLimit).toBe(5);
-        expect(result.current.openUnifiedSeizureLog).toBe(openUnifiedSeizureLog);
+        expect(result.current.clearThirdPartyFundsDraft).toBe(clearThirdPartyFundsDraft);
+        expect(result.current).not.toHaveProperty('openUnifiedSeizureLog');
+        expect(result.current).not.toHaveProperty('showUnifiedSeizureLogModal');
     });
 });

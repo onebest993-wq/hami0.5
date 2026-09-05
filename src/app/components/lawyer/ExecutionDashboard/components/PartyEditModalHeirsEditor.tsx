@@ -127,40 +127,6 @@ export function PartyEditModalHeirsEditor({
                                 placeholder="اسم الوارث..."
                                 className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-2 py-2 text-sm text-white"
                             />
-                            <input
-                                type="text"
-                                value={heir.phone}
-                                onChange={(e) =>
-                                    setPartyEditDraft((d) => {
-                                        if (!d) return d;
-                                        const next = [...d.heirs];
-                                        next[heirIdx] = {
-                                            ...next[heirIdx],
-                                            phone: e.target.value,
-                                        };
-                                        return { ...d, heirs: next };
-                                    })
-                                }
-                                placeholder="هاتف الوارث..."
-                                className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-2 py-2 text-sm text-white"
-                            />
-                            <input
-                                type="text"
-                                value={heir.address}
-                                onChange={(e) =>
-                                    setPartyEditDraft((d) => {
-                                        if (!d) return d;
-                                        const next = [...d.heirs];
-                                        next[heirIdx] = {
-                                            ...next[heirIdx],
-                                            address: e.target.value,
-                                        };
-                                        return { ...d, heirs: next };
-                                    })
-                                }
-                                placeholder="عنوان الوارث..."
-                                className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-2 py-2 text-sm text-white"
-                            />
                         </div>
                     );
                 })}

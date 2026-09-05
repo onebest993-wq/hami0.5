@@ -11,8 +11,13 @@ export function LegalCodesEmptySection({
 }: LegalCodesEmptySectionProps) {
     if (showLoading) {
         return (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-sm font-bold text-white/65 text-center">
-                جاري تحميل المتون القانونية...
+            <div
+                className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 space-y-2"
+                aria-busy="true"
+                aria-label="المتون القانونية"
+            >
+                <div className="min-h-[44px] rounded-xl border border-white/[0.08] bg-white/[0.035]" aria-hidden />
+                <div className="min-h-[44px] rounded-xl border border-white/[0.08] bg-white/[0.035]" aria-hidden />
             </div>
         );
     }

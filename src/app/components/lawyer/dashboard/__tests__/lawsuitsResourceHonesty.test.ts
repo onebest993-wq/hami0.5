@@ -28,6 +28,7 @@ describe('lawsuits resource honesty', () => {
         expect(entry).toContain('retainArchive={retainArchive || overlays.lawsuitsHostMounted}');
         expect(entry).toContain('newCase.isNewCaseModalOpen');
         expect(entry).toContain('overlays.criminalDashboardCaseId');
+        expect(entry).toContain('useLawsuitVaultCommitHold');
         expect(entry).not.toContain('beginHubLayerExit');
         const urgent = read(
             'src/app/components/lawyer/dashboard/LawsuitsWorkspaceUrgentTab.tsx',
@@ -46,6 +47,7 @@ describe('lawsuits resource honesty', () => {
             /if \(isSectionBackgroundPrefetchAllowed\(\)\) \{\s*void import\('@\/app\/runtime\/hubArchiveLoader'\)/,
         );
         expect(overlays).toContain('useKeepAliveIdleRelease(showLawsuitsWorkspace');
+        expect(overlays).toContain('vaultCommitHold');
     });
 
     it('الطبقة المغلقة inert مع قفل التمرير فقط عند الفتح', () => {
@@ -64,7 +66,8 @@ describe('lawsuits resource honesty', () => {
             'src/app/components/lawyer/dashboard/LawsuitsCivilArchiveInstantShell.tsx',
         );
         expect(instant).toContain('useMobileKeyboardInset');
-        expect(instant).toContain('جاري تجهيز الإضابير');
+        expect(instant).toContain('data-testid="lawsuit-vault-quiet-status"');
+        expect(instant).not.toContain('جاري تجهيز الإضابير');
         expect(instant).not.toContain('LawsuitVaultSnapshotGrid');
         expect(instant).not.toContain('motion-safe:animate-pulse');
         expect(instant).not.toMatch(/min-h-\[120px\] animate-pulse/);
@@ -152,5 +155,21 @@ describe('lawsuits resource honesty', () => {
         expect(worldclass).toContain("E2E_USE_PREVIEW: '0'");
         expect(worldclass).toContain("LAWSUITS_E2E_USE_PREVIEW: '0'");
         expect(worldclass).toContain("E2E_SKIP_WEBSERVER: process.env.E2E_SKIP_WEBSERVER ?? '1'");
+    });
+
+    it('بذرة E2E تكتب مقاطع الدعوى ولا تعيد زرع المرآة بعد hydrate', () => {
+        const fixtures = read('e2e/helpers/civilLawsuitFixtures.ts');
+        expect(fixtures).toContain('lawyer_files_active');
+        expect(fixtures).toContain('lawyer_files_trash');
+        expect(fixtures).toContain('lawyer_files_index');
+        expect(fixtures).toContain('hami:e2e-lawsuit-segments-seeded');
+        expect(fixtures).toContain("writeE2eSecureStoreKey(page, LAWYER_FILES_ACTIVE_KEY");
+        expect(fixtures).not.toContain("Svc.setItemSync(payload.activeKey, payload.activeJson)");
+        const provider = read(
+            'src/app/hooks/lawyerDashboard/LawyerDashboardWorkspaceProvider.tsx',
+        );
+        expect(provider).toContain('stemLiveRef.current');
+        expect(provider).toContain("commitViaStem('trash'");
+        expect(provider).toMatch(/if \(stemLiveRef\.current\) return commitViaStem\('trash'/);
     });
 });

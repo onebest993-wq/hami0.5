@@ -126,12 +126,10 @@ describe('executionScopeLazySyncDelta draft churn', () => {
         );
     });
 
-    it('detects seizedMovablesForSeizureLog content change', () => {
-        const empty: { seizedMovablesForSeizureLog: unknown[] } = { seizedMovablesForSeizureLog: [] };
+    it('detects financialLedger content change', () => {
+        const empty: { financialLedger: unknown[] } = { financialLedger: [] };
         const saved = {
-            seizedMovablesForSeizureLog: [
-                { id: 'sm_1', decisionRowId: 'dec-1', status: 'seized' },
-            ],
+            financialLedger: [{ id: 'fl_1', amount: 100 }],
         };
         expect(hasSelectedScopeDeltaForLazySync(empty, saved)).toBe(true);
     });

@@ -14,6 +14,10 @@ import { normalizeLegacyCassationRemandStages } from './appealStageTransition';
 import { repairAbsentObjectionAppealStages } from './absentObjectionAppealRepair';
 import { isPersonalStatusFile } from '@/app/components/lawyer/personal-status/personalStatusValidation';
 import { isPersonalStatusCoreStage } from '@/app/components/lawyer/personal-status/personalStatusAppealStageHelpers';
+import {
+    resolveStageJudgmentPresenceLine,
+    rewriteTimelineEventsJudgmentPresence,
+} from '@/app/domain/lawsuit/timelineJudgmentPresence';
 
 /** يستنتج مرحلة العمل الفعّالة من حالة المراحل عند غياب activeStageIndex على الملف. */
 export function inferActiveStageIndexFromStages(stages: CaseStage[]): number | null {
@@ -235,7 +239,9 @@ export function shouldShowExtraordinaryPleadingPostJudgmentUi(
 
 export function getDisplayTimelineFromStage(stage: CaseStage | undefined) {
     const timeline = stage?.timeline ?? [];
-    const active = timeline.filter((e) => !(e as { isDeleted?: boolean }).isDeleted);
-    const deleted = timeline.filter((e) => (e as { isDeleted?: boolean }).isDeleted);
+    const presence = resolveStageJudgmentPresenceLine(stage);
+    const rewritten = rewriteTimelineEventsJudgmentPresence(timeline, presence);
+    const active = rewritten.filter((e) => !(e as { isDeleted?: boolean }).isDeleted);
+    const deleted = rewritten.filter((e) => (e as { isDeleted?: boolean }).isDeleted);
     return { displayTimeline: active, deletedEvents: deleted };
 }

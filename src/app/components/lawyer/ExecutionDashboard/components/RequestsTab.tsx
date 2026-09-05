@@ -10,11 +10,10 @@ import type { HiddenFollowupRequestOptionsProps } from './HiddenFollowupRequestO
 import { useFollowupTabDecisionsLoader } from '../hooks/useFollowupTabDecisionsLoader';
 import { EXEC_MODAL_TOUCH_TARGET } from '../executionModalMobileShell';
 import { PreloadableOverlayGate } from '../preloadableOverlayGate';
+import { RequestsTabDecisionLog } from './RequestsTabDecisionLog';
 import {
     LazyHiddenFollowupRequestOptions,
-    LazyRequestsTabDecisionLog,
     prefetchHiddenFollowupRequestOptions,
-    prefetchRequestsTabInnerSurfaces,
 } from '../requestsTabInnerLazy';
 
 const REQUESTS_INNER_PAINT_SLOT = (
@@ -70,9 +69,6 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
     );
     const [showHiddenPersonalRequests, setShowHiddenPersonalRequests] = React.useState(false);
     React.useEffect(() => {
-        prefetchRequestsTabInnerSurfaces();
-    }, []);
-    React.useEffect(() => {
         if (activeDebtorIsLegalEntity) setShowHiddenPersonalRequests(false);
     }, [activeDebtorIsLegalEntity]);
 
@@ -88,19 +84,14 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
         );
 
     return (
-        <div className="space-y-4 p-3 text-right" dir="rtl">
+        <div className="space-y-4 text-right" dir="rtl">
             <div className="rounded-xl border border-emerald-500/15 bg-emerald-950/10 p-4 space-y-3">
-                <div className="flex flex-row-reverse items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-300/80">
-                        <Send size={12} />
-                        {showHiddenPersonalRequests
-                            ? 'الطلبات المخفية'
-                            : 'طلب يدوي — أدخل البيانات'}
-                    </div>
-                    {showHiddenRequestsButton ? (
+                {showHiddenRequestsButton ? (
+                    <div className="flex items-center justify-end gap-2" dir="rtl">
                         <button
                             type="button"
                             onClick={() => setShowHiddenPersonalRequests((v) => !v)}
+                            onPointerDown={() => prefetchHiddenFollowupRequestOptions()}
                             onPointerEnter={() => prefetchHiddenFollowupRequestOptions()}
                             className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[9px] font-bold transition-all ${EXEC_MODAL_TOUCH_TARGET} ${
                                 showHiddenPersonalRequests
@@ -113,8 +104,8 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
                                 ? 'العودة للطلب اليدوي'
                                 : 'الطلبات المخفية'}
                         </button>
-                    ) : null}
-                </div>
+                    </div>
+                ) : null}
 
                 {showHiddenPersonalRequests && hiddenFollowupRequestOptions ? (
                     <PreloadableOverlayGate
@@ -158,7 +149,7 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
                                 value={specialRequestContent}
                                 onChange={(e) => setSpecialRequestContent(e.target.value)}
                                 rows={4}
-                                className="w-full bg-black/30 border border-white/10 text-white rounded-xl p-3 text-[11px] focus:outline-none focus:border-emerald-500/50 resize-none"
+                                className="w-full min-h-[44px] bg-black/30 border border-white/10 text-white rounded-xl p-3 text-[11px] focus:outline-none focus:border-emerald-500/50 resize-none touch-manipulation"
                             />
                         </div>
 
@@ -184,14 +175,10 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
                 )}
             </div>
 
-            <PreloadableOverlayGate
-                lazy={LazyRequestsTabDecisionLog}
-                lazyProps={{
-                    executionId: exId,
-                    decisions,
-                    appealPerspective,
-                }}
-                fallback={REQUESTS_INNER_PAINT_SLOT}
+            <RequestsTabDecisionLog
+                executionId={exId}
+                decisions={decisions}
+                appealPerspective={appealPerspective}
             />
         </div>
     );

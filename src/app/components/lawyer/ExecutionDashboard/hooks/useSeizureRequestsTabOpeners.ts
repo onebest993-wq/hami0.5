@@ -24,13 +24,15 @@ export function useSeizureRequestsTabOpeners(resolvedExecutionId: string) {
     const openDecisions = React.useCallback(
         (decisionId?: string) => {
             if (!resolvedExecutionId) return;
+            const did = String(decisionId ?? '').trim();
+            if (!did) return;
             try {
                 window.dispatchEvent(
                     new CustomEvent('hami-open-decisions-modal', {
                         detail: {
                             executionId: resolvedExecutionId,
                             tab: 'current',
-                            decisionId: decisionId || undefined,
+                            decisionId: did,
                         },
                     }),
                 );

@@ -1,7 +1,9 @@
 import { useCallback, useState } from 'react';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { RepositoryDB, type RepositoryDocument } from '@/app/services/lawyer-cloud';
+import { deleteForumRepositoryDocument } from '@/app/services/forum/forumApi/forumApiRepository';
+import { RepositoryDB, type RepositoryDocument } from '@/app/services/cloud/lawyerRepositoryCloud';
+import { purgeRepositoryLocalFile } from '../repositoryStorageService';
 import type { UseLegalRepositoryMutationsParams } from './useLegalRepositoryMutations.types';
 
 type UseLegalRepositoryDeleteParams = Pick<
@@ -51,9 +53,11 @@ export function useLegalRepositoryDelete({
         setDeleteTarget(null);
         applyDocuments(next);
         setDeletingId(target.id);
-        SmartToast.success(`تم حذف "${target.title}"`);
         try {
+            await deleteForumRepositoryDocument(target.id);
             await RepositoryDB.deleteDocument(target.id);
+            purgeRepositoryLocalFile(target.storagePath);
+            SmartToast.success(`تم حذف "${target.title}"`);
         } catch {
             applyDocuments(snapshot);
             SmartToast.error('فشل حذف المستند');

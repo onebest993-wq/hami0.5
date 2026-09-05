@@ -36,8 +36,8 @@ export const CalendarGrid = React.memo(function CalendarGrid({
             dir="rtl"
             data-testid="radar-calendar-grid"
         >
-            <div className="relative px-0 py-1">
-                <div className="grid grid-cols-7 gap-1 sm:gap-1.5 mb-2">
+            <div className="relative px-0 py-0.5">
+                <div className="grid grid-cols-7 gap-1 mb-1.5">
                     {WEEK_DAYS.map((d) => (
                         <span
                             key={d}
@@ -49,7 +49,7 @@ export const CalendarGrid = React.memo(function CalendarGrid({
                 </div>
 
                 <div
-                    className="grid grid-cols-7 gap-1.5 sm:gap-2"
+                    className="grid grid-cols-7 gap-1"
                     role="group"
                     aria-label={gridAriaLabel}
                 >

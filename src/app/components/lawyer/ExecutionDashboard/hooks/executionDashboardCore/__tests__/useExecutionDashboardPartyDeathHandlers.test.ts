@@ -194,6 +194,41 @@ describe('useExecutionDashboardPartyDeathHandlers — two-step death then substi
         expect(showToast).toHaveBeenCalledWith('تم إحلال ورثة الدائن مسبقاً.', 'info');
     });
 
+    it('creditor: stale menu handler sees live creditorDeathMarked after rerender', () => {
+        const { result, rerender } = renderHook(
+            (props: Parameters<typeof useExecutionDashboardPartyDeathHandlers>[0]) =>
+                useExecutionDashboardPartyDeathHandlers(props),
+            { initialProps: baseParams() },
+        );
+
+        const stale = result.current.handleCreditorDeathMenuAction;
+
+        rerender(baseParams({ creditorDeathMarked: true }));
+
+        stale();
+
+        expect(runPartyDeathSave).not.toHaveBeenCalled();
+        expect(appendCreditorPartyDeathRequest).toHaveBeenCalledWith(
+            expect.objectContaining({ executionId: 'x1', action: 'heir_substitution' }),
+        );
+    });
+
+    it('debtor: after heirs saved (approved, no pending entry) does not re-request', () => {
+        vi.mocked(findLatestHeirSubstitutionDecisionNeedingEntry).mockReturnValue(null);
+        vi.mocked(getDebtorHeirSubstitutionRequestStatus).mockReturnValue('approved');
+        const showToast = vi.fn();
+        const { result } = renderHook(() =>
+            useExecutionDashboardPartyDeathHandlers(
+                baseParams({ debtorDeathMarked: true, showToast }),
+            ),
+        );
+
+        result.current.handleDebtorDeathMenuAction();
+
+        expect(appendDebtorHeirSubstitutionRequest).not.toHaveBeenCalled();
+        expect(showToast).toHaveBeenCalledWith('تم إحلال ورثة المدين مسبقاً.', 'info');
+    });
+
     it('debtor: no substitution when heir path is not allowed after death marked', () => {
         const { result } = renderHook(() =>
             useExecutionDashboardPartyDeathHandlers(
@@ -204,5 +239,29 @@ describe('useExecutionDashboardPartyDeathHandlers — two-step death then substi
         result.current.handleDebtorDeathMenuAction();
 
         expect(appendDebtorHeirSubstitutionRequest).not.toHaveBeenCalled();
+    });
+
+    it('debtor: undefined executionDataRef لا يرمي TypeError عند طلب الإحلال', () => {
+        const showToast = vi.fn();
+        const { result } = renderHook(() =>
+            useExecutionDashboardPartyDeathHandlers(
+                baseParams({
+                    debtorDeathMarked: true,
+                    executionDataRef: undefined,
+                    executionData: {
+                        id: 'x1',
+                        debtors: [{ name: 'مدين' }],
+                        creditors: [{ name: 'دائن' }],
+                    },
+                    showToast,
+                }),
+            ),
+        );
+
+        expect(() => result.current.handleDebtorDeathMenuAction()).not.toThrow();
+        expect(appendDebtorHeirSubstitutionRequest).toHaveBeenCalledWith({
+            executionId: 'x1',
+            debtorNameSnapshot: 'مدين',
+        });
     });
 });

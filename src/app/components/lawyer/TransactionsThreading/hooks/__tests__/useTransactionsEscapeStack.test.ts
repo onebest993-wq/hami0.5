@@ -109,4 +109,28 @@ describe('useTransactionsEscapeStack', () => {
         expect(nativeBackHandler?.()).toBe(true);
         expect(onBackToList).toHaveBeenCalledTimes(1);
     });
+
+    it('Escape يغلق القائمة الخفيفة قبل الخروج من المركز', () => {
+        const onBack = vi.fn();
+        document.documentElement.setAttribute('data-hami-tx-lite-menu', '1');
+        const onMenuClose = vi.fn();
+        document.addEventListener('hami-tx-lite-menu-close', onMenuClose);
+        renderHook(() =>
+            useTransactionsEscapeStack({
+                enabled: true,
+                view: 'list',
+                listAddSheetOpen: false,
+                details: null,
+                onBack,
+                onCloseListAddSheet: vi.fn(),
+                onBackToList: vi.fn(),
+                onCloseDetailsOverlay: vi.fn(),
+            }),
+        );
+        pressEscape();
+        expect(onMenuClose).toHaveBeenCalledTimes(1);
+        expect(onBack).not.toHaveBeenCalled();
+        document.removeEventListener('hami-tx-lite-menu-close', onMenuClose);
+        document.documentElement.removeAttribute('data-hami-tx-lite-menu');
+    });
 });

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import './radarFormCritical.css';
 import type { EventFormData } from './eventFormModel';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 import {
@@ -83,7 +84,7 @@ export const EventForm = React.memo(function EventForm({
                     onClose={onClose}
                 />
 
-                <div ref={overlay.fieldsRef as React.Ref<HTMLDivElement>} className="hami-radar-form-fields space-y-5" dir="rtl">
+                <div ref={overlay.fieldsRef as React.Ref<HTMLDivElement>} className="hami-radar-form-fields space-y-3" dir="rtl">
                     <EventFormFields
                         titleInputId={titleInputId}
                         dateInputId={dateInputId}

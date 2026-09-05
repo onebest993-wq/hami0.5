@@ -141,7 +141,7 @@ describe('partyRoleClassification', () => {
         expect(plaintiffs.map((p) => p.name)).toEqual(['طاعن', 'منضم']);
     });
 
-    it('routes interpleader with appeal side into column instead of third bucket', () => {
+    it('يبقي الاختصامي في العمود الثالث حتى مع side بالخطأ (الاندماج عبر صفة الاستئناف فقط)', () => {
         const { defendants, interpleaders } = partitionPartiesForHeader([
             party({
                 id: 5,
@@ -150,8 +150,8 @@ describe('partyRoleClassification', () => {
                 side: 'left',
             }),
         ]);
-        expect(interpleaders).toHaveLength(0);
-        expect(defendants.map((p) => p.name)).toEqual(['غقفغقف']);
+        expect(defendants).toHaveLength(0);
+        expect(interpleaders.map((p) => p.name)).toEqual(['غقفغقف']);
     });
 
     it('drops duplicate third-party shadow when appeal role exists for same id', () => {

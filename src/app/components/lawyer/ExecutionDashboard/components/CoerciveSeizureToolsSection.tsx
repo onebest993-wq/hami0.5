@@ -69,10 +69,6 @@ export const CoerciveSeizureToolsSection: React.FC<CoerciveSeizureToolsSectionPr
         resolvedExecutionId,
         decisions,
         setLastSalaryDecisionId,
-        propertyDetailsDraftByDecisionId,
-        setPropertyDetailsDraftByDecisionId,
-        vehicleDetailsDraftByDecisionId,
-        setVehicleDetailsDraftByDecisionId,
         openAppeals,
         acknowledgeSeizureRequestFromLog,
         propertyDecision,
@@ -84,6 +80,7 @@ export const CoerciveSeizureToolsSection: React.FC<CoerciveSeizureToolsSectionPr
         salaryLogReady,
         salaryRegistrationAckReady,
         openSalarySeizureRequest,
+        openDecisions,
         sharedAssetProps,
     } = useSeizureRequestsTabDecisions({
         executionId,
@@ -102,10 +99,7 @@ export const CoerciveSeizureToolsSection: React.FC<CoerciveSeizureToolsSectionPr
 
     if (isEvictionExecutionModule) return null;
 
-    const showSalaryBlock =
-        activeDebtorIsEmployee &&
-        (followupEmployeeFinancialSalaryOnlyCoercive || followupMonetaryCoerciveLimitedOnly) &&
-        !hideCoerciveSeizureSalaryAndProperty;
+    const showSalaryBlock = activeDebtorIsEmployee && !hideCoerciveSeizureSalaryAndProperty;
     const showPropertyAndMovableBlocks = !hideCoerciveSeizureSalaryAndProperty;
 
     if (!showSalaryBlock && !showPropertyAndMovableBlocks) return null;
@@ -131,6 +125,9 @@ export const CoerciveSeizureToolsSection: React.FC<CoerciveSeizureToolsSectionPr
                     submitBasicSeizureRequest={submitBasicSeizureRequest}
                     setLastSalaryDecisionId={setLastSalaryDecisionId}
                     openAppeals={openAppeals}
+                    openDecisions={openDecisions}
+                    saveCoerciveAction={saveCoerciveAction}
+                    showToast={showToast}
                 />
             ) : null}
             {showPropertyAndMovableBlocks ? (
@@ -138,14 +135,10 @@ export const CoerciveSeizureToolsSection: React.FC<CoerciveSeizureToolsSectionPr
                     <SeizurePropertyRequestBlock
                         {...sharedAssetProps}
                         propertyDecision={propertyDecision}
-                        propertyDetailsDraftByDecisionId={propertyDetailsDraftByDecisionId}
-                        setPropertyDetailsDraftByDecisionId={setPropertyDetailsDraftByDecisionId}
                     />
                     <SeizureMovableRequestBlock
                         {...sharedAssetProps}
                         movableDecision={movableDecision}
-                        vehicleDetailsDraftByDecisionId={vehicleDetailsDraftByDecisionId}
-                        setVehicleDetailsDraftByDecisionId={setVehicleDetailsDraftByDecisionId}
                     />
                 </>
             ) : null}

@@ -7,10 +7,12 @@ type TrashUiParams = {
     lawsuitLifecycleCounts?: LawsuitLifecycleCounts;
     onEnsureLawsuitArchivedLoaded?: () => void | Promise<void>;
     onEnsureLawsuitTrashLoaded?: () => void | Promise<void>;
-    onPermanentlyDeleteLawsuits?: (ids: Array<string | number>) => void;
-    onMoveLawsuitToTrash?: (id: string | number) => void;
-    onArchiveLawsuit?: (id: string | number) => void;
-    onRestoreLawsuitFromTrash?: (id: string | number) => void;
+    onPermanentlyDeleteLawsuits?: (
+        ids: Array<string | number>,
+    ) => void | boolean | Promise<void | boolean>;
+    onMoveLawsuitToTrash?: (id: string | number) => void | boolean | Promise<void | boolean>;
+    onArchiveLawsuit?: (id: string | number) => void | boolean | Promise<void | boolean>;
+    onRestoreLawsuitFromTrash?: (id: string | number) => void | boolean | Promise<void | boolean>;
 };
 
 export function useLawsuitArchivePortalTrashState({
@@ -65,16 +67,18 @@ export function useLawsuitArchivePortalTrashState({
         return 'إدارة الدعاوى القضائية (الشاملة) ⚖️';
     };
 
-    const confirmPermanentDelete = useCallback(() => {
+    const confirmPermanentDelete = useCallback(async (): Promise<boolean> => {
         const ids = permanentIdsRef.current;
         if (ids.length === 0) {
             setPermanentDeleteOpen(false);
-            return;
+            return false;
         }
-        onPermanentlyDeleteLawsuits?.(ids);
+        const result = await onPermanentlyDeleteLawsuits?.(ids);
+        if (result !== true) return false;
         setPermanentDeleteOpen(false);
         setSelectedTrashIds(new Set());
         permanentIdsRef.current = [];
+        return true;
     }, [onPermanentlyDeleteLawsuits]);
 
     const hasLawsuitLifecycle = Boolean(

@@ -3,7 +3,7 @@ import { renderHook } from '@testing-library/react';
 import { useExecutionDashboardRealEstateSeizureModalHandlers } from '../useExecutionDashboardRealEstateSeizureModalHandlers';
 
 describe('useExecutionDashboardRealEstateSeizureModalHandlers', () => {
-    it('realEstateModalInitial resolves row by decision id', () => {
+    it('is a no-op shell after post-approval modal strip', () => {
         const { result } = renderHook(() =>
             useExecutionDashboardRealEstateSeizureModalHandlers({
                 decisionsStorageExecutionId: 'exec-1',
@@ -29,6 +29,18 @@ describe('useExecutionDashboardRealEstateSeizureModalHandlers', () => {
             }),
         );
 
-        expect(result.current.realEstateModalInitial?.id).toBe('re-1');
+        expect(result.current.realEstateModalInitial).toBeNull();
+        expect(() =>
+            result.current.saveRealEstateSeizureFromModal({
+                id: 're-1',
+                decisionRowId: 'dec-9',
+                propertyNoAndDistrict: '123 / الكرخ',
+                propertyGender: 'دار',
+                deedNotes: '',
+                status: 'seized',
+                record_locked: false,
+                awaiting_sale_price: false,
+            }),
+        ).not.toThrow();
     });
 });

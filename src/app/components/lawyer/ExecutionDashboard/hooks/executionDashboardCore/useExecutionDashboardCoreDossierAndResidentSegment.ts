@@ -201,9 +201,6 @@ export function useExecutionDashboardCoreDossierAndResidentSegment(
     });
 
     const handleMemoFollowupClick = useCallback(() => {
-        if (typeof followupDebtor.closeUnifiedSeizureLog === 'function') {
-            followupDebtor.closeUnifiedSeizureLog();
-        }
         if (typeof followupDebtor.openFollowupModalPersisted === 'function') {
             followupDebtor.openFollowupModalPersisted();
             return;
@@ -222,7 +219,6 @@ export function useExecutionDashboardCoreDossierAndResidentSegment(
             isEvictionExecutionModule,
             showUnifiedExecutionModal,
             unifiedModalTab: followupOrchestrator.unifiedModalTab,
-            showUnifiedSeizureLogModal: followupDebtor.showUnifiedSeizureLogModal,
             showCoerciveModal: boot.modals.showCoerciveModal,
             showAppointmentModal: boot.modals.showAppointmentModal,
             showSeizedAssetsModal: boot.modals.showSeizedAssetsModal,
@@ -236,6 +232,7 @@ export function useExecutionDashboardCoreDossierAndResidentSegment(
             showUnifiedSummonsModal: boot.modals.showUnifiedSummonsModal,
             showNotificationModal: boot.modals.showNotificationModal,
             partyDeathModalParty: followupOrchestrator.partyDeathModalParty,
+            showHeirsNotificationModal: followupOrchestrator.showHeirsNotificationModal,
         }),
         [
             boot.executionData?.id,
@@ -243,12 +240,14 @@ export function useExecutionDashboardCoreDossierAndResidentSegment(
             showUnifiedExecutionModal,
             followupOrchestrator.unifiedModalTab,
             followupOrchestrator.partyDeathModalParty,
-            followupDebtor.showUnifiedSeizureLogModal,
+            followupOrchestrator.showHeirsNotificationModal,
             boot.modals.showCoerciveModal,
             boot.modals.showAppointmentModal,
             boot.modals.showSeizedAssetsModal,
             boot.modals.showPaymentModal,
             boot.modals.showNotesModal,
+            boot.modals.showUnifiedSummonsModal,
+            boot.modals.showNotificationModal,
             workspacePipeline.showCoerciveActionForm,
             dossierMetaWorkflow.showEditDossierMetaModal,
             persistHandlerPipeline.editPartyTarget,

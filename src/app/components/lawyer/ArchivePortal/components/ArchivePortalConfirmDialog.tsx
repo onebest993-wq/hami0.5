@@ -12,12 +12,15 @@ export type ArchivePortalConfirmDialogProps = {
     confirmTestId?: string;
     cancelTestId?: string;
     onCancel: () => void;
-    onConfirm: () => void;
+    onConfirm: () => void | boolean | Promise<void | boolean>;
     confirmClassName?: string;
+    commitPhase?: 'idle' | 'pending' | 'ok' | 'fail';
+    failMessage?: string;
 };
 
+/** فوق درع الإغلاق z=10100 ومخزن الدعاوى z=220 */
 const DIALOG_OVERLAY =
-    'fixed inset-0 z-[10050] flex items-center justify-center bg-[#03050B]/82 overscroll-none ps-[max(1rem,env(safe-area-inset-left))] pe-[max(1rem,env(safe-area-inset-right))] pt-[max(16px,env(safe-area-inset-top))] pb-[max(16px,env(safe-area-inset-bottom))] font-["Tajawal"]';
+    'fixed inset-0 z-[10200] flex items-center justify-center bg-[#03050B]/82 overscroll-none ps-[max(1rem,env(safe-area-inset-left))] pe-[max(1rem,env(safe-area-inset-right))] pt-[max(16px,env(safe-area-inset-top))] pb-[max(16px,env(safe-area-inset-bottom))] font-["Tajawal"]';
 
 const DIALOG_PANEL =
     'w-full max-w-md bg-[#0B1021] border border-white/10 rounded-2xl p-4 shadow-lg';
@@ -44,10 +47,14 @@ export function ArchivePortalConfirmDialog({
     onCancel,
     onConfirm,
     confirmClassName,
+    commitPhase,
+    failMessage,
 }: ArchivePortalConfirmDialogProps) {
     const onCancelRef = useRef(onCancel);
     onCancelRef.current = onCancel;
     const ignoreBackdropUntilRef = useRef(0);
+    const confirmInFlightRef = useRef(false);
+    const pending = commitPhase === 'pending';
 
     useLayoutEffect(() => {
         if (!open) return;
@@ -61,11 +68,13 @@ export function ArchivePortalConfirmDialog({
             event.preventDefault();
             event.stopPropagation();
             event.stopImmediatePropagation();
+            if (confirmInFlightRef.current || pending) return;
             onCancelRef.current();
         };
 
         window.addEventListener('keydown', onKeyDown, true);
         const unregisterNativeBack = registerNativeBackHandler(() => {
+            if (confirmInFlightRef.current || pending) return true;
             onCancelRef.current();
             return true;
         });
@@ -74,7 +83,7 @@ export function ArchivePortalConfirmDialog({
             window.removeEventListener('keydown', onKeyDown, true);
             unregisterNativeBack();
         };
-    }, [open]);
+    }, [open, pending]);
 
     if (!open) return null;
 
@@ -82,6 +91,7 @@ export function ArchivePortalConfirmDialog({
         <div
             className={DIALOG_OVERLAY}
             onClick={() => {
+                if (confirmInFlightRef.current || pending) return;
                 if (performance.now() < ignoreBackdropUntilRef.current) return;
                 onCancel();
             }}
@@ -92,7 +102,9 @@ export function ArchivePortalConfirmDialog({
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby={titleId}
+                aria-busy={pending || undefined}
                 data-testid={testId}
+                data-lifecycle-commit={commitPhase}
                 className={DIALOG_PANEL}
                 onClick={(e) => e.stopPropagation()}
                 onPointerDown={(e) => e.stopPropagation()}
@@ -101,12 +113,19 @@ export function ArchivePortalConfirmDialog({
                     {title}
                 </div>
                 <div className="mt-2 space-y-2 text-white/75 text-sm leading-relaxed">{children}</div>
+                {commitPhase === 'fail' && failMessage ? (
+                    <p className="mt-2 text-rose-200/90 text-xs leading-relaxed" role="alert">
+                        {failMessage}
+                    </p>
+                ) : null}
                 <div className="mt-4 flex items-center justify-end gap-2 flex-wrap">
                     <button
                         type="button"
                         data-testid={cancelTestId}
+                        disabled={pending}
                         onClick={(e) => {
                             e.stopPropagation();
+                            if (confirmInFlightRef.current || pending) return;
                             onCancel();
                         }}
                         className={BTN_GHOST}
@@ -116,9 +135,18 @@ export function ArchivePortalConfirmDialog({
                     <button
                         type="button"
                         data-testid={confirmTestId}
+                        disabled={pending}
+                        aria-busy={pending || undefined}
                         onClick={(e) => {
                             e.stopPropagation();
-                            onConfirm();
+                            if (confirmInFlightRef.current || pending) return;
+                            const result = onConfirm();
+                            if (result && typeof (result as PromiseLike<unknown>).then === 'function') {
+                                confirmInFlightRef.current = true;
+                                void Promise.resolve(result).finally(() => {
+                                    confirmInFlightRef.current = false;
+                                });
+                            }
                         }}
                         className={confirmClassName ?? BTN_PRIMARY}
                     >

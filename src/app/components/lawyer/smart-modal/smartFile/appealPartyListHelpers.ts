@@ -3,8 +3,10 @@ import {
     affiliativeThirdPartySide,
     isAffiliativeThirdPartyRole,
     isDefendantSideRole,
+    isInterpleaderThirdPartyRole,
     isPlaintiffSideRole,
     isThirdPartyRole,
+    resolveAbsentObjectionOriginalSide,
 } from './partyRoleClassification';
 
 export type AppealSide = 'المدعي' | 'المدعى عليه';
@@ -56,6 +58,8 @@ export function partyBelongsToAppealSide(
         }
         return false;
     }
+    const originalSide = resolveAbsentObjectionOriginalSide(party);
+    if (originalSide) return side === originalSide;
     if (side === 'المدعي') return isPlaintiffSideRole(party.role);
     return isDefendantSideRole(party.role);
 }
@@ -91,4 +95,65 @@ export function defaultIncludedOpponentIds(
     incidentalCases?: IncidentalCase[],
 ): Array<number | string> {
     return listOpponentPartiesForAppeal(parties, appellantSide, incidentalCases).map((p) => p.id);
+}
+
+export function inferAppellantSideFromSelectedParties(
+    parties: Party[] | null | undefined,
+    appellantIds: Array<number | string>,
+): AppealSide {
+    const keys = new Set(appellantIds.map(normalizePartyIdKey).filter(Boolean));
+    const selected = (parties ?? []).filter((party) => keys.has(normalizePartyIdKey(party.id)));
+    if (
+        selected.length > 0
+        && selected.every((party) => isInterpleaderThirdPartyRole(String(party.role ?? '')))
+    ) {
+        return 'المدعي';
+    }
+    const originalSides = selected
+        .map((party) => resolveAbsentObjectionOriginalSide(party))
+        .filter((side): side is AppealSide => side === 'المدعي' || side === 'المدعى عليه');
+    if (originalSides.length > 0 && originalSides.every((side) => side === originalSides[0])) {
+        return originalSides[0]!;
+    }
+    if (
+        selected.length > 0
+        && selected.every((party) => isDefendantSideRole(String(party.role ?? '')))
+    ) {
+        return 'المدعى عليه';
+    }
+    return 'المدعي';
+}
+
+/**
+ * خصوم الطعن = الجانب الأصلي المقابل فقط.
+ * شركاء الطاعن في نفس الجبهة لا يُقلَبون مستأنفاً عليهم / معترضاً عليهم.
+ * الطعن من اختصامي يجوز مخاصمة الطرفين الأصليين.
+ */
+export function resolveSelectedOpponentPartyIds(
+    parties: Party[] | null | undefined,
+    appellantIds: Array<number | string>,
+    explicitOpponentIds?: Array<number | string> | null,
+    incidentalCases?: IncidentalCase[],
+): Array<number | string> {
+    const list = parties ?? [];
+    const appellantKeys = new Set(appellantIds.map(normalizePartyIdKey).filter(Boolean));
+    const selected = list.filter((party) => appellantKeys.has(normalizePartyIdKey(party.id)));
+    const interpleaderHop =
+        selected.length > 0
+        && selected.every((party) => isInterpleaderThirdPartyRole(String(party.role ?? '')));
+    if (interpleaderHop) {
+        const leftover = list
+            .filter((party) => !appellantKeys.has(normalizePartyIdKey(party.id)))
+            .map((party) => party.id);
+        if (!explicitOpponentIds?.length) return leftover;
+        return explicitOpponentIds.filter((id) => !appellantKeys.has(normalizePartyIdKey(id)));
+    }
+    const side = inferAppellantSideFromSelectedParties(list, appellantIds);
+    const opposite = defaultIncludedOpponentIds(list, side, incidentalCases);
+    const sameSide = new Set(
+        defaultIncludedAppellantIds(list, side, incidentalCases).map(normalizePartyIdKey),
+    );
+    if (!explicitOpponentIds?.length) return opposite;
+    const picked = explicitOpponentIds.filter((id) => !sameSide.has(normalizePartyIdKey(id)));
+    return picked.length > 0 ? picked : opposite;
 }

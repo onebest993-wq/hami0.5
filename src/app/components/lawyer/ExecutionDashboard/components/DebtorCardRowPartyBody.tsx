@@ -2,6 +2,10 @@ import React from 'react';
 import { DebtorPartyCard } from './DebtorPartyCard';
 import { DebtorCardRowCollapsed } from './DebtorCardRowCollapsed';
 import { DebtorCardRowExpanded } from './DebtorCardRowExpanded';
+import { ExecutionPartySpecialActionsMenu } from '@/app/components/lawyer/execution/ExecutionPartySpecialActionsMenu';
+import { appendCustomPartySignal } from '@/app/components/lawyer/execution/partyInteractiveBadges/customPartySignalsStorage';
+import { isPrimaryPartyDeceased } from '@/app/utils/partyHeirsEditOnlyMode';
+import type { Debtor, Party } from '@/app/types/execution';
 import type { DebtorCardRowProps } from './DebtorCardRowReady';
 
 type Model = NonNullable<ReturnType<typeof import('../helpers/buildDebtorCardRowModel').buildDebtorCardRowModel>>;
@@ -51,8 +55,6 @@ export function DebtorCardRowPartyBody({
         Calendar,
         DebtorSeizureCategoryBadges,
         ExecutionPartyInteractiveBadges,
-        MapPin,
-        Phone,
         X,
         activeDebtorIsDeceased,
         buildDebtorSummonsMarkerPatchForKey,
@@ -88,6 +90,7 @@ export function DebtorCardRowPartyBody({
         openPoliceAssistanceFromBadge,
         partyBadgesExecutionId,
         persistExecutionMerge,
+        persistGuarantorFollowupDetails,
         policeAssistanceBadgeInfo,
         primaryDebtorKeyResolved,
         primaryMemoNoticeBadge,
@@ -142,6 +145,71 @@ export function DebtorCardRowPartyBody({
                         onOpenDecisionsAppealsTab={onOpenDecisionsAppealsTab}
                         isRepresentingDebtor={Boolean(isRepresentingDebtor)}
                         isPrimary={isPrimary}
+                        actionsMenu={
+                            <ExecutionPartySpecialActionsMenu
+                                variant="debtor"
+                                debtorDeathEntryLabel={debtorDeathMenuLabel}
+                                onReportDebtorDeath={handleDebtorDeathMenuAction}
+                                debtorIsEmployee={rowIsEmployee}
+                                debtorEmploymentToggleLabel={rowEmploymentToggleLabel}
+                                onToggleDebtorEmployment={() =>
+                                    handleDebtorEmploymentToggle({
+                                        debtorKey,
+                                        isPrimary,
+                                    })
+                                }
+                                debtorEmploymentToggleToKasabDisabled={false}
+                                hideDebtorEmploymentToggle={Boolean(
+                                    (isPrimary
+                                        ? isPrimaryPartyDeceased(
+                                              'debtor',
+                                              d as Party,
+                                              executionData,
+                                          )
+                                        : Boolean((d as Debtor)?.isDeceased)) ||
+                                        rowIsLegalEntity ||
+                                        custodyRemovalClaimActive
+                                )}
+                                isHistoricalMode={isHistoricalMode}
+                                onAddCustomSignal={(label) => {
+                                    const added = appendCustomPartySignal(
+                                        String(partyBadgesExecutionId || ''),
+                                        'debtor',
+                                        String(debtorKey || ''),
+                                        label,
+                                    );
+                                    if (!added) {
+                                        showToast('تعذّر إضافة الإشارة أو أنها مكررة.', 'warning');
+                                        return;
+                                    }
+                                    showToast('تمت إضافة الإشارة المخصصة.', 'success');
+                                }}
+                                editPartyLabel={
+                                    debtorHeirsEditOnly ? 'تعديل بيانات الورثة' : undefined
+                                }
+                                onEditParty={
+                                    debtorHeirsEditOnly
+                                        ? () => {
+                                              if (
+                                                  multiDebtorMode &&
+                                                  wsDebt &&
+                                                  wsRow.fileDebtorIndex === null
+                                              ) {
+                                                  showToast(
+                                                      'لا يمكن تعديل هذا المدين من هنا بعد تسجيل الإضبارة.',
+                                                      'info',
+                                                  );
+                                                  return;
+                                              }
+                                              openEditParty('debtor', idx, {
+                                                  party: d as Party,
+                                                  forceHeirs: true,
+                                              });
+                                          }
+                                        : undefined
+                                }
+                            />
+                        }
                         debtorBrowserTabsMode={debtorBrowserTabsMode}
                         debtorKey={debtorKey}
                         primaryDebtorKeyResolved={primaryDebtorKeyResolved}
@@ -180,6 +248,7 @@ export function DebtorCardRowPartyBody({
                         completePoliceAssistance={completePoliceAssistance}
                         getPublicationNoticeForDebtorKey={getPublicationNoticeForDebtorKey}
                         persistExecutionMerge={persistExecutionMerge}
+                        persistGuarantorFollowupDetails={persistGuarantorFollowupDetails}
                         buildPublicationNoticePatchForDebtorKey={buildPublicationNoticePatchForDebtorKey}
                         onOpenUnifiedSummonsHub={onOpenUnifiedSummonsHub}
                         dismissDebtorAbsenceBadge={dismissDebtorAbsenceBadge}
@@ -202,36 +271,20 @@ export function DebtorCardRowPartyBody({
                 expanded={
                     <DebtorCardRowExpanded
                         d={d}
-                        debtorKey={debtorKey}
                         isPrimary={isPrimary}
-                        idx={idx}
-                        wsDebt={wsDebt}
-                        wsRow={wsRow}
                         multiDebtorMode={multiDebtorMode}
                         rowIsEmployee={rowIsEmployee}
-                        rowEmploymentToggleLabel={rowEmploymentToggleLabel}
                         rowIsLegalEntity={rowIsLegalEntity}
-                        debtorHeirsEditOnly={debtorHeirsEditOnly}
                         debtorDisp={debtorDisp}
                         showDebtorNotificationPanel={showDebtorNotificationPanel}
-                        custodyRemovalClaimActive={custodyRemovalClaimActive}
                         Bell={Bell}
-                        Phone={Phone}
-                        MapPin={MapPin}
                         X={X}
                         Calendar={Calendar}
-                        debtorDeathMenuLabel={debtorDeathMenuLabel}
-                        handleDebtorDeathMenuAction={handleDebtorDeathMenuAction}
-                        handleDebtorEmploymentToggle={handleDebtorEmploymentToggle}
-                        isHistoricalMode={isHistoricalMode}
-                        showToast={showToast}
-                        openEditParty={openEditParty}
                         openHeirsNotificationCenter={openHeirsNotificationCenter}
                         executionToolsTimelineLockedUi={executionToolsTimelineLockedUi}
                         activeDebtorIsDeceased={activeDebtorIsDeceased}
                         safeActiveDebtorHeirsForNotification={safeActiveDebtorHeirsForNotification}
                         onOpenUnifiedSummonsHub={onOpenUnifiedSummonsHub}
-                        executionData={executionData}
                         executionMemoBadgePopoverOpen={executionMemoBadgePopoverOpen}
                         primaryMemoNoticeBadge={primaryMemoNoticeBadge}
                         showDebtorUnservedMemoBadge={showDebtorUnservedMemoBadge}

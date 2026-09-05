@@ -2,8 +2,13 @@ import React, { Suspense, lazy } from 'react';
 import type { SmartFileModalsPortalProps } from './smartFileModalsPortalTypes';
 import { partiesForLegacyModals } from './smartFileModalsPortalTypes';
 import { resolveCrossAppealEligibility } from '../../smartFile/crossAppealEngine';
+import {
+    resolveOpponentRegistrationModalSource,
+    resolveRemainingOpponentChallengeFooter,
+} from '../../smartFile/opponentRegistrationContext';
 /** SmartJudgmentModal يبقى eager — keep-mounted أثناء الإغلاق (عقد انتقال مرحلة). */
 import { SmartJudgmentModal } from '../../SmartJudgmentModal';
+import { AdjournPleadingModal } from '../../parts/AdjournPleadingModal';
 import {
     LazyAddProvisionalOrderModal,
 } from '../../lazySmartFileModalChunks';
@@ -30,6 +35,10 @@ export function SmartFileModalsJudgmentSection(props: SmartFileModalsPortalProps
     const {
         showJudgmentModal,
         setShowJudgmentModal,
+        showAdjournPleadingModal,
+        setShowAdjournPleadingModal,
+        pendingJudgmentDate,
+        setPendingJudgmentDate,
         showAppealModal,
         setShowAppealModal,
         showAppealTransitionModal,
@@ -51,6 +60,24 @@ export function SmartFileModalsJudgmentSection(props: SmartFileModalsPortalProps
         lawsuitFile,
     } = props;
 
+    const appealLawsuitFile = {
+        ...lawsuitFile,
+        disputeIntegrity:
+            parentData.disputeIntegrity
+            ?? currentStage.disputeIntegrity
+            ?? lawsuitFile?.disputeIntegrity,
+    };
+
+    const opponentModalSource = resolveOpponentRegistrationModalSource(stages, currentStage);
+    const remainingOpponent = resolveRemainingOpponentChallengeFooter({
+        stages,
+        currentStageName: currentStage.stageName ?? currentStage.name,
+        representedParty: parentData.representedParty,
+        file: lawsuitFile as
+            | { lawsuitJurisdiction?: string; selectedType?: string; type?: string }
+            | undefined,
+    });
+
     const crossAppealEligibility = resolveCrossAppealEligibility({
         appealStage: currentStage,
         stages,
@@ -63,14 +90,29 @@ export function SmartFileModalsJudgmentSection(props: SmartFileModalsPortalProps
             <SmartJudgmentModal
                 key="judgment"
                 isOpen={showJudgmentModal}
-                onClose={() => setShowJudgmentModal(false)}
-                onConfirm={h.handleJudgmentConfirm}
+                onClose={() => {
+                    setShowJudgmentModal(false);
+                    setPendingJudgmentDate?.('');
+                }}
+                onConfirm={(data) => {
+                    const result = h.handleJudgmentConfirm(data);
+                    setPendingJudgmentDate?.('');
+                    return result;
+                }}
                 currentParties={currentStage.parties ?? []}
                 currentStage={currentStage.stageName ?? currentStage.name}
                 representedParty={parentData.representedParty}
                 stages={stages}
                 caseStatus={parentData.status}
                 activeStageIndex={activeStageIndex}
+                presetJudgmentDate={pendingJudgmentDate}
+                caseDocType={parentData.docType}
+            />
+            <AdjournPleadingModal
+                isOpen={showAdjournPleadingModal}
+                onClose={() => setShowAdjournPleadingModal(false)}
+                onConfirm={h.handleJudgmentConfirm}
+                stageName={currentStage.stageName ?? currentStage.name}
             />
             {showAppealModal ? (
                 <Suspense fallback={null}>
@@ -85,6 +127,7 @@ export function SmartFileModalsJudgmentSection(props: SmartFileModalsPortalProps
                                         ? 'اعتراض غيابي'
                                         : data.appealType,
                                 appealCaseNo: data.newCaseNumber,
+                                appealCourt: data.newCourt,
                                 appellant: data.appellant,
                                 filingDate: data.filingDate,
                                 includedAppellantPartyIds: data.includedAppellantPartyIds,
@@ -93,17 +136,24 @@ export function SmartFileModalsJudgmentSection(props: SmartFileModalsPortalProps
                             })
                         }
                         mode="opponentRegistration"
-                        currentParties={partiesForLegacyModals(currentStage.parties)}
+                        currentParties={partiesForLegacyModals(opponentModalSource.parties)}
                         representedParty={parentData.representedParty ?? ''}
-                        judgmentForm={currentStage.judgmentForm}
-                        lastJudgmentType={currentStage.lastJudgmentType}
-                        stageName={currentStage.stageName}
-                        finalDecision={currentStage.finalDecision}
-                        incidentalCases={currentStage.incidentalCases}
+                        judgmentForm={opponentModalSource.judgmentForm}
+                        lastJudgmentType={opponentModalSource.lastJudgmentType}
+                        stageName={opponentModalSource.stageName}
+                        finalDecision={opponentModalSource.finalDecision}
+                        incidentalCases={opponentModalSource.incidentalCases}
                         appealRoute={appealRoute}
                         stages={stages}
-                        lawsuitFile={lawsuitFile}
-                        sourceCaseNumber={String(currentStage.caseNo ?? parentData.caseNo ?? '').trim()}
+                        lawsuitFile={appealLawsuitFile}
+                        sourceCaseNumber={String(opponentModalSource.caseNo ?? parentData.caseNo ?? '').trim()}
+                        decisionDate={opponentModalSource.decisionDate}
+                        appealDeadline={opponentModalSource.appealDeadline ?? opponentModalSource.legalTimers?.appealDeadline}
+                        cassationDeadline={opponentModalSource.legalTimers?.cassationDeadline}
+                        appealWindowLapsed={opponentModalSource.appealWindowLapsed}
+                        cassationWindowLapsed={opponentModalSource.cassationWindowLapsed}
+                        partyJudgmentDispositions={opponentModalSource.partyJudgmentDispositions}
+                        forcedAllowedMethods={remainingOpponent.show ? remainingOpponent.methods : undefined}
                     />
                 </Suspense>
             ) : null}
@@ -135,23 +185,23 @@ export function SmartFileModalsJudgmentSection(props: SmartFileModalsPortalProps
                         incidentalCases={currentStage.incidentalCases}
                         appealRoute={appealRoute}
                         stages={stages}
-                        lawsuitFile={lawsuitFile}
+                        lawsuitFile={appealLawsuitFile}
                         sourceCaseNumber={String(currentStage.caseNo ?? parentData.caseNo ?? '').trim()}
-                    />
-                </Suspense>
-            ) : null}
-            {showCrossAppealModal ? (
-                <Suspense fallback={null}>
-                    <LazyCrossAppealModal
-                        key="cross-appeal"
-                        isOpen={showCrossAppealModal}
-                        onClose={() => setShowCrossAppealModal(false)}
-                        pendingParties={crossAppealEligibility.pendingCrossAppellants.map((p) => ({
-                            id: p.id,
-                            name: String(p.name ?? ''),
-                            role: p.role,
-                        }))}
-                        onConfirm={h.handleCrossAppeal}
+                        presetCourt={String(tempJudgmentData?.newCourt ?? '').trim() || undefined}
+                        partyJudgmentDispositions={
+                            Array.isArray(tempJudgmentData?.partyJudgmentDispositions)
+                                ? tempJudgmentData.partyJudgmentDispositions
+                                : currentStage.partyJudgmentDispositions
+                        }
+                        preferredChallengerPartyId={
+                            tempJudgmentData?.preferredChallengerPartyId != null
+                                ? String(tempJudgmentData.preferredChallengerPartyId)
+                                : null
+                        }
+                        spawnIndependentDossier={Boolean(
+                            tempJudgmentData?.forceIndependentChallengeSpawn
+                            || tempJudgmentData?.preferredChallengerPartyId,
+                        )}
                     />
                 </Suspense>
             ) : null}

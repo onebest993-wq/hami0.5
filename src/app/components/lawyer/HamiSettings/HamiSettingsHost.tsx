@@ -3,35 +3,29 @@ import { createPortal } from 'react-dom';
 import type { HamiSettingsProps } from '@/app/components/lawyer/HamiSettings/hamiSettingsTypes';
 import { HamiSettings } from '@/app/components/lawyer/HamiSettings/HamiSettingsApp';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
-import { inertProps } from '@/app/utils/inertProps';
 import {
     disarmSettingsOverlayInteraction,
     dismissSettingsInstantBridgeIfHostReady,
     isSettingsLayerOpen,
     scheduleSettingsOverlayInteractionArm,
 } from '@/app/runtime/settingsInstantPaint';
+import { detachSettingsInstantBridge } from '@/app/runtime/settingsInstantPaintBridge';
+import {
+    adoptSettingsOverlayHostNode,
+    markSettingsOverlayHostReactOwned,
+    resolveSettingsOverlayHostNode,
+    syncSettingsOverlayHostAppearance,
+} from '@/app/runtime/settingsInstantPaintHostAdopt';
 import './settingsChrome.css';
 
-export type HamiSettingsHostProps = HamiSettingsProps & {
+type HamiSettingsHostProps = HamiSettingsProps & {
     /** مركّب مخفياً — الشجرة دافئة؛ الفتح = إظهار CSS فقط */
     keepAlive?: boolean;
 };
 
-function settingsHostLayerClass(open: boolean, keepAlive: boolean): string {
-    return [
-        'fixed inset-0 z-[200] flex h-[100dvh] flex-col overflow-hidden overscroll-none font-sans',
-        'hami-settings-overlay-layer',
-        'hami-settings-overlay-host',
-        keepAlive ? 'hami-settings-overlay-layer--warm' : '',
-        open ? 'hami-settings-overlay-layer--visible' : '',
-    ]
-        .filter(Boolean)
-        .join(' ');
-}
-
 /**
- * Host — portal + keepAlive + visibility.
- * المحتوى sync في نفس المقطع (FullBootPath → Entry → Host) — بلا Suspense/InstantShell.
+ * Host — portal داخل عقدة overlay موحّدة (قشرة الطلاء تُركَّب في نفس الطبقة).
+ * المحتوى sync في نفس المقطع — بلا Suspense/InstantShell.
  */
 export function HamiSettingsHost({
     keepAlive = false,
@@ -42,7 +36,15 @@ export function HamiSettingsHost({
     const shouldMount = open || keepAlive;
 
     useLayoutEffect(() => {
-        if (!open && !keepAlive) return;
+        if (!shouldMount) {
+            detachSettingsInstantBridge();
+            resolveSettingsOverlayHostNode()?.remove();
+            return undefined;
+        }
+        const host = adoptSettingsOverlayHostNode();
+        if (!host) return undefined;
+        markSettingsOverlayHostReactOwned(host);
+        syncSettingsOverlayHostAppearance(host, { layerOpen, keepAlive });
         if (open || layerOpen) {
             dismissSettingsInstantBridgeIfHostReady();
             scheduleSettingsOverlayInteractionArm();
@@ -50,7 +52,14 @@ export function HamiSettingsHost({
         }
         disarmSettingsOverlayInteraction();
         return undefined;
-    }, [keepAlive, layerOpen, open]);
+    }, [keepAlive, layerOpen, open, shouldMount]);
+
+    useLayoutEffect(() => {
+        return () => {
+            detachSettingsInstantBridge();
+            resolveSettingsOverlayHostNode()?.remove();
+        };
+    }, []);
 
     useBodyScrollLock(layerOpen);
 
@@ -62,17 +71,11 @@ export function HamiSettingsHost({
         return null;
     }
 
+    const host = adoptSettingsOverlayHostNode();
+    if (!host) return null;
+
     return createPortal(
-        <div
-            className={settingsHostLayerClass(layerOpen, keepAlive)}
-            style={{ backgroundColor: '#0B1021' }}
-            data-testid="hami-settings-overlay-host"
-            data-hami-overlay-safe={layerOpen ? '1' : undefined}
-            aria-hidden={!layerOpen}
-            {...inertProps(!layerOpen)}
-        >
-            <HamiSettings {...props} keepAlive={keepAlive} />
-        </div>,
-        document.body,
+        <HamiSettings {...props} keepAlive={keepAlive} />,
+        host,
     );
 }

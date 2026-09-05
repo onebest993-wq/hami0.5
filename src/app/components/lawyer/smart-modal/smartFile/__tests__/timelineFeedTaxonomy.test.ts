@@ -4,6 +4,7 @@ import {
     filterTimelineFeed,
     formatTimelineCardBody,
     formatTimelineCardTitle,
+    visibleCivilTimelineEvents,
 } from '../timelineFeedTaxonomy';
 
 describe('timelineFeedTaxonomy', () => {
@@ -105,7 +106,8 @@ describe('timelineFeedTaxonomy', () => {
             details: 'بعد استئناف السير القانوني',
         };
         expect(formatTimelineCardBody(appointmentEvent)).toContain('موعد المرافعة:');
-        expect(formatTimelineCardBody(appointmentEvent)).toContain('أغسطس');
+        expect(formatTimelineCardBody(appointmentEvent)).toContain('٢٠٢٦');
+        expect(formatTimelineCardBody(appointmentEvent)).toContain('٤');
     });
 
     it('labels legal deadline appointments as تمييز deadline — not مرافعة', () => {
@@ -117,7 +119,55 @@ describe('timelineFeedTaxonomy', () => {
             details: 'آخر مهلة للتمييز بعد الحكم الاستئنافي (شهر من صدور القرار)',
         };
         expect(classifyTimelineEvent(cassationDeadline)).toBe('procedural');
-        expect(formatTimelineCardBody(cassationDeadline)).toContain('آخر موعد للتمييز:');
         expect(formatTimelineCardBody(cassationDeadline)).not.toContain('موعد المرافعة');
+        expect(formatTimelineCardBody(cassationDeadline)).not.toContain('15 يوماً');
+        expect(formatTimelineCardBody(cassationDeadline)).not.toMatch(/شهر من/);
+    });
+
+    it('hides computed remaining-period appointments from the civil feed', () => {
+        const events = [
+            {
+                id: 'appt_cassation_deadline_stage-1',
+                type: 'appointment' as const,
+                date: '2026-09-03',
+                title: 'مهلة التمييز',
+            },
+            {
+                id: 'appt_judgment_stage-1',
+                type: 'appointment' as const,
+                date: '2026-08-31',
+                title: 'تاريخ الحكم',
+            },
+        ];
+        expect(visibleCivilTimelineEvents(events).map((e) => e.id)).toEqual(['appt_judgment_stage-1']);
+    });
+
+    it('hides آخر موعد طعن appointments from the civil feed', () => {
+        expect(
+            visibleCivilTimelineEvents([
+                {
+                    id: 'appt_appeal_deadline_stage-1',
+                    type: 'appointment',
+                    date: '2026-09-16',
+                    title: 'آخر موعد طعن على الحكم',
+                    details: 'آخر موعد للاستئناف (15 يوماً من اليوم التالي لصدور الحكم)',
+                },
+            ]),
+        ).toEqual([]);
+    });
+
+    it('strips مهلة الاعتراض from ghayabi notice card body', () => {
+        const body = formatTimelineCardBody({
+            id: 'abs_notif_1',
+            type: 'decision',
+            date: '2026-09-02',
+            title: 'التبليغ بالحكم الغيابي',
+            details:
+                'تم تسجيل تبليغ الحكم الغيابي بتاريخ 2026-09-02 — لبيليبليب.\nمهلة الاعتراض: 10 أيام من تاريخ التبليغ — تنتهي في 2026-09-12.',
+        });
+        expect(body).toContain('تم تسجيل تبليغ الحكم الغيابي');
+        expect(body).toContain('لبيليبليب');
+        expect(body).not.toContain('مهلة');
+        expect(body).not.toContain('2026-09-12');
     });
 });

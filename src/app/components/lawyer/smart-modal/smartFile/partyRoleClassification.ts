@@ -72,8 +72,15 @@ export function resolveAbsentObjectionOriginalSide(
     return null;
 }
 
+export const COVERED_BY_PARTNER_CHALLENGE_ROLE = 'مشمول بمصلحة الطعن المقام من الشريك';
+
+export function isCoveredByPartnerChallengeRole(role: string): boolean {
+    return String(role ?? '').includes('مشمول بمصلحة الطعن');
+}
+
 export function isAppellantAppealRole(role: string): boolean {
     const r = String(role ?? '').trim();
+    if (isCoveredByPartnerChallengeRole(r)) return false;
     if (isAbsentObjectorRole(r)) return true;
     if (isAbsentObjectedRole(r)) return false;
     if (r.includes('المستأنف عليه') || r.includes('المميز عليه')) return false;
@@ -116,6 +123,7 @@ export function isDefendantSideRole(role: string): boolean {
 export function isPlaintiffSideRole(role: string): boolean {
     const r = String(role ?? '').trim();
     if (!r) return false;
+    if (isCoveredByPartnerChallengeRole(r)) return true;
     if (isAppellantAppealRole(r)) return true;
     if (isAppelleeAppealRole(r)) return false;
     if (isDefendantSideRole(r)) return false;
@@ -147,10 +155,7 @@ export function classifyPartySideBucket(party: Party): PartySideBucket {
         if (affiliated === 'defendant') return 'defendant';
     }
 
-    if (isInterpleaderThirdPartyRole(role) && (party.side === 'right' || party.side === 'left')) {
-        return party.side === 'right' ? 'plaintiff' : 'defendant';
-    }
-
+    /** اختصامي بصيغة بداءة يبقى عموداً ثالثاً حتى لو وُجد side بالخطأ — الاندماج في الأعمدة عبر صفة المستأنف/عليه فقط. */
     if (isInterpleaderThirdPartyRole(role)) return 'third';
 
     if (isThirdPartyRole(role) && !isAffiliativeThirdPartyRole(role)) return 'third';

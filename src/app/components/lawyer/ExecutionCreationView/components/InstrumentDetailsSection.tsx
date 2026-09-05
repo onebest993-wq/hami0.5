@@ -5,6 +5,7 @@ import { InstrumentClaimAmountsBlock } from './InstrumentClaimAmountsBlock';
 import { InstrumentClaimExtrasSection } from './InstrumentClaimExtrasSection';
 import { InstrumentCommercialMetaSection } from './InstrumentCommercialMetaSection';
 import { InstrumentShariaForeignExtras } from './InstrumentShariaForeignExtras';
+import { isCreationEnterCommit } from '../hooks/executionCreationRevealSteps';
 import type { SpecificDeliveryItem } from '@/app/utils/specificDeliveryItemsUtils';
 import type { MaritalFurnitureItem } from '@/app/types/maritalFurniture';
 import type { AlimonyCalculationResult } from '../hooks/useAlimonyCalculator';
@@ -120,6 +121,19 @@ interface InstrumentDetailsSectionProps {
 
     claimUsesMonetaryAmountField: (ct: string) => boolean;
     isShariaLinkedFinancialClaim: (ct: string) => boolean;
+
+    revealDocNumber?: boolean;
+    revealJudgmentDate?: boolean;
+    revealClassification?: boolean;
+    revealClaimType?: boolean;
+    revealShariaIdentity?: boolean;
+    revealClaimAmounts?: boolean;
+    onCommitDocNumber?: () => void;
+    onCommitJudgmentDate?: () => void;
+    onCommitClassification?: () => void;
+    onCommitShariaIdentity?: () => void;
+    onCommitClaimAmounts?: () => void;
+    onCommitClaimAmountsStay?: () => void;
 }
 
 /**
@@ -214,10 +228,22 @@ export const InstrumentDetailsSection: React.FC<InstrumentDetailsSectionProps> =
         onForeignDataChange,
         claimUsesMonetaryAmountField,
         isShariaLinkedFinancialClaim,
+        revealDocNumber = true,
+        revealJudgmentDate = true,
+        revealClassification = true,
+        revealClaimType = true,
+        revealShariaIdentity = true,
+        revealClaimAmounts = true,
+        onCommitDocNumber,
+        onCommitJudgmentDate,
+        onCommitClassification,
+        onCommitShariaIdentity,
+        onCommitClaimAmounts,
+        onCommitClaimAmountsStay,
     } = props;
 
     return (
-        <ExecutionCreationSection title="السند المنفذ">
+        <ExecutionCreationSection>
             <div className="flex flex-col gap-3">
                 <InstrumentTypeIdentityFields
                     docType={docType}
@@ -246,8 +272,32 @@ export const InstrumentDetailsSection: React.FC<InstrumentDetailsSectionProps> =
                     onShariaIssuingCourtChange={onShariaIssuingCourtChange}
                     judgmentDate={judgmentDate}
                     onJudgmentDateChange={onJudgmentDateChange}
+                    revealDocNumber={revealDocNumber}
+                    revealJudgmentDate={revealJudgmentDate}
+                    revealClassification={revealClassification}
+                    revealClaimType={revealClaimType}
+                    revealShariaIdentity={revealShariaIdentity}
+                    onCommitDocNumber={onCommitDocNumber}
+                    onCommitJudgmentDate={onCommitJudgmentDate}
+                    onCommitClassification={onCommitClassification}
+                    onCommitShariaIdentity={onCommitShariaIdentity}
                 />
 
+                {revealClaimAmounts ? (
+                    <div
+                        data-creation-step="claimAmounts"
+                        onBlur={(e) => {
+                            if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+                            onCommitClaimAmountsStay?.();
+                        }}
+                        onKeyDown={(e) => {
+                            if (!isCreationEnterCommit(e)) return;
+                            const tag = (e.target as HTMLElement).tagName;
+                            if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return;
+                            e.preventDefault();
+                            onCommitClaimAmounts?.();
+                        }}
+                    >
                 <InstrumentClaimAmountsBlock
                     claimTypeOptionsList={claimTypeOptionsList}
                     effectiveClaimTypes={effectiveClaimTypes}
@@ -348,6 +398,8 @@ export const InstrumentDetailsSection: React.FC<InstrumentDetailsSectionProps> =
                     foreignData={foreignData}
                     onForeignDataChange={onForeignDataChange}
                 />
+                    </div>
+                ) : null}
             </div>
         </ExecutionCreationSection>
     );

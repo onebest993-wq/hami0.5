@@ -23,4 +23,27 @@ describe('RadarErrorBoundary', () => {
         expect(onBack).toHaveBeenCalledTimes(1);
         spy.mockRestore();
     });
+
+    it('يعيد تركيب الأبناء عند تغيّر resetKey بعد الانهيار', () => {
+        const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        function MaybeBoom({ boom }: { boom: boolean }): React.ReactElement {
+            if (boom) throw new Error('radar-boom');
+            return <div data-testid="radar-ok" />;
+        }
+
+        const { rerender } = render(
+            <RadarErrorBoundary onBack={vi.fn()} resetKey="open">
+                <MaybeBoom boom />
+            </RadarErrorBoundary>,
+        );
+        expect(screen.getByTestId('radar-error-fallback')).toBeInTheDocument();
+
+        rerender(
+            <RadarErrorBoundary onBack={vi.fn()} resetKey="closed">
+                <MaybeBoom boom={false} />
+            </RadarErrorBoundary>,
+        );
+        expect(screen.getByTestId('radar-ok')).toBeInTheDocument();
+        spy.mockRestore();
+    });
 });

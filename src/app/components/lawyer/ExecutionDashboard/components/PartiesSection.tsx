@@ -1,8 +1,9 @@
-import React, { memo, useCallback, useState, startTransition } from 'react';
+import React, { memo } from 'react';
 import { PartyOverflowToggle } from '../executionDashboardLazyShellUi';
 import { ExecutionPartyCardFrame } from './ExecutionPartyCardFrame';
 import { CreditorPartyCardCollapsed } from './CreditorPartyCardCollapsed';
-import { CreditorPartyCardExpanded } from './CreditorPartyCardExpanded';
+import { ExecutionPartySpecialActionsMenu } from '@/app/components/lawyer/execution/ExecutionPartySpecialActionsMenu';
+import { appendCustomPartySignal } from '@/app/components/lawyer/execution/partyInteractiveBadges/customPartySignalsStorage';
 import type {
     ExecutionFile,
     Party,
@@ -63,26 +64,19 @@ type PartiesSectionProps = {
 const CreditorPartyCard = memo(function CreditorPartyCard({
     badgeExtra,
     collapsed,
-    expanded,
 }: {
     badgeExtra: React.ReactNode;
     collapsed: React.ReactNode;
-    expanded: React.ReactNode;
 }) {
-    const [open, setOpen] = useState(false);
-    const toggle = useCallback(() => {
-        startTransition(() => setOpen((v) => !v));
-    }, []);
-
     return (
         <ExecutionPartyCardFrame
             variant="creditor"
             roleLabel="الدائن"
             badgeExtra={badgeExtra}
-            isOpen={open}
-            onToggle={toggle}
-            expandAriaLabel={open ? 'طي بيانات الدائن' : 'توسيع بيانات الدائن'}
-            expandedPanel={open ? expanded : undefined}
+            isOpen={false}
+            onToggle={() => {}}
+            expandable={false}
+            expandAriaLabel="بيانات الدائن"
         >
             {collapsed}
         </ExecutionPartyCardFrame>
@@ -161,23 +155,6 @@ export const PartiesSection = memo(function PartiesSection({
                     <CreditorPartyCard
                         key={creditorKey}
                         badgeExtra={creditorBadgeExtra}
-                        expanded={
-                            <CreditorPartyCardExpanded
-                                occupation={c.occupation}
-                                address={c.address}
-                                isPmCred={isPmCred}
-                                ecIdx={ecIdx}
-                                creditorHeirsEditOnly={creditorHeirsEditOnly}
-                                creditorDeathMenuLabel={creditorDeathMenuLabel}
-                                handleCreditorDeathMenuAction={handleCreditorDeathMenuAction}
-                                isHistoricalMode={isHistoricalMode}
-                                showToast={showToast}
-                                openEditParty={openEditParty}
-                                party={c as unknown as Party}
-                                creditorExtraMinorNames={creditorExtraMinorNames}
-                                creditorExtraMinorLabel={creditorExtraMinorLabel}
-                            />
-                        }
                         collapsed={
                             <CreditorPartyCardCollapsed
                                 c={c}
@@ -198,6 +175,47 @@ export const PartiesSection = memo(function PartiesSection({
                                 activeTimelineEvents={activeTimelineEvents}
                                 decisionsReloadEpoch={decisionsReloadEpoch}
                                 isHistoricalMode={isHistoricalMode}
+                                actionsMenu={
+                                    <ExecutionPartySpecialActionsMenu
+                                        variant="creditor"
+                                        creditorDeathEntryLabel={creditorDeathMenuLabel}
+                                        onReportCreditorDeath={handleCreditorDeathMenuAction}
+                                        isHistoricalMode={isHistoricalMode}
+                                        onAddCustomSignal={(label) => {
+                                            const added = appendCustomPartySignal(
+                                                String(partyBadgesExecutionId || ''),
+                                                'creditor',
+                                                'main',
+                                                label,
+                                            );
+                                            if (!added) {
+                                                showToast('تعذّر إضافة الإشارة أو أنها مكررة.', 'warning');
+                                                return;
+                                            }
+                                            showToast('تمت إضافة الإشارة المخصصة.', 'success');
+                                        }}
+                                        editPartyLabel={
+                                            creditorHeirsEditOnly ? 'تعديل بيانات الورثة' : undefined
+                                        }
+                                        onEditParty={
+                                            creditorHeirsEditOnly
+                                                ? () => {
+                                                      if (isPmCred) {
+                                                          showToast(
+                                                              'لا يمكن تعديل هذا الدائن من هنا.',
+                                                              'info',
+                                                          );
+                                                          return;
+                                                      }
+                                                      openEditParty('creditor', ecIdx, {
+                                                          party: c as unknown as Party,
+                                                          forceHeirs: true,
+                                                      });
+                                                  }
+                                                : undefined
+                                        }
+                                    />
+                                }
                             />
                         }
                     />
@@ -211,6 +229,11 @@ export const PartiesSection = memo(function PartiesSection({
                     variant="creditor"
                 />
             )}
+            {creditorExtraMinorNames.length > 0 && creditorExtraMinorLabel ? (
+                <p className="px-1 text-right text-[11px] leading-snug text-slate-400">
+                    {creditorExtraMinorLabel}: {creditorExtraMinorNames.join('، ')}
+                </p>
+            ) : null}
         </div>
     );
 });

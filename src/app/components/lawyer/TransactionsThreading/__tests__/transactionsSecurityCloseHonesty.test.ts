@@ -14,8 +14,8 @@ describe('transactions security close honesty', () => {
         expect(persist).not.toMatch(/\.\.\.\s*tx\b/);
         expect(persist).not.toMatch(/\.\.\.\s*task\b/);
         expect(persist).not.toMatch(/\.\.\.\s*doc\b/);
-        expect(persist).toContain('agreedFees: 0');
-        expect(persist).toContain('financeRecords: []');
+        expect(persist).not.toContain('agreedFees');
+        expect(persist).not.toContain('financeRecords');
         expect(persist).toContain('sanitizeTransactionDocumentOwnerTag');
     });
 
@@ -76,6 +76,13 @@ describe('transactions security close honesty', () => {
         expect(keys).toContain('isEncryptOrFailStorageKey');
         expect(keys).toContain("key.startsWith('hami:transactions:')");
         expect(keys).toContain("key.startsWith('hami:transactionsThreading:v1:')");
+        const backupKeys = src('src/app/services/dossierPersistence/protectedStorageKeys.ts');
+        expect(backupKeys).toContain("return 'transactionsThreading'");
+        const backup = src('src/app/services/dossierPersistence/protectedBackupService.ts');
+        expect(backup).toContain('isTransactionsThreadingStateKey');
+        const recovery = src('src/app/services/secureStoreRecovery.ts');
+        expect(recovery).toContain("readLatestDossierBackup('transactionsThreading')");
+        expect(recovery).toContain('JSON.stringify(first)');
         expect(src('src/app/services/forumApiService.ts')).toContain('SecureAPIClient');
         expect(src('src/app/services/forum/forumAuthorResolver.ts')).toContain('لا نثق');
         expect(src('src/app/modules/transactionsThreading/service.ts')).not.toMatch(/\bfetch\s*\(/);

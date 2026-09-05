@@ -66,7 +66,7 @@ export const ExecutionTaskComposerForm: React.FC<ExecutionTaskComposerFormProps>
                     <button
                         type="button"
                         onClick={onAddStep}
-                        className={`flex items-center gap-1 rounded-lg border border-amber-500/25 bg-amber-500/8 px-2 py-1 text-[10px] font-bold text-amber-100 hover:bg-amber-500/15 ${EXEC_MODAL_TOUCH_TARGET}`}
+                        className={`${ntm.btnChip} gap-1 px-2 py-1 text-[10px] ${EXEC_MODAL_TOUCH_TARGET}`}
                     >
                         <Plus size={10} /> إضافة خطوة
                     </button>

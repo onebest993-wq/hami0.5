@@ -1,14 +1,34 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { onBootContentReady } from '@/app/bootstrap/bootReveal';
 import { useLawyerDashboardTransactions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardTransactions';
-import { useLawyerDashboardFieldTasks } from '@/app/hooks/lawyerDashboard/useLawyerDashboardFieldTasks';
 import { useLawyerDashboardGlobalSearch } from '@/app/hooks/lawyerDashboard/useLawyerDashboardGlobalSearch';
 import { useLawyerDashboardGlobalSearchNav } from '@/app/hooks/useLawyerDashboardGlobalSearchNav';
 import { deferredFeatureBagFingerprint } from '@/app/components/lawyer/dashboard/deferredFeatureBagFingerprint';
 import type {
     DeferredFeatureBag,
+    DeferredFieldTasks,
     LawyerDashboardDeferredFeatureSurfacesProps,
 } from '@/app/components/lawyer/dashboard/LawyerDashboardDeferredFeatureSurfaces.types';
+
+const noop = () => undefined;
+
+/** شكل الحقيبة فقط — خطاف الميدان في جزيرة مستقلة */
+const FIELD_TASKS_BAG_PLACEHOLDER: DeferredFieldTasks = {
+    fieldTasksSheetSessionKey: 0,
+    fieldTasksHostMounted: false,
+    fieldTasksManagerHostMounted: false,
+    fieldTasksSheetOpen: false,
+    showTasksManager: false,
+    tasksManagerFocusTaskId: undefined,
+    tasksManagerSessionKey: 0,
+    primeFieldTasksShellMount: noop,
+    resetFieldTasksShell: noop,
+    openFieldTasksSheet: noop,
+    openTasksManager: noop,
+    switchToTasksManager: noop,
+    closeFieldTasksSheet: noop,
+    closeTasksManager: noop,
+};
 
 function DeferredFeatureSurfacesInner({
     params,
@@ -21,11 +41,6 @@ function DeferredFeatureSurfacesInner({
         userId: params.userId,
         setArchiveType: params.setArchiveType,
         setShowLawsuitsWorkspace: params.setShowLawsuitsWorkspace,
-    });
-    const fieldTasks = useLawyerDashboardFieldTasks({
-        userId: params.userId,
-        setActiveTab: params.setActiveTab,
-        closeCommunity: params.closeCommunity,
     });
     const globalSearch = useLawyerDashboardGlobalSearch({ userId: params.userId });
 
@@ -44,7 +59,7 @@ function DeferredFeatureSurfacesInner({
         openUrgentInLawsuitsWorkspace: params.openUrgentInLawsuitsWorkspace,
         openCriminalCase: params.openCriminalCase,
         openTransactionsHub: params.openTransactionsHub,
-        openTasksManager: fieldTasks.openTasksManager,
+        openTasksManager: params.openTasksManager,
         openNotepad: params.openNotepad,
         openVaultModal: params.openVaultModal,
         setActiveFile: params.setActiveFile,
@@ -54,7 +69,7 @@ function DeferredFeatureSurfacesInner({
 
     const bag: DeferredFeatureBag = {
         transactions,
-        fieldTasks,
+        fieldTasks: FIELD_TASKS_BAG_PLACEHOLDER,
         globalSearch,
         globalSearchNav,
     };
@@ -76,6 +91,7 @@ function DeferredFeatureSurfacesInner({
  * hooks للأسطح غير الرئيسية — بعد boot-content-ready (أو earlyArm/forceArm لجلسة مستعادة).
  * الملف المهني حي في orchestration (مثل الإعدادات) — ليس هنا.
  * المنتدى/التقويم/المستودع في PreDockFeatureSurfaces (بعد first-tab-open).
+ * ستارة الميدان في FieldTasksFeatureSurfaces — لمسة المهام لا تجرّ المعاملات/البحث.
  * تُحمَّل كـ chunk منفصل حتى لا تذوب في LawyerDashboard stem.
  * لا تُسلَّح على interactive — كان ينافس أول طلاء المنزل وكشف الشعار.
  */

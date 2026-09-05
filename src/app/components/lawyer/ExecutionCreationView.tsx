@@ -1,6 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
-import { useReduceMotion } from '@/app/hooks/useReduceMotion';
-import { motion } from '@/app/motion/overlayMotionRuntime';
+import React, { useCallback, useMemo } from 'react';
 import {
     formatMoneyIntegerDisplay,
     handleMoneyInputChange,
@@ -10,7 +8,6 @@ import { ecg } from './ExecutionCreationView/components/executionCreationGlassUi
 import { useExecutionSectionConfirm } from './execution/useExecutionSectionConfirm';
 import {
     claimUsesMonetaryAmountField,
-    isDirectorateSectionComplete,
     isShariaLinkedFinancialClaim,
     parseMoneyInput,
 } from './ExecutionCreationView/hooks/executionFormUtils';
@@ -32,7 +29,6 @@ interface ExecutionCreationViewProps extends ModalProps {
 }
 
 export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ isOpen, onClose, onSave }) => {
-    const reduceMotion = useReduceMotion();
     const { confirm: confirmInSection, dialog: sectionConfirmDialog } = useExecutionSectionConfirm();
 
     const {
@@ -236,6 +232,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         allowMultipleDebtors,
         showDebtorSolidarySplit,
         showLawyerFeesBetweenSections,
+        showLawyerFeesToggle,
         hasActiveClaim,
         showMultiClaimAggregatePanel,
         claimSectionCardClass,
@@ -322,12 +319,6 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             globalClaimTotalForSplit,
         lawyerFeesAmount,
     });
-
-    useEffect(() => {
-        if (isDirectorateSectionComplete(directorate, fileNumber) && !docType) {
-                setDocType('قرارات وأحكام المحاكم');
-        }
-    }, [directorate, fileNumber, docType, setDocType]);
 
     const { handleSubmit } = useExecutionCreationSubmit({
         directorate,
@@ -423,7 +414,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         evictionPremisesUse, setEvictionPremisesUse,
         specificDeliveryItems, setSpecificDeliveryItems, maritalFurnitureItems, setMaritalFurnitureItems,
         dueDate, setDueDate, executionTarget, setExecutionTarget, isDocumentBlocked,
-        foreignData, setForeignData, showLawyerFeesBetweenSections, includeLawyerFees,
+        foreignData, setForeignData, showLawyerFeesBetweenSections, showLawyerFeesToggle, includeLawyerFees,
         setIncludeLawyerFees, lawyerFeesAmount, setLawyerFeesAmount, showPartiesSection,
         creditors, additionalCreditors, debtors, additionalDebtorsForm, allowMultipleDebtors,
         showDebtorSolidarySplit, globalClaimTotalForSplit, lockedDebtorEntityKind,
@@ -444,17 +435,9 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
 
     const shell = <ExecutionCreationFormBody onClose={onClose} vm={vm} />;
 
-    if (reduceMotion) {
-        return (
-            <div dir="rtl" className={ecg.modalShell}>
-                {shell}
-            </div>
-        );
-    }
-
     return (
-        <motion.div initial={false} animate={{ opacity: 1 }} dir="rtl" className={ecg.modalShell}>
+        <div dir="rtl" className={ecg.modalShell}>
             {shell}
-        </motion.div>
+        </div>
     );
 };

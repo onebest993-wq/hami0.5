@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { RefObject } from 'react';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
@@ -19,7 +18,6 @@ import {
     setRepositoryFeedCache,
 } from '@/app/services/repository/repositoryFeedWarmCache';
 import {
-    getRepositoryFeedContainerClass,
     loadRepositoryFeedLayout,
     normalizeRepositoryFeedLayout,
     persistRepositoryFeedLayout,
@@ -36,8 +34,6 @@ type UseRepositoryFeedParams = {
     vaultSearchQuery: string;
     roomFilter?: RepositoryRoomFilter | null;
     initialFilter: RepositoryFeedFilter;
-    focusNoteId?: string;
-    feedScrollRef: RefObject<HTMLDivElement | null>;
     vault: {
         setActiveFilter: React.Dispatch<React.SetStateAction<string>>;
     };
@@ -52,8 +48,6 @@ export function useRepositoryFeed({
     vaultSearchQuery,
     roomFilter = 'main',
     initialFilter,
-    focusNoteId,
-    feedScrollRef,
     vault,
 }: UseRepositoryFeedParams) {
     const [activeFilter, setActiveFilter] = useState<RepositoryFeedFilter>(initialFilter);
@@ -74,8 +68,6 @@ export function useRepositoryFeed({
         window.addEventListener(DOSSIER_NOTES_CHANGED, refresh);
         return () => window.removeEventListener(DOSSIER_NOTES_CHANGED, refresh);
     }, []);
-
-    const feedLayoutClass = getRepositoryFeedContainerClass(feedLayout);
 
     const handleFeedLayoutChange = useCallback((next: RepositoryFeedLayoutId) => {
         const normalized = normalizeRepositoryFeedLayout(next);
@@ -126,15 +118,6 @@ export function useRepositoryFeed({
         [vaultDocs],
     );
 
-    useEffect(() => {
-        if (!focusNoteId || visibleByFilter[activeFilter].length === 0) return;
-        const t = window.setTimeout(() => {
-            const el = feedScrollRef.current?.querySelector(`[data-note-id="${focusNoteId}"]`);
-            el?.scrollIntoView({ behavior: 'auto', block: 'nearest' });
-        }, 80);
-        return () => window.clearTimeout(t);
-    }, [activeFilter, focusNoteId, feedScrollRef, visibleByFilter]);
-
     const selectMainFilter = useCallback(
         (filter: RepositoryFeedFilter) => {
             if (filter === activeFilter) {
@@ -150,7 +133,6 @@ export function useRepositoryFeed({
     return {
         activeFilter,
         feedLayout,
-        feedLayoutClass,
         visibleByFilter,
         filterCounts,
         vaultDocsById,

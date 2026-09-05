@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { ExecutionPhoneBodyScopeProvider } from '../hooks/executionPhoneBodyScope';
 import { ExecutionShellOverlayScopeProvider } from '../hooks/executionShellOverlayScope';
 import { prefetchExecutionCoreHandlers } from '../executionCoreHandlersPrefetch';
-import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
 import { readHandlerClusterContextValue } from '../hooks/executionDashboardCore/handlerClusterContextShared';
 import { shouldLoadExecutionEmployeeAssignmentBridge } from '../hooks/executionHandlerClusterGate';
 import { ExecutionDashboardChunkHostClusterTree } from './ExecutionDashboardChunkHostClusters';
@@ -20,7 +19,6 @@ export function ExecutionDashboardChunkHost(props: ExecutionDashboardChunkHostPr
         shellOverlayScopeRef,
         loadCoerciveHeavyHandlerCluster,
         loadSeizureHeavyHandlerCluster,
-        loadSeizureLogHandlerCluster,
         coerciveHeavyHandlerClusterInput,
     } = props;
 
@@ -35,33 +33,22 @@ export function ExecutionDashboardChunkHost(props: ExecutionDashboardChunkHostPr
     useEffect(() => {
         if (!phoneBodyReady) return;
 
-        const prefetchSecondaryHandlers = () => {
-            prefetchExecutionCoreHandlers('seizure-requests');
-            if (loadCoerciveHeavyHandlerCluster) {
-                prefetchExecutionCoreHandlers('coercive');
-                if (loadCoerciveEmployeeAssignmentBridge) {
-                    prefetchExecutionCoreHandlers('coercive-employee');
-                }
-                if (coerciveInputIsEvictionModule) {
-                    prefetchExecutionCoreHandlers('coercive-eviction');
-                }
+        prefetchExecutionCoreHandlers('seizure-requests');
+        if (loadCoerciveHeavyHandlerCluster) {
+            prefetchExecutionCoreHandlers('coercive');
+            if (loadCoerciveEmployeeAssignmentBridge) {
+                prefetchExecutionCoreHandlers('coercive-employee');
             }
-            if (loadSeizureHeavyHandlerCluster) {
-                if (loadSeizureLogHandlerCluster) {
-                    prefetchExecutionCoreHandlers('seizure-log');
-                }
+            if (coerciveInputIsEvictionModule) {
+                prefetchExecutionCoreHandlers('coercive-eviction');
             }
-        };
-
-        const cancelIdlePrefetch = scheduleIdleWork(prefetchSecondaryHandlers, 350);
-        return cancelIdlePrefetch;
+        }
     }, [
         phoneBodyReady,
         loadCoerciveHeavyHandlerCluster,
         loadCoerciveEmployeeAssignmentBridge,
         coerciveInputIsEvictionModule,
         loadSeizureHeavyHandlerCluster,
-        loadSeizureLogHandlerCluster,
     ]);
 
     if (!phoneBodyReady && !shellOverlaysReady) {

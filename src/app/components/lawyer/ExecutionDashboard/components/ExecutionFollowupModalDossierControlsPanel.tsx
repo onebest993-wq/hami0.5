@@ -36,7 +36,7 @@ export function ExecutionFollowupModalDossierControlsPanel({
             key={`dossier_controls:${String(activeFollowupDebtorKey ?? '')}`}
             panelId="dossier_controls"
             active={activePanelKey === 'dossier_controls'}
-            className="rounded-2xl border border-white/10 bg-[#0B1120]/72 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:p-5"
+            className="space-y-3"
             dir="rtl"
         >
             <TabDossierControls

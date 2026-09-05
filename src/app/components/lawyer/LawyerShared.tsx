@@ -33,6 +33,14 @@ export {
     type Task,
 } from './lawyerShared/stageTimelineTypes';
 export {
+    type StageOutcome,
+    type JudgmentFormType,
+    type CourtJurisdiction,
+    type FirstInstanceDegree,
+    type StageTransitionMetadata,
+    type AppealStageMetadata,
+} from './lawyerShared/stageTransitionMetadataTypes';
+export {
     type IncidentalType,
     type IncidentalStatus,
     type ThirdPartyEntryMode,

@@ -55,7 +55,7 @@ export function useExecutionDashboardCoreScopeRuntimeBindings({
 
     const evictionExecutorWorkflow = useMemo(
         () =>
-            isEvictionExecutionModule
+            isEvictionExecutionModule && executorApprovalActions
                 ? {
                       dossierId: String(executionData?.id ?? executionId ?? file?.id ?? 'default'),
                       actions: executorApprovalActions,

@@ -1,6 +1,6 @@
 /**
  * فتحات وفاة الخصوم على المسار البارد — تُشغّل الجسر عند النية ثم تنفّذ الإجراء الحقيقي.
- * لا stubs صامتة: إما تشغيل فوري بعد التحميل أو توست + إعادة بعد الجاهزية.
+ * الضغطة تنتظر المعالج الحي ثم تنفّذه؛ التوست فقط بعد المهلة.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
@@ -9,6 +9,14 @@ import {
     getCreditorHeirSubstitutionRequestStatus,
     getDebtorHeirSubstitutionRequestStatus,
 } from '@/app/utils/executorDecisionReadQueries';
+import {
+    HAMI_OPEN_PARTY_DEATH_MODAL,
+    HAMI_PREFETCH_PARTY_DEATH_HANDLERS,
+} from '@/app/utils/partyDeathUiEvents';
+import {
+    invokeMaybeStubFunctionOrWait,
+    isExecutionHandlerWaitTimeout,
+} from '../executionHandlerClusterStubs';
 
 export type PartyDeathLiveHandlers = {
     handlePartyDeathSave: (payload: PartyDeathSavePayload) => boolean;
@@ -60,11 +68,11 @@ export function useExecutionDashboardPartyDeathOpeners({
                 try {
                     pending();
                 } catch {
-                    /* ignore */
+                    showToast('تعذّر تنفيذ الإبلاغ عن الوفاة. أعد المحاولة.', 'error');
                 }
             }
         },
-        [onPartyDeathHandlersReady],
+        [onPartyDeathHandlersReady, showToast],
     );
 
     const armIntent = useCallback((thenRun?: () => void) => {
@@ -100,9 +108,9 @@ export function useExecutionDashboardPartyDeathOpeners({
             const did = String(ce.detail?.decisionId ?? '').trim();
             setPartyDeathModalDecisionId(did || null);
         };
-        window.addEventListener('hami-open-party-death-modal', openHandler as EventListener);
+        window.addEventListener(HAMI_OPEN_PARTY_DEATH_MODAL, openHandler as EventListener);
         return () =>
-            window.removeEventListener('hami-open-party-death-modal', openHandler as EventListener);
+            window.removeEventListener(HAMI_OPEN_PARTY_DEATH_MODAL, openHandler as EventListener);
     }, [
         decisionsStorageExecutionId,
         executionDataId,
@@ -111,6 +119,12 @@ export function useExecutionDashboardPartyDeathOpeners({
         setPartyDeathModalDecisionId,
         setPartyDeathModalParty,
     ]);
+
+    useEffect(() => {
+        const prefetch = () => setPartyDeathHandlersIntent(true);
+        window.addEventListener(HAMI_PREFETCH_PARTY_DEATH_HANDLERS, prefetch);
+        return () => window.removeEventListener(HAMI_PREFETCH_PARTY_DEATH_HANDLERS, prefetch);
+    }, []);
 
     const debtorSubstitutionRequestStatus = useMemo(
         () => getDebtorHeirSubstitutionRequestStatus(decisionsStorageExecutionId),
@@ -123,49 +137,70 @@ export function useExecutionDashboardPartyDeathOpeners({
 
     const runOrArm = useCallback(
         (key: keyof PartyDeathLiveHandlers) => {
-            const live = liveRef.current;
-            if (live && typeof live[key] === 'function') {
-                (live[key] as () => void)();
-                return;
-            }
-            armIntent(() => {
-                const next = liveRef.current;
-                if (next && typeof next[key] === 'function') {
-                    (next[key] as () => void)();
+            const runLive = (bag: PartyDeathLiveHandlers | null) => {
+                if (!bag || typeof bag[key] !== 'function') return false;
+                try {
+                    (bag[key] as () => void)();
+                    return true;
+                } catch {
+                    showToast('تعذّر تنفيذ إجراء الوفاة/الإحلال. أعد المحاولة.', 'error');
+                    return true;
                 }
+            };
+            if (runLive(liveRef.current)) return;
+            armIntent(() => {
+                if (!runLive(liveRef.current)) {
+                    showToast('جاري تجهيز أدوات الوفاة — أعد المحاولة بعد لحظة.', 'info');
+                }
+            });
+        },
+        [armIntent, showToast],
+    );
+
+    const handlePartyDeathSave = useCallback(
+        (payload: PartyDeathSavePayload): boolean | Promise<boolean> => {
+            const live = liveRef.current;
+            if (live?.handlePartyDeathSave) {
+                return live.handlePartyDeathSave(payload);
+            }
+            armIntent();
+            const pending = invokeMaybeStubFunctionOrWait(
+                'partyDeathHandlers.handlePartyDeathSave',
+                [payload],
+                {
+                    coalesce: false,
+                    readLive: () => liveRef.current?.handlePartyDeathSave,
+                },
+            );
+            return Promise.resolve(pending).then((result) => {
+                if (isExecutionHandlerWaitTimeout(result) || result === false) return false;
+                return result !== false;
             });
         },
         [armIntent],
     );
 
-    const handlePartyDeathSave = useCallback(
-        (payload: PartyDeathSavePayload): boolean => {
-            const live = liveRef.current;
-            if (live?.handlePartyDeathSave) {
-                return live.handlePartyDeathSave(payload);
-            }
-            armIntent(() => {
-                liveRef.current?.handlePartyDeathSave?.(payload);
-            });
-            showToast('جاري تجهيز أداة الإبلاغ عن الوفاة — أعد الحفظ بعد لحظة.', 'info');
-            return false;
-        },
-        [armIntent, showToast],
-    );
-
     const handleAlimonyBeneficiaryDeathConfirm = useCallback(
-        (input: unknown): boolean => {
+        (input: unknown): boolean | Promise<boolean> => {
             const live = liveRef.current;
             if (live?.handleAlimonyBeneficiaryDeathConfirm) {
                 return live.handleAlimonyBeneficiaryDeathConfirm(input);
             }
-            armIntent(() => {
-                liveRef.current?.handleAlimonyBeneficiaryDeathConfirm?.(input);
+            armIntent();
+            const pending = invokeMaybeStubFunctionOrWait(
+                'partyDeathHandlers.handleAlimonyBeneficiaryDeathConfirm',
+                [input],
+                {
+                    coalesce: false,
+                    readLive: () => liveRef.current?.handleAlimonyBeneficiaryDeathConfirm,
+                },
+            );
+            return Promise.resolve(pending).then((result) => {
+                if (isExecutionHandlerWaitTimeout(result) || result === false) return false;
+                return result !== false;
             });
-            showToast('جاري تجهيز أداة إبلاغ النفقة — أعد المحاولة بعد لحظة.', 'info');
-            return false;
         },
-        [armIntent, showToast],
+        [armIntent],
     );
 
     const partyDeathHandlers = useMemo(

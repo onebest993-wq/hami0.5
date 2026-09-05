@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -7,6 +7,17 @@ const root = process.cwd();
 
 function src(...parts: string[]): string {
     return readFileSync(join(dir, ...parts), 'utf8');
+}
+
+function collectTxSourceFiles(directory: string): string[] {
+    return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+        const full = join(directory, entry.name);
+        if (entry.isDirectory()) {
+            if (entry.name === '__tests__') return [];
+            return collectTxSourceFiles(full);
+        }
+        return /\.(ts|tsx)$/.test(entry.name) ? [full] : [];
+    });
 }
 
 describe('transactions cleanliness close honesty', () => {
@@ -34,9 +45,30 @@ describe('transactions cleanliness close honesty', () => {
             'utf8',
         );
         expect(sharing).not.toMatch(/export\s*\{[^}]*scrubPii/);
+        const types = readFileSync(join(root, 'src/app/modules/transactionsThreading/types.ts'), 'utf8');
+        expect(types).not.toContain('FinanceRecord');
+        expect(types).not.toContain('agreedFees');
+        const persist = readFileSync(
+            join(root, 'src/app/services/transactions/sanitizeTransactionsThreadingPersist.ts'),
+            'utf8',
+        );
+        expect(persist).not.toContain('financeRecords');
+        expect(persist).not.toContain('agreedFees');
+        const cloudTypes = readFileSync(
+            join(root, 'src/app/services/cloud/lawyerTransactionTypes.ts'),
+            'utf8',
+        );
+        expect(cloudTypes).not.toContain('financeRecords');
         const treeTest = readFileSync(join(root, 'src/app/__tests__/transactionsThreading.test.ts'), 'utf8');
         expect(treeTest).toContain("from '@/app/modules/transactionsThreading/service'");
         expect(treeTest).not.toMatch(/from '@\/app\/modules\/transactionsThreading['"]/);
+        expect(existsSync(join(dir, 'TransactionsDropdownMenu.tsx'))).toBe(false);
+        expect(existsSync(join(dir, 'transactionsMenuClose.ts'))).toBe(false);
+        expect(existsSync(join(dir, 'ShareProcedureLoadGuard.tsx'))).toBe(false);
+        expect(existsSync(join(dir, 'TransactionsChunkGuard.tsx'))).toBe(true);
+        expect(existsSync(join(dir, 'taskThread/TaskThreadDialogs.types.ts'))).toBe(true);
+        expect(existsSync(join(dir, 'transactionsDetailsReveal.ts'))).toBe(true);
+        expect(existsSync(join(dir, 'transactionsChunkLoadError.ts'))).toBe(true);
     });
 
     it('الشاشات والقشور المحذوفة لا تعود', () => {
@@ -45,5 +77,51 @@ describe('transactions cleanliness close honesty', () => {
         expect(existsSync(join(dir, 'FinancialRecordCard.tsx'))).toBe(false);
         expect(existsSync(join(dir, 'TransactionsHubInstantShell.tsx'))).toBe(false);
         expect(existsSync(join(dir, 'TransactionsThreadingSystemEntry.tsx'))).toBe(false);
+        const aux = readFileSync(
+            join(root, 'src/app/services/calendar/dossierSync/auxiliarySync.ts'),
+            'utf8',
+        );
+        expect(aux).not.toContain('loadTransactionsLocalForCalendar');
+        expect(aux).not.toMatch(/export async function syncTransactions\s*\(/);
+        const pruneIds = readFileSync(
+            join(root, 'src/app/services/calendar/dossierSync/pruneValidIds.ts'),
+            'utf8',
+        );
+        expect(pruneIds).not.toContain('TransactionDB');
+        expect(pruneIds).toContain('TransactionsThreadingDB');
+        const propagate = readFileSync(
+            join(root, 'src/app/services/calendar/bridgePersistence/propagate.ts'),
+            'utf8',
+        );
+        expect(propagate).not.toContain('patchTransactionStep');
+        expect(propagate).toContain('patchThreadingTaskDeadline');
+        const bridgeShared = readFileSync(
+            join(root, 'src/app/services/calendar/bridgePersistence/shared.ts'),
+            'utf8',
+        );
+        expect(bridgeShared).not.toContain('patchTransactionStep');
+        expect(bridgeShared).not.toContain('TransactionDB');
+        const orch = readFileSync(
+            join(root, 'src/app/services/calendar/dossierSync/orchestrator.ts'),
+            'utf8',
+        );
+        expect(orch).not.toContain('syncTransactionsCalendarSnapshot');
+        expect(orch).toContain('TransactionDB.steps');
+        const repo = readFileSync(join(root, 'src/app/modules/transactionsThreading/repository.ts'), 'utf8');
+        expect(repo).not.toContain('financeRecords');
+        expect(repo).not.toContain('agreedFees');
+    });
+
+    it('واجهة القسم بلا Radix tabs/dropdown وبلا أيقونات lucide', () => {
+        const files = collectTxSourceFiles(dir);
+        expect(files.length).toBeGreaterThan(20);
+        for (const file of files) {
+            const text = readFileSync(file, 'utf8');
+            expect(text.includes('@radix-ui/react-tabs'), `tabs radix: ${file}`).toBe(false);
+            expect(text.includes('@radix-ui/react-dropdown-menu'), `dropdown radix: ${file}`).toBe(false);
+            expect(text.includes("@/app/components/ui/tabs"), `ui/tabs: ${file}`).toBe(false);
+            expect(text.includes("@/app/components/ui/dropdown-menu"), `ui/dropdown: ${file}`).toBe(false);
+            expect(text.includes("@/app/components/ui/icons/"), `ui/icons: ${file}`).toBe(false);
+        }
     });
 });

@@ -67,7 +67,7 @@ export const RepositoryFilterPanel = ({
                 </p>
             </div>
 
-            <div className="p-4 space-y-4 max-h-[min(70vh,420px)] overflow-y-auto scrollbar-hide">
+            <div className="p-3 space-y-3 max-h-[min(70vh,420px)] overflow-y-auto scrollbar-hide">
                 <section>
                     <p className={`${FORUM_FILTER_SECTION_LABEL} mb-2`}>ترتيب العرض</p>
                     <div className="grid grid-cols-1 gap-2">

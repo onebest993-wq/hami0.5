@@ -7,10 +7,6 @@ export type DecisionCardFollowupShortcutsProps = {
     btnPrimaryWFull: string;
     canOpenHeirsEntry: boolean;
     heirsParty: 'creditor' | 'debtor' | null;
-    seizureCompletionReady: boolean;
-    seizureCompletionBusy: boolean;
-    seizureCompletionLabel: string;
-    runSeizureCompletion: () => void;
     guarantorShortcutReady: boolean;
     trustDisburseShortcutReady: boolean;
     evictionScheduleReady: boolean;
@@ -25,10 +21,6 @@ export function DecisionCardFollowupShortcuts({
     btnPrimaryWFull,
     canOpenHeirsEntry,
     heirsParty,
-    seizureCompletionReady,
-    seizureCompletionBusy,
-    seizureCompletionLabel,
-    runSeizureCompletion,
     guarantorShortcutReady,
     trustDisburseShortcutReady,
     evictionScheduleReady,
@@ -53,16 +45,6 @@ export function DecisionCardFollowupShortcuts({
                                 className={btnPrimaryWFull}
                             >
                                 فتح بيانات الورثة
-                            </button>
-                        ) : null}
-                        {seizureCompletionReady ? (
-                            <button
-                                type="button"
-                                disabled={seizureCompletionBusy}
-                                onClick={runSeizureCompletion}
-                                className={btnPrimaryWFull}
-                            >
-                                {seizureCompletionLabel}
                             </button>
                         ) : null}
                         {guarantorShortcutReady ? (

@@ -14,7 +14,7 @@ import {
     REPO_CARD_TIMESTAMP,
     REPO_CARD_TITLE,
 } from '../smartRepositoryTheme';
-import { plainTextFromPossiblyHtml } from '../legalRichTextEditorUtils';
+import { stripRepositoryHtml } from '@/app/services/repository/stripRepositoryHtml';
 import type { RepositoryFeedLayoutId } from '../repositoryFeedLayout';
 import type { UniversalEntryCardProps } from './universalEntryCardTypes';
 import { VaultEntryCardActions } from './VaultEntryCardActions';
@@ -56,14 +56,14 @@ export const VaultEntryCard = React.memo(function VaultEntryCard({
     const isImageDoc = mediaKind === 'image';
     const isPdfDoc = mediaKind === 'pdf';
     const layout = resolveRepositoryEntryLayout(doc.lawyerNote ?? '', isImageDoc ? doc : null);
-    const imageOnly = isImageDoc && !plainTextFromPossiblyHtml(doc.lawyerNote || '');
+    const imageOnly = isImageDoc && !stripRepositoryHtml(doc.lawyerNote || '');
     const showHeroImage = isImageDoc && (layout === 'image-dominant' || imageOnly);
     const timestamp = useMemo(
         () => formatRepositoryTimestamp(doc.createdAt ?? doc.updatedAt),
         [doc.createdAt, doc.updatedAt],
     );
     const lawyerNotePlain = useMemo(
-        () => plainTextFromPossiblyHtml(doc.lawyerNote || ''),
+        () => stripRepositoryHtml(doc.lawyerNote || ''),
         [doc.lawyerNote],
     );
 
@@ -112,13 +112,14 @@ export const VaultEntryCard = React.memo(function VaultEntryCard({
                 ref={cardRef}
                 className={`${cardClass} relative`}
                 data-testid={`repository-feed-vault-${doc.id}`}
+                data-note-id={doc.id}
             >
-                <div className="hami-repo-card-list-main flex items-start gap-3 min-w-0">
+                <div className="hami-repo-card-list-main flex items-start gap-2.5 min-w-0">
                     {isImageDoc ? (
                         <button
                             type="button"
                             onClick={handleView}
-                            className="shrink-0 size-[4.75rem] overflow-hidden rounded-xl border border-white/[0.08] bg-black/25 cursor-zoom-in touch-manipulation"
+                            className="shrink-0 size-[4.25rem] overflow-hidden rounded-xl border border-white/[0.08] bg-black/25 cursor-zoom-in touch-manipulation"
                             aria-label={`عرض ${doc.title}`}
                         >
                             <VaultDocDisplayImage
@@ -130,7 +131,7 @@ export const VaultEntryCard = React.memo(function VaultEntryCard({
                         </button>
                     ) : (
                         <span
-                            className="shrink-0 size-[4.75rem] inline-flex items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]"
+                            className="shrink-0 size-[4.25rem] inline-flex items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]"
                             aria-hidden
                         >
                             <FileText size={20} className="text-rose-300/70" />
@@ -154,6 +155,7 @@ export const VaultEntryCard = React.memo(function VaultEntryCard({
             ref={cardRef}
             className={`${cardClass} relative`}
             data-testid={`repository-feed-vault-${doc.id}`}
+            data-note-id={doc.id}
         >
             {meta}
 
@@ -161,7 +163,7 @@ export const VaultEntryCard = React.memo(function VaultEntryCard({
                 <button
                     type="button"
                     onClick={handleView}
-                    className={`mb-2 w-full overflow-hidden rounded-xl border border-white/[0.08] bg-black/25 cursor-zoom-in touch-manipulation ${
+                    className={`mb-1.5 w-full overflow-hidden rounded-xl border border-white/[0.08] bg-black/25 cursor-zoom-in touch-manipulation ${
                         imageOnly ? 'hami-repo-img-hero' : ''
                     }`}
                     aria-label={`عرض ${doc.title}`}
@@ -188,7 +190,7 @@ export const VaultEntryCard = React.memo(function VaultEntryCard({
                     <button
                         type="button"
                         onClick={handleView}
-                        className="shrink-0 size-[4.25rem] rounded-xl overflow-hidden border border-white/[0.08] bg-black/25 cursor-zoom-in touch-manipulation"
+                        className="shrink-0 size-[3.75rem] rounded-xl overflow-hidden border border-white/[0.08] bg-black/25 cursor-zoom-in touch-manipulation"
                         aria-label={`عرض ${doc.title}`}
                     >
                         <VaultDocDisplayImage

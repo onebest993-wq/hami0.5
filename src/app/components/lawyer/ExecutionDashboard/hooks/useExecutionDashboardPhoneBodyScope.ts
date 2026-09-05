@@ -1,17 +1,16 @@
 /** Scope + safe handlers for ExecutionDashboardPhoneBody (orchestrator) */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { requireDecisionsStorageExecutionId } from '../utils/requireDecisionsStorageExecutionId';
 import type { ExecutionFile, SeizedMovable } from '@/app/types/execution';
 import { useExecutionDashboardPhoneBodyMountStages } from './useExecutionDashboardPhoneBodyMountStages';
 import { useExecutionDashboardJudicialCustodianRemove } from './executionDashboardCore/useExecutionDashboardJudicialCustodianRemove';
 import { useExecutionDashboardPropertyInlineSaveContext } from './executionDashboardCore/useExecutionDashboardPropertyInlineSaveContext';
 import { useExecutionDashboardMovableInlineSaveContext } from './executionDashboardCore/useExecutionDashboardMovableInlineSaveContext';
-import {
-    runSaveSeizedMovableInitForDecision,
-    type SaveSeizedMovableInitInput,
-} from './executionDashboardCore/executionDashboardFollowupSeizureInits';
+import type { SaveSeizedMovableInitInput } from './executionDashboardCore/executionDashboardFollowupSeizureInits';
 import { mergeExecutionFileSeizureLists } from '../utils/executionPhoneBodyExecutionDataMerge';
-import { isExecutionHandlerStubLeaf } from './executionHandlerClusterStubs';
+import {
+    invokeMaybeStubFunctionOrWait,
+    isExecutionHandlerWaitTimeout,
+} from './executionHandlerClusterStubs';
 import { useExecutionDashboardPhoneBodyScopeRead } from './useExecutionDashboardPhoneBodyScopeRead';
 import { useExecutionDashboardPhoneBodyLocalState } from './useExecutionDashboardPhoneBodyLocalState';
 import { useExecutionDashboardPhoneBodySafeHandlers } from './useExecutionDashboardPhoneBodySafeHandlers';
@@ -64,6 +63,11 @@ export function useExecutionDashboardPhoneBodyScope(renderFingerprint?: string) 
         };
     }, [bumpLocalExecutionView]);
 
+    const persistExecutionMergeRef = useRef(persistExecutionMerge);
+    persistExecutionMergeRef.current = persistExecutionMerge;
+    const pushTimelineEventRef = useRef(scope.pushTimelineEvent);
+    pushTimelineEventRef.current = scope.pushTimelineEvent;
+
     const persistExecutionMergeLocal = useCallback(
         (patch: Record<string, unknown>): boolean => {
             const data = executionDataRef.current;
@@ -71,34 +75,40 @@ export function useExecutionDashboardPhoneBodyScope(renderFingerprint?: string) 
                 showToast('تعذّر الحفظ — بيانات الإضبارة غير جاهزة', 'error');
                 return false;
             }
-            const upstream = persistExecutionMerge;
-            if (typeof upstream !== 'function' || isExecutionHandlerStubLeaf(upstream)) {
-                showToast('جاري تجهيز الأدوات — أعد المحاولة بعد لحظة', 'warning');
-                return false;
+            const applyLocal = (result: unknown): boolean => {
+                if (result === false || isExecutionHandlerWaitTimeout(result)) {
+                    return false;
+                }
+                const latest = executionDataRef.current;
+                if (!latest) return false;
+                executionDataRef.current = mergeExecutionFileSeizureLists(
+                    { ...latest, ...patch } as ExecutionFile,
+                    executionDataRef.current,
+                );
+                bumpLocalExecutionView();
+                return true;
+            };
+            const upstream = persistExecutionMergeRef.current;
+            if (typeof upstream === 'function' && !isExecutionHandlerStubLeaf(upstream)) {
+                return applyLocal(upstream(patch));
             }
-            const result = upstream(patch);
-            if (result === false) {
-                return false;
+            const pending = invokeMaybeStubFunctionOrWait('persistExecutionMerge', [patch], {
+                coalesce: false,
+                readLive: () => persistExecutionMergeRef.current,
+            });
+            if (pending && typeof (pending as Promise<unknown>).then === 'function') {
+                return (pending as Promise<unknown>).then(applyLocal) as unknown as boolean;
             }
-            executionDataRef.current = mergeExecutionFileSeizureLists(
-                { ...data, ...patch } as ExecutionFile,
-                executionDataRef.current,
-            );
-            bumpLocalExecutionView();
-            return true;
+            return applyLocal(pending);
         },
-        [persistExecutionMerge, showToast, bumpLocalExecutionView],
+        [showToast, bumpLocalExecutionView],
     );
 
-    const pushTimelineEventLocal = useCallback(
-        (ev: Record<string, unknown>) => {
-            const fn = scope.pushTimelineEvent;
-            if (typeof fn === 'function' && !isExecutionHandlerStubLeaf(fn)) {
-                fn(ev);
-            }
-        },
-        [scope.pushTimelineEvent],
-    );
+    const pushTimelineEventLocal = useCallback((ev: Record<string, unknown>) => {
+        return invokeMaybeStubFunctionOrWait('pushTimelineEvent', [ev], {
+            readLive: () => pushTimelineEventRef.current,
+        });
+    }, []);
 
     const nextTimelineIdLocal = useCallback((): string => {
         const fn = scope.nextTimelineId;
@@ -107,6 +117,24 @@ export function useExecutionDashboardPhoneBodyScope(renderFingerprint?: string) 
         }
         return `timeline_${Date.now()}`;
     }, [scope.nextTimelineId]);
+
+    const pushSeizureAuctionCalendarAppointmentLocal = useCallback(
+        (input: {
+            dossierId: string;
+            decisionId: string;
+            ymd: string;
+            purpose: string;
+            linkToAppointments: boolean;
+        }) => {
+            return invokeMaybeStubFunctionOrWait('pushSeizureAuctionCalendarAppointment', [input], {
+                readLive: () =>
+                    scope.pushSeizureAuctionCalendarAppointment as
+                        | ((args: typeof input) => void)
+                        | undefined,
+            });
+        },
+        [scope.pushSeizureAuctionCalendarAppointment],
+    );
 
     const propertyInlineSaveCtx = useExecutionDashboardPropertyInlineSaveContext({
         decisionsStorageExecutionId: scope.decisionsStorageExecutionId,
@@ -119,7 +147,7 @@ export function useExecutionDashboardPhoneBodyScope(renderFingerprint?: string) 
         pushTimelineEvent: pushTimelineEventLocal,
         nextTimelineId: nextTimelineIdLocal,
         linkSeizureAuctionToAppointments: Boolean(scope.linkSeizureAuctionToAppointments),
-        pushSeizureAuctionCalendarAppointment: scope.pushSeizureAuctionCalendarAppointment,
+        pushSeizureAuctionCalendarAppointment: pushSeizureAuctionCalendarAppointmentLocal,
     });
 
     const movableInlineSaveCtx = useExecutionDashboardMovableInlineSaveContext({
@@ -133,48 +161,20 @@ export function useExecutionDashboardPhoneBodyScope(renderFingerprint?: string) 
         pushTimelineEvent: pushTimelineEventLocal,
         nextTimelineId: nextTimelineIdLocal,
         linkSeizureAuctionToAppointments: Boolean(scope.linkSeizureAuctionToAppointments),
-        pushSeizureAuctionCalendarAppointment: scope.pushSeizureAuctionCalendarAppointment,
+        pushSeizureAuctionCalendarAppointment: pushSeizureAuctionCalendarAppointmentLocal,
     });
 
-    const saveSeizedMovableInitLocal = useCallback(
-        (input: SaveSeizedMovableInitInput): SeizedMovable | null => {
-            const data = executionDataRef.current;
-            const exId = requireDecisionsStorageExecutionId({
-                decisionsStorageExecutionId: scope.decisionsStorageExecutionId,
-                executionId: scope.executionId,
-                executionData: data as Record<string, unknown> | null,
-            });
-            return runSaveSeizedMovableInitForDecision(input, {
-                exId,
-                executionDataRef,
-                nextTimelineId: nextTimelineIdLocal,
-                persistExecutionMerge: persistExecutionMergeLocal,
-                pushTimelineEvent: pushTimelineEventLocal,
-                showToast: showToast,
-            });
-        },
-        [
-            scope.decisionsStorageExecutionId,
-            scope.executionId,
-            nextTimelineIdLocal,
-            persistExecutionMergeLocal,
-            pushTimelineEventLocal,
-            showToast,
-        ],
+    /** Post-approve movable init retired — keep key for prop/snapshot honesty. */
+    const saveSeizedMovableInitForDecision = useCallback(
+        (_input: SaveSeizedMovableInitInput): SeizedMovable | null => null,
+        [],
     );
-
-    const saveSeizedMovableInitForDecision =
-        typeof scope.saveSeizedMovableInitForDecision === 'function' &&
-        !isExecutionHandlerStubLeaf(scope.saveSeizedMovableInitForDecision)
-            ? (scope.saveSeizedMovableInitForDecision as (input: SaveSeizedMovableInitInput) => SeizedMovable | null | void)
-            : saveSeizedMovableInitLocal;
 
     const { secondaryStageReady, tertiaryStageReady, quaternaryStageReady } =
         useExecutionDashboardPhoneBodyMountStages({
             movableSeizureRequestModalOpen: scope.movableSeizureRequestModalOpen,
             propertySeizureRequestModalOpen: scope.propertySeizureRequestModalOpen,
             showExecutionFinancialHub: scope.showExecutionFinancialHub,
-            showUnifiedSeizureLogModal: scope.showUnifiedSeizureLogModal,
             isVisitationClaim: Boolean(scope.isVisitationClaim),
             isMaritalFurnitureClaim: Boolean(scope.isMaritalFurnitureClaim),
         });

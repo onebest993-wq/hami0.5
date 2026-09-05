@@ -5,7 +5,6 @@ import { deriveDecisionCardAppealContext } from './decisionCardDerived/decisionC
 import { deriveDecisionCardHeirsContext } from './decisionCardDerived/decisionCardHeirsDerived';
 import { deriveDecisionCardFollowupShortcuts } from './decisionCardDerived/decisionCardFollowupDerived';
 import { deriveDecisionCardEnforcementSurface } from './decisionCardDerived/decisionCardEnforcementDerived';
-import { useDecisionCardSeizureCompletionAction } from './decisionCardDerived/useDecisionCardSeizureCompletionAction';
 
 type UseDecisionCardDerivedStateArgs = Pick<
     DecisionCardProps,
@@ -13,7 +12,6 @@ type UseDecisionCardDerivedStateArgs = Pick<
     | 'decisions'
     | 'decisionsHubTab'
     | 'dispatcherHub'
-    | 'executionId'
     | 'requestNeedsExecutorOutcome'
     | 'buildDecisionCardStatus'
     | 'appealPerspective'
@@ -24,7 +22,6 @@ export function useDecisionCardDerivedState({
     decisions,
     decisionsHubTab,
     dispatcherHub,
-    executionId,
     requestNeedsExecutorOutcome,
     buildDecisionCardStatus,
     appealPerspective = 'creditor_agent',
@@ -55,12 +52,6 @@ export function useDecisionCardDerivedState({
         requestNeedsExecutorOutcome,
         appeal,
     });
-    const { seizureCompletionBusy, runSeizureCompletion } = useDecisionCardSeizureCompletionAction(
-        decision,
-        executionId,
-        followup.seizureSubtype,
-    );
-
     const [showReasoning, setShowReasoning] = useState(false);
     const [showDetails, setShowDetails] = useState(false);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -69,10 +60,6 @@ export function useDecisionCardDerivedState({
         ...presentation,
         ...appeal,
         ...heirs,
-        seizureCompletionReady: followup.seizureCompletionReady,
-        seizureCompletionLabel: followup.seizureCompletionLabel,
-        seizureCompletionBusy,
-        runSeizureCompletion,
         evictionScheduleReady: followup.evictionScheduleReady,
         evictionGraceReady: followup.evictionGraceReady,
         evictionPoliceReady: followup.evictionPoliceReady,

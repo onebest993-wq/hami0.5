@@ -3,6 +3,13 @@ import type { IncidentalCase, IncidentalFileLink } from './incidentalTypes';
 
 export type CaseType = 'lawsuit' | 'transaction' | 'execution';
 
+export type IndependentChallengeLink = {
+    sourceFileId: number;
+    sourceCaseNo: string;
+    sourceStageName: string;
+    relatedAppealStageId?: string;
+};
+
 export interface FileData {
     id: number;
     type: CaseType;
@@ -46,10 +53,16 @@ export interface FileData {
     /** مرحلة الحكم الأصلي عند الطعن الاستثنائي (إعادة محاكمة / اعتراض غيابي / اعتراض الغير) */
     retrialTargetStage?: string;
     clientPhone?: string;
+    /** وحدة النزاع عند تعدد المدعى عليهم — قابلية التجزئة */
+    disputeIntegrity?: import('@/app/domain/lawsuit/partyJudgmentDisposition').DisputeIntegrity;
     /** اختصاص الدعوى عند الإنشاء (القضاء المدني أو الأحوال الشخصية) — لفلترة مخزن الإضابير */
     lawsuitJurisdiction?: 'civil' | 'personal';
     /** القانون المطبق في دعاوى الأحوال الشخصية */
     applicableLaw?: 'law_188_1959' | 'jaafari_code';
+    /** صفة الموكل في الدعوى — تُنسخ إلى إضبارة الطعن المستقل */
+    representedParty?: string | null;
+    /** طعن استئنافي/تمييزي مستقل — إضبارة جديدة دون تعديل رول الاستئناف المستخرج */
+    independentChallengeLink?: IndependentChallengeLink;
     /** إضبارة منبثقة من دعوى أم (منضمة / متقابلة) */
     parentId?: number;
     incidentalLink?: IncidentalFileLink;

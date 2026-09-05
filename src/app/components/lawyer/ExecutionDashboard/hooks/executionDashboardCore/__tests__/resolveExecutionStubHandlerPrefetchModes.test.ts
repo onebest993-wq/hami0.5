@@ -8,9 +8,12 @@ describe('resolveExecutionStubHandlerPrefetchModes', () => {
         ]);
     });
 
-    it('يسخّن seizure-log لسجل الحجز', () => {
+    it('يسخّن seizure-requests لمسارات الحجز المتبقية', () => {
         expect(resolveExecutionStubHandlerPrefetchModes('unifiedSeizureLog.open')).toContain(
-            'seizure-log',
+            'seizure-requests',
+        );
+        expect(resolveExecutionStubHandlerPrefetchModes('seizureRelease.release')).toContain(
+            'seizure-requests',
         );
     });
 
@@ -20,13 +23,37 @@ describe('resolveExecutionStubHandlerPrefetchModes', () => {
         expect(modes).toContain('coercive-lifecycle');
     });
 
-    it('لا يسخّن light/dossier-support لمسارات المقيمة على Core', () => {
+    it('يسخّن light عند ضرب معالجات الدفع/الملاحظات', () => {
         expect(resolveExecutionStubHandlerPrefetchModes('notesTasksHandlers.handleSaveNote')).toEqual(
-            [],
+            ['light'],
         );
+        expect(resolveExecutionStubHandlerPrefetchModes('paymentHandlers.save')).toEqual(['light']);
+    });
+
+    it('يسخّن جسور المتابعة عند ضرب stubs المحضر', () => {
         expect(
-            resolveExecutionStubHandlerPrefetchModes('dossierFollowupHandlers.otherPartyTabSubmit'),
-        ).toEqual([]);
+            resolveExecutionStubHandlerPrefetchModes(
+                'dossierFollowupHandlers.runSpecialFollowupSubmit',
+            ),
+        ).toEqual(['followup-admin-special']);
+        expect(
+            resolveExecutionStubHandlerPrefetchModes('dossierFollowupHandlers.handleDossierAction'),
+        ).toEqual(['followup-dossier-controls']);
+        expect(
+            resolveExecutionStubHandlerPrefetchModes(
+                'dossierFollowupHandlers.otherPartyTabSubmitHandler',
+            ),
+        ).toEqual(['followup-other-party']);
+    });
+
+    it('يسخّن جسر الوفاة لا الإلزام الثقيل', () => {
+        expect(resolveExecutionStubHandlerPrefetchModes('partyDeathHandlers.handleDebtorDeathMenuAction')).toEqual(
+            ['party-death'],
+        );
+    });
+
+    it('لا يسخّن جسوراً لمسارات الحفظ المقيمة على Core', () => {
         expect(resolveExecutionStubHandlerPrefetchModes('propertyInlineSaveCtx.save')).toEqual([]);
+        expect(resolveExecutionStubHandlerPrefetchModes('persistExecutionMerge')).toEqual([]);
     });
 });

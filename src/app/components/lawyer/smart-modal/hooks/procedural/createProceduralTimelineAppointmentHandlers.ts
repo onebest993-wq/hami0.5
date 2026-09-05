@@ -113,7 +113,7 @@ export function createProceduralTimelineAppointmentHandlers(
 
             const ctx = lawsuitCalendarContext();
             const timelineEventId = String(data.id ?? `appt_${Date.now()}`);
-            syncLawsuitTimelineAppointment({
+            await syncLawsuitTimelineAppointment({
                 userId: ctx.userId,
                 fileId: ctx.fileId,
                 event: {

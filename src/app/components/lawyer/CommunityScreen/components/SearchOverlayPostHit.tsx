@@ -22,7 +22,7 @@ export function SearchOverlayPostHit({
         <button
             type="button"
             onClick={() => onOpen?.(post.id)}
-            className={`w-full text-right ${FORUM_FEED_CARD} p-4`}
+            className={`w-full text-right ${FORUM_FEED_CARD}`}
         >
             <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2">

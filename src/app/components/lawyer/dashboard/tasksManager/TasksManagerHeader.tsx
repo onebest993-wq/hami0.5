@@ -20,15 +20,14 @@ export function TasksManagerHeader({
     return (
         <header className={`${TASKS_HEADER} relative z-[1]`}>
             <div className="min-w-0 text-right">
-                <h1 className="text-[#F4F4F5] font-semibold text-lg truncate">أجندة المهام</h1>
-                <p className="text-[11px] text-white/40 font-medium mt-0.5">الأسبوع الحالي</p>
+                <h1 className="text-[#F4F4F5] font-semibold text-base truncate">أجندة المهام</h1>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0 max-w-[62%]">
+            <div className="flex items-center gap-1 shrink-0 max-w-[62%]">
                 <button
                     type="button"
                     onClick={onOpenHelpInbox}
                     data-testid="tasks-manager-help-inbox"
-                    className={`flex items-center gap-1 min-h-[44px] px-2.5 py-2 rounded-xl border text-[11px] font-semibold transition-all touch-manipulation ${TASKS_GLASS_PANEL} border-white/[0.08] text-[#F4F4F5]/75 hover:border-[#E6C673]/22`}
+                    className={`flex items-center gap-1 min-h-[44px] px-2 py-2 rounded-xl border text-[11px] font-semibold transition-all touch-manipulation ${TASKS_GLASS_PANEL} border-white/[0.08] text-[#F4F4F5]/75 hover:border-[#E6C673]/22`}
                     aria-label="صندوق طلبات المساعدة"
                 >
                     <HandHelping size={15} />

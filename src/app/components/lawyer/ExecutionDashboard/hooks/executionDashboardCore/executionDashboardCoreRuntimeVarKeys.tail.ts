@@ -158,7 +158,6 @@ export const CORE_RUNTIME_VAR_KEYS_TAIL = [
     "evictionFinancialHandlers",
     "moduleExpenseHandlers",
     "followupSeizureHandlers",
-    "seizureAssetModalHandlers",
     "thirdPartyReceiveHandlers",
     "coerciveActionBridge",
     "coerciveActionHandlers",
@@ -185,7 +184,6 @@ export const CORE_RUNTIME_VAR_KEYS_TAIL = [
     "decisionsOrchestrator",
     "financialOrchestrator",
     "partyEditWorkflow",
-    "unifiedSeizureLog",
     "dossierLifecycleActions",
     "dossierMetaWorkflow",
     "debtorSummonsProfileBundle",
@@ -201,3 +199,4 @@ export const CORE_RUNTIME_VAR_KEYS_TAIL = [
     "handleDossierLifecyclePick",
     "handleDossierLifecycleConfirmDetails",
 ] as const;
+

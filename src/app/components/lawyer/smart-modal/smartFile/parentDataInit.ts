@@ -17,6 +17,7 @@ export type SmartFileParentData = {
     createdDate: string;
     representedParty: string | null;
     status?: string;
+    disputeIntegrity?: import('@/app/domain/lawsuit/partyJudgmentDisposition').DisputeIntegrity;
     caseLinks?: CaseLinkRecord[];
     consolidationSecondaryRefs?: ConsolidationSecondaryRef[];
     retrialTargetStage?: string;
@@ -50,6 +51,10 @@ export function buildInitialParentDataFromFile(
         createdDate: typeof file?.date === 'string' ? file.date : getLocalTodayYmd(),
         representedParty: resolveRepresentedParty(file ?? {}),
         status: typeof file?.status === 'string' ? file.status : 'active',
+        disputeIntegrity:
+            file?.disputeIntegrity === 'severable' || file?.disputeIntegrity === 'indivisible'
+                ? file.disputeIntegrity
+                : undefined,
         caseLinks: readCaseLinks(file),
         consolidationSecondaryRefs: readConsolidationSecondaryRefs(file),
     };

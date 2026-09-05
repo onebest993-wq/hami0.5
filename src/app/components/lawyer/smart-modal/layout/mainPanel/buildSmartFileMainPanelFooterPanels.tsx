@@ -2,21 +2,21 @@ import type { ReactNode } from 'react';
 import { Lock } from '@/app/components/ui/icons/Lock';
 import { Scale } from '@/app/components/ui/icons/Scale';
 import {
-    daysRemainingUntil,
     hasAbsentJudgmentNotificationRecorded,
-    isAwaitingAbsentJudgmentNotification,
-    resolveAbsentObjectionDeadline,
 } from '../../smartFile/absentJudgmentFlow';
-import { isAppealDeadlineExpired } from '../../smartFile/appealDeadlineEngine';
-import { daysRemainingPetitionVoidRevival } from '../../smartFile/petitionVoidFlow';
 import {
     hasMeritJudgmentRecorded,
     isClientWonAwaitingOpponentFinalDecision,
+    isPartialBothInterestStage,
     shouldShowClientAppealPostJudgmentFooter,
     shouldShowOpponentAppealWatchPostJudgmentFooter,
 } from '../../smartFile/judgmentTypes';
 import type { SmartFileMainPanelProps } from './smartFileMainPanelTypes';
 import type { SmartFileMainPanelFooterFlags } from './resolveSmartFileMainPanelFooterFlags';
+import { CIVIL_LAWSUIT_TEST_IDS } from '../../smartFile/civilLawsuitTestIds';
+import { JoinCoObjectorFooterControl } from './JoinCoObjectorFooterControl';
+import { SMART_FILE_FOOTER_CHIP, SMART_FILE_FOOTER_CHIP_ACCENT } from './smartFileFooterChip';
+import { shouldSpawnIndependentChallengeDossier } from '@/app/domain/lawsuit/independentChallengeDossier';
 
 export type SmartFileMainPanelFooterPanelsInput = Pick<
     SmartFileMainPanelProps,
@@ -34,10 +34,12 @@ export type SmartFileMainPanelFooterPanelsInput = Pick<
     | 'handlePetitionVoidOutcome'
     | 'handleOpponentAppealWaived'
     | 'handleReopenPleadings'
+    | 'handleJoinCoObjector'
 > &
     Pick<
         SmartFileMainPanelFooterFlags,
         | 'showAbsentJudgmentFooter'
+        | 'showAbsentJudgmentNotificationAction'
         | 'showOpponentAppealBtnEffective'
         | 'showAppealStageFooter'
         | 'appealStageFooter'
@@ -46,6 +48,11 @@ export type SmartFileMainPanelFooterPanelsInput = Pick<
         | 'showFlowStatusFooter'
         | 'showFlowAbandonmentFooter'
         | 'showFlowPauseFooter'
+        | 'showRemainingOpponentChallenge'
+        | 'remainingOpponentChallengeLabel'
+        | 'showIndependentClientChallenge'
+        | 'showJoinCoObjectorFooter'
+        | 'joinCoObjectorCandidates'
     >;
 
 export type SmartFileMainPanelFooterPanels = {
@@ -55,6 +62,9 @@ export type SmartFileMainPanelFooterPanels = {
     petitionVoidFooterPanel: ReactNode;
     postJudgmentAppealFooterPanel: ReactNode;
     flowStatusFooterPanel: ReactNode;
+    remainingOpponentChallengeFooterPanel: ReactNode;
+    independentClientChallengeFooterPanel: ReactNode;
+    joinCoObjectorFooterPanel: ReactNode;
 };
 
 export function buildSmartFileMainPanelFooterPanels(
@@ -73,9 +83,9 @@ export function buildSmartFileMainPanelFooterPanels(
         handleOpenDefendantCassationAppeal,
         handlePetitionVoidAppeal,
         handlePetitionVoidOutcome,
-        handleOpponentAppealWaived,
         handleReopenPleadings,
         showAbsentJudgmentFooter,
+        showAbsentJudgmentNotificationAction,
         showOpponentAppealBtnEffective,
         showAppealStageFooter,
         appealStageFooter,
@@ -84,100 +94,98 @@ export function buildSmartFileMainPanelFooterPanels(
         showFlowStatusFooter,
         showFlowAbandonmentFooter,
         showFlowPauseFooter,
+        showRemainingOpponentChallenge: _showRemainingOpponentChallenge,
+        remainingOpponentChallengeLabel: _remainingOpponentChallengeLabel,
+        showIndependentClientChallenge: _showIndependentClientChallenge,
+        showJoinCoObjectorFooter,
+        joinCoObjectorCandidates,
+        handleJoinCoObjector,
     } = input;
+    void _showRemainingOpponentChallenge;
+    void _remainingOpponentChallengeLabel;
+    void _showIndependentClientChallenge;
 
     const petitionVoidFlow = displayStage?.petitionVoidFlow;
-    const petitionVoidRevivalDaysLeft =
-        petitionVoidFlow?.status === 'quash_revived'
-            ? daysRemainingPetitionVoidRevival(petitionVoidFlow.revivalDeadline)
-            : null;
 
-    const absentObjectionDeadline = showAbsentJudgmentFooter
-        ? resolveAbsentObjectionDeadline(displayStage)
-        : null;
-    const absentObjectionDaysLeft = absentObjectionDeadline
-        ? daysRemainingUntil(absentObjectionDeadline)
-        : null;
-
-    const absentJudgmentFooterPanel = showAbsentJudgmentFooter ? (
-        isAwaitingAbsentJudgmentNotification(displayStage, stages) && onAbsentJudgmentNotification ? (
+    const absentNotificationButton =
+        showAbsentJudgmentNotificationAction && onAbsentJudgmentNotification ? (
             <button
                 type="button"
+                data-testid={CIVIL_LAWSUIT_TEST_IDS.absentJudgmentNotice}
                 onClick={onAbsentJudgmentNotification}
                 onPointerEnter={() => {
                     void import('../../modals/appealObjectionModals').catch(() => undefined);
                 }}
-                className="w-full py-3 rounded-xl border border-amber-400/25 bg-amber-500/10 text-amber-100 text-sm font-bold hover:bg-amber-500/15 transition-colors"
+                className="w-full min-h-[44px] rounded-xl border border-amber-400/30 bg-amber-500/12 py-3 text-[15px] font-bold text-amber-50 transition-colors hover:bg-amber-500/18"
             >
                 التبليغ بالحكم الغيابي
             </button>
-        ) : hasAbsentJudgmentNotificationRecorded(displayStage) ? (
-            <div className="space-y-2">
-                {absentObjectionDeadline && absentObjectionDaysLeft !== null ? (
-                    <p className="text-[11px] text-white/50 text-right px-0.5 tabular-nums">
-                        تبليغ: {displayStage?.absentJudgmentNotificationDate}
-                        {' · '}
-                        {absentObjectionDaysLeft < 0
-                            ? 'انتهت مهلة الاعتراض'
-                            : `مهلة الاعتراض: ${absentObjectionDaysLeft} يوم`}
-                    </p>
-                ) : null}
-                <button
-                    type="button"
-                    onClick={() => setShowAppealModal(true)}
-                    onPointerEnter={() => {
-                        void import('../../AppealTransitionModal').catch(() => undefined);
-                    }}
-                    className="w-full rounded-xl border border-[#E6C673]/30 bg-[#0A0F1C]/55 py-3.5 text-base font-bold text-[#E6C673] transition-colors hover:border-[#E6C673]/45 hover:bg-[#E6C673]/[0.08]"
-                >
-                    تسجيل طعن المدعى عليه
-                </button>
+        ) : null;
+
+    const opponentAppealButton = showOpponentAppealBtnEffective ? (
+        <button
+            type="button"
+            data-testid="smart-opponent-appeal-trigger"
+            onClick={() => setShowAppealModal(true)}
+            onPointerEnter={() => {
+                void import('../../AppealTransitionModal').catch(() => undefined);
+            }}
+            className="w-full min-h-[44px] rounded-xl border border-indigo-400/30 bg-indigo-500/12 py-3.5 text-[15px] font-bold text-indigo-50 transition-colors hover:bg-indigo-500/18"
+        >
+            {displayStage?.appealWindowLapsed ? 'قام الخصم بالتمييز' : 'قام الخصم بالطعن'}
+        </button>
+    ) : null;
+
+    const absentObjectionButton = showAbsentJudgmentFooter ? (
+        <button
+            type="button"
+            onClick={() => setShowAppealModal(true)}
+            onPointerEnter={() => {
+                void import('../../AppealTransitionModal').catch(() => undefined);
+            }}
+            className="w-full rounded-xl border border-[#E6C673]/30 bg-[#0A0F1C]/55 py-3.5 text-base font-bold text-[#E6C673] transition-colors hover:border-[#E6C673]/45 hover:bg-[#E6C673]/[0.08]"
+        >
+            تسجيل طعن المدعى عليه
+        </button>
+    ) : null;
+
+    const absentJudgmentFooterPanel =
+        showAbsentJudgmentNotificationAction && absentNotificationButton && opponentAppealButton ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {absentNotificationButton}
+                {opponentAppealButton}
             </div>
-        ) : null
-    ) : null;
-
-    const opponentAppealDeadline =
-        displayStage?.appealDeadline ?? currentStage?.appealDeadline ?? null;
-    const opponentAppealDaysLeft = opponentAppealDeadline
-        ? daysRemainingUntil(String(opponentAppealDeadline).slice(0, 10))
-        : null;
-    const opponentAppealExpired = isAppealDeadlineExpired(opponentAppealDeadline);
-
-    const opponentAppealFooterPanel = showOpponentAppealBtnEffective ? (
-        <div className="space-y-2">
-            <p className="text-sm font-bold text-indigo-100/95 text-right px-0.5">
-                {opponentAppealExpired
-                    ? 'انتهت مهلة الاستئناف — لم يطعن الخصم'
-                    : 'محسومة لصالح الموكل — بانتظار طعن الخصم'}
-            </p>
-            {opponentAppealDeadline && !opponentAppealExpired ? (
-                <p className="text-[10px] text-indigo-200/55 text-right px-0.5 tabular-nums">
-                    مهلة الاستئناف حتى {String(opponentAppealDeadline).slice(0, 10)}
-                    {opponentAppealDaysLeft !== null ? ` (متبقي ${opponentAppealDaysLeft} يوم)` : ''}
-                </p>
-            ) : null}
-            {opponentAppealExpired ? (
-                <button
-                    type="button"
-                    onClick={handleOpponentAppealWaived}
-                    className="w-full rounded-xl border border-emerald-400/35 bg-emerald-500/15 py-3.5 text-[15px] font-bold text-emerald-50 transition-colors hover:bg-emerald-500/22"
-                >
-                    لم يطعن الخصم بالاستئناف — تثبيت الدرجة القطعية
-                </button>
+        ) : showAbsentJudgmentFooter &&
+          showAbsentJudgmentNotificationAction &&
+          absentNotificationButton ? (
+            hasAbsentJudgmentNotificationRecorded(displayStage) ? (
+                <div className="space-y-2">
+                    {absentNotificationButton}
+                    {absentObjectionButton}
+                </div>
             ) : (
-                <button
-                    type="button"
-                    onClick={() => setShowAppealModal(true)}
-                    onPointerEnter={() => {
-                        void import('../../AppealTransitionModal').catch(() => undefined);
-                    }}
-                    className="w-full rounded-xl border border-indigo-400/35 bg-indigo-500/15 py-3.5 text-[15px] font-bold text-indigo-50 transition-colors hover:bg-indigo-500/22"
-                >
-                    قام الخصم بالطعن
-                </button>
-            )}
-        </div>
-    ) : null;
+                absentNotificationButton
+            )
+        ) : showAbsentJudgmentFooter ? (
+            hasAbsentJudgmentNotificationRecorded(displayStage) ? (
+                <div className="space-y-2">{absentObjectionButton}</div>
+            ) : null
+        ) : showAbsentJudgmentNotificationAction ? (
+            absentNotificationButton
+        ) : null;
+
+    const opponentAppealFooterPanel =
+        showOpponentAppealBtnEffective &&
+        !(showAbsentJudgmentNotificationAction && absentNotificationButton) ? (
+            <div className="space-y-2">
+                <p className="text-sm font-bold text-indigo-100/95 text-right px-0.5">
+                    {displayStage?.appealWindowLapsed
+                        ? 'انتهت مدة الاستئناف — يبقى طريق التمييز'
+                        : 'محسومة لصالح الموكل — بانتظار طعن الخصم'}
+                </p>
+                {opponentAppealButton}
+            </div>
+        ) : null;
 
     const appealStageFooterPanel = showAppealStageFooter && appealStageFooter.kind ? (
         appealStageFooter.kind === 'register_opponent_cassation' ? (
@@ -228,21 +236,6 @@ export function buildSmartFileMainPanelFooterPanels(
                           ? 'طعن مُقدَّم — سجّل نتيجة محكمة الطعن.'
                           : 'نُقض الإبطال — الإضبارة حية للمرافعة.'}
                 </p>
-                {petitionVoidRevivalDaysLeft !== null ? (
-                    <p
-                        className={`text-[10px] font-bold mt-1 tabular-nums ${
-                            petitionVoidRevivalDaysLeft < 0
-                                ? 'text-rose-300/90'
-                                : petitionVoidRevivalDaysLeft <= 2
-                                  ? 'text-amber-300/90'
-                                  : 'text-white/45'
-                        }`}
-                    >
-                        {petitionVoidRevivalDaysLeft < 0
-                            ? 'انتهت مهلة الطعن — سقوط الحق'
-                            : `متبقي ${petitionVoidRevivalDaysLeft} يوم`}
-                    </p>
-                ) : null}
             </div>
 
             {petitionVoidFlow.status === 'registered' ? (
@@ -279,24 +272,56 @@ export function buildSmartFileMainPanelFooterPanels(
 
     const representedParty = parentData.representedParty;
     const finalDecision = displayStage?.finalDecision;
+    const spawnIndependent = shouldSpawnIndependentChallengeDossier({
+        stages,
+        sourceStage: displayStage,
+        appealType: 'استئناف',
+    });
     const clientAppealButton = (
         <button
             type="button"
-            onClick={handleOpenDefendantCassationAppeal}
+            {...(spawnIndependent
+                ? { 'data-testid': CIVIL_LAWSUIT_TEST_IDS.independentChallengeSpawn }
+                : {})}
+            onClick={() =>
+                handleOpenDefendantCassationAppeal(
+                    undefined,
+                    spawnIndependent ? { forceIndependentSpawn: true } : undefined,
+                )
+            }
             onPointerEnter={() => {
                 void import('../../AppealTransitionModal').catch(() => undefined);
             }}
-            className="w-full rounded-xl border border-indigo-400/35 bg-indigo-500/15 py-3.5 text-[15px] font-bold text-indigo-50 transition-colors hover:bg-indigo-500/22"
+            className={
+                isPartialBothInterestStage(displayStage)
+                    ? SMART_FILE_FOOTER_CHIP_ACCENT
+                    : 'w-full rounded-xl border border-indigo-400/35 bg-indigo-500/15 py-3.5 text-[15px] font-bold text-indigo-50 transition-colors hover:bg-indigo-500/22'
+            }
         >
-            <span className="inline-flex items-center justify-center gap-2">
-                <Scale size={16} />
-                تقديم طعن (استئناف / تمييز)
-            </span>
+            {spawnIndependent ? 'إنشاء طعن استئنافي مستقل' : 'تقديم طعن (استئناف / تمييز)'}
         </button>
     );
 
     const postJudgmentAppealFooterPanel = showPostJudgmentAppealFooter ? (
-        shouldShowOpponentAppealWatchPostJudgmentFooter(
+        isPartialBothInterestStage(displayStage) ? (
+            <div
+                className="flex flex-wrap gap-1.5 items-stretch"
+                data-testid={CIVIL_LAWSUIT_TEST_IDS.postJudgmentPartialTracks}
+            >
+                <div className="flex-1 min-w-[7.5rem]">{clientAppealButton}</div>
+                <button
+                    type="button"
+                    data-testid={CIVIL_LAWSUIT_TEST_IDS.postJudgmentOpponentChallenge}
+                    onClick={() => setShowAppealModal(true)}
+                    onPointerEnter={() => {
+                        void import('../../AppealTransitionModal').catch(() => undefined);
+                    }}
+                    className={`flex-1 min-w-[7.5rem] ${SMART_FILE_FOOTER_CHIP}`}
+                >
+                    قام الخصم بالطعن
+                </button>
+            </div>
+        ) : shouldShowOpponentAppealWatchPostJudgmentFooter(
             representedParty,
             finalDecision,
             displayStage,
@@ -393,6 +418,17 @@ export function buildSmartFileMainPanelFooterPanels(
         )
     ) : null;
 
+    const remainingOpponentChallengeFooterPanel = null;
+
+    const independentClientChallengeFooterPanel = null;
+
+    const joinCoObjectorFooterPanel = showJoinCoObjectorFooter ? (
+        <JoinCoObjectorFooterControl
+            candidates={joinCoObjectorCandidates}
+            onJoin={handleJoinCoObjector}
+        />
+    ) : null;
+
     return {
         absentJudgmentFooterPanel,
         opponentAppealFooterPanel,
@@ -400,5 +436,8 @@ export function buildSmartFileMainPanelFooterPanels(
         petitionVoidFooterPanel,
         postJudgmentAppealFooterPanel,
         flowStatusFooterPanel,
+        remainingOpponentChallengeFooterPanel,
+        independentClientChallengeFooterPanel,
+        joinCoObjectorFooterPanel,
     };
 }

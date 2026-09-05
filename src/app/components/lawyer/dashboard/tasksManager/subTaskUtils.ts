@@ -1,6 +1,6 @@
 import type { LegalSubTask } from '@/app/types/TaskEngine';
 
-export type SubTaskKind = 'field' | 'branch';
+type SubTaskKind = 'field' | 'branch';
 
 export function resolveSubTaskKind(st: LegalSubTask, taskHasLocation: boolean): SubTaskKind {
     if (st.kind === 'field' || st.kind === 'branch') return st.kind;

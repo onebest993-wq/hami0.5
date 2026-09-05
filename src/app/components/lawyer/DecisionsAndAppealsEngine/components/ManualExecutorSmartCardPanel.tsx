@@ -8,7 +8,6 @@ import {
     buildManualExecutorCassationNaqdPatch,
     buildManualExecutorCassationRadLaheezaPatch,
     buildManualExecutorGrievanceOutcomePatch,
-    decisionAppealClockYmd,
     manualExecutorAwaitingCassationParty,
     manualExecutorCassationEntryButtonLabel,
     manualExecutorCassationFiledNoticeLabel,
@@ -19,7 +18,6 @@ import {
 } from '../utils';
 import { DECISION_BTN_DEBTOR_APPEAL_NOTICE } from '../decisionCardPresentation';
 import { ManualExecutorAppealClockField } from './ManualExecutorAppealClockField';
-import { AppealSelectedDeadlineHint } from './AppealSelectedDeadlineHint';
 
 const CHIP_BASE =
     'min-h-[36px] rounded-full border px-3 py-1.5 text-[10px] font-bold transition-colors disabled:pointer-events-none disabled:opacity-40';
@@ -59,7 +57,6 @@ export function ManualExecutorSmartCardPanel({
                 todayYmd()
         ).slice(0, 10)
     );
-    const originalDecisionYmd = decisionAppealClockYmd(decision);
     const canSubmitInitialAppeal =
         appealKind === 'tadhallum' ? windows.canTadhallum : windows.canTamyeez;
 
@@ -156,8 +153,8 @@ export function ManualExecutorSmartCardPanel({
             decision.manualExecutorAppealAppellant === 'debtor' ? 'المدين' : 'الدائن';
         return (
             <div className="min-h-0 flex w-full min-w-0 flex-col gap-2">
-                <p className="text-[10px] leading-relaxed text-amber-200/90">
-                    مقدّم التظلم: {grievanceFiler} — سجّل نتيجة قرار المنفذ:
+                <p className="text-[11px] font-semibold text-slate-300 text-right">
+                    مقدّم التظلم: {grievanceFiler}
                 </p>
                 <ManualExecutorAppealClockField
                     id={`grievance-outcome-date-${decision.id}`}
@@ -189,11 +186,6 @@ export function ManualExecutorSmartCardPanel({
         if (!windows.canTamyeez) return null;
         return (
             <div className="min-h-0 space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                <AppealSelectedDeadlineHint
-                    kind="tamyeez"
-                    decisionYmd={originalDecisionYmd}
-                    windows={windows}
-                />
                 <button type="button" onClick={submitCassation} className={btnPrimaryWFull}>
                     {manualExecutorCassationEntryButtonLabel(cassationParty)}
                 </button>
@@ -272,11 +264,6 @@ export function ManualExecutorSmartCardPanel({
                                 تمييز أمام الاستئناف
                             </button>
                         </div>
-                        <AppealSelectedDeadlineHint
-                            kind={appealKind}
-                            decisionYmd={originalDecisionYmd}
-                            windows={windows}
-                        />
                     </div>
                     <div className="space-y-1.5">
                         <p className="text-[10px] font-bold text-slate-400">مقدّم التظلم</p>

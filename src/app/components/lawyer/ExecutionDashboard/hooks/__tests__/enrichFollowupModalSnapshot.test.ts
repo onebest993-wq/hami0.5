@@ -56,8 +56,31 @@ describe('enrichFollowupModalSnapshot', () => {
         );
 
         expect(enriched.followupSpecialization?.showEncroachmentRemovalRequestCards).toBe(true);
-        expect(enriched.followupSpecialization?.hideFollowupCoerciveTab).toBe(true);
+        // effective يفوز على scope القديم حتى لا تُفرَّغ لوحة الإجراءات الجبرية
+        expect(enriched.followupSpecialization?.hideFollowupCoerciveTab).toBe(false);
         expect(enriched.followupSpecialization?.hideCoerciveGraceNoticeBanner).toBe(true);
+    });
+
+    it('prefers followupModalSpecializationEffective over stale scope followupSpecialization', () => {
+        const enriched = enrichFollowupModalSnapshot(
+            {
+                followupSpecialization: {
+                    hideFollowupCoerciveTab: true,
+                    hidePersonalCoerciveFollowupTab: true,
+                },
+            },
+            {
+                followupModalSpecializationEffective: {
+                    hideFollowupCoerciveTab: false,
+                    hidePersonalCoerciveFollowupTab: false,
+                },
+                modalShowPersonalCoerciveFollowupTab: true,
+            },
+        );
+
+        expect(enriched.followupSpecialization?.hideFollowupCoerciveTab).toBe(false);
+        expect(enriched.followupSpecialization?.hidePersonalCoerciveFollowupTab).toBe(false);
+        expect(enriched.showPersonalCoerciveFollowupTab).toBe(true);
     });
 
     it('falls back to bundled lazy tab components when scope has no Lazy* keys', () => {

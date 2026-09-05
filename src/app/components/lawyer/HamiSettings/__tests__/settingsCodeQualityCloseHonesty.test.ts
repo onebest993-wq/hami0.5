@@ -18,6 +18,7 @@ describe('settings code quality close honesty', () => {
         expect(existsSync(join(root, 'src/app/runtime/settingsInstantPaintChrome.ts'))).toBe(true);
         expect(existsSync(join(root, 'src/app/runtime/settingsInstantPaintInteract.ts'))).toBe(true);
         expect(existsSync(join(root, 'src/app/runtime/settingsInstantPaintDom.ts'))).toBe(true);
+        expect(existsSync(join(root, 'src/app/runtime/settingsInstantPaintHostAdopt.ts'))).toBe(true);
         const interact = read('src/app/runtime/settingsInstantPaintInteract.ts');
         expect(interact).not.toContain("from './settingsInstantPaint'");
         const chrome = read('src/app/runtime/settingsInstantPaintChrome.ts');
@@ -64,16 +65,20 @@ describe('settings code quality close honesty', () => {
         const section = read('src/app/components/lawyer/HamiSettings/security/SecuritySection.tsx');
         expect(section).not.toContain('patchSecurity');
         expect(section).not.toContain('SmartDialog');
-        expect(section).toContain('togglePrivacyBlur');
+        expect(section).not.toContain('togglePrivacyBlur');
+        expect(section).toContain('toggleScreenshotDeterrent');
         expect(lineCount('src/app/components/lawyer/HamiSettings/security/SecuritySection.tsx')).toBeLessThan(
             110,
         );
         const hook = read('src/app/components/lawyer/HamiSettings/security/useSecuritySection.ts');
-        expect(hook).toContain('runPrivacyBlurToggle');
+        expect(hook).not.toContain('runPrivacyBlurToggle');
+        expect(hook).not.toContain('togglePrivacyBlur');
         expect(hook).not.toContain('SmartDialog.confirm');
         const toggles = read(
             'src/app/components/lawyer/HamiSettings/security/securitySectionToggles.ts',
         );
-        expect(toggles).toContain('export async function runPrivacyBlurToggle');
+        expect(toggles).not.toContain('runPrivacyBlurToggle');
+        expect(toggles).not.toContain('ضبابية الخصوصية');
+        expect(toggles).toContain('export async function runScreenshotDeterrentToggle');
     });
 });

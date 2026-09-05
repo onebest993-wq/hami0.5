@@ -112,7 +112,7 @@ export const EventFormTimeField = React.memo(function EventFormTimeField({
                                         reminderMinutesBefore: minutes,
                                     }))
                                 }
-                                className={`min-h-[44px] rounded-full border-0 px-3 text-[11px] font-medium touch-manipulation transition-colors ${
+                                className={`min-h-[44px] rounded-lg border-0 px-3 text-[11px] font-medium touch-manipulation transition-colors ${
                                     active
                                         ? 'bg-[#E6C673]/20 text-[#E6C673]'
                                         : 'bg-[#141a28] text-white/55 hover:bg-[#1a2233]'

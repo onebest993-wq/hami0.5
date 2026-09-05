@@ -237,9 +237,7 @@ export const ToDoList = memo(function ToDoList({
                                 {pendingCount} قيد التنفيذ
                                 {completedCount > 0 ? ` · ${completedCount} منجزة` : ''}
                             </p>
-                        ) : (
-                            <p className="text-[9px] text-white/35 mt-0.5">لا مهام — اضغط + للإضافة</p>
-                        )}
+                        ) : null}
                     </div>
                 </div>
                 {!readOnly ? (

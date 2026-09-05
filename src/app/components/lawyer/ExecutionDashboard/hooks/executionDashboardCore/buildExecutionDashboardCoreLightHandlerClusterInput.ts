@@ -24,7 +24,6 @@ export type ExecutionDashboardCoreLightHandlersParams = {
         'remaining' | 'totalWithExecutionFee'
     >;
     followupDebtor: {
-        closeUnifiedSeizureLog?: () => void;
         openFollowupModalPersisted?: () => void;
     };
     claimFinancialLedger: {
@@ -46,7 +45,6 @@ export function buildExecutionDashboardCoreLightHandlerClusterInput(
         caseNotesLogRef: ws.caseNotesLogRef,
         caseTasksPending: ws.caseTasksPending,
         caseTasksPendingRef: ws.caseTasksPendingRef,
-        closeUnifiedSeizureLog: p.followupDebtor.closeUnifiedSeizureLog,
         currentFileId: boot.currentFileId,
         editingAppointmentId: ws.editingAppointmentId,
         editingTaskId: ws.editingTaskId,

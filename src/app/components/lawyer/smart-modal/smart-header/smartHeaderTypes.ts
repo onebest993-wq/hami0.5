@@ -26,7 +26,7 @@ export interface SmartHeaderProps {
     caseType?: string;
     onCassationDecision?: (type: string) => void;
     isPleadingsClosed?: boolean;
-    wasReopened?: boolean;
+    pleadingDoorReopened?: boolean;
     onClosePleadings?: () => void;
     onReopenPleadings?: () => void;
     onRegisterOpponentAppeal?: () => void;

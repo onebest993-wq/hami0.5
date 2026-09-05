@@ -1,8 +1,8 @@
 /** أنماط زجاجية موحّدة — نموذج إنشاء التنفيذ (سطح مسطّح خفيف) */
 export const ecg = {
-    sheetBackdrop: 'fixed inset-0 z-[235] bg-[#05060D]/55',
+    sheetBackdrop: 'absolute inset-0 z-40 bg-[#05060D]/55',
     sheetPanel:
-        'fixed inset-x-0 bottom-0 z-[236] flex flex-col rounded-t-2xl border-t border-white/[0.08] bg-[#0A0F1C]',
+        'absolute inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl border-t border-white/[0.08] bg-[#0A0F1C]',
     sheetHeader: 'flex-shrink-0 flex items-center justify-between gap-3 px-4 py-3 border-b border-white/[0.06]',
     sheetTitle: 'text-sm font-bold text-[#E6C673] flex-1 text-center tracking-wide',
     sheetClose:

@@ -16,7 +16,15 @@ import {
     resolveCorrectionRejectedClientOutcome,
     buildCassationRemandTimelineTitle,
     resolvePriorAppealJudgmentForCassation,
+    resolvePriorAppealStageOutcome,
+    cassationOutcomeToStageOutcome,
 } from '../../../smartFile/appealStageJudgmentEngine';
+import { withClientStageOutcome } from '../../../smartFile/stageOutcomeResolution';
+import { patchDossierAfterCassationRemand } from '../../../smartFile/art210CassationExtension';
+import {
+    CASSATION_JUDGMENT_REVERSE_FINAL,
+    parseCassationGroundsScope,
+} from '@/app/domain/lawsuit/cassationArt210';
 import type { JudgmentConfirmRuntime, JudgmentConfirmScope } from './judgmentConfirmTypes';
 
 export function applyCassationScenarios(scope: JudgmentConfirmScope, rt: JudgmentConfirmRuntime): void {
@@ -33,7 +41,9 @@ export function applyCassationScenarios(scope: JudgmentConfirmScope, rt: Judgmen
 
     if (action === 'correction_complete' && isCassationCorrectionStageName(stageName)) {
         rt.handled = true;
-        const clientRole = resolveClientAppealRole(currentStage.parties);
+        const clientRole = resolveClientAppealRole(currentStage.parties, {
+            appealMetadata: currentStage.appealMetadata,
+        });
         const correctionOutcome = resolveCorrectionAcceptedClientOutcome(
             updatedStages,
             activeStageIndex,
@@ -63,7 +73,9 @@ export function applyCassationScenarios(scope: JudgmentConfirmScope, rt: Judgmen
 
     if (action === 'correction_rejected' && isCassationCorrectionStageName(stageName)) {
         rt.handled = true;
-        const clientRole = resolveClientAppealRole(currentStage.parties);
+        const clientRole = resolveClientAppealRole(currentStage.parties, {
+            appealMetadata: currentStage.appealMetadata,
+        });
         const correctionOutcome = resolveCorrectionRejectedClientOutcome(
             updatedStages,
             activeStageIndex,
@@ -116,25 +128,32 @@ export function applyCassationScenarios(scope: JudgmentConfirmScope, rt: Judgmen
 
     if (action === 'final_ratification') {
         rt.handled = true;
-        const clientRole = resolveClientAppealRole(currentStage.parties);
+        const clientRole = resolveClientAppealRole(currentStage.parties, {
+            appealMetadata: currentStage.appealMetadata,
+        });
         const priorAppealJudgment = resolvePriorAppealJudgmentForCassation(
             updatedStages,
             activeStageIndex,
         );
+        const priorAppealOutcome = resolvePriorAppealStageOutcome(updatedStages, activeStageIndex);
         const outcome = resolveCassationClientOutcome(
             judgmentType,
             clientRole,
             priorAppealJudgment,
+            priorAppealOutcome,
         );
         const clientLost = outcome === 'loss';
 
-        updatedStages[activeStageIndex] = {
+        updatedStages[activeStageIndex] = withClientStageOutcome(
+            {
             ...currentStage,
             status: 'completed',
             finalDecision: 'مكتسبة الدرجة القطعية',
             decisionDate: judgmentDate,
             isPleadingsClosed: true,
-        };
+            },
+            cassationOutcomeToStageOutcome(outcome) ?? 'FINALIZED',
+        );
 
         updatedStages[activeStageIndex].timeline = [{
             id: `cassation_final_${Date.now()}`,
@@ -159,22 +178,78 @@ export function applyCassationScenarios(scope: JudgmentConfirmScope, rt: Judgmen
         return;
     }
 
-    if (action === 'remand_to_lower') {
+    if (action === 'reverse_final') {
         rt.handled = true;
-        const clientRole = resolveClientAppealRole(currentStage.parties);
+        const clientRole = resolveClientAppealRole(currentStage.parties, {
+            appealMetadata: currentStage.appealMetadata,
+        });
         const priorAppealJudgment = resolvePriorAppealJudgmentForCassation(
             updatedStages,
             activeStageIndex,
         );
+        const priorAppealOutcome = resolvePriorAppealStageOutcome(updatedStages, activeStageIndex);
+        const outcome = resolveCassationClientOutcome(
+            CASSATION_JUDGMENT_REVERSE_FINAL,
+            clientRole,
+            priorAppealJudgment,
+            priorAppealOutcome,
+        );
+        const clientLost = outcome === 'loss';
+
+        updatedStages[activeStageIndex] = withClientStageOutcome(
+            {
+                ...currentStage,
+                status: 'completed',
+                finalDecision: CASSATION_JUDGMENT_REVERSE_FINAL,
+                decisionDate: judgmentDate,
+                isPleadingsClosed: true,
+            },
+            cassationOutcomeToStageOutcome(outcome) ?? 'FINALIZED',
+        );
+
+        updatedStages[activeStageIndex].timeline = [{
+            id: `cassation_reverse_final_${Date.now()}`,
+            type: 'milestone',
+            date: judgmentDate,
+            title: clientLost
+                ? 'نقض والفصل في الموضوع — حكم نهائي ضد الموكل'
+                : 'نقض الحكم والفصل في الموضوع (م/214)',
+            details: clientLost
+                ? `${notes}\n\nنقضت محكمة التمييز الحكم وفصلت في الموضوع.\nالحكم نهائي ضد موكلك ولا إعادة للإضبارة.\nتم غلق ملف الدعوى.`
+                : `${notes}\n\nنقضت محكمة التمييز الحكم وفصلت في الموضوع عملاً بالمادة (214) مرافعات.\nلا إعادة للإضبارة. تم غلق ملف الدعوى نهائياً.`,
+            isNew: true,
+            color: clientLost ? 'red' : 'gold',
+        }, ...(currentStage.timeline ?? [])];
+
+        setStatus('مكتسبة الدرجة القطعية');
+        rt.nextCaseStatus = 'مكتسبة الدرجة القطعية';
+        rt.successToast = clientLost
+            ? 'خُتمت الإضبارة — النقض والفصل نهائي ضد الموكل'
+            : 'تم نقض الحكم والفصل في الموضوع — اكتسب الدرجة القطعية';
+        return;
+    }
+
+    if (action === 'remand_to_lower') {
+        rt.handled = true;
+        const clientRole = resolveClientAppealRole(currentStage.parties, {
+            appealMetadata: currentStage.appealMetadata,
+        });
+        const priorAppealJudgment = resolvePriorAppealJudgmentForCassation(
+            updatedStages,
+            activeStageIndex,
+        );
+        const priorAppealOutcome = resolvePriorAppealStageOutcome(updatedStages, activeStageIndex);
         const remandTitle = buildCassationRemandTimelineTitle(
             judgmentType,
             clientRole,
             priorAppealJudgment,
+            priorAppealOutcome,
         );
         const remandOutcome = resolveCassationClientOutcome(
             judgmentType,
             clientRole,
             priorAppealJudgment,
+            priorAppealOutcome,
         );
         const remandTarget = resolveCassationRemandTarget(updatedStages, activeStageIndex);
         const { updatedStages: remandedStages, newActiveIndex, target } = applyCassationRemand(
@@ -196,6 +271,14 @@ export function applyCassationScenarios(scope: JudgmentConfirmScope, rt: Judgmen
             },
         );
         updatedStages.splice(0, updatedStages.length, ...remandedStages);
+        const grounds = parseCassationGroundsScope(rt.judgmentData.cassationGroundsScope);
+        const extended = patchDossierAfterCassationRemand({
+            stages: updatedStages,
+            cassationIndex: activeStageIndex,
+            groundsScope: grounds,
+            parentIntegrity: scope.parentData?.disputeIntegrity,
+        });
+        updatedStages.splice(0, updatedStages.length, ...extended);
         rt.remandNewActiveIndex = newActiveIndex;
         rt.successToast = cassationRemandSuccessMessage(target);
         return;

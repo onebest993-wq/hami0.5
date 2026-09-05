@@ -36,17 +36,14 @@ export async function resolveFuseForKey(
     return getOrCreateGlobalSearchFuse(cacheKey, index);
 }
 
-export type SearchIndexBuildSnapshot = {
+type SearchIndexBuildSnapshot = {
     overlayOpen: boolean;
     cacheKey: string;
-    /** extras محمّلة ومُضمّنة في preparedInput */
-    extrasReady: boolean;
-    isLoadingExtras: boolean;
     activeKey: string | null;
     hasFuseInState: boolean;
 };
 
-export type SearchIndexBuildCallbacks = {
+type SearchIndexBuildCallbacks = {
     applyFuse: (fuse: Fuse<GlobalSearchEntry>, key: string) => void;
     clearFuse: () => void;
     setBuilding: (building: boolean) => void;
@@ -93,7 +90,9 @@ export async function runSearchIndexBuild(
 ): Promise<void> {
     const { clearFuse, setBuilding, isCancelled } = callbacks;
     const plan = planSearchIndexBuild({
-        ...snapshot,
+        overlayOpen: snapshot.overlayOpen,
+        cacheKey: snapshot.cacheKey,
+        activeKey: snapshot.activeKey,
         hasCachedIndex: Boolean(getCachedGlobalSearchFuse(snapshot.cacheKey)),
     });
 

@@ -59,6 +59,7 @@ export type DebtorCardRowBadgesClusterProps = {
     completePoliceAssistance: DebtorsSectionProps['completePoliceAssistance'];
     getPublicationNoticeForDebtorKey: DebtorsSectionProps['getPublicationNoticeForDebtorKey'];
     persistExecutionMerge: DebtorsSectionProps['persistExecutionMerge'];
+    persistGuarantorFollowupDetails: DebtorsSectionProps['persistGuarantorFollowupDetails'];
     buildPublicationNoticePatchForDebtorKey: DebtorsSectionProps['buildPublicationNoticePatchForDebtorKey'];
     onOpenUnifiedSummonsHub: DebtorsSectionProps['onOpenUnifiedSummonsHub'];
     dismissDebtorAbsenceBadge: DebtorsSectionProps['dismissDebtorAbsenceBadge'];

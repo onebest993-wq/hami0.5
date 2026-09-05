@@ -48,7 +48,7 @@ describe('repositoryChromeDismiss', () => {
         expect(dismiss).not.toHaveBeenCalled();
     });
 
-    it('dismissAll يستدعي كل الطبقات من الأعلى', () => {
+    it('dismissAll يستدعي كل الطبقات من الأعلى ويصفّر المكدس', () => {
         const a = vi.fn(() => true);
         const b = vi.fn(() => true);
         registerRepositoryChromeDismiss(a);
@@ -57,5 +57,6 @@ describe('repositoryChromeDismiss', () => {
         expect(b).toHaveBeenCalledTimes(1);
         expect(a).toHaveBeenCalledTimes(1);
         expect(b.mock.invocationCallOrder[0]).toBeLessThan(a.mock.invocationCallOrder[0]);
+        expect(dismissTopRepositoryChrome()).toBe(false);
     });
 });

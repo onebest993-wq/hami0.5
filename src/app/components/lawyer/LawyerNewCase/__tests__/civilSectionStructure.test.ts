@@ -150,6 +150,7 @@ describe('civil lawsuit section structural closure', () => {
         expect(fixtures).toContain("fillLabeledInput(page, 'اسم المحكمة المختصة'");
         expect(fixtures).toContain('commitNewCaseEnter');
         expect(fixtures).toContain('fillPartyFullNames');
+        expect(fixtures).toContain('lawyer-new-case-party-name');
         expect(fixtures).toContain('nativeSetInputValue');
         expect(fixtures).toContain("isVisible({ timeout: 8_000 })");
         expect(fixtures).toContain('await openLawsuitsWorkspace(page)');

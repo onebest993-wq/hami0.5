@@ -34,6 +34,9 @@ export function openFollowupModalStoreFallback(): void {
     } catch {
         /* ignore */
     }
+    void import('../executionFollowupOpenReady')
+        .then((m) => m.ensureExecutionFollowupChromeReady())
+        .catch(() => undefined);
 }
 
 export function openFollowupModal(

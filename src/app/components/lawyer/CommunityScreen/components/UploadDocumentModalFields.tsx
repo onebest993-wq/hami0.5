@@ -13,7 +13,7 @@ export function UploadDocumentModalFields({ form, isEditing }: UploadDocumentMod
     const { title, setTitle, description, setDescription } = form;
 
     return (
-        <div className="px-5 py-4 space-y-4 overflow-visible">
+        <div className="px-4 py-3 space-y-3 overflow-visible">
             {!isEditing ? (
                 <UploadDocumentModalKindPicker
                     uploadKind={form.uploadKind}

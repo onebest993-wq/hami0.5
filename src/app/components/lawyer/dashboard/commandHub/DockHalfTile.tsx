@@ -14,7 +14,7 @@ import {
     type DockShellBadgeContext,
 } from '@/app/services/settings/dockShellAria';
 import { useScrollSafePress } from '@/app/hooks/useScrollSafePress';
-import { hubTilePressClass, tileShellClasses } from './commandHubTileClasses';
+import { hubTilePressClass, tileShellClasses } from '@/app/components/lawyer/dashboard/commandHubTileClasses';
 import { HUB_HALF_TILE_BASE_PX, HUB_HALF_TILE_MIN_CLASS } from '@/app/components/lawyer/dashboard/hubHalfTileMetrics';
 import { HubTileFace } from './commandHubTileChrome';
 import { HomeBlockPatternOverlay } from '../HomeBlockPatternOverlay';

@@ -1,12 +1,26 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { timeValue } from '@/app/components/lawyer/SmartLegalRadar/radarCalendarMath';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
-import { detectConflictsFromUnifiedEvents } from '@/app/services/calendar/scheduleConflictDetector';
+import type { CrossSectionConflictResult } from '@/app/services/calendar/scheduleConflictDetector';
 import {
     resolveExplicitCalendarEventDurationMinutes,
 } from '@/app/services/calendar/calendarDurationUtils';
 
 const TRAVEL_GAP_MINUTES = 60;
+
+const IDLE_CONFLICT: CrossSectionConflictResult = {
+    items: [],
+    totalCount: 0,
+    sourceCounts: { HEARING: 0, TRANSACTION: 0, TASK: 0 },
+    isOverloaded: false,
+    hasLocationMismatch: false,
+    hasTravelConflict: false,
+    distinctLocations: [],
+    travelConflict: null,
+    warningMessage: null,
+    travelWarning: null,
+    hasConflict: false,
+};
 
 function travelGapMinutes(prev: UnifiedEvent, curr: UnifiedEvent): number {
     const prevStart = timeValue(prev.time);
@@ -16,10 +30,19 @@ function travelGapMinutes(prev: UnifiedEvent, curr: UnifiedEvent): number {
 }
 
 export function useSmartLegalRadarDayInsights(selectedEvents: UnifiedEvent[]) {
-    const scheduleConflict = useMemo(
-        () => detectConflictsFromUnifiedEvents(selectedEvents),
-        [selectedEvents],
-    );
+    const [scheduleConflict, setScheduleConflict] =
+        useState<CrossSectionConflictResult>(IDLE_CONFLICT);
+
+    useEffect(() => {
+        let cancelled = false;
+        void import('@/app/services/calendar/scheduleConflictDetector').then((mod) => {
+            if (cancelled) return;
+            setScheduleConflict(mod.detectConflictsFromUnifiedEvents(selectedEvents));
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedEvents]);
 
     const conflictMessage = useMemo(() => {
         /* كاشف الإثقال/المواقع يملك الملخص الرسمي — لا تكرار */

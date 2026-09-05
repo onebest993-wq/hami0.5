@@ -27,17 +27,17 @@ import {
 import {
     EXEC_OVERLAY_INNER_SILENT_FALLBACK,
 } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShellUi';
+import { EXEC_OVERLAY_FIELD } from '@/app/components/lawyer/ExecutionDashboard/executionModalMobileShell';
 import {
     LAW_TAXONOMY_FILTER_BTN,
     LawTaxonomyFilterRail,
 } from '@/app/components/lawyer/shared/LawTaxonomyFilterRail';
 
-const PARENT_CHIP_ACTIVE =
-    'border-[#E6C673]/35 bg-[#E6C673]/12 text-[#E6C673] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]';
+const PARENT_CHIP_ACTIVE = 'border-[#E6C673]/35 bg-[#E6C673]/12 text-[#E6C673]';
 const PARENT_CHIP_IDLE =
-    'border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/18 hover:text-slate-100';
-const LEAF_CHIP_ACTIVE = 'border-purple-500/35 bg-purple-900/40 text-purple-300';
-const LEAF_CHIP_IDLE = 'border-white/10 bg-transparent text-slate-400 hover:border-white/20 hover:text-slate-200';
+    'border-transparent text-slate-400 hover:bg-white/[0.04] hover:text-slate-200';
+const LEAF_CHIP_ACTIVE = PARENT_CHIP_ACTIVE;
+const LEAF_CHIP_IDLE = PARENT_CHIP_IDLE;
 
 function filterBtnClass(active: boolean, activeClass: string, idleClass: string): string {
     return [LAW_TAXONOMY_FILTER_BTN, 'min-h-[44px] touch-manipulation', active ? activeClass : idleClass].join(' ');
@@ -58,7 +58,7 @@ function getHighlightedText(text: string, highlight: string): React.ReactNode {
 }
 
 const ARTICLE_CARD_CLASS =
-    'rounded-2xl border border-slate-700/40 bg-slate-900/35 p-4 text-right backdrop-blur-sm [content-visibility:auto] [contain-intrinsic-size:auto_140px]';
+    'rounded-xl border border-white/[0.08] bg-transparent p-3 text-right [content-visibility:auto] [contain-intrinsic-size:auto_120px]';
 
 const INITIAL_ARTICLE_BATCH = 24;
 const ARTICLE_BATCH_SIZE = 32;
@@ -103,7 +103,7 @@ const ExecutionLawArticleCard = memo(function ExecutionLawArticleCard({
 }) {
     return (
         <li className={ARTICLE_CARD_CLASS}>
-            <h3 className="text-base font-black leading-snug text-slate-100 sm:text-lg">
+            <h3 className="text-sm font-bold leading-snug text-slate-100 sm:text-base">
                 <span className="text-[#E6C673]/90">المادة ({art.number})</span>
                 {art.title.trim() ? (
                     <>
@@ -113,11 +113,11 @@ const ExecutionLawArticleCard = memo(function ExecutionLawArticleCard({
                 ) : null}
             </h3>
             {art.content.trim() ? (
-                <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-300">
+                <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed text-slate-300">
                     {getHighlightedText(art.content, searchQuery)}
                 </p>
             ) : (
-                <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-400">
+                <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed text-slate-400">
                     نص المادة غير متوفر حالياً.
                 </p>
             )}
@@ -287,7 +287,7 @@ export const ExecutionLawReferencePanel: React.FC<{ executionType?: string }> = 
 
     return (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="shrink-0 space-y-3 border-b border-slate-800/80 px-4 py-3">
+            <div className="shrink-0 space-y-2 border-b border-white/10 px-3 py-2">
                 <div className="relative">
                     <Search
                         className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
@@ -298,7 +298,7 @@ export const ExecutionLawReferencePanel: React.FC<{ executionType?: string }> = 
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="ابحث برقم المادة أو كلمة…"
-                        className="w-full min-h-[44px] touch-manipulation rounded-xl border border-slate-600/40 bg-slate-900/60 py-2.5 pl-3 pr-10 text-right text-sm text-slate-100 placeholder:text-slate-500 focus:border-[#E6C673]/45 focus:outline-none focus:ring-1 focus:ring-[#E6C673]/25"
+                        className={`${EXEC_OVERLAY_FIELD} pr-10`}
                         aria-label="بحث في مواد قانون التنفيذ"
                     />
                 </div>
@@ -385,7 +385,7 @@ export const ExecutionLawReferencePanel: React.FC<{ executionType?: string }> = 
 
             <div
                 ref={scrollRef}
-                className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 touch-pan-y [-webkit-overflow-scrolling:touch]"
+                className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-3 touch-pan-y [-webkit-overflow-scrolling:touch]"
             >
                 {articlesLoading && articles.length === 0 ? (
                     EXEC_OVERLAY_INNER_SILENT_FALLBACK
@@ -396,7 +396,7 @@ export const ExecutionLawReferencePanel: React.FC<{ executionType?: string }> = 
                         لا نتائج مطابقة للبحث أو التصنيف.
                     </p>
                 ) : (
-                    <ul className="space-y-3 pb-6">
+                    <ul className="space-y-2 pb-6">
                         {visibleArticles.map((art) => (
                             <ExecutionLawArticleCard
                                 key={art.number}

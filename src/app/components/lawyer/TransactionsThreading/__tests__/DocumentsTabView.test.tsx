@@ -29,7 +29,6 @@ describe('DocumentsTabView', () => {
                     department: 'دائرة',
                     targetDepartment: 'دائرة',
                     status: 'active',
-                    agreedFees: 0,
                     createdAt: '2026-01-01T00:00:00.000Z',
                     updatedAt: '2026-01-01T00:00:00.000Z',
                 }}
@@ -41,5 +40,36 @@ describe('DocumentsTabView', () => {
         const sheet = screen.getByTestId('transactions-add-document-sheet');
         expect(sheet).toHaveAttribute('data-state', 'open');
         expect(screen.getByText('وصف المستمسك وعائديته')).toBeInTheDocument();
+    });
+
+    it('يفرغ لقطة الرجوع عند إزالة تبويب المرفقات', () => {
+        const onDocumentsEscapeSnapshotChange = vi.fn();
+        const { unmount } = render(
+            <DocumentsTabView
+                transaction={{
+                    id: 'tx-1',
+                    title: 'معاملة',
+                    clientName: 'موكل',
+                    department: 'دائرة',
+                    targetDepartment: 'دائرة',
+                    status: 'active',
+                    createdAt: '2026-01-01T00:00:00.000Z',
+                    updatedAt: '2026-01-01T00:00:00.000Z',
+                }}
+                onDocumentsEscapeSnapshotChange={onDocumentsEscapeSnapshotChange}
+            />,
+        );
+
+        fireEvent.click(screen.getByRole('button', { name: /إضافة مرفق/i }));
+        expect(onDocumentsEscapeSnapshotChange).toHaveBeenCalledWith({
+            addDocumentSheetOpen: true,
+            deleteDocumentOpen: false,
+        });
+
+        unmount();
+        expect(onDocumentsEscapeSnapshotChange).toHaveBeenLastCalledWith({
+            addDocumentSheetOpen: false,
+            deleteDocumentOpen: false,
+        });
     });
 });

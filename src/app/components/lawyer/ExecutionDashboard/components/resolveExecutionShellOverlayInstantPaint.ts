@@ -39,7 +39,7 @@ export function resolveExecutionShellOverlayInstantPaint(
     if (s.showNotesModal) {
         return {
             kind: 'notes',
-            title: 'سجل الملاحظات والمهام',
+            title: 'سجل الملاحظات',
             onClose: closeBool(s, 'onCloseNotesModal', 'setShowNotesModal'),
         };
     }
@@ -217,13 +217,6 @@ export function resolveExecutionShellOverlayInstantPaint(
                 }
                 closeNull(s, 'setPermanentDeleteTimelineId')();
             },
-        };
-    }
-    if (s.showRealEstateSeizureModal) {
-        return {
-            kind: 'named',
-            title: 'بيانات حجز العقار — بعد موافقة المنفذ',
-            onClose: closeBool(s, 'onCloseRealEstateSeizureModal', 'setShowRealEstateSeizureModal'),
         };
     }
     if (s.showGuarantorDetailsModal) {

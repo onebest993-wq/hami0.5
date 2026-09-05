@@ -4,11 +4,26 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import { patchActiveStage } from '../smartFile/stageMutations';
 import { syncLawsuitTimelineAppointment } from '@/app/services/calendar/dossierSyncLazy';
-import {
-    ABSENT_JUDGMENT_OBJECTION_DAYS,
-    computeAbsentObjectionDeadline,
-} from '../smartFile/absentJudgmentFlow';
+import { recordAbsentJudgmentNotification } from '../smartFile/recordAbsentJudgmentNotification';
 import { openAbsentObjectionStage } from '../smartFile/absentObjectionStageOpen';
+import { resolveFirstInstanceActionSource } from '../smartFile/opponentRegistrationContext';
+import { applyAppealWindowLapse, applyCassationWindowLapse } from '../smartFile/appealWindowLapseEngine';
+import {
+    ART172_COVERAGE_NOTICE,
+    ART191_EXECUTION_STAY_NOTICE,
+    blocksCivilDossierFinality,
+    isAbsentClientCoveredByCoDefendantAppeal,
+} from '../smartFile/art172AppealStay';
+import { isMixedJudgmentForm, normalizePartyJudgmentDispositions } from '@/app/domain/lawsuit/partyJudgmentDisposition';
+import {
+    LANE_STATE_WAIVED,
+    applySeverableLaneLapses,
+    attachPartyChallengeLanes,
+    hasUnservedGhayabiLane,
+    listUnservedGhayabiNoticeOptions,
+    markLanesState,
+    resolveGhayabiObjectorPartyIds,
+} from '@/app/domain/lawsuit/partyChallengeLanes';
 
 type SaveToCloud = (
     updatedStages: CaseStage[],
@@ -34,6 +49,7 @@ export function useSmartFileDefaultJudgmentActions(options: {
     court?: string;
     parties?: unknown;
     clientName?: string;
+    parentIntegrity?: import('../smartFile/art172AppealStay').Art172JudgmentSource['disputeIntegrity'];
 }) {
     const {
         stages,
@@ -53,6 +69,7 @@ export function useSmartFileDefaultJudgmentActions(options: {
         court,
         parties,
         clientName,
+        parentIntegrity,
     } = options;
 
     const stageExt = currentStage as CaseStage & {
@@ -83,43 +100,48 @@ export function useSmartFileDefaultJudgmentActions(options: {
     }, [setShowOpponentAbsentObjectionModal]);
 
     const handleAbsentJudgmentNotification = useCallback(
-        (data: { notificationDate: string }) => {
-            const { notificationDate } = data;
-            const objectionDeadline = computeAbsentObjectionDeadline(notificationDate);
-
-            const timeline: TimelineEvent[] = [
-                {
-                    id: `abs_notif_${Date.now()}`,
-                    type: 'decision',
-                    date: notificationDate,
-                    title: '📬 التبليغ بالحكم الغيابي',
-                    details: `تم تسجيل تبليغ الحكم الغيابي بتاريخ ${notificationDate}.\nمهلة الاعتراض: ${ABSENT_JUDGMENT_OBJECTION_DAYS} أيام من تاريخ التبليغ — تنتهي في ${objectionDeadline}.`,
-                    isSystemLog: true,
-                    isNew: true,
-                },
-                ...(stageExt.timeline ?? []),
-            ];
-
-            const updated = patchActiveStage(stages, activeStageIndex, {
-                absentJudgmentNotificationDate: notificationDate,
-                awaitingAbsentJudgmentNotification: false,
-                appealDeadline: objectionDeadline,
-                finalDecision: 'حكم غيابي — بانتظار اعتراض المدعى عليه',
-                legalTimers: {
-                    ...(stageExt.legalTimers ?? {}),
-                    defaultObjectionDeadline: objectionDeadline,
-                },
-                timeline,
+        (data: { notificationDate: string; partyId?: string; partyIds?: string[] }) => {
+            const source = resolveFirstInstanceActionSource(stages, currentStage);
+            const recorded = recordAbsentJudgmentNotification({
+                sourceStage: source.stage,
+                notificationDate: data.notificationDate,
+                partyId: data.partyId,
+                partyIds: data.partyIds,
+                todayYmd: getLocalTodayYmd(),
             });
-            commit(updated);
-            SmartToast.success('تم تسجيل التبليغ — بدأ احتساب مهلة الاعتراض ⏳');
+            if (!recorded.ok) {
+                SmartToast.error(recorded.error);
+                return;
+            }
+            commit(patchActiveStage(stages, source.index, recorded.patch));
+            SmartToast.success(
+                recorded.stillAwaiting
+                    ? `سُجّل تبليغ ${recorded.partyName || 'الغائب'} — يبقى غائب بانتظار التبليغ`
+                    : 'تم تسجيل التبليغ',
+            );
         },
-        [stages, activeStageIndex, stageExt.timeline, stageExt.legalTimers, commit],
+        [stages, currentStage, commit],
     );
 
     const handleOpponentAbsentObjection = useCallback(
-        (data: { newCaseNumber: string; filingDate: string }) => {
+        (data: { newCaseNumber: string; filingDate: string; objectorPartyId?: string }) => {
             const { newCaseNumber, filingDate } = data;
+            const source = resolveFirstInstanceActionSource(stages, currentStage);
+            const sourceStage = source.stage;
+            const objectorPartyIds = resolveGhayabiObjectorPartyIds({
+                parties: sourceStage.parties,
+                dispositions: sourceStage.partyJudgmentDispositions,
+                explicitIds: data.objectorPartyId ? [data.objectorPartyId] : undefined,
+            });
+            if (objectorPartyIds.length === 0 && listUnservedGhayabiNoticeOptions({
+                parties: sourceStage.parties,
+                dispositions: sourceStage.partyJudgmentDispositions,
+                lanes: sourceStage.partyChallengeLanes,
+            }).length > 1) {
+                SmartToast.error('حدّد الطرف الغائب المعترض — لا يُقلب بقية المدعى عليهم');
+                return;
+            }
+            const mixed = isMixedJudgmentForm(sourceStage.judgmentForm);
             const archiveEvent: TimelineEvent = {
                 id: `opp_abs_obj_${Date.now()}`,
                 type: 'decision',
@@ -129,17 +151,29 @@ export function useSmartFileDefaultJudgmentActions(options: {
                 isNew: true,
             };
 
-            const { updatedStages, newActiveIndex } = openAbsentObjectionStage({
+            const opened = openAbsentObjectionStage({
                 stages,
-                activeStageIndex,
-                currentStage,
+                activeStageIndex: source.index,
+                currentStage: sourceStage,
                 filingDate,
-                sourceCaseNo: currentStage.caseNo ?? caseNo,
+                sourceCaseNo: sourceStage.caseNo ?? caseNo,
                 newCaseNumber,
+                objectorPartyIds,
                 archiveTimelineEvent: archiveEvent,
-                archiveFinalDecision: 'حكم غيابي — اعترض المدعى عليه',
-                archiveDecisionDate: stageExt.decisionDate ?? filingDate,
+                archiveFinalDecision: mixed
+                    ? 'اعترض الطرف الغائب'
+                    : 'حكم غيابي — اعترض المدعى عليه',
+                archiveDecisionDate: sourceStage.decisionDate ?? filingDate,
             });
+
+            if (opened.needsIndependentDossier) {
+                SmartToast.info(
+                    'يوجد اعتراض قائم — سجّل اعتراض الطرف اللاحق كإضبارة مستقلة من زر الطعن (اختيار المعترض)',
+                );
+                return;
+            }
+
+            const { updatedStages, newActiveIndex } = opened;
 
             const newStage = updatedStages[newActiveIndex];
             setStages(updatedStages);
@@ -165,32 +199,55 @@ export function useSmartFileDefaultJudgmentActions(options: {
 
     const handleOpponentAppealWaived = useCallback(() => {
         const today = getLocalTodayYmd();
-        const timeline: TimelineEvent[] = [
-            {
-                id: `opp_waive_${Date.now()}`,
-                type: 'decision',
-                date: today,
-                title: 'سقوط حق الخصم في الاستئناف',
-                details:
-                    'انتهت مهلة الاستئناف (15 يوماً من اليوم التالي لصدور القرار) دون تقديم طعن من الخصم — اكتسب الحكم الدرجة القطعية.',
-                isSystemLog: true,
-                isNew: true,
-            },
-            ...(stageExt.timeline ?? []),
-        ];
+        const patch = applyAppealWindowLapse(currentStage, today);
+        const updated = patchActiveStage(stages, activeStageIndex, patch);
+        commit(updated);
+        setStatus('انتهت مدة الاستئناف — يبقى طريق التمييز');
+        SmartToast.success('سُجّل انتهاء مدة الاستئناف — يبقى طريق التمييز');
+    }, [stages, activeStageIndex, currentStage, commit, setStatus]);
 
-        const updated = patchActiveStage(stages, activeStageIndex, {
-            status: 'completed',
-            finalDecision: 'مكتسبة الدرجة القطعية — لم يطعن الخصم بالاستئناف',
-            awaitingOpponentAppeal: false,
-            timeline,
-        });
+    const handleCassationWindowLapse = useCallback(() => {
+        const finalityParams = {
+            stages,
+            parties: currentStage.parties,
+            parentIntegrity,
+        };
+        if (blocksCivilDossierFinality(finalityParams)) {
+            SmartToast.info(
+                isAbsentClientCoveredByCoDefendantAppeal(finalityParams)
+                    ? ART172_COVERAGE_NOTICE
+                    : ART191_EXECUTION_STAY_NOTICE,
+            );
+            return;
+        }
+        const today = getLocalTodayYmd();
+        const patch = applyCassationWindowLapse(currentStage, today);
+        const updated = patchActiveStage(stages, activeStageIndex, patch);
         commit(updated);
         setStatus('مكتسبة الدرجة القطعية');
-        SmartToast.success('تم تثبيت سقوط حق الاستئناف — الحكم مكتسب الدرجة القطعية');
-    }, [stages, activeStageIndex, stageExt.timeline, commit, setStatus]);
+        SmartToast.success('سُجّل انتهاء مدة التمييز');
+    }, [stages, activeStageIndex, currentStage, parentIntegrity, commit, setStatus]);
 
     const handleWaiveObjection = useCallback(() => {
+        const objectorPartyIds = resolveGhayabiObjectorPartyIds({
+            parties: currentStage.parties,
+            dispositions: currentStage.partyJudgmentDispositions,
+            preferClient: true,
+        });
+        const mixed = isMixedJudgmentForm(stageExt.judgmentForm);
+        const lanes = applySeverableLaneLapses(
+            markLanesState(
+                attachPartyChallengeLanes(currentStage, {
+                    judgmentDate: currentStage.decisionDate,
+                    integrity: currentStage.disputeIntegrity,
+                    today: getLocalTodayYmd(),
+                }).partyChallengeLanes,
+                objectorPartyIds,
+                LANE_STATE_WAIVED,
+            ),
+            currentStage.disputeIntegrity,
+            getLocalTodayYmd(),
+        );
         const timeline = [
             {
                 id: `waive_obj_${Date.now()}`,
@@ -206,18 +263,25 @@ export function useSmartFileDefaultJudgmentActions(options: {
         ];
 
         const updated = patchActiveStage(stages, activeStageIndex, {
-            judgmentForm: 'غيابي (تم ترك حق الاعتراض)',
-            lastJudgmentType: 'غيابي (متروك)',
-            awaitingAbsentJudgmentNotification: false,
+            ...(mixed
+                ? {}
+                : {
+                    judgmentForm: 'غيابي (تم ترك حق الاعتراض)',
+                    lastJudgmentType: 'غيابي (متروك)',
+                }),
+            partyChallengeLanes: lanes,
+            awaitingAbsentJudgmentNotification: hasUnservedGhayabiLane(lanes),
             timeline,
         });
         commit(updated);
         SmartToast.info('تم تجاوز مرحلة الاعتراض. يمكنك الآن تقديم الطعن 🔓');
-    }, [stages, activeStageIndex, stageExt.timeline, commit]);
+    }, [stages, activeStageIndex, currentStage, stageExt.judgmentForm, stageExt.timeline, commit]);
 
     const handleRegisterObjection = useCallback(
         (data: { objectionDate: string; sessionDate: string; receiptNumber: string }) => {
             const { objectionDate, sessionDate } = data;
+            const source = resolveFirstInstanceActionSource(stages, currentStage);
+            const sourceStage = source.stage;
             const archiveEvent: TimelineEvent = {
                 id: `reg_obj_${Date.now()}`,
                 type: 'decision',
@@ -227,19 +291,42 @@ export function useSmartFileDefaultJudgmentActions(options: {
                 isNew: true,
             };
 
-            const { updatedStages, newActiveIndex, resolvedCaseNumber, sessionEventId } =
-                openAbsentObjectionStage({
-                    stages,
-                    activeStageIndex,
-                    currentStage,
-                    filingDate: objectionDate,
-                    sourceCaseNo: currentStage.caseNo ?? caseNo,
-                    archiveTimelineEvent: archiveEvent,
-                    archiveFinalDecision: 'حكم غيابي — اعترض المدعى عليه',
-                    archiveDecisionDate: stageExt.decisionDate ?? objectionDate,
-                    sessionDate,
-                });
+            const objectorPartyIds = resolveGhayabiObjectorPartyIds({
+                parties: sourceStage.parties,
+                dispositions: sourceStage.partyJudgmentDispositions,
+                preferClient: true,
+            });
+            if (
+                objectorPartyIds.length === 0
+                && normalizePartyJudgmentDispositions(sourceStage.partyJudgmentDispositions).length > 0
+            ) {
+                SmartToast.error('الاعتراض الغيابي قاصر على الموكل الغائب في هذه الإضبارة');
+                return;
+            }
+            const mixed = isMixedJudgmentForm(sourceStage.judgmentForm);
+            const opened = openAbsentObjectionStage({
+                stages,
+                activeStageIndex: source.index,
+                currentStage: sourceStage,
+                filingDate: objectionDate,
+                sourceCaseNo: sourceStage.caseNo ?? caseNo,
+                objectorPartyIds,
+                archiveTimelineEvent: archiveEvent,
+                archiveFinalDecision: mixed
+                    ? 'اعترض الطرف الغائب'
+                    : 'حكم غيابي — اعترض المدعى عليه',
+                archiveDecisionDate: sourceStage.decisionDate ?? objectionDate,
+                sessionDate,
+            });
 
+            if (opened.needsIndependentDossier) {
+                SmartToast.info(
+                    'يوجد اعتراض قائم — سجّل اعتراض الطرف اللاحق كإضبارة مستقلة من زر الطعن (اختيار المعترض)',
+                );
+                return;
+            }
+
+            const { updatedStages, newActiveIndex, resolvedCaseNumber, sessionEventId } = opened;
             const newStage = updatedStages[newActiveIndex];
             setStages(updatedStages);
             setActiveStageIndex(newActiveIndex);
@@ -299,6 +386,7 @@ export function useSmartFileDefaultJudgmentActions(options: {
         handleDefaultObjection,
         handleWaiveObjection,
         handleOpponentAppealWaived,
+        handleCassationWindowLapse,
         handleRegisterObjection,
         handleOtherAppeals,
         handleOpenAbsentJudgmentNotification,

@@ -1,4 +1,8 @@
 import type { Party } from '../../LawyerShared';
+import {
+    resolveOperationalAppealAction,
+    type PartyOutcome,
+} from '@/app/domain/lawsuit/litigationDecisionEngine';
 import { JUDGMENT_TYPE_VOID } from './judgmentConstants';
 import type { FirstInstanceAppealRights } from './firstInstanceAppealRightsTypes';
 import {
@@ -12,6 +16,20 @@ import {
     isNonMeritTerminationType,
     JUDGMENT_TYPE_FULL_WIN,
 } from './judgmentTypeGuards';
+
+function clientPartyOutcomeFromHadoriJudgment(
+    judgmentType: string,
+    effectiveSide: 'المدعي' | 'المدعى عليه',
+): PartyOutcome | null {
+    const isFullWin =
+        judgmentType === JUDGMENT_TYPE_FULL_WIN || judgmentType === 'إجابة الدعوى';
+    const isFullLoss = judgmentType === 'رد الدعوى كلياً';
+    const isPartial = judgmentType === 'رد الدعوى جزئياً';
+    if (isFullWin) return effectiveSide === 'المدعي' ? 'FULL_WIN' : 'FULL_LOSS';
+    if (isFullLoss) return effectiveSide === 'المدعي' ? 'FULL_LOSS' : 'FULL_WIN';
+    if (isPartial) return 'PARTIAL';
+    return null;
+}
 
 /**
  * حقوق الطعن في البداءة (حكم حضوري) — حسب نوع المنطوق وجانب الموكل.
@@ -72,12 +90,12 @@ export function resolveFirstInstanceHadoriAppealRights(
         if (judgmentType === 'رد الدعوى جزئياً') {
             return {
                 action: 'both_paths',
-                hint: 'حكم جزئي — يحق لكلا الطرفين الطعن فيما حُسم عليه.',
+                hint: 'حكم جزئي — يُحفظ المنطوق مرة واحدة؛ طعن موكلك وطعن/اعتراض الخصم من تذييل الإضبارة.',
             };
         }
         return {
             action: 'both_paths',
-            hint: 'اختر الإجراء المناسب: انتظار طعن الخصم إن كنت الكاسب، أو الانتقال للطعن إن كنت الخاسر.',
+            hint: 'يُحفظ الحكم مرة واحدة — مسارات الطعن من تذييل الإضبارة بعد الحفظ.',
         };
     }
 
@@ -92,45 +110,43 @@ export function resolveFirstInstanceHadoriAppealRights(
         };
     }
 
-    const isFullWin =
-        judgmentType === JUDGMENT_TYPE_FULL_WIN || judgmentType === 'إجابة الدعوى';
-    const isFullLoss = judgmentType === 'رد الدعوى كلياً';
-    const isPartial = judgmentType === 'رد الدعوى جزئياً';
+    const partyOutcome = clientPartyOutcomeFromHadoriJudgment(judgmentType, effectiveSide);
+    if (!partyOutcome) {
+        return { action: 'none', hint: '' };
+    }
 
-    if (isFullWin) {
-        if (effectiveSide === 'المدعي') {
+    const action = resolveOperationalAppealAction(partyOutcome, { partialAction: 'both_paths' });
+
+    if (action === 'wait_opponent') {
+        if (judgmentType === 'رد الدعوى كلياً') {
             return {
-                action: 'wait_opponent',
-                hint: 'كسبتم الدعوى — لا يحق لموكلك الطعن. تُقفل المرافعة بانتظار طعن الخصم.',
+                action,
+                hint: 'كسبتم الدعوى — لا يحق لموكلك الطعن. بانتظار طعن الخصم إن رغب.',
             };
         }
         return {
-            action: 'self_appeal',
-            hint: 'صدر حكم بإجابة الدعوى — يحق لموكلك الطعن بالاستئناف أو التمييز.',
+            action,
+            hint: 'كسبتم الدعوى — لا يحق لموكلك الطعن. تُقفل المرافعة بانتظار طعن الخصم.',
         };
     }
 
-    if (isFullLoss) {
-        if (effectiveSide === 'المدعي') {
-            return {
-                action: 'self_appeal',
-                hint: 'صدر حكم برفض الدعوى — يحق لموكلك الطعن.',
-            };
-        }
+    if (action === 'both_paths') {
         return {
-            action: 'wait_opponent',
-            hint: 'كسبتم الدعوى — لا يحق لموكلك الطعن. بانتظار طعن الخصم إن رغب.',
+            action,
+            hint: 'حكم جزئي — يُحفظ المنطوق مرة واحدة؛ طعن موكلك وطعن/اعتراض الخصم من تذييل الإضبارة.',
         };
     }
 
-    if (isPartial) {
+    if (judgmentType === 'رد الدعوى كلياً') {
         return {
             action: 'self_appeal',
-            hint: 'حكم جزئي — يحق لموكلك والخصم الطعن فيما حُسم عليه.',
+            hint: 'صدر حكم برفض الدعوى — بعد الحفظ يحق لموكلك الطعن من تذييل الإضبارة.',
         };
     }
-
-    return { action: 'none', hint: '' };
+    return {
+        action: 'self_appeal',
+        hint: 'صدر حكم بإجابة الدعوى — بعد الحفظ يحق لموكلك الطعن من تذييل الإضبارة.',
+    };
 }
 
 /** تلميح ذكي لكل خيار حكم حسب صفة الموكل — يُعرض في قائمة المنطوق. */
@@ -147,9 +163,11 @@ export function resolveJudgmentAppealHintForLawyer(
         case 'wait_opponent':
             return 'لا يحق لموكلك الطعن — بانتظار طعن الخصم';
         case 'self_appeal':
-            return judgmentType === 'رد الدعوى جزئياً'
-                ? 'يحق لموكلك الطعن (حكم جزئي)'
-                : 'يحق لموكلك الطعن';
+            return 'يحق لموكلك الطعن';
+        case 'both_paths':
+            return judgmentType === 'رد الدعوى جزئياً' || String(judgmentType).includes('جزئياً')
+                ? 'يحق لكلا الطرفين الطعن (حكم جزئي)'
+                : 'يحق لكلا الطرفين الطعن';
         case 'finalize_non_merit':
             return 'إنهاء نهائي — لا حق للطعن';
         case 'archive_void':

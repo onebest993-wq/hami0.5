@@ -4,14 +4,19 @@ import {
     resolveAppealStageClientOutcome,
     resolveCassationClientOutcome,
     resolveClientAppealRole,
-    resolveCorrectionAcceptedClientOutcome,
     resolveCorrectionRejectedClientOutcome,
-    resolvePriorAppealJudgmentForCassation,
-    buildAppealArchiveTimelineTitle,
+    resolvePriorAppealStageOutcome,
     buildCassationRemandTimelineTitle,
+    toAppealClientOutcome,
 } from '../appealStageJudgmentEngine';
 
-describe('appealStageJudgmentEngine', () => {
+const AFFIRM = 'تأييد الحكم البدائي ورد الاستئناف';
+const QUASH = 'فسخ الحكم البدائي كلياً';
+const REMAND = 'نقض الحكم وإعادة الإضبارة';
+const STAGE_APPEAL = 'الاستئناف';
+const STAGE_CASSATION = 'التمييز';
+
+describe('appealStageJudgmentEngine structured pipeline', () => {
     const appelleeClient = [
         {
             id: 1,
@@ -27,181 +32,119 @@ describe('appealStageJudgmentEngine', () => {
         },
     ];
 
-    it('resolves client as appellee from appeal-integrated role', () => {
+    it('resolveClientAppealRole from appellantPartyIds metadata', () => {
+        expect(
+            resolveClientAppealRole(
+                [
+                    { id: 1, name: 'موكل', role: 'المدعي', isClient: true },
+                    { id: 2, name: 'خصم', role: 'المدعى عليه', isClient: false },
+                ],
+                {
+                    appealMetadata: {
+                        appellantPartyIds: ['2'],
+                        appelleePartyIds: ['1'],
+                        priorStageOutcome: 'LOSS',
+                        priorJudgmentForm: 'HADORI',
+                    },
+                },
+            ),
+        ).toBe('appellee');
+        expect(
+            resolveClientAppealRole(
+                [
+                    { id: 1, name: 'موكل', role: 'المدعي', isClient: true },
+                    { id: 2, name: 'خصm', role: 'المدعى عليه', isClient: false },
+                ],
+                {
+                    appealMetadata: {
+                        appellantPartyIds: ['1'],
+                        appelleePartyIds: ['2'],
+                        priorStageOutcome: 'LOSS',
+                        priorJudgmentForm: 'HADORI',
+                    },
+                },
+            ),
+        ).toBe('appellant');
+    });
+
+    it('legacy role fallback when metadata absent', () => {
         expect(resolveClientAppealRole(appelleeClient)).toBe('appellee');
     });
 
-    it('appellee loses when appeal court quashes first-instance judgment', () => {
-        expect(
-            resolveAppealStageClientOutcome('فسخ الحكم البدائي كلياً', 'appellee'),
-        ).toBe('loss');
-        expect(
-            resolveAppealStageClientOutcome('فسخ الحكم البدائي كلياً', 'appellant'),
-        ).toBe('win');
+    it('affirm: appellant LOSS, appellee WIN', () => {
+        expect(resolveAppealStageClientOutcome(AFFIRM, 'appellant')).toBe('LOSS');
+        expect(resolveAppealStageClientOutcome(AFFIRM, 'appellee')).toBe('WIN');
     });
 
-    it('cassation ratification after appeal loss is loss for appellee', () => {
-        expect(
-            resolveCassationClientOutcome(
-                'تصديق الحكم',
-                'appellee',
-                'فسخ الحكم البدائي كلياً',
-            ),
-        ).toBe('loss');
+    it('full quash: appellant WIN, appellee LOSS', () => {
+        expect(resolveAppealStageClientOutcome(QUASH, 'appellee')).toBe('LOSS');
+        expect(resolveAppealStageClientOutcome(QUASH, 'appellant')).toBe('WIN');
     });
 
-    it('cassation ratification after appeal win is win for appellee', () => {
+    it('partial maps to PARTIAL', () => {
         expect(
-            resolveCassationClientOutcome(
-                'تصديق الحكم',
-                'appellee',
-                'تأييد الحكم البدائي ورد الاستئناف',
-            ),
-        ).toBe('win');
+            resolveAppealStageClientOutcome('فسخ الحكم البدائي جزئياً', 'appellant'),
+        ).toBe('PARTIAL');
+        expect(toAppealClientOutcome('PARTIAL')).toBe('partial');
     });
 
-    it('reads prior appeal judgment from cassation metadata', () => {
+    it('remand reads priorStageOutcome from appeal stage', () => {
         const stages = [
             {
-                stageName: 'الاستئناف',
+                stageName: STAGE_APPEAL,
                 status: 'locked',
-                finalDecision: 'محسومة ضد الموكل — انتقال لمرحلة تمييز',
+                clientStageOutcome: 'LOSS',
+            } as CaseStage,
+            { stageName: STAGE_CASSATION, status: 'active' } as CaseStage,
+        ];
+        expect(resolvePriorAppealStageOutcome(stages, 1)).toBe('LOSS');
+        expect(
+            resolveCassationClientOutcome(REMAND, 'appellee', null, 'LOSS'),
+        ).toBe('remand_favorable');
+        expect(
+            resolveCassationClientOutcome(REMAND, 'appellee', null, 'WIN'),
+        ).toBe('remand_adverse');
+        expect(
+            resolveCassationClientOutcome('نقض الحكم والفصل في الموضوع', 'appellant', null, 'LOSS'),
+        ).toBe('win');
+        expect(
+            resolveCassationClientOutcome('نقض الحكم والفصل في الموضوع', 'appellee', null, 'LOSS'),
+        ).toBe('loss');
+    });
+
+    it('correction rejected uses clientStageOutcome on cassation stage', () => {
+        const stages = [
+            {
+                stageName: STAGE_APPEAL,
+                status: 'locked',
+                clientStageOutcome: 'LOSS',
             } as CaseStage,
             {
-                stageName: 'التمييز',
-                status: 'active',
-                appealMetadata: { priorJudgmentType: 'فسخ الحكم البدائي كلياً' },
+                stageName: STAGE_CASSATION,
+                status: 'completed',
+                finalDecision: 'مكتسبة الدرجة القطعية',
+                clientStageOutcome: 'FINALIZED',
             } as CaseStage,
+            { stageName: 'تصحيح قرار', status: 'active' } as CaseStage,
         ];
-        expect(resolvePriorAppealJudgmentForCassation(stages, 1)).toBe(
-            'فسخ الحكم البدائي كلياً',
+        expect(resolveCorrectionRejectedClientOutcome(stages, 2, 'appellee')).toBe('loss');
+    });
+
+    it('buildCassationRemandTimelineTitle from priorStageOutcome', () => {
+        const title = buildCassationRemandTimelineTitle(
+            REMAND,
+            'appellee',
+            null,
+            'LOSS',
         );
+        expect(title).toContain('لصالح الموكل');
     });
 
-    it('builds loss timeline title when appellee transitions to cassation after quash', () => {
-        expect(
-            buildAppealArchiveTimelineTitle(
-                'فسخ الحكم البدائي كلياً',
-                'appellee',
-                true,
-            ),
-        ).toContain('خسارة مرحلة الاستئناف');
-    });
-
-    it('correction rejected is loss when cassation ratified adverse appeal judgment', () => {
-        const stages = [
-            {
-                stageName: 'الاستئناف',
-                status: 'locked',
-                finalDecision: 'فسخ الحكم البدائي كلياً',
-            } as CaseStage,
-            {
-                stageName: 'التمييز',
-                status: 'completed',
-                finalDecision: 'مكتسبة الدرجة القطعية',
-                timeline: [
-                    {
-                        id: 'cass_final',
-                        type: 'milestone',
-                        date: '2026-01-01',
-                        title: 'تصديق الحكم — اكتسب الدرجة القطعية (حكم نهائي ضد الموكل)',
-                    },
-                ],
-            } as CaseStage,
-            {
-                stageName: 'تصحيح قرار',
-                status: 'active',
-            } as CaseStage,
-        ];
-        expect(
-            resolveCorrectionRejectedClientOutcome(stages, 2, 'appellee'),
-        ).toBe('loss');
-    });
-
-    it('correction rejected is win when cassation ratified favorable appeal judgment', () => {
-        const stages = [
-            {
-                stageName: 'الاستئناف',
-                status: 'locked',
-                finalDecision: 'تأييد الحكم البدائي ورد الاستئناف',
-            } as CaseStage,
-            {
-                stageName: 'التمييز',
-                status: 'completed',
-                finalDecision: 'مكتسبة الدرجة القطعية',
-                timeline: [
-                    {
-                        id: 'cass_final',
-                        type: 'milestone',
-                        date: '2026-01-01',
-                        title: 'تم تصديق الحكم واكتساب الدعوى الدرجة القطعية',
-                    },
-                ],
-            } as CaseStage,
-            {
-                stageName: 'تصحيح قرار',
-                status: 'active',
-            } as CaseStage,
-        ];
-        expect(
-            resolveCorrectionRejectedClientOutcome(stages, 2, 'appellee'),
-        ).toBe('win');
-    });
-
-    it('correction accepted flips adverse cassation standing to win for client', () => {
-        const stages = [
-            {
-                stageName: 'الاستئناف',
-                status: 'locked',
-                finalDecision: 'فسخ الحكم البدائي كلياً',
-            } as CaseStage,
-            {
-                stageName: 'التمييز',
-                status: 'completed',
-                finalDecision: 'مكتسبة الدرجة القطعية',
-                timeline: [
-                    {
-                        id: 'cass_final',
-                        type: 'milestone',
-                        date: '2026-01-01',
-                        title: 'تصديق الحكم — اكتسب الدرجة القطعية (حكم نهائي ضد الموكل)',
-                    },
-                ],
-            } as CaseStage,
-            {
-                stageName: 'تصحيح قرار',
-                status: 'active',
-            } as CaseStage,
-        ];
-        expect(
-            resolveCorrectionAcceptedClientOutcome(stages, 2, 'appellee'),
-        ).toBe('win');
-    });
-
-    it('partial appeal quash maps cassation ratification to appellant win', () => {
-        expect(
-            resolveCassationClientOutcome(
-                'تصديق الحكم',
-                'appellant',
-                'فسخ الحكم البدائي جزئياً',
-            ),
-        ).toBe('win');
-        expect(
-            resolveCassationClientOutcome(
-                'تصديق الحكم',
-                'appellee',
-                'فسخ الحكم البدائي جزئياً',
-            ),
-        ).toBe('loss');
-    });
-
-    it('builds remand title favorable when appeal loss reversed at cassation', () => {
-        expect(
-            buildCassationRemandTimelineTitle(
-                'نقض الحكم وإعادة الإضبارة',
-                'appellee',
-                'فسخ الحكم البدائي كلياً',
-            ),
-        ).toContain('لصالح الموكل');
+    it('يعيد تصدير محرك المادة 172', async () => {
+        const engine = await import('../appealStageJudgmentEngine');
+        expect(typeof engine.canOfferArt172AppealStay).toBe('function');
+        expect(typeof engine.isAbsentClientCoveredByCoDefendantAppeal).toBe('function');
+        expect(typeof engine.blocksCivilDossierFinality).toBe('function');
+        expect(engine.ART172_SUSPENSION_REASON).toBe('PENDING_CO_DEFENDANT_OBJECTION');
     });
 });

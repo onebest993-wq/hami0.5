@@ -86,7 +86,8 @@ export function runCreditorPartyDeathSave(
                     };
                     setTimelineEvents((prev) => {
                         const next = [te, ...prev];
-                        persistExecutionMerge({
+                        queueMicrotask(() => {
+                            void persistExecutionMerge({
                             ...buildScopedPartyDeathPersistPatch(base, 'creditor', {
                                 deceased_party: 'creditor',
                                 heir_names: [],
@@ -103,6 +104,7 @@ export function runCreditorPartyDeathSave(
                             ...(autoFinishCreditor
                                 ? buildDossierAutoFinishPatch('وفاة الدائن — إغلاق الإضبارة')
                                 : {}),
+                            });
                         });
                         return next;
                     });
@@ -172,7 +174,8 @@ export function runCreditorPartyDeathSave(
                                 heirs_details: mergedHeirDetails,
                             } as Creditor;
                         }
-                        persistExecutionMerge({
+                        queueMicrotask(() => {
+                            void persistExecutionMerge({
                             ...merge,
                             ...buildScopedPartyDeathPersistPatch(base, 'creditor', {
                                 deceased_party: 'creditor',
@@ -183,6 +186,7 @@ export function runCreditorPartyDeathSave(
                             }),
                             creditors: mergedCreditors,
                             timelineEvents: next,
+                            });
                         });
                         return next;
                     });
@@ -238,7 +242,9 @@ export function runCreditorPartyDeathSave(
                 };
                 setTimelineEvents((prev) => {
                     const next = [te, ...prev];
-                    persistExecutionMerge({ timelineEvents: next });
+                    queueMicrotask(() => {
+                        void persistExecutionMerge({ timelineEvents: next });
+                    });
                     return next;
                 });
                 showToast('تم تقديم الطلب إلى «القرارات والطعون» بانتظار موافقة المنفذ.', 'success', {

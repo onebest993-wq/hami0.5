@@ -9,6 +9,8 @@ interface CrossAppealModalProps {
     isOpen: boolean;
     onClose: () => void;
     pendingParties?: Array<{ id: number | string; name: string; role?: string }>;
+    /** client_files = موكلك يقدّم؛ record_opponent = تسجيل متقابل الخصم بعد طعننا */
+    filingMode?: 'client_files' | 'record_opponent' | null;
     onConfirm: (data: {
         filingDate: string;
         receiptNumber: string;
@@ -21,8 +23,21 @@ export const CrossAppealModal: React.FC<CrossAppealModalProps> = ({
     isOpen,
     onClose,
     pendingParties = [],
+    filingMode = 'client_files',
     onConfirm,
 }) => {
+    const isRecordOpponent = filingMode === 'record_opponent';
+    const title = isRecordOpponent ? 'تسجيل استئناف متقابل للخصم' : 'تقديم استئناف متقابل';
+    const subtitle = isRecordOpponent
+        ? 'تسجيل لائحة المتقابل بعد طعن موكلك'
+        : 'تسجيل لائحة الاستئناف المتقابل';
+    const partiesLabel = isRecordOpponent
+        ? 'أطراف الخصم المستأنفون متقابلاً'
+        : 'الأطراف المستأنفون متقابلاً';
+    const confirmLabel = isRecordOpponent
+        ? 'تأكيد تسجيل الاستئناف المتقابل'
+        : 'تأكيد تقديم الاستئناف المتقابل';
+
     const [filingDate, setFilingDate] = useState<string>(getLocalTodayYmd());
     const [selectedPartyIds, setSelectedPartyIds] = useState<Array<number | string>>(() =>
         pendingParties.map((p) => p.id).filter((id) => id != null) as Array<number | string>,
@@ -75,9 +90,9 @@ export const CrossAppealModal: React.FC<CrossAppealModalProps> = ({
                     <div className="flex items-center justify-between gap-4">
                         <div className="min-w-0">
                             <h3 className="text-lg sm:text-xl font-extrabold text-[#E6C673] truncate">
-                                تقديم استئناف متقابل
+                                {title}
                             </h3>
-                            <p className="text-[11px] text-white/40 mt-0.5">تسجيل لائحة الاستئناف المتقابل</p>
+                            <p className="text-[11px] text-white/40 mt-0.5">{subtitle}</p>
                         </div>
                         <button
                             type="button"
@@ -93,7 +108,7 @@ export const CrossAppealModal: React.FC<CrossAppealModalProps> = ({
                 <div className="p-5 sm:p-6 space-y-5">
                     {pendingParties.length > 0 ? (
                         <div className="space-y-2">
-                            <p className="text-xs font-bold text-white/50">الأطراف المستأنفون متقابلاً</p>
+                            <p className="text-xs font-bold text-white/50">{partiesLabel}</p>
                             <div className="space-y-2">
                                 {pendingParties.map((party) => {
                                     const checked = selectedPartyIds.some((id) => String(id) === String(party.id));
@@ -146,7 +161,7 @@ export const CrossAppealModal: React.FC<CrossAppealModalProps> = ({
                             onClick={handleSubmit}
                             className="flex-1 py-3.5 rounded-2xl bg-[#E6C673] text-[#0B1021] text-sm sm:text-base font-extrabold transition-colors hover:bg-[#d4b45f]"
                         >
-                            تأكيد تقديم الاستئناف المتقابل
+                            {confirmLabel}
                         </button>
                         <button
                             type="button"

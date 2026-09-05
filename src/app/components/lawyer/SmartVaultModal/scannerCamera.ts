@@ -31,7 +31,7 @@ export function resolveCameraAccessMessage(error: unknown): string {
     }
 }
 
-export type ScannerVideoMetrics = {
+type ScannerVideoMetrics = {
     videoWidth: number;
     videoHeight: number;
     clientWidth: number;
@@ -39,10 +39,10 @@ export type ScannerVideoMetrics = {
 };
 
 /** سقف الضلع الأطول — يقلّل تكلفة ترميز JPEG على عدسة 1080p */
-export const SCANNER_CAPTURE_MAX_EDGE = 1_600;
-export const SCANNER_JPEG_QUALITY = 0.8;
+const SCANNER_CAPTURE_MAX_EDGE = 1_600;
+const SCANNER_JPEG_QUALITY = 0.8;
 
-export function clampScannerCaptureSize(
+function clampScannerCaptureSize(
     size: { width: number; height: number },
     maxEdge = SCANNER_CAPTURE_MAX_EDGE,
 ): { width: number; height: number } {

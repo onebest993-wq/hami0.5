@@ -1,66 +1,112 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
+    peekCalendarShellSession,
+    patchCalendarShellSession,
+    seedCalendarShellSession,
+    subscribeCalendarShellSession,
+    type CalendarShellSession,
+} from '@/app/services/calendar/calendarShellSession';
+import { viewFromCalendarYmd } from '@/app/services/calendar/calendarMonthMath';
+import {
     selectedDateAfterMonthShift,
     todayYmd,
 } from '@/app/components/lawyer/SmartLegalRadar/radarCalendarMath';
 
+function sessionSeed(initialDate?: string): CalendarShellSession {
+    const existing = peekCalendarShellSession();
+    if (existing) return existing;
+    if (initialDate) {
+        const view = viewFromCalendarYmd(initialDate);
+        if (view) {
+            return patchCalendarShellSession({ ...view, showFullMonth: false });
+        }
+    }
+    return seedCalendarShellSession();
+}
+
 export function useSmartLegalRadarView(initialDate?: string) {
-    const today = new Date();
-    const [viewYear, setViewYear] = useState(today.getFullYear());
-    const [viewMonth, setViewMonth] = useState(today.getMonth());
-    const [selectedDate, setSelectedDate] = useState<string>(todayYmd());
-    const [showFullMonth, setShowFullMonth] = useState(false);
+    const seeded = sessionSeed(initialDate);
+    const [viewYear, setViewYear] = useState(seeded.viewYear);
+    const [viewMonth, setViewMonth] = useState(seeded.viewMonth);
+    const [selectedDate, setSelectedDate] = useState<string>(seeded.selectedDate);
+    const [showFullMonth, setShowFullMonth] = useState(seeded.showFullMonth);
+
+    const commit = useCallback((next: CalendarShellSession) => {
+        setViewYear(next.viewYear);
+        setViewMonth(next.viewMonth);
+        setSelectedDate(next.selectedDate);
+        setShowFullMonth(next.showFullMonth);
+    }, []);
 
     useEffect(() => {
         if (!initialDate) return;
-        const d = new Date(`${initialDate}T12:00:00`);
-        if (Number.isNaN(d.getTime())) return;
-        setViewYear(d.getFullYear());
-        setViewMonth(d.getMonth());
-        setSelectedDate(initialDate);
-    }, [initialDate]);
+        const view = viewFromCalendarYmd(initialDate);
+        if (!view) return;
+        commit(patchCalendarShellSession(view));
+    }, [commit, initialDate]);
+
+    useEffect(() => {
+        commit(peekCalendarShellSession() ?? seedCalendarShellSession());
+        return subscribeCalendarShellSession(() => {
+            const next = peekCalendarShellSession();
+            if (next) commit(next);
+        });
+    }, [commit]);
 
     const prevMonth = useCallback(() => {
         const next = selectedDateAfterMonthShift(selectedDate, viewYear, viewMonth, -1);
-        setViewYear(next.year);
-        setViewMonth(next.month);
-        setSelectedDate(next.selectedDate);
-    }, [selectedDate, viewYear, viewMonth]);
+        commit(
+            patchCalendarShellSession({
+                viewYear: next.year,
+                viewMonth: next.month,
+                selectedDate: next.selectedDate,
+            }),
+        );
+    }, [commit, selectedDate, viewMonth, viewYear]);
 
     const nextMonth = useCallback(() => {
         const next = selectedDateAfterMonthShift(selectedDate, viewYear, viewMonth, 1);
-        setViewYear(next.year);
-        setViewMonth(next.month);
-        setSelectedDate(next.selectedDate);
-    }, [selectedDate, viewYear, viewMonth]);
+        commit(
+            patchCalendarShellSession({
+                viewYear: next.year,
+                viewMonth: next.month,
+                selectedDate: next.selectedDate,
+            }),
+        );
+    }, [commit, selectedDate, viewMonth, viewYear]);
 
     const goToToday = useCallback(() => {
         const now = new Date();
-        setViewYear(now.getFullYear());
-        setViewMonth(now.getMonth());
-        setSelectedDate(todayYmd());
-    }, []);
+        commit(
+            patchCalendarShellSession({
+                viewYear: now.getFullYear(),
+                viewMonth: now.getMonth(),
+                selectedDate: todayYmd(),
+            }),
+        );
+    }, [commit]);
 
     const handleDateClick = useCallback(
         (day: number) => {
             const m = String(viewMonth + 1).padStart(2, '0');
             const d = String(day).padStart(2, '0');
-            setSelectedDate(`${viewYear}-${m}-${d}`);
+            commit(patchCalendarShellSession({ selectedDate: `${viewYear}-${m}-${d}` }));
         },
-        [viewYear, viewMonth],
+        [commit, viewMonth, viewYear],
     );
 
     const toggleFullMonth = useCallback(() => {
-        setShowFullMonth((v) => !v);
-    }, []);
+        commit(patchCalendarShellSession({ showFullMonth: !showFullMonth }));
+    }, [commit, showFullMonth]);
 
-    const focusDate = useCallback((dateStr: string) => {
-        const d = new Date(`${dateStr}T12:00:00`);
-        if (Number.isNaN(d.getTime())) return;
-        setViewYear(d.getFullYear());
-        setViewMonth(d.getMonth());
-        setSelectedDate(dateStr);
-    }, []);
+    const focusDate = useCallback(
+        (dateStr: string) => {
+            const parsed = viewFromCalendarYmd(dateStr);
+            if (!parsed) return;
+            commit(patchCalendarShellSession(parsed));
+        },
+        [commit],
+    );
 
     return {
         viewYear,

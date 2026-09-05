@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
 import { clampTransactionText, TX_TASK_TITLE_MAX } from '@/app/services/transactions/transactionsInputSecurity';
 import {
     GLASS_BTN,
@@ -24,8 +23,6 @@ export function AddTaskBottomSheet({
     parentTask: { id: string; title: string } | null;
     readOnly?: boolean;
 }) {
-    const addTask = useTransactionsThreadingStore((s) => s.addTask);
-
     const [title, setTitle] = useState('');
     const [deadlineDate, setDeadlineDate] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,7 +40,10 @@ export function AddTaskBottomSheet({
         if (!canSubmit || readOnly || isSubmitting) return;
         setIsSubmitting(true);
         try {
-            await addTask({
+            const { useTransactionsThreadingStore } = await import(
+                '@/app/modules/transactionsThreading/store'
+            );
+            await useTransactionsThreadingStore.getState().addTask({
                 transactionId,
                 title: title.trim(),
                 parentTaskId: parentTask?.id ?? null,

@@ -3,16 +3,9 @@ import {
     chunkRepositoryFeedItems,
     estimateRepositoryFeedRowSize,
     resolveRepositoryFeedColumnCount,
-    shouldVirtualizeRepositoryFeed,
 } from '../repositoryFeedVirtualLayout';
-import { REPOSITORY_FEED_VIRTUAL_SCROLL_THRESHOLD } from '../repositoryFeedConstants';
 
 describe('repositoryFeedVirtualLayout', () => {
-    it('يفعّل الت virtualization عند عتبة القائمة', () => {
-        expect(shouldVirtualizeRepositoryFeed(REPOSITORY_FEED_VIRTUAL_SCROLL_THRESHOLD - 1)).toBe(false);
-        expect(shouldVirtualizeRepositoryFeed(REPOSITORY_FEED_VIRTUAL_SCROLL_THRESHOLD)).toBe(true);
-    });
-
     it('يحسب أعمدة الشبكة حسب عرض الحاوية', () => {
         expect(resolveRepositoryFeedColumnCount('grid', 400)).toBe(1);
         expect(resolveRepositoryFeedColumnCount('grid', 800)).toBe(2);

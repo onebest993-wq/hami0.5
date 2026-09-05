@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CalendarGrid } from '@/app/components/lawyer/SmartLegalRadar/CalendarGrid';
+import { useCalendarLiveHandoff } from '@/app/services/calendar/calendarLiveHandoffContext';
 import { inertProps } from '@/app/utils/inertProps';
 
 type CalendarGridProps = React.ComponentProps<typeof CalendarGrid>;
@@ -9,13 +10,14 @@ type CalendarGridProps = React.ComponentProps<typeof CalendarGrid>;
  */
 export function CalendarGridHost(props: CalendarGridProps & { visible: boolean }): React.ReactElement | null {
     const { visible, ...gridProps } = props;
+    const handoff = useCalendarLiveHandoff();
     const [held, setHeld] = useState(visible);
 
     if (visible && !held) {
         setHeld(true);
     }
 
-    if (!held) return null;
+    if (!handoff || !held) return null;
 
     return (
         <div

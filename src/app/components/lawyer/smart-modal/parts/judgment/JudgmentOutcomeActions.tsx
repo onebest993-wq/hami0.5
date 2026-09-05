@@ -36,6 +36,8 @@ export type JudgmentOutcomeActionsProps = {
     waitHintFallback: string;
     selfAppealHintFallback: string;
     appealTransitionLabel: string;
+    opponentMayFileAbsentObjection?: boolean;
+    showClientAbsentObjection?: boolean;
     onClose: () => void;
     onWaitForOpponent: () => void;
     onSaveJudgment: (actionType: string) => void;
@@ -62,6 +64,8 @@ export function JudgmentOutcomeActions({
     waitHintFallback,
     selfAppealHintFallback,
     appealTransitionLabel,
+    opponentMayFileAbsentObjection = false,
+    showClientAbsentObjection = false,
     onClose,
     onWaitForOpponent,
     onSaveJudgment,
@@ -86,6 +90,8 @@ export function JudgmentOutcomeActions({
                     waitHintFallback={waitHintFallback}
                     selfAppealHintFallback={selfAppealHintFallback}
                     appealTransitionLabel={appealTransitionLabel}
+                    opponentMayFileAbsentObjection={opponentMayFileAbsentObjection}
+                    showClientAbsentObjection={showClientAbsentObjection}
                     onWaitForOpponent={onWaitForOpponent}
                     onSaveJudgment={onSaveJudgment}
                 />

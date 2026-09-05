@@ -15,17 +15,17 @@ export function NotificationAlertQuietHoursFields({
     onQuietHoursStart: (start: string) => void;
     onQuietHoursEnd: (end: string) => void;
 }) {
+    const subLabel = !quietHours.enabled
+        ? 'يكتم فقط بين هاتين الساعتين كل يوم — ليس كتماً فورياً'
+        : quietHoursActive
+          ? `نشط الآن — ${quietHours.start}–${quietHours.end}`
+          : `مجدول ${quietHours.start}–${quietHours.end} — خارج الساعات التنبيه يعمل`;
+
     return (
         <div className="space-y-2">
             <NotificationAlertToggleRow
-                label="تفعيل ساعات الهدوء"
-                subLabel={
-                    quietHours.enabled
-                        ? quietHoursActive
-                            ? `نشطة الآن — ${quietHours.start}–${quietHours.end}`
-                            : `${quietHours.start}–${quietHours.end}`
-                        : undefined
-                }
+                label="هدوء يومي"
+                subLabel={subLabel}
                 checked={quietHours.enabled}
                 onChange={onQuietHoursEnabled}
                 testId="notification-quiet-hours"

@@ -42,6 +42,12 @@ export function NotificationAlertOnceMuteFields({
 
     return (
         <div className="space-y-2">
+            <div>
+                <p className="text-xs font-semibold text-white/88">كتم لمرة واحدة</p>
+                <p className="mt-0.5 text-[10px] font-medium text-white/42">
+                    يبدأ الآن حتى الموعد — غير الهدوء اليومي المجدول
+                </p>
+            </div>
             <label className="block text-[11px] font-medium text-white/50">
                 موعد إعادة التفعيل
                     <input

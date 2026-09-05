@@ -16,7 +16,7 @@ import {
     runSearchIndexBuild,
 } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/searchIndexBuildExecutor';
 
-export interface UseSearchIndexOptions {
+interface UseSearchIndexOptions {
     files: FileData[];
     executionFiles?: (FileData & { executionTrashDeletedAt?: string | null })[];
     lawsuitLifecycleIndex?: LawsuitLifecycleIndex;
@@ -26,14 +26,8 @@ export interface UseSearchIndexOptions {
     userId: string | null;
     profileLine: string;
     extras: GlobalSearchExtras | null;
-    isLoadingExtras: boolean;
     indexVersion?: number;
     overlayOpen?: boolean;
-}
-
-export interface UseSearchIndexReturn {
-    fuse: Fuse<GlobalSearchEntry> | null;
-    isBuildingIndex: boolean;
 }
 
 function buildPreparedInput(
@@ -56,7 +50,12 @@ function buildPreparedInput(
     });
 }
 
-export function useSearchIndex(options: UseSearchIndexOptions): UseSearchIndexReturn {
+export function useSearchIndex(options: UseSearchIndexOptions): {
+    fuse: Fuse<GlobalSearchEntry> | null;
+    isBuildingIndex: boolean;
+    appliedKey: string | null;
+    cacheKey: string;
+} {
     const cases = useCaseStore((s) => s.cases);
     const extrasReady = Boolean(options.extras);
     const overlayOpen = Boolean(options.overlayOpen);
@@ -94,7 +93,12 @@ export function useSearchIndex(options: UseSearchIndexOptions): UseSearchIndexRe
         () => getCachedGlobalSearchFuse(cacheKey),
     );
     const [isBuildingIndex, setIsBuildingIndex] = useState(false);
-    const activeKeyRef = useRef<string | null>(null);
+    const [appliedKey, setAppliedKey] = useState<string | null>(() =>
+        getCachedGlobalSearchFuse(cacheKey) && cacheKey ? cacheKey : null,
+    );
+    const activeKeyRef = useRef<string | null>(
+        getCachedGlobalSearchFuse(cacheKey) && cacheKey ? cacheKey : null,
+    );
     const fuseRef = useRef(fuse);
     fuseRef.current = fuse;
 
@@ -111,8 +115,6 @@ export function useSearchIndex(options: UseSearchIndexOptions): UseSearchIndexRe
             {
                 overlayOpen: true,
                 cacheKey,
-                extrasReady,
-                isLoadingExtras: options.isLoadingExtras,
                 activeKey: activeKeyRef.current,
                 hasFuseInState: Boolean(fuseRef.current),
             },
@@ -122,10 +124,13 @@ export function useSearchIndex(options: UseSearchIndexOptions): UseSearchIndexRe
                 applyFuse: (instance, key) => {
                     if (cancelled) return;
                     activeKeyRef.current = key;
+                    setAppliedKey(key);
                     setFuse(instance);
                 },
                 clearFuse: () => {
                     if (cancelled) return;
+                    activeKeyRef.current = null;
+                    setAppliedKey(null);
                     setFuse(null);
                 },
                 setBuilding: (building) => {
@@ -139,7 +144,7 @@ export function useSearchIndex(options: UseSearchIndexOptions): UseSearchIndexRe
         return () => {
             cancelled = true;
         };
-    }, [cacheKey, preparedInput, extrasReady, options.isLoadingExtras, overlayOpen]);
+    }, [cacheKey, preparedInput, extrasReady, overlayOpen]);
 
-    return { fuse, isBuildingIndex };
+    return { fuse, isBuildingIndex, appliedKey, cacheKey };
 }

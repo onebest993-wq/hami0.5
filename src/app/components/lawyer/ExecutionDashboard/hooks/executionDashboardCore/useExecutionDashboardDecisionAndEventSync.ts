@@ -19,6 +19,7 @@ import {
     seizureDecisionAlreadyMaterialized,
 } from './executionDashboardSeizureRequestCreated';
 import { HAMI_APPEND_EXECUTION_TIMELINE } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
+import { HAMI_OPEN_HEIRS_NOTIFICATION_CENTER } from '@/app/utils/partyDeathUiEvents';
 
 export function useExecutionDashboardGuarantorDecisionSync({
     executionData,
@@ -315,6 +316,27 @@ export function useExecutionDashboardWindowEventListeners({
         return () =>
             window.removeEventListener(HAMI_APPEND_EXECUTION_TIMELINE, handler as EventListener);
     }, [executionData?.id, executionId, decisionsStorageExecutionId, nextTimelineId, pushTimelineEventRef]);
+
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const ce = e as CustomEvent<{ executionId?: string }>;
+            const evId = String(ce.detail?.executionId ?? '').trim();
+            const myId = String(executionData?.id ?? executionId ?? '').trim();
+            const storeId = String(decisionsStorageExecutionId ?? '').trim();
+            if (evId && evId !== myId && evId !== storeId) return;
+            setShowDecisionsModal(false);
+            setShowHeirsNotificationModal(true);
+        };
+        window.addEventListener(HAMI_OPEN_HEIRS_NOTIFICATION_CENTER, handler as EventListener);
+        return () =>
+            window.removeEventListener(HAMI_OPEN_HEIRS_NOTIFICATION_CENTER, handler as EventListener);
+    }, [
+        decisionsStorageExecutionId,
+        executionData?.id,
+        executionId,
+        setShowDecisionsModal,
+        setShowHeirsNotificationModal,
+    ]);
 
     useEffect(() => {
         if (!showDecisionsModal) return;

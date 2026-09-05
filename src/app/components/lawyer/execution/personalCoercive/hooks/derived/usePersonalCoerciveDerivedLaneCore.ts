@@ -101,7 +101,6 @@ export function usePersonalCoerciveDerivedLaneCore(ctx: PersonalCoerciveDerivedC
         forcedPending: forcedEffective.pending,
         outcome,
         appealBlocksFieldwork: forcedSync.blocksFieldwork,
-        requestEffectivelyEnforced: forcedSync.enforced,
         appealCycleSuperseded: forcedSync.cycleSuperseded,
     });
 

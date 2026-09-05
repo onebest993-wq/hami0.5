@@ -1,5 +1,4 @@
 import { Plus } from '@/app/components/ui/icons/Plus';
-import { Send } from '@/app/components/ui/icons/Send';
 
 export type CommunicationCreateFormProps = {
     targetDirectorate: string;
@@ -24,11 +23,6 @@ export function CommunicationCreateForm({
 }: CommunicationCreateFormProps) {
     return (
         <div className="rounded-2xl border border-indigo-500/25 bg-indigo-950/15 p-4 space-y-3">
-            <div className="flex flex-row-reverse items-center gap-2 border-b border-indigo-500/15 pb-2">
-                <Send size={16} className="text-indigo-400 shrink-0" />
-                <h4 className="text-[11px] font-bold text-indigo-200">إرسال كتاب / مخاطبة جهة</h4>
-            </div>
-
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
                     <label className="mb-1 block text-[9px] font-bold text-slate-400">
@@ -39,7 +33,7 @@ export function CommunicationCreateForm({
                         value={targetDirectorate}
                         onChange={(e) => setTargetDirectorate(e.target.value)}
                         placeholder="اسم الدائرة أو الجهة..."
-                        className="w-full rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50"
+                        className="w-full min-h-[44px] rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50 touch-manipulation"
                     />
                 </div>
                 <div>
@@ -50,7 +44,7 @@ export function CommunicationCreateForm({
                         onChange={(e) => setLetterDate(e.target.value)}
                         max={new Date().toISOString().slice(0, 10)}
                         dir="rtl"
-                        className="w-full rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] text-white focus:outline-none focus:border-indigo-500/50 [&::-webkit-calendar-picker-indicator]:invert"
+                        className="w-full min-h-[44px] rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] text-white focus:outline-none focus:border-indigo-500/50 [&::-webkit-calendar-picker-indicator]:invert touch-manipulation"
                     />
                 </div>
             </div>
@@ -62,7 +56,7 @@ export function CommunicationCreateForm({
                     onChange={(e) => setCommunicationDetails(e.target.value)}
                     rows={4}
                     placeholder="مضمون الكتاب، المطلوب من الجهة، أو أي تفاصيل تُسجَّل في السجل..."
-                    className="w-full resize-none rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] leading-relaxed text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50"
+                    className="w-full min-h-[44px] resize-none rounded-xl border border-white/10 bg-black/30 p-3 text-[11px] leading-relaxed text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50 touch-manipulation"
                 />
             </div>
 
@@ -70,7 +64,7 @@ export function CommunicationCreateForm({
                 type="button"
                 onClick={onCreate}
                 disabled={creating}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-600/80 py-3 text-[11px] font-bold text-white transition-all hover:bg-indigo-600 disabled:opacity-50"
+                className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-600/80 py-3 text-[11px] font-bold text-white hover:bg-indigo-600 disabled:opacity-50 touch-manipulation"
             >
                 {creating ? (
                     'جاري الإنشاء...'

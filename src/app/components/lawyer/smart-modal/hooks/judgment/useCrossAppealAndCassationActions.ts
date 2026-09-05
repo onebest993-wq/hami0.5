@@ -1,22 +1,21 @@
-import { SmartToast } from '@/app/components/ui/SmartToast';
-import { debug } from '@/app/utils/debug';
-import { getLocalTodayYmd } from '@/app/utils/localYmd';
+import type { CrossAppealPayload } from '../../smartFile/judgmentTypes';
+import { withClientStageOutcome } from '../../smartFile/stageOutcomeResolution';
+import { patchDossierAfterCassationRemand } from '../../smartFile/art210CassationExtension';
+import type { UseSmartFileJudgmentActionsOptions } from './judgmentHookTypes';
+import {
+    buildCassationRemandTimelineTitle,
+    cassationOutcomeToStageOutcome,
+    resolveCassationClientOutcome,
+    resolveClientAppealRole,
+    resolvePriorAppealJudgmentForCassation,
+    resolvePriorAppealStageOutcome,
+} from '../../smartFile/appealStageJudgmentEngine';
 import {
     applyCassationRemand,
     cassationRemandSuccessMessage,
 } from '../../smartFile/appealStageTransition';
-import type { CrossAppealPayload } from '../../smartFile/judgmentTypes';
-import {
-    markPartiesAsCrossAppellants,
-    resolveCrossAppealEligibility,
-} from '../../smartFile/crossAppealEngine';
-import {
-    buildCassationRemandTimelineTitle,
-    resolveCassationClientOutcome,
-    resolveClientAppealRole,
-    resolvePriorAppealJudgmentForCassation,
-} from '../../smartFile/appealStageJudgmentEngine';
-import type { UseSmartFileJudgmentActionsOptions } from './judgmentHookTypes';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 
 export function useCrossAppealAndCassationActions(options: UseSmartFileJudgmentActionsOptions) {
     const {
@@ -32,80 +31,9 @@ export function useCrossAppealAndCassationActions(options: UseSmartFileJudgmentA
         setShowCrossAppealModal,
     } = options;
 
-const handleCrossAppeal = (crossAppealData: CrossAppealPayload) => {
-    debug.log('🔄 بدء معالجة الاستئناف المتقابل:', crossAppealData);
-
-    const eligibility = resolveCrossAppealEligibility({
-        appealStage: currentStage,
-        stages,
-        appealStageIndex: activeStageIndex,
-    });
-
-    const { filingDate, receiptNumber, notes, crossAppealPartyIds } = crossAppealData;
-    const targetIds =
-        crossAppealPartyIds?.length
-            ? crossAppealPartyIds
-            : eligibility.pendingCrossAppellants.map((p) => p.id).filter((id) => id != null) as Array<
-                  number | string
-              >;
-
-    if (targetIds.length === 0) {
-        SmartToast.error('لا يوجد طرف مؤهل لتسجيل الاستئناف المتقابل');
-        return;
-    }
-
-    const pendingIdSet = new Set(
-        eligibility.pendingCrossAppellants.map((p) => String(p.id ?? '')),
-    );
-    const validIds = targetIds.filter((id) => pendingIdSet.has(String(id)));
-    if (validIds.length === 0) {
-        SmartToast.error('الطرف المحدد غير مؤهل للاستئناف المتقابل');
-        return;
-    }
-
-    const updatedStages = [...stages];
-    const priorMeta = currentStage.appealMetadata ?? {};
-    const mergedCrossIds = [
-        ...(priorMeta.crossAppealPartyIds ?? []),
-        ...validIds.map(String),
-    ];
-    const uniqueCrossIds = [...new Set(mergedCrossIds)];
-
-    const crossPartyNames = eligibility.pendingCrossAppellants
-        .filter((p) => validIds.some((id) => String(id) === String(p.id)))
-        .map((p) => String(p.name ?? '').trim())
-        .filter(Boolean)
-        .join('، ');
-
-    const updatedParties = markPartiesAsCrossAppellants(currentStage.parties ?? [], validIds);
-
-    updatedStages[activeStageIndex] = {
-        ...currentStage,
-        parties: updatedParties,
-        appealMetadata: {
-            ...priorMeta,
-            hasCrossAppeal: true,
-            crossAppealDate: filingDate,
-            crossAppealReceipt: receiptNumber,
-            crossAppealPartyIds: uniqueCrossIds,
-        },
-        timeline: [{
-            id: `cross_appeal_${Date.now()}`,
-            type: 'milestone',
-            date: filingDate,
-            title: '🔄 تم تقديم لائحة استئناف متقابل',
-            details: `تم تقديم لائحة استئناف متقابل${crossPartyNames ? ` من: ${crossPartyNames}` : ''}\n${receiptNumber ? `\nرقم وصل الرسوم: ${receiptNumber}` : ''}\n${notes ? `\nملاحظات: ${notes}` : ''}`,
-            isNew: true,
-            color: 'teal',
-        }, ...(currentStage.timeline ?? [])],
-    };
-
-    setStages(updatedStages);
-    saveToCloud(updatedStages, parentData);
+const handleCrossAppeal = (_crossAppealData: CrossAppealPayload) => {
+    SmartToast.info('أُلغي مسار الاستئناف المتقابل — الطعن اللاحق بإضبارة مستقلة');
     setShowCrossAppealModal(false);
-
-    SmartToast.success('تم تسجيل الاستئناف المتقابل بنجاح');
-    debug.log('✅ تم تسجيل الاستئناف المتقابل بنجاح');
 };
 
 // ========================================
@@ -114,11 +42,14 @@ const handleCrossAppeal = (crossAppealData: CrossAppealPayload) => {
 const handleCassationDecision = (decision: 'ratified' | 'quashed') => {
     const updatedStages = [...stages];
     const now = getLocalTodayYmd();
-    const clientRole = resolveClientAppealRole(currentStage.parties);
+    const clientRole = resolveClientAppealRole(currentStage.parties, {
+        appealMetadata: currentStage.appealMetadata,
+    });
     const priorAppealJudgment = resolvePriorAppealJudgmentForCassation(
         updatedStages,
         activeStageIndex,
     );
+    const priorAppealOutcome = resolvePriorAppealStageOutcome(updatedStages, activeStageIndex);
 
     if (decision === 'ratified') {
         const cassationJudgment = 'تصديق الحكم';
@@ -126,15 +57,20 @@ const handleCassationDecision = (decision: 'ratified' | 'quashed') => {
             cassationJudgment,
             clientRole,
             priorAppealJudgment,
+            priorAppealOutcome,
         );
         const clientLost = outcome === 'loss';
 
-        updatedStages[activeStageIndex] = {
-            ...currentStage,
-            status: 'completed',
-            finalDecision: 'مكتسبة الدرجة القطعية',
-            decisionDate: now,
-        };
+        updatedStages[activeStageIndex] = withClientStageOutcome(
+            {
+                ...currentStage,
+                status: 'completed',
+                finalDecision: 'مكتسبة الدرجة القطعية',
+                decisionDate: now,
+                isPleadingsClosed: true,
+            },
+            cassationOutcomeToStageOutcome(outcome) ?? 'FINALIZED',
+        );
 
         updatedStages[activeStageIndex].timeline = [{
             id: `cass_ratified_${Date.now()}`,
@@ -161,11 +97,13 @@ const handleCassationDecision = (decision: 'ratified' | 'quashed') => {
             cassationJudgment,
             clientRole,
             priorAppealJudgment,
+            priorAppealOutcome,
         );
         const remandOutcome = resolveCassationClientOutcome(
             cassationJudgment,
             clientRole,
             priorAppealJudgment,
+            priorAppealOutcome,
         );
         const { updatedStages: remandedStages, newActiveIndex, target } = applyCassationRemand(
             stages,
@@ -184,12 +122,18 @@ const handleCassationDecision = (decision: 'ratified' | 'quashed') => {
                 },
             },
         );
+        const extended = patchDossierAfterCassationRemand({
+            stages: remandedStages,
+            cassationIndex: activeStageIndex,
+            groundsScope: 'COMMON',
+            parentIntegrity: parentData.disputeIntegrity,
+        });
 
-        setStages(remandedStages);
+        setStages(extended);
         setActiveStageIndex(newActiveIndex);
         setViewingStageIndex(newActiveIndex);
         setStatus(`مرحلة ${target.stageName}`);
-        saveToCloud(remandedStages, parentData, newActiveIndex, `مرحلة ${target.stageName}`);
+        saveToCloud(extended, parentData, newActiveIndex, `مرحلة ${target.stageName}`);
         SmartToast[remandOutcome === 'remand_favorable' ? 'success' : 'error'](cassationRemandSuccessMessage(target));
         return;
     }

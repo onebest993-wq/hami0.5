@@ -1,12 +1,15 @@
 import { UNIVERSAL_BLOCKED_WORDS } from '@/app/components/lawyer/LawyerNewCase/wordLists';
 import {
-    resolveLawsuitJurisdiction,
-    type LawsuitJurisdictionSource,
-} from '@/app/domain/lawsuit/lawsuitJurisdiction';
-import {
     getUnderlyingStageFieldLabel,
     isExtraordinaryProcedureStage,
 } from '@/app/components/lawyer/LawyerNewCase/validation';
+import { PERSONAL_STATUS_FORM_STAGE_OPTIONS } from './personalStatusFileKind';
+
+export {
+    isPersonalStatusFile,
+    PERSONAL_STATUS_FORM_STAGE_OPTIONS,
+    PERSONAL_STATUS_STAGE_OPTIONS,
+} from './personalStatusFileKind';
 
 /** القانون المطبق على الدعوى — بديل القيمة التقديرية في الأحوال الشخصية. */
 export type PersonalApplicableLaw = 'law_188_1959' | 'jaafari_code';
@@ -24,25 +27,6 @@ export const PERSONAL_APPLICABLE_LAW_OPTIONS: ReadonlyArray<{
         label: 'المدونة الجعفرية',
     },
 ];
-
-/** مراحل الأحوال الشخصية في الإضبارة (بما فيها التمييز بعد الطعن). */
-export const PERSONAL_STATUS_STAGE_OPTIONS = [
-    'أحوال شخصية',
-    'تمييز',
-    'إعادة المحاكمة',
-    'اعتراض على الحكم الغيابي',
-    'اعتراض الغير',
-] as const;
-
-/** مراحل اختيار «إضبارة جديدة» — بدون تمييز (يُفتح بالطعن لاحقاً). */
-export const PERSONAL_STATUS_FORM_STAGE_OPTIONS = [
-    'أحوال شخصية',
-    'إعادة المحاكمة',
-    'اعتراض على الحكم الغيابي',
-    'اعتراض الغير',
-] as const;
-
-type PersonalStatusStage = (typeof PERSONAL_STATUS_STAGE_OPTIONS)[number];
 
 export function computePersonalStatusStageOptions(_court?: string): readonly string[] {
     return PERSONAL_STATUS_FORM_STAGE_OPTIONS;
@@ -210,11 +194,6 @@ export function collectPersonalPartyNameErrors(
         if (!String(p.name ?? '').trim()) errors[`party_${p.id}`] = PARTY_NAME_GENERIC;
     }
     return errors;
-}
-
-/** للتمييز في واجهة الإضبارة عن المدني — نفس مصدر حقيقة تبويب المخزن. */
-export function isPersonalStatusFile(file: LawsuitJurisdictionSource): boolean {
-    return resolveLawsuitJurisdiction(file) === 'personal';
 }
 
 export { isExtraordinaryProcedureStage as isPersonalFormExtraordinaryStage };

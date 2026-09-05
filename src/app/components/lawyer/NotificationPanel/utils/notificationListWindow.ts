@@ -3,7 +3,7 @@ import type { TimeBucket } from '@/app/components/lawyer/NotificationPanel/types
 
 export const NOTIFICATION_LIST_RENDER_BATCH = 28;
 /** يطابق contain-intrinsic-size للبطاقة */
-export const NOTIFICATION_LIST_CARD_SLOT_PX = 92;
+export const NOTIFICATION_LIST_CARD_SLOT_PX = 76;
 
 const BUCKET_ORDER: TimeBucket[] = ['today', 'yesterday', 'older'];
 

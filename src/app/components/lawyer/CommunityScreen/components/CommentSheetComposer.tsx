@@ -42,7 +42,7 @@ export function CommentSheetComposer({
             style={composerStyle}
         >
             {isLocked ? (
-                <div className="mb-3 flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-2 text-red-200 text-xs">
+                <div className="mb-3 flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2 text-red-200 text-xs">
                     <Lock size={14} />
                     النقاش على هذا المنشور مقفل — لا يمكن إضافة تعليقات جديدة.
                 </div>
@@ -63,7 +63,7 @@ export function CommentSheetComposer({
                 </div>
             ) : null}
             <div className="flex gap-3 items-end">
-                <div className={`flex-1 rounded-2xl p-3 ${FORUM_SURFACE_INPUT} relative`}>
+                <div className={`flex-1 rounded-xl p-3 ${FORUM_SURFACE_INPUT} relative`}>
                     {mention.showSuggestions ? (
                         <ForumMentionSuggestions
                             suggestions={mention.suggestions}

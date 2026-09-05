@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw } from '@/app/components/ui/icons/RotateCcw';
+import { SettingsRotateCcwIcon } from '../settingsStemIconsLazy';
 import {
     GLASS_TRANSPARENCY_PRESETS,
     PATTERN_INTENSITY_PRESETS,
@@ -133,7 +133,7 @@ export function AppearanceBlockStyleControls({
                     onClick={customize.resetBlock}
                     className="flex w-full items-center justify-center gap-2 min-h-[44px] rounded-xl border border-white/10 text-[11px] font-bold text-white/65 hover:bg-white/[0.04] touch-manipulation"
                 >
-                    <RotateCcw size={14} aria-hidden />
+                    <SettingsRotateCcwIcon size={14} aria-hidden />
                     {customize.selectedCount > 1
                         ? 'إعادة الأقسام المحددة للمظهر العام'
                         : 'إعادة القسم للمظهر العام'}

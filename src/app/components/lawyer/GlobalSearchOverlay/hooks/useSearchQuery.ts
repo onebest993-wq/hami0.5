@@ -24,11 +24,9 @@ import {
     type GlobalSearchUiState,
 } from '@/app/components/lawyer/GlobalSearchOverlay/utils/searchUiState';
 
-export interface UseSearchQueryReturn {
+interface UseSearchQueryReturn {
     query: string;
     setQuery: React.Dispatch<React.SetStateAction<string>>;
-    debouncedQuery: string;
-    isSearching: boolean;
     searchUiState: GlobalSearchUiState;
     results: GroupedSearchResults | null;
 }
@@ -102,8 +100,6 @@ export function useSearchQuery(
         return groupSearchResults(ranked);
     }, [debouncedQuery, fuse, isLoadingIndex]);
 
-    const isSearching = Boolean(query.trim() && query.trim() !== debouncedQuery.trim());
-
     const searchUiState = useMemo(
         () =>
             resolveGlobalSearchUiState({
@@ -115,5 +111,5 @@ export function useSearchQuery(
         [query, debouncedQuery, isLoadingIndex, results],
     );
 
-    return { query, setQuery, debouncedQuery, isSearching, searchUiState, results };
+    return { query, setQuery, searchUiState, results };
 }

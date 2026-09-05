@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
+import { isExecutionHandlerStubLeaf } from '../executionHandlerClusterStubs';
 
 export function handlerBagFingerprint(bag: Record<string, unknown> | undefined): unknown[] {
     if (!bag) return [];
@@ -50,8 +51,13 @@ export function mergeHandlerClusterPatch(
                 if (Object.is(curBag[bagKey], nextBag[bagKey])) continue;
                 const curEntry = curBag[bagKey];
                 const nextEntry = nextBag[bagKey];
-                /* تجاهل إعادة إنشاء الدوال — المفتاح فقط يُطلق republish */
-                if (typeof curEntry === 'function' && typeof nextEntry === 'function') continue;
+                if (typeof curEntry === 'function' && typeof nextEntry === 'function') {
+                    if (isExecutionHandlerStubLeaf(curEntry) && !isExecutionHandlerStubLeaf(nextEntry)) {
+                        mergedBag[bagKey] = nextEntry;
+                        bagChanged = true;
+                    }
+                    continue;
+                }
                 mergedBag[bagKey] = nextEntry;
                 bagChanged = true;
             }

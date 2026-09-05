@@ -89,9 +89,10 @@ export function ForumCommentRowEdit({
                         }
                     }}
                     disabled={!editContent.trim() || isSavingEdit}
+                    aria-busy={isSavingEdit || undefined}
                     className={FORUM_PUBLISH_BTN_SM}
                 >
-                    {isSavingEdit ? 'جاري الحفظ...' : 'حفظ'}
+                    حفظ
                 </button>
                 <button
                     type="button"

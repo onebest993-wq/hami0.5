@@ -57,7 +57,7 @@ const CIVIL_THEME: SmartFileModalTheme = {
     body: 'p-3 sm:p-3.5 space-y-3 max-h-[82vh] overflow-y-auto overscroll-contain bg-[#0A0F1C] scrollbar-thin scrollbar-thumb-[#E6C673]/15 scrollbar-track-transparent',
     field: `w-full ${LV_INSET} rounded-xl p-3 text-sm text-white outline-none focus:border-[#E6C673]/36 focus:bg-white/[0.05] transition-colors [color-scheme:dark]`,
     select:
-        'w-full bg-[#0A0F1C] border border-white/[0.08] rounded-xl p-3 text-sm text-white outline-none focus:border-[#E6C673]/35 transition-colors cursor-pointer appearance-none [color-scheme:dark]',
+        'w-full bg-[#0A0F1C] border border-white/[0.08] rounded-xl p-3 text-sm text-white outline-none focus:border-[#E6C673]/35 transition-colors cursor-pointer appearance-none [color-scheme:dark] [&>option]:bg-[#0A0F1C] [&>option]:text-white',
     label: 'block text-[11px] font-semibold text-white/48 mb-1.5 tracking-wide',
     btn: `w-full min-h-[44px] ${LV_BTN_GOLD} py-3 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation`,
     btnDisabled: 'disabled:opacity-40 disabled:cursor-not-allowed',

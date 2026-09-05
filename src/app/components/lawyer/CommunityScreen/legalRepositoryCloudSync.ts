@@ -1,14 +1,10 @@
-import {
-    RepositoryDB,
-    LawyerStorage,
-    type RepositoryDocument,
-} from '@/app/services/lawyer-cloud';
-import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
+import type { RepositoryDocument } from '@/app/services/lawyer-cloud';
+import { LawyerStorage } from '@/app/services/storage/lawyerStorageRuntime';
 import { inferRepositoryMimeType } from './components/repositoryMedia';
 import { withForumAsyncTimeout } from './forumAsync';
-import { releaseRepositoryBlobUrl } from './repositoryStorageService';
+import { purgeRepositoryLocalFile } from './repositoryStorageService';
 
-type SyncRepositoryDocumentToCloudParams = {
+type PersistRepositoryDocumentToCloudParams = {
     savedDoc: RepositoryDocument;
     file: File;
     ownerId: string;
@@ -16,46 +12,46 @@ type SyncRepositoryDocumentToCloudParams = {
     applyCloudDoc: (cloudDoc: RepositoryDocument) => void;
 };
 
-/** رفع سحابي بعد الحفظ المحلي — لا يعيد مستنداً حُذف أثناء الرفع */
+/** رفع سحابي إلزامي للنشر في المستودع — لا يعتمد على مزامنة عمل المحامي. */
 export async function syncRepositoryDocumentToCloud({
     savedDoc,
     file,
     ownerId,
     isStillPresent,
     applyCloudDoc,
-}: SyncRepositoryDocumentToCloudParams): Promise<void> {
-    if (!isLawyerWorkCloudLive()) return;
+}: PersistRepositoryDocumentToCloudParams): Promise<RepositoryDocument> {
     const localPath = savedDoc.storagePath;
-    try {
-        if (!isStillPresent(savedDoc.id)) return;
-        const uploadResult = await LawyerStorage.uploadSmartFile(ownerId, file, 'repository');
-        if (!uploadResult?.path) return;
-        if (!isStillPresent(savedDoc.id)) return;
-        const signedUrl = await withForumAsyncTimeout(
-            LawyerStorage.getSignedUrl(uploadResult.path),
-            6_000,
-            null,
-        );
-        if (!signedUrl) return;
-        if (!isStillPresent(savedDoc.id)) return;
-        const cloudDoc: RepositoryDocument = {
-            ...savedDoc,
-            storagePath: uploadResult.path,
-            fileName: file.name,
-            mimeType: inferRepositoryMimeType(file),
-            fileSize: file.size,
-        };
-        if (!isStillPresent(savedDoc.id)) return;
-        await RepositoryDB.saveDocument(cloudDoc);
-        if (!isStillPresent(savedDoc.id)) {
-            await RepositoryDB.deleteDocument(savedDoc.id).catch(() => undefined);
-            return;
-        }
-        applyCloudDoc(cloudDoc);
-        if (localPath?.startsWith('idb:forum:')) {
-            releaseRepositoryBlobUrl(localPath);
-        }
-    } catch {
-        /* النسخة المحلية تبقى متاحة */
+    if (!isStillPresent(savedDoc.id)) {
+        throw new Error('cloud-aborted');
     }
+    const uploadResult = await LawyerStorage.uploadSmartFile(ownerId, file, 'repository');
+    if (!uploadResult?.path) {
+        throw new Error('cloud-failed');
+    }
+    if (!isStillPresent(savedDoc.id)) {
+        throw new Error('cloud-aborted');
+    }
+    const signedUrl = await withForumAsyncTimeout(
+        LawyerStorage.getSignedUrl(uploadResult.path),
+        6_000,
+        null,
+    );
+    if (!signedUrl) {
+        throw new Error('cloud-failed');
+    }
+    if (!isStillPresent(savedDoc.id)) {
+        throw new Error('cloud-aborted');
+    }
+    const cloudDoc: RepositoryDocument = {
+        ...savedDoc,
+        storagePath: uploadResult.path,
+        fileName: file.name,
+        mimeType: inferRepositoryMimeType(file),
+        fileSize: file.size,
+    };
+    applyCloudDoc(cloudDoc);
+    if (localPath?.startsWith('idb:forum:')) {
+        purgeRepositoryLocalFile(localPath);
+    }
+    return cloudDoc;
 }

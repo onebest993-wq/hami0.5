@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SmartRepositoryModal } from '@/app/components/lawyer/SmartRepositoryModal';
 
 vi.mock('react-dom', () => ({
@@ -55,28 +55,32 @@ describe('SmartRepositoryModal shell', () => {
         vi.clearAllMocks();
     });
 
-    it('يفعّل scroll lock عند الفتح', () => {
+    it('يفعّل scroll lock عند الفتح', async () => {
         render(<SmartRepositoryModal {...baseProps} />);
+        await waitFor(() => expect(screen.getByTestId('repository-unified-feed-mock')).toBeInTheDocument());
         expect(scrollLockSpy).toHaveBeenCalledWith(true);
     });
 
-    it('Escape يستدعي onClose', () => {
+    it('Escape يستدعي onClose', async () => {
         const onClose = vi.fn();
         render(<SmartRepositoryModal {...baseProps} onClose={onClose} />);
+        await waitFor(() => expect(screen.getByTestId('repository-unified-feed-mock')).toBeInTheDocument());
         fireEvent.keyDown(window, { key: 'Escape' });
         expect(onClose).toHaveBeenCalledTimes(1);
     });
 
-    it('زر الإغلاق native يستدعي onClose', () => {
+    it('زر الإغلاق native يستدعي onClose', async () => {
         const onClose = vi.fn();
         render(<SmartRepositoryModal {...baseProps} onClose={onClose} />);
+        await waitFor(() => expect(screen.getByTestId('smart-repository-close')).toBeInTheDocument());
         fireEvent.pointerDown(screen.getByTestId('smart-repository-close'));
         expect(onClose).toHaveBeenCalledTimes(1);
     });
 
-    it('زر الإغلاق click يستدعي onClose', () => {
+    it('زر الإغلاق click يستدعي onClose', async () => {
         const onClose = vi.fn();
         render(<SmartRepositoryModal {...baseProps} onClose={onClose} />);
+        await waitFor(() => expect(screen.getByTestId('smart-repository-close')).toBeInTheDocument());
         fireEvent.click(screen.getByTestId('smart-repository-close'));
         expect(onClose).toHaveBeenCalledTimes(1);
     });
@@ -86,9 +90,9 @@ describe('SmartRepositoryModal shell', () => {
         expect(screen.queryByTestId('smart-repository-modal')).not.toBeInTheDocument();
     });
 
-    it('يُزيل الطبقة بعد الإغلاق مع reduceMotion', () => {
+    it('يُزيل الطبقة بعد الإغلاق مع reduceMotion', async () => {
         const { rerender } = render(<SmartRepositoryModal {...baseProps} />);
-        expect(screen.getByTestId('smart-repository-modal')).toBeInTheDocument();
+        await waitFor(() => expect(screen.getByTestId('smart-repository-modal')).toBeInTheDocument());
         rerender(<SmartRepositoryModal {...baseProps} isOpen={false} />);
         expect(screen.queryByTestId('smart-repository-modal')).not.toBeInTheDocument();
     });
@@ -103,10 +107,10 @@ describe('SmartRepositoryModal shell', () => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
-    it('الفتح يركّب الخلاصة', () => {
+    it('الفتح يركّب الخلاصة', async () => {
         render(<SmartRepositoryModal {...baseProps} isOpen keepAlive />);
         const modal = screen.getByTestId('smart-repository-modal');
-        expect(screen.getByTestId('repository-unified-feed-mock')).toBeInTheDocument();
+        await waitFor(() => expect(screen.getByTestId('repository-unified-feed-mock')).toBeInTheDocument());
         expect(modal).not.toHaveAttribute('inert');
         expect(screen.getByRole('dialog', { name: 'المستودع' })).toBeInTheDocument();
     });

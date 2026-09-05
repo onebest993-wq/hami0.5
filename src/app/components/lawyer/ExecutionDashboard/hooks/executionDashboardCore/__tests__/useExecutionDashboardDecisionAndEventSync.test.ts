@@ -88,4 +88,35 @@ describe('useExecutionDashboardDecisionAndEventSync', () => {
         );
         expect(setShowHeirsNotificationModal).toHaveBeenCalledWith(false);
     });
+
+    it('opens heirs notification follow-up and closes decisions on the window bridge', () => {
+        const setShowDecisionsModal = vi.fn();
+        const setShowHeirsNotificationModal = vi.fn();
+
+        renderHook(() =>
+            useExecutionDashboardWindowEventListeners({
+                executionData: { id: 'exec-1' } as never,
+                executionId: 'exec-1',
+                decisionsStorageExecutionId: 'store-1',
+                setShowDecisionsModal,
+                openExecutionSeizuresTab: vi.fn(),
+                pushTimelineEventRef: { current: vi.fn() },
+                nextTimelineId: () => 'tl-1',
+                showDecisionsModal: true,
+                showHeirsNotificationModal: false,
+                setShowHeirsNotificationModal,
+            }),
+        );
+
+        act(() => {
+            window.dispatchEvent(
+                new CustomEvent('hami-open-heirs-notification-center', {
+                    detail: { executionId: 'exec-1', heirNames: ['وريث'] },
+                }),
+            );
+        });
+
+        expect(setShowDecisionsModal).toHaveBeenCalledWith(false);
+        expect(setShowHeirsNotificationModal).toHaveBeenCalledWith(true);
+    });
 });

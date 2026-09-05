@@ -47,10 +47,19 @@ describe('FOC nested modal mobile honesty', () => {
         expect(garnish).toContain('تأكيد حجز الراتب');
     });
 
-    it('تسجيل الكفيل يغلق برجوع النظام ويلمس 44px', () => {
-        const guarantor = read('src/app/components/lawyer/Modal_Guarantor_Registration.tsx');
-        expect(guarantor).toContain('useExecutionOverlayDismiss');
-        expect(guarantor).toContain('min-h-[44px]');
-        expect(guarantor).toContain('aria-label="إغلاق"');
+    it('شارة الكفيل في المركز تلمس 44px وتمرّر الحفظ للأب', () => {
+        const body = read(
+            'src/app/components/lawyer/FinancialOperationsCenter/components/FocCreditorExpandedBody.tsx',
+        );
+        const badge = read(
+            'src/app/components/lawyer/FinancialOperationsCenter/components/SettlementGuarantorBadge.tsx',
+        );
+        expect(body).toContain('SettlementGuarantorBadge');
+        expect(badge).toContain('foc-amount-guarantor-request');
+        expect(badge).toContain('min-h-[44px]');
+        expect(badge).toContain('onPersist');
+        expect(
+            fs.existsSync(path.join(root, 'src/app/components/lawyer/Modal_Guarantor_Registration.tsx')),
+        ).toBe(false);
     });
 });

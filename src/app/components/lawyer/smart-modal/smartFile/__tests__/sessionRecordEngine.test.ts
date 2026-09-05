@@ -7,6 +7,7 @@ import {
     computeNextSessionNumber,
     findCourtSessionRecordForDate,
     isOpponentProceedingsEvent,
+    isSessionHubFocusEvent,
     isSessionTimelineEvent,
     parseSessionRecordEvent,
     sessionNumberForHearingDate,
@@ -154,5 +155,17 @@ describe('sessionRecordEngine', () => {
                 isSessionRecord: true,
             }),
         ).toBe(false);
+    });
+
+    it('opens the session hub for أول مرافعة instead of the appointment editor', () => {
+        const firstHearing: TimelineEvent = {
+            id: 'appt_first_hearing',
+            type: 'appointment',
+            date: '2026-08-31',
+            title: 'أول مرافعة',
+            subType: 'pleading',
+        };
+        expect(isSessionHubFocusEvent(firstHearing)).toBe(true);
+        expect(shouldOpenAppointmentEditor(firstHearing)).toBe(false);
     });
 });

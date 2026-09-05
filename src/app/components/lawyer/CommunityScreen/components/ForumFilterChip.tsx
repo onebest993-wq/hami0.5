@@ -27,12 +27,12 @@ export function ForumFilterChip({
         <button
             type="button"
             onClick={onSelect}
-            className={`flex min-h-[44px] items-center gap-2 border text-right transition-all ${
-                dense ? 'rounded-xl px-3 py-2.5' : 'rounded-2xl px-3 py-3 duration-150'
+            className={`flex min-h-[44px] items-center gap-2 border text-right transition-colors ${
+                dense ? 'rounded-lg px-2.5 py-2' : 'rounded-xl px-3 py-2.5'
             } ${selected ? FORUM_FILTER_CHIP_SELECTED : FORUM_FILTER_CHIP_IDLE}`}
         >
             <span
-                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
                     selected ? FORUM_FILTER_CHIP_ICON_SELECTED : FORUM_FILTER_CHIP_ICON_IDLE
                 }`}
             >

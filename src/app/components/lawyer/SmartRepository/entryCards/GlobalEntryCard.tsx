@@ -10,7 +10,7 @@ import { RepositoryEntryContentLayout } from '../RepositoryEntryContentLayout';
 import { RepositoryCardFrame } from '../RepositoryCardFrame';
 import { REPO_BADGE_GOLD, REPO_CARD_TIMESTAMP } from '../smartRepositoryTheme';
 import type { RepositoryCardInnerLayout } from '../repositoryFeedLayout';
-import { EntryCardInlineEditor } from './EntryCardInlineEditor';
+import { EntryCardInlineEditorLazy } from './EntryCardInlineEditorLazy';
 import { useUniversalEntryCardEdit } from './useUniversalEntryCardEdit';
 import type { UniversalEntryCardProps } from './universalEntryCardTypes';
 import { GlobalEntryCardActions } from './GlobalEntryCardActions';
@@ -116,7 +116,7 @@ export const GlobalEntryCard = React.memo(function GlobalEntryCard({
             >
                 <div className="space-y-2.5">
                     {headerNode}
-                    <EntryCardInlineEditor
+                    <EntryCardInlineEditorLazy
                         title={edit.title}
                         bodyHtml={edit.bodyHtml}
                         editorReady={edit.editorReady}
@@ -145,11 +145,11 @@ export const GlobalEntryCard = React.memo(function GlobalEntryCard({
                         title={note.title}
                         bodyHtml={note.body || ''}
                         attachment={attachment}
-                        voiceSlot={voice ? <VoiceNoteAudio body={note.body || ''} className="mb-2" /> : undefined}
+                        voiceSlot={voice ? <VoiceNoteAudio body={note.body || ''} className="mb-1.5" /> : undefined}
                         bodyClassName={bodyClampClass.trim()}
                     />
                     {note.quickTaskLines?.length ? (
-                        <ul className="space-y-1 mt-2">
+                        <ul className="space-y-1 mt-1.5">
                             {note.quickTaskLines.map((line) => (
                                 <li key={line} className="flex items-center gap-2 text-xs text-white/70">
                                     <span className="text-[#E6C673]">☐</span>

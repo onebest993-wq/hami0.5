@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import type { CommunityComment, CommunityPost } from '@/app/services/lawyer-cloud';
 import { canDeleteComment, canEditComment } from '../communityPermissions';
 import { FORUM_COMMENT_BEST, FORUM_COMMENT_CARD } from '../forumPlumTheme';
 import {
@@ -9,36 +8,9 @@ import {
 import { ForumCommentRowEdit } from './ForumCommentRowEdit';
 import { ForumCommentRowHeader } from './ForumCommentRowHeader';
 import { ForumCommentRowFooter } from './ForumCommentRowFooter';
+import type { ForumCommentRowProps } from './ForumCommentRow.types';
 
-export type ForumCommentRowProps = {
-    comment: CommunityComment;
-    post: CommunityPost;
-    depth: number;
-    forceBestStyle: boolean;
-    bestCommentId: string | null;
-    currentUserId: string;
-    isAdmin: boolean;
-    isLocked: boolean;
-    canSelectBest: boolean;
-    followingIds: Set<string>;
-    userStats: Record<string, { followerCount: number; postCount: number }>;
-    mutedUserIds?: Set<string>;
-    editingCommentId: string | null;
-    editContent: string;
-    confirmDeleteId: string | null;
-    onSetEditingCommentId: (id: string | null) => void;
-    onSetEditContent: (value: string) => void;
-    onSetConfirmDeleteId: (id: string | null) => void;
-    onSetReplyingToCommentId: (id: string) => void;
-    onFollow: (targetUserId: string) => void;
-    onToggleBestAnswer: (postId: string, commentId: string) => void;
-    onEditComment: (postId: string, commentId: string, newContent: string) => Promise<boolean> | boolean | void;
-    onDeleteComment: (postId: string, commentId: string) => Promise<void> | void;
-    onToggleCommentUpvote?: (commentId: string) => void;
-    onReportComment?: (commentId: string) => void;
-    onMuteUser?: (userId: string) => void;
-    onOpenProfile?: (userId: string, displayName?: string) => void;
-};
+export type { ForumCommentRowProps } from './ForumCommentRow.types';
 
 export function ForumCommentRow(props: ForumCommentRowProps) {
     const {
@@ -107,8 +79,8 @@ export function ForumCommentRow(props: ForumCommentRowProps) {
 
     return (
         <div
-            className={`${indentClass} ${threadClass} group/comment rounded-2xl p-4 border transition-colors ${
-                isBest ? FORUM_COMMENT_BEST : `${FORUM_COMMENT_CARD}`
+            className={`${indentClass} ${threadClass} group/comment border transition-colors ${
+                isBest ? FORUM_COMMENT_BEST : FORUM_COMMENT_CARD
             }`}
         >
             <ForumCommentRowHeader

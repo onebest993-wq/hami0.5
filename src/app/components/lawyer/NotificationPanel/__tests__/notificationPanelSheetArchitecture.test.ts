@@ -107,7 +107,8 @@ describe('notification panel sheet architecture', () => {
         expect(layout).toContain('env(safe-area-inset-right)');
         expect(layout).toContain('env(safe-area-inset-bottom)');
         expect(panel).toContain('NotificationPanelSheet');
-        expect(chrome).toContain('useMobileKeyboardInset(isOpen, true)');
+        expect(chrome).toContain('useMobileKeyboardInset(isOpen, true,');
+        expect(chrome).toContain('ignoreTasksDatePickerGrace: true');
         expect(sheetCss).toContain('@media (max-width: 639px)');
         expect(sheetCss).toContain('@media (min-width: 768px)');
         expect(sheetCss).toContain('@media (min-width: 1024px)');

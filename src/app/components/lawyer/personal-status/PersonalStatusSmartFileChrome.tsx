@@ -19,6 +19,9 @@ import {
 } from './personalStatusDossierTheme';
 import { ColleagueConsultationHeaderButton } from '@/app/components/lawyer/caseShare/ColleagueConsultationHeaderButton';
 
+const PS_CHALLENGE_CHIP =
+    'min-h-[44px] shrink-0 whitespace-nowrap rounded-md border border-white/[0.1] bg-white/[0.04] px-2.5 py-1.5 text-[11px] font-semibold text-white/75 hover:border-white/[0.16] hover:bg-white/[0.07] hover:text-white/90 transition-colors touch-manipulation';
+
 export function PersonalStatusSmartFileChrome(props: SmartFileChromeProps) {
     const {
         onClose,
@@ -32,6 +35,13 @@ export function PersonalStatusSmartFileChrome(props: SmartFileChromeProps) {
         viewingStageIndex,
         activeStageIndex,
         onStageSelect,
+        showRemainingOpponentChallenge = false,
+        remainingOpponentChallengeLabel = 'قام الخصم بالطعن',
+        onRemainingOpponentChallenge,
+        showIndependentClientChallenge = false,
+        onIndependentClientChallenge,
+        namedChallengeActions = [],
+        onNamedChallengeAction,
     } = props;
 
     const stageStripItems = buildPersonalStatusChromeStageStripItems(stages, activeStageIndex, viewingStageIndex);
@@ -39,6 +49,13 @@ export function PersonalStatusSmartFileChrome(props: SmartFileChromeProps) {
     const dossierExit = onDossierExit ?? onClose;
     const navVisibility = resolveDossierHeaderNavVisibility(isTrashOpen);
     const showStageRail = stageStripItems.length > 0;
+    const hasNamedChallenges = namedChallengeActions.length > 0 && Boolean(onNamedChallengeAction);
+    /** الأحوال: لا استئناف — الزر المستقل الاستئنافي لا يُعرض؛ المسمّى مسموح (تمييز/اعتراض) */
+    const showPostHopChallenge =
+        !isViewingArchived
+        && (showRemainingOpponentChallenge
+            || hasNamedChallenges
+            || (showIndependentClientChallenge && Boolean(onIndependentClientChallenge)));
 
     return (
         <div className="sticky top-0 z-50 w-full shrink-0 print:hidden bg-[#0B1021]">
@@ -98,10 +115,10 @@ export function PersonalStatusSmartFileChrome(props: SmartFileChromeProps) {
                 </div>
             </div>
 
-            {showStageRail ? (
+            {showStageRail || showPostHopChallenge ? (
                 <div className={PS_STAGE_RAIL} aria-label="مراحل الدعوى">
                     <div className="px-2 py-1">
-                        <div className="flex gap-1 overflow-x-auto scrollbar-hide snap-x">
+                        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide snap-x">
                             {stageStripItems.map((item) => {
                                 if (item.isPlaceholder) {
                                     return (
@@ -133,6 +150,51 @@ export function PersonalStatusSmartFileChrome(props: SmartFileChromeProps) {
                                     </button>
                                 );
                             })}
+                            {showPostHopChallenge ? (
+                                <div
+                                    className="flex items-center gap-1 shrink-0 snap-start"
+                                    data-testid={CIVIL_LAWSUIT_TEST_IDS.postHopChallengeChrome}
+                                >
+                                    {hasNamedChallenges
+                                        ? namedChallengeActions.map((action) => (
+                                              <button
+                                                  key={action.challengerId}
+                                                  type="button"
+                                                  data-testid={CIVIL_LAWSUIT_TEST_IDS.namedChallengeAction(
+                                                      action.challengerId,
+                                                  )}
+                                                  onClick={() =>
+                                                      onNamedChallengeAction?.(action.challengerId)
+                                                  }
+                                                  onPointerEnter={() => {
+                                                      void import(
+                                                          '../smart-modal/AppealTransitionModal',
+                                                      ).catch(() => undefined);
+                                                  }}
+                                                  className={PS_CHALLENGE_CHIP}
+                                                  title={action.label}
+                                              >
+                                                  {action.label}
+                                              </button>
+                                          ))
+                                        : null}
+                                    {showRemainingOpponentChallenge && onRemainingOpponentChallenge ? (
+                                        <button
+                                            type="button"
+                                            data-testid={CIVIL_LAWSUIT_TEST_IDS.remainingOpponentChallenge}
+                                            onClick={onRemainingOpponentChallenge}
+                                            onPointerEnter={() => {
+                                                void import('../smart-modal/AppealTransitionModal').catch(
+                                                    () => undefined,
+                                                );
+                                            }}
+                                            className={PS_CHALLENGE_CHIP}
+                                        >
+                                            {remainingOpponentChallengeLabel}
+                                        </button>
+                                    ) : null}
+                                </div>
+                            ) : null}
                         </div>
                     </div>
                 </div>

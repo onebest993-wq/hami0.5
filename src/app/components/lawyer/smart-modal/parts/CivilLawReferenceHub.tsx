@@ -1,6 +1,5 @@
 import React, { useEffect, useState, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { BookOpen } from '@/app/components/ui/icons/BookOpen';
 import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
 import { X } from '@/app/components/ui/icons/X';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
@@ -125,7 +124,6 @@ export const CivilLawReferenceHub = memo(function CivilLawReferenceHub({
                 className={compact ? COMPACT_HUB_TRIGGER_SKY : `${GLASS_TRIGGER} mb-2`}
             >
                 <div className="flex items-center gap-1.5 min-w-0">
-                    <BookOpen size={14} className="text-white/55 shrink-0" aria-hidden />
                     <span className="font-bold text-white/85 text-[11px] truncate">المرجع القانوني</span>
                 </div>
                 <ChevronDown size={14} className="text-white/35 shrink-0" aria-hidden />

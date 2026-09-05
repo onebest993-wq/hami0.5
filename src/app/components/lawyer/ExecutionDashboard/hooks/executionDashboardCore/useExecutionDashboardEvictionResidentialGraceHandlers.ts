@@ -1,11 +1,15 @@
 /** Phase C — مهلة التخلية السكنية + إكمال قرارات المنفذ */
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import type { TimelineEvent } from '@/app/types/execution';
 import { stripResidentialGraceTimelineEvents } from '@/app/utils/residentialGraceTimeline';
 import { evictionLocalYmdToday } from '@/app/components/lawyer/ExecutionDashboard/helpers';
 import { toastAfterExecutionPersist } from '../../helpers/toastAfterExecutionPersist';
 import { runOpenEvictionExecutorCompletion } from './openEvictionExecutorCompletion';
 import { submitEvictionResidentialGraceFromModal as runSubmitEvictionResidentialGraceFromModal } from './submitEvictionResidentialGraceFromModal';
+import {
+    OPEN_EVICTION_RESIDENTIAL_GRACE_EVENT,
+    type OpenEvictionResidentialGraceDetail,
+} from '@/app/utils/openEvictionResidentialGrace';
 
 export type { UseExecutionDashboardEvictionResidentialGraceHandlersParams } from './useExecutionDashboardEvictionResidentialGraceHandlers.types';
 import type { UseExecutionDashboardEvictionResidentialGraceHandlersParams } from './useExecutionDashboardEvictionResidentialGraceHandlers.types';
@@ -77,6 +81,7 @@ export function useExecutionDashboardEvictionResidentialGraceHandlers({
             setGraceModalEndYmd(/^\d{4}-\d{2}-\d{2}$/.test(endFromState) ? endFromState : '');
             setGraceModalStartYmd(evictionResidentialGracePeriodStart || evictionLocalYmdToday());
             setGraceModalAllowResave(Boolean(opts?.edit));
+            setShowDecisionsModal(false);
             setShowEvictionResidentialGraceModal(true);
         },
         [
@@ -88,9 +93,22 @@ export function useExecutionDashboardEvictionResidentialGraceHandlers({
             setGraceModalEndYmd,
             setGraceModalStartYmd,
             setGraceModalAllowResave,
+            setShowDecisionsModal,
             setShowEvictionResidentialGraceModal,
         ],
     );
+
+    useEffect(() => {
+        const onOpen = (ev: Event) => {
+            const detail = (ev as CustomEvent<OpenEvictionResidentialGraceDetail>).detail ?? {};
+            if (detail.closeDecisions !== false) {
+                setShowDecisionsModal(false);
+            }
+            openEvictionResidentialGraceModal({ edit: Boolean(detail.edit) });
+        };
+        window.addEventListener(OPEN_EVICTION_RESIDENTIAL_GRACE_EVENT, onOpen);
+        return () => window.removeEventListener(OPEN_EVICTION_RESIDENTIAL_GRACE_EVENT, onOpen);
+    }, [openEvictionResidentialGraceModal, setShowDecisionsModal]);
 
     const openEvictionExecutorCompletion = useCallback(
         (decisionId: string) => {

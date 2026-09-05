@@ -13,7 +13,7 @@ import {
 
 export type LawsuitsWorkspaceTab = 'civil' | 'urgent';
 
-type LawsuitsWorkspaceShellProps = {
+export type LawsuitsWorkspaceShellProps = {
     defaultTab?: LawsuitsWorkspaceTab;
     onClose: () => void;
     /** مغادرة إلى الواجهة الرئيسية (X) */
@@ -27,7 +27,15 @@ type LawsuitsWorkspaceShellProps = {
     open?: boolean;
     /** زر الإضافة — يُركَّب عائماً فوق المحتوى (بدون شريط سفلي) */
     addCaseFab?: React.ReactNode;
+    /** موضع دورة الحياة تحت العنوان — نشطة / أرشيف / سلة */
+    civilLifecycleLocation?: 'active' | 'archived' | 'trash' | null;
     children: (tab: LawsuitsWorkspaceTab) => React.ReactNode;
+};
+
+const CIVIL_LIFECYCLE_LOCATION_LABEL: Record<'active' | 'archived' | 'trash', string> = {
+    active: 'الإضابير النشطة',
+    archived: 'الأرشيف',
+    trash: 'السلة',
 };
 
 export function LawsuitsWorkspaceShell({
@@ -40,6 +48,7 @@ export function LawsuitsWorkspaceShell({
     escapeEnabled = true,
     open = true,
     addCaseFab,
+    civilLifecycleLocation = 'active',
     children,
 }: LawsuitsWorkspaceShellProps): React.ReactElement {
     const [tab, setTab] = useState<LawsuitsWorkspaceTab>(defaultTab);
@@ -142,6 +151,18 @@ export function LawsuitsWorkspaceShell({
                             <h2 className="text-white font-extrabold text-base tracking-tight">
                                 مخزن الإضابير
                             </h2>
+                            {tab === 'civil' && civilLifecycleLocation ? (
+                                <p
+                                    className="mt-0.5 text-[11px] font-bold text-white/50 tracking-wide"
+                                    data-testid="lawsuits-workspace-lifecycle-location"
+                                >
+                                    {CIVIL_LIFECYCLE_LOCATION_LABEL[civilLifecycleLocation]}
+                                </p>
+                            ) : tab === 'urgent' ? (
+                                <p className="mt-0.5 text-[11px] font-bold text-white/50 tracking-wide">
+                                    المستعجل
+                                </p>
+                            ) : null}
                         </div>
                         <span className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0" aria-hidden />
                         <span className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0" aria-hidden />

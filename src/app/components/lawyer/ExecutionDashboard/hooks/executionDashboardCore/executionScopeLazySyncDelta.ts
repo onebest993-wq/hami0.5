@@ -25,8 +25,6 @@ const EXECUTION_LAZY_SYNC_FINGERPRINT_KEYS = new Set<string>([
     'caseNotesLog',
     'dockPinnedNotes',
     'dockPinnedTasks',
-    'seizedMovablesForSeizureLog',
-    'seizedPropertiesForSeizureLog',
 ]);
 
 function fingerprintTimelineEventsScopeValue(value: unknown): string {
@@ -83,16 +81,6 @@ function fingerprintFinancialLedgerScopeValue(value: unknown): string {
         .join('|');
 }
 
-function fingerprintSeizedAssetsScopeValue(value: unknown): string {
-    if (!Array.isArray(value)) return '';
-    return value
-        .map((row) => {
-            const asset = row as { id?: string; decisionRowId?: string; status?: string };
-            return `${String(asset.id ?? '')}:${String(asset.decisionRowId ?? '')}:${String(asset.status ?? '')}`;
-        })
-        .join('|');
-}
-
 function fingerprintHeavyScopeValue(key: string, value: unknown): string {
     switch (key) {
         case 'timelineEvents':
@@ -114,9 +102,6 @@ function fingerprintHeavyScopeValue(key: string, value: unknown): string {
             return fingerprintCaseNotesLogScopeValue(value);
         case 'financialLedger':
             return fingerprintFinancialLedgerScopeValue(value);
-        case 'seizedMovablesForSeizureLog':
-        case 'seizedPropertiesForSeizureLog':
-            return fingerprintSeizedAssetsScopeValue(value);
         default:
             return '';
     }

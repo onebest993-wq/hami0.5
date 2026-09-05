@@ -2,6 +2,7 @@ import type { CaseStage } from '../../LawyerShared';
 import type { FileData } from '../../LawyerShared';
 import type { IncidentalSpawnContext } from './incidentalCaseLinking';
 import type { ConsolidationMergeMeta, ConsolidationSpawnContext } from './caseConsolidationLinking';
+import type { IndependentChallengeSpawnInput } from '@/app/domain/lawsuit/independentChallengeDossier';
 
 export function readFileString(file: Record<string, unknown>, key: string, fallback = ''): string {
     const value = file[key];
@@ -36,6 +37,7 @@ export interface SmartFileModalProps {
         },
         meta: { linkDate: string; reason?: string },
     ) => void;
+    onSpawnIndependentChallengeFile?: (input: IndependentChallengeSpawnInput) => void;
     onOpenLinkedCriminalCase?: (criminalId: string) => void;
     consolidationNavActive?: boolean;
     caseLinkNavActive?: boolean;

@@ -52,7 +52,8 @@ describe('repository scanner save performance honesty', () => {
             'src/app/components/lawyer/SmartRepository/SmartRepositoryUnifiedFeed.tsx',
         );
         expect(unified).toContain('scrollParentRef={feedScrollRef}');
-        expect(unified).toContain('value={modalRoot}');
+        expect(unified).not.toContain('modalRoot');
+        expect(unified).toContain('data-testid="repository-unified-feed"');
         const img = read(
             'src/app/components/lawyer/SmartRepository/VaultDocDisplayImage.tsx',
         );
@@ -166,10 +167,10 @@ describe('repository scanner save performance honesty', () => {
             'src/app/components/lawyer/SmartRepository/RepositoryRoomMenu.tsx',
         );
         expect(roomMenu).toContain('event.stopPropagation()');
-        const host = read(
-            'src/app/components/lawyer/SmartRepository/SmartRepositoryHost.tsx',
+        const addMenu = read(
+            'src/app/components/lawyer/SmartRepository/RepositoryAddMenu.tsx',
         );
-        expect(host).toContain('VaultUploadMetaSheet');
+        expect(addMenu).toContain('VaultUploadMetaSheet');
         const uploadHook = read(
             'src/app/components/lawyer/hooks/smartVault/useSmartVaultUpload.ts',
         );

@@ -7,14 +7,16 @@ import {
     verifySensitiveSettingsAction,
 } from '@/app/services/settings/verifySensitiveSettingsAction';
 import { exportTextFile } from '@/app/services/platform/exportTextFile';
+import { settingsFlowAbandoned } from '../settingsFlowGuard';
 import { loadBusinessBackupEngine } from './businessBackupEngine';
 
 export async function runBusinessBackupExport(args: {
     buildSelection: () => BusinessBackupSelection;
     setBackupPreview: Dispatch<SetStateAction<BusinessBackupPreview>>;
     exportInFlightRef: MutableRefObject<boolean>;
+    sectionActiveRef: MutableRefObject<boolean>;
 }): Promise<void> {
-    const { buildSelection, setBackupPreview, exportInFlightRef } = args;
+    const { buildSelection, setBackupPreview, exportInFlightRef, sectionActiveRef } = args;
     if (exportInFlightRef.current) return;
     exportInFlightRef.current = true;
     try {
@@ -23,7 +25,7 @@ export async function runBusinessBackupExport(args: {
             'النسخة تحتوي بيانات قضايا وملاحظات حساسة. يجب حمايتها بكلمة مرور قبل التصدير.',
             { title: 'تصدير نسخة البيانات؟', confirmText: 'متابعة', cancelText: 'إلغاء' },
         );
-        if (!proceed) return;
+        if (!proceed || settingsFlowAbandoned(sectionActiveRef)) return;
 
         const challenge = mintSensitiveConfirmChallenge('تصدير نسخة');
         const verified = await verifySensitiveSettingsAction({
@@ -31,9 +33,10 @@ export async function runBusinessBackupExport(args: {
             title: 'تحقق قبل التصدير',
             promptMessage: challenge.promptMessage,
         });
-        if (!verified) return;
+        if (!verified || settingsFlowAbandoned(sectionActiveRef)) return;
 
         const { backup, security } = await engineReady;
+        if (settingsFlowAbandoned(sectionActiveRef)) return;
         const password = await SmartDialog.prompt(
             `أدخل كلمة مرور لحماية النسخة (${security.BACKUP_PASSWORD_MIN_LENGTH} أحرف على الأقل):`,
             '',
@@ -46,7 +49,7 @@ export async function runBusinessBackupExport(args: {
                 maxLength: security.BACKUP_PASSWORD_MAX_LENGTH,
             },
         );
-        if (password === null) return;
+        if (password === null || settingsFlowAbandoned(sectionActiveRef)) return;
         const p = password;
         const passwordCheck = security.validateBackupPassword(p);
         if (passwordCheck.ok === false) {
@@ -73,13 +76,16 @@ export async function runBusinessBackupExport(args: {
                 maxLength: security.BACKUP_PASSWORD_MAX_LENGTH,
             },
         );
-        if (confirmation === null) return;
+        if (confirmation === null || settingsFlowAbandoned(sectionActiveRef)) return;
         if (confirmation !== p) {
-            SmartToast.warning('كلمتا المرور غير متطابقتين');
+            if (!settingsFlowAbandoned(sectionActiveRef)) {
+                SmartToast.warning('كلمتا المرور غير متطابقتين');
+            }
             return;
         }
 
         const built = await backup.buildBusinessBackupPayload(buildSelection());
+        if (settingsFlowAbandoned(sectionActiveRef)) return;
         setBackupPreview({
             isLoading: false,
             keys: built.keys,
@@ -91,6 +97,7 @@ export async function runBusinessBackupExport(args: {
             return;
         }
         const payload = await backup.encryptBusinessBackupText(built.text, p);
+        if (settingsFlowAbandoned(sectionActiveRef)) return;
         const outText = JSON.stringify(payload);
         if (new TextEncoder().encode(outText).byteLength > security.MAX_BACKUP_FILE_BYTES) {
             SmartToast.warning('حجم النسخة يتجاوز الحد الآمن للتصدير على الهاتف');
@@ -104,14 +111,16 @@ export async function runBusinessBackupExport(args: {
             mimeType: 'application/json',
             dialogTitle: 'حفظ نسخة احتياطية',
         });
-        if (result === 'cancelled') return;
+        if (settingsFlowAbandoned(sectionActiveRef) || result === 'cancelled') return;
         if (result === 'failed') {
             SmartToast.warning('تعذر تصدير نسخة البيانات على هذا الجهاز');
             return;
         }
         SmartToast.success(result === 'shared' ? 'اختر تطبيقاً لحفظ النسخة' : 'تم تصدير نسخة البيانات');
     } catch {
-        SmartToast.warning('تعذر تصدير نسخة البيانات على هذا الجهاز');
+        if (!settingsFlowAbandoned(sectionActiveRef)) {
+            SmartToast.warning('تعذر تصدير نسخة البيانات على هذا الجهاز');
+        }
     } finally {
         exportInFlightRef.current = false;
     }

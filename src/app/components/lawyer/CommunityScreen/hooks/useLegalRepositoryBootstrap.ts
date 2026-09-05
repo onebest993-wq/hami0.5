@@ -5,13 +5,16 @@ import {
     listRepositoryDocumentsSync,
     RepositoryDB,
     type RepositoryDocument,
-} from '@/app/services/lawyer-cloud';
+} from '@/app/services/cloud/lawyerRepositoryCloud';
 import {
     peekRepositoryDocsCache,
     readRepositoryDocsCache,
     warmRepositoryThumbnailUrls,
 } from '@/app/services/forum/repositoryDocsWarmCache';
 import { withForumAsyncTimeout } from '../forumAsync';
+import { mergeRepositoryDocumentsById, normalizeRepositoryRows } from '../legalRepositoryNormalize';
+import { ForumApiService } from '@/app/services/forumApiService';
+import { flushForumRepositoryIndexQueue } from '@/app/services/forum/forumRepositoryIndexQueue';
 
 const REPOSITORY_CACHE_HYDRATE_TIMEOUT_MS = 2_000;
 const REPOSITORY_FETCH_TIMEOUT_MS = 6_000;
@@ -73,14 +76,28 @@ export function useLegalRepositoryBootstrap({
 
             const fetchRemote = async () => {
                 try {
-                    const docs = await withForumAsyncTimeout(
-                        RepositoryDB.listDocuments(),
-                        REPOSITORY_FETCH_TIMEOUT_MS,
-                        documentsRef.current,
-                    );
+                    const [localDocs, catalog] = await Promise.all([
+                        withForumAsyncTimeout(
+                            RepositoryDB.listDocuments(),
+                            REPOSITORY_FETCH_TIMEOUT_MS,
+                            documentsRef.current,
+                        ),
+                        withForumAsyncTimeout(ForumApiService.listRepositoryDocuments(), REPOSITORY_FETCH_TIMEOUT_MS, []),
+                    ]);
                     if (!cancelled) {
+                        const docs = normalizeRepositoryRows(mergeRepositoryDocumentsById(localDocs, catalog));
                         applyDocuments(docs);
                         void warmRepositoryThumbnailUrls(docs).catch(() => undefined);
+                        void flushForumRepositoryIndexQueue()
+                            .then((indexed) => {
+                                if (cancelled || indexed.length === 0) return;
+                                applyDocuments(
+                                    normalizeRepositoryRows(
+                                        mergeRepositoryDocumentsById(documentsRef.current, indexed),
+                                    ),
+                                );
+                            })
+                            .catch(() => undefined);
                     }
                 } catch {
                     if (!cancelled && documentsRef.current.length === 0) {

@@ -147,17 +147,22 @@ export function isForcedBringCycleResolved(
     return false;
 }
 
+/**
+ * هل نعرض اختيار نتيجة الإحضار بعد موافقة المنفذ؟
+ * ملاحظة: «نفاذ» القرار قانونياً (enforced) لا يعني اكتمال الميدان —
+ * بل هو شرط لبدء تسجيل النتيجة، لذلك لا نستخدمه لإخفاء الواجهة.
+ */
 export function resolveForcedBringNeedsOutcomeUi(input: {
     forcedApproved: boolean;
     forcedPending: boolean;
     outcome?: string | null;
     appealBlocksFieldwork?: boolean;
     appealCycleSuperseded?: boolean;
+    /** @deprecated لم يعد يُستخدم — النفاذ القانوني لا يمنع تسجيل النتيجة */
     requestEffectivelyEnforced?: boolean;
 }): boolean {
     if (input.appealBlocksFieldwork) return false;
     if (input.appealCycleSuperseded) return false;
-    if (input.requestEffectivelyEnforced) return false;
     if (!input.forcedApproved || input.forcedPending) return false;
     const o = String(input.outcome ?? '').trim();
     return o !== 'brought' && o !== 'absconded' && o !== 'dismissed';

@@ -15,6 +15,7 @@ import {
     isBootRevealDone,
 } from '@/app/bootstrap/bootReveal';
 import { onLawyerDashboardFirstTabOpen } from '@/app/bootstrap/lawyerDashboardFirstTabMark';
+import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import { DashboardTabSurface } from '@/app/components/lawyer/dashboard/schedule/DashboardTabSurface';
 import { ScheduleRadarPaintGate } from '@/app/components/lawyer/dashboard/schedule/ScheduleRadarPaintGate';
 import { ProfilePagePaintGate } from '@/app/components/lawyer/dashboard/profile/ProfilePagePaintGate';
@@ -30,7 +31,9 @@ import { LawyerDashboardMainViewOverlayHosts } from '@/app/components/lawyer/das
 import {
     LazyLawyerDashboardPostInteractiveRuntime,
     LazyLawyerDashboardDeferredFeatureSurfaces,
+    LazyLawyerDashboardFieldTasksFeatureSurfaces,
     LazyLawyerDashboardPreDockFeatureSurfaces,
+    LazyLawyerDashboardRepositoryFeatureSurfaces,
     LazyLawyerDashboardNavigationIsland,
     LazyProfileTabHost,
     LazyScheduleTabHost,
@@ -61,7 +64,9 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
         overlaysBundle,
         postInteractiveRuntimeProps,
         deferredFeatureSurfacesProps,
+        fieldTasksFeatureSurfacesProps,
         preDockFeatureSurfacesProps,
+        repositoryFeatureSurfacesProps,
         navigationSurfacesProps,
     } = model;
 
@@ -81,7 +86,7 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
         return onBootContentReady(() => setPostCriticalSurfacesMount(true));
     }, [postCriticalSurfacesMount]);
 
-    /** منتدى/تقويم/مستودع — chunk كسول بعد first-tab-open (لا onBootContentReady) */
+    /** منتدى/تقويم — كسول. first-tab بخمول حتى لا ينافس لمسة المستودع بعد طلاء الشبكة */
     const [preDockSurfacesMount, setPreDockSurfacesMount] = useState(
         () =>
             preDockFeatureSurfacesProps.earlyArm ||
@@ -92,10 +97,56 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
     }, [preDockFeatureSurfacesProps.forceArm]);
     useEffect(() => {
         if (preDockSurfacesMount) return;
-        return onLawyerDashboardFirstTabOpen(() => {
-            queueMicrotask(() => setPreDockSurfacesMount(true));
+        let cancelIdle: (() => void) | undefined;
+        const unsub = onLawyerDashboardFirstTabOpen(() => {
+            cancelIdle = scheduleIdleWork(() => setPreDockSurfacesMount(true), {
+                minDelayMs: 720,
+                timeoutMs: 3_200,
+            });
         });
+        return () => {
+            unsub();
+            cancelIdle?.();
+        };
     }, [preDockSurfacesMount]);
+
+    /** خطاف المستودع — جزيرة منفصلة؛ first-tab فوري لتسخين المقطع بلا منتدى/تقويم */
+    const [repositorySurfacesMount, setRepositorySurfacesMount] = useState(
+        () =>
+            repositoryFeatureSurfacesProps.earlyArm ||
+            repositoryFeatureSurfacesProps.forceArm,
+    );
+    useLayoutEffect(() => {
+        if (repositoryFeatureSurfacesProps.forceArm) setRepositorySurfacesMount(true);
+    }, [repositoryFeatureSurfacesProps.forceArm]);
+    useEffect(() => {
+        if (repositorySurfacesMount) return;
+        return onLawyerDashboardFirstTabOpen(() => {
+            queueMicrotask(() => setRepositorySurfacesMount(true));
+        });
+    }, [repositorySurfacesMount]);
+
+    /** خطاف الميدان — جزيرة منفصلة؛ لمسة المهام لا تجرّ المعاملات/البحث */
+    const [fieldTasksSurfacesMount, setFieldTasksSurfacesMount] = useState(
+        () =>
+            fieldTasksFeatureSurfacesProps.earlyArm ||
+            fieldTasksFeatureSurfacesProps.forceArm,
+    );
+    useLayoutEffect(() => {
+        if (fieldTasksFeatureSurfacesProps.forceArm) setFieldTasksSurfacesMount(true);
+    }, [fieldTasksFeatureSurfacesProps.forceArm]);
+    useEffect(() => {
+        if (fieldTasksSurfacesMount) return;
+        return onBootContentReady(() => setFieldTasksSurfacesMount(true));
+    }, [fieldTasksSurfacesMount]);
+
+    /* جزيرة الخطاف + مقطع الواجهة مع تركيب اللوحة — قبل أول لمسة بعد الإقلاع */
+    useEffect(() => {
+        void LazyLawyerDashboardRepositoryFeatureSurfaces.preload();
+        void import('@/app/runtime/repositoryHubLoader')
+            .then((m) => m.prefetchRepositoryHubModule())
+            .catch(() => undefined);
+    }, []);
 
     /* بايتات مخزن التنفيذ فور طلاء الشبكة — أثناء نافذة CSS، بلا تركيب Host */
     useEffect(() => {
@@ -246,6 +297,7 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
                             <ScheduleRadarPaintGate
                                 open={schedulePaintOpen}
                                 onBack={scheduleTabProps.onBackToHome}
+                                userId={scheduleTabProps.userId ?? scheduleTabProps.authUserId}
                             >
                                 <LazyScheduleTabHost
                                     key={`schedule-tab-${scheduleTabProps.scheduleTabSessionKey ?? 0}`}
@@ -303,6 +355,22 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
                 closeExecutionCreate={closeExecutionCreate}
                 executionCreateCloseGuard={executionCreateCloseGuard}
             />
+
+            {repositorySurfacesMount ? (
+                <Suspense fallback={null}>
+                    <LazyLawyerDashboardRepositoryFeatureSurfaces
+                        {...repositoryFeatureSurfacesProps}
+                    />
+                </Suspense>
+            ) : null}
+
+            {fieldTasksSurfacesMount ? (
+                <Suspense fallback={null}>
+                    <LazyLawyerDashboardFieldTasksFeatureSurfaces
+                        {...fieldTasksFeatureSurfacesProps}
+                    />
+                </Suspense>
+            ) : null}
 
             {preDockSurfacesMount ? (
                 <Suspense fallback={null}>

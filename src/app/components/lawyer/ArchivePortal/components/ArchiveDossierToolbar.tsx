@@ -185,7 +185,7 @@ export const ArchiveDossierToolbar: React.FC<ArchiveDossierToolbarProps> = ({
             {filtersOpen ? (
                 <div
                     id={panelId}
-                    className="absolute inset-x-4 sm:inset-x-5 top-[calc(100%-0.25rem)] z-40 rounded-2xl border border-white/12 bg-[#0B1021] p-2.5 shadow-[0_10px_28px_rgba(0,0,0,0.28)]"
+                    className="relative z-10 mt-2 rounded-2xl border border-white/12 bg-[#0B1021] p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
                     role="dialog"
                     aria-label="فلاتر المخزن"
                 >
@@ -303,12 +303,6 @@ export const ArchiveDossierToolbar: React.FC<ArchiveDossierToolbarProps> = ({
                                 })}
                             </div>
                         </div>
-                    ) : null}
-
-                    {lifecycleViewMode === 'trash' ? (
-                        <p className="mt-3 text-[11px] leading-relaxed text-amber-200/75">
-                            تبقى الإضابير هنا حتى تحذفها نهائياً بنفسك. يمكنك استرجاعها في أي وقت.
-                        </p>
                     ) : null}
                 </div>
             ) : null}

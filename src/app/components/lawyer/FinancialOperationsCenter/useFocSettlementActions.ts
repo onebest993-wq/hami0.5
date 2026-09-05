@@ -1,7 +1,5 @@
 import { useCallback } from 'react';
-import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import type { TimelineEventType } from '@/app/types/execution';
-import { applyOngoingAlimonyBreachAccrual } from './alimonyOngoingAccrual';
 import { applySettlementBreachCancellation } from './settlementGuarantorGate';
 import {
     SETTLEMENT_DEFAULT_DUE_DAYS,
@@ -10,6 +8,7 @@ import {
     resolveSettlementBlockedBySalarySeizure,
 } from './settlementSalaryExclusion';
 import type { LocalPaymentRow, PendingSettlement, UnifiedLedgerStore } from './types';
+import { prefetchFocUnifiedLedgerSettlementPanel } from './focLedgerMotionLazy';
 import {
     addDaysToYmd,
     addMonthsToYmd,
@@ -140,6 +139,7 @@ export function useFocSettlementActions(
                 seizedAssets: salarySeizureRegistryAssets,
             })
         ) {
+            const { SmartDialog } = await import('@/app/components/ui/SmartDialog');
             const choice = await promptSettlementSalaryConflictChoice(SmartDialog.confirm);
             if (choice === 'keep_salary') {
                 notify('تم الإبقاء على حجز الراتب — أُلغي تسجيل التسوية.', 'info');
@@ -332,52 +332,61 @@ export function useFocSettlementActions(
             Boolean(dueYmd) &&
             shouldShowSettlementDueActions(dueYmd || pending.dueDate, todayYmd);
 
-        let nextStore: UnifiedLedgerStore;
-        let accruedAmount = 0;
-        let billableDays = 0;
-        let newPrincipalTotal = principalBasisAmount;
-
         if (canAccrueOngoing) {
-            const accrual = applyOngoingAlimonyBreachAccrual({
-                store: getLatestLedgerStore(),
-                pending,
-                monthlyAmount: ongoingMonthlyAlimonyEffective || pending.amount,
-                currentYmd: todayYmd,
-                basePrincipal: principalBasisAmount,
+            void import('./alimonyOngoingAccrual').then(({ applyOngoingAlimonyBreachAccrual }) => {
+                const accrual = applyOngoingAlimonyBreachAccrual({
+                    store: getLatestLedgerStore(),
+                    pending,
+                    monthlyAmount: ongoingMonthlyAlimonyEffective || pending.amount,
+                    currentYmd: todayYmd,
+                    basePrincipal: principalBasisAmount,
+                });
+                persist(accrual.store);
+                setSettlementPanelOpen(false);
+                setShowSettlementEviction(false);
+                if (accrual.accruedAmount > 0) {
+                    onAlimonyOngoingAccrued?.({
+                        dueDate: pending.dueDate,
+                        accruedAmount: accrual.accruedAmount,
+                        billableDays: accrual.billableDays,
+                        newPrincipalTotal: accrual.newPrincipalTotal,
+                        monthlyRate: ongoingMonthlyAlimonyEffective || pending.amount,
+                    });
+                    recordFinancialTimelineNote(
+                        '📈 ترحيل نفقة مستمرة للمتبقي',
+                        `أُضيف ${accrual.accruedAmount.toLocaleString('ar-IQ')} د.ع إلى المتبقي — ${accrual.billableDays} يوماً من النفقة الشهرية (${(ongoingMonthlyAlimonyEffective || pending.amount).toLocaleString('ar-IQ')} د.ع/شهر) بعد إخلال التسوية.`,
+                        'settlement'
+                    );
+                    notify(
+                        `تم ترحيل ${accrual.accruedAmount.toLocaleString('ar-IQ')} د.ع من النفقة المستمرة غير المسددة إلى المتبقي (${accrual.billableDays} يوماً).`,
+                        'warning'
+                    );
+                }
+                if (isAlimonyClaim) {
+                    onMonthlySettlementDefault?.({ dueDate: pending.dueDate, amount: pending.amount });
+                }
+                recordFinancialTimelineNote(
+                    '❌ إخلال التسوية',
+                    accrual.accruedAmount > 0
+                        ? `أُلغيت التسوية بعد عدم السداد — رُحِّل ${accrual.accruedAmount.toLocaleString('ar-IQ')} د.ع إلى المتبقي.`
+                        : `أُلغيت التسوية بمبلغ ${pending.amount.toLocaleString('ar-IQ')} د.ع بعد عدم السداد — عاد زر حجز الراتب للظهور.`,
+                    'settlement'
+                );
+                if (accrual.accruedAmount <= 0) {
+                    notify('تم إلغاء التسوية — عاد زر حجز الراتب للظهور في تبويب الحجوزات.', 'info');
+                }
             });
-            nextStore = accrual.store;
-            accruedAmount = accrual.accruedAmount;
-            billableDays = accrual.billableDays;
-            newPrincipalTotal = accrual.newPrincipalTotal;
-        } else {
-            nextStore = applySettlementBreachCancellation(
-                getLatestLedgerStore(),
-                new Date().toISOString()
-            );
+            return;
         }
+
+        const nextStore = applySettlementBreachCancellation(
+            getLatestLedgerStore(),
+            new Date().toISOString()
+        );
 
         persist(nextStore);
         setSettlementPanelOpen(false);
         setShowSettlementEviction(false);
-
-        if (canAccrueOngoing && accruedAmount > 0) {
-            onAlimonyOngoingAccrued?.({
-                dueDate: pending.dueDate,
-                accruedAmount,
-                billableDays,
-                newPrincipalTotal,
-                monthlyRate: ongoingMonthlyAlimonyEffective || pending.amount,
-            });
-            recordFinancialTimelineNote(
-                '📈 ترحيل نفقة مستمرة للمتبقي',
-                `أُضيف ${accruedAmount.toLocaleString('ar-IQ')} د.ع إلى المتبقي — ${billableDays} يوماً من النفقة الشهرية (${(ongoingMonthlyAlimonyEffective || pending.amount).toLocaleString('ar-IQ')} د.ع/شهر) بعد إخلال التسوية.`,
-                'settlement'
-            );
-            notify(
-                `تم ترحيل ${accruedAmount.toLocaleString('ar-IQ')} د.ع من النفقة المستمرة غير المسددة إلى المتبقي (${billableDays} يوماً).`,
-                'warning'
-            );
-        }
 
         if (isAlimonyClaim) {
             onMonthlySettlementDefault?.({ dueDate: pending.dueDate, amount: pending.amount });
@@ -385,14 +394,10 @@ export function useFocSettlementActions(
 
         recordFinancialTimelineNote(
             '❌ إخلال التسوية',
-            accruedAmount > 0
-                ? `أُلغيت التسوية بعد عدم السداد — رُحِّل ${accruedAmount.toLocaleString('ar-IQ')} د.ع إلى المتبقي.`
-                : `أُلغيت التسوية بمبلغ ${pending.amount.toLocaleString('ar-IQ')} د.ع بعد عدم السداد — عاد زر حجز الراتب للظهور.`,
+            `أُلغيت التسوية بمبلغ ${pending.amount.toLocaleString('ar-IQ')} د.ع بعد عدم السداد — عاد زر حجز الراتب للظهور.`,
             'settlement'
         );
-        if (!canAccrueOngoing || accruedAmount <= 0) {
-            notify('تم إلغاء التسوية — عاد زر حجز الراتب للظهور في تبويب الحجوزات.', 'info');
-        }
+        notify('تم إلغاء التسوية — عاد زر حجز الراتب للظهور في تبويب الحجوزات.', 'info');
     }, [
         store.pendingSettlement,
         isAlimonyClaim,
@@ -430,6 +435,8 @@ export function useFocSettlementActions(
 
     const activateSettlementPanel = useCallback(() => {
         if (salarySeizureActive) return;
+        void import('./alimonyOngoingAccrual');
+        prefetchFocUnifiedLedgerSettlementPanel();
         setSettlementPanelOpen(true);
         if (!store.pendingSettlement) {
             setShowSettlementEviction(true);

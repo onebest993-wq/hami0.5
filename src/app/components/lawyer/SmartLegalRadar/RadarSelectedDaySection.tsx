@@ -2,6 +2,7 @@
 import { EmptyState } from './RadarEmptyState';
 import { EventCardsList } from './EventCardsList';
 import { RadarDayNotices } from './RadarDayNotices';
+import { useCalendarLiveHandoff } from '@/app/services/calendar/calendarLiveHandoffContext';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 import type { CrossSectionConflictResult } from '@/app/services/calendar/scheduleConflictDetector';
 
@@ -14,6 +15,8 @@ type RadarSelectedDaySectionProps = {
     onEditEvent: (event: UnifiedEvent) => void;
     onDeleteEvent: (event: UnifiedEvent) => void | Promise<void>;
     onOpenSource?: (event: UnifiedEvent) => void;
+    /** لقطة كاش/جلب مؤكدة — لا جملة فارغة قبلها حتى لا تومض ثم تختفي */
+    listSettled?: boolean;
 };
 
 export const RadarSelectedDaySection = React.memo(function RadarSelectedDaySection({
@@ -25,9 +28,12 @@ export const RadarSelectedDaySection = React.memo(function RadarSelectedDaySecti
     onEditEvent,
     onDeleteEvent,
     onOpenSource,
+    listSettled = true,
 }: RadarSelectedDaySectionProps) {
+    const handoff = useCalendarLiveHandoff();
+    const showEmptyCopy = selectedEvents.length === 0 && listSettled;
     return (
-        <div className="relative space-y-2.5 pb-4">
+        <div className="relative space-y-2 pb-3" data-testid="radar-selected-day-section">
             <RadarDayNotices
                 scheduleConflict={scheduleConflict}
                 conflictMessage={conflictMessage}
@@ -36,7 +42,12 @@ export const RadarSelectedDaySection = React.memo(function RadarSelectedDaySecti
             />
 
             {selectedEvents.length === 0 ? (
-                <EmptyState />
+                <EmptyState
+                    testId={
+                        showEmptyCopy && handoff ? 'radar-empty-state' : 'radar-live-pending-empty'
+                    }
+                    silent={!showEmptyCopy}
+                />
             ) : (
                 <EventCardsList
                     events={selectedEvents}

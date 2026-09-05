@@ -3,6 +3,7 @@ import {
     isAppealStageName,
     isAwaitingOpponentAppeal,
     isCassationStageName,
+    hasMeritJudgmentRecorded,
 } from './judgmentTypes';
 
 type AppealStageFooterKind = 'register_opponent_cassation' | 'file_cassation';
@@ -45,6 +46,7 @@ export function resolveAppealStageFooterEligibility(
         return { show: false, kind: null };
     }
     if (!stage.isPleadingsClosed) return { show: false, kind: null };
+    if (!hasMeritJudgmentRecorded(stage)) return { show: false, kind: null };
     if (stage.status === 'locked' || stage.status === 'completed') {
         return { show: false, kind: null };
     }
@@ -53,26 +55,27 @@ export function resolveAppealStageFooterEligibility(
     }
 
     const fd = String(stage.finalDecision ?? '');
-    const st = String(fileStatus ?? '');
 
     if (isTerminalAppealDecision(fd)) {
         return { show: false, kind: null };
     }
 
     const awaitingOpponentCassation =
-        stage.awaitingOpponentAppeal === true
-        || isAwaitingOpponentAppeal(fd)
-        || fd.includes('بانتظار التمييز')
-        || fd.includes('بانتظار تمييز')
-        || fd.includes('لصالح الموكل')
-        || st.includes('بانتظار التمييز');
+        (stage.awaitingOpponentAppeal === true
+            || isAwaitingOpponentAppeal(fd)
+            || fd.includes('بانتظار تمييز الخصم'))
+        && stage.clientStageOutcome !== 'LOSS'
+        && !fd.includes('ضد الموكل');
 
-    if (awaitingOpponentCassation && !fd.includes('ضد الموكل')) {
+    if (awaitingOpponentCassation) {
         return { show: true, kind: 'register_opponent_cassation' };
     }
 
     if (
-        fd.includes('ضد الموكل')
+        stage.clientStageOutcome === 'LOSS'
+        || stage.clientStageOutcome === 'PARTIAL'
+        || fd.includes('ضد الموكل')
+        || fd.includes('يحق لموكلك التمييز')
         || fd.includes('بانتظار الطعن')
         || Boolean(stage.decisionDate)
     ) {

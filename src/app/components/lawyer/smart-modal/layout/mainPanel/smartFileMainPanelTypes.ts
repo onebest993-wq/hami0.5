@@ -34,9 +34,14 @@ export type SmartFileMainPanelProps = {
     handlePetitionVoidOutcome: (outcome: 'upheld' | 'quashed') => void;
     handleToggleNotification: () => void;
     handleCassationDecision: (decision: 'ratified' | 'quashed') => void;
-    handleClosePleadings: () => void;
     handleReopenPleadings: () => void;
-    handleOpenDefendantCassationAppeal: () => void;
+    handleArt172AppealStay: () => void;
+    handleArt172AppealResume: () => void;
+    handleJoinCoObjector: (partyId: string) => void;
+    handleOpenDefendantCassationAppeal: (
+        preferredChallengerPartyId?: string,
+        options?: { forceIndependentSpawn?: boolean },
+    ) => void;
     handleDefaultObjection: () => void;
     handleWaiveObjection: () => void;
     handleOpponentAppealWaived: () => void;
@@ -78,6 +83,8 @@ export type SmartFileMainPanelProps = {
     setEditingEvent: (event: TimelineEvent | null) => void;
     setShowCrossAppealModal: (v: boolean) => void;
     setShowJudgmentModal: (v: boolean) => void;
+    setShowAdjournPleadingModal: (v: boolean) => void;
+    setPendingJudgmentDate?: (date: string) => void;
     handleCancelCrossAppeal: () => void;
     handleAddCrossAppeal: () => void;
     stepperStages: unknown[];

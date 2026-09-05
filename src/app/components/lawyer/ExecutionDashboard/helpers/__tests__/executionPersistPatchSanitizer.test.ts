@@ -98,6 +98,28 @@ describe('sanitizeExecutionPersistPatch', () => {
         }
     });
 
+    it('accepts parties that only have fullName so dossier meta rename can persist', () => {
+        const result = sanitizeExecutionPersistPatch({
+            creditors: [{ id: 'c1', fullName: 'دائن بالاسم الكامل', phone: '', address: '' }],
+            debtors: [{ id: 'd1', name: '', fullName: 'مدين بالاسم الكامل', phone: '', address: '' }],
+        });
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            const creditors = result.patch.creditors as Array<Record<string, unknown>>;
+            const debtors = result.patch.debtors as Array<Record<string, unknown>>;
+            expect(creditors[0]?.name).toBe('دائن بالاسم الكامل');
+            expect(debtors[0]?.name).toBe('مدين بالاسم الكامل');
+        }
+    });
+
+    it('does not reject the whole patch when a sibling party has an empty name', () => {
+        const result = sanitizeExecutionPersistPatch({
+            creditors: [{ id: 'c1', name: 'دائن معدّل', phone: '', address: '' }],
+            debtors: [{ id: 'd1', name: '', phone: '', address: '' }],
+        });
+        expect(result.ok).toBe(true);
+    });
+
     it('rejects negative paidDebt', () => {
         const result = sanitizeExecutionPersistPatch({ paidDebt: -1 });
         expect(result.ok).toBe(false);

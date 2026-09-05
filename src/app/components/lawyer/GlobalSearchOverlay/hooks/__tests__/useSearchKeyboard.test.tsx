@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { GlobalSearchEntry } from '@/app/services/globalSearchIndex';
 import {
     listGlobalSearchFocusables,
+    scrollGlobalSearchResultIntoView,
     useSearchKeyboard,
 } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useSearchKeyboard';
 
@@ -67,6 +68,44 @@ describe('listGlobalSearchFocusables', () => {
         const list = listGlobalSearchFocusables(root);
         expect(list.map((el) => el.textContent)).toEqual(['ظاهر']);
         root.remove();
+    });
+});
+
+describe('scrollGlobalSearchResultIntoView', () => {
+    it('يعدّل scrollTop لحاوية hami-gs-scroll لا أسلاف الصفحة', () => {
+        const scroller = document.createElement('div');
+        scroller.className = 'hami-gs-scroll';
+        Object.defineProperty(scroller, 'scrollTop', { writable: true, value: 0 });
+        const row = document.createElement('button');
+        scroller.appendChild(row);
+        document.body.appendChild(scroller);
+
+        vi.spyOn(scroller, 'getBoundingClientRect').mockReturnValue({
+            top: 100,
+            bottom: 200,
+            left: 0,
+            right: 0,
+            width: 0,
+            height: 100,
+            x: 0,
+            y: 100,
+            toJSON: () => undefined,
+        });
+        vi.spyOn(row, 'getBoundingClientRect').mockReturnValue({
+            top: 40,
+            bottom: 80,
+            left: 0,
+            right: 0,
+            width: 0,
+            height: 40,
+            x: 0,
+            y: 40,
+            toJSON: () => undefined,
+        });
+
+        scrollGlobalSearchResultIntoView(row);
+        expect(scroller.scrollTop).toBe(-60);
+        scroller.remove();
     });
 });
 

@@ -14,9 +14,13 @@ import {
 import { LazyPartiesSection, prefetchPartiesSection } from './partiesSectionLazy';
 import { PreloadableOverlayGate } from '@/app/components/lawyer/ExecutionDashboard/preloadableOverlayGate';
 import {
-    isDirectorateSectionComplete,
+    claimHasFinancialAmountSection,
 } from '../hooks/executionFormUtils';
-import { EXECUTION_DOC_TYPE_OPTIONS } from '../hooks/useExecutionCreationFormOptions';
+import {
+    DEFAULT_COURT_JUDGMENT_DOC_TYPE,
+    EXECUTION_DOC_TYPE_OPTIONS,
+} from '../hooks/useExecutionCreationFormOptions';
+import { useExecutionCreationSequentialReveal } from '../hooks/useExecutionCreationSequentialReveal';
 import type { ExecutionCreationFormVm } from './executionCreationFormVm';
 
 export type { ExecutionCreationFormVm } from './executionCreationFormVm';
@@ -128,12 +132,11 @@ export function ExecutionCreationFormBody({
         isDocumentBlocked,
         foreignData,
         setForeignData,
-        showLawyerFeesBetweenSections,
+        showLawyerFeesToggle,
         includeLawyerFees,
         setIncludeLawyerFees,
         lawyerFeesAmount,
         setLawyerFeesAmount,
-        showPartiesSection,
         creditors,
         additionalCreditors,
         debtors,
@@ -191,11 +194,53 @@ export function ExecutionCreationFormBody({
         isShariaLinkedFinancialClaim,
     } = vm;
 
+    const hasAmountStep =
+        effectiveClaimTypes.some((ct) => claimHasFinancialAmountSection(ct)) ||
+        Boolean(claimType && claimUsesMonetaryAmountField(claimType));
+    const { isRevealed, commitStep } = useExecutionCreationSequentialReveal({
+        docType,
+        hasAmountStep,
+        showLawyerFees: showLawyerFeesToggle,
+    });
+
     useEffect(() => {
-        if (!isDirectorateSectionComplete(directorate, fileNumber)) return;
+        if (!isRevealed('fileNumber')) return;
         prefetchInstrumentDetailsSection();
         prefetchPartiesSection();
-    }, [directorate, fileNumber]);
+    }, [isRevealed]);
+
+    useEffect(() => {
+        if (!hasAmountStep || !isRevealed('claimAmounts')) return;
+        const hasDigits = (raw: string) => /\d/.test(String(raw || ''));
+        const filled =
+            hasDigits(totalAmount) ||
+            Object.values(claimAmountsByType || {}).some((value) => hasDigits(String(value || '')));
+        if (filled) commitStep('claimAmounts', { focusNext: false });
+    }, [claimAmountsByType, commitStep, hasAmountStep, isRevealed, totalAmount]);
+
+    /** مطالبات بلا مبلغ: أظهر الحقول المخصّصة وافتح طريق الأطراف دون انتظار إدخال مبلغ */
+    useEffect(() => {
+        if (hasAmountStep) return;
+        if (!isRevealed('claimAmounts')) return;
+        if (!claimType && effectiveClaimTypes.length === 0) return;
+        commitStep('claimAmounts', { focusNext: false });
+    }, [claimType, commitStep, effectiveClaimTypes.length, hasAmountStep, isRevealed]);
+
+    useEffect(() => {
+        if (!isRevealed('docType')) return;
+        if (docType !== DEFAULT_COURT_JUDGMENT_DOC_TYPE) return;
+        commitStep('docType', { focusNext: true });
+    }, [commitStep, docType, isRevealed]);
+
+    useEffect(() => {
+        if (docType !== 'الأوراق التجارية' || !claimType) return;
+        if (!isRevealed('claimType')) return;
+        commitStep('claimType', { focusNext: false });
+    }, [claimType, commitStep, docType, isRevealed]);
+
+    const showLawyerFeesCard =
+        showLawyerFeesToggle &&
+        (hasAmountStep ? isRevealed('claimAmounts') : isRevealed('claimType'));
 
     return (
         <>
@@ -214,11 +259,14 @@ export function ExecutionCreationFormBody({
                         <DirectorateSection
                             directorate={directorate}
                             fileNumber={fileNumber}
+                            showFileNumber={isRevealed('fileNumber')}
                             onDirectorateChange={setDirectorate}
                             onFileNumberChange={setFileNumber}
+                            onCommitDirectorate={() => commitStep('directorate')}
+                            onCommitFileNumber={() => commitStep('fileNumber')}
                         />
 
-                        {isDirectorateSectionComplete(directorate, fileNumber) ? (
+                        {isRevealed('docType') ? (
                         <PreloadableOverlayGate
                             lazy={LazyInstrumentDetailsSection}
                             fallback={CREATION_INNER_SILENT_FALLBACK}
@@ -308,11 +356,25 @@ export function ExecutionCreationFormBody({
                             onForeignDataChange: setForeignData,
                             claimUsesMonetaryAmountField,
                             isShariaLinkedFinancialClaim,
+                            revealDocNumber: isRevealed('docNumber'),
+                            revealJudgmentDate: isRevealed('judgmentDate'),
+                            revealClassification: isRevealed('classification'),
+                            revealClaimType: isRevealed('claimType'),
+                            revealShariaIdentity: isRevealed('shariaIdentity'),
+                            revealClaimAmounts: isRevealed('claimAmounts'),
+                            onCommitDocNumber: () => commitStep('docNumber'),
+                            onCommitJudgmentDate: () =>
+                                commitStep('judgmentDate', { focusNext: false }),
+                            onCommitClassification: () => commitStep('classification'),
+                            onCommitShariaIdentity: () => commitStep('shariaIdentity'),
+                            onCommitClaimAmounts: () => commitStep('claimAmounts'),
+                            onCommitClaimAmountsStay: () =>
+                                commitStep('claimAmounts', { focusNext: false }),
                             }}
                         />
                     ) : null}
 
-                    {showLawyerFeesBetweenSections ? (
+                    {showLawyerFeesCard ? (
                         <LawyerFeesToggleCard
                             includeLawyerFees={includeLawyerFees}
                             onIncludeLawyerFeesChange={setIncludeLawyerFees}
@@ -320,10 +382,11 @@ export function ExecutionCreationFormBody({
                             formatCurrency={formatCurrency}
                             handleAmountChange={handleAmountChange}
                             onLawyerFeesAmountChange={setLawyerFeesAmount}
+                            onCommitLawyerFees={() => commitStep('lawyerFees')}
                         />
                     ) : null}
 
-                    {showPartiesSection ? (
+                    {isRevealed('creditors') ? (
                         <PreloadableOverlayGate
                             lazy={LazyPartiesSection}
                             fallback={CREATION_INNER_SILENT_FALLBACK}
@@ -355,10 +418,13 @@ export function ExecutionCreationFormBody({
                             onUpdateAdditionalDebtor: updateAdditionalDebtor,
                             onUpdateDebtor: updateDebtor,
                             includeLawyerFees,
+                            showDebtors: isRevealed('creditors'),
+                            onCreditorNameCommit: (opts) => commitStep('creditors', opts),
                             }}
                         />
                         ) : null}
 
+                    {isRevealed('claimAmounts') || isRevealed('claimType') ? (
                     <VisitationCustodyExtrasSection
                         claimType={claimType}
                         visitationChildrenNames={visitationChildrenNames}
@@ -368,6 +434,7 @@ export function ExecutionCreationFormBody({
                         custodyWardNames={custodyWardNames}
                         setCustodyWardNames={setCustodyWardNames}
                     />
+                    ) : null}
                         
                     <div className="h-6" />
                     </div>
@@ -385,6 +452,7 @@ export function ExecutionCreationFormBody({
                 selectedValue={docType}
                 onSelect={(v) => {
                     handleDocTypeChange(v);
+                    commitStep('docType');
                     setDocTypeSheetOpen(false);
                 }}
             />
@@ -397,10 +465,16 @@ export function ExecutionCreationFormBody({
                     selectedValue={claimType}
                 exclusiveSectionTitle={showShariaLinkedClaimPanel ? 'مطالبات منفردة' : undefined}
                     onSelect={(v) => {
-                        setActiveClaimTypes([v]);
-                        setClaimAmountsByType({});
-                        setLinkedClaimDraft([]);
+                        const sameExclusive =
+                            effectiveClaimTypes.length <= 1 &&
+                            (effectiveClaimTypes[0] ?? claimType) === v;
+                        if (!sameExclusive) {
+                            setActiveClaimTypes([v]);
+                            setClaimAmountsByType({});
+                            setLinkedClaimDraft([]);
+                        }
                         setClaimTypeSheetOpen(false);
+                        commitStep('claimType');
                     }}
                     multiSelectPanel={
                         showShariaLinkedClaimPanel
@@ -409,7 +483,10 @@ export function ExecutionCreationFormBody({
                                   options: shariaLinkedClaimOptions,
                                   draftValues: linkedClaimDraft,
                                   onToggleDraft: toggleLinkedClaimDraft,
-                                  onConfirm: saveLinkedClaimDraft,
+                                  onConfirm: () => {
+                                      saveLinkedClaimDraft();
+                                      commitStep('claimType');
+                                  },
                                   confirmLabel: 'حفظ الاختيار',
                               }
                             : undefined

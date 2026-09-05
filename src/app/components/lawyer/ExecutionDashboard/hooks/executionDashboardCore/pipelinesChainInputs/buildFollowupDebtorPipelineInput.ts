@@ -11,7 +11,6 @@ export function buildExecutionDashboardCoreFollowupDebtorPipelineInput(input: {
     claimType: string;
     creditors: ExecutionDashboardCoreFollowupDebtorPipelineInput['creditors'];
     debtors: ExecutionDashboardCoreFollowupDebtorPipelineInput['debtors'];
-    showToast: ExecutionDashboardCoreFollowupDebtorPipelineInput['showToast'];
     dossierFileKey: string;
     executionFileKey: string;
     setShowDecisionsModal: (show: boolean) => void;
@@ -31,7 +30,6 @@ export function buildExecutionDashboardCoreFollowupDebtorPipelineInput(input: {
         claimType,
         creditors,
         debtors,
-        showToast,
         dossierFileKey,
         executionFileKey,
         setShowDecisionsModal,
@@ -54,12 +52,6 @@ export function buildExecutionDashboardCoreFollowupDebtorPipelineInput(input: {
         mergedTimelineEvents: workspacePipeline.mergedTimelineEvents,
         activeTimelineEvents: workspacePipeline.activeTimelineEvents,
         activeCoerciveActions: workspacePipeline.activeCoerciveActions,
-        realEstateSeizureRegistryAssets: workspacePipeline.realEstateSeizureRegistryAssets,
-        salarySeizureRegistryAssets: workspacePipeline.salarySeizureRegistryAssets,
-        movableSeizureRegistryAssets: workspacePipeline.movableSeizureRegistryAssets,
-        thirdPartySeizureRegistryAssets: workspacePipeline.thirdPartySeizureRegistryAssets,
-        thirdPartySeizuresUi: workspacePipeline.thirdPartySeizuresUi,
-        showToast,
         showUnifiedExecutionModal: workspacePipeline.showUnifiedExecutionModal,
         dossierFileKey,
         executionFileKey,

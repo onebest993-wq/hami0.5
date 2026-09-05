@@ -128,10 +128,4 @@ export function resolveDisplayTitle(event: UnifiedEvent, kindLabel: string): str
     return kindLabel;
 }
 
-export function formatEventTimeRange(time?: string | null, endTime?: string | null): string | null {
-    const start = String(time ?? '').trim();
-    if (!start) return null;
-    const end = String(endTime ?? '').trim();
-    if (end && end !== start) return `${start}–${end}`;
-    return start;
-}
+export { formatCalendarEventTimeRange as formatEventTimeRange } from '@/app/services/calendar/calendarWeekStrip';

@@ -6,7 +6,6 @@ import {
     CommunityScreenContent,
     type CommunityScreenContentProps,
 } from './CommunityScreen/CommunityScreenContent';
-import { prefetchPersistedCommunitySectionChunk } from './CommunityScreen/communityScreenLazySections';
 
 export type CommunityScreenProps = CommunityScreenControllerProps & {
     /** Host keepAlive — المحتوى مركّب مخفياً قبل أول نقرة */
@@ -27,7 +26,9 @@ export function CommunityScreen(props: CommunityScreenProps) {
 
     useEffect(() => {
         if (!isOpen) return;
-        prefetchPersistedCommunitySectionChunk();
+        void import('./CommunityScreen/communityScreenLazySections').then((m) => {
+            m.prefetchPersistedCommunitySectionChunk();
+        });
     }, [isOpen]);
 
     if (!isOpen && !keepAlive) {

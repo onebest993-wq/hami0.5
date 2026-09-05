@@ -9,7 +9,6 @@ import {
     ActionGridEmployeeCompulsoryBanner,
     ActionGridLawReferenceRow,
     ActionGridNotesTile,
-    ActionGridSeizureLogTile,
     ActionGridTileButton,
     type ActionGridTileModel,
 } from './ActionGridSectionTiles';
@@ -43,8 +42,6 @@ interface ActionGridSectionProps {
     onOpenDecisionsModal?: () => void;
     onOpenFinancialCenter?: () => void;
     onMemoFollowupClick?: () => void;
-    onOpenSeizureLog: () => void;
-    showSeizureLogButton: boolean;
     pinnedNotes: CaseNoteLogRow[];
     pinnedTasks: CaseTaskRow[];
     onToggleNotePin: (id: string) => void;
@@ -71,17 +68,16 @@ export const ActionGridSection = memo(function ActionGridSection({
     onOpenDecisionsModal,
     onOpenFinancialCenter,
     onMemoFollowupClick,
-    onOpenSeizureLog,
-    showSeizureLogButton,
     pinnedNotes,
-    pinnedTasks,
+    pinnedTasks: _pinnedTasks,
     onToggleNotePin,
     onToggleTaskPin,
     onTrashPinnedNote,
 }: ActionGridSectionProps) {
     const safePinnedNotes = Array.isArray(pinnedNotes) ? pinnedNotes : [];
-    const safePinnedTasks = Array.isArray(pinnedTasks) ? pinnedTasks : [];
-    const pinnedCount = safePinnedNotes.length + safePinnedTasks.length;
+    /** Task pins deprecated on dossier tools — always empty for the tray. */
+    const safePinnedTasks: CaseTaskRow[] = [];
+    const pinnedCount = safePinnedNotes.length;
 
     const lockedToast = () =>
         showToast(
@@ -96,7 +92,7 @@ export const ActionGridSection = memo(function ActionGridSection({
             {
                 key: 'appt',
                 icon: Calendar,
-                label: 'إضافة موعد',
+                label: 'الموعد',
                 ...EXECUTION_ACTION_TILE_TONES.appt,
                 onClick: () => {
                     if (typeof onOpenAppointmentModal === 'function') {
@@ -237,11 +233,6 @@ export const ActionGridSection = memo(function ActionGridSection({
                         </div>
                     )
                 )}
-                <ActionGridSeizureLogTile
-                    show={showSeizureLogButton}
-                    ClipboardList={ClipboardList}
-                    onOpenSeizureLog={onOpenSeizureLog}
-                />
             </div>
 
             <ActionGridLawReferenceRow

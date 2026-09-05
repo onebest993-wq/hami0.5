@@ -1,7 +1,9 @@
 import { flushSync } from 'react-dom';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { notifyFollowers } from '@/app/services/cloud/lawyerCommunityCloud';
-import { RepositoryDB, type RepositoryDocument } from '@/app/services/lawyer-cloud';
+import { ForumApiService } from '@/app/services/forumApiService';
+import { RepositoryDB, type RepositoryDocument } from '@/app/services/cloud/lawyerRepositoryCloud';
+import { isCloudForumStoragePath } from '@/app/services/forum/forumPostCreateGuard';
 import {
     inferRepositoryMimeType,
     getRepositoryMediaKind,
@@ -16,6 +18,7 @@ import {
     sanitizeRepositoryUploadDescription,
     sanitizeRepositoryUploadTitle,
     validateRepositoryUploadFile,
+    validateRepositoryUploadFileContents,
 } from '../repositoryUploadValidation';
 import type { RepositoryUploadPayload } from '../legalRepositoryTypes';
 import type { UseLegalRepositoryMutationsParams } from './useLegalRepositoryMutations.types';
@@ -28,6 +31,8 @@ const UPLOAD_ABORT_CODES = [
     'invalid-file',
     'persist-failed',
     'save-failed',
+    'cloud-failed',
+    'cloud-aborted',
 ];
 
 type RunLegalRepositoryUploadArgs = Pick<
@@ -78,6 +83,18 @@ export async function runLegalRepositoryUploadSubmit(args: RunLegalRepositoryUpl
     args.setIsSubmitting(true);
     let reservedPath: string | null = null;
     try {
+        if (data.file) {
+            const kind =
+                getRepositoryMediaKind(inferRepositoryMimeType(data.file), data.file.name) === 'image'
+                    ? 'image'
+                    : 'document';
+            const magicError = await validateRepositoryUploadFileContents(data.file, kind);
+            if (magicError) {
+                SmartToast.warning(magicError);
+                throw new Error('invalid-file');
+            }
+        }
+
         let storagePath = editingDoc?.storagePath ?? '';
         let fileName = editingDoc?.fileName ?? '';
         let mimeType = editingDoc?.mimeType ?? '';
@@ -106,8 +123,8 @@ export async function runLegalRepositoryUploadSubmit(args: RunLegalRepositoryUpl
             throw new Error('no-storage');
         }
 
-        const savedDoc = buildRepositoryDocumentFromUpload({
-            editingDoc,
+        let savedDoc = buildRepositoryDocumentFromUpload({
+            editingDoc: editingDoc ?? null,
             title,
             description,
             type: data.type as RepositoryDocument['type'],
@@ -120,11 +137,52 @@ export async function runLegalRepositoryUploadSubmit(args: RunLegalRepositoryUpl
             fileSize,
         });
 
+        if (uploadFile) {
+            try {
+                savedDoc = await syncRepositoryDocumentToCloud({
+                    savedDoc,
+                    file: uploadFile,
+                    ownerId: user.id,
+                    isStillPresent: (id) =>
+                        id === savedDoc.id || documentsRef.current.some((doc) => doc.id === id),
+                    applyCloudDoc: (cloudDoc) => {
+                        savedDoc = cloudDoc;
+                    },
+                });
+            } catch (err) {
+                if (reservedPath) {
+                    releaseRepositoryBlobUrl(reservedPath);
+                    reservedPath = null;
+                }
+                if (err instanceof Error && err.message === 'cloud-aborted') {
+                    throw err;
+                }
+                SmartToast.error('تعذّر رفع الملف إلى السحابة — لم يُنشر للآخرين');
+                throw new Error('cloud-failed');
+            }
+        }
+
+        if (isCloudForumStoragePath(savedDoc.storagePath)) {
+            try {
+                savedDoc = editingDoc
+                    ? await ForumApiService.updateRepositoryDocument(editingDoc.id, savedDoc)
+                    : await ForumApiService.createRepositoryDocument(savedDoc);
+                savedDoc = { ...savedDoc, indexSync: undefined };
+            } catch {
+                savedDoc = { ...savedDoc, indexSync: editingDoc ? 'update' : 'create' };
+                SmartToast.warning(
+                    editingDoc
+                        ? 'حُفظ التعديل محلياً وتعذّر تحديثه في البحث العام'
+                        : 'حُفظ الملف على السحابة وتعذّر فهرسته للبحث العام',
+                );
+            }
+        }
+
         const snapshot = documentsRef.current;
         applyDocuments(
             editingDoc
-                ? snapshot.map((doc) => (doc.id === savedDoc.id ? savedDoc : doc))
-                : [savedDoc, ...snapshot],
+                ? snapshot.map((doc) => (doc.id === editingDoc.id || doc.id === savedDoc.id ? savedDoc : doc))
+                : [savedDoc, ...snapshot.filter((doc) => doc.id !== savedDoc.id)],
         );
 
         try {
@@ -153,19 +211,6 @@ export async function runLegalRepositoryUploadSubmit(args: RunLegalRepositoryUpl
                 'مستند جديد من متابَع',
                 `أضاف ${savedDoc.authorName} مستند "${savedDoc.title}" في المستودع القانوني`,
             );
-        }
-
-        if (uploadFile) {
-            void syncRepositoryDocumentToCloud({
-                savedDoc,
-                file: uploadFile,
-                ownerId: user.id,
-                isStillPresent: (id) => documentsRef.current.some((doc) => doc.id === id),
-                applyCloudDoc: (cloudDoc) =>
-                    applyDocuments(
-                        documentsRef.current.map((doc) => (doc.id === cloudDoc.id ? cloudDoc : doc)),
-                    ),
-            });
         }
     } catch (err) {
         if (err instanceof Error && UPLOAD_ABORT_CODES.includes(err.message)) {

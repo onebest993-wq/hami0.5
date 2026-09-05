@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { ForumNotification } from '@/app/services/lawyer-cloud';
@@ -23,10 +23,12 @@ export function useForumNotificationFetch(
     setRefreshingNotifs: (value: boolean) => void,
 ) {
     const { notificationsRef, lastUnreadRef, seenNotifIdsRef, refreshInflightRef } = refs;
+    const hydratedRef = useRef(false);
 
     return useCallback(
         async (options?: { background?: boolean }) => {
             if (!userId) {
+                hydratedRef.current = false;
                 setNotifications([]);
                 setUnreadCount(0);
                 setRefreshingNotifs(false);
@@ -34,7 +36,7 @@ export function useForumNotificationFetch(
             }
 
             const refreshId = ++refreshInflightRef.current;
-            if (options?.background) {
+            if (!options?.background) {
                 setRefreshingNotifs(true);
             }
 
@@ -51,10 +53,23 @@ export function useForumNotificationFetch(
                 if (refreshId !== refreshInflightRef.current) return;
 
                 const slice = list.slice(0, 25);
-                setNotifications(slice);
-                setUnreadCount(unread);
+                const prev = notificationsRef.current;
+                const sameSlice =
+                    prev.length === slice.length &&
+                    prev.every(
+                        (n, i) =>
+                            n.id === slice[i]?.id &&
+                            n.read === slice[i]?.read &&
+                            n.title === slice[i]?.title &&
+                            n.message === slice[i]?.message &&
+                            (n.activityCount ?? 0) === (slice[i]?.activityCount ?? 0),
+                    );
+                if (!sameSlice || lastUnreadRef.current !== unread) {
+                    setNotifications(slice);
+                    setUnreadCount(unread);
+                }
 
-                if (lastUnreadRef.current > 0 && unread > lastUnreadRef.current) {
+                if (hydratedRef.current && unread > lastUnreadRef.current) {
                     const fresh = slice.find((n) => !n.read && !seenNotifIdsRef.current.has(n.id));
                     if (fresh) {
                         SmartToast.show(fresh.title, {
@@ -64,6 +79,7 @@ export function useForumNotificationFetch(
                         });
                     }
                 }
+                hydratedRef.current = true;
                 applyForumNotificationsSnapshot(slice, unread, seenNotifIdsRef, lastUnreadRef);
             } catch {
                 if (notificationsRef.current.length === 0) {

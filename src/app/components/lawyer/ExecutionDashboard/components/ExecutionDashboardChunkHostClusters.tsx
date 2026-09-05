@@ -41,7 +41,6 @@ export function ExecutionDashboardChunkHostClusterTree({
     loadFollowupOtherPartyHandlerCluster,
     loadSeizureHeavyHandlerCluster,
     loadSeizureRequestsHandlerCluster,
-    loadSeizureLogHandlerCluster,
     loadCoerciveHeavyHandlerCluster,
     loadPublicationNoticeHandlerCluster,
     loadDossierSupportHandlerCluster,
@@ -114,7 +113,6 @@ export function ExecutionDashboardChunkHostClusterTree({
                         mountKey={handlerClusterMountKey}
                         input={seizureHeavyHandlerClusterInput}
                         loadSeizureRequestsHandlerCluster={loadSeizureRequestsHandlerCluster}
-                        loadSeizureLogHandlerCluster={loadSeizureLogHandlerCluster}
                         onCluster={onSeizureHeavyHandlerClusterReady}
                     />
                 </Suspense>

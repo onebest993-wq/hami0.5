@@ -5,21 +5,19 @@ import {
 } from '@/app/components/lawyer/smart-modal/smartFile/stepperPipeline';
 import { isCassationStageName } from '@/app/components/lawyer/smart-modal/smartFile/judgmentStageNames';
 import {
-    containsCivilStageTerminology,
-    filterPersonalStatusAppealMethods,
-    hasCivilLawsuitStageHistory,
+    formatPersonalStatusStageDisplayName,
     isPersonalStatusAppealContext,
-    isPersonalStatusCoreStage,
     isPersonalStatusNoAppealMethod,
-    isPersonalStatusStageName,
 } from './personalStatusAppealStageHelpers';
 
 export {
     containsCivilStageTerminology,
     filterPersonalStatusAppealMethods,
+    formatPersonalStatusStageDisplayName,
     hasCivilLawsuitStageHistory,
     isPersonalStatusAppealContext,
     isPersonalStatusCoreStage,
+    isPersonalStatusDossierFromStages,
     isPersonalStatusNoAppealMethod,
     isPersonalStatusStageName,
 } from './personalStatusAppealStageHelpers';
@@ -38,31 +36,6 @@ export function normalizePersonalStatusAppealMethod(
     if (!isPersonalStatusAppealContext(ctx?.stageName, ctx?.stages, ctx?.file)) return raw;
     if (isPersonalStatusNoAppealMethod(raw)) return 'تمييز';
     return raw;
-}
-
-/** إضبارة أحوال شخصية من سجل المراحل (بدون تاريخ مدني). */
-export function isPersonalStatusDossierFromStages(
-    stages?: Array<{ stageName?: string | null; name?: string | null }> | null,
-): boolean {
-    if (hasCivilLawsuitStageHistory(stages)) return false;
-    return (stages ?? []).some((s) =>
-        isPersonalStatusStageName(String(s.stageName ?? s.name ?? '')),
-    );
-}
-
-/** تسمية مرحلة للعرض — تُرجع null لإخفاء الشارة أو pill غير المناسب. */
-export function formatPersonalStatusStageDisplayName(
-    raw: string,
-    options?: { showCoreStage?: boolean },
-): string | null {
-    const s = raw.trim();
-    if (!s) return null;
-    if (containsCivilStageTerminology(s)) return null;
-    if (s === 'أحوال شخصية' || s === 'الأحوال الشخصية') {
-        return options?.showCoreStage ? 'أحوال شخصية' : null;
-    }
-    if (s === 'التمييز') return 'تمييز';
-    return s;
 }
 
 /** إظهار مرحلة الأحوال في الشريط عند وجود تمييز/طعن استثنائي. */

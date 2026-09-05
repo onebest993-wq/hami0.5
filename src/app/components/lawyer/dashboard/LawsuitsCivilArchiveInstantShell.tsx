@@ -114,12 +114,14 @@ export function LawsuitsCivilArchiveInstantShell({
                 {hasChildren ? (
                     children
                 ) : (
-                    <p
-                        className="px-3 py-8 text-center text-sm text-white/45"
+                    <div
+                        className="space-y-2 px-3 py-4"
                         data-testid="lawsuit-vault-quiet-status"
+                        aria-hidden
                     >
-                        جاري تجهيز الإضابير…
-                    </p>
+                        <div className="min-h-[44px] rounded-xl border border-white/[0.09] bg-white/[0.035]" />
+                        <div className="min-h-[44px] rounded-xl border border-white/[0.09] bg-white/[0.035]" />
+                    </div>
                 )}
             </div>
         </div>

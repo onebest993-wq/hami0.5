@@ -27,7 +27,7 @@ export function usePhoneBodySafeModalHandlers(p: {
     setSummonsHubInitialMainTab: PhoneBodySafeHandlersInput['setSummonsHubInitialMainTab'];
 }) {
     const safeOpenAppointmentModal = React.useCallback(() => {
-        prefetchExecutionNotesOverlay();
+        prefetchExecutionNotesOverlay({ force: true });
         openPhoneBodyModalWithBridge({
             readLatestScope: p.readLatestPhoneBodyScope,
             scheduleBridge: p.schedulePhoneBodyScopeBridge,
@@ -44,7 +44,7 @@ export function usePhoneBodySafeModalHandlers(p: {
         p.schedulePhoneBodyScopeBridge,
     ]);
     const directOpenNotesModal = React.useCallback(() => {
-        prefetchExecutionNotesOverlay();
+        prefetchExecutionNotesOverlay({ force: true });
         openPhoneBodyModalWithBridge({
             readLatestScope: p.readLatestPhoneBodyScope,
             scheduleBridge: p.schedulePhoneBodyScopeBridge,
@@ -61,7 +61,7 @@ export function usePhoneBodySafeModalHandlers(p: {
         p.schedulePhoneBodyScopeBridge,
     ]);
     const directOpenDocumentsModal = React.useCallback(() => {
-        prefetchExecutionDocumentsOverlay();
+        prefetchExecutionDocumentsOverlay({ force: true });
         p.safeSetShowDocumentsModal(true);
     }, [p.safeSetShowDocumentsModal]);
     const directOpenTimelineModal = React.useCallback(() => {

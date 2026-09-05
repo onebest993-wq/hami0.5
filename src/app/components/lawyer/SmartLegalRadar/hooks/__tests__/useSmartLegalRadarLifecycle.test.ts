@@ -14,6 +14,7 @@ vi.mock('@/app/services/calendar/calendarPerfMetrics', () => ({
 
 vi.mock('@/app/services/calendar/calendarLocalSnapshot', () => ({
     readLocalCalendarSnapshotSync: vi.fn(() => []),
+    peekLocalCalendarSnapshotSync: vi.fn(() => []),
 }));
 
 vi.mock('@/app/services/calendar/calendarEventsCache', () => ({

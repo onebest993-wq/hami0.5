@@ -17,7 +17,6 @@ export function computeExecutionPhoneBodyFingerprint(input: {
     toastEpoch?: number;
     dataRevision?: string | number;
     executionDebtorTabIndex?: number;
-    showUnifiedSeizureLogModal?: boolean;
     timelineAccordionExpanded?: boolean;
     isFinancialCenterExpanded?: boolean;
     isHeaderExpanded?: boolean;
@@ -49,7 +48,6 @@ export function computeExecutionPhoneBodyFingerprint(input: {
         input.toastEpoch ?? 0,
         input.dataRevision ?? '',
         input.executionDebtorTabIndex ?? 0,
-        input.showUnifiedSeizureLogModal ? 1 : 0,
         input.timelineAccordionExpanded ? 1 : 0,
         input.isFinancialCenterExpanded ? 1 : 0,
         input.isHeaderExpanded ? 1 : 0,

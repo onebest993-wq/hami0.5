@@ -1,5 +1,11 @@
 import type { ComputedSmartStatus, LooseArchiveFile, StageWithCaseMeta } from './types';
 import { isDossierFinalized } from '../smart-modal/smartFile/dossierFinality';
+import {
+    ART172_STAY_BADGE,
+    blocksCivilDossierFinality,
+    isArt172AppealStayActive,
+    type Art172JudgmentSource,
+} from '../smart-modal/smartFile/art172AppealStay';
 
 const ACTIVE_STATUS: ComputedSmartStatus = {
     type: 'active',
@@ -73,6 +79,25 @@ export function computeLawsuitSmartStatus(file: LooseArchiveFile): ComputedSmart
         };
     }
 
+    const artStages = (file.stages ?? []) as Art172JudgmentSource[];
+    if (isArt172AppealStayActive(stage as Art172JudgmentSource | undefined)) {
+        return {
+            type: 'paused',
+            label: 'مستأخرة استئنافياً',
+            title: ART172_STAY_BADGE,
+            color: 'text-amber-300',
+            bgColor: 'bg-amber-500/10',
+            borderColor: 'border-amber-500/30',
+            timers: null,
+        };
+    }
+
+    const art172BlocksFinality = blocksCivilDossierFinality({
+        stages: artStages,
+        parties: file.parties,
+        parentIntegrity: (file as { disputeIntegrity?: string }).disputeIntegrity,
+    });
+
     // لا نعتمد على حالة الملف العامة وحدها؛ فقد تبقى قديمة بعد التجديد أو
     // الإنهاء. يجب أن تحمل المرحلة النشطة دليلاً فعلياً على الترك للمراجعة.
     const hasActiveReviewEvidence =
@@ -82,13 +107,16 @@ export function computeLawsuitSmartStatus(file: LooseArchiveFile): ComputedSmart
 
     // الحالة النهائية تتقدم دائماً على أي بيانات مراجعة قديمة.
     if (
-        fd.includes('مكتسبة الدرجة القطعية')
-        || (
-            !hasActiveReviewEvidence
-            && (
-                status === 'منتهية'
-                || status.includes('قطعية')
-                || isDossierFinalized(status, stage ? [stage] : [])
+        !art172BlocksFinality
+        && (
+            fd.includes('مكتسبة الدرجة القطعية')
+            || (
+                !hasActiveReviewEvidence
+                && (
+                    status === 'منتهية'
+                    || status.includes('قطعية')
+                    || isDossierFinalized(status, stage ? [stage] : [])
+                )
             )
         )
     ) {

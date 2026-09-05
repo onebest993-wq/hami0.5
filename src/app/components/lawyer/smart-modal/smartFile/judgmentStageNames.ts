@@ -5,13 +5,25 @@
  * و`extraordinaryAppealGateway` إلى استيرادها منه بينما هو يستورد منهما تصنيف
  * مراحل المرافعة — دائرتا استيراد على محور مجال الأحكام.
  *
- * التعريفات منقولة حرفياً كما كانت؛ لا تغيير في السلوك القانوني.
  * الشقيقة: `absentJudgmentStageNames` لمرحلة الاعتراض الغيابي.
  */
 
-/** مرحلة الاستئناف — تستثني التمييز صراحةً */
+/**
+ * مرحلة الاستئناف ذاتها (الاستئناف / استئناف).
+ * لا تُعدّ طعوناً استثنائية مقيَّدة بطبقة الاستئناف — مثل اعتراض الغير (استئناف).
+ */
 export function isAppealStageName(stageName?: string): boolean {
-    const s = String(stageName ?? '');
+    const s = String(stageName ?? '').trim();
+    if (!s) return false;
+    if (s.includes('اعتراض الغير') || s.includes('حكم الغير')) return false;
+    if (s.includes('إعادة المحاكمة') || s.includes('إعادة محاكمة')) return false;
+    if (
+        s.includes('اعتراض على الحكم الغيابي')
+        || s.includes('الاعتراض على الحكم الغيابي')
+        || s.includes('اعتراض غيابي')
+    ) {
+        return false;
+    }
     return s.includes('استئناف') && !s.includes('التمييز');
 }
 

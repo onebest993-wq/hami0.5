@@ -12,7 +12,6 @@ const mockTransactions: Transaction[] = [
         clientName: 'موكل',
         targetDepartment: 'دائرة',
         status: TransactionStatus.Active,
-        agreedFees: 0,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
     },
@@ -35,7 +34,10 @@ vi.mock('@/app/modules/transactionsThreading/store', () => ({
 
 const smartToastWarning = vi.fn();
 vi.mock('@/app/components/ui/SmartToast', () => ({
-    SmartToast: { warning: (...args: unknown[]) => smartToastWarning(...args) },
+    SmartToast: {
+        warning: (...args: unknown[]) => smartToastWarning(...args),
+        error: vi.fn(),
+    },
 }));
 
 vi.mock('@/app/hooks/useReduceMotion', () => ({ useReduceMotion: () => true }));

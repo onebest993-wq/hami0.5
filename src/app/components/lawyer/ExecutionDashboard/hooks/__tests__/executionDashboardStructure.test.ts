@@ -98,9 +98,7 @@ describe('ExecutionDashboard structural splits', () => {
         expect(runtimeSurfaceSource).toContain(
             'loadSeizureRequestsHandlerCluster: runtimeVm.loadSeizureRequestsHandlerCluster',
         );
-        expect(runtimeSurfaceSource).toContain(
-            'loadSeizureLogHandlerCluster: runtimeVm.loadSeizureLogHandlerCluster',
-        );
+        expect(runtimeSurfaceSource).not.toContain('loadSeizureLogHandlerCluster');
         expect(fs.existsSync(corePath)).toBe(true);
         expect(
             fs.existsSync(
@@ -142,6 +140,10 @@ describe('ExecutionDashboard structural splits', () => {
         const partyDeathBridge = fs.readFileSync(partyDeathBridgePath, 'utf8');
         expect(coreSource).toContain('useExecutionDashboardCoreDossierAndResidentSegment');
         expect(coreSource).toContain('loadPartyDeathHandlerCluster');
+        expect(coreSource).toContain('partyDeathHandlerClusterInput');
+        expect(coreSource).not.toContain(
+            'partyDeathHandlerClusterInput: coerciveHeavyHandlerClusterInput',
+        );
         expect(residentSegment).toContain('useExecutionDashboardPartyDeathOpeners(');
         expect(residentSegment).toContain('partyDeathHandlers');
         expect(residentSegment).toContain('loadPartyDeathHandlerCluster');
@@ -158,6 +160,12 @@ describe('ExecutionDashboard structural splits', () => {
         const removed = [
             'ExecutionDashboardHandlerClusterCoerciveHeavyBridge.tsx',
             'ExecutionDashboardHandlerClusterSeizureLogBridge.tsx',
+            'ExecutionDashboardHandlerClusterSeizureLogAssetModalBridge.tsx',
+            'ExecutionDashboardHandlerClusterSeizureLogResolutionBridge.tsx',
+            'useExecutionDashboardCoreHandlerClusterSeizureAssetModal.ts',
+            'useExecutionDashboardSeizureAssetModalHandlers.ts',
+            'useExecutionDashboardCoreHandlerClusterSeizureFollowupRequests.ts',
+            'useExecutionDashboardCoreHandlerClusterSeizureResolution.ts',
             'ExecutionDashboardHandlerClusterSeizureRequestsBridge.tsx',
             'ExecutionDashboardHandlerClusterFollowupOtherPartyCreditorBridge.tsx',
             'useExecutionDashboardCoreHandlerClusterCoerciveHeavy.ts',
@@ -172,10 +180,28 @@ describe('ExecutionDashboard structural splits', () => {
         );
         const groupsSource = fs.readFileSync(groupsPath, 'utf8');
         expect(groupsSource).toContain('LazyExecutionDashboardHandlerClusterSeizureHeavyBridge');
-        expect(groupsSource).toContain('LazyExecutionDashboardHandlerClusterSeizureLogAssetModalBridge');
-        expect(groupsSource).toContain('LazyExecutionDashboardHandlerClusterSeizureLogResolutionBridge');
+        expect(groupsSource).toContain('LazyExecutionDashboardHandlerClusterThirdPartySeizureBridge');
+        expect(groupsSource).not.toContain('SeizureLogAssetModalBridge');
+        expect(groupsSource).not.toContain('SeizureLogResolutionBridge');
         expect(groupsSource).not.toContain('SeizureRequestsBridge');
         expect(groupsSource).not.toContain('SeizureLogBridge');
         expect(groupsSource).not.toContain('CoerciveHeavyBridge');
+    });
+
+    it('hosts guarantor followup handlers on the seizure heavy cluster, not eviction-only', () => {
+        const coreDir = path.join(
+            root,
+            'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore',
+        );
+        const seizureFollowup = fs.readFileSync(
+            path.join(coreDir, 'useExecutionDashboardCoreHandlerClusterSeizureFollowup.ts'),
+            'utf8',
+        );
+        const eviction = fs.readFileSync(
+            path.join(coreDir, 'useExecutionDashboardCoreHandlerClusterEviction.ts'),
+            'utf8',
+        );
+        expect(seizureFollowup).toContain('useExecutionDashboardGuarantorFollowupHandlers');
+        expect(eviction).not.toContain('useExecutionDashboardGuarantorFollowupHandlers');
     });
 });

@@ -1,20 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ForumNotification } from '@/app/services/lawyer-cloud';
 import { FORUM_UNREAD_CHANGED_EVENT } from '@/app/services/forum/forumNotificationEvents';
+import { setForumSurfaceLive } from '@/app/runtime/forumSurfaceLive';
 import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
-import { withForumAsyncTimeout } from '../forumAsync';
-import {
-    readForumNotificationsCache,
-    warmForumNotificationsCache,
-} from '@/app/services/forum/forumNotificationsWarmCache';
-import {
-    applyForumNotificationsSnapshot,
-    resolveInitialForumNotifications,
-} from './forumAppBarNotificationSnapshot';
-import {
-    FORUM_NOTIF_FETCH_TIMEOUT_MS,
-    useForumNotificationFetch,
-} from './useForumNotificationFetch';
+import { resolveForumUnreadPollMs } from '../communityFeedPolicy';
+import { readForumNotificationsCacheTimed, warmForumNotificationsCache } from '@/app/services/forum/forumNotificationsWarmCache';
+import { applyForumNotificationsSnapshot, resolveInitialForumNotifications } from './forumAppBarNotificationSnapshot';
+import { useForumNotificationFetch } from './useForumNotificationFetch';
 import { useForumAppBarNotificationActions } from './useForumAppBarNotificationActions';
 
 const FORUM_NOTIF_CACHE_HYDRATE_MS = 1_500;
@@ -37,12 +29,7 @@ export function useForumAppBarNotifications(
     const refreshInflightRef = useRef(0);
     notificationsRef.current = notifications;
 
-    const fetchRefs = {
-        notificationsRef,
-        lastUnreadRef,
-        seenNotifIdsRef,
-        refreshInflightRef,
-    };
+    const fetchRefs = { notificationsRef, lastUnreadRef, seenNotifIdsRef, refreshInflightRef };
 
     const fetchNotifications = useForumNotificationFetch(
         userId,
@@ -68,6 +55,7 @@ export function useForumAppBarNotifications(
 
     useEffect(() => {
         if (!userId) {
+            setForumSurfaceLive(false);
             setNotifications([]);
             setUnreadCount(0);
             lastUnreadRef.current = 0;
@@ -75,18 +63,26 @@ export function useForumAppBarNotifications(
             setRefreshingNotifs(false);
             return;
         }
-        if (surfaceOpen === false) return;
+        if (surfaceOpen === false) {
+            setForumSurfaceLive(false);
+            return;
+        }
 
+        setForumSurfaceLive(true);
         let cancelled = false;
 
         const bootstrap = async () => {
             seedNotificationsFromLocal(userId);
 
             warmForumNotificationsCache(userId);
-            const warmed = await withForumAsyncTimeout(readForumNotificationsCache(userId), FORUM_NOTIF_CACHE_HYDRATE_MS, {
-                notifications: notificationsRef.current,
-                unreadCount: lastUnreadRef.current,
-            });
+            const warmed = await readForumNotificationsCacheTimed(
+                userId,
+                FORUM_NOTIF_CACHE_HYDRATE_MS,
+                () => ({
+                    notifications: notificationsRef.current,
+                    unreadCount: lastUnreadRef.current,
+                }),
+            );
             if (!cancelled && warmed.notifications.length > 0) {
                 setNotifications(warmed.notifications);
                 setUnreadCount(warmed.unreadCount);
@@ -99,13 +95,16 @@ export function useForumAppBarNotifications(
             }
 
             if (cancelled) return;
-            await fetchNotifications({ background: true });
+            if (warmed.timedOut || warmed.notifications.length === 0) {
+                await fetchNotifications({ background: true });
+            }
         };
 
         void bootstrap();
         return () => {
             cancelled = true;
             refreshInflightRef.current += 1;
+            setForumSurfaceLive(false);
         };
     }, [fetchNotifications, seedNotificationsFromLocal, userId, surfaceOpen]);
 
@@ -113,7 +112,7 @@ export function useForumAppBarNotifications(
         () => {
             void fetchNotifications({ background: true });
         },
-        notificationStreamActive ? 45_000 : 5_000,
+        resolveForumUnreadPollMs(notificationStreamActive),
         Boolean(userId) && surfaceOpen !== false,
     );
 

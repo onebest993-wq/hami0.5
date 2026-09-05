@@ -78,6 +78,8 @@ interface PartiesSectionProps {
     onRemoveAdditionalDebtor: (id: string) => void;
     onUpdateAdditionalDebtor: (id: string, field: string, value: string | boolean | number) => void;
     onUpdateDebtor: (id: number, field: string, value: string | boolean | number) => void;
+    showDebtors?: boolean;
+    onCreditorNameCommit?: (opts?: { focusNext?: boolean }) => void;
 }
 
 export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
@@ -108,6 +110,8 @@ export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
     onRemoveAdditionalDebtor,
     onUpdateAdditionalDebtor,
     onUpdateDebtor,
+    showDebtors = true,
+    onCreditorNameCommit,
 }) => {
     const totalCreditorCount = creditors.length + additionalCreditors.length;
     const totalDebtorCount = debtors.length + additionalDebtorsForm.length;
@@ -152,7 +156,7 @@ export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
     };
 
     return (
-        <ExecutionCreationSection title="أطراف الإضبارة">
+        <ExecutionCreationSection>
             <div className={ecg.partyGroup}>
                 <div className="flex flex-col gap-1 p-1">
                     {creditors.map((creditor, index) => (
@@ -164,6 +168,8 @@ export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
                             type="creditor"
                             onUpdate={onUpdateCreditor as PartyCardProps['onUpdate']}
                             onRemove={() => {}}
+                            creationStep={index === 0 ? 'creditors' : undefined}
+                            onNameCommit={index === 0 ? onCreditorNameCommit : undefined}
                         />
                     ))}
                     {additionalCreditors.map((c, idx) => (
@@ -186,6 +192,8 @@ export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
                 <Plus size={16} /> إضافة دائن آخر
             </button>
 
+            {showDebtors ? (
+            <>
             <div className={ecg.partyDivider}>
                 <div className={ecg.partyDividerLine} />
             </div>
@@ -210,6 +218,7 @@ export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
                                     hideDebtorEntityKind={hideDebtorEntityKind}
                                     onUpdate={onUpdateDebtor as PartyCardProps['onUpdate']}
                                     onRemove={() => {}}
+                                    creationStep={index === 0 ? 'debtors' : undefined}
                                 />
                                 {renderIndependentDebtPanel(debtorKey, isSolidary)}
                             </div>
@@ -262,6 +271,8 @@ export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
                 <button type="button" onClick={onAddAnotherDebtor} className={`${ecg.addBtn} mt-2`}>
                     <Plus size={16} /> إضافة مدين آخر
                 </button>
+            ) : null}
+            </>
             ) : null}
         </ExecutionCreationSection>
     );

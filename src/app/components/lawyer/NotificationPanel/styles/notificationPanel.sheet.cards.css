@@ -3,12 +3,12 @@
 .hami-notif-card {
   position: relative;
   overflow: hidden;
-  border-radius: 0.9rem;
+  border-radius: 0.75rem;
   background: color-mix(in srgb, #ffffff 4.5%, #0b1021);
   border: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow: none;
   content-visibility: auto;
-  contain-intrinsic-size: auto 92px;
+  contain-intrinsic-size: auto 76px;
   contain: layout paint;
 }
 

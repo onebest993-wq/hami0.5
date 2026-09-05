@@ -26,7 +26,51 @@ describe('repository resource honesty', () => {
         const modal = read('src/app/components/lawyer/SmartRepositoryModal.tsx');
         expect(modal).toContain('{overlayVisible ? (');
         expect(modal).toContain('<SmartRepositoryUnifiedFeed');
+        expect(modal).toContain("from './SmartRepository/SmartRepositoryUnifiedFeed'");
+        expect(modal).not.toContain("import('./SmartRepository/SmartRepositoryUnifiedFeed')");
+        expect(modal).not.toContain('RepositoryFeedBootFallback');
+        expect(modal).not.toContain('repository-feed-boot');
+        expect(modal).not.toContain('Suspense');
+        expect(modal).not.toContain('lazy(');
         expect(modal).toContain(') : null}');
+        const boot = read(
+            'src/app/components/lawyer/SmartRepository/repositoryBootFallbacks.tsx',
+        );
+        expect(boot).not.toContain('data-testid="repository-feed-boot"');
+        expect(boot).toContain('data-testid="repository-classification-boot"');
+        expect(boot).toContain('min-h-[44px]');
+        const hub = read(
+            'src/app/components/lawyer/SmartVaultModal/VaultSearchFilterHub.tsx',
+        );
+        expect(hub).toContain('RepositoryClassificationBootFallback');
+        expect(hub).not.toContain('fallback={null}');
+        const paint = read('src/app/runtime/repositoryInstantChromeMarkup.ts');
+        expect(paint).toContain('المستودع');
+        expect(paint).not.toContain('بحث في المستودع');
+        expect(paint).not.toContain('repository-instant-toolbar');
+        expect(paint).toContain('repository-instant-close');
+        expect(paint).toContain('z-[219]');
+        expect(paint).not.toContain('z-[220]');
+        expect(paint).toContain('pointer-events-none');
+        expect(paint).toContain('pointer-events-auto');
+        expect(paint).not.toContain('hami-repo-card');
+        const paintRuntime = read('src/app/runtime/repositoryInstantPaint.ts');
+        expect(paintRuntime).toContain('mountRepositoryInstantChromeOnBody');
+        expect(paintRuntime).toContain('MutationObserver');
+        expect(paintRuntime).toContain('styleRepositoryInstantChromeHitThrough');
+        expect(paintRuntime).toContain("setProperty('pointer-events', 'none', 'important')");
+        expect(paintRuntime).not.toContain('armHubLayerEnter');
+        expect(paintRuntime).not.toContain('getHamiOverlayPortalRoot');
+        const critical = read('src/app/components/lawyer/dashboard/lawyerHomeFx-critical.css');
+        expect(critical).not.toMatch(
+            /\[data-testid='smart-repository-modal'\],\s*html\[data-hami-repository-open='1'\] #hami-repository-instant-chrome/,
+        );
+        expect(critical).toMatch(
+            /html\[data-hami-repository-open='1'\] #hami-repository-instant-chrome \{\s*pointer-events: none !important;/,
+        );
+        expect(critical).toContain(
+            "#hami-repository-instant-chrome [data-testid='repository-instant-close']",
+        );
         expect(modal).toContain('useBodyScrollLock(isOpen)');
         expect(modal).toContain('useOpaqueFeatureSurface(isOpen)');
         const host = read('src/app/components/lawyer/SmartRepository/SmartRepositoryHost.tsx');
@@ -74,9 +118,61 @@ describe('repository resource honesty', () => {
             'src/app/components/lawyer/SmartRepository/repositoryChrome.css',
         );
         expect(chrome).toContain('content-visibility: hidden');
+        expect(chrome).toContain('content-visibility: visible');
         const host = read('src/app/components/lawyer/SmartRepository/SmartRepositoryHost.tsx');
-        expect(host).toContain('VoiceRecorderModal');
+        expect(host).toContain('prefetchVaultBlobStore');
+        expect(host).toContain('prefetchRepositoryDialogs');
+        expect(host).toContain('scheduleIdleWork');
+        expect(host).not.toContain("import('./SmartRepositoryUnifiedFeed')");
         expect(host).toContain('if (!isOpen) return;');
+        expect(host).not.toContain('VoiceRecorderModal');
+        expect(host).not.toContain('SmartVaultScannerPanel');
+        expect(host).not.toContain('DossierLawArticleRichEditor');
+        const addMenu = read('src/app/components/lawyer/SmartRepository/RepositoryAddMenu.tsx');
+        expect(addMenu).toContain('VoiceRecorderModal');
+        expect(addMenu).toContain('SmartVaultScannerPanel');
+        expect(addMenu).toContain('VaultUploadMetaSheet');
+        expect(addMenu).toContain('RepositoryComposePanel');
+        expect(addMenu).toContain('RepositoryVaultOverlays');
+        const unified = read(
+            'src/app/components/lawyer/SmartRepository/SmartRepositoryUnifiedFeed.tsx',
+        );
+        expect(unified).toContain("import('./RepositoryComposePanel')");
+        expect(unified).toContain("import('./RepositoryVaultOverlays')");
+        expect(unified).not.toContain("from './RepositoryComposePanel'");
+        expect(unified).not.toContain("from './RepositoryVaultOverlays'");
+        expect(unified).toContain('overlaysLive');
+        const rail = read('src/app/components/lawyer/SmartRepository/RepositoryFiltersRail.tsx');
+        expect(rail).toContain("import('./RepositoryRoomsGallery')");
+        expect(rail).not.toContain("from './RepositoryRoomsGallery'");
+        const hub = read('src/app/components/lawyer/SmartVaultModal/VaultSearchFilterHub.tsx');
+        expect(hub).toContain('repositoryActionChips');
+        expect(hub).toContain('RepositoryClassificationDeck');
+        expect(hub).not.toContain(
+            "from '@/app/components/lawyer/SmartRepository/RepositoryClassificationDeck'",
+        );
+        const compose = read(
+            'src/app/components/lawyer/SmartRepository/hooks/useRepositoryCompose.ts',
+        );
+        expect(compose).toContain("await import('@/app/services/vaultUploadService')");
+        expect(compose).not.toContain("from '@/app/services/vaultUploadService'");
+        expect(compose).toContain("import('../legalRichTextEditorUtils')");
+        expect(compose).not.toContain("from '../legalRichTextEditorUtils'");
+        expect(compose).toContain("import('./buildRepositoryComposeNote')");
+        expect(compose).not.toContain("from './buildRepositoryComposeNote'");
+        const layout = read('src/app/components/lawyer/SmartRepository/RepositoryEntryContentLayout.tsx');
+        expect(layout).toContain('stripRepositoryHtml');
+        expect(layout).not.toContain('dangerouslySetInnerHTML');
+        expect(layout).not.toContain('legalRichTextEditorUtils');
+        expect(layout).not.toContain("from 'dompurify'");
+        const edit = read(
+            'src/app/components/lawyer/SmartRepository/entryCards/useUniversalEntryCardEdit.ts',
+        );
+        expect(edit).toContain("import('../legalRichTextEditorUtils')");
+        expect(edit).not.toContain("from '../legalRichTextEditorUtils'");
+        const upload = read('src/app/components/lawyer/hooks/smartVault/useSmartVaultUpload.ts');
+        expect(upload).toContain("await import('@/app/services/vaultUploadService')");
+        expect(upload).not.toContain("from '@/app/services/vaultUploadService'");
         const model = read(
             'src/app/components/lawyer/SmartRepository/hooks/useRepositoryUnifiedFeedModel.ts',
         );
@@ -93,9 +189,8 @@ describe('repository resource honesty', () => {
         expect(modal).toContain('inertProps(!overlayVisible)');
         expect(modal).toContain("role={overlayVisible ? 'dialog' : undefined}");
         const capture = read('src/app/services/platform/mediaCaptureBackgroundRelease.ts');
-        expect(capture).toContain('visibilitychange');
-        expect(capture).toContain('pagehide');
-        expect(capture).toContain('appStateChange');
+        expect(capture).toContain('subscribeAppForeground');
+        expect(capture).toContain('onSuspend: onRelease');
         const mic = read('src/app/services/platform/microphoneSession.ts');
         expect(mic).toContain('subscribeCaptureBackgroundRelease');
         const voice = read('src/app/components/lawyer/ActionModals/useVoiceRecorderController.ts');

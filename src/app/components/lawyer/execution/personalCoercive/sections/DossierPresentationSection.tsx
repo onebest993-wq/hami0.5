@@ -1,6 +1,6 @@
 import React from 'react';
 import { BTN_BASE, BTN_DISABLED } from '../personalCoerciveStyles';
-import { CoerciveSubsectionFold } from '../chrome/CoerciveSubsectionFold';
+import { CoercivePendingDecisionRail } from '../chrome/CoercivePendingDecisionRail';
 import { ExecutionInlineExecutorDecisionActions } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
 import { Scale } from '@/app/components/ui/icons/Scale';
 import { isExecutorRejectedAppealFollowupDismissed } from '@/app/utils/personalCoerciveAppealSync';
@@ -32,6 +32,7 @@ export type DossierPresentationSectionProps = PickPersonalCoerciveSectionProps<
     | 'renderRejectedExecutorAppealSection'
     | 'runDossierPresentationSubmit'
     | 'showDossierPresentationCard'
+    | 'dossierHandoffVisible'
     | 'showEmbeddedSection'
 >;
 
@@ -48,6 +49,7 @@ export function DossierPresentationSection({
     dossierGoverningRow,
     dossierHasExpandablePanel,
     dossierIdle,
+    dossierHandoffVisible,
     dossierSync,
     exId,
     executionId,
@@ -69,21 +71,26 @@ export function DossierPresentationSection({
             {showEmbeddedSection('executive_dossier_presentation') && showDossierPresentationCard ? (
                 <div className="relative space-y-2">
                 <div
-                    className={`overflow-visible rounded-2xl border border-violet-500/25 bg-violet-950/15 text-right ${kasabCoerciveEmphasis ? 'ring-2 ring-[#E6C673]/45 border-[#E6C673]/35' : ''}`}
+                    className={`overflow-visible rounded-xl border border-violet-500/25 bg-violet-950/15 text-right ${kasabCoerciveEmphasis ? 'ring-1 ring-[#E6C673]/40 border-[#E6C673]/30' : ''}`}
                 >
                     <div className="relative">
-                        {dossierHasExpandablePanel ? (
+                        {dossierHasExpandablePanel || dossierHandoffVisible ? (
                             <div
-                                className={`w-full ${BTN_BASE} bg-gradient-to-l from-orange-500/12 to-transparent`}
+                                className={`w-full ${BTN_BASE} !min-h-[44px] !py-2.5 bg-gradient-to-l from-orange-500/12 to-transparent`}
                             >
-                                <div className="flex flex-row-reverse items-center gap-3">
-                                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5">
-                                        <Scale className="h-6 w-6 text-white/70" />
+                                <div className="flex flex-row-reverse items-center gap-2.5">
+                                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5">
+                                        <Scale className="h-4 w-4 text-white/70" />
                                     </span>
                                     <div className="min-w-0 flex-1">
-                                        <p className="text-sm font-bold text-amber-100">
+                                        <p className="text-[13px] font-bold text-amber-100">
                                             عرض الإضبارة على قاضي البداءة
                                         </p>
+                                        {dossierHandoffVisible ? (
+                                            <p className="text-[10px] text-emerald-200/85">
+                                                وافق المنفذ — بانتظار قرار قاضي البداءة
+                                            </p>
+                                        ) : null}
                                     </div>
                                 </div>
                             </div>
@@ -92,14 +99,14 @@ export function DossierPresentationSection({
                                 type="button"
                                 disabled={dossierButtonDisabled}
                                 onClick={() => handleDossierHeaderClick()}
-                                className={`w-full ${BTN_BASE} bg-gradient-to-l from-orange-500/12 to-transparent hover:from-orange-500/18 ${dossierButtonDisabled ? BTN_DISABLED : ''}`}
+                                className={`w-full ${BTN_BASE} !min-h-[44px] !py-2.5 bg-gradient-to-l from-orange-500/12 to-transparent hover:from-orange-500/18 ${dossierButtonDisabled ? BTN_DISABLED : ''}`}
                             >
-                                <div className="flex flex-row-reverse items-center gap-3">
-                                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5">
-                                        <Scale className="h-6 w-6 text-white/70" />
+                                <div className="flex flex-row-reverse items-center gap-2.5">
+                                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5">
+                                        <Scale className="h-4 w-4 text-white/70" />
                                     </span>
                                     <div className="min-w-0 flex-1">
-                                        <p className="text-sm font-bold text-amber-100">
+                                        <p className="text-[13px] font-bold text-amber-100">
                                             عرض الإضبارة على قاضي البداءة
                                         </p>
                                     </div>
@@ -142,11 +149,7 @@ export function DossierPresentationSection({
 
                         {dossierEffective.pending ? (
                             <div className="border-t border-white/10 px-3 py-3">
-                            <CoerciveSubsectionFold
-                                flat
-                                title="طلب عرض الإضبارة — قيد البت لدى المنفذ"
-                                titleClassName="text-amber-200"
-                            >
+                            <CoercivePendingDecisionRail title="قرار المنفذ — عرض الإضبارة">
                                 <ExecutionInlineExecutorDecisionActions
                                     executionId={exId}
                                     decisionId={findGoverningDossierDecisionId() || ''}
@@ -156,7 +159,7 @@ export function DossierPresentationSection({
                                     suppressNavigatorToast
                                     onResolved={handleExecutorInlineResolved}
                                 />
-                            </CoerciveSubsectionFold>
+                            </CoercivePendingDecisionRail>
                             </div>
                         ) : dossierEffective.rejected &&
                           !isExecutorRejectedAppealFollowupDismissed(
@@ -186,11 +189,6 @@ export function DossierPresentationSection({
                             void runDossierPresentationSubmit();
                         }, {
                             confirmLabel: 'تأكيد وإرسال طلب عرض الإضبارة',
-                            gateExtra: (
-                                <p className="text-[10px] leading-relaxed text-amber-100/90 text-right">
-                                    سيُرسل طلب عرض الإضبارة على قاضي البداءة إلى مركز القرارات لبتّ المنفذ.
-                                </p>
-                            ),
                         })}
                     </div>
                 </div>

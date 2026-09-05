@@ -1,8 +1,24 @@
 /** Phase C Slice 16 — سياق حفظ inline لحجز العقار + موعد المزاد */
 import { useMemo } from 'react';
+import type { SeizedProperty } from '@/app/types/execution';
 import type { PushSeizureAuctionCalendarAppointmentInput } from './useExecutionDashboardPushSeizureAuctionCalendarAppointment';
-import type { PropertyInlineSaveContext } from '@/app/components/lawyer/ExecutionDashboard/utils/propertySeizureInlinePersistence';
 import { requireDecisionsStorageExecutionId } from '@/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId';
+
+/** سياق قراءة/حفظ عقارات محجوزة — بلا سير عمل إكمال */
+export type PropertyInlineSaveContext = {
+    dossierId: string;
+    showToast: (message: string, type?: string) => void;
+    readProperties: () => SeizedProperty[];
+    persistProperties: (next: SeizedProperty[]) => boolean;
+    pushTimeline: (event: Record<string, unknown>) => void;
+    nextTimelineId: () => string;
+    onAuctionCalendar?: (input: {
+        dossierId: string;
+        decisionId: string;
+        ymd: string;
+        purpose: string;
+    }) => void;
+};
 
 export type UseExecutionDashboardPropertyInlineSaveContextParams = {
     decisionsStorageExecutionId: string;
@@ -63,6 +79,7 @@ export function useExecutionDashboardPropertyInlineSaveContext(
             pushTimeline: pushTimelineEvent,
             nextTimelineId,
             onAuctionCalendar: ({ dossierId, decisionId, ymd, purpose }) => {
+                if (typeof pushSeizureAuctionCalendarAppointment !== 'function') return;
                 pushSeizureAuctionCalendarAppointment({
                     dossierId,
                     decisionId,
@@ -77,6 +94,7 @@ export function useExecutionDashboardPropertyInlineSaveContext(
         executionDataRef,
         executionDataId,
         executionId,
+        executionData,
         showToast,
         persistExecutionMerge,
         pushTimelineEvent,

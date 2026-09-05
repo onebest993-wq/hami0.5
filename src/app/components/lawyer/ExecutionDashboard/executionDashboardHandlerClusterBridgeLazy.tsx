@@ -40,16 +40,6 @@ const executionHandlerClusterThirdPartySeizureBridgeImport = () =>
         default: m.ExecutionDashboardHandlerClusterThirdPartySeizureBridge,
     }));
 
-const executionHandlerClusterSeizureLogAssetModalBridgeImport = () =>
-    import('./hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogAssetModalBridge').then((m) => ({
-        default: m.ExecutionDashboardHandlerClusterSeizureLogAssetModalBridge,
-    }));
-
-const executionHandlerClusterSeizureLogResolutionBridgeImport = () =>
-    import('./hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogResolutionBridge').then((m) => ({
-        default: m.ExecutionDashboardHandlerClusterSeizureLogResolutionBridge,
-    }));
-
 const executionHandlerClusterCoerciveLifecycleBridgeImport = () =>
     import('./hooks/executionDashboardCore/ExecutionDashboardHandlerClusterCoerciveLifecycleBridge').then((m) => ({
         default: m.ExecutionDashboardHandlerClusterCoerciveLifecycleBridge,
@@ -117,12 +107,6 @@ export const LazyExecutionDashboardHandlerClusterSeizureHeavyBridge = lazy(
 export const LazyExecutionDashboardHandlerClusterThirdPartySeizureBridge = lazy(
     executionHandlerClusterThirdPartySeizureBridgeImport,
 );
-export const LazyExecutionDashboardHandlerClusterSeizureLogAssetModalBridge = lazy(
-    executionHandlerClusterSeizureLogAssetModalBridgeImport,
-);
-export const LazyExecutionDashboardHandlerClusterSeizureLogResolutionBridge = lazy(
-    executionHandlerClusterSeizureLogResolutionBridgeImport,
-);
 export const LazyExecutionDashboardHandlerClusterCoerciveLifecycleBridge = lazy(
     executionHandlerClusterCoerciveLifecycleBridgeImport,
 );
@@ -187,14 +171,6 @@ export function prefetchExecutionHandlerClusterSeizureHeavyBridge(): void {
     void executionHandlerClusterSeizureHeavyBridgeImport().catch(() => undefined);
 }
 
-function prefetchExecutionHandlerClusterSeizureLogAssetModalBridge(): void {
-    void executionHandlerClusterSeizureLogAssetModalBridgeImport().catch(() => undefined);
-}
-
-function prefetchExecutionHandlerClusterSeizureLogResolutionBridge(): void {
-    void executionHandlerClusterSeizureLogResolutionBridgeImport().catch(() => undefined);
-}
-
 function prefetchExecutionHandlerClusterCoerciveLifecycleBridge(): void {
     void executionHandlerClusterCoerciveLifecycleBridgeImport().catch(() => undefined);
 }
@@ -226,9 +202,4 @@ export function prefetchExecutionHandlerClusterCoerciveHeavyBridge(): void {
     prefetchExecutionHandlerClusterCoerciveSupportBridge();
     prefetchExecutionHandlerClusterCoerciveActionHandlersBridge();
     prefetchExecutionHandlerClusterCoerciveEvictionBridge();
-}
-
-export function prefetchExecutionHandlerClusterSeizureLogBridge(): void {
-    prefetchExecutionHandlerClusterSeizureLogAssetModalBridge();
-    prefetchExecutionHandlerClusterSeizureLogResolutionBridge();
 }

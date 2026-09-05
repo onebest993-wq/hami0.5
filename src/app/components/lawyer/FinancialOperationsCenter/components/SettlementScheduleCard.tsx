@@ -1,7 +1,5 @@
 import React from 'react';
 import { AnimatePresence, motion } from '@/app/motion/overlayMotionRuntime';
-import { CalendarClock } from '@/app/components/ui/icons/CalendarClock';
-import { Handshake } from '@/app/components/ui/icons/Handshake';
 import { BTN_SETTLEMENT_APPLY } from '../constants';
 import { formatIqdDisplay, formatNumberInput, parseAmount } from '../utils';
 
@@ -44,36 +42,30 @@ export const SettlementScheduleCard: React.FC<SettlementScheduleCardProps> = ({
     };
 
     return (
-        <div className="space-y-3 text-right">
-            <div className="flex flex-row-reverse items-center gap-2">
-                <Handshake size={15} className="text-cyan-400 shrink-0" />
-                <p className="text-[11px] font-bold text-cyan-100/90">
-                    {isUpdate ? 'تعديل التسوية المجدولة' : 'إعداد التسوية المالية'}
-                </p>
-            </div>
+        <div className="space-y-2.5 text-right">
+            <p className="text-[11px] font-semibold text-slate-200">
+                {isUpdate ? 'تعديل التسوية المجدولة' : 'إعداد التسوية المالية'}
+            </p>
 
-            <div className="space-y-1.5">
-                <label className="block text-[10px] font-semibold text-slate-400">مبلغ التسوية (د.ع)</label>
+            <div className="space-y-1">
+                <label className="block text-[9px] font-medium text-slate-500">مبلغ التسوية (د.ع)</label>
                 <input
                     type="text"
                     inputMode="decimal"
                     placeholder="مبلغ القسط أو التسوية"
                     value={settlementInput}
                     onChange={(e) => setSettlementInput(formatNumberInput(e.target.value))}
-                    className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 text-white text-right text-sm font-bold tabular-nums placeholder:text-slate-500 focus:border-cyan-400/35 focus:outline-none"
+                    className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-right text-[13px] font-bold tabular-nums text-white placeholder:text-slate-600 focus:border-[#E6C673]/35 focus:outline-none"
                 />
             </div>
 
-            <div className="space-y-1.5">
-                <label className="flex flex-row-reverse items-center gap-1.5 text-[10px] font-semibold text-slate-400">
-                    <CalendarClock size={12} className="text-cyan-400/80" />
-                    موعد السداد
-                </label>
+            <div className="space-y-1">
+                <label className="block text-[9px] font-medium text-slate-500">موعد السداد</label>
                 <input
                     type="date"
                     value={settlementDueDateInput}
                     onChange={(e) => setSettlementDueDateInput(e.target.value)}
-                    className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 text-white text-right text-sm font-semibold tabular-nums focus:border-cyan-400/35 focus:outline-none"
+                    className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-right text-[13px] font-semibold tabular-nums text-white focus:border-[#E6C673]/35 focus:outline-none"
                 />
             </div>
 
@@ -82,7 +74,7 @@ export const SettlementScheduleCard: React.FC<SettlementScheduleCardProps> = ({
                     type="button"
                     onClick={handleReview}
                     disabled={!canApply || !settlementDueDateInput}
-                    className={`${BTN_SETTLEMENT_APPLY} w-full disabled:opacity-40 disabled:cursor-not-allowed`}
+                    className={`${BTN_SETTLEMENT_APPLY} w-full min-h-[40px] rounded-lg py-2 text-[11px] disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                     {isUpdate ? 'مراجعة تحديث التسوية' : 'مراجعة وحفظ التسوية'}
                 </button>
@@ -94,35 +86,35 @@ export const SettlementScheduleCard: React.FC<SettlementScheduleCardProps> = ({
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="overflow-hidden rounded-xl border border-amber-400/30 bg-amber-950/25 p-3 space-y-2.5"
+                        className="overflow-hidden rounded-lg border border-amber-400/25 bg-amber-950/20 p-2.5 space-y-2"
                     >
-                        <p className="text-[11px] font-bold text-amber-100/90">تأكيد قبل الحفظ</p>
+                        <p className="text-[11px] font-semibold text-amber-100/90">تأكيد قبل الحفظ</p>
                         <p className="text-[10px] text-slate-300 leading-relaxed">
                             مبلغ التسوية:{' '}
-                            <span className="font-black text-cyan-100 tabular-nums">{amountLabel} د.ع</span>
+                            <span className="font-bold text-[#E6C673] tabular-nums">{amountLabel} د.ع</span>
                             <br />
                             موعد السداد:{' '}
-                            <span className="font-semibold text-cyan-100 tabular-nums">
+                            <span className="font-semibold text-slate-100 tabular-nums">
                                 {settlementDueDateInput}
                             </span>
                         </p>
                         <p className="text-[9px] text-slate-500">
                             بعد التأكيد لا يمكن التراجع إلا عبر «تعديل التسوية» أو «إلغاء التسوية».
                         </p>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-1.5">
                             <button
                                 type="button"
                                 onClick={() => setConfirmOpen(false)}
-                                className="rounded-lg border border-white/15 py-2 text-[10px] font-bold text-slate-300 hover:bg-white/5"
+                                className="rounded-lg border border-white/12 py-2 text-[10px] font-bold text-slate-300 hover:bg-white/5"
                             >
                                 إلغاء
                             </button>
                             <button
                                 type="button"
                                 onClick={handleConfirm}
-                                className={`${BTN_SETTLEMENT_APPLY} py-2 text-[10px]`}
+                                className={`${BTN_SETTLEMENT_APPLY} rounded-lg py-2 text-[10px]`}
                             >
-                                {isUpdate ? 'تأكيد التحديث' : 'تأكيد الحفظ'}
+                                تأكيد الحفظ
                             </button>
                         </div>
                     </motion.div>

@@ -5,6 +5,7 @@ import {
     SeizurePropertyRequestBlock,
     SeizureThirdPartyRequestBlock,
 } from './SeizureRequestsTabAssetBlocks';
+import type { SharedAssetBlockProps } from './SeizureRequestsTabAssetCompletions';
 
 export function SeizureRequestsTabExpandLanes(props: Record<string, unknown>) {
     const {
@@ -16,8 +17,6 @@ export function SeizureRequestsTabExpandLanes(props: Record<string, unknown>) {
         showManualButton,
         sharedAssetBlockProps,
         movableDecision,
-        vehicleDetailsDraftByDecisionId,
-        setVehicleDetailsDraftByDecisionId,
         thirdPartyDecision,
         thirdPartyNameDraft,
         thirdPartyAmountDraft,
@@ -29,9 +28,27 @@ export function SeizureRequestsTabExpandLanes(props: Record<string, unknown>) {
         nextTimelineId,
         persistExecutionMerge,
         propertyDecision,
-        propertyDetailsDraftByDecisionId,
-        setPropertyDetailsDraftByDecisionId,
-    } = props;
+    } = props as {
+        progressive: { showAdditionalExpand?: boolean; showMaximumExpand?: boolean };
+        additionalSeizureExpanded: boolean;
+        setAdditionalSeizureExpanded: (v: boolean) => void;
+        maximumSeizureExpanded: boolean;
+        setMaximumSeizureExpanded: (v: boolean) => void;
+        showManualButton: (key: string, lane: string) => boolean;
+        sharedAssetBlockProps: SharedAssetBlockProps;
+        movableDecision: unknown;
+        thirdPartyDecision: unknown;
+        thirdPartyNameDraft: unknown;
+        thirdPartyAmountDraft: unknown;
+        setThirdPartyNameDraft: unknown;
+        setThirdPartyAmountDraft: unknown;
+        executionData: unknown;
+        getLocalTodayYmd: unknown;
+        pushTimelineEvent: unknown;
+        nextTimelineId: unknown;
+        persistExecutionMerge: unknown;
+        propertyDecision: unknown;
+    };
     return (
         <>
                     {progressive.showAdditionalExpand && !additionalSeizureExpanded ? (
@@ -46,8 +63,6 @@ export function SeizureRequestsTabExpandLanes(props: Record<string, unknown>) {
                         <SeizureMovableRequestBlock
                             {...sharedAssetBlockProps}
                             movableDecision={movableDecision}
-                            vehicleDetailsDraftByDecisionId={vehicleDetailsDraftByDecisionId}
-                            setVehicleDetailsDraftByDecisionId={setVehicleDetailsDraftByDecisionId}
                         />
                     ) : null}
                     {showManualButton('third_party', 'additional') ? (
@@ -69,8 +84,6 @@ export function SeizureRequestsTabExpandLanes(props: Record<string, unknown>) {
                         <SeizurePropertyRequestBlock
                             {...sharedAssetBlockProps}
                             propertyDecision={propertyDecision}
-                            propertyDetailsDraftByDecisionId={propertyDetailsDraftByDecisionId}
-                            setPropertyDetailsDraftByDecisionId={setPropertyDetailsDraftByDecisionId}
                         />
                     ) : null}
 
@@ -86,8 +99,6 @@ export function SeizureRequestsTabExpandLanes(props: Record<string, unknown>) {
                         <SeizureMovableRequestBlock
                             {...sharedAssetBlockProps}
                             movableDecision={movableDecision}
-                            vehicleDetailsDraftByDecisionId={vehicleDetailsDraftByDecisionId}
-                            setVehicleDetailsDraftByDecisionId={setVehicleDetailsDraftByDecisionId}
                         />
                     ) : null}
                     {showManualButton('third_party', 'maximum') ? (
@@ -109,8 +120,6 @@ export function SeizureRequestsTabExpandLanes(props: Record<string, unknown>) {
                         <SeizurePropertyRequestBlock
                             {...sharedAssetBlockProps}
                             propertyDecision={propertyDecision}
-                            propertyDetailsDraftByDecisionId={propertyDetailsDraftByDecisionId}
-                            setPropertyDetailsDraftByDecisionId={setPropertyDetailsDraftByDecisionId}
                         />
                     ) : null}
         </>

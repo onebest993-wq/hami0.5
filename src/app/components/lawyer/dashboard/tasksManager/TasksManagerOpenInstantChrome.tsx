@@ -1,34 +1,78 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { getHamiOverlayPortalRoot, HAMI_OVERLAY_SAFE_INSETS_CLASS } from '@/app/utils/overlayPortal';
+import { getHamiOverlayPortalRoot } from '@/app/utils/overlayPortal';
+import {
+    listTasksManagerInstantPeekTitles,
+    TASKS_MANAGER_INSTANT_BONE_CLASS,
+    TASKS_MANAGER_INSTANT_BONE_COUNT,
+    TASKS_MANAGER_INSTANT_BONE_INLINE_STYLE,
+    TASKS_MANAGER_INSTANT_BODY_CLASS,
+    TASKS_MANAGER_INSTANT_CHROME_ROOT_CLASS,
+    TASKS_MANAGER_INSTANT_HEADER_CLASS,
+    TASKS_MANAGER_INSTANT_INNER_CLASS,
+} from '@/app/runtime/tasksManagerInstantChromeMarkup';
+import { TASKS_MANAGER_INSTANT_CHROME_ID } from '@/app/services/fieldTasks/fieldTasksShellSnap';
+import { getQuantumPendingSnapshot } from '@/app/utils/quantumTasksMetrics';
+import { FIELD_TASKS_CURTAIN_PEEK_READY_EVENT } from '@/app/utils/quantumTasksCurtainPeek';
 
 function getOverlayPortalRoot(): HTMLElement {
     return getHamiOverlayPortalRoot({ id: 'hami-overlay-portal', zIndex: 229 });
 }
 
 /** قشرة أجندة المهام — خارج مقطع TasksManager حتى تظهر قبل تحميل الـ chunk */
-export function TasksManagerOpenInstantChrome(): React.ReactElement {
+export function TasksManagerOpenInstantChrome(): React.ReactElement | null {
+    const [peekTick, setPeekTick] = useState(0);
+    useEffect(() => {
+        const onReady = () => setPeekTick((n) => n + 1);
+        window.addEventListener(FIELD_TASKS_CURTAIN_PEEK_READY_EVENT, onReady);
+        return () => window.removeEventListener(FIELD_TASKS_CURTAIN_PEEK_READY_EVENT, onReady);
+    }, []);
+    const titles = useMemo(
+        () => listTasksManagerInstantPeekTitles(getQuantumPendingSnapshot()),
+        [peekTick],
+    );
+
+    if (typeof document !== 'undefined' && document.getElementById(TASKS_MANAGER_INSTANT_CHROME_ID)) {
+        return null;
+    }
+
+    const peekTitles = titles.slice(0, TASKS_MANAGER_INSTANT_BONE_COUNT);
     const content = (
         <div
-            className={`pointer-events-auto fixed inset-0 z-[230] w-[100vw] max-w-[100vw] h-[100dvh] min-h-[100dvh] overflow-hidden bg-[#0A0F1C] ${HAMI_OVERLAY_SAFE_INSETS_CLASS}`}
+            className={TASKS_MANAGER_INSTANT_CHROME_ROOT_CLASS}
             data-testid="tasks-manager-open-chrome"
             data-hami-overlay-safe="1"
             role="status"
-            aria-busy="true"
+            aria-busy={peekTitles.length === 0}
             aria-label="أجندة المهام"
             dir="rtl"
         >
-            <div className="relative flex h-full min-h-[100dvh] w-full flex-col overflow-x-hidden bg-[#0A0F1C] font-['Tajawal','Cairo',sans-serif]">
-                <header className="flex shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] bg-[#0A0F1C] px-4 py-3">
+            <div className={TASKS_MANAGER_INSTANT_INNER_CLASS}>
+                <header className={TASKS_MANAGER_INSTANT_HEADER_CLASS}>
                     <div className="min-w-0 text-right">
-                        <h1 className="truncate text-lg font-semibold text-[#F4F4F5]">أجندة المهام</h1>
-                        <p className="mt-0.5 text-[11px] font-medium text-white/40">الأسبوع الحالي</p>
+                        <h1 className="truncate text-base font-semibold text-[#F4F4F5]">أجندة المهام</h1>
                     </div>
                 </header>
-                <div className="mx-auto w-full max-w-3xl flex-1 space-y-3 px-4 py-5">
-                    {Array.from({ length: 5 }, (_, day) => (
-                        <div key={day} className="h-16 rounded-2xl bg-white/[0.04]" />
-                    ))}
+                <div className={TASKS_MANAGER_INSTANT_BODY_CLASS} data-tasks-manager-instant-body="1">
+                    {peekTitles.length > 0
+                        ? peekTitles.map((title) => (
+                              <div
+                                  key={title}
+                                  className={`${TASKS_MANAGER_INSTANT_BONE_CLASS} px-3 py-3 text-right`}
+                                  data-tasks-manager-instant-bone="1"
+                                  style={TASKS_MANAGER_INSTANT_BONE_INLINE_STYLE}
+                              >
+                                  <p className="truncate text-sm font-semibold text-[#F4F4F5]">{title}</p>
+                              </div>
+                          ))
+                        : Array.from({ length: TASKS_MANAGER_INSTANT_BONE_COUNT }, (_, day) => (
+                              <div
+                                  key={day}
+                                  className={TASKS_MANAGER_INSTANT_BONE_CLASS}
+                                  data-tasks-manager-instant-bone="1"
+                                  style={TASKS_MANAGER_INSTANT_BONE_INLINE_STYLE}
+                              />
+                          ))}
                 </div>
             </div>
         </div>

@@ -8,7 +8,7 @@ import { sanitizeSearchDisplayText } from '@/app/services/search/searchDisplayTe
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildPinFromSearchEntry } from '@/app/workspace/buildPinFromSearchEntry';
 
-export interface ResultRowProps {
+interface ResultRowProps {
     entry: GlobalSearchEntry;
     query: string;
     onPick: (entry: GlobalSearchEntry) => void;
@@ -56,12 +56,12 @@ export const ResultRow = memo(function ResultRow({
                 data-lifecycle={lifecycle}
                 tabIndex={active ? 0 : -1}
                 aria-selected={active}
-                className="flex-1 min-h-[44px] min-w-0 text-right outline-none py-2 px-2.5 touch-manipulation"
+                className="flex-1 min-h-[44px] min-w-0 text-right outline-none py-1.5 px-2 touch-manipulation"
             >
                 <div className="flex items-center gap-2 justify-end min-w-0">
                     {isArchived ? (
                         <span
-                            className="text-[10px] font-bold text-amber-200/90 shrink-0"
+                            className="text-[10px] font-bold text-[#E6C673]/85 shrink-0"
                             data-testid="global-search-lifecycle-archived"
                         >
                             {SEARCH_LIFECYCLE_LABELS.archived}
@@ -69,14 +69,14 @@ export const ResultRow = memo(function ResultRow({
                     ) : null}
                     {isTrashed ? (
                         <span
-                            className="text-[10px] font-bold text-rose-200/90 shrink-0"
+                            className="text-[10px] font-bold text-white/45 shrink-0"
                             data-testid="global-search-lifecycle-trash"
                         >
                             {SEARCH_LIFECYCLE_LABELS.deleted}
                         </span>
                     ) : null}
                     <p
-                        className={`text-[14px] font-semibold truncate min-w-0 ${
+                        className={`text-[13px] font-semibold truncate min-w-0 ${
                             active ? 'text-[#E6C673]' : 'text-white/95'
                         }`}
                     >

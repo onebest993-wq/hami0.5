@@ -9,7 +9,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile as DashboardExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 
-export type DeferredTransactions = ReturnType<typeof useLawyerDashboardTransactions>;
+type DeferredTransactions = ReturnType<typeof useLawyerDashboardTransactions>;
 export type DeferredFieldTasks = ReturnType<typeof useLawyerDashboardFieldTasks>;
 export type DeferredGlobalSearch = ReturnType<typeof useLawyerDashboardGlobalSearch>;
 export type DeferredGlobalSearchNav = ReturnType<typeof useLawyerDashboardGlobalSearchNav>;
@@ -41,11 +41,11 @@ export type DeferredFeatureSurfacesParams = {
     openNotifications: () => void;
     /** مغلفات orchestration (إغلاق طبقات متنافسة) — للبحث الشامل */
     openCommunityTab: () => void;
-    closeCommunity: () => void;
     setCommunityDeepLink: Dispatch<
         SetStateAction<{ postId?: string; openComments?: boolean } | null>
     >;
     openTransactionsHub: (focusId?: string) => void;
+    openTasksManager: () => void;
     openProfileTab: () => void;
     openScheduleTab: (opts?: OpenScheduleTabOptions) => void;
     openNotepad: (opts?: { mode?: 'list' | 'create'; focusNoteId?: string }) => void;

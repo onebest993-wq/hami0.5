@@ -9,7 +9,10 @@ import {
     setRepositoryDocsCache,
 } from '@/app/services/forum/repositoryDocsWarmCache';
 
-const deleteDocument = vi.fn();
+const { deleteDocument, deleteForumRepositoryDocument } = vi.hoisted(() => ({
+    deleteDocument: vi.fn(),
+    deleteForumRepositoryDocument: vi.fn(async () => undefined),
+}));
 
 vi.mock('@/app/components/ui/SmartToast', () => ({
     SmartToast: {
@@ -21,20 +24,32 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
     },
 }));
 
-vi.mock('@/app/services/lawyer-cloud', () => ({
+vi.mock('@/app/services/cloud/lawyerRepositoryCloud', () => ({
     RepositoryDB: {
         deleteDocument: (...args: unknown[]) => deleteDocument(...args),
         saveDocument: vi.fn(),
     },
+}));
+vi.mock('@/app/services/storage/lawyerStorageRuntime', () => ({
     LawyerStorage: {
         uploadSmartFile: vi.fn(),
         getSignedUrl: vi.fn(),
     },
+}));
+vi.mock('@/app/services/cloud/lawyerCloudKv', () => ({
     uuidv4: () => 'new-id',
 }));
 
 vi.mock('@/app/services/cloud/lawyerCommunityCloud', () => ({
     notifyFollowers: vi.fn(),
+}));
+
+vi.mock('@/app/services/forum/forumApi/forumApiRepository', () => ({
+    deleteForumRepositoryDocument: (...args: unknown[]) => deleteForumRepositoryDocument(...args),
+    createForumRepositoryDocument: vi.fn(async (doc: unknown) => doc),
+    updateForumRepositoryDocument: vi.fn(async (_docId: string, doc: unknown) => doc),
+    listForumRepositoryDocuments: vi.fn(async () => []),
+    signForumRepositoryDocumentUrl: vi.fn(async () => null),
 }));
 
 import { useLegalRepositoryMutations } from '../useLegalRepositoryMutations';
@@ -87,6 +102,8 @@ function renderMutations(opts: {
 describe('useLegalRepositoryMutations', () => {
     beforeEach(() => {
         deleteDocument.mockReset();
+        deleteForumRepositoryDocument.mockReset();
+        deleteForumRepositoryDocument.mockResolvedValue(undefined);
         deleteDocument.mockResolvedValue(undefined);
         vi.mocked(SmartToast.warning).mockReset();
         vi.mocked(SmartToast.success).mockReset();
@@ -135,7 +152,7 @@ describe('useLegalRepositoryMutations', () => {
 
     it('يمنع الحذف المتوازي لنفس المستند', async () => {
         let resolveDelete: () => void = () => undefined;
-        deleteDocument.mockImplementation(
+        deleteForumRepositoryDocument.mockImplementation(
             () =>
                 new Promise<void>((resolve) => {
                     resolveDelete = resolve;
@@ -155,7 +172,7 @@ describe('useLegalRepositoryMutations', () => {
         });
 
         expect(actionInflightRef.current.has('del:gone')).toBe(true);
-        expect(deleteDocument).toHaveBeenCalledTimes(1);
+        expect(deleteForumRepositoryDocument).toHaveBeenCalledTimes(1);
 
         await act(async () => {
             resolveDelete();

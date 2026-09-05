@@ -1,11 +1,10 @@
-import React from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
 import { SmartLegalRadar } from '@/app/components/lawyer/SmartLegalRadar';
 import { RadarErrorBoundary } from '@/app/components/lawyer/SmartLegalRadar/RadarErrorBoundary';
 import type { FileData } from '../LawyerShared';
 import type { ExecutionFile } from '@/app/types/execution';
-import { RADAR_BG_MAIN } from '@/app/components/lawyer/SmartLegalRadar/radarTheme';
-import { openCalendarRadarSource } from '@/app/components/lawyer/dashboard/schedule/openCalendarRadarSource';
+import { subscribeCalendarOpenSource } from '@/app/services/calendar/calendarOpenSourceIntent';
 
 export type LawyerDashboardScheduleTabProps = {
     visible: boolean;
@@ -27,7 +26,7 @@ export type LawyerDashboardScheduleTabProps = {
     onOpenFieldTasks: () => void;
 };
 
-/** تبويب التقويم — رادار واحد بدون host متداخل */
+/** تبويب التقويم — جسم الرادار داخل كروم الصدفة */
 export function LawyerDashboardScheduleTab({
     visible,
     userId,
@@ -45,41 +44,74 @@ export function LawyerDashboardScheduleTab({
     onOpenNote,
     onOpenFieldTasks,
 }: LawyerDashboardScheduleTabProps) {
-    const handleBack = () => {
+    const handleBack = useCallback(() => {
         onClearCalendarSearchFocus();
         onBackToHome();
-    };
+    }, [onBackToHome, onClearCalendarSearchFocus]);
 
     const calendarUserId = resolveCalendarUserId(userId ?? authUserId ?? null);
 
+    const handleOpenSource = useCallback(
+        (sourceModule: string, sourceEntityId: string, sourceEventId?: string) => {
+            const handlers = {
+                files,
+                executionFiles,
+                onOpenLawsuitFile,
+                onOpenExecutionFile,
+                onOpenCriminalCase,
+                onOpenUrgentCase,
+                onOpenTransaction,
+                onOpenNote,
+                onOpenFieldTasks,
+                onBackToHome,
+            };
+            void import('@/app/components/lawyer/dashboard/schedule/openCalendarRadarSource').then(
+                ({ openCalendarRadarSource }) => {
+                    openCalendarRadarSource(
+                        sourceModule,
+                        sourceEntityId,
+                        handlers,
+                        sourceEventId,
+                    );
+                },
+            );
+        },
+        [
+            executionFiles,
+            files,
+            onBackToHome,
+            onOpenCriminalCase,
+            onOpenExecutionFile,
+            onOpenFieldTasks,
+            onOpenLawsuitFile,
+            onOpenNote,
+            onOpenTransaction,
+            onOpenUrgentCase,
+        ],
+    );
+
+    useEffect(() => subscribeCalendarOpenSource((detail) => {
+        handleOpenSource(detail.sourceModule, detail.sourceEntityId, detail.sourceEventId);
+    }), [handleOpenSource]);
+
     return (
         <div
-            className="block h-[100dvh]"
-            style={{ backgroundColor: RADAR_BG_MAIN }}
+            className="block h-full min-h-0"
             data-testid="lawyer-schedule-tab-shell"
             aria-hidden={!visible}
         >
-            <RadarErrorBoundary onBack={handleBack}>
+            <RadarErrorBoundary
+                onBack={handleBack}
+                resetKey={`${visible ? '1' : '0'}:${calendarUserId}`}
+            >
                 <SmartLegalRadar
+                    embedInChrome
                     screenActive={visible}
                     onBack={handleBack}
                     userId={calendarUserId}
                     initialDate={calendarSearchFocus?.date}
                     initialEventId={calendarSearchFocus?.eventId}
-                    onOpenSource={(sourceModule, sourceEntityId, sourceEventId) =>
-                        openCalendarRadarSource(sourceModule, sourceEntityId, {
-                            files,
-                            executionFiles,
-                            onOpenLawsuitFile,
-                            onOpenExecutionFile,
-                            onOpenCriminalCase,
-                            onOpenUrgentCase,
-                            onOpenTransaction,
-                            onOpenNote,
-                            onOpenFieldTasks,
-                            onBackToHome,
-                        }, sourceEventId)
-                    }
+                    onOpenSource={handleOpenSource}
                 />
             </RadarErrorBoundary>
         </div>

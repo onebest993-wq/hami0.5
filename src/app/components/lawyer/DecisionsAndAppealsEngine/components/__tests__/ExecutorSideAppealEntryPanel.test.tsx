@@ -64,7 +64,7 @@ describe('ExecutorSideAppealEntryPanel', () => {
         expect(onCommit).toHaveBeenCalledWith('grievance', ['debtor']);
     });
 
-    it('يعرض آخر موعد عند توفر تاريخ القرار', () => {
+    it('لا يعرض تلميح آخر موعد عند توفر تاريخ القرار', () => {
         render(
             <ExecutorSideAppealEntryPanel
                 {...baseProps}
@@ -72,12 +72,12 @@ describe('ExecutorSideAppealEntryPanel', () => {
             />
         );
         fireEvent.click(screen.getByRole('button', { name: /الطعن بالقرار/ }));
-        expect(screen.getByText(/آخر موعد لالتظلم/)).toBeInTheDocument();
+        expect(screen.queryByText(/آخر موعد ل/)).not.toBeInTheDocument();
         fireEvent.click(screen.getByRole('button', { name: /^تمييز$/ }));
-        expect(screen.getByText(/آخر موعد لالتمييز/)).toBeInTheDocument();
+        expect(screen.queryByText(/آخر موعد ل/)).not.toBeInTheDocument();
     });
 
-    it('يعرض الموعد بجانب الطاعن المقفول', () => {
+    it('يعرض الطاعن المقفول دون تلميح موعد', () => {
         render(
             <ExecutorSideAppealEntryPanel
                 {...baseProps}
@@ -88,6 +88,6 @@ describe('ExecutorSideAppealEntryPanel', () => {
         );
         fireEvent.click(screen.getByRole('button', { name: /الطعن بالقرار/ }));
         expect(screen.getByText(/الطاعن:/)).toBeInTheDocument();
-        expect(screen.getByText(/آخر موعد لالتظلم/)).toBeInTheDocument();
+        expect(screen.queryByText(/آخر موعد ل/)).not.toBeInTheDocument();
     });
 });

@@ -56,7 +56,6 @@ function DecisionCard(props: DecisionCardProps) {
         decisions,
         decisionsHubTab,
         dispatcherHub,
-        executionId,
         requestNeedsExecutorOutcome,
         buildDecisionCardStatus,
         appealPerspective,
@@ -85,10 +84,6 @@ function DecisionCard(props: DecisionCardProps) {
         dateStr,
         heirsParty,
         canOpenHeirsEntry,
-        seizureCompletionReady,
-        seizureCompletionLabel,
-        seizureCompletionBusy,
-        runSeizureCompletion,
         evictionScheduleReady,
         evictionGraceReady,
         evictionPoliceReady,
@@ -150,13 +145,14 @@ function DecisionCard(props: DecisionCardProps) {
                             الطلب: {titleClean}
                         </h4>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
+                    <div className="flex shrink-0 items-center self-center gap-1.5">
                         {decisionsHubTab === 'current' && requestNeedsExecutorOutcome(decision) ? (
                             <button
                                 type="button"
                                 onClick={() => setDeleteConfirmId(decision.id)}
-                                className="text-red-500/70 hover:text-red-500 transition-colors text-sm"
+                                className="inline-flex size-8 items-center justify-center rounded-lg text-red-500/70 hover:bg-red-500/10 hover:text-red-500 transition-colors touch-manipulation"
                                 title="حذف الطلب"
+                                aria-label="حذف الطلب"
                             >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -231,7 +227,7 @@ function DecisionCard(props: DecisionCardProps) {
                 ) : null}
             </div>
 
-            <div className="mt-2 flex min-w-0 flex-col gap-1.5 text-right">
+            <div className="mt-1.5 flex min-w-0 flex-col gap-1.5 text-right">
                 {!isManualLedgerCard &&
                 requestAppealGate.kind !== 'continue' &&
                 !decision.isArchived &&
@@ -247,7 +243,6 @@ function DecisionCard(props: DecisionCardProps) {
                 requestFlowContinues &&
                 showCreditorFollowupActions &&
                 (canOpenHeirsEntry ||
-                    seizureCompletionReady ||
                     guarantorShortcutReady ||
                     trustDisburseShortcutReady ||
                     evictionScheduleReady ||
@@ -259,10 +254,6 @@ function DecisionCard(props: DecisionCardProps) {
                         btnPrimaryWFull={btnPrimaryWFull}
                         canOpenHeirsEntry={canOpenHeirsEntry}
                         heirsParty={heirsParty}
-                        seizureCompletionReady={seizureCompletionReady}
-                        seizureCompletionBusy={seizureCompletionBusy}
-                        seizureCompletionLabel={seizureCompletionLabel}
-                        runSeizureCompletion={runSeizureCompletion}
                         guarantorShortcutReady={guarantorShortcutReady}
                         trustDisburseShortcutReady={trustDisburseShortcutReady}
                         evictionScheduleReady={evictionScheduleReady}

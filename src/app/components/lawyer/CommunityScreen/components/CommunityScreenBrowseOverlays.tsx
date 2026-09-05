@@ -5,6 +5,11 @@ import {
     LazyForumMemberProfileOverlay,
     LazySearchOverlay,
 } from '@/app/components/lawyer/CommunityScreen/communityScreenLazyEntries';
+import {
+    ForumCommentSheetInstantCover,
+    ForumProfileOverlayInstantCover,
+    ForumSearchOverlayInstantCover,
+} from '@/app/components/lawyer/CommunityScreen/components/ForumOverlayInstantCovers';
 import type { CommunityScreenOverlaysProps } from './CommunityScreenOverlays.types';
 
 export function CommunityScreenBrowseMidOverlays(props: CommunityScreenOverlaysProps) {
@@ -46,7 +51,7 @@ export function CommunityScreenBrowseMidOverlays(props: CommunityScreenOverlaysP
     return (
         <>
             {activePostForComments ? (
-                <Suspense fallback={null}>
+                <Suspense fallback={<ForumCommentSheetInstantCover onClose={onCloseComments} />}>
                     <LazyCommentBottomSheet
                         post={activePostForComments}
                         onClose={onCloseComments}
@@ -70,7 +75,7 @@ export function CommunityScreenBrowseMidOverlays(props: CommunityScreenOverlaysP
             ) : null}
 
             {isSearchOpen ? (
-                <Suspense fallback={null}>
+                <Suspense fallback={<ForumSearchOverlayInstantCover onClose={onCloseSearch} />}>
                     <LazySearchOverlay
                         isOpen={isSearchOpen}
                         searchQuery={searchQuery}
@@ -108,7 +113,7 @@ export function CommunityScreenBrowseProfileOverlay(props: CommunityScreenOverla
     if (!profileView) return null;
 
     return (
-        <Suspense fallback={null}>
+        <Suspense fallback={<ForumProfileOverlayInstantCover onClose={onCloseProfile} />}>
             <LazyForumMemberProfileOverlay
                 userId={profileView.userId}
                 displayName={profileView.displayName}

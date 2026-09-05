@@ -5,6 +5,7 @@ import {
 } from '@/app/services/settings/notificationSettings';
 import {
     previewNotificationArrivalCue,
+    previewNotificationArrivalHaptic,
 } from '@/app/services/notifications/notificationArrivalSound';
 import {
     requestHamiNotificationPermission,
@@ -42,5 +43,6 @@ export function useNotificationAlertControls() {
         channelRows,
         requestOsPermission,
         previewArrivalCue: previewNotificationArrivalCue,
+        previewArrivalHaptic: previewNotificationArrivalHaptic,
     };
 }

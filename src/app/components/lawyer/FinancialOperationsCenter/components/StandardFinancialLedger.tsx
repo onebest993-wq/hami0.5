@@ -8,13 +8,19 @@ import { PencilLine } from '@/app/components/ui/icons/PencilLine';
 import { formatIqdDisplay } from '../utils';
 import { SECTION_GLASS } from '../constants';
 import type { UnifiedLedgerStore, FinancialLedgerEntry } from '../types';
-import { ReactiveSettlementEntry } from './ReactiveSettlementEntry';
 import { SettlementBuriedKebab } from './SettlementBuriedKebab';
 import LedgerExpenseEditCluster from './LedgerExpenseEditCluster';
+import { ReactiveSettlementEntry } from './ReactiveSettlementEntry';
 import { SettlementRepaymentStrip } from './SettlementRepaymentStrip';
 import type { SettlementUxTier } from '../settlementUxMatrix';
 import { DECISIONS_RELOAD_EVENT, readExecutorDecisionsArray } from '@/app/utils/executorSeizureDecisionQueue';
 import { ExecutionInlineExecutorDecisionActions } from '@/app/components/shared/ExecutionInlineExecutorDecisionActions';
+import {
+    focPrepareOverlay,
+    prefetchFocDebtTotalsEditModal,
+    prefetchFocDisburseModal,
+    prefetchFocGarnishModal,
+} from '../focOverlaySurfacesLazy';
 
 interface StandardFinancialLedgerProps {
     executionId: string | undefined;
@@ -185,22 +191,38 @@ export const StandardFinancialLedger = ({
         <div
             className={
                 flatChrome
-                    ? 'flex flex-col gap-y-4'
+                    ? 'flex flex-col gap-y-2.5'
                     : `${SECTION_GLASS} flex flex-col gap-y-4`
             }
         >
             <div
                 className={
                     flatChrome
-                        ? 'flex flex-col items-center text-center pb-2 gap-y-1.5'
+                        ? 'flex flex-col items-center text-center pb-1.5 gap-y-1'
                         : 'flex flex-col items-center text-center pb-4 mb-1 border-b border-white/10 gap-y-2'
                 }
             >
-                <p className="text-[10px] text-slate-500 tracking-wide">متبقي الوعاء</p>
-                <div className="flex flex-wrap items-center justify-center gap-2">
+                <p
+                    className={
+                        flatChrome
+                            ? 'text-[9px] text-slate-500 tracking-wide'
+                            : 'text-[10px] text-slate-500 tracking-wide'
+                    }
+                >
+                    متبقي الوعاء
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-1.5">
                     <p
-                        className="text-2xl sm:text-3xl font-black tabular-nums leading-none tracking-tight bg-gradient-to-b from-[#FFF8DC] via-[#E6C673] to-amber-700 bg-clip-text text-transparent"
-                        style={{ filter: 'drop-shadow(0 0 14px rgba(230, 198, 115, 0.32))' }}
+                        className={
+                            flatChrome
+                                ? 'text-xl font-bold tabular-nums leading-none tracking-tight text-[#E6C673]'
+                                : 'text-2xl sm:text-3xl font-black tabular-nums leading-none tracking-tight bg-gradient-to-b from-[#FFF8DC] via-[#E6C673] to-amber-700 bg-clip-text text-transparent'
+                        }
+                        style={
+                            flatChrome
+                                ? undefined
+                                : { filter: 'drop-shadow(0 0 14px rgba(230, 198, 115, 0.32))' }
+                        }
                     >
                         {formatIqdDisplay(highlightedUnifiedAmount)}
                     </p>
@@ -210,20 +232,38 @@ export const StandardFinancialLedger = ({
                     onActivateSettlement ? (
                         <SettlementBuriedKebab onActivate={onActivateSettlement} />
                     ) : null}
-                    {canEditDebtTotals && onOpenDebtEdit && !flatChrome ? (
+                    {canEditDebtTotals && onOpenDebtEdit ? (
                         <button
                             type="button"
+                            {...focPrepareOverlay(prefetchFocDebtTotalsEditModal)}
                             onClick={onOpenDebtEdit}
-                            className="inline-flex items-center justify-center gap-1 min-w-[3.6rem] py-1.5 px-2 rounded-md border border-[#E6C673]/30 bg-[#E6C673]/10 text-[#F5E6A8] hover:bg-[#E6C673]/15 transition"
+                            className={
+                                flatChrome
+                                    ? 'inline-flex items-center gap-1 rounded-md border border-[#E6C673]/28 bg-[#E6C673]/[0.08] px-2 py-1 text-[9px] font-semibold text-[#F0D78A] transition hover:bg-[#E6C673]/14'
+                                    : 'inline-flex items-center justify-center gap-1 min-w-[3.6rem] py-1.5 px-2 rounded-md border border-[#E6C673]/30 bg-[#E6C673]/10 text-[#F5E6A8] hover:bg-[#E6C673]/15 transition'
+                            }
                         >
-                            <PencilLine size={13} strokeWidth={1.85} className="shrink-0" />
-                            <span className="text-[10px] font-semibold leading-tight text-center">تعديل</span>
+                            <PencilLine
+                                size={flatChrome ? 11 : 13}
+                                strokeWidth={1.85}
+                                className="shrink-0"
+                            />
+                            <span
+                                className={
+                                    flatChrome
+                                        ? 'text-[9px] font-semibold leading-tight'
+                                        : 'text-[10px] font-semibold leading-tight text-center'
+                                }
+                            >
+                                تعديل
+                            </span>
                         </button>
                     ) : null}
                     <LedgerExpenseEditCluster
                         onExpenses={() => setExpenseSheetOpen(true)}
                         onEditFees={() => setFeesSheetOpen(true)}
                         hideFees
+                        compact={flatChrome}
                     />
                 </div>
                 {showSettlementEntry &&
@@ -330,6 +370,7 @@ export const StandardFinancialLedger = ({
                 ) : canShowDisburse ? (
                     <button
                         type="button"
+                        {...focPrepareOverlay(prefetchFocDisburseModal)}
                         onClick={onOpenDisburse}
                         className="w-full rounded-lg bg-gradient-to-l from-[#E6C673] to-amber-600 py-3.5 px-4 text-[#0A0F1C] font-black text-xs shadow-md shadow-amber-900/25 disabled:opacity-35 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
@@ -389,6 +430,7 @@ export const StandardFinancialLedger = ({
                             {showEmployeeCollection && (
                                 <button
                                     type="button"
+                                    {...focPrepareOverlay(prefetchFocGarnishModal)}
                                     onClick={() => setShowGarnishModal(true)}
                                     className="w-full rounded-lg border border-violet-500/30 bg-violet-950/50 backdrop-blur-sm py-3.5 px-4 text-violet-100/95 text-[11px] font-bold shadow-sm shadow-black/25 disabled:opacity-30 disabled:cursor-not-allowed transition-colors hover:bg-violet-900/42 hover:border-violet-400/32"
                                 >

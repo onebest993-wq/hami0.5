@@ -11,16 +11,19 @@ import {
     CALENDAR_UPDATED_EVENT,
 } from '@/app/services/calendarBridge.types';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
-import { isBridgedCalendarEvent } from '@/app/services/calendar/calendarEventAuthorship';
+import { isBridgedCalendarEvent } from '@/app/services/calendar/bridgePersistence/lite';
 import { mapStoredEventsToUnified, mapAllCalendarEventsForSparkScan } from '@/app/components/lawyer/SmartLegalRadar/calendarEventMapping';
 import {
     getCachedCalendarEvents,
-    hasCachedCalendarEvents,
     invalidateCalendarEventsCache,
     setCachedCalendarEvents,
 } from '@/app/services/calendar/calendarEventsCache';
-import { readLocalCalendarSnapshotSync } from '@/app/services/calendar/calendarLocalSnapshot';
+import {
+    peekLocalCalendarSnapshotSync,
+    readLocalCalendarSnapshotSync,
+} from '@/app/services/calendar/calendarLocalSnapshot';
 import { awaitCalendarWarmIfInflight } from '@/app/services/calendar/calendarEventsWarm';
+import { newCalendarEventId } from '@/app/services/calendar/calendarEventRecord';
 import {
     CALENDAR_FETCH_TIMEOUT_MS,
     CALENDAR_MUTATION_TIMEOUT_MS,
@@ -78,13 +81,6 @@ function mutationErrorMessage(err: unknown, fallback: string): string {
     return isCalendarTimeoutError(err) ? 'تعذّر حفظ الموعد' : fallback;
 }
 
-function newCalendarEventId(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-        return crypto.randomUUID();
-    }
-    return `cal_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-}
-
 /** يمنع إعادة رسم القائمة عند جلب/مزامنة بلا تغيّر فعلي في الأحداث */
 export function calendarEventSetsEqual(a: CalendarEvent[], b: CalendarEvent[]): boolean {
     if (a === b) return true;
@@ -101,10 +97,10 @@ function adoptCalendarEventsIfChanged(prev: CalendarEvent[], next: CalendarEvent
 }
 
 function resolveInitialCalendarEvents(userId: string): CalendarEvent[] {
-    if (hasCachedCalendarEvents(userId)) {
-        return getCachedCalendarEvents(userId) ?? [];
-    }
-    return readLocalCalendarSnapshotSync(userId);
+    if (!userId) return [];
+    const cached = getCachedCalendarEvents(userId);
+    if (cached && cached.length > 0) return cached;
+    return peekLocalCalendarSnapshotSync(userId);
 }
 
 /** لمسح سبارك على الرئيسية — يشمل مواعيد الجسر الآلي */
@@ -129,10 +125,11 @@ export function buildEventsByDateIndex(
     const prefix = `${year}-${String(month + 1).padStart(2, '0')}`;
     const map = new Map<string, UnifiedEvent[]>();
     for (const e of events) {
-        if (!e.date.startsWith(prefix)) continue;
-        const bucket = map.get(e.date);
+        const date = typeof e.date === 'string' ? e.date : '';
+        if (!date.startsWith(prefix)) continue;
+        const bucket = map.get(date);
         if (bucket) bucket.push(e);
-        else map.set(e.date, [e]);
+        else map.set(date, [e]);
     }
     return map;
 }
@@ -216,7 +213,7 @@ export function useCalendarData(userId: string) {
 
     useEffect(() => {
         const snapshot = resolveInitialCalendarEvents(effectiveUserId);
-        if (!hasCachedCalendarEvents(effectiveUserId)) {
+        if (snapshot.length > 0) {
             setCachedCalendarEvents(effectiveUserId, snapshot);
         }
         hasLoadedOnceRef.current = true;
@@ -271,9 +268,11 @@ export function useCalendarData(userId: string) {
     const eventsByDate = useMemo(() => {
         const map = new Map<string, UnifiedEvent[]>();
         for (const e of allEvents) {
-            const bucket = map.get(e.date);
+            const date = typeof e.date === 'string' ? e.date : '';
+            if (!date) continue;
+            const bucket = map.get(date);
             if (bucket) bucket.push(e);
-            else map.set(e.date, [e]);
+            else map.set(date, [e]);
         }
         return map;
     }, [allEvents]);

@@ -3,6 +3,16 @@ import { describe, expect, it, vi } from 'vitest';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { QuestionCardAttachment } from '@/app/components/lawyer/CommunityScreen/components/QuestionCardAttachment';
 
+vi.mock('@/app/components/lawyer/SmartVaultModal/AppDocumentPreviewOverlayLazy', async () => {
+    const { AppDocumentPreviewOverlay } = await import(
+        '@/app/components/lawyer/SmartVaultModal/AppDocumentPreviewOverlay'
+    );
+    return {
+        LazyAppDocumentPreviewOverlay: AppDocumentPreviewOverlay,
+        prefetchAppDocumentPreviewOverlay: () => undefined,
+    };
+});
+
 function buildPost(overrides: Partial<CommunityPost> = {}): CommunityPost {
     return {
         id: 'post-1',

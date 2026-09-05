@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Search } from '@/app/components/ui/icons/Search';
+import { SearchIcon } from './transactionsTheme/icons';
 import { TransactionStatus } from '@/app/modules/transactionsThreading/types';
 import type { TransactionsListStatusFilter } from '@/app/services/transactions/filterTransactionsList';
 import { GLASS_CHIP_ACTIVE } from './transactionsGlassTheme';
@@ -16,7 +16,7 @@ const FILTERS: Array<{ id: TransactionsListStatusFilterId; label: string }> = [
 ];
 
 const TX_QUERY_CHIP_BASE =
-    'shrink-0 min-h-[44px] px-2.5 rounded-full text-[10px] font-bold border touch-manipulation transition-colors snap-start';
+    'shrink-0 min-h-[44px] px-2.5 text-[11px] font-semibold border-0 border-b-2 touch-manipulation snap-start';
 
 export const TransactionsListQueryBar = memo(function TransactionsListQueryBar({
     query,
@@ -39,7 +39,7 @@ export const TransactionsListQueryBar = memo(function TransactionsListQueryBar({
     return (
         <div className="mt-2" data-testid="transactions-query-bar">
             <div className="flex items-center gap-2 h-11 min-h-[44px]">
-                <Search className="w-4 h-4 text-white/35 shrink-0 pointer-events-none" aria-hidden />
+                <SearchIcon className="w-4 h-4 text-white/35 shrink-0 pointer-events-none" />
                 <input
                     value={query}
                     onChange={(e) => onQueryChange(e.target.value)}
@@ -83,7 +83,7 @@ export const TransactionsListQueryBar = memo(function TransactionsListQueryBar({
                                 className={
                                     active
                                         ? `${TX_QUERY_CHIP_BASE} ${GLASS_CHIP_ACTIVE}`
-                                        : `${TX_QUERY_CHIP_BASE} border-white/10 bg-transparent text-white/70 hover:bg-white/[0.06] hover:border-white/18`
+                                        : `${TX_QUERY_CHIP_BASE} border-transparent bg-transparent text-white/55`
                                 }
                             >
                                 {f.label}

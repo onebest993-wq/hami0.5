@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
     buildPendingSeizureDraftAsset,
     dispatchOpenSeizureCompletion,
@@ -30,28 +30,10 @@ describe('seizureSalaryRequestFlow', () => {
         expect(Object.keys(next)).toEqual(['dec-old', 'dec-new']);
     });
 
-    it('dispatches open completion custom event', () => {
-        const spy = vi.fn();
-        window.addEventListener('hami-open-seizure-completion', spy);
-        dispatchOpenSeizureCompletion('ex-1', 'dec-1');
-        expect(spy).toHaveBeenCalledTimes(1);
-        window.removeEventListener('hami-open-seizure-completion', spy);
-    });
-
-    it('dispatches property inline focus event', () => {
-        const spy = vi.fn();
-        window.addEventListener('hami-focus-seizure-property-inline', spy);
-        dispatchPropertySeizureInlineFocus('ex-1', 'dec-prop', 'عقار');
-        expect(spy).toHaveBeenCalledTimes(1);
-        window.removeEventListener('hami-focus-seizure-property-inline', spy);
-    });
-
-    it('dispatches third party inline focus event', () => {
-        const spy = vi.fn();
-        window.addEventListener('hami-focus-seizure-third-party-inline', spy);
-        dispatchThirdPartySeizureInlineFocus('ex-1', 'dec-tp', 'جهة');
-        expect(spy).toHaveBeenCalledTimes(1);
-        window.removeEventListener('hami-focus-seizure-third-party-inline', spy);
+    it('focus/completion dispatch helpers are no-ops after workflow strip', () => {
+        expect(() => dispatchOpenSeizureCompletion('ex-1', 'dec-1')).not.toThrow();
+        expect(() => dispatchPropertySeizureInlineFocus('ex-1', 'dec-prop', 'عقار')).not.toThrow();
+        expect(() => dispatchThirdPartySeizureInlineFocus('ex-1', 'dec-tp', 'جهة')).not.toThrow();
     });
 
     it('merges seizure payload json without losing prior keys', () => {

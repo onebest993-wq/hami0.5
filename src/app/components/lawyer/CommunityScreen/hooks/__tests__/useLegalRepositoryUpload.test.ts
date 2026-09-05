@@ -20,15 +20,19 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
     },
 }));
 
-vi.mock('@/app/services/lawyer-cloud', () => ({
+vi.mock('@/app/services/cloud/lawyerRepositoryCloud', () => ({
     RepositoryDB: {
         saveDocument: (...args: unknown[]) => saveDocument(...args),
         deleteDocument: vi.fn(),
     },
+}));
+vi.mock('@/app/services/storage/lawyerStorageRuntime', () => ({
     LawyerStorage: {
         uploadSmartFile: vi.fn(),
         getSignedUrl: vi.fn(),
     },
+}));
+vi.mock('@/app/services/cloud/lawyerCloudKv', () => ({
     uuidv4: () => 'new-id',
 }));
 
@@ -45,8 +49,17 @@ vi.mock('../../legalRepositoryCloudSync', () => ({
     syncRepositoryDocumentToCloud: vi.fn(),
 }));
 
+vi.mock('@/app/services/forumApiService', () => ({
+    ForumApiService: {
+        createRepositoryDocument: vi.fn(async (doc: unknown) => doc),
+        updateRepositoryDocument: vi.fn(async (_id: string, doc: unknown) => doc),
+    },
+}));
+
 import { useLegalRepositoryUpload } from '../useLegalRepositoryUpload';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { syncRepositoryDocumentToCloud } from '../../legalRepositoryCloudSync';
+import { ForumApiService } from '@/app/services/forumApiService';
 
 function renderUpload() {
     const documentsRef: MutableRefObject<RepositoryDocument[]> = { current: [] };
@@ -76,9 +89,18 @@ describe('useLegalRepositoryUpload', () => {
         reserveRepositoryFileLocally.mockReset();
         vi.mocked(SmartToast.error).mockReset();
         vi.mocked(SmartToast.success).mockReset();
+        vi.mocked(SmartToast.warning).mockReset();
         resetRepositoryDocsCacheForTests();
         saveDocument.mockResolvedValue(undefined);
         persist.mockResolvedValue(undefined);
+        vi.mocked(ForumApiService.createRepositoryDocument).mockReset();
+        vi.mocked(ForumApiService.createRepositoryDocument).mockImplementation(async (doc) => doc as never);
+        vi.mocked(ForumApiService.updateRepositoryDocument).mockReset();
+        vi.mocked(ForumApiService.updateRepositoryDocument).mockImplementation(async (_id, doc) => doc as never);
+        vi.mocked(syncRepositoryDocumentToCloud).mockImplementation(async ({ savedDoc }) => ({
+            ...savedDoc,
+            storagePath: 'u1/repository/a.pdf',
+        }));
         reserveRepositoryFileLocally.mockReturnValue({
             storagePath: 'idb:forum:new',
             fileName: 'a.pdf',
@@ -91,7 +113,7 @@ describe('useLegalRepositoryUpload', () => {
     it('يحرر الملف المحجوز إن فشلت الكتابة المحلية', async () => {
         persist.mockRejectedValueOnce(new Error('idb'));
         const { result } = renderUpload();
-        const file = new File(['abc'], 'a.pdf', { type: 'application/pdf' });
+        const file = new File(['%PDF-1.4\n'], 'a.pdf', { type: 'application/pdf' });
         await act(async () => {
             await result.current
                 .handleUploadSubmit({
@@ -117,7 +139,7 @@ describe('useLegalRepositoryUpload', () => {
                 }),
         );
         const { result, actionInflightRef } = renderUpload();
-        const file = new File(['abc'], 'a.pdf', { type: 'application/pdf' });
+        const file = new File(['%PDF-1.4\n'], 'a.pdf', { type: 'application/pdf' });
         const payload = {
             title: 'عقد تجريبي',
             type: 'عقد',
@@ -131,11 +153,32 @@ describe('useLegalRepositoryUpload', () => {
             void result.current.handleUploadSubmit(payload);
         });
         expect(actionInflightRef.current.has('upload:new')).toBe(true);
+        await act(async () => {
+            await Promise.resolve();
+        });
         expect(persist).toHaveBeenCalledTimes(1);
         await act(async () => {
             resolvePersist();
             await first;
         });
         expect(actionInflightRef.current.has('upload:new')).toBe(false);
+    });
+
+    it('يعلّم indexSync عند فشل الفهرسة بعد رفع سحابي ناجح', async () => {
+        vi.mocked(ForumApiService.createRepositoryDocument).mockRejectedValueOnce(new Error('index-down'));
+        const { result } = renderUpload();
+        const file = new File(['%PDF-1.4\n'], 'a.pdf', { type: 'application/pdf' });
+        await act(async () => {
+            await result.current.handleUploadSubmit({
+                title: 'عقد تجريبي',
+                type: 'عقد',
+                description: 'وصف كافٍ للمستند',
+                file,
+                tags: [],
+            });
+        });
+        expect(saveDocument).toHaveBeenCalledWith(expect.objectContaining({ indexSync: 'create' }));
+        expect(SmartToast.warning).toHaveBeenCalled();
+        expect(SmartToast.success).toHaveBeenCalled();
     });
 });

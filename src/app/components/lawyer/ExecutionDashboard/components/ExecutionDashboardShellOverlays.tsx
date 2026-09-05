@@ -17,11 +17,6 @@ import {
     ExecutionDashboardSolidaryEvictionOverlays,
     type ExecutionDashboardSolidaryEvictionOverlaysProps,
 } from './ExecutionDashboardSolidaryEvictionOverlays';
-import {
-    ExecutionDashboardSeizedPropertyPortals,
-    type ExecutionDashboardSeizedPropertyPortalsProps,
-} from './ExecutionDashboardSeizedPropertyPortals';
-import { pickSeizedPropertyPortalProps } from '../hooks/pickSeizedPropertyPortalProps';
 import { pickExecutionShellOverlayProps } from '../hooks/pickExecutionShellOverlayProps';
 import {
     readExecutionShellOverlayScope,
@@ -67,13 +62,6 @@ export function ExecutionDashboardShellOverlays({
         [props, setShowEvictionExpenseModal],
     );
 
-    const showAnySeizedPropertyPortal = Boolean(
-        scope.seizedPropertyStepModalOpen ||
-            scope.seizedPropertyAuctionResultModalOpen ||
-            scope.seizureMarkModalOpen ||
-            scope.publicationModalOpen,
-    );
-
     const showAnyOverlay = Boolean(
         props.showExecutionTrashModal ||
             props.timelineEditDraft ||
@@ -89,7 +77,6 @@ export function ExecutionDashboardShellOverlays({
             props.judicialCustodianModalOpen ||
             props.executionReportPrompt ||
             props.showDocumentsModal ||
-            props.showRealEstateSeizureModal ||
             props.showDecisionsModal ||
             props.showSeizedAssetsModal ||
             props.showPaymentModal ||
@@ -111,8 +98,7 @@ export function ExecutionDashboardShellOverlays({
             props.showSolidaryCoerciveTargetModal ||
             evictionExpenseModalOpen ||
             props.showEvictionLawyerFeeModal ||
-            props.showEvictionResidentialGraceModal ||
-            showAnySeizedPropertyPortal,
+            props.showEvictionResidentialGraceModal,
     );
 
     const dismissOpenOverlay = resolveExecutionShellOverlayInstantPaint(
@@ -174,13 +160,6 @@ export function ExecutionDashboardShellOverlays({
                 onCloseEvictionLawyerFeeModal={closers.closeEvictionLawyerFeeModal}
                 onCloseEvictionResidentialGraceModal={closers.closeEvictionResidentialGraceModal}
             />
-            {showAnySeizedPropertyPortal ? (
-                <ExecutionDashboardSeizedPropertyPortals
-                    {...(pickSeizedPropertyPortalProps(
-                        scope,
-                    ) as unknown as ExecutionDashboardSeizedPropertyPortalsProps)}
-                />
-            ) : null}
         </>
     );
 }

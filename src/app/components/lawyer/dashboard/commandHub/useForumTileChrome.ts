@@ -10,7 +10,7 @@ import { resolveCardThemePrimary, mergeBlockScopedAppearance } from '@/app/servi
 import { resolveHubRouteTileVisuals } from '@/app/services/settings/resolveHubRouteTileVisuals';
 import { dockShellLabel } from '@/app/services/settings/homeBlockLabels';
 import { shouldShowForumUnreadBadge } from '@/app/services/forum/forumShellNavigation';
-import { hubTilePressClass, tileShellClasses } from './commandHubTileClasses';
+import { hubTilePressClass, tileShellClasses } from '@/app/components/lawyer/dashboard/commandHubTileClasses';
 import { HUB_HALF_TILE_BASE_PX, HUB_HALF_TILE_MIN_CLASS } from '@/app/components/lawyer/dashboard/hubHalfTileMetrics';
 
 type UseForumTileChromeArgs = {

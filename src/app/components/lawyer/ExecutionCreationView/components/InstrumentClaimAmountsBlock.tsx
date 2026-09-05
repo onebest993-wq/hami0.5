@@ -1,5 +1,4 @@
 import React from 'react';
-import { Scale } from '@/app/components/ui/icons/Scale';
 import { ecg } from './executionCreationGlassUi';
 import { SmartAlimonyCalculator } from './SmartAlimonyCalculator';
 import { PastAlimonyFieldsSection, PastAlimonyResultPreview } from './PastAlimonySection';
@@ -129,12 +128,7 @@ export const InstrumentClaimAmountsBlock: React.FC<InstrumentClaimAmountsBlockPr
             return (
                 <div key={ct} className={`${claimSectionCardClass} space-y-4`}>
                     <div className={ecg.cardHeader}>
-                        <h4 className={ecg.cardTitle}>
-                            {ctLabel}
-                        </h4>
-                        <p className={ecg.cardSubtitle}>
-                            احتساب النفقة الماضية من تاريخ الاستحقاق حتى إقامة الدعوى
-                        </p>
+                        <h4 className={ecg.cardTitle}>{ctLabel}</h4>
                     </div>
                     <PastAlimonyFieldsSection
                         alimonyPastLawSystem={alimonyPastLawSystem}
@@ -195,13 +189,7 @@ export const InstrumentClaimAmountsBlock: React.FC<InstrumentClaimAmountsBlockPr
     const claimAmountSectionsNode = showMultiClaimAggregatePanel ? (
         <div className={ecg.aggregatePanel}>
             <div className={ecg.cardHeader}>
-                <h4 className={ecg.cardTitle}>
-                    <Scale size={18} className="text-[#E6C673]" />
-                    تفاصيل المطالبات المالية المجمّعة
-                </h4>
-                <p className={ecg.cardSubtitle}>
-                    أدخل مبلغ كل مطالبة على حدة؛ يُحسب الإجمالي تلقائياً أدناه.
-                </p>
+                <h4 className={ecg.cardTitle}>تفاصيل المطالبات المالية المجمّعة</h4>
             </div>
             <div className="space-y-3">{claimTypeInputSections}</div>
             <div className={ecg.aggregateTotalRow}>

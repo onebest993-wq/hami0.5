@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { SettingRow, Toggle, SelectRow } from '@/app/components/lawyer/HamiSettings/settings-ui/index';
-import { WifiOff } from '@/app/components/ui/icons/WifiOff';
+import { SettingsWifiOffIcon } from '@/app/components/lawyer/HamiSettings/settingsStemIcons';
 
 describe('settings-ui Toggle', () => {
     it('يبدّل الحالة ويوقف انتشار النقرة', () => {
@@ -35,7 +35,7 @@ describe('settings-ui SettingRow', () => {
         const onChange = vi.fn();
         render(
             <SettingRow
-                icon={WifiOff}
+                icon={SettingsWifiOffIcon}
                 label="قفل بيومتري"
                 action={<Toggle checked={false} onChange={onChange} testId="settings-toggle-test" />}
             />,
@@ -53,7 +53,7 @@ describe('settings-ui SettingRow', () => {
         const onChange = vi.fn();
         render(
             <SettingRow
-                icon={WifiOff}
+                icon={SettingsWifiOffIcon}
                 label="قفل بيومتري"
                 action={<Toggle checked={false} onChange={onChange} testId="settings-toggle-test" />}
             />,
@@ -62,6 +62,22 @@ describe('settings-ui SettingRow', () => {
         fireEvent.click(screen.getByText('قفل بيومتري'));
         expect(onChange).toHaveBeenCalledTimes(1);
         expect(onChange).toHaveBeenCalledWith(true);
+    });
+
+    it('يحجز سطر التلميح حتى مع غياب النص', () => {
+        render(
+            <SettingRow
+                icon={SettingsWifiOffIcon}
+                label="قفل بيومتري"
+                reserveSubLabel
+                action={<Toggle checked={false} onChange={vi.fn()} testId="settings-toggle-test" />}
+            />,
+        );
+        const hint = screen.getByText('قفل بيومتري').parentElement?.querySelector('p');
+        expect(hint).toHaveClass('min-h-[2.25rem]');
+        expect(hint).toHaveClass('max-h-[2.25rem]');
+        expect(hint).toHaveClass('line-clamp-2');
+        expect(hint?.textContent).toBe('\u00a0');
     });
 });
 

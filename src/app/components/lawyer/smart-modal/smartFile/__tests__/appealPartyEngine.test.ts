@@ -5,6 +5,7 @@ import {
     defaultIncludedOpponentIds,
     filterPartiesBeforeAppealFlip,
     listOpponentPartiesForAppeal,
+    litigantsForAppealHopFromObjection,
     partyBelongsToAppealSide,
     repairAppealStagePartyRoles,
     resolveOpponentRegistrationAppealLayout,
@@ -12,6 +13,7 @@ import {
     resolveAppealPartyPickerVisibility,
     filterVisibleAppellantParties,
     filterVisibleOpponentParties,
+    resolveSelectedOpponentPartyIds,
 } from '../appealPartyEngine';
 import type { CaseStage } from '../../../LawyerShared';
 
@@ -83,7 +85,7 @@ describe('appealPartyEngine', () => {
         expect(flipped[1]?.role).toContain('المستأنف عليه');
     });
 
-    it('excludes deselected appellants when multiple plaintiffs appeal', () => {
+    it('excludes deselected appellants when multiple plaintiffs appeal and the dispute is severable', () => {
         const twoPlaintiffs: Party[] = [
             { id: 1, name: 'مدعي أ', role: 'المدعي', side: 'right' },
             { id: 5, name: 'مدعي ب', role: 'المدعي الثاني', side: 'right' },
@@ -95,8 +97,51 @@ describe('appealPartyEngine', () => {
             undefined,
             [2],
             [1],
+            'severable',
         );
-        expect(filtered.map((p) => p.name)).toEqual(['مدعي أ', 'مدعى عليه', 'مدعي ب']);
+        expect(filtered.map((p) => p.name)).toEqual(['مدعي أ', 'مدعى عليه']);
+    });
+
+    it('يشمل الشريك المدعي غير الطاعن في النزاع غير القابل للتجزئة', () => {
+        const twoPlaintiffs: Party[] = [
+            { id: 1, name: 'مدعي أ', role: 'المدعي', side: 'right' },
+            { id: 5, name: 'مدعي ب', role: 'المدعي الثاني', side: 'right' },
+            { id: 2, name: 'مدعى عليه', role: 'المدعى عليه', side: 'left' },
+        ];
+        const flipped = buildAppealStageParties(
+            twoPlaintiffs,
+            'المدعي',
+            'استئناف',
+            undefined,
+            [2],
+            [1],
+            undefined,
+            'indivisible',
+        );
+        expect(flipped.find((p) => p.id === 5)?.role).toBe('مشمول بمصلحة الطعن المقام من الشريك');
+        expect(flipped.find((p) => p.id === 1)?.role).toContain('المستأنف');
+    });
+
+    it('لا يقلب الشريك المدعى عليه مستأنفاً عليه إذا لم يطعن', () => {
+        const twoDefendants: Party[] = [
+            { id: 1, name: 'مدعي', role: 'المدعي', isClient: true, side: 'right' },
+            { id: 2, name: 'مدعى عليه ١', role: 'المدعى عليه', side: 'left' },
+            { id: 3, name: 'مدعى عليه ٢', role: 'المدعى عليه الثاني', side: 'left' },
+        ];
+        const flipped = buildAppealStageParties(
+            twoDefendants,
+            'المدعى عليه',
+            'استئناف',
+            undefined,
+            [1, 3],
+            [2],
+        );
+        expect(flipped.find((p) => p.id === 2)?.role).toContain('المستأنف');
+        expect(flipped.find((p) => p.id === 1)?.role).toContain('المستأنف عليه');
+        expect(flipped.find((p) => p.id === 3)).toBeUndefined();
+        expect(
+            resolveSelectedOpponentPartyIds(twoDefendants, [2], [1, 3]),
+        ).toEqual([1]);
     });
 
     it('accepts string party ids from legacy appeal modals', () => {
@@ -110,7 +155,7 @@ describe('appealPartyEngine', () => {
         expect(filtered.map((p) => p.name)).toEqual(['المدعي أ', 'مدعى عليه ١']);
     });
 
-    it('hides party pickers for simple one-plaintiff one-defendant opponent registration', () => {
+    it('shows party pickers so a single name is visible', () => {
         const bilateral: Party[] = [
             { id: 1, name: 'المدعي', role: 'المدعي', isClient: true, side: 'right' },
             { id: 2, name: 'المدعى عليه', role: 'المدعى عليه', isClient: false, side: 'left' },
@@ -125,7 +170,7 @@ describe('appealPartyEngine', () => {
                 visibleOpponentParties: visibleOpp,
                 parties: bilateral,
             }),
-        ).toEqual({ showAppellantPicker: false, showOpponentPicker: false });
+        ).toEqual({ showAppellantPicker: true, showOpponentPicker: true });
     });
 
     it('shows appellant picker when multiple defendants appeal without third party', () => {
@@ -144,7 +189,7 @@ describe('appealPartyEngine', () => {
                 visibleOpponentParties: visibleOpp,
                 parties: twoDefendants,
             }),
-        ).toEqual({ showAppellantPicker: true, showOpponentPicker: false });
+        ).toEqual({ showAppellantPicker: true, showOpponentPicker: true });
     });
 
     it('shows pickers when interpleader third party exists', () => {
@@ -248,5 +293,61 @@ describe('appealPartyEngine', () => {
         );
         expect(repaired[0]?.role).toContain('المستأنف');
         expect(repaired[0]?.side).toBe('right');
+    });
+
+    it('جانب الاعتراض الأصلي: المعترض عليه مدعٍ والمعترض مدعى عليه', () => {
+        const objected: Party = {
+            id: 1,
+            name: 'أحمد',
+            role: 'المعترض عليه بالحكم الغيابي (المدعي)',
+            isClient: true,
+            side: 'left',
+        };
+        const objector: Party = {
+            id: 4,
+            name: 'كريم',
+            role: 'المعترض على الحكم الغيابي (المدعى عليه)',
+            isClient: false,
+            side: 'right',
+        };
+        expect(partyBelongsToAppealSide(objected, 'المدعي')).toBe(true);
+        expect(partyBelongsToAppealSide(objected, 'المدعى عليه')).toBe(false);
+        expect(partyBelongsToAppealSide(objector, 'المدعى عليه')).toBe(true);
+        expect(partyBelongsToAppealSide(objector, 'المدعي')).toBe(false);
+    });
+
+    it('استئناف المدعي من الاعتراض لا يشمل شريك البداءة غير المعترض', () => {
+        const objectionParties: Party[] = [
+            {
+                id: 1,
+                name: 'أحمد',
+                role: 'المعترض عليه بالحكم الغيابي (المدعي)',
+                isClient: true,
+                side: 'left',
+            },
+            { id: 2, name: 'سامي', role: 'مدعى عليه', isClient: false, side: 'left' },
+            {
+                id: 4,
+                name: 'كريم',
+                role: 'المعترض على الحكم الغيابي (المدعى عليه)',
+                isClient: false,
+                side: 'right',
+            },
+        ];
+        expect(litigantsForAppealHopFromObjection(objectionParties, 'استئناف').map((p) => p.id)).toEqual([
+            1, 4,
+        ]);
+        const flipped = buildAppealStageParties(
+            objectionParties,
+            'المدعي',
+            'استئناف',
+            undefined,
+            [4, 2],
+            [1],
+        );
+        expect(flipped).toHaveLength(2);
+        expect(flipped.find((p) => p.id === 1)?.role).toContain('المستأنف (المدعي)');
+        expect(flipped.find((p) => p.id === 4)?.role).toContain('المستأنف عليه (المدعى عليه)');
+        expect(flipped.find((p) => p.id === 2)).toBeUndefined();
     });
 });

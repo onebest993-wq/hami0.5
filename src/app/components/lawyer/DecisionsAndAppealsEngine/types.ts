@@ -61,6 +61,7 @@ export interface Decision {
         | 'debtor_party_death'
         | 'general';
     creditorPartyDeathPayloadJson?: string;
+    debtorPartyDeathPayloadJson?: string;
     seizureSubtype?: string;
     seizurePayloadJson?: string;
     seizureRequestSavedAt?: string;

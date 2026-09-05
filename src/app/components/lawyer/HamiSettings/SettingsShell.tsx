@@ -1,8 +1,8 @@
 import React, { useRef } from 'react';
 import { useLawyerSettingsAppearance } from '@/app/context/LawyerSettingsContext';
-import { SETTINGS_NAV, type SettingsSectionId } from '@/app/services/settings';
+import { SETTINGS_NAV, type SettingsSectionId } from '@/app/services/settings/nav';
 import { useHorizontalTabSwipe } from '@/app/utils/horizontalTabSwipe';
-import { SETTINGS_SHELL_CHROME } from './settingsShellStyle';
+import { SETTINGS_SHELL_CHROME } from './settingsShellChrome';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { useSettingsShellFocusTrap } from './hooks/useSettingsShellFocusTrap';
 import { useSettingsMobileSuspend } from './hooks/useSettingsMobileSuspend';
@@ -12,7 +12,7 @@ import { SettingsShellHeader } from './SettingsShellHeader';
 import { isSettingsLayerOpen } from '@/app/runtime/settingsInstantPaint';
 import { inertProps } from '@/app/utils/inertProps';
 
-export type SettingsShellProps = {
+type SettingsShellProps = {
     onClose: () => void;
     activeSection: SettingsSectionId;
     onSectionChange: (id: SettingsSectionId) => void;
@@ -83,11 +83,11 @@ export function SettingsShell({
                     id="settings-section-panel"
                     role="tabpanel"
                     aria-labelledby={`settings-tab-${activeSection}`}
-                    className="hami-settings-scroll-panel flex-1 min-h-0 min-w-0 overflow-y-auto pb-[max(5rem,env(safe-area-inset-bottom))] scrollbar-hide overscroll-contain touch-pan-y"
+                    className="hami-settings-scroll-panel flex-1 min-h-0 min-w-0 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))] scrollbar-hide overscroll-contain touch-pan-y"
                     data-testid="settings-section-panel"
                     data-keyboard-inset={keyboardInset}
                     style={{
-                        paddingBottom: `calc(max(5rem, env(safe-area-inset-bottom, 0px)) + ${keyboardInset}px)`,
+                        paddingBottom: `calc(max(1rem, env(safe-area-inset-bottom, 0px)) + ${keyboardInset}px)`,
                     }}
                     {...sectionSwipeHandlers}
                 >

@@ -1,4 +1,5 @@
 import React from 'react';
+import { PARTY_SIGNALS_SCROLL_ROW } from '@/app/components/lawyer/execution/partySignalsScrollRow';
 
 export type DebtorCardRowInlineStatusChipsProps = {
     showDeceased: boolean;
@@ -6,26 +7,23 @@ export type DebtorCardRowInlineStatusChipsProps = {
     onOpenAppeals?: () => void;
     showUnservedMemo: boolean;
     onUnservedMemo: () => void;
+    /** داخل صف تمرير أفقي مشترك — بدون غلاف عمودي */
+    embeddedInScrollRow?: boolean;
 };
 
-/** شارات متوفى / طعن / غير مبلّغ في الصف المطوي */
+/** شارات متوفى / طعن / غير مبلّغ */
 export function DebtorCardRowInlineStatusChips({
     showDeceased,
     appealLabel,
     onOpenAppeals,
     showUnservedMemo,
     onUnservedMemo,
+    embeddedInScrollRow = false,
 }: DebtorCardRowInlineStatusChipsProps) {
     if (!showDeceased && !appealLabel && !showUnservedMemo) return null;
 
-    return (
-        <div
-            className="mt-1.5 flex flex-wrap items-center justify-center gap-1.5"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-            role="presentation"
-            dir="rtl"
-        >
+    const chips = (
+        <>
             {showDeceased ? (
                 <span className="shrink-0 rounded-md border border-rose-500/40 bg-rose-950/40 px-1.5 py-0.5 text-[10px] font-bold leading-none text-rose-200/95 select-none">
                     متوفى
@@ -57,6 +55,20 @@ export function DebtorCardRowInlineStatusChips({
                     غير مبلّغ
                 </button>
             ) : null}
+        </>
+    );
+
+    if (embeddedInScrollRow) return chips;
+
+    return (
+        <div
+            className={`mt-1.5 ${PARTY_SIGNALS_SCROLL_ROW} justify-center`}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="presentation"
+            dir="rtl"
+        >
+            {chips}
         </div>
     );
 }

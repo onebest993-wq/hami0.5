@@ -1,5 +1,4 @@
 import { useLayoutEffect, useRef, type MutableRefObject } from 'react';
-import { EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS } from '../followupSnapshotFieldKeys';
 import { assignExecutionPhoneBodyScope } from './pickExecutionPhoneBodyProps';
 import { assignExecutionShellOverlayScope } from './pickExecutionShellOverlayProps';
 
@@ -45,18 +44,6 @@ export function useExecutionPhoneBodyChunkScopeRef(
     return useExecutionScopedChunkScopeRef(syncPhoneBody, syncToken, getSources, assignExecutionPhoneBodyScope);
 }
 
-function assignExecutionShellOverlayScopeWithFollowupSnapshot(
-    target: Record<string, unknown>,
-    sources: Record<string, unknown>,
-): void {
-    assignExecutionShellOverlayScope(target, sources);
-    for (const key of EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS) {
-        if (Object.prototype.hasOwnProperty.call(sources, key)) {
-            target[key] = sources[key];
-        }
-    }
-}
-
 export function useExecutionShellOverlayChunkScopeRef(
     syncShellOverlays: boolean,
     syncToken: string,
@@ -66,6 +53,6 @@ export function useExecutionShellOverlayChunkScopeRef(
         syncShellOverlays,
         syncToken,
         getSources,
-        assignExecutionShellOverlayScopeWithFollowupSnapshot,
+        assignExecutionShellOverlayScope,
     );
 }

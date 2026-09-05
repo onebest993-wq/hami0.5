@@ -13,7 +13,7 @@ const LazyDossierLawArticleRichEditor = lazy(() =>
     })),
 );
 
-type EntryCardInlineEditorProps = {
+export type EntryCardInlineEditorProps = {
     title: string;
     bodyHtml: string;
     editorReady: boolean;
@@ -59,7 +59,15 @@ export function EntryCardInlineEditor({
                 autoCapitalize="sentences"
             />
             {editorReady ? (
-                <Suspense fallback={<p className="text-xs text-white/45 py-2">جاري تجهيز المحرر…</p>}>
+                <Suspense
+                    fallback={
+                        <div
+                            className="min-h-[44px] rounded-xl border border-white/[0.08] bg-white/[0.035]"
+                            aria-busy="true"
+                            aria-label="المحرر"
+                        />
+                    }
+                >
                     <LazyDossierLawArticleRichEditor
                         value={bodyHtml}
                         onChange={onBodyChange}
@@ -69,7 +77,11 @@ export function EntryCardInlineEditor({
                     />
                 </Suspense>
             ) : (
-                <p className="text-xs text-white/45 py-2">جاري تجهيز المحرر…</p>
+                <div
+                    className="min-h-[44px] rounded-xl border border-white/[0.08] bg-white/[0.035]"
+                    aria-busy="true"
+                    aria-label="المحرر"
+                />
             )}
             <footer className={REPO_COMPOSE_FOOTER}>
                 <div className="flex flex-1 items-center justify-end gap-1.5 min-w-0">

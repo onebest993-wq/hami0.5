@@ -4,7 +4,7 @@ import {
     type GlobalSearchScopeId,
 } from '@/app/components/lawyer/GlobalSearchOverlay/searchScopes';
 
-export type SearchScopeChipListProps = {
+type SearchScopeChipListProps = {
     scope: GlobalSearchScopeId;
     onScopeChange: (scope: GlobalSearchScopeId) => void;
     onAfterSelect?: () => void;

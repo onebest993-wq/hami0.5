@@ -50,6 +50,10 @@ export interface CaseFlowActionsPanelProps {
     >;
     isPaused?: boolean;
     isInterrupted?: boolean;
+    pauseLabel?: string;
+    pauseConfirmTitle?: string;
+    pauseConfirmMessage?: string;
+    pauseTestId?: string;
     /** chrome = زر في الشريط العلوي · dock = أيقونة في عمود الأوامر · rail = خلية في محور الإضبارة */
     variant?: 'chrome' | 'dock' | 'rail';
     /** dock مضغوط — شريط أفقي */
@@ -62,6 +66,7 @@ type FlowAction = {
     icon: LucideIcon;
     iconClass: string;
     onClick: () => void;
+    testId?: string;
 };
 
 function FlowActionRow({
@@ -70,10 +75,11 @@ function FlowActionRow({
     iconClass,
     onClick,
     danger = false,
+    testId,
 }: Omit<FlowAction, 'key'> & { danger?: boolean }) {
     const T = useSmartFileModalTheme();
     return (
-        <button type="button" onClick={onClick} className={danger ? T.actionRowDanger : T.actionRow}>
+        <button type="button" onClick={onClick} className={danger ? T.actionRowDanger : T.actionRow} data-testid={testId}>
             <div className={`${danger ? T.actionRowIconDanger : T.actionRowIcon} ${iconClass}`}>
                 <Icon size={15} strokeWidth={1.75} />
             </div>
@@ -93,6 +99,10 @@ export const CaseFlowActionsPanel = memo(({
     flowStage,
     isPaused,
     isInterrupted,
+    pauseLabel,
+    pauseConfirmTitle,
+    pauseConfirmMessage,
+    pauseTestId,
     variant = 'chrome',
     compactDock = false,
 }: CaseFlowActionsPanelProps) => {
@@ -139,11 +149,17 @@ export const CaseFlowActionsPanel = memo(({
         });
     }
     if (onPause || onResume) {
+        const stayLabel = pauseLabel?.trim() || 'استئخار الدعوى';
+        const stayTitle = pauseConfirmTitle?.trim() || stayLabel;
+        const stayMessage =
+            pauseConfirmMessage?.trim()
+            || 'هل تريد استئخار الدعوى وربطها برقم دعوى جديدة؟ سيتم إيقاف السير مؤقتاً حتى حسم الدعوى المرتبطة.';
         actions.push({
             key: 'pause',
-            label: isPaused ? 'استئناف السير' : 'استئخار الدعوى',
+            label: isPaused ? 'استئناف السير' : stayLabel,
             icon: Hourglass,
             iconClass: 'text-[#E8DFD0]/90',
+            testId: isPaused ? undefined : pauseTestId,
             onClick: closeAnd(
                 () => {
                     if (isPaused && onResume) onResume();
@@ -152,8 +168,8 @@ export const CaseFlowActionsPanel = memo(({
                 isPaused
                     ? undefined
                     : {
-                          title: 'استئخار الدعوى',
-                          message: 'هل تريد استئخار الدعوى وربطها برقم دعوى جديدة؟ سيتم إيقاف السير مؤقتاً حتى حسم الدعوى المرتبطة.',
+                          title: stayTitle,
+                          message: stayMessage,
                           confirmLabel: 'متابعة',
                       },
             ),
@@ -269,7 +285,7 @@ export const CaseFlowActionsPanel = memo(({
                 </div>
                 <div className={`${usePearlFlowChrome ? 'px-2 py-2 space-y-1' : 'px-2 py-3 space-y-1'}`}>
                     {actions.map((a) => (
-                        <FlowActionRow key={a.key} label={a.label} icon={a.icon} iconClass={a.iconClass} onClick={a.onClick} />
+                        <FlowActionRow key={a.key} label={a.label} icon={a.icon} iconClass={a.iconClass} onClick={a.onClick} testId={a.testId} />
                     ))}
                 </div>
             </div>

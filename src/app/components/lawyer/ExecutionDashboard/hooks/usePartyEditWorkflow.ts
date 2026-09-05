@@ -147,6 +147,14 @@ export function usePartyEditWorkflow({
 
     const openHeirsQuickView = useCallback(
         async (party: Party | null | undefined, partyKind: 'creditor' | 'debtor', title: string) => {
+            void import('../executionDashboardShellOverlaysLazy')
+                .then((m) => m.prefetchExecutionDashboardShellOverlays())
+                .catch(() => undefined);
+            void import('../executionDashboardLazyRegistryOverlays')
+                .then((m) => {
+                    void m.LazyExecutionHeirsQuickViewModal.preload();
+                })
+                .catch(() => undefined);
             try {
                 const utils = await ensureHeirUtils();
                 setHeirUtilsEpoch((n) => n + 1);

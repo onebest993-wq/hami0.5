@@ -1,19 +1,13 @@
-import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import {
-    EXEC_MODAL_BACKDROP_SAFE_PAD,
-    EXEC_MODAL_NOTES_SHELL_MAX,
+    EXEC_OVERLAY_PHONE_BACKDROP,
+    EXEC_OVERLAY_PHONE_SHEET,
     execModalKeyboardPadStyle,
 } from '../executionModalMobileShell';
 import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
-import { ExecutionPinnedNotesTray } from './ExecutionPinnedNotesTray';
-import {
-    findApprovedBreakInventoryNeedingLedger,
-    patchExecutorDecisionRow,
-} from '@/app/utils/executorSeizureDecisionQueue';
 import { DossierFastNoteComposer } from '@/app/components/lawyer/dossier-notes/DossierFastNoteComposer';
 import { plainTextFromPossiblyHtml } from '@/app/components/lawyer/SmartRepository/legalRichTextEditorUtils';
-import { isExecutionHandlerStubLeaf } from '../hooks/executionHandlerClusterStubs';
 import { ExecutionAppointmentModal } from './ExecutionAppointmentModal';
 import { ExecutionNotesModalHeader } from './ExecutionNotesModalHeader';
 import { ExecutionNotesHistoryPane } from './ExecutionNotesHistoryPane';
@@ -47,13 +41,13 @@ export const ExecutionNotesAndAppointmentModalsReady: React.FC<
     savedNotesSplit,
     savedNotesView: _savedNotesView,
     toggleCaseNotePin,
-    toggleCaseTaskPin,
+    toggleCaseTaskPin: _toggleCaseTaskPin,
     decisionsStorageExecutionId,
     showToast,
     noteTitle,
     noteBody,
-    isTask,
-    editingTaskId,
+    isTask: _isTask,
+    editingTaskId: _editingTaskId,
     editingNoteId = null,
     commitDossierNote,
     voiceUserId,
@@ -70,17 +64,14 @@ export const ExecutionNotesAndAppointmentModalsReady: React.FC<
     timelineEvents,
     todayYmd,
     moveTimelineEventToTrash,
-    caseTasksPending,
-    handleSaveTask,
-    handleUpdateTask,
-    handleDeleteTask,
-    handleCompleteTask,
-    handleAddTimelineEvent,
+    caseTasksPending: _caseTasksPending,
+    handleSaveTask: _handleSaveTask,
+    handleUpdateTask: _handleUpdateTask,
+    handleDeleteTask: _handleDeleteTask,
+    handleCompleteTask: _handleCompleteTask,
+    handleAddTimelineEvent: _handleAddTimelineEvent,
 }) => {
-    const [showDoneTasksPanel, setShowDoneTasksPanel] = useState(false);
-    /** عزل تام بين الملاحظات والمهام — تبويبان متنافيان (صفر CLS بين المحرّرين) */
-    const [notesModalTab, setNotesModalTab] = useState<'notes' | 'tasks'>('notes');
-    /** داخل تبويب الملاحظات: كتابة أو سجل محفوظ */
+    /** داخل المودال: كتابة أو سجل محفوظ */
     const [notesPane, setNotesPane] = useState<'compose' | 'vault'>('compose');
     const closeNotesModal = useCallback(() => {
         onCloseNotesModal();
@@ -92,8 +83,6 @@ export const ExecutionNotesAndAppointmentModalsReady: React.FC<
         setEditingTaskId(null);
         setEditingNoteId?.(null);
         setSavedNotesView('notes');
-        setShowDoneTasksPanel(false);
-        setNotesModalTab('notes');
         setNotesPane('compose');
     }, [
         onCloseNotesModal,
@@ -115,16 +104,8 @@ export const ExecutionNotesAndAppointmentModalsReady: React.FC<
         () => savedNotesSplit.notes.filter((n) => !n.pinned),
         [savedNotesSplit.notes]
     );
-    const pinnedTasks = useMemo(
-        () => caseTasksPending.filter((t) => !t.trashedAt && Boolean(t.pinned)),
-        [caseTasksPending]
-    );
-    const activeTasksCount = useMemo(
-        () => caseTasksPending.filter((t) => !t.trashedAt).length,
-        [caseTasksPending]
-    );
 
-    /** تعديل ملاحظة من المخزن → تعبئة المحرّر العلوي والانتقال لتبويب الملاحظات */
+    /** تعديل ملاحظة من المخزن → تعبئة المحرّر والانتقال لوضع الكتابة */
     const handleEditNote = useCallback(
         (note: { id: string; title: string; body: string }) => {
             setEditingNoteId?.(note.id);
@@ -132,7 +113,6 @@ export const ExecutionNotesAndAppointmentModalsReady: React.FC<
             setNoteBody(note.body);
             setIsTask(false);
             setEditingTaskId(null);
-            setNotesModalTab('notes');
             setNotesPane('compose');
         },
         [setEditingNoteId, setEditingTaskId, setIsTask, setNoteBody, setNoteTitle]
@@ -146,7 +126,7 @@ export const ExecutionNotesAndAppointmentModalsReady: React.FC<
             const titleTrim = String(payload.title || '').trim();
             const bodyTrim = plainTextFromPossiblyHtml(payload.bodyHtml);
             if (!titleTrim || !bodyTrim) return;
-            if (typeof commitDossierNote !== 'function' || isExecutionHandlerStubLeaf(commitDossierNote)) {
+            if (typeof commitDossierNote !== 'function') {
                 return;
             }
             const isEdit = Boolean(editingNoteId);
@@ -179,30 +159,28 @@ export const ExecutionNotesAndAppointmentModalsReady: React.FC<
 
     return (
         <>
-            {/* 🆕 V18: SEGMENTED NOTES/TASKS SHELL — المحرّر أولاً ثم المخزن (صفر CLS) */}
             {showNotesModal && (
                 <div
-                    className={`fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
+                    className={`${EXEC_OVERLAY_PHONE_BACKDROP} z-[60]`}
                     style={execModalKeyboardPadStyle(notesKeyboardInset)}
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) closeNotesModal();
+                    }}
                 >
                     <div
-                        className={`flex h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-amber-500/30 bg-[#0A0F1C] shadow-md md:h-[600px] ${EXEC_MODAL_NOTES_SHELL_MAX}`}
+                        className={EXEC_OVERLAY_PHONE_SHEET}
                         data-testid="execution-notes-modal"
                     >
                         <ExecutionNotesModalHeader
                             onClose={closeNotesModal}
-                            notesModalTab={notesModalTab}
-                            onNotesModalTabChange={setNotesModalTab}
                             notesCount={savedNotesSplit.notes.length}
-                            activeTasksCount={activeTasksCount}
                             notesPane={notesPane}
                             onNotesPaneChange={setNotesPane}
                         />
 
-                        {/* EDITOR — تبويب الملاحظات + وضع الكتابة فقط */}
-                        {notesModalTab === 'notes' && notesPane === 'compose' ? (
+                        {notesPane === 'compose' ? (
                             <div
-                                className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-b border-slate-800/50 bg-[#0B1120] px-4 pb-3 pt-2.5"
+                                className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3 pt-2"
                                 dir="rtl"
                                 data-testid="execution-notes-modal-composer"
                             >
@@ -226,31 +204,18 @@ export const ExecutionNotesAndAppointmentModalsReady: React.FC<
                             </div>
                         ) : null}
 
-                        {/* HISTORY — مهام أو سجل الملاحظات */}
-                        {notesModalTab === 'tasks' || notesPane === 'vault' ? (
-                        <ExecutionNotesHistoryPane
-                            notesModalTab={notesModalTab}
-                            caseTasksPending={caseTasksPending}
-                            handleSaveTask={handleSaveTask}
-                            handleUpdateTask={handleUpdateTask}
-                            handleDeleteTask={handleDeleteTask}
-                            handleCompleteTask={handleCompleteTask}
-                            handleAddTimelineEvent={handleAddTimelineEvent}
-                            toggleCaseTaskPin={toggleCaseTaskPin}
-                            savedNotesSplit={savedNotesSplit}
-                            showDoneTasksPanel={showDoneTasksPanel}
-                            setShowDoneTasksPanel={setShowDoneTasksPanel}
-                            pinnedNotes={pinnedNotes}
-                            pinnedTasks={pinnedTasks}
-                            toggleCaseNotePin={toggleCaseNotePin}
-                            moveCaseNoteToTrash={moveCaseNoteToTrash}
-                            unpinnedNotes={unpinnedNotes}
-                            handleEditNote={handleEditNote}
-                            decisionsStorageExecutionId={decisionsStorageExecutionId}
-                            showToast={showToast}
-                        />
+                        {notesPane === 'vault' ? (
+                            <ExecutionNotesHistoryPane
+                                pinnedNotes={pinnedNotes}
+                                pinnedTasks={[]}
+                                toggleCaseNotePin={toggleCaseNotePin}
+                                moveCaseNoteToTrash={moveCaseNoteToTrash}
+                                unpinnedNotes={unpinnedNotes}
+                                handleEditNote={handleEditNote}
+                                decisionsStorageExecutionId={decisionsStorageExecutionId}
+                                showToast={showToast}
+                            />
                         ) : null}
-
                     </div>
                 </div>
             )}

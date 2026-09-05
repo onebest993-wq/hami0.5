@@ -11,6 +11,7 @@ import type { LawyerDashboardOverlaysBundleProps } from '../lawyerDashboardOverl
 /**
  * مهام الميدان خارج Suspense.
  * EnsureQuantumTasksProvider هنا — FullBoot بلا Provider ساكن حتى لا يُعاد تركيب المنزل.
+ * Host الأجندة رقيق وثابت؛ مقطع Overlay/TasksManager يبقى كسولاً داخل Host.
  */
 export function LawyerDashboardFieldTasksOverlayEntry({
     data,
@@ -38,15 +39,17 @@ export function LawyerDashboardFieldTasksOverlayEntry({
     return (
         <EnsureQuantumTasksProvider>
             {sheetLive ? (
-                <FieldTasksSheetHost
-                    key={`field-tasks-sheet-${fieldTasksSheetSessionKey}`}
-                    open={fieldTasksSheetOpen}
-                    keepAlive={fieldTasksHostMounted && !fieldTasksSheetOpen}
-                    onClose={closeFieldTasksSheet}
-                    onManageAll={switchToTasksManager}
-                    lawsuitFiles={fieldTasksSheetOpen ? files : SUSPENDED_LAWSUIT_FILES}
-                    executionFiles={fieldTasksSheetOpen ? executionFiles : SUSPENDED_EXECUTION_FILES}
-                />
+                <TasksErrorBoundary onClose={closeFieldTasksSheet}>
+                    <FieldTasksSheetHost
+                        key={`field-tasks-sheet-${fieldTasksSheetSessionKey}`}
+                        open={fieldTasksSheetOpen}
+                        keepAlive={fieldTasksHostMounted && !fieldTasksSheetOpen}
+                        onClose={closeFieldTasksSheet}
+                        onManageAll={switchToTasksManager}
+                        lawsuitFiles={sheetLive ? files : SUSPENDED_LAWSUIT_FILES}
+                        executionFiles={sheetLive ? executionFiles : SUSPENDED_EXECUTION_FILES}
+                    />
+                </TasksErrorBoundary>
             ) : null}
 
             {managerLive ? (
@@ -54,12 +57,11 @@ export function LawyerDashboardFieldTasksOverlayEntry({
                     <FieldTasksManagerHost
                         key={`tasks-manager-overlay-${tasksManagerSessionKey}`}
                         open={showTasksManager}
+                        keepAlive={fieldTasksManagerHostMounted && !showTasksManager}
                         onClose={closeTasksManager}
                         focusTaskId={tasksManagerFocusTaskId}
-                        lawsuitFiles={showTasksManager ? files : SUSPENDED_LAWSUIT_FILES}
-                        executionFiles={
-                            showTasksManager ? executionFiles : SUSPENDED_EXECUTION_FILES
-                        }
+                        lawsuitFiles={managerLive ? files : SUSPENDED_LAWSUIT_FILES}
+                        executionFiles={managerLive ? executionFiles : SUSPENDED_EXECUTION_FILES}
                     />
                 </TasksErrorBoundary>
             ) : null}

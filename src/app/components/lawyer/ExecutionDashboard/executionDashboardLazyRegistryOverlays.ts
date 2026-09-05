@@ -106,12 +106,6 @@ export const LazyPartyDeathReportModal = createPreloadableLazyComponent(() =>
     }))
 );
 
-export const LazyRealEstateSeizurePostApprovalModal = createPreloadableLazyComponent(() =>
-    import('../execution/RealEstateSeizurePostApprovalModal').then((m) => ({
-        default: m.RealEstateSeizurePostApprovalModal,
-    }))
-);
-
 export const LazyGuarantorDetailsPostApprovalModal = createPreloadableLazyComponent(() =>
     import('../execution/GuarantorDetailsPostApprovalModal').then((m) => ({
         default: m.GuarantorDetailsPostApprovalModal,

@@ -45,6 +45,14 @@ export async function openPartyEditDraft(args: {
         setPartyEditDraft,
         setEditPartyTarget,
     } = args;
+            void import('../executionDashboardShellOverlaysLazy')
+                .then((m) => m.prefetchExecutionDashboardShellOverlays())
+                .catch(() => undefined);
+            void import('../executionDashboardLazyRegistryOverlays')
+                .then((m) => {
+                    void m.LazyPartyEditModal.preload();
+                })
+                .catch(() => undefined);
             try {
                 const [{ getPartyListFromFile, resolvePartyIndexInList }, heirUtils] =
                     await Promise.all([loadPartyEditPersistence(), ensureHeirUtils()]);

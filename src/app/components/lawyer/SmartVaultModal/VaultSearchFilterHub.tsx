@@ -1,4 +1,4 @@
-import React, { useCallback, useId, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useId, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Search } from '@/app/components/ui/icons/Search';
 import { X } from '@/app/components/ui/icons/X';
@@ -12,13 +12,11 @@ import {
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import { REPO_PORTAL_Z } from '@/app/components/lawyer/SmartRepository/smartRepositoryTheme';
-import {
-    REPOSITORY_ACTION_CHIPS,
-    RepositoryClassificationDeck,
-} from '@/app/components/lawyer/SmartRepository/RepositoryClassificationDeck';
+import { REPOSITORY_ACTION_CHIPS } from '@/app/components/lawyer/SmartRepository/repositoryActionChips';
+import { RepositoryClassificationBootFallback } from '@/app/components/lawyer/SmartRepository/repositoryBootFallbacks';
 import { useVaultClassificationPopover } from '@/app/components/lawyer/SmartRepository/hooks/useVaultClassificationPopover';
 
-export type VaultSearchFilterHubProps = {
+type VaultSearchFilterHubProps = {
     searchQuery: string;
     onSearchChange: (value: string) => void;
     onSearchKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
@@ -34,6 +32,12 @@ export type VaultSearchFilterHubProps = {
     /** ملاحظات للعدّ الدقيق في فلاتر النوع (بطاقة، مسح، …) */
     notes?: GlobalNote[];
 };
+
+const RepositoryClassificationDeck = lazy(() =>
+    import('@/app/components/lawyer/SmartRepository/RepositoryClassificationDeck').then((m) => ({
+        default: m.RepositoryClassificationDeck,
+    })),
+);
 
 export const VaultSearchFilterHub: React.FC<VaultSearchFilterHubProps> = ({
     searchQuery,
@@ -117,7 +121,7 @@ export const VaultSearchFilterHub: React.FC<VaultSearchFilterHubProps> = ({
             dir="rtl"
             data-testid="repository-search-deck"
         >
-            <div className="hami-repository-search-deck__row flex h-11 w-full items-stretch overflow-hidden rounded-2xl border-0 bg-white/[0.05] transition-colors focus-within:ring-1 focus-within:ring-[#E6C673]/30">
+            <div className="hami-repository-search-deck__row flex h-11 w-full items-stretch overflow-hidden rounded-xl border-0 bg-white/[0.05] transition-colors focus-within:ring-1 focus-within:ring-[#E6C673]/30">
                 <div className="flex min-w-0 flex-1 items-center gap-1 px-2.5 sm:gap-1.5 sm:px-3">
                     {!externalClassification ? (
                         <button
@@ -128,7 +132,12 @@ export const VaultSearchFilterHub: React.FC<VaultSearchFilterHubProps> = ({
                             aria-expanded={filterPopoverOpen}
                             aria-controls={filtersPanelId}
                             title="تصنيفات المستودع"
-                            onClick={toggleFilters}
+                            onClick={() => {
+                                void import(
+                                    '@/app/components/lawyer/SmartRepository/RepositoryClassificationDeck'
+                                );
+                                toggleFilters();
+                            }}
                             className={`inline-flex h-11 min-w-[44px] shrink-0 items-center justify-center rounded-xl px-2 transition-colors touch-manipulation ${
                                 filterPopoverOpen || hasActiveFilters
                                     ? 'bg-[#E6C673]/14 text-[#E6C673]'
@@ -202,20 +211,22 @@ export const VaultSearchFilterHub: React.FC<VaultSearchFilterHubProps> = ({
                           }}
                           dir="rtl"
                       >
-                          <RepositoryClassificationDeck
-                              creating={creating}
-                              newName={newName}
-                              onNewNameChange={setNewName}
-                              onSubmitCategory={submitCategory}
-                              onCancelCreate={dismissCreate}
-                              onStartCreate={() => setCreating(true)}
-                              actionActive={isFilterActive}
-                              countFor={countCategoryItems}
-                              onSelectFilter={selectFilter}
-                              customCategories={visibleCategories}
-                              activeFilter={activeFilter}
-                              onRemoveCategory={onRemoveCategory}
-                          />
+                          <Suspense fallback={<RepositoryClassificationBootFallback />}>
+                              <RepositoryClassificationDeck
+                                  creating={creating}
+                                  newName={newName}
+                                  onNewNameChange={setNewName}
+                                  onSubmitCategory={submitCategory}
+                                  onCancelCreate={dismissCreate}
+                                  onStartCreate={() => setCreating(true)}
+                                  actionActive={isFilterActive}
+                                  countFor={countCategoryItems}
+                                  onSelectFilter={selectFilter}
+                                  customCategories={visibleCategories}
+                                  activeFilter={activeFilter}
+                                  onRemoveCategory={onRemoveCategory}
+                              />
+                          </Suspense>
                       </div>,
                       document.body,
                   )

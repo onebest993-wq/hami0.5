@@ -106,7 +106,7 @@ export function EvictionFollowupModalsChunk(p: EvictionFollowupModalsChunkProps)
                 />
             ) : null}
 
-            {showEvictionResidentialGraceModal && isEvictionExecutionModule ? (
+            {showEvictionResidentialGraceModal ? (
                 <PreloadableOverlayGate
                     lazy={LazyEvictionResidentialGraceFollowupModal}
                     lazyProps={{

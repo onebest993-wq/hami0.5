@@ -34,7 +34,6 @@ export interface ExecutionFinancialHubPortalProps {
     /** إغلاق المركز المالي — يُفضَّل onCloseFinancialHub من مسار الهاتف */
     setShowExecutionFinancialHub?: (v: boolean) => void;
     onCloseFinancialHub?: () => void;
-    onOpenUnifiedSeizureLog?: () => void;
     financialHubAutoOpenMode: 'disburse' | null;
     setFinancialHubAutoOpenMode: React.Dispatch<React.SetStateAction<'disburse' | null>>;
     financialHubSeizedMovableId: string | null;
@@ -119,6 +118,15 @@ export interface ExecutionFinancialHubPortalProps {
         ok: boolean;
         decisionId?: string;
     };
+    persistGuarantorFollowupDetails?: (
+        guarantorName: string,
+        guarantorWorkplace: string,
+        opts?: {
+            salaryIqd: number | null;
+            deductionIqd: number | null;
+            guaranteeType?: 'amount' | 'attendance';
+        }
+    ) => boolean | void;
     decisionsStorageExecutionId: string | undefined;
     showToast: (
         message: string,

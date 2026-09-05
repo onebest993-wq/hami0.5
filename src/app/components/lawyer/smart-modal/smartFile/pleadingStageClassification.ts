@@ -59,6 +59,8 @@ export function isPleadingStageName(stageName?: string | null): boolean {
 type PleadingLayer = 'appeal' | 'first_instance';
 
 export function resolvePleadingLayer(stageName?: string | null): PleadingLayer {
+    const s = String(stageName ?? '').trim();
+    if (/\(\s*استئناف\s*\)/.test(s)) return 'appeal';
     if (isAppealStageName(stageName)) return 'appeal';
     return 'first_instance';
 }

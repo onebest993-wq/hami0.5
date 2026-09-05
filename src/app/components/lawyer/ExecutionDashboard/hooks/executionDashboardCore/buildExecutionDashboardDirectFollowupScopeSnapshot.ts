@@ -67,6 +67,17 @@ function pickDossierFollowupHandlers(
     return pickHandlerGroup(DOSSIER_FOLLOWUP_HANDLER_KEYS, scopeSources, rest, local);
 }
 
+const EMPTY_DIRECT_FOLLOWUP_SCOPE: Record<string, unknown> = Object.freeze({});
+
+/** طلاء الإضبارة لا يدفع كيس المحضر. عند الفتح: ربط prototype بلا استنساخ scope كامل. */
+export function resolveDirectFollowupScopeSnapshotForPaint(
+    followupOpen: boolean,
+    input: Input,
+): Record<string, unknown> {
+    if (!followupOpen) return EMPTY_DIRECT_FOLLOWUP_SCOPE;
+    return buildExecutionDashboardDirectFollowupScopeSnapshot(input);
+}
+
 export function buildExecutionDashboardDirectFollowupScopeSnapshot({
     scopeSources,
     scopeLocalFlat,
@@ -76,8 +87,7 @@ export function buildExecutionDashboardDirectFollowupScopeSnapshot({
     const local = scopeLocalFlat as Record<string, unknown>;
     const rest = scopeRestFlat as Record<string, unknown>;
 
-    return {
-        ...scopeSources,
+    const overlay: Record<string, unknown> = {
         unifiedModalTab: local.unifiedModalTab ?? rest.unifiedModalTab ?? scopeSources.unifiedModalTab,
         setUnifiedModalTab:
             local.setUnifiedModalTab ??
@@ -134,4 +144,5 @@ export function buildExecutionDashboardDirectFollowupScopeSnapshot({
         ...pickDossierFollowupHandlers(scopeSources, rest, local),
         ...pickHandlerGroup(COERCIVE_EVICTION_FOLLOWUP_HANDLER_KEYS, scopeSources, rest, local),
     };
+    return Object.assign(Object.create(scopeSources) as Record<string, unknown>, overlay);
 }

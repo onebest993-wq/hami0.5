@@ -1,11 +1,6 @@
 import React from 'react';
 import { motion } from '@/app/motion/overlayMotionRuntime';
-import { Bell } from '@/app/components/ui/icons/Bell';
-import { Calendar } from '@/app/components/ui/icons/Calendar';
-import { CheckCircle } from '@/app/components/ui/icons/CheckCircle';
-import { Newspaper } from '@/app/components/ui/icons/Newspaper';
 import { Pencil } from '@/app/components/ui/icons/Pencil';
-import { PauseCircle } from '@/app/components/ui/icons/PauseCircle';
 import { SummonsInlineDateField } from '@/app/components/lawyer/execution/SummonsInlineDateField';
 import {
     HUB_GOLD_ACTION_CLASS,
@@ -165,10 +160,7 @@ export const SummonsHubTablighPanel: React.FC<SummonsHubTablighPanelProps> = ({
                             onClick={() => markExecutionSummonsArchived('attended')}
                             className="w-full rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-900/45 to-emerald-800/40 py-3 text-[12px] font-black text-emerald-50 hover:from-emerald-800/55 hover:to-emerald-700/55"
                         >
-                            <span className="flex flex-row-reverse items-center justify-center gap-2">
-                                <CheckCircle size={18} className="text-emerald-200" />
-                                حضر المدين
-                            </span>
+                            حضر المدين
                         </button>
 
                         {memoWindow?.isExpired ? (
@@ -177,10 +169,7 @@ export const SummonsHubTablighPanel: React.FC<SummonsHubTablighPanelProps> = ({
                                 onClick={() => markExecutionSummonsArchived('expired')}
                                 className="w-full rounded-xl border border-amber-500/35 bg-gradient-to-r from-amber-950/55 to-orange-950/40 py-3 text-[12px] font-black text-amber-50 hover:from-amber-900/60 hover:to-orange-900/55"
                             >
-                                <span className="flex flex-row-reverse items-center justify-center gap-2">
-                                    <Calendar size={18} className="text-amber-200" />
-                                    انتهاء مدة الإخبار
-                                </span>
+                                انتهاء مدة الإخبار
                             </button>
                         ) : null}
                     </div>
@@ -246,10 +235,7 @@ export const SummonsHubTablighPanel: React.FC<SummonsHubTablighPanelProps> = ({
                             }}
                             className={HUB_GOLD_ACTION_CLASS}
                         >
-                            <span className="flex flex-row-reverse items-center justify-center gap-2">
-                                <Newspaper size={18} className="text-[#E6C673]" />
-                                التبليغ بالمذكرة بواسطة النشر
-                            </span>
+                            التبليغ بالمذكرة بواسطة النشر
                         </button>
                         ) : null}
 
@@ -259,18 +245,7 @@ export const SummonsHubTablighPanel: React.FC<SummonsHubTablighPanelProps> = ({
                             disabled={!onRegisterDebtorVoluntaryAttendance && !evictionDebtorExecutionStrip?.onRegisterAttendance}
                             className="w-full rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-900/45 to-emerald-800/40 py-3 text-[12px] font-black text-emerald-50 hover:from-emerald-800/55 hover:to-emerald-700/55 disabled:cursor-not-allowed disabled:border-emerald-500/15 disabled:bg-emerald-950/10 disabled:text-emerald-50/60 disabled:shadow-none disabled:hover:from-emerald-900/45 disabled:hover:to-emerald-800/40"
                         >
-                            <span className="flex flex-row-reverse items-center justify-center gap-2">
-                                <CheckCircle
-                                    size={18}
-                                    className={
-                                        onRegisterDebtorVoluntaryAttendance ||
-                                        evictionDebtorExecutionStrip?.onRegisterAttendance
-                                            ? 'text-emerald-200'
-                                            : 'text-emerald-200/60'
-                                    }
-                                />
-                                حضور المدين دون تبليغ
-                            </span>
+                            حضور المدين دون تبليغ
                         </button>
                     </div>
                 )}
@@ -308,10 +283,7 @@ export const SummonsHubTablighPanel: React.FC<SummonsHubTablighPanelProps> = ({
                                 }}
                                 className="w-full rounded-xl border border-emerald-500/25 bg-emerald-900/20 py-3 text-[12px] font-black text-emerald-100 hover:bg-emerald-900/30"
                             >
-                                <span className="flex flex-row-reverse items-center justify-center gap-2">
-                                    <CheckCircle size={18} className="text-emerald-200" />
-                                    حضور المدين
-                                </span>
+                                حضور المدين
                             </button>
                             <button
                                 type="button"
@@ -322,10 +294,7 @@ export const SummonsHubTablighPanel: React.FC<SummonsHubTablighPanelProps> = ({
                                 }}
                                 className="w-full rounded-xl border border-amber-500/25 bg-amber-900/15 py-3 text-[12px] font-black text-amber-100 hover:bg-amber-900/25"
                             >
-                                <span className="flex flex-row-reverse items-center justify-center gap-2">
-                                    <PauseCircle size={18} className="text-amber-200" />
-                                    إنهاء التبليغ
-                                </span>
+                                إنهاء التبليغ
                             </button>
                         </div>
                     ) : (
@@ -388,10 +357,7 @@ export const SummonsHubTablighPanel: React.FC<SummonsHubTablighPanelProps> = ({
                                         : 'opacity-50 cursor-not-allowed'
                                 }`}
                             >
-                                <span className="flex flex-row-reverse items-center justify-center gap-2">
-                                    <Bell size={18} className="text-cyan-200" />
-                                    تسجيل تبليغ عادي
-                                </span>
+                                تسجيل تبليغ عادي
                             </button>
                         </div>
                     )

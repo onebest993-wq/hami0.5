@@ -4,7 +4,6 @@ import React from 'react';
 import { AppearanceSection } from '@/app/components/lawyer/HamiSettings/appearance/AppearanceSection';
 
 const patchAppearance = vi.fn();
-const patchPerformance = vi.fn();
 const setBlockCustomizePanelOpen = vi.fn();
 
 vi.mock('@/app/components/lawyer/HamiSettings/appearance/useAppearanceSection', () => ({
@@ -87,7 +86,6 @@ vi.mock('@/app/components/lawyer/HamiSettings/appearance/useAppearanceSection', 
         removeWallpaper: vi.fn(),
         previewBaseColor: '#0A0F1C',
         patchAppearance,
-        patchPerformance,
     }),
 }));
 
@@ -99,25 +97,14 @@ describe('AppearanceSection', () => {
         expect(screen.getByTestId('settings-toggle-appearance-reduceMotion')).toBeInTheDocument();
     });
 
-    it('يعرض صفوف الخط والتباين والأداء الخفيف', () => {
+    it('لا يعرض حجم النص ولا التباين ولا الأداء الخفيف', () => {
         render(<AppearanceSection />);
-        expect(screen.getByTestId('settings-font-preset-medium')).toBeInTheDocument();
-        expect(screen.getByTestId('settings-toggle-appearance-highContrast')).toBeInTheDocument();
-        expect(screen.getByTestId('settings-lite-auto')).toBeInTheDocument();
-    });
-
-    it('يُرقّع حجم الخط مع الـ preset معاً', () => {
-        render(<AppearanceSection />);
-        fireEvent.click(screen.getByTestId('settings-font-preset-large'));
-        expect(patchAppearance).toHaveBeenCalledWith({ fontPreset: 'large', fontSize: 18 });
-    });
-
-    it('يُرقّع التباين العالي والأداء الخفيف', () => {
-        render(<AppearanceSection />);
-        fireEvent.click(screen.getByTestId('settings-toggle-appearance-highContrast'));
-        expect(patchAppearance).toHaveBeenCalledWith({ highContrast: true });
-        fireEvent.click(screen.getByTestId('settings-lite-on'));
-        expect(patchPerformance).toHaveBeenCalledWith({ litePerformance: 'on' });
+        expect(screen.queryByTestId('settings-font-preset-medium')).toBeNull();
+        expect(screen.queryByTestId('settings-toggle-appearance-highContrast')).toBeNull();
+        expect(screen.queryByTestId('settings-lite-auto')).toBeNull();
+        expect(screen.queryByText('حجم النص')).toBeNull();
+        expect(screen.queryByText('تباين أوضح')).toBeNull();
+        expect(screen.queryByText('أداء خفيف')).toBeNull();
     });
 
     it('يفتح تخصيص القسم فوراً عند pointerDown', () => {

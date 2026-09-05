@@ -142,7 +142,7 @@ export const FastTrackModal = ({ isOpen, onClose, onSave, editMode = false, edit
                             value={requestType}
                             onChange={(e) => setRequestType(e.target.value)}
                             data-testid={CIVIL_LAWSUIT_TEST_IDS.fastTrackRequestType}
-                            placeholder="اكتب نوع الطلب يدوياً — مثل: منع سفر، إيقاف أعمال..."
+                            placeholder=""
                             className={T.field}
                         />
                     </div>

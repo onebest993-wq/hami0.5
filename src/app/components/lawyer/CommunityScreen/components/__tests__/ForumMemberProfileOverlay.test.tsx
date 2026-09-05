@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ForumMemberProfileOverlay } from '@/app/components/lawyer/CommunityScreen/components/ForumMemberProfileOverlay';
 
-vi.mock('@/app/utils/lazyComponents', () => ({
-    LazyRoyalLawyerProfile: () => <div data-testid="forum-member-profile-inner" />,
+vi.mock('@/app/runtime/royalLawyerProfileLoader', () => ({
+    loadRoyalLawyerProfileModule: () =>
+        Promise.resolve({
+            RoyalLawyerProfile: () => <div data-testid="forum-member-profile-inner" />,
+        }),
 }));
 
 vi.mock('@/app/utils/bodyScrollLock', async () => {
@@ -32,5 +35,6 @@ describe('ForumMemberProfileOverlay', () => {
         expect(overlay).toHaveAttribute('aria-label', 'ملف محامٍ زائر اختبار');
         expect(useBodyScrollLock).toHaveBeenCalledWith(true);
         expect(overlay).not.toHaveAttribute('data-owner-tools');
+        await screen.findByTestId('forum-member-profile-inner');
     });
 });

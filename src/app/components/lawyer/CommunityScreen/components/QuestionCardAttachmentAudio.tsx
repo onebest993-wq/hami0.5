@@ -1,4 +1,3 @@
-import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import { FORUM_PANEL } from '../forumPlumTheme';
 
 type QuestionCardAttachmentAudioProps = {
@@ -14,10 +13,11 @@ export function QuestionCardAttachmentAudio({
         <div className={`w-full ${FORUM_PANEL} p-3`}>
             <p className="text-white/50 text-[10px] mb-2">مقطع صوتي</p>
             {attachmentLoading ? (
-                <div className="flex items-center gap-2 text-white/40 text-xs">
-                    <Loader2 size={14} className="animate-spin" />
-                    جاري تحميل المقطع...
-                </div>
+                <div
+                    className="h-10 w-full rounded-lg border border-white/[0.08] bg-white/[0.035]"
+                    aria-busy="true"
+                    aria-label="مقطع صوتي"
+                />
             ) : attachmentUrl ? (
                 <audio src={attachmentUrl} controls preload="metadata" className="w-full h-10" />
             ) : (

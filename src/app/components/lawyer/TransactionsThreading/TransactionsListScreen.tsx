@@ -1,5 +1,5 @@
-import { memo } from 'react';
-import { AddTransactionBottomSheet } from './AddTransactionBottomSheet';
+import { lazy, memo } from 'react';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import { TransactionCard } from './TransactionCard';
 import type { Transaction } from '@/app/modules/transactionsThreading/types';
 import type { TransactionsListStatusFilter } from '@/app/services/transactions/filterTransactionsList';
@@ -8,19 +8,33 @@ import { TxGlassEmpty, TxGlassFab, TxGlassHeader, TxGlassPage, TxHeaderRow, TX_P
 import { TransactionsListQueryBar } from './TransactionsListQueryBar';
 import { useTransactionsListScreen } from './hooks/useTransactionsListScreen';
 import { useTransactionListWindow } from './hooks/useTransactionListWindow';
+import { TxLazyIsland } from './TransactionsChunkGuard';
+import {
+    prefetchAddTransactionBottomSheet,
+    prefetchTransactionsDetailsScreen,
+} from './transactionsFeatureLoader';
+
+const AddTransactionBottomSheetLazy = lazy(() =>
+    import('./AddTransactionBottomSheet').then((mod) => ({ default: mod.AddTransactionBottomSheet })),
+);
 
 const TransactionsListResults = memo(function TransactionsListResults({
     items,
     listFilter,
     onPressTransaction,
+    diskSettled,
 }: {
     items: Transaction[];
     listFilter: TransactionsListStatusFilter;
     onPressTransaction: (tx: Transaction) => void;
+    diskSettled: boolean;
 }) {
     const { visible, hiddenCount, sentinelRef } = useTransactionListWindow(items);
 
     if (items.length === 0) {
+        if (!diskSettled) {
+            return <div data-testid="transactions-list-disk-pending" className="h-px w-full" aria-hidden />;
+        }
         const emptyMessage =
             listFilter === 'deleted'
                 ? 'لا توجد معاملات محذوفة'
@@ -38,6 +52,7 @@ const TransactionsListResults = memo(function TransactionsListResults({
                     transaction={tx}
                     listFilter={listFilter}
                     onPress={onPressTransaction}
+                    onPrimeDetails={prefetchTransactionsDetailsScreen}
                 />
             ))}
             {hiddenCount > 0 ? (
@@ -77,6 +92,7 @@ export const TransactionsListScreen = memo(function TransactionsListScreen({
         addSheetOpen,
         onAddSheetOpenChange,
         hubOpen,
+        hubUserId,
         cardsInteractive,
     });
 
@@ -101,13 +117,14 @@ export const TransactionsListScreen = memo(function TransactionsListScreen({
                 {hubOpen ? (
                     <div
                         data-testid="transactions-list-scroll"
-                        className={`${TX_PAGE_SCROLL} px-4 py-2 space-y-2 pb-24 max-w-[520px] w-full mx-auto [contain:content]${vm.cardsInteractive ? '' : ' pointer-events-none'}`}
+                        className={`${TX_PAGE_SCROLL} px-4 py-1 pb-24 max-w-[520px] w-full mx-auto [contain:content]${vm.cardsInteractive ? '' : ' pointer-events-none'}`}
                         {...inertProps(!vm.cardsInteractive)}
                     >
                         <TransactionsListResults
                             items={vm.filtered}
                             listFilter={vm.filter}
                             onPressTransaction={vm.onPressTransaction}
+                            diskSettled={vm.diskSettled}
                         />
                     </div>
                 ) : null}
@@ -116,19 +133,29 @@ export const TransactionsListScreen = memo(function TransactionsListScreen({
                     <TxGlassFab
                         label="إضافة معاملة"
                         testId="transactions-add-fab"
-                        onPointerDown={vm.primeAddSheet}
+                        onPointerDown={() => {
+                            prefetchAddTransactionBottomSheet();
+                            vm.primeAddSheet();
+                        }}
                         onClick={() => vm.setSheetOpen(true)}
                     />
                 ) : null}
 
                 {hubOpen && (vm.sheetOpen || vm.sheetPrimed) ? (
-                    <AddTransactionBottomSheet
-                        open={vm.sheetOpen}
-                        onOpenChange={vm.setSheetOpen}
-                        keepMounted={vm.sheetPrimed}
-                        hubUserId={hubUserId}
-                        onCreated={onTransactionCreated}
-                    />
+                    <TxLazyIsland
+                        onFailed={() => {
+                            vm.setSheetOpen(false);
+                            SmartToast.error('تعذر فتح الإضافة — حاول مرة أخرى');
+                        }}
+                    >
+                        <AddTransactionBottomSheetLazy
+                            open={vm.sheetOpen}
+                            onOpenChange={vm.setSheetOpen}
+                            keepMounted={vm.sheetPrimed}
+                            hubUserId={hubUserId}
+                            onCreated={onTransactionCreated}
+                        />
+                    </TxLazyIsland>
                 ) : null}
             </TxGlassPage>
         </div>

@@ -20,6 +20,10 @@ describe('LawyerDashboardMainView file split honesty', () => {
         expect(main).toContain('LawyerDashboardMainView.lazyEntries');
         expect(main).toContain('announceBootReveal');
         expect(main).toContain('preDockSurfacesMount');
+        expect(main).toContain('repositorySurfacesMount');
+        expect(main).toContain('LazyLawyerDashboardRepositoryFeatureSurfaces');
+        expect(main).toContain('fieldTasksSurfacesMount');
+        expect(main).toContain('LazyLawyerDashboardFieldTasksFeatureSurfaces');
         expect(main).toMatch(
             /preDockSurfacesMount\s*\?\s*\([\s\S]*?LazyLawyerDashboardNavigationIsland/,
         );
@@ -35,14 +39,14 @@ describe('LawyerDashboardMainView file split honesty', () => {
         expect(hosts).toContain('communityLive ?');
         expect(hosts).toContain('executionLive ?');
         expect(hosts).toContain('LazyExecutionArchiveInstantChrome');
-        expect(hosts).toContain('LazyCriminalDashboardBootChrome');
+        expect(hosts).toContain('CriminalDashboardInstantPaintCover');
         expect(hosts).not.toMatch(
             /import \{\s*ExecutionArchiveInstantChrome/,
         );
         expect(hosts).not.toMatch(
             /import \{ CriminalDashboardBootChrome \}/,
         );
-        expect(hosts).toContain('GlobalSearchInstantPaintCover');
+        expect(hosts).toContain('GlobalSearchOverlaySuspenseCover');
         expect(hosts).toContain('ExecutionArchiveInstantPaintCover');
         expect(hosts).toContain('ExecutionDossierInstantPaintCover');
 

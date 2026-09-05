@@ -28,16 +28,19 @@ describe('repository security honesty', () => {
         expect(utils).toContain('FORBID_TAGS');
         expect(utils).toContain("'svg'");
         expect(utils).toContain("'iframe'");
+        const layout = read('src/app/components/lawyer/SmartRepository/RepositoryEntryContentLayout.tsx');
+        expect(layout).not.toContain('dangerouslySetInnerHTML');
+        expect(layout).toContain('stripRepositoryHtml');
     });
 
     it('معاينة المخزن ترفض javascript: وdata:text/html', () => {
         const safety = read('src/app/services/vault/vaultPreviewUrlSafety.ts');
-        const upload = read('src/app/services/vaultUploadService.ts');
+        const resolve = read('src/app/services/vault/vaultDocResolve.ts');
         expect(safety).toContain('isSafeVaultPreviewUrl');
         expect(safety).toContain("javascript:");
-        expect(upload).toContain('sanitizeVaultPreviewUrl');
-        expect(upload).toContain('vaultDocStorageOwned');
-        expect(upload).not.toMatch(/await \(await fetch\(source\)\)\.blob\(\)/);
+        expect(resolve).toContain('sanitizeVaultPreviewUrl');
+        expect(resolve).toContain('vaultDocStorageOwned');
+        expect(resolve).not.toMatch(/await \(await fetch\(source\)\)\.blob\(\)/);
     });
 
     it('غرف المستودع وتصنيفات المخزن ضمن تشفير الراحة ونسخة الأعمال', () => {
@@ -55,8 +58,29 @@ describe('repository security honesty', () => {
         const bind = read('src/app/components/lawyer/SmartRepository/hooks/useRepositoryComposeDossier.ts');
         expect(runtime).toContain('assertVaultDocOwner');
         expect(runtime).toContain('assertVaultStoragePathOwner');
+        expect(runtime).toContain('sealVaultDocForKv');
+        expect(runtime).toContain('parseVaultDocFromKv');
+        expect(runtime).not.toContain('vaultDocPayloadForKv(doc)');
         expect(actions).not.toContain('doc.authorId || currentUserId');
         expect(actions).toContain('doc.authorId !== currentUserId');
         expect(bind).toContain('doc.authorId !== uid');
+    });
+
+    it('حمولة KV بلا OCR ومختومة؛ معاينة الخلاصة تُعقَّم', () => {
+        const payload = read('src/app/services/vault/vaultCloudKvPayload.ts');
+        const seal = read('src/app/services/cloud/workCloudKvSeal.ts');
+        const display = read('src/app/components/lawyer/SmartRepository/useVaultDocDisplayUrl.ts');
+        const blobs = read('src/app/services/vaultBlobStore.ts');
+        const pin = read('src/app/services/repository/repositoryRoomPresentation.ts');
+        expect(payload).toContain('extractedText: null');
+        expect(payload).toContain('sealWorkCloudKvValue');
+        expect(seal).toContain('encrypted_data');
+        expect(seal).toContain('CryptoService.encryptData');
+        expect(display).toContain('sanitizeVaultPreviewUrl(doc?.signedUrl)');
+        expect(display).toContain('sanitizeVaultPreviewUrl(doc.signedUrl)');
+        expect(blobs).not.toContain('CryptoService');
+        expect(pin).toContain('writeSecureJsonValue');
+        expect(pin).not.toContain('localStorage.setItem');
+        expect(pin).not.toContain('localStorage.getItem');
     });
 });

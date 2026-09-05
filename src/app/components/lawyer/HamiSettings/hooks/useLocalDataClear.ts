@@ -6,6 +6,7 @@ import {
     mintSensitiveConfirmChallenge,
     verifySensitiveSettingsAction,
 } from '@/app/services/settings/verifySensitiveSettingsAction';
+import { settingsFlowAbandoned } from '../settingsFlowGuard';
 import { useWipeCountdown } from './useWipeCountdown';
 
 const WIPE_CONFIRM_PHRASE = 'مسح نهائي';
@@ -22,67 +23,72 @@ export function useLocalDataClear(
         setCountdown,
         cancelCountdown,
         waitCountdown,
+        beginDangerRequest,
+        endDangerRequest,
         sectionActiveRef,
         mountedRef,
     } = useWipeCountdown();
 
     const requestFullWipe = useCallback(async () => {
-        if (wipePhase !== 'idle' || !sectionActiveRef.current) return;
-
-        const okFirst = await SmartDialog.confirm(
-            'سيتم حذف جميع بيانات التطبيق محلياً وسحابياً: القضايا، الملاحظات، المخزن، التنفيذ، التنبيهات، والإعدادات. لا يمكن التراجع عن هذا الإجراء.',
-            { title: 'مسح كل البيانات؟', confirmText: 'متابعة', cancelText: 'إلغاء' },
-        );
-        if (!okFirst) return;
-        if (!sectionActiveRef.current) return;
-
-        const challenge = mintSensitiveConfirmChallenge(WIPE_CONFIRM_PHRASE);
-        const verified = await verifySensitiveSettingsAction({
-            confirmPhrase: challenge.confirmPhrase,
-            title: 'تحقق قبل المسح',
-            promptMessage: challenge.promptMessage,
-        });
-        if (!verified) return;
-        if (!sectionActiveRef.current) return;
-
-        SmartToast.warning(`انتظر ${COUNTDOWN_SECONDS} ثوانٍ قبل التأكيد النهائي`);
-        const completed = await waitCountdown();
-        if (!completed) {
-            if (mountedRef.current) setWipePhase('idle');
-            return;
-        }
-        if (!sectionActiveRef.current) return;
-
-        const okFinal = await SmartDialog.confirm(
-            'هذا تأكيد نهائي. سيتم مسح كل شيء في التطبيق — محلياً وسحابياً — الآن.',
-            { title: 'التأكيد النهائي', confirmText: 'مسح الآن', cancelText: 'إلغاء' },
-        );
-        if (!okFinal) {
-            if (mountedRef.current) setWipePhase('idle');
-            return;
-        }
-        if (!sectionActiveRef.current) return;
-
-        setWipePhase('wiping');
+        if (!beginDangerRequest()) return;
         try {
-            const result = await wipeAllApplicationData(resetToDefaults, onLogout);
-            if (result.cloudAttempted && result.cloudCompleted && result.localCompleted) {
-                SmartToast.success('تم مسح البيانات المحلية والسحابية');
-            } else if (!result.cloudAttempted && result.localCompleted) {
-                SmartToast.success('تم مسح البيانات المحلية');
-            } else {
-                SmartToast.warning('لم يكتمل المسح — احتُفظ بحالة قابلة لإعادة المحاولة');
+            const okFirst = await SmartDialog.confirm(
+                'سيتم حذف جميع بيانات التطبيق محلياً وسحابياً: القضايا، الملاحظات، المخزن، التنفيذ، التنبيهات، والإعدادات. لا يمكن التراجع عن هذا الإجراء.',
+                { title: 'مسح كل البيانات؟', confirmText: 'متابعة', cancelText: 'إلغاء' },
+            );
+            if (!okFirst || settingsFlowAbandoned(sectionActiveRef)) return;
+
+            const challenge = mintSensitiveConfirmChallenge(WIPE_CONFIRM_PHRASE);
+            const verified = await verifySensitiveSettingsAction({
+                confirmPhrase: challenge.confirmPhrase,
+                title: 'تحقق قبل المسح',
+                promptMessage: challenge.promptMessage,
+            });
+            if (!verified || settingsFlowAbandoned(sectionActiveRef)) return;
+
+            SmartToast.warning(`انتظر ${COUNTDOWN_SECONDS} ثوانٍ قبل التأكيد النهائي`);
+            const completed = await waitCountdown();
+            if (!completed) {
+                if (mountedRef.current) setWipePhase('idle');
+                return;
             }
-        } catch {
-            SmartToast.warning('تعذر إكمال المسح — راجع الاتصال وحاول مرة أخرى');
+            if (settingsFlowAbandoned(sectionActiveRef)) return;
+
+            const okFinal = await SmartDialog.confirm(
+                'هذا تأكيد نهائي. سيتم مسح كل شيء في التطبيق — محلياً وسحابياً — الآن.',
+                { title: 'التأكيد النهائي', confirmText: 'مسح الآن', cancelText: 'إلغاء' },
+            );
+            if (!okFinal) {
+                if (mountedRef.current) setWipePhase('idle');
+                return;
+            }
+            if (settingsFlowAbandoned(sectionActiveRef)) return;
+
+            setWipePhase('wiping');
+            try {
+                const result = await wipeAllApplicationData(resetToDefaults, onLogout);
+                if (result.cloudAttempted && result.cloudCompleted && result.localCompleted) {
+                    SmartToast.success('تم مسح البيانات المحلية والسحابية');
+                } else if (!result.cloudAttempted && result.localCompleted) {
+                    SmartToast.success('تم مسح البيانات المحلية');
+                } else {
+                    SmartToast.warning('لم يكتمل المسح — احتُفظ بحالة قابلة لإعادة المحاولة');
+                }
+            } catch {
+                SmartToast.warning('تعذر إكمال المسح — راجع الاتصال وحاول مرة أخرى');
+            } finally {
+                if (mountedRef.current) {
+                    setWipePhase('idle');
+                    setCountdown(0);
+                }
+            }
         } finally {
-            if (mountedRef.current) {
-                setWipePhase('idle');
-                setCountdown(0);
-            }
+            endDangerRequest();
         }
     }, [
         COUNTDOWN_SECONDS,
+        beginDangerRequest,
+        endDangerRequest,
         mountedRef,
         onLogout,
         resetToDefaults,
@@ -90,7 +96,6 @@ export function useLocalDataClear(
         setCountdown,
         setWipePhase,
         waitCountdown,
-        wipePhase,
     ]);
 
     return {

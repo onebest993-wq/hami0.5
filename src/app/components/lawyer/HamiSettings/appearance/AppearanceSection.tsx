@@ -4,6 +4,7 @@ import { useSettingsSectionActive } from '../settingsSectionActiveContext';
 import { useAppearanceChapter } from './useAppearanceChapter';
 import { AppearanceChapterList } from './AppearanceChapterList';
 import { prefetchAppearanceCustomizeSheet } from './appearanceCustomizeSheetLoad';
+import { SettingsSectionInstantSlots } from '../SettingsSectionInstantSlots';
 
 const AppearanceBlockCustomizeSheet = lazy(() =>
     import('./AppearanceBlockCustomizeSheet').then((m) => ({ default: m.AppearanceBlockCustomizeSheet })),
@@ -31,7 +32,7 @@ export function AppearanceSection() {
                 <AppearanceChapterList vm={vm} openId={chapter.openId} onToggle={chapter.toggle} />
             </div>
             {vm.blockCustomize.panelOpen ? (
-                <Suspense fallback={null}>
+                <Suspense fallback={<SettingsSectionInstantSlots />}>
                     <AppearanceBlockCustomizeSheet
                         open={vm.blockCustomize.panelOpen}
                         customize={vm.blockCustomize}

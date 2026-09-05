@@ -14,7 +14,9 @@ export { hasActiveFinancialGuarantorFollowup };
 
 /** تظهر بطاقة الضامن بعد إتمام مسار الكفيل الضامن (موافقة المنفذ + حفظ البيانات) */
 export function shouldShowGuarantorExternalHub(executionData: ExecutionFile | null | undefined): boolean {
-    return hasActiveFinancialGuarantorFollowup(executionData);
+    void executionData;
+    /** عُرض الكفيل أصبح شارة التسوية فقط */
+    return false;
 }
 
 /** قراءة مبلغ د.ع من التخزين (رقم أو نص بعد JSON) */

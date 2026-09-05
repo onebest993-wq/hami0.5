@@ -70,6 +70,10 @@ describe('repository cleanliness honesty', () => {
         expect(toolbar).toContain("from './LegalRichTextEditorCompactToolbar'");
         expect(toolbar).not.toContain('function useCompactToolbarScroll');
         expect(toolbar).not.toContain('function CompactToolbar');
+        expect(toolbar).not.toContain('if (compact)');
+        expect(toolbar).not.toContain('FONT_SIZES.map');
+        expect(existsSync(join(dir, 'RepositoryFeedProgressiveList.tsx'))).toBe(false);
+        expect(existsSync(join(dir, 'repositoryFeedConstants.ts'))).toBe(false);
         const android = readFileSync(
             join(process.cwd(), 'src/app/components/lawyer/dashboard/lawyerHomeFx-android.css'),
             'utf8',
@@ -159,5 +163,66 @@ describe('repository cleanliness honesty', () => {
         );
         expect(dossierNotes).not.toContain('function stripHtml');
         expect(dossierNotes).toContain('stripRepositoryHtml');
+    });
+
+    it('موجة 2: لا غلاف PDF مزدوج ولا سياق بلا مستهلك ولا دوال/تصديرات ميتة', () => {
+        const vault = join(process.cwd(), 'src/app/components/lawyer/SmartVaultModal');
+        const services = join(process.cwd(), 'src/app/services/repository');
+
+        expect(existsSync(join(dir, 'index.ts'))).toBe(false);
+        expect(existsSync(join(vault, 'VaultPdfViewerSurface.tsx'))).toBe(false);
+        expect(existsSync(join(vault, 'VaultPdfViewerSurfaceLazy.tsx'))).toBe(false);
+        expect(existsSync(join(vault, 'VaultModalRootContext.tsx'))).toBe(false);
+
+        const viewer = readFileSync(join(vault, 'VaultDocViewer.tsx'), 'utf8');
+        expect(viewer).toContain('VaultPdfJsViewerLazy');
+        expect(viewer).toContain('prefetchVaultPdfJsViewer');
+        expect(viewer).not.toContain('VaultPdfViewerSurface');
+
+        const executionVault = readFileSync(
+            join(process.cwd(), 'src/app/components/lawyer/DocumentVault.tsx'),
+            'utf8',
+        );
+        expect(executionVault).toContain('VaultPdfJsViewerLazy');
+        expect(executionVault).not.toContain('VaultPdfViewerSurface');
+
+        const perf = readFileSync(join(services, 'repositoryPerfMetrics.ts'), 'utf8');
+        expect(perf).not.toContain('reportRepositoryPerfIfDev');
+        expect(perf).toContain('export function reportRepositoryPerf');
+
+        const sentry = readFileSync(join(services, 'repositorySentryReporting.ts'), 'utf8');
+        expect(sentry).not.toContain('resetRepositorySentryModuleForTests');
+        expect(sentry).toContain('export function reportRepositoryOpenToSentry');
+
+        const model = readFileSync(join(dir, 'hooks/useRepositoryUnifiedFeedModel.ts'), 'utf8');
+        expect(model).not.toContain('modalRoot');
+        expect(model).not.toContain('useState');
+
+        const unified = readFileSync(join(dir, 'SmartRepositoryUnifiedFeed.tsx'), 'utf8');
+        expect(unified).not.toContain('VaultModalRootContext');
+        expect(unified).not.toContain('modalRoot');
+        expect(unified).not.toMatch(/^export type SmartRepositoryUnifiedFeedProps/m);
+
+        const theme = readFileSync(join(dir, 'smartRepositoryTheme.ts'), 'utf8');
+        expect(theme).not.toMatch(/^export const REPO_SURFACE_BASE/m);
+        expect(theme).toContain('const REPO_SURFACE_BASE');
+
+        const rooms = readFileSync(join(services, 'repositoryRooms.ts'), 'utf8');
+        expect(rooms).not.toMatch(/^export function saveRepositoryRooms/m);
+        expect(rooms).not.toMatch(/^export function createRepositoryRoomId/m);
+        expect(rooms).toContain('function saveRepositoryRooms');
+        expect(rooms).toContain('function createRepositoryRoomId');
+
+        const feedSvc = readFileSync(join(services, 'repositoryUnifiedFeed.ts'), 'utf8');
+        expect(feedSvc).not.toMatch(/^export function filterRepositoryFeedByCustomCategory/m);
+        expect(feedSvc).not.toMatch(/^export const REPOSITORY_FEED_FILTERS/m);
+        expect(feedSvc).toContain('function filterRepositoryFeedByCustomCategory');
+        expect(feedSvc).toContain('const REPOSITORY_FEED_FILTERS');
+
+        const camera = readFileSync(join(vault, 'scannerCamera.ts'), 'utf8');
+        expect(camera).not.toMatch(/^export const SCANNER_CAPTURE_MAX_EDGE/m);
+        expect(camera).not.toMatch(/^export const SCANNER_JPEG_QUALITY/m);
+        expect(camera).not.toMatch(/^export function clampScannerCaptureSize/m);
+        expect(camera).toContain('const SCANNER_CAPTURE_MAX_EDGE = 1_600');
     });
 });

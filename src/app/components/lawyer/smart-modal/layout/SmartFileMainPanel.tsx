@@ -1,4 +1,4 @@
-import React, { Suspense, useMemo } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef } from 'react';
 import { useSmartFileMainPanelLayout } from './mainPanel/useSmartFileMainPanelLayout';
 import { SmartFileStageFooterBar } from './mainPanel/SmartFileStageFooterBar';
 import { SmartFileCaseLinksSection } from './mainPanel/SmartFileCaseLinksSection';
@@ -6,7 +6,7 @@ import { SmartFileIncidentalCasesSection } from './mainPanel/SmartFileIncidental
 import { SmartFileWorkflowHubsSection } from './mainPanel/SmartFileWorkflowHubsSection';
 import { SmartFileTimelineSection } from './mainPanel/SmartFileTimelineSection';
 import { SmartFileMainHeaderSection } from './mainPanel/SmartFileMainHeaderSection';
-import { isCassationStageName } from '../smartFile/judgmentTypes';
+import { isCassationStageName, isFirstInstanceStageName } from '../smartFile/judgmentTypes';
 import { isPersonalStatusFile } from '@/app/components/lawyer/personal-status/personalStatusValidation';
 import { LazyPersonalStatusDossierBody } from '@/app/components/lawyer/personal-status/personalStatusDossierLazy';
 export type { SmartFileMainPanelProps } from './mainPanel/smartFileMainPanelTypes';
@@ -33,7 +33,6 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
         handleAbandonment,
         handleToggleNotification,
         handleCassationDecision,
-        handleClosePleadings,
         handleReopenPleadings,
         handleOpenDefendantCassationAppeal,
         handleDefaultObjection,
@@ -65,6 +64,9 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
         setEditingEvent,
         setShowCrossAppealModal,
         setShowJudgmentModal,
+        setShowAdjournPleadingModal,
+        setPendingJudgmentDate,
+        setShowApptModal,
         handleCancelCrossAppeal,
         stepperStages,
         currentStageId,
@@ -77,6 +79,12 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
     const isCassationStage = isCassationStageName(displayStage?.stageName);
     const isCaseLinkViewOnly = Boolean(p.isCaseLinkViewOnly);
     const interactionLocked = isViewingArchived || isCaseLinkViewOnly;
+    const prevStageIdRef = useRef(currentStageId);
+    useEffect(() => {
+        if (prevStageIdRef.current === currentStageId) return;
+        prevStageIdRef.current = currentStageId;
+        setEditingEvent(null);
+    }, [currentStageId, setEditingEvent]);
     const viewOnlyQuickActionIds = useMemo(
         () => (isCaseLinkViewOnly ? resolveViewOnlyQuickActionIds(displayTimeline) : undefined),
         [isCaseLinkViewOnly, displayTimeline],
@@ -112,11 +120,22 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
         showOpponentAppealBtn,
         showFirstInstanceIncidentalUi,
         showAbsentJudgmentFooter,
+        showAbsentJudgmentNotificationAction,
         showOpponentAppealBtnEffective,
         showPostJudgmentAppealFooter,
         showAppealStageFooter,
         showPetitionVoidFooter,
         showPleadingCloseFooter,
+        showArt172StayFooter,
+        showArt172ResumeFooter,
+        onArt172Stay,
+        onArt172Resume,
+        remainingOpponentChallengeFooterPanel,
+        showRemainingOpponentChallenge,
+        showIndependentClientChallenge,
+        independentClientChallengeFooterPanel,
+        showJoinCoObjectorFooter,
+        joinCoObjectorFooterPanel,
         quickActionsVariant,
         absentJudgmentFooterPanel,
         opponentAppealFooterPanel,
@@ -185,7 +204,6 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                 setShowCrossAppealModal={setShowCrossAppealModal}
                                 handleToggleNotification={handleToggleNotification}
                                 handleCassationDecision={handleCassationDecision}
-                                handleClosePleadings={handleClosePleadings}
                                 handleReopenPleadings={handleReopenPleadings}
                                 handleOpenDefendantCassationAppeal={handleOpenDefendantCassationAppeal}
                                 setShowAppealModal={setShowAppealModal}
@@ -229,9 +247,14 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                 displayStage={displayStage}
                                 displayTimeline={displayTimeline}
                                 firstHearingDate={
-                                    typeof file.firstHearingDate === 'string'
-                                        ? file.firstHearingDate
-                                        : null
+                                    isFirstInstanceStageName(displayStage?.stageName)
+                                        ? (typeof file.firstHearingDate === 'string'
+                                            ? file.firstHearingDate
+                                            : null)
+                                        : (typeof (displayStage as { firstHearingDate?: unknown } | undefined)
+                                                ?.firstHearingDate === 'string'
+                                            ? (displayStage as { firstHearingDate?: string }).firstHearingDate ?? null
+                                            : null)
                                 }
                                 editingEvent={editingEvent}
                                 setEditingEvent={setEditingEvent}
@@ -249,6 +272,16 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                 handleAppealBriefOutcome={handleAppealBriefOutcome}
                                 handleCorrespondenceResponse={handleCorrespondenceResponse}
                                 setEditingTask={setEditingTask}
+                                onRegisterPleadingHearing={(presetTitle) => {
+                                    setEditingEvent({
+                                        id: '',
+                                        type: 'appointment',
+                                        title: presetTitle,
+                                        subType: 'pleading',
+                                        date: '',
+                                    });
+                                    setShowApptModal(true);
+                                }}
                             />
 
                             {/* 7. Timeline - collapsible */}
@@ -259,7 +292,6 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                 displayTimeline={displayTimeline}
                                 interactionLocked={interactionLocked}
                                 isCaseLinkViewOnly={isCaseLinkViewOnly}
-                                handleDeleteEvent={handleDeleteEvent}
                                 handleEditEvent={handleEditEvent}
                                 setEditingEvent={setEditingEvent}
                             />
@@ -269,6 +301,9 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                             isViewingArchived={interactionLocked}
                             showOpponentAppealBtnEffective={isCaseLinkViewOnly ? false : showOpponentAppealBtnEffective}
                             showAbsentJudgmentFooter={isCaseLinkViewOnly ? false : showAbsentJudgmentFooter}
+                            showAbsentJudgmentNotificationAction={
+                                isCaseLinkViewOnly ? false : showAbsentJudgmentNotificationAction
+                            }
                             showPostJudgmentAppealFooter={isCaseLinkViewOnly ? false : showPostJudgmentAppealFooter}
                             showAppealStageFooter={isCaseLinkViewOnly ? false : showAppealStageFooter}
                             showPetitionVoidFooter={isCaseLinkViewOnly ? false : showPetitionVoidFooter}
@@ -281,9 +316,25 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                             appealStageFooterPanel={appealStageFooterPanel}
                             postJudgmentAppealFooterPanel={postJudgmentAppealFooterPanel}
                             showPleadingCloseFooter={showPleadingCloseFooter}
+                            showArt172StayFooter={isCaseLinkViewOnly ? false : showArt172StayFooter}
+                            showArt172ResumeFooter={isCaseLinkViewOnly ? false : showArt172ResumeFooter}
+                            onArt172Stay={onArt172Stay}
+                            onArt172Resume={onArt172Resume}
+                            showRemainingOpponentChallenge={
+                                isCaseLinkViewOnly ? false : showRemainingOpponentChallenge
+                            }
+                            remainingOpponentChallengeFooterPanel={remainingOpponentChallengeFooterPanel}
+                            showIndependentClientChallenge={
+                                isCaseLinkViewOnly ? false : showIndependentClientChallenge
+                            }
+                            independentClientChallengeFooterPanel={independentClientChallengeFooterPanel}
+                            showJoinCoObjectorFooter={isCaseLinkViewOnly ? false : showJoinCoObjectorFooter}
+                            joinCoObjectorFooterPanel={joinCoObjectorFooterPanel}
                             showFlowStatusFooter={showFlowStatusFooter}
                             flowStatusFooterPanel={flowStatusFooterPanel}
                             setShowJudgmentModal={setShowJudgmentModal}
+                            setShowAdjournPleadingModal={setShowAdjournPleadingModal}
+                            setPendingJudgmentDate={setPendingJudgmentDate}
                             />
         </div>
 

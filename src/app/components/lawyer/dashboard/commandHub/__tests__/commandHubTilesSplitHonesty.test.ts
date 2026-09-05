@@ -25,7 +25,10 @@ describe('command hub tiles file split', () => {
         expect(chrome).not.toContain('hubTilePressClass');
         expect(chrome).toContain('HubTileFace');
         expect(chrome).not.toContain('HubTileTitle');
-        const classes = readFileSync(resolve(dir, 'commandHubTileClasses.ts'), 'utf8');
+        const classes = readFileSync(
+            resolve(process.cwd(), 'src/app/components/lawyer/dashboard/commandHubTileClasses.ts'),
+            'utf8',
+        );
         expect(classes).toContain('hubTilePressClass');
         expect(classes).toContain('tileShellClasses');
         expect(classes).not.toContain('HomeStemIconProps');

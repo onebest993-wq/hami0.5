@@ -167,6 +167,7 @@ export function useExecutionDashboardCore({
         handlerClusterGateInput,
         coreRuntimeVars,
         heavySpreadSources: handlerClusterHeavySpreadSources,
+        loadPartyDeathHandlerCluster,
     });
 
     const { onPartyDeathHandlerClusterReady } = useExecutionDashboardCoreHandlerPrefetchEffects({
@@ -176,6 +177,7 @@ export function useExecutionDashboardCore({
         loadPartyDeathHandlerCluster,
         showUnifiedExecutionModal,
         unifiedModalTab: followupOrchestrator.unifiedModalTab,
+        isRepresentingDebtor,
         commitPartyDeathLiveHandlers,
     });
 
@@ -188,7 +190,6 @@ export function useExecutionDashboardCore({
         loadFollowupDossierControlsHandlerCluster,
         loadFollowupOtherPartyHandlerCluster,
         loadSeizureRequestsHandlerCluster,
-        loadSeizureLogHandlerCluster,
         loadSeizureHeavyHandlerCluster,
         loadCoerciveHeavyHandlerCluster,
         loadDossierSupportHandlerCluster,
@@ -198,6 +199,7 @@ export function useExecutionDashboardCore({
         followupOtherPartyHandlerClusterInput,
         seizureHeavyHandlerClusterInput,
         coerciveHeavyHandlerClusterInput,
+        partyDeathHandlerClusterInput,
         dossierSupportHandlerClusterInput,
         handlerClusterMountKey,
         onLightHandlerClusterReady,
@@ -264,7 +266,6 @@ export function useExecutionDashboardCore({
         dossierLifecyclePanel,
         toastEpoch,
         claimFinancialLedger,
-        followupDebtor,
         timelineAccordionExpanded,
         isFinancialCenterExpanded,
         coercionOrchestrator,
@@ -367,7 +368,6 @@ export function useExecutionDashboardCore({
         loadFollowupDossierControlsHandlerCluster,
         loadFollowupOtherPartyHandlerCluster,
         loadSeizureRequestsHandlerCluster,
-        loadSeizureLogHandlerCluster,
         loadSeizureHeavyHandlerCluster,
         loadCoerciveHeavyHandlerCluster,
         loadPublicationNoticeHandlerCluster: false,
@@ -381,7 +381,7 @@ export function useExecutionDashboardCore({
         coerciveHeavyHandlerClusterInput,
         publicationNoticeHandlerClusterInput: EMPTY_HANDLER_CLUSTER_INPUT,
         dossierSupportHandlerClusterInput,
-        partyDeathHandlerClusterInput: coerciveHeavyHandlerClusterInput,
+        partyDeathHandlerClusterInput,
         handlerClusterMountKey,
         onLightHandlerClusterReady,
         onFollowupAdminSpecialHandlerClusterReady,

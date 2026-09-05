@@ -93,11 +93,11 @@ export function CommentBottomSheetThreadList(props: CommentBottomSheetThreadList
     };
 
     return (
-        <div className="flex-1 overflow-y-auto scrollbar-hide p-6 space-y-3">
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-2.5">
             {post.comments.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-80">
-                    <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
-                        <MessageSquare size={32} className="text-white/20" />
+                    <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
+                        <MessageSquare size={24} className="text-white/20" />
                     </div>
                     <div>
                         <p className="text-white font-bold mb-1">لا توجد تعليقات بعد</p>

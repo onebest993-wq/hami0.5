@@ -37,6 +37,9 @@ export function useSmartFileMainPanelLayout(p: SmartFileMainPanelProps) {
         handlePetitionVoidOutcome,
         handleOpponentAppealWaived,
         handleReopenPleadings,
+        handleArt172AppealStay,
+        handleArt172AppealResume,
+        handleJoinCoObjector,
     } = p;
 
     const incidentalParentLink = readIncidentalLink(file);
@@ -100,6 +103,7 @@ export function useSmartFileMainPanelLayout(p: SmartFileMainPanelProps) {
         isInterrupted,
         displayStageLabel,
         currentStageLabel,
+        file,
     });
 
     const footerPanels = buildSmartFileMainPanelFooterPanels({
@@ -118,6 +122,7 @@ export function useSmartFileMainPanelLayout(p: SmartFileMainPanelProps) {
         handleOpponentAppealWaived,
         handleReopenPleadings,
         showAbsentJudgmentFooter: footerFlags.showAbsentJudgmentFooter,
+        showAbsentJudgmentNotificationAction: footerFlags.showAbsentJudgmentNotificationAction,
         showOpponentAppealBtnEffective: footerFlags.showOpponentAppealBtnEffective,
         showAppealStageFooter: footerFlags.showAppealStageFooter,
         appealStageFooter: footerFlags.appealStageFooter,
@@ -126,6 +131,12 @@ export function useSmartFileMainPanelLayout(p: SmartFileMainPanelProps) {
         showFlowStatusFooter: footerFlags.showFlowStatusFooter,
         showFlowAbandonmentFooter: footerFlags.showFlowAbandonmentFooter,
         showFlowPauseFooter: footerFlags.showFlowPauseFooter,
+        showRemainingOpponentChallenge: false,
+        remainingOpponentChallengeLabel: footerFlags.remainingOpponentChallengeLabel,
+        showIndependentClientChallenge: false,
+        showJoinCoObjectorFooter: footerFlags.showJoinCoObjectorFooter,
+        joinCoObjectorCandidates: footerFlags.joinCoObjectorCandidates,
+        handleJoinCoObjector,
     });
 
     return {
@@ -145,12 +156,20 @@ export function useSmartFileMainPanelLayout(p: SmartFileMainPanelProps) {
         showOpponentAppealBtn: footerFlags.showOpponentAppealBtn,
         showFirstInstanceIncidentalUi: footerFlags.showFirstInstanceIncidentalUi,
         showAbsentJudgmentFooter: footerFlags.showAbsentJudgmentFooter,
+        showAbsentJudgmentNotificationAction: footerFlags.showAbsentJudgmentNotificationAction,
         showOpponentAppealBtnEffective: footerFlags.showOpponentAppealBtnEffective,
         showPostJudgmentAppealFooter: footerFlags.showPostJudgmentAppealFooter,
         appealStageFooter: footerFlags.appealStageFooter,
         showAppealStageFooter: footerFlags.showAppealStageFooter,
         showPetitionVoidFooter: footerFlags.showPetitionVoidFooter,
         showPleadingCloseFooter: footerFlags.showPleadingCloseFooter,
+        showArt172StayFooter: footerFlags.showArt172StayFooter,
+        showArt172ResumeFooter: footerFlags.showArt172ResumeFooter,
+        onArt172Stay: handleArt172AppealStay,
+        onArt172Resume: handleArt172AppealResume,
+        showRemainingOpponentChallenge: false,
+        showIndependentClientChallenge: false,
+        showJoinCoObjectorFooter: footerFlags.showJoinCoObjectorFooter,
         showFlowStatusFooter: footerFlags.showFlowStatusFooter,
         quickActionsVariant: footerFlags.quickActionsVariant,
         ...footerPanels,

@@ -4,24 +4,24 @@ import { useExecutionDashboardStore as executionDashboardStoreApi } from '@/app/
 import type { DossierLifecycleStatus } from '@/app/types/execution';
 import { normalizeDossierLifecycleStatus } from '@/app/types/execution';
 import { applyPhoneBodyDossierLifecycleFallback } from '../components/executionDashboardPhoneBodyBridges';
-import { isExecutionHandlerStubLeaf } from './executionHandlerClusterStubs';
+import { executionHandlerNotReadyFallback } from './executionHandlerClusterStubs';
 import { readExecutionPhoneBodyScope } from './executionPhoneBodyScope';
 
-function resolveLiveLifecycleHandler(
+function resolveLifecycleHandler(
     scope: Record<string, unknown>,
     flatKey: 'handleDossierLifecyclePick' | 'handleDossierLifecycleConfirmDetails',
-): ((...args: unknown[]) => void) | null {
+): (...args: unknown[]) => unknown {
     const actions =
         scope.dossierLifecycleActions && typeof scope.dossierLifecycleActions === 'object'
             ? (scope.dossierLifecycleActions as Record<string, unknown>)
             : null;
     const candidates = [scope[flatKey], actions?.[flatKey]];
     for (const candidate of candidates) {
-        if (typeof candidate !== 'function') continue;
-        if (isExecutionHandlerStubLeaf(candidate)) continue;
-        return candidate as (...args: unknown[]) => void;
+        if (typeof candidate === 'function') {
+            return candidate as (...args: unknown[]) => unknown;
+        }
     }
-    return null;
+    return executionHandlerNotReadyFallback(`dossierLifecycleActions.${flatKey}`);
 }
 
 export function useExecutionDashboardPhoneBodyLocalState(
@@ -163,14 +163,9 @@ export function useExecutionDashboardPhoneBodyLocalState(
                 ...scope,
                 ...(scopeRef ? readExecutionPhoneBodyScope(scopeRef) : {}),
             } as Record<string, unknown>;
-            const handler = resolveLiveLifecycleHandler(latest, 'handleDossierLifecyclePick');
-            if (handler) {
-                handler(status);
-                return;
-            }
-            showToast('تعذر تغيير حالة الإضبارة لأن الربط الحقيقي لم يصل إلى الواجهة بعد.', 'error');
+            resolveLifecycleHandler(latest, 'handleDossierLifecyclePick')(status);
         },
-        [scope, scopeRef, showToast],
+        [scope, scopeRef],
     );
     const safeHandleDossierLifecycleConfirmDetails = React.useCallback(
         (reasonOverride?: string, dateOverride?: string) => {
@@ -178,17 +173,12 @@ export function useExecutionDashboardPhoneBodyLocalState(
                 ...scope,
                 ...(scopeRef ? readExecutionPhoneBodyScope(scopeRef) : {}),
             } as Record<string, unknown>;
-            const handler = resolveLiveLifecycleHandler(
-                latest,
-                'handleDossierLifecycleConfirmDetails',
+            resolveLifecycleHandler(latest, 'handleDossierLifecycleConfirmDetails')(
+                reasonOverride,
+                dateOverride,
             );
-            if (handler) {
-                handler(reasonOverride, dateOverride);
-                return;
-            }
-            showToast('تعذر اعتماد حالة الإضبارة لأن الربط الحقيقي لم يصل إلى الواجهة بعد.', 'error');
         },
-        [scope, scopeRef, showToast],
+        [scope, scopeRef],
     );
     const safeApplyDossierLifecycleToFileAndTimeline = React.useCallback(
         (status: DossierLifecycleStatus, reason: string, date: string) => {

@@ -9,7 +9,7 @@ import { SEARCH_SECTION_ORDER } from '@/app/components/lawyer/GlobalSearchOverla
 /** ملف معاملة ومركز المعاملات قسم عرض واحد — الوجهة تُميَّز في العنوان الفرعي. */
 const TRANSACTIONS_SECTION_CATS: readonly GlobalSearchCategory[] = ['transaction', 'threading'];
 
-export type SearchResultSection = {
+type SearchResultSection = {
     key: GlobalSearchCategory;
     label: string;
     entries: GlobalSearchEntry[];

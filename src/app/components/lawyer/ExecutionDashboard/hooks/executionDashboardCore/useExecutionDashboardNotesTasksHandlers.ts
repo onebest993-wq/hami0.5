@@ -45,7 +45,6 @@ export function useExecutionDashboardNotesTasksHandlers({
     setTimelineEvents,
     setShowNotesModal,
     openFollowupModalPersisted,
-    closeUnifiedSeizureLog,
 }: UseExecutionDashboardNotesTasksHandlersParams) {
     const noteSuccessMsgRef = useRef('');
     const noteSuccessVariantRef = useRef<'success' | 'info' | 'warning'>('success');
@@ -73,7 +72,7 @@ export function useExecutionDashboardNotesTasksHandlers({
         getSuccessVariant: () => noteSuccessVariantRef.current,
         submit: async () => {
             const now = new Date().toISOString();
-            const sourceLabel = 'سجل الملاحظات والمهام';
+            const sourceLabel = 'سجل الملاحظات';
             const titleTrim = noteTitle.trim();
             const bodyTrim = noteBody.trim();
             const curNotes = caseNotesLogRef.current;
@@ -239,7 +238,7 @@ export function useExecutionDashboardNotesTasksHandlers({
                     timestamp: now,
                     title: `✅ إنجاز مهمة: ${task.title}`,
                     description: task.body,
-                    source: 'سجل الملاحظات والمهام',
+                    source: 'سجل الملاحظات',
                 },
                 ...timelineEventsRef.current,
             ];
@@ -355,9 +354,6 @@ export function useExecutionDashboardNotesTasksHandlers({
     );
 
     const handleMemoFollowupClick = useCallback(() => {
-        if (typeof closeUnifiedSeizureLog === 'function') {
-            closeUnifiedSeizureLog();
-        }
         if (typeof openFollowupModalPersisted === 'function') {
             openFollowupModalPersisted();
             return;
@@ -367,7 +363,7 @@ export function useExecutionDashboardNotesTasksHandlers({
         } catch {
             showToast('تعذر فتح محضر المتابعة لأن الربط الحقيقي لم يصل إلى الواجهة بعد.', 'error');
         }
-    }, [openFollowupModalPersisted, closeUnifiedSeizureLog, showToast]);
+    }, [openFollowupModalPersisted, showToast]);
 
     return useMemo(
         () => ({

@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import type { ExecutionModalFlags } from './buildExecutionDashboardModalScope';
 
-function isLocalShellOverlayOpen(bag: Record<string, unknown>): boolean {
+/** نوافذ shell التي لا تمر عبر Zustand ModalStates — تُقرأ من flat أو من assemblyHandlers. */
+export function isLocalShellOverlayOpen(bag: Record<string, unknown>): boolean {
     return Boolean(
         bag.showEditDossierMetaModal ||
             bag.showExecutionTrashModal ||
@@ -23,34 +24,91 @@ function isLocalShellOverlayOpen(bag: Record<string, unknown>): boolean {
     );
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' && !Array.isArray(value)
+        ? (value as Record<string, unknown>)
+        : {};
+}
+
+/**
+ * editPartyTarget / heirsQuickView / partyDeathModalParty ليست في SCOPE_LOCAL/REST
+ * (ولا مفاتيح runtime مسطّحة) — تبقى داخل partyEditWorkflow / followupOrchestrator
+ * أو تُفلَّت في assemblyHandlers. بدون قراءتها هنا تبقى shellOverlaysReady=false
+ * فيبدو «تعديل الورثة» و«وريث» ونافذة الوفاة كأن الأزرار لا تعمل.
+ */
+export function collectShellOverlayIntentBags(
+    scopeLocalFlat: Record<string, unknown>,
+    scopeRestFlat: Record<string, unknown>,
+    assemblyHandlers: Record<string, unknown> = {},
+): Record<string, unknown>[] {
+    return [
+        scopeLocalFlat,
+        scopeRestFlat,
+        assemblyHandlers,
+        asRecord(assemblyHandlers.partyEditWorkflow),
+        asRecord(assemblyHandlers.followupOrchestrator),
+        asRecord(assemblyHandlers.dossierMetaWorkflow),
+    ];
+}
+
+function readShellOverlayIntentFlag(
+    bags: Record<string, unknown>[],
+    key: string,
+): unknown {
+    for (const bag of bags) {
+        if (bag[key] != null && bag[key] !== false) return bag[key];
+    }
+    return undefined;
+}
+
 export function useExecutionDashboardCoreScopeOverlaySignals(p: {
     scopeLocalFlat: Record<string, unknown>;
     scopeRestFlat: Record<string, unknown>;
     executionModalFlags: ExecutionModalFlags;
+    /** assemblyHandlers — مصدر الحقيقة لنوايا تعديل الطرف / الورثة / الوفاة */
+    assemblyHandlers?: Record<string, unknown>;
 }) {
+    const assemblyHandlers = p.assemblyHandlers ?? {};
+    const partyEditWorkflow = asRecord(assemblyHandlers.partyEditWorkflow);
+    const followupOrchestrator = asRecord(assemblyHandlers.followupOrchestrator);
+    const dossierMetaWorkflow = asRecord(assemblyHandlers.dossierMetaWorkflow);
+
     const overlayUrgent = useMemo(() => {
         const local = p.scopeLocalFlat;
         const rest = p.scopeRestFlat;
         return Boolean(
             local.showExecutionFinancialHub ||
-                local.showUnifiedSeizureLogModal ||
                 local.movableSeizureRequestModalOpen ||
                 local.propertySeizureRequestModalOpen ||
                 rest.showExecutionFinancialHub ||
-                rest.showUnifiedSeizureLogModal ||
                 rest.movableSeizureRequestModalOpen ||
                 rest.propertySeizureRequestModalOpen,
         );
     }, [
         p.scopeLocalFlat.showExecutionFinancialHub,
-        p.scopeLocalFlat.showUnifiedSeizureLogModal,
         p.scopeLocalFlat.movableSeizureRequestModalOpen,
         p.scopeLocalFlat.propertySeizureRequestModalOpen,
         p.scopeRestFlat.showExecutionFinancialHub,
-        p.scopeRestFlat.showUnifiedSeizureLogModal,
         p.scopeRestFlat.movableSeizureRequestModalOpen,
         p.scopeRestFlat.propertySeizureRequestModalOpen,
     ]);
+
+    const intentBags = useMemo(
+        () => collectShellOverlayIntentBags(p.scopeLocalFlat, p.scopeRestFlat, assemblyHandlers),
+        [
+            p.scopeLocalFlat,
+            p.scopeRestFlat,
+            assemblyHandlers,
+            assemblyHandlers.editPartyTarget,
+            assemblyHandlers.heirsQuickView,
+            assemblyHandlers.partyDeathModalParty,
+            partyEditWorkflow.editPartyTarget,
+            partyEditWorkflow.heirsQuickView,
+            followupOrchestrator.partyDeathModalParty,
+            followupOrchestrator.alimonyBeneficiaryDeathModalOpen,
+            dossierMetaWorkflow.showEditDossierMetaModal,
+        ],
+    );
 
     const shellOverlayStateToken = useMemo(() => {
         const local = p.scopeLocalFlat as Record<string, unknown>;
@@ -68,7 +126,12 @@ export function useExecutionDashboardCoreScopeOverlaySignals(p: {
         const savedNotesCount = Array.isArray(savedNotesSplit?.notes)
             ? String(savedNotesSplit.notes.length)
             : '0';
-        return `${unifiedModalTab}|${executionDebtorTabIndex}|${followupSolidaryDebtorIndex}|notes:${savedNotesCount}`;
+        const editParty = readShellOverlayIntentFlag(intentBags, 'editPartyTarget') ? '1' : '0';
+        const heirsQuick = readShellOverlayIntentFlag(intentBags, 'heirsQuickView') ? '1' : '0';
+        const partyDeath = readShellOverlayIntentFlag(intentBags, 'partyDeathModalParty')
+            ? '1'
+            : '0';
+        return `${unifiedModalTab}|${executionDebtorTabIndex}|${followupSolidaryDebtorIndex}|notes:${savedNotesCount}|ep:${editParty}|hq:${heirsQuick}|pd:${partyDeath}`;
     }, [
         p.scopeLocalFlat.unifiedModalTab,
         p.scopeRestFlat.unifiedModalTab,
@@ -78,53 +141,15 @@ export function useExecutionDashboardCoreScopeOverlaySignals(p: {
         p.scopeRestFlat.followupSolidaryDebtorIndex,
         p.scopeLocalFlat.savedNotesSplit,
         p.scopeRestFlat.savedNotesSplit,
+        intentBags,
     ]);
 
     const overlayIntentUrgent = useMemo(() => {
-        const local = p.scopeLocalFlat as Record<string, unknown>;
-        const rest = p.scopeRestFlat as Record<string, unknown>;
         return (
             Boolean(p.executionModalFlags.showEditDossierMetaModal) ||
-            isLocalShellOverlayOpen(local) ||
-            isLocalShellOverlayOpen(rest)
+            intentBags.some((bag) => isLocalShellOverlayOpen(bag))
         );
-    }, [
-        p.executionModalFlags.showEditDossierMetaModal,
-        p.scopeLocalFlat.showEditDossierMetaModal,
-        p.scopeRestFlat.showEditDossierMetaModal,
-        p.scopeLocalFlat.showExecutionTrashModal,
-        p.scopeRestFlat.showExecutionTrashModal,
-        p.scopeLocalFlat.editPartyTarget,
-        p.scopeRestFlat.editPartyTarget,
-        p.scopeLocalFlat.timelineEditDraft,
-        p.scopeRestFlat.timelineEditDraft,
-        p.scopeLocalFlat.heirsQuickView,
-        p.scopeRestFlat.heirsQuickView,
-        p.scopeLocalFlat.permanentDeleteTimelineId,
-        p.scopeRestFlat.permanentDeleteTimelineId,
-        p.scopeLocalFlat.executorScheduleModalOpen,
-        p.scopeRestFlat.executorScheduleModalOpen,
-        p.scopeLocalFlat.policeAssistanceModalOpen,
-        p.scopeRestFlat.policeAssistanceModalOpen,
-        p.scopeLocalFlat.breakInventoryFurnitureModalOpen,
-        p.scopeRestFlat.breakInventoryFurnitureModalOpen,
-        p.scopeLocalFlat.judicialCustodianModalOpen,
-        p.scopeRestFlat.judicialCustodianModalOpen,
-        p.scopeLocalFlat.executionReportPrompt,
-        p.scopeRestFlat.executionReportPrompt,
-        p.scopeLocalFlat.partyDeathModalParty,
-        p.scopeRestFlat.partyDeathModalParty,
-        p.scopeLocalFlat.alimonyBeneficiaryDeathModalOpen,
-        p.scopeRestFlat.alimonyBeneficiaryDeathModalOpen,
-        p.scopeLocalFlat.seizedPropertyStepModalOpen,
-        p.scopeRestFlat.seizedPropertyStepModalOpen,
-        p.scopeLocalFlat.seizedPropertyAuctionResultModalOpen,
-        p.scopeRestFlat.seizedPropertyAuctionResultModalOpen,
-        p.scopeLocalFlat.seizureMarkModalOpen,
-        p.scopeRestFlat.seizureMarkModalOpen,
-        p.scopeLocalFlat.publicationModalOpen,
-        p.scopeRestFlat.publicationModalOpen,
-    ]);
+    }, [p.executionModalFlags.showEditDossierMetaModal, intentBags]);
 
     const dossierScopeId = useMemo(() => {
         const local = p.scopeLocalFlat as Record<string, unknown>;

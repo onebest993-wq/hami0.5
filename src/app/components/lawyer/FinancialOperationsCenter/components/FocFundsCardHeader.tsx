@@ -5,6 +5,10 @@ import { ChevronUp } from '@/app/components/ui/icons/ChevronUp';
 import { History } from '@/app/components/ui/icons/History';
 import { HeartHandshake } from '@/app/components/ui/icons/HeartHandshake';
 import { formatIqdDisplay } from '../utils';
+import {
+    focPrepareOverlay,
+    prefetchFocAlimonyDetailOverlay,
+} from '../focOverlaySurfacesLazy';
 
 export interface FocFundsCardHeaderProps {
     embeddedInFinancialHub: boolean;
@@ -18,10 +22,10 @@ export interface FocFundsCardHeaderProps {
     totalOwedUnified: number;
     remainingUnified: number;
     trustBalanceUnified: number;
-    onShowSeizureLog?: () => void;
     onShowLedger?: () => void;
-    openDebtEditModal: () => void;
-    debtEditLockReason: string | null;
+    /** @deprecated التعديل انتقل إلى بطاقة متبقي الوعاء */
+    openDebtEditModal?: () => void;
+    debtEditLockReason?: string | null;
     showOngoingAlimonyMonthlySection: boolean;
     onOpenAlimonyDetail: () => void;
 }
@@ -39,10 +43,7 @@ export const FocFundsCardHeader: React.FC<FocFundsCardHeaderProps> = ({
     totalOwedUnified,
     remainingUnified,
     trustBalanceUnified,
-    onShowSeizureLog,
     onShowLedger,
-    openDebtEditModal,
-    debtEditLockReason,
     showOngoingAlimonyMonthlySection,
     onOpenAlimonyDetail,
 }) => {
@@ -78,21 +79,6 @@ export const FocFundsCardHeader: React.FC<FocFundsCardHeaderProps> = ({
                                         <p className="mt-0.5 text-[9px] font-semibold text-slate-400">
                                             متبقي {formatIqdDisplay(remainingUnified)}
                                         </p>
-                                        {onShowSeizureLog ? (
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    onShowSeizureLog();
-                                                }}
-                                                className="mt-1 inline-flex items-center justify-center rounded-full border border-[#E6C673]/35 bg-[#E6C673]/10 p-1 text-[#E6C673] transition hover:bg-[#E6C673]/20"
-                                                title="سجل الحجوزات"
-                                                aria-label="سجل الحجوزات"
-                                            >
-                                                <History size={14} />
-                                            </button>
-                                        ) : null}
                                     </div>
                                     <div className="rounded-xl border border-emerald-500/15 bg-gradient-to-br from-emerald-500/10 to-transparent px-2.5 py-1.5 text-right shadow-inner shadow-black/20 sm:px-3 sm:py-2">
                                         <p className="text-[8px] font-medium uppercase tracking-wider text-emerald-200/90">الأمانات</p>
@@ -195,62 +181,55 @@ export const FocFundsCardHeader: React.FC<FocFundsCardHeaderProps> = ({
             )}
 
             {embeddedInFinancialHub && !isRepresentingDebtor && (
-                <div className="space-y-2 pb-2">
+                <div className="space-y-1.5 pb-1.5">
                     {!hideEvictionTotalsInChrome ? (
-                        <div className="grid grid-cols-2 gap-2">
-                            <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-right">
-                                <div className="flex flex-row-reverse items-start justify-between gap-2">
-                                    <div className="min-w-0">
-                                        <p className="mb-0.5 text-[10px] font-medium text-slate-400">إجمالي الدين</p>
-                                        <p className="text-base font-black leading-tight text-white tabular-nums">
-                                            {formatIqdDisplay(totalOwedUnified)}{' '}
-                                            <span className="text-[10px] font-semibold text-slate-400">د.ع</span>
-                                        </p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={openDebtEditModal}
-                                        disabled={Boolean(debtEditLockReason)}
-                                        className="shrink-0 inline-flex items-center gap-1 rounded-md border border-[#E6C673]/30 bg-[#E6C673]/10 px-2 py-1 text-[9px] font-bold text-[#F5E6A8] transition hover:bg-[#E6C673]/15 disabled:opacity-35"
-                                    >
-                                        تعديل
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="rounded-lg border border-emerald-500/15 bg-emerald-500/[0.06] px-3 py-2 text-right">
-                                <p className="mb-0.5 text-[10px] font-medium text-slate-400">الأمانات</p>
-                                <p className="text-base font-black leading-tight text-white tabular-nums">
-                                    {formatIqdDisplay(trustBalanceUnified)}{' '}
-                                    <span className="text-[10px] font-semibold text-slate-400">د.ع</span>
+                        <div className="grid grid-cols-2 gap-1.5">
+                            <div className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-right">
+                                <p className="mb-0.5 text-[9px] font-medium text-slate-500">إجمالي الدين</p>
+                                <p className="text-[13px] font-bold leading-tight text-white/95 tabular-nums">
+                                    {formatIqdDisplay(totalOwedUnified)}{' '}
+                                    <span className="text-[9px] font-medium text-slate-500">د.ع</span>
                                 </p>
-                                <p className="mt-0.5 text-[9px] font-semibold text-slate-500">رصيد الصرف</p>
+                            </div>
+                            <div className="rounded-lg border border-emerald-500/12 bg-emerald-500/[0.04] px-2.5 py-1.5 text-right">
+                                <p className="mb-0.5 text-[9px] font-medium text-slate-500">الأمانات</p>
+                                <p className="text-[13px] font-bold leading-tight text-white/95 tabular-nums">
+                                    {formatIqdDisplay(trustBalanceUnified)}{' '}
+                                    <span className="text-[9px] font-medium text-slate-500">د.ع</span>
+                                </p>
+                                <p className="mt-0.5 text-[8px] font-medium text-slate-600">رصيد الصرف</p>
                             </div>
                         </div>
                     ) : null}
 
                     {onShowLedger || showOngoingAlimonyMonthlySection ? (
-                        <div className="flex flex-row-reverse items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1.5" dir="rtl">
                             {onShowLedger ? (
                                 <button
                                     type="button"
-                                    onClick={onShowLedger}
-                                    className="inline-flex flex-row-reverse items-center gap-1.5 rounded-lg border border-[#E6C673]/35 bg-[#E6C673]/10 px-2.5 py-1.5 text-[10px] font-bold text-[#E6C673] transition hover:bg-[#E6C673]/20"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        onShowLedger();
+                                    }}
+                                    className="inline-flex min-h-[32px] items-center gap-1.5 rounded-lg border border-[#E6C673]/35 bg-[#E6C673]/12 px-2.5 py-1 text-[10px] font-bold text-[#E6C673] transition hover:border-[#E6C673]/50 hover:bg-[#E6C673]/18 touch-manipulation"
                                     title="السجل المالي العام — أرشيف البنود والمبالغ"
                                     aria-label="فتح السجل المالي العام"
                                 >
-                                    <History size={14} strokeWidth={1.75} />
-                                    السجل المالي العام
+                                    <History size={13} strokeWidth={1.75} />
+                                    السجل المالي
                                 </button>
                             ) : null}
                             {showOngoingAlimonyMonthlySection ? (
                                 <button
                                     type="button"
+                                    {...focPrepareOverlay(prefetchFocAlimonyDetailOverlay)}
                                     onClick={onOpenAlimonyDetail}
-                                    className="inline-flex items-center justify-center rounded-lg border border-[#E6C673]/30 bg-[#E6C673]/8 p-1.5 text-[#E6C673] transition hover:bg-[#E6C673]/15 hover:border-[#E6C673]/45"
+                                    className="inline-flex items-center justify-center rounded-md border border-white/10 bg-white/[0.03] p-1.5 text-[#E6C673]/90 transition hover:bg-white/[0.06]"
                                     title="استحقاق النفقة الشهري"
                                     aria-label="عرض استحقاق النفقة"
                                 >
-                                    <HeartHandshake size={14} strokeWidth={2} />
+                                    <HeartHandshake size={13} strokeWidth={2} />
                                 </button>
                             ) : null}
                         </div>

@@ -1,5 +1,4 @@
 import { FileImage } from '@/app/components/ui/icons/FileImage';
-import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import type { RepositoryDocument } from '@/app/services/lawyer-cloud';
 import { imgFetchPriorityAttr } from '@/app/utils/imgFetchPriority';
 
@@ -30,9 +29,9 @@ export function RepositoryCardMedia({
             onClick={() => onPreview(doc)}
             className="relative block w-full p-0 m-0 leading-none"
         >
-            <div className={feedImageFrameClass}>
+            <div className={feedImageFrameClass} aria-busy={thumbLoading || undefined}>
                 {thumbLoading ? (
-                    <Loader2 size={24} className="animate-spin text-white/20" />
+                    <div className="h-full min-h-[120px] w-full" aria-hidden />
                 ) : thumbUrl ? (
                     <img
                         src={thumbUrl}

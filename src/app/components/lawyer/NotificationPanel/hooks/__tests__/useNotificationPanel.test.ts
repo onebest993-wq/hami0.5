@@ -5,8 +5,17 @@ import { useNotificationPanel } from '@/app/components/lawyer/NotificationPanel/
 vi.mock('@/app/stores/notificationStore', () => ({
     useNotificationStore: (selector: (s: unknown) => unknown) =>
         selector({
-            notifications: [],
-            unreadCount: 0,
+            notifications: [
+                {
+                    id: 'n1',
+                    title: 'رد',
+                    message: 'نص',
+                    type: 'forum_reply',
+                    isRead: false,
+                    createdAt: new Date().toISOString(),
+                },
+            ],
+            unreadCount: 1,
             isLoading: false,
             markAsRead: vi.fn(),
             markAllAsRead: vi.fn(),
@@ -49,5 +58,22 @@ describe('useNotificationPanel', () => {
         rerender({ isOpen: false });
         rerender({ isOpen: true });
         expect(result.current.activeTab).toBe('forum');
+    });
+
+    it('يجمّع البطاقات عندما listLive حتى لو isOpen=false', () => {
+        const { result } = renderHook(() =>
+            useNotificationPanel(false, 'user-1', vi.fn(), vi.fn(), true),
+        );
+        expect(result.current.groupedByTime.today).toHaveLength(1);
+        expect(result.current.groupedByTime.today[0]?.id).toBe('n1');
+    });
+
+    it('لا يجمّع البطاقات عندما مغلقة بالكامل', () => {
+        const { result } = renderHook(() =>
+            useNotificationPanel(false, 'user-1', vi.fn(), vi.fn(), false),
+        );
+        expect(result.current.groupedByTime.today).toEqual([]);
+        expect(result.current.groupedByTime.yesterday).toEqual([]);
+        expect(result.current.groupedByTime.older).toEqual([]);
     });
 });

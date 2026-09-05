@@ -5,7 +5,6 @@ describe('buildExecutionDashboardCoreLightHandlerClusterInput', () => {
     it('يجمع حقول workspace و boot و pipelines لـ light cluster', () => {
         const persistExecutionMerge = () => true;
         const moveCaseTaskToTrash = () => undefined;
-        const closeUnifiedSeizureLog = () => undefined;
         const openFollowupModalPersisted = () => undefined;
         const setShowPaymentModal = () => undefined;
 
@@ -26,7 +25,7 @@ describe('buildExecutionDashboardCoreLightHandlerClusterInput', () => {
             },
             persistHandlerPipeline: { persistExecutionMerge, moveCaseTaskToTrash },
             graceMasterPipeline: { remaining: 100, totalWithExecutionFee: 500 },
-            followupDebtor: { closeUnifiedSeizureLog, openFollowupModalPersisted },
+            followupDebtor: { openFollowupModalPersisted },
             claimFinancialLedger: { totalOwed: 400 },
         });
 
@@ -39,7 +38,6 @@ describe('buildExecutionDashboardCoreLightHandlerClusterInput', () => {
         expect(input.totalWithExecutionFee).toBe(500);
         expect(input.persistExecutionMerge).toBe(persistExecutionMerge);
         expect(input.moveCaseTaskToTrash).toBe(moveCaseTaskToTrash);
-        expect(input.closeUnifiedSeizureLog).toBe(closeUnifiedSeizureLog);
         expect(input.openFollowupModalPersisted).toBe(openFollowupModalPersisted);
         expect(input.setShowPaymentModal).toBe(setShowPaymentModal);
     });

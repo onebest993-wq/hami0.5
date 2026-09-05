@@ -34,18 +34,6 @@ describe('execution overlay native-back and inner-silent honesty', () => {
         const pause = read(
             'src/app/components/lawyer/ExecutionDashboard/components/ExecutionPauseResumeOverlay.tsx',
         );
-        const step = read(
-            'src/app/components/lawyer/ExecutionDashboard/components/seizedPropertyPortals/SeizedPropertyStepPortal.tsx',
-        );
-        const auction = read(
-            'src/app/components/lawyer/ExecutionDashboard/components/seizedPropertyPortals/SeizedPropertyAuctionResultPortal.tsx',
-        );
-        const mark = read(
-            'src/app/components/lawyer/ExecutionDashboard/components/seizedPropertyPortals/SeizureMarkPortal.tsx',
-        );
-        const publication = read(
-            'src/app/components/lawyer/ExecutionDashboard/components/seizedPropertyPortals/PublicationPortal.tsx',
-        );
 
         for (const src of [dossier, seizure, visitation, marital]) {
             expect(src).toContain('useExecutionOverlayDismiss');
@@ -61,7 +49,7 @@ describe('execution overlay native-back and inner-silent honesty', () => {
         expect(summons).not.toContain('aria-label="تسجيل راتب"');
         expect(memo).toContain('useExecutionOverlayDismiss');
         expect(memo).toContain('EXEC_MODAL_CLOSE_BTN_CLASS');
-        for (const src of [dossier, seizure, pause, step, auction, mark, publication]) {
+        for (const src of [dossier, seizure, pause]) {
             expect(src).toContain('EXEC_MODAL_CLOSE_BTN_CLASS');
         }
         expect(visitation).toContain('min-h-[44px]');

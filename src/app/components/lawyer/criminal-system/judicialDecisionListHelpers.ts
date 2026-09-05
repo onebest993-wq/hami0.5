@@ -187,7 +187,7 @@ function normalizeJudicialDecisionBail(raw: unknown): JudicialDecision['defendan
                       fullName,
                   };
               })
-              .filter((x): x is { id?: string; fullName: string } => x !== null)
+              .filter((x): x is NonNullable<typeof x> => x !== null)
         : undefined;
     if (kind === 'financial' && bailAmount) return { kind, bailAmount };
     if (kind === 'personal' && guarantors?.length) return { kind, guarantors };
@@ -362,7 +362,7 @@ export function normalizeJudicialDecision(raw: unknown): JudicialDecision | null
                 appealPath: normalizeJudicialAppealPath(ap.appealPath),
             };
         })
-        .filter((x): x is JudicialDecisionAppeal => Boolean(x));
+        .filter((x): x is NonNullable<typeof x> => x != null);
 
     const disposition =
         o.disposition === 'favors_defendant' || o.disposition === 'favors_complainant'

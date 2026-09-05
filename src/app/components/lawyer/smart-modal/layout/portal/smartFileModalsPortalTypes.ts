@@ -68,6 +68,10 @@ export type SmartFileModalsPortalProps = {
     setShowOpponentAbsentObjectionModal: (v: boolean) => void;
     showJudgmentModal: boolean;
     setShowJudgmentModal: (v: boolean) => void;
+    showAdjournPleadingModal: boolean;
+    setShowAdjournPleadingModal: (v: boolean) => void;
+    pendingJudgmentDate?: string;
+    setPendingJudgmentDate?: (date: string) => void;
     showAppealModal: boolean;
     setShowAppealModal: (v: boolean) => void;
     showAppealTransitionModal: boolean;
@@ -116,7 +120,11 @@ export type SmartFileModalsPortalProps = {
     activeStageIndex: number;
     viewingStageIndex: number;
     parentData: SmartFileParentData;
-    lawsuitFile?: { lawsuitJurisdiction?: string; selectedType?: string };
+    lawsuitFile?: {
+        lawsuitJurisdiction?: string;
+        selectedType?: string;
+        disputeIntegrity?: string | null;
+    };
     displayStageName?: string;
     consolidationCurrentFileId: number;
     consolidationCurrentCaseNo: string;

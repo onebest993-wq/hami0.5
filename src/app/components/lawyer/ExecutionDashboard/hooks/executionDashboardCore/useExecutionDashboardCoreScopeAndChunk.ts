@@ -2,11 +2,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useExecutionDashboardCoreScopeRuntimeBindings } from './useExecutionDashboardCoreScopeRuntimeBindings';
 import { buildExecutionDashboardModalScope, type ExecutionModalFlags } from './buildExecutionDashboardModalScope';
-import { buildFollowupModalSnapshotInput } from '../buildFollowupModalSnapshotInput';
+import { EMPTY_FOLLOWUP_MODAL_SNAPSHOT } from '../emptyFollowupModalSnapshot';
+import {
+    loadAndCacheFollowupModalSnapshotBuilder,
+    peekFollowupModalSnapshotBuilder,
+} from '../followupModalSnapshotBuilderCache';
+import { resolveFollowupModalSnapshotForPaint } from '../resolveFollowupModalSnapshotForPaint';
 import { useExecutionDashboardLazyChunkSetup } from '../useExecutionDashboardLazyChunkSetup';
 import { pickExecutionPhoneBodyProps } from '../pickExecutionPhoneBodyProps';
 import { pickExecutionShellOverlayProps } from '../pickExecutionShellOverlayProps';
-import { buildExecutionDashboardDirectFollowupScopeSnapshot } from './buildExecutionDashboardDirectFollowupScopeSnapshot';
+import { resolveDirectFollowupScopeSnapshotForPaint } from './buildExecutionDashboardDirectFollowupScopeSnapshot';
 import { hasSelectedScopeDeltaForLazySync } from './executionScopeLazySyncDelta';
 import {
     getCachedExecutionDashboardBaseScopeBuilder,
@@ -118,6 +123,7 @@ export function useExecutionDashboardCoreScopeAndChunk(p: {
             scopeLocalFlat: p.scopeLocalFlat,
             scopeRestFlat: p.scopeRestFlat,
             executionModalFlags,
+            assemblyHandlers: p.assemblyHandlers,
         });
 
     const executionModalFlagsFingerprint = useMemo(
@@ -306,27 +312,51 @@ export function useExecutionDashboardCoreScopeAndChunk(p: {
     });
 
     const shellOverlayScopeSnapshot = useMemo(
-        () => ({
-            ...scopeSourcesRef.current,
-        }),
+        () => pickExecutionShellOverlayProps(scopeSourcesRef.current),
         [shellOverlayFingerprint, shellOverlayScopeSyncToken],
     );
 
-    const directFollowupScopeSnapshot = useMemo(
-        () =>
-            buildExecutionDashboardDirectFollowupScopeSnapshot({
+    const followupOpen = Boolean(executionModalFlags.showUnifiedExecutionModal);
+    if (followupOpen) {
+        void loadAndCacheFollowupModalSnapshotBuilder();
+    }
+    const [followupSnapshotBuilderEpoch, setFollowupSnapshotBuilderEpoch] = useState(0);
+
+    const followupModalSnapshot = useMemo(() => {
+        if (!followupOpen || !peekFollowupModalSnapshotBuilder()) {
+            return EMPTY_FOLLOWUP_MODAL_SNAPSHOT;
+        }
+        return resolveFollowupModalSnapshotForPaint(
+            true,
+            resolveDirectFollowupScopeSnapshotForPaint(followupOpen, {
                 scopeSources,
                 scopeLocalFlat: p.scopeLocalFlat,
                 scopeRestFlat: p.scopeRestFlat,
                 executionModalSetters,
             }),
-        [executionModalSetters, p.scopeLocalFlat, p.scopeRestFlat, scopeSources],
-    );
+        );
+    }, [
+        executionModalSetters,
+        followupOpen,
+        followupSnapshotBuilderEpoch,
+        p.scopeLocalFlat,
+        p.scopeRestFlat,
+        scopeSources,
+    ]);
 
-    const followupModalSnapshot = useMemo(
-        () => buildFollowupModalSnapshotInput(directFollowupScopeSnapshot),
-        [directFollowupScopeSnapshot],
-    );
+    useEffect(() => {
+        if (!followupOpen) return;
+        if (followupModalSnapshot !== EMPTY_FOLLOWUP_MODAL_SNAPSHOT) return;
+        let cancelled = false;
+        void loadAndCacheFollowupModalSnapshotBuilder()
+            .then(() => {
+                if (!cancelled) setFollowupSnapshotBuilderEpoch((epoch) => epoch + 1);
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [followupOpen, followupModalSnapshot]);
 
     return {
         phoneBodyFingerprint,

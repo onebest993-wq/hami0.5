@@ -9,6 +9,10 @@ import {
 import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import { GuarantorWorkspaceWrapper } from './GuarantorWorkspaceWrapper';
 import { SeizureRequestBlock } from './SeizureRequestBlock';
+import {
+    SeizureRequestsTabGuarantorSeizureActions,
+    shouldShowGuarantorSeizureFollowupActions,
+} from './SeizureRequestsTabGuarantorSeizureActions';
 import type { DecisionRow } from './useSeizureRequestsTabModel.types';
 
 export function SeizureRequestsTabGuarantorBlock(props: {
@@ -33,6 +37,10 @@ export function SeizureRequestsTabGuarantorBlock(props: {
             guaranteeType?: 'amount' | 'attendance';
         }
     ) => void;
+    requestGuarantorSeizure?: (
+        kind: 'salary' | 'movable' | 'property',
+        opts?: { inline?: boolean },
+    ) => void;
     openAppeals: (decisionId?: string) => void;
     openDecisions: (decisionId?: string) => void;
     openGuarantorDetails: (decisionId?: string) => void;
@@ -51,10 +59,16 @@ export function SeizureRequestsTabGuarantorBlock(props: {
         setGuarantorExistingWarningOpen,
         handleGuarantorRequestFromFollowup,
         persistGuarantorFollowupDetails,
+        requestGuarantorSeizure,
         openAppeals,
         openDecisions,
         openGuarantorDetails,
     } = props;
+
+    const showGuarantorSeizureActions = shouldShowGuarantorSeizureFollowupActions({
+        requestGuarantorSeizure,
+        executionData,
+    });
 
     return (
         <SeizureRequestBlock
@@ -150,6 +164,14 @@ export function SeizureRequestsTabGuarantorBlock(props: {
                     onOpenAppeals={openAppeals}
                     onOpenDecisions={openDecisions}
                     onOpenGuarantorDetails={openGuarantorDetails}
+                />
+            ) : null}
+            {showGuarantorSeizureActions && requestGuarantorSeizure ? (
+                <SeizureRequestsTabGuarantorSeizureActions
+                    disabled={executionCoerciveButtonDisabled || coerciveUiLocked || isHistoricalMode}
+                    inlineActionGateKey={inlineActionGateKey}
+                    setInlineActionGateKey={setInlineActionGateKey}
+                    requestGuarantorSeizure={requestGuarantorSeizure}
                 />
             ) : null}
         </SeizureRequestBlock>

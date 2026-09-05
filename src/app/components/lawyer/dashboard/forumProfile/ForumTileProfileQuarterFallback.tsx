@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { HUB_TILE_BUTTON_A11Y } from '@/app/components/lawyer/dashboard/commandHub/commandHubTileClasses';
+import { HUB_TILE_BUTTON_A11Y } from '@/app/components/lawyer/dashboard/commandHubTileClasses';
 import { ForumTileProfileAvatarFace } from '@/app/components/lawyer/dashboard/forumProfile/ForumTileProfileAvatarFace';
 import {
     FORUM_TILE_PROFILE_TAP_STYLE,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { EXECUTION_HANDLER_CLUSTER_STUBS } from '@/app/components/lawyer/ExecutionDashboard/hooks/executionHandlerClusterStubs';
 import {
     handlerBagKeyFingerprint,
     mergeHandlerClusterPatch,
@@ -13,8 +14,8 @@ describe('handlerClusterPublishUtils', () => {
 
     it('mergeHandlerClusterPatch لا يُعيد كائناً جديداً عند نفس المراجع', () => {
         const handler = () => undefined;
-        const current = { seizureAssetModalHandlers: { save: handler } };
-        const next = { seizureAssetModalHandlers: { save: handler } };
+        const current = { followupSeizureHandlers: { save: handler } };
+        const next = { followupSeizureHandlers: { save: handler } };
         expect(mergeHandlerClusterPatch(current, next)).toBe(current);
     });
 
@@ -22,6 +23,23 @@ describe('handlerClusterPublishUtils', () => {
         const current = { notesTasksHandlers: { save: () => 'a' } };
         const next = { notesTasksHandlers: { save: () => 'b' } };
         expect(mergeHandlerClusterPatch(current, next)).toBe(current);
+    });
+
+    it('mergeHandlerClusterPatch replaces stub leaves with live handlers', () => {
+        const stubSave = EXECUTION_HANDLER_CLUSTER_STUBS.dossierFollowupHandlers as Record<
+            string,
+            unknown
+        >;
+        const live = () => 'live';
+        const current = {
+            dossierFollowupHandlers: { handleDossierAction: stubSave.handleDossierAction },
+        };
+        const next = { dossierFollowupHandlers: { handleDossierAction: live } };
+        const merged = mergeHandlerClusterPatch(current, next);
+        expect(merged).not.toBe(current);
+        expect((merged.dossierFollowupHandlers as { handleDossierAction: unknown }).handleDossierAction).toBe(
+            live,
+        );
     });
 
     it('mergeHandlerClusterPatch merges newly added handler keys', () => {

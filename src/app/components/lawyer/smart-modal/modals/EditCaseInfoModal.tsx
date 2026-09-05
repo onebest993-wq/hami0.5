@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Edit2 } from '@/app/components/ui/icons/Edit2';
 import { X } from '@/app/components/ui/icons/X';
 import type { Party } from '../../LawyerShared';
 import { partitionPartiesForHeader } from '../smartFile/partyRoleClassification';
@@ -11,7 +10,6 @@ import {
 } from './editCaseInfoHelpers';
 import {
     EditCaseInfoCaseFields,
-    EditCaseInfoCrossAppealToggle,
     EditCaseInfoPartiesSection,
 } from './EditCaseInfoSections';
 
@@ -126,16 +124,11 @@ export const EditCaseInfoModal = ({ isOpen, onClose, formData, onSave }: EditCas
     return (
         <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 font-['Tajawal']">
             <div
-                className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-hide rounded-2xl border border-white/12 shadow-[0_8px_22px_rgba(0,0,0,0.22)]"
-                style={{
-                    background:
-                        'radial-gradient(circle at top, rgba(230,198,115,0.1), transparent 40%), linear-gradient(180deg, rgba(14,20,34,0.94), rgba(8,12,22,0.97))',
-                    backdropFilter: 'blur(20px)',
-                }}
+                className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-hide rounded-2xl border border-white/10 bg-[#0A0F1C] shadow-[0_8px_22px_rgba(0,0,0,0.22)]"
             >
-                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-white/[0.04] px-4 py-3.5 backdrop-blur-sm">
-                    <h3 className="font-bold text-[#E6C673] flex items-center gap-2 text-sm">
-                        <Edit2 size={16} /> تعديل بيانات الدعوى
+                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.08] bg-[#0A0F1C] px-4 py-3">
+                    <h3 className="font-bold text-[#E6C673] text-sm">
+                        تعديل بيانات الدعوى
                     </h3>
                     <button
                         type="button"
@@ -169,16 +162,10 @@ export const EditCaseInfoModal = ({ isOpen, onClose, formData, onSave }: EditCas
                         handleUpdateParty={handleUpdateParty}
                     />
 
-                    <EditCaseInfoCrossAppealToggle
-                        stageName={stageName}
-                        hasCrossAppeal={hasCrossAppeal}
-                        setHasCrossAppeal={setHasCrossAppeal}
-                    />
-
                     <button
                         type="button"
                         onClick={handleSubmit}
-                        className="w-full rounded-xl border border-[#E6C673]/40 bg-[linear-gradient(155deg,rgba(230,198,115,0.35),rgba(11,16,33,0.55)_48%,rgba(201,162,39,0.22))] py-3.5 text-sm font-bold text-[#F8F1DE] shadow-[inset_0_1px_0_rgba(255,249,230,0.2),0_10px_28px_rgba(0,0,0,0.3)] backdrop-blur-sm transition-all hover:border-[#E6C673]/55"
+                        className="w-full rounded-xl border border-[#E6C673]/35 bg-[#E6C673]/12 py-3 text-sm font-bold text-[#E6C673] transition-colors hover:bg-[#E6C673]/18"
                     >
                         حفظ التغييرات
                     </button>

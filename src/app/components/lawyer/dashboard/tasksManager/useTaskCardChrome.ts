@@ -8,7 +8,6 @@ import {
 /** قائمة الخيارات + إعادة ضبط عند تبديل المهمة — منطق تفاعلي بلا JSX */
 export function useTaskCardChrome(taskId: string) {
     const [branchOpen, setBranchOpen] = useState(false);
-    const [addStepOpen, setAddStepOpen] = useState(false);
     const [optionsOpen, setOptionsOpen] = useState(false);
     const [optionsMenuSeed, setOptionsMenuSeed] = useState<AnchoredMenuPosition | null>(null);
     const optionsAnchorRef = useRef<HTMLButtonElement>(null);
@@ -35,7 +34,6 @@ export function useTaskCardChrome(taskId: string) {
 
     useEffect(() => {
         setBranchOpen(false);
-        setAddStepOpen(false);
         setOptionsOpen(false);
         setOptionsMenuSeed(null);
     }, [taskId]);
@@ -56,8 +54,6 @@ export function useTaskCardChrome(taskId: string) {
     return {
         branchOpen,
         setBranchOpen,
-        addStepOpen,
-        setAddStepOpen,
         optionsOpen,
         optionsAnchorRef,
         menuPos,

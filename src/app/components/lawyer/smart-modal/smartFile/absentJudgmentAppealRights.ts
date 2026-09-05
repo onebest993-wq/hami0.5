@@ -25,8 +25,28 @@ export function resolveAbsentObjectionAppealRights(
     }
 
     const upholdAbsent = judgmentType === 'إجابة الدعوى بالكامل';
+    const formReject = judgmentType === 'رد الاعتراض شكلاً';
     const fullModify = judgmentType === 'رد الدعوى كلياً';
     const partialModify = judgmentType === 'رد الدعوى جزئياً';
+
+    if (formReject) {
+        if (clientRole === 'objected') {
+            return {
+                action: 'wait_opponent',
+                hint: 'رُد الاعتراض شكلاً أو أُبطل للغياب (م/179). الحكم الغيابي اكتسب القطعية بحق المعترض. فك استئخار الاستئناف — الخصومة الاستئنافية مع الحاضر الطاعن فقط.',
+            };
+        }
+        if (clientRole === 'objector') {
+            return {
+                action: 'none',
+                hint: 'رُد اعتراض موكلك شكلاً أو أُبطل للغياب (م/179). اكتسب الحكم الغيابي القطعية بحقه — لا مهلة طعن جديدة من هذا القرار.',
+            };
+        }
+        return {
+            action: 'none',
+            hint: 'رد الاعتراض شكلاً (م/179) — الحكم الغيابي بات بحق المعترض. تُفك الاستئخار وتقتصر الخصومة الاستئنافية على المدعي والحاضر الطاعن.',
+        };
+    }
 
     if (upholdAbsent) {
         if (clientRole === 'objected') {
@@ -87,6 +107,9 @@ export function resolveAbsentObjectionWaitDecisionText(
         }
         if (judgmentType === 'رد الدعوى جزئياً') {
             return 'تعديل جزئي للحكم الغيابي — بانتظار طعن الطرف الآخر';
+        }
+        if (judgmentType === 'رد الاعتراض شكلاً') {
+            return 'رد الاعتراض شكلاً — اكتسب الحكم الغيابي القطعية بحق المعترض';
         }
         return 'تأييد الحكم الغيابي — بانتظار طعن المعترض';
     }

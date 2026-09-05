@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Transaction } from '@/app/modules/transactionsThreading/types';
-import { useTransactionsThreadingStore, ensureTransactionsUserBound } from '@/app/modules/transactionsThreading/store';
+import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { resolveInitialTransactionsView } from '@/app/services/transactions/resolveInitialTransactionsView';
 import {
     consumeOpenTransactionsAddSheet,
     subscribeOpenTransactionsHub,
@@ -10,6 +9,7 @@ import {
 import { useTransactionsEscapeStack } from './useTransactionsEscapeStack';
 import { useTransactionsHubSessionHydration } from './useTransactionsHubSessionHydration';
 import { useTransactionsOpenInteractionGuard } from './useTransactionsOpenInteractionGuard';
+import { createTransactionsDetailsReveal } from '../transactionsDetailsReveal';
 import {
     applyTransactionsEscapeAction,
     isSameTransactionsDetailsEscape,
@@ -56,25 +56,41 @@ export function useTransactionsHubNavigation({
         wasOpenRef.current = open;
     }, [open, initialTransactionId]);
 
+    const detailsReveal = useMemo(
+        () =>
+            createTransactionsDetailsReveal({
+                go: (transactionId) => {
+                    setSelectedId(transactionId);
+                    setView('details');
+                },
+                onChunkFailed: () => {
+                    SmartToast.error('تعذر فتح التفاصيل — حاول مرة أخرى');
+                },
+            }),
+        [],
+    );
+
     useEffect(() => {
         if (open) return;
+        detailsReveal.invalidate();
         setListAddSheetOpen(false);
         setView('list');
         setSelectedId(null);
         setDetailsEscape(null);
-    }, [open]);
+    }, [open, detailsReveal]);
 
     useEffect(() => {
         if (!open) return;
         return subscribeOpenTransactionsHub((detail) => {
             if (!detail.openAddSheet) return;
             consumeOpenTransactionsAddSheet();
+            detailsReveal.invalidate();
             setView('list');
             setSelectedId(null);
             setDetailsEscape(null);
             setListAddSheetOpen(true);
         });
-    }, [open]);
+    }, [open, detailsReveal]);
 
     useTransactionsHubSessionHydration({
         open,
@@ -87,13 +103,15 @@ export function useTransactionsHubNavigation({
         setView,
         setSelectedId,
         setListAddSheetOpen,
+        revealDetails: detailsReveal.reveal,
     });
 
-
-    const openDetails = useCallback((tx: Transaction) => {
-        setSelectedId(tx.id);
-        setView('details');
-    }, []);
+    const openDetails = useCallback(
+        (tx: Transaction) => {
+            detailsReveal.reveal(tx.id);
+        },
+        [detailsReveal],
+    );
 
     const onTransactionCreated = useCallback(
         (tx: Transaction) => {
@@ -104,9 +122,10 @@ export function useTransactionsHubNavigation({
     );
 
     const backToList = useCallback(() => {
+        detailsReveal.invalidate();
         setView('list');
         setDetailsEscape(null);
-    }, []);
+    }, [detailsReveal]);
 
     const handleDetailsEscapeSnapshot = useCallback((snapshot: TransactionsDetailsEscapeSnapshot) => {
         setDetailsEscape((prev) => (isSameTransactionsDetailsEscape(prev, snapshot) ? prev : snapshot));

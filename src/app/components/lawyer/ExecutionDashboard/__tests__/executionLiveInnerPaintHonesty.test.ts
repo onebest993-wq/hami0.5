@@ -26,9 +26,11 @@ describe('execution live inner paint honesty', () => {
         expect(row).not.toContain('React.lazy');
         expect(shell).toContain("import('./debtorCardRowBadgesClusterLazy')");
         expect(shell).not.toMatch(/from\s+['"]\.\/debtorCardRowBadgesClusterLazy['"]/);
+        expect(shell).not.toContain('LazyPersonalTab');
+        expect(shell).not.toContain('LazyCoerciveTab');
     });
 
-    it('تبويب الطلبات يسخّن السجل مع التبويب ويُبقي الطلبات المخفية على hover', () => {
+    it('تبويب الطلبات يرسم سجل الطلبات ثابتاً ويُبقي الطلبات المخفية على hover', () => {
         const tab = read(
             'src/app/components/lawyer/ExecutionDashboard/components/RequestsTab.tsx',
         );
@@ -38,14 +40,19 @@ describe('execution live inner paint honesty', () => {
         const prefetch = read(
             'src/app/components/lawyer/ExecutionDashboard/executionFollowupTabPrefetch.ts',
         );
-        expect(inner).toContain('LazyRequestsTabDecisionLog');
-        expect(inner).toContain('prefetchRequestsTabInnerSurfaces');
+        expect(tab).toMatch(/from ['"]\.\/RequestsTabDecisionLog['"]/);
+        expect(tab).not.toContain('LazyRequestsTabDecisionLog');
+        expect(inner).toContain('LazyHiddenFollowupRequestOptions');
+        expect(inner).not.toContain('LazyRequestsTabDecisionLog');
+        expect(inner).not.toContain('prefetchRequestsTabInnerSurfaces');
         expect(tab).toContain('PreloadableOverlayGate');
         expect(tab).toContain('prefetchHiddenFollowupRequestOptions');
+        expect(tab).toContain('onPointerDown');
         expect(tab).toContain('min-h-[44px]');
         expect(tab).toContain('touch-manipulation');
         expect(tab).not.toContain('React.lazy');
-        expect(prefetch).toContain('prefetchRequestsTabInnerSurfaces');
+        expect(prefetch).toContain("prefetchExecutionCoreHandlers('followup-admin-special')");
+        expect(prefetch).not.toContain('prefetchRequestsTabInnerSurfaces');
     });
 
     it('سجل الطرف الآخر اليدوي preloadable ويُسخَّن مع نية تبويب other_party', () => {
@@ -204,6 +211,7 @@ describe('execution live inner paint honesty', () => {
         expect(primary).not.toContain('<Suspense');
         expect(secondary).not.toContain('<Suspense');
         expect(tertiary).not.toContain('<Suspense');
-        expect(tertiary).toContain('LazyUnifiedSeizureLogHost');
+        expect(tertiary).toContain('LazyExecutionFinancialHubPortal');
+        expect(tertiary).not.toContain('LazyUnifiedSeizureLogHost');
     });
 });

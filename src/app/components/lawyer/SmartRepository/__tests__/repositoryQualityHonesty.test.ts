@@ -62,9 +62,13 @@ describe('repository quality honesty', () => {
         expect(compose).toContain('useRepositoryComposeVoice');
         expect(compose).toContain('buildRepositoryComposeNote');
         expect(compose).not.toContain('requestMicrophoneStream');
+        expect(compose).toContain("await import('@/app/services/vaultUploadService')");
+        expect(existsSync(join(root, 'src/app/services/vault/vaultFileGuards.ts'))).toBe(true);
+        expect(existsSync(join(root, 'src/app/services/vault/vaultDocResolve.ts'))).toBe(true);
         const feed = read('src/app/components/lawyer/SmartRepository/SmartRepositoryUnifiedFeed.tsx');
         expect(feed).toContain('useRepositoryUnifiedFeedModel');
-        expect(feed).toContain('value={modalRoot}');
+        expect(feed).not.toContain('VaultModalRootContext');
+        expect(feed).not.toContain('modalRoot');
         expect(feed).not.toContain('useSmartVault(');
         expect(feed).not.toContain('useRepositoryEscapeStack');
         const card = read('src/app/components/lawyer/SmartRepository/entryCards/VaultEntryCard.tsx');

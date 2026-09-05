@@ -10,7 +10,7 @@ import {
 import { findCrossSectionLinks } from '@/app/workspace/clusterMatchRules';
 import type { ClusterScanRecord } from '@/app/workspace/types';
 
-export interface ResultsBodyProps {
+interface ResultsBodyProps {
     grouped: GroupedSearchResults;
     flatResults: GlobalSearchEntry[];
     query: string;
@@ -51,7 +51,7 @@ export function ResultsBody({
     }, [flatResults, pinLookup, scanIndex]);
 
     return (
-        <div className="space-y-3 pb-4 px-1.5">
+        <div className="space-y-2 pb-2.5 px-1">
             {iterSearchResultSections(grouped).map((section) => {
                 const { key, label, entries } = section;
                 return (

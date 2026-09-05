@@ -66,7 +66,7 @@ export const RepositoryControlsSection = memo(function RepositoryControlsSection
 }: RepositoryControlsSectionProps) {
     return (
         <div className={REPO_CONTROLS_SHELL}>
-            <div className="hami-repository-controls-toolbar px-5 pt-3 pb-2 shrink-0" dir="rtl">
+            <div className="hami-repository-controls-toolbar px-3 pt-2 pb-1.5 shrink-0" dir="rtl">
                 <div className="hami-repository-controls-toolbar__search">
                     <VaultSearchFilterHub
                         searchQuery={vault.searchQuery}
@@ -98,7 +98,7 @@ export const RepositoryControlsSection = memo(function RepositoryControlsSection
                 />
             </div>
 
-            <div className="hami-repository-rail hami-repository-rail--filters shrink-0 min-w-0 pe-4" dir="rtl">
+            <div className="hami-repository-rail hami-repository-rail--filters shrink-0 min-w-0 pe-3" dir="rtl">
                 <RepositoryFiltersRail
                     docs={unboundVaultDocs}
                     notes={notes}

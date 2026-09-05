@@ -101,8 +101,20 @@ export function UrgentDashboardSections({
             ) : null}
 
             {!storageReady ? (
-                <div className="text-center py-6" aria-busy="true" data-testid="urgent-dashboard-hydrating">
-                    <p className="text-white/45 text-sm">جاري التحميل...</p>
+                <div
+                    className="text-center py-6 space-y-2"
+                    aria-busy="true"
+                    aria-label="الطلبات المستعجلة"
+                    data-testid="urgent-dashboard-hydrating"
+                >
+                    <div
+                        className="min-h-[72px] rounded-xl border border-white/[0.09] bg-white/[0.035]"
+                        aria-hidden
+                    />
+                    <div
+                        className="min-h-[72px] rounded-xl border border-white/[0.09] bg-white/[0.035]"
+                        aria-hidden
+                    />
                 </div>
             ) : null}
 

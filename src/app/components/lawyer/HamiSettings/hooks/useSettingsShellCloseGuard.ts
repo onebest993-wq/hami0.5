@@ -1,6 +1,5 @@
 import { useLayoutEffect, useRef, type SyntheticEvent } from 'react';
 import {
-    clearSettingsForceVisible,
     isSettingsCloseGuarded,
     isSettingsLayerOpen,
     isSettingsOpenGestureBlockingClose,
@@ -24,7 +23,6 @@ export function useSettingsShellCloseGuard(visible: boolean, onClose: () => void
             wasVisibleRef.current = false;
         }
         shellOpenedAtRef.current = null;
-        clearSettingsForceVisible();
         return undefined;
     }, [visible]);
 

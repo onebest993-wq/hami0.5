@@ -42,7 +42,7 @@ export function ForumCategoryPanelSections({
     onSelect,
 }: ForumCategoryPanelSectionsProps) {
     return (
-        <div className="max-h-[min(68vh,420px)] space-y-4 overflow-y-auto p-4 overscroll-contain scrollbar-hide">
+        <div className="max-h-[min(68vh,420px)] space-y-3 overflow-y-auto p-3 overscroll-contain scrollbar-hide">
             <section>
                 <p className={`${FORUM_FILTER_SECTION_LABEL} mb-2`}>ترتيب العرض</p>
                 <div className="grid grid-cols-2 gap-2">

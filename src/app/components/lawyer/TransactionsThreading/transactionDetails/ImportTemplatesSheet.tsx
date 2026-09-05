@@ -1,16 +1,12 @@
 import type { TaskTemplate } from '@/app/modules/transactionsThreading/taskTemplates';
 import { canImportTaskTemplate } from '@/app/services/transactions/importTaskTemplateToTransaction';
 import { TransactionsHubSheet } from '../TransactionsHubSheet';
-import {
-    TX_DIALOG_BTN_CANCEL,
-    TX_GOLD_BTN,
-    TX_TEXT_MUTED,
-    TX_TEXT_PRIMARY,
-    TxGlassDrawerFrame,
-    TxGlassPanel,
-} from '../transactionsGlassTheme';
+import { TxGlassDrawerFrame } from '../transactionsGlassTheme';
 
 type TaskTemplateListItem = Pick<TaskTemplate, 'id' | 'name' | 'tasks'>;
+
+const DRAWER_ROW_BTN =
+    'inline-flex items-center justify-center min-h-[44px] px-3 rounded-lg text-[12px] font-semibold touch-manipulation disabled:opacity-50 hover:bg-black/[0.04]';
 
 export function ImportTemplatesSheet({
     open,
@@ -39,43 +35,42 @@ export function ImportTemplatesSheet({
             ariaLabel="استيراد من قوالبي"
         >
             <TxGlassDrawerFrame title="استيراد من قوالبي" subtitle="يُضاف القالب إلى المسار الحالي دون حذف المهام الموجودة">
-                <div className="space-y-2">
-                    {templates.length === 0 ? (
-                        <TxGlassPanel className={`p-3 ${TX_TEXT_MUTED} text-sm font-medium`}>
-                            لا توجد قوالب محفوظة بعد.
-                        </TxGlassPanel>
-                    ) : (
-                        templates.map((t) => (
-                            <TxGlassPanel key={t.id} className="p-3 flex items-center justify-between gap-2">
-                                <div className="min-w-0">
-                                    <div className={`${TX_TEXT_PRIMARY} font-extrabold text-sm truncate`}>{t.name}</div>
-                                    <div className={`${TX_TEXT_MUTED} text-xs mt-0.5 font-medium`}>{t.tasks.length} خطوة</div>
-                                </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                    <button
-                                        type="button"
-                                        disabled={!canImportTaskTemplate({ isReadOnly, existingTaskCount })}
-                                        onClick={() => void onImport(t.id)}
-                                        className={TX_GOLD_BTN + ' disabled:opacity-50'}
-                                    >
-                                        استيراد
-                                    </button>
-                                    <button
-                                        type="button"
-                                        disabled={isReadOnly}
-                                        onClick={() => {
-                                            if (!userId) return;
-                                            onDelete(t.id);
-                                        }}
-                                        className={TX_DIALOG_BTN_CANCEL + ' !px-3 text-xs disabled:opacity-50'}
-                                    >
-                                        حذف
-                                    </button>
-                                </div>
-                            </TxGlassPanel>
-                        ))
-                    )}
-                </div>
+                {templates.length === 0 ? (
+                    <p className="py-3 text-sm font-medium text-black/40">لا توجد قوالب محفوظة بعد.</p>
+                ) : (
+                    templates.map((t) => (
+                        <div
+                            key={t.id}
+                            className="flex items-center justify-between gap-2 border-b border-black/[0.08] py-3"
+                        >
+                            <div className="min-w-0">
+                                <div className="truncate text-sm font-semibold text-[#0A0F1C]">{t.name}</div>
+                                <div className="mt-0.5 text-xs font-medium text-black/40">{t.tasks.length} خطوة</div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                                <button
+                                    type="button"
+                                    disabled={!canImportTaskTemplate({ isReadOnly, existingTaskCount })}
+                                    onClick={() => void onImport(t.id)}
+                                    className={`${DRAWER_ROW_BTN} text-[#0A0F1C]`}
+                                >
+                                    استيراد
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={isReadOnly}
+                                    onClick={() => {
+                                        if (!userId) return;
+                                        onDelete(t.id);
+                                    }}
+                                    className={`${DRAWER_ROW_BTN} text-black/45`}
+                                >
+                                    حذف
+                                </button>
+                            </div>
+                        </div>
+                    ))
+                )}
             </TxGlassDrawerFrame>
         </TransactionsHubSheet>
     );

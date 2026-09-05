@@ -2,20 +2,17 @@ import React from 'react';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import type { InlineActionGateKey } from '../types';
 import type { ExecutionFile } from '@/app/types/execution';
-import {
-    isExecutorRowRejectedAndFinal,
-} from '@/app/utils/executorSeizureDecisionQueue';
 import { isSalarySeizureAsset } from '@/app/components/lawyer/ExecutionDashboard/hooks/useSeizureRegistryAssets';
 import { isSalarySeizureLaneOccupied } from '@/app/components/lawyer/ExecutionDashboard/utils/salarySeizureTabUtils';
-import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import {
     isSeizureRegistrationComplete,
     isSeizureRequestFullyRegistered,
-    type UnifiedSeizureLogTab,
+    type SeizureRequestLaneTab,
 } from './seizureRequestsTabHelpers';
-import { dispatchOpenSeizureCompletion } from '@/app/components/lawyer/ExecutionDashboard/utils/seizureSalaryRequestFlow';
 import type { DecisionRow } from './useSeizureRequestsTabModel.types';
 import type { SeizureRequestSubtype } from '@/app/utils/executorSeizureDecisionQueue';
+import { isExecutorRowRejectedAndFinal } from '@/app/utils/executorSeizureDecisionQueue';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 
 export function useSeizureRequestsTabSalarySlice(args: {
     decisions: DecisionRow[];
@@ -29,7 +26,7 @@ export function useSeizureRequestsTabSalarySlice(args: {
     openDecisions: (decisionId?: string) => void;
     setInlineActionGateKey: (key: InlineActionGateKey | null) => void;
     inlineActionGateKey: InlineActionGateKey | null;
-    acknowledgeSeizureRequestFromLog: (tab: UnifiedSeizureLogTab) => void;
+    acknowledgeSeizureRequestFromLog: (tab: SeizureRequestLaneTab) => void;
     submitBasicSeizureRequest: (args: {
         actionType: 'salary' | 'property' | 'vehicle' | 'third_party';
         title: string;
@@ -143,39 +140,11 @@ export function useSeizureRequestsTabSalarySlice(args: {
             );
             if (!open) return;
             const did = String(salaryRowForUi?.id || '').trim();
-            if (did) {
-                openDecisions(did);
-                return;
-            }
-            try {
-                window.dispatchEvent(
-                    new CustomEvent('hami-open-unified-seizure-log', { detail: { tab: 'salary' } })
-                );
-            } catch {
-                /* ignore */
-            }
+            if (did) openDecisions(did);
             return;
         }
         const did = String(salaryRowForUi?.id || '').trim();
         if (did) {
-            const outcome = String(salaryRowForUi?.executorOutcome ?? 'pending').trim();
-            const alternative = outcome === 'alternative';
-            const rejected = isExecutorRowRejectedAndFinal(salaryRowForUi ?? {});
-            const approved =
-                !rejected &&
-                (alternative ||
-                    isExecutorRowApprovedWorkflowActive(salaryRowForUi ?? {}, decisions));
-            const savedAt = String(salaryRowForUi?.seizureRequestSavedAt || '').trim();
-            const needsCompletion = approved && !savedAt;
-            if (needsCompletion) {
-                const exId = String(resolvedExecutionId || '').trim();
-                if (exId && did) dispatchOpenSeizureCompletion(exId, did);
-                return;
-            }
-            if (approved && savedAt) {
-                openDecisions(did);
-                return;
-            }
             openDecisions(did);
             return;
         }
@@ -183,11 +152,9 @@ export function useSeizureRequestsTabSalarySlice(args: {
         setInlineActionGateKey('seizure_salary');
     }, [
         coerciveUiLocked,
-        decisions,
         hasActiveSalarySeizure,
         openDecisions,
-        resolvedExecutionId,
-        salaryRowForUi,
+        salaryRowForUi?.id,
         seizureActionsDisabled,
         setInlineActionGateKey,
     ]);
@@ -206,6 +173,7 @@ export function useSeizureRequestsTabSalarySlice(args: {
         submitBasicSeizureRequest,
         requestFollowupSeizureDecision,
         openAppeals,
+        openDecisions,
         saveCoerciveAction,
         showToast,
     };

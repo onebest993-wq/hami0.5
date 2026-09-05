@@ -1,5 +1,5 @@
 /* Notification Panel — entry aggregator (order = cascade)
- * Shell + Panel يستوردان هذا الملف فقط.
+ * NotificationShell يستورد هذا الملف (اللوحة مضمّنة ساكناً في الشِل).
  */
 @import './styles/notificationPanel.layer.css';
 @import './styles/notificationPanel.sheet.css';

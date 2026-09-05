@@ -7,10 +7,14 @@ import { useEntityCalendarEvents } from '@/app/hooks/useEntityCalendarEvents';
 import { mergeTimelineEventsWithCalendar } from '@/app/utils/calendarTimelineMerge';
 import {
     EXECUTION_TIMELINE_FILTER_OPTIONS,
+    countExecutionTimelineEventsByFilter,
     filterExecutionTimelineEvents,
     type ExecutionTimelineFilterLabel,
 } from '@/app/utils/timelineCategoryFilter';
 import { dedupeTimelineEventsForDisplay } from '@/app/utils/timelineDedup';
+import {
+    mergeLegacyEvictionResidentialGracePairs,
+} from '@/app/utils/timelineSmartDisplay';
 import { ExecutionTimelineFilterBar } from './ExecutionTimelineFilterBar';
 import { EXEC_MODAL_TOUCH_TARGET } from '../executionModalMobileShell';
 import { EXEC_OVERLAY_INNER_SILENT_FALLBACK } from '../executionDashboardLazyShellUi';
@@ -36,7 +40,6 @@ interface TimelineSectionProps {
     todayYmd: string;
     PremiumTimelineAuditLog: React.ComponentType<PremiumTimelineAuditLogProps>;
     moveTimelineEventToTrash: (ev: TimelineEvent) => void;
-    onRequestEditTimelineEvent: (ev: TimelineEvent) => void;
     /** الإضبارة الأم/الفرعية — أحداث مدمجة */
     showOnlyActiveFileTimeline?: boolean;
     setShowOnlyActiveFileTimeline?: Dispatch<SetStateAction<boolean>>;
@@ -71,7 +74,6 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
     todayYmd,
     PremiumTimelineAuditLog,
     moveTimelineEventToTrash,
-    onRequestEditTimelineEvent,
     showOnlyActiveFileTimeline,
     setShowOnlyActiveFileTimeline,
     subFilesCount,
@@ -79,14 +81,14 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
     executionEntityId,
     timelineFilterOptions = EXECUTION_TIMELINE_FILTER_OPTIONS,
 }) => {
-    const TIMELINE_PAGE_SIZE = 100;
+    const TIMELINE_PAGE_SIZE = 40;
     const [timelineVisibleCount, setTimelineVisibleCount] = useState(TIMELINE_PAGE_SIZE);
     const [activeAppointmentsVisibleCount, setActiveAppointmentsVisibleCount] = useState(TIMELINE_PAGE_SIZE);
     const [endedAppointmentsVisibleCount, setEndedAppointmentsVisibleCount] = useState(TIMELINE_PAGE_SIZE);
     const filterChipRefs = useRef<Record<string, HTMLButtonElement | null>>({});
     const dedupedAllEvents = useMemo(() => {
         const base = debtorBrowserTabsMode ? activeTimelineEventsDebtorScoped : activeTimelineEvents;
-        return dedupeTimelineEventsForDisplay(base);
+        return dedupeTimelineEventsForDisplay(mergeLegacyEvictionResidentialGracePairs(base));
     }, [debtorBrowserTabsMode, activeTimelineEventsDebtorScoped, activeTimelineEvents]);
 
     const effectiveEvents = useMemo(
@@ -94,23 +96,21 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
         [dedupedAllEvents, activeTimelineFilter]
     );
 
-    const filterCounts = useMemo(() => {
-        const counts: Record<string, number> = {};
-        for (const label of timelineFilterOptions) {
-            counts[label] = filterExecutionTimelineEvents(dedupedAllEvents, label).length;
-        }
-        return counts;
-    }, [dedupedAllEvents, timelineFilterOptions]);
+    const filterCounts = useMemo(
+        () => countExecutionTimelineEventsByFilter(dedupedAllEvents, timelineFilterOptions),
+        [dedupedAllEvents, timelineFilterOptions],
+    );
 
     const hasSubFiles = (subFilesCount ?? 0) > 0;
 
     const entityCal = useEntityCalendarEvents(
-        calendarUserId,
-        executionEntityId ? 'execution' : null,
-        executionEntityId,
+        timelineAccordionExpanded ? calendarUserId : null,
+        timelineAccordionExpanded && executionEntityId ? 'execution' : null,
+        timelineAccordionExpanded ? executionEntityId : null,
     );
 
     const radarEvents = useMemo(() => {
+        if (!timelineAccordionExpanded) return dedupedAllEvents;
         if (!executionEntityId || entityCal.length === 0) return dedupedAllEvents;
         return mergeTimelineEventsWithCalendar(
             dedupedAllEvents,
@@ -118,7 +118,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
             'execution',
             executionEntityId,
         );
-    }, [dedupedAllEvents, entityCal, executionEntityId]);
+    }, [dedupedAllEvents, entityCal, executionEntityId, timelineAccordionExpanded]);
 
     const openFullTimeline = () => {
         if (typeof onOpenTimelineModal === 'function') {
@@ -129,8 +129,9 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
     };
 
     useEffect(() => {
+        if (!timelineAccordionExpanded) return;
         void import('@/app/components/lawyer/SmartTimelineRadar');
-    }, []);
+    }, [timelineAccordionExpanded]);
 
     const appointmentsSplit = useMemo(() => {
         if (activeTimelineFilter !== 'مواعيد') return null;
@@ -182,18 +183,18 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                 />
             </div>
 
-            <div className="max-h-[min(70dvh,32rem)] overflow-y-auto overscroll-contain px-4 py-5 pb-8">
+            <div className="max-h-[min(70dvh,32rem)] overflow-y-auto overscroll-contain px-3 py-3 pb-5">
                 {activeTimelineFilter === 'مواعيد' && appointmentsSplit ? (
-                    <div className="space-y-6" dir="rtl">
-                        <div className="space-y-2">
-                            <p className="text-xs font-black text-slate-200">المواعيد النشطة</p>
+                    <div className="space-y-4" dir="rtl">
+                        <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold text-slate-400">المواعيد النشطة</p>
                             <Suspense fallback={EXEC_OVERLAY_INNER_SILENT_FALLBACK}>
                                 <PremiumTimelineAuditLog
                                     events={appointmentsSplit.active.slice(0, activeAppointmentsVisibleCount)}
                                     onTogglePin={toggleTimelineEventPin}
                                     onRequestTrash={moveTimelineEventToTrash}
-                                    onRequestEdit={onRequestEditTimelineEvent}
                                     isHistoricalMode={isHistoricalMode}
+                                    eventsAlreadyPrepared
                                 />
                             </Suspense>
                             {appointmentsSplit.active.length > activeAppointmentsVisibleCount ? (
@@ -208,15 +209,15 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                                 </button>
                             ) : null}
                         </div>
-                        <div className="space-y-2">
-                            <p className="text-xs font-black text-slate-200">المواعيد المنتهية</p>
+                        <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold text-slate-400">المواعيد المنتهية</p>
                             <Suspense fallback={EXEC_OVERLAY_INNER_SILENT_FALLBACK}>
                                 <PremiumTimelineAuditLog
                                     events={appointmentsSplit.ended.slice(0, endedAppointmentsVisibleCount)}
                                     onTogglePin={toggleTimelineEventPin}
                                     onRequestTrash={moveTimelineEventToTrash}
-                                    onRequestEdit={onRequestEditTimelineEvent}
                                     isHistoricalMode={isHistoricalMode}
+                                    eventsAlreadyPrepared
                                 />
                             </Suspense>
                             {appointmentsSplit.ended.length > endedAppointmentsVisibleCount ? (
@@ -238,8 +239,8 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                             events={effectiveEvents.slice(0, timelineVisibleCount)}
                             onTogglePin={toggleTimelineEventPin}
                             onRequestTrash={moveTimelineEventToTrash}
-                            onRequestEdit={onRequestEditTimelineEvent}
                             isHistoricalMode={isHistoricalMode}
+                            eventsAlreadyPrepared
                         />
                     </Suspense>
                 )}
@@ -254,15 +255,15 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                 ) : null}
             </div>
 
-            <div className="p-3 pt-0">
+            <div className="p-2.5 pt-0">
                 <button
                     type="button"
                     onClick={openFullTimeline}
-                    className="w-full rounded-lg border border-slate-600/45 bg-slate-800/40 p-2.5 transition-all hover:border-[#E6C673]/35 hover:bg-slate-800/55"
+                    className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 transition-colors hover:bg-white/[0.05]"
                 >
-                    <div className="flex items-center justify-center gap-2 text-slate-200">
-                        <History size={16} className="text-[#E6C673]/85" />
-                        <span className="text-sm font-semibold">عرض السجل الكامل</span>
+                    <div className="flex items-center justify-center gap-1.5 text-slate-300">
+                        <History size={14} className="text-[#E6C673]/80" />
+                        <span className="text-[11px] font-semibold">عرض السجل الكامل</span>
                     </div>
                 </button>
             </div>

@@ -7,7 +7,6 @@ import { useThirdPartyFundsReceivedOutcome } from '../useThirdPartyFundsReceived
 import { useSeizureDecisionOutcome } from '../useSeizureDecisionOutcome';
 import { useUnifiedCollectionOutcome } from '../useUnifiedCollectionOutcome';
 import { useGuarantorRequestOutcome } from '../useGuarantorRequestOutcome';
-import { useOpenSeizureCompletion } from '../useOpenSeizureCompletion';
 import { useTrustDisbursedOutcome } from '../useTrustDisbursedOutcome';
 import { useOpenFinancialHubLedger } from '../useOpenFinancialHubLedger';
 import type { SeizureDecisionOutcomeContext } from '@/app/components/lawyer/ExecutionDashboard/utils/seizureDecisionOutcomeHandler.types';
@@ -103,23 +102,6 @@ export function useExecutionDashboardSeizureLedgerOutcomeEffects(
         executionDataId: p.executionDataId,
         executionId: p.executionId,
         showToast: p.showToast,
-    });
-
-    useOpenSeizureCompletion({
-        executionDataId: p.executionDataId,
-        executionId: p.executionId,
-        executionDataRef: p.executionDataRef,
-        persistExecutionMergeRef: p.persistExecutionMergeRef,
-        pushTimelineEventRef: p.pushTimelineEventRef,
-        nextTimelineId: p.nextTimelineId,
-        focusSeizurePropertyInlineRef: p.focusSeizurePropertyInlineRef,
-        focusSeizureMovableInlineRef: p.focusSeizureMovableInlineRef,
-        focusSeizureThirdPartyInlineRef: p.focusSeizureThirdPartyInlineRef,
-        focusSeizureNoticeInlineRef: p.focusSeizureNoticeInlineRef,
-        seizedAssetsSnapshotRef: p.seizedAssetsSnapshotRef,
-        setSeizedAssets: p.setSeizedAssets,
-        setSeizureDetailCompletion: p.setSeizureDetailCompletion,
-        setShowCoerciveActionForm: p.setShowCoerciveActionForm,
     });
 
     useTrustDisbursedOutcome({

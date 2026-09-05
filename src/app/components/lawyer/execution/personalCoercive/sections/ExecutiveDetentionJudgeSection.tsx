@@ -1,5 +1,6 @@
 import React from 'react';
 import { BTN_BASE } from '../personalCoerciveStyles';
+import { CoercivePendingDecisionRail } from '../chrome/CoercivePendingDecisionRail';
 import { CoerciveSubsectionFold } from '../chrome/CoerciveSubsectionFold';
 import { Unlock } from '@/app/components/ui/icons/Unlock';
 import { UserX } from '@/app/components/ui/icons/UserX';
@@ -85,17 +86,17 @@ export function ExecutiveDetentionJudgeSection({
         <>
 {/* 4ب — قرار قاضي البداءة (بطاقة مستقلة بعد موافقة المنفذ على عرض الإضبارة) */}
             {showEmbeddedSection('executive_detention_judge') && showJudgeDetentionCard ? (
-                <div className="overflow-visible rounded-2xl border border-violet-500/25 bg-violet-950/15 text-right">
+                <div className="overflow-visible rounded-xl border border-violet-500/25 bg-violet-950/15 text-right">
                     <div className="relative">
                         <div
-                            className={`w-full ${BTN_BASE} bg-gradient-to-l from-orange-500/12 to-transparent`}
+                            className={`w-full ${BTN_BASE} !min-h-[44px] !py-2.5 bg-gradient-to-l from-orange-500/12 to-transparent`}
                         >
-                            <div className="flex flex-row-reverse items-center gap-3">
-                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5">
-                                    <UserX className="h-6 w-6 text-white/70" />
+                            <div className="flex flex-row-reverse items-center gap-2.5">
+                                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5">
+                                    <UserX className="h-4 w-4 text-white/70" />
                                 </span>
                                 <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-bold text-orange-100">قرار قاضي البداءة</p>
+                                    <p className="text-[13px] font-bold text-orange-100">قرار قاضي البداءة</p>
                                     {detentionActive ? (
                                         <p className="text-[10px] text-emerald-200/80">الحبس التنفيذي — نشط</p>
                                     ) : dossierAwaitingJudge ? (
@@ -109,19 +110,14 @@ export function ExecutiveDetentionJudgeSection({
                             {dossierHandedToJudgeStalled ? renderAppealSyncFollowup(dossierSync) : null}
 
                             {!detentionActive && dossierAwaitingJudge ? (
-                                <CoerciveSubsectionFold
-                                    title="قرار قاضي البداءة — بعد عرض الإضبارة"
-                                    titleClassName="text-amber-100"
-                                    defaultOpen
+                                <CoercivePendingDecisionRail
+                                    tone="judge"
+                                    title="قرار قاضي البداءة"
                                 >
-                                    <p className="text-[10px] leading-relaxed text-violet-200/80">
-                                        انتهى طلب عرض الإضبارة — سجّل قرار القاضي. يُنشأ قرار مستقل في مركز
-                                        القرارات والطعون.
-                                    </p>
                                     <button
                                         type="button"
                                         disabled={coerciveWriteLocked}
-                                        className="w-full rounded-xl bg-emerald-800/55 py-2.5 text-[11px] font-bold text-white border border-emerald-500/35 disabled:opacity-40"
+                                        className="min-h-[44px] w-full rounded-xl border border-emerald-500/35 bg-emerald-800/55 py-2.5 text-[11px] font-bold text-white disabled:opacity-40 touch-manipulation"
                                         onClick={() => handleApproveExecutiveDetention()}
                                     >
                                         حبس المدين تنفيذاً
@@ -129,7 +125,7 @@ export function ExecutiveDetentionJudgeSection({
                                     <button
                                         type="button"
                                         disabled={coerciveWriteLocked || detentionRejectionOpen}
-                                        className="w-full rounded-xl border border-rose-500/45 bg-rose-950/35 py-2.5 text-[11px] font-bold text-rose-100 disabled:opacity-40"
+                                        className="min-h-[44px] w-full rounded-xl border border-rose-500/45 bg-rose-950/35 py-2.5 text-[11px] font-bold text-rose-100 disabled:opacity-40 touch-manipulation"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             if (coerciveWriteLocked) return;
@@ -139,7 +135,7 @@ export function ExecutiveDetentionJudgeSection({
                                         رفض حبس المدين
                                     </button>
                                     {detentionRejectionOpen ? (
-                                        <div className="space-y-2 rounded-2xl border border-rose-500/25 bg-rose-950/15 p-3">
+                                        <div className="space-y-2 rounded-xl border border-rose-500/25 bg-rose-950/15 p-2.5">
                                             <p className="text-[10px] font-bold text-rose-200">سبب رفض الحبس</p>
                                             <textarea
                                                 value={detentionRejectionReason}
@@ -152,7 +148,7 @@ export function ExecutiveDetentionJudgeSection({
                                                 <button
                                                     type="button"
                                                     disabled={detentionRejectionSaving || coerciveWriteLocked}
-                                                    className="rounded-xl border border-rose-500/40 bg-rose-900/30 py-2.5 text-[11px] font-black text-rose-100 disabled:opacity-50"
+                                                    className="min-h-[44px] rounded-xl border border-rose-500/40 bg-rose-900/30 py-2.5 text-[11px] font-black text-rose-100 disabled:opacity-50 touch-manipulation"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         if (coerciveWriteLocked) return;
@@ -177,7 +173,7 @@ export function ExecutiveDetentionJudgeSection({
                                                 <button
                                                     type="button"
                                                     disabled={detentionRejectionSaving}
-                                                    className="rounded-xl bg-slate-800 py-2.5 text-[11px] font-bold text-slate-100 hover:bg-slate-700 disabled:opacity-50"
+                                                    className="min-h-[44px] rounded-xl bg-slate-800 py-2.5 text-[11px] font-bold text-slate-100 hover:bg-slate-700 disabled:opacity-50 touch-manipulation"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setDetentionRejectionOpen(false);
@@ -189,7 +185,7 @@ export function ExecutiveDetentionJudgeSection({
                                             </div>
                                         </div>
                                     ) : null}
-                                </CoerciveSubsectionFold>
+                                </CoercivePendingDecisionRail>
                             ) : null}
 
                             {!detentionActive &&

@@ -1,42 +1,34 @@
 import type { GlobalSearchCategory, GroupedSearchResults, GlobalSearchEntry } from '@/app/services/globalSearchIndex';
 import { groupSearchResults } from '@/app/services/globalSearchIndex';
+import {
+    GLOBAL_SEARCH_SCOPE_CHIP_LABELS,
+    type GlobalSearchScopeId,
+} from '@/app/components/lawyer/GlobalSearchOverlay/searchScopeChipLabels';
 
-/** نطاقات تصنيف البحث — بدون المنتدى القانوني (community تبقى ضمن «الكل» فقط) */
-export type GlobalSearchScopeId =
-    | 'all'
-    | 'execution'
-    | 'lawsuit'
-    | 'criminal'
-    | 'transactions'
-    | 'tasks'
-    | 'calendar'
-    | 'vault'
-    | 'notes'
-    | 'notifications';
+export type { GlobalSearchScopeId };
 
-export type GlobalSearchScopeChip = {
-    id: GlobalSearchScopeId;
-    label: string;
-    categories: readonly GlobalSearchCategory[];
+const SCOPE_CATEGORIES: Record<GlobalSearchScopeId, readonly GlobalSearchCategory[]> = {
+    all: [],
+    execution: ['execution'],
+    lawsuit: ['lawsuit', 'case', 'party', 'urgent'],
+    criminal: ['criminal'],
+    transactions: ['transaction', 'threading'],
+    tasks: ['task'],
+    calendar: ['calendar'],
+    vault: ['vault', 'repository'],
+    notes: ['note', 'voice'],
+    notifications: ['notification'],
 };
 
-export const SEARCH_SCOPE_CHIPS: readonly GlobalSearchScopeChip[] = [
-    { id: 'all', label: 'الكل', categories: [] },
-    { id: 'execution', label: 'تنفيذ', categories: ['execution'] },
-    { id: 'lawsuit', label: 'دعاوى', categories: ['lawsuit', 'case', 'party', 'urgent'] },
-    { id: 'criminal', label: 'جزائي', categories: ['criminal'] },
-    { id: 'transactions', label: 'معاملات', categories: ['transaction', 'threading'] },
-    { id: 'tasks', label: 'مهام', categories: ['task'] },
-    { id: 'calendar', label: 'تقويم', categories: ['calendar'] },
-    { id: 'vault', label: 'المستودع', categories: ['vault', 'repository'] },
-    { id: 'notes', label: 'ملاحظات', categories: ['note', 'voice'] },
-    { id: 'notifications', label: 'إشعارات', categories: ['notification'] },
-] as const;
+export const SEARCH_SCOPE_CHIPS = GLOBAL_SEARCH_SCOPE_CHIP_LABELS.map((chip) => ({
+    id: chip.id,
+    label: chip.label,
+    categories: SCOPE_CATEGORIES[chip.id],
+}));
 
-export function resolveSearchScopeCategories(scope: GlobalSearchScopeId): readonly GlobalSearchCategory[] | null {
+function resolveSearchScopeCategories(scope: GlobalSearchScopeId): readonly GlobalSearchCategory[] | null {
     if (scope === 'all') return null;
-    const chip = SEARCH_SCOPE_CHIPS.find((c) => c.id === scope);
-    return chip?.categories ?? null;
+    return SCOPE_CATEGORIES[scope];
 }
 
 export function entryMatchesSearchScope(entry: GlobalSearchEntry, scope: GlobalSearchScopeId): boolean {

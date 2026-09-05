@@ -18,7 +18,7 @@ export function useExecutionFollowupModalPortalController(): FollowupModalPortal
     const { handleSpecialFollowupSubmit, safeHandleDossierAction } =
         useExecutionFollowupModalLiveHandlers({
             handleDossierAction: followup.handleDossierAction as ((payload: unknown) => unknown) | undefined,
-            submitSpecialFollowupRequest: followup.submitSpecialFollowupRequest as (() => unknown) | undefined,
+            runSpecialFollowupSubmit: followup.runSpecialFollowupSubmit as (() => unknown) | undefined,
             isRepresentingDebtor: Boolean(followup.isRepresentingDebtor),
             showToast:
                 typeof followup.showToast === 'function'
@@ -87,6 +87,7 @@ export function useExecutionFollowupModalPortalController(): FollowupModalPortal
         followupModalTabs: derived.followupModalTabs,
         followupModalSectionTabsRef: followup.followupModalSectionTabsRef,
         openSeizureRequestsTab: followup.openSeizureRequestsTab,
+        dossierKeepAliveKey: followup.decisionsStorageExecutionId,
     });
 
     return {

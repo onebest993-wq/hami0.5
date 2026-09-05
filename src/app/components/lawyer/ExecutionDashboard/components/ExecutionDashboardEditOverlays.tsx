@@ -4,6 +4,7 @@ import type { PartyEditModalProps } from './PartyEditModal';
 import type { TimelineEvent } from '@/app/types/execution';
 import type { ExecutionTrashModalProps } from './ExecutionTrashModal';
 import type { ExecutionHeirsQuickViewModalProps } from './ExecutionHeirsQuickViewModal';
+import { EXEC_MODAL_Z } from '../executionDashboardConstants';
 import { ExecutionNamedOverlayInstantFrame } from './executionOverlayInstantPresets';
 import {
     LazyDossierMetaEditSection,
@@ -262,30 +263,13 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
             ) : null}
 
             {showEditDossierMetaModal ? (
-            <Suspense
-                fallback={
-                    <ExecutionNamedOverlayInstantFrame
-                        title="تعديل بيانات الإضبارة"
-                        onClose={() => {
-                            if (typeof onCloseEditDossierMetaModal === 'function') {
-                                onCloseEditDossierMetaModal();
-                                return;
-                            }
-                            setShowEditDossierMetaModal(false);
-                        }}
-                    />
-                }
-            >
+            LazyDossierMetaEditSection.isPreloaded() ? (
                 <LazyDossierMetaEditSection
-
                     showEditDossierMetaModal={showEditDossierMetaModal}
-
                     dossierMetaDraft={dossierMetaDraft}
-
                     isEvictionExecutionModule={
                         dossierMetaEditIsEvictionExecutionModule ?? isEvictionExecutionModule
                     }
-
                     setShowEditDossierMetaModal={(open) => {
                         if (open) {
                             setShowEditDossierMetaModal(true);
@@ -297,13 +281,47 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
                         }
                         setShowEditDossierMetaModal(false);
                     }}
-
                     setDossierMetaDraft={setDossierMetaDraft}
-
                     saveDossierMetaDraft={saveDossierMetaDraft}
-
+                />
+            ) : (
+            <Suspense
+                fallback={
+                    <ExecutionNamedOverlayInstantFrame
+                        title="تعديل بيانات الإضبارة"
+                        zIndex={EXEC_MODAL_Z.nestedOverFollowUpPortal}
+                        onClose={() => {
+                            if (typeof onCloseEditDossierMetaModal === 'function') {
+                                onCloseEditDossierMetaModal();
+                                return;
+                            }
+                            setShowEditDossierMetaModal(false);
+                        }}
+                    />
+                }
+            >
+                <LazyDossierMetaEditSection
+                    showEditDossierMetaModal={showEditDossierMetaModal}
+                    dossierMetaDraft={dossierMetaDraft}
+                    isEvictionExecutionModule={
+                        dossierMetaEditIsEvictionExecutionModule ?? isEvictionExecutionModule
+                    }
+                    setShowEditDossierMetaModal={(open) => {
+                        if (open) {
+                            setShowEditDossierMetaModal(true);
+                            return;
+                        }
+                        if (typeof onCloseEditDossierMetaModal === 'function') {
+                            onCloseEditDossierMetaModal();
+                            return;
+                        }
+                        setShowEditDossierMetaModal(false);
+                    }}
+                    setDossierMetaDraft={setDossierMetaDraft}
+                    saveDossierMetaDraft={saveDossierMetaDraft}
                 />
             </Suspense>
+            )
             ) : null}
 
             {showPartyEditModal ? (
@@ -364,6 +382,7 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
                 fallback={
                     <ExecutionNamedOverlayInstantFrame
                         title="الورثة"
+                        zIndex={EXEC_MODAL_Z.nestedOverFollowUpPortal}
                         onClose={() => {
                             if (typeof onCloseHeirsQuickViewModal === 'function') {
                                 onCloseHeirsQuickViewModal();

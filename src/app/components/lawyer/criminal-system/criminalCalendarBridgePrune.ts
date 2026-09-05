@@ -3,19 +3,11 @@
  * بلا legacy CalendarBridge (يسحب bridgePersistence/propagate).
  */
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
+import { isBridgedCalendarEvent } from '@/app/services/calendar/bridgePersistence/lite';
 import { removeCalendarBySource } from '@/app/services/calendar/bridge/syncEngine';
 import { CalendarDB } from '@/app/services/cloud/lawyerCalendarCloud';
 import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
 import { debug } from '@/app/utils/debug';
-
-function isBridgedCalendarEvent(event: {
-    sourceModule?: string | null;
-    sourceEntityId?: string | number | null;
-    sourceEventId?: string | null;
-}): boolean {
-    const mod = event.sourceModule;
-    return Boolean(mod && mod !== 'manual' && event.sourceEntityId && event.sourceEventId);
-}
 
 export async function removeAllCriminalBridgedCalendarEvents(
     sourceEntityId: string | number,

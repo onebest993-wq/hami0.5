@@ -22,7 +22,7 @@ export interface ScannerSaveResult {
     localOnly: boolean;
 }
 
-export type ScanPhase = 'idle' | 'camera' | 'capturing' | 'uploading' | 'result';
+type ScanPhase = 'idle' | 'camera' | 'capturing' | 'uploading' | 'result';
 
 type UseSmartVaultScannerParams = {
     userId: string;

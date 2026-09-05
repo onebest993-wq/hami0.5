@@ -1,9 +1,11 @@
 import React from 'react';
-import { LogIn } from '@/app/components/ui/icons/LogIn';
-import { LogOut } from '@/app/components/ui/icons/LogOut';
-import { ScrollText } from '@/app/components/ui/icons/ScrollText';
-import { User } from '@/app/components/ui/icons/User';
-import { UserX } from '@/app/components/ui/icons/UserX';
+import { SettingsUserIcon } from '../settingsStemIconsChrome';
+import {
+    SettingsLogInIcon,
+    SettingsLogOutIcon,
+    SettingsScrollTextIcon,
+    SettingsUserXIcon,
+} from '../settingsStemIconsLazy';
 import {
     buildHamiSupportMailtoUrl,
     HAMI_SUPPORT_EMAIL,
@@ -25,7 +27,7 @@ export function AccountSupportRows({
     return (
         <>
             <SettingRow
-                icon={User}
+                icon={SettingsUserIcon}
                 label="الدعم الفني"
                 action={
                     <div className="flex gap-2">
@@ -44,7 +46,7 @@ export function AccountSupportRows({
                 }
             />
             <SettingRow
-                icon={ScrollText}
+                icon={SettingsScrollTextIcon}
                 label="الشروط والأحكام وسياسة الاستخدام والخصوصية"
                 action={
                     <AccountDocumentOpenButton
@@ -83,7 +85,7 @@ export function AccountSessionRows({
         <>
             {signedIn && onLogout ? (
                 <SettingRow
-                    icon={LogOut}
+                    icon={SettingsLogOutIcon}
                     label="تسجيل الخروج"
                     action={
                         <button
@@ -92,15 +94,16 @@ export function AccountSessionRows({
                             onClick={() => void requestLogout()}
                             data-testid="settings-account-logout"
                             aria-label="تسجيل الخروج"
+                            aria-busy={logoutPending || undefined}
                             className="text-rose-400 text-xs font-bold min-h-[44px] min-w-[44px] inline-flex items-center justify-center disabled:opacity-40"
                         >
-                            {logoutPending ? 'جاري الخروج…' : 'خروج'}
+                            خروج
                         </button>
                     }
                 />
             ) : (
                 <SettingRow
-                    icon={LogIn}
+                    icon={SettingsLogInIcon}
                     label="تسجيل الدخول"
                     isLast
                     action={
@@ -118,7 +121,7 @@ export function AccountSessionRows({
             )}
             {signedIn ? (
                 <SettingRow
-                    icon={UserX}
+                    icon={SettingsUserXIcon}
                     label="مسح الحساب"
                     isLast
                     action={
@@ -139,13 +142,14 @@ export function AccountSessionRows({
                         ) : (
                             <button
                                 type="button"
-                                disabled={deletePhase === 'wiping' || logoutPending}
+                                disabled={deletePhase !== 'idle' || logoutPending}
                                 onClick={() => void requestDeleteAccount()}
                                 data-testid="settings-account-delete"
                                 aria-label="مسح الحساب"
+                                aria-busy={deletePhase === 'wiping' || undefined}
                                 className="text-rose-400 text-xs font-bold min-h-[44px] min-w-[44px] inline-flex items-center justify-center disabled:opacity-40"
                             >
-                                {deletePhase === 'wiping' ? 'جاري المسح…' : 'مسح'}
+                                مسح
                             </button>
                         )
                     }

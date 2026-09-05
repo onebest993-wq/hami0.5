@@ -3,7 +3,6 @@ import { resolveExecutionDossierNestedNav } from '../utils/resolveExecutionDossi
 
 const base = {
     showExecutionTrashModal: false,
-    showUnifiedSeizureLogModal: false,
     propertySeizureRequestModalOpen: false,
     movableSeizureRequestModalOpen: false,
     showExecutionFinancialHub: false,

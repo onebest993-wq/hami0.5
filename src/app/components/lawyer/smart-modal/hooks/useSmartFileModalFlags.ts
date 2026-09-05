@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { IncidentalCase, Task, TimelineEvent } from '../../LawyerShared';
 import type { JudgmentPayload } from '../smartFile/judgmentTypes';
+import { isSessionHubFocusEvent } from '../smartFile/sessionRecordEngine';
 import { shouldOpenAppointmentEditor } from '../smartFile/timelineLegalDeadline';
 
 export function useSmartFileModalFlags() {
@@ -21,6 +22,8 @@ export function useSmartFileModalFlags() {
     const [showAppealModal, setShowAppealModal] = useState(false);
     const [isTrashOpen, setIsTrashOpen] = useState(false);
     const [showJudgmentModal, setShowJudgmentModal] = useState(false);
+    const [showAdjournPleadingModal, setShowAdjournPleadingModal] = useState(false);
+    const [pendingJudgmentDate, setPendingJudgmentDate] = useState('');
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [showProvisionalOrderModal, setShowProvisionalOrderModal] = useState(false);
     const [showFastTrackModal, setShowFastTrackModal] = useState(false);
@@ -49,6 +52,7 @@ export function useSmartFileModalFlags() {
 
     useEffect(() => {
         if (!editingEvent) return;
+        if (isSessionHubFocusEvent(editingEvent)) return;
         if (shouldOpenAppointmentEditor(editingEvent)) setShowApptModal(true);
         if (editingEvent.type === 'note') setShowNoteModal(true);
         if (editingEvent.type === 'document') setShowDocModal(true);
@@ -114,6 +118,10 @@ export function useSmartFileModalFlags() {
         setIsTrashOpen,
         showJudgmentModal,
         setShowJudgmentModal,
+        showAdjournPleadingModal,
+        setShowAdjournPleadingModal,
+        pendingJudgmentDate,
+        setPendingJudgmentDate,
         showExportMenu,
         setShowExportMenu,
         showProvisionalOrderModal,

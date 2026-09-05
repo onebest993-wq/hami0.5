@@ -61,9 +61,6 @@ export const AddTaskModal = ({ isOpen, onClose, onAdd, editMode = false, editDat
                             className={T.field}
                         />
                     </div>
-                    <p className="text-[11px] text-white/40">
-                        ستظهر المهمة مباشرة داخل قسم المهام الإدارية في نفس المرحلة.
-                    </p>
                 </div>
                 <button
                     type="button"

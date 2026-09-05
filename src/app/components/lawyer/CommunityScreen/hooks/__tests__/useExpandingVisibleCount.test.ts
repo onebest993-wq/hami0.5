@@ -20,6 +20,19 @@ describe('useExpandingVisibleCount', () => {
         expect(result.current.hasMore).toBe(false);
     });
 
+    it('يحافظ على النافذة المتوسّعة عند نمو القائمة', () => {
+        const { result, rerender } = renderHook(
+            ({ total }: { total: number }) =>
+                useExpandingVisibleCount(total, { initial: 4, step: 4, resetKey: 'feed' }),
+            { initialProps: { total: 20 } },
+        );
+        expect(result.current.visibleCount).toBe(4);
+        rerender({ total: 21 });
+        expect(result.current.visibleCount).toBe(4);
+        rerender({ total: 2 });
+        expect(result.current.visibleCount).toBe(2);
+    });
+
     it('لا يعيد القصّ عند نمو المجموع إن عُطّل إعادة التعيين', () => {
         const { result, rerender } = renderHook(
             ({ total }: { total: number }) =>

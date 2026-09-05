@@ -61,6 +61,18 @@ function resolveDraftFileParts(draft: Record<string, string>): {
     };
 }
 
+/** يفصل الرقم/السنة في مسودة التعديل حتى يعمل حقلا الرقم والسنة مستقلّين */
+export function normalizeDossierMetaFileParts(draft: Record<string, string>): Record<string, string> {
+    const parsed = parseDossierFileRef(
+        formatDossierFileRef(draft.fileNumber, draft.fileYear) || String(draft.fileNumber ?? ''),
+    );
+    return {
+        ...draft,
+        fileNumber: parsed.fileNumber || String(draft.fileNumber ?? '').trim(),
+        fileYear: parsed.fileYear || String(draft.fileYear ?? '').trim(),
+    };
+}
+
 export function validateDossierMetaDraft(
     draft: DossierMetaValidationDraft,
     options?: { isEviction?: boolean },

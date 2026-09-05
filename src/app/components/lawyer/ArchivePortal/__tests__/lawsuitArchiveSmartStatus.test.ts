@@ -112,4 +112,67 @@ describe('computeLawsuitSmartStatus', () => {
         expect(status.label).toBe('مستمرة');
         expect(status.type).toBe('active');
     });
+
+    it('لا يعتبر الغائب قطعيّاً إذا شمله استئناف الشريك لوحدة النزاع', () => {
+        const status = computeLawsuitSmartStatus({
+            status: 'مكتسبة الدرجة القطعية',
+            disputeIntegrity: 'indivisible',
+            parties: [
+                { id: 1, name: 'أحمد', role: 'مدعي', isClient: false },
+                { id: 2, name: 'سامي', role: 'مدعى عليه', isClient: false },
+                { id: 3, name: 'كريم', role: 'مدعى عليه', isClient: true },
+            ],
+            stages: [
+                {
+                    stageName: 'بداءة بدرجة أولى',
+                    status: 'locked',
+                    judgmentForm: 'مختلط',
+                    disputeIntegrity: 'indivisible',
+                    partyJudgmentDispositions: [
+                        { partyId: '2', form: 'حضوري' },
+                        { partyId: '3', form: 'غيابي' },
+                    ],
+                    parties: [
+                        { id: 1, name: 'أحمد', role: 'مدعي', isClient: false },
+                        { id: 2, name: 'سامي', role: 'مدعى عليه', isClient: false },
+                        { id: 3, name: 'كريم', role: 'مدعى عليه', isClient: true },
+                    ],
+                    finalDecision: 'إجابة الدعوى بالكامل',
+                },
+                {
+                    stageName: 'الاستئناف',
+                    status: 'active',
+                    appealMetadata: {
+                        appellantPartyIds: ['2'],
+                        appelleePartyIds: ['1', '3'],
+                    },
+                },
+            ],
+            activeStageIndex: 1,
+        } as never);
+        expect(status.type).not.toBe('final');
+        expect(status.title).not.toBe('مكتسبة الدرجة القطعية');
+    });
+
+    it('لا يعتبر الحكم المختلط غير القابل للتجزئة قطعيّاً قبل انقضاء الاعتراض', () => {
+        const status = computeLawsuitSmartStatus({
+            status: 'مكتسبة الدرجة القطعية',
+            disputeIntegrity: 'indivisible',
+            stages: [
+                {
+                    stageName: 'بداءة بدرجة أولى',
+                    status: 'active',
+                    judgmentForm: 'مختلط',
+                    disputeIntegrity: 'indivisible',
+                    partyJudgmentDispositions: [
+                        { partyId: '2', form: 'حضوري' },
+                        { partyId: '3', form: 'غيابي' },
+                    ],
+                    finalDecision: 'إجابة الدعوى بالكامل',
+                },
+            ],
+            activeStageIndex: 0,
+        } as never);
+        expect(status.type).not.toBe('final');
+    });
 });

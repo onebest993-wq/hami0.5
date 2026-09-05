@@ -29,7 +29,7 @@ describe('settings security close honesty', () => {
         expect(accountApi).not.toMatch(/await supabase\.from\(/);
     });
 
-    it('قطع الاتصال والبصمة واللقطة والضبابية لا تُطبَّق دون تحقق', () => {
+    it('قطع الاتصال والبصمة واللقطة لا تُطبَّق دون تحقق؛ الضبابية محرّك بلا صف', () => {
         const toggles = read(
             'src/app/components/lawyer/HamiSettings/security/securitySectionToggles.ts',
         );
@@ -37,14 +37,15 @@ describe('settings security close honesty', () => {
         expect(toggles).toContain('armLocalOnlyNetworkIsolation');
         expect(toggles).toContain('enrollBiometricSessionLock');
         expect(toggles).toContain('إيقاف القفل البيومتري؟');
-        expect(toggles).toContain('إيقاف ضبابية الخصوصية؟');
-        expect(toggles).toContain('runPrivacyBlurToggle');
+        expect(toggles).not.toContain('إيقاف ضبابية الخصوصية؟');
+        expect(toggles).not.toContain('runPrivacyBlurToggle');
         expect(toggles).toContain('syncNativeScreenshotGuard');
         const section = read(
             'src/app/components/lawyer/HamiSettings/security/SecuritySection.tsx',
         );
-        expect(section).toContain('settings-toggle-security-privacyBlur');
-        expect(section).toContain('togglePrivacyBlur');
+        expect(section).not.toContain('settings-toggle-security-privacyBlur');
+        expect(section).not.toContain('togglePrivacyBlur');
+        expect(section).not.toContain('ضبابية الخصوصية');
         const backup = read(
             'src/app/components/lawyer/HamiSettings/hooks/businessBackupImportFlow.ts',
         );
@@ -54,5 +55,20 @@ describe('settings security close honesty', () => {
         expect(existsSync(join(root, 'src/app/components/lawyer/HamiSettings/account/settingsSupportUrl.ts'))).toBe(
             true,
         );
+        const hydration = read('src/app/context/lawyerSettings/useLawyerSettingsHydration.ts');
+        expect(hydration).not.toContain('loadFromCloud');
+        const toggle = read('src/app/components/lawyer/HamiSettings/data/dataCloudSyncToggle.ts');
+        expect(toggle).not.toContain('saveToCloud');
+        expect(toggle).toContain('runCloudSyncAllNow');
+        expect(existsSync(join(root, 'src/app/context/lawyerSettings/useLawyerSettingsCloudSync.ts'))).toBe(
+            false,
+        );
+        const seal = read('src/app/services/settings/sealCloudSyncedPreferences.ts');
+        expect(seal).toContain('mergeRemoteLawyerSettingsPreservingDeviceLock');
+        expect(seal).toContain('delete next.security');
+        const cloudRoute = read('src/app/api/settings/cloud-sync/route.ts');
+        expect(cloudRoute).toContain('sealCloudSyncedAppData');
+        expect(cloudRoute).toContain('migrated: false');
+        expect(cloudRoute).not.toContain('migrated: true');
     });
 });

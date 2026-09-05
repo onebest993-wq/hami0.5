@@ -11,6 +11,8 @@ describe('CommunityScreenAccessGate', () => {
         );
         fireEvent.click(screen.getByTestId('forum-access-back'));
         expect(onBack).toHaveBeenCalledTimes(1);
+        expect(screen.queryByText(/جاري التحقق/)).not.toBeInTheDocument();
+        expect(screen.getByLabelText('المنتدى')).toBeInTheDocument();
     });
 
     it('يعرض زر الرجوع عند رفض الوصول', () => {

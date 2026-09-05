@@ -1,7 +1,12 @@
 import { debug } from '@/app/utils/debug';
-
-
-
+import {
+    resolveFirstInstanceHadoriAppealRights,
+    resolveLawyerSide,
+} from '../../../smartFile/judgmentTypes';
+import {
+    stageOutcomeFromFirstInstanceRights,
+    withClientStageOutcome,
+} from '../../../smartFile/stageOutcomeResolution';
 
 import type { JudgmentConfirmRuntime, JudgmentConfirmScope } from './judgmentConfirmTypes';
 
@@ -23,16 +28,26 @@ export function applyFinalCloseScenario(scope: JudgmentConfirmScope, rt: Judgmen
 
 if (action === 'final_close') {
     rt.handled = true;
-    updatedStages[activeStageIndex] = {
-        ...currentStage,
-        status: 'completed',
-        finalDecision: 'منتهية نهائياً (30 يوم للطعن)',
-        decisionDate: judgmentDate,
-        // ✨ INJECT FINAL APPEAL TIMER
-        legalTimers: {
-            finalAppealDeadline: addDays(now, 30)
-        }
-    };
+    const lawyerSide = resolveLawyerSide(parentData.representedParty, currentStage.parties);
+    const hadoriRights = resolveFirstInstanceHadoriAppealRights(judgmentType, lawyerSide, {
+        parties: currentStage.parties,
+        representedParty: parentData.representedParty,
+    });
+    const clientStageOutcome =
+        stageOutcomeFromFirstInstanceRights(hadoriRights, judgmentType) ?? 'LOSS';
+
+    updatedStages[activeStageIndex] = withClientStageOutcome(
+        {
+            ...currentStage,
+            status: 'completed',
+            finalDecision: 'منتهية نهائياً (30 يوم للطعن)',
+            decisionDate: judgmentDate,
+            legalTimers: {
+                finalAppealDeadline: addDays(now, 30),
+            },
+        },
+        clientStageOutcome,
+    );
 
     updatedStages[activeStageIndex].timeline = [{
         id: `judgment_${Date.now()}`,

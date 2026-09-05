@@ -15,6 +15,15 @@ import {
     isDefendantRepresentedParty,
 } from './representedPartySide';
 import { isAbsentObjectionStageName } from './absentJudgmentStageNames';
+import {
+    clientDefendantHasGhayabiDisposition,
+    judgmentFormHasGhayabi,
+    normalizePartyJudgmentDispositions,
+    summarizePartyJudgmentForm,
+    type PartyJudgmentDisposition,
+} from '@/app/domain/lawsuit/partyJudgmentDisposition';
+import { hasUnservedGhayabiLane, listUnservedGhayabiNoticeOptions, normalizePartyChallengeLanes } from '@/app/domain/lawsuit/partyChallengeLanes';
+import { findPriorFirstInstanceJudgmentIndex } from './art172AppealStay';
 
 export { isAbsentObjectionStageName } from './absentJudgmentStageNames';
 
@@ -100,8 +109,13 @@ export function canOfferAbsentObjectionToDefendant(params: {
     representedParty?: string | null;
     /** تسجيل طعن الخصم — لا يُقيَّد بجانب الموكل */
     opponentRegistration?: boolean;
+    partyJudgmentDispositions?: PartyJudgmentDisposition[] | unknown;
+    parties?: Array<{ id?: unknown; role?: unknown; status?: unknown; isClient?: boolean }> | null;
 }): boolean {
-    if (!isAbsentJudgmentForm(params.judgmentForm, params.lastJudgmentType)) return false;
+    const dispositions = normalizePartyJudgmentDispositions(params.partyJudgmentDispositions);
+    if (!judgmentFormHasGhayabi(params.judgmentForm, params.lastJudgmentType, dispositions)) {
+        return false;
+    }
     if (!isAbsentGhayabiWorkflowStage(params.currentStage)) return false;
     if (isAbsentObjectionStageName(params.currentStage)) return false;
     if (hasAbsentObjectionStageInDossier(params.stages)) return false;
@@ -112,6 +126,12 @@ export function canOfferAbsentObjectionToDefendant(params: {
     }
     if (!params.opponentRegistration && params.representedParty) {
         if (!isDefendantRepresentedParty(params.representedParty)) return false;
+    }
+    if (!params.opponentRegistration && dispositions.length > 0) {
+        const summary = summarizePartyJudgmentForm(dispositions, String(params.judgmentForm ?? ''));
+        if (summary === 'مختلط') {
+            return clientDefendantHasGhayabiDisposition(params.parties, dispositions);
+        }
     }
     return true;
 }
@@ -200,6 +220,18 @@ export function absentObjectionJudgmentOptionsForClient(
             label: 'تعديل جزئي للحكم الغيابي',
             hint: clientTag ? `${clientTag} · تعديل جزئي — يحق للطرفين الطعن` : 'تعديل جزئي — يحق للطرفين الطعن',
         },
+        {
+            value: 'رد الاعتراض شكلاً',
+            label:
+                clientRole === 'objector'
+                    ? 'رد الاعتراض شكلاً أو إبطاله للغياب — لا طعن لموكلك'
+                    : clientRole === 'objected'
+                      ? 'رد الاعتراض شكلاً أو إبطاله للغياب — القطعية بحق المعترض'
+                      : 'رد الاعتراض شكلاً أو إبطاله للغياب (م/179)',
+            hint: clientTag
+                ? `${clientTag} · م/179 — الحكم الغيابي يكتسب القطعية بحق المعترض`
+                : 'م/179 — الحكم الغيابي يكتسب القطعية بحق المعترض وتُفك الاستئخار',
+        },
     ];
 }
 
@@ -218,15 +250,22 @@ export function daysRemainingUntil(deadlineYmd: string, today = new Date()): num
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
+type AbsentJudgmentStageSlice = {
+    stageName?: string | null;
+    judgmentForm?: string | null;
+    lastJudgmentType?: string | null;
+    isPleadingsClosed?: boolean;
+    isUnderObjection?: boolean;
+    finalDecision?: string | null;
+    absentJudgmentNotificationDate?: string | null;
+    awaitingAbsentJudgmentNotification?: boolean;
+    partyJudgmentDispositions?: PartyJudgmentDisposition[] | unknown;
+    parties?: Array<{ id?: unknown; role?: unknown; status?: unknown; isClient?: boolean }> | null;
+    partyChallengeLanes?: unknown;
+};
+
 export function shouldShowAbsentJudgmentFooter(
-    stage?: {
-        stageName?: string | null;
-        judgmentForm?: string | null;
-        lastJudgmentType?: string | null;
-        isPleadingsClosed?: boolean;
-        isUnderObjection?: boolean;
-        finalDecision?: string | null;
-    } | null,
+    stage?: AbsentJudgmentStageSlice | null,
     stages?: Array<Pick<CaseStage, 'stageName'> | { stageName?: string | null }> | null,
     representedParty?: string | null,
 ): boolean {
@@ -234,28 +273,17 @@ export function shouldShowAbsentJudgmentFooter(
     if (stage.isUnderObjection) return false;
     if (hasAbsentObjectionStageInDossier(stages)) return false;
     if (!isAbsentGhayabiWorkflowStage(stage.stageName)) return false;
-    if (!isAbsentJudgmentForm(stage.judgmentForm, stage.lastJudgmentType)) return false;
+    if (!judgmentFormHasGhayabi(stage.judgmentForm, stage.lastJudgmentType, stage.partyJudgmentDispositions)) {
+        return false;
+    }
     if (!isDefendantAdverseAbsentOutcome(stage.finalDecision)) return false;
     const fd = String(stage.finalDecision ?? '');
     if (fd.includes('رد الدعوى كلياً') || fd.includes('ضد الموكل')) return false;
     if (representedParty && !isDefendantRepresentedParty(representedParty)) return false;
-    return true;
-}
-
-export function isAwaitingAbsentJudgmentNotification(
-    stage?: {
-        stageName?: string | null;
-        judgmentForm?: string | null;
-        lastJudgmentType?: string | null;
-        isPleadingsClosed?: boolean;
-        absentJudgmentNotificationDate?: string | null;
-        awaitingAbsentJudgmentNotification?: boolean;
-        finalDecision?: string | null;
-    } | null,
-    stages?: Array<Pick<CaseStage, 'stageName'> | { stageName?: string | null }> | null,
-): boolean {
-    if (!shouldShowAbsentJudgmentFooter(stage, stages)) return false;
-    if (hasAbsentJudgmentNotificationRecorded(stage)) return false;
+    const dispositions = normalizePartyJudgmentDispositions(stage.partyJudgmentDispositions);
+    if (dispositions.length > 0 && summarizePartyJudgmentForm(dispositions, String(stage.judgmentForm ?? '')) === 'مختلط') {
+        return clientDefendantHasGhayabiDisposition(stage.parties, dispositions);
+    }
     return true;
 }
 
@@ -263,6 +291,52 @@ export function hasAbsentJudgmentNotificationRecorded(stage?: {
     absentJudgmentNotificationDate?: string | null;
 } | null): boolean {
     return Boolean(String(stage?.absentJudgmentNotificationDate ?? '').trim());
+}
+
+/**
+ * تبليغ الحكم الغيابي — يظهر على شاشة الحكم الغيابي (البداءة) ما دام غائب غير مبلَّغ.
+ * يختفي فقط بعد تبليغ كل الغائبين، أو عند عرض مرحلة لاحقة (استئناف/اعتراض/تمييز).
+ */
+export function shouldShowAbsentJudgmentNotificationAction(
+    stage?: AbsentJudgmentStageSlice | null,
+    stages?: Array<Pick<CaseStage, 'stageName'> | { stageName?: string | null }> | null,
+): boolean {
+    const displayName = String(stage?.stageName ?? (stage as { name?: string } | undefined)?.name ?? '');
+    if (!isAbsentGhayabiWorkflowStage(displayName)) return false;
+    if (isAbsentObjectionStageName(displayName)) return false;
+
+    const fiIndex = findPriorFirstInstanceJudgmentIndex(stages as CaseStage[] | null);
+    const target = (
+        fiIndex >= 0 && Array.isArray(stages)
+            ? stages[fiIndex]
+            : stage
+    ) as AbsentJudgmentStageSlice | null | undefined;
+    if (!target?.isPleadingsClosed) return false;
+    if (!judgmentFormHasGhayabi(target.judgmentForm, target.lastJudgmentType, target.partyJudgmentDispositions)) {
+        return false;
+    }
+    if (!isDefendantAdverseAbsentOutcome(target.finalDecision)) return false;
+    const fd = String(target.finalDecision ?? '');
+    if (fd.includes('رد الدعوى كلياً') || fd.includes('ضد الموكل')) return false;
+
+    const remaining = listUnservedGhayabiNoticeOptions({
+        parties: target.parties,
+        dispositions: target.partyJudgmentDispositions,
+        lanes: target.partyChallengeLanes,
+        judgmentForm: target.judgmentForm,
+    });
+    if (remaining.length > 0) return true;
+    if (hasUnservedGhayabiLane(target.partyChallengeLanes)) return true;
+    if (normalizePartyChallengeLanes(target.partyChallengeLanes).length > 0) return false;
+    if (hasAbsentJudgmentNotificationRecorded(target)) return false;
+    return true;
+}
+
+export function isAwaitingAbsentJudgmentNotification(
+    stage?: AbsentJudgmentStageSlice | null,
+    stages?: Array<Pick<CaseStage, 'stageName'> | { stageName?: string | null }> | null,
+): boolean {
+    return shouldShowAbsentJudgmentNotificationAction(stage, stages);
 }
 
 export function resolveAbsentObjectionDeadline(stage?: {

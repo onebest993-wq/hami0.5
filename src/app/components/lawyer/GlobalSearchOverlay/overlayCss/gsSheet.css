@@ -115,17 +115,17 @@ html[data-hami-lite='1'] .hami-gs-sheet {
 @media (min-width: 768px) and (min-height: 560px) {
   .hami-gs-sheet {
     width: 100%;
-    max-width: 34rem;
+    max-width: 32rem;
     height: auto;
-    max-height: min(88dvh, 680px);
-    border-radius: 1.25rem;
+    max-height: min(88dvh, 640px);
+    border-radius: 0.75rem;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.48);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   }
 
   /* الطلاء: height:auto + مقبض مخفي → 0px بلا رأس. أبقِ بطاقة مرئية حتى يصل Host */
   .hami-gs-layer[data-gs-paint='true'] .hami-gs-sheet {
-    min-height: 13.5rem;
+    min-height: 12rem;
   }
 
   .hami-gs-sheet[data-keyboard-open='true'] {
@@ -148,8 +148,8 @@ html[data-hami-lite='1'] .hami-gs-sheet {
 }
 
 .hami-gs-handle {
-  width: 2rem;
-  height: 0.2rem;
+  width: 1.75rem;
+  height: 0.15rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.18);
   margin: 0;

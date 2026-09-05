@@ -184,6 +184,7 @@ export function usePersonalCoerciveForcedBringActions(ctx: PersonalCoerciveActio
         !isHistoricalMode &&
         !coerciveUiLocked &&
         !forcedEffective.pending &&
+        !forcedEffective.approved &&
         !forcedEffective.rejected &&
         !forcedNeedsOutcomeUi &&
         !forcedSync.followupBlock &&
@@ -206,7 +207,7 @@ export function usePersonalCoerciveForcedBringActions(ctx: PersonalCoerciveActio
         }
         if (forcedSync.followupBlock || forcedSync.blocksFieldwork) return;
         if (forcedShowStartStrip) {
-            showToast('اختر «تفعيل بقرار المنفذ العدل» أو «إرسال طلب للقرارات» من القسم أدناه.', 'info');
+            showToast('اختر «تفعيل بقرار المنفذ» أو «إرسال طلب للقرارات» من القسم أدناه.', 'info');
             return;
         }
         if (!relaxedPersonal && !guardSummonsGate()) return;

@@ -12,10 +12,26 @@ describe('radarFormCritical.css', () => {
         'utf8',
     );
 
-    it('يُستورد من SmartLegalRadar لا من critical-shell', () => {
+    it('يُستورد من EventForm لا من critical-shell ولا من جذع الرادار', () => {
         expect(criticalShell).not.toMatch(/radarFormCritical\.css/);
+        const form = readFileSync(resolve(__dirname, '../EventForm.tsx'), 'utf8');
         const radar = readFileSync(resolve(__dirname, '../../SmartLegalRadar.tsx'), 'utf8');
-        expect(radar).toMatch(/radarFormCritical\.css/);
+        expect(form).toMatch(/radarFormCritical\.css/);
+        expect(radar).not.toMatch(/radarFormCritical\.css/);
+        expect(radar).toContain('React.lazy');
+        expect(radar).toContain('form.showForm');
+        expect(radar).toContain('prefetchRadarEventForm');
+        expect(radar).toContain('loadRadarEventFormModule');
+        expect(radar).not.toMatch(/import\(['"]\.\/SmartLegalRadar\/EventForm['"]\)/);
+        expect(radar).toContain('RadarEventFormInstantCover');
+        const cover = readFileSync(
+            resolve(
+                __dirname,
+                '../../dashboard/schedule/RadarEventFormInstantCover.tsx',
+            ),
+            'utf8',
+        );
+        expect(cover).toContain('radar-event-form-pending');
     });
 
     it('سطح كحلي صلب بلا اعتماد على متغيرات .hami-radar-page', () => {

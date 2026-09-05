@@ -38,5 +38,4 @@ export type UseExecutionDashboardNotesTasksHandlersParams = {
     setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
     setShowNotesModal: (show: boolean) => void;
     openFollowupModalPersisted?: () => void;
-    closeUnifiedSeizureLog?: () => void;
 };

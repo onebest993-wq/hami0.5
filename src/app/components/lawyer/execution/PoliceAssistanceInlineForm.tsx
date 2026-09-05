@@ -45,7 +45,6 @@ export const PoliceAssistanceInlineForm: React.FC<PoliceAssistanceInlineFormProp
                 checked={linkToTasks}
                 onChange={setLinkToTasks}
                 label="إضافة متابعة القوة الجبرية إلى قسم المهام"
-                hint="يمكنك إلغاء التحديد إذا أردت الحفظ في السجل فقط دون مهمة."
             />
             <button
                 type="button"

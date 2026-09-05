@@ -1,7 +1,6 @@
 import React from 'react';
 import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import {
-    dispatchDecisionsReload,
     isEvictionProcedureRowWorkflowComplete,
     isExecutorRowRejectedAndFinal,
 } from '@/app/utils/executorSeizureDecisionQueue';
@@ -10,6 +9,7 @@ import {
     ExecutionInlineExecutorDecisionActions,
     type ExecutionInlineStep,
 } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
+import { SeizureExecutorDecisionShortcut } from '@/app/components/lawyer/ExecutionDashboard/components/SeizureExecutorDecisionShortcut';
 import {
     buildEvictionAfterApproveContent,
     type EvictionAfterApproveDeps,
@@ -80,15 +80,13 @@ export function renderEvictionProcedurePanel({
                     onOpenAppealCenter={() => openAppeals(decisionId, row)}
                 />
             ) : pending ? (
-                <ExecutionInlineExecutorDecisionActions
-                    executionId={executionId}
-                    decisionId={decisionId}
-                    decisionRow={row}
-                    requestKind="eviction_procedure"
-                    onResolved={(result) => {
-                        if (result.ok) dispatchDecisionsReload();
-                    }}
-                />
+                <div className="flex flex-row-reverse items-center justify-end gap-2">
+                    <SeizureExecutorDecisionShortcut
+                        decision={row}
+                        onOpen={(id) => openAppeals(String(id || decisionId), row)}
+                        label="قرار المنفذ"
+                    />
+                </div>
             ) : approved ? (
                 <button
                     type="button"

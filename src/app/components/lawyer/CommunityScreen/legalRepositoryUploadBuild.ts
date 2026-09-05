@@ -1,4 +1,5 @@
-import { uuidv4, type RepositoryDocument } from '@/app/services/lawyer-cloud';
+import type { RepositoryDocument } from '@/app/services/lawyer-cloud';
+import { uuidv4 } from '@/app/services/cloud/lawyerCloudKv';
 import { resolveRepositoryDocTags } from './repositoryTagUtils';
 
 type BuildRepositoryDocumentParams = {
@@ -40,8 +41,10 @@ export function buildRepositoryDocumentFromUpload({
             mimeType,
             storagePath,
             fileSize,
+            updatedAt: new Date().toISOString(),
         };
     }
+    const now = new Date().toISOString();
     return {
         id: uuidv4(),
         title,
@@ -50,7 +53,8 @@ export function buildRepositoryDocumentFromUpload({
         tags: resolvedTags,
         authorId,
         authorName,
-        uploadDate: new Date().toISOString().split('T')[0],
+        uploadDate: now.slice(0, 10),
+        updatedAt: now,
         fileName,
         mimeType,
         storagePath,

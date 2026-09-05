@@ -2,16 +2,9 @@ import React from 'react';
 import { Check } from '@/app/components/ui/icons/Check';
 import { Plus } from '@/app/components/ui/icons/Plus';
 import { X } from '@/app/components/ui/icons/X';
-import { REPOSITORY_ACTION_CATEGORY } from '@/app/services/vaultCustomCategories';
+import { REPOSITORY_ACTION_CHIPS } from './repositoryActionChips';
 
-export const REPOSITORY_ACTION_CHIPS: ReadonlyArray<{ label: string; value: string }> = [
-    { label: 'الكل', value: 'الكل' },
-    { label: 'بطاقة', value: REPOSITORY_ACTION_CATEGORY.note },
-    { label: 'مسح', value: REPOSITORY_ACTION_CATEGORY.scan },
-    { label: 'صورة', value: REPOSITORY_ACTION_CATEGORY.image },
-    { label: 'PDF', value: REPOSITORY_ACTION_CATEGORY.pdf },
-    { label: 'تسجيل', value: REPOSITORY_ACTION_CATEGORY.voice },
-];
+export { REPOSITORY_ACTION_CHIPS } from './repositoryActionChips';
 
 function deckRowClass(active: boolean): string {
     return `hami-repository-filter-deck__row min-h-[44px] touch-manipulation ${

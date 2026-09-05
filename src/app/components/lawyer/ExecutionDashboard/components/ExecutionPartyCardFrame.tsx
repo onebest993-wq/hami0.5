@@ -28,6 +28,7 @@ export type ExecutionPartyCardFrameProps = {
     children: React.ReactNode;
     expandedPanel?: React.ReactNode;
     className?: string;
+    expandable?: boolean;
 };
 
 /** إطار موحّد لبطاقة دائن/مدين — الشارة متمركزة على الخط العلوي للحاوية */
@@ -41,6 +42,7 @@ export const ExecutionPartyCardFrame = React.memo(function ExecutionPartyCardFra
     children,
     expandedPanel,
     className = '',
+    expandable = true,
 }: ExecutionPartyCardFrameProps) {
     const v = VARIANT[variant];
 
@@ -76,19 +78,19 @@ export const ExecutionPartyCardFrame = React.memo(function ExecutionPartyCardFra
                 </span>
             </div>
             <div
-                role="button"
-                tabIndex={0}
-                aria-expanded={isOpen}
-                aria-label={expandAriaLabel}
-                onClick={handleHeaderClick}
-                onKeyDown={handleHeaderKeyDown}
-                className={`relative z-[2] flex min-h-[44px] w-full cursor-pointer flex-col items-center justify-center gap-0.5 px-2.5 pb-1 pt-2 text-center outline-none focus-visible:ring-2 ${v.headerFocus}`}
+                role={expandable ? 'button' : undefined}
+                tabIndex={expandable ? 0 : undefined}
+                aria-expanded={expandable ? isOpen : undefined}
+                aria-label={expandable ? expandAriaLabel : undefined}
+                onClick={expandable ? handleHeaderClick : undefined}
+                onKeyDown={expandable ? handleHeaderKeyDown : undefined}
+                className={`relative z-[2] flex min-h-[44px] w-full ${expandable ? 'cursor-pointer' : ''} flex-col items-center justify-center gap-0.5 px-2.5 pb-1 pt-2 text-center outline-none focus-visible:ring-2 ${v.headerFocus}`}
             >
                 <div className="pointer-events-none flex w-full flex-col items-center justify-center [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_textarea]:pointer-events-auto [&_select]:pointer-events-auto [&_a]:pointer-events-auto [&_[role=button]]:pointer-events-auto">
                     {children}
                 </div>
             </div>
-            {expandedPanel != null ? (
+            {expandable && expandedPanel != null ? (
                 <div
                     className={`relative z-[20] border-t px-3 py-2 pointer-events-auto ${v.panelBorder} ${
                         isOpen ? '' : 'hidden'

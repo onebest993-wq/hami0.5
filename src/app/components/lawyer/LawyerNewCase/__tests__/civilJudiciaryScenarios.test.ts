@@ -66,7 +66,7 @@ describe('القضاء المدني — خيارات المرحلة حسب ال�
         expect(stages).toContain('بداءة بدرجة أولى');
     });
 
-    it('فتح دعوى جديدة: فلترة الدرجة حسب القيمة مع الإبقاء على الطعون', () => {
+    it('فتح دعوى جديدة: فلترة الدرجة حسب القيمة مع اعتراض الغير وإعادة المحاكمة بلا استئناف أو اعتراض غيابي', () => {
         const under = computeOpeningLawsuitStageOptions({
             claimValue: '444444',
             isUndeterminedValue: false,
@@ -75,8 +75,10 @@ describe('القضاء المدني — خيارات المرحلة حسب ال�
         });
         expect(under[0]).toBe('بداءة بدرجة أخيرة');
         expect(under).not.toContain('بداءة بدرجة أولى');
-        expect(under).toContain('استئناف');
+        expect(under).not.toContain('استئناف');
+        expect(under).not.toContain('اعتراض على الحكم الغيابي');
         expect(under).toContain('اعتراض الغير');
+        expect(under).toContain('إعادة المحاكمة');
         const over = computeOpeningLawsuitStageOptions({
             claimValue: '1500000',
             isUndeterminedValue: false,
@@ -85,7 +87,7 @@ describe('القضاء المدني — خيارات المرحلة حسب ال�
         });
         expect(over[0]).toBe('بداءة بدرجة أولى');
         expect(over).not.toContain('بداءة بدرجة أخيرة');
-        expect(over).toContain('استئناف');
+        expect(over).not.toContain('استئناف');
         expect(over).toContain('إعادة المحاكمة');
     });
 });

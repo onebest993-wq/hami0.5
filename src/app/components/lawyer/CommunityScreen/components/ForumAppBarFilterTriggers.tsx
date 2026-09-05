@@ -14,6 +14,7 @@ type ForumAppBarFilterTriggersProps = {
     forumFilterTriggerRef: RefObject<HTMLButtonElement | null>;
     onForumFilterToggle: () => void;
     onRepositoryFilterToggle: () => void;
+    onPrefetch?: () => void;
 };
 
 export function ForumAppBarFilterTriggers({
@@ -27,6 +28,7 @@ export function ForumAppBarFilterTriggers({
     forumFilterTriggerRef,
     onForumFilterToggle,
     onRepositoryFilterToggle,
+    onPrefetch,
 }: ForumAppBarFilterTriggersProps) {
     return (
         <>
@@ -37,6 +39,8 @@ export function ForumAppBarFilterTriggers({
                         ref={forumFilterTriggerRef as Ref<HTMLButtonElement>}
                         type="button"
                         onClick={onForumFilterToggle}
+                        onPointerEnter={onPrefetch}
+                        onPointerDown={onPrefetch}
                         aria-label="تصنيفات المنتدى"
                         aria-expanded={showForumFilterPanel}
                         className={`relative h-11 px-3 flex items-center gap-1.5 shrink-0 transition-colors ${
@@ -65,6 +69,8 @@ export function ForumAppBarFilterTriggers({
                     <button
                         type="button"
                         onClick={onRepositoryFilterToggle}
+                        onPointerEnter={onPrefetch}
+                        onPointerDown={onPrefetch}
                         aria-label="ترتيب وتصفية المستودع"
                         aria-expanded={showRepositoryFilterPanel}
                         className={`relative h-11 px-3 flex items-center gap-1.5 shrink-0 transition-colors ${

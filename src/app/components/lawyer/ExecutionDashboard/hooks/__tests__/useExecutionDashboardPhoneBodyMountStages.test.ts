@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { useExecutionDashboardPhoneBodyMountStages } from '../useExecutionDashboardPhoneBodyMountStages';
 
 const {
@@ -12,13 +12,6 @@ const {
     prefetchVisitationScheduleModule: vi.fn(),
 }));
 
-vi.mock('@/app/utils/scheduleIdleWork', () => ({
-    scheduleIdleWork: (work: () => void) => {
-        work();
-        return () => {};
-    },
-}));
-
 vi.mock('../../executionDashboardLazyRegistryShell', () => ({
     prefetchMaritalFurnitureModule,
     prefetchVisitationScheduleModule,
@@ -29,14 +22,12 @@ vi.mock('../../executionDashboardOverlayPrefetch', () => ({
 }));
 
 describe('useExecutionDashboardPhoneBodyMountStages', () => {
-    it('enables staged sections through idle scheduling', async () => {
+    it('يرسم الموجات الثلاث فوراً بلا تأخير idle', () => {
         const { result } = renderHook(() => useExecutionDashboardPhoneBodyMountStages({}));
 
-        await waitFor(() => {
-            expect(result.current.secondaryStageReady).toBe(true);
-            expect(result.current.tertiaryStageReady).toBe(true);
-        });
-
+        expect(result.current.secondaryStageReady).toBe(true);
+        expect(result.current.tertiaryStageReady).toBe(true);
+        expect(result.current.quaternaryStageReady).toBe(true);
         expect(result.current.tertiaryStageUrgent).toBe(false);
         expect(prefetchExecutionFinanceOverlay).not.toHaveBeenCalled();
     });
@@ -52,7 +43,7 @@ describe('useExecutionDashboardPhoneBodyMountStages', () => {
         expect(result.current.secondaryStageReady).toBe(true);
         expect(result.current.tertiaryStageReady).toBe(true);
         expect(result.current.tertiaryStageUrgent).toBe(true);
-        await waitFor(() => {
+        await vi.waitFor(() => {
             expect(prefetchExecutionFinanceOverlay).toHaveBeenCalledTimes(1);
         });
     });

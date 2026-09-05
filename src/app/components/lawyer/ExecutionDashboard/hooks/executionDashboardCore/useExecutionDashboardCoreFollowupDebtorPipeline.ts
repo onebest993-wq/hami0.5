@@ -10,8 +10,7 @@ import { useExecutionDashboardDebtorWorkspaceContext } from './useExecutionDashb
 import { useActiveDebtorProfile } from '../useActiveDebtorProfile';
 import { useExecutionDashboardEmployeeAssignmentCoerciveState } from './useExecutionDashboardEmployeeAssignmentCoerciveState';
 import { useFollowupModalSpecializationCluster } from './useFollowupModalSpecializationCluster';
-import { useSeizureLogEntityData } from '../useSeizureLogEntityData';
-import { useUnifiedSeizureLog } from '../useUnifiedSeizureLog';
+import { useThirdPartyFundsDraft } from '../useThirdPartyFundsDraft';
 import { useExecutionDashboardFollowupTabAssembly } from './useExecutionDashboardFollowupTabAssembly';
 import { createDefaultFollowupSpecializationFlags } from '@/app/utils/followupSpecializationVisibility';
 import { useDebtorScopedTimeline } from '../useDebtorScopedTimeline';
@@ -102,27 +101,7 @@ export function useExecutionDashboardCoreFollowupDebtorPipeline(p: UseExecutionD
     });
     const { followupModalSpecializationEffective } = followupModalSpecializationCluster;
 
-    const seizureLogEntity = useSeizureLogEntityData({
-        viewExecutionData: p.viewExecutionData,
-        decisionsStorageExecutionId: p.decisionsStorageExecutionId,
-        decisionsReloadEpoch: p.decisionsReloadEpoch,
-    });
-    const { seizedMovablesForSeizureLog } = seizureLogEntity;
-
-    const unifiedSeizureLog = useUnifiedSeizureLog({
-        viewExecutionData: p.viewExecutionData,
-        decisionsStorageExecutionId: p.decisionsStorageExecutionId,
-        executionId: p.executionId,
-        activeDebtorIsDeceased,
-        realEstateSeizureRegistryAssets: p.realEstateSeizureRegistryAssets,
-        salarySeizureRegistryAssets: p.salarySeizureRegistryAssets,
-        movableSeizureRegistryAssets: p.movableSeizureRegistryAssets,
-        seizedMovablesForSeizureLog,
-        thirdPartySeizureRegistryAssets: p.thirdPartySeizureRegistryAssets,
-        thirdPartySeizuresUi: p.thirdPartySeizuresUi,
-        decisionsReloadEpoch: p.decisionsReloadEpoch,
-        showToast: p.showToast,
-    });
+    const thirdPartyFundsDraft = useThirdPartyFundsDraft();
 
     const activeDebtorNameResolved = useMemo(() => {
         const row = allDebtorsUnified[p.followupOrchestrator.executionDebtorTabIndex];
@@ -264,8 +243,7 @@ export function useExecutionDashboardCoreFollowupDebtorPipeline(p: UseExecutionD
         modalKasabTerminationEmphasis,
         employeeAssignmentCoercive,
         followupModalSpecializationCluster,
-        seizureLogEntity,
-        unifiedSeizureLog,
+        thirdPartyFundsDraft,
         activeDebtorNameResolved,
         activeDebtorInitialWasEmployee,
         activeTimelineEventsDebtorScoped,

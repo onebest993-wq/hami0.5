@@ -69,6 +69,9 @@ describe('repository mobile honesty', () => {
         const chrome = readFileSync(join(repo, 'repositoryChromeFilters.css'), 'utf8');
         expect(chrome).toContain('min-height: 2.75rem');
         expect(chrome).toContain('min-width: 2.75rem');
+        const boot = readFileSync(join(repo, 'repositoryBootFallbacks.tsx'), 'utf8');
+        expect(boot).toContain('min-h-[44px]');
+        expect(boot).toContain('aria-busy="true"');
     });
 
     it('الكاميرا: عدسة خلفية، playsInline، إيقاف عند الخلفية، رسائل إذن', () => {
@@ -77,9 +80,8 @@ describe('repository mobile honesty', () => {
         expect(camera).toContain('subscribeScannerCameraBackgroundRelease');
         expect(camera).toContain('subscribeCaptureBackgroundRelease');
         const capture = read('src/app/services/platform/mediaCaptureBackgroundRelease.ts');
-        expect(capture).toContain('visibilitychange');
-        expect(capture).toContain('pagehide');
-        expect(capture).toContain('appStateChange');
+        expect(capture).toContain('subscribeAppForeground');
+        expect(capture).toContain('onSuspend: onRelease');
         expect(camera).toContain('تم رفض إذن الكاميرا');
         const hook = readFileSync(join(vault, 'useSmartVaultScanner.ts'), 'utf8');
         expect(hook).toContain('subscribeScannerCameraBackgroundRelease');

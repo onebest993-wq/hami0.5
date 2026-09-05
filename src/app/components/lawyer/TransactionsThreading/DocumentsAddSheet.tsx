@@ -4,9 +4,9 @@ import { clampTransactionText, TX_DOC_TITLE_MAX } from '@/app/services/transacti
 import { TransactionsHubSheet } from './TransactionsHubSheet';
 import {
     GLASS_BTN,
-    GLASS_CHIP,
-    GLASS_CHIP_ACTIVE,
     GLASS_FIELD,
+    TX_DRAWER_CHIP,
+    TX_DRAWER_CHIP_ACTIVE,
     TX_TEXT_OCHRE,
     TxFieldLabel,
     TxGlassDrawerFrame,
@@ -85,11 +85,7 @@ export function DocumentsAddSheet({
                                     type="button"
                                     aria-pressed={active}
                                     onClick={() => setOwnerTag(t)}
-                                    className={
-                                        active
-                                            ? GLASS_CHIP_ACTIVE + ' flex-1 !rounded-xl'
-                                            : GLASS_CHIP + ' flex-1 !rounded-xl'
-                                    }
+                                    className={active ? TX_DRAWER_CHIP_ACTIVE : TX_DRAWER_CHIP}
                                 >
                                     {t}
                                 </button>

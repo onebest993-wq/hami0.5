@@ -68,7 +68,6 @@ export function ProfileSettingsSheetLoadingFallback({
                     <div className="h-14 rounded-2xl bg-white/[0.04] animate-pulse" aria-hidden />
                 </div>
                 <div className="px-4 pb-5 flex flex-col items-center gap-3">
-                    <span className="text-[#E6C673]/50 text-xs font-bold animate-pulse">جاري فتح الاستوديو...</span>
                     {onClose ? (
                         <button
                             type="button"

@@ -3,8 +3,8 @@ import { ChevronRight } from '@/app/components/ui/icons/ChevronRight';
 import { ChevronLeft } from '@/app/components/ui/icons/ChevronLeft';
 import { MONTHS } from './radarCalendarLabels';
 import {
-    RADAR_BTN_GHOST,
     RADAR_BTN_GHOST_ACTIVE,
+    RADAR_MONTH_CALENDAR_BTN,
     RADAR_NAV_ICON_BTN,
     RADAR_TEXT,
 } from './radarTheme';
@@ -63,7 +63,11 @@ export const RadarMonthToolbar = React.memo(function RadarMonthToolbar({
                 aria-label={showFullMonth ? 'إغلاق التقويم' : 'التقويم الكامل'}
                 aria-expanded={showFullMonth}
                 aria-controls="radar-calendar-grid"
-                className={`${showFullMonth ? RADAR_BTN_GHOST_ACTIVE : RADAR_BTN_GHOST} hami-radar-month-nav__calendar-btn shrink-0`}
+                className={
+                    showFullMonth
+                        ? `${RADAR_BTN_GHOST_ACTIVE} hami-radar-month-nav__calendar-btn shrink-0`
+                        : RADAR_MONTH_CALENDAR_BTN
+                }
             >
                 {showFullMonth ? 'إغلاق' : 'الشهر'}
             </button>

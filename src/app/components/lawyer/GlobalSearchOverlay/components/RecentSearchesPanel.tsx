@@ -1,7 +1,7 @@
 import React from 'react';
 import { HomeRotateCcwIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
 
-export interface RecentSearchesPanelProps {
+interface RecentSearchesPanelProps {
     recentSearches: string[];
     onSelect: (value: string) => void;
     onClear: () => void;
@@ -11,7 +11,7 @@ export function RecentSearchesPanel({ recentSearches, onSelect, onClear }: Recen
     if (recentSearches.length === 0) return null;
 
     return (
-        <div className="px-3.5 py-2.5 space-y-2" data-testid="global-search-recent-panel">
+        <div className="px-3 py-2 space-y-1.5" data-testid="global-search-recent-panel">
             <div className="flex justify-between items-center">
                 <h3 className="text-[11px] font-semibold text-white/40">الأخيرة</h3>
                 <button

@@ -3,7 +3,7 @@ import type { CommunityComment } from '@/app/services/lawyer-cloud';
 import { useExpandingVisibleCount } from './useExpandingVisibleCount';
 
 export const COMMENT_INITIAL_WINDOW = 30;
-export const COMMENT_WINDOW_STEP = 20;
+const COMMENT_WINDOW_STEP = 20;
 
 export function useCommentThreadWindow(
     postId: string,

@@ -38,7 +38,7 @@ export const RepositoryCard = ({
     return (
         <div
             ref={cardRef}
-            className="bg-[#1A1D2D] rounded-2xl border border-white/5 hover:border-[#E6C673]/20 transition-all overflow-hidden"
+            className="bg-[#1A1D2D] rounded-xl border border-white/5 hover:border-[#E6C673]/20 transition-colors overflow-hidden"
         >
             {isImage ? (
                 <RepositoryCardMedia

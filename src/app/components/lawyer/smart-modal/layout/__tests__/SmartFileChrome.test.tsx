@@ -43,4 +43,55 @@ describe('SmartFileChrome dossier nav', () => {
         expect(screen.getByTestId(CIVIL_LAWSUIT_TEST_IDS.dossierBack)).toBeInTheDocument();
         expect(screen.queryByTestId(CIVIL_LAWSUIT_TEST_IDS.dossierExit)).toBeNull();
     });
+
+    it('يعرض طعن الخصم المتبقي بجانب شريط المراحل بعد hop', () => {
+        render(
+            <SmartFileChrome
+                {...baseProps}
+                stages={[
+                    { id: 's0', stageName: 'بداءة بدرجة أولى', status: 'locked' } as never,
+                    { id: 's1', stageName: 'الاستئناف', status: 'active' } as never,
+                ]}
+                viewingStageIndex={1}
+                activeStageIndex={1}
+                showRemainingOpponentChallenge
+                remainingOpponentChallengeLabel="قام الخصم بالطعن"
+                onRemainingOpponentChallenge={vi.fn()}
+            />,
+        );
+
+        expect(screen.getByTestId(CIVIL_LAWSUIT_TEST_IDS.postHopChallengeChrome)).toBeInTheDocument();
+        expect(screen.getByTestId(CIVIL_LAWSUIT_TEST_IDS.remainingOpponentChallenge)).toHaveTextContent(
+            'قام الخصم بالطعن',
+        );
+    });
+
+    it('يعرض أزرار طعن مسمّاة بجانب شريط المراحل', () => {
+        const onNamed = vi.fn();
+        render(
+            <SmartFileChrome
+                {...baseProps}
+                stages={[
+                    {
+                        id: 's0',
+                        stageName: 'بداءة بدرجة أولى',
+                        status: 'active',
+                        finalDecision: 'رد الدعوى جزئياً',
+                    } as never,
+                ]}
+                namedChallengeActions={[
+                    { challengerId: '1', challengerName: 'أحمد', label: 'طعن مستقل باسم: أحمد' },
+                    { challengerId: '2', challengerName: 'سامي', label: 'طعن مستقل باسم: سامي' },
+                ]}
+                onNamedChallengeAction={onNamed}
+            />,
+        );
+
+        expect(screen.getByTestId(CIVIL_LAWSUIT_TEST_IDS.namedChallengeAction('1'))).toHaveTextContent(
+            'طعن مستقل باسم: أحمد',
+        );
+        expect(screen.getByTestId(CIVIL_LAWSUIT_TEST_IDS.namedChallengeAction('2'))).toBeInTheDocument();
+        screen.getByTestId(CIVIL_LAWSUIT_TEST_IDS.namedChallengeAction('2')).click();
+        expect(onNamed).toHaveBeenCalledWith('2');
+    });
 });

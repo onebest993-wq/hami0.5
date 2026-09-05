@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
-import { Forward } from '@/app/components/ui/icons/Forward';
-import { Shuffle } from '@/app/components/ui/icons/Shuffle';
-import { FileText } from '@/app/components/ui/icons/FileText';
-import { RefreshCw } from '@/app/components/ui/icons/RefreshCw';
-import { MessageSquare } from '@/app/components/ui/icons/MessageSquare';
+import { Stamp } from '@/app/components/ui/icons/Stamp';
+import { Mail } from '@/app/components/ui/icons/Mail';
+import { Layers } from '@/app/components/ui/icons/Layers';
+import { ScrollText } from '@/app/components/ui/icons/ScrollText';
+import { Sparkles } from '@/app/components/ui/icons/Sparkles';
 import type { DossierActionPayload, DossierActionType } from './DossierActionTypes';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import {
@@ -24,7 +24,7 @@ import { useExecutorDecisions } from '../hooks/useExecutorDecisions';
 import { EXEC_MODAL_TOUCH_TARGET } from '../executionModalMobileShell';
 
 const DOSSIER_BTN_BASE =
-    `w-full text-right rounded-2xl px-4 py-3.5 transition-colors border bg-[#0A1122]/80 border-white/5 hover:border-[#E6C673]/35 relative z-10 cursor-pointer active:scale-[0.99] ${EXEC_MODAL_TOUCH_TARGET}`;
+    `w-full text-right rounded-2xl px-4 py-3.5 transition-colors border bg-[#0A1122]/80 border-white/5 hover:border-[#E6C673]/35 relative z-10 cursor-pointer ${EXEC_MODAL_TOUCH_TARGET}`;
 
 function DossierWorkflowStepStrip(props: {
     phase: ReturnType<typeof resolveDossierControlWorkflowPhase>;
@@ -80,31 +80,31 @@ const ITEMS: DossierControlItem[] = [
     {
         id: 'delegation',
         label: 'طلب الإنابة التنفيذية',
-        icon: <Forward size={24} className="text-white/70" />,
+        icon: <Stamp size={24} className="text-amber-200/85" />,
         toneHover: 'hover:bg-amber-500/10',
     },
     {
         id: 'inaba_correspondence',
         label: 'طلب مخاطبة الإنابة',
-        icon: <MessageSquare size={24} className="text-white/70" />,
+        icon: <Mail size={24} className="text-sky-200/85" />,
         toneHover: 'hover:bg-sky-500/10',
     },
     {
         id: 'unify',
         label: 'طلب توحيد الأضابير',
-        icon: <Shuffle size={24} className="text-white/70" />,
+        icon: <Layers size={24} className="text-violet-200/85" />,
         toneHover: 'hover:bg-violet-500/10',
     },
     {
         id: 'transfer',
         label: 'طلب نقل الإضبارة',
-        icon: <FileText size={24} className="text-white/70" />,
+        icon: <ScrollText size={24} className="text-emerald-200/85" />,
         toneHover: 'hover:bg-emerald-500/10',
     },
     {
         id: 'renew',
         label: 'طلب تجديد الإضبارة',
-        icon: <RefreshCw size={24} className="text-white/70" />,
+        icon: <Sparkles size={24} className="text-rose-200/85" />,
         toneHover: 'hover:bg-rose-500/10',
     },
 ];
@@ -128,6 +128,7 @@ function DossierControlAccordionRow(props: {
     onToggle: () => void;
     parentFileId: string;
     decisionsStorageExecutionId: string;
+    decisions: Record<string, unknown>[];
     inabaTargets: { id: string; directorate: string }[];
     inabaCorrespondenceLog: InabaCorrespondenceLogEntry[];
     onExecutorOutcomeApplied?: () => void;
@@ -141,14 +142,13 @@ function DossierControlAccordionRow(props: {
         onToggle,
         parentFileId,
         decisionsStorageExecutionId,
+        decisions,
         inabaTargets,
-        inabaCorrespondenceLog,
         onExecutorOutcomeApplied,
         saving,
         onSubmit,
         appealPerspective = 'creditor_agent',
     } = props;
-    const { decisions } = useExecutorDecisions(decisionsStorageExecutionId);
     const executorStripVisible = useMemo(
         () =>
             shouldShowDossierControlExecutorStrip({
@@ -191,6 +191,13 @@ function DossierControlAccordionRow(props: {
         form.resetFields();
     };
 
+    // بعد اكتمال الدورة أخفِ التوسيع حتى لا تبقى البطاقة كأنها «لم يحدث شيء»
+    useEffect(() => {
+        if (workflowPhase === 'completed' && expanded) {
+            onToggle();
+        }
+    }, [workflowPhase, expanded, onToggle]);
+
     const handleHeaderClick = () => {
         onToggle();
     };
@@ -203,8 +210,8 @@ function DossierControlAccordionRow(props: {
                 onClick={handleHeaderClick}
                 className={`w-full ${DOSSIER_BTN_BASE} ${item.toneHover}`}
             >
-                <div className="flex flex-row-reverse items-center gap-3">
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/5">
+                <div className="flex items-center gap-3" dir="rtl">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] ring-1 ring-white/10">
                         {item.icon}
                     </span>
                     <p className="min-w-0 flex-1 text-sm font-bold text-white">{item.label}</p>
@@ -227,14 +234,16 @@ function DossierControlAccordionRow(props: {
                 <DossierWorkflowStepStrip phase={workflowPhase} />
             ) : null}
 
-            <DossierExecutorDecisionStrip
-                executionId={decisionsStorageExecutionId}
-                parentExecutionId={parentFileId}
-                actionType={item.id}
-                decisions={decisions}
-                onOutcomeApplied={onExecutorOutcomeApplied}
-                appealPerspective={appealPerspective}
-            />
+            {executorStripVisible ? (
+                <DossierExecutorDecisionStrip
+                    executionId={decisionsStorageExecutionId}
+                    parentExecutionId={parentFileId}
+                    actionType={item.id}
+                    decisions={decisions}
+                    onOutcomeApplied={onExecutorOutcomeApplied}
+                    appealPerspective={appealPerspective}
+                />
+            ) : null}
 
             {showSubmitForm ? (
                 <div className="relative z-10 border-t border-white/10 bg-[#05060D]/40 px-4 pb-3 pt-3">
@@ -267,6 +276,7 @@ export const DossierControlsTab: React.FC<DossierControlsTabProps> = ({
     onExecutorOutcomeApplied,
     appealPerspective = 'creditor_agent',
 }) => {
+    const { decisions } = useExecutorDecisions(decisionsStorageExecutionId);
     const [expandedId, setExpandedId] = useState<DossierActionType | null>(null);
 
     const visibleItems = ITEMS.filter((item) => {
@@ -285,6 +295,7 @@ export const DossierControlsTab: React.FC<DossierControlsTabProps> = ({
                     onToggle={() => setExpandedId((prev) => (prev === item.id ? null : item.id))}
                     parentFileId={parentFileId}
                     decisionsStorageExecutionId={decisionsStorageExecutionId}
+                    decisions={decisions}
                     inabaTargets={inabaTargets}
                     inabaCorrespondenceLog={inabaCorrespondenceLog}
                     onExecutorOutcomeApplied={onExecutorOutcomeApplied}

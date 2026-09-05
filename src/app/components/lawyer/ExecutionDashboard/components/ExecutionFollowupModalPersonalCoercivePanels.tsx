@@ -9,22 +9,28 @@ export function ExecutionFollowupModalPersonalCoercivePanels({
 }: {
     c: ExecutionFollowupModalPortalController;
 }) {
+    const showPersonal = c.panelsToRender.has('personal');
     const custodyRemovalClaimActive = useMemo(
         () =>
+            showPersonal &&
             isCustodyRemovalExecutionClaim(
                 c.viewExecutionData as Record<string, unknown> | null | undefined,
                 String(c.claimType || '').trim() || undefined,
             ),
-        [c.viewExecutionData, c.claimType],
+        [c.viewExecutionData, c.claimType, showPersonal],
     );
 
     return (
         <>
-            <ExecutionFollowupModalPersonalTabPanel
-                c={c}
-                custodyRemovalClaimActive={custodyRemovalClaimActive}
-            />
-            <ExecutionFollowupModalCoerciveTabPanel c={c} />
+            {showPersonal ? (
+                <ExecutionFollowupModalPersonalTabPanel
+                    c={c}
+                    custodyRemovalClaimActive={custodyRemovalClaimActive}
+                />
+            ) : null}
+            {c.panelsToRender.has('coercive') ? (
+                <ExecutionFollowupModalCoerciveTabPanel c={c} />
+            ) : null}
         </>
     );
 }

@@ -56,13 +56,12 @@ export function ArchiveHubInstantShell({
                 </button>
                 <h2 className="text-lg font-bold text-white truncate">{title}</h2>
             </div>
-            <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
-                <div className="w-full max-w-[520px] space-y-3" aria-hidden>
+            <div className="flex-1 flex flex-col px-6 pt-4" aria-hidden>
+                <div className="w-full max-w-[520px] space-y-3 mx-auto">
                     {Array.from({ length: 4 }).map((_, index) => (
-                        <div key={index} className="h-16 rounded-sm border border-white/10 bg-white/[0.04] animate-pulse" />
+                        <div key={index} className="h-16 rounded-sm border border-white/10 bg-white/[0.04]" />
                     ))}
                 </div>
-                <p className="text-[#E6C673]/70 text-sm font-bold animate-pulse">جاري فتح {title}...</p>
             </div>
         </div>
     );

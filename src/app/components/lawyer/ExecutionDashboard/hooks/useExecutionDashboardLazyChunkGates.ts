@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from 'react';
 
 import { prefetchExecutionFollowupOverlay } from '../executionDashboardOverlayPrefetch';
-import { prefetchExecutionDashboardShellOverlays } from '../executionDashboardShellOverlaysLazy';
 
 import {
     isExecutionAnyOverlayUrgent,
@@ -33,7 +32,9 @@ export function useExecutionDashboardLazyChunkGates(
 
     useEffect(() => {
         if (!shellOverlaysReady) return;
-        prefetchExecutionDashboardShellOverlays();
+        void import('../executionDashboardShellOverlaysLazy')
+            .then((m) => m.prefetchExecutionDashboardShellOverlays())
+            .catch(() => undefined);
         if (
             modals.showEvictionExpenseModal ||
             modals.showEvictionLawyerFeeModal ||

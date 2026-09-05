@@ -36,7 +36,7 @@ describe('ExecutionShellOverlaysEntry', () => {
                 followupSnapshot={{}}
             />,
         );
-        expect(screen.getByRole('dialog', { name: 'سجل الملاحظات والمهام' })).toBeTruthy();
+        expect(screen.getByRole('dialog', { name: 'سجل الملاحظات' })).toBeTruthy();
         fireEvent.click(screen.getByTestId('execution-notes-instant-close'));
         expect(onCloseNotesModal).toHaveBeenCalledTimes(1);
     });

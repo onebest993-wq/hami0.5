@@ -34,4 +34,19 @@ describe('RadarSelectedDaySection', () => {
         );
         expect(screen.getByTestId('radar-empty-state')).toHaveTextContent('لا توجد مواعيد لهذا اليوم');
     });
+
+    it('لا يظهر جملة الفراغ قبل استقرار اللقطة', () => {
+        render(
+            <RadarSelectedDaySection
+                selectedEvents={[]}
+                conflictMessage={null}
+                onEditEvent={vi.fn()}
+                onDeleteEvent={vi.fn()}
+                listSettled={false}
+            />,
+        );
+        expect(screen.getByTestId('radar-live-pending-empty')).toBeTruthy();
+        expect(screen.queryByTestId('radar-empty-state')).toBeNull();
+        expect(screen.queryByText('لا توجد مواعيد لهذا اليوم')).toBeNull();
+    });
 });

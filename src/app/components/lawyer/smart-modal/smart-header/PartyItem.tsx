@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { X } from '@/app/components/ui/icons/X';
 import { ShieldCheck } from '@/app/components/ui/icons/ShieldCheck';
-import { MapPin } from '@/app/components/ui/icons/MapPin';
 import { Phone } from '@/app/components/ui/icons/Phone';
 import { Briefcase } from '@/app/components/ui/icons/Briefcase';
 import type { PartyItemProps } from './partyItemTypes';
@@ -130,14 +129,6 @@ export const PartyItem = ({ party, isEditing, align = 'right', provisionalOrders
                         className="overflow-hidden"
                     >
                          <div className={`bg-black/20 rounded-lg p-2 mt-1 mb-2 border border-white/5 flex flex-col gap-1.5 text-xs ${align === 'left' ? 'items-end' : 'items-start'}`}>
-                            
-                            {/* Smart Badge Injection Inside Drawer */}
-                            {/* notificationBadge code removed as requested */}
-
-                            <div className={`flex items-center gap-2 text-white/60 w-full ${align === 'left' ? 'flex-row-reverse text-right' : 'text-left'}`}>
-                                <MapPin size={12} className="shrink-0 text-white/40" />
-                                <span className="truncate flex-1">{party.address || 'العنوان غير محدد'}</span>
-                            </div>
                             <div className={`flex items-center gap-2 w-full ${align === 'left' ? 'flex-row-reverse text-right' : 'text-left'}`}>
                                 <Phone size={12} className="shrink-0 text-indigo-400/70" />
                                 {party.phone ? (

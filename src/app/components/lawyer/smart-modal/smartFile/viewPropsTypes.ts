@@ -82,9 +82,14 @@ export type SmartFileLayoutBuildInput = {
     handlePetitionVoidWaiver: () => void;
     handleToggleNotification: SmartFileMainPanelProps['handleToggleNotification'];
     handleCassationDecision: SmartFileMainPanelProps['handleCassationDecision'];
-    handleClosePleadings: SmartFileMainPanelProps['handleClosePleadings'];
     handleReopenPleadings: SmartFileMainPanelProps['handleReopenPleadings'];
-    handleOpenDefendantCassationAppeal: () => void;
+    handleArt172AppealStay: () => void;
+    handleArt172AppealResume: () => void;
+    handleJoinCoObjector: (partyId: string) => void;
+    handleOpenDefendantCassationAppeal: (
+        preferredChallengerPartyId?: string,
+        options?: { forceIndependentSpawn?: boolean },
+    ) => void;
     handleDefaultObjection: SmartFileMainPanelProps['handleDefaultObjection'];
     handleWaiveObjection: SmartFileMainPanelProps['handleWaiveObjection'];
     handleOpponentAppealWaived: SmartFileMainPanelProps['handleOpponentAppealWaived'];
@@ -150,6 +155,10 @@ export type SmartFileLayoutBuildInput = {
         setShowOpponentAbsentObjectionModal: (v: boolean) => void;
         showJudgmentModal: boolean;
         setShowJudgmentModal: (v: boolean) => void;
+        showAdjournPleadingModal: boolean;
+        setShowAdjournPleadingModal: (v: boolean) => void;
+        pendingJudgmentDate: string;
+        setPendingJudgmentDate: (date: string) => void;
         showAppealModal: boolean;
         setShowAppealModal: (v: boolean) => void;
         showAppealTransitionModal: boolean;

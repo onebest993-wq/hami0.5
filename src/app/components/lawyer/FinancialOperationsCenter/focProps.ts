@@ -71,7 +71,6 @@ export interface FinancialOperationsCenterProps {
     isPaused?: boolean;
 
     onShowLedger?: () => void;
-    onShowSeizureLog?: () => void;
     financialLedger?: Array<{
         id: string;
         date: string;
@@ -117,7 +116,12 @@ export interface FinancialOperationsCenterProps {
         description: string;
     }) => void;
     onFinancialTimelineNote?: (title: string, description: string) => void;
-    onGuarantorRequest?: () => void;
+    onPersistSettlementGuarantor?: (
+        guarantorName: string,
+        deductionIqd: number | null,
+    ) => void;
+    settlementGuarantorName?: string | null;
+    settlementGuarantorDeductionIqd?: number | null;
 
     onMonthlySettlementDefault?: (args: { dueDate: string; amount: number }) => void;
     onMonthlySettlementPaid?: (args: { dueDate: string; nextDueDate: string; amount: number }) => void;

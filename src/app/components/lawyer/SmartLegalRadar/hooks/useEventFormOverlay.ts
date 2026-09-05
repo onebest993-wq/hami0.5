@@ -4,6 +4,13 @@ import {
     isCoarsePointerDevice,
     useVisualViewportFixedBox,
 } from '@/app/hooks/useVisualViewportFixedBox';
+import { registerNativeBackHandler } from '@/app/runtime/nativeBackStack';
+import {
+    isCalendarInstantChromeActive,
+    isCalendarLiveRadarMounted,
+    isCalendarPaintCoverInteractive,
+    isCalendarReminderOverlayOpen,
+} from '@/app/services/calendar/calendarReminderOverlayGate';
 
 const FOCUSABLE_SELECTOR =
     'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -42,13 +49,28 @@ export function useEventFormOverlay({
 
     useEffect(() => {
         if (!show) return;
+        const radarOwnsEscape =
+            isCalendarLiveRadarMounted() &&
+            !isCalendarInstantChromeActive() &&
+            !isCalendarPaintCoverInteractive();
         const onKey = (e: KeyboardEvent) => {
             if (e.key !== 'Escape' || saving) return;
+            if (isCalendarReminderOverlayOpen()) return;
+            if (radarOwnsEscape) return;
             e.preventDefault();
             onClose();
         };
         window.addEventListener('keydown', onKey, true);
-        return () => window.removeEventListener('keydown', onKey, true);
+        const unregisterNativeBack = registerNativeBackHandler(() => {
+            if (isCalendarReminderOverlayOpen()) return false;
+            if (saving) return true;
+            onClose();
+            return true;
+        });
+        return () => {
+            window.removeEventListener('keydown', onKey, true);
+            unregisterNativeBack();
+        };
     }, [show, saving, onClose]);
 
     useEffect(() => {

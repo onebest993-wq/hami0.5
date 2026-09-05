@@ -1,5 +1,6 @@
 import type { FileData } from '../../LawyerShared';
 import { findFileById, normalizeFileId } from './incidentalCaseLinking';
+import { areIndependentChallengePeers } from '@/app/domain/lawsuit/independentChallengeDossier';
 import {
     type ConsolidationCandidate,
     formatLitigationDegreeLabel,
@@ -27,7 +28,12 @@ export function listConsolidationCandidates(
         const id = normalizeFileId(f.id);
         if (id === null || id === currentId || seenIds.has(id)) continue;
         if (!isConsolidationEligibleFile(f)) continue;
-        if (resolveLitigationDegreeKey(f) !== currentDegreeKey) continue;
+        if (
+            resolveLitigationDegreeKey(f) !== currentDegreeKey
+            && !areIndependentChallengePeers(currentFile, f)
+        ) {
+            continue;
+        }
 
         seenIds.add(id);
         const stageLabel = resolveActiveStageName(f) || formatLitigationDegreeLabel(resolveLitigationDegree(resolveActiveStageName(f)));

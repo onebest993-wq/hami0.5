@@ -1,8 +1,13 @@
-import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
 import { fileHasSpecificDeliveryClaim } from '@/app/utils/executionDossierHeaderFields';
 import { useExecutionDashboardParentDossierPersistence } from './useExecutionDashboardParentDossierPersistence';
-import { validateDossierMetaDraft, formatDossierFileRef, parseDossierFileRef } from '../../helpers/dossierMetaValidation';
+import { validateDossierMetaDraft, formatDossierFileRef, normalizeDossierMetaFileParts, parseDossierFileRef } from '../../helpers/dossierMetaValidation';
+import {
+    buildDossierPartyNamesPatch,
+    encodeDossierPartyNames,
+    validateDossierPartyNames,
+} from '../../helpers/dossierMetaPartyNames';
 
 type DossierMetaDraft = Record<string, string>;
 
@@ -74,7 +79,9 @@ function buildDossierMetaDraft(
         evictionPremisesUseRaw: string | undefined;
     },
 ): DossierMetaDraft {
-    return {
+    return normalizeDossierMetaFileParts(
+        encodeDossierPartyNames(
+        {
         directorate: String(executionData?.directorate ?? fallback.directorate ?? ''),
         fileNumber: String(executionData?.fileNumber ?? fallback.fileNumber ?? ''),
         fileYear: String(executionData?.fileYear ?? fallback.fileYear ?? ''),
@@ -120,7 +127,10 @@ function buildDossierMetaDraft(
             (executionData as { specificDeliveryItemNature?: string } | null | undefined)
                 ?.specificDeliveryItemNature ?? '',
         ),
-    };
+        },
+        executionData,
+        ),
+    );
 }
 
 export function useExecutionDashboardUnifiedDossierMetaWorkflow({
@@ -145,7 +155,22 @@ export function useExecutionDashboardUnifiedDossierMetaWorkflow({
     showToast,
 }: UseExecutionDashboardUnifiedDossierMetaWorkflowParams) {
     const [showEditDossierMetaModal, setShowEditDossierMetaModal] = useState(false);
-    const [dossierMetaDraft, setDossierMetaDraft] = useState<DossierMetaDraft | null>(null);
+    const [dossierMetaDraft, setDossierMetaDraftState] = useState<DossierMetaDraft | null>(null);
+    const dossierMetaDraftRef = useRef(dossierMetaDraft);
+    dossierMetaDraftRef.current = dossierMetaDraft;
+    const setDossierMetaDraft = useCallback(
+        (update: SetStateAction<DossierMetaDraft | null>) => {
+            const next =
+                typeof update === 'function'
+                    ? (update as (prev: DossierMetaDraft | null) => DossierMetaDraft | null)(
+                          dossierMetaDraftRef.current,
+                      )
+                    : update;
+            dossierMetaDraftRef.current = next;
+            setDossierMetaDraftState(next);
+        },
+        [],
+    );
     const [dossierMetaTarget, setDossierMetaTarget] = useState<DossierMetaTarget>('current');
     const parentDossierPersistence = useExecutionDashboardParentDossierPersistence({
         parentDossierId,
@@ -240,7 +265,12 @@ export function useExecutionDashboardUnifiedDossierMetaWorkflow({
             ? parentDossierPersistence.parentIsEvictionForExpandedHeader
             : isEvictionExecutionModule;
 
-    const saveDossierMetaDraft = useCallback(() => {
+    const saveDossierMetaDraft = useCallback((draftOverride?: Record<string, string>) => {
+        if (draftOverride) {
+            dossierMetaDraftRef.current = draftOverride;
+            setDossierMetaDraftState(draftOverride);
+        }
+        const dossierMetaDraft = dossierMetaDraftRef.current;
         if (!dossierMetaDraft) {
             return;
         }
@@ -253,6 +283,11 @@ export function useExecutionDashboardUnifiedDossierMetaWorkflow({
         });
         if (!validation.ok) {
             showToast(validation.message, 'warning');
+            return;
+        }
+        const partyValidation = validateDossierPartyNames(dossierMetaDraft);
+        if (!partyValidation.ok) {
+            showToast(partyValidation.message, 'warning');
             return;
         }
 
@@ -304,7 +339,8 @@ export function useExecutionDashboardUnifiedDossierMetaWorkflow({
               }
             : {};
 
-        const patch = targetIsEviction
+        const patch = {
+            ...(targetIsEviction
             ? {
                   ...basePatch,
                   property_number: dossierMetaDraft.property_number,
@@ -320,15 +356,20 @@ export function useExecutionDashboardUnifiedDossierMetaWorkflow({
             : {
                   ...basePatch,
                   ...specificDeliveryPatch,
-              };
+              }),
+            ...buildDossierPartyNamesPatch(baseFile, dossierMetaDraft),
+        };
 
-        persistMerge(patch);
+        const persisted = persistMerge(patch);
+        if (persisted === false) {
+            showToast('تعذّر حفظ بيانات الإضبارة — أعد المحاولة', 'error');
+            return;
+        }
         showToast('تم حفظ بيانات الإضبارة', 'success');
         setShowEditDossierMetaModal(false);
         setDossierMetaDraft(null);
         setDossierMetaTarget('current');
     }, [
-        dossierMetaDraft,
         dossierMetaTarget,
         executionData,
         isEvictionExecutionModule,
@@ -336,6 +377,7 @@ export function useExecutionDashboardUnifiedDossierMetaWorkflow({
         parentDossierPersistence.persistParentDossierMerge,
         parentExecutionFile,
         persistExecutionMerge,
+        setDossierMetaDraft,
         setShowEditDossierMetaModal,
         showToast,
     ]);

@@ -16,7 +16,6 @@ export type DebtorCardRowExpandedDetailsProps = {
     onOpenUnifiedSummonsHub: DebtorsSectionProps['onOpenUnifiedSummonsHub'];
     heirSubstituteLines?: string[];
     Bell: DebtorsSectionProps['Bell'];
-    MapPin: DebtorsSectionProps['MapPin'];
 };
 
 export function DebtorCardRowExpandedDetails({
@@ -33,7 +32,6 @@ export function DebtorCardRowExpandedDetails({
     onOpenUnifiedSummonsHub,
     heirSubstituteLines,
     Bell,
-    MapPin,
 }: DebtorCardRowExpandedDetailsProps) {
     return (
         <>
@@ -96,21 +94,7 @@ export function DebtorCardRowExpandedDetails({
                         </p>
                     </div>
                 ) : null}
-                {d.address ? (
-                    <div className="min-w-0 rounded-lg border border-rose-500/15 bg-slate-900/35 px-2.5 py-1.5">
-                        <div className="mb-0.5 flex flex-row-reverse items-center justify-end gap-1 text-[10px] text-gray-400">
-                            <span>العنوان (السكن)</span>
-                            <MapPin size={12} className="shrink-0 text-rose-400" />
-                        </div>
-                        <p className="text-xs leading-snug text-white break-words [unicode-bidi:plaintext]">
-                            {d.address}
-                        </p>
-                    </div>
-                ) : null}
             </div>
-            {!d.address && (
-                <p className="text-gray-500 text-xs text-center py-2">لا يوجد عنوان مسجّل</p>
-            )}
         </>
     );
 }

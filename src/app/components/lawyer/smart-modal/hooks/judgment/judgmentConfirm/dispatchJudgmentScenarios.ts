@@ -3,6 +3,7 @@ import { applyArchiveScenarios } from './scenarioArchive';
 import { applyTransitionScenario } from './scenarioTransition';
 import { applyFinalCloseScenario } from './scenarioFinalClose';
 import { applyCassationScenarios } from './scenarioCassation';
+import { applyAdjournPleadingScenario } from './scenarioAdjournPleading';
 import type { JudgmentConfirmRuntime, JudgmentConfirmScope } from './judgmentConfirmTypes';
 
 export function dispatchJudgmentScenarios(scope: JudgmentConfirmScope, rt: JudgmentConfirmRuntime): void {
@@ -21,11 +22,15 @@ export function dispatchJudgmentScenarios(scope: JudgmentConfirmScope, rt: Judgm
     }
     else if (
         action === 'final_ratification' ||
+        action === 'reverse_final' ||
         action === 'remand_to_lower' ||
         action === 'correction_request' ||
         action === 'correction_complete' ||
         action === 'correction_rejected'
     ) {
         applyCassationScenarios(scope, rt);
+    }
+    else if (action === 'adjourn_pleading') {
+        applyAdjournPleadingScenario(scope, rt);
     }
 }

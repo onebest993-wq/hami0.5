@@ -4,7 +4,7 @@ import {
     JUDGMENT_TYPE_PETITION_NULLIFIED_LEGACY,
     JUDGMENT_TYPE_WAIVER,
 } from '../../../smartFile/judgmentTypes';
-
+import { withClientStageOutcome } from '../../../smartFile/stageOutcomeResolution';
 
 import type { JudgmentConfirmRuntime, JudgmentConfirmScope } from './judgmentConfirmTypes';
 
@@ -52,12 +52,15 @@ if (action === 'archive_review') {
 // ========================================
 else if (action === 'archive_annulled') {
     rt.handled = true;
-    updatedStages[activeStageIndex] = {
-        ...currentStage,
-        status: 'completed',
-        finalDecision: 'مبطلة',
-        decisionDate: judgmentDate
-    };
+    updatedStages[activeStageIndex] = withClientStageOutcome(
+        {
+            ...currentStage,
+            status: 'completed',
+            finalDecision: 'مبطلة',
+            decisionDate: judgmentDate,
+        },
+        'FINALIZED',
+    );
 
     updatedStages[activeStageIndex].timeline = [{
         id: `judgment_${Date.now()}`,
@@ -74,13 +77,16 @@ else if (action === 'archive_annulled') {
 // ========================================
 else if (action === 'finalize_non_merit') {
     rt.handled = true;
-    updatedStages[activeStageIndex] = {
-        ...currentStage,
-        status: 'completed',
-        finalDecision: 'مكتسبة الدرجة القطعية',
-        decisionDate: judgmentDate,
-        isPleadingsClosed: true
-    };
+    updatedStages[activeStageIndex] = withClientStageOutcome(
+        {
+            ...currentStage,
+            status: 'completed',
+            finalDecision: 'مكتسبة الدرجة القطعية',
+            decisionDate: judgmentDate,
+            isPleadingsClosed: true,
+        },
+        'FINALIZED',
+    );
 
     let titleText = '📜 ';
     let detailsText = '';

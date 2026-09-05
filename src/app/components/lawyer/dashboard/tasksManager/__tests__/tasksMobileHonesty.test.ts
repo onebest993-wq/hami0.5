@@ -35,6 +35,12 @@ describe('tasks mobile honesty', () => {
     it('لوحة المفاتيح: inset للستارة والأجندة والحوار + حقول 16px', () => {
         const sheet = read('src/app/components/lawyer/dashboard/FieldTasksBottomSheet.tsx');
         expect(sheet).toContain('useMobileKeyboardInset(open)');
+        const curtainFatal = read(
+            'src/app/components/lawyer/dashboard/fieldTasks/FieldTasksFatalDialog.tsx',
+        );
+        expect(curtainFatal).toContain('useMobileKeyboardInset(open, true)');
+        expect(curtainFatal).toContain('CURTAIN_FATAL_DIALOG');
+        expect(curtainFatal).not.toContain('TASKS_DIALOG_CONTENT');
         const overlay = read('src/app/components/lawyer/dashboard/TasksManagerOverlay.tsx');
         expect(overlay).toContain('useMobileKeyboardInset(open, true)');
         expect(overlay).toContain('useBodyScrollLock(open)');
@@ -47,6 +53,18 @@ describe('tasks mobile honesty', () => {
             'src/app/components/lawyer/dashboard/tasksManager/WeeklyAgendaSection.tsx',
         );
         expect(week).toContain('enterKeyHint="done"');
+        const helpModal = read(
+            'src/app/components/lawyer/dashboard/tasksManager/RequestHelpModal.tsx',
+        );
+        expect(helpModal).toContain('enterKeyHint="send"');
+        const helpInbox = read(
+            'src/app/components/lawyer/dashboard/tasksManager/TaskHelpInboxPanel.tsx',
+        );
+        expect(helpInbox).toContain('enterKeyHint="send"');
+        const editFields = read(
+            'src/app/components/lawyer/dashboard/tasksManager/TasksManagerModalFields.tsx',
+        );
+        expect(editFields).toContain('enterKeyHint="done"');
         const theme = read(
             'src/app/components/lawyer/dashboard/tasksManager/tasksBoucleTheme.ts',
         );
@@ -98,13 +116,16 @@ describe('tasks mobile honesty', () => {
         expect(sheet).toContain('FieldTasksSheetDragHandle');
         expect(sheet).toContain('translate3d');
         expect(sheet).toContain('hami-field-tasks-sheet--dragging');
-        expect(sheet).toContain('إغلاق مهام اليوم الميدانية');
-        expect(sheet).toContain('role="status"');
         expect(sheet).toContain('field-tasks-sheet-swipe-hint');
-        const chrome = read(
+        const sheetChrome = read(
+            'src/app/components/lawyer/dashboard/fieldTasks/FieldTasksSheetChrome.tsx',
+        );
+        expect(sheetChrome).toContain('إغلاق مهام اليوم الميدانية');
+        expect(sheetChrome).toContain('role="status"');
+        const chromeCss = read(
             'src/app/components/lawyer/dashboard/fieldTasks/fieldTasksChrome.css',
         );
-        expect(chrome).toContain('.hami-field-tasks-sheet--dragging');
+        expect(chromeCss).toContain('.hami-field-tasks-sheet--dragging');
         const card = read(
             'src/app/components/lawyer/dashboard/fieldTasks/FieldCurtainTaskCard.tsx',
         );

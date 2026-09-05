@@ -1,99 +1,53 @@
 import React from 'react';
-import { Building2 } from '@/app/components/ui/icons/Building2';
+import { Landmark } from '@/app/components/ui/icons/Landmark';
 import { InlineActionGate } from './InlineActionGate';
-import { ExecutionInlineAccordion } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
-import { SeizureLogNavigateBadge } from './SeizureLogNavigateBadge';
 import { SeizureRequestBlock } from './SeizureRequestBlock';
-import type { PropertyCompletionDraft } from './SeizureRequestCompletionForms';
-import {
-    isSeizureRegistrationComplete,
-    isSeizureRequestFullyRegistered,
-} from './seizureRequestsTabHelpers';
-import { buildSeizureRequestSteps } from './seizureRequestsTabDecisionSteps';
-import { dispatchPropertySeizureInlineFocus } from '@/app/components/lawyer/ExecutionDashboard/utils/seizureSalaryRequestFlow';
-import {
-    PropertyCompletion,
-    seizureRowNeedsInlineCompletion,
-    type SeizureAssetDecisionRow,
-    type SharedAssetBlockProps,
-} from './SeizureRequestsTabAssetCompletions';
+import { SeizureApprovedPlanBadge } from './SeizureApprovedPlanBadge';
+import { SeizureExecutorDecisionShortcut } from './SeizureExecutorDecisionShortcut';
+import type { SharedAssetBlockProps } from './SeizureRequestsTabAssetCompletions';
 
+/** زر طلب حجز عقار فقط — بلا أكورديون/إكمال/سجل */
 export function SeizurePropertyRequestBlock(
-    props: SharedAssetBlockProps & {
-        propertyDecision: SeizureAssetDecisionRow | null;
-        propertyDetailsDraftByDecisionId: Record<string, PropertyCompletionDraft>;
-        setPropertyDetailsDraftByDecisionId: React.Dispatch<
-            React.SetStateAction<Record<string, PropertyCompletionDraft>>
-        >;
-    }
+    props: SharedAssetBlockProps & { propertyDecision?: Record<string, unknown> | null },
 ) {
     const {
         seizureActionsDisabled,
-        decisions,
-        resolvedExecutionId,
         inlineActionGateKey,
         setInlineActionGateKey,
-        acknowledgeSeizureRequestFromLog,
         submitBasicSeizureRequest,
-        openAppeals,
-        saveCoerciveAction,
-        showToast,
+        resolvedExecutionId,
+        openDecisions,
         propertyDecision,
-        propertyDetailsDraftByDecisionId,
-        setPropertyDetailsDraftByDecisionId,
     } = props;
-
-    const propertySettled =
-        propertyDecision && isSeizureRequestFullyRegistered(propertyDecision, decisions);
-    const propertyLogReady =
-        propertyDecision && isSeizureRegistrationComplete(propertyDecision, decisions);
 
     return (
         <SeizureRequestBlock
             disabled={seizureActionsDisabled}
-            className="w-full rounded-2xl border border-amber-300/15 bg-amber-500/[0.06] hover:bg-amber-500/[0.10] hover:border-amber-200/25"
+            className="w-full rounded-xl border border-amber-300/15 bg-amber-500/[0.06] hover:bg-amber-500/[0.10] hover:border-amber-200/25"
             onClick={() => {
                 if (seizureActionsDisabled) return;
-                if (propertySettled) {
-                    acknowledgeSeizureRequestFromLog('property');
-                    return;
-                }
-                if (
-                    propertyDecision &&
-                    seizureRowNeedsInlineCompletion(propertyDecision, decisions)
-                ) {
-                    dispatchPropertySeizureInlineFocus(
-                        resolvedExecutionId,
-                        String(propertyDecision.id || '').trim(),
-                        String(propertyDecision.title || '').trim(),
-                    );
-                    return;
-                }
                 setInlineActionGateKey('seizure_property');
             }}
             icon={
-                <span className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5">
-                    <Building2 className="w-6 h-6 text-white/70" />
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-400/10 ring-1 ring-amber-300/20">
+                    <Landmark className="h-4 w-4 text-amber-200/90" />
                 </span>
             }
-            label={
-                <span className="flex flex-col items-end gap-0.5">
-                    <span>طلب حجز عقار</span>
-                    {propertySettled ? (
-                        <span className="text-[10px] font-semibold text-amber-200/80">
-                            تم التسجيل — اضغط أو «السجل» للمتابعة
-                        </span>
-                    ) : null}
-                </span>
-            }
+            label={<span>طلب حجز عقار</span>}
             trailingSlot={
-                propertyLogReady ? (
-                    <SeizureLogNavigateBadge
-                        tab="property"
-                        tone="amber"
-                        onAcknowledgeCycle={() => acknowledgeSeizureRequestFromLog('property')}
+                <>
+                    <SeizureExecutorDecisionShortcut
+                        decision={propertyDecision}
+                        onOpen={openDecisions}
+                        expectedSubtype="property"
                     />
-                ) : null
+                    <SeizureApprovedPlanBadge
+                        executionId={resolvedExecutionId}
+                        decision={propertyDecision}
+                        subtype="property"
+                        requestTitle="طلب حجز عقار"
+                    />
+                </>
             }
             afterButton={
                 <InlineActionGate
@@ -104,38 +58,13 @@ export function SeizurePropertyRequestBlock(
                         submitBasicSeizureRequest({
                             actionType: 'property',
                             title: 'طلب حجز عقار',
-                            body: 'طلب حجز عقار (مبدئي) — تُستكمل التفاصيل بعد موافقة منفذ العدل.',
+                            body: 'طلب حجز عقار (مبدئي) — يُبتّ من مركز القرارات والطعون.',
                             subtype: 'property',
                         });
                     }}
                     onCancel={() => setInlineActionGateKey(null)}
                 />
             }
-        >
-            {propertyDecision && !propertySettled ? (
-                <div className="mt-2">
-                    <ExecutionInlineAccordion
-                        steps={buildSeizureRequestSteps({
-                            title: 'طلب حجز عقار',
-                            row: propertyDecision,
-                            requestKind: 'seizure',
-                            decisions,
-                            resolvedExecutionId,
-                            onOpenAppeals: openAppeals,
-                            extra: (
-                                <PropertyCompletion
-                                    row={propertyDecision}
-                                    decisions={decisions}
-                                    draftByDecisionId={propertyDetailsDraftByDecisionId}
-                                    setDraftByDecisionId={setPropertyDetailsDraftByDecisionId}
-                                    saveCoerciveAction={saveCoerciveAction}
-                                    showToast={showToast}
-                                />
-                            ),
-                        })}
-                    />
-                </div>
-            ) : null}
-        </SeizureRequestBlock>
+        />
     );
 }

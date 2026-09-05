@@ -1,6 +1,5 @@
 import React from 'react';
 import { CheckCircle } from '@/app/components/ui/icons/CheckCircle';
-import { History } from '@/app/components/ui/icons/History';
 import { Send } from '@/app/components/ui/icons/Send';
 import { formatIqdDisplay } from '../utils';
 import { SECTION_GLASS, LINK_RETRACT_COLLECTION } from '../constants';
@@ -22,7 +21,6 @@ export interface FocEvictionLedgerBodyProps {
     settlementInProgress: boolean;
     onActivateSettlement: () => void;
     onDeactivateSettlement: () => void;
-    onShowSeizureLog?: () => void;
     setExpenseSheetOpen: (v: boolean) => void;
     setFeesSheetOpen: (v: boolean) => void;
     evictionLawyerFeeWaivedAtIntake?: boolean;
@@ -51,7 +49,6 @@ export const FocEvictionLedgerBody: React.FC<FocEvictionLedgerBodyProps> = ({
     settlementInProgress,
     onActivateSettlement,
     onDeactivateSettlement,
-    onShowSeizureLog,
     setExpenseSheetOpen,
     setFeesSheetOpen,
     evictionLawyerFeeWaivedAtIntake,
@@ -92,17 +89,6 @@ export const FocEvictionLedgerBody: React.FC<FocEvictionLedgerBodyProps> = ({
                     </p>
                     {showSettlementEntry && settlementUxTier === 'buried' && !settlementInProgress ? (
                         <SettlementBuriedKebab onActivate={onActivateSettlement} />
-                    ) : null}
-                    {onShowSeizureLog ? (
-                        <button
-                            type="button"
-                            onClick={onShowSeizureLog}
-                            className="inline-flex items-center justify-center rounded-full border border-[#E6C673]/35 bg-[#E6C673]/10 p-1 text-[#E6C673] transition hover:bg-[#E6C673]/20"
-                            title="سجل الحجوزات"
-                            aria-label="سجل الحجوزات"
-                        >
-                            <History size={14} strokeWidth={1.75} />
-                        </button>
                     ) : null}
                     <LedgerExpenseEditCluster
                         onExpenses={() => setExpenseSheetOpen(true)}

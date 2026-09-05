@@ -37,7 +37,7 @@ export function CaseShareSectionBlock({
     if (!shares.length) return null;
 
     return (
-        <section className={`mb-4 pb-4 border-b ${borderClassName}`} data-testid={testId}>
+        <section className={`mb-3 pb-3 border-b ${borderClassName}`} data-testid={testId}>
             <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 px-1 flex items-center gap-1.5 ${titleClassName}`}>
                 {Icon ? <Icon size={12} /> : null}
                 {title}

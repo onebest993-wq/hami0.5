@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { motion } from '@/app/motion/overlayMotionRuntime';
-import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { registerNativeBackHandler } from '@/app/runtime/nativeBackStack';
+import { CALENDAR_REMINDER_OVERLAY_TEST_ID } from '@/app/services/calendar/calendarReminderOverlayGate';
 import {
     formatCalendarReminderLabel,
     formatCalendarReminderSnoozeLabel,
@@ -14,6 +13,7 @@ import {
     playHamiLegalReminderAlarm,
     stopHamiLegalReminderAlarm,
 } from '@/app/services/calendar/calendarReminderAlarmSound';
+import { HAMI_APP_STATE_EVENT, type HamiAppStateDetail } from '@/app/runtime/appStateEvents';
 
 export type CalendarReminderAlarmPayload = {
     event: CalendarEvent;
@@ -30,7 +30,6 @@ type CalendarReminderModalProps = {
 };
 
 export function CalendarReminderModal({ alarm, onDismiss, onSnooze }: CalendarReminderModalProps) {
-    const reduceMotion = useReduceMotion();
     const stopAlarmRef = useRef<(() => void) | null>(null);
     const loopTimerRef = useRef<number | null>(null);
     const [soundOn, setSoundOn] = useState(true);
@@ -47,6 +46,7 @@ export function CalendarReminderModal({ alarm, onDismiss, onSnooze }: CalendarRe
             if (event.key !== 'Escape') return;
             event.preventDefault();
             event.stopPropagation();
+            event.stopImmediatePropagation();
             onDismiss();
         };
         window.addEventListener('keydown', onKey, true);
@@ -86,11 +86,38 @@ export function CalendarReminderModal({ alarm, onDismiss, onSnooze }: CalendarRe
         }
 
         void playLoop();
-        loopTimerRef.current = window.setInterval(() => {
+        const startLoopTimer = () => {
+            if (loopTimerRef.current !== null) return;
+            loopTimerRef.current = window.setInterval(() => {
+                void playLoop();
+            }, 12_000);
+        };
+        const onBackground = () => {
+            stopLoop();
+        };
+        const onForeground = () => {
+            if (document.hidden) return;
             void playLoop();
-        }, 12_000);
+            startLoopTimer();
+        };
+        const onVisibility = () => {
+            if (document.hidden) onBackground();
+            else onForeground();
+        };
+        const onAppState = (event: Event) => {
+            const detail = (event as CustomEvent<HamiAppStateDetail>).detail;
+            if (detail?.isActive === false) onBackground();
+            else onForeground();
+        };
+        startLoopTimer();
+        document.addEventListener('visibilitychange', onVisibility);
+        window.addEventListener('pagehide', onBackground);
+        window.addEventListener(HAMI_APP_STATE_EVENT, onAppState);
 
         return () => {
+            document.removeEventListener('visibilitychange', onVisibility);
+            window.removeEventListener('pagehide', onBackground);
+            window.removeEventListener(HAMI_APP_STATE_EVENT, onAppState);
             stopLoop();
         };
     }, [alarm, soundOn, playLoop, stopLoop]);
@@ -102,33 +129,26 @@ export function CalendarReminderModal({ alarm, onDismiss, onSnooze }: CalendarRe
     const dateLabel = event.date?.slice(0, 10) ?? '';
 
     const content = (
-        <motion.div
-            initial={reduceMotion ? false : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={reduceMotion ? { duration: 0 } : { duration: 0.16 }}
+        <div
             className="fixed inset-0 z-[100000] flex items-end sm:items-center justify-center bg-[#000000]/78 p-3 sm:p-4"
-            data-testid="calendar-reminder-modal-overlay"
+            data-testid={CALENDAR_REMINDER_OVERLAY_TEST_ID}
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="calendar-reminder-title"
             aria-describedby="calendar-reminder-desc"
         >
-            <motion.div
-                initial={reduceMotion ? false : { y: 24, opacity: 0, scale: 0.98 }}
-                animate={{ y: 0, opacity: 1, scale: 1 }}
-                transition={reduceMotion ? { duration: 0 } : { duration: 0.2, ease: 'easeOut' }}
-                className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-[#E6C673]/22 bg-[#0A0F1C] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+            <div
+                className="w-full sm:max-w-md rounded-t-xl sm:rounded-xl border border-[#E6C673]/22 bg-[#0A0F1C] p-4 pb-[max(1.15rem,env(safe-area-inset-bottom))]"
                 data-testid="calendar-reminder-modal"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="mb-4 text-right" dir="rtl">
+                <div className="mb-3 text-right" dir="rtl">
                     <p className="text-[11px] font-semibold tracking-wide text-[#E6C673]/85 mb-1">
                         منبّه موعد — حامي
                     </p>
                     <h2
                         id="calendar-reminder-title"
-                        className="text-lg font-semibold text-[#F8FAFC] leading-snug break-words"
+                        className="text-base font-semibold text-[#F8FAFC] leading-snug break-words"
                     >
                         {event.title}
                     </h2>
@@ -137,14 +157,14 @@ export function CalendarReminderModal({ alarm, onDismiss, onSnooze }: CalendarRe
                     </p>
                 </div>
 
-                <div className="space-y-2 mb-5 text-right text-sm text-[#CBD5E1]" dir="rtl">
+                <div className="space-y-1.5 mb-4 text-right text-sm text-[#CBD5E1]" dir="rtl">
                     <p>
                         {dateLabel} — {timeLabel}
                     </p>
                     {event.location ? <p className="break-words">{event.location}</p> : null}
                 </div>
 
-                <div className="space-y-3" dir="rtl">
+                <div className="space-y-2.5" dir="rtl">
                     <p className="text-[11px] font-semibold text-white/50">تأجيل المنبه — اختر المدة</p>
                     <div className="grid grid-cols-2 gap-2">
                         {SNOOZE_OPTIONS.map((minutes) => (
@@ -153,7 +173,7 @@ export function CalendarReminderModal({ alarm, onDismiss, onSnooze }: CalendarRe
                                 type="button"
                                 data-testid={`calendar-reminder-snooze-${minutes}`}
                                 onClick={() => onSnooze(minutes)}
-                                className="min-h-[44px] rounded-xl border border-[#E6C673]/22 bg-[#E6C673]/8 text-xs font-semibold text-[#F4F4F5] touch-manipulation"
+                                className="min-h-[44px] rounded-lg border border-[#E6C673]/22 bg-[#E6C673]/8 text-xs font-semibold text-[#F4F4F5] touch-manipulation"
                             >
                                 {formatCalendarReminderSnoozeLabel(minutes)}
                             </button>
@@ -164,7 +184,7 @@ export function CalendarReminderModal({ alarm, onDismiss, onSnooze }: CalendarRe
                         data-testid="calendar-reminder-mute"
                         onClick={() => setSoundOn(false)}
                         disabled={!soundOn}
-                        className="w-full min-h-[44px] rounded-xl border border-white/12 bg-white/[0.04] text-sm font-semibold text-[#F8FAFC] touch-manipulation disabled:opacity-40"
+                        className="w-full min-h-[44px] rounded-lg border border-white/12 bg-white/[0.04] text-sm font-semibold text-[#F8FAFC] touch-manipulation disabled:opacity-40"
                     >
                         {soundOn ? 'إيقاف الصوت' : 'الصوت متوقف'}
                     </button>
@@ -172,13 +192,13 @@ export function CalendarReminderModal({ alarm, onDismiss, onSnooze }: CalendarRe
                         type="button"
                         data-testid="calendar-reminder-dismiss"
                         onClick={onDismiss}
-                        className="w-full min-h-[44px] rounded-xl bg-[#E6C673] text-sm font-semibold text-[#0A0F1C] touch-manipulation"
+                        className="w-full min-h-[44px] rounded-lg bg-[#E6C673] text-sm font-semibold text-[#0A0F1C] touch-manipulation"
                     >
                         إيقاف المنبه
                     </button>
                 </div>
-            </motion.div>
-        </motion.div>
+            </div>
+        </div>
     );
 
     return createPortal(content, document.body);

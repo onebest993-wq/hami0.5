@@ -4,6 +4,7 @@ import { Check } from '@/app/components/ui/icons/Check';
 import { Shield } from '@/app/components/ui/icons/Shield';
 import type { ForumGroup } from '@/app/services/forum/forumGroupTypes';
 import { ForumPublishFab } from './ForumPublishFab';
+import { ForumLazySectionInstantSlots } from './ForumLazySectionInstantSlots';
 import {
     FORUM_ACCENT_CHIP,
     FORUM_CONTENT_COLUMN,
@@ -30,12 +31,12 @@ export const ForumGroupsDirectory = memo(function ForumGroupsDirectory({
     joiningGroupId,
 }: ForumGroupsDirectoryProps) {
     return (
-        <div className={`${FORUM_CONTENT_COLUMN} pt-1 pb-28 space-y-4`} data-testid="forum-groups-directory">
+        <div className={`${FORUM_CONTENT_COLUMN} pt-1 pb-24 space-y-3`} data-testid="forum-groups-directory" aria-busy={loading}>
             {loading ? (
-                <p className={`text-center text-sm py-10 ${FORUM_TEXT_MUTED}`}>جاري تحميل المجموعات…</p>
+                <ForumLazySectionInstantSlots framed={false} />
             ) : groups.length === 0 ? (
                 <div
-                    className="min-h-[min(48vh,26rem)] flex flex-col items-center justify-end text-center px-3 pb-6"
+                    className="pt-12 pb-6 flex flex-col items-center justify-center text-center px-3"
                     data-testid="forum-groups-empty"
                 >
                     <p className={`text-sm ${FORUM_TEXT_MUTED} max-w-xs`}>
@@ -89,7 +90,7 @@ function GroupCard({
 
     return (
         <article
-            className={`${FORUM_FEED_CARD} p-4 ${group.isMember ? 'cursor-pointer' : ''}`}
+            className={`${FORUM_FEED_CARD} ${group.isMember ? 'cursor-pointer' : ''}`}
             onClick={() => {
                 if (group.isMember) onOpen();
             }}
@@ -142,11 +143,12 @@ function GroupCard({
                     <button
                         type="button"
                         disabled={joining}
+                        aria-busy={joining || undefined}
                         onClick={onJoin}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-sky-400/30 bg-sky-950/35 px-3 py-1.5 text-[11px] font-bold text-sky-100 hover:bg-sky-950/55 disabled:opacity-60"
+                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-sky-400/30 bg-sky-950/35 px-3 py-1.5 text-[11px] font-bold text-sky-100 hover:bg-sky-950/55 disabled:opacity-60 touch-manipulation"
                     >
                         <Plus size={14} />
-                        {joining ? 'جاري الانضمام…' : 'انضمام'}
+                        انضمام
                     </button>
                 )}
             </div>

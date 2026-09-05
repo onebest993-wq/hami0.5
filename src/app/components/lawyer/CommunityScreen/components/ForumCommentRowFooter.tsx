@@ -32,7 +32,7 @@ export function ForumCommentRowFooter({
     onMuteUser?: (userId: string) => void;
 }) {
     return (
-        <div className="mt-3 flex items-center gap-2 flex-wrap">
+        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
             {!isLocked && (
                 <button
                     type="button"
@@ -40,7 +40,7 @@ export function ForumCommentRowFooter({
                         event.stopPropagation();
                         onSetReplyingToCommentId(comment.id);
                     }}
-                    className={`min-h-[44px] touch-manipulation text-[11px] px-2.5 py-1 rounded-full ${FORUM_GHOST_BTN} inline-flex items-center gap-1`}
+                    className={`min-h-[44px] touch-manipulation text-[11px] px-2 py-1 rounded-full ${FORUM_GHOST_BTN} inline-flex items-center gap-1`}
                     title="رد"
                 >
                     <CornerUpLeft size={12} />
@@ -54,10 +54,10 @@ export function ForumCommentRowFooter({
                         event.stopPropagation();
                         onToggleCommentUpvote(comment.id);
                     }}
-                    className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors inline-flex items-center gap-1 ${
+                    className={`min-h-[44px] touch-manipulation text-[11px] px-2 py-1 rounded-full border transition-colors inline-flex items-center gap-1 ${
                         (comment.upvoterIds ?? []).includes(currentUserId)
                             ? `${FORUM_ACCENT_CHIP} ${FORUM_TEXT_APRICOT}`
-                            : `${FORUM_GHOST_BTN} text-[11px] px-2.5 py-1 inline-flex items-center gap-1`
+                            : `${FORUM_GHOST_BTN}`
                     }`}
                     title="إعجاب بالتعليق"
                 >
@@ -78,7 +78,7 @@ export function ForumCommentRowFooter({
                         event.stopPropagation();
                         onReportComment(comment.id);
                     }}
-                    className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-red-400 hover:border-red-500/30 transition-colors inline-flex items-center gap-1"
+                    className="min-h-[44px] touch-manipulation text-[11px] px-2 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-red-400 hover:border-red-500/30 transition-colors inline-flex items-center gap-1"
                     title="الإبلاغ عن التعليق"
                 >
                     <Flag size={11} />
@@ -92,7 +92,7 @@ export function ForumCommentRowFooter({
                         event.stopPropagation();
                         onMuteUser(commentAuthorId || postAuthorId);
                     }}
-                    className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20 transition-colors inline-flex items-center gap-1"
+                    className="min-h-[44px] touch-manipulation text-[11px] px-2 py-1 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20 transition-colors inline-flex items-center gap-1"
                     title="كتم المستخدم"
                 >
                     <VolumeX size={11} />

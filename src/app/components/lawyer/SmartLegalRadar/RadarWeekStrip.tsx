@@ -58,13 +58,10 @@ export const RadarWeekStrip = React.memo(function RadarWeekStrip({
                         )}
                         onClick={() => onSelectDate(ymd)}
                         className={weekDayClass(ymd, selectedDate, viewMonth)}
+                        data-has-events={hasEvents ? '1' : undefined}
                     >
                         <span className="hami-radar-week-strip__name">{WEEK_DAYS[index]}</span>
                         <span className="hami-radar-week-strip__num">{dayNum}</span>
-                        <span
-                            className={`hami-radar-week-strip__dot${hasEvents ? '' : ' hami-radar-week-strip__dot--empty'}`}
-                            aria-hidden
-                        />
                     </button>
                 );
             })}

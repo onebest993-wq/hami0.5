@@ -56,12 +56,12 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
         setShowPauseModal,
         isPaused,
         isInterrupted,
-        handleClosePleadings,
         handleReopenPleadings,
         viewingStageIndex,
         activeStageIndex,
         setShowAppealModal,
         setShowJudgmentModal,
+        setPendingJudgmentDate,
         handleCassationDecision,
         isCaseLinkViewOnly,
         onOpenLinkedFile,
@@ -119,6 +119,8 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
                         displayStage={displayStage}
                         status={status}
                         interruptionData={interruptionData}
+                        stages={stages}
+                        parentIntegrity={parentData.disputeIntegrity}
                     />
 
                     <PersonalStatusIdentityFolio
@@ -266,17 +268,15 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
                         placement="footer"
                         isPleadingsClosed={displayStage?.isPleadingsClosed}
                         showCloseJudgment={flags.showCloseJudgment}
-                        onClosePleadings={
-                            interactionLocked || displayStage?.isPleadingsClosed
-                                ? undefined
-                                : handleClosePleadings
-                        }
                         onReopenPleadings={
                             interactionLocked || !displayStage?.isPleadingsClosed
                                 ? undefined
                                 : handleReopenPleadings
                         }
-                        onOpenJudgment={() => setShowJudgmentModal(true)}
+                        onOpenJudgment={(decisionDate) => {
+                            if (decisionDate) setPendingJudgmentDate?.(decisionDate);
+                            setShowJudgmentModal(true);
+                        }}
                     />
                 </div>
             ) : null}

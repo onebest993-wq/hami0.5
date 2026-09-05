@@ -8,9 +8,12 @@ export type PreDockCommunity = ReturnType<typeof useLawyerDashboardCommunity>;
 export type PreDockSchedule = ReturnType<typeof useLawyerDashboardScheduleTab>;
 export type PreDockRepository = ReturnType<typeof useLawyerDashboardRepository>;
 
-export type PreDockFeatureBag = {
+export type PreDockLiveBag = {
     community: PreDockCommunity;
     schedule: PreDockSchedule;
+};
+
+export type PreDockFeatureBag = PreDockLiveBag & {
     repository: PreDockRepository;
 };
 
@@ -26,5 +29,12 @@ export type LawyerDashboardPreDockFeatureSurfacesProps = {
     earlyArm: boolean;
     forceArm: boolean;
     params: PreDockFeatureSurfacesParams;
-    onReady: (bag: PreDockFeatureBag) => void;
+    onReady: (bag: PreDockLiveBag) => void;
+};
+
+export type LawyerDashboardRepositoryFeatureSurfacesProps = {
+    earlyArm: boolean;
+    forceArm: boolean;
+    userId: string | null;
+    onReady: (repository: PreDockRepository) => void;
 };

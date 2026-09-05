@@ -3,20 +3,16 @@ import { renderHook } from '@testing-library/react';
 import { useSettingsSectionWarm } from '@/app/components/lawyer/HamiSettings/hooks/useSettingsSectionWarm';
 
 const prefetchSettingsSection = vi.fn();
-const prefetchSecondarySettingsSections = vi.fn();
+const prefetchSettingsOpenTabChunks = vi.fn();
 
 vi.mock('@/app/components/lawyer/HamiSettings/settingsSectionLoad', () => ({
     prefetchSettingsSection: (...args: unknown[]) => prefetchSettingsSection(...args),
-    prefetchSecondarySettingsSections: (...args: unknown[]) => prefetchSecondarySettingsSections(...args),
+    prefetchSettingsOpenTabChunks: (...args: unknown[]) => prefetchSettingsOpenTabChunks(...args),
 }));
 
 describe('useSettingsSectionWarm', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.stubGlobal('requestIdleCallback', (cb: IdleRequestCallback) => {
-            cb({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline);
-            return 1;
-        });
     });
 
     afterEach(() => {
@@ -26,12 +22,25 @@ describe('useSettingsSectionWarm', () => {
     it('لا يسخّن أقساماً عندما الطبقة غير مركّبة', () => {
         renderHook(() => useSettingsSectionWarm(false, 'appearance'));
         expect(prefetchSettingsSection).not.toHaveBeenCalled();
-        expect(prefetchSecondarySettingsSections).not.toHaveBeenCalled();
     });
 
-    it('keepAlive أو الفتح يسخّن التبويب الحالي فوراً والبقية بعد الخمول', () => {
+    it('keepAlive يسخّن التبويب الحالي فقط — بلا تبويبات ثانوية', () => {
+        renderHook(() => useSettingsSectionWarm(true, 'security'));
+        expect(prefetchSettingsSection).toHaveBeenCalledTimes(1);
+        expect(prefetchSettingsSection).toHaveBeenCalledWith('security');
+        expect(prefetchSettingsOpenTabChunks).not.toHaveBeenCalled();
+    });
+
+    it('استعادة تبويب المنظر تسحبه فوراً لأنه التبويب النشط', () => {
         renderHook(() => useSettingsSectionWarm(true, 'appearance'));
         expect(prefetchSettingsSection).toHaveBeenCalledWith('appearance');
-        expect(prefetchSecondarySettingsSections).toHaveBeenCalledTimes(1);
+        expect(prefetchSettingsSection).toHaveBeenCalledTimes(1);
+        expect(prefetchSettingsOpenTabChunks).not.toHaveBeenCalled();
+    });
+
+    it('المركز المفتوح يسخّن التبويبات الثانوية حتى لا تفرّغ عند التبديل', () => {
+        renderHook(() => useSettingsSectionWarm(true, 'security', true));
+        expect(prefetchSettingsSection).toHaveBeenCalledWith('security');
+        expect(prefetchSettingsOpenTabChunks).toHaveBeenCalledTimes(1);
     });
 });

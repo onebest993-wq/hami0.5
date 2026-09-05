@@ -133,7 +133,6 @@ export function ExecutionDashboardHeavyModalsEarlyOpsStrip({
                         History={s.History}
                         toggleTimelineEventPin={s.toggleTimelineEventPin}
                         moveTimelineEventToTrash={s.moveTimelineEventToTrash}
-                        onRequestEditTimelineEvent={s.requestEditTimelineEvent}
                         isHistoricalMode={s.isHistoricalMode}
                         activeTimelineFilter={s.activeTimelineFilter}
                         setActiveTimelineFilter={s.setActiveTimelineFilter}

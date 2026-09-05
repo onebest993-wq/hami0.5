@@ -23,7 +23,7 @@ describe('Execution creation visible field wiring (O25)', () => {
         expect(identity).toContain('data-testid="execution-creation-judgment-date"');
         expect(identity).toContain('onJudgmentDateChange');
         expect(identity).toContain("aria-label=\"تاريخ الحكم\"");
-        expect(identity).toContain("onChange={(e) => onJudgmentDateChange?.(e.target.value)}");
+        expect(identity).toContain('onJudgmentDateChange?.(e.target.value)');
     });
 
     it('eviction section binds premises use to commercial/residential setters', () => {

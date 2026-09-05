@@ -14,7 +14,6 @@ const EXECUTION_DASHBOARD_TERTIARY_OVERLAY_SCOPE_GROUPS = new Set([
     'realEstateSeizureHandlers',
     'salarySeizurePatch',
     'salarySeizureTabRows',
-    'seizureAssetModalHandlers',
     'seizureOrchestrator',
     'seizureReleaseHandlers',
     'thirdPartyReceiveHandlers',

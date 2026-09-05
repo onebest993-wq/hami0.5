@@ -1,6 +1,7 @@
 import type { ElementType } from 'react';
 import type { DossierHeaderResolved } from '@/app/utils/executionDossierHeaderFields';
 import { EXECUTION_DOSSIER_SUMMARY_EXPANDED } from '@/app/components/lawyer/ExecutionDashboard/executionDossierVisualLite';
+import { prefetchExecutionDossierMetaEdit } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch';
 import { DetailCell } from './dashboardHeaderSectionHelpers';
 
 export function DashboardHeaderExpandedDetails({
@@ -49,8 +50,11 @@ export function DashboardHeaderExpandedDetails({
                                         <button
                                             type="button"
                                             data-exec-interactive="true"
+                                            onPointerDown={() => prefetchExecutionDossierMetaEdit()}
+                                            onFocus={() => prefetchExecutionDossierMetaEdit()}
                                             onClick={(e) => {
                                                 e.stopPropagation();
+                                                prefetchExecutionDossierMetaEdit();
                                                 expanded.openEditDossierMeta();
                                             }}
                                             className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-200/90 transition hover:text-amber-100"

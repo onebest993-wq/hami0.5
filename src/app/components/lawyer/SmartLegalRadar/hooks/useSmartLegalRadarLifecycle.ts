@@ -3,7 +3,7 @@ import {
     markCalendarPerfPhase,
     reportCalendarPerf,
 } from '@/app/services/calendar/calendarPerfMetrics';
-import { readLocalCalendarSnapshotSync } from '@/app/services/calendar/calendarLocalSnapshot';
+import { peekLocalCalendarSnapshotSync } from '@/app/services/calendar/calendarLocalSnapshot';
 import { getCachedCalendarEvents } from '@/app/services/calendar/calendarEventsCache';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
 
@@ -17,7 +17,7 @@ export function useSmartLegalRadarLifecycle(
             const uid = resolveCalendarUserId(userId || null);
             const mem = getCachedCalendarEvents(uid);
             if (mem && mem.length > 0) return true;
-            return readLocalCalendarSnapshotSync(uid).length > 0;
+            return peekLocalCalendarSnapshotSync(uid).length > 0;
         })(),
     );
     const reportedRef = useRef(false);
@@ -27,7 +27,7 @@ export function useSmartLegalRadarLifecycle(
         const uid = resolveCalendarUserId(userId || null);
         const mem = getCachedCalendarEvents(uid);
         hadLocalCacheRef.current =
-            (mem && mem.length > 0) || readLocalCalendarSnapshotSync(uid).length > 0;
+            (mem && mem.length > 0) || peekLocalCalendarSnapshotSync(uid).length > 0;
     }, [userId]);
 
     useEffect(() => {

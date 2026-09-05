@@ -1,7 +1,18 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
 import { fileHasSpecificDeliveryClaim } from '@/app/utils/executionDossierHeaderFields';
 import { toastAfterExecutionPersist } from '../helpers/toastAfterExecutionPersist';
+import {
+    formatDossierFileRef,
+    normalizeDossierMetaFileParts,
+    parseDossierFileRef,
+    validateDossierMetaDraft,
+} from '../helpers/dossierMetaValidation';
+import {
+    buildDossierPartyNamesPatch,
+    encodeDossierPartyNames,
+    validateDossierPartyNames,
+} from '../helpers/dossierMetaPartyNames';
 
 function resolveInstrumentDocNumber(file: ExecutionFile | null | undefined, fallback = ''): string {
     if (!file) return String(fallback ?? '').trim();
@@ -45,10 +56,30 @@ export function useDossierMeta(
     showToast: (msg: string, type: 'success' | 'error' | 'warning' | 'info') => void,
 ) {
     const [showEditDossierMetaModal, setShowEditDossierMetaModal] = useState(false);
-    const [dossierMetaDraft, setDossierMetaDraft] = useState<Record<string, string> | null>(null);
+    const [dossierMetaDraft, setDossierMetaDraftState] = useState<Record<string, string> | null>(null);
+    const dossierMetaDraftRef = useRef(dossierMetaDraft);
+    dossierMetaDraftRef.current = dossierMetaDraft;
+
+    const setDossierMetaDraft = useCallback(
+        (
+            update:
+                | Record<string, string>
+                | null
+                | ((prev: Record<string, string> | null) => Record<string, string> | null),
+        ) => {
+            const next =
+                typeof update === 'function' ? update(dossierMetaDraftRef.current) : update;
+            dossierMetaDraftRef.current = next;
+            setDossierMetaDraftState(next);
+        },
+        [],
+    );
 
     const openEditDossierMeta = useCallback(() => {
-        setDossierMetaDraft({
+        setDossierMetaDraft(
+            normalizeDossierMetaFileParts(
+                encodeDossierPartyNames(
+                    {
             directorate: String(executionData?.directorate ?? directorate ?? ''),
             fileNumber: String(executionData?.fileNumber ?? fileNumber ?? ''),
             fileYear: String(executionData?.fileYear ?? fileYear ?? ''),
@@ -76,7 +107,11 @@ export function useDossierMeta(
                 (executionData as { specificDeliveryItemNature?: string } | null | undefined)
                     ?.specificDeliveryItemNature ?? ''
             ),
-        });
+                },
+                    executionData,
+                ),
+            ),
+        );
         setShowEditDossierMetaModal(true);
     }, [
         classification,
@@ -93,13 +128,39 @@ export function useDossierMeta(
         judgmentDate,
     ]);
 
-    const saveDossierMetaDraft = useCallback(() => {
+    const saveDossierMetaDraft = useCallback((draftOverride?: Record<string, string>) => {
+        if (draftOverride) {
+            dossierMetaDraftRef.current = draftOverride;
+            setDossierMetaDraftState(draftOverride);
+        }
+        const dossierMetaDraft = dossierMetaDraftRef.current;
         if (!dossierMetaDraft) return;
+        const validation = validateDossierMetaDraft(dossierMetaDraft, {
+            isEviction: isEvictionExecutionModule,
+        });
+        if (!validation.ok) {
+            showToast(validation.message, 'warning');
+            return;
+        }
+        const partyValidation = validateDossierPartyNames(dossierMetaDraft);
+        if (!partyValidation.ok) {
+            showToast(partyValidation.message, 'warning');
+            return;
+        }
         const ep = dossierMetaDraft.eviction_premises_use;
+        const partyPatch = buildDossierPartyNamesPatch(executionData, dossierMetaDraft);
+        const parsedFile = parseDossierFileRef(
+            formatDossierFileRef(dossierMetaDraft.fileNumber, dossierMetaDraft.fileYear) ||
+                dossierMetaDraft.fileNumber,
+        );
+        const resolvedFileNumber =
+            parsedFile.fileNumber || String(dossierMetaDraft.fileNumber ?? '').trim();
+        const resolvedFileYear =
+            parsedFile.fileYear || String(dossierMetaDraft.fileYear ?? '').trim();
         const base = {
             directorate: dossierMetaDraft.directorate as ExecutionFile['directorate'],
-            fileNumber: dossierMetaDraft.fileNumber,
-            fileYear: dossierMetaDraft.fileYear,
+            fileNumber: resolvedFileNumber,
+            fileYear: resolvedFileYear,
             docType: dossierMetaDraft.docType,
             claimType: dossierMetaDraft.claimType,
             docNumber: dossierMetaDraft.docNumber,
@@ -139,9 +200,10 @@ export function useDossierMeta(
                         ? (ep as 'commercial' | 'residential')
                         : undefined,
                 ...specificDeliveryPatch,
+                ...partyPatch,
             });
         } else {
-            persisted = persistExecutionMerge({ ...base, ...specificDeliveryPatch });
+            persisted = persistExecutionMerge({ ...base, ...specificDeliveryPatch, ...partyPatch });
         }
         if (
             !toastAfterExecutionPersist(persisted, showToast, 'تم حفظ بيانات الإضبارة')
@@ -150,7 +212,7 @@ export function useDossierMeta(
         }
         setShowEditDossierMetaModal(false);
         setDossierMetaDraft(null);
-    }, [dossierMetaDraft, executionData, isEvictionExecutionModule, persistExecutionMerge, showToast]);
+    }, [executionData, isEvictionExecutionModule, persistExecutionMerge, setDossierMetaDraft, showToast]);
 
     return useMemo(
         () => ({

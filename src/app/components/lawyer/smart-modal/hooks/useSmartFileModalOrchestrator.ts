@@ -25,6 +25,7 @@ export function useSmartFileModalOrchestrator(props: SmartFileModalProps) {
         onLinkWithExistingCase,
         onStartConsolidationNewCase,
         onConsolidateWithExisting,
+        onSpawnIndependentChallengeFile,
         consolidationNavActive = false,
         caseLinkNavActive = false,
     } = props;
@@ -74,6 +75,7 @@ export function useSmartFileModalOrchestrator(props: SmartFileModalProps) {
         onLinkWithExistingCase,
         onStartConsolidationNewCase,
         onConsolidateWithExisting,
+        onSpawnIndependentChallengeFile,
         parentData,
         setParentData,
         stages: navigation.stages,

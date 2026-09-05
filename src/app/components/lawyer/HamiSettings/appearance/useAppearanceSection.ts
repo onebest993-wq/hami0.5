@@ -1,8 +1,4 @@
-import {
-    useLawyerSettingsAppearance,
-    useLawyerSettingsHomeLayout,
-    useLawyerSettingsPerformance,
-} from '@/app/context/LawyerSettingsContext';
+import { useLawyerSettingsAppearance } from '@/app/context/LawyerSettingsContext';
 import { resolveLawyerSurfaceBaseColor } from '@/app/services/settings';
 import type { ThemeKey } from '@/app/types/common';
 import { useSettingsPatches } from '../hooks/useSettingsPatches';
@@ -12,9 +8,7 @@ import { useAppearanceBlockCustomize } from './useAppearanceBlockCustomize';
 
 export function useAppearanceSection() {
     const appearance = useLawyerSettingsAppearance();
-    const performance = useLawyerSettingsPerformance();
-    const homeLayout = useLawyerSettingsHomeLayout();
-    const { patchAppearance, patchPerformance } = useSettingsPatches();
+    const { patchAppearance } = useSettingsPatches();
     const blockCustomize = useAppearanceBlockCustomize();
 
     const theme = useAppearanceThemeControls(appearance, patchAppearance);
@@ -26,8 +20,6 @@ export function useAppearanceSection() {
 
     return {
         appearance,
-        performance,
-        homeLayout,
         blockCustomize,
         wallpaperRef: wallpaper.wallpaperRef,
         themesExpanded: theme.themesExpanded,
@@ -47,7 +39,6 @@ export function useAppearanceSection() {
         editorBusy: wallpaper.editorBusy,
         removeWallpaper: wallpaper.removeWallpaper,
         patchAppearance,
-        patchPerformance,
         previewBaseColor: resolveLawyerSurfaceBaseColor(theme.activeThemeKey, 'dark', false),
     };
 }

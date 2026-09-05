@@ -49,6 +49,7 @@ export function DebtorCardRowBadgesCluster(props: DebtorCardRowBadgesClusterProp
         debtorArrested,
         decisionsReloadEpoch,
         isHistoricalMode,
+        persistGuarantorFollowupDetails,
     } = props;
 
     const { confirm: confirmInSection, dialog: sectionConfirmDialog } = useExecutionSectionConfirm();
@@ -66,104 +67,112 @@ export function DebtorCardRowBadgesCluster(props: DebtorCardRowBadgesClusterProp
     if (!hasSeizureBadges && !showInteractive) return null;
 
     return (
-        <div
-            className="mt-2 flex flex-row-reverse flex-wrap items-center justify-start gap-1.5"
-            dir="rtl"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-            role="presentation"
-        >
-            {showInteractive ? (
-                <ExecutionPartyInteractiveBadges
-                    embeddedInRow
-                    executionId={partyBadgesExecutionId}
-                    party="debtor"
-                    isPrimaryDebtor={isPrimary}
-                    executionData={viewExecutionData}
-                    debtorAttendedVoluntarily={isPrimary ? debtorAttendedVoluntarily : false}
-                    voluntaryAttendanceCount={isPrimary ? voluntaryAttendanceCount : 0}
-                    seizedAssets={safeSeizedAssets}
-                    timelineEvents={
-                        debtorBrowserTabsMode
-                            ? safeActiveTimelineEventsDebtorScoped
-                            : safeActiveTimelineEvents
-                    }
-                    memoBadge={rowMemoNoticeBadge}
-                    onMemoActivate={() => {
-                        setSummonsMarkerPopoverOpen(false);
-                        setExecutionMemoBadgePopoverOpen(true);
-                    }}
-                    evictionGraceBadge={isPrimary ? evictionGraceBadgeInfo : null}
-                    evictionGracePinned={evictionGracePinned}
-                    onToggleEvictionGracePinned={toggleEvictionGracePinned}
-                    onEvictionGraceActivate={
-                        isPrimary &&
-                        evictionGraceBadgeInfo &&
-                        typeof openEvictionResidentialGraceModal === 'function'
-                            ? () => {
-                                  setEvictionGraceDecisionId(null);
-                                  openEvictionResidentialGraceModal();
-                              }
-                            : undefined
-                    }
-                    onCompleteEvictionGrace={
-                        isPrimary &&
-                        evictionGraceBadgeInfo &&
-                        typeof completeEvictionResidentialGrace === 'function'
-                            ? completeEvictionResidentialGrace
-                            : undefined
-                    }
-                    policeAssistanceBadge={isPrimary ? policeAssistanceBadgeInfo : null}
-                    onPoliceAssistanceActivate={
-                        isPrimary &&
-                        policeAssistanceBadgeInfo &&
-                        typeof openPoliceAssistanceFromBadge === 'function'
-                            ? openPoliceAssistanceFromBadge
-                            : undefined
-                    }
-                    onCompletePoliceAssistance={
-                        isPrimary &&
-                        policeAssistanceBadgeInfo &&
-                        typeof completePoliceAssistance === 'function'
-                            ? completePoliceAssistance
-                            : undefined
-                    }
-                    publicationNoticeBadge={rowPublicationNoticeBadgeResolved}
-                    onDismissPublicationNoticeBadge={actions.onDismissPublicationNoticeBadge}
-                    onPublicationNoticeActivate={actions.openNashrHub}
-                    absenceBadge={rowAbsenceNoticeBadge}
-                    onDismissAbsence={rowAbsenceNoticeBadge ? dismissDebtorAbsenceBadge : undefined}
-                    showSummonsBadge={rowShowSummonsBadge}
-                    onSummonsActivate={actions.openTablighHub}
-                    regularTablighBadge={rowRegularTablighBadge}
-                    onDismissRegularTablighBadge={actions.onDismissRegularTablighBadge}
-                    debtorArrested={Boolean(debtorArrested || executionData?.debtorArrested)}
-                    personalCoerciveDecisionBadges={!rowIsEmployee}
-                    debtorIsEmployee={rowIsEmployee}
-                    activeDebtorKey={String(debtorKey)}
-                    primaryDebtorKey={primaryDebtorKeyResolved}
-                    forcedAttendancePending={rowForcedAttendancePending}
-                    onWithdrawTravelBan={actions.onWithdrawTravelBan}
-                    taklifAssignmentBadge={rowTaklifAssignmentBadge}
-                    onTaklifAssignmentActivate={actions.onTaklifAssignmentActivate}
-                    onDismissTaklifAssignmentBadge={actions.onDismissTaklifAssignmentBadge}
-                    decisionsReloadEpoch={decisionsReloadEpoch}
-                    isHistoricalMode={isHistoricalMode}
-                />
-            ) : null}
-            {hasSeizureBadges ? (
-                <DebtorSeizureCategoryBadges
-                    embeddedInRow
-                    executionId={partyBadgesExecutionId}
-                    decisionsExecutionId={partyBadgesExecutionId}
-                    seizedAssets={safeSeizedAssets}
-                    realEstateSeizureAssets={safeRealEstateSeizureAssets}
-                    thirdPartySeizureAssets={safeThirdPartySeizureAssets}
-                    thirdPartySeizures={safeThirdPartySeizures}
-                    standaloneExecutionMarks={safeStandaloneExecutionMarks}
-                />
-            ) : null}
+        <>
+            <div
+                className="contents"
+                dir="rtl"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+                role="presentation"
+            >
+                {showInteractive ? (
+                    <ExecutionPartyInteractiveBadges
+                        embeddedInRow
+                        executionId={partyBadgesExecutionId}
+                        party="debtor"
+                        isPrimaryDebtor={isPrimary}
+                        executionData={viewExecutionData}
+                        debtorAttendedVoluntarily={isPrimary ? debtorAttendedVoluntarily : false}
+                        voluntaryAttendanceCount={isPrimary ? voluntaryAttendanceCount : 0}
+                        seizedAssets={safeSeizedAssets}
+                        timelineEvents={
+                            debtorBrowserTabsMode
+                                ? safeActiveTimelineEventsDebtorScoped
+                                : safeActiveTimelineEvents
+                        }
+                        memoBadge={rowMemoNoticeBadge}
+                        onMemoActivate={() => {
+                            setSummonsMarkerPopoverOpen(false);
+                            setExecutionMemoBadgePopoverOpen(true);
+                        }}
+                        evictionGraceBadge={isPrimary ? evictionGraceBadgeInfo : null}
+                        evictionGracePinned={evictionGracePinned}
+                        onToggleEvictionGracePinned={toggleEvictionGracePinned}
+                        onEvictionGraceActivate={
+                            isPrimary &&
+                            evictionGraceBadgeInfo &&
+                            typeof openEvictionResidentialGraceModal === 'function'
+                                ? () => {
+                                      setEvictionGraceDecisionId(null);
+                                      openEvictionResidentialGraceModal();
+                                  }
+                                : undefined
+                        }
+                        onCompleteEvictionGrace={
+                            isPrimary &&
+                            evictionGraceBadgeInfo &&
+                            typeof completeEvictionResidentialGrace === 'function'
+                                ? completeEvictionResidentialGrace
+                                : undefined
+                        }
+                        policeAssistanceBadge={isPrimary ? policeAssistanceBadgeInfo : null}
+                        onPoliceAssistanceActivate={
+                            isPrimary &&
+                            policeAssistanceBadgeInfo &&
+                            typeof openPoliceAssistanceFromBadge === 'function'
+                                ? openPoliceAssistanceFromBadge
+                                : undefined
+                        }
+                        onCompletePoliceAssistance={
+                            isPrimary &&
+                            policeAssistanceBadgeInfo &&
+                            typeof completePoliceAssistance === 'function'
+                                ? completePoliceAssistance
+                                : undefined
+                        }
+                        publicationNoticeBadge={rowPublicationNoticeBadgeResolved}
+                        onDismissPublicationNoticeBadge={actions.onDismissPublicationNoticeBadge}
+                        onPublicationNoticeActivate={actions.openNashrHub}
+                        absenceBadge={rowAbsenceNoticeBadge}
+                        onDismissAbsence={rowAbsenceNoticeBadge ? dismissDebtorAbsenceBadge : undefined}
+                        showSummonsBadge={rowShowSummonsBadge}
+                        onSummonsActivate={actions.openTablighHub}
+                        regularTablighBadge={rowRegularTablighBadge}
+                        onDismissRegularTablighBadge={actions.onDismissRegularTablighBadge}
+                        debtorArrested={Boolean(debtorArrested || executionData?.debtorArrested)}
+                        personalCoerciveDecisionBadges={!rowIsEmployee}
+                        debtorIsEmployee={rowIsEmployee}
+                        activeDebtorKey={String(debtorKey)}
+                        primaryDebtorKey={primaryDebtorKeyResolved}
+                        forcedAttendancePending={rowForcedAttendancePending}
+                        onWithdrawTravelBan={actions.onWithdrawTravelBan}
+                        taklifAssignmentBadge={rowTaklifAssignmentBadge}
+                        onTaklifAssignmentActivate={actions.onTaklifAssignmentActivate}
+                        onDismissTaklifAssignmentBadge={actions.onDismissTaklifAssignmentBadge}
+                        decisionsReloadEpoch={decisionsReloadEpoch}
+                        isHistoricalMode={isHistoricalMode}
+                        hasGuarantor={Boolean(
+                            executionData?.hasGuarantor ||
+                                executionData?.guarantor_followup?.guarantor_name ||
+                                viewExecutionData?.guarantor_followup?.guarantor_name,
+                        )}
+                        onPersistGuarantorFollowup={persistGuarantorFollowupDetails}
+                    />
+                ) : null}
+                {hasSeizureBadges ? (
+                    <DebtorSeizureCategoryBadges
+                        embeddedInRow
+                        executionId={partyBadgesExecutionId}
+                        decisionsExecutionId={partyBadgesExecutionId}
+                        seizedAssets={safeSeizedAssets}
+                        realEstateSeizureAssets={safeRealEstateSeizureAssets}
+                        thirdPartySeizureAssets={safeThirdPartySeizureAssets}
+                        thirdPartySeizures={safeThirdPartySeizures}
+                        standaloneExecutionMarks={safeStandaloneExecutionMarks}
+                    />
+                ) : null}
+            </div>
             {sectionConfirmDialog}
-        </div>
+        </>
     );
 }

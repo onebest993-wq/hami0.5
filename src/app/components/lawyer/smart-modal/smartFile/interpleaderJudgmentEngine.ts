@@ -1,4 +1,8 @@
 import type { Party } from '../../LawyerShared';
+import {
+    resolveOperationalAppealAction,
+    type PartyOutcome,
+} from '@/app/domain/lawsuit/litigationDecisionEngine';
 import { partitionPartiesForHeader } from './partyRoleClassification';
 import {
     JUDGMENT_TYPE_VOID,
@@ -21,11 +25,11 @@ export const INTERPLEADER_JUDGMENT_THIRD_FULL =
     'الحكم للشخص الثالث الاختصامي (بطلباته)';
 export const INTERPLEADER_JUDGMENT_BOTH_DISMISSED =
     'رد الدعوى الأصلية ورد طلب التدخل';
-const INTERPLEADER_JUDGMENT_PLAINTIFF_PARTIAL =
+export const INTERPLEADER_JUDGMENT_PLAINTIFF_PARTIAL =
     'إجابة دعوى المدعي (جزئياً)';
 export const INTERPLEADER_JUDGMENT_THIRD_PARTIAL =
     'إجابة طلب الشخص الثالث (جزئياً)';
-const INTERPLEADER_JUDGMENT_FORMAL_NULLITY =
+export const INTERPLEADER_JUDGMENT_FORMAL_NULLITY =
     'إبطال عريضة الدعوى وعريضة التدخل';
 
 const INTERPLEADER_JUDGMENT_VALUES = new Set<string>([
@@ -106,6 +110,13 @@ export function resolveLawyerJudgmentBucket(
 
 type ClientOutcome = 'full_win' | 'full_loss' | 'partial' | 'void';
 
+function clientOutcomeToPartyOutcome(outcome: ClientOutcome): PartyOutcome | null {
+    if (outcome === 'full_win') return 'FULL_WIN';
+    if (outcome === 'full_loss') return 'FULL_LOSS';
+    if (outcome === 'partial') return 'PARTIAL';
+    return null;
+}
+
 function resolveClientOutcome(judgmentType: string, bucket: LawyerJudgmentBucket): ClientOutcome {
     switch (judgmentType) {
         case INTERPLEADER_JUDGMENT_PLAINTIFF_FULL:
@@ -135,6 +146,38 @@ function resolveClientOutcome(judgmentType: string, bucket: LawyerJudgmentBucket
     }
 }
 
+function resolveInterpleaderHint(
+    judgmentType: string,
+    bucket: LawyerJudgmentBucket,
+    action: 'wait_opponent' | 'self_appeal' | 'both_paths',
+): string {
+    if (bucket === 'interpleader') {
+        if (judgmentType === INTERPLEADER_JUDGMENT_THIRD_FULL) {
+            return 'إجابة طلب الشخص الثالث بالكامل — لا يحق لموكلك الطعن. بانتظار طعن الخصم.';
+        }
+        if (judgmentType === INTERPLEADER_JUDGMENT_THIRD_PARTIAL) {
+            return 'إجابة طلب الشخص الثالث جزئياً — يحق لموكلك الطعن فيما خسره.';
+        }
+        if (
+            judgmentType === INTERPLEADER_JUDGMENT_PLAINTIFF_FULL
+            || judgmentType === INTERPLEADER_JUDGMENT_PLAINTIFF_PARTIAL
+            || judgmentType === INTERPLEADER_JUDGMENT_BOTH_DISMISSED
+        ) {
+            return 'رد طلب الشخص الثالث — يحق لموكلك الطعن بالاستئناف أو التمييز.';
+        }
+    }
+    if (action === 'wait_opponent') {
+        return 'كسبتم الدعوى — لا يحق لموكلك الطعن. تُقفل المرافعة بانتظار طعن الخصم.';
+    }
+    if (action === 'self_appeal' && judgmentType.includes('جزئياً')) {
+        return 'حكم جزئي — يحق لموكلك والخصم الطعن فيما حُسم عليه.';
+    }
+    if (action === 'self_appeal') {
+        return 'صدر حكم لصالح الخصم — يحق لموكلك الطعن بالاستئناف أو التمييز.';
+    }
+    return 'حكم جزئي — يحق لموكلك والخصم الطعن فيما حُسم عليه.';
+}
+
 export function resolveInterpleaderHadoriAppealRights(
     judgmentType: string,
     bucket: LawyerJudgmentBucket | null,
@@ -149,51 +192,21 @@ export function resolveInterpleaderHadoriAppealRights(
         };
     }
 
-    if (bucket === 'interpleader') {
-        if (
-            judgmentType === INTERPLEADER_JUDGMENT_THIRD_FULL
-            || judgmentType === INTERPLEADER_JUDGMENT_THIRD_PARTIAL
-        ) {
-            return {
-                action: 'wait_opponent',
-                hint: 'إجابة طلب الشخص الثالث — لا يحق لموكلك الطعن. بانتظار طعن الخصم.',
-            };
-        }
-        if (
-            judgmentType === INTERPLEADER_JUDGMENT_PLAINTIFF_FULL
-            || judgmentType === INTERPLEADER_JUDGMENT_PLAINTIFF_PARTIAL
-            || judgmentType === INTERPLEADER_JUDGMENT_BOTH_DISMISSED
-        ) {
-            return {
-                action: 'self_appeal',
-                hint: 'رد طلب الشخص الثالث — يحق لموكلك الطعن بالاستئناف أو التمييز.',
-            };
-        }
-    }
-
     const outcome = resolveClientOutcome(judgmentType, bucket);
-
     if (outcome === 'void') {
         return { action: 'archive_void', hint: '' };
     }
 
-    if (outcome === 'full_win') {
-        return {
-            action: 'wait_opponent',
-            hint: 'كسبتم الدعوى — لا يحق لموكلك الطعن. تُقفل المرافعة بانتظار طعن الخصم.',
-        };
+    const partyOutcome = clientOutcomeToPartyOutcome(outcome);
+    if (!partyOutcome) {
+        return { action: 'archive_void', hint: '' };
     }
 
-    if (outcome === 'full_loss') {
-        return {
-            action: 'self_appeal',
-            hint: 'صدر حكم لصالح الخصم — يحق لموكلك الطعن بالاستئناف أو التمييز.',
-        };
-    }
-
+    /** م/168 عبر محرك القرار النقي — PARTIAL ⇒ canAppeal */
+    const action = resolveOperationalAppealAction(partyOutcome, { partialAction: 'self_appeal' });
     return {
-        action: 'self_appeal',
-        hint: 'حكم جزئي — يحق لموكلك والخصم الطعن فيما حُسم عليه.',
+        action,
+        hint: resolveInterpleaderHint(judgmentType, bucket, action),
     };
 }
 

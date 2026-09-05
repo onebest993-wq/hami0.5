@@ -209,4 +209,46 @@ describe('useRepositoryEscapeStack', () => {
         expect(onCloseVoice).not.toHaveBeenCalled();
         expect(onCloseModal).not.toHaveBeenCalled();
     });
+
+    it('أثناء حفظ المسودة: Escape لا يلغي الإنشاء ولا يغلق المستودع', () => {
+        const onResetComposer = vi.fn();
+        const onCloseModal = vi.fn();
+        renderHook(() =>
+            useRepositoryEscapeStack({
+                enabled: true,
+                composing: true,
+                composeSaving: true,
+                scannerOpen: false,
+                showVoiceRecorder: false,
+                onResetComposer,
+                onCloseScanner: vi.fn(),
+                onCloseModal,
+            }),
+        );
+        pressEscape();
+        expect(onResetComposer).not.toHaveBeenCalled();
+        expect(onCloseModal).not.toHaveBeenCalled();
+    });
+
+    it('أثناء حفظ الرفع: Escape لا يلغي الرفع ولا يغلق المستودع', () => {
+        const onCancelPendingUpload = vi.fn();
+        const onCloseModal = vi.fn();
+        renderHook(() =>
+            useRepositoryEscapeStack({
+                enabled: true,
+                composing: false,
+                scannerOpen: false,
+                showVoiceRecorder: false,
+                pendingUploadOpen: true,
+                pendingUploadSaving: true,
+                onResetComposer: vi.fn(),
+                onCloseScanner: vi.fn(),
+                onCancelPendingUpload,
+                onCloseModal,
+            }),
+        );
+        pressEscape();
+        expect(onCancelPendingUpload).not.toHaveBeenCalled();
+        expect(onCloseModal).not.toHaveBeenCalled();
+    });
 });

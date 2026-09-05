@@ -1,21 +1,39 @@
-import { memo } from 'react';
-import { Tabs, TabsContent } from '@/app/components/ui/tabs';
-import type { Transaction } from '@/app/modules/transactionsThreading/types';
+import { lazy, memo, useEffect } from 'react';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import { TaskThreadView } from './TaskThreadView';
-import { AddTaskBottomSheet } from './AddTaskBottomSheet';
-import { DocumentsTabView } from './DocumentsTabView';
-import { ShareProcedureModal } from './ShareProcedureModal';
 import {
     TX_PAGE_SCROLL,
     TX_TEXT_MUTED,
     TxGlassFab,
     TxGlassPage,
-    TxGlassPanel,
 } from './transactionsGlassTheme';
 import type { TransactionsDetailsEscapeSnapshot } from './transactionsEscapeStack';
-import { TransactionDetailsDialogs } from './transactionDetails/TransactionDetailsDialogs';
 import { TransactionDetailsHeader } from './transactionDetails/TransactionDetailsHeader';
 import { useTransactionDetailsController } from './transactionDetails/useTransactionDetailsController';
+import { TxLazyIsland } from './TransactionsChunkGuard';
+import {
+    prefetchAddTaskBottomSheet,
+    prefetchDocumentsTabView,
+    prefetchShareProcedureModal,
+    prefetchTransactionDetailsDialogs,
+    prefetchTransactionsPathOverlays,
+    scheduleTransactionsIdle,
+} from './transactionsFeatureLoader';
+
+const DocumentsTabViewLazy = lazy(() =>
+    import('./DocumentsTabView').then((mod) => ({ default: mod.DocumentsTabView })),
+);
+const AddTaskBottomSheetLazy = lazy(() =>
+    import('./AddTaskBottomSheet').then((mod) => ({ default: mod.AddTaskBottomSheet })),
+);
+const TransactionDetailsDialogsLazy = lazy(() =>
+    import('./transactionDetails/TransactionDetailsDialogs').then((mod) => ({
+        default: mod.TransactionDetailsDialogs,
+    })),
+);
+const ShareProcedureModalLazy = lazy(() =>
+    import('./ShareProcedureModal').then((mod) => ({ default: mod.ShareProcedureModal })),
+);
 
 export const TransactionDetailsScreen = memo(function TransactionDetailsScreen({
     transactionId,
@@ -42,122 +60,168 @@ export const TransactionDetailsScreen = memo(function TransactionDetailsScreen({
         detailsActive,
     });
 
+    useEffect(() => {
+        return scheduleTransactionsIdle(() => {
+            prefetchTransactionsPathOverlays();
+        });
+    }, []);
+
     if (!vm.tx) {
         return (
             <div data-testid="transactions-details-screen" className="h-full min-h-0">
                 <TxGlassPage>
                     <div className="flex items-center justify-center min-h-[60dvh] px-6">
-                        <TxGlassPanel className="px-5 py-5 text-center">
-                            <p className={`${TX_TEXT_MUTED} text-sm font-medium`}>تعذر العثور على المعاملة</p>
-                        </TxGlassPanel>
+                        <p className={`${TX_TEXT_MUTED} text-sm font-medium`}>تعذر العثور على المعاملة</p>
                     </div>
                 </TxGlassPage>
             </div>
         );
     }
 
+    const failOverlay = (close: () => void) => () => {
+        close();
+        SmartToast.error('تعذر التحميل — حاول مرة أخرى');
+    };
+
     return (
         <div data-testid="transactions-details-screen" className="h-full min-h-0">
             <TxGlassPage>
-                <Tabs dir="rtl" value={vm.tab} onValueChange={(v) => vm.setTab(v as 'path' | 'docs')} className="flex min-h-0 w-full flex-1 flex-col gap-0">
-                    <TransactionDetailsHeader
-                        tx={vm.tx}
-                        isReadOnly={vm.isReadOnly}
-                        onBack={onBack}
-                        taskCount={vm.tasks.length}
-                        onReopen={() => void vm.reopenTransaction()}
-                        onRequestComplete={() => vm.setCompleteOpen(true)}
-                        onBeginSaveTemplate={vm.beginSaveTemplate}
-                        onOpenImportTemplates={() => vm.setTemplatesOpen(true)}
-                        onShareProcedure={vm.openShareFromTransaction}
-                        onOpenReport={() => vm.setReportOpen(true)}
-                    />
+                <TransactionDetailsHeader
+                    tx={vm.tx}
+                    isReadOnly={vm.isReadOnly}
+                    tab={vm.tab}
+                    onTabChange={(next) => vm.setTab(next)}
+                    onPrimeDocsTab={prefetchDocumentsTabView}
+                    onPrimeShare={prefetchShareProcedureModal}
+                    onPrimeDetailsDialogs={prefetchTransactionDetailsDialogs}
+                    onBack={onBack}
+                    taskCount={vm.tasks.length}
+                    onReopen={() => void vm.reopenTransaction()}
+                    onRequestComplete={() => vm.setCompleteOpen(true)}
+                    onBeginSaveTemplate={vm.beginSaveTemplate}
+                    onOpenImportTemplates={() => vm.setTemplatesOpen(true)}
+                    onShareProcedure={vm.openShareFromTransaction}
+                    onOpenReport={() => vm.setReportOpen(true)}
+                />
 
-                    <div
-                        data-testid="transactions-details-scroll"
-                        className={`${TX_PAGE_SCROLL} max-w-[520px] mx-auto px-4 sm:px-5 pb-24 w-full`}
-                    >
-                        <TabsContent value="path" className="mt-0 focus-visible:outline-none w-full">
-                            <TaskThreadView
-                                transactionId={transactionId}
-                                onRequestAddTask={vm.requestAddTask}
-                                onImportFromMyTemplates={() => vm.setTemplatesOpen(true)}
-                                readOnly={vm.isReadOnly}
-                                onTaskEscapeSnapshotChange={vm.onTaskEscapeSnapshotChange}
-                                registerTaskEscapeCloser={vm.registerTaskEscapeCloser}
-                                detailsActive={detailsActive}
-                            />
-                        </TabsContent>
-                        <TabsContent value="docs" className="mt-0 focus-visible:outline-none">
-                            <DocumentsTabView
-                                transaction={vm.tx as Transaction}
+                <div
+                    data-testid="transactions-details-scroll"
+                    className={`${TX_PAGE_SCROLL} max-w-[520px] mx-auto px-4 pb-24 w-full`}
+                >
+                    {vm.tab === 'path' ? (
+                        <TaskThreadView
+                            transactionId={transactionId}
+                            onRequestAddTask={vm.requestAddTask}
+                            onImportFromMyTemplates={() => vm.setTemplatesOpen(true)}
+                            readOnly={vm.isReadOnly}
+                            onTaskEscapeSnapshotChange={vm.onTaskEscapeSnapshotChange}
+                            registerTaskEscapeCloser={vm.registerTaskEscapeCloser}
+                            detailsActive={detailsActive}
+                        />
+                    ) : (
+                        <TxLazyIsland
+                            onFailed={failOverlay(() => vm.setTab('path'))}
+                        >
+                            <DocumentsTabViewLazy
+                                transaction={vm.tx}
                                 readOnly={vm.isReadOnly}
                                 detailsActive={detailsActive}
                                 onDocumentsEscapeSnapshotChange={vm.onDocumentsEscapeSnapshotChange}
                                 registerDocumentsEscapeCloser={vm.registerDocumentsEscapeCloser}
                             />
-                        </TabsContent>
-                    </div>
-                </Tabs>
+                        </TxLazyIsland>
+                    )}
+                </div>
 
                 {vm.tab === 'path' && !vm.isReadOnly && (
-                    <TxGlassFab label="إضافة مهمة" extended onClick={() => vm.requestAddTask(null)} />
+                    <TxGlassFab
+                        label="إضافة مهمة"
+                        extended
+                        onPointerDown={() => {
+                            prefetchAddTaskBottomSheet();
+                        }}
+                        onClick={() => vm.requestAddTask(null)}
+                    />
                 )}
 
                 {vm.sheetOpen && overlaysLive ? (
-                    <AddTaskBottomSheet
-                        open
-                        onOpenChange={(open) => {
-                            vm.setSheetOpen(open);
-                            if (!open) vm.setParent(null);
-                        }}
-                        transactionId={transactionId}
-                        parentTask={vm.parentHint}
-                        readOnly={vm.isReadOnly}
-                    />
+                    <TxLazyIsland
+                        onFailed={failOverlay(() => {
+                            vm.setSheetOpen(false);
+                            vm.setParent(null);
+                        })}
+                    >
+                        <AddTaskBottomSheetLazy
+                            open
+                            onOpenChange={(open) => {
+                                vm.setSheetOpen(open);
+                                if (!open) vm.setParent(null);
+                            }}
+                            transactionId={transactionId}
+                            parentTask={vm.parentHint}
+                            readOnly={vm.isReadOnly}
+                        />
+                    </TxLazyIsland>
                 ) : null}
 
-                {(overlaysLive &&
-                    (vm.completeOpen || vm.saveTemplateOpen || vm.templatesOpen || vm.reportOpen)) ? (
-                    <TransactionDetailsDialogs
-                        completeOpen={vm.completeOpen}
-                        onCompleteOpenChange={vm.setCompleteOpen}
-                        onCompleteTransaction={vm.completeTransaction}
-                        saveTemplateOpen={vm.saveTemplateOpen}
-                        onSaveTemplateOpenChange={vm.setSaveTemplateOpen}
-                        canSaveTemplate={vm.canSaveTemplate}
-                        templateName={vm.templateName}
-                        onTemplateNameChange={vm.setTemplateName}
-                        onSaveTemplate={vm.doSaveTemplate}
-                        templatesOpen={vm.templatesOpen}
-                        onTemplatesOpenChange={vm.setTemplatesOpen}
-                        templates={vm.templates}
-                        isReadOnly={vm.isReadOnly}
-                        existingTaskCount={vm.tasks.length}
-                        userId={vm.userId}
-                        onImportTemplate={vm.importTemplate}
-                        onDeleteTemplate={vm.deleteTemplate}
-                        reportOpen={vm.reportOpen}
-                        onReportOpenChange={vm.setReportOpen}
-                        reportText={vm.reportText}
-                        copied={vm.copied}
-                        onCopyReport={vm.copyReport}
-                    />
+                {overlaysLive &&
+                (vm.completeOpen || vm.saveTemplateOpen || vm.templatesOpen || vm.reportOpen) ? (
+                    <TxLazyIsland
+                        onFailed={failOverlay(() => {
+                            vm.setCompleteOpen(false);
+                            vm.setSaveTemplateOpen(false);
+                            vm.setTemplatesOpen(false);
+                            vm.setReportOpen(false);
+                        })}
+                    >
+                        <TransactionDetailsDialogsLazy
+                            completeOpen={vm.completeOpen}
+                            onCompleteOpenChange={vm.setCompleteOpen}
+                            onCompleteTransaction={vm.completeTransaction}
+                            saveTemplateOpen={vm.saveTemplateOpen}
+                            onSaveTemplateOpenChange={vm.setSaveTemplateOpen}
+                            canSaveTemplate={vm.canSaveTemplate}
+                            templateName={vm.templateName}
+                            onTemplateNameChange={vm.setTemplateName}
+                            onSaveTemplate={vm.doSaveTemplate}
+                            templatesOpen={vm.templatesOpen}
+                            onTemplatesOpenChange={vm.setTemplatesOpen}
+                            templates={vm.templates}
+                            isReadOnly={vm.isReadOnly}
+                            existingTaskCount={vm.tasks.length}
+                            userId={vm.userId}
+                            onImportTemplate={vm.importTemplate}
+                            onDeleteTemplate={vm.deleteTemplate}
+                            reportOpen={vm.reportOpen}
+                            onReportOpenChange={vm.setReportOpen}
+                            reportText={vm.reportText}
+                            copied={vm.copied}
+                            onCopyReport={vm.copyReport}
+                        />
+                    </TxLazyIsland>
                 ) : null}
 
                 {vm.shareOpen && overlaysLive ? (
-                    <ShareProcedureModal
-                        open
-                        onOpenChange={(open) => {
-                            vm.setShareOpen(open);
-                            if (!open) {
-                                vm.setShareDraft(null);
-                                vm.setShareClientName(null);
-                            }
-                        }}
-                        draft={vm.shareDraft}
-                        clientNameForScrub={vm.shareClientName}
-                    />
+                    <TxLazyIsland
+                        onFailed={failOverlay(() => {
+                            vm.setShareOpen(false);
+                            vm.setShareDraft(null);
+                            vm.setShareClientName(null);
+                        })}
+                    >
+                        <ShareProcedureModalLazy
+                            open
+                            onOpenChange={(open) => {
+                                vm.setShareOpen(open);
+                                if (!open) {
+                                    vm.setShareDraft(null);
+                                    vm.setShareClientName(null);
+                                }
+                            }}
+                            draft={vm.shareDraft}
+                            clientNameForScrub={vm.shareClientName}
+                        />
+                    </TxLazyIsland>
                 ) : null}
             </TxGlassPage>
         </div>

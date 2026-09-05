@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import type { CommunityPost } from '@/app/services/forum/forumTypes';
@@ -59,7 +59,7 @@ export function useCommunityPostsFeed({
             !(peekForumPostsCache()?.length),
     );
     const [loadingMore, setLoadingMore] = useState(false);
-    const [hasMore, setHasMore] = useState(true);
+    const [hasMore, setHasMore] = useState(false);
     const [urgentPriorityTick, setUrgentPriorityTick] = useState(0);
     const postsBootstrappedRef = useRef(false);
     const deepLinkHandledRef = useRef(false);
@@ -77,19 +77,7 @@ export function useCommunityPostsFeed({
         [setPosts],
     );
 
-    useCommunityPostsFeedBootstrap({
-        activeSection,
-        initialPostId,
-        pageSize,
-        postsRef,
-        applyPostsUpdate,
-        setLoadingPosts,
-        setHasMore,
-        postsBootstrappedRef,
-        surfaceOpen,
-    });
-
-    const { refreshPosts, handleLoadMore } = useCommunityPostsFeedPaging({
+    const { refreshPosts, handleLoadMore, acknowledgeServerPage } = useCommunityPostsFeedPaging({
         pageSize,
         postsRef,
         applyPostsUpdate,
@@ -99,20 +87,34 @@ export function useCommunityPostsFeed({
         setHasMore,
     });
 
+    useCommunityPostsFeedBootstrap({
+        activeSection,
+        initialPostId,
+        pageSize,
+        postsRef,
+        applyPostsUpdate,
+        setLoadingPosts,
+        setHasMore,
+        postsBootstrappedRef,
+        onServerPage: acknowledgeServerPage,
+        surfaceOpen,
+    });
+
     const forumPollEnabled =
         surfaceOpen !== false && !authIsLoading && activeSection === 'forum';
     useVisibilityAwareInterval(() => {
         void refreshPosts(true);
     }, forumPollMs, forumPollEnabled);
 
-    useEffect(() => {
-        if (surfaceOpen === false) return;
-        if (!hasAnyActiveUrgentConsultation(posts)) return;
-        const timerId = window.setInterval(() => {
-            setUrgentPriorityTick((value) => value + 1);
-        }, 60_000);
-        return () => window.clearInterval(timerId);
-    }, [posts, surfaceOpen]);
+    const hasActiveUrgent = useMemo(() => {
+        void urgentPriorityTick;
+        return hasAnyActiveUrgentConsultation(posts);
+    }, [posts, urgentPriorityTick]);
+
+    const urgentTickEnabled = surfaceOpen !== false && hasActiveUrgent;
+    useVisibilityAwareInterval(() => {
+        setUrgentPriorityTick((value) => value + 1);
+    }, 60_000, urgentTickEnabled);
 
     useCommunityPostsFeedDeepLink({
         initialPostId,

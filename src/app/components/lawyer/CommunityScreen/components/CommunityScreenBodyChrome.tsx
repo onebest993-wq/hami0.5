@@ -1,13 +1,16 @@
-import { Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 
 import { ForumAppBar } from '@/app/components/lawyer/CommunityScreen/components/ForumAppBar';
-import { LazyForumFollowingPanel } from '@/app/components/lawyer/CommunityScreen/communityScreenLazySections';
+import { ForumFollowingInstantCover } from '@/app/components/lawyer/CommunityScreen/components/ForumFollowingInstantCover';
+import { importForumFollowingPanel } from '@/app/components/lawyer/CommunityScreen/communityFollowingPrefetch';
 import { ForumPublishFab } from './ForumPublishFab';
 import { shouldShowForumFeedPublishFab } from '@/app/components/lawyer/CommunityScreen/forumFeedPublishVisibility';
 import { prefetchCommunityAddQuestionOverlay } from '@/app/components/lawyer/CommunityScreen/communityOverlayPrefetch';
 import { HomePlusIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
 import type { CommunitySection } from '@/app/components/lawyer/CommunityScreen/communitySectionState';
 import type { CommunityScreenBodyProps } from './CommunityScreenBody.types';
+
+const LazyForumFollowingPanel = lazy(importForumFollowingPanel);
 
 type CommunityScreenBodyChromeProps = Pick<
     CommunityScreenBodyProps,
@@ -89,7 +92,7 @@ export function CommunityScreenBodyChrome(props: CommunityScreenBodyChromeProps)
             />
 
             {props.showFollowingPanel ? (
-                <Suspense fallback={null}>
+                <Suspense fallback={<ForumFollowingInstantCover onClose={props.onCloseFollowingPanel} />}>
                     <LazyForumFollowingPanel
                         open
                         onClose={props.onCloseFollowingPanel}

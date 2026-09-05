@@ -23,8 +23,6 @@ function makeFuse(label: string): Fuse<GlobalSearchEntry> {
 const baseSnapshot = {
     overlayOpen: true,
     cacheKey: 'index-key',
-    extrasReady: false,
-    isLoadingExtras: false,
     activeKey: null as string | null,
     hasFuseInState: false,
 };

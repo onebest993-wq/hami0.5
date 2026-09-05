@@ -1,22 +1,24 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useQuantumTasksActions, useQuantumTasksData } from '@/app/hooks/useQuantumTasksContext';
 import { useFatalTaskComplete } from '@/app/hooks/useFatalTaskComplete';
-import { addDays, startOfLocalDay } from '@/app/utils/nlpParser';
+import { addDays, startOfLocalDay } from '@/app/utils/localDay';
 import { WORK_WEEK } from './constants';
-import { TaskCard } from './TaskCard';
+import { AgendaTaskCard } from './AgendaTaskCard';
 import type { TaskListOrdinal } from './TaskListOrdinalBadge';
 import { useTasksManagerUiState } from './useTasksManagerUiState';
 import {
     dateFromYmdInput,
     formatLocalYmdInput,
-    getSaturdayOfWeekContaining,
     partitionAgendaPendingTasks,
 } from './utils';
-import { useAgendaNow } from './useAgendaNow';
+import { getSaturdayOfWeekContaining } from '@/app/services/tasks/taskAgendaStatusLite';
+import { useLiveNow } from '@/app/components/lawyer/dashboard/fieldTasks/useLiveNow';
 import { unpinWorkspaceItem } from '@/app/workspace/unpinWorkspaceEntity';
 import { consumeTasksHelpInboxIntent, HAMI_OPEN_TASKS_HELP_INBOX_EVENT } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
+import { consumeFocusTaskBrief } from './focusTaskBriefOnce';
+import { useTasksManagerDialogActions } from './useTasksManagerDialogActions';
 
 export type UseTasksManagerControllerOptions = {
     focusTaskId?: string;
@@ -30,7 +32,6 @@ export function useTasksManagerController({
     executionFiles = [],
 }: UseTasksManagerControllerOptions) {
     const { tasks, pendingTasks } = useQuantumTasksData();
-    const quantumActions = useQuantumTasksActions();
     const {
         addTask,
         addWeeklyLocationBundle,
@@ -44,18 +45,17 @@ export function useTasksManagerController({
         postponeTask,
         addSubTask,
         toggleSubTaskComplete,
+        setSubTaskPlanStatus,
+        renameSubTask,
+        removeSubTask,
         addDocumentRequirement,
         toggleDocumentRequirement,
         requestTaskHelp,
-        acceptTaskHelp,
-        addSharedTaskNote,
-        markHelpCompleted,
-        confirmHelpReview,
-    } = quantumActions;
+    } = useQuantumTasksActions();
 
     const { requestComplete, fatalOpen, confirmFatalComplete, cancelFatalComplete } = useFatalTaskComplete(completeTask);
 
-    const now = useAgendaNow();
+    const now = useLiveNow(true);
 
     const {
         weekAdd,
@@ -93,12 +93,18 @@ export function useTasksManagerController({
     } = useTasksManagerUiState();
 
     const minSnoozeIso = useMemo(() => formatLocalYmdInput(now), [now]);
+    const appliedFocusTaskIdRef = useRef<string | null>(null);
 
     useEffect(() => {
-        if (!focusTaskId) return;
-        const task = tasks.find((t) => t.id === focusTaskId);
-        if (task) setDetailPanel({ taskId: focusTaskId, kind: 'brief' });
-    }, [focusTaskId, tasks]);
+        if (!focusTaskId) {
+            consumeFocusTaskBrief(undefined, appliedFocusTaskIdRef, false);
+            return;
+        }
+        const hasTask = tasks.some((t) => t.id === focusTaskId);
+        if (consumeFocusTaskBrief(focusTaskId, appliedFocusTaskIdRef, hasTask)) {
+            setDetailPanel({ taskId: focusTaskId, kind: 'brief' });
+        }
+    }, [focusTaskId, tasks, setDetailPanel]);
 
     useEffect(() => {
         const openInbox = () => {
@@ -128,18 +134,38 @@ export function useTasksManagerController({
     );
 
     const openWeekAdd = useCallback(
-        (dayKey: (typeof WORK_WEEK)[number]['key']) => {
+        (dayKey: (typeof WORK_WEEK)[number]['key'], opts?: { withPlan?: boolean }) => {
             const weekStart = getSaturdayOfWeekContaining(now);
             const d = WORK_WEEK.find((x) => x.key === dayKey);
             if (d) {
                 const dayDate = addDays(weekStart, d.offset);
                 if (dayDate.getTime() < startOfLocalDay(now).getTime()) return;
             }
-            setWeekAdd((cur) =>
-                cur?.dayKey === dayKey
-                    ? null
-                    : { dayKey, details: '', location: '' },
-            );
+            const withPlan = opts?.withPlan === true;
+            setWeekAdd((cur) => {
+                if (cur?.dayKey === dayKey) {
+                    if (withPlan) {
+                        return {
+                            ...cur,
+                            planOpen: true,
+                            planSteps:
+                                cur.planSteps.length > 0
+                                    ? cur.planSteps
+                                    : [{ id: `plan_${Date.now()}`, title: '' }],
+                        };
+                    }
+                    return null;
+                }
+                return {
+                    dayKey,
+                    details: '',
+                    location: '',
+                    detailsOpen: false,
+                    locationOpen: false,
+                    planOpen: withPlan,
+                    planSteps: [{ id: `plan_${Date.now()}`, title: '' }],
+                };
+            });
         },
         [now],
     );
@@ -147,14 +173,21 @@ export function useTasksManagerController({
     const saveWeekBundle = useCallback(
         (dayKey: (typeof WORK_WEEK)[number]['key']) => {
             if (!weekAdd || weekAdd.dayKey !== dayKey) return;
-            const details = weekAdd.details.trim();
-            const location = weekAdd.location.trim();
-            if (!location || !details) return;
+            const details = weekAdd.detailsOpen ? weekAdd.details.trim() : '';
+            const location = weekAdd.locationOpen ? weekAdd.location.trim() : '';
+            const planTitles = weekAdd.planOpen
+                ? weekAdd.planSteps.map((s) => s.title.trim()).filter((t) => t.length > 0)
+                : [];
+            if (!details && !location && planTitles.length === 0) return;
             const weekStart = getSaturdayOfWeekContaining(now);
             const d = WORK_WEEK.find((x) => x.key === dayKey);
             if (!d) return;
             const scheduledFor = addDays(weekStart, d.offset);
-            addWeeklyLocationBundle(scheduledFor, location, details);
+            if (planTitles.length > 0) {
+                addWeeklyLocationBundle(scheduledFor, location, planTitles, details || undefined);
+            } else {
+                addWeeklyLocationBundle(scheduledFor, location, details || location);
+            }
             setWeekAdd(null);
         },
         [weekAdd, now, addWeeklyLocationBundle],
@@ -247,6 +280,51 @@ export function useTasksManagerController({
         [toggleTaskPinnedToFieldCurtain],
     );
 
+    const dialogActions = useTasksManagerDialogActions({
+        reminderModalTaskId,
+        reminderSnoozeCustom,
+        setReminderModalTaskId,
+        setReminderSnoozeCustom,
+        setDeleteConfirmId,
+        setEditOpen,
+        setEditTaskId,
+        setEditSubTasks,
+        setHelpTaskId,
+        setHelpInboxOpen,
+        updateTask,
+    });
+
+    const reopenTaskFromCard = useCallback(
+        (task: LegalTask) => {
+            reopenTask(task.id);
+        },
+        [reopenTask],
+    );
+
+    const openReminder = useCallback((task: LegalTask) => {
+        setReminderModalTaskId(task.id);
+    }, [setReminderModalTaskId]);
+
+    const openHelpInbox = useCallback(() => {
+        setHelpInboxOpen(true);
+    }, [setHelpInboxOpen]);
+
+    const toggleCompletedArchive = useCallback(() => {
+        setShowCompletedArchive((v) => !v);
+    }, [setShowCompletedArchive]);
+
+    const hideCompletedArchive = useCallback(() => {
+        setShowCompletedArchive(false);
+    }, [setShowCompletedArchive]);
+
+    const reopenArchivedTask = useCallback(
+        (task: LegalTask) => {
+            reopenTask(task.id);
+            setShowCompletedArchive(false);
+        },
+        [reopenTask, setShowCompletedArchive],
+    );
+
     const helpTarget = useMemo(
         () => (helpTaskId ? tasks.find((t) => t.id === helpTaskId) ?? null : null),
         [helpTaskId, tasks],
@@ -288,8 +366,8 @@ export function useTasksManagerController({
     );
 
     const renderTaskCard = useCallback(
-        (t: LegalTask, fatalPulse: boolean, listOrdinal?: TaskListOrdinal, listKey?: string) => (
-            <TaskCard
+        (t: LegalTask, listOrdinal?: TaskListOrdinal, listKey?: string) => (
+            <AgendaTaskCard
                 key={listKey ?? t.id}
                 task={t}
                 listOrdinal={listOrdinal}
@@ -297,19 +375,21 @@ export function useTasksManagerController({
                 executionFiles={executionFiles}
                 now={now}
                 onCompleteRequest={requestComplete}
-                onReopenTask={(task) => reopenTask(task.id)}
+                onReopenTask={reopenTaskFromCard}
                 onToggleFatal={toggleTaskFatalDeadline}
                 onToggleFieldCurtainPin={toggleFieldCurtainPin}
-                fatalPulse={fatalPulse}
                 detailPanel={detailPanel}
                 setDetailPanel={setDetailPanel}
                 addSubTask={addSubTask}
                 toggleSubTaskComplete={toggleSubTaskComplete}
+                setSubTaskPlanStatus={setSubTaskPlanStatus}
+                renameSubTask={renameSubTask}
+                removeSubTask={removeSubTask}
                 addDocumentRequirement={addDocumentRequirement}
                 toggleDocumentRequirement={toggleDocumentRequirement}
                 onEditRequest={openEdit}
                 onDeleteRequest={requestDelete}
-                onReminderBadgeClick={(task) => setReminderModalTaskId(task.id)}
+                onReminderBadgeClick={openReminder}
                 onRequestHelp={openRequestHelp}
                 onPostponeRequest={openPostpone}
             />
@@ -319,22 +399,39 @@ export function useTasksManagerController({
             executionFiles,
             now,
             requestComplete,
-            reopenTask,
+            reopenTaskFromCard,
             toggleTaskFatalDeadline,
             toggleFieldCurtainPin,
             detailPanel,
             addSubTask,
             toggleSubTaskComplete,
+            setSubTaskPlanStatus,
+            renameSubTask,
+            removeSubTask,
             addDocumentRequirement,
             toggleDocumentRequirement,
             openEdit,
             requestDelete,
+            openReminder,
             openRequestHelp,
             openPostpone,
         ],
     );
 
     const weekStartLive = getSaturdayOfWeekContaining(new Date());
+
+    const onFatalOpenChange = useCallback((open: boolean) => {
+        if (!open) cancelFatalComplete();
+    }, [cancelFatalComplete]);
+
+    const agendaModalsOpen =
+        fatalOpen ||
+        deleteConfirmId !== null ||
+        editOpen ||
+        reminderModalTaskId !== null ||
+        postponeTaskId !== null;
+
+    const nestedModalOpen = agendaModalsOpen || helpTarget !== null || helpInboxOpen;
 
     return {
         tasks,
@@ -355,15 +452,10 @@ export function useTasksManagerController({
         renderTaskCard,
         reopenTask,
         showCompletedArchive,
-        setShowCompletedArchive,
         weekStartLive,
         deleteConfirmId,
-        setDeleteConfirmId,
         confirmDelete,
         editOpen,
-        setEditOpen,
-        setEditTaskId,
-        setEditSubTasks,
         editTarget,
         editTitle,
         setEditTitle,
@@ -372,15 +464,12 @@ export function useTasksManagerController({
         editSubTasks,
         saveEdit,
         reminderModalTaskId,
-        setReminderModalTaskId,
         reminderModalTask,
         reminderSnoozeCustom,
         setReminderSnoozeCustom,
         updateTask,
         helpTarget,
-        setHelpTaskId,
         helpInboxOpen,
-        setHelpInboxOpen,
         postponeTaskId,
         postponeDateYmd,
         setPostponeDateYmd,
@@ -389,14 +478,17 @@ export function useTasksManagerController({
         confirmPostpone,
         minPostponeIso: minSnoozeIso,
         requestTaskHelp,
-        acceptTaskHelp,
-        addSharedTaskNote,
-        markHelpCompleted,
-        confirmHelpReview,
         fatalOpen,
-        onFatalOpenChange: (open: boolean) => {
-            if (!open) cancelFatalComplete();
-        },
+        onFatalOpenChange,
         onConfirmFatalComplete: confirmFatalComplete,
+        agendaModalsOpen,
+        nestedModalOpen,
+        openHelpInbox,
+        toggleCompletedArchive,
+        hideCompletedArchive,
+        reopenArchivedTask,
+        ...dialogActions,
     };
 }
+
+export type TasksManagerController = ReturnType<typeof useTasksManagerController>;

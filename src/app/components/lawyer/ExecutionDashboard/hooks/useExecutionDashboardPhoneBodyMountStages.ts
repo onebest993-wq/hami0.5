@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
-import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
+import { useEffect, useMemo } from 'react';
 import {
     prefetchMaritalFurnitureModule,
     prefetchVisitationScheduleModule,
@@ -10,12 +9,14 @@ export type ExecutionDashboardPhoneBodyMountFlags = ExecutionShellOverlayModalFl
     movableSeizureRequestModalOpen?: boolean;
     propertySeizureRequestModalOpen?: boolean;
     showExecutionFinancialHub?: boolean;
-    showUnifiedSeizureLogModal?: boolean;
     isVisitationClaim?: boolean;
     isMaritalFurnitureClaim?: boolean;
 };
 
-/** يوزّع mount داخل جسم الإضبارة على موجات قصيرة بدل تجميعها عند أول رسم */
+/**
+ * جسم الإضبارة جاهز بموجاته معاً — التأخير 900/1800 كان يُظهر بلاطات تنبثق أمام المستخدم.
+ * التسخين العاجل للمركز المالي / الزيارة / الأثاث يبقى عند فتح تلك الأسطح.
+ */
 export function useExecutionDashboardPhoneBodyMountStages(
     flags: ExecutionDashboardPhoneBodyMountFlags,
 ) {
@@ -23,16 +24,11 @@ export function useExecutionDashboardPhoneBodyMountStages(
         () =>
             Boolean(
                 flags.showExecutionFinancialHub ||
-                    flags.showUnifiedSeizureLogModal ||
                     flags.propertySeizureRequestModalOpen ||
                     flags.movableSeizureRequestModalOpen,
             ),
         [flags],
     );
-
-    const [secondaryStageReady, setSecondaryStageReady] = useState(true);
-    const [tertiaryStageReady, setTertiaryStageReady] = useState(false);
-    const [quaternaryStageReady, setQuaternaryStageReady] = useState(false);
 
     const quaternaryStageUrgent = useMemo(
         () =>
@@ -45,13 +41,10 @@ export function useExecutionDashboardPhoneBodyMountStages(
 
     useEffect(() => {
         if (!tertiaryStageUrgent) return;
-        setSecondaryStageReady(true);
-        setTertiaryStageReady(true);
-        setQuaternaryStageReady(true);
         if (flags.showExecutionFinancialHub) {
             void import('../executionDashboardOverlayPrefetch')
                 .then((m) => {
-                    m.prefetchExecutionFinanceOverlay();
+                    m.prefetchExecutionFinanceOverlay({ force: true });
                 })
                 .catch(() => undefined);
         }
@@ -69,7 +62,6 @@ export function useExecutionDashboardPhoneBodyMountStages(
 
     useEffect(() => {
         if (!quaternaryStageUrgent) return;
-        setQuaternaryStageReady(true);
         if (flags.isVisitationClaim) {
             prefetchVisitationScheduleModule();
         }
@@ -78,25 +70,10 @@ export function useExecutionDashboardPhoneBodyMountStages(
         }
     }, [quaternaryStageUrgent, flags.isVisitationClaim, flags.isMaritalFurnitureClaim]);
 
-    useEffect(() => {
-        if (secondaryStageReady) return;
-        return scheduleIdleWork(() => setSecondaryStageReady(true), 0);
-    }, [secondaryStageReady]);
-
-    useEffect(() => {
-        if (!secondaryStageReady || tertiaryStageReady) return;
-        return scheduleIdleWork(() => setTertiaryStageReady(true), 900);
-    }, [secondaryStageReady, tertiaryStageReady]);
-
-    useEffect(() => {
-        if (!tertiaryStageReady || quaternaryStageReady) return;
-        return scheduleIdleWork(() => setQuaternaryStageReady(true), 1_800);
-    }, [tertiaryStageReady, quaternaryStageReady]);
-
     return {
-        secondaryStageReady,
-        tertiaryStageReady,
-        quaternaryStageReady,
+        secondaryStageReady: true,
+        tertiaryStageReady: true,
+        quaternaryStageReady: true,
         tertiaryStageUrgent,
         quaternaryStageUrgent,
     };

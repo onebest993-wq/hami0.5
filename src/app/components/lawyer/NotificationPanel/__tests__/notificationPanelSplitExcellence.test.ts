@@ -60,7 +60,7 @@ describe('notification panel split excellence', () => {
             'components/NotificationInboxRouteBody.tsx',
             'components/NotificationHeaderInbox.tsx',
             'components/NotificationHeaderAlertControls.tsx',
-            'components/NotificationAlertDndSegments.tsx',
+            'components/NotificationAlertToggleRow.tsx',
             'components/NotificationAlertQuietHoursFields.tsx',
             'components/NotificationAlertOnceMuteFields.tsx',
             'hooks/useNotificationPanelRoute.ts',

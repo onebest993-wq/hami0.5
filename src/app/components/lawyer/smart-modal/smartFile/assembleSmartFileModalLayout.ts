@@ -67,8 +67,10 @@ type AssembleSmartFileModalLayoutParams = {
     handlePetitionVoidWaiver: (...args: unknown[]) => void;
     handleToggleNotification: (...args: unknown[]) => void;
     handleCassationDecision: (...args: unknown[]) => void;
-    handleClosePleadings: (...args: unknown[]) => void;
     handleReopenPleadings: (...args: unknown[]) => void;
+    handleArt172AppealStay: () => void;
+    handleArt172AppealResume: () => void;
+    handleJoinCoObjector: (partyId: string) => void;
     handleOpenDefendantCassationAppeal: (...args: unknown[]) => void;
     handleDefaultObjection: (...args: unknown[]) => void;
     handleWaiveObjection: (...args: unknown[]) => void;
@@ -161,8 +163,10 @@ export function assembleSmartFileModalLayout(params: AssembleSmartFileModalLayou
         handlePetitionVoidWaiver: params.handlePetitionVoidWaiver,
         handleToggleNotification: params.handleToggleNotification,
         handleCassationDecision: params.handleCassationDecision,
-        handleClosePleadings: params.handleClosePleadings,
         handleReopenPleadings: params.handleReopenPleadings,
+        handleArt172AppealStay: params.handleArt172AppealStay,
+        handleArt172AppealResume: params.handleArt172AppealResume,
+        handleJoinCoObjector: params.handleJoinCoObjector,
         handleOpenDefendantCassationAppeal: params.handleOpenDefendantCassationAppeal,
         handleDefaultObjection: params.handleDefaultObjection,
         handleWaiveObjection: params.handleWaiveObjection,

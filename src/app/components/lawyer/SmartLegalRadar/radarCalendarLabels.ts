@@ -1,6 +1,4 @@
-export const WEEK_DAYS = ['أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
-
-export const MONTHS = [
-    'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-    'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
-];
+export {
+    CALENDAR_WEEK_DAYS as WEEK_DAYS,
+    CALENDAR_MONTHS as MONTHS,
+} from '@/app/services/calendar/calendarArabicLabels';

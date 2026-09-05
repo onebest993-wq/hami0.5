@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SettingsNestedSheetFrame } from '@/app/components/lawyer/HamiSettings/SettingsNestedSheetFrame';
 
@@ -17,5 +17,18 @@ describe('SettingsNestedSheetFrame', () => {
 
         fireEvent.pointerDown(screen.getByTestId('sheet-root'));
         expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('يركّز أول عنصر قابل للتركيز عند التركيب', async () => {
+        render(
+            <SettingsNestedSheetFrame testId="sheet-root" dir="rtl" label="ورقة" onClose={vi.fn()}>
+                <button type="button">داخل</button>
+            </SettingsNestedSheetFrame>,
+        );
+
+        const inner = screen.getByRole('button', { name: 'داخل' });
+        await waitFor(() => {
+            expect(document.activeElement).toBe(inner);
+        });
     });
 });

@@ -1,7 +1,5 @@
 import type { MutableRefObject } from 'react';
-import {
-    isExecutionHandlerStubLeaf,
-} from '../hooks/executionHandlerClusterStubs';
+import { invokeMaybeStubFunctionOrWait } from '../hooks/executionHandlerClusterStubs';
 import { prefetchExecutionHandlerClusterPartyDeathBridge } from '../executionDashboardHandlerClusterBridgeLazy';
 
 type PartyDeathMenuKey = 'handleDebtorDeathMenuAction' | 'handleCreditorDeathMenuAction';
@@ -11,22 +9,17 @@ function readPartyDeathHandler(
     key: PartyDeathMenuKey,
 ): ((...args: unknown[]) => unknown) | null {
     const direct = source[key];
-    if (typeof direct === 'function' && !isExecutionHandlerStubLeaf(direct)) {
+    if (typeof direct === 'function') {
         return direct as (...args: unknown[]) => unknown;
     }
     const bag = source.partyDeathHandlers;
-    if (bag && typeof bag === 'function' && isExecutionHandlerStubLeaf(bag)) {
-        const stubLeaf = (bag as Record<string, unknown>)[key];
-        if (typeof stubLeaf === 'function' && !isExecutionHandlerStubLeaf(stubLeaf)) {
-            return stubLeaf as (...args: unknown[]) => unknown;
-        }
-        return null;
-    }
     if (bag && typeof bag === 'object' && !Array.isArray(bag)) {
         const nested = (bag as Record<string, unknown>)[key];
-        if (typeof nested === 'function' && !isExecutionHandlerStubLeaf(nested)) {
+        if (typeof nested === 'function') {
             return nested as (...args: unknown[]) => unknown;
         }
+        const prefetch = (bag as Record<string, unknown>).prefetchPartyDeathHandlers;
+        if (typeof prefetch === 'function') prefetch();
     }
     return null;
 }
@@ -37,22 +30,23 @@ export function buildPhoneBodyPartyDeathMenuHandler(
     key: PartyDeathMenuKey,
 ): () => void {
     return () => {
-        const live = (scopeRef?.current ?? fallbackSource) as Record<string, unknown>;
-        const handler = readPartyDeathHandler(live, key);
-        if (handler) {
-            handler();
-            return;
-        }
-        const bag = live.partyDeathHandlers as Record<string, unknown> | undefined;
-        const prefetch = bag?.prefetchPartyDeathHandlers;
-        if (typeof prefetch === 'function' && !isExecutionHandlerStubLeaf(prefetch)) {
-            prefetch();
-        } else {
+        try {
+            const live = (scopeRef?.current ?? fallbackSource) as Record<string, unknown>;
+            const handler = readPartyDeathHandler(live, key);
+            if (handler) {
+                handler();
+                return;
+            }
             void prefetchExecutionHandlerClusterPartyDeathBridge();
-        }
-        const showToast = live.showToast;
-        if (typeof showToast === 'function') {
-            showToast('جاري تجهيز أداة الإبلاغ عن الوفاة — أعد المحاولة بعد لحظة.', 'info');
+            invokeMaybeStubFunctionOrWait(`partyDeathHandlers.${key}`, [], {
+                readLive: () =>
+                    readPartyDeathHandler(
+                        (scopeRef?.current ?? fallbackSource) as Record<string, unknown>,
+                        key,
+                    ),
+            });
+        } catch {
+            /* لا تُسرِّب TypeError إلى كونسول المتصفح عند ضغط إحلال/وفاة */
         }
     };
 }

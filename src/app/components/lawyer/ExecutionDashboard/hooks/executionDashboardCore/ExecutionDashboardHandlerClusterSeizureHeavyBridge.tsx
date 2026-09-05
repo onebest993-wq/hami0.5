@@ -19,10 +19,10 @@ function seizureHeavyClusterFingerprint(
     const propertyCtx = cluster.propertyInlineSaveCtx as Record<string, unknown> | undefined;
     const movableCtx = cluster.movableInlineSaveCtx as Record<string, unknown> | undefined;
     const followup = cluster.followupSeizureHandlers as Record<string, unknown> | undefined;
+    const guarantor = cluster.guarantorFollowupHandlers as Record<string, unknown> | undefined;
     const release = cluster.seizureReleaseHandlers as Record<string, unknown> | undefined;
     const thirdParty = cluster.thirdPartyReceiveHandlers as Record<string, unknown> | undefined;
     const mark = cluster.standaloneMarkHandlers as Record<string, unknown> | undefined;
-    const salary = cluster.salarySeizurePatch as Record<string, unknown> | undefined;
     const realEstate = cluster.realEstateSeizureHandlers as Record<string, unknown> | undefined;
     const thirdPartyRegistry = cluster.thirdPartySeizureHandlers as Record<string, unknown> | undefined;
     return [
@@ -33,10 +33,10 @@ function seizureHeavyClusterFingerprint(
         ...handlerBagKeyFingerprint(propertyCtx),
         ...handlerBagKeyFingerprint(movableCtx),
         ...handlerBagKeyFingerprint(followup),
+        ...handlerBagKeyFingerprint(guarantor),
         ...handlerBagKeyFingerprint(release),
         ...handlerBagKeyFingerprint(thirdParty),
         ...handlerBagKeyFingerprint(mark),
-        ...handlerBagKeyFingerprint(salary),
         ...handlerBagKeyFingerprint(realEstate),
         ...handlerBagKeyFingerprint(thirdPartyRegistry),
     ];

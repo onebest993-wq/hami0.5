@@ -2,10 +2,24 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useRepositoryRooms } from '../useRepositoryRooms';
 import { addRepositoryRoom } from '@/app/services/repository/repositoryRooms';
+import SecureStoreService from '@/app/services/SecureStoreService';
+
+function clearRepositoryRoomStorage(): void {
+    localStorage.clear();
+    try {
+        for (const key of SecureStoreService.listKeysSync()) {
+            if (key.startsWith('hami:repository:rooms:')) {
+                SecureStoreService.deleteItemSync(key);
+            }
+        }
+    } catch {
+        /* ignore */
+    }
+}
 
 describe('useRepositoryRooms', () => {
     beforeEach(() => {
-        localStorage.clear();
+        clearRepositoryRoomStorage();
     });
 
     it('يرفض الإنشاء بدون هوية', () => {
@@ -44,5 +58,11 @@ describe('useRepositoryRooms', () => {
         const pin = result.current.togglePinRoom('room_x');
         expect(pin.applied).toBe(false);
         expect(pin.atLimit).toBe(false);
+    });
+
+    it('لا يحذف بدون هوية', () => {
+        const { result } = renderHook(() => useRepositoryRooms(''));
+        expect(result.current.deleteRoom('room_x')).toBe(false);
+        expect(result.current.rooms).toHaveLength(0);
     });
 });

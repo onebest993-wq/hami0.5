@@ -53,8 +53,7 @@ html[data-hami-settings-open='1'] .hami-settings-overlay-layer {
 }
 
 html[data-hami-settings-open='1'][data-hami-settings-enter='1'] .hami-settings-overlay-host,
-html[data-hami-settings-open='1'][data-hami-settings-enter='1'] .hami-settings-overlay-layer,
-html[data-hami-settings-open='1'][data-hami-settings-enter='1'] #hami-settings-instant-bridge {
+html[data-hami-settings-open='1'][data-hami-settings-enter='1'] .hami-settings-overlay-layer {
     transform: translate3d(0, 8px, 0);
     opacity: 0.78 !important;
     transition: none !important;
@@ -71,8 +70,7 @@ html[data-hami-settings-closing='1'] .hami-settings-overlay-layer {
 }
 
 html[data-hami-settings-closing='1'] .hami-settings-overlay-host,
-html[data-hami-settings-closing='1'] .hami-settings-overlay-layer,
-html[data-hami-settings-closing='1'] #hami-settings-instant-bridge {
+html[data-hami-settings-closing='1'] .hami-settings-overlay-layer {
     visibility: visible !important;
     pointer-events: none !important;
     opacity: 0 !important;
@@ -116,11 +114,13 @@ html[data-hami-lite='1'] .hami-settings-overlay-layer {
  * تجميد النقر على اللوحة أثناء المركز — الطبقة معتمة تغطي المنزل.
  * لا content-visibility:hidden: كان يعيد تخطيط الرئيسية عند الإغلاق.
  */
-html[data-hami-settings-open='1'] [data-hami-lawyer-dashboard] {
+html[data-hami-settings-open='1'] [data-hami-lawyer-dashboard],
+html[data-hami-settings-closing='1'] [data-hami-lawyer-dashboard] {
     pointer-events: none !important;
 }
 
-html[data-hami-native='1'][data-hami-settings-open='1'] [data-hami-lawyer-dashboard] {
+html[data-hami-native='1'][data-hami-settings-open='1'] [data-hami-lawyer-dashboard],
+html[data-hami-native='1'][data-hami-settings-closing='1'] [data-hami-lawyer-dashboard] {
     pointer-events: none !important;
 }
 
@@ -143,7 +143,8 @@ html[data-hami-native='1'] .hami-settings-overlay-host > [data-settings-root] {
 }
 
 /* أثناء إيماءة فتح الترس — امنع فقط زر X من التقاط click الشبحي */
-html[data-settings-close-guard='1'] [data-testid='settings-shell-close'] {
+html[data-settings-close-guard='1'] [data-testid='settings-shell-close'],
+html[data-settings-close-guard='1'] [data-testid='settings-instant-close'] {
     pointer-events: none !important;
 }
 
@@ -188,15 +189,15 @@ html[data-settings-close-guard='1'] [data-testid='settings-shell-close'] {
 }
 
 .hami-settings-sheet-header {
-    padding-top: max(0.65rem, var(--hami-lawyer-header-safe-top, env(safe-area-inset-top, 0px)));
-    padding-inline-start: max(1rem, env(safe-area-inset-left, 0px));
-    padding-inline-end: max(1rem, env(safe-area-inset-right, 0px));
+    padding-top: max(0.5rem, var(--hami-lawyer-header-safe-top, env(safe-area-inset-top, 0px)));
+    padding-inline-start: max(0.75rem, env(safe-area-inset-left, 0px));
+    padding-inline-end: max(0.75rem, env(safe-area-inset-right, 0px));
 }
 
 .hami-settings-sheet-body {
-    padding-inline-start: max(1rem, env(safe-area-inset-left, 0px));
-    padding-inline-end: max(1rem, env(safe-area-inset-right, 0px));
-    padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+    padding-inline-start: max(0.75rem, env(safe-area-inset-left, 0px));
+    padding-inline-end: max(0.75rem, env(safe-area-inset-right, 0px));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
 }
 
 @media (min-width: 768px) {
@@ -207,33 +208,33 @@ html[data-settings-close-guard='1'] [data-testid='settings-shell-close'] {
     .hami-settings-overlay-host > [data-testid='account-legal-document-sheet'] {
         align-items: center;
         justify-content: center;
-        padding: max(1.25rem, env(safe-area-inset-top, 0px))
-            max(1.25rem, env(safe-area-inset-right, 0px))
-            max(1.25rem, env(safe-area-inset-bottom, 0px))
-            max(1.25rem, env(safe-area-inset-left, 0px));
+        padding: max(0.75rem, env(safe-area-inset-top, 0px))
+            max(0.75rem, env(safe-area-inset-right, 0px))
+            max(0.75rem, env(safe-area-inset-bottom, 0px))
+            max(0.75rem, env(safe-area-inset-left, 0px));
         background: rgba(0, 0, 0, 0.45) !important;
     }
 
     .hami-settings-sheet-panel {
         flex: 0 1 auto;
-        width: min(42rem, 100%);
-        height: min(56rem, 100%);
+        width: min(36rem, 100%);
+        height: min(48rem, 100%);
         max-height: 100%;
-        border-radius: 1.25rem;
+        border-radius: 0.75rem;
         border: 1px solid rgba(255, 255, 255, 0.08);
         box-shadow: none;
     }
 
     .hami-settings-sheet-header {
-        padding-top: 0.75rem;
-        padding-inline-start: 1rem;
-        padding-inline-end: 1rem;
+        padding-top: 0.5rem;
+        padding-inline-start: 0.75rem;
+        padding-inline-end: 0.75rem;
     }
 
     .hami-settings-sheet-body {
-        padding-inline-start: 1rem;
-        padding-inline-end: 1rem;
-        padding-bottom: 1.5rem;
+        padding-inline-start: 0.75rem;
+        padding-inline-end: 0.75rem;
+        padding-bottom: 1rem;
     }
 }
 

@@ -165,15 +165,16 @@ describe('home tab file split', () => {
                 expect(file).not.toContain(needle);
             }
         }
-        /* البوابة تُستورد ساكناً من محوّلي hover والفتح فقط — لا من HomeTab/chrome/dock */
-        for (const file of [content, chrome, dock]) {
+        /* البوابة تُستورد عند اللمس فقط — لا ساكناً من البلاطات أو HomeTab */
+        for (const file of [content, chrome, dock, archivePrefetch]) {
             expect(file).not.toMatch(
                 /import\s+(?:type\s+)?\{[^}]*\}\s+from\s+['"]@\/app\/hooks\/lawyerDashboard\/hubArchivePrefetchGate['"]/,
             );
         }
-        expect(archivePrefetch).toMatch(
-            /import\s+\{[^}]*prefetchHubArchiveIntentDebounced[^}]*\}\s+from\s+['"]@\/app\/hooks\/lawyerDashboard\/hubArchivePrefetchGate['"]/,
+        expect(archivePrefetch).toContain(
+            "import('@/app/hooks/lawyerDashboard/hubArchivePrefetchGate')",
         );
+        expect(archivePrefetch).toContain('prefetchHubArchiveIntentDebounced');
         expect(hubOpen).toMatch(
             /import\s+\{[^}]*prefetchHubArchiveIntentImmediate[^}]*\}\s+from\s+['"]@\/app\/hooks\/lawyerDashboard\/hubArchivePrefetchGate['"]/,
         );

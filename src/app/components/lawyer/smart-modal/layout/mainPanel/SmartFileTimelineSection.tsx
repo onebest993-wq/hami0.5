@@ -12,7 +12,6 @@ export type SmartFileTimelineSectionProps = {
     displayTimeline: TimelineEvent[];
     interactionLocked: boolean;
     isCaseLinkViewOnly: boolean;
-    handleDeleteEvent: (id: string) => void;
     handleEditEvent: (id: string) => void;
     setEditingEvent: (event: TimelineEvent | null) => void;
 };
@@ -24,7 +23,6 @@ export function SmartFileTimelineSection({
     displayTimeline,
     interactionLocked,
     isCaseLinkViewOnly,
-    handleDeleteEvent,
     handleEditEvent,
     setEditingEvent,
 }: SmartFileTimelineSectionProps) {
@@ -66,7 +64,6 @@ export function SmartFileTimelineSection({
                         <LazyTimelineFeed
                             events={displayTimeline}
                             visualVariant="civil"
-                            onDelete={!interactionLocked ? handleDeleteEvent : undefined}
                             onEventClick={
                                 !interactionLocked
                                     ? (event) => {

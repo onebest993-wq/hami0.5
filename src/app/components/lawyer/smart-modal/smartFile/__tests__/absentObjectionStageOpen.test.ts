@@ -59,4 +59,48 @@ describe('openAbsentObjectionStage', () => {
         expect(objection.parties?.find((p) => p.id === 2)?.role).toContain('المعترض');
         expect(objection.parties?.find((p) => p.id === 1)?.role).toContain('المعترض عليه');
     });
+
+    it('يقصر صفة المعترض على الغائب المختار دون قلب الحاضرين', () => {
+        const mixedParties: Party[] = [
+            { id: 1, name: 'أحمد', role: 'المدعي', isClient: false, side: 'right' },
+            { id: 2, name: 'سامي', role: 'المدعى عليه', isClient: false, side: 'left' },
+            { id: 3, name: 'كريم', role: 'المدعى عليه', isClient: true, side: 'left' },
+        ];
+        const mixedStage = {
+            ...firstInstance,
+            parties: mixedParties,
+            judgmentForm: 'مختلط',
+            partyJudgmentDispositions: [
+                { partyId: '2', form: 'حضوري' },
+                { partyId: '3', form: 'غيابي' },
+            ],
+        } as CaseStage;
+
+        const { updatedStages } = openAbsentObjectionStage({
+            stages: [mixedStage],
+            activeStageIndex: 0,
+            currentStage: mixedStage,
+            filingDate: '2026-08-10',
+            objectorPartyIds: [3],
+            archiveTimelineEvent: {
+                id: 'reg_mixed',
+                type: 'decision',
+                date: '2026-08-10',
+                title: 'تسجيل اعتراض غيابي',
+                details: 'اعتراض كريم فقط',
+            },
+            archiveDecisionDate: '2026-08-01',
+        });
+
+        const objection = updatedStages[1]!;
+        expect(objection.parties?.find((p) => p.id === 3)?.role).toContain('المعترض');
+        expect(objection.parties?.find((p) => p.id === 2)).toBeUndefined();
+        expect(objection.parties?.find((p) => p.id === 1)?.role).toContain('المعترض عليه');
+        expect(updatedStages[0]?.partyChallengeLanes?.find((lane) => lane.partyId === '3')?.laneState).toBe(
+            'objection',
+        );
+        expect(updatedStages[0]?.partyChallengeLanes?.find((lane) => lane.partyId === '2')?.laneState).not.toBe(
+            'objection',
+        );
+    });
 });

@@ -4,6 +4,7 @@ import { UserCheck } from '@/app/components/ui/icons/UserCheck';
 import type { Party } from '@/app/types/common';
 import { DebtorEntityKindSegment } from '@/app/components/lawyer/ExecutionDashboard/components/DebtorEntityKindSegment';
 import { normalizeDebtorEntityKind } from '@/app/utils/debtorEntityKindUtils';
+import { isCreationEnterCommit, type CreationRevealStep } from '../hooks/executionCreationRevealSteps';
 import { ecg } from './executionCreationGlassUi';
 
 import type { DebtorEntityKind } from '@/app/utils/debtorEntityKindUtils';
@@ -20,6 +21,8 @@ interface PartyCardProps {
     lockedEntityKind?: DebtorEntityKind | null;
     /** أحوال شخصية — لا اختيار طبيعي/معنوي */
     hideDebtorEntityKind?: boolean;
+    creationStep?: CreationRevealStep;
+    onNameCommit?: (opts?: { focusNext?: boolean }) => void;
 }
 
 const OCCUPATIONS = ['كاسب', 'موظف'] as const;
@@ -37,6 +40,8 @@ const PartyCard: React.FC<PartyCardProps> = React.memo(({
     debtorLiabilityLabel = null,
     lockedEntityKind = null,
     hideDebtorEntityKind = false,
+    creationStep,
+    onNameCommit,
 }) => {
     const isCreditor = type === 'creditor';
     const isClient = Boolean(party.isClient);
@@ -44,16 +49,10 @@ const PartyCard: React.FC<PartyCardProps> = React.memo(({
     const isLegalEntity = !isCreditor && entityKind === 'legal_entity';
     const showDebtorEntityKind = !isCreditor && !isClient && !hideDebtorEntityKind;
 
-    const [draft, setDraft] = useState({
-        name: party.name ?? '',
-        address: party.address ?? '',
-    });
+    const [draftName, setDraftName] = useState(party.name ?? '');
 
     useEffect(() => {
-        setDraft({
-            name: party.name ?? '',
-            address: party.address ?? '',
-        });
+        setDraftName(party.name ?? '');
     }, [party.id]);
 
     const displayTitle =
@@ -168,9 +167,20 @@ const PartyCard: React.FC<PartyCardProps> = React.memo(({
                 <input
                     type="text"
                     placeholder="الاسم الكامل"
-                    value={draft.name}
-                    onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-                    onBlur={() => onUpdate(party.id, 'name', draft.name)}
+                    data-creation-step={creationStep || undefined}
+                    enterKeyHint="next"
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    onBlur={() => {
+                        onUpdate(party.id, 'name', draftName);
+                        if (draftName.trim()) onNameCommit?.({ focusNext: false });
+                    }}
+                    onKeyDown={(e) => {
+                        if (!isCreationEnterCommit(e)) return;
+                        e.preventDefault();
+                        onUpdate(party.id, 'name', draftName);
+                        if (draftName.trim()) onNameCommit?.();
+                    }}
                     className={`${ecg.field} flex-1`}
                 />
                 {!isCreditor && debtorLiabilityLabel ? (
@@ -179,14 +189,6 @@ const PartyCard: React.FC<PartyCardProps> = React.memo(({
                     </span>
                 ) : null}
             </div>
-            <input
-                type="text"
-                placeholder={isCreditor ? 'العنوان (اختياري)' : 'العنوان الدقيق (مطلوب للتبليغ)'}
-                value={draft.address}
-                onChange={(e) => setDraft((d) => ({ ...d, address: e.target.value }))}
-                onBlur={() => onUpdate(party.id, 'address', draft.address)}
-                className={ecg.field}
-            />
         </div>
     );
 });

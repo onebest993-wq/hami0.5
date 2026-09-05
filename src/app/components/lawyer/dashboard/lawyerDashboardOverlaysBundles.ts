@@ -49,6 +49,7 @@ export type LawyerDashboardDossierBundle = {
     handleStartConsolidationNewCase: Workspace['handleStartConsolidationNewCase'];
     handleConsolidateWithExisting: Workspace['handleConsolidateWithExisting'];
     handleLinkWithExistingCase: Workspace['handleLinkWithExistingCase'];
+    handleSpawnIndependentChallengeFile: Workspace['handleSpawnIndependentChallengeFile'];
     consolidationNavActive: Workspace['consolidationNavActive'];
     caseLinkNav: Workspace['caseLinkNav'];
     consolidationSpawnNav: Workspace['consolidationSpawnNav'];

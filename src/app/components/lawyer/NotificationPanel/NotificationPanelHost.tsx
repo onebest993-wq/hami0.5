@@ -4,7 +4,7 @@ import { NotificationPanel } from '@/app/components/lawyer/NotificationPanel/ind
 import { hydrateNotificationShellForInstantOpen } from '@/app/runtime/notificationBootHydrator';
 import { useNotificationStore } from '@/app/stores/notificationStore';
 
-export type NotificationPanelHostProps = NotificationPanelProps & {
+type NotificationPanelHostProps = NotificationPanelProps & {
     /** يبقي اللوحة mounted بعد الإغلاق — فتح/إغلاق أسرع */
     keepAlive?: boolean;
 };

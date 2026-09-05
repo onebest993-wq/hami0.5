@@ -17,6 +17,10 @@ import { defaultConsultVisibleFields } from '@/app/services/caseShare/caseShareT
 import { normalizeExecutionConsultCatalog } from '@/app/services/caseShare/caseShareCatalogBuilder';
 import { buildMaskedView } from '@/app/services/caseShare/caseShareMasking';
 import { CaseShareApiService } from '@/app/services/caseShare/caseShareApiService';
+import {
+    COLLABORATION_NETWORK_OFF,
+    isCollaborationNetworkCut,
+} from '@/app/services/settings/collaborationNetworkLite';
 import { ColleagueShareCatalogPicker } from './ColleagueShareCatalogPicker';
 import { CaseShareSessionClockSlider } from './CaseShareSessionClockSlider';
 import {
@@ -90,6 +94,12 @@ export const ColleagueConsultationFlow = memo(function ColleagueConsultationFlow
     }, [open, dossierModule, dossierId]);
 
     const reloadColleagues = useCallback(() => {
+        if (isCollaborationNetworkCut()) {
+            setLoadError('استشارة الزميل تحتاج اتصالاً — قطع الاتصال يمنع الإرسال.');
+            setColleagues([]);
+            setLoadingColleagues(false);
+            return;
+        }
         if (!userId) {
             setLoadError('سجّل الدخول لعرض شبكة المتابعة');
             setColleagues([]);
@@ -151,6 +161,10 @@ export const ColleagueConsultationFlow = memo(function ColleagueConsultationFlow
 
     const handleSend = useCallback(async () => {
         if (!userId || !selectedColleague || !source) return;
+        if (isCollaborationNetworkCut()) {
+            SmartToast.error('استشارة الزميل تحتاج اتصالاً — قطع الاتصال يمنع الإرسال.');
+            return;
+        }
         setSubmitting(true);
         try {
             await CaseShareApiService.createShare({
@@ -165,10 +179,13 @@ export const ColleagueConsultationFlow = memo(function ColleagueConsultationFlow
             SmartToast.success(`تم إرسال طلب الاستشارة إلى ${selectedColleague.name}`);
             onClose();
         } catch (err) {
+            const code = err instanceof Error ? err.message : '';
             const message =
-                err instanceof Error && err.message === 'RECIPIENT_NOT_IN_NETWORK'
+                code === 'RECIPIENT_NOT_IN_NETWORK'
                     ? 'المستلم ليس في شبكة المتابعة'
-                    : 'تعذّر إرسال طلب الاستشارة';
+                    : code === COLLABORATION_NETWORK_OFF
+                      ? 'استشارة الزميل تحتاج اتصالاً — قطع الاتصال يمنع الإرسال.'
+                      : 'تعذّر إرسال طلب الاستشارة';
             SmartToast.error(message);
         } finally {
             setSubmitting(false);

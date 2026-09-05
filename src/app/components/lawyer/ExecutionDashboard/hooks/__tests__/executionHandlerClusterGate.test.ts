@@ -15,6 +15,7 @@ import {
     shouldLoadExecutionHandlerClusterHeavy,
     shouldLoadExecutionHandlerClusterLight,
     shouldLoadExecutionHandlerClusterSeizureHeavy,
+    shouldLoadExecutionHandlerClusterSeizureRequests,
 } from '../executionHandlerClusterGate';
 
 describe('executionHandlerClusterGate', () => {
@@ -23,7 +24,6 @@ describe('executionHandlerClusterGate', () => {
             shouldLoadExecutionHandlerCluster({
                 showUnifiedExecutionModal: false,
                 unifiedModalTab: null,
-                showUnifiedSeizureLogModal: false,
                 showCoerciveModal: false,
                 showAppointmentModal: false,
                 showSeizedAssetsModal: false,
@@ -41,7 +41,6 @@ describe('executionHandlerClusterGate', () => {
         const input = {
             showUnifiedExecutionModal: true,
             unifiedModalTab: 'seizure_requests',
-            showUnifiedSeizureLogModal: false,
             showCoerciveModal: false,
             showAppointmentModal: false,
             showSeizedAssetsModal: false,
@@ -54,14 +53,13 @@ describe('executionHandlerClusterGate', () => {
         };
 
         expect(shouldLoadExecutionHandlerCluster(input)).toBe(true);
-        expect(shouldLoadExecutionHandlerClusterFollowupDossierControls(input)).toBe(true);
+        expect(shouldLoadExecutionHandlerClusterFollowupDossierControls(input)).toBe(false);
     });
 
     it('loads only light cluster for notes and appointment flows', () => {
         const input = {
             showUnifiedExecutionModal: false,
             unifiedModalTab: null,
-            showUnifiedSeizureLogModal: false,
             showCoerciveModal: false,
             showAppointmentModal: true,
             showSeizedAssetsModal: false,
@@ -82,7 +80,6 @@ describe('executionHandlerClusterGate', () => {
         const input = {
             showUnifiedExecutionModal: false,
             unifiedModalTab: null,
-            showUnifiedSeizureLogModal: true,
             showCoerciveModal: false,
             showAppointmentModal: false,
             showSeizedAssetsModal: true,
@@ -103,7 +100,6 @@ describe('executionHandlerClusterGate', () => {
         const input = {
             showUnifiedExecutionModal: true,
             unifiedModalTab: 'seizure_requests',
-            showUnifiedSeizureLogModal: false,
             showCoerciveModal: false,
             showAppointmentModal: false,
             showSeizedAssetsModal: false,
@@ -125,7 +121,6 @@ describe('executionHandlerClusterGate', () => {
         const input = {
             showUnifiedExecutionModal: false,
             unifiedModalTab: null,
-            showUnifiedSeizureLogModal: false,
             showCoerciveModal: false,
             showAppointmentModal: false,
             showSeizedAssetsModal: true,
@@ -147,7 +142,6 @@ describe('executionHandlerClusterGate', () => {
         const input = {
             showUnifiedExecutionModal: true,
             unifiedModalTab: 'dossier_controls',
-            showUnifiedSeizureLogModal: false,
             showCoerciveModal: false,
             showAppointmentModal: false,
             showSeizedAssetsModal: false,
@@ -161,11 +155,11 @@ describe('executionHandlerClusterGate', () => {
 
         expect(resolveExecutionHandlerClusterHeavyMode(input)).toBe('followup');
         expect(resolveExecutionHandlerClusterFollowupMode(input)).toBe('dossier-controls');
-        expect(shouldLoadExecutionHandlerClusterSeizureHeavy(input)).toBe(true);
+        expect(shouldLoadExecutionHandlerClusterSeizureHeavy(input)).toBe(false);
         expect(shouldLoadExecutionHandlerClusterFollowupHeavy(input)).toBe(true);
         expect(shouldLoadExecutionHandlerClusterFollowupDossierControls(input)).toBe(true);
-        expect(shouldLoadExecutionHandlerClusterFollowupOtherParty(input)).toBe(true);
-        expect(shouldLoadExecutionHandlerClusterFollowupAdminSpecial(input)).toBe(true);
+        expect(shouldLoadExecutionHandlerClusterFollowupOtherParty(input)).toBe(false);
+        expect(shouldLoadExecutionHandlerClusterFollowupAdminSpecial(input)).toBe(false);
         expect(shouldLoadExecutionHandlerClusterCoerciveHeavy(input)).toBe(false);
     });
 
@@ -173,7 +167,6 @@ describe('executionHandlerClusterGate', () => {
         const input = {
             showUnifiedExecutionModal: true,
             unifiedModalTab: 'correspondences',
-            showUnifiedSeizureLogModal: false,
             showCoerciveModal: false,
             showAppointmentModal: false,
             showSeizedAssetsModal: false,
@@ -189,16 +182,16 @@ describe('executionHandlerClusterGate', () => {
         expect(shouldLoadExecutionHandlerClusterHeavy(input)).toBe(false);
         expect(shouldLoadExecutionHandlerClusterFollowupHeavy(input)).toBe(false);
         expect(shouldLoadExecutionHandlerClusterCoerciveHeavy(input)).toBe(false);
-        expect(shouldLoadExecutionHandlerClusterFollowupAdminSpecial(input)).toBe(true);
-        expect(shouldLoadExecutionHandlerClusterFollowupOtherParty(input)).toBe(true);
-        expect(shouldLoadExecutionHandlerClusterFollowupDossierControls(input)).toBe(true);
+        expect(shouldLoadExecutionHandlerClusterSeizureHeavy(input)).toBe(false);
+        expect(shouldLoadExecutionHandlerClusterFollowupAdminSpecial(input)).toBe(false);
+        expect(shouldLoadExecutionHandlerClusterFollowupOtherParty(input)).toBe(false);
+        expect(shouldLoadExecutionHandlerClusterFollowupDossierControls(input)).toBe(false);
     });
 
     it('resolves followup heavy mode for admin tab because requests rely on dossier handlers only', () => {
         const input = {
             showUnifiedExecutionModal: true,
             unifiedModalTab: 'admin',
-            showUnifiedSeizureLogModal: false,
             showCoerciveModal: false,
             showAppointmentModal: false,
             showSeizedAssetsModal: false,
@@ -214,8 +207,9 @@ describe('executionHandlerClusterGate', () => {
         expect(resolveExecutionHandlerClusterFollowupMode(input)).toBe('admin-special');
         expect(shouldLoadExecutionHandlerClusterFollowupHeavy(input)).toBe(true);
         expect(shouldLoadExecutionHandlerClusterFollowupAdminSpecial(input)).toBe(true);
-        expect(shouldLoadExecutionHandlerClusterFollowupDossierControls(input)).toBe(true);
-        expect(shouldLoadExecutionHandlerClusterFollowupOtherParty(input)).toBe(true);
+        expect(shouldLoadExecutionHandlerClusterSeizureRequests(input)).toBe(true);
+        expect(shouldLoadExecutionHandlerClusterFollowupDossierControls(input)).toBe(false);
+        expect(shouldLoadExecutionHandlerClusterFollowupOtherParty(input)).toBe(false);
         expect(shouldLoadExecutionHandlerClusterCoerciveHeavy(input)).toBe(false);
     });
 
@@ -223,7 +217,6 @@ describe('executionHandlerClusterGate', () => {
         const input = {
             showUnifiedExecutionModal: true,
             unifiedModalTab: 'other_party',
-            showUnifiedSeizureLogModal: false,
             showCoerciveModal: false,
             showAppointmentModal: false,
             showSeizedAssetsModal: false,
@@ -237,16 +230,15 @@ describe('executionHandlerClusterGate', () => {
 
         expect(resolveExecutionHandlerClusterHeavyMode(input)).toBe('followup');
         expect(resolveExecutionHandlerClusterFollowupMode(input)).toBe('other-party');
-        expect(shouldLoadExecutionHandlerClusterFollowupDossierControls(input)).toBe(true);
+        expect(shouldLoadExecutionHandlerClusterFollowupDossierControls(input)).toBe(false);
         expect(shouldLoadExecutionHandlerClusterFollowupOtherParty(input)).toBe(true);
-        expect(shouldLoadExecutionHandlerClusterFollowupAdminSpecial(input)).toBe(true);
+        expect(shouldLoadExecutionHandlerClusterFollowupAdminSpecial(input)).toBe(false);
     });
 
     it('resolves coercive heavy mode for coercive flows', () => {
         const input = {
             showUnifiedExecutionModal: true,
             unifiedModalTab: 'coercive',
-            showUnifiedSeizureLogModal: false,
             showCoerciveModal: true,
             showAppointmentModal: false,
             showSeizedAssetsModal: false,
@@ -259,8 +251,7 @@ describe('executionHandlerClusterGate', () => {
         };
 
         expect(resolveExecutionHandlerClusterHeavyMode(input)).toBe('coercive');
-        // محضر مفتوح → جسور الحجز تبقى محمّلة حتى أثناء تبويب/تدفق الجبري
-        expect(shouldLoadExecutionHandlerClusterSeizureHeavy(input)).toBe(true);
+        expect(shouldLoadExecutionHandlerClusterSeizureHeavy(input)).toBe(false);
         expect(shouldLoadExecutionHandlerClusterFollowupHeavy(input)).toBe(false);
         expect(shouldLoadExecutionHandlerClusterCoerciveHeavy(input)).toBe(true);
     });
@@ -270,7 +261,6 @@ describe('executionHandlerClusterGate', () => {
             shouldLoadExecutionHandlerClusterDossierSupport({
                 showUnifiedExecutionModal: false,
                 unifiedModalTab: null,
-                showUnifiedSeizureLogModal: false,
                 showCoerciveModal: false,
                 showAppointmentModal: false,
                 showSeizedAssetsModal: false,
@@ -307,12 +297,51 @@ describe('executionHandlerClusterGate', () => {
         );
     });
 
+    it('loads seizure request handlers for followup seizure tab; log mode stays off', () => {
+        const input = {
+            hasOpenExecutionDossier: true,
+            showUnifiedExecutionModal: true,
+            unifiedModalTab: 'seizure_requests',
+            showCoerciveModal: false,
+            showAppointmentModal: false,
+            showSeizedAssetsModal: false,
+            showPaymentModal: false,
+            showNotesModal: false,
+            showCoerciveActionForm: false,
+            showEditDossierMetaModal: false,
+            dossierLifecyclePanelOpen: false,
+            isHeaderExpanded: false,
+        } as ExecutionHandlerClusterGateInput;
+
+        expect(shouldLoadExecutionHandlerClusterSeizureRequests(input)).toBe(true);
+        expect(shouldLoadExecutionHandlerClusterSeizureHeavy(input)).toBe(true);
+        expect(resolveExecutionHandlerClusterSeizureMode(input)).toBe('requests');
+    });
+
+    it('keeps seizure request handlers warm while execution dossier is open', () => {
+        const input = {
+            hasOpenExecutionDossier: true,
+            showUnifiedExecutionModal: false,
+            unifiedModalTab: null,
+            showCoerciveModal: false,
+            showAppointmentModal: false,
+            showSeizedAssetsModal: false,
+            showPaymentModal: false,
+            showNotesModal: false,
+            showCoerciveActionForm: false,
+            showEditDossierMetaModal: false,
+            dossierLifecyclePanelOpen: false,
+            isHeaderExpanded: false,
+        } as ExecutionHandlerClusterGateInput;
+
+        expect(shouldLoadExecutionHandlerClusterSeizureRequests(input)).toBe(true);
+    });
+
     it('warms seizure requests while execution dossier is open', () => {
         expect(
             resolveExecutionHandlerClusterSeizureMode({
                 hasOpenExecutionDossier: true,
                 showUnifiedExecutionModal: false,
-                showUnifiedSeizureLogModal: false,
             } as ExecutionHandlerClusterGateInput),
         ).toBe('requests');
     });
@@ -323,7 +352,6 @@ describe('executionHandlerClusterGate', () => {
             isEvictionExecutionModule: true,
             showUnifiedExecutionModal: false,
             showUnifiedSummonsModal: false,
-            showUnifiedSeizureLogModal: false,
             showCoerciveModal: false,
             showAppointmentModal: false,
             showSeizedAssetsModal: false,
@@ -335,6 +363,29 @@ describe('executionHandlerClusterGate', () => {
             isHeaderExpanded: false,
             showNotificationModal: false,
             partyDeathModalParty: null,
+        } as ExecutionHandlerClusterGateInput;
+
+        expect(resolveExecutionHandlerClusterHeavyMode(input)).toBe('coercive');
+        expect(shouldLoadExecutionHandlerClusterCoerciveHeavy(input)).toBe(true);
+    });
+
+    it('loads coercive handlers while heirs notification follow-up is open', () => {
+        const input = {
+            hasOpenExecutionDossier: true,
+            showUnifiedExecutionModal: false,
+            showUnifiedSummonsModal: false,
+            showCoerciveModal: false,
+            showAppointmentModal: false,
+            showSeizedAssetsModal: false,
+            showPaymentModal: false,
+            showNotesModal: false,
+            showCoerciveActionForm: false,
+            showEditDossierMetaModal: false,
+            dossierLifecyclePanelOpen: false,
+            isHeaderExpanded: false,
+            showNotificationModal: false,
+            partyDeathModalParty: null,
+            showHeirsNotificationModal: true,
         } as ExecutionHandlerClusterGateInput;
 
         expect(resolveExecutionHandlerClusterHeavyMode(input)).toBe('coercive');

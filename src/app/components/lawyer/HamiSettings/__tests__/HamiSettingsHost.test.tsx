@@ -7,7 +7,6 @@ import { hydrateSettingsShellForInstantOpen } from '@/app/runtime/settingsBootHy
 import { clearSettingsForceVisible } from '@/app/runtime/settingsInstantPaint';
 
 vi.mock('@/app/runtime/settingsBootHydrator', () => ({
-    SETTINGS_SHELL_HYDRATED_EVENT: 'hami:settings-shell-hydrated',
     hydrateSettingsShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
 }));
 

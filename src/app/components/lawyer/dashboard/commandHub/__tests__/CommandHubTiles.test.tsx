@@ -85,7 +85,9 @@ describe('ExecutionHero', () => {
             expect(prefetchHubArchiveIntent).toHaveBeenCalledWith('execution', 'hover');
         });
         fireEvent.pointerDown(tile, { button: 0, clientX: 10, clientY: 10, pointerId: 1 });
-        expect(prefetchHubArchiveIntent).toHaveBeenCalledWith('execution', 'open');
+        await waitFor(() => {
+            expect(prefetchHubArchiveIntent).toHaveBeenCalledWith('execution', 'open');
+        });
     });
 
     it('يفتح مخزن التنفيذ عند النقر', () => {

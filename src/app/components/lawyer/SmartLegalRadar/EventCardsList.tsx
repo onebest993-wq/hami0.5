@@ -53,15 +53,15 @@ export const EventCardsList = React.memo(function EventCardsList({
         <div
             className={
                 useVirtualScroll
-                    ? 'space-y-3 max-h-[min(70dvh,640px)] overflow-y-auto overscroll-contain scrollbar-hide'
-                    : 'space-y-3'
+                    ? 'space-y-2 max-h-[min(70dvh,640px)] overflow-y-auto overscroll-contain scrollbar-hide'
+                    : 'space-y-2'
             }
             data-testid="radar-event-cards-list"
         >
             {visibleEvents.map((event) => (
                 <div
                     key={event.id}
-                    className="[content-visibility:auto] [contain-intrinsic-size:auto_120px]"
+                    className="[content-visibility:auto] [contain-intrinsic-size:auto_140px]"
                 >
                     <EventCard
                         event={event}

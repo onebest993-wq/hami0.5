@@ -1,8 +1,8 @@
-export const REPOSITORY_UPLOAD_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'] as const;
-export const REPOSITORY_UPLOAD_DOCUMENT_EXTENSIONS = ['.pdf', '.docx'] as const;
+const REPOSITORY_UPLOAD_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'] as const;
+const REPOSITORY_UPLOAD_DOCUMENT_EXTENSIONS = ['.pdf', '.docx'] as const;
 export const REPOSITORY_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
-export const REPOSITORY_UPLOAD_TITLE_MAX = 200;
-export const REPOSITORY_UPLOAD_DESCRIPTION_MAX = 4_000;
+const REPOSITORY_UPLOAD_TITLE_MAX = 200;
+const REPOSITORY_UPLOAD_DESCRIPTION_MAX = 4_000;
 
 export type RepositoryUploadKind = 'image' | 'document';
 
@@ -30,6 +30,45 @@ export function validateRepositoryUploadFile(
     }
     if (file.size <= 0) {
         return 'الملف فارغ';
+    }
+    return null;
+}
+
+function startsWithBytes(header: Uint8Array, magic: number[]): boolean {
+    if (header.length < magic.length) return false;
+    return magic.every((byte, index) => header[index] === byte);
+}
+
+/** يرفض SVG/تنفيذاً مموّهاً بامتداد صورة أو مستند */
+export function repositoryUploadMagicLooksValid(
+    header: Uint8Array,
+    kind: RepositoryUploadKind,
+    fileName: string,
+): boolean {
+    const ext = fileExtension(fileName);
+    if (kind === 'image') {
+        if (ext === '.jpg' || ext === '.jpeg') return startsWithBytes(header, [0xff, 0xd8, 0xff]);
+        if (ext === '.png') return startsWithBytes(header, [0x89, 0x50, 0x4e, 0x47]);
+        if (ext === '.webp') {
+            return startsWithBytes(header, [0x52, 0x49, 0x46, 0x46]) && header.length >= 12
+                && header[8] === 0x57 && header[9] === 0x45 && header[10] === 0x42 && header[11] === 0x50;
+        }
+        return false;
+    }
+    if (ext === '.pdf') return startsWithBytes(header, [0x25, 0x50, 0x44, 0x46]);
+    if (ext === '.docx') return startsWithBytes(header, [0x50, 0x4b]);
+    return false;
+}
+
+export async function validateRepositoryUploadFileContents(
+    file: File,
+    kind: RepositoryUploadKind,
+): Promise<string | null> {
+    const nameError = validateRepositoryUploadFile(file, kind);
+    if (nameError) return nameError;
+    const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    if (!repositoryUploadMagicLooksValid(header, kind, file.name)) {
+        return 'نوع الملف لا يطابق امتداده';
     }
     return null;
 }

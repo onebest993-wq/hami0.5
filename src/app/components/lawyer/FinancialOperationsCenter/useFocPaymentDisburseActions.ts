@@ -1,7 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SmartDialog } from '@/app/components/ui/SmartDialog';
+import { useCallback, useEffect, useRef } from 'react';
 import type { TimelineEventType } from '@/app/types/execution';
-import { splitAmountEqually } from '@/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils';
 import {
     executionGarnishmentDetailsStorageKey,
     executionGarnishmentFlagStorageKey,
@@ -12,8 +10,6 @@ import type { ExpenseRow, LawyerFeeRow, LocalPaymentRow, UnifiedLedgerStore } fr
 import {
     computeTotalOwedUnifiedFromStore,
     computeTrustBalanceFromPayments,
-    formatIqdDisplay,
-    formatNumberInput,
     invalidPositiveAmountMessage,
     parseAmount,
     type UnifiedLedgerTotalParams,
@@ -30,36 +26,6 @@ type RecordFinancialTimelineNoteFn = (
     description: string,
     type?: TimelineEventType | string
 ) => void;
-
-export interface FocGhuramaaEligibleCreditor {
-    creditorId: string;
-    creditorName: string;
-    debtBeforeDistribution: number;
-    remainingDebt: number;
-}
-
-export interface FocGhuramaaContext {
-    canOpen: boolean;
-    available: number;
-    totalDebt: number;
-    eligible: FocGhuramaaEligibleCreditor[];
-    note: string | null;
-}
-
-export interface FocGhuramaaManualDistribution {
-    ok: boolean;
-    sum: number;
-    remainingAfter: number;
-    rows: Array<{
-        creditorId: string;
-        creditorName: string;
-        debtBeforeDistribution: number;
-        amountDistributed: number;
-    }>;
-    validationNote: string | null;
-    partialWarning: string | null;
-    isEqualMode: boolean;
-}
 
 export interface UseFocPaymentDisburseActionsParams {
     store: UnifiedLedgerStore;
@@ -86,27 +52,6 @@ export interface UseFocPaymentDisburseActionsParams {
     onProceedsDisburseHandled?: () => void;
     proceedsDisburseSeizedPropertyId?: string | null;
     onProceedsDisbursePropertyHandled?: () => void;
-
-    onApplyGhuramaaDistribution?: (args: {
-        transactionId: string;
-        dateIso: string;
-        totalAmountDistributed: number;
-        distributionDetails: Array<{
-            creditorId: string;
-            creditorName: string;
-            debtBeforeDistribution: number;
-            amountDistributed: number;
-        }>;
-    }) => void;
-    canShowGhuramaaDivision: boolean;
-    ghuramaaCreditors?: Array<{
-        creditorId: string;
-        creditorName: string;
-        debtBeforeDistribution: number;
-        remainingDebt: number;
-    }>;
-    ghuramaaModalOpen: boolean;
-    setGhuramaaModalOpen: (value: boolean) => void;
     setDisburseModalOpen: (value: boolean) => void;
 
     lawyerAmountInput: string;
@@ -154,19 +99,12 @@ export interface UseFocPaymentDisburseActionsResult {
     undoLastPayment: () => void;
     applyFullPayment: () => void;
     retractCollectionRequest: () => void;
-
-    ghuramaaContext: FocGhuramaaContext;
-    ghuramaaManual: FocGhuramaaManualDistribution;
-    ghuramaaShareInputs: Record<string, string>;
-    setGhuramaaShareInput: (creditorId: string, raw: string) => void;
-    applyGhuramaaEqualSplit: () => void;
-    openGhuramaaModal: () => void;
-    applyGhuramaaDistribution: () => void;
 }
 
 /**
- * معاملات الدفع/الصرف/الأتعاب/المصاريف/قسمة الغرماء —
+ * معاملات الدفع/الصرف/الأتعاب/المصاريف/حجز الراتب —
  * مُستخرَجة من FinancialOperationsCenter.tsx لتقليص حجم الملف الرئيسي.
+ * قسمة الغرماء في useFocGhuramaaActions.ts.
  */
 export function useFocPaymentDisburseActions(
     params: UseFocPaymentDisburseActionsParams
@@ -193,11 +131,6 @@ export function useFocPaymentDisburseActions(
         onProceedsDisburseHandled,
         proceedsDisburseSeizedPropertyId,
         onProceedsDisbursePropertyHandled,
-        onApplyGhuramaaDistribution,
-        canShowGhuramaaDivision,
-        ghuramaaCreditors,
-        ghuramaaModalOpen,
-        setGhuramaaModalOpen,
         setDisburseModalOpen,
         lawyerAmountInput,
         setLawyerAmountInput,
@@ -601,6 +534,7 @@ export function useFocPaymentDisburseActions(
             return;
         }
         if (store.pendingSettlement) {
+            const { SmartDialog } = await import('@/app/components/ui/SmartDialog');
             const choice = await promptSettlementSalaryConflictChoice(SmartDialog.confirm);
             if (choice === 'keep_settlement') {
                 notify('تم الإبقاء على التسوية — أُلغي مسار حجز الراتب.', 'info');
@@ -645,228 +579,6 @@ export function useFocPaymentDisburseActions(
         setShowGarnishModal(false);
     }, [setGarnishMemoInput, setGarnishMonthlyInput, setShowGarnishModal]);
 
-    const [ghuramaaShareInputs, setGhuramaaShareInputs] = useState<Record<string, string>>({});
-    const [ghuramaaSplitMode, setGhuramaaSplitMode] = useState<'manual' | 'equal' | null>(null);
-
-    const ghuramaaContext = useMemo((): FocGhuramaaContext => {
-        const creditors = Array.isArray(ghuramaaCreditors) ? ghuramaaCreditors : [];
-        const available = Math.max(0, Math.trunc(trustBalanceUnified));
-        const eligible = creditors
-            .map((c) => ({
-                creditorId: String(c.creditorId || '').trim(),
-                creditorName: String(c.creditorName || '').trim() || 'دائن',
-                debtBeforeDistribution: Math.max(0, Math.trunc(c.debtBeforeDistribution)),
-                remainingDebt: Math.max(0, Math.trunc(c.remainingDebt)),
-            }))
-            .filter((c) => c.creditorId);
-        const totalDebt = eligible.reduce((s, c) => s + c.remainingDebt, 0);
-        const canOpen = available > 0 && eligible.length > 0;
-        const note =
-            available <= 0
-                ? 'رصيد الأمانات = 0.'
-                : eligible.length === 0
-                  ? 'لا يوجد دائنون مؤهلون للتوزيع.'
-                  : null;
-        return { canOpen, available, totalDebt, eligible, note };
-    }, [ghuramaaCreditors, trustBalanceUnified]);
-
-    useEffect(() => {
-        if (!ghuramaaModalOpen) return;
-        const next: Record<string, string> = {};
-        ghuramaaContext.eligible.forEach((c) => {
-            next[c.creditorId] = '';
-        });
-        setGhuramaaShareInputs(next);
-        setGhuramaaSplitMode(null);
-    }, [ghuramaaModalOpen, ghuramaaContext.eligible]);
-
-    const ghuramaaManual = useMemo((): FocGhuramaaManualDistribution => {
-        const { available, eligible } = ghuramaaContext;
-        const isEqualMode = ghuramaaSplitMode === 'equal';
-        const rows: FocGhuramaaManualDistribution['rows'] = [];
-        let sum = 0;
-        let hasInvalidField = false;
-        let validationNote: string | null = null;
-        let partialWarning: string | null = null;
-
-        for (const c of eligible) {
-            const raw = String(ghuramaaShareInputs[c.creditorId] ?? '').trim();
-            const parsed = raw ? parseAmount(raw) : 0;
-            if (raw && (!Number.isFinite(parsed) || parsed < 0)) {
-                hasInvalidField = true;
-                validationNote = 'أدخل مبالغاً صحيحة لحصص الدائنين.';
-            }
-            const amount = Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0;
-            if (amount > available) {
-                hasInvalidField = true;
-                validationNote = 'حصة دائن تتجاوز رصيد الأمانات المتاح.';
-            }
-            if (!isEqualMode && amount > c.remainingDebt) {
-                hasInvalidField = true;
-                validationNote = 'حصة دائن تتجاوز دينه المتبقي.';
-            }
-            sum += amount;
-            rows.push({
-                creditorId: c.creditorId,
-                creditorName: c.creditorName,
-                debtBeforeDistribution: c.remainingDebt,
-                amountDistributed: amount,
-            });
-        }
-
-        if (sum > available) {
-            hasInvalidField = true;
-            validationNote = 'مجموع الحصص يتجاوز رصيد الأمانات المتاح.';
-        }
-
-        const remainingAfter = Math.max(0, available - sum);
-        if (!isEqualMode && sum > 0 && remainingAfter > 0) {
-            partialWarning = `يوجد متبقٍ في الأمانات (${remainingAfter.toLocaleString('ar-IQ')} د.ع) — يمكنك الاستمرار أو تعديل الحصص.`;
-        }
-        if (isEqualMode && sum > 0 && remainingAfter > 0) {
-            hasInvalidField = true;
-            validationNote = 'التقسيم بالتساوي يجب أن يوزّع رصيد الأمانات بالكامل دون متبقٍ.';
-        }
-
-        const ok =
-            ghuramaaContext.canOpen &&
-            !hasInvalidField &&
-            sum > 0 &&
-            (isEqualMode ? remainingAfter === 0 : true);
-        return {
-            ok,
-            sum,
-            remainingAfter,
-            rows,
-            validationNote,
-            partialWarning,
-            isEqualMode,
-        };
-    }, [ghuramaaContext, ghuramaaShareInputs, ghuramaaSplitMode]);
-
-    const setGhuramaaShareInput = useCallback((creditorId: string, raw: string) => {
-        setGhuramaaSplitMode('manual');
-        setGhuramaaShareInputs((prev) => ({
-            ...prev,
-            [creditorId]: formatNumberInput(raw),
-        }));
-    }, []);
-
-    const applyGhuramaaEqualSplit = useCallback(() => {
-        const { available, eligible } = ghuramaaContext;
-        if (available <= 0 || eligible.length === 0) return;
-        const shares = splitAmountEqually(available, eligible.length);
-        const next: Record<string, string> = {};
-        eligible.forEach((c, i) => {
-            const amt = shares[i] ?? 0;
-            next[c.creditorId] = amt > 0 ? formatIqdDisplay(amt) : '';
-        });
-        setGhuramaaShareInputs(next);
-        setGhuramaaSplitMode('equal');
-    }, [ghuramaaContext]);
-
-    const openGhuramaaModal = useCallback(() => {
-        if (!canShowGhuramaaDivision) {
-            notify('قسمة الغرماء متاحة فقط عند وجود أكثر من دائن واحد.', 'warning');
-            return;
-        }
-        if (trustBalanceUnified <= 0) {
-            notify('لا يوجد رصيد أمانات للتوزيع.', 'warning');
-            return;
-        }
-        if (!ghuramaaContext.canOpen) {
-            notify(
-                ghuramaaContext.note ||
-                    'لا توجد حصص دين مسجّلة للدائنين — تأكد من إجمالي المطالبة أو حصص الدائنين في الإضبارة.',
-                'warning'
-            );
-            return;
-        }
-        setGhuramaaModalOpen(true);
-    }, [canShowGhuramaaDivision, ghuramaaContext, notify, setGhuramaaModalOpen, trustBalanceUnified]);
-
-    const applyGhuramaaDistribution = useCallback(() => {
-        if (!canShowGhuramaaDivision) {
-            notify('لا يمكن إجراء قسمة الغرماء: لا يوجد تعدد دائنين.', 'warning');
-            return;
-        }
-        if (!ghuramaaManual.ok) {
-            notify(
-                ghuramaaManual.validationNote || 'أدخل حصص الدائنين يدوياً ضمن حدود الأمانات والديون.',
-                'warning'
-            );
-            return;
-        }
-        const total = Math.max(0, Math.trunc(ghuramaaManual.sum));
-        const distributionRows = ghuramaaManual.rows.filter((r) => r.amountDistributed > 0);
-        if (!Number.isFinite(total) || total <= 0 || distributionRows.length === 0) {
-            notify('لا يوجد مبلغ قابل للتوزيع.', 'warning');
-            return;
-        }
-        const current = getLatestLedgerStore();
-        const trustBefore = computeTrustBalanceFromPayments(current.payments);
-        if (total > trustBefore) {
-            notify(
-                `مجموع الحصص يتجاوز رصيد الأمانات (${trustBefore.toLocaleString('ar-IQ')} د.ع).`,
-                'warning'
-            );
-            return;
-        }
-        const ts = new Date().toISOString();
-        const transactionId = `ghr-${Date.now()}`;
-        try {
-            onApplyGhuramaaDistribution?.({
-                transactionId,
-                dateIso: ts,
-                totalAmountDistributed: total,
-                distributionDetails: distributionRows,
-            });
-        } catch {
-            notify('تعذر حفظ القسمة داخل الإضبارة.', 'error');
-            return;
-        }
-        const trustAfter = Math.max(0, trustBefore - total);
-        const row: LocalPaymentRow = {
-            id: `pay-ghr-${Date.now()}`,
-            amount: total,
-            at: ts,
-            kind: 'partial',
-            entryType: 'disburse',
-            balanceAfter: trustAfter,
-            debtBalanceAfter: remainingUnified,
-            trustBalanceAfter: trustAfter,
-        };
-        persist({
-            ...current,
-            payments: [row, ...current.payments],
-            completed: current.completed,
-            collectionRequestActive: current.collectionRequestActive,
-        });
-        recordFinancialTimelineNote(
-            '⚖️ قسمة الغرماء — توزيع الأمانات',
-            `تم توزيع ${total.toLocaleString('ar-IQ')} د.ع على ${distributionRows.length} دائن/دائنين — المتبقي في الأمانات ${trustAfter.toLocaleString('ar-IQ')} د.ع.`
-        );
-        setGhuramaaModalOpen(false);
-        setGhuramaaShareInputs({});
-        setGhuramaaSplitMode(null);
-        setDisburseAmountInput('');
-        notify(
-            `تم اعتماد القسمة. المتبقي في الأمانات: ${trustAfter.toLocaleString('ar-IQ')} د.ع`,
-            'success'
-        );
-    }, [
-        canShowGhuramaaDivision,
-        getLatestLedgerStore,
-        ghuramaaManual,
-        notify,
-        onApplyGhuramaaDistribution,
-        persist,
-        recordFinancialTimelineNote,
-        remainingUnified,
-        setDisburseAmountInput,
-        setGhuramaaModalOpen,
-    ]);
-
     return {
         canAddLawyerFee,
         addLawyerFee,
@@ -883,12 +595,5 @@ export function useFocPaymentDisburseActions(
         undoLastPayment,
         applyFullPayment,
         retractCollectionRequest,
-        ghuramaaContext,
-        ghuramaaManual,
-        ghuramaaShareInputs,
-        setGhuramaaShareInput,
-        applyGhuramaaEqualSplit,
-        openGhuramaaModal,
-        applyGhuramaaDistribution,
     };
 }

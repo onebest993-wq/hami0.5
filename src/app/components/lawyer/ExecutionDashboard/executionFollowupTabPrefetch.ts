@@ -1,6 +1,7 @@
 /** تحميل مسبق لتبويب واحد من محضر المتابعة — لا يجمع كل التبويبات في موجة واحدة */
 import { prefetchExecutionCoreHandlers } from './executionCoreHandlersPrefetch';
 import { canonicalFollowupTabForPrefetch } from './utils/followupLegacyTabNormalization';
+import { prefetchCustodyRemovalWardsModule } from './executionDashboardLazyRegistryShell';
 import {
     LazyCoerciveTab,
     LazyCommunicationsTab,
@@ -10,15 +11,13 @@ import {
     LazyPersonalTab,
     LazyRequestsTab,
     LazySeizureRequestsTab,
-    prefetchCustodyRemovalWardsModule,
     prefetchFollowupMemoPanels,
-} from './executionDashboardLazyRegistryShell';
+} from './executionDashboardFollowupTabLazy';
 import {
     LazyOtherPartyActionsLog,
     prefetchEvictionFieldProceduresPanel,
     prefetchExecutionFinancialHubPortal,
 } from './executionDashboardLazyRegistryOverlays';
-import { prefetchRequestsTabInnerSurfaces } from './requestsTabInnerLazy';
 import { prefetchManualOtherPartyLogBlock } from './otherPartyManualLogBlockLazy';
 
 export type ExecutionFollowupTabPrefetchId =
@@ -57,10 +56,8 @@ const TAB_LOADERS: Record<ExecutionFollowupTabPrefetchId, () => Promise<unknown>
     seizure_requests: () => LazySeizureRequestsTab.preload(),
     correspondences: () => LazyCommunicationsTab.preload(),
     dossier_controls: () => LazyDossierControlsTab.preload(),
-    admin: () =>
-        Promise.all([LazyRequestsTab.preload(), Promise.resolve(prefetchRequestsTabInnerSurfaces())]),
-    special: () =>
-        Promise.all([LazyRequestsTab.preload(), Promise.resolve(prefetchRequestsTabInnerSurfaces())]),
+    admin: () => LazyRequestsTab.preload(),
+    special: () => LazyRequestsTab.preload(),
 };
 
 function isExecutionFollowupTabPrefetchId(
@@ -83,6 +80,7 @@ export function prefetchExecutionFollowupTab(tabId: string): void {
             break;
         case 'admin':
         case 'special':
+            prefetchExecutionCoreHandlers('followup-admin-special');
             break;
         case 'dossier_controls':
             prefetchExecutionCoreHandlers('followup-dossier-controls');

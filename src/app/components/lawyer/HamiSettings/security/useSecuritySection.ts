@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useLawyerSettingsSecurity } from '@/app/context/LawyerSettingsContext';
+import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import {
     probeBiometricSession,
     reconcileBiometricSessionLockEnabled,
@@ -11,7 +12,6 @@ import { useSettingsPatches } from '../hooks/useSettingsPatches';
 import {
     runBiometricLockToggle,
     runLocalOnlyToggle,
-    runPrivacyBlurToggle,
     runScreenshotDeterrentToggle,
 } from './securitySectionToggles';
 
@@ -22,21 +22,21 @@ export function useSecuritySection() {
 
     useEffect(() => {
         let cancelled = false;
-        void (async () => {
-            const reconcile = reconcileBiometricSessionLockEnabled(security.biometricLock);
-            if (reconcile === 'reset') {
-                patchSecurity({ biometricLock: false });
-                if (!cancelled) {
-                    SmartToast.info('أُعيد ضبط القفل البيومتري — سجّله من جديد على هذا الجهاز');
-                }
-            }
-
-            const availability = await probeBiometricSession();
-            if (cancelled) return;
-            setBiometricHint(resolveBiometricSessionHint(availability, security.biometricLock));
-        })();
+        const reconcile = reconcileBiometricSessionLockEnabled(security.biometricLock);
+        if (reconcile === 'reset') {
+            patchSecurity({ biometricLock: false });
+            SmartToast.info('أُعيد ضبط القفل البيومتري — سجّله من جديد على هذا الجهاز');
+        }
+        const cancelIdle = scheduleIdleWork(() => {
+            void (async () => {
+                const availability = await probeBiometricSession();
+                if (cancelled) return;
+                setBiometricHint(resolveBiometricSessionHint(availability, security.biometricLock));
+            })();
+        }, { minDelayMs: 0, timeoutMs: 800 });
         return () => {
             cancelled = true;
+            cancelIdle();
         };
     }, [security.biometricLock, patchSecurity]);
 
@@ -68,21 +68,12 @@ export function useSecuritySection() {
         [patchSecurity],
     );
 
-    const togglePrivacyBlur = useCallback(
-        (enabled: boolean) =>
-            runPrivacyBlurToggle(enabled, patchSecurity, security.screenshotDeterrent),
-        [patchSecurity, security.screenshotDeterrent],
-    );
-
     return {
         security,
         toggleLocalOnly,
         toggleBiometric,
         toggleScreenshotDeterrent,
-        togglePrivacyBlur,
         setAutoLockMinutes,
         biometricSubLabel: biometricHint,
     };
 }
-
-export type SecuritySectionViewModel = ReturnType<typeof useSecuritySection>;

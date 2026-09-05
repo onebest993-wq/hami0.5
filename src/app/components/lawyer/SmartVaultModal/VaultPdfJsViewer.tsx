@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
 import { ChevronUp } from '@/app/components/ui/icons/ChevronUp';
 import { ExternalLink } from '@/app/components/ui/icons/ExternalLink';
-import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import { RotateCcw } from '@/app/components/ui/icons/RotateCcw';
 import {
     classifyVaultPdfLoadError,
@@ -283,9 +282,12 @@ export const VaultPdfJsViewer: React.FC<VaultPdfJsViewerProps> = ({ source, titl
     return (
         <div className="flex-1 h-full min-h-0 flex flex-col overflow-hidden">
             {!doc ? (
-                <div className="flex items-center justify-center gap-2 py-8 text-white/40 text-sm">
-                    <Loader2 size={18} className="animate-spin" />
-                    جاري تحميل PDF...
+                <div
+                    className="flex items-center justify-center py-8"
+                    aria-busy="true"
+                    aria-label="PDF"
+                >
+                    <div className="h-10 w-48 rounded-xl border border-white/10 bg-white/[0.04]" aria-hidden />
                 </div>
             ) : null}
             {doc && doc.numPages > 1 ? (

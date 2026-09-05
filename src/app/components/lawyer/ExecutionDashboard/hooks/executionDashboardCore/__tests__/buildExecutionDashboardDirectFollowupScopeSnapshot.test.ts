@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildExecutionDashboardDirectFollowupScopeSnapshot } from '../buildExecutionDashboardDirectFollowupScopeSnapshot';
+import {
+    buildExecutionDashboardDirectFollowupScopeSnapshot,
+    resolveDirectFollowupScopeSnapshotForPaint,
+} from '../buildExecutionDashboardDirectFollowupScopeSnapshot';
 import { isExecutionHandlerStubLeaf } from '../../executionHandlerClusterStubs';
 
 describe('buildExecutionDashboardDirectFollowupScopeSnapshot', () => {
@@ -28,5 +31,31 @@ describe('buildExecutionDashboardDirectFollowupScopeSnapshot', () => {
         });
         expect(snapshot.otherPartyTabSubmitHandler).toBe(live);
         expect(isExecutionHandlerStubLeaf(snapshot.otherPartyTabSubmitHandler)).toBe(false);
+    });
+
+    it('لا ينسخ scopeSources بينما المحضر مغلق', () => {
+        const live = () => undefined;
+        const closed = resolveDirectFollowupScopeSnapshotForPaint(false, {
+            scopeSources: { runSpecialFollowupSubmit: live, noise: 'drop' },
+            scopeLocalFlat: {},
+            scopeRestFlat: {},
+            executionModalSetters: {},
+        });
+        expect(closed.runSpecialFollowupSubmit).toBeUndefined();
+        expect(closed.noise).toBeUndefined();
+        expect(Object.keys(closed)).toHaveLength(0);
+    });
+
+    it('ينسخ المعالج الحي عند فتح المحضر', () => {
+        const live = () => undefined;
+        const open = resolveDirectFollowupScopeSnapshotForPaint(true, {
+            scopeSources: { runSpecialFollowupSubmit: live, noise: 'drop' },
+            scopeLocalFlat: {},
+            scopeRestFlat: {},
+            executionModalSetters: {},
+        });
+        expect(open.runSpecialFollowupSubmit).toBe(live);
+        expect(Object.prototype.hasOwnProperty.call(open, 'noise')).toBe(false);
+        expect((open as { noise?: unknown }).noise).toBe('drop');
     });
 });

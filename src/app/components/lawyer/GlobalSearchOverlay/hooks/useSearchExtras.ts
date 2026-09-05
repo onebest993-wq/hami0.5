@@ -11,57 +11,40 @@ import { getCachedProfileLine, resolveProfileLine } from '@/app/services/globalS
 const FOCUS_REFRESH_MS = 800;
 const OVERLAY_EXTRAS_OPTIONS = { includeCommunityPosts: true } as const;
 
-export interface UseSearchExtrasOptions {
+interface UseSearchExtrasOptions {
     userId: string | null;
     overlayOpen?: boolean;
 }
 
-export interface UseSearchExtrasReturn {
+export function useSearchExtras({ userId, overlayOpen }: UseSearchExtrasOptions): {
     extras: GlobalSearchExtras | null;
     profileLine: string;
-    isLoadingExtras: boolean;
-}
-
-export function useSearchExtras({ userId, overlayOpen }: UseSearchExtrasOptions): UseSearchExtrasReturn {
+} {
     const extrasLoadOptions = overlayOpen ? OVERLAY_EXTRAS_OPTIONS : undefined;
     const [extrasVersion, setExtrasVersion] = useState(0);
     const [profileLine, setProfileLine] = useState(() => getCachedProfileLine(userId));
     const [extras, setExtras] = useState<GlobalSearchExtras | null>(() =>
         getCachedGlobalSearchExtras(userId, extrasLoadOptions),
     );
-    const [isLoadingExtras, setIsLoadingExtras] = useState(
-        () => overlayOpen === true && !getCachedGlobalSearchExtras(userId, extrasLoadOptions),
-    );
 
     useEffect(() => {
         if (!overlayOpen) {
-            const cached = getCachedGlobalSearchExtras(userId);
-            setExtras(cached);
-            setIsLoadingExtras(false);
+            setExtras(getCachedGlobalSearchExtras(userId));
             return;
         }
 
         let cancelled = false;
         const cached = getCachedGlobalSearchExtras(userId, OVERLAY_EXTRAS_OPTIONS);
-        if (cached) {
-            setExtras(cached);
-            setIsLoadingExtras(false);
-        } else {
-            setIsLoadingExtras(true);
-        }
+        if (cached) setExtras(cached);
 
         void (async () => {
-            try {
-                const [loadedExtras, line] = await Promise.all([
-                    loadGlobalSearchExtras(userId, OVERLAY_EXTRAS_OPTIONS),
-                    resolveProfileLine(userId),
-                ]);
-                if (cancelled) return;
-                setExtras(loadedExtras);
-                setProfileLine(line);
-            } finally {
-                if (!cancelled) setIsLoadingExtras(false);
-            }
+            const [loadedExtras, line] = await Promise.all([
+                loadGlobalSearchExtras(userId, OVERLAY_EXTRAS_OPTIONS),
+                resolveProfileLine(userId),
+            ]);
+            if (cancelled) return;
+            setExtras(loadedExtras);
+            setProfileLine(line);
         })();
 
         return () => {
@@ -80,21 +63,25 @@ export function useSearchExtras({ userId, overlayOpen }: UseSearchExtrasOptions)
 
     useEffect(() => {
         if (!overlayOpen) return;
+        let cancelled = false;
         let timer: number | undefined;
+        const focusedUserId = userId;
         const onFocus = () => {
             if (timer !== undefined) window.clearTimeout(timer);
             timer = window.setTimeout(() => {
-                void loadGlobalSearchExtras(userId, OVERLAY_EXTRAS_OPTIONS).then((loaded) => {
+                void loadGlobalSearchExtras(focusedUserId, OVERLAY_EXTRAS_OPTIONS).then((loaded) => {
+                    if (cancelled) return;
                     setExtras(loaded);
                 });
             }, FOCUS_REFRESH_MS);
         };
         window.addEventListener('focus', onFocus);
         return () => {
+            cancelled = true;
             window.removeEventListener('focus', onFocus);
             if (timer !== undefined) window.clearTimeout(timer);
         };
     }, [overlayOpen, userId]);
 
-    return { extras, profileLine, isLoadingExtras };
+    return { extras, profileLine };
 }

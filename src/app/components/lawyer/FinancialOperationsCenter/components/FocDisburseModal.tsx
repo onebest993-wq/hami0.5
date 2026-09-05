@@ -4,6 +4,7 @@ import { X } from '@/app/components/ui/icons/X';
 import { FocModalPortal } from './FocModalPortal';
 import { formatNumberInput } from '../utils';
 import { FOC_MODAL_ACTION_BTN, FOC_MODAL_CLOSE_BTN } from '../constants';
+import { focPrepareOverlay } from '../focPointerPrefetch';
 
 export interface FocDisburseModalProps {
     open: boolean;
@@ -86,6 +87,11 @@ export const FocDisburseModal: React.FC<FocDisburseModalProps> = ({
                                 </button>
                                 <button
                                     type="button"
+                                    {...focPrepareOverlay(() => {
+                                        void import('../focOverlaySurfacesLazy').then((m) =>
+                                            m.prefetchFocGhuramaaModal(),
+                                        );
+                                    })}
                                     onClick={() => {
                                         onClose();
                                         onOpenGhuramaaModal();

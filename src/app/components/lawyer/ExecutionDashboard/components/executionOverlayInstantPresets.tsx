@@ -6,6 +6,11 @@ import {
     EXEC_MODAL_NOTES_SHELL_MAX,
     EXEC_MODAL_SHELL_HEIGHT_CLASS,
     EXEC_MODAL_TRASH_SHELL_MAX,
+    EXEC_OVERLAY_HEADER,
+    EXEC_OVERLAY_PHONE_BACKDROP,
+    EXEC_OVERLAY_PHONE_SHEET,
+    EXEC_OVERLAY_PHONE_SHEET_WIDE,
+    EXEC_OVERLAY_TITLE,
 } from '@/app/components/lawyer/ExecutionDashboard/executionModalMobileShell';
 import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 import { ExecutionOverlayInstantFrame } from './ExecutionOverlayInstantFrame';
@@ -29,10 +34,11 @@ export function ExecutionFinancialHubInstantFrame({
             closeTestId="execution-financial-hub-instant-close"
             closeAriaLabel="إغلاق المركز المالي"
             labelledById="execution-financial-hub-instant-title"
-            overlayClassName={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG} ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
-            panelClassName={`flex ${EXEC_MODAL_TRASH_SHELL_MAX} w-full max-w-md flex-col overflow-hidden rounded-3xl border border-[#E6C673]/40 bg-[#0B1120] shadow-md`}
-            titleClassName="text-base font-bold text-[#E6C673]"
-            headerClassName="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 border-b border-[#E6C673]/30 bg-[#0B1120] p-3"
+            overlayClassName={EXEC_OVERLAY_PHONE_BACKDROP}
+            panelClassName={EXEC_OVERLAY_PHONE_SHEET}
+            titleClassName={EXEC_OVERLAY_TITLE}
+            headerClassName={EXEC_OVERLAY_HEADER}
+            headerLayout="title-first"
             zIndex={EXEC_MODAL_Z.unifiedFollowUp}
             portal
         />
@@ -49,10 +55,11 @@ export function ExecutionLawInstantFrame(): React.ReactElement {
             closeTestId="execution-law-reference-close"
             closeAriaLabel="إغلاق"
             labelledById="law-reference-instant-title"
-            overlayClassName="fixed inset-0 flex flex-col bg-[#05060D]/92"
+            overlayClassName="fixed inset-0 flex flex-col bg-[#05060D]"
             panelClassName="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#0A0F1C] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
-            titleClassName="truncate text-base font-bold text-slate-100 sm:text-lg"
-            headerClassName="flex shrink-0 items-center justify-between gap-3 border-b border-slate-700/50 px-4 py-3.5"
+            titleClassName={EXEC_OVERLAY_TITLE}
+            headerClassName={EXEC_OVERLAY_HEADER}
+            headerLayout="title-first"
             zIndex={EXEC_MODAL_Z.lawReferencePanel}
             portal
             lockBody
@@ -64,16 +71,16 @@ export function ExecutionLawInstantFrame(): React.ReactElement {
 export function ExecutionNotesInstantFrame({ onClose }: { onClose: () => void }): React.ReactElement {
     return (
         <ExecutionOverlayInstantFrame
-            title="سجل الملاحظات والمهام"
+            title="سجل الملاحظات"
             onClose={onClose}
             testId="execution-notes-modal"
             closeTestId="execution-notes-instant-close"
             closeAriaLabel="إغلاق"
             labelledById="execution-notes-instant-title"
-            overlayClassName={`fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
-            panelClassName={`flex h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-amber-500/30 bg-[#0A0F1C] shadow-md md:h-[600px] ${EXEC_MODAL_NOTES_SHELL_MAX}`}
-            titleClassName="text-lg font-bold text-amber-200"
-            headerClassName={`flex shrink-0 items-center justify-between border-b border-amber-500/20 bg-[#0B1120] px-4 pb-3 pt-4 ${EXEC_MODAL_HEADER_SAFE_TOP}`}
+            overlayClassName={`${EXEC_OVERLAY_PHONE_BACKDROP} z-[60]`}
+            panelClassName={EXEC_OVERLAY_PHONE_SHEET}
+            titleClassName={EXEC_OVERLAY_TITLE}
+            headerClassName={EXEC_OVERLAY_HEADER}
             headerLayout="title-first"
             lockBody
             tabSlots={2}
@@ -94,10 +101,10 @@ export function ExecutionAppointmentInstantFrame({
             closeTestId="execution-appointment-instant-close"
             closeAriaLabel="إغلاق"
             labelledById="execution-appointment-instant-title"
-            overlayClassName={`fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
-            panelClassName={`flex w-[95%] max-w-md flex-col overflow-hidden rounded-3xl border border-amber-500/30 bg-[#0A0F1C] p-5 shadow-md md:w-[480px] ${EXEC_MODAL_NOTES_SHELL_MAX}`}
-            titleClassName="text-xl font-bold text-amber-200"
-            headerClassName={`mb-1 flex items-center justify-between ${EXEC_MODAL_HEADER_SAFE_TOP}`}
+            overlayClassName={`${EXEC_OVERLAY_PHONE_BACKDROP} z-[60]`}
+            panelClassName={EXEC_OVERLAY_PHONE_SHEET}
+            titleClassName={EXEC_OVERLAY_TITLE}
+            headerClassName={EXEC_OVERLAY_HEADER}
             headerLayout="title-first"
             lockBody
             bodySlots={3}
@@ -118,11 +125,11 @@ export function ExecutionDocumentsInstantFrame({
             closeTestId="execution-documents-instant-close"
             closeAriaLabel="إغلاق الخزينة"
             labelledById="execution-documents-instant-title"
-            overlayClassName="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 p-4"
-            panelClassName="flex max-h-[90vh] w-[95%] max-w-2xl flex-col overflow-hidden rounded-3xl border-2 border-cyan-500/40 bg-[#0B1120] md:w-[600px]"
-            titleClassName="text-lg font-bold text-cyan-400"
-            headerClassName="flex items-center justify-between border-b border-cyan-500/30 p-4"
-            headerLayout="close-first"
+            overlayClassName={`${EXEC_OVERLAY_PHONE_BACKDROP} z-[110]`}
+            panelClassName={EXEC_OVERLAY_PHONE_SHEET_WIDE}
+            titleClassName={EXEC_OVERLAY_TITLE}
+            headerClassName={EXEC_OVERLAY_HEADER}
+            headerLayout="title-first"
         />
     );
 }
@@ -140,39 +147,14 @@ export function ExecutionDecisionsInstantFrame({
             closeTestId="execution-decisions-instant-close"
             closeAriaLabel="إغلاق"
             labelledById="execution-decisions-instant-title"
-            overlayClassName={`fixed inset-0 flex flex-col overflow-hidden bg-slate-950/75 p-0 sm:p-2 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
-            panelClassName="flex h-full min-h-0 w-full max-h-[min(100dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-1 flex-col overflow-hidden border-0 border-white/10 bg-[#0A0F1C] sm:max-h-none sm:rounded-2xl sm:border"
-            titleClassName="text-lg font-bold text-slate-100 sm:text-xl"
-            headerClassName={`flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3 sm:px-5 sm:py-4 ${EXEC_MODAL_HEADER_SAFE_TOP}`}
+            overlayClassName={`${EXEC_OVERLAY_PHONE_BACKDROP} overflow-hidden`}
+            panelClassName={`${EXEC_OVERLAY_PHONE_SHEET_WIDE} sm:max-w-2xl`}
+            titleClassName={EXEC_OVERLAY_TITLE}
+            headerClassName={EXEC_OVERLAY_HEADER}
             headerLayout="title-first"
             zIndex={EXEC_MODAL_Z.decisionsShell}
             lockBody
             bodySlots={4}
-        />
-    );
-}
-
-export function ExecutionSeizureLogInstantFrame({
-    onClose,
-}: {
-    onClose: () => void;
-}): React.ReactElement {
-    return (
-        <ExecutionOverlayInstantFrame
-            title="سجل الحجز"
-            onClose={onClose}
-            testId="unified-seizure-log"
-            closeTestId="execution-seizure-log-instant-close"
-            closeAriaLabel="إغلاق"
-            labelledById="execution-seizure-log-instant-title"
-            overlayClassName={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
-            panelClassName="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[#E6C673]/30 bg-[#0B1120] shadow-2xl shadow-black/60"
-            titleClassName="text-[13px] font-black text-[#E6C673]"
-            headerClassName="flex shrink-0 items-center justify-between border-b border-[#E6C673]/20 px-4 py-3"
-            zIndex={EXEC_MODAL_Z.nestedOverFollowUpPortal}
-            portal
-            tabSlots={4}
-            tabRowClassName="grid grid-cols-2 gap-2 sm:grid-cols-4"
         />
     );
 }
@@ -216,7 +198,7 @@ export function ExecutionSeizedAssetsInstantFrame({
             closeAriaLabel="إغلاق"
             labelledById="execution-seized-assets-instant-title"
             overlayClassName={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG} ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
-            panelClassName="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0B1120]"
+            panelClassName={`flex ${EXEC_MODAL_NOTES_SHELL_MAX} w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0B1120]`}
             titleClassName="text-base font-bold text-slate-100"
             zIndex={EXEC_MODAL_Z.nestedOverUnified}
             portal
@@ -244,7 +226,7 @@ export function ExecutionNamedOverlayInstantFrame({
             closeAriaLabel="إغلاق"
             labelledById={`${testId}-title`}
             overlayClassName={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG} ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
-            panelClassName="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0B1120] shadow-md"
+            panelClassName={`flex ${EXEC_MODAL_TRASH_SHELL_MAX} w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0B1120] shadow-md`}
             titleClassName="text-base font-bold text-slate-100"
             headerClassName={`flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3 ${EXEC_MODAL_HEADER_SAFE_TOP}`}
             zIndex={zIndex}

@@ -1,5 +1,5 @@
-import React from 'react';
-import { RotateCcw } from '@/app/components/ui/icons/RotateCcw';
+import React, { useRef } from 'react';
+import { SettingsRotateCcwIcon } from '../settingsStemIconsLazy';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
@@ -9,6 +9,7 @@ import {
 import { SettingRow } from '../settings-ui/index';
 import type { useLocalDataClear } from '../hooks/useLocalDataClear';
 import { ExecutionIndexQuarantineRow } from './ExecutionIndexQuarantineRow';
+import { settingsFlowAbandoned, useSettingsSectionActiveRef } from '../settingsFlowGuard';
 
 type WipeVm = ReturnType<typeof useLocalDataClear>;
 
@@ -19,29 +20,38 @@ export function DataDangerZone({
     wipe: WipeVm;
     onResetToDefaults: () => void;
 }) {
+    const { sectionActiveRef } = useSettingsSectionActiveRef();
+    const resetInFlightRef = useRef(false);
+    const dangerBusy = wipe.wipePhase !== 'idle';
 
     const confirmReset = async () => {
-        const ok = await SmartDialog.confirm(
-            'ستُستعاد تفضيلات المنظر والأمان والبيانات والأداء وتخطيط المنزل — ملفات القضايا المحلية لا تُمس.',
-            { title: 'إعادة ضبط الإعدادات؟' },
-        );
-        if (!ok) return;
-        const challenge = mintSensitiveConfirmChallenge('إعادة ضبط');
-        const verified = await verifySensitiveSettingsAction({
-            confirmPhrase: challenge.confirmPhrase,
-            title: 'تحقق قبل إعادة الضبط',
-            promptMessage: challenge.promptMessage,
-        });
-        if (!verified) return;
-        onResetToDefaults();
-        SmartToast.success('تمت إعادة الضبط');
+        if (resetInFlightRef.current || dangerBusy || settingsFlowAbandoned(sectionActiveRef)) return;
+        resetInFlightRef.current = true;
+        try {
+            const ok = await SmartDialog.confirm(
+                'ستُستعاد تفضيلات المنظر والأمان والبيانات والأداء وتخطيط المنزل — ملفات القضايا المحلية لا تُمس.',
+                { title: 'إعادة ضبط الإعدادات؟' },
+            );
+            if (!ok || settingsFlowAbandoned(sectionActiveRef)) return;
+            const challenge = mintSensitiveConfirmChallenge('إعادة ضبط');
+            const verified = await verifySensitiveSettingsAction({
+                confirmPhrase: challenge.confirmPhrase,
+                title: 'تحقق قبل إعادة الضبط',
+                promptMessage: challenge.promptMessage,
+            });
+            if (!verified || settingsFlowAbandoned(sectionActiveRef)) return;
+            onResetToDefaults();
+            SmartToast.success('تمت إعادة الضبط');
+        } finally {
+            resetInFlightRef.current = false;
+        }
     };
 
     return (
         <>
             <ExecutionIndexQuarantineRow />
             <SettingRow
-                icon={RotateCcw}
+                icon={SettingsRotateCcwIcon}
                 label="مسح كل البيانات"
                 action={
                     wipe.wipePhase === 'countdown' ? (
@@ -59,26 +69,28 @@ export function DataDangerZone({
                     ) : (
                         <button
                             type="button"
-                            disabled={wipe.wipePhase === 'wiping'}
+                            disabled={dangerBusy}
                             onClick={() => void wipe.requestFullWipe()}
                             data-testid="settings-wipe-start"
+                            aria-busy={wipe.wipePhase === 'wiping' || undefined}
                             className="text-rose-400 text-xs font-bold disabled:opacity-40 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
                         >
-                            {wipe.wipePhase === 'wiping' ? 'جاري المسح…' : 'مسح'}
+                            مسح
                         </button>
                     )
                 }
             />
             <SettingRow
-                icon={RotateCcw}
+                icon={SettingsRotateCcwIcon}
                 label="إعادة ضبط الإعدادات"
                 isLast
                 action={
                     <button
                         type="button"
+                        disabled={dangerBusy}
                         onClick={() => void confirmReset()}
                         data-testid="settings-reset-start"
-                        className="text-rose-400 text-xs font-bold min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
+                        className="text-rose-400 text-xs font-bold disabled:opacity-40 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
                     >
                         إعادة ضبط
                     </button>

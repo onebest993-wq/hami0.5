@@ -211,9 +211,10 @@ export function VoiceRecorderModalView({
                     <button
                         type="button"
                         disabled={isSaving}
+                        aria-busy={isSaving || undefined}
                         onClick={handlePrimaryAction}
                         data-testid={
-                            isRecording
+                            isRecording || isSaving
                                 ? 'voice-recorder-stop'
                                 : savedToNotepad
                                   ? 'voice-recorder-done'
@@ -223,9 +224,7 @@ export function VoiceRecorderModalView({
                         }
                         className={primaryBtnClass}
                     >
-                        {isSaving ? (
-                            'جاري الحفظ…'
-                        ) : isRecording ? (
+                        {isRecording || isSaving ? (
                             <>
                                 <Square size={18} />
                                 إيقاف التسجيل

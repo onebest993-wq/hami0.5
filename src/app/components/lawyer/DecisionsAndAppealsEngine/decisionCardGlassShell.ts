@@ -29,5 +29,5 @@ const CARD_ACCENT: Record<DecisionCardEnforcementVisual, string> = {
 };
 
 export function decisionCardGlassClasses(visual: DecisionCardEnforcementVisual): string {
-    return `flex h-full min-h-0 flex-col justify-between gap-2 ${DECISION_CARD_GLASS_SHELL} ${CARD_ACCENT[visual]}`;
+    return `flex h-full min-h-0 flex-col justify-start gap-1.5 ${DECISION_CARD_GLASS_SHELL} ${CARD_ACCENT[visual]}`;
 }

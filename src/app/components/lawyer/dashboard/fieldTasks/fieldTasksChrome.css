@@ -18,6 +18,13 @@
     visibility: hidden;
 }
 
+.hami-field-tasks-layer:not(.hami-field-tasks-layer--visible) *,
+.hami-field-tasks-layer:not([data-interactive='true']),
+.hami-field-tasks-layer:not([data-interactive='true']) *,
+.hami-field-tasks-layer[aria-hidden='true'] * {
+    pointer-events: none !important;
+}
+
 .hami-field-tasks-layer--snap {
     transition: none;
 }
@@ -47,7 +54,7 @@
 
 .hami-field-tasks-list-item {
     content-visibility: auto;
-    contain-intrinsic-size: auto 7.5rem;
+    contain-intrinsic-size: auto 6.5rem;
 }
 
 html[data-hami-lite='1'] .hami-field-tasks-sheet-motion {

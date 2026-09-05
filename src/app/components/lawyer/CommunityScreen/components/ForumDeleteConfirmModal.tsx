@@ -2,7 +2,6 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import { AlertTriangle } from '@/app/components/ui/icons/AlertTriangle';
-import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import { X } from '@/app/components/ui/icons/X';
 import { getForumOverlayPortalRoot } from '../forumOverlayPortal';
 import { FORUM_PANEL } from '../forumPlumTheme';
@@ -81,9 +80,9 @@ export const ForumDeleteConfirmModal = ({
                                 type="button"
                                 onClick={onConfirm}
                                 disabled={loading}
+                                aria-busy={loading || undefined}
                                 className="flex-1 sm:flex-none px-5 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                             >
-                                {loading ? <Loader2 size={16} className="animate-spin" /> : null}
                                 {confirmLabel}
                             </button>
                         </div>

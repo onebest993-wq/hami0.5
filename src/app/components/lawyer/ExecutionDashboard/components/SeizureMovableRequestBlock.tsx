@@ -1,99 +1,57 @@
 import React from 'react';
-import { Package } from '@/app/components/ui/icons/Package';
+import { Truck } from '@/app/components/ui/icons/Truck';
 import { InlineActionGate } from './InlineActionGate';
-import { ExecutionInlineAccordion } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
-import { SeizureLogNavigateBadge } from './SeizureLogNavigateBadge';
 import { SeizureRequestBlock } from './SeizureRequestBlock';
-import type { VehicleCompletionDraft } from './SeizureRequestCompletionForms';
-import {
-    isSeizureRegistrationComplete,
-    isSeizureRequestFullyRegistered,
-} from './seizureRequestsTabHelpers';
-import { buildSeizureRequestSteps } from './seizureRequestsTabDecisionSteps';
-import { dispatchMovableSeizureInlineFocus } from '@/app/components/lawyer/ExecutionDashboard/utils/seizureSalaryRequestFlow';
-import {
-    VehicleCompletion,
-    seizureRowNeedsInlineCompletion,
-    type SeizureAssetDecisionRow,
-    type SharedAssetBlockProps,
-} from './SeizureRequestsTabAssetCompletions';
+import { SeizureApprovedPlanBadge } from './SeizureApprovedPlanBadge';
+import { SeizureExecutorDecisionShortcut } from './SeizureExecutorDecisionShortcut';
+import type { SharedAssetBlockProps } from './SeizureRequestsTabAssetCompletions';
 
+/** زر طلب حجز مال منقول فقط — بلا أكورديون/إكمال/سجل */
 export function SeizureMovableRequestBlock(
     props: SharedAssetBlockProps & {
-        movableDecision: SeizureAssetDecisionRow | null;
-        vehicleDetailsDraftByDecisionId: Record<string, VehicleCompletionDraft>;
-        setVehicleDetailsDraftByDecisionId: React.Dispatch<
-            React.SetStateAction<Record<string, VehicleCompletionDraft>>
-        >;
-    }
+        movableDecision?: Record<string, unknown> | null;
+        vehicleDetailsDraftByDecisionId?: unknown;
+        setVehicleDetailsDraftByDecisionId?: unknown;
+    },
 ) {
     const {
         seizureActionsDisabled,
-        decisions,
-        resolvedExecutionId,
         inlineActionGateKey,
         setInlineActionGateKey,
-        acknowledgeSeizureRequestFromLog,
         submitBasicSeizureRequest,
-        openAppeals,
-        saveCoerciveAction,
-        showToast,
+        resolvedExecutionId,
+        openDecisions,
         movableDecision,
-        vehicleDetailsDraftByDecisionId,
-        setVehicleDetailsDraftByDecisionId,
     } = props;
-
-    const movableSettled =
-        movableDecision && isSeizureRequestFullyRegistered(movableDecision, decisions);
-    const movableLogReady =
-        movableDecision && isSeizureRegistrationComplete(movableDecision, decisions);
 
     return (
         <SeizureRequestBlock
             disabled={seizureActionsDisabled}
-            className="w-full rounded-2xl border border-sky-300/15 bg-sky-500/[0.06] hover:bg-sky-500/[0.10] hover:border-sky-200/25"
+            className="w-full rounded-xl border border-sky-300/15 bg-sky-500/[0.06] hover:bg-sky-500/[0.10] hover:border-sky-200/25"
             onClick={() => {
                 if (seizureActionsDisabled) return;
-                if (movableSettled) {
-                    acknowledgeSeizureRequestFromLog('movable');
-                    return;
-                }
-                if (
-                    movableDecision &&
-                    seizureRowNeedsInlineCompletion(movableDecision, decisions)
-                ) {
-                    dispatchMovableSeizureInlineFocus(
-                        resolvedExecutionId,
-                        String(movableDecision.id || '').trim(),
-                        String(movableDecision.title || '').trim(),
-                    );
-                    return;
-                }
                 setInlineActionGateKey('seizure_vehicle');
             }}
             icon={
-                <span className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5">
-                    <Package className="w-6 h-6 text-white/70" />
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-400/10 ring-1 ring-sky-300/20">
+                    <Truck className="h-4 w-4 text-sky-200/90" />
                 </span>
             }
-            label={
-                <span className="flex flex-col items-end gap-0.5">
-                    <span>طلب حجز مال منقول</span>
-                    {movableSettled ? (
-                        <span className="text-[10px] font-semibold text-sky-200/80">
-                            تم التسجيل — اضغط أو «السجل» للمتابعة
-                        </span>
-                    ) : null}
-                </span>
-            }
+            label={<span>طلب حجز مال منقول</span>}
             trailingSlot={
-                movableLogReady ? (
-                    <SeizureLogNavigateBadge
-                        tab="movable"
-                        tone="sky"
-                        onAcknowledgeCycle={() => acknowledgeSeizureRequestFromLog('movable')}
+                <>
+                    <SeizureExecutorDecisionShortcut
+                        decision={movableDecision}
+                        onOpen={openDecisions}
+                        expectedSubtype={['movable', 'movable_auction']}
                     />
-                ) : null
+                    <SeizureApprovedPlanBadge
+                        executionId={resolvedExecutionId}
+                        decision={movableDecision}
+                        subtype="movable"
+                        requestTitle="طلب حجز مال منقول"
+                    />
+                </>
             }
             afterButton={
                 <InlineActionGate
@@ -104,38 +62,13 @@ export function SeizureMovableRequestBlock(
                         submitBasicSeizureRequest({
                             actionType: 'vehicle',
                             title: 'طلب حجز مال منقول',
-                            body: 'طلب حجز مال منقول (مبدئي) — تُستكمل التفاصيل بعد موافقة منفذ العدل.',
+                            body: 'طلب حجز مال منقول (مبدئي) — يُبتّ من مركز القرارات والطعون.',
                             subtype: 'movable_auction',
                         });
                     }}
                     onCancel={() => setInlineActionGateKey(null)}
                 />
             }
-        >
-            {movableDecision && !movableSettled ? (
-                <div className="mt-2">
-                    <ExecutionInlineAccordion
-                        steps={buildSeizureRequestSteps({
-                            title: 'طلب حجز مال منقول',
-                            row: movableDecision,
-                            requestKind: 'seizure',
-                            decisions,
-                            resolvedExecutionId,
-                            onOpenAppeals: openAppeals,
-                            extra: (
-                                <VehicleCompletion
-                                    row={movableDecision}
-                                    decisions={decisions}
-                                    draftByDecisionId={vehicleDetailsDraftByDecisionId}
-                                    setDraftByDecisionId={setVehicleDetailsDraftByDecisionId}
-                                    saveCoerciveAction={saveCoerciveAction}
-                                    showToast={showToast}
-                                />
-                            ),
-                        })}
-                    />
-                </div>
-            ) : null}
-        </SeizureRequestBlock>
+        />
     );
 }

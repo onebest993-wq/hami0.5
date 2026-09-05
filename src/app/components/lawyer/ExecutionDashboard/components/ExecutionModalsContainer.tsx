@@ -225,6 +225,11 @@ export const ExecutionModalsContainer: React.FC<ExecutionModalsContainerProps> =
                         onRequestCreditorSubstitution={handleRequestCreditorSubstitution}
                         debtorSubstitutionRequestStatus={debtorSubstitutionRequestStatus}
                         onRequestDebtorSubstitution={handleRequestDebtorSubstitution}
+                        heirSubstitutionEntryUnlocked={
+                            (partyDeathModalParty === 'creditor'
+                                ? executionData?.creditor_party_death_case?.flow
+                                : executionData?.debtor_party_death_case?.flow) === 'heir_substitution'
+                        }
                         creditorDeathReportQueued={false}
                     />
                 </Suspense>

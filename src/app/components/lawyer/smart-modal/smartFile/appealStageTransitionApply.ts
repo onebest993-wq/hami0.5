@@ -1,14 +1,33 @@
 import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import { isPersonalStatusAppealContext } from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
 import { isBeginningPleadingStageName } from './pleadingStageClassification';
-import type { CaseStage, IncidentalCase, TimelineEvent } from '../../LawyerShared';
-import { isFirstInstanceStageName } from './judgmentTypes';
+import { qualifyExtraordinaryPleadingStageName } from './extraordinaryPleadingStageName';
+import type { CaseStage, IncidentalCase, StageOutcome, TimelineEvent } from '../../LawyerShared';
+import { isCassationStageName, isFirstInstanceStageName } from './judgmentTypes';
+import { isGhayabiObjectionAppealType } from '@/app/domain/lawsuit/challengeAppellantEligibility';
 import { isAppellantAppealRole } from './partyRoleClassification';
 import { buildAppealStageParties } from './appealPartyEngine';
 import { collectTransferableAttachments } from './appealStageTransitionShared';
+import {
+    buildStageTransitionMetadata,
+    mergeAppealStageMetadata,
+} from './judgmentStageMetadataTypes';
+import {
+    resolveChallengeTruthSource,
+    resolveHopPriorJudgmentForm,
+} from './appealChallengeTruth';
+import { resolveCourtJurisdiction, resolveFirstInstanceDegree } from './stageJurisdictionResolution';
 import { resolveAppealStageCaseNumber } from './absentObjectionCaseNumber';
+import { shouldSpawnIndependentChallengeDossier } from '@/app/domain/lawsuit/independentChallengeDossier';
+import { tryUnifyObjectionAppealIntoExisting } from './unifyObjectionAppealIntoExisting';
 
-type AppealTransitionParams = {
+/** عنوان فتح مرحلة الطعن في السجل — التمييز بتاريخ القرار لا «فتح إضبارة» */
+export function resolveAppealStageOpeningTimelineTitle(appealStageName: string): string {
+    if (isCassationStageName(appealStageName)) return 'تاريخ تمييز القرار';
+    return `فتح إضبارة ${appealStageName}`;
+}
+
+export type AppealTransitionParams = {
     appealType: string;
     appellant: string;
     filingDate: string;
@@ -25,6 +44,8 @@ type AppealTransitionParams = {
     appealDossierMode?: 'standard' | 'interpleader_appellant' | 'against_interpleader';
     dossierLayout?: import('./interpleaderAppealEngine').AppealDossierLayout;
     priorJudgmentType?: string;
+    /** نتيجة الموكل في المرحلة المُقفَلة — مصدر structured pipeline */
+    priorStageOutcome?: StageOutcome;
 };
 
 export function resolveAppealStageName(
@@ -52,9 +73,22 @@ export function resolveAppealStageName(
 
     if (t === 'استئناف') return 'الاستئناف';
     if (t === 'تمييز') return 'التمييز';
-    if (t.includes('إعادة محاكمة')) return 'إعادة المحاكمة';
-    if (t.includes('اعتراض')) return 'الاعتراض على الحكم الغيابي';
+    if (t.includes('إعادة محاكمة') || t.includes('إعادة المحاكمة') || t.includes('اعتراض')) {
+        return qualifyExtraordinaryPleadingStageName(t, options?.sourceStageName);
+    }
     return t || 'مرحلة الطعن';
+}
+
+export function buildOpponentAppealArchiveDetails(opts: {
+    appealType: string;
+    caseNo?: string;
+    court?: string;
+}): string {
+    const caseNo = String(opts.caseNo ?? '').trim();
+    const court = String(opts.court ?? '').trim();
+    const caseLine = `رقم دعوى الطعن: ${caseNo || 'غير محدد'}`;
+    const courtLine = court ? `\nالمحكمة المختصة: ${court}` : '';
+    return `قام الخصم بالطعن في القرار بطريق (${opts.appealType}).\n\n${caseLine}${courtLine}\n\nبقيت إضبارة هذه المرحلة محفوظة ومقفولة، ويمكن الرجوع إليها من شريط المراحل.`;
 }
 
 export function migrateAppealIncidentalCases(incidentalCases?: IncidentalCase[]): IncidentalCase[] {
@@ -71,12 +105,51 @@ export function migrateAppealIncidentalCases(incidentalCases?: IncidentalCase[])
         }));
 }
 
+export type AppealStageTransitionResult = {
+    updatedStages: CaseStage[];
+    newActiveIndex: number;
+    independentRequired?: boolean;
+};
+
 export function applyAppealStageTransition(
     stages: CaseStage[],
     activeStageIndex: number,
     currentStage: CaseStage,
     params: AppealTransitionParams,
-): { updatedStages: CaseStage[]; newActiveIndex: number } {
+): AppealStageTransitionResult {
+    if (
+        shouldSpawnIndependentChallengeDossier({
+            stages,
+            sourceStage: currentStage,
+            appealType: params.appealType,
+        })
+    ) {
+        return {
+            updatedStages: stages,
+            newActiveIndex: activeStageIndex,
+            independentRequired: true,
+        };
+    }
+
+    const unified = tryUnifyObjectionAppealIntoExisting(stages, activeStageIndex, currentStage, {
+        appealType: params.appealType,
+        appellant: params.appellant,
+        filingDate: params.filingDate,
+        newCaseNumber: params.newCaseNumber,
+        notes: params.notes,
+        archiveTimelineEvent: params.archiveTimelineEvent,
+        archiveFinalDecision: params.archiveFinalDecision,
+        archiveDecisionDate: params.archiveDecisionDate,
+        includedAppellantPartyIds: params.includedAppellantPartyIds,
+        includedOpponentPartyIds: params.includedOpponentPartyIds,
+    });
+    if (unified) {
+        return {
+            updatedStages: unified.updatedStages,
+            newActiveIndex: unified.newActiveIndex,
+        };
+    }
+
     const {
         appealType,
         appellant,
@@ -91,6 +164,7 @@ export function applyAppealStageTransition(
         includedAppellantPartyIds,
         dossierLayout,
         priorJudgmentType,
+        priorStageOutcome,
     } = params;
 
     const resolvedCaseNumber = resolveAppealStageCaseNumber(
@@ -114,6 +188,7 @@ export function applyAppealStageTransition(
         includedOpponentPartyIds,
         includedAppellantPartyIds,
         dossierLayout,
+        currentStage.disputeIntegrity,
     );
     const appealIncidentalCases = migrateAppealIncidentalCases(currentStage.incidentalCases);
 
@@ -121,17 +196,25 @@ export function applyAppealStageTransition(
         id: `appeal_archive_${Date.now()}`,
         type: 'milestone',
         date: filingDate || getLocalTodayYmd(),
-        title: `🔒 أُقفلت إضبارة ${stageName} — انتقال لمرحلة ${appealType}`,
-        details: `تم قفل إضبارة المرحلة السابقة مع الإبقاء على سجلها.\n\n➡️ الانتقال إلى: ${appealStageName}\nرقم الدعوى: ${resolvedCaseNumber || '—'}\n${newCourt ? `المحكمة: ${newCourt}\n` : ''}${notes ? `\nملاحظات: ${notes}` : ''}`,
+        title: `أُقفلت إضبارة ${stageName} — انتقال لمرحلة ${appealType}`,
+        details: `تم قفل إضبارة المرحلة السابقة مع الإبقاء على سجلها.\n\nالانتقال إلى: ${appealStageName}\nرقم الدعوى: ${resolvedCaseNumber || '—'}\n${newCourt ? `المحكمة: ${newCourt}\n` : ''}${notes ? `\nملاحظات: ${notes}` : ''}`,
         isSystemLog: true,
         isNew: true,
     };
+
+    if (!priorStageOutcome && !currentStage.clientStageOutcome) {
+        throw new Error(
+            'applyAppealStageTransition: priorStageOutcome or currentStage.clientStageOutcome is required',
+        );
+    }
+    const resolvedPriorOutcome = priorStageOutcome ?? currentStage.clientStageOutcome!;
 
     updatedStages[activeStageIndex] = {
         ...currentStage,
         status: 'locked',
         isPleadingsClosed: true,
         awaitingOpponentAppeal: false,
+        clientStageOutcome: resolvedPriorOutcome,
         finalDecision: archiveFinalDecision ?? currentStage.finalDecision,
         decisionDate: archiveDecisionDate ?? currentStage.decisionDate,
         previousCaseNumber: currentStage.caseNo,
@@ -142,12 +225,31 @@ export function applyAppealStageTransition(
         id: `appeal_open_${Date.now()}`,
         type: 'milestone',
         date: filingDate || getLocalTodayYmd(),
-        title: `🚀 فتح إضبارة ${appealStageName}`,
+        title: resolveAppealStageOpeningTimelineTitle(appealStageName),
         details: `تم تقديم ${appealType} برقم ${resolvedCaseNumber || '—'}\nمقدم الطعن: ${appellant}${notes ? `\nملاحظات: ${notes}` : ''}`,
         isNew: true,
     };
 
+    const challengeSource = resolveChallengeTruthSource(updatedStages, currentStage, appealStageName);
     const newStageId = `stage_${Date.now()}`;
+    const inheritFirstInstanceVenue = isGhayabiObjectionAppealType(appealType);
+    const firstInstanceStage = updatedStages.find((stage) =>
+        isFirstInstanceStageName(String(stage.stageName ?? stage.name ?? '')),
+    );
+    const inheritedCourt = inheritFirstInstanceVenue
+        ? (
+            [newCourt, currentStage.court, currentStage.firstInstanceCourt, firstInstanceStage?.court]
+                .map((value) => String(value ?? '').trim())
+                .find(Boolean) ?? ''
+        )
+        : (String(newCourt ?? '').trim() || '');
+    const inheritedJudge = inheritFirstInstanceVenue
+        ? (
+            [currentStage.judge, firstInstanceStage?.judge]
+                .map((value) => String(value ?? '').trim())
+                .find(Boolean) ?? ''
+        )
+        : '';
     const newStage: CaseStage = {
         id: newStageId,
         name: appealStageName,
@@ -155,9 +257,12 @@ export function applyAppealStageTransition(
         type: currentStage.type,
         docType: currentStage.docType,
         claimValue: currentStage.claimValue,
+        isUndeterminedValue: currentStage.isUndeterminedValue,
+        isFixedFee: currentStage.isFixedFee,
+        disputeIntegrity: currentStage.disputeIntegrity,
         caseNo: resolvedCaseNumber,
-        court: newCourt || '',
-        judge: '',
+        court: inheritedCourt,
+        judge: inheritedJudge,
         parties: flippedParties,
         timeline: [openingEvent],
         attachments: transferredAttachments,
@@ -174,23 +279,44 @@ export function applyAppealStageTransition(
         wasReopened: false,
         isUnderObjection: appealType.includes('اعتراض'),
         appealDeadline: undefined,
-        appealMetadata: {
+        appealMetadata: mergeAppealStageMetadata(undefined, {
+            ...buildStageTransitionMetadata({
+                appellantPartyIds:
+                    includedAppellantPartyIds?.length
+                        ? includedAppellantPartyIds
+                        : flippedParties
+                              .filter((p) => isAppellantAppealRole(String(p.role ?? '')))
+                              .map((p) => p.id)
+                              .filter((id) => id != null) as Array<number | string>,
+                appelleePartyIds:
+                    includedOpponentPartyIds?.length
+                        ? includedOpponentPartyIds
+                        : flippedParties
+                              .filter((p) => !isAppellantAppealRole(String(p.role ?? '')))
+                              .map((p) => p.id)
+                              .filter((id) => id != null) as Array<number | string>,
+                priorStageOutcome: resolvedPriorOutcome,
+                priorJudgmentForm: resolveHopPriorJudgmentForm(challengeSource, stageName),
+                priorJudgmentType: priorJudgmentType ?? undefined,
+                isCrossAppeal: false,
+                jurisdiction: resolveCourtJurisdiction(currentStage),
+                firstInstanceDegree: resolveFirstInstanceDegree({
+                    claimValue: currentStage.claimValue,
+                    isUndeterminedValue: currentStage.isUndeterminedValue,
+                    isFixedFee: currentStage.isFixedFee,
+                    docType: currentStage.docType,
+                    type: currentStage.type,
+                    stageName,
+                }),
+            }),
             appealType,
             appellant,
             filingDate: filingDate || getLocalTodayYmd(),
             previousCaseNumber: currentStage.caseNo,
             previousStage: stageName,
-            priorJudgmentType: priorJudgmentType ?? undefined,
-            initialAppellantPartyIds:
-                includedAppellantPartyIds?.length
-                    ? includedAppellantPartyIds
-                    : flippedParties
-                          .filter((p) => isAppellantAppealRole(String(p.role ?? '')))
-                          .map((p) => p.id)
-                          .filter((id) => id != null) as Array<number | string>,
             hasCrossAppeal: false,
             crossAppealPartyIds: [],
-        },
+        }),
         firstInstanceCaseNumber:
             currentStage.firstInstanceCaseNumber
             || (isFirstInstanceStageName(stageName) ? currentStage.caseNo : undefined),

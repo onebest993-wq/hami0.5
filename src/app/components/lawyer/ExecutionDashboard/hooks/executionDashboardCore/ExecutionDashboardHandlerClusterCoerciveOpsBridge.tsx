@@ -52,7 +52,6 @@ export function ExecutionDashboardHandlerClusterCoerciveOpsBridge({
         setTimelineEvents: c.setTimelineEvents,
         setShowNotesModal: c.setShowNotesModal,
         openFollowupModalPersisted: c.openFollowupModalPersisted,
-        closeUnifiedSeizureLog: c.closeUnifiedSeizureLog,
     });
 
     const voiceUserId = useMemo(

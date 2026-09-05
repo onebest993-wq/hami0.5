@@ -34,7 +34,6 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
         saveCoerciveActionRef,
         buildInitialExecutorSeizureDetails,
         setShowCoerciveActionForm,
-        isEvictionExecutionModule,
         showEvictionExpenseModal,
         showEvictionLawyerFeeModal,
         showEvictionResidentialGraceModal,
@@ -50,10 +49,9 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
     };
 
     const needEvictionChunk =
-        isEvictionExecutionModule &&
-        (showEvictionExpenseModal ||
-            showEvictionLawyerFeeModal ||
-            showEvictionResidentialGraceModal);
+        showEvictionExpenseModal ||
+        showEvictionLawyerFeeModal ||
+        showEvictionResidentialGraceModal;
 
     return (
         <>

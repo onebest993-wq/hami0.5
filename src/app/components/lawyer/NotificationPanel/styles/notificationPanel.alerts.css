@@ -7,10 +7,10 @@
 }
 
 .hami-notif-alert-section {
-  border-radius: 0.875rem;
+  border-radius: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: color-mix(in srgb, #ffffff 4.5%, #0b1021);
-  padding: 0.85rem 0.9rem;
+  padding: 0.7rem 0.75rem;
 }
 
 .hami-notif-section-title {
@@ -54,5 +54,5 @@
 }
 
 .hami-notif-dnd-unified {
-  padding-bottom: 0.85rem;
+  padding-bottom: 0.7rem;
 }

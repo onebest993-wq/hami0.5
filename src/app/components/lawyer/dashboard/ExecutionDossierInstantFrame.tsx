@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import { EXECUTION_DOSSIER_TEST_IDS } from '@/app/components/lawyer/ExecutionDashboard/executionDossierTestIds';
 import { EXECUTION_DOSSIER_PHONE_HEADER_GRID } from '@/app/components/lawyer/ExecutionDashboard/executionDossierVisualLite';
 import { HAMI_OVERLAY_SAFE_INSETS_CLASS } from '@/app/utils/overlayPortal';
+import { useOverlayGhostClickShield } from '@/app/hooks/useOverlayGhostClickShield';
 
 const EXIT_BTN_CLASS =
     'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-[#0A0F1C] text-slate-400 hover:border-rose-400/25 hover:bg-rose-500/10 hover:text-rose-200 touch-manipulation min-h-[44px] min-w-[44px]';
@@ -133,8 +134,12 @@ export function ExecutionDossierInstantFrame({
     file: FileData | ExecutionDossierPaintFile;
     onExitToHome: () => void;
 }): React.ReactElement {
+    const rootRef = useRef<HTMLDivElement>(null);
+    useOverlayGhostClickShield(rootRef);
+
     return (
         <div
+            ref={rootRef}
             className={`fixed inset-0 z-[230] flex items-center justify-center bg-[#05060D] p-0 ${HAMI_OVERLAY_SAFE_INSETS_CLASS}`}
             dir="rtl"
             data-testid={EXECUTION_DOSSIER_TEST_IDS.dossier}

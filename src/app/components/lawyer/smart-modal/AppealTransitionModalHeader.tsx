@@ -25,9 +25,6 @@ export function AppealTransitionModalHeader({
                             : 'تسجيل طعن الخصم'
                         : 'بوابة الطعن'}
                 </h2>
-                <p className={`text-[11px] truncate ${s.isPearl ? 'text-[#9894A0]' : 'text-white/40'}`}>
-                    انقلاب المراكز وإنشاء إضبارة الطعن
-                </p>
             </div>
             <button
                 type="button"

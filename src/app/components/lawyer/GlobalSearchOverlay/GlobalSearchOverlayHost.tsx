@@ -12,7 +12,7 @@ import type { GlobalSearchOverlayShellContentProps } from '@/app/components/lawy
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { hydrateGlobalSearchShellForInstantOpen } from '@/app/runtime/globalSearchBootHydrator';
 
-export type GlobalSearchOverlayHostProps = GlobalSearchOverlayProps & {
+type GlobalSearchOverlayHostProps = GlobalSearchOverlayProps & {
     /** مركّب مخفياً — الشجرة دافئة؛ الفتح = إظهار فقط */
     keepAlive?: boolean;
 };

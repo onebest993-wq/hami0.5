@@ -1,3 +1,5 @@
+import { isSearchIndexKeyExtrasOnlyChange } from '@/app/services/globalSearchExtrasSignature';
+
 /**
  * مخطّط بناء فهرس البحث — مفتاح واحد لكل لقطة حالة (بلا core/full مزدوج).
  *
@@ -12,28 +14,22 @@
  * │ true        │ لا           │ *           │ build                       │
  * └─────────────┴──────────────┴─────────────┴─────────────────────────────┘
  *
- * عند وصول extras: يتغيّر cacheKey → إعادة بناء واحدة (تأخير ~100–300ms مقبول
- * مقابل إزالة مسار core→full المزدوج).
- *
- * extrasReady = Boolean(extras) — الفهرس يُبنى بـ extras فقط عند الجاهزية.
+ * وصول extras يغيّر مقطع gsx فقط: إعادة بناء واحدة دون إخفاء نتائج الملفات.
  */
 
 export type SearchIndexBuildStep =
     | { type: 'apply-cached'; cacheKey: string }
     | { type: 'build' };
 
-export type SearchIndexBuildPlan = {
+type SearchIndexBuildPlan = {
     steps: SearchIndexBuildStep[];
     showsBuildingIndicator: boolean;
 };
 
-export type SearchIndexPlanInput = {
+type SearchIndexPlanInput = {
     overlayOpen: boolean;
     cacheKey: string;
-    extrasReady: boolean;
-    isLoadingExtras: boolean;
     activeKey: string | null;
-    hasFuseInState: boolean;
     hasCachedIndex: boolean;
 };
 
@@ -63,5 +59,24 @@ export function planSearchIndexBuild(input: SearchIndexPlanInput): SearchIndexBu
     return {
         steps: [{ type: 'build' }],
         showsBuildingIndicator: true,
+    };
+}
+
+export { isSearchIndexKeyExtrasOnlyChange };
+
+/** لا تبحث بفهرس مفتاحه غير الحالي — حذف ملف/تبديل حساب يغيّر البادئة. extras وحدها إثراء إن وُجد fuse. */
+export function resolveSearchIndexUiFlags(input: {
+    hasFuse: boolean;
+    isBuildingIndex: boolean;
+    appliedKey: string | null;
+    cacheKey: string;
+}): { isLoadingIndex: boolean; isEnrichingIndex: boolean } {
+    const keyCurrent =
+        input.hasFuse && Boolean(input.cacheKey) && input.appliedKey === input.cacheKey;
+    const keepVisibleIndex =
+        input.hasFuse && isSearchIndexKeyExtrasOnlyChange(input.appliedKey, input.cacheKey);
+    return {
+        isLoadingIndex: input.isBuildingIndex && !keyCurrent && !keepVisibleIndex,
+        isEnrichingIndex: input.isBuildingIndex && (keyCurrent || keepVisibleIndex),
     };
 }

@@ -16,6 +16,7 @@ type SmartFileModalDomainActionsParams = {
     onLinkWithExistingCase: SmartFileModalProps['onLinkWithExistingCase'];
     onStartConsolidationNewCase: SmartFileModalProps['onStartConsolidationNewCase'];
     onConsolidateWithExisting: SmartFileModalProps['onConsolidateWithExisting'];
+    onSpawnIndependentChallengeFile: SmartFileModalProps['onSpawnIndependentChallengeFile'];
     parentData: Record<string, unknown>;
     setParentData: Dispatch<SetStateAction<Record<string, unknown>>>;
     stages: CaseStage[];

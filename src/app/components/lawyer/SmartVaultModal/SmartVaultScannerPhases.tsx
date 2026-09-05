@@ -2,7 +2,6 @@ import React from 'react';
 import { X } from '@/app/components/ui/icons/X';
 import { Camera } from '@/app/components/ui/icons/Camera';
 import { Upload } from '@/app/components/ui/icons/Upload';
-import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import { CheckCircle2 } from '@/app/components/ui/icons/CheckCircle2';
 import { Eye } from '@/app/components/ui/icons/Eye';
 import { AlertCircle } from '@/app/components/ui/icons/AlertCircle';
@@ -21,7 +20,7 @@ export function ScannerIdlePhase({ error, onClearError, onStartCamera }: Scanner
     return (
         <div className="flex flex-col gap-4">
             {error && (
-                <div className="rounded-2xl border border-[#E6C673]/22 bg-[#12182B] px-4 py-3.5 text-sm text-[#F4E7C3]">
+                <div className="rounded-xl border border-[#E6C673]/22 bg-[#12182B] px-3 py-2.5 text-sm text-[#F4E7C3]">
                     <div className="flex items-start gap-3">
                         <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-300/18 bg-amber-300/10 text-[#E6C673]">
                             <AlertCircle size={17} />
@@ -45,9 +44,9 @@ export function ScannerIdlePhase({ error, onClearError, onStartCamera }: Scanner
                 type="button"
                 onClick={onStartCamera}
                 data-testid="vault-scanner-open-camera"
-                className="group flex items-center justify-center gap-3 rounded-2xl border border-[#E6C673]/28 bg-[#E6C673]/12 min-h-[44px] px-4 py-5 text-[#F7F3EB] font-bold transition-colors hover:border-[#E6C673]/42 hover:bg-[#E6C673]/16 touch-manipulation"
+                className="group flex items-center justify-center gap-2.5 rounded-xl border border-[#E6C673]/28 bg-[#E6C673]/12 min-h-[44px] px-3 py-3 text-[#F7F3EB] font-bold transition-colors hover:border-[#E6C673]/42 hover:bg-[#E6C673]/16 touch-manipulation"
             >
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#F6E7BC]/15 bg-black/15 text-[#F7F3EB]">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#F6E7BC]/15 bg-black/15 text-[#F7F3EB]">
                     <Camera size={22} />
                 </span>
                 <span className="flex flex-col items-start text-right">
@@ -184,9 +183,13 @@ export function ScannerCapturingPhase({
 
 export function ScannerUploadingPhase() {
     return (
-        <div className="flex flex-col items-center justify-center py-16 gap-4">
-            <Loader2 size={48} className="text-[#C9A9A6] animate-spin" />
-            <p className="text-[#D4B8B5]/70 text-sm">جاري حفظ المستند في المخزن...</p>
+        <div
+            className="flex flex-col items-center justify-center py-16 gap-4"
+            aria-busy="true"
+            aria-label="المخزن"
+        >
+            <div className="h-12 w-12 rounded-2xl border border-[#C9A9A6]/25 bg-[#C9A9A6]/10" aria-hidden />
+            <div className="h-3 w-40 rounded-md bg-[#C9A9A6]/12" aria-hidden />
         </div>
     );
 }

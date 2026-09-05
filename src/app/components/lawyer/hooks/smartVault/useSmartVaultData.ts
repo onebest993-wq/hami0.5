@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
@@ -90,10 +90,17 @@ export function useSmartVaultData(currentUserId: string, propUserId?: string, em
             const fetched = await refreshVaultDocsFromStore(uid);
             if (generation !== loadGenerationRef.current) return;
             const merged = mergeSmartVaultDocs(fetched, docsRef.current);
-            setDocs(merged);
-            setCustomCategories(mergeCustomCategoriesFromDocs(uid, merged));
-            setVaultDocsWarmCache(uid, merged);
-            invalidateRepositoryFeedCache();
+            const applyFetched = () => {
+                setDocs(merged);
+                setCustomCategories(mergeCustomCategoriesFromDocs(uid, merged));
+                setVaultDocsWarmCache(uid, merged);
+                invalidateRepositoryFeedCache();
+            };
+            if (seeded.length > 0) {
+                startTransition(applyFetched);
+            } else {
+                applyFetched();
+            }
         } catch {
             if (generation !== loadGenerationRef.current) return;
             if (seeded.length === 0) SmartToast.error('فشل تحميل الملفات');

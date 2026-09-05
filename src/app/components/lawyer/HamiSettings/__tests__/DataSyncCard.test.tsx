@@ -10,9 +10,6 @@ const warning = vi.fn();
 const error = vi.fn();
 const syncAllNow = vi.fn(async () => ({ ok: true, skipped: false, failed: false }));
 const runCloudSyncAllNow = vi.fn(async () => ({ ok: true, skipped: false, failed: false }));
-const loadFromCloud = vi.fn(async () => null);
-const applyAppData = vi.fn(() => false);
-const invalidateLawyerSettingsCache = vi.fn();
 
 let dataState = {
     autoSave: true,
@@ -58,12 +55,6 @@ vi.mock('@/lib/cloudSyncEnv.js', () => ({
 
 vi.mock('@/lib/syncService.js', () => ({
     resolveCloudSyncUserKey: vi.fn(async () => 'user-uuid-1'),
-    collectAppData: vi.fn((overrides?: { lawyer_settings?: unknown }) => ({
-        lawyer_settings: overrides?.lawyer_settings ?? {},
-    })),
-    saveToCloud: vi.fn(async () => ({})),
-    loadFromCloud: (...args: unknown[]) => loadFromCloud(...args),
-    applyAppData: (...args: unknown[]) => applyAppData(...args),
 }));
 
 vi.mock('@/app/services/settings/settingsSnapshot', async () => {
@@ -72,7 +63,6 @@ vi.mock('@/app/services/settings/settingsSnapshot', async () => {
     );
     return {
         ...actual,
-        invalidateLawyerSettingsCache: (...args: unknown[]) => invalidateLawyerSettingsCache(...args),
         getLawyerSettingsSnapshot: () => ({
             security: securityState,
             data: dataState,
@@ -85,6 +75,17 @@ vi.mock('@/app/services/settings/settingsSnapshot', async () => {
 
 vi.mock('@/app/services/cloudSync/runCloudSyncAllNow', () => ({
     runCloudSyncAllNow: (...args: unknown[]) => runCloudSyncAllNow(...args),
+}));
+
+vi.mock('@/app/services/cloud/workCloudCheckpoint', () => ({
+    restoreLastWorkCloudCheckpoint: vi.fn(async () => ({
+        applied: false,
+        lawsuits: 0,
+        execution: 0,
+        notes: 0,
+        calendar: 0,
+        failed: false,
+    })),
 }));
 
 vi.mock('@/app/services/cloudSync/cloudSyncStatusStore', () => ({
@@ -118,7 +119,7 @@ vi.mock('@/app/components/ui/SmartDialog', () => ({
 }));
 
 import { DataSyncCard } from '@/app/components/lawyer/HamiSettings/data/DataSyncCard';
-import { saveToCloud } from '@/lib/syncService.js';
+import { restoreLastWorkCloudCheckpoint } from '@/app/services/cloud/workCloudCheckpoint';
 
 describe('DataSyncCard', () => {
     beforeEach(() => {
@@ -139,10 +140,16 @@ describe('DataSyncCard', () => {
             lastError: null,
         };
         vi.mocked(SmartDialog.confirm).mockResolvedValue(true);
-        loadFromCloud.mockResolvedValue(null);
-        applyAppData.mockReturnValue(false);
         syncAllNow.mockResolvedValue({ ok: true, skipped: false, failed: false });
         runCloudSyncAllNow.mockResolvedValue({ ok: true, skipped: false, failed: false });
+        vi.mocked(restoreLastWorkCloudCheckpoint).mockResolvedValue({
+            applied: false,
+            lawsuits: 0,
+            execution: 0,
+            notes: 0,
+            calendar: 0,
+            failed: false,
+        });
     });
 
     it('يعرض مفتاح المزامنة السحابية', () => {
@@ -150,11 +157,7 @@ describe('DataSyncCard', () => {
         expect(screen.getByTestId('settings-toggle-data-cloudSync')).toBeInTheDocument();
     });
 
-    it('يفعّل المزامنة مع سحب سحابي ثم syncAllNow', async () => {
-        const remote = { lawyer_settings: { data: { cloudSync: true } } };
-        loadFromCloud.mockResolvedValueOnce(remote);
-        applyAppData.mockReturnValueOnce(true);
-
+    it('يفعّل مزامنة الإضابير محلياً دون رفع لقطة الإعدادات', async () => {
         render(<DataSyncCard />);
 
         fireEvent.click(screen.getByTestId('settings-toggle-data-cloudSync'));
@@ -168,9 +171,6 @@ describe('DataSyncCard', () => {
                 syncExecution: true,
             });
         });
-        expect(loadFromCloud).toHaveBeenCalled();
-        expect(applyAppData).toHaveBeenCalledWith(remote);
-        expect(invalidateLawyerSettingsCache).toHaveBeenCalled();
         expect(runCloudSyncAllNow).toHaveBeenCalled();
         expect(success).toHaveBeenCalledWith('تم تفعيل المزامنة — تمّت مطابقة البيانات مع السحابة');
     });
@@ -188,17 +188,39 @@ describe('DataSyncCard', () => {
         expect(syncAllNow).not.toHaveBeenCalled();
     });
 
-    it('يبقي المزامنة معطلة إذا فشل تثبيت الإعداد السحابي الأول', async () => {
-        vi.mocked(saveToCloud).mockRejectedValueOnce(new Error('offline'));
+    it('يبقي التفعيل المحلي إن فشلت مطابقة الإضابير', async () => {
+        runCloudSyncAllNow.mockResolvedValueOnce({ ok: false, skipped: false, failed: true });
         render(<DataSyncCard />);
 
         fireEvent.click(screen.getByTestId('settings-toggle-data-cloudSync'));
 
         await waitFor(() => {
-            expect(error).toHaveBeenCalledWith('تعذر بدء المزامنة — لم يتغير الإعداد');
+            expect(patchData).toHaveBeenCalledWith({
+                cloudSync: true,
+                syncNotes: true,
+                syncFiles: true,
+                syncExecution: true,
+            });
+            expect(warning).toHaveBeenCalledWith('حُفظ التفعيل محلياً — تعذر مطابقة السحابة الآن');
         });
-        expect(patchData).not.toHaveBeenCalled();
-        expect(syncAllNow).not.toHaveBeenCalled();
+        expect(error).not.toHaveBeenCalled();
+    });
+
+    it('استعادة نقطة فاشلة تستخدم تحذير المطابقة القائم', async () => {
+        vi.mocked(restoreLastWorkCloudCheckpoint).mockResolvedValueOnce({
+            applied: false,
+            lawsuits: 0,
+            execution: 0,
+            notes: 0,
+            calendar: 0,
+            failed: true,
+        });
+        render(<DataSyncCard />);
+        fireEvent.click(screen.getByTestId('settings-toggle-data-cloudSync'));
+        await waitFor(() => {
+            expect(warning).toHaveBeenCalledWith('حُفظ التفعيل محلياً — تعذر مطابقة السحابة الآن');
+        });
+        expect(success).not.toHaveBeenCalled();
     });
 
     it('يستدعي syncAllNow من زر مزامنة الآن', async () => {
@@ -225,6 +247,54 @@ describe('DataSyncCard', () => {
         });
     });
 
+    it('لا يطلق مزامنة الآن مرتين من نقرات متزامنة', async () => {
+        dataState = {
+            ...dataState,
+            cloudSync: true,
+            syncNotes: true,
+            syncFiles: true,
+            syncExecution: true,
+        };
+        storeState = {
+            ...storeState,
+            lastSyncTime: Date.now() - 60_000,
+        };
+        let release!: (value: { ok: boolean; skipped: boolean; failed: boolean }) => void;
+        syncAllNow.mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    release = resolve;
+                }),
+        );
+
+        render(<DataSyncCard />);
+        const btn = screen.getByTestId('settings-cloud-sync-now');
+        fireEvent.click(btn);
+        fireEvent.click(btn);
+        expect(syncAllNow).toHaveBeenCalledTimes(1);
+
+        release({ ok: true, skipped: false, failed: false });
+        await waitFor(() => {
+            expect(success).toHaveBeenCalledWith('اكتملت المزامنة مع السحابة');
+        });
+    });
+
+    it('يلغي التفعيل إن فُعّل قطع الاتصال أثناء حوار التأكيد', async () => {
+        vi.mocked(SmartDialog.confirm).mockImplementationOnce(async () => {
+            securityState = { localOnlyMode: true };
+            return true;
+        });
+        render(<DataSyncCard />);
+        fireEvent.click(screen.getByTestId('settings-toggle-data-cloudSync'));
+
+        await waitFor(() => {
+            expect(SmartDialog.confirm).toHaveBeenCalled();
+        });
+        expect(patchData).not.toHaveBeenCalled();
+        expect(runCloudSyncAllNow).not.toHaveBeenCalled();
+        expect(info).toHaveBeenCalledWith('أوقف «قطع الاتصال» أولاً لتفعيل المزامنة السحابية');
+    });
+
     it('يطلب تأكيداً قبل إيقاف الحفظ التلقائي', async () => {
         render(<DataSyncCard />);
 
@@ -242,5 +312,28 @@ describe('DataSyncCard', () => {
 
         expect(screen.getByTestId('settings-toggle-data-cloudSync')).toBeDisabled();
         expect(screen.queryByTestId('settings-cloud-sync-now')).not.toBeInTheDocument();
+    });
+
+    it('إيقاف المزامنة محلي ولا يحدّث تفضيلات السحابة', async () => {
+        dataState = {
+            ...dataState,
+            cloudSync: true,
+            syncNotes: true,
+            syncFiles: true,
+            syncExecution: true,
+        };
+
+        render(<DataSyncCard />);
+        fireEvent.click(screen.getByTestId('settings-toggle-data-cloudSync'));
+
+        await waitFor(() => {
+            expect(patchData).toHaveBeenCalledWith({
+                cloudSync: false,
+                syncNotes: false,
+                syncFiles: false,
+                syncExecution: false,
+            });
+        });
+        expect(info).toHaveBeenCalledWith('تم إيقاف المزامنة السحابية');
     });
 });

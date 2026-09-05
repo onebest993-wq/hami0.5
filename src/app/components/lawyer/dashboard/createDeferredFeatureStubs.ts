@@ -119,7 +119,14 @@ export function deferredHandoffId(op: Exclude<DeferredPendingOp, null>): string 
 export function isDeferredPendingOpSatisfied(bag: DeferredFeatureBag, op: DeferredPendingOp): boolean {
     if (!op) return true;
     if (op === 'transactions') return bag.transactions.showTransactions;
-    if (op === 'fieldTasks') return bag.fieldTasks.fieldTasksSheetOpen;
+    if (op === 'fieldTasks') {
+        /**
+         * إن انتقل المستخدم للأجندة (إدارة الكل / إضافة مهمة) قبل استهلاك نية الستارة،
+         * لا تُعَد تشغيل openFieldTasksSheet — وإلا يُعاد للستارة فوق الأجندة.
+         */
+        if (bag.fieldTasks.showTasksManager) return true;
+        return bag.fieldTasks.fieldTasksSheetOpen;
+    }
     if (op === 'tasksManager') return bag.fieldTasks.showTasksManager;
     if (op === 'globalSearch') return bag.globalSearch.showGlobalSearch;
     return false;

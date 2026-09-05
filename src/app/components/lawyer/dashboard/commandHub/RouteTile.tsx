@@ -12,7 +12,7 @@ import { resolveHubRouteTileVisuals } from '@/app/services/settings/resolveHubRo
 import { buildHubTileAriaLabel } from '@/app/components/lawyer/dashboard/commandHub/buildHubTileAriaLabel';
 import { useScrollSafePress } from '@/app/hooks/useScrollSafePress';
 import { bindArchivePrefetch } from './commandHubArchivePrefetch';
-import { hubTilePressClass, tileShellClasses, type HubCard } from './commandHubTileClasses';
+import { hubTilePressClass, tileShellClasses, type HubCard } from '@/app/components/lawyer/dashboard/commandHubTileClasses';
 import { HUB_HALF_TILE_BASE_PX, HUB_HALF_TILE_MIN_CLASS } from '@/app/components/lawyer/dashboard/hubHalfTileMetrics';
 import { HubTileFace } from './commandHubTileChrome';
 import { HomeBlockPatternOverlay } from '../HomeBlockPatternOverlay';

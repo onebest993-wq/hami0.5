@@ -5,6 +5,7 @@ import {
     bridgeOpenParentDossierMetaEdit,
     buildFallbackDossierMetaDraftFromScope,
 } from '../components/executionDashboardPhoneBodyBridges';
+import { prefetchExecutionDossierMetaEdit } from '../executionDashboardOverlayPrefetch';
 
 export function usePhoneBodySafeOpeners(p: {
     readLatestPhoneBodyScope: () => Record<string, unknown>;
@@ -12,6 +13,7 @@ export function usePhoneBodySafeOpeners(p: {
     showToast: (message: string, type?: string) => void;
 }) {
     const safeOpenEditDossierMeta = React.useCallback(() => {
+        prefetchExecutionDossierMetaEdit();
         if (
             bridgeOpenEditDossierMeta({
                 readLatestScope: p.readLatestPhoneBodyScope,

@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { X } from '@/app/components/ui/icons/X';
 import { Upload } from '@/app/components/ui/icons/Upload';
 import { FileText } from '@/app/components/ui/icons/FileText';
-import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import { ImageIcon } from '@/app/components/ui/icons/ImageIcon';
 import { formatFileSize } from '@/app/components/lawyer/hooks/useSmartVault';
 import type { VaultUploadKind } from '@/app/services/vaultUploadService';
@@ -141,9 +140,9 @@ export const VaultUploadMetaSheet: React.FC<VaultUploadMetaSheetProps> = ({
                     ) : null}
 
                     {isPdf ? (
-                        <div className="rounded-2xl border-2 border-[#B8A078]/25 bg-[#B8A078]/8 p-4 flex items-center gap-3 shrink-0">
-                            <div className="w-12 h-12 rounded-xl bg-[#4A4440]/50 border border-[#B8A078]/20 flex items-center justify-center shrink-0">
-                                <FileText size={26} className="text-[#B8A078]" />
+                        <div className="rounded-xl border border-[#B8A078]/25 bg-[#B8A078]/8 p-3 flex items-center gap-2.5 shrink-0">
+                            <div className="w-10 h-10 rounded-xl bg-[#4A4440]/50 border border-[#B8A078]/20 flex items-center justify-center shrink-0">
+                                <FileText size={22} className="text-[#B8A078]" />
                             </div>
                             <div className="min-w-0 flex-1">
                                 <p className="text-[#F7F3EB] font-bold text-sm truncate">{file.name}</p>
@@ -215,9 +214,10 @@ export const VaultUploadMetaSheet: React.FC<VaultUploadMetaSheetProps> = ({
                         }
                         className={VAULT_BTN_SAVE}
                         data-testid="vault-upload-confirm"
+                        aria-busy={isSaving || undefined}
                     >
-                        {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                        {isSaving ? 'جاري الرفع...' : 'رفع وحفظ'}
+                        <Upload size={16} />
+                        رفع وحفظ
                     </button>
                 </div>
             </div>

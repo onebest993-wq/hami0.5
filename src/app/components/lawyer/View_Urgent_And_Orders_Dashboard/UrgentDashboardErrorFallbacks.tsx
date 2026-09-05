@@ -56,9 +56,16 @@ export function DossierPanelErrorFallback({
 
 export function FormOverlayLoadingFallback() {
     return (
-        <div className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-4">
-            <div className="rounded-xl border border-white/10 bg-[#0B1021] px-4 py-3 text-center">
-                <p className="text-white font-extrabold text-sm">جاري تحميل نموذج الطلب…</p>
+        <div className="fixed inset-0 z-[200] bg-[#0B1021] flex flex-col" aria-busy="true" aria-label="طلب مستعجل">
+            <div className="hami-overlay-header-safe-pad shrink-0 border-b border-white/[0.07] px-4 pb-2">
+                <h2 className="text-center text-sm font-bold text-white/90">طلب مستعجل</h2>
+            </div>
+            <div className="flex-1 px-5 pt-4" aria-hidden>
+                <div className="rounded-2xl border border-[#E6C673]/14 bg-[#0C1220]/88 space-y-3 p-4">
+                    <div className="h-3 w-28 rounded-md border border-[#E6C673]/15 bg-[#E6C673]/8" />
+                    <div className="min-h-[44px] rounded-xl border border-white/[0.09] bg-white/[0.035]" />
+                    <div className="min-h-[72px] rounded-xl border border-white/[0.09] bg-white/[0.035]" />
+                </div>
             </div>
         </div>
     );

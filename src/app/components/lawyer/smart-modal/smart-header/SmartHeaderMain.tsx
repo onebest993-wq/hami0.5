@@ -8,33 +8,33 @@ import { ArrowLeftRight } from '@/app/components/ui/icons/ArrowLeftRight';
 import { isAppealStageName } from '../smartFile/judgmentTypes';
 import { HeaderPartiesStrip } from './HeaderPartiesStrip';
 import {
-    displayCaseNo,
     GLASS_CHIP,
 } from './smartHeaderPresentation';
+import { IraqiCaseNoDisplay } from './IraqiCaseNoDisplay';
 import type { SmartHeaderProps } from './smartHeaderTypes';
 import { useSmartHeaderDerivedState } from './useSmartHeaderDerivedState';
 import { SmartHeaderThirdPartyCases } from './SmartHeaderThirdPartyCases';
 import { SmartHeaderCrossAppealCard } from './SmartHeaderCrossAppealCard';
 
-export function SmartHeader({ formData, isPaused, incidentalCases = [], stages = [], currentStageId = '', pauseReason = '', onResume, onPause, status = 'نشطة', isInterrupted = false, interruptionData = null, linkedCaseNo = '', onInterrupt, onAbandon, onNotification, onStageClick, stageHistory = [], isReadOnly = false, hasCrossAppeal = false, onCancelCrossAppeal, onAddCrossAppeal, notificationStatus = 'waiting', onToggleNotification, caseType, onCassationDecision, isPleadingsClosed = false, wasReopened = false, onClosePleadings, onReopenPleadings, onRegisterOpponentAppeal, onCassationAppeal, hasJudgment = false, onDefaultObjection, onWaiveObjection, onOtherAppeals, provisionalOrders = [], onAddProvisionalOrder, thirdParties = [], representedParty = null, onUpdateIncidentalEntryDecision, crossAppealEligibility: crossAppealEligibilityProp }: SmartHeaderProps) {
+export function SmartHeader({ formData, isPaused, incidentalCases = [], stages = [], currentStageId = '', pauseReason = '', onResume, onPause, status = 'نشطة', isInterrupted = false, interruptionData = null, linkedCaseNo = '', onInterrupt, onAbandon, onNotification, onStageClick, stageHistory = [], isReadOnly = false, hasCrossAppeal = false, onCancelCrossAppeal, onAddCrossAppeal, notificationStatus = 'waiting', onToggleNotification, caseType, onCassationDecision, isPleadingsClosed = false, pleadingDoorReopened = false, onReopenPleadings, onRegisterOpponentAppeal, onCassationAppeal, hasJudgment = false, onDefaultObjection, onWaiveObjection, onOtherAppeals, provisionalOrders = [], onAddProvisionalOrder, thirdParties = [], representedParty = null, onUpdateIncidentalEntryDecision, crossAppealEligibility: crossAppealEligibilityProp }: SmartHeaderProps) {
     const derived = useSmartHeaderDerivedState({
         formData, isPaused, incidentalCases, stages, currentStageId, pauseReason, onResume, onPause, status,
         isInterrupted, interruptionData, linkedCaseNo, onInterrupt, onAbandon, onNotification, onStageClick,
         stageHistory, isReadOnly, hasCrossAppeal, onCancelCrossAppeal, onAddCrossAppeal, notificationStatus,
-        onToggleNotification, caseType, onCassationDecision, isPleadingsClosed, wasReopened, onClosePleadings,
+        onToggleNotification, caseType, onCassationDecision, isPleadingsClosed, pleadingDoorReopened,
         onReopenPleadings, onRegisterOpponentAppeal, onCassationAppeal, hasJudgment, onDefaultObjection,
         onWaiveObjection, onOtherAppeals, provisionalOrders, onAddProvisionalOrder, thirdParties, representedParty,
         onUpdateIncidentalEntryDecision, crossAppealEligibility: crossAppealEligibilityProp,
     });
 
     const {
-        openPartyKey, setOpenPartyKey, partiesSectionRef, showClaimValue, setShowClaimValue,
+        partiesSectionRef, showClaimValue, setShowClaimValue,
         showPreviousCourt, setShowPreviousCourt, plaintiffs, defendants, interpleaders,
         crossAppealEligibility, p1Role, p2Role, hasAppealContext, hasFirstInstanceData,
-        isCassation, isAppealStage, courtReferralView, courtName, showJudgeChip, judgeChipValue,
+        isCassation: _isCassation, isAppealStage, courtReferralView, courtName, showCourtChip, showJudgeChip, judgeChipValue,
         lawsuitTypeLabel, claimValueLabel, awaitingOpponentAppeal, showPleadingLockChrome,
         isLockedArchive, activeThirdPartyCases, affiliativeThirdParties, selfClaimThirdParties,
-        hasHeaderActions, containerStyle, hasPartiesSection,
+        hasHeaderActions: _hasHeaderActions, containerStyle, hasPartiesSection,
     } = derived;
 
     const scrollToPartiesSection = () => {
@@ -47,8 +47,8 @@ export function SmartHeader({ formData, isPaused, incidentalCases = [], stages =
     return (
         <>
             <div className={containerStyle}>
-            <div className="px-3 py-2 relative z-10">
-                <div className="flex items-start justify-between gap-2 border-b border-white/[0.05] pb-1.5 mb-1.5">
+            <div className={`px-3 relative z-10 ${hasPartiesSection ? 'pt-2 pb-1.5' : 'py-2'}`}>
+                <div className={`flex items-start justify-between gap-2 ${hasPartiesSection ? '' : ''}`}>
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
                             <button
@@ -58,22 +58,22 @@ export function SmartHeader({ formData, isPaused, incidentalCases = [], stages =
                                 title="الانتقال إلى أطراف الدعوى"
                                 data-testid="smart-dossier-case-no"
                             >
-                                <span className="inline-block max-w-full truncate" dir="auto">
-                                    {displayCaseNo(formData.caseNo)}
+                                <span className="inline-block max-w-full truncate">
+                                    <IraqiCaseNoDisplay caseNo={formData.caseNo} />
                                 </span>
                             </button>
                             {lawsuitTypeLabel ? (
                                 <button
                                     type="button"
                                     onClick={() => setShowClaimValue((v) => !v)}
-                                    className={`${GLASS_CHIP} bg-[#E6C673]/12 border-[#E6C673]/28 text-[#E6C673] max-w-[min(100%,20rem)] truncate touch-manipulation cursor-pointer hover:bg-[#E6C673]/18 transition-colors text-[11px] px-2 py-1`}
+                                    className={`${GLASS_CHIP} bg-[#E6C673]/12 border-[#E6C673]/28 text-[#E6C673] max-w-[min(100%,20rem)] touch-manipulation cursor-pointer hover:bg-[#E6C673]/18 transition-colors text-[11px] px-2 py-1 inline-flex items-center gap-1 min-w-0`}
                                     title={lawsuitTypeLabel}
                                 >
-                                    <span className="text-[#E6C673]/60 font-bold text-[10px]">نوع الدعوى</span>
-                                    <span className="truncate font-black text-[12px]">{lawsuitTypeLabel}</span>
+                                    <span className="text-[#E6C673]/60 font-bold text-[10px] shrink-0">نوع الدعوى</span>
+                                    <span className="font-black text-[12px] truncate min-w-0">{lawsuitTypeLabel}</span>
                                 </button>
                             ) : null}
-                            {wasReopened ? (
+                            {pleadingDoorReopened ? (
                                 <span className={`${GLASS_CHIP} bg-rose-500/8 border-rose-400/20 text-rose-300`}>
                                     معاد فتحها
                                 </span>
@@ -102,11 +102,15 @@ export function SmartHeader({ formData, isPaused, incidentalCases = [], stages =
                                 )}
                             </p>
                         ) : null}
-                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 min-w-0">
-                            <div className="relative inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1">
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 min-w-0">
+                            {showCourtChip ? (
+                            <div
+                                className="relative inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1"
+                                data-testid="smart-dossier-court"
+                            >
                                 <span className="shrink-0 text-[9px] font-bold text-white/35">المحكمة</span>
-                                <span className="truncate text-[11px] font-bold text-white/92 leading-snug" title={courtName}>
-                                    {isCassation ? 'محكمة التمييز الاتحادية' : courtName}
+                                <span className="truncate text-[11px] font-bold text-white/92 leading-snug" title={courtName || 'اسم المحكمة غير مدخل'}>
+                                    {courtName || '—'}
                                 </span>
                                 {courtReferralView.previousCourt ? (
                                     <>
@@ -129,6 +133,7 @@ export function SmartHeader({ formData, isPaused, incidentalCases = [], stages =
                                     </>
                                 ) : null}
                             </div>
+                            ) : null}
                             {showJudgeChip ? (
                             <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1">
                                 <span className="shrink-0 text-[9px] font-bold text-white/35">القاضي</span>
@@ -141,26 +146,17 @@ export function SmartHeader({ formData, isPaused, incidentalCases = [], stages =
                             </div>
                             ) : null}
                             {hasAppealContext && hasFirstInstanceData ? (
-                                <span className="inline-flex min-w-0 items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[10px] text-white/40 truncate">
+                                <span className="inline-flex min-w-0 items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[10px] text-white/40">
                                     <span className="shrink-0 text-white/30 font-bold">الأساس</span>
-                                    <span dir="ltr">{formData.firstInstanceCaseNumber}</span>
+                                    <span dir="ltr" className="tabular-nums">
+                                        <IraqiCaseNoDisplay caseNo={formData.firstInstanceCaseNumber} />
+                                    </span>
                                 </span>
                             ) : null}
                         </div>
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0 self-start">
-                        {!isCassation && !isReadOnly && !isPleadingsClosed && onClosePleadings ? (
-                            <button
-                                type="button"
-                                onClick={onClosePleadings}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white/60 text-[10px] font-bold hover:bg-[#E6C673]/10 hover:border-[#E6C673]/25 hover:text-[#E6C673] transition-all"
-                                title="حجز الدعوى للقرار"
-                            >
-                                <Lock size={10} />
-                                <span>حجز للقرار</span>
-                            </button>
-                        ) : null}
                         {isLockedArchive ? (
                             <span className={`${GLASS_CHIP} bg-slate-500/10 border-slate-400/25 text-slate-300`}>
                                 <Lock size={10} />
@@ -202,37 +198,18 @@ export function SmartHeader({ formData, isPaused, incidentalCases = [], stages =
                                 استئناف
                             </button>
                         ) : null}
+                        {isAppealStageName(formData?.stageName) && crossAppealEligibility.filedCrossAppellants.length > 0 && onCancelCrossAppeal && !isReadOnly ? (
+                            <button type="button"
+                                onClick={onCancelCrossAppeal}
+                                className={`${GLASS_CHIP} bg-indigo-500/15 border-indigo-400/30 text-indigo-200 hover:bg-indigo-500/22`}
+                                title="إلغاء الاستئناف المتقابل"
+                            >
+                                <ArrowRightLeft size={10} />
+                                متقابل
+                            </button>
+                        ) : null}
                     </div>
                 </div>
-
-                {hasHeaderActions ? (
-                <div className="flex flex-wrap items-center gap-1.5 w-full mb-0.5">
-                    {!isCassation && !isReadOnly && (!isPleadingsClosed || isAppealStageName(formData?.stageName)) && (
-                        <>
-                            {isAppealStageName(formData?.stageName) && crossAppealEligibility.showButton && onAddCrossAppeal && (
-                                <button type="button"
-                                    onClick={onAddCrossAppeal}
-                                    className="flex items-center gap-1.5 px-3 py-1 rounded-md border text-[10px] font-bold transition-all cursor-pointer bg-indigo-500/10 text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/20"
-                                    title="إضافة استئناف متقابل"
-                                >
-                                    <ArrowRightLeft size={12} />
-                                    <span className="leading-none">استئناف متقابل</span>
-                                </button>
-                            )}
-                            {isAppealStageName(formData?.stageName) && crossAppealEligibility.filedCrossAppellants.length > 0 && onCancelCrossAppeal && (
-                                <button type="button"
-                                    onClick={onCancelCrossAppeal}
-                                    className="flex items-center gap-1.5 px-3 py-1 rounded-md border text-[10px] font-bold transition-all cursor-pointer bg-indigo-500 text-white border-indigo-400 hover:bg-indigo-600"
-                                    title="إلغاء الاستئناف المتقابل"
-                                >
-                                    <ArrowRightLeft size={12} />
-                                    <span className="leading-none">✓ متقابل</span>
-                                </button>
-                            )}
-                        </>
-                    )}
-                </div>
-                ) : null}
             </div>
 
             {hasPartiesSection ? (
@@ -248,8 +225,6 @@ export function SmartHeader({ formData, isPaused, incidentalCases = [], stages =
                         interpleaders={interpleaders}
                         p1Role={p1Role}
                         p2Role={p2Role}
-                        openPartyKey={openPartyKey}
-                        onToggleParty={(key) => setOpenPartyKey(key || null)}
                     />
                     <SmartHeaderThirdPartyCases
                         affiliativeThirdParties={affiliativeThirdParties}

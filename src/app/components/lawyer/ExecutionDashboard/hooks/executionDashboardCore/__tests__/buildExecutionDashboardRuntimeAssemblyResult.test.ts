@@ -25,7 +25,6 @@ describe('buildExecutionDashboardRuntimeAssemblyResult', () => {
             loadFollowupDossierControlsHandlerCluster: () => undefined,
             loadFollowupOtherPartyHandlerCluster: () => undefined,
             loadSeizureRequestsHandlerCluster: () => undefined,
-            loadSeizureLogHandlerCluster: () => undefined,
             loadSeizureHeavyHandlerCluster: () => undefined,
             loadCoerciveHeavyHandlerCluster: () => undefined,
             loadPublicationNoticeHandlerCluster: () => undefined,

@@ -53,7 +53,7 @@ describe('global search visual lightness honesty', () => {
     it('الخامل يعرض تلميحاً عربياً قصيراً دون أيقونات', () => {
         const idle = src('components/SearchIdlePanel.tsx');
         expect(idle).toContain('data-testid="global-search-idle-hint"');
-        expect(idle).toContain('اكتب للبحث في الملفات والمواعيد والملاحظات');
+        expect(idle).toContain('GLOBAL_SEARCH_IDLE_HINT');
         expect(idle).not.toContain('lucide-react');
         expect(src('overlayCss/gsChrome.css')).toContain('.hami-gs-idle-hint');
     });

@@ -1,9 +1,9 @@
 import React from 'react';
 import { flushSync } from 'react-dom';
 import { runDebtorEmploymentToggle } from './executionDashboardCore/executionDashboardDebtorEmploymentToggle';
-import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 import { isExecutionHandlerStubLeaf } from './executionHandlerClusterStubs';
 import type { PhoneBodySafeHandlersInput } from './useExecutionDashboardPhoneBodySafeHandlers.types';
+import { openFollowupModalStoreFallback } from '../utils/followupModalOpen';
 
 export function usePhoneBodySafeActionHandlers(p: {
     readLatestPhoneBodyScope: () => Record<string, unknown>;
@@ -63,11 +63,7 @@ export function usePhoneBodySafeActionHandlers(p: {
             candidate();
             return;
         }
-        try {
-            useExecutionDashboardStore.getState().openModal('showUnifiedExecutionModal');
-        } catch {
-            p.showToast('تعذر فتح محضر المتابعة لأن الربط الحقيقي لم يصل إلى الواجهة بعد.', 'error');
-        }
+        openFollowupModalStoreFallback();
     }, [p.handleMemoFollowupClick, p.readLatestPhoneBodyScope, p.showToast]);
     const directOpenDecisionsModalWithBoot = React.useCallback(
         (opts: { tab: string }) => {

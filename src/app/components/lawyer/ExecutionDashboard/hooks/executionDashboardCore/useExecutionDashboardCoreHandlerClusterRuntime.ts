@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { EXECUTION_HANDLER_CLUSTER_STUBS } from '../executionHandlerClusterStubs';
+import { EXECUTION_HANDLER_CLUSTER_STUBS, abortExecutionHandlerLiveWait, publishExecutionLiveHandlerCluster } from '../executionHandlerClusterStubs';
 import {
     buildExecutionHandlerClusterMountKey,
     shouldLoadExecutionHandlerClusterCoerciveHeavy,
@@ -10,8 +10,7 @@ import {
     shouldLoadExecutionHandlerClusterFollowupOtherParty,
     shouldLoadExecutionHandlerClusterLight,
     shouldLoadExecutionHandlerClusterSeizureHeavy,
-    shouldLoadExecutionHandlerClusterSeizureLog,
-    shouldLoadExecutionHandlerClusterSeizureRequests,
+        shouldLoadExecutionHandlerClusterSeizureRequests,
     type ExecutionHandlerClusterGateInput,
 } from '../executionHandlerClusterGate';
 import { pickFollowupAdminSpecialHandlerClusterInput } from './followupAdminSpecialHandlerClusterInput';
@@ -38,6 +37,7 @@ export function useExecutionDashboardCoreHandlerClusterRuntime({
     handlerClusterGateInput,
     coreRuntimeVars,
     heavySpreadSources,
+    loadPartyDeathHandlerCluster = false,
 }: {
     executionId: string | undefined;
     activeTabId: string;
@@ -45,6 +45,7 @@ export function useExecutionDashboardCoreHandlerClusterRuntime({
     handlerClusterGateInput: ExecutionHandlerClusterGateInput;
     coreRuntimeVars: ExecutionDashboardCoreRuntimeVars;
     heavySpreadSources: Omit<ExecutionDashboardHandlerClusterHeavySpreads, 'core'>;
+    loadPartyDeathHandlerCluster?: boolean;
 }) {
     const loadLightHandlerCluster = shouldLoadExecutionHandlerClusterLight(handlerClusterGateInput);
     const loadFollowupAdminSpecialHandlerCluster =
@@ -61,8 +62,6 @@ export function useExecutionDashboardCoreHandlerClusterRuntime({
         shouldLoadExecutionHandlerClusterSeizureHeavy(handlerClusterGateInput);
     const loadSeizureRequestsHandlerCluster =
         shouldLoadExecutionHandlerClusterSeizureRequests(handlerClusterGateInput);
-    const loadSeizureLogHandlerCluster =
-        shouldLoadExecutionHandlerClusterSeizureLog(handlerClusterGateInput);
     const loadCoerciveHeavyHandlerCluster =
         shouldLoadExecutionHandlerClusterCoerciveHeavy(handlerClusterGateInput);
     const loadAnyHeavyHandlerCluster =
@@ -124,6 +123,11 @@ export function useExecutionDashboardCoreHandlerClusterRuntime({
         [loadCoerciveHeavyHandlerCluster, handlerClusterHeavySpreads],
     );
 
+    const partyDeathHandlerClusterInput = useMemo(
+        () => (loadPartyDeathHandlerCluster ? handlerClusterHeavySpreads : EMPTY_CLUSTER),
+        [loadPartyDeathHandlerCluster, handlerClusterHeavySpreads],
+    );
+
     const dossierSupportHandlerClusterInput = useMemo(
         () =>
             loadDossierSupportHandlerCluster ? handlerClusterHeavySpreads : EMPTY_CLUSTER,
@@ -137,7 +141,9 @@ export function useExecutionDashboardCoreHandlerClusterRuntime({
     });
 
     useEffect(() => {
+        abortExecutionHandlerLiveWait();
         setHandlerCluster(EXECUTION_HANDLER_CLUSTER_STUBS);
+        publishExecutionLiveHandlerCluster(EXECUTION_HANDLER_CLUSTER_STUBS);
         setHandlerClusterEpoch(0);
         if (shouldLoadExecutionHandlerClusterSeizureRequests(handlerClusterGateInput)) {
             prefetchExecutionCoreHandlers('seizure-requests');
@@ -149,16 +155,27 @@ export function useExecutionDashboardCoreHandlerClusterRuntime({
             prefetchExecutionCoreHandlers('followup-dossier-controls');
         }
         if (shouldLoadExecutionHandlerClusterFollowupOtherParty(handlerClusterGateInput)) {
-            prefetchExecutionCoreHandlers('followup-other-party-debtor');
+            prefetchExecutionCoreHandlers('followup-other-party');
         }
         if (shouldLoadExecutionHandlerClusterDossierSupport(handlerClusterGateInput)) {
             prefetchExecutionCoreHandlers('dossier-support');
         }
+        if (shouldLoadExecutionHandlerClusterCoerciveHeavy(handlerClusterGateInput)) {
+            prefetchExecutionCoreHandlers('coercive');
+            if (handlerClusterGateInput.isEvictionExecutionModule) {
+                prefetchExecutionCoreHandlers('coercive-eviction');
+                prefetchExecutionCoreHandlers('coercive-lifecycle');
+            }
+        }
+        return () => {
+            abortExecutionHandlerLiveWait();
+        };
     }, [handlerClusterMountKey]);
 
     const bumpHandlerClusterEpochIfChanged = useCallback(
         (current: Record<string, unknown>, merged: Record<string, unknown>) => {
             if (Object.is(merged, current)) return current;
+            publishExecutionLiveHandlerCluster(merged);
             queueMicrotask(() => setHandlerClusterEpoch((epoch) => epoch + 1));
             return merged;
         },
@@ -235,7 +252,6 @@ export function useExecutionDashboardCoreHandlerClusterRuntime({
         loadFollowupHeavyHandlerCluster,
         loadSeizureHeavyHandlerCluster,
         loadSeizureRequestsHandlerCluster,
-        loadSeizureLogHandlerCluster,
         loadCoerciveHeavyHandlerCluster,
         handlerCluster,
         handlerClusterEpoch,
@@ -246,6 +262,7 @@ export function useExecutionDashboardCoreHandlerClusterRuntime({
         followupOtherPartyHandlerClusterInput,
         seizureHeavyHandlerClusterInput,
         coerciveHeavyHandlerClusterInput,
+        partyDeathHandlerClusterInput,
         dossierSupportHandlerClusterInput,
         onLightHandlerClusterReady,
         onFollowupAdminSpecialHandlerClusterReady,

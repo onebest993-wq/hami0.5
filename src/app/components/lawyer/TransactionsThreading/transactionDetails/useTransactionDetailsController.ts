@@ -65,8 +65,7 @@ export function useTransactionDetailsController({
         refreshTransactionData,
     });
 
-
-    const [tab, setTab] = useState<'path' | 'docs'>('path');
+    const [tab, setTabState] = useState<'path' | 'docs'>('path');
     const [sheetOpen, setSheetOpen] = useState(false);
     const [parent, setParent] = useState<TransactionTask | null>(null);
     const [reportOpen, setReportOpen] = useState(false);
@@ -76,6 +75,10 @@ export function useTransactionDetailsController({
     const [shareDraft, setShareDraft] = useState<ShareProcedureDraft | null>(null);
     const [shareClientName, setShareClientName] = useState<string | null>(null);
 
+    const setTab = useCallback((next: 'path' | 'docs') => {
+        setTabState(next);
+        if (next !== 'path') { setSheetOpen(false); setParent(null); }
+    }, []);
     const closeLocalOverlays = useCallback((patch: Partial<TransactionsDetailsEscapeSnapshot>) => {
         if (patch.reportOpen === false) setReportOpen(false);
         if (patch.completeOpen === false) setCompleteOpen(false);
@@ -147,7 +150,6 @@ export function useTransactionDetailsController({
         [reportOpen, tx, tasks],
     );
 
-
     const requestAddTask = (p: TransactionTask | null) => {
         if (isReadOnly) return;
         setParent(p);
@@ -184,8 +186,6 @@ export function useTransactionDetailsController({
             SmartToast.error('تعذر إعادة فتح المعاملة — حاول مرة أخرى');
         }
     };
-
-
 
     const openShareFromTransaction = () => {
         if (!tx) return;

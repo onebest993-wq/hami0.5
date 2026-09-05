@@ -26,6 +26,15 @@ describe('personal-status structural closure', () => {
         expect(chrome).toContain('iconOnly');
     });
 
+    it('PersonalStatusSmartFileChrome hosts post-hop remaining challenge; no استئناف spawn', () => {
+        const chrome = read('PersonalStatusSmartFileChrome.tsx');
+        expect(chrome).toContain('postHopChallengeChrome');
+        expect(chrome).toContain('remainingOpponentChallenge');
+        expect(chrome).toContain('showRemainingOpponentChallenge');
+        expect(chrome).not.toContain('إنشاء طعن استئنافي مستقل');
+        expect(chrome).not.toContain('independentChallengeSpawn');
+    });
+
     /*
      * كان الفحص يقرأ `PersonalStatusActionDock.tsx`. انتقل تركيب بوّابة المرجع
      * القانوني إلى `PersonalStatusWorkToolbar`، وبقي الـdock بلا مستورد فحُذف.

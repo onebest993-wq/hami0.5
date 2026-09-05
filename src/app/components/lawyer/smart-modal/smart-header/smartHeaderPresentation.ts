@@ -29,9 +29,62 @@ export function displayCaseNo(caseNo: unknown): string {
     return displayMetaField(caseNo);
 }
 
+const IRAQI_NUM_LETTER_YEAR =
+    /^(\d{1,8})\s*\/\s*([\u0600-\u06FF]{1,12})\s*\/\s*(\d{4})$/;
+const IRAQI_YEAR_LETTER_NUM =
+    /^(\d{4})\s*\/\s*([\u0600-\u06FF]{1,12})\s*\/\s*(\d{1,8})$/;
+const IRAQI_LETTER_NUM_YEAR =
+    /^([\u0600-\u06FF]{1,12})\s*\/\s*(\d{1,8})\s*\/\s*(\d{4})$/;
+const IRAQI_LETTER_YEAR_NUM =
+    /^([\u0600-\u06FF]{1,12})\s*\/\s*(\d{4})\s*\/\s*(\d{1,8})$/;
+const IRAQI_YEAR_NUM_LETTER =
+    /^(\d{4})\s*\/\s*(\d{1,8})\s*\/\s*([\u0600-\u06FF]{1,12})$/;
+
+export function isIraqiPleadingCaseNo(raw: string): boolean {
+    const t = raw.trim();
+    return IRAQI_NUM_LETTER_YEAR.test(t)
+        || IRAQI_YEAR_LETTER_NUM.test(t)
+        || IRAQI_LETTER_NUM_YEAR.test(t)
+        || IRAQI_LETTER_YEAR_NUM.test(t)
+        || IRAQI_YEAR_NUM_LETTER.test(t);
+}
+
+/** عرض رقم الدعوى العراقية: رقم / حرف المرحلة / السنة */
+export function formatIraqiCaseNoForPaint(raw: string): string {
+    const t = raw.trim();
+    const numberLetterYear = t.match(IRAQI_NUM_LETTER_YEAR);
+    if (numberLetterYear) {
+        return `${numberLetterYear[1]}/${numberLetterYear[2]}/${numberLetterYear[3]}`;
+    }
+    const yearLetterNumber = t.match(IRAQI_YEAR_LETTER_NUM);
+    if (yearLetterNumber) {
+        return `${yearLetterNumber[3]}/${yearLetterNumber[2]}/${yearLetterNumber[1]}`;
+    }
+    const letterNumberYear = t.match(IRAQI_LETTER_NUM_YEAR);
+    if (letterNumberYear) {
+        return `${letterNumberYear[2]}/${letterNumberYear[1]}/${letterNumberYear[3]}`;
+    }
+    const letterYearNumber = t.match(IRAQI_LETTER_YEAR_NUM);
+    if (letterYearNumber) {
+        return `${letterYearNumber[3]}/${letterYearNumber[1]}/${letterYearNumber[2]}`;
+    }
+    const yearNumberLetter = t.match(IRAQI_YEAR_NUM_LETTER);
+    if (yearNumberLetter) {
+        return `${yearNumberLetter[2]}/${yearNumberLetter[3]}/${yearNumberLetter[1]}`;
+    }
+    return t;
+}
+
+export function paintCaseNo(caseNo: unknown): string {
+    const shown = displayMetaField(caseNo);
+    if (shown === 'غير محدد') return shown;
+    return formatIraqiCaseNoForPaint(shown);
+}
+
 export function caseNoTextDir(caseNo: unknown): 'ltr' | 'rtl' {
     const raw = String(caseNo ?? '').trim();
     if (!raw) return 'rtl';
+    if (isIraqiPleadingCaseNo(raw) || /^\d/.test(raw)) return 'ltr';
     return /[\u0600-\u06FF]/.test(raw) ? 'rtl' : 'ltr';
 }
 

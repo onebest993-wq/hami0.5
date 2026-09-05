@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { CaseStage, Party } from '../../../LawyerShared';
-import { resolveCrossAppealEligibility } from '../crossAppealEngine';
+import {
+    classifyCrossAppealFiling,
+    resolveCrossAppealEligibility,
+    resolveFirstInstanceNotificationAnchor,
+} from '../crossAppealEngine';
 
 function party(overrides: Partial<Party> & { id: number | string; name: string }): Party {
     return {
@@ -9,211 +13,14 @@ function party(overrides: Partial<Party> & { id: number | string; name: string }
     } as Party;
 }
 
-describe('crossAppealEngine', () => {
-    it('shows cross-appeal button in ordinary appeal for pending appellee', () => {
-        const firstInstance = {
-            id: 's1',
-            stageName: 'البداءة',
-            finalDecision: 'إجابة الدعوى بالكامل',
-            parties: [
-                party({ id: 1, name: 'مدعي', role: 'المدعي', side: 'right' }),
-                party({ id: 2, name: 'مدعى', role: 'المدعى عليه', side: 'left' }),
-            ],
-        } as CaseStage;
-
-        const appeal = {
-            id: 's2',
-            stageName: 'الاستئناف',
-            parties: [
-                party({ id: 1, name: 'مدعي', role: 'المستأنف', side: 'right' }),
-                party({ id: 2, name: 'مدعى', role: 'المستأنف عليه', side: 'left' }),
-            ],
-            appealMetadata: {
-                appellant: 'المدعي',
-                priorJudgmentType: 'إجابة الدعوى بالكامل',
-                initialAppellantPartyIds: [1],
-            },
-        } as CaseStage;
-
-        const result = resolveCrossAppealEligibility({
-            appealStage: appeal,
-            stages: [firstInstance, appeal],
-            appealStageIndex: 1,
-        });
-
-        expect(result.showButton).toBe(true);
-        expect(result.isPartialJudgment).toBe(false);
-        expect(result.pendingCrossAppellants.map((p) => p.id)).toEqual([2]);
-    });
-
-    it('shows cross-appeal for partial judgment on pending appellees', () => {
+describe('crossAppealEngine (disabled product surface)', () => {
+    it('never shows cross-appeal button — superseded by independent dossier', () => {
         const firstInstance = {
             id: 's1',
             stageName: 'البداءة',
             finalDecision: 'رد الدعوى جزئياً (حكم جزئي)',
             parties: [
                 party({ id: 1, name: 'مدعي', role: 'المدعي', side: 'right' }),
-                party({ id: 2, name: 'مدعى أ', role: 'المدعى عليه', side: 'left' }),
-                party({ id: 3, name: 'مدعى ب', role: 'المدعى عليه الثاني', side: 'left' }),
-            ],
-        } as CaseStage;
-
-        const appeal = {
-            id: 's2',
-            stageName: 'الاستئناف',
-            parties: [
-                party({ id: 1, name: 'مدعي', role: 'المستأنف', side: 'right' }),
-                party({ id: 2, name: 'مدعى أ', role: 'المستأنف عليه', side: 'left' }),
-                party({ id: 3, name: 'مدعى ب', role: 'المستأنف عليه الثاني', side: 'left' }),
-            ],
-            appealMetadata: {
-                appellant: 'المدعي',
-                priorJudgmentType: 'رد الدعوى جزئياً',
-                initialAppellantPartyIds: [1],
-            },
-        } as CaseStage;
-
-        const result = resolveCrossAppealEligibility({
-            appealStage: appeal,
-            stages: [firstInstance, appeal],
-            appealStageIndex: 1,
-        });
-
-        expect(result.showButton).toBe(true);
-        expect(result.isPartialJudgment).toBe(true);
-        expect(result.pendingCrossAppellants.map((p) => p.name)).toEqual(['مدعى أ', 'مدعى ب']);
-    });
-
-    it('shows only omitted co-litigant محمد after احمد وعلي appealed together', () => {
-        const firstInstance = {
-            id: 's1',
-            stageName: 'البداءة',
-            finalDecision: 'رد الدعوى جزئياً',
-            parties: [
-                party({ id: 1, name: 'أحمد', role: 'المدعى عليه', side: 'left' }),
-                party({ id: 2, name: 'علي', role: 'المدعى عليه الثاني', side: 'left' }),
-                party({ id: 3, name: 'محمد', role: 'المدعى عليه الثالث', side: 'left' }),
-                party({ id: 4, name: 'مدعي', role: 'المدعي', side: 'right' }),
-            ],
-        } as CaseStage;
-
-        const appeal = {
-            id: 's2',
-            stageName: 'الاستئناف',
-            parties: [
-                party({ id: 4, name: 'مدعي', role: 'المستأنف', side: 'right' }),
-                party({ id: 1, name: 'أحمد', role: 'المستأنف عليه', side: 'left' }),
-                party({ id: 2, name: 'علي', role: 'المستأنف عليه', side: 'left' }),
-                party({ id: 3, name: 'محمد', role: 'المستأنف عليه', side: 'left' }),
-            ],
-            appealMetadata: {
-                appellant: 'المدعي',
-                priorJudgmentType: 'رد الدعوى جزئياً',
-                initialAppellantPartyIds: [4],
-                crossAppealPartyIds: ['1', '2'],
-            },
-        } as CaseStage;
-
-        const result = resolveCrossAppealEligibility({
-            appealStage: appeal,
-            stages: [firstInstance, appeal],
-            appealStageIndex: 1,
-        });
-
-        expect(result.showButton).toBe(true);
-        expect(result.pendingCrossAppellants.map((p) => p.name)).toEqual(['محمد']);
-        expect(result.filedCrossAppellants.map((p) => p.name)).toEqual(['أحمد', 'علي']);
-    });
-
-    it('offers cross appeal to interpleader appellee who has not appealed yet', () => {
-        const firstInstance = {
-            id: 's1',
-            stageName: 'البداءة',
-            finalDecision: 'إجابة الدعوى بالكامل',
-            parties: [
-                party({ id: 1, name: 'موكل', role: 'المدعي', side: 'right', isClient: true }),
-                party({ id: 2, name: 'مدعى', role: 'المدعى عليه', side: 'left' }),
-                party({ id: 5, name: 'اختصام', role: 'شخص ثالث (اختصامي)' }),
-            ],
-        } as CaseStage;
-
-        const appeal = {
-            id: 's2',
-            stageName: 'الاستئناf',
-            parties: [
-                party({ id: 1, name: 'موكل', role: 'المستأنف (المدعي)', side: 'right', isClient: true }),
-                party({ id: 2, name: 'مدعى', role: 'المستأنف عليه (المدعى عليه)', side: 'left' }),
-                party({
-                    id: 5,
-                    name: 'اختصام',
-                    role: 'المستأنف عليه (شخص ثالث اختصامي)',
-                    side: 'left',
-                }),
-            ],
-            appealMetadata: {
-                appellant: 'المدعي',
-                priorJudgmentType: 'إجابة الدعوى بالكامل',
-                initialAppellantPartyIds: [1],
-            },
-        } as CaseStage;
-
-        const result = resolveCrossAppealEligibility({
-            appealStage: appeal,
-            stages: [firstInstance, appeal],
-            appealStageIndex: 1,
-        });
-
-        expect(result.showButton).toBe(true);
-        expect(result.pendingCrossAppellants.map((p) => p.id)).toContain(5);
-    });
-
-    it('shows cross appeal for co-plaintiff علي when محمد alone appealed', () => {
-        const firstInstance = {
-            id: 's1',
-            stageName: 'البداءة',
-            finalDecision: 'رد الدعوى جزئياً (حكم جزئي)',
-            lastJudgmentType: 'رد الدعوى جزئياً',
-            parties: [
-                party({ id: 1, name: 'محمد', role: 'المدعي', side: 'right' }),
-                party({ id: 2, name: 'علي', role: 'المدعي الثاني', side: 'right' }),
-                party({ id: 3, name: 'خصم', role: 'المدعى عليه', side: 'left' }),
-            ],
-        } as CaseStage;
-
-        const appeal = {
-            id: 's2',
-            stageName: 'الاستئناف',
-            parties: [
-                party({ id: 1, name: 'محمد', role: 'المستأنف', side: 'right' }),
-                party({ id: 2, name: 'علي', role: 'المستأنف عليه (المدعي)', side: 'left' }),
-                party({ id: 3, name: 'خصم', role: 'المستأنف عليه', side: 'left' }),
-            ],
-            appealMetadata: {
-                appellant: 'المدعي',
-                priorJudgmentType: 'رد الدعوى جزئياً',
-                initialAppellantPartyIds: [1],
-            },
-        } as CaseStage;
-
-        const result = resolveCrossAppealEligibility({
-            appealStage: appeal,
-            stages: [firstInstance, appeal],
-            appealStageIndex: 1,
-        });
-
-        expect(result.showButton).toBe(true);
-        expect(result.hasStaggeredCoLitigants).toBe(true);
-        expect(result.pendingCrossAppellants.map((p) => p.name)).toContain('علي');
-    });
-
-    it('detects partial judgment from locked stage lastJudgmentType when metadata missing', () => {
-        const firstInstance = {
-            id: 's1',
-            stageName: 'البداءة',
-            finalDecision: 'محسومة جزئياً - بانتظار الطعن',
-            lastJudgmentType: 'رد الدعوى جزئياً',
-            parties: [
-                party({ id: 1, name: 'مدعي', role: 'المدعي', side: 'right' }),
                 party({ id: 2, name: 'مدعى', role: 'المدعى عليه', side: 'left' }),
             ],
         } as CaseStage;
@@ -223,48 +30,12 @@ describe('crossAppealEngine', () => {
             stageName: 'الاستئناف',
             parties: [
                 party({ id: 1, name: 'مدعي', role: 'المستأنف', side: 'right' }),
-                party({ id: 2, name: 'مدعى', role: 'المستأنف عليه', side: 'left' }),
+                party({ id: 2, name: 'مدعى', role: 'المستأنف عليه', side: 'left', isClient: true }),
             ],
             appealMetadata: {
                 appellant: 'المدعي',
+                priorJudgmentType: 'رد الدعوى جزئياً',
                 initialAppellantPartyIds: [1],
-            },
-        } as CaseStage;
-
-        const result = resolveCrossAppealEligibility({
-            appealStage: appeal,
-            stages: [firstInstance, appeal],
-            appealStageIndex: 1,
-        });
-
-        expect(result.isPartialJudgment).toBe(true);
-        expect(result.showButton).toBe(true);
-    });
-
-    it('does not offer cross appeal to co-plaintiff appellees who fully won and have no appeal right', () => {
-        const firstInstance = {
-            id: 's1',
-            stageName: 'البداءة',
-            finalDecision: 'إجابة الدعوى بالكامل',
-            parties: [
-                party({ id: 1, name: 'المدعي الأول', role: 'المدعي', side: 'right' }),
-                party({ id: 2, name: 'المدعي الثاني', role: 'المدعي الثاني', side: 'right' }),
-                party({ id: 3, name: 'المدعى عليه', role: 'المدعى عليه', side: 'left' }),
-            ],
-        } as CaseStage;
-
-        const appeal = {
-            id: 's2',
-            stageName: 'الاستئناف',
-            parties: [
-                party({ id: 3, name: 'المدعى عليه', role: 'المستأنف', side: 'right' }),
-                party({ id: 1, name: 'المدعي الأول', role: 'المستأنف عليه (المدعي)', side: 'left' }),
-                party({ id: 2, name: 'المدعي الثاني', role: 'المستأنف عليه (المدعي)', side: 'left' }),
-            ],
-            appealMetadata: {
-                appellant: 'المدعى عليه',
-                priorJudgmentType: 'إجابة الدعوى بالكامل',
-                initialAppellantPartyIds: [3],
             },
         } as CaseStage;
 
@@ -275,49 +46,31 @@ describe('crossAppealEngine', () => {
         });
 
         expect(result.showButton).toBe(false);
-        expect(result.pendingCrossAppellants).toEqual([]);
+        expect(result.canFileCrossAppeal).toBe(false);
+        expect(result.reason).toMatch(/أُلغي|مستقلة/);
     });
 
-    it('offers cross appeal to plaintiff only after third-party partial judgment when interpleader is already in waiting position', () => {
-        const firstInstance = {
-            id: 's1',
-            stageName: 'البداءة',
-            finalDecision: 'إجابة طلب الشخص الثالث (جزئياً)',
-            lastJudgmentType: 'إجابة طلب الشخص الثالث (جزئياً)',
-            parties: [
-                party({ id: 1, name: 'المدعي', role: 'المدعي', side: 'right' }),
-                party({ id: 2, name: 'المدعى عليه', role: 'المدعى عليه', side: 'left' }),
-                party({ id: 5, name: 'الشخص الثالث', role: 'شخص ثالث (اختصامي)', side: 'left' }),
-            ],
-        } as CaseStage;
+    it('classifies ORIGINAL within 15-day window and DEPENDENT after', () => {
+        expect(
+            classifyCrossAppealFiling({
+                filingDate: '2026-01-17',
+                firstInstanceNotificationDate: '2026-01-01',
+            }),
+        ).toBe('ORIGINAL');
+        expect(
+            classifyCrossAppealFiling({
+                filingDate: '2026-01-18',
+                firstInstanceNotificationDate: '2026-01-01',
+            }),
+        ).toBe('DEPENDENT');
+    });
 
-        const appeal = {
-            id: 's2',
-            stageName: 'الاستئناف',
-            parties: [
-                party({ id: 2, name: 'المدعى عليه', role: 'المستأنف', side: 'right' }),
-                party({ id: 1, name: 'المدعي', role: 'المستأنف عليه (المدعي)', side: 'left' }),
-                party({
-                    id: 5,
-                    name: 'الشخص الثالث',
-                    role: 'المستأنف عليه (شخص ثالث اختصامي)',
-                    side: 'left',
-                }),
-            ],
-            appealMetadata: {
-                appellant: 'المدعى عليه',
-                priorJudgmentType: 'إجابة طلب الشخص الثالث (جزئياً)',
-                initialAppellantPartyIds: [2],
-            },
-        } as CaseStage;
-
-        const result = resolveCrossAppealEligibility({
-            appealStage: appeal,
-            stages: [firstInstance, appeal],
-            appealStageIndex: 1,
-        });
-
-        expect(result.showButton).toBe(true);
-        expect(result.pendingCrossAppellants.map((p) => p.id)).toEqual([1]);
+    it('anchors notification date from absent notice then decision date', () => {
+        expect(
+            resolveFirstInstanceNotificationAnchor({
+                absentJudgmentNotificationDate: '2026-03-01',
+                decisionDate: '2026-02-01',
+            } as CaseStage),
+        ).toBe('2026-03-01');
     });
 });

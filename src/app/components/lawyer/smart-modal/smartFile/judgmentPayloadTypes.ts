@@ -1,3 +1,8 @@
+import type {
+    DisputeIntegrity,
+    PartyJudgmentDisposition,
+} from '@/app/domain/lawsuit/partyJudgmentDisposition';
+
 /** Payload from SmartJudgmentModal / validation pipeline. */
 export type JudgmentPayload = {
     date?: string;
@@ -14,6 +19,15 @@ export type JudgmentPayload = {
     openObjectionModal?: boolean;
     /** بعد حفظ الحكم يفتح نافذة تسجيل طعن الخصم */
     openRegisterOpponentAppealModal?: boolean;
+    /** طاعن مفضّل من زر الشريط المسمّى */
+    preferredChallengerPartyId?: string | number | null;
+    /**
+     * طعن متعدد / زر مستقل — أنشئ إضبارة جديدة ولا تطبّق hop على الملف المفتوح.
+     */
+    forceIndependentChallengeSpawn?: boolean;
+    partyJudgmentDispositions?: PartyJudgmentDisposition[];
+    disputeIntegrity?: DisputeIntegrity;
+    cassationGroundsScope?: 'COMMON' | 'PERSONAL';
     [key: string]: unknown;
 };
 
@@ -23,6 +37,7 @@ export type AppealTransitionPayload = {
     filingDate: string;
     newCaseNumber: string;
     notes: string;
+    newCourt?: string;
     includedOpponentPartyIds?: Array<number | string>;
     includedAppellantPartyIds?: Array<number | string>;
     appealDossierMode?: 'standard' | 'interpleader_appellant' | 'against_interpleader';
@@ -33,6 +48,8 @@ export type CrossAppealPayload = {
     receiptNumber: string;
     notes: string;
     crossAppealPartyIds?: Array<number | string>;
+    /** يُحسب في المحرك عند الحفظ إن لم يُمرَّر */
+    crossAppealClassification?: 'ORIGINAL' | 'DEPENDENT';
 };
 
 export type StageTransitionPayload = {

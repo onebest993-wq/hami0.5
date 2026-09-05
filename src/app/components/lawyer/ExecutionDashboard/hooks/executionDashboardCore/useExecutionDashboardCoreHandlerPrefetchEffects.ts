@@ -1,14 +1,21 @@
 import { useCallback, useEffect } from 'react';
 import { prefetchExecutionHandlerClusterPartyDeathBridge } from '../../executionDashboardHandlerClusterBridgeLazy';
-import { prefetchExecutionCoreHandlers } from '../../executionCoreHandlersPrefetch';
-import { registerExecutionHandlerStubNotifier } from '../executionHandlerClusterStubs';
 import { prefetchExecutionHandlersForStubPath } from './resolveExecutionStubHandlerPrefetchModes';
+import {
+    prefetchExecutionHandlersForOpenDossier,
+    prefetchExecutionHandlersForOpenFollowup,
+} from './prefetchExecutionHandlersForDossierPaint';
+import {
+    registerExecutionHandlerStubNotifier,
+    registerExecutionHandlerStubTimeoutNotifier,
+} from '../executionHandlerClusterStubs';
 import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
 import type { PartyDeathLiveHandlers } from './useExecutionDashboardPartyDeathOpeners';
 
 export function useExecutionDashboardCoreHandlerPrefetchEffects({
     executionDataId,
     isEvictionExecutionModule,
+    isRepresentingDebtor,
     showToast,
     loadPartyDeathHandlerCluster,
     showUnifiedExecutionModal,
@@ -17,6 +24,7 @@ export function useExecutionDashboardCoreHandlerPrefetchEffects({
 }: {
     executionDataId: string | number | undefined;
     isEvictionExecutionModule: boolean;
+    isRepresentingDebtor: boolean;
     showToast: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
     loadPartyDeathHandlerCluster: boolean;
     showUnifiedExecutionModal: boolean;
@@ -41,54 +49,31 @@ export function useExecutionDashboardCoreHandlerPrefetchEffects({
         if (!executionDataId) return;
         registerExecutionHandlerStubNotifier((path) => {
             prefetchExecutionHandlersForStubPath(path);
+        });
+        registerExecutionHandlerStubTimeoutNotifier(() => {
             if (typeof showToast === 'function') {
                 showToast('جاري تجهيز الأدوات — أعد المحاولة بعد لحظة.', 'info');
-            }
-            if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
-                console.warn('[execution] handler still stub:', path);
             }
         });
         return () => {
             registerExecutionHandlerStubNotifier(null);
+            registerExecutionHandlerStubTimeoutNotifier(null);
         };
     }, [executionDataId, showToast]);
 
     useEffect(() => {
         if (!executionDataId) return;
-        return scheduleIdleWork(() => {
-            prefetchExecutionCoreHandlers('seizure-requests');
-            prefetchExecutionCoreHandlers('seizure-log');
-            prefetchExecutionCoreHandlers('dossier-support');
-            prefetchExecutionCoreHandlers('followup-admin-special');
-            prefetchExecutionCoreHandlers('followup-dossier-controls');
-            prefetchExecutionCoreHandlers('followup-other-party-debtor');
-            prefetchExecutionCoreHandlers('coercive');
-            if (isEvictionExecutionModule) {
-                prefetchExecutionCoreHandlers('coercive-eviction');
-                prefetchExecutionCoreHandlers('coercive-lifecycle');
-                void import('../../executionDashboardLazyRegistryOverlays')
-                    .then((m) => {
-                        m.prefetchEvictionFieldProceduresPanel();
-                    })
-                    .catch(() => undefined);
-            }
-        }, 350);
+        prefetchExecutionHandlersForOpenDossier({ isEvictionExecutionModule });
     }, [executionDataId, isEvictionExecutionModule]);
 
     useEffect(() => {
         if (!showUnifiedExecutionModal) return;
-        prefetchExecutionCoreHandlers('seizure-requests');
-        prefetchExecutionCoreHandlers('followup-admin-special');
-        prefetchExecutionCoreHandlers('followup-dossier-controls');
-        prefetchExecutionCoreHandlers('followup-other-party-debtor');
-        prefetchExecutionCoreHandlers('coercive');
-        prefetchExecutionCoreHandlers('coercive-eviction');
-        prefetchExecutionCoreHandlers('coercive-lifecycle');
-        const tab = String(unifiedModalTab || '').trim();
-        if (tab === 'coercive' || tab === 'personal') {
-            prefetchExecutionCoreHandlers('coercive-employee');
-        }
-    }, [showUnifiedExecutionModal, unifiedModalTab]);
+        prefetchExecutionHandlersForOpenFollowup({
+            isRepresentingDebtor,
+            isEvictionExecutionModule,
+            unifiedModalTab,
+        });
+    }, [isEvictionExecutionModule, isRepresentingDebtor, showUnifiedExecutionModal, unifiedModalTab]);
 
     return { onPartyDeathHandlerClusterReady };
 }

@@ -9,7 +9,6 @@ export type ExecutionHandlerClusterGateInput = {
     showUnifiedExecutionModal: boolean;
     showUnifiedSummonsModal: boolean;
     unifiedModalTab?: string | null;
-    showUnifiedSeizureLogModal: boolean;
     showCoerciveModal: boolean;
     showAppointmentModal: boolean;
     showSeizedAssetsModal: boolean;
@@ -20,6 +19,7 @@ export type ExecutionHandlerClusterGateInput = {
     showEditDossierMetaModal: boolean;
     editPartyTarget?: unknown;
     partyDeathModalParty: 'creditor' | 'debtor' | null;
+    showHeirsNotificationModal?: boolean;
     dossierLifecyclePanelOpen: boolean;
     isHeaderExpanded: boolean;
 };
@@ -30,7 +30,7 @@ export type ExecutionHandlerClusterFollowupMode =
     | 'admin-special'
     | 'dossier-controls'
     | 'other-party';
-export type ExecutionHandlerClusterSeizureMode = 'none' | 'requests' | 'log';
+export type ExecutionHandlerClusterSeizureMode = 'none' | 'requests';
 
 export function shouldLoadExecutionHandlerClusterLight(input: ExecutionHandlerClusterGateInput): boolean {
     return Boolean(input.showAppointmentModal || input.showPaymentModal || input.showNotesModal);
@@ -47,39 +47,36 @@ export function shouldLoadExecutionHandlerClusterFollowupHeavy(input: ExecutionH
 export function shouldLoadExecutionHandlerClusterFollowupAdminSpecial(
     input: ExecutionHandlerClusterGateInput,
 ): boolean {
-    // سخّن جسر نماذج الطلبات طوال فتح المحضر — كما أدوات الإضبارة وطلبات الحجز
-    if (input.showUnifiedExecutionModal) return true;
     return resolveExecutionHandlerClusterFollowupMode(input) === 'admin-special';
 }
 
 export function shouldLoadExecutionHandlerClusterFollowupDossierControls(
     input: ExecutionHandlerClusterGateInput,
 ): boolean {
-    // سخّن جسر أدوات الإضبارة طوال فتح المحضر — كما طلبات الحجز
-    if (input.showUnifiedExecutionModal) return true;
     return resolveExecutionHandlerClusterFollowupMode(input) === 'dossier-controls';
 }
 
 export function shouldLoadExecutionHandlerClusterFollowupOtherParty(
     input: ExecutionHandlerClusterGateInput,
 ): boolean {
-    // سخّن جسر تحركات الطرف الآخر طوال فتح المحضر
-    if (input.showUnifiedExecutionModal) return true;
     return resolveExecutionHandlerClusterFollowupMode(input) === 'other-party';
 }
 
 export function shouldLoadExecutionHandlerClusterSeizureHeavy(input: ExecutionHandlerClusterGateInput): boolean {
-    return resolveExecutionHandlerClusterSeizureMode(input) !== 'none';
+    return shouldLoadExecutionHandlerClusterSeizureRequests(input);
 }
 
 export function shouldLoadExecutionHandlerClusterSeizureRequests(
     input: ExecutionHandlerClusterGateInput,
 ): boolean {
-    return resolveExecutionHandlerClusterSeizureMode(input) === 'requests';
-}
-
-export function shouldLoadExecutionHandlerClusterSeizureLog(input: ExecutionHandlerClusterGateInput): boolean {
-    return resolveExecutionHandlerClusterSeizureMode(input) === 'log';
+    if (input.showUnifiedExecutionModal) {
+        const activeFollowupTab = String(input.unifiedModalTab || '').trim();
+        if (!activeFollowupTab || activeFollowupTab === 'seizure_requests' || activeFollowupTab === 'financial' || activeFollowupTab === 'admin') {
+            return true;
+        }
+        return false;
+    }
+    return Boolean(input.hasOpenExecutionDossier);
 }
 
 export function shouldLoadExecutionHandlerClusterCoerciveHeavy(input: ExecutionHandlerClusterGateInput): boolean {
@@ -130,14 +127,10 @@ export function resolveExecutionHandlerClusterHeavyMode(
         input.showCoerciveActionForm ||
         input.showNotificationModal ||
         input.showUnifiedSummonsModal ||
-        Boolean(input.partyDeathModalParty)
+        Boolean(input.partyDeathModalParty) ||
+        Boolean(input.showHeirsNotificationModal)
     ) {
         return 'coercive';
-    }
-
-    // سجل الحجز وحده (بدون محضر مفتوح)
-    if (input.showUnifiedSeizureLogModal && !input.showUnifiedExecutionModal) {
-        return 'seizure';
     }
 
     if (!input.showUnifiedExecutionModal) {
@@ -173,14 +166,12 @@ export function resolveExecutionHandlerClusterHeavyMode(
 export function resolveExecutionHandlerClusterSeizureMode(
     input: ExecutionHandlerClusterGateInput,
 ): ExecutionHandlerClusterSeizureMode {
-    if (input.showUnifiedSeizureLogModal) {
-        return 'log';
-    }
-
-    // أبقِ جسور طلبات الحجز حيّة طوال فتح المحضر — إلغاؤها عند تبديل التبويب
-    // يعيد Suspense باردة عند العودة لـ «طلبات الحجز».
     if (input.showUnifiedExecutionModal) {
-        return 'requests';
+        const activeFollowupTab = String(input.unifiedModalTab || '').trim();
+        if (!activeFollowupTab || activeFollowupTab === 'seizure_requests' || activeFollowupTab === 'financial') {
+            return 'requests';
+        }
+        return 'none';
     }
 
     if (input.hasOpenExecutionDossier) {

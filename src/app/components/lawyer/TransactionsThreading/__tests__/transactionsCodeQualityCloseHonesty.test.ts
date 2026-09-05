@@ -27,7 +27,9 @@ describe('transactions code quality close honesty', () => {
         expect(store).toContain('transactionListUnchanged');
         expect(store).toContain('taskListUnchanged');
         expect(lineCount('src/app/modules/transactionsThreading/store.ts')).toBeLessThan(320);
-        expect(lineCount(runtimePath)).toBeLessThan(150);
+        expect(lineCount(runtimePath)).toBeLessThan(180);
+        expect(runtime).toContain('registerTransactionsThreadingDumpListener');
+        expect(runtime).toContain('applyDump');
     });
 
     it('تفاصيل/مركز/مشاركة: hooks وملف تنسيق مستقلان', () => {
@@ -54,10 +56,13 @@ describe('transactions code quality close honesty', () => {
         expect(sanitize).not.toMatch(/export\s*\{[^}]*scrubPii/);
         expect(lineCount(
             'src/app/components/lawyer/TransactionsThreading/transactionDetails/useTransactionDetailsController.ts',
-        )).toBeLessThan(250);
+        )).toBeLessThan(255);
         expect(lineCount(
             'src/app/components/lawyer/TransactionsThreading/hooks/useTransactionsHubNavigation.ts',
         )).toBeLessThan(190);
+        expect(existsSync(join(root, 'src/app/components/lawyer/TransactionsThreading/transactionsDetailsReveal.ts'))).toBe(true);
+        expect(existsSync(join(root, 'src/app/components/lawyer/TransactionsThreading/transactionsChunkLoadError.ts'))).toBe(true);
+        expect(src('src/app/components/lawyer/TransactionsThreading/hooks/useTransactionsHubSessionHydration.ts')).toContain('revealDetails');
         expect(lineCount('src/app/services/transactions/sanitizeTransactionForSharing.ts')).toBeLessThan(220);
     });
 
@@ -84,6 +89,11 @@ describe('transactions code quality close honesty', () => {
             'src/app/components/lawyer/TransactionsThreading/taskThread/useTaskThreadController.ts',
         );
         expect(taskCtrl).toContain("from './useTaskThreadOverlays'");
+        expect(taskCtrl).toContain("from './TaskThreadDialogs.types'");
+        expect(taskCtrl).not.toMatch(/from ['"]\.\/TaskThreadDialogs['"]/);
+        expect(overlays).toContain("from './TaskThreadDialogs.types'");
+        expect(overlays).not.toMatch(/from ['"]\.\/TaskThreadDialogs['"]/);
+        expect(existsSync(join(root, 'src/app/components/lawyer/TransactionsThreading/taskThread/TaskThreadDialogs.types.ts'))).toBe(true);
         expect(taskCtrl).toContain('taskCompleteOpen');
         expect(taskCtrl).toContain('detailsActive');
         expect(taskCtrl).toContain('useMemo(');

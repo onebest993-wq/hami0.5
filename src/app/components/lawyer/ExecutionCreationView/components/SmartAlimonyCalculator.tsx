@@ -1,13 +1,8 @@
 import React, { useMemo } from 'react';
-import { Brain } from '@/app/components/ui/icons/Brain';
-import { Scale } from '@/app/components/ui/icons/Scale';
 import { Sparkles } from '@/app/components/ui/icons/Sparkles';
 import { ecg } from './executionCreationGlassUi';
 import { formatMoneyIntegerDisplay, handleMoneyInputChange } from '@/app/utils/moneyInput';
-import {
-    analyzeAlimonyCreationContext,
-    type AlimonyAnalysisSeverity,
-} from '../hooks/analyzeAlimonyCreationContext';
+import { analyzeAlimonyCreationContext } from '../hooks/analyzeAlimonyCreationContext';
 import type { AlimonyCalculationResult } from '../hooks/useAlimonyCalculator';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 
@@ -49,12 +44,6 @@ const formatCurrency = formatMoneyIntegerDisplay;
 const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
     handleMoneyInputChange(e.target.value, setter);
 };
-
-function severityClass(severity: AlimonyAnalysisSeverity): string {
-    if (severity === 'critical') return 'border-rose-500/35 bg-rose-950/20';
-    if (severity === 'warning') return 'border-amber-500/30 bg-amber-950/15';
-    return 'border-[#E6C673]/20 bg-[#0A0F1C]/35';
-}
 
 export const SmartAlimonyCalculator: React.FC<SmartAlimonyCalculatorProps> = ({
     alimonyBeneficiary,
@@ -119,11 +108,6 @@ export const SmartAlimonyCalculator: React.FC<SmartAlimonyCalculatorProps> = ({
         ],
     );
 
-    const applyRecommendation = (field: 'lawsuitDate' | 'executionDate', value: string) => {
-        if (field === 'lawsuitDate') onLawsuitDateChange(value);
-        else onExecutionDateChange(value);
-    };
-
     const showResults =
         calculatedAlimonyNew &&
         (calculatedAlimonyNew.baseAccumulation > 0 ||
@@ -138,98 +122,9 @@ export const SmartAlimonyCalculator: React.FC<SmartAlimonyCalculatorProps> = ({
                     <Sparkles size={18} className="text-[#E6C673]" />
                     حاسبة النفقة الذكية
                 </h4>
-                <p className={ecg.cardSubtitle}>تحليل سياقي — يقرأ العلاقة بين التواريخ والمطالبات والمبالغ</p>
             </div>
 
             <div className="space-y-4">
-                <div
-                    className="rounded-xl border border-[#E6C673]/25 bg-[#05060D]/40 p-4 space-y-3"
-                    role="region"
-                    aria-label="تحليل السياق"
-                    aria-live="polite"
-                >
-                    <div className="flex items-center justify-between gap-2 flex-row-reverse">
-                        <div className="flex items-center gap-2 text-[#E6C673]">
-                            <Brain size={16} />
-                            <span className="text-xs font-bold">تحليل السياق</span>
-                        </div>
-                        <span className="text-[10px] text-slate-500 tabular-nums">
-                            اكتمال {analysis.completeness}% · تماسك {analysis.coherenceScore}%
-                        </span>
-                    </div>
-                    <p className="text-[11px] leading-relaxed text-slate-300 text-right">{analysis.synthesis}</p>
-                    <p className="text-[10px] text-slate-500 text-right border-t border-white/5 pt-2">
-                        {analysis.timelineNarrative}
-                    </p>
-
-                    {analysis.findings.length > 0 ? (
-                        <div className="space-y-2">
-                            <p className="text-[10px] font-bold text-slate-400 text-right">ملاحظات مستخرجة</p>
-                            {analysis.findings.map((f) => (
-                                <div
-                                    key={f.id}
-                                    className={`rounded-lg border p-2.5 ${severityClass(f.severity)}`}
-                                >
-                                    <p className="text-[11px] text-slate-200 text-right">{f.observation}</p>
-                                    {f.evidence.length > 0 ? (
-                                        <ul className="mt-1 space-y-0.5">
-                                            {f.evidence.map((e) => (
-                                                <li key={e} className="text-[10px] text-slate-500 text-right">
-                                                    — {e}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : null}
-                                </div>
-                            ))}
-                        </div>
-                    ) : null}
-
-                    {analysis.inferences.length > 0 ? (
-                        <div className="space-y-2">
-                            <p className="text-[10px] font-bold text-slate-400 text-right">استنتاجات</p>
-                            {analysis.inferences.map((inf) => (
-                                <div
-                                    key={inf.id}
-                                    className="rounded-lg border border-white/8 bg-white/[0.02] p-2.5"
-                                >
-                                    <p className="text-[11px] text-slate-200 text-right">{inf.conclusion}</p>
-                                    <ul className="mt-1 space-y-0.5">
-                                        {inf.because.map((b) => (
-                                            <li key={b} className="text-[10px] text-slate-500 text-right">
-                                                • {b}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ))}
-                        </div>
-                    ) : null}
-
-                    {analysis.recommendations.length > 0 ? (
-                        <div className="space-y-2 border-t border-white/5 pt-2">
-                            <p className="text-[10px] font-bold text-slate-400 text-right">مقترحات مبررة</p>
-                            {analysis.recommendations.map((rec) => (
-                                <div key={rec.id} className="text-right">
-                                    <p className="text-[11px] text-emerald-200/90">{rec.action}</p>
-                                    <p className="text-[10px] text-slate-500 mt-0.5">{rec.rationale}</p>
-                                    {rec.apply ? (
-                                        <button
-                                            type="button"
-                                            className="text-[10px] text-[#E6C673] mt-1 hover:underline"
-                                            onClick={() =>
-                                                applyRecommendation(rec.apply!.field, rec.apply!.value)
-                                            }
-                                        >
-                                            تطبيق المقترح
-                                        </button>
-                                    ) : null}
-                                </div>
-                            ))}
-                        </div>
-                    ) : null}
-                </div>
-
                 <div>
                     <label className={ecg.labelGold}>
                         المستفيد من النفقة <span className="text-rose-400">*</span>
@@ -335,10 +230,7 @@ export const SmartAlimonyCalculator: React.FC<SmartAlimonyCalculatorProps> = ({
 
                 {showResults && calculatedAlimonyNew ? (
                     <div className={ecg.resultCard}>
-                        <h5 className="text-emerald-300/95 font-bold text-sm mb-3 flex items-center gap-2">
-                            <Scale size={16} />
-                            نتائج محرك الحاسبة
-                        </h5>
+                        <h5 className="text-emerald-300/95 font-bold text-sm mb-3">نتائج محرك الحاسبة</h5>
                         <div className="space-y-2 text-sm">
                             {analysis.insights.daysBetween != null && analysis.insights.isExecutionAfterLawsuit ? (
                                 <div className="flex flex-row-reverse items-center justify-between gap-3">

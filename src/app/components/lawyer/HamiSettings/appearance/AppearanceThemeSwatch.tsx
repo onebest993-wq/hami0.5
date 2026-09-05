@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check } from '@/app/components/ui/icons/Check';
+import { SettingsCheckIcon } from '../settingsStemIconsLazy';
 import type { ThemeKey } from '@/app/types/common';
 import { LAWYER_THEME_TOKENS } from '@/app/services/settings';
 import { resolveThemeSwatchStyle } from './themeSwatchStyle';
@@ -54,8 +54,8 @@ export function AppearanceThemeSwatch({
             data-testid={`appearance-theme-swatch-${themeKey}`}
             className={`hami-setting-theme-swatch ${sizeClass} relative w-full rounded-xl overflow-hidden touch-manipulation ${
                 shownActive
-                    ? 'ring-[3px] ring-[#E6C673] ring-offset-2 ring-offset-[#0B1021] border-2 border-[#E6C673]/80 shadow-[0_0_0_1px_rgba(230,198,115,0.35)]'
-                    : 'border border-white/[0.12] hover:brightness-110 active:scale-[0.98]'
+                    ? 'ring-2 ring-[#E6C673]/80 ring-offset-1 ring-offset-[#0B1021] border border-[#E6C673]/70'
+                    : 'border border-white/[0.12]'
             }`}
             style={resolveThemeSwatchStyle(themeKey)}
         >
@@ -64,8 +64,8 @@ export function AppearanceThemeSwatch({
                     className="absolute inset-0 flex items-center justify-center bg-black/25 pointer-events-none"
                     aria-hidden
                 >
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#E6C673] text-[#0B1021] shadow-lg">
-                        <Check size={14} strokeWidth={3} />
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#E6C673] text-[#0B1021]">
+                        <SettingsCheckIcon size={12} strokeWidth={3} />
                     </span>
                 </span>
             ) : null}

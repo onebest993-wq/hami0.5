@@ -17,7 +17,7 @@ export function GlobalSearchErrorBoundary({
                     aria-label="خطأ في البحث"
                 >
                     <div className="absolute inset-0 bg-[#0A0F1C]/80" />
-                    <div className="hami-gs-error-sheet relative w-full rounded-t-2xl border-t border-x border-rose-500/20 bg-[#0B1021] p-5 flex flex-col items-center gap-3 text-center pb-[max(16px,env(safe-area-inset-bottom))] ps-[max(1rem,env(safe-area-inset-left))] pe-[max(1rem,env(safe-area-inset-right))]">
+                    <div className="hami-gs-error-sheet relative w-full rounded-xl border-t border-x border-rose-500/20 bg-[#0B1021] p-4 flex flex-col items-center gap-3 text-center pb-[max(16px,env(safe-area-inset-bottom))] ps-[max(1rem,env(safe-area-inset-left))] pe-[max(1rem,env(safe-area-inset-right))]">
                         <p className="text-white/70 text-sm max-w-xs leading-6">
                             تعذّر تحميل البحث. أغلق وحاول مرة أخرى.
                         </p>

@@ -116,7 +116,7 @@ export function personalPearlModalTheme() {
         field:
             'w-full bg-white/[0.05] border border-white/[0.12] rounded-md px-2.5 py-2 text-sm text-[#FFFEF9] outline-none focus:border-white/[0.22] focus:bg-white/[0.07] transition-colors [color-scheme:dark]',
         select:
-            'w-full bg-[#16161F] border border-white/[0.12] rounded-md px-2.5 py-2 text-sm text-[#FFFEF9] outline-none focus:border-white/[0.22] transition-colors cursor-pointer appearance-none [color-scheme:dark]',
+            'w-full bg-[#16161F] border border-white/[0.12] rounded-md px-2.5 py-2 text-sm text-[#FFFEF9] outline-none focus:border-white/[0.22] transition-colors cursor-pointer appearance-none [color-scheme:dark] [&>option]:bg-[#16161F] [&>option]:text-[#FFFEF9]',
         label: 'block text-[10px] font-bold text-[#ECE8E2]/75 mb-0.5',
         btn: 'w-full bg-[#F5C6D0]/[0.12] border border-[#F0A8B4]/24 text-[#FFFEF9] py-2 rounded-lg font-bold text-sm transition-colors hover:bg-[#F5C6D0]/[0.18] hover:border-[#F0A8B4]/34 disabled:opacity-45 disabled:cursor-not-allowed flex justify-center items-center gap-2',
         btnDisabled: 'disabled:opacity-45 disabled:cursor-not-allowed',

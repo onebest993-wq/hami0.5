@@ -15,6 +15,7 @@ type UseRepositoryEscapeStackParams = {
     editDocOpen?: boolean;
     pendingUploadOpen?: boolean;
     pendingUploadSaving?: boolean;
+    composeSaving?: boolean;
     onResetComposer: () => void;
     onCloseScanner: () => void;
     onCloseVoice?: () => void;
@@ -34,6 +35,7 @@ export function useRepositoryEscapeStack({
     editDocOpen = false,
     pendingUploadOpen = false,
     pendingUploadSaving = false,
+    composeSaving = false,
     onResetComposer,
     onCloseScanner,
     onCloseVoice,
@@ -53,8 +55,8 @@ export function useRepositoryEscapeStack({
                 if (!consumeVoiceRecorderEscape()) onCloseVoice?.();
                 return true;
             }
-            if (pendingUploadOpen && !pendingUploadSaving) {
-                onCancelPendingUpload?.();
+            if (pendingUploadOpen) {
+                if (!pendingUploadSaving) onCancelPendingUpload?.();
                 return true;
             }
             if (fileViewerOpen) {
@@ -71,7 +73,7 @@ export function useRepositoryEscapeStack({
             }
             if (dismissTopRepositoryChrome()) return true;
             if (composing) {
-                onResetComposer();
+                if (!composeSaving) onResetComposer();
                 return true;
             }
             dismissAllRepositoryChrome();
@@ -94,6 +96,7 @@ export function useRepositoryEscapeStack({
             unregisterNativeBack();
         };
     }, [
+        composeSaving,
         composing,
         editDocOpen,
         enabled,

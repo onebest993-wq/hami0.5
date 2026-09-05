@@ -66,7 +66,7 @@ export function CreateGroupModal({
                         exit={reduceMotion ? undefined : { y: '100%' }}
                         transition={reduceMotion ? { duration: 0 } : { type: 'spring', damping: 25, stiffness: 300 }}
                         style={sheetStyle}
-                        className={`fixed bottom-0 left-0 right-0 z-[120] pointer-events-auto ${FORUM_PANEL} rounded-t-[24px] p-5 sm:p-6 border-t border-white/[0.1] pb-[max(1.25rem,env(safe-area-inset-bottom))] max-h-[min(92dvh,100%)] overflow-y-auto`}
+                        className={`fixed bottom-0 left-0 right-0 z-[120] pointer-events-auto ${FORUM_PANEL} rounded-t-2xl p-4 border-t border-white/[0.1] pb-[max(1rem,env(safe-area-inset-bottom))] max-h-[min(92dvh,100%)] overflow-y-auto`}
                         onClick={(e: React.MouseEvent) => e.stopPropagation()}
                         role="dialog"
                         aria-modal="true"
@@ -83,7 +83,7 @@ export function CreateGroupModal({
                                 </button>
                             </div>
 
-                            <div className="space-y-4 mb-5">
+                            <div className="space-y-3 mb-4">
                                 <div>
                                     <label htmlFor="forum-create-group-name" className={FORUM_FIELD_LABEL}>
                                         اسم المجموعة
@@ -117,11 +117,12 @@ export function CreateGroupModal({
                             <button
                                 type="submit"
                                 disabled={submitting}
+                                aria-busy={submitting || undefined}
                                 className={`w-full h-[52px] rounded-xl font-bold text-lg touch-manipulation ${
                                     submitting ? FORUM_PUBLISH_BTN_DISABLED : FORUM_PUBLISH_BTN
                                 }`}
                             >
-                                {submitting ? 'جاري الإنشاء…' : 'إنشاء المجموعة'}
+                                إنشاء المجموعة
                             </button>
                         </form>
                     </motion.div>

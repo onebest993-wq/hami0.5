@@ -37,7 +37,7 @@ export async function commitDossierNoteAction(
         return;
     }
     const now = new Date().toISOString();
-    const sourceLabel = 'سجل الملاحظات والمهام';
+    const sourceLabel = 'سجل الملاحظات';
     const curNotes = caseNotesLogRef.current;
     const curTimeline = timelineEventsRef.current;
     const noteId = String(payload.noteId ?? '').trim();

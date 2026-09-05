@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { CaseFlowActionsPanel } from '../CaseFlowActionsPanel';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../../smartFile/civilLawsuitTestIds';
+import { ART172_STAY_LABEL } from '../../smartFile/art172AppealStay';
 import { resetSmartFileInlineOverlayRegistry } from '../../smartFile/smartFileInlineOverlayRegistry';
 import { SmartFileModalThemeProvider } from '../../smartFile/smartFileModalTheme';
 import {
@@ -68,5 +69,29 @@ describe('CaseFlowActionsPanel', () => {
         expect(dialog.className).toContain('max-w-[18rem]');
         expect(dialog.className).not.toContain('inset-x-3');
         expect(dialog.className).not.toContain('absolute');
+    });
+
+    it('يعرض استئخار الاستئناف لوجود اعتراض من قائمة سير الدعوى', () => {
+        const onPause = vi.fn();
+        render(
+            <SmartFileModalThemeProvider variant="civil">
+                <CaseFlowActionsPanel
+                    variant="dock"
+                    compactDock
+                    onPause={onPause}
+                    pauseLabel={ART172_STAY_LABEL}
+                    pauseConfirmTitle={ART172_STAY_LABEL}
+                    pauseConfirmMessage="هل تريد استئخار الاستئناف لوجود اعتراض؟ يتوقف السير حتى حسم الاعتراض."
+                    pauseTestId={CIVIL_LAWSUIT_TEST_IDS.art172Stay}
+                />
+            </SmartFileModalThemeProvider>,
+        );
+
+        fireEvent.click(screen.getByTestId(CIVIL_LAWSUIT_TEST_IDS.caseFlowOpen));
+        expect(screen.getByTestId(CIVIL_LAWSUIT_TEST_IDS.art172Stay)).toHaveTextContent(ART172_STAY_LABEL);
+        fireEvent.click(screen.getByTestId(CIVIL_LAWSUIT_TEST_IDS.art172Stay));
+        expect(onPause).not.toHaveBeenCalled();
+        fireEvent.click(screen.getByRole('button', { name: 'متابعة' }));
+        expect(onPause).toHaveBeenCalledTimes(1);
     });
 });

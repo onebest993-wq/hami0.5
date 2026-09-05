@@ -107,4 +107,55 @@ describe('notifications cleanliness close honesty', () => {
         expect(nav).not.toContain('applyForumOpaqueChrome');
         expect(nav).not.toContain('setCommunityDeepLink');
     });
+
+    it('موجة نظافة 2: لا دوال ميتة ولا prefetch/CSS مزدوج', () => {
+        const warm = read('src/app/hooks/lawyerDashboard/notificationIntentWarm.ts');
+        expect(warm).toContain('prefetchNotificationShellModule');
+        expect(warm).not.toContain('prefetchNotificationPanel');
+
+        const panelIndex = read('src/app/components/lawyer/NotificationPanel/index.tsx');
+        expect(panelIndex).not.toContain("import './notificationPanel.css'");
+        const shell = read('src/app/components/lawyer/NotificationPanel/NotificationShell.tsx');
+        expect(shell).toContain("import './notificationPanel.css'");
+
+        const lazyBarrel = read('src/app/utils/lazyComponents.tsx');
+        expect(lazyBarrel).not.toContain('prefetchNotificationPanel');
+        const lazyIntent = read('src/app/utils/lazyComponentsIntent.ts');
+        expect(lazyIntent).toContain('notificationShellLoader');
+        expect(lazyIntent).not.toContain("m.prefetchNotificationPanel()");
+
+        const shellLoader = read('src/app/runtime/notificationShellLoader.ts');
+        expect(shellLoader).toContain('markNotificationPanelModuleResolved');
+        expect(shellLoader).not.toContain('isNotificationShellModuleResolved');
+        expect(shellLoader).not.toContain('resetNotificationShellLoaderForTests');
+
+        const panelLoader = read('src/app/runtime/notificationPanelLoader.ts');
+        expect(panelLoader).not.toContain('resetNotificationPanelModuleCacheForTests');
+        expect(panelLoader).not.toContain('resetNotificationPanelModuleStateForTests');
+
+        expect(read('src/app/services/notificationMessageFormat.ts')).not.toContain(
+            'buildAuditActivityMessage',
+        );
+        expect(read('src/app/services/notifications/osTap/calendarAlarmPending.ts')).not.toContain(
+            'consumePendingCalendarAlarmEventId',
+        );
+        expect(read('src/app/services/notifications/notificationShellSnap.ts')).not.toContain(
+            'hasNotificationOverlayHost',
+        );
+        expect(read('src/app/services/notifications/notificationSupabaseInbox.ts')).not.toContain(
+            'rebuildInboxFromEventsSupabase',
+        );
+        expect(read('src/app/services/notifications/notificationLegacyMigration.ts')).not.toContain(
+            'LEGACY_ACTIVITY_NOTIFICATION_TYPES',
+        );
+        expect(read('src/app/services/notifications/hamiFcmBridge.ts')).not.toContain(
+            'resetHamiFcmBridgeForTests',
+        );
+        expect(read('src/app/services/notifications/forumNotificationDbResolver.ts')).not.toContain(
+            'resetForumNotificationDbResolverForTests',
+        );
+        expect(read('src/app/services/notifications/notificationSentryReporting.ts')).not.toContain(
+            'resetNotificationsSentryModuleForTests',
+        );
+    });
 });

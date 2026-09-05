@@ -19,28 +19,22 @@ import {
     taklifAssignmentBadgeKey,
 } from './badgeSignalKeys';
 import { hiddenBadgeIdsEqual, loadHidden, saveHidden } from './hiddenBadgeStorage';
+import {
+    loadCustomPartySignals,
+    PARTY_CUSTOM_SIGNALS_CHANGED_EVENT,
+    removeCustomPartySignal,
+    type CustomPartySignal,
+} from './customPartySignalsStorage';
 import { PartyBadgePopover } from './PartyBadgePopover';
 import { toneRing } from './toneRing';
 import { usePartyBadgePopoverChrome } from './usePartyBadgePopoverChrome';
 import { usePartyBadgeSignalUnhideEffects } from './usePartyBadgeSignalUnhideEffects';
+import { Bookmark } from '@/app/components/ui/icons/Bookmark';
 import type {
     ExecutionPartyInteractiveBadgesProps,
     PartyInteractiveBadge,
 } from './types';
-
-export type {
-    PartyBadgeParty,
-    MemoBadgeInfo,
-    PublicationNoticeBadgeInfo,
-    RegularTablighBadgeInfo,
-    AbsenceBadgeInfo,
-    TaklifAssignmentBadgeInfo,
-    EvictionGraceBadgeInfo,
-    PoliceAssistanceBadgeInfo,
-    PartyInteractiveBadge,
-    ExecutionPartyInteractiveBadgesProps,
-} from './types';
-export { buildPartyBadgeDefinitions } from './buildPartyBadgeDefinitions';
+import { PARTY_SIGNALS_SCROLL_ROW } from '../partySignalsScrollRow';
 
 export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractiveBadgesProps> = ({
     executionId,
@@ -91,6 +85,10 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
     voluntaryAttendanceCount: voluntaryAttendanceCountProp,
 }) => {
     const [hiddenLocal, setHiddenLocal] = useState<string[]>(() => loadHidden(executionId));
+    const scopeKey = party === 'debtor' ? String(activeDebtorKey || primaryDebtorKey || 'main') : 'main';
+    const [customSignals, setCustomSignals] = useState<CustomPartySignal[]>(() =>
+        loadCustomPartySignals(executionId, party, scopeKey),
+    );
     const [openId, setOpenId] = useState<string | null>(null);
     const [guarantorNameDraft, setGuarantorNameDraft] = useState('');
     const [guarantorWorkplaceDraft, setGuarantorWorkplaceDraft] = useState('');
@@ -118,6 +116,24 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
         const loaded = loadHidden(executionId);
         setHiddenLocal((prev) => (hiddenBadgeIdsEqual(prev, loaded) ? prev : loaded));
     }, [executionId]);
+
+    useEffect(() => {
+        setCustomSignals(loadCustomPartySignals(executionId, party, scopeKey));
+    }, [executionId, party, scopeKey]);
+
+    useEffect(() => {
+        const onChange = (ev: Event) => {
+            const detail = (ev as CustomEvent).detail as
+                | { executionId?: string; party?: string; scopeKey?: string }
+                | undefined;
+            if (detail?.executionId && detail.executionId !== executionId) return;
+            if (detail?.party && detail.party !== party) return;
+            if (detail?.scopeKey != null && detail.scopeKey !== scopeKey) return;
+            setCustomSignals(loadCustomPartySignals(executionId, party, scopeKey));
+        };
+        window.addEventListener(PARTY_CUSTOM_SIGNALS_CHANGED_EVENT, onChange);
+        return () => window.removeEventListener(PARTY_CUSTOM_SIGNALS_CHANGED_EVENT, onChange);
+    }, [executionId, party, scopeKey]);
 
     usePartyBadgeSignalUnhideEffects({
         executionId,
@@ -299,16 +315,33 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
 
     const allDefs = useMemo(() => [...extraDefs, ...baseDefs], [extraDefs, baseDefs]);
 
+    const customDefs = useMemo((): PartyInteractiveBadge[] => {
+        return customSignals.map((s) => ({
+            id: s.id,
+            shortLabel: s.label,
+            Icon: Bookmark,
+            tone: 'violet' as const,
+            detailLines: [{ k: 'إشارة', v: s.label }],
+            dismissMode: 'callback' as const,
+            dismissLabel: 'إزالة الإشارة',
+            onDismiss: () => removeCustomPartySignal(executionId, party, scopeKey, s.id),
+        }));
+    }, [customSignals, executionId, party, scopeKey]);
+
     const visible = useMemo(() => {
         const dossierControlled = new Set(['summons_attendance', 'taklif_attendance', 'publication_notice']);
         const v = allDefs.filter((b) => (dossierControlled.has(b.id) ? true : !hiddenLocal.includes(b.id)));
-        return [...v].sort((a, b) => {
+        const merged = [...customDefs, ...v];
+        return merged.sort((a, b) => {
+            const aCustom = a.id.startsWith('custom_') ? 0 : 1;
+            const bCustom = b.id.startsWith('custom_') ? 0 : 1;
+            if (aCustom !== bCustom) return aCustom - bCustom;
             const pa = badgeSortOrder(a.id);
             const pb = badgeSortOrder(b.id);
             if (pa !== pb) return pa - pb;
             return a.shortLabel.localeCompare(b.shortLabel, 'ar');
         });
-    }, [allDefs, hiddenLocal]);
+    }, [allDefs, customDefs, hiddenLocal]);
 
     visibleRef.current = visible;
 
@@ -377,7 +410,7 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
                 className={
                     embeddedInRow
                         ? `contents${isHistoricalMode ? ' pointer-events-none opacity-60' : ''}`
-                        : `flex min-w-0 flex-1 flex-row-reverse flex-wrap content-start items-center justify-start gap-2${
+                        : `${PARTY_SIGNALS_SCROLL_ROW}${
                               isHistoricalMode ? ' pointer-events-none opacity-60' : ''
                           }`
                 }

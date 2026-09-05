@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { registerRepositoryChromeDismiss } from './hooks/repositoryChromeDismiss';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
@@ -8,9 +8,9 @@ import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/ty
 import type { RepositoryRoom, RepositoryRoomFilter } from '@/app/services/repository/repositoryRooms';
 import { buildRepositoryRoomCounts } from '@/app/services/repository/repositoryRoomPresentation';
 import { REPO_FILTER_RAIL, REPO_ROOM_CHIP, REPO_ROOM_CHIP_ACTIVE } from './smartRepositoryTheme';
-import { RepositoryRoomsGallery } from './RepositoryRoomsGallery';
-import { RepositoryRoomMenu } from './RepositoryRoomMenu';
 import { useRepositoryRoomMenu } from './hooks/useRepositoryRoomMenu';
+import { RepositoryRoomMenu } from './RepositoryRoomMenu';
+import { RepositoryRoomsGalleryInstantCover } from './RepositoryRoomsGalleryInstantCover';
 
 type RepositoryFiltersRailProps = {
     docs: SmartVaultDoc[];
@@ -23,6 +23,10 @@ type RepositoryFiltersRailProps = {
     onRemoveRoom: (roomId: string) => void;
     onTogglePinRoom: (roomId: string) => void;
 };
+
+const RepositoryRoomsGallery = lazy(() =>
+    import('./RepositoryRoomsGallery').then((m) => ({ default: m.RepositoryRoomsGallery })),
+);
 
 function roomLabel(selectedRoomId: RepositoryRoomFilter, rooms: RepositoryRoom[]): string {
     if (selectedRoomId === 'main') return 'العام';
@@ -110,6 +114,7 @@ export function RepositoryFiltersRail({
                 onOpenGallery={() => {
                     setRoomMenuOpen(false);
                     setGalleryOpen(true);
+                    void import('./RepositoryRoomsGallery');
                 }}
             />
         ) : null;
@@ -141,17 +146,21 @@ export function RepositoryFiltersRail({
                 </div>
             </div>
 
-            <RepositoryRoomsGallery
-                open={galleryOpen}
-                rooms={rooms}
-                pinnedRoomIds={pinnedRoomIds}
-                selectedRoomId={selectedRoomId === 'main' ? null : selectedRoomId}
-                countsByRoomId={countsByRoomId}
-                onClose={() => setGalleryOpen(false)}
-                onSelect={(id) => onSelectRoom(id)}
-                onRemove={onRemoveRoom}
-                onTogglePin={onTogglePinRoom}
-            />
+            {galleryOpen ? (
+                <Suspense fallback={<RepositoryRoomsGalleryInstantCover onClose={() => setGalleryOpen(false)} />}>
+                    <RepositoryRoomsGallery
+                        open
+                        rooms={rooms}
+                        pinnedRoomIds={pinnedRoomIds}
+                        selectedRoomId={selectedRoomId === 'main' ? null : selectedRoomId}
+                        countsByRoomId={countsByRoomId}
+                        onClose={() => setGalleryOpen(false)}
+                        onSelect={(id) => onSelectRoom(id)}
+                        onRemove={onRemoveRoom}
+                        onTogglePin={onTogglePinRoom}
+                    />
+                </Suspense>
+            ) : null}
         </div>
     );
 }

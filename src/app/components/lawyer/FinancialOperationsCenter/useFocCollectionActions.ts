@@ -114,31 +114,30 @@ export function useFocCollectionActions(
             notify(debtEditLockReason, 'warning');
             return;
         }
-        const total = parseAmount(debtEditTotalInput);
+        const total = Math.round(totalOwedUnified);
         const remaining = parseAmount(debtEditRemainingInput);
         const current = getLatestLedgerStore();
         const result = applyManualDebtTotalsEdit(current, ledgerTotalParams, total, remaining);
         if (!result.ok) {
-            notify('reason' in result ? result.reason : 'تعذّر تعديل المبالغ يدوياً.', 'warning');
+            notify('reason' in result ? result.reason : 'تعذّر تعديل المتبقي.', 'warning');
             return;
         }
         persist(result.store);
         const principalSnapshot = resolvePrincipalBasisFromStore(result.store, ledgerTotalParams);
         onManualDebtTotalsUpdated?.({
             principalSnapshot,
-            totalOwed: Math.max(0, Math.round(total)),
+            totalOwed: Math.max(0, total),
             remaining: Math.max(0, Math.round(remaining)),
         });
         recordFinancialTimelineNote(
-            '✏️ تعديل الدين',
-            `إجمالي الدين: ${Math.round(total).toLocaleString('ar-IQ')} د.ع — المتبقي: ${Math.round(remaining).toLocaleString('ar-IQ')} د.ع`
+            '✏️ تعديل المتبقي',
+            `متبقي الدين: ${Math.round(remaining).toLocaleString('ar-IQ')} د.ع (إجمالي ثابت: ${total.toLocaleString('ar-IQ')} د.ع)`
         );
         setDebtEditOpen(false);
-        notify('تم تحديث إجمالي الدين والمتبقي.', 'success');
+        notify('تم تحديث متبقي الدين.', 'success');
     }, [
         debtEditLockReason,
         debtEditRemainingInput,
-        debtEditTotalInput,
         getLatestLedgerStore,
         ledgerTotalParams,
         notify,
@@ -146,6 +145,7 @@ export function useFocCollectionActions(
         persist,
         recordFinancialTimelineNote,
         setDebtEditOpen,
+        totalOwedUnified,
     ]);
 
     useEffect(() => {

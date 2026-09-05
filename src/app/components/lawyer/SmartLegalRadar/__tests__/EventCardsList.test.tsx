@@ -13,6 +13,11 @@ function makeEvent(id: string): UnifiedEvent {
     };
 }
 
+/** زر الحذف يحمل `radar-event-card-delete-*` — لا يُحسب بطاقة. */
+function visibleEventCards() {
+    return screen.getAllByRole('article');
+}
+
 describe('EventCardsList', () => {
     it('يعرض الكل عندما العدد ≤ threshold', () => {
         const events = Array.from({ length: EVENT_LIST_EXPAND_THRESHOLD }, (_, i) =>
@@ -22,7 +27,7 @@ describe('EventCardsList', () => {
             <EventCardsList events={events} onEdit={vi.fn()} onDelete={vi.fn()} />,
         );
         expect(screen.queryByTestId('radar-show-all-events')).toBeNull();
-        expect(screen.getAllByTestId(/radar-event-card-/)).toHaveLength(EVENT_LIST_EXPAND_THRESHOLD);
+        expect(visibleEventCards()).toHaveLength(EVENT_LIST_EXPAND_THRESHOLD);
     });
 
     it('يُظهر زر expand ثم كل البطاقات', async () => {
@@ -32,10 +37,10 @@ describe('EventCardsList', () => {
         render(
             <EventCardsList events={events} onEdit={vi.fn()} onDelete={vi.fn()} />,
         );
-        expect(screen.getAllByTestId(/radar-event-card-/)).toHaveLength(EVENT_LIST_EXPAND_THRESHOLD);
+        expect(visibleEventCards()).toHaveLength(EVENT_LIST_EXPAND_THRESHOLD);
         fireEvent.click(screen.getByTestId('radar-show-all-events'));
         await waitFor(() => {
-            expect(screen.getAllByTestId(/radar-event-card-/)).toHaveLength(events.length);
+            expect(visibleEventCards()).toHaveLength(events.length);
         });
     });
 

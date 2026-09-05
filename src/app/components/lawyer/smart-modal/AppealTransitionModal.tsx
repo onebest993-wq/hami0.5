@@ -12,14 +12,17 @@ import {
     filterVisibleOpponentParties,
     isInterpleaderAppealParty,
     resolveAppealPartyPickerVisibility,
+    litigantsForAppealHopFromObjection,
 } from './smartFile/appealPartyEngine';
 import {
     filterMethodsForAppealRoute,
-    isAppellateAppealAllowed,
-    resolveCassationOnlyHint,
 } from './smartFile/appealRouteEligibility';
 import { resolveAllowedOpponentAppealMethods } from './smartFile/judgmentTypes';
-import { isAbsentJudgmentForm, canOfferAbsentObjectionToDefendant } from './smartFile/absentJudgmentFlow';
+import { canOfferAbsentObjectionToDefendant } from './smartFile/absentJudgmentFlow';
+import { isDisputeIndivisible, judgmentFormHasGhayabi, normalizePartyJudgmentDispositions } from '@/app/domain/lawsuit/partyJudgmentDisposition';
+import { filterAppellantPartiesByChallengeMethod } from '@/app/domain/lawsuit/challengeAppellantEligibility';
+import { filterAppellantsByAppealInterest } from './smartFile/appealInterestEligibility';
+import { missingCompulsoryJoinderIds } from '@/app/domain/lawsuit/partyChallengeLanes';
 import {
     filterPersonalStatusAppealMethods,
     isPersonalStatusAppealContext,
@@ -29,19 +32,26 @@ import { useJudgmentModalStyles } from './smartFile/smartModalChrome';
 import {
     appealMethodLabel,
     defaultAppealType,
+    defaultSelectedChallengeAppellantIds,
     normalizeAppealMethodValue,
     resolveAppealOutcomeHint,
 } from './appealTransitionModalHelpers';
 import {
-    deriveAbsentObjectionCaseNumber,
     resolveAppealStageCaseNumber,
-    shouldDeriveAbsentObjectionCaseNumber,
 } from './smartFile/absentObjectionCaseNumber';
 import { resolveAppealTransitionChrome } from './appealTransitionModalChrome';
 import { AppealTransitionModalHeader } from './AppealTransitionModalHeader';
 import { AppealTransitionModalBody } from './AppealTransitionModalBody';
 import { AppealTransitionModalFooter } from './AppealTransitionModalFooter';
 import type { AppealTransitionModalProps } from './AppealTransitionModal.types';
+import {
+    isAppealWindowLapseMethod,
+    isCassationWindowLapseMethod,
+    shouldOfferAppealWindowLapse,
+    shouldOfferCassationWindowLapse,
+} from './smartFile/appealWindowLapseEngine';
+import { blocksCivilDossierFinality } from './smartFile/art172AppealStay';
+import { shouldSpawnIndependentChallengeDossier } from '@/app/domain/lawsuit/independentChallengeDossier';
 
 export type { AppealTransitionModalProps } from './AppealTransitionModal.types';
 
@@ -62,10 +72,24 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
     stages = [],
     lawsuitFile,
     sourceCaseNumber = '',
+    decisionDate,
+    appealDeadline,
+    cassationDeadline,
+    appealWindowLapsed,
+    cassationWindowLapsed,
+    presetCourt = '',
+    partyJudgmentDispositions,
+    forcedAllowedMethods,
+    preferredChallengerPartyId = null,
+    spawnIndependentDossier: spawnIndependentDossierProp = false,
 }) => {
     const s = useJudgmentModalStyles();
     const isOpponentRegistration = mode === 'opponentRegistration';
-    const isGhayabi = isAbsentJudgmentForm(judgmentForm, lastJudgmentType);
+    const isGhayabi = judgmentFormHasGhayabi(
+        judgmentForm,
+        lastJudgmentType,
+        partyJudgmentDispositions,
+    );
     const effectiveFinalDecision = useMemo(
         () => resolveAppealOutcomeHint(judgmentType, finalDecision),
         [judgmentType, finalDecision],
@@ -80,6 +104,8 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                 finalDecision: effectiveFinalDecision,
                 representedParty,
                 opponentRegistration: isOpponentRegistration,
+                partyJudgmentDispositions,
+                parties: currentParties,
             }),
         [
             stageName,
@@ -89,15 +115,13 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
             effectiveFinalDecision,
             representedParty,
             isOpponentRegistration,
+            partyJudgmentDispositions,
+            currentParties,
         ],
     );
-    const showJudgmentFormMeta =
-        Boolean(judgmentForm) &&
-        !String(stageName ?? '').includes('استئناف') &&
-        !String(stageName ?? '').includes('تمييز');
     const allowedOpponentMethods = useMemo(
-        () =>
-            isOpponentRegistration
+        () => {
+            const resolved = isOpponentRegistration
                 ? resolveAllowedOpponentAppealMethods({
                       judgmentForm,
                       lastJudgmentType,
@@ -106,8 +130,16 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                       appealRoute,
                       stages,
                       file: lawsuitFile,
+                      appealWindowLapsed,
+                      cassationWindowLapsed,
+                      partyJudgmentDispositions,
                   })
-                : [],
+                : [];
+            if (!forcedAllowedMethods?.length) return resolved;
+            const forced = forcedAllowedMethods.map((method) => normalizeAppealMethodValue(method));
+            const overlap = resolved.filter((method) => forced.includes(normalizeAppealMethodValue(method)));
+            return overlap.length > 0 ? overlap : forced;
+        },
         [
             isOpponentRegistration,
             judgmentForm,
@@ -117,25 +149,69 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
             appealRoute,
             stages,
             lawsuitFile,
+            appealWindowLapsed,
+            cassationWindowLapsed,
+            partyJudgmentDispositions,
+            forcedAllowedMethods,
         ],
+    );
+
+    const lapseStage = useMemo(
+        () => ({
+            stageName: stageName ?? undefined,
+            decisionDate: decisionDate ?? undefined,
+            appealDeadline: appealDeadline ?? undefined,
+            legalTimers: cassationDeadline ? { cassationDeadline } : undefined,
+            appealWindowLapsed,
+            cassationWindowLapsed,
+            awaitingOpponentAppeal: true as const,
+        }),
+        [
+            stageName,
+            decisionDate,
+            appealDeadline,
+            cassationDeadline,
+            appealWindowLapsed,
+            cassationWindowLapsed,
+        ],
+    );
+
+    const offerAppealWindowLapse =
+        isOpponentRegistration && shouldOfferAppealWindowLapse(lapseStage);
+    const offerCassationWindowLapse =
+        isOpponentRegistration
+        && shouldOfferCassationWindowLapse(lapseStage)
+        && !blocksCivilDossierFinality({
+            stages,
+            parties: currentParties,
+            parentIntegrity: lawsuitFile?.disputeIntegrity,
+        });
+
+    const [appealType, setAppealType] = useState<string>(() =>
+        defaultAppealType(judgmentForm, appealRoute, allowedOpponentMethods, stageName, canOfferAbsentObjection, stages),
+    );
+
+    const hopParties = useMemo(
+        () => litigantsForAppealHopFromObjection(currentParties as Party[], appealType),
+        [currentParties, appealType],
     );
 
     const standardAppellantSide = useMemo(() => {
         if (isOpponentRegistration) {
-            return resolveOpponentAsAppellant(representedParty, currentParties);
+            return resolveOpponentAsAppellant(representedParty, hopParties);
         }
-        return inferAppellantSideFromLawyer(representedParty, currentParties);
-    }, [isOpponentRegistration, representedParty, currentParties]);
+        return inferAppellantSideFromLawyer(representedParty, hopParties);
+    }, [isOpponentRegistration, representedParty, hopParties]);
 
     const dossierLayout = useMemo(
         () =>
             isOpponentRegistration
                 ? resolveOpponentRegistrationAppealLayout(
-                      currentParties as Party[],
+                      hopParties,
                       representedParty,
                       incidentalCases,
                   )
-                : resolveAppealDossierLayout(currentParties as Party[], {
+                : resolveAppealDossierLayout(hopParties, {
                       judgmentType,
                       representedParty,
                       incidentalCases,
@@ -143,7 +219,7 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                   }),
         [
             isOpponentRegistration,
-            currentParties,
+            hopParties,
             judgmentType,
             representedParty,
             incidentalCases,
@@ -153,18 +229,71 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
 
     const appellantParties = dossierLayout.appellantParties;
     const opponentParties = dossierLayout.opponentParties;
+    const normalizedDispositions = useMemo(
+        () => normalizePartyJudgmentDispositions(partyJudgmentDispositions),
+        [partyJudgmentDispositions],
+    );
+    const sourceStageForTracks = useMemo(
+        () =>
+            (stages ?? []).find(
+                (stage) => String(stage.stageName ?? stage.name ?? '') === String(stageName ?? ''),
+            ) ?? (stages ?? []).find((stage) => Array.isArray(stage.partyChallengeLanes) && stage.partyChallengeLanes.length > 0),
+        [stages, stageName],
+    );
+    const challengeFilterParams = useMemo(
+        () => ({
+            dispositions: normalizedDispositions.length > 0
+                ? normalizedDispositions
+                : sourceStageForTracks?.partyJudgmentDispositions,
+            lanes: sourceStageForTracks?.partyChallengeLanes,
+            scalarForm: judgmentForm ?? lastJudgmentType ?? sourceStageForTracks?.judgmentForm,
+            judgmentType: String(judgmentType ?? '').trim() || undefined,
+        }),
+        [normalizedDispositions, sourceStageForTracks, judgmentForm, lastJudgmentType, judgmentType],
+    );
 
     const [selectedAppellantIds, setSelectedAppellantIds] = useState<Array<number | string>>(
-        () => dossierLayout.defaultAppellantIds,
+        () =>
+            defaultSelectedChallengeAppellantIds(
+                dossierLayout.appellantParties as Party[],
+                preferredChallengerPartyId,
+            ),
     );
 
     const [selectedOpponentIds, setSelectedOpponentIds] = useState<Array<number | string>>(
         () => dossierLayout.defaultOpponentIds,
     );
 
+    const spawnIndependentDossier =
+        Boolean(spawnIndependentDossierProp)
+        || shouldSpawnIndependentChallengeDossier({
+            stages,
+            sourceStage: (stages.find((stage) => String(stage.stageName ?? stage.name ?? '') === String(stageName ?? ''))
+                ?? { stageName, name: stageName }) as (typeof stages)[number],
+            appealType,
+        });
+
+    const formEligibleAppellants = useMemo(
+        () =>
+            filterAppellantsByAppealInterest(
+                filterAppellantPartiesByChallengeMethod(appellantParties as Party[], {
+                    appealType,
+                    dispositions: challengeFilterParams.dispositions,
+                    lanes: challengeFilterParams.lanes,
+                    scalarForm: challengeFilterParams.scalarForm,
+                }),
+                {
+                    appealType,
+                    judgmentType: challengeFilterParams.judgmentType,
+                    dispositions: challengeFilterParams.dispositions,
+                },
+            ),
+        [appellantParties, appealType, challengeFilterParams],
+    );
+
     const visibleAppellantParties = useMemo(
-        () => filterVisibleAppellantParties(appellantParties, selectedOpponentIds),
-        [appellantParties, selectedOpponentIds],
+        () => filterVisibleAppellantParties(formEligibleAppellants, selectedOpponentIds),
+        [formEligibleAppellants, selectedOpponentIds],
     );
     const visibleOpponentParties = useMemo(
         () => filterVisibleOpponentParties(opponentParties, selectedAppellantIds),
@@ -177,17 +306,15 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                 dossierLayout,
                 visibleAppellantParties,
                 visibleOpponentParties,
-                parties: currentParties as Party[],
+                parties: hopParties,
                 incidentalCases,
             }),
-        [dossierLayout, visibleAppellantParties, visibleOpponentParties, currentParties, incidentalCases],
+        [dossierLayout, visibleAppellantParties, visibleOpponentParties, hopParties, incidentalCases],
     );
 
-    const [appealType, setAppealType] = useState<string>(() =>
-        defaultAppealType(judgmentForm, appealRoute, allowedOpponentMethods, stageName, canOfferAbsentObjection, stages),
-    );
     const [filingDate, setFilingDate] = useState<string>(getLocalTodayYmd());
     const [newCaseNumber, setNewCaseNumber] = useState<string>('');
+    const [courtName, setCourtName] = useState<string>(() => String(presetCourt ?? '').trim());
     const wasOpenRef = useRef(false);
     const caseNumberEditedRef = useRef(false);
 
@@ -215,11 +342,42 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
             setAppealType(initialType);
             setFilingDate(getLocalTodayYmd());
             applyDefaultCaseNumber(initialType);
-            setSelectedAppellantIds(dossierLayout.defaultAppellantIds);
+            setCourtName(String(presetCourt ?? '').trim());
+            setSelectedAppellantIds(
+                defaultSelectedChallengeAppellantIds(
+                    filterAppellantsByAppealInterest(
+                        filterAppellantPartiesByChallengeMethod(dossierLayout.appellantParties as Party[], {
+                            appealType: initialType,
+                            dispositions: challengeFilterParams.dispositions,
+                            lanes: challengeFilterParams.lanes,
+                            scalarForm: challengeFilterParams.scalarForm,
+                        }),
+                        {
+                            appealType: initialType,
+                            judgmentType: challengeFilterParams.judgmentType,
+                            dispositions: challengeFilterParams.dispositions,
+                        },
+                    ),
+                    preferredChallengerPartyId,
+                ),
+            );
             setSelectedOpponentIds(dossierLayout.defaultOpponentIds);
             wasOpenRef.current = true;
         }
-    }, [isOpen, judgmentForm, appealRoute, allowedOpponentMethods, dossierLayout, stageName, canOfferAbsentObjection, stages, sourceCaseNumber]);
+    }, [isOpen, judgmentForm, appealRoute, allowedOpponentMethods, dossierLayout, stageName, canOfferAbsentObjection, stages, sourceCaseNumber, presetCourt, challengeFilterParams, preferredChallengerPartyId]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        if (isAppealWindowLapseMethod(appealType) || isCassationWindowLapseMethod(appealType)) return;
+        const eligible = new Set(formEligibleAppellants.map((party) => String(party.id)));
+        setSelectedAppellantIds((prev) => {
+            const kept = prev.filter((id) => eligible.has(String(id)));
+            if (kept.length === prev.length && (kept.length > 0 || prev.length === 0)) return prev;
+            return kept.length > 0
+                ? kept
+                : defaultSelectedChallengeAppellantIds(formEligibleAppellants, preferredChallengerPartyId);
+        });
+    }, [isOpen, appealType, formEligibleAppellants, preferredChallengerPartyId]);
 
     const isPersonalAppeal = isPersonalStatusAppealContext(stageName, stages, lawsuitFile);
     const isFromAppealStage = !isPersonalAppeal && String(stageName ?? '').includes('استئناف');
@@ -261,12 +419,10 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
         ) : filtered;
     }, [isFromAppealStage, isOpponentRegistration, allowedOpponentMethods, isGhayabi, appealRoute, isPersonalAppeal, canOfferAbsentObjection]);
 
-    const cassationOnlyHint =
-        appealRoute && !isAppellateAppealAllowed(appealRoute)
-            ? resolveCassationOnlyHint(appealRoute)
-            : null;
-
     useEffect(() => {
+        if (isAppealWindowLapseMethod(appealType) || isCassationWindowLapseMethod(appealType)) {
+            return;
+        }
         if (!appealTypeOptions.some((o) => o.value === appealType)) {
             setAppealType(appealTypeOptions[0]?.value ?? 'تمييز');
         }
@@ -322,7 +478,6 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
             : 'رقم دعوى الاستئناف';
 
     const {
-        hintShell,
         appellantPickerCard,
         opponentPickerCard,
         appellantPickerTitle,
@@ -335,17 +490,76 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
         opponentCheckSelected,
     } = resolveAppealTransitionChrome(s);
 
+    const isLapseSelection =
+        isAppealWindowLapseMethod(appealType) || isCassationWindowLapseMethod(appealType);
+
+    const showCourtField =
+        !isLapseSelection
+        && !isPersonalAppeal
+        && (appealType === 'استئناف' || appealType.includes('استئناف'))
+        && !appealType.includes('تمييز')
+        && !appealType.includes('اعتراض');
+    const showIdentityCourtField = showCourtField || spawnIndependentDossier;
+
     const handleSubmit = () => {
-        if (showAppellantPicker && selectedAppellantIds.length === 0) {
-            SmartToast.error('⚠️ اختر طرفاً واحداً على الأقل من الطاعنين');
+        if (isLapseSelection) {
+            onConfirm({
+                appealType,
+                appellant: dossierLayout.appellantLegalSide,
+                filingDate: getLocalTodayYmd(),
+                newCaseNumber: '',
+                notes: '',
+                newCourt: String(presetCourt ?? '').trim() || undefined,
+            });
+            onClose();
+            return;
+        }
+        const effectiveAppellantIds = showAppellantPicker
+            ? selectedAppellantIds.filter((id) =>
+                visibleAppellantParties.some((party) => String(party.id) === String(id)),
+            )
+            : visibleAppellantParties.map((party) => party.id);
+        if (effectiveAppellantIds.length === 0) {
+            SmartToast.error(
+                visibleAppellantParties.length === 0
+                    ? 'لا يوجد طرف يمكن تسجيل الطعن باسمه'
+                    : 'حدّد من قام بالطعن',
+            );
             return;
         }
         if (showOpponentPicker && selectedOpponentIds.length === 0) {
             SmartToast.error('⚠️ اختر طرفاً واحداً على الأقل للمخاصمة في الطعن');
             return;
         }
+        if (spawnIndependentDossier) {
+            const court = String(courtName ?? '').trim();
+            const caseNo = String(newCaseNumber ?? '').trim();
+            if (!court) {
+                SmartToast.error('أدخل اسم محكمة الاستئناف قبل إنشاء الإضبارة المستقلة');
+                return;
+            }
+            if (!caseNo) {
+                SmartToast.error('أدخل رقم دعوى الاستئناف قبل إنشاء الإضبارة المستقلة');
+                return;
+            }
+        }
+        if (
+            isDisputeIndivisible(lawsuitFile?.disputeIntegrity)
+        ) {
+            const selectedForJoinder = showOpponentPicker
+                ? selectedOpponentIds
+                : dossierLayout.defaultOpponentIds;
+            const missing = missingCompulsoryJoinderIds(
+                dossierLayout.defaultOpponentIds,
+                selectedForJoinder,
+            );
+            if (missing.length > 0) {
+                SmartToast.error('وحدة النزاع تلزم اختصام كافة المحكوم لهم في عريضة الطعن');
+                return;
+            }
+        }
         const appellantLegalSide = resolveAppellantLegalSideFromSelection(
-            showAppellantPicker ? selectedAppellantIds : dossierLayout.defaultAppellantIds,
+            effectiveAppellantIds,
             appellantParties,
             dossierLayout.appellantLegalSide,
         );
@@ -355,6 +569,9 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
             stages,
             file: lawsuitFile,
         });
+        const resolvedCourt = showIdentityCourtField
+            ? String(courtName ?? '').trim() || String(presetCourt ?? '').trim() || undefined
+            : String(presetCourt ?? '').trim() || undefined;
         onConfirm({
             appealType: normalizedAppealType,
             appellant: appellantLegalSide,
@@ -365,8 +582,11 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                 sourceCaseNumber,
             ),
             notes: '',
-            includedOpponentPartyIds: showOpponentPicker ? selectedOpponentIds : undefined,
-            includedAppellantPartyIds: showAppellantPicker ? selectedAppellantIds : undefined,
+            newCourt: resolvedCourt,
+            includedOpponentPartyIds: isDisputeIndivisible(lawsuitFile?.disputeIntegrity)
+                ? (showOpponentPicker ? selectedOpponentIds : dossierLayout.defaultOpponentIds)
+                : (showOpponentPicker ? selectedOpponentIds : undefined),
+            includedAppellantPartyIds: effectiveAppellantIds,
             appealDossierMode: dossierLayout.mode,
         });
         onClose();
@@ -386,16 +606,13 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
 
                 <AppealTransitionModalBody
                     s={s}
-                    hintShell={hintShell}
-                    judgmentType={judgmentType}
-                    cassationOnlyHint={cassationOnlyHint}
-                    showJudgmentFormMeta={showJudgmentFormMeta}
-                    judgmentForm={judgmentForm}
                     appealType={appealType}
                     setAppealType={handleAppealTypeChange}
                     appealTypeOptions={appealTypeOptions}
-                    showAppellantPicker={showAppellantPicker}
-                    showOpponentPicker={showOpponentPicker}
+                    offerAppealWindowLapse={offerAppealWindowLapse}
+                    offerCassationWindowLapse={offerCassationWindowLapse}
+                    showAppellantPicker={showAppellantPicker && !isLapseSelection}
+                    showOpponentPicker={showOpponentPicker && !isLapseSelection}
                     isOpponentRegistration={isOpponentRegistration}
                     appellantLabel={appellantLabel}
                     opponentLabel={opponentLabel}
@@ -420,17 +637,24 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                     newCaseNumber={newCaseNumber}
                     setNewCaseNumber={handleCaseNumberChange}
                     caseNumberLabel={caseNumberLabel}
-                    caseNumberOptional
-                    caseNumberHint={
-                        shouldDeriveAbsentObjectionCaseNumber(appealType) && sourceCaseNumber
-                            ? `اقتراح عند توفر الرقم: ${deriveAbsentObjectionCaseNumber(sourceCaseNumber)}`
-                            : undefined
-                    }
+                    caseNumberOptional={!spawnIndependentDossier}
+                    hideFilingFields={isLapseSelection}
+                    showCourtField={showIdentityCourtField}
+                    courtName={courtName}
+                    setCourtName={setCourtName}
+                    courtFieldRequired={spawnIndependentDossier}
                 />
 
                 <AppealTransitionModalFooter
                     s={s}
                     isOpponentRegistration={isOpponentRegistration}
+                    submitLabel={
+                        isLapseSelection
+                            ? 'تأكيد'
+                            : spawnIndependentDossier
+                              ? 'إنشاء طعن استئنافي مستقل'
+                              : undefined
+                    }
                     onSubmit={handleSubmit}
                     onClose={onClose}
                 />

@@ -18,7 +18,7 @@ import { useLawyerExecutionOverlayEscape } from '@/app/hooks/lawyerDashboard/use
 import { useLawyerNonExecArchiveEscape } from '@/app/hooks/lawyerDashboard/useLawyerNonExecArchiveEscape';
 import { isProfileShellSnappedOpen } from '@/app/services/profile/profileShellSnap';
 import { isNotificationShellSnappedOpen } from '@/app/services/notifications/notificationShellSnap';
-import { isSettingsShellSnappedOpen } from '@/app/services/settings/settingsShellSnap';
+import { isSettingsLayerOpen } from '@/app/runtime/settingsOverlayPresence';
 import { isGlobalSearchShellSnappedOpen } from '@/app/services/search/globalSearchShellSnap';
 import { executeOverlaySnapClose } from '@/app/runtime/overlaySnapClose';
 import type { LawyerDashboardOverlaysBundleProps } from '@/app/components/lawyer/dashboard/lawyerDashboardOverlaysBundles';
@@ -181,8 +181,7 @@ export function useLawyerDashboardMainViewChrome({
         };
     }, []);
 
-    const settingsOpen =
-        Boolean(overlaysBundle.overlays.showSettings) && isSettingsShellSnappedOpen();
+    const settingsOpen = isSettingsLayerOpen(Boolean(overlaysBundle.overlays.showSettings));
     const notificationsOpen =
         Boolean(notificationPanel.isOpen) && isNotificationShellSnappedOpen();
     const globalSearchOpen =

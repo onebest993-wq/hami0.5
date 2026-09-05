@@ -6,7 +6,7 @@ import {
 } from '@/app/services/fieldTasks/fieldTasksPerfMetrics';
 
 /** جاهزية التخزين — sync boot يكفي لعرض الأجندة فوراً */
-export function useTasksStorageHydratedSignal(active: boolean): boolean {
+function useTasksStorageHydratedSignal(active: boolean): boolean {
     const { storageHydrated } = useQuantumTasksData();
     return active && storageHydrated;
 }

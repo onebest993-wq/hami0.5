@@ -4,10 +4,10 @@ import {
     compareCommunityPostsByUpvotes,
     compareCommunityPostsForFeed,
 } from '@/app/services/forum/forumUrgentConsultation';
-import { communityTagMatchesFilter, resolveCommunityPostTags } from '../repositoryTagUtils';
+import { communityTagMatchesFilter, normalizeCommunityTags, resolveCommunityPostTags } from '../repositoryTagUtils';
 
 export function normalizeCommunityPostsPage(page: CommunityPost[]): CommunityPost[] {
-    return page.map((p) => ({ ...p, tags: resolveCommunityPostTags(p.content, p.tags) }));
+    return page.map((p) => ({ ...p, tags: normalizeCommunityTags(p.tags) }));
 }
 
 export function mergeSortedCommunityPosts(
@@ -26,6 +26,31 @@ export function trimCommunityPostsRetention(posts: CommunityPost[], max: number)
     const unpinnedBudget = Math.max(0, max - pinned.length);
     const keptUnpinned = unpinned.slice(0, unpinnedBudget);
     return sortCommunityPosts([...pinned, ...keptUnpinned]);
+}
+
+/** مقارنة رخيصة لتفادي إعادة رسم الخلاصة إن لم يتغيّر الاستطلاع */
+export function areCommunityPostListsEquivalent(a: CommunityPost[], b: CommunityPost[]): boolean {
+    if (a === b) return true;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+        const pa = a[i];
+        const pb = b[i];
+        if (
+            pa.id !== pb.id ||
+            pa.content !== pb.content ||
+            Boolean(pa.isEdited) !== Boolean(pb.isEdited) ||
+            pa.updatedAt !== pb.updatedAt ||
+            pa.upvoterIds.length !== pb.upvoterIds.length ||
+            pa.comments.length !== pb.comments.length ||
+            Boolean(pa.isPinned) !== Boolean(pb.isPinned) ||
+            Boolean(pa.isLocked) !== Boolean(pb.isLocked) ||
+            (pa.tags ?? []).join('\0') !== (pb.tags ?? []).join('\0') ||
+            (pa.bestCommentId ?? null) !== (pb.bestCommentId ?? null)
+        ) {
+            return false;
+        }
+    }
+    return true;
 }
 
 export function computeVisibleCommunityPosts(params: {

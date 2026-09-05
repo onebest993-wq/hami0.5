@@ -7,6 +7,7 @@ import type { ShareScope } from '@/app/types/taskHelpTypes';
 import { clampTaskText, MAX_HELP_NOTE_LENGTH } from '@/app/services/tasks/taskInputGuard';
 import type { NetworkColleague } from '@/app/services/caseShare/caseShareTypes';
 import { CaseShareApiService } from '@/app/services/caseShare/caseShareApiService';
+import { canReachCollaborationNetwork } from '@/app/services/settings/collaborationNetworkGate';
 import {
     Dialog,
     DialogDescription,
@@ -71,6 +72,11 @@ export function RequestHelpModal({
 
     useEffect(() => {
         if (!open || !userId || scope !== 'PRIVATE_DIRECT') return;
+        if (!canReachCollaborationNetwork()) {
+            setColleagues([]);
+            setLoadingColleagues(false);
+            return;
+        }
         let cancelled = false;
         setLoadingColleagues(true);
         void CaseShareApiService.listNetworkColleagues(userId)
@@ -90,6 +96,10 @@ export function RequestHelpModal({
 
     const handleSubmit = useCallback(async () => {
         if (!task || !userId) return;
+        if (!canReachCollaborationNetwork()) {
+            setError('طلب العون للزملاء يحتاج اتصالاً — الوضع المحلي يقطع الإرسال.');
+            return;
+        }
         if (scope === 'PRIVATE_DIRECT' && !colleagueId) {
             setError('اختر زميلاً للطلب الخاص');
             return;
@@ -131,6 +141,11 @@ export function RequestHelpModal({
                 </DialogHeader>
 
                 <div className="space-y-3 text-right py-2">
+                    {!canReachCollaborationNetwork() ? (
+                        <p className={TASKS_DIALOG_DESC} role="status">
+                            طلب العون للزملاء يحتاج اتصالاً. قطع الاتصال يمنع الإرسال. المهام اليومية تبقى على الجهاز.
+                        </p>
+                    ) : null}
                     <div className="grid grid-cols-2 gap-2">
                         <button
                             type="button"
@@ -201,6 +216,7 @@ export function RequestHelpModal({
                             value={note}
                             onChange={(e) => setNote(e.target.value)}
                             placeholder="تعليمات مختصرة للزميل…"
+                            enterKeyHint="send"
                         />
                     </div>
 
@@ -215,7 +231,7 @@ export function RequestHelpModal({
                     <button
                         type="button"
                         data-testid="task-help-submit"
-                        disabled={submitting || !userId}
+                        disabled={submitting || !userId || !canReachCollaborationNetwork()}
                         onClick={() => void handleSubmit()}
                         className={`${TASKS_BTN_BRONZE} inline-flex items-center gap-2 disabled:opacity-40`}
                     >

@@ -10,6 +10,8 @@ import {
 import { InterlocutoryAppealModal } from '../../modals/appealObjectionModals';
 import { AbsentJudgmentNotificationModal, OpponentAbsentObjectionModal } from '../../modals/appealObjectionModals';
 import { NextHearingResumeModal } from '../../modals/flow-modals/NextHearingResumeModal';
+import { listUnservedGhayabiNoticeOptions } from '@/app/domain/lawsuit/partyChallengeLanes';
+import { resolveFirstInstanceActionSource } from '../../smartFile/opponentRegistrationContext';
 
 export function SmartFileModalsFlowSection(props: SmartFileModalsPortalProps) {
     const {
@@ -42,7 +44,16 @@ export function SmartFileModalsFlowSection(props: SmartFileModalsPortalProps) {
         currentStage,
         handlers: h,
         parentData,
+        stages,
     } = props;
+
+    const fiSource = resolveFirstInstanceActionSource(stages, currentStage);
+    const ghayabiNoticeParties = listUnservedGhayabiNoticeOptions({
+        parties: fiSource.stage.parties,
+        dispositions: fiSource.stage.partyJudgmentDispositions,
+        lanes: fiSource.stage.partyChallengeLanes,
+        judgmentForm: fiSource.stage.judgmentForm,
+    });
 
     return (
         <>
@@ -164,6 +175,7 @@ export function SmartFileModalsFlowSection(props: SmartFileModalsPortalProps) {
                     isOpen={showAbsentJudgmentNotificationModal}
                     onClose={() => setShowAbsentJudgmentNotificationModal(false)}
                     onConfirm={h.handleAbsentJudgmentNotification}
+                    ghayabiParties={ghayabiNoticeParties}
                 />
                 <OpponentAbsentObjectionModal
                     key="opp-abs-obj"
@@ -171,6 +183,7 @@ export function SmartFileModalsFlowSection(props: SmartFileModalsPortalProps) {
                     onClose={() => setShowOpponentAbsentObjectionModal(false)}
                     onConfirm={h.handleOpponentAbsentObjection}
                     sourceCaseNumber={String(currentStage.caseNo ?? parentData.caseNo ?? '').trim()}
+                    ghayabiParties={ghayabiNoticeParties}
                 />
                 {isTrashOpen && (
                     <LazyTrashModal

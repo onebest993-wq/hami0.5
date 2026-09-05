@@ -13,20 +13,24 @@ import {
     MoroccanGlassShell,
     MoroccanHeaderDivider,
 } from '../../smartFile/moroccanGlassShell';
+import { GhayabiPartyChoiceList } from './GhayabiPartyChoiceList';
 
 export const OpponentAbsentObjectionModal = ({
     isOpen,
     onClose,
     onConfirm,
     sourceCaseNumber = '',
+    ghayabiParties = [],
 }: OpponentAbsentObjectionModalProps) => {
     const [newCaseNumber, setNewCaseNumber] = useState('');
     const [filingDate, setFilingDate] = useState(getLocalTodayYmd());
+    const [objectorPartyId, setObjectorPartyId] = useState(ghayabiParties[0]?.partyId ?? '');
 
     React.useEffect(() => {
         if (isOpen) {
             setNewCaseNumber('');
             setFilingDate(getLocalTodayYmd());
+            setObjectorPartyId(ghayabiParties[0]?.partyId ?? '');
         }
     }, [isOpen, sourceCaseNumber]);
 
@@ -38,7 +42,11 @@ export const OpponentAbsentObjectionModal = ({
 
     const handleSubmit = () => {
         if (!filingDate) return;
-        onConfirm({ newCaseNumber: resolvedCaseNumber, filingDate });
+        onConfirm({
+            newCaseNumber: resolvedCaseNumber,
+            filingDate,
+            ...(objectorPartyId ? { objectorPartyId } : {}),
+        });
         onClose();
     };
 
@@ -78,6 +86,15 @@ export const OpponentAbsentObjectionModal = ({
                         </p>
                     ) : null}
                 </div>
+                {ghayabiParties.length > 1 ? (
+                    <GhayabiPartyChoiceList
+                        parties={ghayabiParties}
+                        value={objectorPartyId}
+                        onChange={setObjectorPartyId}
+                        label="المعترض الغائب"
+                        labelClassName="block text-[11px] font-bold text-white/50 mb-1.5"
+                    />
+                ) : null}
                 <div>
                     <label className="block text-[11px] font-bold text-white/50 mb-1.5">
                         تاريخ تقديم الاعتراض <span className="text-red-400">*</span>

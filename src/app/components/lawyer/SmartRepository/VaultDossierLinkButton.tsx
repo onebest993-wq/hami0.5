@@ -74,7 +74,7 @@ export function VaultDossierLinkButton({
 
     const menu = open ? (
         <div
-            className="fixed z-[136] rounded-2xl border border-white/10 bg-[#121826] p-2"
+            className="fixed z-[136] rounded-xl border border-white/10 bg-[#121826] p-2"
             style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}
             dir="rtl"
             data-testid="vault-dossier-link-menu"

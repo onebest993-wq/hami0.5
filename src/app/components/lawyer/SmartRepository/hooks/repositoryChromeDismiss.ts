@@ -3,7 +3,7 @@
  * Capture Escape في useRepositoryEscapeStack يستدعي الأعلى أولاً.
  */
 
-export type RepositoryChromeDismisser = () => boolean;
+type RepositoryChromeDismisser = () => boolean;
 
 const stack: RepositoryChromeDismisser[] = [];
 
@@ -30,6 +30,7 @@ export function dismissTopRepositoryChrome(): boolean {
 export function dismissAllRepositoryChrome(): void {
     const copy = stack.slice().reverse();
     for (const dismiss of copy) dismiss();
+    stack.length = 0;
 }
 
 export function resetRepositoryChromeDismissStackForTests(): void {

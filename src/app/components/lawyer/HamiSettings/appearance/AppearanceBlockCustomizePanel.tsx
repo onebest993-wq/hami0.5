@@ -11,7 +11,7 @@ export function AppearanceBlockCustomizePanel({
     themePrimary: string;
 }) {
     return (
-        <div className="space-y-4" data-testid="appearance-block-customize-panel">
+        <div className="space-y-2.5" data-testid="appearance-block-customize-panel">
             <AppearanceBlockPicker customize={customize} />
             <AppearanceBlockStyleControls customize={customize} themePrimary={themePrimary} />
         </div>

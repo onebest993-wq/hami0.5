@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
@@ -9,6 +9,8 @@ import type { DossierPickerOption } from '@/app/services/repository/repositoryDo
 import {
     appendNoteToExecutionFile,
     appendNoteToLawsuitFile,
+    deleteExecutionDossierNote,
+    deleteLawsuitDossierNote,
     encodeBoundDossierId,
     globalNoteToDossierPayload,
     vaultDocToDossierPayload,
@@ -36,36 +38,56 @@ export function useRepositoryComposeDossier({
     onUpdateExecutionFile,
     vault,
 }: UseRepositoryComposeDossierParams) {
+    const linkingRef = useRef(false);
+
     const handleLinkGlobalToDossier = useCallback(
         async (note: GlobalNote, dossier: DossierPickerOption) => {
+            if (linkingRef.current) return;
             const payload = globalNoteToDossierPayload(note);
-            if (dossier.kind === 'lawsuit') {
-                const file = lawsuitFiles.find((f) => String(f.id) === dossier.id);
-                if (!file) {
-                    SmartToast.error('تعذّر العثور على إضبارة الدعوى');
-                    return;
+            linkingRef.current = true;
+            try {
+                if (dossier.kind === 'lawsuit') {
+                    const file = lawsuitFiles.find((f) => String(f.id) === dossier.id);
+                    if (!file) {
+                        SmartToast.error('تعذّر العثور على إضبارة الدعوى');
+                        return;
+                    }
+                    const appended = appendNoteToLawsuitFile(file, payload);
+                    onUpdateLawsuitFile(appended.file);
+                    try {
+                        await onSaveNote({ ...note, repositoryInboxHidden: true });
+                    } catch (err) {
+                        onUpdateLawsuitFile(deleteLawsuitDossierNote(appended.file, appended.noteId));
+                        throw err;
+                    }
+                } else {
+                    const file = executionFiles.find((f) => String(f.id) === dossier.id);
+                    if (!file) {
+                        SmartToast.error('تعذّر العثور على إضبارة التنفيذ');
+                        return;
+                    }
+                    const appended = appendNoteToExecutionFile(file, payload);
+                    onUpdateExecutionFile(appended.file);
+                    try {
+                        await onSaveNote({ ...note, repositoryInboxHidden: true });
+                    } catch (err) {
+                        onUpdateExecutionFile(deleteExecutionDossierNote(appended.file, appended.noteId));
+                        throw err;
+                    }
                 }
-                onUpdateLawsuitFile(appendNoteToLawsuitFile(file, payload));
-            } else {
-                const file = executionFiles.find((f) => String(f.id) === dossier.id);
-                if (!file) {
-                    SmartToast.error('تعذّر العثور على إضبارة التنفيذ');
-                    return;
-                }
-                onUpdateExecutionFile(appendNoteToExecutionFile(file, payload));
+                SmartToast.success('تم ربط المسودة بالإضبارة — Inbox Zero ✓');
+            } catch {
+                SmartToast.error('تعذّر ربط المسودة بالإضبارة');
+            } finally {
+                linkingRef.current = false;
             }
-
-            await onSaveNote({
-                ...note,
-                repositoryInboxHidden: true,
-            });
-            SmartToast.success('تم ربط المسودة بالإضبارة — Inbox Zero ✓');
         },
         [executionFiles, lawsuitFiles, onSaveNote, onUpdateExecutionFile, onUpdateLawsuitFile],
     );
 
     const handleBindVaultDoc = useCallback(
         async (doc: SmartVaultDoc, dossier: DossierPickerOption) => {
+            if (linkingRef.current) return;
             const uid = vault.currentUserId || currentUserId || '';
             if (!uid) {
                 SmartToast.error('يرجى تسجيل الدخول أولاً');
@@ -77,29 +99,57 @@ export function useRepositoryComposeDossier({
             }
 
             const payload = vaultDocToDossierPayload(doc);
-            if (dossier.kind === 'lawsuit') {
-                const file = lawsuitFiles.find((f) => String(f.id) === dossier.id);
-                if (!file) {
-                    SmartToast.error('تعذّر العثور على إضبارة الدعوى');
-                    return;
+            linkingRef.current = true;
+            try {
+                if (dossier.kind === 'lawsuit') {
+                    const file = lawsuitFiles.find((f) => String(f.id) === dossier.id);
+                    if (!file) {
+                        SmartToast.error('تعذّر العثور على إضبارة الدعوى');
+                        return;
+                    }
+                    const appended = appendNoteToLawsuitFile(file, payload);
+                    onUpdateLawsuitFile(appended.file);
+                    try {
+                        await SmartVaultDB.bindToDossier(
+                            doc.id,
+                            uid,
+                            encodeBoundDossierId(dossier.kind, dossier.id),
+                        );
+                    } catch (err) {
+                        onUpdateLawsuitFile(deleteLawsuitDossierNote(appended.file, appended.noteId));
+                        throw err;
+                    }
+                } else {
+                    const file = executionFiles.find((f) => String(f.id) === dossier.id);
+                    if (!file) {
+                        SmartToast.error('تعذّر العثور على إضبارة التنفيذ');
+                        return;
+                    }
+                    const appended = appendNoteToExecutionFile(file, payload);
+                    onUpdateExecutionFile(appended.file);
+                    try {
+                        await SmartVaultDB.bindToDossier(
+                            doc.id,
+                            uid,
+                            encodeBoundDossierId(dossier.kind, dossier.id),
+                        );
+                    } catch (err) {
+                        onUpdateExecutionFile(deleteExecutionDossierNote(appended.file, appended.noteId));
+                        throw err;
+                    }
                 }
-                onUpdateLawsuitFile(appendNoteToLawsuitFile(file, payload));
-            } else {
-                const file = executionFiles.find((f) => String(f.id) === dossier.id);
-                if (!file) {
-                    SmartToast.error('تعذّر العثور على إضبارة التنفيذ');
-                    return;
-                }
-                onUpdateExecutionFile(appendNoteToExecutionFile(file, payload));
-            }
 
-            await SmartVaultDB.bindToDossier(doc.id, uid, encodeBoundDossierId(dossier.kind, dossier.id));
-            await vault.refreshDocs();
-            SmartToast.success(
-                dossier.kind === 'lawsuit'
-                    ? 'تم ربط الملف بإضبارة الدعوى'
-                    : 'تم ربط الملف بإضبارة التنفيذ',
-            );
+                await vault.refreshDocs().catch(() => undefined);
+                SmartToast.success(
+                    dossier.kind === 'lawsuit'
+                        ? 'تم ربط الملف بإضبارة الدعوى'
+                        : 'تم ربط الملف بإضبارة التنفيذ',
+                );
+            } catch {
+                SmartToast.error('تعذّر ربط الملف بالإضبارة');
+            } finally {
+                linkingRef.current = false;
+            }
         },
         [
             currentUserId,

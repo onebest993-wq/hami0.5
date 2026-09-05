@@ -1,8 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-    useLawyerSettings,
-    useLawyerSettingsActions,
-} from '@/app/context/lawyerSettings/lawyerSettingsHooks';
+import { useCallback, useMemo, useState } from 'react';
+import { useLawyerSettings } from '@/app/context/lawyerSettings/lawyerSettingsHooks';
+import { applyLawyerSettingsPatchExternal } from '@/app/context/lawyerSettings/lawyerSettingsPersistence';
 import {
     NOTIFICATION_SETTINGS_DEFAULTS,
     normalizeNotificationSettings,
@@ -17,12 +15,10 @@ import {
 import { stopHamiLegalReminderAlarm } from '@/app/services/calendar/calendarReminderAlarmSound';
 import { primeNotificationArrivalAudio } from '@/app/services/notifications/notificationArrivalSound';
 import { formatMuteUntilLabel } from '@/app/components/lawyer/NotificationPanel/utils/formatMuteUntilLabel';
-import type { NotificationAlertDndMode } from '@/app/components/lawyer/NotificationPanel/components/notificationAlertDndTypes';
 
 /** حالة كتم الجلسة / ساعات الهدوء فقط — منفصل عن قنوات الصوت والصلاحيات. */
 export function useNotificationDndControls() {
     const { settings } = useLawyerSettings();
-    const { patchSettings } = useLawyerSettingsActions();
     const notifications = normalizeNotificationSettings(
         settings.notifications ?? NOTIFICATION_SETTINGS_DEFAULTS,
     );
@@ -32,25 +28,16 @@ export function useNotificationDndControls() {
             ? notifications.sessionMutedUntil
             : null;
 
-    const [dndMode, setDndMode] = useState<NotificationAlertDndMode>(() =>
-        mutedUntil ? 'once' : 'schedule',
-    );
     const [muteUntilLocal, setMuteUntilLocal] = useState(() =>
         toDatetimeLocalValue(Date.now() + 60 * 60_000),
     );
     const [muteError, setMuteError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (mutedUntil) {
-            setMuteUntilLocal(toDatetimeLocalValue(mutedUntil));
-            setDndMode('once');
-        }
-    }, [mutedUntil]);
-
     const patchNotifications = useCallback(
         (patch: Parameters<typeof patchNotificationSettings>[1]) => {
             void primeNotificationArrivalAudio().catch(() => undefined);
-            patchSettings((prev) => ({
+            /* اللوحة تحت BootProvider: patchSettings هناك noop — نفس مسار الورقة الأصلية. */
+            applyLawyerSettingsPatchExternal((prev) => ({
                 ...prev,
                 notifications: patchNotificationSettings(
                     normalizeNotificationSettings(prev.notifications),
@@ -58,7 +45,7 @@ export function useNotificationDndControls() {
                 ),
             }));
         },
-        [patchSettings],
+        [],
     );
 
     const applySessionMute = useCallback(
@@ -108,8 +95,6 @@ export function useNotificationDndControls() {
         notifications,
         quietHoursActive,
         mutedUntil,
-        dndMode,
-        setDndMode,
         muteUntilLocal,
         muteError,
         dndStatus,

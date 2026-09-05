@@ -1,12 +1,6 @@
 import { createPreloadableLazyComponent } from '@/app/utils/lazy/preloadableLazy';
 
-/** جسم الملاحظات/المهام داخل النافذة الحية — نفس الـ instance للرأس والتاريخ. */
-export const LazyExecutionTasksSection = createPreloadableLazyComponent(() =>
-    import('./components/ExecutionTasksSection').then((m) => ({
-        default: m.ExecutionTasksSection,
-    })),
-);
-
+/** جسم سجل الملاحظات داخل النافذة الحية. */
 export const LazyDossierNotesVault = createPreloadableLazyComponent(() =>
     import('@/app/components/lawyer/dossier-notes/DossierNotesVault').then((m) => ({
         default: m.DossierNotesVault,
@@ -14,6 +8,5 @@ export const LazyDossierNotesVault = createPreloadableLazyComponent(() =>
 );
 
 export function prefetchExecutionNotesInnerSurfaces(): void {
-    void LazyExecutionTasksSection.preload();
     void LazyDossierNotesVault.preload();
 }

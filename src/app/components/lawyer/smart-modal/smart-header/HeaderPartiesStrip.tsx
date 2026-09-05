@@ -8,8 +8,6 @@ export interface HeaderPartiesStripProps {
     interpleaders: Party[];
     p1Role: string;
     p2Role: string;
-    openPartyKey: string | null;
-    onToggleParty: (key: string) => void;
 }
 
 export function HeaderPartiesStrip({
@@ -18,8 +16,6 @@ export function HeaderPartiesStrip({
     interpleaders,
     p1Role,
     p2Role,
-    openPartyKey,
-    onToggleParty,
 }: HeaderPartiesStripProps) {
     if (plaintiffs.length === 0 && defendants.length === 0 && interpleaders.length === 0) return null;
 
@@ -39,8 +35,6 @@ export function HeaderPartiesStrip({
                         accent="emerald"
                         parties={plaintiffs}
                         keyPrefix="p1"
-                        openPartyKey={openPartyKey}
-                        onToggleParty={onToggleParty}
                     />
 
                     <PartySidePane
@@ -49,8 +43,6 @@ export function HeaderPartiesStrip({
                         accent="rose"
                         parties={defendants}
                         keyPrefix="p2"
-                        openPartyKey={openPartyKey}
-                        onToggleParty={onToggleParty}
                     />
                 </div>
             ) : null}
@@ -58,8 +50,6 @@ export function HeaderPartiesStrip({
             {interpleaders.length > 0 ? (
                 <InterpleaderPartiesPane
                     parties={interpleaders}
-                    openPartyKey={openPartyKey}
-                    onToggleParty={onToggleParty}
                 />
             ) : null}
         </div>

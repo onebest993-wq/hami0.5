@@ -155,6 +155,28 @@ describe('hiddenFollowupRequestsUtils', () => {
         expect(keys).toContain('executive_detention_judge');
     });
 
+    it('lists buried guarantor seizures for an employee after the guarantor is active', () => {
+        const items = listHiddenGuarantorCatalog(
+            {
+                ...baseFlags,
+                hideAllGuarantorPresence: true,
+                showGuarantorInSeizureTab: false,
+            },
+            {
+                ...guarantorCtx,
+                activeDebtorIsEmployee: true,
+                executionData: {
+                    guarantor_followup: { executor_approved: true, details_saved: true },
+                } as never,
+            }
+        );
+        const keys = items.map((x) => x.key);
+        expect(keys).not.toContain('guarantor_request');
+        expect(keys).toContain('guarantor_seizure_salary');
+        expect(keys).toContain('guarantor_seizure_property');
+        expect(keys).toContain('guarantor_seizure_movable');
+    });
+
     it('hides guarantor seizure from buried list when shown in seizure tab (employee)', () => {
         const items = listHiddenGuarantorCatalog(
             {
@@ -196,22 +218,22 @@ describe('hiddenFollowupRequestsUtils', () => {
                 ...guarantorCtx,
                 activeDebtorIsEmployee: false,
             })
-        ).toBe(true);
+        ).toBe(false);
 
         const employeeItems = listHiddenGuarantorCatalog(employeeFlags, {
             ...guarantorCtx,
             activeDebtorIsEmployee: true,
         });
-        expect(employeeItems.map((x) => x.key)).toContain('guarantor_request');
-        expect(employeeItems.filter((x) => x.key === 'guarantor_request')).toHaveLength(1);
+        expect(employeeItems.map((x) => x.key)).not.toContain('guarantor_request');
         expect(
             shouldShowGuarantorRequestInSeizureTab(employeeFlags, {
                 ...guarantorCtx,
                 activeDebtorIsEmployee: true,
             })
         ).toBe(false);
+        /** طلب الكفيل أُزيل من المخفي — الشارة من التسوية فقط */
         expect(hasAnyHiddenFollowupContent(employeeFlags, { ...guarantorCtx, activeDebtorIsEmployee: true })).toBe(
-            true
+            false
         );
     });
 
@@ -223,8 +245,7 @@ describe('hiddenFollowupRequestsUtils', () => {
             },
             guarantorCtx
         );
-        expect(items.map((x) => x.key)).toContain('guarantor_request');
-        expect(items.filter((x) => x.key === 'guarantor_request')).toHaveLength(1);
+        expect(items.map((x) => x.key)).not.toContain('guarantor_request');
     });
 
     it('detects hidden break inventory for specific delivery immovable', () => {

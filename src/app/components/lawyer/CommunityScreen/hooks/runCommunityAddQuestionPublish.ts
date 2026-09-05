@@ -1,7 +1,6 @@
 import { flushSync } from 'react-dom';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
-import { prepareForumAttachmentForPublish } from '@/app/services/forumAttachmentService';
 import { publishForumPost } from '@/lib/forumService.js';
 import { applyAutoRedaction } from '../utils';
 import { checkForumRateLimit } from '../forumRateLimit';
@@ -53,6 +52,9 @@ export async function runCommunityAddQuestionPublish(args: RunCommunityAddQuesti
     let attachmentForPublish = args.newAttachment;
     if (attachmentForPublish) {
         try {
+            const { prepareForumAttachmentForPublish } = await import(
+                '@/app/services/forumAttachmentService'
+            );
             attachmentForPublish = await prepareForumAttachmentForPublish(
                 attachmentForPublish,
                 args.currentUserId,

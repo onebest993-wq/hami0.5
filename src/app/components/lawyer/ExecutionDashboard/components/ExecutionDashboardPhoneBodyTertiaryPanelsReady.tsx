@@ -1,19 +1,12 @@
 import React from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { PropertyInlineSaveContext } from '@/app/components/lawyer/ExecutionDashboard/utils/propertySeizureInlinePersistence';
-import type { MovableInlineSaveContext } from '@/app/components/lawyer/ExecutionDashboard/utils/movableSeizureInlinePersistence';
-import type { SaveSeizedMovableInitInput } from '@/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardFollowupSeizureInits';
 import { ExecutionDashboardPhoneBodyTertiarySeizureSubjectModals } from './ExecutionDashboardPhoneBodyTertiarySeizureSubjectModals';
 import { ExecutionDashboardPhoneBodyTertiaryHubs } from './ExecutionDashboardPhoneBodyTertiaryHubs';
 import type { ExecutionDashboardPhoneBodyDeferredScope } from './ExecutionDashboardPhoneBodyDeferredScope';
-import type { SeizedMovable } from '@/app/types/execution';
 
 export type ExecutionDashboardPhoneBodyTertiaryPanelsProps = {
     scope: ExecutionDashboardPhoneBodyDeferredScope;
     tertiaryStageReady: boolean;
-    propertyInlineSaveCtx: PropertyInlineSaveContext;
-    movableInlineSaveCtx: MovableInlineSaveContext;
-    saveSeizedMovableInitForDecision: (input: SaveSeizedMovableInitInput) => SeizedMovable | null | void;
     closeFinancialHubPortal: () => void;
     toggleFinancialCenterExpanded: () => void;
     openGuarantorFollowupDetails: () => void;
@@ -30,9 +23,6 @@ export type ExecutionDashboardPhoneBodyTertiaryPanelsProps = {
 export function ExecutionDashboardPhoneBodyTertiaryPanelsReady({
     scope,
     tertiaryStageReady,
-    propertyInlineSaveCtx,
-    movableInlineSaveCtx,
-    saveSeizedMovableInitForDecision,
     closeFinancialHubPortal,
     toggleFinancialCenterExpanded,
     openGuarantorFollowupDetails,
@@ -66,9 +56,6 @@ export function ExecutionDashboardPhoneBodyTertiaryPanelsReady({
         <>
             <ExecutionDashboardPhoneBodyTertiaryHubs
                 scope={scope}
-                propertyInlineSaveCtx={propertyInlineSaveCtx}
-                movableInlineSaveCtx={movableInlineSaveCtx}
-                saveSeizedMovableInitForDecision={saveSeizedMovableInitForDecision}
                 closeFinancialHubPortal={closeFinancialHubPortal}
                 toggleFinancialCenterExpanded={toggleFinancialCenterExpanded}
                 openGuarantorFollowupDetails={openGuarantorFollowupDetails}

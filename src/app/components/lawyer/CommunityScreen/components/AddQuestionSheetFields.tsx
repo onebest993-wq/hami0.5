@@ -20,7 +20,7 @@ export function AddQuestionSheetFields({
 }: AddQuestionSheetFieldsProps) {
     return (
         <>
-            <div className="mb-4 relative">
+            <div className="mb-3 relative">
                 <label htmlFor="forum-add-question-body" className={FORUM_FIELD_LABEL}>
                     مضمون النشر
                 </label>
@@ -44,7 +44,7 @@ export function AddQuestionSheetFields({
                     }}
                     onKeyDown={mention.handleKeyDown}
                     onBlur={() => window.setTimeout(() => mention.closeSuggestions(), 120)}
-                    className={`w-full h-32 ${FORUM_SURFACE_INPUT} rounded-xl p-4 resize-none`}
+                    className={`w-full h-28 ${FORUM_SURFACE_INPUT} rounded-xl p-3 resize-none`}
                     placeholder="اكتب سؤالك أو ملاحظتك القانونية هنا…"
                     maxLength={POST_MAX_LENGTH}
                     enterKeyHint="enter"
@@ -60,7 +60,7 @@ export function AddQuestionSheetFields({
                 ) : null}
             </div>
 
-            <div className="mb-4">
+            <div className="mb-3">
                 <label htmlFor="forum-add-question-tags" className={FORUM_FIELD_LABEL}>
                     الوسوم <span className={`${FORUM_TEXT_MUTED} font-normal`}>(اختياري)</span>
                 </label>

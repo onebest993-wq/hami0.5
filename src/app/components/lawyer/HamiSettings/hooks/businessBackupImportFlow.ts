@@ -5,19 +5,25 @@ import type {
     BusinessBackupVaultBlob,
     PendingBusinessImport,
 } from '@/app/services/settings/businessBackupTypes';
+import { settingsFlowAbandoned } from '../settingsFlowGuard';
 import { loadBusinessBackupEngine } from './businessBackupEngine';
 
 export async function importBusinessBackupEntries(
     entries: Array<[string, string]>,
     vaultBlobs: BusinessBackupVaultBlob[] = [],
+    sectionActiveRef?: MutableRefObject<boolean>,
 ): Promise<boolean> {
     try {
         const { backup } = await loadBusinessBackupEngine();
         await backup.importBusinessBackupEntries(entries, vaultBlobs);
-        SmartToast.success('تم استيراد البيانات');
+        if (!sectionActiveRef || !settingsFlowAbandoned(sectionActiveRef)) {
+            SmartToast.success('تم استيراد البيانات');
+        }
         return true;
     } catch {
-        SmartToast.warning('تعذر استيراد البيانات');
+        if (!sectionActiveRef || !settingsFlowAbandoned(sectionActiveRef)) {
+            SmartToast.warning('تعذر استيراد البيانات');
+        }
         return false;
     }
 }
@@ -29,16 +35,16 @@ export async function prepareBusinessImportFile(args: {
     setPendingBusinessImport: Dispatch<SetStateAction<PendingBusinessImport | null>>;
 }): Promise<void> {
     const { file, sectionActiveRef, importBusinessInputRef, setPendingBusinessImport } = args;
-    if (!file || !sectionActiveRef.current) return;
+    if (!file || settingsFlowAbandoned(sectionActiveRef)) return;
     try {
         const { backup, security } = await loadBusinessBackupEngine();
-        if (!sectionActiveRef.current) return;
+        if (settingsFlowAbandoned(sectionActiveRef)) return;
         if (file.size > security.MAX_BACKUP_FILE_BYTES) {
             SmartToast.warning('ملف النسخة كبير جداً');
             return;
         }
         const text = await file.text();
-        if (!sectionActiveRef.current) return;
+        if (settingsFlowAbandoned(sectionActiveRef)) return;
         let parsedText = text;
         let obj = JSON.parse(text) as {
             kind?: unknown;
@@ -62,18 +68,22 @@ export async function prepareBusinessImportFile(args: {
                     maxLength: security.BACKUP_PASSWORD_MAX_LENGTH,
                 },
             );
-            if (password === null || !password.trim()) return;
+            if (password === null || !password.trim() || settingsFlowAbandoned(sectionActiveRef)) {
+                return;
+            }
             try {
                 parsedText = await backup.decryptBusinessBackupText(obj, password);
-                if (!sectionActiveRef.current) return;
+                if (settingsFlowAbandoned(sectionActiveRef)) return;
                 obj = JSON.parse(parsedText) as typeof obj;
             } catch {
-                SmartToast.warning('كلمة المرور غير صحيحة أو الملف تالف');
+                if (!settingsFlowAbandoned(sectionActiveRef)) {
+                    SmartToast.warning('كلمة المرور غير صحيحة أو الملف تالف');
+                }
                 return;
             }
         }
         const parsed = backup.parseBusinessBackupFile(parsedText);
-        if (!sectionActiveRef.current) return;
+        if (settingsFlowAbandoned(sectionActiveRef)) return;
         const validation = security.validateBusinessBackupImport(parsed.entries);
         if (validation.ok === false) {
             SmartToast.warning(validation.reason);
@@ -91,7 +101,9 @@ export async function prepareBusinessImportFile(args: {
             vaultBlobs: parsed.vaultBlobs,
         });
     } catch {
-        SmartToast.warning('ملف النسخة غير صالح');
+        if (!settingsFlowAbandoned(sectionActiveRef)) {
+            SmartToast.warning('ملف النسخة غير صالح');
+        }
     } finally {
         if (importBusinessInputRef.current) importBusinessInputRef.current.value = '';
     }

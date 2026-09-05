@@ -20,5 +20,24 @@ describe('civilLawsuitTestIds', () => {
         expect(CIVIL_LAWSUIT_TEST_IDS.taskAdd).toBe('smart-file-task-add');
         expect(CIVIL_LAWSUIT_TEST_IDS.taskModal).toBe('smart-file-task-modal');
         expect(CIVIL_LAWSUIT_TEST_IDS.taskRow('t1')).toBe('smart-file-task-row-t1');
+        expect(CIVIL_LAWSUIT_TEST_IDS.judgmentFormHadari).toBe('smart-judgment-form-hadari');
+        expect(CIVIL_LAWSUIT_TEST_IDS.judgmentFormGhiabiParty('3')).toBe(
+            'smart-judgment-form-ghiabi-3',
+        );
+        expect(CIVIL_LAWSUIT_TEST_IDS.art172Stay).toBe('smart-art172-stay');
+        expect(CIVIL_LAWSUIT_TEST_IDS.art172StayHint).toBe('smart-art172-stay-hint');
+        expect(CIVIL_LAWSUIT_TEST_IDS.art172Coverage).toBe('smart-art172-coverage');
+        expect(CIVIL_LAWSUIT_TEST_IDS.art191ExecutionStay).toBe('smart-art191-execution-stay');
+        expect(CIVIL_LAWSUIT_TEST_IDS.partyChallengeLanes).toBe('smart-party-challenge-lanes');
+        expect(CIVIL_LAWSUIT_TEST_IDS.art210Extension).toBe('smart-art210-extension');
+        expect(CIVIL_LAWSUIT_TEST_IDS.joinCoObjector).toBe('smart-join-co-objector');
+        expect(CIVIL_LAWSUIT_TEST_IDS.unifiedObjectionBanner).toBe('smart-unified-objection-banner');
+        expect(CIVIL_LAWSUIT_TEST_IDS.absentJudgmentNotice).toBe('smart-absent-judgment-notice');
+        expect(CIVIL_LAWSUIT_TEST_IDS.absentJudgmentNoticePicker).toBe(
+            'smart-absent-judgment-notice-picker',
+        );
+        expect(CIVIL_LAWSUIT_TEST_IDS.judgmentCassationGroundsCommon).toBe(
+            'smart-judgment-cassation-grounds-common',
+        );
     });
 });

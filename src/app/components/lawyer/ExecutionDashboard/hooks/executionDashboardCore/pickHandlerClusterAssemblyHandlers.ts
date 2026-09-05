@@ -14,7 +14,6 @@ const HANDLER_CLUSTER_ASSEMBLY_HANDLER_KEYS = [
     'evictionFinancialHandlers',
     'moduleExpenseHandlers',
     'followupSeizureHandlers',
-    'seizureAssetModalHandlers',
     'focusSeizurePropertyInlineCompletion',
     'focusSeizureMovableInlineCompletion',
     'focusSeizureThirdPartyInlineCompletion',

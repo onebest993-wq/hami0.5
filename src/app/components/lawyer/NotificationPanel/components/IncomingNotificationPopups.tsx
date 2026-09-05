@@ -4,7 +4,7 @@ import { X } from '@/app/components/ui/icons/X';
 import type { IncomingNotificationPopup } from '@/app/hooks/lawyerDashboard/useIncomingNotificationPopups';
 import { formatTimeShort } from '@/app/components/lawyer/NotificationPanel/utils/timeGrouping';
 
-export type IncomingNotificationPopupsProps = {
+type IncomingNotificationPopupsProps = {
     items: IncomingNotificationPopup[];
     onDismiss: (id: string) => void;
     onOpen: (id: string) => void;
@@ -30,18 +30,18 @@ function PopupCard({
                 onOpen(item.id);
             }}
             data-testid={`incoming-notification-popup-${item.id}`}
-            className="relative group hami-incoming-notification-popup-card pointer-events-auto w-full text-right rounded-2xl border border-white/[0.08] bg-[#0b1021] overflow-hidden touch-manipulation"
+            className="relative group hami-incoming-notification-popup-card pointer-events-auto w-full text-right rounded-xl border border-white/[0.08] bg-[#0b1021] overflow-hidden touch-manipulation"
         >
             <div className="absolute inset-y-0 end-0 w-0.5 bg-white/15" aria-hidden />
-            <div className="relative px-4 py-3.5 flex items-start gap-3">
+            <div className="relative px-3 py-2.5 flex items-start gap-2.5">
                 <div className="flex-1 min-w-0 pe-1">
                     <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-bold text-white leading-snug line-clamp-1">{item.title}</p>
+                        <p className="text-[13px] font-semibold text-white leading-snug line-clamp-1">{item.title}</p>
                         <span className="text-[10px] text-white/35 font-mono shrink-0 tabular-nums">
                             {formatTimeShort(item.createdAt)}
                         </span>
                     </div>
-                    <p className="text-xs text-white/65 leading-relaxed mt-1 line-clamp-2">{item.message}</p>
+                    <p className="text-[11px] text-white/62 leading-snug mt-0.5 line-clamp-1">{item.message}</p>
                 </div>
                 <button
                     type="button"
@@ -69,7 +69,7 @@ function IncomingNotificationPopupsInner({ items, onDismiss, onOpen }: IncomingN
 
     return createPortal(
         <div
-            className="hami-incoming-notification-popups-host fixed z-[99990] inset-x-4 top-[max(0.75rem,env(safe-area-inset-top))] sm:inset-x-auto sm:end-[max(1rem,env(safe-area-inset-right))] sm:top-[max(4.5rem,calc(env(safe-area-inset-top)+3.5rem))] sm:w-[min(100%,380px)] md:w-[min(100%,420px)] lg:w-[min(100%,440px)] flex flex-col gap-2.5 pointer-events-none"
+            className="hami-incoming-notification-popups-host fixed z-[99990] inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] sm:inset-x-auto sm:end-[max(1rem,env(safe-area-inset-right))] sm:top-[max(4.5rem,calc(env(safe-area-inset-top)+3.5rem))] sm:w-[min(100%,380px)] md:w-[min(100%,420px)] lg:w-[min(100%,440px)] flex flex-col gap-2 pointer-events-none"
             dir="rtl"
             data-testid="incoming-notification-popups"
             aria-live="polite"

@@ -88,7 +88,7 @@ export function LawsuitsWorkspaceUrgentTab({
             >
                 <Suspense
                     fallback={
-                        <LawsuitsWorkspaceTabLoading label="جاري تحميل الطلبات المستعجلة..." />
+                        <LawsuitsWorkspaceTabLoading label="الطلبات المستعجلة" />
                     }
                 >
                     <LazyView embeddedInWorkspace focusCaseId={focusCaseId} />

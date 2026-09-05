@@ -1,18 +1,24 @@
-import { Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 
 import {
     CommunityScreenForumFeedPane,
 } from '@/app/components/lawyer/CommunityScreen/components/CommunityScreenForumFeedPane';
 import type { CommunityScreenLazySectionPanesProps } from '@/app/components/lawyer/CommunityScreen/components/CommunityScreenLazySectionPanes.types';
 import {
-    LazyForumGroupsSection,
-    LazyLegalRepository,
-} from '@/app/components/lawyer/CommunityScreen/communityScreenLazySections';
-import {
-    FORUM_LAZY_SECTION_MIN_HEIGHT_CLASS,
     forumLazySectionPaneClass,
     shouldMountForumLazySection,
 } from '@/app/components/lawyer/CommunityScreen/forumLazySectionMount';
+import { ForumLazySectionInstantSlots } from '@/app/components/lawyer/CommunityScreen/components/ForumLazySectionInstantSlots';
+
+const LazyLegalRepository = lazy(() =>
+    import('@/app/components/lawyer/CommunityScreen/components/LegalRepository').then((m) => ({
+        default: m.LegalRepository,
+    })),
+);
+
+const LazyForumGroupsSection = lazy(
+    () => import('@/app/components/lawyer/CommunityScreen/components/ForumGroupsSection'),
+);
 
 export type { CommunityScreenLazySectionPanesProps } from './CommunityScreenLazySectionPanes.types';
 
@@ -81,11 +87,7 @@ export function CommunityScreenLazySectionPanes({
                 {shouldMountForumLazySection(repositoryMounted, activeSection === 'repository') ? (
                     <Suspense
                         fallback={
-                            <div
-                                data-testid="forum-legal-repository"
-                                className={FORUM_LAZY_SECTION_MIN_HEIGHT_CLASS}
-                                aria-busy="true"
-                            />
+                            <ForumLazySectionInstantSlots testId="forum-legal-repository" />
                         }
                     >
                         <LazyLegalRepository
@@ -107,11 +109,7 @@ export function CommunityScreenLazySectionPanes({
                 {shouldMountForumLazySection(groupsMounted, activeSection === 'groups') ? (
                     <Suspense
                         fallback={
-                            <div
-                                data-testid="forum-groups-directory"
-                                className={FORUM_LAZY_SECTION_MIN_HEIGHT_CLASS}
-                                aria-busy="true"
-                            />
+                            <ForumLazySectionInstantSlots testId="forum-groups-directory" />
                         }
                     >
                         <LazyForumGroupsSection

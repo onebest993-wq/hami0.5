@@ -9,7 +9,7 @@ const SECTION_TEST_IDS: Record<SettingsSectionId, string> = {
 
 const SETTINGS_SHELL_SELECTOR = '[data-hami-settings-shell]:not([data-settings-loading])';
 
-export type ObserveSettingsSectionInteractiveInput = {
+type ObserveSettingsSectionInteractiveInput = {
     activeSection: SettingsSectionId;
     onInteractive: () => void;
     isDone: () => boolean;
@@ -46,12 +46,13 @@ export function observeSettingsSectionInteractive({
     const shell = document.querySelector(SETTINGS_SHELL_SELECTOR);
     const panel = document.querySelector('[data-testid="settings-section-panel"]');
     const root = panel ?? shell;
-    const obs =
-        root &&
-        new MutationObserver(() => {
+    let obs: MutationObserver | undefined;
+    if (root) {
+        obs = new MutationObserver(() => {
             scheduleTry();
         });
-    obs?.observe(root, { childList: true, subtree: true });
+        obs.observe(root, { childList: true, subtree: true });
+    }
 
     const onVisibility = () => {
         if (!document.hidden) scheduleTry();

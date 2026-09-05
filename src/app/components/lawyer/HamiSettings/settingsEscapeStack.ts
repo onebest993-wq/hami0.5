@@ -1,4 +1,4 @@
-export type SettingsEscapeSnapshot = {
+type SettingsEscapeSnapshot = {
     smartDialogOpen: boolean;
     /** عدّاد المسح النهائي نشط — Escape يلغي العدّ لا يغلق الإعدادات */
     wipeCountdownActive?: boolean;
@@ -10,7 +10,7 @@ export type SettingsEscapeSnapshot = {
     accountLegalDocumentOpen?: boolean;
 };
 
-export type SettingsEscapeAction =
+type SettingsEscapeAction =
     | 'dismiss-dialog'
     | 'cancel-wipe-countdown'
     | 'dismiss-backup-ui'

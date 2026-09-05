@@ -15,7 +15,6 @@ export function useExecutionDashboardCoreHandlerClusterLight(c: ExecutionDashboa
         caseNotesLogRef,
         caseTasksPending,
         caseTasksPendingRef,
-        closeUnifiedSeizureLog,
         currentFileId,
         editingAppointmentId,
         editingTaskId,
@@ -122,7 +121,6 @@ export function useExecutionDashboardCoreHandlerClusterLight(c: ExecutionDashboa
         setTimelineEvents,
         setShowNotesModal,
         openFollowupModalPersisted,
-        closeUnifiedSeizureLog,
     });
 
     const appointmentHandler = useExecutionDashboardAppointmentHandlers({

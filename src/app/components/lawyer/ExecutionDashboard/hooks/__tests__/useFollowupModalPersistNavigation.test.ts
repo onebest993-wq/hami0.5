@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useFollowupModalPersistNavigation } from '@/app/components/lawyer/ExecutionDashboard/hooks/useFollowupModalPersistNavigation';
 
 vi.mock('@/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch', () => ({
@@ -8,6 +8,10 @@ vi.mock('@/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPre
 
 vi.mock('@/app/components/lawyer/ExecutionDashboard/executionFollowupTabPrefetch', () => ({
     prefetchExecutionFollowupTab: vi.fn(),
+}));
+
+vi.mock('@/app/components/lawyer/ExecutionDashboard/executionFollowupOpenReady', () => ({
+    ensureExecutionFollowupChromeReady: () => Promise.resolve(),
 }));
 
 function createRefs() {
@@ -25,7 +29,7 @@ describe('useFollowupModalPersistNavigation', () => {
         sessionStorage.clear();
     });
 
-    it('opens modal and restores saved tab from sessionStorage', () => {
+    it('opens modal and restores saved tab from sessionStorage', async () => {
         sessionStorage.setItem(
             'hami-followup-modal:dossier-1',
             JSON.stringify({ tab: 'correspondences', scroll: 120 }),
@@ -51,7 +55,9 @@ describe('useFollowupModalPersistNavigation', () => {
             result.current.openFollowupModalPersisted();
         });
 
-        expect(setShowUnifiedExecutionModal).toHaveBeenCalledWith(true);
+        await waitFor(() => {
+            expect(setShowUnifiedExecutionModal).toHaveBeenCalledWith(true);
+        });
         expect(setUnifiedModalTab).toHaveBeenCalledWith('correspondences');
     });
 

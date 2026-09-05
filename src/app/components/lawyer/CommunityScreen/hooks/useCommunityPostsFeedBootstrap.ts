@@ -23,6 +23,7 @@ export function useCommunityPostsFeedBootstrap({
     setLoadingPosts,
     setHasMore,
     postsBootstrappedRef,
+    onServerPage,
     surfaceOpen = true,
 }: {
     activeSection: CommunitySection;
@@ -33,6 +34,7 @@ export function useCommunityPostsFeedBootstrap({
     setLoadingPosts: Dispatch<SetStateAction<boolean>>;
     setHasMore: Dispatch<SetStateAction<boolean>>;
     postsBootstrappedRef: MutableRefObject<boolean>;
+    onServerPage?: (fetchedCount: number) => void;
     /** keepAlive مغلق: لا CommunityDB ولا شبكة */
     surfaceOpen?: boolean;
 }) {
@@ -48,6 +50,7 @@ export function useCommunityPostsFeedBootstrap({
             postsBootstrappedRef.current = true;
             applyPostsUpdate((prev) => mergeSortedCommunityPosts(prev, page));
             setHasMore(page.length === pageSize);
+            onServerPage?.(page.length);
         };
 
         const runBootstrap = async () => {
@@ -110,6 +113,7 @@ export function useCommunityPostsFeedBootstrap({
         activeSection,
         initialPostId,
         postsBootstrappedRef,
+        onServerPage,
         setHasMore,
         setLoadingPosts,
         surfaceOpen,

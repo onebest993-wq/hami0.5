@@ -4,8 +4,14 @@ import {
     LazyAddQuestionSheet,
     LazyCreateGroupModal,
     LazyEditPostModal,
+    LazyForumDeleteConfirmModal,
 } from '@/app/components/lawyer/CommunityScreen/communityScreenLazyEntries';
-import { ForumDeleteConfirmModal } from '@/app/components/lawyer/CommunityScreen/components/ForumDeleteConfirmModal';
+import {
+    ForumCreateGroupSheetInstantCover,
+    ForumEditPostModalInstantCover,
+    ForumPublishSheetInstantCover,
+    ForumRepositoryModalInstantCover,
+} from '@/app/components/lawyer/CommunityScreen/components/ForumOverlayInstantCovers';
 import type { CommunityScreenOverlaysProps } from './CommunityScreenOverlays.types';
 
 export function CommunityScreenComposeEarlyOverlays(props: CommunityScreenOverlaysProps) {
@@ -29,7 +35,7 @@ export function CommunityScreenComposeEarlyOverlays(props: CommunityScreenOverla
     return (
         <>
             {isCreateGroupOpen ? (
-                <Suspense fallback={null}>
+                <Suspense fallback={<ForumCreateGroupSheetInstantCover onClose={onCloseCreateGroup} />}>
                     <LazyCreateGroupModal
                         isOpen={isCreateGroupOpen}
                         name={newGroupName}
@@ -44,7 +50,7 @@ export function CommunityScreenComposeEarlyOverlays(props: CommunityScreenOverla
             ) : null}
 
             {editingPostId ? (
-                <Suspense fallback={null}>
+                <Suspense fallback={<ForumEditPostModalInstantCover onClose={onCancelEdit} />}>
                     <LazyEditPostModal
                         editingPostId={editingPostId}
                         editingText={editingText}
@@ -93,7 +99,7 @@ export function CommunityScreenComposeLateOverlays(props: CommunityScreenOverlay
     return (
         <>
             {isAddQuestionOpen ? (
-                <Suspense fallback={null}>
+                <Suspense fallback={<ForumPublishSheetInstantCover onClose={onCloseAddQuestion} />}>
                     <LazyAddQuestionSheet
                         isOpen={isAddQuestionOpen}
                         newPostText={newPostText}
@@ -121,18 +127,30 @@ export function CommunityScreenComposeLateOverlays(props: CommunityScreenOverlay
                 </Suspense>
             ) : null}
 
-            <ForumDeleteConfirmModal
-                open={pendingDeletePostId !== null}
-                title="تأكيد حذف المنشور"
-                message={
-                    pendingDeletePost
-                        ? `هل أنت متأكد من حذف هذه الاستشارة؟ لا يمكن التراجع عن الحذف.\n\n«${pendingDeletePost.content.slice(0, 80)}${pendingDeletePost.content.length > 80 ? '…' : ''}»`
-                        : 'هل أنت متأكد من حذف هذا المنشور؟ لا يمكن التراجع عن الحذف.'
-                }
-                loading={deletingPost}
-                onConfirm={() => void onConfirmDeletePost()}
-                onCancel={onCancelDeletePost}
-            />
+            {pendingDeletePostId ? (
+                <Suspense
+                    fallback={
+                        <ForumRepositoryModalInstantCover
+                            onClose={onCancelDeletePost}
+                            label="حذف المنشور"
+                            testId="forum-delete-confirm-modal"
+                        />
+                    }
+                >
+                    <LazyForumDeleteConfirmModal
+                        open
+                        title="تأكيد حذف المنشور"
+                        message={
+                            pendingDeletePost
+                                ? `هل أنت متأكد من حذف هذه الاستشارة؟ لا يمكن التراجع عن الحذف.\n\n«${pendingDeletePost.content.slice(0, 80)}${pendingDeletePost.content.length > 80 ? '…' : ''}»`
+                                : 'هل أنت متأكد من حذف هذا المنشور؟ لا يمكن التراجع عن الحذف.'
+                        }
+                        loading={deletingPost}
+                        onConfirm={() => void onConfirmDeletePost()}
+                        onCancel={onCancelDeletePost}
+                    />
+                </Suspense>
+            ) : null}
         </>
     );
 }

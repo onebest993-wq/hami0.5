@@ -1,17 +1,15 @@
-import { armHeavyDockWidgetsIdlePrefetch } from '@/app/hooks/lawyerDashboard/dockShellPrefetchGate';
-import {
-    prefetchHubArchiveIntentDebounced,
-    prefetchHubArchiveIntentImmediate,
-} from '@/app/hooks/lawyerDashboard/hubArchivePrefetchGate';
-
 /** prefetch الأرشيف عند hover — خارج chrome حتى لا يكسر Fast Refresh للبلاطات */
 export function bindArchivePrefetch(archiveId: string, interactionDisabled: boolean) {
     if (interactionDisabled) {
         return { onPointerEnter: undefined, onPointerDown: undefined, onFocus: undefined };
     }
     const run = () => {
-        armHeavyDockWidgetsIdlePrefetch();
-        prefetchHubArchiveIntentDebounced(archiveId);
+        void import('@/app/hooks/lawyerDashboard/dockShellPrefetchGate')
+            .then((m) => m.armHeavyDockWidgetsIdlePrefetch())
+            .catch(() => undefined);
+        void import('@/app/hooks/lawyerDashboard/hubArchivePrefetchGate')
+            .then((m) => m.prefetchHubArchiveIntentDebounced(archiveId))
+            .catch(() => undefined);
         if (archiveId === 'transaction') {
             void import('@/app/runtime/transactionsBootHydrator')
                 .then((m) => m.dispatchTransactionsPrimeHost())
@@ -24,8 +22,12 @@ export function bindArchivePrefetch(archiveId: string, interactionDisabled: bool
         }
     };
     const runPress = () => {
-        armHeavyDockWidgetsIdlePrefetch();
-        prefetchHubArchiveIntentImmediate(archiveId);
+        void import('@/app/hooks/lawyerDashboard/dockShellPrefetchGate')
+            .then((m) => m.armHeavyDockWidgetsIdlePrefetch())
+            .catch(() => undefined);
+        void import('@/app/hooks/lawyerDashboard/hubArchivePrefetchGate')
+            .then((m) => m.prefetchHubArchiveIntentImmediate(archiveId))
+            .catch(() => undefined);
         if (archiveId === 'transaction') {
             void import('@/app/runtime/transactionsBootHydrator')
                 .then((m) => m.dispatchTransactionsPrimeHost())

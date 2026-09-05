@@ -33,7 +33,10 @@ export function buildExecutiveDetentionReleasePatch(nowIso?: string): Record<str
     };
 }
 
-/** إغلاق مسار الإضبارة/الحبس بعد رفض القاضي — يعود طلب العرض للتفعيل اليدوي */
+/**
+ * رفض قاضي البداءة — يُبقي بطاقة القرار ظاهرة للتمييز/إعادة المسار.
+ * لا يُضبط released_or_closed_at هنا (ذلك لإخلاء السبيل فقط) وإلا تُخفى البطاقتان.
+ */
 export function buildExecutiveDetentionJudgeRejectedClosurePatch(
     nowIso: string,
     rejectionReason: string,
@@ -41,19 +44,18 @@ export function buildExecutiveDetentionJudgeRejectedClosurePatch(
 ): Record<string, unknown> {
     const reason = String(rejectionReason ?? '').trim();
     return {
-        executive_detention_released_or_closed_at: nowIso,
         debtor_executive_detention_active: false,
         executive_detention_until: null,
         executive_detention_days_total: null,
         executive_detention_reminder_sent: false,
-        executive_dossier_phase: null,
+        executive_dossier_phase: 'judge_decided',
         executive_detention_request_in_absentia: false,
         personal_coercive_cycle_closed_at: null,
         executive_detention_judge_decision_id: judgeDecisionId,
         executive_detention_judge_outcome: 'rejected',
         executive_detention_judge_eligible_decision_id: null,
         executive_detention_judge_rejection_reason: reason || null,
-        executive_detention_release_reason: reason ? `رفض قاضي البداءة: ${reason}` : 'رفض قاضي البداءة',
+        executive_detention_judge_rejected_at: nowIso,
     };
 }
 

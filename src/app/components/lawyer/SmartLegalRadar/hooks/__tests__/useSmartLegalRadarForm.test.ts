@@ -2,6 +2,10 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSmartLegalRadarForm } from '@/app/components/lawyer/SmartLegalRadar/hooks/useSmartLegalRadarForm';
 
+vi.mock('@/app/services/calendar/calendarCloudRuntime', () => ({
+    prefetchCalendarCloudModule: vi.fn(),
+}));
+
 vi.mock('@/app/services/calendar/calendarCloudLoader', () => ({
     prefetchCalendarCloudModule: vi.fn(),
 }));
@@ -16,6 +20,11 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
 }));
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import {
+    requestCalendarShellAdd,
+    requestCalendarShellEdit,
+    resetCalendarShellSessionForTests,
+} from '@/app/services/calendar/calendarShellSession';
 
 describe('useSmartLegalRadarForm', () => {
     const addEvent = vi.fn();
@@ -24,6 +33,7 @@ describe('useSmartLegalRadarForm', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        resetCalendarShellSessionForTests();
         addEvent.mockResolvedValue({
             id: 'evt-1',
             userId: 'user-1',
@@ -233,5 +243,43 @@ describe('useSmartLegalRadarForm', () => {
         });
 
         expect(addEvent).toHaveBeenCalledTimes(1);
+    });
+
+    it('يفتح الإضافة والتعديل من نية صدفة الكروم', () => {
+        const existing = {
+            id: 'evt-1',
+            userId: 'user-1',
+            title: 'جلسة',
+            date: '2026-07-02',
+            type: 'custom' as const,
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+        };
+        const { result } = renderHook(() =>
+            useSmartLegalRadarForm({
+                selectedDate: '2026-07-02',
+                effectiveUserId: 'user-1',
+                customEvents: [existing],
+                addEvent,
+                updateEvent,
+                deleteEvent,
+            }),
+        );
+
+        act(() => {
+            requestCalendarShellAdd();
+        });
+        expect(result.current.showForm).toBe(true);
+        expect(result.current.editingEvent).toBeNull();
+
+        act(() => {
+            result.current.closeForm();
+        });
+        act(() => {
+            requestCalendarShellEdit('evt-1');
+        });
+        expect(result.current.showForm).toBe(true);
+        expect(result.current.editingEvent?.id).toBe('cal_evt-1');
+        expect(result.current.formData.title).toBe('جلسة');
     });
 });

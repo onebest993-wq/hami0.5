@@ -117,7 +117,8 @@ export function recordExecutiveDetentionJudgeOutcome(args: {
     if (args.outcome === 'rejected') {
         args.setDetentionRejectionOpen(false);
         args.setDetentionRejectionReason('');
-        args.goBackToPersonalCoerciveHub();
+        args.setJudgeDetailsOpen(true);
+        // لا نُفرّغ الواجهة — تبقى بطاقة قرار القاضي لتمييز/متابعة الرفض
     }
     if (args.opts?.suppressToast) return true;
     args.showToast(

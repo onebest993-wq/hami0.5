@@ -68,9 +68,9 @@ export function useGuarantorFollowupDetailsHandlers(p: DetailsParams) {
             const prev =
                 p.executionDataRef.current?.guarantor_followup ?? p.executionData?.guarantor_followup;
             const name = guarantorName.trim();
-            const wp = guarantorWorkplace.trim();
-            if (!name || !wp) {
-                p.showToast('أدخل اسم الكفيل ومكان العمل قبل الحفظ.', 'warning');
+            const wp = guarantorWorkplace.trim() || '—';
+            if (!name) {
+                p.showToast('أدخل اسم الكفيل قبل الحفظ.', 'warning');
                 return false;
             }
             if (!p.persistExecutionMergeRef.current) {

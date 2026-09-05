@@ -2,7 +2,7 @@ import React from 'react';
 import {
     LazyEmployeeAssignmentCoerciveFollowupBlock,
     LazyPersonalCoerciveFollowupPanel,
-} from '../executionDashboardLazyRegistryShell';
+} from '../executionDashboardFollowupTabLazy';
 import { EXEC_SECTION_LAZY_FALLBACK } from '../executionDashboardLazyShellUi';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { FollowupTabKeepAlivePanel } from './FollowupTabKeepAlivePanel';
@@ -77,14 +77,15 @@ export function ExecutionFollowupModalPersonalTabPanel({
         workspaceCtx,
     } = c;
 
-    if (!panelsToRender.has('personal') || !showPersonalCoerciveFollowupTab) return null;
+    if (!panelsToRender.has('personal')) return null;
+    // إن ظهر التبويب في الشريط نرسم المحتوى — لا نُسقطه بـ showPersonal stale.
 
     return (
         <FollowupTabKeepAlivePanel
             key={`personal:${String(activeFollowupDebtorKey ?? '')}`}
             panelId="personal"
             active={activePanelKey === 'personal'}
-            className="rounded-2xl border border-white/10 bg-[#0B1120]/72 p-4 sm:p-5"
+            className="space-y-3"
         >
             <TabPersonal
                 personalTabLockedForEmployee={personalTabLockedForEmployee}

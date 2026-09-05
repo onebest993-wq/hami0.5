@@ -12,6 +12,11 @@ export function prefetchCommunitySearchOverlay(): void {
     void import('./communityScreenLazyOverlays').then((m) => m.prefetchCommunitySearchOverlay());
 }
 
+export function prefetchCommunityFilterOverlays(): void {
+    if (typeof window === 'undefined' || isLitePerformanceActive()) return;
+    void import('./communityScreenLazyOverlays').then((m) => m.prefetchCommunityFilterOverlays());
+}
+
 export function prefetchCommunityEditPostOverlay(): void {
     if (typeof window === 'undefined' || isLitePerformanceActive()) return;
     void import('./communityScreenLazyOverlays').then((m) => m.prefetchCommunityEditPostOverlay());

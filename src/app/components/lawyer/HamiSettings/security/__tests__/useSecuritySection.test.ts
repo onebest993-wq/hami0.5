@@ -70,11 +70,6 @@ vi.mock('@/app/runtime/screenshotDeterrentRuntime', () => ({
     syncNativeScreenshotGuard: (...args: unknown[]) => syncNativeScreenshotGuard(...args),
 }));
 
-vi.mock('@/app/runtime/nativePrivacyGuard', () => ({
-    applyNativePrivacyGuard: vi.fn(async () => true),
-    syncNativePrivacyGuardFromSettings: vi.fn(async () => true),
-}));
-
 vi.mock('@/app/components/lawyer/HamiSettings/settingsDialogPrefetch', () => ({
     prefetchSettingsDialogs: vi.fn(),
     ensureSettingsDialogsReady: vi.fn(() => Promise.resolve()),
@@ -87,6 +82,13 @@ vi.mock('@/app/runtime/nativePlatform', () => ({
 vi.mock('@/app/services/settings/localOnlyNetworkIsolation', () => ({
     armLocalOnlyNetworkIsolation: vi.fn(),
     installLocalOnlyNetworkIsolation: vi.fn(),
+}));
+
+vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
+    scheduleIdleWork: (fn: () => void) => {
+        fn();
+        return () => undefined;
+    },
 }));
 
 import { useSecuritySection } from '@/app/components/lawyer/HamiSettings/security/useSecuritySection';
@@ -286,40 +288,5 @@ describe('useSecuritySection', () => {
             await result.current.toggleScreenshotDeterrent(true);
         });
         expect(patchSecurity).toHaveBeenCalledWith({ screenshotDeterrent: true });
-    });
-
-    it('يفعّل ضبابية الخصوصية دون حوار', async () => {
-        const { result } = renderHook(() => useSecuritySection());
-
-        await act(async () => {
-            await result.current.togglePrivacyBlur(true);
-        });
-
-        expect(confirm).not.toHaveBeenCalled();
-        expect(patchSecurity).toHaveBeenCalledWith({ privacyBlur: true });
-        expect(success).toHaveBeenCalled();
-    });
-
-    it('يوقف ضبابية الخصوصية بعد التأكيد', async () => {
-        const { result } = renderHook(() => useSecuritySection());
-
-        await act(async () => {
-            await result.current.togglePrivacyBlur(false);
-        });
-
-        expect(confirm).toHaveBeenCalled();
-        expect(patchSecurity).toHaveBeenCalledWith({ privacyBlur: false });
-        expect(info).toHaveBeenCalled();
-    });
-
-    it('لا يوقف ضبابية الخصوصية إن أُلغي التأكيد', async () => {
-        confirm.mockResolvedValueOnce(false);
-        const { result } = renderHook(() => useSecuritySection());
-
-        await act(async () => {
-            await result.current.togglePrivacyBlur(false);
-        });
-
-        expect(patchSecurity).not.toHaveBeenCalled();
     });
 });

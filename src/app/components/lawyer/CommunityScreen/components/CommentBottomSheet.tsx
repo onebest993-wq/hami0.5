@@ -75,7 +75,7 @@ export const CommentBottomSheet = ({
           exit={reduceMotion ? undefined : { y: '100%' }}
           transition={reduceMotion ? { duration: 0 } : { type: 'spring', damping: 25, stiffness: 200 }}
           style={sheetStyle}
-          className={`${FORUM_SHEET} w-full max-w-2xl max-h-[min(78dvh,100%)] h-[70vh] rounded-t-3xl flex flex-col pointer-events-auto relative z-10 border-t-white/10 pb-[max(0.75rem,env(safe-area-inset-bottom))]`}
+          className={`${FORUM_SHEET} w-full max-w-2xl max-h-[min(78dvh,100%)] h-[70vh] flex flex-col pointer-events-auto relative z-10 border-t-white/10 pb-[max(0.75rem,env(safe-area-inset-bottom))]`}
         >
           <ForumSheetSwipeHandle onClose={onClose} barClassName="w-12 h-1.5 rounded-full bg-white/10" />
 

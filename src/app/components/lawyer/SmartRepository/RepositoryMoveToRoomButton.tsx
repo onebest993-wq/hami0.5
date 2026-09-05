@@ -79,7 +79,7 @@ export function RepositoryMoveToRoomButton({
 
     const menu = open ? (
         <div
-            className="fixed z-[136] overflow-hidden rounded-2xl border border-white/10 bg-[#121826] p-2.5"
+            className="fixed z-[136] overflow-hidden rounded-xl border border-white/10 bg-[#121826] p-2"
             style={{
                 top: menuPos.top,
                 left: menuPos.left,

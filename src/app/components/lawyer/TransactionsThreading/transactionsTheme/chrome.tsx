@@ -17,7 +17,7 @@ export function TxGlassPage({ children }: { children: React.ReactNode }) {
 export function TxGlassHeader({ children }: { children: React.ReactNode }) {
     return (
         <header className="sticky top-0 z-40 shrink-0 border-b border-white/[0.06] bg-[#0A0F1C]">
-            <div className="relative px-4 pt-2 pb-1.5 max-w-[520px] mx-auto">{children}</div>
+            <div className="relative px-4 pt-1.5 pb-1 max-w-[520px] mx-auto">{children}</div>
         </header>
     );
 }
@@ -57,26 +57,6 @@ export function TxHeaderRow({
                 ) : null}
             </div>
             <div className="shrink-0 min-w-[44px] flex justify-end">{trailing ?? null}</div>
-        </div>
-    );
-}
-
-export function TxGlassPanel({
-    children,
-    className = '',
-    hover = false,
-}: {
-    children: React.ReactNode;
-    className?: string;
-    hover?: boolean;
-}) {
-    return (
-        <div
-            className={`relative overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.035] ${
-                hover ? 'hover:bg-white/[0.055] hover:border-white/12' : ''
-            } ${className}`}
-        >
-            {children}
         </div>
     );
 }
@@ -175,11 +155,3 @@ export function TxFieldLabel({
     );
 }
 
-/** شريط أقسام المعاملة — صف مسطح بلا صندوق زجاجي متداخل */
-export function TxGlassTabsList({ children }: { children: React.ReactNode }) {
-    return (
-        <div className="w-full" data-testid="transactions-stage-rail">
-            {children}
-        </div>
-    );
-}

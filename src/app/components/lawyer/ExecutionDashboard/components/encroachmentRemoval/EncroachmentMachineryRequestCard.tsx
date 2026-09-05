@@ -28,7 +28,7 @@ export function EncroachmentMachineryRequestCard({
     setInlineActionGateKey,
     showToast,
     onExpenseRecorded,
-    onOpenAppeals,
+    onOpenDecisions,
     detailsOpen,
     setDetailsOpen,
 }: {
@@ -44,7 +44,7 @@ export function EncroachmentMachineryRequestCard({
         opts?: { decisionsLink?: boolean }
     ) => void;
     onExpenseRecorded?: (row: EncroachmentCaseExpenseRow) => void;
-    onOpenAppeals: (decisionId: string) => void;
+    onOpenDecisions: (decisionId: string, decisionRow?: Record<string, unknown> | null) => void;
     detailsOpen: Record<string, boolean>;
     setDetailsOpen: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }) {
@@ -135,7 +135,7 @@ export function EncroachmentMachineryRequestCard({
                     row={machineryRow}
                     decisionRows={decisionRows}
                     executionId={executionId}
-                    onOpenAppeals={onOpenAppeals}
+                    onOpenDecisions={onOpenDecisions}
                 />
             ) : null}
 

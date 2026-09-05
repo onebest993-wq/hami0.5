@@ -128,6 +128,13 @@ const SEIZURE_HEAVY_HANDLER_CLUSTER_KEYS = Array.from(
         'focusSeizureMovableInlineRef',
         'focusSeizureThirdPartyInlineRef',
         'focusSeizureNoticeInlineRef',
+        'assignmentWorkspaceCtx',
+        'openGuarantorDetailsModal',
+        'openFollowupModalPersisted',
+        'setUnifiedModalTab',
+        'persistExecutionMergeRef',
+        'guarantorDetailsDecisionId',
+        'setGuarantorDetailsDecisionId',
     ]),
 ) as string[];
 

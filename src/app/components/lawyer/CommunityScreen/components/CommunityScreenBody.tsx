@@ -45,7 +45,7 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
             <div
                 ref={sectionSwipeContainerRef}
                 data-testid="forum-section-swipe-surface"
-                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-hide pb-36 touch-pan-y"
+                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain scrollbar-hide pb-24 touch-pan-y"
                 {...swipeHandlers}
             >
                 <CommunityScreenLazySectionPanes

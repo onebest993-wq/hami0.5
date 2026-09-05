@@ -1,9 +1,9 @@
-export type NotificationEscapeSnapshot = {
+type NotificationEscapeSnapshot = {
     smartDialogOpen: boolean;
     alertControlsOpen: boolean;
 };
 
-export type NotificationEscapeAction = 'dismiss-dialog' | 'back-to-inbox' | 'close-panel';
+type NotificationEscapeAction = 'dismiss-dialog' | 'back-to-inbox' | 'close-panel';
 
 export function resolveNotificationEscapeAction(
     snapshot: NotificationEscapeSnapshot,

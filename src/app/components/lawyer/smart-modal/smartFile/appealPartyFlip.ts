@@ -6,7 +6,10 @@ import type { IncidentalCase, Party } from '../../LawyerShared';
 import { resolveAbsentObjectionClientRole } from './absentJudgmentFlow';
 import { resolveLawyerSide } from './judgmentTypes';
 import { INTERPLEADER_APPELLANT_SIDE } from './appealInterpleaderConstants';
+import { isGhayabiObjectionAppealType } from '@/app/domain/lawsuit/challengeAppellantEligibility';
+import { isDisputeIndivisible } from '@/app/domain/lawsuit/partyJudgmentDisposition';
 import {
+    COVERED_BY_PARTNER_CHALLENGE_ROLE,
     extractParentheticalUnderlyingSide,
     isAbsentObjectedRole,
     isAbsentObjectorRole,
@@ -100,7 +103,7 @@ export type AppealPartyFlipSelection = {
 function resolvePartyAppealSideFromSelection(
     party: Party,
     selection?: AppealPartyFlipSelection,
-    appellant?: string,
+    _appellant?: string,
 ): boolean | null {
     if (!selection) return null;
     const hasAppellantList = Boolean(selection.includedAppellantPartyIds?.length);
@@ -109,19 +112,6 @@ function resolvePartyAppealSideFromSelection(
 
     if (partyIdInSelectionList(selection.includedAppellantPartyIds, party.id)) return true;
     if (partyIdInSelectionList(selection.includedOpponentPartyIds, party.id)) return false;
-
-    if (hasAppellantList && appellant && !String(appellant).includes('اختصام')) {
-        const appellantIsPlaintiff = appellant === 'المدعي' || appellant.includes('مدعي');
-        const appellantLegalSide: 'المدعي' | 'المدعى عليه' | null = appellantIsPlaintiff
-            ? 'المدعي'
-            : appellant.includes('مدعى')
-              ? 'المدعى عليه'
-              : null;
-        const partyLegalSide = underlyingSideLabel(String(party.role ?? ''));
-        if (appellantLegalSide && partyLegalSide === appellantLegalSide) {
-            return false;
-        }
-    }
 
     return null;
 }
@@ -132,11 +122,15 @@ export function flipPartiesForAppealStage(
     appealType: string,
     incidentalCases?: IncidentalCase[],
     selection?: AppealPartyFlipSelection,
+    disputeIntegrity?: string | null,
 ): Party[] {
     const { appellantTitle, appelleeTitle } = resolveAppealRoleTitles(appealType);
     const appellantIsPlaintiff = appellant === 'المدعي' || appellant.includes('مدعي');
     const appellantIsInterpleader =
         appellant === INTERPLEADER_APPELLANT_SIDE || appellant.includes('اختصامي');
+    const objectionHop = isGhayabiObjectionAppealType(appealType);
+    const extendCoPlaintiffCoverage =
+        isDisputeIndivisible(disputeIntegrity) && appellantIsPlaintiff && !objectionHop;
 
     const seen = new Set<number | string>();
     const result: Party[] = [];
@@ -200,19 +194,37 @@ export function flipPartiesForAppealStage(
         let newSide = party.side;
 
         if (side === 'المدعي') {
-            const isAppellant =
-                selectedSide !== null ? selectedSide : appellantIsPlaintiff;
-            newRole = isAppellant
-                ? `${appellantTitle} (المدعي)`
-                : `${appelleeTitle} (المدعي)`;
-            newSide = isAppellant ? 'right' : 'left';
+            if (extendCoPlaintiffCoverage && selectedSide !== true) {
+                newRole = COVERED_BY_PARTNER_CHALLENGE_ROLE;
+                newSide = 'right';
+            } else {
+                const isAppellant =
+                    selectedSide !== null ? selectedSide : appellantIsPlaintiff;
+                newRole = isAppellant
+                    ? `${appellantTitle} (المدعي)`
+                    : `${appelleeTitle} (المدعي)`;
+                newSide = isAppellant ? 'right' : 'left';
+            }
         } else if (side === 'المدعى عليه') {
-            const isAppellant =
-                selectedSide !== null ? selectedSide : !appellantIsPlaintiff;
-            newRole = isAppellant
-                ? `${appellantTitle} (المدعى عليه)`
-                : `${appelleeTitle} (المدعى عليه)`;
-            newSide = isAppellant ? 'right' : 'left';
+            if (objectionHop) {
+                const isObjector =
+                    selectedSide === true
+                    || (selectedSide === null && !appellantIsPlaintiff);
+                if (isObjector) {
+                    newRole = `${appellantTitle} (المدعى عليه)`;
+                    newSide = 'right';
+                } else {
+                    newRole = party.role;
+                    newSide = party.side;
+                }
+            } else {
+                const isAppellant =
+                    selectedSide !== null ? selectedSide : !appellantIsPlaintiff;
+                newRole = isAppellant
+                    ? `${appellantTitle} (المدعى عليه)`
+                    : `${appelleeTitle} (المدعى عليه)`;
+                newSide = isAppellant ? 'right' : 'left';
+            }
         }
 
         result.push({

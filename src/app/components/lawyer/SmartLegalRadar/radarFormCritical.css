@@ -1,7 +1,7 @@
 /**
  * نموذج موعد الرادار — حرج
  * EventForm يُعرض عبر portal على body خارج .hami-radar-page
- * لذا لا يعتمد على متغيرات الصفحة ويُحمَّل مع critical-shell
+ * لذا لا يعتمد على متغيرات الصفحة ويُحمَّل مع الرادار لا critical-shell
  */
 @keyframes hami-radar-form-overlay-in {
     from { opacity: 0; }
@@ -10,8 +10,8 @@
 
 .hami-radar-form-overlay {
     background-color: rgba(10, 15, 28, 0.72);
-    padding: 0.75rem;
-    padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+    padding: 0.5rem;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
     overflow: hidden;
     overflow-anchor: none;
     touch-action: manipulation;
@@ -23,7 +23,7 @@
 
 @media (min-width: 640px) {
     .hami-radar-form-overlay {
-        padding: 1rem;
+        padding: 0.75rem;
     }
 }
 
@@ -34,7 +34,7 @@
     color: #f4f4f5;
     background-color: #0a0f1c;
     border: 1px solid rgba(230, 198, 115, 0.22);
-    box-shadow: 0 18px 48px rgba(5, 6, 13, 0.55);
+    box-shadow: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     overflow: hidden;
@@ -46,11 +46,11 @@
     .hami-radar-form-panel::before {
         content: '';
         display: block;
-        width: 2rem;
-        height: 3px;
-        margin: 0.65rem auto 0;
+        width: 1.75rem;
+        height: 2px;
+        margin: 0.5rem auto 0;
         border-radius: 99px;
-        background: rgba(230, 198, 115, 0.42);
+        background: rgba(230, 198, 115, 0.38);
         flex-shrink: 0;
     }
 }
@@ -60,13 +60,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.45rem 1.25rem 0.15rem;
+    padding: 0.35rem 1rem 0.1rem;
     border-bottom: 0;
 }
 
 .hami-radar-form-title {
     margin: 0;
-    font-size: 1.0625rem;
+    font-size: 1rem;
     font-weight: 500;
     letter-spacing: -0.03em;
     color: #f4f4f5;
@@ -78,15 +78,15 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    padding: 0.35rem 1.25rem 0.5rem;
+    padding: 0.25rem 1rem 0.4rem;
     overflow-anchor: none;
 }
 
 .hami-radar-form-actions {
     flex-shrink: 0;
     display: flex;
-    gap: 0.65rem;
-    padding: 0.35rem 1.25rem max(1.15rem, env(safe-area-inset-bottom, 0px));
+    gap: 0.5rem;
+    padding: 0.25rem 1rem max(1rem, env(safe-area-inset-bottom, 0px));
     border-top: 0;
     background-color: transparent;
 }
@@ -95,14 +95,14 @@
     width: 100%;
     background-color: #141a28;
     border: 0;
-    border-radius: 1rem;
-    padding: 0.75rem 1rem;
+    border-radius: 0.65rem;
+    padding: 0.65rem 0.85rem;
     color: #f4f4f5;
     font-size: 16px;
     outline: none;
     color-scheme: dark;
     accent-color: #e6c673;
-    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+    transition: background-color 0.15s ease;
 }
 
 @media (min-width: 640px) {
@@ -125,7 +125,7 @@
     color: rgba(230, 198, 115, 0.78);
     font-size: 12px;
     font-weight: 500;
-    margin-bottom: 0.45rem;
+    margin-bottom: 0.35rem;
 }
 
 .hami-radar-form-icon-btn {
@@ -150,10 +150,6 @@
     color: #64748b;
     cursor: not-allowed;
     border: 0;
-}
-
-.hami-radar-form-panel .hami-radar-skeleton {
-    background-color: #1a2233;
 }
 
 @media (prefers-reduced-motion: reduce) {

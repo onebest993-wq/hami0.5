@@ -1,38 +1,35 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
-import { HeartHandshake } from '@/app/components/ui/icons/HeartHandshake';
-import { History } from '@/app/components/ui/icons/History';
-import { X } from '@/app/components/ui/icons/X';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { publishFinancialCenterTimelineNote } from '@/app/utils/financialCenterTimeline';
 import type { TimelineEventType } from '@/app/types/execution';
-import { AlimonyFinancialBlock } from './AlimonyFinancialBlock';
-import { GuarantorRegistrationModal } from './Modal_Guarantor_Registration';
-import {
-    initializeAlimonyData,
-    loadAlimonyDataFromExecution,
-    registerGuarantor,
-    saveAlimonyDataToExecution,
-    type AlimonyData,
-    type GuarantorInfo,
-} from '@/app/utils/alimonyPaymentEngine';
 import { isEvictionClaim } from '@/app/utils/executionModuleStrategies';
-import { FocModalPortal } from './FinancialOperationsCenter/components/FocModalPortal';
-import { DebtTotalsEditModal } from './FinancialOperationsCenter/components/DebtTotalsEditModal';
-import { DebtorAgentFinancialHubPanel } from './FinancialOperationsCenter/components/DebtorAgentFinancialHubPanel';
-import { FocDisburseModal } from './FinancialOperationsCenter/components/FocDisburseModal';
-import { FocGhuramaaModal } from './FinancialOperationsCenter/components/FocGhuramaaModal';
-import { FocFeesSheet } from './FinancialOperationsCenter/components/FocFeesSheet';
-import { FocExpenseSheet } from './FinancialOperationsCenter/components/FocExpenseSheet';
-import { FocGarnishModal } from './FinancialOperationsCenter/components/FocGarnishModal';
+import { FocLazyDebtorAgentFinancialHubPanel } from './FinancialOperationsCenter/focLazySettlementChrome';
 import { FocFundsCardHeader } from './FinancialOperationsCenter/components/FocFundsCardHeader';
 import { FocCreditorExpandedBody } from './FinancialOperationsCenter/components/FocCreditorExpandedBody';
+import {
+    FocLazyOverlay,
+    LazyDebtTotalsEditModal,
+    LazyFocAlimonyDetailOverlay,
+    LazyFocDisburseModal,
+    LazyFocExpenseSheet,
+    LazyFocFeesSheet,
+    LazyFocGarnishModal,
+    LazyFocGhuramaaModal,
+    prefetchFocAlimonyDetailOverlay,
+    prefetchFocDebtTotalsEditModal,
+    prefetchFocDisburseModal,
+    prefetchFocExpenseSheet,
+    prefetchFocFeesSheet,
+    prefetchFocGarnishModal,
+    prefetchFocGhuramaaModal,
+} from './FinancialOperationsCenter/focOverlaySurfacesLazy';
 import { parseStoredMoney, isEmployeeDebtor } from './FinancialOperationsCenter/utils';
 import { MANAGEMENT_CARD_OUTER } from './FinancialOperationsCenter/constants';
 import { useFocLedgerStore, useFocLedgerExternalCollectSync } from './FinancialOperationsCenter/useFocLedgerStore';
 import { useFocLedgerDerived } from './FinancialOperationsCenter/useFocLedgerDerived';
 import { useFocSettlementActions } from './FinancialOperationsCenter/useFocSettlementActions';
 import { useFocPaymentDisburseActions } from './FinancialOperationsCenter/useFocPaymentDisburseActions';
+import { useFocGhuramaaActions } from './FinancialOperationsCenter/useFocGhuramaaActions';
 import { useFocCollectionActions } from './FinancialOperationsCenter/useFocCollectionActions';
 import type { FinancialOperationsCenterProps } from './FinancialOperationsCenter/focProps';
 
@@ -80,7 +77,6 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         onSettlement: _onSettlement,
     onCoerciveAction,
     onShowLedger,
-    onShowSeizureLog,
     financialLedger = [],
     executionId,
     creditorsCount,
@@ -90,7 +86,9 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     eviction_case_expenses_sum = 0,
         onFundsLedgerPayment,
         onFinancialTimelineNote: _onFinancialTimelineNote,
-        onGuarantorRequest,
+        onPersistSettlementGuarantor,
+        settlementGuarantorName,
+        settlementGuarantorDeductionIqd,
     onMonthlySettlementDefault,
     autoOpenLedgerMode,
     onAutoOpenHandled,
@@ -151,7 +149,6 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     const [expenseReasonInput, setExpenseReasonInput] = useState('');
     const [settlementInput, setSettlementInput] = useState('');
     const [showGarnishModal, setShowGarnishModal] = useState(false);
-    const [showGuarantorModal, setShowGuarantorModal] = useState(false);
     const [feesSheetOpen, setFeesSheetOpen] = useState(false);
     const [expenseSheetOpen, setExpenseSheetOpen] = useState(false);
     const [debtEditOpen, setDebtEditOpen] = useState(false);
@@ -167,7 +164,6 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     const [ghuramaaModalOpen, setGhuramaaModalOpen] = useState(false);
     const [settlementPanelOpen, setSettlementPanelOpen] = useState(false);
     const [alimonyDetailOpen, setAlimonyDetailOpen] = useState(false);
-    const [alimonyData, setAlimonyData] = useState<AlimonyData | null>(null);
 
         const {
             store,
@@ -301,26 +297,19 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             undoLastPayment,
             applyFullPayment,
             retractCollectionRequest,
-            ghuramaaContext,
-            ghuramaaManual,
-            ghuramaaShareInputs,
-            setGhuramaaShareInput,
-            applyGhuramaaEqualSplit,
-            openGhuramaaModal,
-            applyGhuramaaDistribution,
         } = useFocPaymentDisburseActions({
             store,
             persist,
             getLatestLedgerStore,
             notify,
             recordFinancialTimelineNote,
-        executionId,
+            executionId,
             ledgerTotalParams,
             totalOwedUnified,
             remainingUnified,
             trustBalanceUnified,
             isEvictionFundsModule,
-        evictionLawyerFeeWaivedAtIntake,
+            evictionLawyerFeeWaivedAtIntake,
             setIsEvictionCollectionRequested,
             unifiedCollectionExecutorApproved,
             onEvictionCourtOrderedFeesActivatedFromLedger,
@@ -330,11 +319,6 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             onProceedsDisburseHandled,
             proceedsDisburseSeizedPropertyId,
             onProceedsDisbursePropertyHandled,
-            onApplyGhuramaaDistribution,
-            canShowGhuramaaDivision,
-            ghuramaaCreditors,
-            ghuramaaModalOpen,
-            setGhuramaaModalOpen,
             setDisburseModalOpen,
             lawyerAmountInput,
             setLawyerAmountInput,
@@ -354,6 +338,29 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
             repaymentInput,
             setRepaymentInput,
             setShowRepaymentEviction,
+        });
+
+        const {
+            ghuramaaContext,
+            ghuramaaManual,
+            ghuramaaShareInputs,
+            setGhuramaaShareInput,
+            applyGhuramaaEqualSplit,
+            openGhuramaaModal,
+            applyGhuramaaDistribution,
+        } = useFocGhuramaaActions({
+            persist,
+            getLatestLedgerStore,
+            notify,
+            recordFinancialTimelineNote,
+            remainingUnified,
+            trustBalanceUnified,
+            onApplyGhuramaaDistribution,
+            canShowGhuramaaDivision,
+            ghuramaaCreditors,
+            ghuramaaModalOpen,
+            setGhuramaaModalOpen,
+            setDisburseAmountInput,
         });
 
         const {
@@ -392,33 +399,6 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
         });
 
     useEffect(() => {
-        if (!isAlimonyClaim || !executionId) return;
-        const loaded = loadAlimonyDataFromExecution(executionId);
-        if (loaded) {
-            setAlimonyData(loaded);
-            return;
-        }
-        const initialized = initializeAlimonyData(
-            monthly_wife_alimony || monthlyAlimony,
-            monthly_children_alimony || 0,
-            children_count || 1,
-            past_wife_alimony || 0,
-            past_children_alimony || 0
-        );
-        setAlimonyData(initialized);
-        saveAlimonyDataToExecution(executionId, initialized);
-    }, [
-        isAlimonyClaim,
-        executionId,
-        monthlyAlimony,
-        monthly_wife_alimony,
-        monthly_children_alimony,
-        children_count,
-        past_wife_alimony,
-        past_children_alimony,
-    ]);
-
-    useEffect(() => {
             if (settlementUxTier === 'hidden') deactivateSettlementPanel();
         }, [settlementUxTier, deactivateSettlementPanel]);
 
@@ -429,15 +409,6 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     useEffect(() => {
             if (activeDebtorIsDeceased) deactivateSettlementPanel();
         }, [activeDebtorIsDeceased, deactivateSettlementPanel]);
-
-    const handleSaveGuarantor = (guarantorInfo: GuarantorInfo) => {
-        if (alimonyData && executionId) {
-            const updated = registerGuarantor(alimonyData, guarantorInfo);
-            setAlimonyData(updated);
-            saveAlimonyDataToExecution(executionId, updated);
-        }
-        setShowGuarantorModal(false);
-    };
 
     const fundsHeaderCollapsed =
         'w-full rounded-xl bg-transparent text-right transition hover:bg-white/[0.05] active:scale-[0.995]';
@@ -454,35 +425,6 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
     };
 
     const showExpandedBody = embeddedInFinancialHub || isExpanded;
-
-    const renderLedgerToolbar = (className = 'mt-2 flex flex-row-reverse items-center justify-end gap-2') =>
-        onShowLedger || showOngoingAlimonyMonthlySection ? (
-            <div className={className}>
-                {onShowLedger ? (
-                    <button
-                        type="button"
-                        onClick={onShowLedger}
-                        className="inline-flex flex-row-reverse items-center gap-1.5 rounded-lg border border-[#E6C673]/35 bg-[#E6C673]/10 px-2.5 py-1.5 text-[10px] font-bold text-[#E6C673] transition hover:bg-[#E6C673]/20"
-                        title="السجل المالي العام — أرشيف البنود والمبالغ"
-                        aria-label="فتح السجل المالي العام"
-                    >
-                        <History size={14} strokeWidth={1.75} />
-                        السجل المالي العام
-                    </button>
-                ) : null}
-                {showOngoingAlimonyMonthlySection ? (
-                    <button
-                        type="button"
-                        onClick={() => setAlimonyDetailOpen(true)}
-                        className="inline-flex items-center justify-center rounded-lg border border-[#E6C673]/30 bg-[#E6C673]/8 p-1.5 text-[#E6C673] transition hover:bg-[#E6C673]/15 hover:border-[#E6C673]/45"
-                        title="استحقاق النفقة الشهري"
-                        aria-label="عرض استحقاق النفقة"
-                    >
-                        <HeartHandshake size={14} strokeWidth={2} />
-                    </button>
-                ) : null}
-            </div>
-        ) : null;
 
     return (
         <div
@@ -505,54 +447,21 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                     totalOwedUnified={totalOwedUnified}
                     remainingUnified={remainingUnified}
                     trustBalanceUnified={trustBalanceUnified}
-                    onShowSeizureLog={onShowSeizureLog}
                     onShowLedger={onShowLedger}
-                    openDebtEditModal={openDebtEditModal}
+                    openDebtEditModal={() => {
+                        prefetchFocDebtTotalsEditModal();
+                        openDebtEditModal();
+                    }}
                     debtEditLockReason={debtEditLockReason}
                     showOngoingAlimonyMonthlySection={showOngoingAlimonyMonthlySection}
-                    onOpenAlimonyDetail={() => setAlimonyDetailOpen(true)}
+                    onOpenAlimonyDetail={() => {
+                        prefetchFocAlimonyDetailOverlay();
+                        setAlimonyDetailOpen(true);
+                    }}
                 />
 
-            {embeddedInFinancialHub && !isRepresentingDebtor && (
-                <div className="space-y-2 pb-2">
-                    {!hideEvictionTotalsInChrome ? (
-                        <div className="grid grid-cols-2 gap-2">
-                            <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-right">
-                                <div className="flex flex-row-reverse items-start justify-between gap-2">
-                                    <div className="min-w-0">
-                                        <p className="mb-0.5 text-[10px] font-medium text-slate-400">إجمالي الدين</p>
-                                        <p className="text-base font-black leading-tight text-white tabular-nums">
-                                                {totalOwedUnified.toLocaleString('ar-IQ')}{' '}
-                                            <span className="text-[10px] font-semibold text-slate-400">د.ع</span>
-                                        </p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={openDebtEditModal}
-                                        disabled={Boolean(debtEditLockReason)}
-                                        className="shrink-0 inline-flex items-center gap-1 rounded-md border border-[#E6C673]/30 bg-[#E6C673]/10 px-2 py-1 text-[9px] font-bold text-[#F5E6A8] transition hover:bg-[#E6C673]/15 disabled:opacity-35"
-                                    >
-                                        تعديل
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="rounded-lg border border-emerald-500/15 bg-emerald-500/[0.06] px-3 py-2 text-right">
-                                <p className="mb-0.5 text-[10px] font-medium text-slate-400">الأمانات</p>
-                                <p className="text-base font-black leading-tight text-white tabular-nums">
-                                        {trustBalanceUnified.toLocaleString('ar-IQ')}{' '}
-                                    <span className="text-[10px] font-semibold text-slate-400">د.ع</span>
-                                </p>
-                                <p className="mt-0.5 text-[9px] font-semibold text-slate-500">رصيد الصرف</p>
-                            </div>
-                        </div>
-                    ) : null}
-                    {renderLedgerToolbar('flex flex-row-reverse items-center justify-end gap-2')}
-                </div>
-            )}
-
-            <AnimatePresence>
-                {showExpandedBody && isRepresentingDebtor && embeddedInFinancialHub ? (
-                    <DebtorAgentFinancialHubPanel
+            {showExpandedBody && isRepresentingDebtor && embeddedInFinancialHub ? (
+                    <FocLazyDebtorAgentFinancialHubPanel
                         remainingUnified={remainingUnified}
                         totalOwedUnified={totalOwedUnified}
                         repaymentInput={repaymentInput}
@@ -585,21 +494,36 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                                     remainingUnified={remainingUnified}
                                     baseDossierAmount={baseDossierAmount}
                                     store={store}
-                                    setExpenseSheetOpen={setExpenseSheetOpen}
-                                    setFeesSheetOpen={setFeesSheetOpen}
+                                    setExpenseSheetOpen={(open) => {
+                                        if (open) prefetchFocExpenseSheet();
+                                        setExpenseSheetOpen(open);
+                                    }}
+                                    setFeesSheetOpen={(open) => {
+                                        if (open) prefetchFocFeesSheet();
+                                        setFeesSheetOpen(open);
+                                    }}
                                     canShowDisburse={canShowDisburse}
-                                    onOpenDisburse={() => setDisburseModalOpen(true)}
+                                    onOpenDisburse={() => {
+                                        prefetchFocDisburseModal();
+                                        setDisburseModalOpen(true);
+                                    }}
                                     retractCollectionRequest={retractCollectionRequest}
                                     unifiedCollectionExecutorApproved={unifiedCollectionExecutorApproved}
                                     showEmployeeCollection={showEmployeeCollectionStandard}
                                     showNonEmployeePhase2={showNonEmployeePhase2Standard}
                                     applyFullPayment={applyFullPayment}
-                                    setShowGarnishModal={setShowGarnishModal}
+                                    setShowGarnishModal={(open) => {
+                                        if (open) prefetchFocGarnishModal();
+                                        setShowGarnishModal(open);
+                                    }}
                                     undoLastPayment={undoLastPayment}
                                     financialLedger={financialLedger}
                                     onPayment={onPayment}
                                     canEditDebtTotals={!debtEditLockReason}
-                                    onOpenDebtEdit={openDebtEditModal}
+                                    onOpenDebtEdit={() => {
+                                        prefetchFocDebtTotalsEditModal();
+                                        openDebtEditModal();
+                                    }}
                                     settlementUxTier={settlementUxTier}
                                     settlementPanelOpen={settlementPanelOpen}
                                     onActivateSettlement={activateSettlementPanel}
@@ -616,10 +540,12 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                             showSettlementPanel={settlementContext.showSettlementPanel}
                             canShowGhuramaaDivision={canShowGhuramaaDivision}
                             trustBalanceUnified={trustBalanceUnified}
-                            onOpenGhuramaaModal={openGhuramaaModal}
+                            onOpenGhuramaaModal={() => {
+                                prefetchFocGhuramaaModal();
+                                openGhuramaaModal();
+                            }}
                             evictionReenableCourtOrderedFees={evictionReenableCourtOrderedFees}
                             settlementInProgress={settlementInProgress}
-                            onShowSeizureLog={onShowSeizureLog}
                             evictionLawyerFeeWaivedAtIntake={evictionLawyerFeeWaivedAtIntake}
                             sumLawyer={sumLawyer}
                             claimType={claimType}
@@ -645,174 +571,148 @@ export const FinancialOperationsCenter: React.FC<FinancialOperationsCenterProps>
                             onNotify={(message, type) => notify(message, type ?? 'warning')}
                             salarySeizureActive={salarySeizureActive}
                             showAmountGuarantorRequest={settlementContext.showAmountGuarantorRequest}
-                            onGuarantorRequest={onGuarantorRequest}
+                            onPersistSettlementGuarantor={onPersistSettlementGuarantor}
+                            settlementGuarantorName={settlementGuarantorName}
+                            settlementGuarantorDeductionIqd={settlementGuarantorDeductionIqd}
                         />
                                                 ) : null}
-            </AnimatePresence>
 
-            <AnimatePresence>
                     {disburseModalOpen ? (
-                        <FocDisburseModal
-                            open={disburseModalOpen}
-                            onClose={() => setDisburseModalOpen(false)}
-                            canShowGhuramaaDivision={canShowGhuramaaDivision}
-                            trustBalanceUnified={trustBalanceUnified}
-                            creditorsCount={creditorsCount}
-                            disburseAmountInput={disburseAmountInput}
-                            setDisburseAmountInput={setDisburseAmountInput}
-                            canApplyDisburseAmount={canApplyDisburseAmount}
-                            onApplyDisbursement={applyDisbursementAmount}
-                            onOpenGhuramaaModal={() => {
-                                                    setDisburseModalOpen(false);
-                                                    openGhuramaaModal();
-                                                }}
+                        <FocLazyOverlay
+                            lazy={LazyFocDisburseModal}
+                            lazyProps={{
+                                open: disburseModalOpen,
+                                onClose: () => setDisburseModalOpen(false),
+                                canShowGhuramaaDivision,
+                                trustBalanceUnified,
+                                creditorsCount,
+                                disburseAmountInput,
+                                setDisburseAmountInput,
+                                canApplyDisburseAmount,
+                                onApplyDisbursement: applyDisbursementAmount,
+                                onOpenGhuramaaModal: () => {
+                                    setDisburseModalOpen(false);
+                                    prefetchFocGhuramaaModal();
+                                    openGhuramaaModal();
+                                },
+                            }}
                         />
                     ) : null}
-            </AnimatePresence>
 
-            <AnimatePresence>
                     {ghuramaaModalOpen ? (
-                        <FocGhuramaaModal
-                            open={ghuramaaModalOpen}
-                            onClose={() => setGhuramaaModalOpen(false)}
-                            available={ghuramaaContext.available}
-                            eligible={ghuramaaContext.eligible}
-                            note={ghuramaaContext.note}
-                            shareInputs={ghuramaaShareInputs}
-                            onShareInputChange={setGhuramaaShareInput}
-                            onEqualSplit={applyGhuramaaEqualSplit}
-                            manualSum={ghuramaaManual.sum}
-                            validationNote={ghuramaaManual.validationNote}
-                            partialWarning={ghuramaaManual.partialWarning}
-                            remainingAfter={ghuramaaManual.remainingAfter}
-                            isEqualMode={ghuramaaManual.isEqualMode}
-                            canConfirm={ghuramaaManual.ok}
-                            onConfirm={applyGhuramaaDistribution}
+                        <FocLazyOverlay
+                            lazy={LazyFocGhuramaaModal}
+                            lazyProps={{
+                                open: ghuramaaModalOpen,
+                                onClose: () => setGhuramaaModalOpen(false),
+                                available: ghuramaaContext.available,
+                                eligible: ghuramaaContext.eligible,
+                                note: ghuramaaContext.note,
+                                shareInputs: ghuramaaShareInputs,
+                                onShareInputChange: setGhuramaaShareInput,
+                                onEqualSplit: applyGhuramaaEqualSplit,
+                                manualSum: ghuramaaManual.sum,
+                                validationNote: ghuramaaManual.validationNote,
+                                partialWarning: ghuramaaManual.partialWarning,
+                                remainingAfter: ghuramaaManual.remainingAfter,
+                                isEqualMode: ghuramaaManual.isEqualMode,
+                                canConfirm: ghuramaaManual.ok,
+                                onConfirm: applyGhuramaaDistribution,
+                            }}
                         />
                             ) : null}
-            </AnimatePresence>
 
-            <AnimatePresence>
                     {debtEditOpen ? (
-                    <DebtTotalsEditModal
-                        open={debtEditOpen}
-                        onClose={() => setDebtEditOpen(false)}
-                        totalInput={debtEditTotalInput}
-                        setTotalInput={setDebtEditTotalInput}
-                        remainingInput={debtEditRemainingInput}
-                        setRemainingInput={setDebtEditRemainingInput}
-                        onSave={applyDebtTotalsEdit}
-                        lockReason={debtEditLockReason}
-                        showAlimonyAccrualNote={Boolean(isAlimonyClaim && ongoingMonthlyAlimonyEffective > 0)}
+                    <FocLazyOverlay
+                        lazy={LazyDebtTotalsEditModal}
+                        lazyProps={{
+                            open: debtEditOpen,
+                            onClose: () => setDebtEditOpen(false),
+                            totalInput: debtEditTotalInput,
+                            setTotalInput: setDebtEditTotalInput,
+                            remainingInput: debtEditRemainingInput,
+                            setRemainingInput: setDebtEditRemainingInput,
+                            onSave: applyDebtTotalsEdit,
+                            lockReason: debtEditLockReason,
+                            showAlimonyAccrualNote: Boolean(isAlimonyClaim && ongoingMonthlyAlimonyEffective > 0),
+                        }}
                     />
                     ) : null}
-            </AnimatePresence>
 
-            <AnimatePresence>
                     {feesSheetOpen ? (
-                        <FocFeesSheet
-                            open={feesSheetOpen}
-                            onClose={() => setFeesSheetOpen(false)}
-                            sheetClass={sheetClass}
-                            lawyerAmountInput={lawyerAmountInput}
-                            setLawyerAmountInput={setLawyerAmountInput}
-                            lawyerLabelInput={lawyerLabelInput}
-                            setLawyerLabelInput={setLawyerLabelInput}
-                            canAddLawyerFee={canAddLawyerFee}
-                            onAddLawyerFee={addLawyerFee}
-                            evictionFinanceStrip={
-                                evictionFinanceStrip
+                        <FocLazyOverlay
+                            lazy={LazyFocFeesSheet}
+                            lazyProps={{
+                                open: feesSheetOpen,
+                                onClose: () => setFeesSheetOpen(false),
+                                sheetClass,
+                                lawyerAmountInput,
+                                setLawyerAmountInput,
+                                lawyerLabelInput,
+                                setLawyerLabelInput,
+                                canAddLawyerFee,
+                                onAddLawyerFee: addLawyerFee,
+                                evictionFinanceStrip: evictionFinanceStrip
                                     ? {
                                           lawyerFeeRequestTitle: evictionFinanceStrip.lawyerFeeRequestTitle,
                                           lawyerFeeRequestDisabled: evictionFinanceStrip.lawyerFeeRequestDisabled,
                                           onRequestLawyerFees: evictionFinanceStrip.onRequestLawyerFees,
                                       }
-                                    : undefined
-                            }
-                            isEvictionFundsModule={isEvictionFundsModule}
-                            lawyerFees={store.lawyerFees}
+                                    : undefined,
+                                isEvictionFundsModule,
+                                lawyerFees: store.lawyerFees,
+                            }}
                         />
                     ) : null}
-            </AnimatePresence>
 
-            <AnimatePresence>
                     {expenseSheetOpen ? (
-                        <FocExpenseSheet
-                            open={expenseSheetOpen}
-                            onClose={() => setExpenseSheetOpen(false)}
-                            sheetClass={sheetClass}
-                            expenseAmountInput={expenseAmountInput}
-                            setExpenseAmountInput={setExpenseAmountInput}
-                            expenseReasonInput={expenseReasonInput}
-                            setExpenseReasonInput={setExpenseReasonInput}
-                            canAddExpense={canAddExpense}
-                            onAddExpense={addExpense}
-                            expenses={store.expenses}
+                        <FocLazyOverlay
+                            lazy={LazyFocExpenseSheet}
+                            lazyProps={{
+                                open: expenseSheetOpen,
+                                onClose: () => setExpenseSheetOpen(false),
+                                sheetClass,
+                                expenseAmountInput,
+                                setExpenseAmountInput,
+                                expenseReasonInput,
+                                setExpenseReasonInput,
+                                canAddExpense,
+                                onAddExpense: addExpense,
+                                expenses: store.expenses,
+                            }}
                         />
                     ) : null}
-            </AnimatePresence>
 
-            <AnimatePresence>
                     {showGarnishModal ? (
-                        <FocGarnishModal
-                            open={showGarnishModal}
-                            onClose={closeGarnishModal}
-                            garnishMonthlyInput={garnishMonthlyInput}
-                            setGarnishMonthlyInput={setGarnishMonthlyInput}
-                            garnishMemoInput={garnishMemoInput}
-                            setGarnishMemoInput={setGarnishMemoInput}
-                            remainingUnified={remainingUnified}
-                            canConfirmGarnishment={canConfirmGarnishment}
-                            onConfirm={confirmGarnishment}
+                        <FocLazyOverlay
+                            lazy={LazyFocGarnishModal}
+                            lazyProps={{
+                                open: showGarnishModal,
+                                onClose: closeGarnishModal,
+                                garnishMonthlyInput,
+                                setGarnishMonthlyInput,
+                                garnishMemoInput,
+                                setGarnishMemoInput,
+                                remainingUnified,
+                                canConfirmGarnishment,
+                                onConfirm: confirmGarnishment,
+                            }}
                         />
                     ) : null}
-            </AnimatePresence>
 
-                {showGuarantorModal ? (
-                    <GuarantorRegistrationModal
-                        isOpen={showGuarantorModal}
-                        onClose={() => setShowGuarantorModal(false)}
-                        onSave={handleSaveGuarantor}
-                    />
-                ) : null}
-
-            <AnimatePresence>
                     {showOngoingAlimonyMonthlySection && alimonyDetailOpen ? (
-                    <FocModalPortal
-                        open
-                            onBackdropClick={() => setAlimonyDetailOpen(false)}
-                            backdropClassName="bg-black/60"
-                    >
-                        <motion.div
-                            initial={{ scale: 0.98, opacity: 0, y: 8 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            exit={{ scale: 0.98, opacity: 0, y: 8 }}
-                            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                            className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0A1122]/80 backdrop-blur-xl p-4 shadow-2xl"
-                            dir="rtl"
-                        >
-                            <div className="mb-3 flex items-center justify-between gap-2 border-b border-white/[0.06] pb-2.5">
-                                <button
-                                    type="button"
-                                    onClick={() => setAlimonyDetailOpen(false)}
-                                    className="rounded-full p-1.5 text-slate-400 transition hover:bg-white/10"
-                                    aria-label="إغلاق"
-                                >
-                                    <X size={16} />
-                                </button>
-                                <h4 className="text-xs font-bold text-[#E6C673]/90 tracking-wide">استحقاق النفقة</h4>
-                            </div>
-                                <AlimonyFinancialBlock
-                                    breakdown={alimonyBreakdown ?? undefined}
-                                    wifeMonthlyAlimony={monthly_wife_alimony || monthlyAlimony}
-                                    childrenMonthlyAlimony={monthly_children_alimony || 0}
-                                    childrenCount={children_count || 1}
-                                    entitlementsOnly
-                                />
-                        </motion.div>
-                    </FocModalPortal>
+                        <FocLazyOverlay
+                            lazy={LazyFocAlimonyDetailOverlay}
+                            lazyProps={{
+                                open: alimonyDetailOpen,
+                                onClose: () => setAlimonyDetailOpen(false),
+                                breakdown: alimonyBreakdown ?? undefined,
+                                wifeMonthlyAlimony: monthly_wife_alimony || monthlyAlimony,
+                                childrenMonthlyAlimony: monthly_children_alimony || 0,
+                                childrenCount: children_count || 1,
+                            }}
+                        />
                     ) : null}
-            </AnimatePresence>
         </div>
     );
     }

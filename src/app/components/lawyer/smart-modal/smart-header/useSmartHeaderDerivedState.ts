@@ -28,14 +28,13 @@ export function useSmartHeaderDerivedState(props: SmartHeaderProps) {
         status = 'نشطة',
         isReadOnly = false,
         isPleadingsClosed = false,
-        wasReopened = false,
+        pleadingDoorReopened = false,
         thirdParties = [],
         crossAppealEligibility: crossAppealEligibilityProp,
         onAddCrossAppeal,
         onCancelCrossAppeal,
     } = props;
 
-    const [openPartyKey, setOpenPartyKey] = useState<string | null>(null);
     const partiesSectionRef = useRef<HTMLDivElement>(null);
     const [showClaimValue, setShowClaimValue] = useState(false);
     const [showPreviousCourt, setShowPreviousCourt] = useState(false);
@@ -86,9 +85,14 @@ export function useSmartHeaderDerivedState(props: SmartHeaderProps) {
     const courtName =
         courtReferralView.displayCourt ||
         rawCourtName ||
-        (isAppealStage ? '' : 'المحكمة المختصة');
-    const showJudgeChip = !isCassation && !isCorrectionStage;
-    const judgeChipValue = isAppealStage ? '' : rawJudgeName;
+        (isCassation ? 'محكمة التمييز الاتحادية' : isAppealStage ? '' : 'المحكمة المختصة');
+    const showJudgeChip =
+        !isCassation
+        && !isCorrectionStage
+        && !isAppealStageName(formData?.stageName);
+    /** التمييز/التصحيح دائماً محكمة التمييز الاتحادية — لا حاجة لعرض الحقل */
+    const showCourtChip = !isCassation && !isCorrectionStage;
+    const judgeChipValue = rawJudgeName;
     const lawsuitTypeLabel = resolveLawsuitTypeLabel(formData);
     const claimValueLabel = formatClaimValueDisplay(formData?.claimValue);
     const awaitingOpponentAppeal = shouldShowOpponentAppealRegisterButton(
@@ -96,7 +100,7 @@ export function useSmartHeaderDerivedState(props: SmartHeaderProps) {
             finalDecision: formData?.finalDecision,
             isPleadingsClosed,
             appealDeadline: formData?.appealDeadline,
-            wasReopened,
+            pleadingDoorReopened: pleadingDoorReopened || formData?.pleadingDoorReopened,
             awaitingOpponentAppeal: formData?.awaitingOpponentAppeal,
             stageName: formData?.stageName,
             status: formData?.status,
@@ -137,8 +141,8 @@ export function useSmartHeaderDerivedState(props: SmartHeaderProps) {
         );
 
     const containerStyle = isPaused
-        ? 'rounded-2xl mb-1.5 relative group/card transition-colors bg-[linear-gradient(165deg,rgba(18,14,20,0.96),rgba(10,12,18,0.98))] border border-rose-500/16 shadow-[0_8px_24px_rgba(0,0,0,0.2)]'
-        : 'rounded-2xl mb-1.5 relative group/card transition-colors bg-[linear-gradient(165deg,rgba(14,20,34,0.96),rgba(8,12,22,0.98))] border border-[#E6C673]/14 shadow-[0_8px_24px_rgba(0,0,0,0.2)] hover:border-[#E6C673]/24';
+        ? 'rounded-xl mb-1.5 relative border border-rose-500/16 bg-rose-500/[0.03]'
+        : 'rounded-xl mb-1.5 relative border border-white/[0.08] bg-white/[0.03] hover:border-white/[0.12]';
 
     const hasPartiesSection =
         plaintiffs.length > 0 || defendants.length > 0 || interpleaders.length > 0
@@ -146,8 +150,6 @@ export function useSmartHeaderDerivedState(props: SmartHeaderProps) {
         || activeThirdPartyCases.length > 0;
 
     return {
-        openPartyKey,
-        setOpenPartyKey,
         partiesSectionRef,
         showClaimValue,
         setShowClaimValue,
@@ -165,6 +167,7 @@ export function useSmartHeaderDerivedState(props: SmartHeaderProps) {
         isAppealStage,
         courtReferralView,
         courtName,
+        showCourtChip,
         showJudgeChip,
         judgeChipValue,
         lawsuitTypeLabel,

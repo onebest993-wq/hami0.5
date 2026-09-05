@@ -341,8 +341,6 @@ describe('execution dashboard runtime regressions', () => {
                 showToast={showToast}
                 onOpenDecisionsModal={vi.fn()}
                 onMemoFollowupClick={undefined as never}
-                onOpenSeizureLog={vi.fn()}
-                showSeizureLogButton={false}
                 pinnedNotes={[]}
                 pinnedTasks={[]}
                 onToggleNotePin={vi.fn()}
@@ -380,8 +378,6 @@ describe('execution dashboard runtime regressions', () => {
                 onOpenAppointmentModal={undefined as never}
                 onOpenDecisionsModal={vi.fn()}
                 onMemoFollowupClick={vi.fn()}
-                onOpenSeizureLog={vi.fn()}
-                showSeizureLogButton={false}
                 pinnedNotes={[]}
                 pinnedTasks={[]}
                 onToggleNotePin={vi.fn()}
@@ -390,7 +386,7 @@ describe('execution dashboard runtime regressions', () => {
             />,
         );
 
-        fireEvent.click(screen.getByRole('button', { name: 'إضافة موعد' }));
+        fireEvent.click(screen.getByRole('button', { name: 'الموعد' }));
 
         expect(showToast).toHaveBeenCalledWith(
             'تعذر فتح نافذة إضافة الموعد لأن الربط الحقيقي لم يصل إلى الواجهة بعد.',
@@ -417,8 +413,6 @@ describe('execution dashboard runtime regressions', () => {
                 showToast={showToast}
                 onOpenDecisionsModal={undefined as never}
                 onMemoFollowupClick={vi.fn()}
-                onOpenSeizureLog={vi.fn()}
-                showSeizureLogButton={false}
                 pinnedNotes={[]}
                 pinnedTasks={[]}
                 onToggleNotePin={vi.fn()}
@@ -456,8 +450,6 @@ describe('execution dashboard runtime regressions', () => {
                 onOpenNotesModal={undefined as never}
                 onOpenDecisionsModal={vi.fn()}
                 onMemoFollowupClick={vi.fn()}
-                onOpenSeizureLog={vi.fn()}
-                showSeizureLogButton={false}
                 pinnedNotes={[]}
                 pinnedTasks={[]}
                 onToggleNotePin={vi.fn()}
@@ -494,8 +486,6 @@ describe('execution dashboard runtime regressions', () => {
                 onOpenDocumentsModal={undefined as never}
                 onOpenDecisionsModal={vi.fn()}
                 onMemoFollowupClick={vi.fn()}
-                onOpenSeizureLog={vi.fn()}
-                showSeizureLogButton={false}
                 pinnedNotes={[]}
                 pinnedTasks={[]}
                 onToggleNotePin={vi.fn()}
@@ -532,8 +522,6 @@ describe('execution dashboard runtime regressions', () => {
                 onOpenDecisionsModal={vi.fn()}
                 onOpenFinancialCenter={undefined as never}
                 onMemoFollowupClick={vi.fn()}
-                onOpenSeizureLog={vi.fn()}
-                showSeizureLogButton={false}
                 pinnedNotes={[]}
                 pinnedTasks={[]}
                 onToggleNotePin={vi.fn()}
@@ -578,8 +566,6 @@ describe('execution dashboard runtime regressions', () => {
                 onOpenDecisionsModal={onOpenDecisionsModal}
                 onOpenFinancialCenter={onOpenFinancialCenter}
                 onMemoFollowupClick={undefined as never}
-                onOpenSeizureLog={vi.fn()}
-                showSeizureLogButton={false}
                 pinnedNotes={[]}
                 pinnedTasks={[]}
                 onToggleNotePin={vi.fn()}
@@ -588,7 +574,7 @@ describe('execution dashboard runtime regressions', () => {
             />,
         );
 
-        fireEvent.click(screen.getByRole('button', { name: 'إضافة موعد' }));
+        fireEvent.click(screen.getByRole('button', { name: 'الموعد' }));
         fireEvent.click(screen.getByRole('button', { name: 'ملاحظات' }));
         fireEvent.click(screen.getByRole('button', { name: 'المستندات' }));
         fireEvent.click(screen.getByRole('button', { name: 'القرارات والطعون' }));

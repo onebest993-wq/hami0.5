@@ -9,8 +9,10 @@ export function resolveCommunityForumPollMs(): number {
 }
 
 export function resolveForumUnreadPollMs(streamRunning: boolean): number {
-    const base = streamRunning ? 45_000 : 12_000;
-    return isLitePerformanceActive() ? base * 2 : base;
+    if (streamRunning) {
+        return isLitePerformanceActive() ? COMMUNITY_FORUM_POLL_MS_LITE : COMMUNITY_FORUM_POLL_MS_DEFAULT;
+    }
+    return isLitePerformanceActive() ? 24_000 : 12_000;
 }
 
 export function resolveForumStreamHealthCheckMs(): number {

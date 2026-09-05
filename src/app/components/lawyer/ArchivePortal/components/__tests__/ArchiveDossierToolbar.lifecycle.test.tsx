@@ -43,4 +43,28 @@ describe('ArchiveDossierToolbar lifecycle', () => {
         expect(input.className).toContain('[&::-webkit-search-decoration]:hidden');
         expect(input.className).not.toContain('pr-9');
     });
+
+    it('لوحة الفلاتر ضمن التدفق ولا تُثبَّت absolute فوق البطاقات', () => {
+        render(
+            <ArchiveDossierToolbar
+                showJurisdictionTabs
+                jurisdictionTab="all"
+                onJurisdictionTabChange={vi.fn()}
+                searchQuery=""
+                onSearchQueryChange={vi.fn()}
+                viewMode="grid"
+                onViewModeChange={vi.fn()}
+                lifecycleViewMode="active"
+                onLifecycleViewModeChange={vi.fn()}
+                archivedCount={0}
+                trashedCount={1}
+            />,
+        );
+
+        fireEvent.click(screen.getByTestId('archive-jurisdiction-filters-toggle'));
+        const panel = screen.getByRole('dialog', { name: 'فلاتر المخزن' });
+        expect(panel.className).toContain('mt-2');
+        expect(panel.className).not.toContain('absolute');
+        expect(screen.getByTestId('lawsuits-trash-toggle')).toBeTruthy();
+    });
 });

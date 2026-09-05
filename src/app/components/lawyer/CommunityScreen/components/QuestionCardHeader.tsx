@@ -11,7 +11,7 @@ export function QuestionCardHeader(props: QuestionCardHeaderProps) {
     const authorId = props.post.authorId || props.post.author_id || '';
 
     return (
-        <div className="mb-3 flex items-start gap-2 min-w-0">
+        <div className="mb-2 flex items-start gap-2 min-w-0">
             <QuestionCardHeaderAvatar isAnonymous={props.isAnonymous} authorId={authorId} />
 
             <div className="relative min-w-0 flex-1">
@@ -69,7 +69,6 @@ export function QuestionCardHeader(props: QuestionCardHeaderProps) {
                 currentUserId={props.currentUserId}
                 isOwner={props.isOwner}
                 isAdmin={props.isAdmin}
-                isAnonymous={props.isAnonymous}
                 isPinned={props.isPinned}
                 isLocked={props.isLocked}
                 isThreadFollowing={props.isThreadFollowing}

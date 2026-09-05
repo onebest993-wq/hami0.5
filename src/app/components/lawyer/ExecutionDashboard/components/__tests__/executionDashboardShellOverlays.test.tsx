@@ -48,10 +48,6 @@ vi.mock('../ExecutionFollowupModalHost', () => ({
     ExecutionFollowupModalHost: () => <div>followup host mounted</div>,
 }));
 
-vi.mock('../ExecutionDashboardSeizedPropertyPortals', () => ({
-    ExecutionDashboardSeizedPropertyPortals: () => <div>seized property portals mounted</div>,
-}));
-
 vi.mock('../../hooks/useExecutionFollowupModalSnapshot', () => ({
     useExecutionFollowupModalSnapshot: (_open: boolean, build: () => Record<string, unknown>) => build(),
 }));
@@ -62,10 +58,6 @@ vi.mock('../../hooks/buildFollowupModalSnapshotInput', () => ({
 
 vi.mock('../../hooks/pickExecutionShellOverlayProps', () => ({
     pickExecutionShellOverlayProps: (scope: Record<string, unknown>) => scope,
-}));
-
-vi.mock('../../hooks/pickSeizedPropertyPortalProps', () => ({
-    pickSeizedPropertyPortalProps: (scope: Record<string, unknown>) => scope,
 }));
 
 vi.mock('../../hooks/executionShellOverlayScope', () => ({

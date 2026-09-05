@@ -11,7 +11,6 @@ const OPPONENT_APPEAL_BTN =
 type PersonalStatusStageFooterBarProps = {
     showAbsentJudgmentFooter: boolean;
     showPetitionVoidFooter: boolean;
-    setShowAppealModal: (v: boolean) => void;
     absentJudgmentFooterPanel: ReactNode;
     petitionVoidFooterPanel: ReactNode;
 };

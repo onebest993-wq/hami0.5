@@ -209,7 +209,17 @@ export function coerceExecutionFilePreserveId(input: unknown): ExecutionFile {
     const partiesFromValue = (): Party[] => {
         if (Array.isArray(v.parties) && v.parties.length > 0) {
             return v.parties
-                .map((p, i) => coerceParty(p, i + 1, i === 0 ? 'الدائن' : 'المدين'))
+                .map((p, i) => {
+                    const roleRaw =
+                        isRecord(p) && typeof p.role === 'string' ? String(p.role).trim() : '';
+                    const role =
+                        roleRaw === 'الدائن' || roleRaw === 'المدين'
+                            ? roleRaw
+                            : i === 0
+                              ? 'الدائن'
+                              : 'المدين';
+                    return coerceParty(p, i + 1, role);
+                })
                 .filter((p) => p.name.trim().length > 0);
         }
         const creditorName =
@@ -275,11 +285,12 @@ export function coerceExecutionFilePreserveId(input: unknown): ExecutionFile {
     const partiesDebtors = normalizeExecutionPartyList(v.parties, 'المدين').filter(
         (p) => String((p as { role?: unknown }).role ?? '') === 'المدين',
     );
+    /** يفضّل مصفوفة creditors/debtors الصريحة — وإلا يُعاد الاسم القديم من parties بعد تعديل الإضبارة */
     const creditorsResolved =
-        creditorsFromParties.length > 0
-            ? creditorsFromParties
-            : creditorsNormalized.length > 0
-              ? creditorsNormalized
+        creditorsNormalized.length > 0
+            ? creditorsNormalized
+            : creditorsFromParties.length > 0
+              ? creditorsFromParties
               : partiesCreditors;
     /** يفضّل مصفوفة debtors الصريحة — تحمل isEmployee/occupation؛ المشتق من creditor/debtor يفقدها */
     const debtorsResolved =
@@ -314,6 +325,20 @@ export function coerceExecutionFilePreserveId(input: unknown): ExecutionFile {
                   : undefined;
     }
 
+    const primaryCreditorName = resolvePartyStoredName(creditorsResolved[0]);
+    const primaryDebtorName = resolvePartyStoredName(debtorsResolved[0]);
+
+    /** عند وجود creditors/debtors صريحة لا تُبقَى parties القديمة بأسماء متضاربة */
+    const partiesSyncedFromLists =
+        creditorsNormalized.length > 0 || debtorsNormalized.length > 0
+            ? [
+                  ...creditorsResolved.map((p, i) => coerceParty(p, i + 1, 'الدائن')),
+                  ...debtorsResolved.map((p, i) =>
+                      coerceParty(p, creditorsResolved.length + i + 1, 'المدين'),
+                  ),
+              ].filter((p) => p.name.trim().length > 0)
+            : [];
+
     return {
         ...v,
         id,
@@ -323,11 +348,15 @@ export function coerceExecutionFilePreserveId(input: unknown): ExecutionFile {
         court,
         executionType,
         parties:
-            partiesResult.length > 0
-                ? partiesResult
-                : [...creditorsResolved, ...debtorsResolved],
+            partiesSyncedFromLists.length > 0
+                ? partiesSyncedFromLists
+                : partiesResult.length > 0
+                  ? partiesResult
+                  : [...creditorsResolved, ...debtorsResolved],
         creditors: creditorsResolved,
         debtors: debtorsResolved,
+        ...(primaryCreditorName ? { clientName: primaryCreditorName } : {}),
+        ...(primaryDebtorName ? { opponentName: primaryDebtorName } : {}),
         history,
         notes,
         images,

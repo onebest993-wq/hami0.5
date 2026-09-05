@@ -7,10 +7,6 @@ html[data-hami-global-search-open='1'] [data-hami-lawyer-dashboard] {
     pointer-events: none !important;
 }
 
-html[data-hami-native='1'][data-hami-global-search-open='1'] [data-hami-lawyer-dashboard] {
-    pointer-events: none !important;
-}
-
 html[data-hami-global-search-open='1'] .hami-lawyer-header,
 html[data-hami-global-search-closing='1'] .hami-lawyer-header {
     visibility: hidden !important;
@@ -87,8 +83,6 @@ html.hami-native-shell .hami-gs-layer {
   }
 }
 
-html[data-hami-native='1']:not([data-hami-platform='ios']) .hami-gs-backdrop,
-html.hami-native-shell:not([data-hami-platform='ios']) .hami-gs-backdrop,
 html[data-hami-native='1'] .hami-gs-backdrop,
 html.hami-native-shell .hami-gs-backdrop {
   background: #0a0f1c;

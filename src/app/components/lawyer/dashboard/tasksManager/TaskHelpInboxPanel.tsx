@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2 } from '@/app/components/ui/icons/CheckCircle2';
 import { HandHelping } from '@/app/components/ui/icons/HandHelping';
-import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import { MessageSquarePlus } from '@/app/components/ui/icons/MessageSquarePlus';
 import type { TaskHelpRequest } from '@/app/types/taskHelpTypes';
 import { TaskHelpApiService } from '@/app/services/taskHelp/taskHelpApiService';
@@ -174,10 +173,10 @@ export function TaskHelpInboxPanel({
 
                 <div className="space-y-3 text-right py-2" data-testid="task-help-inbox">
                     {loading ? (
-                        <p className="text-xs text-[#F4F4F5]/55 flex flex-row-reverse items-center gap-2">
-                            <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                            جاري التحميل…
-                        </p>
+                        <div className="space-y-2" aria-busy="true" aria-hidden>
+                            <div className={`${TASKS_DIALOG_SUBPANEL} !p-3 min-h-[44px]`} />
+                            <div className={`${TASKS_DIALOG_SUBPANEL} !p-3 min-h-[44px]`} />
+                        </div>
                     ) : null}
                     {error ? (
                         <p className="text-xs font-bold text-rose-300" role="alert">

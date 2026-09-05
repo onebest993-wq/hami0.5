@@ -8,8 +8,6 @@ import { useSettingsLifecycle } from './hooks/useSettingsLifecycle';
 import { useSettingsSectionWarm } from './hooks/useSettingsSectionWarm';
 import type { HamiSettingsProps } from './hamiSettingsTypes';
 
-export type { HamiSettingsProps };
-
 export const HamiSettings = ({
     onClose,
     onLogout,
@@ -26,7 +24,7 @@ export const HamiSettings = ({
     }, [keepAlive, open]);
 
     useSettingsLifecycle(open, activeSection, userId, () => setShellHydrated(true));
-    useSettingsSectionWarm(open || keepAlive, activeSection);
+    useSettingsSectionWarm(open || keepAlive, activeSection, open);
 
     return (
         <SettingsErrorBoundary onClose={onClose} onShellReset={onShellReset}>

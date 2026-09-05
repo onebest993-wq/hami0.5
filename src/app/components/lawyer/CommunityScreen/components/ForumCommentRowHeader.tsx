@@ -127,12 +127,14 @@ export function ForumCommentRowHeader({
                                 }
                             }}
                             disabled={isDeletingComment}
+                            aria-busy={isDeletingComment || undefined}
                             className={`${COMMENT_ACTION_HIT_AREA} text-[10px] px-2 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-colors ${
                                 isDeletingComment ? 'opacity-50 cursor-not-allowed' : ''
                             }`}
                             title="حذف التعليق"
+                            aria-label="حذف التعليق"
                         >
-                            {isDeletingComment ? 'جاري الحذف...' : <Trash2 size={10} />}
+                            <Trash2 size={10} />
                         </button>
                     )}
                 </div>

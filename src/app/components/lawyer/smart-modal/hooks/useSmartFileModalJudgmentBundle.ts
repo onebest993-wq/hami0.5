@@ -11,6 +11,7 @@ import {
 } from '../smartFile/parentDataClientMeta';
 import type { useSmartFileModalFlags } from './useSmartFileModalFlags';
 import type { SaveToCloud } from './judgment/judgmentHookTypes';
+import type { SmartFileModalProps } from '../smartFile/smartFileModalTypes';
 
 type ModalFlags = ReturnType<typeof useSmartFileModalFlags>;
 
@@ -28,6 +29,8 @@ type SmartFileModalJudgmentBundleParams = {
     calendarUserId: string | undefined;
     lawsuitFileId: string | undefined;
     modalFlags: ModalFlags;
+    onSpawnIndependentChallengeFile?: SmartFileModalProps['onSpawnIndependentChallengeFile'];
+    file?: SmartFileModalProps['file'];
 };
 
 export function useSmartFileModalJudgmentBundle({
@@ -44,6 +47,8 @@ export function useSmartFileModalJudgmentBundle({
     calendarUserId,
     lawsuitFileId,
     modalFlags,
+    onSpawnIndependentChallengeFile,
+    file,
 }: SmartFileModalJudgmentBundleParams) {
     const {
         setShowObjectionRegistrationModal,
@@ -55,6 +60,7 @@ export function useSmartFileModalJudgmentBundle({
         setShowAppealModal,
         setShowJudgmentModal,
         setShowCrossAppealModal,
+        setEditingEvent,
     } = modalFlags;
 
     const defaultJudgmentActions = useSmartFileDefaultJudgmentActions({
@@ -75,6 +81,11 @@ export function useSmartFileModalJudgmentBundle({
         court: resolveSmartFileParentCourt(parentData),
         parties: parentData?.parties,
         clientName: resolveSmartFileClientName(parentData),
+        parentIntegrity:
+            parentData?.disputeIntegrity === 'severable'
+            || parentData?.disputeIntegrity === 'indivisible'
+                ? parentData.disputeIntegrity
+                : undefined,
     });
 
     const pleadingsActions = useSmartFilePleadingsActions({
@@ -87,6 +98,9 @@ export function useSmartFileModalJudgmentBundle({
         parentData,
         saveToCloud,
         setStatus,
+        setEditingEvent,
+        onSpawnIndependentChallengeFile,
+        sourceFile: file ?? null,
     });
 
     const handleShare = useCallback(() => {
@@ -111,6 +125,9 @@ export function useSmartFileModalJudgmentBundle({
         setShowObjectionRegistrationModal,
         setShowJudgmentModal,
         setShowCrossAppealModal,
+        setEditingEvent,
+        onSpawnIndependentChallengeFile,
+        sourceFile: file ?? null,
     });
 
     return {

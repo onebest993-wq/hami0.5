@@ -20,17 +20,20 @@ vi.mock('@/lib/forumService.js', () => ({
     publishForumPost: (...args: unknown[]) => createPost(...args),
 }));
 
-vi.mock('@/app/services/lawyer-cloud', () => ({
+vi.mock('@/app/services/storage/lawyerStorageRuntime', () => ({
     LawyerStorage: {
         uploadSmartFile: vi.fn().mockResolvedValue({ path: 'cloud/path.pdf' }),
     },
 }));
 
-vi.mock('@/app/services/forumAttachmentService', () => ({
+vi.mock('@/app/services/forumAttachmentPreview', () => ({
     createInstantForumAttachmentPreview: vi.fn((file: File) => ({
         url: `blob:mock-${file.name}`,
         storagePath: 'idb:forum:pending:test',
     })),
+}));
+
+vi.mock('@/app/services/forumAttachmentService', () => ({
     persistForumAttachmentFile: vi.fn().mockResolvedValue('idb:forum:cached'),
     prepareForumAttachmentForPublish: vi.fn(async (attachment) => attachment),
 }));

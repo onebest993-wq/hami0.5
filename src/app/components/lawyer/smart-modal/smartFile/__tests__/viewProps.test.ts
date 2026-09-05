@@ -6,6 +6,8 @@ import {
     buildSmartFileLayoutProps,
 } from '../viewProps';
 import type { SmartFileLayoutBuildInput } from '../viewProps';
+import { ART172_STAY_LABEL } from '../art172AppealStay';
+import { CIVIL_LAWSUIT_TEST_IDS } from '../civilLawsuitTestIds';
 
 function minimalInput(overrides: Partial<SmartFileLayoutBuildInput> = {}): SmartFileLayoutBuildInput {
     const noop = vi.fn();
@@ -54,8 +56,10 @@ function minimalInput(overrides: Partial<SmartFileLayoutBuildInput> = {}): Smart
         handlePetitionVoidWaiver: noop,
         handleToggleNotification: noop,
         handleCassationDecision: noop,
-        handleClosePleadings: noop,
         handleReopenPleadings: noop,
+        handleArt172AppealStay: noop,
+        handleArt172AppealResume: noop,
+        handleJoinCoObjector: noop,
         handleOpenDefendantCassationAppeal: noop,
         handleDefaultObjection: noop,
         handleWaiveObjection: noop,
@@ -110,8 +114,10 @@ function minimalInput(overrides: Partial<SmartFileLayoutBuildInput> = {}): Smart
             setShowInterlocutoryModal: noop,
             showObjectionRegistrationModal: false,
             setShowObjectionRegistrationModal: noop,
-            showJudgmentModal: false,
-            setShowJudgmentModal: noop,
+        showJudgmentModal: false,
+        setShowJudgmentModal: noop,
+        showAdjournPleadingModal: false,
+        setShowAdjournPleadingModal: noop,
             showAppealModal: false,
             setShowAppealModal: noop,
             showAppealTransitionModal: false,
@@ -235,5 +241,45 @@ describe('viewProps builders', () => {
         const portal = buildModalsPortalProps(input);
         expect(portal.appealRoute.retrialTargetStage).toBe('بداءة بدرجة أولى');
         expect(buildSmartFileLayoutProps(input).modalsPortal.appealRoute).toEqual(portal.appealRoute);
+    });
+
+    it('يربط استئخار الاستئناف بزر سير الدعوى لا بتذييل ختام المرافعة', () => {
+        const handleArt172AppealStay = vi.fn();
+        const handleOpenPauseModal = vi.fn();
+        const appeal = {
+            id: 's1',
+            stageName: 'الاستئناف',
+            status: 'active',
+            timeline: [],
+            appealMetadata: {
+                appellantPartyIds: ['2'],
+                appelleePartyIds: ['1', '3'],
+            },
+        } as SmartFileLayoutBuildInput['displayStage'];
+        const first = {
+            id: 's0',
+            stageName: 'بداءة بدرجة أولى',
+            status: 'locked',
+            timeline: [],
+            disputeIntegrity: 'indivisible',
+            partyChallengeLanes: [
+                { partyId: '2', disposition: 'حضوري', laneState: 'appeal' },
+                { partyId: '3', disposition: 'غيابي', laneState: 'objection' },
+            ],
+        } as SmartFileLayoutBuildInput['stages'][number];
+        const input = minimalInput({
+            displayStage: appeal,
+            currentStage: appeal,
+            stages: [first, appeal],
+            activeStageIndex: 1,
+            viewingStageIndex: 1,
+            handleArt172AppealStay,
+            handleOpenPauseModal,
+        });
+        const chrome = buildChromeProps(input);
+        expect(chrome.pauseLabel).toBe(ART172_STAY_LABEL);
+        expect(chrome.pauseTestId).toBe(CIVIL_LAWSUIT_TEST_IDS.art172Stay);
+        expect(chrome.onPause).toBe(handleArt172AppealStay);
+        expect(chrome.onPause).not.toBe(handleOpenPauseModal);
     });
 });

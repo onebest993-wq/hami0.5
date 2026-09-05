@@ -39,13 +39,15 @@ export function PersonalStatusPartyCard({
                     onClick={() => onUpdate('isClient', !party.isClient)}
                     aria-pressed={party.isClient}
                     data-testid="lawyer-new-case-mark-client"
-                    className={`inline-flex items-center justify-center gap-1 rounded-md px-2 min-h-[44px] text-[10px] font-bold border transition-colors touch-manipulation shrink-0 ${
+                    title="تحديد كموكل"
+                    className={`inline-flex items-center justify-center gap-1 rounded-md px-1.5 h-7 min-w-[2.75rem] text-[10px] font-bold border transition-colors touch-manipulation shrink-0 ${
                         party.isClient
-                            ? 'border-[#E6C673]/45 bg-[#E6C673]/12 text-[#E6C673]'
-                            : 'border-white/12 bg-white/[0.03] text-white/45'
+                            ? 'border-[#E6C673]/50 bg-[#E6C673]/14 text-[#E6C673]'
+                            : 'border-white/12 bg-transparent text-white/40 hover:border-white/18 hover:text-white/65'
                     }`}
                 >
-                    <UserCheck size={11} /> {party.isClient ? 'موكل' : 'تعيين كموكل'}
+                    <UserCheck size={11} aria-hidden />
+                    موكل
                 </button>
                 {canRemove ? (
                     <button

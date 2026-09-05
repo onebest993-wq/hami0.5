@@ -4,7 +4,7 @@ import { warmQuantumTasksDiskRead } from '@/app/hooks/lawyerDashboard/fieldTasks
 
 type FieldTasksBottomSheetProps = React.ComponentProps<typeof FieldTasksBottomSheet>;
 
-export type FieldTasksSheetHostProps = FieldTasksBottomSheetProps & {
+type FieldTasksSheetHostProps = FieldTasksBottomSheetProps & {
     keepAlive?: boolean;
 };
 

@@ -1,9 +1,9 @@
 import React from 'react';
 import { BTN_BASE, BTN_DISABLED } from '../personalCoerciveStyles';
+import { Ban } from '@/app/components/ui/icons/Ban';
 import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
 import { CoerciveSubsectionFold } from '../chrome/CoerciveSubsectionFold';
 import { ExecutionInlineExecutorDecisionActions } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
-import { Plane } from '@/app/components/ui/icons/Plane';
 import { isExecutorRejectedAppealFollowupDismissed } from '@/app/utils/personalCoerciveAppealSync';
 import type { PickPersonalCoerciveSectionProps } from './personalCoerciveSectionBag';
 
@@ -101,9 +101,9 @@ export function TravelBanSection({
                             }}
                             className={`w-full ${BTN_BASE} bg-gradient-to-l from-sky-500/12 to-transparent hover:from-sky-500/18 ${travelSubmitButtonDisabled ? BTN_DISABLED : ''}`}
                         >
-                            <div className="flex flex-row-reverse items-center gap-3">
-                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5">
-                                    <Plane className="h-6 w-6 text-white/70" />
+                            <div className="flex items-center gap-3" dir="rtl">
+                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/10 ring-1 ring-sky-400/20">
+                                    <Ban className="h-6 w-6 text-sky-200/90" />
                                 </span>
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm font-bold text-sky-100">{travelButtonLabel}</p>
@@ -118,10 +118,13 @@ export function TravelBanSection({
                             }
                             className="group/travel text-right"
                         >
-                            <summary className="flex cursor-pointer list-none flex-row-reverse items-center justify-between gap-2 px-4 py-3.5 transition-colors hover:bg-white/[0.03] [&::-webkit-details-marker]:hidden">
-                                <span className="flex flex-row-reverse items-center gap-3 min-w-0">
-                                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/5">
-                                        <Plane className="h-6 w-6 text-white/70" />
+                            <summary
+                                className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3.5 transition-colors hover:bg-white/[0.03] [&::-webkit-details-marker]:hidden"
+                                dir="rtl"
+                            >
+                                <span className="flex min-w-0 items-center gap-3">
+                                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-sky-500/10 ring-1 ring-sky-400/20">
+                                        <Ban className="h-6 w-6 text-sky-200/90" />
                                     </span>
                                     <span className="text-sm font-bold text-sky-100">منع سفر — مفعّل</span>
                                 </span>
@@ -165,9 +168,9 @@ export function TravelBanSection({
                             onClick={() => liftTravelBanEnforcement()}
                             className={`w-full ${BTN_BASE} bg-gradient-to-l from-sky-500/12 to-transparent hover:from-sky-500/18`}
                         >
-                            <div className="flex flex-row-reverse items-center gap-3">
-                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5">
-                                    <Plane className="h-6 w-6 text-white/70" />
+                            <div className="flex items-center gap-3" dir="rtl">
+                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/10 ring-1 ring-sky-400/20">
+                                    <Ban className="h-6 w-6 text-sky-200/90" />
                                 </span>
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm font-bold text-sky-100">{travelButtonLabel}</p>
@@ -176,9 +179,9 @@ export function TravelBanSection({
                         </button>
                     ) : (
                         <div className={`w-full ${BTN_BASE} bg-gradient-to-l from-sky-500/12 to-transparent`}>
-                            <div className="flex flex-row-reverse items-center gap-3">
-                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5">
-                                    <Plane className="h-6 w-6 text-white/70" />
+                            <div className="flex items-center gap-3" dir="rtl">
+                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/10 ring-1 ring-sky-400/20">
+                                    <Ban className="h-6 w-6 text-sky-200/90" />
                                 </span>
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm font-bold text-sky-100">{travelButtonLabel}</p>

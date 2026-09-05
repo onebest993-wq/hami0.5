@@ -1,6 +1,5 @@
 import type { SeizedAsset } from '@/app/types/execution';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import { SEIZURE_INLINE_FOCUS_EVENT } from '@/app/components/lawyer/ExecutionDashboard/utils/seizureInlineFocusUtils';
 
 export type PendingSeizureDraftActionType = 'salary' | 'property' | 'vehicle';
 
@@ -49,87 +48,34 @@ export function mergeSeizureDraftPatch(
     return { ...(existingDrafts || {}), [did]: draft };
 }
 
-/** يفتح نموذج إكمال الحجز بعد موافقة المنفذ */
-export function dispatchOpenSeizureCompletion(executionId: string, decisionId: string): void {
-    const exId = String(executionId || '').trim();
-    const did = String(decisionId || '').trim();
-    if (!exId || !did) return;
-    try {
-        window.dispatchEvent(
-            new CustomEvent('hami-open-seizure-completion', {
-                detail: { executionId: exId, decisionId: did },
-            }),
-        );
-    } catch {
-        /* ignore */
-    }
-}
-
-function dispatchSeizureInlineFocusEvent(
-    eventName: string,
-    executionId: string,
-    decisionId: string,
-    subject?: string,
-): void {
-    const exId = String(executionId || '').trim();
-    const did = String(decisionId || '').trim();
-    if (!exId || !did) return;
-    try {
-        window.dispatchEvent(
-            new CustomEvent(eventName, {
-                detail: {
-                    executionId: exId,
-                    decisionId: did,
-                    subject: String(subject || '').trim(),
-                },
-            }),
-        );
-    } catch {
-        /* ignore */
-    }
-}
-
-/** يفتح تبويب الحجز ويركّز نموذج إكمال العقار inline */
+/** أُزيل تركيز الإكمال — no-op للحفاظ على استيرادات قديمة إن وُجدت */
+export function dispatchOpenSeizureCompletion(_executionId: string, _decisionId: string): void {}
+export function dispatchSalarySeizureInlineFocus(
+    _executionId: string,
+    _decisionId: string,
+    _subject?: string,
+): void {}
 export function dispatchPropertySeizureInlineFocus(
-    executionId: string,
-    decisionId: string,
-    subject?: string,
-): void {
-    dispatchSeizureInlineFocusEvent(
-        SEIZURE_INLINE_FOCUS_EVENT.property,
-        executionId,
-        decisionId,
-        subject,
-    );
-}
-
-/** يفتح تبويب الحجز ويركّز نموذج إكمال المنقول inline */
+    _executionId: string,
+    _decisionId: string,
+    _subject?: string,
+): void {}
 export function dispatchMovableSeizureInlineFocus(
-    executionId: string,
-    decisionId: string,
-    subject?: string,
-): void {
-    dispatchSeizureInlineFocusEvent(
-        SEIZURE_INLINE_FOCUS_EVENT.movable,
-        executionId,
-        decisionId,
-        subject,
-    );
-}
-
-/** يفتح تبويب الحجز ويركّز نموذج إكمال حجز لدى الغير inline */
+    _executionId: string,
+    _decisionId: string,
+    _subject?: string,
+): void {}
 export function dispatchThirdPartySeizureInlineFocus(
-    executionId: string,
-    decisionId: string,
-    subject?: string,
-): void {
-    dispatchSeizureInlineFocusEvent(
-        SEIZURE_INLINE_FOCUS_EVENT.thirdParty,
-        executionId,
-        decisionId,
-        subject,
-    );
-}
+    _executionId: string,
+    _decisionId: string,
+    _subject?: string,
+): void {}
+export function dispatchGuarantorSeizureInlineFocusRoute(
+    _executionId: string,
+    _decisionId: string,
+    _kind: 'salary' | 'movable' | 'property',
+    _subject?: string,
+): void {}
 
 /** يفتح نموذج إكمال بيانات الكفيل بعد موافقة المنفذ */
 export function dispatchOpenGuarantorRequestCompletion(
@@ -150,28 +96,7 @@ export function dispatchOpenGuarantorRequestCompletion(
     }
 }
 
-/** يوجّه تركيز inline لحجز الكفيل حسب نوع الأصل */
-export function dispatchGuarantorSeizureInlineFocusRoute(
-    executionId: string,
-    decisionId: string,
-    kind: 'salary' | 'movable' | 'property',
-    subject?: string,
-): void {
-    const exId = String(executionId || '').trim();
-    const did = String(decisionId || '').trim();
-    if (!exId || !did) return;
-    if (kind === 'property') {
-        dispatchPropertySeizureInlineFocus(exId, did, subject);
-        return;
-    }
-    if (kind === 'movable') {
-        dispatchMovableSeizureInlineFocus(exId, did, subject);
-        return;
-    }
-    dispatchOpenSeizureCompletion(exId, did);
-}
-
-/** دمج payload قرار الحجز دون فقدان حقول سابقة (لربط seizedPropertyId / seizedMovableId) */
+/** دمج payload قرار الحجز دون فقدان حقول سابقة */
 export function mergeSeizureDecisionPayloadJson(
     existingJson: string | undefined | null,
     patch: Record<string, unknown>,

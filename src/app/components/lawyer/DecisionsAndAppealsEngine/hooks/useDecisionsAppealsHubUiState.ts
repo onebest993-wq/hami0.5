@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import type { Decision } from '../types';
 import {
     reconcileAppealDeadlineEnforcement,
@@ -64,22 +65,17 @@ export function useDecisionsAppealsHubUiState({
         if (isHistoricalMode) setShowAddModal(false);
     }, [isHistoricalMode]);
 
-    useEffect(() => {
-        if (isHistoricalMode) return;
-        const tick = () => {
-            setDecisions((prev) => {
-                const { rows, mutated } = reconcileAppealDeadlineEnforcement(prev);
-                if (!mutated) return prev;
-                try {
-                    return persistDecisionsToStorage(rows) ?? prev;
-                } catch {
-                    return prev;
-                }
-            });
-        };
-        const intervalId = window.setInterval(tick, 60_000);
-        return () => window.clearInterval(intervalId);
-    }, [isHistoricalMode, persistDecisionsToStorage, setDecisions]);
+    useVisibilityAwareInterval(() => {
+        setDecisions((prev) => {
+            const { rows, mutated } = reconcileAppealDeadlineEnforcement(prev);
+            if (!mutated) return prev;
+            try {
+                return persistDecisionsToStorage(rows) ?? prev;
+            } catch {
+                return prev;
+            }
+        });
+    }, 60_000, !isHistoricalMode);
 
     useEffect(() => {
         if (bootHubTab) setDecisionsHubTab(bootHubTab);

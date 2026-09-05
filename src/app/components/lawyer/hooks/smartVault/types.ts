@@ -1,4 +1,5 @@
-import type { VaultUploadKind, VaultDocViewerKind } from '@/app/services/vaultUploadService';
+import type { VaultUploadKind } from '@/app/services/vault/vaultFileGuards';
+import type { VaultDocViewerKind } from '@/app/services/vault/vaultDocResolve';
 import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
 
 export type ViewMode = 'grid' | 'list';

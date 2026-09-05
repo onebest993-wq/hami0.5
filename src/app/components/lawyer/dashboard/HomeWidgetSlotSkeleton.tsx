@@ -13,7 +13,7 @@ import { HomeHubCardSkeleton } from './HomeHubCardSkeleton';
 import { ForumTileProfileQuarterFallback } from '@/app/components/lawyer/dashboard/forumProfile/ForumTileProfileQuarterFallback';
 import { peekForumFirstPaintChrome } from './peekForumFirstPaintChrome';
 import { HUB_HALF_TILE_BASE_PX, HUB_HALF_TILE_MIN_CLASS } from './hubHalfTileMetrics';
-import { HUB_TILE_BUTTON_A11Y } from '@/app/components/lawyer/dashboard/commandHub/commandHubTileClasses';
+import { HUB_TILE_BUTTON_A11Y } from '@/app/components/lawyer/dashboard/commandHubTileClasses';
 
 function slotLabel(id: HomeMainGridSlot['id']): string {
     if (id === 'forum') return dockShellLabel('forum');

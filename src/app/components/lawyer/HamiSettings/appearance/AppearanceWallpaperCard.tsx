@@ -20,9 +20,9 @@ export function AppearanceWallpaperCard({ vm }: { vm: AppearanceSectionViewModel
     } = useAppearanceWallpaperCard(vm);
 
     return (
-        <div className="relative z-[1] overflow-visible px-3.5 py-3">
+        <div className="relative z-[1] overflow-visible px-3 py-2">
             <div className="flex items-center gap-2.5">
-                <div className="relative z-[2] h-12 w-[4.25rem] overflow-hidden rounded-lg ring-1 ring-white/10 shrink-0">
+                <div className="relative z-[2] h-10 w-14 overflow-hidden rounded-lg ring-1 ring-white/10 shrink-0">
                     {vm.wallpaperSrc ? (
                         <img src={vm.wallpaperSrc} alt="" className="w-full h-full object-cover" />
                     ) : (
@@ -35,6 +35,7 @@ export function AppearanceWallpaperCard({ vm }: { vm: AppearanceSectionViewModel
                     className={`relative z-[2] flex flex-1 min-h-[44px] cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-[12px] font-medium text-white/80 touch-manipulation ${
                         busy || vm.editorBusy ? 'pointer-events-none opacity-60' : 'hover:bg-white/[0.07]'
                     }`}
+                    aria-busy={busy || vm.editorBusy || undefined}
                 >
                     {actionLabel}
                     <input
@@ -64,7 +65,15 @@ export function AppearanceWallpaperCard({ vm }: { vm: AppearanceSectionViewModel
                 ) : null}
             </div>
             {vm.editorDraft ? (
-                <Suspense fallback={null}>
+                <Suspense
+                    fallback={
+                        <div
+                            className="mt-2 min-h-[44px] rounded-xl border border-white/[0.08] bg-black/20"
+                            aria-busy="true"
+                            aria-hidden
+                        />
+                    }
+                >
                     <WallpaperEditorPanel
                         previewUrl={vm.editorDraft.previewUrl}
                         busy={vm.editorBusy}

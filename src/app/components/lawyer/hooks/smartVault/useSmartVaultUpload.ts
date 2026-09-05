@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
-    saveFileToVault,
-    readFilePreviewUrl,
     isVaultImageFile,
     isVaultPdfFile,
     VAULT_MAX_FILE_SIZE,
     reportVaultPersistFailure,
     type VaultUploadKind,
-} from '@/app/services/vaultUploadService';
+} from '@/app/services/vault/vaultFileGuards';
 import { revokeBlobUrlIfNeeded } from '@/app/services/vault/vaultDocUtils';
 import { prefetchVaultBlobStore } from '@/app/services/vaultBlobStore';
 import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
@@ -69,7 +67,16 @@ export function useSmartVaultUpload({
             return;
         }
         const [next, ...rest] = files;
-        const previewUrl = kind === 'image' ? readFilePreviewUrl(next) : undefined;
+        const previewUrl =
+            kind === 'image'
+                ? (() => {
+                      try {
+                          return URL.createObjectURL(next);
+                      } catch {
+                          return undefined;
+                      }
+                  })()
+                : undefined;
         revokePreviewBlob();
         if (previewUrl?.startsWith('blob:')) previewBlobRef.current = previewUrl;
         setUploadQueue(rest);
@@ -168,6 +175,7 @@ export function useSmartVaultUpload({
             setIsSavingMeta(true);
 
             try {
+                const { saveFileToVault } = await import('@/app/services/vaultUploadService');
                 const saved = await saveFileToVault(uid, file, {
                     title: meta.title,
                     lawyerNote: meta.lawyerNote || null,

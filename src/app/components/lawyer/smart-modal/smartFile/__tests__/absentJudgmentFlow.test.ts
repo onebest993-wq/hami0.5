@@ -15,6 +15,7 @@ import {
     resolveAbsentObjectionClientRole,
     resolveLawyerOriginalSideInAbsentObjection,
     shouldShowAbsentJudgmentFooter,
+    shouldShowAbsentJudgmentNotificationAction,
 } from '../absentJudgmentFlow';
 import { resolveAbsentObjectionAppealRights, resolveAbsentObjectionWaitDecisionText } from '../absentJudgmentAppealRights';
 import { resolveAllowedOpponentAppealMethods } from '../judgmentTypes';
@@ -23,6 +24,7 @@ describe('absentJudgmentFlow', () => {
     it('detects absent judgment form', () => {
         expect(isAbsentJudgmentForm('غيابي')).toBe(true);
         expect(isAbsentJudgmentForm('حضوري')).toBe(false);
+        expect(isAbsentJudgmentForm('مختلط')).toBe(false);
     });
 
     it('computes objection deadline 10 days after notification', () => {
@@ -50,6 +52,48 @@ describe('absentJudgmentFlow', () => {
         ).toBe(false);
     });
 
+    it('يبقى التبليغ ظاهراً حتى يُبلَّغ كل الغائبين ويختفي على المرحلة اللاحقة', () => {
+        const first = {
+            id: 's0',
+            stageName: 'بداءة بدرجة أولى',
+            isPleadingsClosed: true,
+            judgmentForm: 'غيابي',
+            finalDecision: 'حكم غيابي — بانتظار التبليغ والاعتراض',
+            parties: [
+                { id: 1, name: 'أحمد', role: 'مدعي' },
+                { id: 2, name: 'سامي', role: 'مدعى عليه' },
+                { id: 3, name: 'كريم', role: 'مدعى عليه' },
+            ],
+            partyChallengeLanes: [
+                { partyId: '2', disposition: 'غيابي' as const, laneState: 'pending' as const, servedAt: '2026-08-10' },
+                { partyId: '3', disposition: 'غيابي' as const, laneState: 'pending' as const },
+            ],
+            absentJudgmentNotificationDate: '2026-08-10',
+        };
+        const appeal = {
+            id: 's1',
+            stageName: 'الاستئناف',
+            isPleadingsClosed: false,
+        };
+        const objection = {
+            id: 's2',
+            stageName: 'الاعتراض على الحكم الغيابي',
+            isPleadingsClosed: false,
+        };
+        expect(shouldShowAbsentJudgmentNotificationAction(first, [first])).toBe(true);
+        expect(shouldShowAbsentJudgmentNotificationAction(first, [first, appeal])).toBe(true);
+        expect(shouldShowAbsentJudgmentNotificationAction(appeal, [first, appeal])).toBe(false);
+        expect(shouldShowAbsentJudgmentNotificationAction(objection, [first, objection])).toBe(false);
+        const allServed = {
+            ...first,
+            partyChallengeLanes: [
+                { partyId: '2', disposition: 'غيابي' as const, laneState: 'pending' as const, servedAt: '2026-08-10' },
+                { partyId: '3', disposition: 'غيابي' as const, laneState: 'pending' as const, servedAt: '2026-08-12' },
+            ],
+        };
+        expect(shouldShowAbsentJudgmentNotificationAction(allServed, [allServed])).toBe(false);
+    });
+
     it('calculates days remaining', () => {
         const remaining = daysRemainingUntil('2099-01-01', new Date('2098-12-20'));
         expect(remaining).toBeGreaterThan(0);
@@ -67,6 +111,7 @@ describe('absentJudgmentFlow', () => {
         expect(labels).toContain('تأييد الحكم الغيابي');
         expect(labels).toContain('تعديل الحكم الغيابي بالكامل');
         expect(options.some((o) => o.value === 'إبطال')).toBe(false);
+        expect(options.some((o) => o.value === 'رد الاعتراض شكلاً')).toBe(true);
     });
 
     it('allows absent objection only once per dossier', () => {
@@ -144,6 +189,15 @@ describe('absentJudgmentFlow', () => {
         );
         expect(resolveAbsentObjectionWaitDecisionText('رد الدعوى كلياً', 'self_appeal')).toBe(
             'تعديل الحكم الغيابي — يحق لموكلك الطعن',
+        );
+        expect(
+            resolveAbsentObjectionAppealRights('رد الاعتراض شكلاً', objectedClient).action,
+        ).toBe('wait_opponent');
+        expect(
+            resolveAbsentObjectionAppealRights('رد الاعتراض شكلاً', objectorClient).action,
+        ).toBe('none');
+        expect(resolveAbsentObjectionWaitDecisionText('رد الاعتراض شكلاً', 'wait_opponent')).toContain(
+            'رد الاعتراض شكلاً',
         );
     });
 
@@ -312,6 +366,91 @@ describe('absentJudgmentFlow', () => {
                 judgmentForm: 'غيابي',
                 finalDecision: 'إجابة الدعوى بالكامل',
                 representedParty: 'وكيل المدعى عليه',
+            }),
+        ).toBe(true);
+    });
+
+    it('الحكم المختلط: اعتراض الغيابي فقط إذا كان الموكل مدعى عليه غائباً', () => {
+        const mixed = [
+            { partyId: '2', form: 'حضوري' as const },
+            { partyId: '3', form: 'غيابي' as const },
+        ];
+        const partiesPresentClient = [
+            { id: 1, role: 'مدعي', isClient: false },
+            { id: 2, role: 'مدعى عليه', isClient: true },
+            { id: 3, role: 'مدعى عليه', isClient: false },
+        ];
+        const partiesAbsentClient = [
+            { id: 1, role: 'مدعي', isClient: false },
+            { id: 2, role: 'مدعى عليه', isClient: false },
+            { id: 3, role: 'مدعى عليه', isClient: true },
+        ];
+        expect(
+            canOfferAbsentObjectionToDefendant({
+                currentStage: 'بداءة بدرجة أولى',
+                stages: [{ stageName: 'بداءة بدرجة أولى' }],
+                judgmentForm: 'مختلط',
+                finalDecision: 'إجابة الدعوى بالكامل',
+                representedParty: 'المدعى عليه',
+                partyJudgmentDispositions: mixed,
+                parties: partiesPresentClient,
+            }),
+        ).toBe(false);
+        expect(
+            canOfferAbsentObjectionToDefendant({
+                currentStage: 'بداءة بدرجة أولى',
+                stages: [{ stageName: 'بداءة بدرجة أولى' }],
+                judgmentForm: 'مختلط',
+                finalDecision: 'إجابة الدعوى بالكامل',
+                representedParty: 'المدعى عليه',
+                partyJudgmentDispositions: mixed,
+                parties: partiesAbsentClient,
+            }),
+        ).toBe(true);
+        expect(
+            canOfferAbsentObjectionToDefendant({
+                currentStage: 'بداءة بدرجة أولى',
+                stages: [{ stageName: 'بداءة بدرجة أولى' }],
+                judgmentForm: 'غيابي',
+                finalDecision: 'إجابة الدعوى بالكامل',
+                representedParty: 'المدعى عليه',
+            }),
+        ).toBe(true);
+        expect(
+            shouldShowAbsentJudgmentFooter(
+                {
+                    stageName: 'بداءة بدرجة أولى',
+                    judgmentForm: 'مختلط',
+                    isPleadingsClosed: true,
+                    finalDecision: 'حكم مختلط — بانتظار التبليغ والطعن',
+                    partyJudgmentDispositions: mixed,
+                    parties: partiesAbsentClient,
+                },
+                [{ stageName: 'بداءة بدرجة أولى' }],
+                'المدعى عليه',
+            ),
+        ).toBe(true);
+        expect(
+            shouldShowAbsentJudgmentFooter(
+                {
+                    stageName: 'بداءة بدرجة أولى',
+                    judgmentForm: 'مختلط',
+                    isPleadingsClosed: true,
+                    finalDecision: 'حكم مختلط — بانتظار التبليغ والطعن',
+                    partyJudgmentDispositions: mixed,
+                    parties: partiesPresentClient,
+                },
+                [{ stageName: 'بداءة بدرجة أولى' }],
+                'المدعى عليه',
+            ),
+        ).toBe(false);
+        expect(
+            isAwaitingAbsentJudgmentNotification({
+                stageName: 'بداءة بدرجة أولى',
+                judgmentForm: 'مختلط',
+                isPleadingsClosed: true,
+                finalDecision: 'حكم مختلط — بانتظار التبليغ والطعن',
+                partyJudgmentDispositions: mixed,
             }),
         ).toBe(true);
     });

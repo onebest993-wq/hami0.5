@@ -1,9 +1,16 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { countItemsInRoom } from '@/app/services/repository/repositoryRooms';
+import {
+    clearRoomIdOnGlobalNotes,
+    clearRoomIdOnVaultDocs,
+    repositoryItemsInRoom,
+    restoreGlobalNotesRoom,
+    restoreVaultDocsRoom,
+} from '@/app/services/repository/repositoryRoomRelocate';
 import type { useRepositoryRooms } from './useRepositoryRooms';
 import { confirmRepositoryRoomDelete } from '../repositoryDialog';
 
@@ -28,10 +35,16 @@ export function useRepositoryRoomActions({
     vault,
     roomsApi,
 }: UseRepositoryRoomActionsParams) {
+    const removingRef = useRef(false);
+
     const handleMoveGlobalToRoom = useCallback(
         async (note: GlobalNote, roomId: string | null) => {
-            await onSaveNote({ ...note, roomId });
-            SmartToast.success(roomId ? 'تم النقل إلى الغرفة' : 'أُعيد إلى المستودع العام');
+            try {
+                await onSaveNote({ ...note, roomId });
+                SmartToast.success(roomId ? 'تم النقل إلى الغرفة' : 'أُعيد إلى المستودع العام');
+            } catch {
+                SmartToast.error('تعذّر نقل المسودة');
+            }
         },
         [onSaveNote],
     );
@@ -59,32 +72,46 @@ export function useRepositoryRoomActions({
 
     const handleRemoveRoom = useCallback(
         async (roomId: string) => {
+            if (removingRef.current) return;
             const room = roomsApi.rooms.find((r) => r.id === roomId);
             const count = countItemsInRoom(roomId, notes, vault.docs);
             const ok = await confirmRepositoryRoomDelete(room?.title ?? 'الغرفة', count);
             if (!ok) return;
 
             const uid = vault.currentUserId || currentUserId || '';
+            if (!uid) {
+                SmartToast.error('يرجى تسجيل الدخول أولاً');
+                return;
+            }
+
+            removingRef.current = true;
+            let relocatedNotes: GlobalNote[] = [];
+            let relocatedDocs: SmartVaultDoc[] = [];
             try {
-                for (const note of notes) {
-                    if ((note.roomId?.trim() || null) === roomId) {
-                        await onSaveNote({ ...note, roomId: null });
-                    }
+                const affectedNotes = repositoryItemsInRoom(notes, roomId);
+                const affectedDocs = repositoryItemsInRoom(vault.docs, roomId);
+                relocatedNotes = await clearRoomIdOnGlobalNotes(affectedNotes, onSaveNote);
+                if (affectedDocs.length > 0) {
+                    relocatedDocs = await clearRoomIdOnVaultDocs(affectedDocs, uid, (doc, userId) =>
+                        SmartVaultDB.updateDoc(doc, userId),
+                    );
+                    await vault.refreshDocs();
                 }
-                if (uid) {
-                    const affected = vault.docs.filter((d) => (d.roomId?.trim() || null) === roomId);
-                    for (const doc of affected) {
-                        await SmartVaultDB.updateDoc(
-                            { ...doc, roomId: null, updatedAt: new Date().toISOString() },
-                            uid,
-                        );
-                    }
-                    if (affected.length > 0) await vault.refreshDocs();
+                if (!roomsApi.deleteRoom(roomId)) {
+                    throw new Error('repository-room-delete-failed');
                 }
-                roomsApi.deleteRoom(roomId);
                 SmartToast.success('تم حذف الغرفة');
             } catch {
+                await restoreGlobalNotesRoom(relocatedNotes, onSaveNote);
+                if (relocatedDocs.length > 0) {
+                    await restoreVaultDocsRoom(relocatedDocs, uid, (doc, userId) =>
+                        SmartVaultDB.updateDoc(doc, userId),
+                    );
+                    await vault.refreshDocs().catch(() => undefined);
+                }
                 SmartToast.error('تعذّر حذف الغرفة');
+            } finally {
+                removingRef.current = false;
             }
         },
         [currentUserId, notes, onSaveNote, roomsApi, vault],

@@ -1,6 +1,5 @@
 import React, { memo } from 'react';
-import { Move } from '@/app/components/ui/icons/Move';
-import { ZoomIn } from '@/app/components/ui/icons/ZoomIn';
+import { SettingsMoveIcon, SettingsZoomInIcon } from '../settingsStemIconsLazy';
 import {
     WALLPAPER_EDITOR_ASPECT,
     WALLPAPER_EDITOR_DEFAULT_TRANSFORM,
@@ -37,20 +36,20 @@ export const WallpaperEditorPanel = memo(function WallpaperEditorPanel({
 
     return (
         <div
-            className="mt-4 rounded-2xl border border-white/[0.08] bg-black/20 p-3"
+            className="mt-2 rounded-xl border border-white/[0.08] bg-black/20 p-2"
             data-testid="settings-wallpaper-editor"
         >
             <div className="flex items-center gap-2 mb-2">
-                <Move size={14} className="text-[#E6C673]" aria-hidden />
+                <SettingsMoveIcon size={14} className="text-[#E6C673]" aria-hidden />
                 <p className="text-xs font-bold text-white">ضبط مكان الخلفية</p>
             </div>
-            <p className="text-[10px] text-white/55 mb-3 leading-relaxed">
+            <p className="text-[10px] text-white/55 mb-2 leading-relaxed">
                 اسحب لتحريك الصورة، وكبّر/صغّر ثم اضغط «تطبيق» لمعاينة الشكل النهائي على اللوحة
             </p>
 
             <div
                 ref={frameRef}
-                className={`relative mx-auto w-full max-w-[220px] overflow-hidden rounded-xl ring-2 ring-[#E6C673]/35 touch-none select-none ${SETTING_GLASS_INNER}`}
+                className={`relative mx-auto w-full max-w-[11.5rem] overflow-hidden rounded-xl ring-1 ring-[#E6C673]/35 touch-none select-none ${SETTING_GLASS_INNER}`}
                 style={{
                     aspectRatio: `${WALLPAPER_EDITOR_ASPECT}`,
                     contain: 'layout paint',
@@ -74,11 +73,9 @@ export const WallpaperEditorPanel = memo(function WallpaperEditorPanel({
                 </div>
                 {!ready ? (
                     <div
-                        className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/25 text-[10px] font-bold text-white/60"
+                        className="pointer-events-none absolute inset-0 bg-black/25"
                         aria-hidden
-                    >
-                        جاري التحميل…
-                    </div>
+                    />
                 ) : null}
                 <div
                     className="pointer-events-none absolute inset-0 border border-white/10"
@@ -86,8 +83,8 @@ export const WallpaperEditorPanel = memo(function WallpaperEditorPanel({
                 />
             </div>
 
-            <label className="mt-3 flex items-center gap-2 text-[10px] font-bold text-white/70">
-                <ZoomIn size={14} className="text-[#E6C673] shrink-0" aria-hidden />
+            <label className="mt-2 flex items-center gap-2 text-[10px] font-bold text-white/70">
+                <SettingsZoomInIcon size={14} className="text-[#E6C673] shrink-0" aria-hidden />
                 <span className="shrink-0">تكبير</span>
                 <input
                     type="range"
@@ -105,7 +102,7 @@ export const WallpaperEditorPanel = memo(function WallpaperEditorPanel({
                 </span>
             </label>
 
-            <div className="mt-3 flex gap-2">
+            <div className="mt-2 flex gap-2">
                 <button
                     type="button"
                     disabled={busy}
@@ -120,9 +117,10 @@ export const WallpaperEditorPanel = memo(function WallpaperEditorPanel({
                     disabled={busy || !ready}
                     onClick={() => onApply(transformRef.current)}
                     data-testid="settings-wallpaper-editor-apply"
+                    aria-busy={busy || undefined}
                     className="flex-1 min-h-[44px] rounded-xl border border-[#E6C673]/35 bg-[#E6C673]/15 text-[11px] font-bold text-[#E6C673] touch-manipulation disabled:opacity-50"
                 >
-                    {busy ? 'جاري التطبيق…' : 'تطبيق الخلفية'}
+                    تطبيق الخلفية
                 </button>
             </div>
         </div>

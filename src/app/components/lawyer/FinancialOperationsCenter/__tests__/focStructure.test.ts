@@ -49,38 +49,51 @@ describe('FinancialOperationsCenter modal/sheet extraction', () => {
         }
     });
 
-    it('main FinancialOperationsCenter.tsx imports the extracted modal components', () => {
+    it('main FinancialOperationsCenter.tsx loads extracted overlays via focOverlaySurfacesLazy', () => {
         expect(mainFileSource).toContain(
-            "import { FocDisburseModal } from './FinancialOperationsCenter/components/FocDisburseModal';"
+            "from './FinancialOperationsCenter/focOverlaySurfacesLazy';",
+        );
+        expect(mainFileSource).toContain('FocLazyOverlay');
+        expect(mainFileSource).toContain('LazyFocDisburseModal');
+        expect(mainFileSource).toContain('LazyFocGhuramaaModal');
+        expect(mainFileSource).toContain('LazyFocFeesSheet');
+        expect(mainFileSource).toContain('LazyFocExpenseSheet');
+        expect(mainFileSource).toContain('LazyFocGarnishModal');
+        expect(mainFileSource).toContain('LazyFocAlimonyDetailOverlay');
+        expect(mainFileSource).toContain(
+            "import { FocFundsCardHeader } from './FinancialOperationsCenter/components/FocFundsCardHeader';",
         );
         expect(mainFileSource).toContain(
-            "import { FocGhuramaaModal } from './FinancialOperationsCenter/components/FocGhuramaaModal';"
+            "import { FocCreditorExpandedBody } from './FinancialOperationsCenter/components/FocCreditorExpandedBody';",
         );
-        expect(mainFileSource).toContain(
-            "import { FocFeesSheet } from './FinancialOperationsCenter/components/FocFeesSheet';"
+        expect(mainFileSource).not.toMatch(
+            /from\s+['"]\.\/FinancialOperationsCenter\/components\/FocDisburseModal['"]/,
         );
-        expect(mainFileSource).toContain(
-            "import { FocExpenseSheet } from './FinancialOperationsCenter/components/FocExpenseSheet';"
+        expect(mainFileSource).not.toMatch(
+            /from\s+['"]\.\/FinancialOperationsCenter\/components\/FocGhuramaaModal['"]/,
         );
-        expect(mainFileSource).toContain(
-            "import { FocGarnishModal } from './FinancialOperationsCenter/components/FocGarnishModal';"
+        expect(mainFileSource).not.toMatch(
+            /from\s+['"]\.\/FinancialOperationsCenter\/components\/FocFeesSheet['"]/,
         );
-        expect(mainFileSource).toContain(
-            "import { FocFundsCardHeader } from './FinancialOperationsCenter/components/FocFundsCardHeader';"
+        expect(mainFileSource).not.toMatch(
+            /from\s+['"]\.\/FinancialOperationsCenter\/components\/FocExpenseSheet['"]/,
         );
-        expect(mainFileSource).toContain(
-            "import { FocCreditorExpandedBody } from './FinancialOperationsCenter/components/FocCreditorExpandedBody';"
+        expect(mainFileSource).not.toMatch(
+            /from\s+['"]\.\/FinancialOperationsCenter\/components\/FocGarnishModal['"]/,
         );
     });
 
-    it('DebtTotalsEditModal and GuarantorRegistrationModal remain untouched as separate modules', () => {
+    it('DebtTotalsEditModal stays a separate module and loads lazily', () => {
         expect(fs.existsSync(path.join(COMPONENTS_DIR, 'DebtTotalsEditModal.tsx'))).toBe(true);
-        expect(mainFileSource).toContain(
-            "import { DebtTotalsEditModal } from './FinancialOperationsCenter/components/DebtTotalsEditModal';"
+        expect(mainFileSource).toContain('LazyDebtTotalsEditModal');
+        expect(mainFileSource).not.toMatch(
+            /from\s+['"]\.\/FinancialOperationsCenter\/components\/DebtTotalsEditModal['"]/,
         );
-        expect(mainFileSource).toContain(
-            "import { GuarantorRegistrationModal } from './Modal_Guarantor_Registration';"
+        expect(mainFileSource).not.toContain('LazyGuarantorRegistrationModal');
+        expect(mainFileSource).not.toMatch(
+            /from\s+['"]\.\/Modal_Guarantor_Registration['"]/,
         );
+        expect(mainFileSource).not.toContain('alimonyPaymentEngine');
     });
 });
 
@@ -118,10 +131,6 @@ describe('FinancialOperationsCenter payment/disburse actions extraction', () => 
             'addLawyerFee',
             'addExpense',
             'applyDisbursementAmount',
-            'applyGhuramaaDistribution',
-            'applyGhuramaaEqualSplit',
-            'openGhuramaaModal',
-            'setGhuramaaShareInput',
             'undoLastPayment',
             'applyFullPayment',
             'applyDebtRepayment',
@@ -131,6 +140,12 @@ describe('FinancialOperationsCenter payment/disburse actions extraction', () => 
         ]) {
             expect(paymentDisburseHookSource).toContain(symbol);
         }
+        expect(paymentDisburseHookSource).not.toContain('applyGhuramaaDistribution');
+        expect(paymentDisburseHookSource).not.toContain('buildGhuramaaContext');
+        expect(paymentDisburseHookSource).not.toContain('executionFormUtils');
+        expect(paymentDisburseHookSource).not.toMatch(
+            /from\s+['"]@\/app\/components\/ui\/SmartDialog['"]/,
+        );
     });
 
     it('main FinancialOperationsCenter.tsx imports and uses useFocPaymentDisburseActions', () => {
@@ -174,9 +189,6 @@ describe('FinancialOperationsCenter payment/disburse actions extraction', () => 
             'canConfirmGarnishment',
             'canApplyRepayment',
             'repaymentExceedsRemaining',
-            'ghuramaaContext',
-            'ghuramaaManual',
-            'ghuramaaShareInputs',
         ]) {
             expect(mainFileSource).toContain(returnedSymbol);
         }
@@ -184,6 +196,38 @@ describe('FinancialOperationsCenter payment/disburse actions extraction', () => 
 
     it('main FinancialOperationsCenter.tsx stays within the Phase-1 size budget after extraction', () => {
         expect(MAIN_FILE_LINE_COUNT).toBeLessThanOrEqual(1600);
+    });
+});
+
+describe('FinancialOperationsCenter ghuramaa actions extraction', () => {
+    const ghuramaaHookFile = path.resolve(__dirname, '../useFocGhuramaaActions.ts');
+    const ghuramaaHookSource = fs.readFileSync(ghuramaaHookFile, 'utf8');
+
+    it('useFocGhuramaaActions owns ghuramaa handlers and defers equal-split leaf', () => {
+        expect(fs.existsSync(ghuramaaHookFile)).toBe(true);
+        expect(ghuramaaHookSource).toContain('export function useFocGhuramaaActions');
+        for (const symbol of [
+            'applyGhuramaaDistribution',
+            'applyGhuramaaEqualSplit',
+            'openGhuramaaModal',
+            'setGhuramaaShareInput',
+            'buildGhuramaaContext',
+        ]) {
+            expect(ghuramaaHookSource).toContain(symbol);
+        }
+        expect(ghuramaaHookSource).toContain("import('./focGhuramaaEqualSplit')");
+        expect(ghuramaaHookSource).not.toContain('executionFormDebtorShares');
+        expect(ghuramaaHookSource).not.toContain('executionFormUtils');
+    });
+
+    it('main FinancialOperationsCenter.tsx imports and uses useFocGhuramaaActions', () => {
+        expect(mainFileSource).toContain(
+            "import { useFocGhuramaaActions } from './FinancialOperationsCenter/useFocGhuramaaActions';",
+        );
+        expect(mainFileSource).toContain('} = useFocGhuramaaActions({');
+        for (const returnedSymbol of ['ghuramaaContext', 'ghuramaaManual', 'ghuramaaShareInputs']) {
+            expect(mainFileSource).toContain(returnedSymbol);
+        }
     });
 });
 
@@ -345,15 +389,15 @@ describe('FinancialOperationsCenter derived-values (ledger) extraction', () => {
 });
 
 describe('FinancialOperationsCenter guarantor + eviction parent wiring', () => {
-    it('يمرّر طلب الكفيل بعد إخلال التسوية ولا يتجاهل onGuarantorRequest', () => {
-        expect(mainFileSource).toContain('onGuarantorRequest={onGuarantorRequest}');
-        expect(mainFileSource).not.toMatch(/onGuarantorRequest: _onGuarantorRequest/);
+    it('يمرّر شارة الكفيل المرتبطة بالتسوية ولا يتجاهل onPersistSettlementGuarantor', () => {
+        expect(mainFileSource).toContain('onPersistSettlementGuarantor={onPersistSettlementGuarantor}');
+        expect(mainFileSource).not.toMatch(/onPersistSettlementGuarantor: _onPersistSettlementGuarantor/);
         const body = fs.readFileSync(
             path.join(COMPONENTS_DIR, 'FocCreditorExpandedBody.tsx'),
             'utf8',
         );
-        expect(body).toContain('foc-amount-guarantor-request');
-        expect(body).toContain('طلب كفيل ضامن للمبلغ');
+        expect(body).toContain('SettlementGuarantorBadge');
+        expect(body).toContain('onPersistSettlementGuarantor');
     });
 
     it('يبلّغ الأب عند أول تفعيل لوعاء التخلية من الاستحصال', () => {

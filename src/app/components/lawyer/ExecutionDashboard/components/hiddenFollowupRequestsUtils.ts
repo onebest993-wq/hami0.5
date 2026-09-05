@@ -12,7 +12,6 @@ import {
     isExecutorRowRejectedAndFinal,
 } from '@/app/utils/executorSeizureDecisionQueue';
 import { resolveExecutorRequestAppealSyncFromRow } from '@/app/utils/executorRequestAppealSync';
-import { resolveAmountGuarantorRequestVisible } from '@/app/slices/financial/specialtyPublic';
 import { hasActiveFinancialGuarantorFollowup } from './guarantorExternalUtils';
 import {
     HIDDEN_GUARANTOR_CATALOG,
@@ -64,24 +63,10 @@ export function shouldShowGuarantorRequestInSeizureTab(
     flags: HiddenFollowupVisibilityInput,
     ctx: HiddenGuarantorContext,
 ): boolean {
-    if (ctx.activeDebtorIsDeceased) return false;
-    if (flags.hideAllGuarantorPresence) return false;
-    if (ctx.activeDebtorIsEmployee) return false;
-    if (hasActiveFinancialGuarantorFollowup(ctx.executionData)) return true;
-
-    const amountGuarantorVisible = resolveAmountGuarantorRequestVisible({
-        isFinancialDebtCollectionClaim: flags.isFinancialDebtCollection,
-        financialCenterTotalIqd: ctx.financialCenterTotalIqd,
-        settlementBreachTriggeredAt: ctx.settlementBreachTriggeredAt,
-        pendingSettlement: ctx.ledgerPendingSettlement as never,
-        hideAllGuarantorPresence: false,
-    });
-
-    if (flags.isFinancialDebtCollection) {
-        return amountGuarantorVisible && Boolean(flags.showFinancialGuarantorRequestOnly);
-    }
-
-    return true;
+    void flags;
+    void ctx;
+    /** مسار الكفيل أصبح شارة تسوية فقط — لا طلب من تبويب الحجز */
+    return false;
 }
 
 export type HiddenRequestStatus = 'none' | 'pending' | 'approved' | 'rejected' | 'alternative';

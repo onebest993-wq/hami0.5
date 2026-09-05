@@ -1,17 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { EMPTY_BACKUP_PREVIEW, type BusinessBackupPreview, type PendingBusinessImport } from '@/app/services/settings/businessBackupTypes';
+import { EMPTY_BACKUP_PREVIEW, type BusinessBackupPreview, type BusinessBackupVaultBlob, type PendingBusinessImport } from '@/app/services/settings/businessBackupTypes';
 import { registerSettingsBackupUiGuard } from '@/app/components/lawyer/HamiSettings/settingsEscapeStack';
-import { useSettingsSectionActive } from '../settingsSectionActiveContext';
+import { useSettingsSectionActiveRef } from '../settingsFlowGuard';
 import { loadBusinessBackupEngine, prefetchBusinessBackupEngine } from './businessBackupEngine';
 import { runBusinessBackupExport } from './businessBackupExportFlow';
 import { importBusinessBackupEntries, prepareBusinessImportFile } from './businessBackupImportFlow';
 import { useBusinessBackupSelection } from './useBusinessBackupSelection';
 
 export function useBusinessBackup() {
-    const sectionActive = useSettingsSectionActive();
-    const sectionActiveRef = useRef(sectionActive);
-    sectionActiveRef.current = sectionActive;
+    const { sectionActive, sectionActiveRef } = useSettingsSectionActiveRef();
     const importBusinessInputRef = useRef<HTMLInputElement>(null);
     const [backupPanelOpen, setBackupPanelOpen] = useState(false);
     const selection = useBusinessBackupSelection();
@@ -94,10 +92,15 @@ export function useBusinessBackup() {
             buildSelection,
             setBackupPreview,
             exportInFlightRef,
+            sectionActiveRef,
         });
     }, [buildSelection]);
 
-    const importBusinessBackup = useCallback(importBusinessBackupEntries, []);
+    const importBusinessBackup = useCallback(
+        (entries: Array<[string, string]>, vaultBlobs: BusinessBackupVaultBlob[] = []) =>
+            importBusinessBackupEntries(entries, vaultBlobs, sectionActiveRef),
+        [],
+    );
 
     const prepareBusinessImport = useCallback(async (file: File | null | undefined) => {
         await prepareBusinessImportFile({

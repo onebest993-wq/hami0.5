@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { ElementType } from 'react';
+import { useOverlayEscapeDismiss } from '@/app/hooks/useOverlayEscapeDismiss';
+import { EXEC_MODAL_Z } from '../executionDashboardConstants';
 import {
     EXEC_MODAL_BACKDROP_SAFE_PAD,
     EXEC_MODAL_CLOSE_BTN_CLASS,
@@ -27,15 +29,19 @@ export function ExecutionHeirsQuickViewModal({
     setHeirsQuickView,
     X,
 }: ExecutionHeirsQuickViewModalProps) {
+    const close = useCallback(() => setHeirsQuickView(null), [setHeirsQuickView]);
+    useOverlayEscapeDismiss(Boolean(heirsQuickView), close);
     useBodyScrollLock(Boolean(heirsQuickView));
 
     if (!heirsQuickView || typeof document === 'undefined') return null;
 
     return createPortal(
         <div
-            className={`fixed inset-0 z-[210] flex items-center justify-center bg-black/70 p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
+            className={`fixed inset-0 flex items-center justify-center bg-black/70 p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
+            style={{ zIndex: EXEC_MODAL_Z.nestedOverFollowUpPortal }}
             role="presentation"
-            onClick={() => setHeirsQuickView(null)}
+            data-heirs-quick-view-modal="true"
+            onClick={close}
         >
             <div
                 className={`w-full max-w-md rounded-2xl border border-cyan-400/35 bg-[#0A0F1C] p-3 text-right ${EXEC_MODAL_EDIT_SHELL_MAX}`}
@@ -47,7 +53,7 @@ export function ExecutionHeirsQuickViewModal({
                 <div className="mb-2 flex items-center justify-between border-b border-white/10 pb-2">
                     <button
                         type="button"
-                        onClick={() => setHeirsQuickView(null)}
+                        onClick={close}
                         className={EXEC_MODAL_CLOSE_BTN_CLASS}
                         aria-label="إغلاق عرض الورثة"
                     >
@@ -71,20 +77,6 @@ export function ExecutionHeirsQuickViewModal({
                                     </span>
                                 ) : null}
                             </p>
-                            <div className="mt-1 grid grid-cols-2 gap-1.5">
-                                <div className="rounded-lg border border-white/10 bg-black/20 px-2 py-1">
-                                    <p className="text-[9px] text-slate-500">الهاتف</p>
-                                    <p className="text-[10px] text-slate-200 [unicode-bidi:plaintext]">
-                                        {h.phone?.trim() || '—'}
-                                    </p>
-                                </div>
-                                <div className="rounded-lg border border-white/10 bg-black/20 px-2 py-1">
-                                    <p className="text-[9px] text-slate-500">العنوان</p>
-                                    <p className="text-[10px] text-slate-200 break-words">
-                                        {h.address?.trim() || '—'}
-                                    </p>
-                                </div>
-                            </div>
                         </div>
                     ))}
                 </div>

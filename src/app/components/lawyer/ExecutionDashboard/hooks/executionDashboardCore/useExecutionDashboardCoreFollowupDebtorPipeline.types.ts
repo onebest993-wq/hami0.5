@@ -16,12 +16,6 @@ export type UseExecutionDashboardCoreFollowupDebtorPipelineInput = {
     mergedTimelineEvents: ExecutionDashboardCoreWorkspacePipelineValue['mergedTimelineEvents'];
     activeTimelineEvents: ExecutionDashboardCoreWorkspacePipelineValue['activeTimelineEvents'];
     activeCoerciveActions: ExecutionDashboardCoreWorkspacePipelineValue['activeCoerciveActions'];
-    realEstateSeizureRegistryAssets: ExecutionDashboardCoreWorkspacePipelineValue['realEstateSeizureRegistryAssets'];
-    salarySeizureRegistryAssets: ExecutionDashboardCoreWorkspacePipelineValue['salarySeizureRegistryAssets'];
-    movableSeizureRegistryAssets: ExecutionDashboardCoreWorkspacePipelineValue['movableSeizureRegistryAssets'];
-    thirdPartySeizureRegistryAssets: ExecutionDashboardCoreWorkspacePipelineValue['thirdPartySeizureRegistryAssets'];
-    thirdPartySeizuresUi: ExecutionDashboardCoreWorkspacePipelineValue['thirdPartySeizuresUi'];
-    showToast: ExecutionDashboardCoreWorkspacePipelineValue['showToast'];
     showUnifiedExecutionModal: boolean;
     dossierFileKey: string;
     executionFileKey: string;

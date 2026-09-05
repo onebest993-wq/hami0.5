@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { AlertTriangle } from '@/app/components/ui/icons/AlertTriangle';
-import { Send } from '@/app/components/ui/icons/Send';
 import type { InlineActionGateKey } from '../types';
+import {
+    RequestConfirmStrip,
+    REQUEST_CONFIRM_HINT_CLASS,
+} from '@/app/components/lawyer/shared/RequestConfirmStrip';
 
 export type InlineActionGateMode = 'initial' | 'resubmit_warning';
 
@@ -14,6 +17,7 @@ export interface InlineActionGateProps {
     warningMessage?: string;
     confirmLabel?: string;
     confirmDisabled?: boolean;
+    /** للتوافق — كل الأنماط تُعرض كستارة خفيفة على البطاقة */
     variant?: 'overlay' | 'inline';
     children?: React.ReactNode;
 }
@@ -27,7 +31,6 @@ export const InlineActionGate = React.memo(function InlineActionGate({
     warningMessage,
     confirmLabel,
     confirmDisabled = false,
-    variant = 'overlay',
     children,
 }: InlineActionGateProps) {
     const [busy, setBusy] = useState(false);
@@ -36,128 +39,63 @@ export const InlineActionGate = React.memo(function InlineActionGate({
 
     if (!isVisible) return null;
 
-    const confirmButton = (
-        <button
-            type="button"
-            disabled={busy || confirmDisabled}
-            onClick={(e) => {
-                e.stopPropagation();
-                if (busy || confirmDisabled) return;
-                setBusy(true);
-                try {
-                    onConfirm();
-                } finally {
-                    setBusy(false);
-                    onCancel();
-                }
-            }}
-            className="rounded-xl border border-amber-500 bg-amber-600/20 px-3 py-2 text-[11px] font-black text-amber-100 hover:bg-amber-600/25 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-        >
-            <span className="flex flex-row-reverse items-center justify-center gap-2">
-                <Send size={14} className="text-amber-200 shrink-0" />
-                {confirmLabel || (isResubmit ? 'تقديم طلب جديد' : 'تأكيد وإرسال للقرارات')}
-            </span>
-        </button>
-    );
-
-    const cancelButton = (
-        <button
-            type="button"
-            disabled={busy}
-            onClick={(e) => {
-                e.stopPropagation();
-                if (busy) return;
-                onCancel();
-            }}
-            className="rounded-xl bg-slate-800 px-3 py-2 text-[11px] font-bold text-slate-100 hover:bg-slate-700 disabled:opacity-50 whitespace-nowrap"
-        >
-            تراجع
-        </button>
-    );
+    const handleConfirm = () => {
+        if (busy || confirmDisabled) return;
+        setBusy(true);
+        try {
+            onConfirm();
+        } finally {
+            setBusy(false);
+            onCancel();
+        }
+    };
 
     if (isResubmit) {
         return (
-            <div
-                className="border-t border-amber-500/25 bg-slate-950/85 px-3 py-3 z-20"
-                dir="rtl"
-                role="presentation"
-                onClick={(e) => e.stopPropagation()}
+            <RequestConfirmStrip
+                onConfirm={handleConfirm}
+                onCancel={onCancel}
+                confirmLabel={confirmLabel || 'تقديم طلب جديد'}
+                cancelLabel="تراجع"
+                disabled={confirmDisabled}
+                busy={busy}
+                hint={null}
             >
-                <div className="mx-auto flex w-full max-w-md flex-col items-center gap-2.5 text-center">
-                    <AlertTriangle size={18} className="text-amber-300 shrink-0" />
-                    <p className="text-[11px] font-bold leading-relaxed text-amber-100">
-                        {warningMessage ||
-                            'سبق واتخاذ هذا الإجراء سابقاً. هل تريد تقديم طلب جديد؟'}
+                <div className="flex flex-row-reverse items-start justify-center gap-1">
+                    <AlertTriangle size={12} className="mt-0.5 shrink-0 text-amber-300/90" aria-hidden />
+                    <p className={`${REQUEST_CONFIRM_HINT_CLASS} max-w-none whitespace-normal text-amber-100/90`}>
+                        {warningMessage || 'سبق واتخاذ هذا الإجراء سابقاً. هل تريد تقديم طلب جديد؟'}
                     </p>
-                    {children ? (
-                        <div className="w-full text-right" onClick={(e) => e.stopPropagation()}>
-                            {children}
-                        </div>
-                    ) : null}
-                    <div className="flex flex-row-reverse flex-wrap items-center justify-center gap-2 w-full">
-                        {confirmButton}
-                        {cancelButton}
-                    </div>
                 </div>
-            </div>
+                {children ? <div className="w-full">{children}</div> : null}
+            </RequestConfirmStrip>
         );
     }
 
-    if (variant === 'inline') {
+    if (children) {
         return (
-            <div
-                className="border-t border-amber-500/20 bg-slate-950/35 px-3 py-3"
-                dir="rtl"
-                role="presentation"
-                onClick={(e) => e.stopPropagation()}
+            <RequestConfirmStrip
+                onConfirm={handleConfirm}
+                onCancel={onCancel}
+                confirmLabel={confirmLabel || 'تأكيد وإرسال'}
+                cancelLabel="تراجع"
+                disabled={confirmDisabled}
+                busy={busy}
             >
                 {children}
-                <div className="mt-3 flex flex-row-reverse flex-wrap items-center justify-center gap-2">
-                    {confirmButton}
-                    {cancelButton}
-                </div>
-            </div>
-        );
-    }
-
-    if (!children) {
-        return (
-            <div
-                className="border-t border-amber-500/20 bg-slate-950/90 px-4 py-4 z-20"
-                dir="rtl"
-                role="presentation"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="mx-auto flex w-full max-w-md flex-col items-center gap-3 text-center">
-                    <Send size={22} className="text-amber-300/90 shrink-0" aria-hidden />
-                    <p className="text-[11px] font-bold leading-relaxed text-amber-50/95 px-1">
-                        تأكيد إرسال الطلب إلى منفذ العدل للبتّ
-                    </p>
-                    <div className="flex flex-row-reverse flex-wrap items-center justify-center gap-2 w-full">
-                        {confirmButton}
-                        {cancelButton}
-                    </div>
-                </div>
-            </div>
+            </RequestConfirmStrip>
         );
     }
 
     return (
-        <div
-            className="absolute inset-0 z-20 flex flex-col overflow-hidden rounded-2xl bg-slate-950/60"
-            role="presentation"
-            onClick={(e) => e.stopPropagation()}
-            dir="rtl"
-        >
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-4 pb-2 flex flex-col items-stretch justify-center">
-                {children}
-            </div>
-            <div className="shrink-0 border-t border-white/10 bg-slate-950/80 px-3 py-3">
-                <div className="flex flex-row-reverse flex-wrap items-center justify-center gap-2">
-                    {confirmButton}
-                    {cancelButton}
-                </div>
-            </div>
-        </div>
+        <RequestConfirmStrip
+            onConfirm={handleConfirm}
+            onCancel={onCancel}
+            confirmLabel={confirmLabel || 'تأكيد'}
+            cancelLabel="تراجع"
+            disabled={confirmDisabled}
+            busy={busy}
+            hint="إرسال لمنفذ العدل"
+        />
     );
 });

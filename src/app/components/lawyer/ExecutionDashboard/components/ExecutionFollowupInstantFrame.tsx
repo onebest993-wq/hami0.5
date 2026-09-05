@@ -3,10 +3,13 @@ import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore
 import { EXEC_MODAL_Z } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
 import {
     EXEC_MODAL_CLOSE_BTN_CLASS,
-    EXEC_MODAL_HEADER_SAFE_TOP,
-    EXEC_MODAL_SHELL_HEIGHT_CLASS,
+    EXEC_OVERLAY_HEADER,
+    EXEC_OVERLAY_PHONE_BACKDROP,
+    EXEC_OVERLAY_PHONE_SHEET_XL,
+    EXEC_OVERLAY_TITLE,
 } from '@/app/components/lawyer/ExecutionDashboard/executionModalMobileShell';
 import { registerNativeBackHandler } from '@/app/runtime/nativeBackStack';
+import { useOverlayBackdropArm } from '@/app/hooks/useOverlayBackdropArm';
 
 const TAB_SLOT =
     'flex h-11 min-h-[44px] min-w-[4.5rem] shrink-0 rounded-xl border border-white/10 bg-white/[0.03]';
@@ -41,6 +44,7 @@ function closeFollowupInstant(): void {
  * يُرسم فوراً عند النقرة حتى تُقيَّم Host/Portal.
  */
 export function ExecutionFollowupInstantFrame(): React.ReactElement {
+    const backdropArmed = useOverlayBackdropArm(true);
     React.useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key !== 'Escape') return;
@@ -61,7 +65,7 @@ export function ExecutionFollowupInstantFrame(): React.ReactElement {
 
     return (
         <div
-            className="fixed inset-0 bg-black/75 px-[max(0px,env(safe-area-inset-left))] py-[max(0px,env(safe-area-inset-top))] pb-[max(0px,env(safe-area-inset-bottom))]"
+            className={`${EXEC_OVERLAY_PHONE_BACKDROP} sm:bg-black/75`}
             style={{ zIndex: EXEC_MODAL_Z.unifiedFollowUp }}
             role="dialog"
             aria-modal="true"
@@ -69,16 +73,16 @@ export function ExecutionFollowupInstantFrame(): React.ReactElement {
             aria-busy="true"
             data-testid="execution-followup-modal"
             onClick={(e) => {
+                if (!backdropArmed) return;
                 if (e.target === e.currentTarget) closeFollowupInstant();
             }}
         >
-            <div className="w-full" onClick={(e) => e.stopPropagation()}>
-                <div
-                    className={`relative mx-auto flex w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0A0F1C] shadow-md ${EXEC_MODAL_SHELL_HEIGHT_CLASS}`}
-                >
-                    <div
-                        className={`flex shrink-0 items-center justify-between border-b border-white/10 bg-[#0A0F1C]/98 px-4 py-3 ${EXEC_MODAL_HEADER_SAFE_TOP}`}
-                    >
+            <div className="flex min-h-0 w-full flex-1 flex-col" onClick={(e) => e.stopPropagation()}>
+                <div className={EXEC_OVERLAY_PHONE_SHEET_XL}>
+                    <div className={EXEC_OVERLAY_HEADER}>
+                        <h2 id="execution-followup-instant-title" className={EXEC_OVERLAY_TITLE}>
+                            محضر المتابعة
+                        </h2>
                         <button
                             type="button"
                             data-testid="execution-followup-modal-close"
@@ -87,23 +91,13 @@ export function ExecutionFollowupInstantFrame(): React.ReactElement {
                                 e.stopPropagation();
                                 closeFollowupInstant();
                             }}
-                            className={`rounded-full text-slate-200/90 transition-all hover:bg-white/10 hover:text-white ${EXEC_MODAL_CLOSE_BTN_CLASS}`}
+                            className={EXEC_MODAL_CLOSE_BTN_CLASS}
                             aria-label="إغلاق محضر المتابعة"
                         >
                             <FollowupExitMark />
                         </button>
-                        <h2
-                            id="execution-followup-instant-title"
-                            className="text-lg font-bold tracking-wide text-amber-200"
-                        >
-                            محضر المتابعة
-                        </h2>
-                        <span className="w-9" aria-hidden />
                     </div>
-                    <div
-                        className="shrink-0 border-b border-white/10 bg-[#0A0F1C] px-3 py-2.5"
-                        dir="rtl"
-                    >
+                    <div className="shrink-0 border-b border-white/10 px-3 py-2" dir="rtl">
                         <div
                             role="tablist"
                             aria-label="أقسام محضر المتابعة"
@@ -114,7 +108,7 @@ export function ExecutionFollowupInstantFrame(): React.ReactElement {
                             <span className={TAB_SLOT} aria-hidden />
                         </div>
                     </div>
-                    <div className="min-h-0 flex-1 space-y-1.5 overflow-hidden bg-[#0A0F1C] p-4 md:p-6">
+                    <div className="min-h-0 flex-1 space-y-1.5 overflow-hidden bg-[#0A0F1C] p-3 sm:p-4">
                         <div className={BODY_SLOT} aria-hidden />
                         <div className={BODY_SLOT} aria-hidden />
                         <div className={BODY_SLOT} aria-hidden />

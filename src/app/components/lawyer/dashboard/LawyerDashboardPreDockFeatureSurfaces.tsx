@@ -2,22 +2,18 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { onLawyerDashboardFirstTabOpen } from '@/app/bootstrap/lawyerDashboardFirstTabMark';
 import { useLawyerDashboardCommunity } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCommunity';
 import { useLawyerDashboardScheduleTab } from '@/app/hooks/lawyerDashboard/useLawyerDashboardScheduleTab';
-import { useLawyerDashboardRepository } from '@/app/hooks/lawyerDashboard/useLawyerDashboardRepository';
 import type {
     LawyerDashboardPreDockFeatureSurfacesProps,
-    PreDockFeatureBag,
+    PreDockLiveBag,
 } from '@/app/components/lawyer/dashboard/LawyerDashboardPreDockFeatureSurfaces.types';
 
-function preDockFeatureBagFingerprint(bag: PreDockFeatureBag): string {
+function preDockLiveBagFingerprint(bag: PreDockLiveBag): string {
     return [
         bag.community.communitySessionKey,
         bag.community.showCommunity ? 1 : 0,
         bag.community.communityHostMounted ? 1 : 0,
         bag.schedule.scheduleTabSessionKey,
         bag.schedule.scheduleHostMounted ? 1 : 0,
-        bag.repository.repositorySessionKey,
-        bag.repository.isRepositoryOpen ? 1 : 0,
-        bag.repository.repositoryHostMounted ? 1 : 0,
     ].join(':');
 }
 
@@ -26,7 +22,7 @@ function PreDockFeatureSurfacesInner({
     onReady,
 }: {
     params: LawyerDashboardPreDockFeatureSurfacesProps['params'];
-    onReady: (bag: PreDockFeatureBag) => void;
+    onReady: (bag: PreDockLiveBag) => void;
 }) {
     const community = useLawyerDashboardCommunity({
         userId: params.userId,
@@ -37,12 +33,9 @@ function PreDockFeatureSurfacesInner({
         activeTab: params.activeTab,
         setActiveTab: params.setActiveTab,
     });
-    const repository = useLawyerDashboardRepository({
-        userId: params.userId,
-    });
 
-    const bag: PreDockFeatureBag = { community, schedule, repository };
-    const fingerprint = preDockFeatureBagFingerprint(bag);
+    const bag: PreDockLiveBag = { community, schedule };
+    const fingerprint = preDockLiveBagFingerprint(bag);
     const onReadyRef = useRef(onReady);
     onReadyRef.current = onReady;
     const bagRef = useRef(bag);
@@ -56,7 +49,8 @@ function PreDockFeatureSurfacesInner({
 }
 
 /**
- * منتدى/تقويم/مستودع — بعد first-tab-open (أو earlyArm لجلسة مستعادة).
+ * منتدى/تقويم فقط — بعد first-tab-open (أو earlyArm لجلسة مستعادة).
+ * المستودع في `LawyerDashboardRepositoryFeatureSurfaces` حتى لا تجرّ لمسته المنتدى/التقويم.
  * لا يُسلَّح على interactive — كان ينافس أول طلاء المنزل.
  */
 export function LawyerDashboardPreDockFeatureSurfaces({

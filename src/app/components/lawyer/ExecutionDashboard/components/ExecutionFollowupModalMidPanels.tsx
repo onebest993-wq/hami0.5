@@ -43,10 +43,6 @@ export function ExecutionFollowupModalMidPanels({
         requestFollowupSeizureDecision,
         requestGuarantorSeizure,
         saveCoerciveAction,
-        saveSeizedMovableInitForDecision,
-        saveSeizedPropertyInitForDecision,
-        saveStandaloneExecutionMarkForDecision,
-        saveThirdPartySeizureForDecision,
         seizureDetailCompletion,
         seizureMatrix,
         setInlineActionGateKey,
@@ -63,7 +59,7 @@ export function ExecutionFollowupModalMidPanels({
                     key={`other_party:${String(activeFollowupDebtorKey ?? '')}`}
                     panelId="other_party"
                     active={activePanelKey === 'other_party'}
-                    className="rounded-2xl border border-white/10 bg-[#0B1120]/72 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:p-5"
+                    className="space-y-3"
                 >
                     <TabOtherParty
                         executionData={viewExecutionData}
@@ -92,7 +88,7 @@ export function ExecutionFollowupModalMidPanels({
                     key={`seizure_requests:${String(activeFollowupDebtorKey ?? '')}`}
                     panelId="seizure_requests"
                     active={activePanelKey === 'seizure_requests'}
-                    className="rounded-2xl border border-white/10 bg-[#0B1120]/72 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:p-5"
+                    className="space-y-3"
                 >
                     <TabSeizureRequests
                         executionId={requireDecisionsStorageExecutionId({
@@ -122,12 +118,6 @@ export function ExecutionFollowupModalMidPanels({
                         handleCoerciveAction={handleCoerciveAction}
                         handleGuarantorRequestFromFollowup={handleGuarantorRequestFromFollowup}
                         requestFollowupSeizureDecision={requestFollowupSeizureDecision}
-                        saveSeizedPropertyInitForDecision={saveSeizedPropertyInitForDecision}
-                        saveSeizedMovableInitForDecision={saveSeizedMovableInitForDecision}
-                        saveThirdPartySeizureForDecision={saveThirdPartySeizureForDecision}
-                        saveStandaloneExecutionMarkForDecision={
-                            saveStandaloneExecutionMarkForDecision
-                        }
                         requestGuarantorSeizure={requestGuarantorSeizure}
                         forceHideGuarantorSeizureSubTab={spec.hideGuarantorSeizureSubTab}
                         financialGuarantorRequestOnly={spec.showFinancialGuarantorRequestOnly}

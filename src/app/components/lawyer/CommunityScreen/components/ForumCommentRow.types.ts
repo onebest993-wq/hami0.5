@@ -1,0 +1,31 @@
+import type { CommunityComment, CommunityPost } from '@/app/services/lawyer-cloud';
+
+export type ForumCommentRowProps = {
+    comment: CommunityComment;
+    post: CommunityPost;
+    depth: number;
+    forceBestStyle: boolean;
+    bestCommentId: string | null;
+    currentUserId: string;
+    isAdmin: boolean;
+    isLocked: boolean;
+    canSelectBest: boolean;
+    followingIds: Set<string>;
+    userStats: Record<string, { followerCount: number; postCount: number }>;
+    mutedUserIds?: Set<string>;
+    editingCommentId: string | null;
+    editContent: string;
+    confirmDeleteId: string | null;
+    onSetEditingCommentId: (id: string | null) => void;
+    onSetEditContent: (value: string) => void;
+    onSetConfirmDeleteId: (id: string | null) => void;
+    onSetReplyingToCommentId: (id: string) => void;
+    onFollow: (targetUserId: string) => void;
+    onToggleBestAnswer: (postId: string, commentId: string) => void;
+    onEditComment: (postId: string, commentId: string, newContent: string) => Promise<boolean> | boolean | void;
+    onDeleteComment: (postId: string, commentId: string) => Promise<void> | void;
+    onToggleCommentUpvote?: (commentId: string) => void;
+    onReportComment?: (commentId: string) => void;
+    onMuteUser?: (userId: string) => void;
+    onOpenProfile?: (userId: string, displayName?: string) => void;
+};

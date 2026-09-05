@@ -28,7 +28,7 @@ export function BusinessBackupImportPreview({
     const rangeText = from || to ? `${from || '—'} → ${to || '—'}` : '—';
 
     return (
-        <div className="px-4 pb-4 border-b border-white/[0.04]" data-testid="business-backup-import-preview">
+        <div className="px-3 pb-3 border-b border-white/[0.04]" data-testid="business-backup-import-preview">
             <div className="text-[11px] text-white/60 mb-2">تقرير النسخة قبل الاستيراد</div>
             <div className="bg-black/20 border border-white/[0.06] rounded-xl p-3 mb-3">
                 <div className="flex justify-between text-[11px] text-white/70">

@@ -8,7 +8,7 @@ import {
     LazyPersonalTab,
     LazyRequestsTab,
     LazySeizureRequestsTab,
-} from '../executionDashboardLazyRegistryShell';
+} from '../executionDashboardFollowupTabLazy';
 import type { FollowupModalSnapshot } from '../followupModalContext';
 
 const EMPTY_FOLLOWUP_SPECIALIZATION = {
@@ -90,15 +90,17 @@ export function enrichFollowupModalSnapshot(
             picked.personalTabLockedForEmployee ?? picked.modalPersonalTabLockedForEmployee ?? false,
         followupSpecialization: {
             ...EMPTY_FOLLOWUP_SPECIALIZATION,
-            ...(typeof picked.followupModalSpecializationEffective === 'object' &&
-            picked.followupModalSpecializationEffective
-                ? (picked.followupModalSpecializationEffective as Record<string, unknown>)
-                : {}),
+            // الأقدم أولاً — effective للمحضر يفوز أخيراً حتى لا تُفرَّغ اللوحات
+            // بينما شريط التبويب ما زال يعرض «الإجراءات الجبرية / الشخصي».
             ...(typeof s.followupSpecialization === 'object' && s.followupSpecialization
                 ? (s.followupSpecialization as Record<string, unknown>)
                 : {}),
             ...(typeof picked.followupSpecialization === 'object' && picked.followupSpecialization
                 ? (picked.followupSpecialization as Record<string, unknown>)
+                : {}),
+            ...(typeof picked.followupModalSpecializationEffective === 'object' &&
+            picked.followupModalSpecializationEffective
+                ? (picked.followupModalSpecializationEffective as Record<string, unknown>)
                 : {}),
         },
         executionDebtorTabIndex: picked.executionDebtorTabIndex ?? s.executionDebtorTabIndex ?? 0,

@@ -3,7 +3,7 @@
  * يكسر دورة: personalStatusStageDisplay ↔ judgmentTypes ↔ stepperPipeline.
  */
 import type { LawsuitJurisdictionSource } from '@/app/domain/lawsuit/lawsuitJurisdiction';
-import { PERSONAL_STATUS_STAGE_OPTIONS, isPersonalStatusFile } from './personalStatusValidation';
+import { PERSONAL_STATUS_STAGE_OPTIONS, isPersonalStatusFile } from './personalStatusFileKind';
 
 const CIVIL_STAGE_PATTERN = /بداءة|استئناف|بدرجة\s*أولى/i;
 
@@ -94,4 +94,29 @@ export function isPersonalStatusCoreStage(stageName?: string | null): boolean {
     if (!s || s.includes('أحوال شخصية') || containsCivilStageTerminology(s)) return true;
     if (s.includes('تمييز') || s.includes('اعتراض') || s.includes('إعادة المحاكمة')) return false;
     return true;
+}
+
+/** إضبارة أحوال شخصية من سجل المراحل (بدون تاريخ مدني). */
+export function isPersonalStatusDossierFromStages(
+    stages?: Array<{ stageName?: string | null; name?: string | null }> | null,
+): boolean {
+    if (hasCivilLawsuitStageHistory(stages)) return false;
+    return (stages ?? []).some((s) =>
+        isPersonalStatusStageName(String(s.stageName ?? s.name ?? '')),
+    );
+}
+
+/** تسمية مرحلة للعرض — تُرجع null لإخفاء الشارة أو pill غير المناسب. */
+export function formatPersonalStatusStageDisplayName(
+    raw: string,
+    options?: { showCoreStage?: boolean },
+): string | null {
+    const s = raw.trim();
+    if (!s) return null;
+    if (containsCivilStageTerminology(s)) return null;
+    if (s === 'أحوال شخصية' || s === 'الأحوال الشخصية') {
+        return options?.showCoreStage ? 'أحوال شخصية' : null;
+    }
+    if (s === 'التمييز') return 'تمييز';
+    return s;
 }

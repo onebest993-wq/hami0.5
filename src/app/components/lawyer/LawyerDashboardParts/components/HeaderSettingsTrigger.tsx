@@ -1,6 +1,11 @@
 import React from 'react';
 import { HeaderTuneMark } from './headerToolbarIcons';
-import { beginSettingsOpenGesture, paintSettingsInstantChrome } from '@/app/runtime/settingsInstantPaint';
+import {
+    beginSettingsOpenGesture,
+    isSettingsOverlayCssExiting,
+    isSettingsReopenSuppressed,
+    paintSettingsInstantChrome,
+} from '@/app/runtime/settingsInstantPaint';
 import { HeaderToolbarIcon } from './HeaderToolbarIcon';
 
 interface HeaderSettingsTriggerProps {
@@ -21,6 +26,7 @@ export function HeaderSettingsTrigger({
             onClick={onClick}
             onPointerEnter={onPointerEnter}
             onPointerDown={(event) => {
+                if (isSettingsReopenSuppressed() || isSettingsOverlayCssExiting()) return;
                 beginSettingsOpenGesture(event.pointerId);
                 paintSettingsInstantChrome();
                 onPointerDown?.();

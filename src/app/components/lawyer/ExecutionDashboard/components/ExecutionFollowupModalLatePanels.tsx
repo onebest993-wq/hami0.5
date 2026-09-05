@@ -9,11 +9,12 @@ export function ExecutionFollowupModalLatePanels({
 }: {
     c: ExecutionFollowupModalPortalController;
 }) {
+    const p = c.panelsToRender;
     return (
         <>
-            <ExecutionFollowupModalCorrespondencesPanel c={c} />
-            <ExecutionFollowupModalDossierControlsPanel c={c} />
-            <ExecutionFollowupModalAdminRequestsPanel c={c} />
+            {p.has('correspondences') ? <ExecutionFollowupModalCorrespondencesPanel c={c} /> : null}
+            {p.has('dossier_controls') ? <ExecutionFollowupModalDossierControlsPanel c={c} /> : null}
+            {p.has('admin') ? <ExecutionFollowupModalAdminRequestsPanel c={c} /> : null}
         </>
     );
 }

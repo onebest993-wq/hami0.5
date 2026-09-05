@@ -76,4 +76,17 @@ describe('transactions visual lightness honesty', () => {
         expect(share).not.toContain('share-procedure-stage-rail');
         expect(share).not.toContain('ShieldCheck');
     });
+
+    it('القائمة والتفاصيل بلا Radix وبلا بطاقة زجاجية متداخلة', () => {
+        expect(src('transactionsTheme/chrome.tsx')).not.toContain('TxGlassPanel');
+        expect(src('transactionsTheme/chrome.tsx')).not.toContain('TxGlassTabsList');
+        expect(src('transactionsTheme/tokens.ts')).not.toContain('TX_DROPDOWN_INSTANT');
+        expect(src('TransactionCard.tsx')).not.toContain('TxGlassPanel');
+        expect(src('TaskNodeCard.tsx')).toContain('TransactionsLiteMenu');
+        expect(src('TaskNodeCard.tsx')).not.toContain('@radix-ui');
+        expect(src('TransactionDetailsScreen.tsx')).not.toContain("@/app/components/ui/tabs");
+        expect(src('TransactionDetailsScreen.tsx')).not.toContain('@radix-ui');
+        expect(src('transactionDetails/TransactionDetailsHeader.tsx')).toContain('role="tablist"');
+        expect(src('DocumentCard.tsx')).toContain('aria-label="حذف المستمسك"');
+    });
 });

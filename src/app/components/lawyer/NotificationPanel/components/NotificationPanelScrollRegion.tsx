@@ -19,8 +19,6 @@ const NotificationAlertControlsLazy = lazy(() =>
 type Props = {
     panelRoute: NotificationPanelRoute;
     isInboxRoute: boolean;
-    /** محفوظ للتوافق مع المستدعي — التبديل فوري بلا انتظار خروج */
-    reduceMotion?: boolean;
     userId: string;
     hasCaseShareContent: boolean;
     caseShareAll: CaseShareRecord[];
@@ -61,7 +59,7 @@ export function NotificationPanelScrollRegion({
             aria-labelledby={
                 isInboxRoute ? `notification-tab-${activeTab}` : 'notification-alert-controls-title'
             }
-            className="hami-notif-scroll min-h-0 overflow-y-auto overscroll-contain px-4 py-3 touch-pan-y"
+            className="hami-notif-scroll min-h-0 overflow-y-auto overscroll-contain px-3 py-2.5 touch-pan-y"
             data-testid="notification-panel-tabpanel"
             {...(isInboxRoute ? tabSwipeHandlers : {})}
         >

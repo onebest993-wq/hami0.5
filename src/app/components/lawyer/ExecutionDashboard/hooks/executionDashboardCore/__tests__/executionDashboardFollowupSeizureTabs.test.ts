@@ -9,6 +9,14 @@ import {
 } from '../executionDashboardFollowupSeizureTabs';
 
 describe('executionDashboardFollowupSeizureTabs', () => {
+    const approvedGuarantorData = {
+        guarantor_followup: {
+            executor_approved: true,
+            details_saved: true,
+            channel: 'financial' as const,
+        },
+    };
+
     it('computeShowGuarantorInSeizureFollowupTab returns false for deceased debtor', () => {
         expect(
             computeShowGuarantorInSeizureFollowupTab({
@@ -21,6 +29,66 @@ describe('executionDashboardFollowupSeizureTabs', () => {
                     showFinancialGuarantorRequestOnly: true,
                 },
                 remainingBalanceForSeizure: 1_000_000,
+                settlementGuarantorGate: {
+                    settlementBreachTriggeredAt: null,
+                    pendingSettlement: null,
+                },
+            }),
+        ).toBe(false);
+    });
+
+    it('hides guarantor from the seizure tab for financial employees even with an active guarantor', () => {
+        expect(
+            computeShowGuarantorInSeizureFollowupTab({
+                activeDebtorIsDeceased: false,
+                activeDebtorIsEmployee: true,
+                viewExecutionData: approvedGuarantorData as never,
+                followupSpecialization: {
+                    hideAllGuarantorPresence: true,
+                    isFinancialDebtCollection: true,
+                    showFinancialGuarantorRequestOnly: false,
+                },
+                remainingBalanceForSeizure: 4_000_000,
+                settlementGuarantorGate: {
+                    settlementBreachTriggeredAt: '2026-01-01',
+                    pendingSettlement: null,
+                },
+            }),
+        ).toBe(false);
+    });
+
+    it('keeps the kasib guarantor block on the seizure tab after the guarantor is approved', () => {
+        expect(
+            computeShowGuarantorInSeizureFollowupTab({
+                activeDebtorIsDeceased: false,
+                activeDebtorIsEmployee: false,
+                viewExecutionData: approvedGuarantorData as never,
+                followupSpecialization: {
+                    hideAllGuarantorPresence: false,
+                    isFinancialDebtCollection: true,
+                    showFinancialGuarantorRequestOnly: true,
+                },
+                remainingBalanceForSeizure: 4_000_000,
+                settlementGuarantorGate: {
+                    settlementBreachTriggeredAt: '2026-01-01',
+                    pendingSettlement: null,
+                },
+            }),
+        ).toBe(true);
+    });
+
+    it('does not show the amount-guarantor request for a financial kasib before settlement breach', () => {
+        expect(
+            computeShowGuarantorInSeizureFollowupTab({
+                activeDebtorIsDeceased: false,
+                activeDebtorIsEmployee: false,
+                viewExecutionData: null,
+                followupSpecialization: {
+                    hideAllGuarantorPresence: false,
+                    isFinancialDebtCollection: true,
+                    showFinancialGuarantorRequestOnly: true,
+                },
+                remainingBalanceForSeizure: 4_000_000,
                 settlementGuarantorGate: {
                     settlementBreachTriggeredAt: null,
                     pendingSettlement: null,

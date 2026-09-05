@@ -28,7 +28,12 @@ export function useExpandingVisibleCount(
 
     useEffect(() => {
         if (!resetWhenTotalChanges) return;
-        setVisibleCount(total <= 0 ? initial : Math.min(initial, total));
+        setVisibleCount((count) => {
+            if (total <= 0) return initial;
+            const floor = Math.min(initial, total);
+            if (count <= floor) return floor;
+            return Math.min(count, total);
+        });
     }, [initial, resetKey, total, resetWhenTotalChanges]);
 
     const hasMore = visibleCount < total;
@@ -46,7 +51,7 @@ export function useExpandingVisibleCount(
         );
         observer.observe(node);
         return () => observer.disconnect();
-    }, [hasMore, step, total, visibleCount, rootMargin]);
+    }, [hasMore, step, total, rootMargin]);
 
     return { visibleCount, sentinelRef, hasMore };
 }

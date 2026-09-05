@@ -25,7 +25,7 @@ import {
 
 export { DECISION_CARD_GLASS_SHELL, decisionCardGlassClasses } from './decisionCardGlassShell';
 
-export const DECISION_CARD_LAYOUT = 'flex h-full min-h-0 flex-col justify-between gap-2';
+export const DECISION_CARD_LAYOUT = 'flex h-full min-h-0 flex-col justify-start gap-1.5';
 
 export const DECISION_HUB_PILL_CLASS: Record<DecisionHubStatusPillTone, string> = {
     emerald:

@@ -1,7 +1,7 @@
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/types/execution';
-import { EXECUTION_VISIT_NEXT_EVENT_ID } from '@/app/services/calendar/dossierSync/visitationCalendarSync';
+import { EXECUTION_VISIT_NEXT_EVENT_ID } from '@/app/services/calendar/dossierSync/executionVisitNextEventId';
 import { requestOpenExecutionVisitationWorkspace } from '@/app/runtime/executionVisitationOpenIntent';
 
 type CalendarRadarSourceHandlers = {

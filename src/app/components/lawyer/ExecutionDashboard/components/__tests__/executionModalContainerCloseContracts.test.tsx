@@ -124,7 +124,6 @@ describe('Execution modal container close contracts', () => {
                 History={() => <div>history</div>}
                 toggleTimelineEventPin={vi.fn()}
                 moveTimelineEventToTrash={vi.fn()}
-                onRequestEditTimelineEvent={vi.fn()}
                 isHistoricalMode={false}
                 activeTimelineFilter="الكل"
                 setActiveTimelineFilter={vi.fn()}

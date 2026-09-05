@@ -5,7 +5,7 @@ import { buildTaskTree } from '@/app/modules/transactionsThreading/service';
 import { TransactionTaskStatus, type TransactionTask } from '@/app/modules/transactionsThreading/types';
 import type { TransactionsDetailsEscapeSnapshot } from '../transactionsEscapeStack';
 import type { TaskNodeActionHandlers } from './TaskThreadNodeRenderer';
-import type { TaskThreadDialogActions } from './TaskThreadDialogs';
+import type { TaskThreadDialogActions } from './TaskThreadDialogs.types';
 import { useTaskThreadOverlays } from './useTaskThreadOverlays';
 import {
     EMPTY_TASKS,
@@ -78,6 +78,16 @@ export function useTaskThreadController({
             taskDeleteOpen: overlays.deleteOpen,
         });
     }, [completeOpen, overlays.deleteOpen, overlays.editOpen, onTaskEscapeSnapshotChange]);
+
+    useEffect(() => {
+        return () => {
+            onTaskEscapeSnapshotChange?.({
+                taskCompleteOpen: false,
+                taskEditOpen: false,
+                taskDeleteOpen: false,
+            });
+        };
+    }, [onTaskEscapeSnapshotChange]);
 
     const tree = useMemo(() => buildTaskTree(tasks), [tasks]);
     const progress = useMemo(() => computeTaskProgress(tasks), [tasks]);

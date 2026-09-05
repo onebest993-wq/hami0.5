@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import { Send } from '@/app/components/ui/icons/Send';
+import {
+    REQUEST_CONFIRM_HINT_CLASS,
+    REQUEST_CONFIRM_PRIMARY_BTN_CLASS,
+    REQUEST_CONFIRM_SECONDARY_BTN_CLASS,
+} from '@/app/components/lawyer/shared/RequestConfirmStrip';
 
-/** شريط إعادة التقديم بعد رفض نهائي — الطلب القديم مُغلق والجديد يحل محله */
+const RESUBMIT_BTN =
+    'inline-flex min-h-[40px] w-full flex-row-reverse items-center justify-center gap-1.5 rounded-lg border border-white/12 bg-white/[0.04] px-2.5 text-[11px] font-bold text-slate-200 hover:border-white/18 hover:bg-white/[0.07] disabled:opacity-50 touch-manipulation';
+
+/** شريط إعادة التقديم / إرسال للقرارات — خفيف؛ يدعم حالة controlled لتفادي اختفاء التأكيد عند إعادة الرسم */
 export function RejectedExecutorResubmitStrip(props: {
     onConfirmSubmit: () => void;
     disabled?: boolean;
@@ -9,51 +17,61 @@ export function RejectedExecutorResubmitStrip(props: {
     linkLabel?: string;
     confirmLabel?: string;
     hint?: string;
-    /** يظهر تنبيه الاستبدال فقط عند وجود بطاقة/قرار غير منتهٍ في مركز القرارات */
     showReplaceHint?: boolean;
     children?: React.ReactNode;
+    /** داخل صف أفعال جنب تفعيل بقرار — زر بعرض الصف */
+    compact?: boolean;
+    confirmOpen?: boolean;
+    onConfirmOpenChange?: (open: boolean) => void;
 }) {
-    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+    const isControlled = typeof props.confirmOpen === 'boolean';
+    const confirmOpen = isControlled ? Boolean(props.confirmOpen) : uncontrolledOpen;
+    const setConfirmOpen = (open: boolean) => {
+        if (!isControlled) setUncontrolledOpen(open);
+        props.onConfirmOpenChange?.(open);
+    };
     const disabled = Boolean(props.disabled || props.submitting);
-    const confirmHint =
-        props.hint ?? 'عند إرسال طلب جديد سيتم إنهاء الطلب الموجود.';
+    const confirmHint = props.hint ?? 'عند إرسال طلب جديد سيتم إنهاء الطلب الموجود.';
     const showReplaceHint = props.showReplaceHint === true;
 
     return (
-        <div className="space-y-2 text-right" dir="rtl">
+        <div className={`relative text-right ${props.compact ? '' : 'space-y-1.5'}`} dir="rtl">
             {props.children}
             {confirmOpen ? (
-                <>
+                <div className="flex flex-col gap-1.5 rounded-lg border border-white/10 bg-[#0A1122]/70 px-2 py-1.5">
                     {showReplaceHint ? (
-                        <p className="text-[10px] leading-relaxed text-amber-200/90">{confirmHint}</p>
+                        <p className={REQUEST_CONFIRM_HINT_CLASS}>{confirmHint}</p>
                     ) : null}
-                <div className="flex flex-row-reverse gap-2">
-                    <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            props.onConfirmSubmit();
-                            setConfirmOpen(false);
-                        }}
-                        className="flex flex-1 flex-row-reverse items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.05] py-2.5 text-[11px] font-bold text-slate-100 hover:border-white/25 hover:bg-white/[0.08] disabled:opacity-50"
-                    >
-                        <Send size={13} className="text-[#E6C673]/80" />
-                        {props.confirmLabel ?? 'تأكيد وإرسال للقرارات'}
-                    </button>
-                    <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setConfirmOpen(false);
-                        }}
-                        className="rounded-xl bg-slate-800 px-4 py-2.5 text-[11px] font-bold text-slate-100 hover:bg-slate-700 disabled:opacity-50"
-                    >
-                        إلغاء
-                    </button>
+                    <div className="flex flex-row-reverse flex-wrap items-center gap-1.5">
+                        <button
+                            type="button"
+                            disabled={disabled}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                props.onConfirmSubmit();
+                                setConfirmOpen(false);
+                            }}
+                            className={REQUEST_CONFIRM_PRIMARY_BTN_CLASS}
+                        >
+                            <span className="flex flex-row-reverse items-center justify-center gap-1.5">
+                                <Send size={12} className="text-[#E6C673]/90 shrink-0" aria-hidden />
+                                {props.confirmLabel ?? 'تأكيد وإرسال للقرارات'}
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            disabled={disabled}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmOpen(false);
+                            }}
+                            className={REQUEST_CONFIRM_SECONDARY_BTN_CLASS}
+                        >
+                            إلغاء
+                        </button>
+                    </div>
                 </div>
-                </>
             ) : (
                 <button
                     type="button"
@@ -62,10 +80,10 @@ export function RejectedExecutorResubmitStrip(props: {
                         e.stopPropagation();
                         setConfirmOpen(true);
                     }}
-                    className="flex w-full flex-row-reverse items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/15 py-2.5 text-[10px] font-bold text-slate-400 hover:border-white/20 hover:text-slate-200 disabled:opacity-50"
+                    className={RESUBMIT_BTN}
                 >
-                    <Send size={13} className="opacity-70" />
-                    {props.linkLabel ?? 'أو: إرسال طلب للقرارات'}
+                    <Send size={12} className="opacity-70 shrink-0" aria-hidden />
+                    {props.linkLabel ?? 'إرسال طلب للقرارات'}
                 </button>
             )}
         </div>

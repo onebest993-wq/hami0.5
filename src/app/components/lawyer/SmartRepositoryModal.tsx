@@ -8,9 +8,12 @@ import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/ty
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { RepositoryFeedFilter } from '@/app/services/repository/repositoryUnifiedFeed';
-import { SmartRepositoryUnifiedFeed } from './SmartRepository/SmartRepositoryUnifiedFeed';
 import { REPO_HEADER, REPO_ICON_BTN, REPO_OVERLAY, REPO_PANEL } from './SmartRepository/smartRepositoryTheme';
-import { concealRepositoryWarmShell } from '@/app/runtime/repositoryInstantPaint';
+import { SmartRepositoryUnifiedFeed } from './SmartRepository/SmartRepositoryUnifiedFeed';
+import {
+    hideRepositoryKeepAliveLayer,
+    paintRepositoryInstantChrome,
+} from '@/app/runtime/repositoryInstantPaint';
 import { inertProps } from '@/app/utils/inertProps';
 import './SmartRepository/repositoryChrome.css';
 
@@ -76,11 +79,13 @@ export function SmartRepositoryModal({
             wasLayerMountedRef.current = true;
             setInitialFilter(initialFilterFromTab(initialTab));
             setIsVisible(true);
+            paintRepositoryInstantChrome();
             return;
         }
 
         setIsVisible(false);
-        concealRepositoryWarmShell();
+        /* لا conceal كامل — كان ينزع ستارة html أثناء فتح جارٍ فيُترك فراغ بحري */
+        hideRepositoryKeepAliveLayer();
         if (!keepAlive && reduceMotion) {
             setLayerMounted(false);
             wasLayerMountedRef.current = false;
@@ -163,7 +168,7 @@ export function SmartRepositoryModal({
                         >
                             <ChevronLeft size={18} />
                         </button>
-                        <h2 className="font-medium text-[17px] text-[#F4F4F5] truncate">المستودع</h2>
+                        <h2 className="font-medium text-[15px] text-[#F4F4F5] truncate">المستودع</h2>
                     </div>
                 </div>
 

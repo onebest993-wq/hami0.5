@@ -5,7 +5,7 @@ import { formatShortDate, snoozedTaskDueDate } from './utils';
 import { TASKS_INNER_GLASS } from './tasksBoucleTheme';
 import { TaskListOrdinalBadge, type TaskListOrdinal } from './TaskListOrdinalBadge';
 
-export type SnoozedTaskCardProps = {
+type SnoozedTaskCardProps = {
     task: LegalTask;
     listOrdinal?: TaskListOrdinal;
 };

@@ -36,6 +36,8 @@ export function ActionGridEmployeeCompulsoryBanner({
                     <button
                         type="button"
                         disabled={executionToolsTimelineLockedUi}
+                        onPointerDown={() => prefetchExecutionActionGridTile('followup')}
+                        onFocus={() => prefetchExecutionActionGridTile('followup')}
                         onClick={() => {
                             setEmployeeCompulsoryBannerDismissed(true);
                             if (typeof onMemoFollowupClick === 'function') {
@@ -91,13 +93,14 @@ export const ActionGridTileButton = memo(function ActionGridTileButton({
             }
             onPointerEnter={() => prefetchExecutionActionGridTile(tile.key)}
             onPointerDown={() => prefetchExecutionActionGridTile(tile.key)}
+            onFocus={() => prefetchExecutionActionGridTile(tile.key)}
             onClick={tile.onClick}
             className={`${EXECUTION_ACTION_TILE_CLASS} ${tile.tone} ${
                 tile.locked ? 'cursor-not-allowed opacity-40' : ''
             }`}
         >
             <span className={`${EXECUTION_ACTION_TILE_ICON_WRAP} ${tile.iconWrapClass}`}>
-                <Ico size={16} strokeWidth={2} className={`shrink-0 ${tile.iconClass}`} />
+                <Ico size={15} strokeWidth={1.75} className={`shrink-0 ${tile.iconClass}`} aria-hidden />
             </span>
             <span className="relative min-w-0 flex-1 text-right text-[11px] font-bold leading-snug text-[#F8FAFC]">
                 {tile.label}
@@ -139,34 +142,6 @@ export function ActionGridNotesTile({
                 ) : null}
             </div>
         </div>
-    );
-}
-
-export function ActionGridSeizureLogTile({
-    show,
-    ClipboardList,
-    onOpenSeizureLog,
-}: {
-    show: boolean;
-    ClipboardList: ElementType;
-    onOpenSeizureLog: () => void;
-}) {
-    if (!show) return null;
-    return (
-        <button
-            type="button"
-            onPointerEnter={() => prefetchExecutionActionGridTile('seizure-log')}
-            onClick={onOpenSeizureLog}
-            dir="rtl"
-            className={`${EXECUTION_ACTION_TILE_CLASS} border-[#E6C673]/18 bg-[#E6C673]/[0.05] hover:border-[#E6C673]/32 hover:bg-[#E6C673]/[0.09] focus-visible:ring-[#E6C673]/28`}
-        >
-            <span className={`${EXECUTION_ACTION_TILE_ICON_WRAP} border-[#E6C673]/20`}>
-                <ClipboardList size={16} className="text-[#E6C673]" strokeWidth={2} />
-            </span>
-            <span className="relative min-w-0 flex-1 text-right text-[11px] font-bold leading-snug text-[#F5E6B8]" dir="rtl">
-                سجل الحجز
-            </span>
-        </button>
     );
 }
 

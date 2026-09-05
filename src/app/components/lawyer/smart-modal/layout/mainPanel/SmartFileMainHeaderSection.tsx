@@ -1,5 +1,7 @@
 import { SmartHeader } from '../../parts/SmartHeader';
-import { pickNonemptyString, readFileDetailsField } from './smartFileMainPanelUtils';
+import { pickNonemptyString, readFileDetailsField, resolveHeaderCourtAndJudge } from './smartFileMainPanelUtils';
+import { isFirstInstanceStageName } from '../../smartFile/judgmentTypes';
+import { readIndependentChallengeLink } from '@/app/domain/lawsuit/independentChallengeDossier';
 import { SmartFileStatusBanners } from './SmartFileStatusBanners';
 import { SmartFileAppealDeadlineBanner } from './SmartFileAppealDeadlineBanner';
 import type { SmartFileMainPanelProps } from './smartFileMainPanelTypes';
@@ -39,7 +41,6 @@ export type SmartFileMainHeaderSectionProps = {
     setShowCrossAppealModal: SmartFileMainPanelProps['setShowCrossAppealModal'];
     handleToggleNotification: SmartFileMainPanelProps['handleToggleNotification'];
     handleCassationDecision: SmartFileMainPanelProps['handleCassationDecision'];
-    handleClosePleadings: SmartFileMainPanelProps['handleClosePleadings'];
     handleReopenPleadings: SmartFileMainPanelProps['handleReopenPleadings'];
     handleOpenDefendantCassationAppeal: SmartFileMainPanelProps['handleOpenDefendantCassationAppeal'];
     setShowAppealModal: SmartFileMainPanelProps['setShowAppealModal'];
@@ -82,7 +83,6 @@ export function SmartFileMainHeaderSection({
     setShowCrossAppealModal,
     handleToggleNotification,
     handleCassationDecision,
-    handleClosePleadings,
     handleReopenPleadings,
     handleOpenDefendantCassationAppeal,
     setShowAppealModal,
@@ -92,6 +92,41 @@ export function SmartFileMainHeaderSection({
     setShowProvisionalOrderModal,
     handleUpdateIncidentalEntryDecision,
 }: SmartFileMainHeaderSectionProps) {
+    const independentIdentity = Boolean(readIndependentChallengeLink(file));
+    const headerIdentity = resolveHeaderCourtAndJudge({
+        stageName: displayStage?.stageName ?? displayStage?.name,
+        stageCourt: pickNonemptyString(
+            displayStage?.court,
+            (displayStage as Record<string, unknown> | undefined)?.courtName,
+        ),
+        stageJudge: pickNonemptyString(
+            displayStage?.judge,
+            (displayStage as Record<string, unknown> | undefined)?.judgeName,
+            (displayStage as Record<string, unknown> | undefined)?.judge_name,
+        ),
+        fileCourt: pickNonemptyString(
+            file?.court,
+            parentData?.court,
+            readFileDetailsField(file, 'court'),
+        ),
+        fileJudge: pickNonemptyString(
+            file?.judge,
+            parentData?.judge,
+            (file as Record<string, unknown> | undefined)?.judgeName,
+            readFileDetailsField(file, 'judge'),
+            readFileDetailsField(file, 'judgeName'),
+            readFileDetailsField(file, 'judge_name'),
+        ),
+        firstInstanceCourt: pickNonemptyString(
+            displayStage?.firstInstanceCourt,
+            stages.find((s) => isFirstInstanceStageName(String(s.stageName ?? s.name ?? '')))?.court,
+        ),
+        firstInstanceJudge: pickNonemptyString(
+            stages.find((s) => isFirstInstanceStageName(String(s.stageName ?? s.name ?? '')))?.judge,
+        ),
+        useFileCourtAsAppealIdentity: independentIdentity,
+    });
+
     return (
         <>
             {/* PRINT HEADER */}
@@ -104,6 +139,8 @@ export function SmartFileMainHeaderSection({
                 displayStage={displayStage}
                 status={status}
                 interruptionData={interruptionData}
+                stages={stages}
+                parentIntegrity={parentData.disputeIntegrity}
             />
 
             <SmartHeader
@@ -111,24 +148,8 @@ export function SmartFileMainHeaderSection({
                     ...displayStage,
                     parties: headerParties,
                     caseNo: pickNonemptyString(displayStage?.caseNo, primaryCaseNo),
-                    court: pickNonemptyString(
-                        displayStage?.court,
-                        (displayStage as Record<string, unknown> | undefined)?.courtName,
-                        file?.court,
-                        parentData?.court,
-                        readFileDetailsField(file, 'court'),
-                    ),
-                    judge: pickNonemptyString(
-                        displayStage?.judge,
-                        (displayStage as Record<string, unknown> | undefined)?.judgeName,
-                        (displayStage as Record<string, unknown> | undefined)?.judge_name,
-                        file?.judge,
-                        parentData?.judge,
-                        (file as Record<string, unknown> | undefined)?.judgeName,
-                        readFileDetailsField(file, 'judge'),
-                        readFileDetailsField(file, 'judgeName'),
-                        readFileDetailsField(file, 'judge_name'),
-                    ),
+                    court: headerIdentity.court,
+                    judge: headerIdentity.judge,
                     docType: primaryDocType,
                     claimValue: pickNonemptyString(
                         file?.claimValue,
@@ -173,8 +194,7 @@ export function SmartFileMainHeaderSection({
                 }
                 // Pleadings Lock Props
                 isPleadingsClosed={displayStage?.isPleadingsClosed}
-                wasReopened={displayStage?.wasReopened}
-                onClosePleadings={!interactionLocked ? handleClosePleadings : undefined}
+                pleadingDoorReopened={displayStage?.pleadingDoorReopened}
                 onReopenPleadings={!interactionLocked ? handleReopenPleadings : undefined}
                 onCassationAppeal={!interactionLocked ? handleOpenDefendantCassationAppeal : undefined}
                 onRegisterOpponentAppeal={!interactionLocked ? () => setShowAppealModal(true) : undefined}

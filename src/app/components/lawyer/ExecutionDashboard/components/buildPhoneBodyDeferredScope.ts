@@ -7,13 +7,13 @@ const DEFERRED_SCOPE_KEYS = [
     'appealPerspective',
     'appendGuarantorFollowupRequest',
     'archiveAndClearGuarantor',
+    'persistGuarantorFollowupDetails',
     'assignmentWorkspaceCtx',
     'beginThirdPartyReceiveStep',
     'calculatedExecutionFee',
     'cancelThirdPartyReceiveStep',
     'claimType',
     'clearActiveSalarySeizurePath',
-    'closeUnifiedSeizureLog',
     'confirmThirdPartyReceive',
     'decisionsReloadEpoch',
     'decisionsStorageExecutionId',
@@ -45,7 +45,6 @@ const DEFERRED_SCOPE_KEYS = [
     'handleEvictionLedgerActivated',
     'handleFundsLedgerPayment',
     'handleGuarantorRequestFromFollowup',
-    'hasUnifiedSeizureLogContent',
     'isAlimonyClaim',
     'isEvictionExecutionModule',
     'isFinancialCenterExpanded',
@@ -61,7 +60,6 @@ const DEFERRED_SCOPE_KEYS = [
     'movableSeizureRequestModalOpen',
     'movableSeizureSubjectDraft',
     'nextTimelineId',
-    'openUnifiedSeizureLog',
     'paidClientFees',
     'paidCourtFees',
     'paidDebt',
@@ -78,9 +76,6 @@ const DEFERRED_SCOPE_KEYS = [
     'remaining',
     'salarySeizureRegistryAssets',
     'salarySeizureTabRows',
-    'seizedMovablesForSeizureLog',
-    'seizedPropertiesForSeizureLog',
-    'seizureLogExecutorDecisions',
     'seizureMatrixLedgerParamsRef',
     'setActiveFinancialTab',
     'setCaseTasksPending',
@@ -96,19 +91,15 @@ const DEFERRED_SCOPE_KEYS = [
     'setPropertySeizureRequestModalOpen',
     'setPropertySeizureSubjectDraft',
     'setShowExecutionFinancialHub',
-    'setThirdPartyFundsDraftById',
     'setThirdPartySeizuresUi',
     'setTimelineEvents',
     'setUnifiedLedgerRevision',
-    'setUnifiedSeizureLogTab',
     'showExecutionFinancialHub',
     'showToast',
-    'showUnifiedSeizureLogModal',
     'standaloneExecutionMarks',
     'statusMetadata',
     'submitMovableSeizureRequest',
     'submitPropertySeizureRequest',
-    'thirdPartyFundsDraftById',
     'thirdPartySeizureRegistryAssets',
     'thirdPartySeizuresUi',
     'timelineDebtorMetadata',
@@ -116,9 +107,6 @@ const DEFERRED_SCOPE_KEYS = [
     'totalOwed',
     'totalWithExecutionFee',
     'total_execution_expenses',
-    'unifiedSeizureLogEntries',
-    'unifiedSeizureLogTab',
-    'unifiedSeizureTabCounts',
     'updateThirdPartyReceiveDraft',
     'viewExecutionData',
     'visitChildNames',
@@ -138,5 +126,13 @@ export function buildPhoneBodyDeferredScope(
     for (const key of DEFERRED_SCOPE_KEYS) {
         (out as Record<string, unknown>)[key] = source[key];
     }
+    const noop = () => {};
+    if (typeof out.focusSeizurePropertyInlineCompletion !== 'function') {
+        out.focusSeizurePropertyInlineCompletion = noop;
+    }
+    if (typeof out.focusSeizureMovableInlineCompletion !== 'function') {
+        out.focusSeizureMovableInlineCompletion = noop;
+    }
     return out;
 }
+

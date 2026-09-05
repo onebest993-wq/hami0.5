@@ -1,6 +1,5 @@
 import React from 'react';
 import { Eye } from '@/app/components/ui/icons/Eye';
-import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import { Pin } from '@/app/components/ui/icons/Pin';
 import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
@@ -89,10 +88,11 @@ export function GlobalEntryCardActions({
                             type="button"
                             disabled
                             className={`${REPO_CARD_ICON_BTN} text-white/30 opacity-60`}
-                            aria-label="جاري تحميل المرفق"
-                            title="جاري تحميل المرفق..."
+                            aria-label="المرفق"
+                            aria-busy="true"
+                            title="المرفق"
                         >
-                            <Loader2 size={14} className="animate-spin" />
+                            <Eye size={14} />
                         </button>
                     )
                 ) : null}

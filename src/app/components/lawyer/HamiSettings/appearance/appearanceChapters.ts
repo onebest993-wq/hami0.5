@@ -1,4 +1,4 @@
-export const APPEARANCE_CHAPTER_IDS = ['theme', 'wallpaper'] as const;
+const APPEARANCE_CHAPTER_IDS = ['theme', 'wallpaper'] as const;
 
 export type AppearanceChapterId = (typeof APPEARANCE_CHAPTER_IDS)[number];
 

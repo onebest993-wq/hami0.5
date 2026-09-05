@@ -9,12 +9,12 @@ export type ExecutionCoreHandlerPrefetchMode =
     | 'followup-other-party-creditor'
     | 'seizure'
     | 'seizure-requests'
-    | 'seizure-log'
     | 'coercive'
     | 'coercive-employee'
     | 'coercive-eviction'
     | 'coercive-lifecycle'
-    | 'dossier-support';
+    | 'dossier-support'
+    | 'party-death';
 
 /** يحدد جسور lazy التي يجب تسخينها عند ضرب stub — لا يشمل المسارات المقيمة على Core */
 export function resolveExecutionStubHandlerPrefetchModes(
@@ -24,15 +24,11 @@ export function resolveExecutionStubHandlerPrefetchModes(
     const modes = new Set<ExecutionCoreHandlerPrefetchMode>();
 
     if (
-        /seizure|Seizure|followupSeizure|realEstate|thirdParty|movableSeizure|propertySeizure|seizedProperty/i.test(
+        /seizure|Seizure|followupSeizure|realEstate|thirdParty|movableSeizure|propertySeizure|seizedProperty|seizureRelease|seizureLog|unifiedSeizure|SeizureLog/i.test(
             path,
         )
     ) {
         modes.add('seizure-requests');
-    }
-
-    if (/seizureLog|unifiedSeizure|SeizureLog|seizureRelease/i.test(path)) {
-        modes.add('seizure-log');
     }
 
     if (
@@ -45,7 +41,35 @@ export function resolveExecutionStubHandlerPrefetchModes(
     }
 
     if (/partyDeath/i.test(path)) {
-        modes.add('coercive');
+        modes.add('party-death');
+    }
+
+    if (/runSpecialFollowupSubmit/i.test(path)) {
+        modes.add('followup-admin-special');
+    }
+
+    if (/handleDossierAction|dossierFollowupHandlers\.handleDossierAction/i.test(path)) {
+        modes.add('followup-dossier-controls');
+    }
+
+    if (
+        /otherPartyTabSubmit|creditorOtherPartyTrack|openOtherPartyAppeals|dossierFollowupHandlers\.otherParty/i.test(
+            path,
+        )
+    ) {
+        modes.add('followup-other-party');
+    }
+
+    if (/paymentHandlers|notesTasksHandlers|commitDossierNote|appointmentHandler/i.test(path)) {
+        modes.add('light');
+    }
+
+    if (
+        /parentDossierPersistence|dossierMetaWorkflow|pushTimelineEventBinding|dossierLifecycleActions/i.test(
+            path,
+        )
+    ) {
+        modes.add('dossier-support');
     }
 
     return [...modes];

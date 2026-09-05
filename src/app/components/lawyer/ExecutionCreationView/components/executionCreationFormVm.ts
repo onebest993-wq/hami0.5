@@ -109,6 +109,7 @@ export type ExecutionCreationFormVm = {
     foreignData: ForeignJudgmentData;
     setForeignData: Dispatch<SetStateAction<ForeignJudgmentData>>;
     showLawyerFeesBetweenSections: boolean;
+    showLawyerFeesToggle: boolean;
     includeLawyerFees: boolean;
     setIncludeLawyerFees: Dispatch<SetStateAction<boolean>>;
     lawyerFeesAmount: string;

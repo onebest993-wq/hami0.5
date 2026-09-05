@@ -3,12 +3,11 @@ import {
     LazyCoerciveTab,
     LazyCommunicationsTab,
     LazyDossierControlsTab,
-    LazyFinancialTab,
     LazyOtherPartyTab,
     LazyPersonalTab,
     LazyRequestsTab,
     LazySeizureRequestsTab,
-} from '../executionDashboardLazyRegistryShell';
+} from '../executionDashboardFollowupTabLazy';
 import { isEncroachmentRemovalClaim } from '@/app/utils/executionModuleStrategies';
 import { DebtorFinancialProgressBar as DebtorFinancialProgressBarComponent } from '../components/DebtorFinancialProgressBar';
 import { useExecutionDashboardStore } from '@/app/stores';
@@ -37,7 +36,7 @@ export function useExecutionFollowupModalPortalDerived(params: {
         PersonalTab,
         CoerciveTab,
         SeizureRequestsTab,
-        FinancialTab,
+        FinancialTab: _FinancialTab,
         OtherPartyTab,
         CommunicationsTab,
         DossierControlsTab,
@@ -57,7 +56,6 @@ export function useExecutionFollowupModalPortalDerived(params: {
     const TabPersonal = PersonalTab ?? LazyPersonalTab;
     const TabCoercive = CoerciveTab ?? LazyCoerciveTab;
     const TabSeizureRequests = SeizureRequestsTab ?? LazySeizureRequestsTab;
-    const TabFinancial = FinancialTab ?? LazyFinancialTab;
     const TabOtherParty = OtherPartyTab ?? LazyOtherPartyTab;
     const TabCommunications = CommunicationsTab ?? LazyCommunicationsTab;
     const TabDossierControls = DossierControlsTab ?? LazyDossierControlsTab;
@@ -102,7 +100,6 @@ export function useExecutionFollowupModalPortalDerived(params: {
         TabPersonal,
         TabCoercive,
         TabSeizureRequests,
-        TabFinancial,
         TabOtherParty,
         TabCommunications,
         TabDossierControls,

@@ -218,4 +218,74 @@ describe('caseConsolidationLinking', () => {
         expect(updated.consolidationSecondaryRefs?.[0]?.caseNo).toBe('99/ب/999');
         expect(updated.consolidationSecondaryRefs?.[0]?.isExternal).toBe(true);
     });
+
+    it('lists independent challenge peer across degree mismatch and preserves primary parties on merge', () => {
+        const primary = {
+            ...base(11, '100/2026'),
+            court: 'بداءة الرصافة',
+            parties: [
+                { id: 1, name: 'أحمد', role: 'المدعي', isClient: true },
+                { id: 2, name: 'سامي', role: 'المدعى عليه', isClient: false },
+                { id: 3, name: 'باسم', role: 'المدعى عليه', isClient: false },
+            ],
+            stages: [
+                { id: 's0', stageName: 'بداءة بدرجة أولى', timeline: [] },
+                {
+                    id: 's1',
+                    stageName: 'الاستئناف',
+                    caseNo: 'است/10',
+                    parties: [
+                        { id: 2, name: 'سامي', role: 'المستأنف (المدعى عليه)', isClient: false },
+                        { id: 1, name: 'أحمد', role: 'المستأنف عليه (المدعي)', isClient: true },
+                    ],
+                    timeline: [],
+                },
+                { id: 's2', stageName: 'الاعتراض على الحكم الغيابي', status: 'locked', timeline: [] },
+            ],
+            activeStageIndex: 2,
+        } as FileData;
+        const independent = {
+            ...base(99, 'است/88'),
+            court: 'استئناف بغداد',
+            parentId: 11,
+            independentChallengeLink: {
+                sourceFileId: 11,
+                sourceCaseNo: '100/2026',
+                sourceStageName: 'الاعتراض على الحكم الغيابي',
+            },
+            parties: [
+                { id: 1, name: 'أحمد', role: 'المستأنف (المدعي)', isClient: true },
+                { id: 4, name: 'كريم', role: 'المستأنف عليه (المدعى عليه)', isClient: false },
+            ],
+            stages: [
+                {
+                    id: 'ind',
+                    stageName: 'الاستئناف',
+                    caseNo: 'است/88',
+                    parties: [
+                        { id: 1, name: 'أحمد', role: 'المستأنف (المدعي)', isClient: true },
+                        { id: 4, name: 'كريم', role: 'المستأنف عليه (المدعى عليه)', isClient: false },
+                    ],
+                    timeline: [],
+                },
+            ],
+            activeStageIndex: 0,
+        } as FileData;
+
+        const candidates = listConsolidationCandidates([primary, independent], 99);
+        expect(candidates.map((c) => c.id)).toEqual([11]);
+        expect(assertConsolidationStageCompatibility(primary, independent).ok).toBe(false);
+
+        const mergeResult = mergeLawsuitFilesForConsolidation(primary, independent, {
+            consolidationDate: '2026-09-03',
+            notes: 'توحيد من الإجراءات',
+        });
+        expect('error' in mergeResult).toBe(false);
+        if ('error' in mergeResult) return;
+        expect(mergeResult.mergedPrimary.parties?.map((p) => p.name)).toEqual(['أحمد', 'سامي', 'باسم']);
+        expect(mergeResult.mergedPrimary.parties?.some((p) => p.name.includes('لبالبابل'))).toBe(false);
+        expect(mergeResult.archivedSecondary.consolidationMergedInto).toBe(11);
+        expect(mergeResult.mergedPrimary.caseNo).toBe('100/2026');
+        expect(mergeResult.mergedPrimary.court).toBe('بداءة الرصافة');
+    });
 });

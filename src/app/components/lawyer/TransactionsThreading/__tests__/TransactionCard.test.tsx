@@ -36,7 +36,6 @@ const transaction: Transaction = {
     clientName: 'سارة أحمد',
     targetDepartment: 'دائرة التسجيل العقاري',
     status: TransactionStatus.Active,
-    agreedFees: 0,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
 };
@@ -63,6 +62,23 @@ describe('TransactionCard', () => {
 
         fireEvent.click(screen.getByTestId('transactions-card-tx-1'));
         expect(onPress).toHaveBeenCalledWith(transaction);
+    });
+
+    it('يسخّن مقطع التفاصيل عند pointerdown على زر الفتح', () => {
+        const onPress = vi.fn();
+        const onPrimeDetails = vi.fn();
+        render(
+            <TransactionCard
+                transaction={transaction}
+                listFilter="all"
+                onPress={onPress}
+                onPrimeDetails={onPrimeDetails}
+            />,
+        );
+
+        fireEvent.pointerDown(screen.getByTestId('transactions-card-tx-1'));
+        expect(onPrimeDetails).toHaveBeenCalledTimes(1);
+        expect(onPress).not.toHaveBeenCalled();
     });
 
     it('لا يفتح التفاصيل عند pressDisabled', () => {

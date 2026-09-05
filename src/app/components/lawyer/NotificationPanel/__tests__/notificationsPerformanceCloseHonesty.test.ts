@@ -48,8 +48,10 @@ describe('notifications performance close honesty', () => {
         const card = read(
             'src/app/components/lawyer/NotificationPanel/components/NotificationCard.tsx',
         );
-        expect(card).toContain('layout={false}');
-        expect(card).toContain('initial={false}');
+        expect(card).toContain('<button');
+        expect(card).not.toContain("from '@/app/motion/overlayMotionRuntime'");
+        expect(card).not.toContain('layout={false}');
+        expect(card).not.toContain('pickTypeIcon');
         const cardsCss = read(
             'src/app/components/lawyer/NotificationPanel/styles/notificationPanel.sheet.cards.css',
         );
@@ -92,7 +94,9 @@ describe('notifications performance close honesty', () => {
 
     it('لا شجرة بطاقات دافئة وهي مغلقة، والقائمة تُقطَع عند الفتح', () => {
         const index = read('src/app/components/lawyer/NotificationPanel/index.tsx');
-        expect(index).toContain('contentArmed={isOpen}');
+        expect(index).toContain('isNotificationPanelListLive(isOpen, snap.present)');
+        expect(index).toContain('contentArmed={listLive}');
+        expect(index).not.toContain('contentArmed={isOpen}');
         expect(index).toContain('ensureId={panel.focusNotificationId}');
         const body = read(
             'src/app/components/lawyer/NotificationPanel/components/NotificationTabPanelBody.tsx',

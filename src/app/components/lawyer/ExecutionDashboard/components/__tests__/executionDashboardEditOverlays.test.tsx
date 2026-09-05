@@ -8,17 +8,20 @@ vi.mock('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShellU
 }));
 
 vi.mock('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistryOverlays', () => ({
-    LazyDossierMetaEditSection: (props: Record<string, unknown>) => (
-        <button
-            type="button"
-            onClick={() =>
-                (props.setShowEditDossierMetaModal as ((open: boolean) => void) | undefined)?.(
-                    false,
-                )
-            }
-        >
-            close dossier meta
-        </button>
+    LazyDossierMetaEditSection: Object.assign(
+        (props: Record<string, unknown>) => (
+            <button
+                type="button"
+                onClick={() =>
+                    (props.setShowEditDossierMetaModal as ((open: boolean) => void) | undefined)?.(
+                        false,
+                    )
+                }
+            >
+                close dossier meta
+            </button>
+        ),
+        { isPreloaded: () => true, preload: () => Promise.resolve() },
     ),
     LazyPartyEditModal: (props: Record<string, unknown>) => (
         <button

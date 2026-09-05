@@ -16,9 +16,9 @@ import { vaultMediaKindLabel } from '@/app/services/vault/vaultDocUtils';
 import { sanitizeVaultPreviewUrl } from '@/app/services/vault/vaultPreviewUrlSafety';
 import { ZoomableContainer } from '@/app/components/shared/ZoomableContainer';
 import {
-    prefetchVaultPdfViewerSurface,
-    VaultPdfViewerSurfaceLazy,
-} from '@/app/components/lawyer/SmartVaultModal/VaultPdfViewerSurfaceLazy';
+    prefetchVaultPdfJsViewer,
+    VaultPdfJsViewerLazy,
+} from '@/app/components/lawyer/SmartVaultModal/VaultPdfJsViewerLazy';
 import { VAULT_SHEET_OVERLAY_VIEWPORT } from './vaultDustyRoseTheme';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 
@@ -66,7 +66,7 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
     }, [fileUrl, isImage]);
 
     useEffect(() => {
-        if (isPdf) prefetchVaultPdfViewerSurface();
+        if (isPdf) prefetchVaultPdfJsViewer();
     }, [isPdf]);
 
     useEffect(() => {
@@ -180,7 +180,7 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
                 {isPdf ? (
                     /* التقريب بقرصة اللمس أو Ctrl+عجلة — العجلة العادية تبقى لتمرير الصفحات */
                     <ZoomableContainer className="flex-1 min-h-0" wheelZoom="modifier" nativeVerticalScroll showControls>
-                        <VaultPdfViewerSurfaceLazy
+                        <VaultPdfJsViewerLazy
                             source={fileBlob ?? openUrl}
                             title={doc.title}
                             openUrl={openUrl}

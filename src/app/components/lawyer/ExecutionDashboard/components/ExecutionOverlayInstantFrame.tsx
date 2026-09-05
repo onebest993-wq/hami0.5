@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { EXEC_MODAL_CLOSE_BTN_CLASS } from '@/app/components/lawyer/ExecutionDashboard/executionModalMobileShell';
 import { useExecutionOverlayDismiss } from '@/app/components/lawyer/ExecutionDashboard/useExecutionOverlayDismiss';
+import { useOverlayBackdropArm } from '@/app/hooks/useOverlayBackdropArm';
 
 const TAB_SLOT =
     'flex h-11 min-h-[44px] min-w-[4.5rem] shrink-0 rounded-xl border border-white/10 bg-white/[0.03]';
@@ -74,6 +75,7 @@ export function ExecutionOverlayInstantFrame({
 }: ExecutionOverlayInstantFrameProps): React.ReactElement {
     useExecutionOverlayDismiss(true, onClose);
     useBodyScrollLock(lockBody);
+    const backdropArmed = useOverlayBackdropArm(true);
 
     const closeBtn = (
         <button
@@ -108,6 +110,7 @@ export function ExecutionOverlayInstantFrame({
             data-testid={testId}
             aria-busy="true"
             onClick={(e) => {
+                if (!backdropArmed) return;
                 if (e.target === e.currentTarget) onClose();
             }}
         >

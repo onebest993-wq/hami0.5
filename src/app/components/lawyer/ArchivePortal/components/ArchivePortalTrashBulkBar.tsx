@@ -10,7 +10,7 @@ type ArchivePortalTrashBulkBarProps = {
 };
 
 const BAR_CLASS =
-    'px-8 flex flex-wrap items-center justify-between gap-3 border-b border-white/5 py-3';
+    'px-4 sm:px-8 flex flex-wrap items-center justify-between gap-3 border-b border-white/5 py-3';
 
 export function ArchivePortalTrashBulkBar({
     selectedCount,

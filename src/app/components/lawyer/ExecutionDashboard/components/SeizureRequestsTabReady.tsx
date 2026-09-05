@@ -2,7 +2,6 @@ import React from 'react';
 import type { InlineActionGateKey } from '../types';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import type { SeizureMatrixResult } from '@/app/utils/seizureMatrix';
-import { SeizureMatrixExpandLink } from '@/app/components/lawyer/execution/SeizureMatrixExpandLink';
 import { SeizureRequestsTabGuarantorBlock } from './SeizureRequestsTabGuarantorBlock';
 import { SeizureRequestsTabSalaryBlock } from './SeizureRequestsTabSalaryBlock';
 import {
@@ -46,6 +45,10 @@ export interface SeizureRequestsTabProps {
     handleCoerciveAction: (type: string) => void;
     handleGuarantorRequestFromFollowup: () => void;
     requestFollowupSeizureDecision: (subtype: 'third_party', title: string, body: string) => void;
+    requestGuarantorSeizure?: (
+        kind: 'salary' | 'movable' | 'property',
+        opts?: { inline?: boolean },
+    ) => void;
     hideAllGuarantorPresence?: boolean;
     financialGuarantorRequestOnly?: boolean;
     isFinancialDebtCollectionClaim?: boolean;
@@ -60,7 +63,7 @@ export const SeizureRequestsTabReady: React.FC<SeizureRequestsTabProps> = ({
     executionData,
     remainingBalanceIqd = 0,
     seizureMatrix: seizureMatrixProp,
-    seizureDetailCompletion,
+    seizureDetailCompletion: _seizureDetailCompletion,
     saveCoerciveAction,
     persistExecutionMerge,
     persistGuarantorFollowupDetails,
@@ -78,13 +81,14 @@ export const SeizureRequestsTabReady: React.FC<SeizureRequestsTabProps> = ({
     handleCoerciveAction,
     handleGuarantorRequestFromFollowup,
     requestFollowupSeizureDecision,
+    requestGuarantorSeizure,
     hideAllGuarantorPresence = false,
     financialGuarantorRequestOnly = false,
     isFinancialDebtCollectionClaim = false,
     settlementBreachTriggeredAt = null,
     ledgerPendingSettlement = null,
-    isAlimonyClaim = false,
-    claimType = '',
+    isAlimonyClaim: _isAlimonyClaim = false,
+    claimType: _claimType = '',
 }) => {
     const {
         seizureMatrix,
@@ -107,10 +111,6 @@ export const SeizureRequestsTabReady: React.FC<SeizureRequestsTabProps> = ({
         setThirdPartyNameDraft,
         thirdPartyAmountDraft,
         setThirdPartyAmountDraft,
-        propertyDetailsDraftByDecisionId,
-        setPropertyDetailsDraftByDecisionId,
-        vehicleDetailsDraftByDecisionId,
-        setVehicleDetailsDraftByDecisionId,
         openAppeals,
         openDecisions,
         openGuarantorDetails,
@@ -122,7 +122,6 @@ export const SeizureRequestsTabReady: React.FC<SeizureRequestsTabProps> = ({
         submitBasicSeizureRequest,
         salaryRowForUi,
         hasActiveSalarySeizure,
-        salaryRequestOpen,
         salaryRequestSettled,
         salaryLogReady,
         salaryRegistrationAckReady,
@@ -155,7 +154,7 @@ export const SeizureRequestsTabReady: React.FC<SeizureRequestsTabProps> = ({
     });
 
     return (
-        <div className="p-4 space-y-3 text-right">
+        <div className="space-y-3 text-right">
             {showGuarantorRequestInTab ? (
                 <SeizureRequestsTabGuarantorBlock
                     executionCoerciveButtonDisabled={executionCoerciveButtonDisabled}
@@ -171,12 +170,31 @@ export const SeizureRequestsTabReady: React.FC<SeizureRequestsTabProps> = ({
                     setGuarantorExistingWarningOpen={setGuarantorExistingWarningOpen}
                     handleGuarantorRequestFromFollowup={handleGuarantorRequestFromFollowup}
                     persistGuarantorFollowupDetails={persistGuarantorFollowupDetails}
+                    requestGuarantorSeizure={requestGuarantorSeizure}
                     openAppeals={openAppeals}
                     openDecisions={openDecisions}
                     openGuarantorDetails={openGuarantorDetails}
                 />
             ) : null}
             {!seizureMatrix.showTabContentButtons ? (
+                seizureMatrix.requiresSoftActivationModal ? (
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-6 text-center">
+                        <p className="text-sm leading-relaxed text-slate-300">
+                            المتبقي بذمة المدين في الشريحة الأولى (حتى مليوني دينار). تفعيل إجراءات الحجز لهذه الإضبارة يتم بموافقة المحامي.
+                        </p>
+                        <p className="mt-2 text-xs text-slate-500 tabular-nums">
+                            المتبقي: {financialCenterBalanceIqd.toLocaleString('ar-IQ')} د.ع
+                        </p>
+                        <button
+                            type="button"
+                            disabled={executionCoerciveButtonDisabled || coerciveUiLocked || isHistoricalMode}
+                            onClick={() => persistExecutionMerge({ seizure_matrix_soft_opt_in: true })}
+                            className="mt-4 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-[#E6C673]/35 bg-[#E6C673]/12 px-4 py-2.5 text-[13px] font-bold text-[#E6C673] touch-manipulation disabled:opacity-40"
+                        >
+                            تفعيل إجراءات الحجز
+                        </button>
+                    </div>
+                ) : (
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-8 text-center">
                     <p className="text-sm leading-relaxed text-slate-400">
                         لا تتوفر إجراءات حجز — تحقق من الوعاء المتبقي أو حالة الإضبارة.
@@ -185,9 +203,10 @@ export const SeizureRequestsTabReady: React.FC<SeizureRequestsTabProps> = ({
                         المتبقي بذمة المدين: {financialCenterBalanceIqd.toLocaleString('ar-IQ')} د.ع
                     </p>
                 </div>
+                )
             ) : (
-                <div className="flex flex-col gap-3">
-                    {showRecommendedButton('salary') && !salaryRequestOpen ? (
+                <div className="flex flex-col gap-1.5">
+                    {showRecommendedButton('salary') ? (
                         <SeizureRequestsTabSalaryBlock
                             seizureActionsDisabled={seizureActionsDisabled}
                             hasActiveSalarySeizure={hasActiveSalarySeizure}
@@ -206,14 +225,15 @@ export const SeizureRequestsTabReady: React.FC<SeizureRequestsTabProps> = ({
                             submitBasicSeizureRequest={submitBasicSeizureRequest}
                             setLastSalaryDecisionId={setLastSalaryDecisionId}
                             openAppeals={openAppeals}
+                            openDecisions={openDecisions}
+                            saveCoerciveAction={saveCoerciveAction}
+                            showToast={showToast}
                         />
                     ) : null}
                     {showRecommendedButton('movable') ? (
                         <SeizureMovableRequestBlock
                             {...sharedAssetBlockProps}
                             movableDecision={movableDecision}
-                            vehicleDetailsDraftByDecisionId={vehicleDetailsDraftByDecisionId}
-                            setVehicleDetailsDraftByDecisionId={setVehicleDetailsDraftByDecisionId}
                         />
                     ) : null}
                     {showRecommendedButton('third_party') ? (
@@ -235,8 +255,6 @@ export const SeizureRequestsTabReady: React.FC<SeizureRequestsTabProps> = ({
                         <SeizurePropertyRequestBlock
                             {...sharedAssetBlockProps}
                             propertyDecision={propertyDecision}
-                            propertyDetailsDraftByDecisionId={propertyDetailsDraftByDecisionId}
-                            setPropertyDetailsDraftByDecisionId={setPropertyDetailsDraftByDecisionId}
                         />
                     ) : null}
 
@@ -249,8 +267,6 @@ export const SeizureRequestsTabReady: React.FC<SeizureRequestsTabProps> = ({
                         showManualButton={showManualButton}
                         sharedAssetBlockProps={sharedAssetBlockProps}
                         movableDecision={movableDecision}
-                        vehicleDetailsDraftByDecisionId={vehicleDetailsDraftByDecisionId}
-                        setVehicleDetailsDraftByDecisionId={setVehicleDetailsDraftByDecisionId}
                         thirdPartyDecision={thirdPartyDecision}
                         thirdPartyNameDraft={thirdPartyNameDraft}
                         thirdPartyAmountDraft={thirdPartyAmountDraft}
@@ -262,8 +278,6 @@ export const SeizureRequestsTabReady: React.FC<SeizureRequestsTabProps> = ({
                         nextTimelineId={nextTimelineId}
                         persistExecutionMerge={persistExecutionMerge}
                         propertyDecision={propertyDecision}
-                        propertyDetailsDraftByDecisionId={propertyDetailsDraftByDecisionId}
-                        setPropertyDetailsDraftByDecisionId={setPropertyDetailsDraftByDecisionId}
                     />
                 </div>
             )}

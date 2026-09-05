@@ -9,6 +9,7 @@ import {
     readTransactionsListQuerySession,
     writeTransactionsListQuerySession,
 } from '@/app/components/lawyer/TransactionsThreading/utils/transactionsListQuerySession';
+import { useTransactionsThreadingDiskSettled } from './useTransactionsThreadingDiskSettled';
 
 const EMPTY_TRANSACTIONS: Transaction[] = [];
 
@@ -17,6 +18,7 @@ type TransactionsListScreenParams = {
     addSheetOpen?: boolean;
     onAddSheetOpenChange?: (open: boolean) => void;
     hubOpen?: boolean;
+    hubUserId?: string;
     cardsInteractive?: boolean;
 };
 
@@ -25,8 +27,10 @@ export function useTransactionsListScreen({
     addSheetOpen,
     onAddSheetOpenChange,
     hubOpen = true,
+    hubUserId,
     cardsInteractive = true,
 }: TransactionsListScreenParams) {
+    const diskSettled = useTransactionsThreadingDiskSettled(hubUserId);
     const transactions = useTransactionsThreadingStore((s) =>
         hubOpen ? s.transactions : EMPTY_TRANSACTIONS,
     );
@@ -76,7 +80,8 @@ export function useTransactionsListScreen({
         [hubOpen, transactions, query, filter],
     );
     const resultsSummaryId = 'transactions-results-summary';
-    const resultsSummary = filtered.length === 0 ? 'لا نتائج' : `${filtered.length} نتيجة`;
+    const resultsSummary =
+        filtered.length === 0 ? (diskSettled ? 'لا نتائج' : '') : `${filtered.length} نتيجة`;
 
     const onPressTransaction = useCallback(
         (tx: Transaction) => {
@@ -100,5 +105,6 @@ export function useTransactionsListScreen({
         sheetPrimed,
         primeAddSheet,
         cardsInteractive,
+        diskSettled,
     };
 }

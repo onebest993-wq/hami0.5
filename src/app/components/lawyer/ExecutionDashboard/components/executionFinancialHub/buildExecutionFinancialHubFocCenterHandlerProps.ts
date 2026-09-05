@@ -4,7 +4,6 @@ import {
     runMonthlySettlementDefault,
     runMonthlySettlementPaid,
 } from './financialHubMonthlySettlementHandlers';
-import { runFinancialHubGuarantorRequest } from './financialHubFocRequestHelpers';
 import { toastAfterExecutionPersist } from '@/app/components/lawyer/ExecutionDashboard/helpers/toastAfterExecutionPersist';
 import type { ExecutionFinancialHubFocCenterProps } from './ExecutionFinancialHubFocCenterProps';
 
@@ -13,7 +12,6 @@ export function buildExecutionFinancialHubFocCenterHandlerProps(
     props: ExecutionFinancialHubFocCenterProps,
 ) {
     const {
-        onOpenUnifiedSeizureLog,
         setFinancialHubAutoOpenMode,
         setFinancialHubSeizedMovableId,
         setFinancialHubSeizedPropertyId,
@@ -37,18 +35,8 @@ export function buildExecutionFinancialHubFocCenterHandlerProps(
         handleFundsLedgerPayment,
         setTimelineEvents,
         nextTimelineId,
-        guarantorFollowupAwaitingDetailsSave,
-        setShowUnifiedExecutionModal,
-        setExecutionDebtorTabIndex,
-        primaryDebtorWorkspaceKey,
-        expandDebtor,
-        openGuarantorDetailsModal,
-        onOpenGuarantorFollowupDetails,
-        appendGuarantorFollowupRequest,
-        decisionsStorageExecutionId,
+        persistGuarantorFollowupDetails,
         showToast,
-        timelineDebtorMetadata,
-        assignmentWorkspaceCtx,
         persistExecutionMerge,
         handleEvictionLedgerActivated,
         getLocalTodayYmd,
@@ -57,6 +45,9 @@ export function buildExecutionFinancialHubFocCenterHandlerProps(
         executionData,
         executionId,
     } = props;
+
+    void setTimelineEvents;
+    void nextTimelineId;
 
     const { creditors } = props.model;
 
@@ -80,7 +71,6 @@ export function buildExecutionFinancialHubFocCenterHandlerProps(
         onCoerciveAction: (action: string) => handleCoerciveAction(action),
         onShowLedger: () =>
             onOpenLedgerModal ? onOpenLedgerModal() : setShowLedgerModal?.(true),
-        onShowSeizureLog: () => onOpenUnifiedSeizureLog?.(),
         onAutoOpenHandled: () => setFinancialHubAutoOpenMode(null),
         onProceedsDisburseHandled: () => setFinancialHubSeizedMovableId(null),
         onProceedsDisbursePropertyHandled: () => setFinancialHubSeizedPropertyId(null),
@@ -128,25 +118,36 @@ export function buildExecutionFinancialHubFocCenterHandlerProps(
                 'other'
             );
         },
-        onGuarantorRequest: () => {
-            runFinancialHubGuarantorRequest({
-                onOpenGuarantorFollowupDetails,
-                guarantorFollowupAwaitingDetailsSave,
-                guarantorFollowup: executionData?.guarantor_followup,
-                setShowUnifiedExecutionModal,
-                setExecutionDebtorTabIndex,
-                primaryDebtorWorkspaceKey,
-                expandDebtor,
-                openGuarantorDetailsModal,
-                appendGuarantorFollowupRequest,
-                decisionsStorageExecutionId,
-                showToast,
-                setTimelineEvents,
-                nextTimelineId,
-                timelineDebtorMetadata,
-                assignmentWorkspaceActiveDebtorKey: assignmentWorkspaceCtx.activeDebtorKey,
+        onPersistSettlementGuarantor: (guarantorName: string, deductionIqd: number | null) => {
+            if (typeof persistGuarantorFollowupDetails === 'function') {
+                persistGuarantorFollowupDetails(guarantorName, '—', {
+                    salaryIqd: null,
+                    deductionIqd,
+                    guaranteeType: 'amount',
+                });
+                return;
+            }
+            persistExecutionMerge({
+                guarantor_followup: {
+                    executor_approved: true,
+                    channel: 'financial',
+                    details_saved: true,
+                    guarantee_type: 'amount',
+                    guarantor_name: guarantorName.trim(),
+                    guarantor_workplace: '—',
+                    guarantor_salary_iqd: null,
+                    guarantor_deduction_iqd: deductionIqd,
+                    creditor_notation_registered: true,
+                },
+                hasGuarantor: true,
             });
+            showToast('تم حفظ بيانات الكفيل.', 'success');
         },
+        settlementGuarantorName: executionData?.guarantor_followup?.guarantor_name ?? null,
+        settlementGuarantorDeductionIqd:
+            typeof executionData?.guarantor_followup?.guarantor_deduction_iqd === 'number'
+                ? executionData.guarantor_followup.guarantor_deduction_iqd
+                : null,
         onEvictionLedgerActivated: handleEvictionLedgerActivated,
         onAfterCollectionRequestSubmitted: () => {
             showToast(

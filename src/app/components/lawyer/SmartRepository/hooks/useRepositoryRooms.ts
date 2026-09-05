@@ -48,12 +48,13 @@ export function useRepositoryRooms(userId?: string) {
     );
 
     const deleteRoom = useCallback(
-        (roomId: string) => {
-            if (!uid) return;
+        (roomId: string): boolean => {
+            if (!uid) return false;
             const next = removeRepositoryRoom(uid, roomId);
             setRooms(next);
             setPinnedRoomIds(pruneRepositoryPinnedRoomIds(uid, new Set(next.map((r) => r.id))));
             setSelectedRoomId((prev) => (prev === roomId ? 'main' : prev));
+            return true;
         },
         [uid],
     );

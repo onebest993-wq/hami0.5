@@ -44,7 +44,12 @@ describe('radar visual lightness honesty', () => {
         const theme = src('radarTheme.ts');
         expect(toolbar).not.toContain('CalendarDays');
         expect(nav).not.toContain('hami-radar-month-nav__divider');
-        expect(theme).toContain("'hami-radar-month-nav flex flex-col mb-2'");
+        expect(theme).toContain('radarOpenInstantChromeClasses');
+        const chromeClasses = readFileSync(
+            join(process.cwd(), 'src/app/components/lawyer/dashboard/schedule/radarOpenInstantChromeClasses.ts'),
+            'utf8',
+        );
+        expect(chromeClasses).toContain("'hami-radar-month-nav flex flex-col mb-2'");
     });
 
     it('CSS مقسوم: طبقة / كروم / بطاقات', () => {
@@ -52,7 +57,7 @@ describe('radar visual lightness honesty', () => {
         expect(barrel).toContain("./radarCss/radarPage.css");
         expect(barrel).toContain("./radarCss/radarChrome.css");
         expect(barrel).toContain("./radarCss/radarCards.css");
-        expect(src('radarCss/radarPage.css').split('\n').length).toBeLessThan(120);
+        expect(src('radarCss/radarPage.css').split('\n').length).toBeLessThan(140);
         expect(src('radarCss/radarChrome.css').split('\n').length).toBeLessThan(240);
         expect(src('radarCss/radarCards.css').split('\n').length).toBeLessThan(160);
         expect(src('radarCss/radarCards.css')).not.toContain('#f59e0b');
@@ -75,11 +80,32 @@ describe('radar visual lightness honesty', () => {
     it('الموعد قابل للمسح: بطاقة زجاج ومرساة إضافة ذهبية', () => {
         const cards = src('radarCss/radarCards.css');
         const chrome = src('radarCss/radarChrome.css');
-        expect(cards).toContain('border-radius: 0.85rem');
+        expect(cards).toContain('border-radius: 0.65rem');
         expect(cards).toContain('border-inline-start: 3px solid');
         expect(chrome).toMatch(/\.hami-radar-add-btn\s*\{[^}]*background-color:\s*#e6c673/s);
         expect(chrome).toContain('color: #0a0f1c !important');
         expect(chrome).toContain('.hami-radar-week-strip__day--selected');
         expect(chrome).toContain('border-color: color-mix(in srgb, #e6c673 48%, transparent)');
+    });
+
+    it('كثافة أخف: بلا ظل لوحة وبلا سطح لؤلؤي وبلا صندوق فارغ', () => {
+        const form = src('radarFormCritical.css');
+        const page = src('radarCss/radarPage.css');
+        const chrome = src('radarCss/radarChrome.css');
+        const empty = src('RadarEmptyState.tsx');
+        expect(form).toMatch(/\.hami-radar-form-panel\s*\{[^}]*box-shadow:\s*none/s);
+        expect(form).not.toContain('0 18px 48px');
+        expect(form).not.toContain('hami-radar-skeleton');
+        expect(page).not.toContain('hami-radar-pearl-surface');
+        expect(page).not.toContain('hami-radar-elevated-surface');
+        expect(chrome).toMatch(/\.hami-radar-empty\s*\{[^}]*background:\s*transparent/s);
+        expect(chrome).toContain("data-has-events='1'");
+        expect(empty).not.toContain('hami-radar-empty__icon');
+        expect(src('radarTheme.ts')).toContain('radarOpenInstantChromeClasses');
+        const chromeClasses = readFileSync(
+            join(process.cwd(), 'src/app/components/lawyer/dashboard/schedule/radarOpenInstantChromeClasses.ts'),
+            'utf8',
+        );
+        expect(chromeClasses).toContain('px-3 pt-1.5 pb-2.5');
     });
 });

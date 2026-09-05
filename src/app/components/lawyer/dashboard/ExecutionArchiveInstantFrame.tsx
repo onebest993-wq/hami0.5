@@ -4,7 +4,8 @@ import {
     readArchiveGridWidthGuess,
     resolveArchiveGridColumnCount,
 } from '@/app/components/lawyer/ArchivePortal/archiveGridGeometry';
-import { ExecutionArchiveCardPaintSlot } from '@/app/components/lawyer/ArchivePortal/components/ExecutionArchiveCardPaintSlot';
+import { ExecutionArchiveQueuedPaintSlot } from '@/app/components/lawyer/ArchivePortal/components/ExecutionArchiveQueuedPaintSlot';
+import { inertProps } from '@/app/utils/inertProps';
 import {
     ExecutionArchiveFilterMark,
     ExecutionArchivePlusMark,
@@ -29,7 +30,6 @@ import {
     EXECUTION_SEGMENT_BTN_INACTIVE,
     EXECUTION_SEGMENT_SHELL,
 } from '@/app/components/lawyer/ArchivePortal/executionArchiveVisualLite';
-import { inertProps } from '@/app/utils/inertProps';
 
 /**
  * توأم هندسي لإطار المخزن الحي (رأس + أشرطة + بحث + صف بطاقات + FAB).
@@ -120,7 +120,7 @@ export function ExecutionArchiveInstantFrame({
             >
                 <div className={gridClass}>
                     {paintSlots.map((slot) => (
-                        <ExecutionArchiveCardPaintSlot key={slot} />
+                        <ExecutionArchiveQueuedPaintSlot key={slot} slot={slot} />
                     ))}
                 </div>
             </div>

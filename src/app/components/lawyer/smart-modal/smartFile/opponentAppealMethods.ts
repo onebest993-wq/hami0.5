@@ -19,6 +19,14 @@ import {
     isThirdPartyObjectionStageName,
 } from './pleadingStageClassification';
 import type { CaseStage } from '../../LawyerShared';
+import { filterOpponentMethodsAfterLapse } from './appealWindowLapseEngine';
+import {
+    judgmentFormHasGhayabi,
+    hasAnyReleasedDisposition,
+    areAllDispositionsReleased,
+    normalizePartyJudgmentDispositions,
+    type PartyJudgmentDisposition,
+} from '@/app/domain/lawsuit/partyJudgmentDisposition';
 
 export function isFirstInstanceStageName(stageName?: string): boolean {
     const s = String(stageName ?? '');
@@ -35,9 +43,9 @@ export function isFirstInstanceStageName(stageName?: string): boolean {
 function resolveJudgmentFormLabel(
     judgmentForm?: string | null,
     lastJudgmentType?: string | null,
+    dispositions?: PartyJudgmentDisposition[] | unknown,
 ): 'حضوري' | 'غيابي' {
-    const raw = String(judgmentForm ?? lastJudgmentType ?? 'حضوري').trim();
-    return raw.includes('غيابي') ? 'غيابي' : 'حضوري';
+    return judgmentFormHasGhayabi(judgmentForm, lastJudgmentType, dispositions) ? 'غيابي' : 'حضوري';
 }
 
 /**
@@ -53,9 +61,16 @@ export function resolveAllowedOpponentAppealMethods(ctx: {
     appealRoute?: AppealRouteContext | null;
     stages?: Array<Pick<CaseStage, 'stageName'> | { stageName?: string | null }> | null;
     file?: { lawsuitJurisdiction?: string; selectedType?: string } | null;
+    appealWindowLapsed?: boolean;
+    cassationWindowLapsed?: boolean;
+    partyJudgmentDispositions?: PartyJudgmentDisposition[] | unknown;
 }): string[] {
     const stage = String(ctx.stageName ?? '');
-    const form = resolveJudgmentFormLabel(ctx.judgmentForm, ctx.lastJudgmentType);
+    const form = resolveJudgmentFormLabel(
+        ctx.judgmentForm,
+        ctx.lastJudgmentType,
+        ctx.partyJudgmentDispositions,
+    );
 
     if (isCassationStageName(stage)) {
         return [];
@@ -91,11 +106,12 @@ export function resolveAllowedOpponentAppealMethods(ctx: {
                 lastJudgmentType: ctx.lastJudgmentType,
                 finalDecision: ctx.finalDecision,
                 opponentRegistration: true,
+                partyJudgmentDispositions: ctx.partyJudgmentDispositions,
             })
         ) {
             methods = methods.filter((method) => method !== 'اعتراض غيابي');
         }
-        return methods;
+        return filterOpponentMethodsAfterLapse(methods, ctx);
     }
 
     if (ctx.appealRoute) {
@@ -110,25 +126,32 @@ export function resolveAllowedOpponentAppealMethods(ctx: {
             lastJudgmentType: ctx.lastJudgmentType,
             finalDecision: ctx.finalDecision,
             opponentRegistration: true,
+            partyJudgmentDispositions: ctx.partyJudgmentDispositions,
         })
     ) {
         methods = methods.filter((method) => method !== 'اعتراض غيابي');
     }
 
     if (ctx.appealRoute && !isAppellateAppealAllowed(ctx.appealRoute)) {
-        return methods;
+        return filterOpponentMethodsAfterLapse(methods, ctx);
     }
 
     const appellateAllowed = methods.includes('استئناف');
     if (appellateAllowed) {
-        return methods.filter((m) => m !== 'اعتراض الغير' && m !== 'إعادة محاكمة');
+        return filterOpponentMethodsAfterLapse(
+            methods.filter((m) => m !== 'اعتراض الغير' && m !== 'إعادة محاكمة'),
+            ctx,
+        );
     }
 
     if (isAppealStageName(stage) || isCassationStageName(stage)) {
-        return methods;
+        return filterOpponentMethodsAfterLapse(methods, ctx);
     }
 
-    return [...methods, 'اعتراض الغير', 'إعادة محاكمة'];
+    return filterOpponentMethodsAfterLapse(
+        [...methods, 'اعتراض الغير', 'إعادة محاكمة'],
+        ctx,
+    );
 }
 
 export function isAwaitingOpponentAppeal(finalDecision?: string | null): boolean {
@@ -148,16 +171,20 @@ export function shouldShowOpponentAppealRegisterButton(
         isPleadingsClosed?: boolean;
         appealDeadline?: string | null;
         wasReopened?: boolean;
+        pleadingDoorReopened?: boolean;
         awaitingOpponentAppeal?: boolean;
         stageName?: string | null;
         status?: string | null;
+        cassationWindowLapsed?: boolean;
     } | null,
     fileStatus?: string | null,
     representedParty?: string | null,
 ): boolean {
     if (!stage?.isPleadingsClosed) return false;
-    if (stage.wasReopened) return false;
+    if (stage.pleadingDoorReopened) return false;
+    if (stage.stageName && isAppealStageName(stage.stageName)) return false;
     if (stage.status === 'locked' || stage.status === 'completed') return false;
+    if (stage.cassationWindowLapsed) return false;
     if (stage.stageName && isAbsentObjectionStageName(stage.stageName)) {
         return stage.awaitingOpponentAppeal === true;
     }
@@ -279,23 +306,59 @@ export function hasMeritJudgmentRecorded(
 type AppealFooterStageHint = {
     awaitingOpponentAppeal?: boolean;
     finalDecision?: string | null;
+    clientStageOutcome?: string | null;
+    partyJudgmentDispositions?: unknown;
 } | null;
 
 /**
  * تذييل انتظار طعن الخصم — بعد كسب الموكل (مدعياً كان أو مدعى عليه).
  * لا يعتمد على «صفة المدعي» وحدها: الخاسر فقط يطعن.
+ * الجزئي يُعالَج في لوحة مزدوجة (طعن الموكل + طعن الخصم) — لا يُحصر هنا.
  */
 export function shouldShowOpponentAppealWatchPostJudgmentFooter(
     _representedParty: string | null | undefined,
     finalDecision: string | null | undefined,
     stage?: AppealFooterStageHint,
 ): boolean {
-    if (stage?.awaitingOpponentAppeal === true) {
-        const fd = String(finalDecision ?? stage.finalDecision ?? '');
-        if (fd.includes('جزئياً') || fd.includes('يحق للطرفين')) return false;
-        return true;
+    if (
+        isPartialBothInterestStage({
+            finalDecision: finalDecision ?? stage?.finalDecision,
+            clientStageOutcome: stage?.clientStageOutcome,
+            partyJudgmentDispositions: stage?.partyJudgmentDispositions,
+        })
+    ) {
+        return false;
     }
+    if (stage?.awaitingOpponentAppeal === true) return true;
     return isClientWonAwaitingOpponentFinalDecision(finalDecision);
+}
+
+/**
+ * حكم جزئي / يحق للطرفين — مصلحة طعن للموكل والخصم معاً.
+ */
+export function isPartialBothInterestFinalDecision(finalDecision?: string | null): boolean {
+    const fd = String(finalDecision ?? '').trim();
+    if (!fd) return false;
+    return fd.includes('جزئياً') || fd.includes('يحق للطرفين');
+}
+
+/**
+ * متى تُحكم النتيجة الجزئية (مساران في التذييل)؟
+ * 1) نص المنطوق فيه جزئياً / يحق للطرفين
+ * 2) clientStageOutcome = PARTIAL
+ * 3) تعدد خصوم: إلزام بحق بعضهم ورد بحق آخرين (حتى لو نُصّ القرار خطأً «لصالح الموكل»)
+ */
+export function isPartialBothInterestStage(stage?: {
+    finalDecision?: string | null;
+    clientStageOutcome?: string | null;
+    partyJudgmentDispositions?: unknown;
+} | null): boolean {
+    if (!stage) return false;
+    if (String(stage.clientStageOutcome ?? '').trim() === 'PARTIAL') return true;
+    if (isPartialBothInterestFinalDecision(stage.finalDecision)) return true;
+    const rows = normalizePartyJudgmentDispositions(stage.partyJudgmentDispositions);
+    if (rows.length < 2) return false;
+    return hasAnyReleasedDisposition(rows) && !areAllDispositionsReleased(rows);
 }
 
 /**
@@ -307,16 +370,23 @@ export function shouldShowClientAppealPostJudgmentFooter(
     finalDecision: string | null | undefined,
     stage?: AppealFooterStageHint,
 ): boolean {
-    const fd = String(finalDecision ?? '').trim();
-    if (stage?.awaitingOpponentAppeal === true && !fd.includes('جزئياً') && !fd.includes('يحق للطرفين')) {
-        return false;
+    if (
+        isPartialBothInterestStage({
+            finalDecision: finalDecision ?? stage?.finalDecision,
+            clientStageOutcome: stage?.clientStageOutcome,
+            partyJudgmentDispositions: stage?.partyJudgmentDispositions,
+        })
+    ) {
+        return true;
     }
-    if (isClientWonAwaitingOpponentFinalDecision(fd)) return false;
-    if (isClientSelfAppealFinalDecision(fd)) return true;
+    if (stage?.awaitingOpponentAppeal === true) return false;
+    if (isClientWonAwaitingOpponentFinalDecision(finalDecision)) return false;
+    if (isClientSelfAppealFinalDecision(finalDecision)) return true;
     /*
      * مسار احتياطي: إجابة الدعوى + وكيل المدعى عليه = المدعى عليه خسر موضوعاً.
      * لا يُستخدم إن وُجد «لصالح الموكل» (موكل مدعى عليه كسب بالرد الكلي).
      */
+    const fd = String(finalDecision ?? '').trim();
     if (fd.includes('لصالح الموكل')) return false;
     return isDefendantRepresentedParty(representedParty) && fd.includes('إجابة الدعوى');
 }

@@ -275,10 +275,13 @@ describe('Execution dead-code cleanup honesty', () => {
         );
         expect(police).not.toMatch(/export\s+function\s+runSavePoliceAssistanceEntry\b/);
 
-        const portalKeys = readSrc(
-            'app/components/lawyer/ExecutionDashboard/hooks/pickSeizedPropertyPortalProps.ts',
-        );
-        expect(portalKeys).not.toMatch(/export\s+const\s+SEIZED_PROPERTY_PORTAL_PROP_KEYS\b/);
-        expect(portalKeys).not.toMatch(/export\s+type\s+SeizedPropertyPortalPropKey\b/);
+        expect(
+            fs.existsSync(
+                path.join(
+                    process.cwd(),
+                    'src/app/components/lawyer/ExecutionDashboard/hooks/pickSeizedPropertyPortalProps.ts',
+                ),
+            ),
+        ).toBe(false);
     });
 });

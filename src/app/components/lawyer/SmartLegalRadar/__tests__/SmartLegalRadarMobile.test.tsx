@@ -18,7 +18,7 @@ describe('SmartLegalRadar mobile readiness', () => {
         const shell = screen.getByTestId('smart-legal-radar');
         expect(shell.className).toContain('min-h-[100dvh]');
         expect(RADAR_PAGE).toContain('100dvh');
-        expect(RADAR_SCROLL).toContain('pb-3');
+        expect(RADAR_SCROLL).toContain('pb-2.5');
         expect(RADAR_SCROLL).toContain('overflow-y-auto');
         expect(RADAR_ADD_DOCK).toContain('hami-lawyer-header-safe-bottom');
         expect(RADAR_HEADER).toContain('hami-lawyer-header-safe-top');

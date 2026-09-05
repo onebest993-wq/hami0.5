@@ -16,7 +16,7 @@ export function resolveNotificationPanelSheetStyle(
     };
 }
 
-/** يمرّر الحقل النشط داخل منطقة التمرير عند فتح الكيبورد. */
+/** يمرّر الحقل النشط داخل منطقة تمرير الورقة فقط — بلا تمرير أسلاف الصفحة. */
 export function scrollNotificationPanelFocusedFieldIntoView(panelRoot: HTMLElement | null): void {
     if (!panelRoot || typeof document === 'undefined') return;
     const active = document.activeElement;
@@ -25,9 +25,11 @@ export function scrollNotificationPanelFocusedFieldIntoView(panelRoot: HTMLEleme
     if (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA' && active.tagName !== 'SELECT') {
         return;
     }
-    try {
-        active.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
-    } catch {
-        active.scrollIntoView(true);
-    }
+    const scroller = panelRoot.querySelector('.hami-notif-scroll');
+    if (!(scroller instanceof HTMLElement)) return;
+    const activeRect = active.getBoundingClientRect();
+    const scrollerRect = scroller.getBoundingClientRect();
+    const delta =
+        activeRect.top - scrollerRect.top - scroller.clientHeight / 2 + activeRect.height / 2;
+    scroller.scrollTop += delta;
 }

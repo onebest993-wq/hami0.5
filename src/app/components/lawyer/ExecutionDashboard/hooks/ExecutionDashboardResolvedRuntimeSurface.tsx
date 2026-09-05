@@ -69,7 +69,6 @@ export const ExecutionDashboardResolvedRuntimeSurface = React.memo(
                     runtimeVm.loadFollowupOtherPartyHandlerCluster,
                 loadSeizureHeavyHandlerCluster: runtimeVm.loadSeizureHeavyHandlerCluster,
                 loadSeizureRequestsHandlerCluster: runtimeVm.loadSeizureRequestsHandlerCluster,
-                loadSeizureLogHandlerCluster: runtimeVm.loadSeizureLogHandlerCluster,
                 loadCoerciveHeavyHandlerCluster: runtimeVm.loadCoerciveHeavyHandlerCluster,
                 loadPublicationNoticeHandlerCluster:
                     runtimeVm.loadPublicationNoticeHandlerCluster,
@@ -123,7 +122,6 @@ export const ExecutionDashboardResolvedRuntimeSurface = React.memo(
                 runtimeVm.loadFollowupOtherPartyHandlerCluster,
                 runtimeVm.loadSeizureHeavyHandlerCluster,
                 runtimeVm.loadSeizureRequestsHandlerCluster,
-                runtimeVm.loadSeizureLogHandlerCluster,
                 runtimeVm.loadCoerciveHeavyHandlerCluster,
                 runtimeVm.loadPublicationNoticeHandlerCluster,
                 runtimeVm.loadDossierSupportHandlerCluster,

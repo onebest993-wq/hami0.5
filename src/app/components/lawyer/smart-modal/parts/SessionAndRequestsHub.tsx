@@ -68,6 +68,7 @@ export interface SessionAndRequestsHubProps {
     compactSessionTrigger?: boolean;
     /** بطاقة محضر بارزة — أحوال شخصية */
     heroSessionTrigger?: boolean;
+    hideTrigger?: boolean;
 }
 
 function emptyForm(
@@ -104,6 +105,7 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
     layoutMode = 'default',
     compactSessionTrigger = false,
     heroSessionTrigger = false,
+    hideTrigger = false,
 }: SessionAndRequestsHubProps) {
     const isPearl = visualVariant === 'personal' && layoutMode === 'personal-pearl';
     const T = hubTheme(visualVariant, layoutMode);
@@ -155,6 +157,9 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
         const focusId = incoming?.id;
 
         if (!focusId || !incoming || !isSessionHubFocusEvent(incoming)) {
+            if (prevFocusIdRef.current) {
+                setPanelOpen(false);
+            }
             prevFocusIdRef.current = focusId;
             return;
         }
@@ -404,10 +409,17 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
     };
 
     return (
-        <div className={`${compose === 'requests-only' ? '' : 'mb-0'} print:hidden`} dir="rtl">
+        <div
+            className={
+                hideTrigger
+                    ? 'contents'
+                    : `${compose === 'requests-only' ? '' : 'mb-0'} print:hidden`
+            }
+            dir="rtl"
+        >
             {sessionPanel}
 
-            {compose !== 'requests-only' && !readOnly && onSubmitSessionRecord ? (
+            {compose !== 'requests-only' && !hideTrigger && !readOnly && onSubmitSessionRecord ? (
                 isPearl && heroSessionTrigger ? (
                 <button
                     type="button"
@@ -459,7 +471,6 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
                     ) : compactSessionTrigger ? (
                         <>
                             <div className="flex items-center gap-1.5 min-w-0">
-                                <Scale size={14} className={T.accentIcon} aria-hidden />
                                 <span className={`font-bold ${T.accentText} text-[11px] truncate`}>محضر الدعوى</span>
                             </div>
                             <ChevronDown size={14} className="text-white/35 shrink-0" aria-hidden />
@@ -467,7 +478,6 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
                     ) : (
                     <>
                     <div className="flex items-center gap-1.5">
-                        <Scale size={14} className={T.accentIcon} aria-hidden />
                         <span className={`font-bold ${T.accentText} text-[11px]`}>محضر الدعوى</span>
                         <ChevronDown size={12} className="text-white/35" aria-hidden />
                     </div>
@@ -486,7 +496,7 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
                 ) : null}
                 </div>
                 )
-            ) : compose !== 'requests-only' && readOnly && sessionHistory.length > 0 ? (
+            ) : compose !== 'requests-only' && !hideTrigger && readOnly && sessionHistory.length > 0 ? (
                 <button
                     type="button"
                     data-testid={CIVIL_LAWSUIT_TEST_IDS.sessionOpenRegister}
@@ -495,7 +505,7 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
                 >
                     <span className={`font-bold ${T.accentText} text-[11px]`}>سجل الجلسات</span>
                 </button>
-            ) : compose !== 'requests-only' && !readOnly && !onSubmitSessionRecord ? (
+            ) : compose !== 'requests-only' && !hideTrigger && !readOnly && !onSubmitSessionRecord ? (
                 <div className={`${isPearl ? 'min-h-[7.5rem] rounded-[1.25rem] border border-dashed border-[#E8DFD0]/15 bg-[#F7F4EE]/[0.03]' : 'min-h-[72px] rounded-xl border border-dashed border-white/10 bg-white/[0.02]'} mb-2`} />
             ) : null}
 

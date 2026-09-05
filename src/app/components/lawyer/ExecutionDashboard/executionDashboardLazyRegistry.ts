@@ -3,4 +3,5 @@
  * PartyEdit / DossierMetaEdit: dynamic import حقيقي (لا static) حتى لا يثقل chunk الفتح البارد.
  */
 export * from './executionDashboardLazyRegistryShell';
+export * from './executionDashboardFollowupTabLazy';
 export * from './executionDashboardLazyRegistryOverlays';

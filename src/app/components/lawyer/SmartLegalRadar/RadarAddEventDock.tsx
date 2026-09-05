@@ -2,6 +2,7 @@ import React from 'react';
 import { Plus } from '@/app/components/ui/icons/Plus';
 import { formatRadarSelectedDayTitle } from './radarCalendarMath';
 import { RADAR_ADD_DOCK, RADAR_BTN_ADD } from './radarTheme';
+import { prefetchRadarEventForm } from '@/app/components/lawyer/dashboard/schedule/prefetchRadarEventForm';
 
 type RadarAddEventDockProps = {
     selectedDate: string;
@@ -19,6 +20,8 @@ export const RadarAddEventDock = React.memo(function RadarAddEventDock({
             <button
                 type="button"
                 onClick={onAddEvent}
+                onPointerDown={prefetchRadarEventForm}
+                onFocus={prefetchRadarEventForm}
                 data-testid="radar-add-event"
                 className={RADAR_BTN_ADD}
                 aria-label={`إضافة موعد ليوم ${dayLabel}`}

@@ -15,7 +15,7 @@ export const searchOverlayImport = () =>
         default: m.SearchOverlay,
     }));
 
-export const createGroupImport = () =>
+const createGroupImport = () =>
     import('@/app/components/lawyer/CommunityScreen/components/CreateGroupModal').then((m) => ({
         default: m.CreateGroupModal,
     }));
@@ -30,9 +30,15 @@ export const memberProfileImport = () =>
         default: m.ForumMemberProfileOverlay,
     }));
 
+export const forumDeleteConfirmImport = () =>
+    import('@/app/components/lawyer/CommunityScreen/components/ForumDeleteConfirmModal').then((m) => ({
+        default: m.ForumDeleteConfirmModal,
+    }));
+
 export const LazyCommentBottomSheet = lazy(commentSheetImport);
 export const LazyEditPostModal = lazy(editPostImport);
 export const LazyForumMemberProfileOverlay = lazy(memberProfileImport);
 export const LazyAddQuestionSheet = lazy(addQuestionImport);
 export const LazySearchOverlay = lazy(searchOverlayImport);
 export const LazyCreateGroupModal = lazy(createGroupImport);
+export const LazyForumDeleteConfirmModal = lazy(forumDeleteConfirmImport);

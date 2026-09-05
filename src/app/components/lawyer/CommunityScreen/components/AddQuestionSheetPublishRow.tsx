@@ -1,6 +1,5 @@
 import { Mic } from '@/app/components/ui/icons/Mic';
 import { Square } from '@/app/components/ui/icons/Square';
-import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import { FORUM_PUBLISH_BTN, FORUM_PUBLISH_BTN_DISABLED } from '../forumPlumTheme';
 import { formatVoiceTime } from '../forumVoiceFormat';
 
@@ -48,20 +47,14 @@ export function AddQuestionSheetPublishRow({
                     void onSubmit();
                 }}
                 disabled={submittingPost || isRecordingVoice}
+                aria-busy={submittingPost || undefined}
                 className={`flex-1 h-[55px] rounded-xl flex items-center justify-center font-bold text-lg transition-transform ${
                     submittingPost || isRecordingVoice
                         ? FORUM_PUBLISH_BTN_DISABLED
                         : FORUM_PUBLISH_BTN
                 }`}
             >
-                {submittingPost ? (
-                    <span className="flex items-center gap-2">
-                        <Loader2 size={18} className="animate-spin" />
-                        جاري فحص الخصوصية...
-                    </span>
-                ) : (
-                    'نشر'
-                )}
+                نشر
             </button>
         </div>
     );

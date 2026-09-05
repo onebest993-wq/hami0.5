@@ -99,7 +99,8 @@ describe('applyWaitAppealScenarios — اعتراض الحكم الغيابي', 
         expect(saved.awaitingOpponentAppeal).toBe(true);
         expect(saved.judgmentForm).toBe('حضوري');
         expect(saved.appealDeadline).toBe(computeFirstInstanceAppealDeadline('2026-08-04'));
-        expect(String(saved.timeline?.[0]?.details ?? '')).toContain('الاستئناف');
+        expect(String(saved.timeline?.[0]?.details ?? '')).not.toContain('15 يوماً');
+        expect(String(saved.timeline?.[0]?.details ?? '')).not.toContain('مواعيد الطعن');
     });
 
     it('تعديل الحكم بالكامل لوكيل المعترض عليه: طعن الموكل بلا انتظار الخصم', () => {
@@ -129,7 +130,22 @@ describe('applyWaitAppealScenarios — اعتراض الحكم الغيابي', 
         const saved = rt.updatedStages[1];
         expect(saved.finalDecision).toBe('تأييد الحكم الغيابي — بانتظار طعن المعترض');
         expect(saved.appealDeadline).toBeUndefined();
-        expect(String(saved.timeline?.[0]?.details ?? '')).toContain('التمييز');
-        expect(String(saved.timeline?.[0]?.details ?? '')).not.toContain('الاستئناف');
+        expect(saved.legalTimers?.cassationDeadline).toBeTruthy();
+        expect(String(saved.timeline?.[0]?.details ?? '')).not.toContain('15 يوماً');
+        expect(String(saved.timeline?.[0]?.details ?? '')).not.toContain('مواعيد الطعن');
+    });
+
+    it('رد الاعتراض شكلاً لوكيل المعترض عليه: قطعية بحق المعترض بلا انتظار طعنه', () => {
+        const { rt } = runWait({
+            stageName: 'الاعتراض على الحكم الغيابي',
+            stages: [stage({ id: 's0', name: 'بداءة بدرجة أولى', stageName: 'بداءة بدرجة أولى' }), stage()],
+            judgmentType: 'رد الاعتراض شكلاً',
+        });
+        const saved = rt.updatedStages[1];
+        expect(saved.finalDecision).toBe(
+            'رد الاعتراض شكلاً — اكتسب الحكم الغيابي القطعية بحق المعترض',
+        );
+        expect(saved.awaitingOpponentAppeal).toBe(false);
+        expect(String(saved.timeline?.[0]?.details ?? '')).not.toContain('مختلط');
     });
 });

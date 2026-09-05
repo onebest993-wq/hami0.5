@@ -101,6 +101,18 @@ export function isDurableCoercivePersistPatch(patch: Record<string, unknown>): b
     );
 }
 
+function isDurableDossierIdentityPersistPatch(patch: Record<string, unknown>): boolean {
+    return (
+        'creditors' in patch ||
+        'debtors' in patch ||
+        'parties' in patch ||
+        'clientName' in patch ||
+        'opponentName' in patch ||
+        'creditor' in patch ||
+        'debtor' in patch
+    );
+}
+
 function isDurableImmediateExecutionPersistPatch(patch: Record<string, unknown>): boolean {
     return (
         isDurablePartyDeathPersistPatch(patch) ||
@@ -108,6 +120,7 @@ function isDurableImmediateExecutionPersistPatch(patch: Record<string, unknown>)
         isDurableFollowupTabPersistPatch(patch) ||
         isDurableMaritalFurnitureDeliveryPersistPatch(patch) ||
         isDurableCoercivePersistPatch(patch) ||
+        isDurableDossierIdentityPersistPatch(patch) ||
         patchTouchesCreditorAgentOnlyKeys(patch)
     );
 }
@@ -120,6 +133,8 @@ function commitExecutionViewOptimistically(params: {
     executionDataRef: MutableRefObject<ExecutionFile | null | undefined>;
     setExecutionStorageTick: Dispatch<SetStateAction<number>>;
     applyStore: (merged: ExecutionFile) => void;
+    /** تثبيت فوري للمتجر/الـ tick قبل أي setState يغلق الواجهة ويستبدل ref قديماً */
+    syncApply?: boolean;
 }): void {
     const {
         merged,
@@ -129,16 +144,22 @@ function commitExecutionViewOptimistically(params: {
         executionDataRef,
         setExecutionStorageTick,
         applyStore,
+        syncApply = false,
     } = params;
     // ui-first: كتابة blob عبر set حتى يمر get() بفحص SecureStore (touch وحده يُبطَل)
     storageCache.set(cacheKey, merged);
     executionDataRef.current = merged;
-    schedulePersistIo(() => {
+    const flushView = () => {
         if (epoch !== persistEpochRef.current) return;
         setExecutionStorageTick((n) => n + 1);
         const latest = (executionDataRef.current ?? merged) as ExecutionFile;
         applyStore(latest);
-    });
+    };
+    if (syncApply) {
+        flushView();
+        return;
+    }
+    schedulePersistIo(flushView);
 }
 
 export function useExecutionDashboardPersistExecutionMerge({
@@ -210,6 +231,7 @@ export function useExecutionDashboardPersistExecutionMerge({
                     persistEpochRef,
                     executionDataRef,
                     setExecutionStorageTick,
+                    syncApply: durableImmediate,
                     applyStore: (next) => {
                         const latest = useExecutionDashboardStore.getState();
                         useExecutionDashboardStore.setState({
@@ -232,7 +254,14 @@ export function useExecutionDashboardPersistExecutionMerge({
                 });
                 const writeSubDisk = (): PersistDiskOutcome => {
                     if (epoch !== persistEpochRef.current) return 'superseded';
-                    const latest = (executionDataRef.current ?? merged) as ExecutionFile;
+                    const fromRef = executionDataRef.current;
+                    const latest = (
+                        fromRef &&
+                        String(fromRef.id) === String(merged.id) &&
+                        String(fromRef.updatedAt || '') >= String(merged.updatedAt || '')
+                            ? fromRef
+                            : merged
+                    ) as ExecutionFile;
                     const ok = storageCache.set(cacheKey, latest);
                     storageCache.touchCacheEntry(cacheKey, latest);
                     onUpdate?.(latest);
@@ -240,7 +269,9 @@ export function useExecutionDashboardPersistExecutionMerge({
                     return ok ? 'persisted' : 'failed';
                 };
                 if (durableImmediate) {
-                    return writeSubDisk() === 'persisted';
+                    const outcome = writeSubDisk();
+                    reportPersistFailure(outcome);
+                    return outcome === 'persisted';
                 }
                 schedulePersistIo(() => {
                     reportPersistFailure(writeSubDisk());
@@ -266,6 +297,7 @@ export function useExecutionDashboardPersistExecutionMerge({
                 persistEpochRef,
                 executionDataRef,
                 setExecutionStorageTick,
+                syncApply: durableImmediate,
                 applyStore: (next) => {
                     try {
                         const st = useExecutionDashboardStore.getState();
@@ -281,7 +313,14 @@ export function useExecutionDashboardPersistExecutionMerge({
             });
             const writeMainDisk = (): PersistDiskOutcome => {
                 if (epoch !== persistEpochRef.current) return 'superseded';
-                const latest = (executionDataRef.current ?? merged) as ExecutionFile;
+                const fromRef = executionDataRef.current;
+                const latest = (
+                    fromRef &&
+                    String(fromRef.id) === String(merged.id) &&
+                    String(fromRef.updatedAt || '') >= String(merged.updatedAt || '')
+                        ? fromRef
+                        : merged
+                ) as ExecutionFile;
                 const latestHasDeath = isDurablePartyDeathPersistPatch(
                     latest as unknown as Record<string, unknown>,
                 );
@@ -297,7 +336,9 @@ export function useExecutionDashboardPersistExecutionMerge({
                 return ok ? 'persisted' : 'failed';
             };
             if (durableImmediate) {
-                return writeMainDisk() === 'persisted';
+                const outcome = writeMainDisk();
+                reportPersistFailure(outcome);
+                return outcome === 'persisted';
             }
             schedulePersistIo(() => {
                 // كانت نتيجة القرص تُرمى هنا، فتُعيد الدالة true دائماً ويرى

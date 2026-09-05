@@ -2,6 +2,8 @@ import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 
 type RadarErrorBoundaryProps = {
     onBack: () => void;
+    /** يتغيّر عند الإخفاء/المستخدم — keep-alive لا يُبقي شاشة الخطأ بعد رجوع صحيحة */
+    resetKey?: string | number;
     children: ReactNode;
 };
 
@@ -14,6 +16,12 @@ export class RadarErrorBoundary extends Component<RadarErrorBoundaryProps, Radar
 
     static getDerivedStateFromError(): RadarErrorBoundaryState {
         return { hasError: true };
+    }
+
+    componentDidUpdate(prevProps: RadarErrorBoundaryProps): void {
+        if (this.props.resetKey !== prevProps.resetKey && this.state.hasError) {
+            this.setState({ hasError: false });
+        }
     }
 
     componentDidCatch(error: Error, errorInfo: ErrorInfo): void {

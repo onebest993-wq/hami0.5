@@ -340,6 +340,7 @@ export function useExecutionCreationClaimCascade(params: UseExecutionCreationCla
 
     const handleDocTypeChange = useCallback(
         (newDocType: string) => {
+            if (newDocType === docType) return;
             setDocType(newDocType);
             setClassification('');
             setClaimType('');
@@ -367,6 +368,7 @@ export function useExecutionCreationClaimCascade(params: UseExecutionCreationCla
             }
         },
         [
+            docType,
             setDocType,
             setClassification,
             setClaimType,
@@ -380,6 +382,7 @@ export function useExecutionCreationClaimCascade(params: UseExecutionCreationCla
 
     const handleClassificationChange = useCallback(
         (newClassification: string) => {
+            if (newClassification === classification) return;
             setClassification(newClassification);
             setClaimType('');
             setActiveClaimTypes([]);
@@ -404,6 +407,7 @@ export function useExecutionCreationClaimCascade(params: UseExecutionCreationCla
             }
         },
         [
+            classification,
             setClassification,
             setClaimType,
             setActiveClaimTypes,

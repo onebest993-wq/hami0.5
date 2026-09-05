@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
-import { resolveVaultDocUrl } from '@/app/services/vaultUploadService';
+import { resolveVaultDocUrl } from '@/app/services/vault/vaultDocResolve';
 import { revokeBlobUrlIfNeeded } from '@/app/services/vault/vaultDocUtils';
+import { sanitizeVaultPreviewUrl } from '@/app/services/vault/vaultPreviewUrlSafety';
 import { isVaultIdbStoragePath } from '@/app/services/vaultBlobStore';
 
 /**
  * يحلّ رابط عرض ملف الخزنة — يدعم التخزين المحلي (IDB) والروابط الموقّعة المنتهية.
  */
 export function useVaultDocDisplayUrl(doc: SmartVaultDoc | null | undefined): string | null {
-    const [url, setUrl] = useState<string | null>(() => doc?.signedUrl?.trim() || null);
+    const [url, setUrl] = useState<string | null>(() => sanitizeVaultPreviewUrl(doc?.signedUrl));
 
     useEffect(() => {
         if (!doc) {
@@ -18,7 +19,7 @@ export function useVaultDocDisplayUrl(doc: SmartVaultDoc | null | undefined): st
 
         let cancelled = false;
         let ownedBlob: string | null = null;
-        const cached = doc.signedUrl?.trim() || null;
+        const cached = sanitizeVaultPreviewUrl(doc.signedUrl);
 
         const hasDurableLocalBlob = isVaultIdbStoragePath(doc.storagePath || '');
 

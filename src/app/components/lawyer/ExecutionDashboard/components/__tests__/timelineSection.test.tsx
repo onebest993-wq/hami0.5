@@ -48,7 +48,6 @@ function createBaseProps(
         todayYmd: '2026-07-10',
         PremiumTimelineAuditLog: () => <div>audit log</div>,
         moveTimelineEventToTrash: vi.fn(),
-        onRequestEditTimelineEvent: vi.fn(),
         timelineFilterOptions: ['الكل', 'مواعيد'],
         ...overrides,
     };

@@ -59,6 +59,45 @@ describe('transactions performance close honesty', () => {
         expect(src('TransactionsListScreen.tsx')).not.toContain('keepMounted={hubOpen || vm.sheetPrimed}');
         expect(src('DocumentsTabView.tsx')).toContain('{deleteOpen ? (');
         expect(src('DocumentsTabView.tsx')).toContain('{open ? (');
+        expect(src('TransactionDetailsScreen.tsx')).toContain("vm.tab === 'path'");
+        expect(src('TransactionDetailsScreen.tsx')).toContain("import('./ShareProcedureModal')");
+        expect(src('TransactionDetailsScreen.tsx')).toContain("import('./DocumentsTabView')");
+        expect(src('TransactionDetailsScreen.tsx')).toContain("import('./AddTaskBottomSheet')");
+        expect(src('TransactionDetailsScreen.tsx')).toContain("import('./transactionDetails/TransactionDetailsDialogs')");
+        expect(src('TransactionDetailsScreen.tsx')).toContain('TxLazyIsland');
+        expect(src('TransactionDetailsScreen.tsx')).not.toContain('TabsContent');
+        expect(src('TransactionDetailsScreen.tsx')).not.toContain("@/app/components/ui/tabs");
+        expect(src('hooks/useTransactionsEscapeStack.ts')).toContain('closeTransactionsLiteMenuIfOpen');
+        expect(system).toContain("import('./TransactionDetailsScreen')");
+        expect(src('TransactionsListScreen.tsx')).toContain("import('./AddTransactionBottomSheet')");
+        expect(src('TaskThreadView.tsx')).toContain("import('./taskThread/TaskThreadDialogs')");
+        expect(src('transactionsFeatureLoader.ts')).toContain('prefetchTransactionsDetailsScreen');
+        expect(src('transactionsFeatureLoader.ts')).toContain('prefetchDocumentsTabView');
+        expect(src('transactionsFeatureLoader.ts')).toContain('prefetchAddTaskBottomSheet');
+        expect(src('transactionsFeatureLoader.ts')).toContain('scheduleTransactionsIdle');
+        expect(src('transactionsFeatureLoader.ts')).toContain('requestIdleCallback');
+        expect(src('transactionsFeatureLoader.ts')).not.toContain('prefetchTransactionsDetailsOverlays');
+        expect(src('TransactionDetailsScreen.tsx')).toContain('onPrimeDocsTab={prefetchDocumentsTabView}');
+        expect(src('TransactionDetailsScreen.tsx')).toContain('onPrimeShare={prefetchShareProcedureModal}');
+        expect(src('TransactionDetailsScreen.tsx')).toContain('prefetchTransactionsPathOverlays');
+        expect(src('TransactionDetailsScreen.tsx')).not.toContain('prefetchTransactionsDetailsOverlays');
+        expect(src('transactionDetails/TransactionDetailsHeader.tsx')).toContain('onPointerDown={() => onPrimeDocsTab?.()}');
+        expect(src('transactionDetails/TransactionDetailsHeader.tsx')).toContain('onPrimeShare?.()');
+        expect(system).toContain('key={nav.selectedId}');
+        expect(system).toContain('scheduleTransactionsIdle');
+        expect(system).toContain('isTransactionsChunkLoadError');
+        expect(src('hooks/useTransactionsHubNavigation.ts')).toContain('createTransactionsDetailsReveal');
+        expect(src('hooks/useTransactionsHubSessionHydration.ts')).toContain('revealDetails(resolved.selectedId)');
+        expect(src('taskThread/useTaskThreadController.ts')).toContain("from './TaskThreadDialogs.types'");
+        expect(src('taskThread/useTaskThreadController.ts')).not.toMatch(/from ['"]\.\/TaskThreadDialogs['"]/);
+        expect(src('taskThread/useTaskThreadOverlays.ts')).not.toMatch(/from ['"]\.\/TaskThreadDialogs['"]/);
+        const pathBlock = src('transactionsFeatureLoader.ts').slice(
+            src('transactionsFeatureLoader.ts').indexOf('export function prefetchTransactionsPathOverlays'),
+        );
+        expect(pathBlock).toContain('prefetchAddTaskBottomSheet');
+        expect(pathBlock).toContain('prefetchTaskThreadDialogs');
+        expect(pathBlock).not.toContain('prefetchShareProcedureModal');
+        expect(pathBlock).not.toContain('ShareProcedureModal');
     });
 
     it('القائمة والتفاصيل خفيفة: contain + content-visibility + حوار فوري + بدون transition-all', () => {
@@ -77,5 +116,62 @@ describe('transactions performance close honesty', () => {
         );
         expect(store).toContain('transactionListUnchanged');
         expect(store).toContain('taskListUnchanged');
+    });
+
+    it('أول قراءة لا تسحب السحابة ولا تفك كيس التقويم القديم', () => {
+        const repo = readFileSync(
+            join(process.cwd(), 'src/app/modules/transactionsThreading/persistentRepository.ts'),
+            'utf8',
+        );
+        const listBody = repo.slice(
+            repo.indexOf('async listTransactions'),
+            repo.indexOf('async saveTransaction'),
+        );
+        expect(listBody).toContain('listTransactions');
+        expect(listBody).not.toContain('kickHydrate');
+        expect(repo.slice(repo.indexOf('async saveTransaction'), repo.indexOf('async listTasks'))).toContain(
+            'kickHydrate',
+        );
+        const warm = readFileSync(
+            join(process.cwd(), 'src/app/services/transactions/transactionsDiskWarm.ts'),
+            'utf8',
+        );
+        expect(warm).toContain('hami:transactionsThreading:v1:');
+        expect(warm).not.toContain('hami:transactions:v1');
+        expect(warm).toContain('warmKeys([');
+        expect(warm).toContain('.then(() => {');
+        expect(warm).toContain('.finally(() => {');
+        const persist = readFileSync(
+            join(process.cwd(), 'src/app/services/transactions/persistTransactionsSecure.ts'),
+            'utf8',
+        );
+        expect(persist).toContain('skipIfUnchanged: false');
+        const cloud = readFileSync(
+            join(process.cwd(), 'src/app/services/cloud/lawyerTransactionsCloud.ts'),
+            'utf8',
+        );
+        expect(cloud).toContain('mergeTransactionsThreadingStates');
+        expect(cloud).toContain('emitTransactionsThreadingDump');
+        const idle = readFileSync(
+            join(process.cwd(), 'src/app/hooks/lawyerDashboard/transactionsIntentWarm.ts'),
+            'utf8',
+        );
+        expect(idle).toContain('fetchTransactionsThreadingState');
+        expect(idle).toContain('warmTransactionsCloudIdle(userId)');
+    });
+
+    it('القائمة لا تدّعي الفراغ قبل فك مفتاح الخيوط', () => {
+        expect(src('TransactionsListScreen.tsx')).toContain('transactions-list-disk-pending');
+        expect(src('TransactionsListScreen.tsx')).toContain('diskSettled');
+        expect(src('hooks/useTransactionsListScreen.ts')).toContain('useTransactionsThreadingDiskSettled');
+        expect(src('hooks/useTransactionsThreadingDiskSettled.ts')).toContain(
+            'isTransactionsThreadingDiskUnread',
+        );
+        const warm = readFileSync(
+            join(process.cwd(), 'src/app/services/transactions/transactionsDiskWarm.ts'),
+            'utf8',
+        );
+        expect(warm).toContain('TRANSACTIONS_THREADING_DISK_READY_EVENT');
+        expect(warm).toContain('notifyTransactionsThreadingDiskReady');
     });
 });

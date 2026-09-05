@@ -3,6 +3,11 @@ import type { JudgmentModalStyles } from '../../smartFile/smartModalChrome';
 import type { CassationClientOutcome } from '../../smartFile/appealStageJudgmentEngine';
 import { Stamp } from '@/app/components/ui/icons/Stamp';
 import { GLASS_BTN_EMERALD, GLASS_BTN_NEUTRAL } from './judgmentGlassButtons';
+import {
+    CASSATION_JUDGMENT_AFFIRMED,
+    CASSATION_JUDGMENT_DISMISS_FORMAL,
+    CASSATION_JUDGMENT_REVERSE_FINAL,
+} from '@/app/domain/lawsuit/cassationArt210';
 
 export type JudgmentCassationStageActionsProps = {
     styles: JudgmentModalStyles;
@@ -18,13 +23,21 @@ export function JudgmentCassationStageActions({
     btnGold,
     onSaveJudgment,
 }: JudgmentCassationStageActionsProps) {
-    if (judgmentType === 'تصديق الحكم' || judgmentType === 'رد الطعن التمييزي شكلاً') {
+    if (
+        judgmentType === CASSATION_JUDGMENT_AFFIRMED
+        || judgmentType === CASSATION_JUDGMENT_DISMISS_FORMAL
+        || judgmentType === CASSATION_JUDGMENT_REVERSE_FINAL
+    ) {
         const isLoss = cassationOutcome === 'loss';
+        const action =
+            judgmentType === CASSATION_JUDGMENT_REVERSE_FINAL
+                ? 'reverse_final'
+                : 'final_ratification';
         return (
             <div className="flex flex-col gap-2">
                 <button
                     type="button"
-                    onClick={() => onSaveJudgment('final_ratification')}
+                    onClick={() => onSaveJudgment(action)}
                     className={isLoss ? GLASS_BTN_NEUTRAL : GLASS_BTN_EMERALD}
                 >
                     <Stamp size={16} />

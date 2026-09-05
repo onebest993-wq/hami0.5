@@ -1,4 +1,4 @@
-import React, { memo, useState } from 'react';
+import React, { memo, useEffect, useState } from 'react';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
 import { useLawyerSettingsReset } from '@/app/context/LawyerSettingsContext';
 import { SettingCard } from '../settings-ui/index';
@@ -6,8 +6,9 @@ import { AccountLegalDocumentSheet } from './AccountLegalDocumentSheet';
 import { AccountSessionRows, AccountSupportRows } from './AccountSessionRows';
 import { useAccountSectionActions } from './useAccountSectionActions';
 import type { AccountLegalDocumentId } from './accountLegalContent';
+import { useSettingsSectionActive } from '../settingsSectionActiveContext';
 
-export type AccountSectionProps = {
+type AccountSectionProps = {
     onClose: () => void;
     onLogout?: (options?: { skipLocalPurge?: boolean }) => void | Promise<void>;
     userId?: string | null;
@@ -22,6 +23,11 @@ export const AccountSection = memo(function AccountSection({
     const signedIn = isRealSignedIn(userId);
     const resetToDefaults = useLawyerSettingsReset();
     const actions = useAccountSectionActions(onClose, onLogout, resetToDefaults);
+    const sectionActive = useSettingsSectionActive();
+
+    useEffect(() => {
+        if (!sectionActive) setOpenLegalDocument(null);
+    }, [sectionActive]);
 
     return (
         <div data-testid="settings-section-account" data-settings-interactive="true">

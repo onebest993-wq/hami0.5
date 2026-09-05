@@ -142,8 +142,8 @@ export function usePersonalCoerciveDerivedFlowTravel(ctx: PersonalCoerciveDerive
             return;
         }
         if (dossierInlineResolved !== 'approved') return;
-        if (!dossier.approved || dossier.pending) return;
         const phase = String(executionData?.executive_dossier_phase ?? '').trim();
+        /** بعد إغلاق صف العرض الحاكم يبقى المسار على المرحلة المخزّنة */
         if (
             phase === 'handed_to_judge' ||
             phase === 'judge_decided' ||
@@ -152,7 +152,6 @@ export function usePersonalCoerciveDerivedFlowTravel(ctx: PersonalCoerciveDerive
             setDossierInlineResolved(null);
         }
     }, [
-        dossier.approved,
         dossier.pending,
         dossier.rejected,
         dossierInlineResolved,

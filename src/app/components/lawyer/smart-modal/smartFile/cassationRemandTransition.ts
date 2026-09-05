@@ -117,7 +117,6 @@ export function applyCassationRemand(
         isUnderObjection: false,
         finalDecision: null,
         decisionDate: null,
-        wasReopened: true,
         timeline: [remandTimelineEvent, ...priorTimeline],
         firstInstanceCaseNumber:
             sourceStage.firstInstanceCaseNumber

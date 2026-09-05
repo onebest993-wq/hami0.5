@@ -16,11 +16,6 @@ export function useNotificationListWindow(
     const sentinelRef = useRef<HTMLDivElement | null>(null);
     const flat = useMemo(() => flattenNotificationBuckets(groupedByTime), [groupedByTime]);
     const total = flat.length;
-    const signature = `${flat[0]?.id ?? ''}:${total}`;
-
-    useEffect(() => {
-        setRequested(NOTIFICATION_LIST_RENDER_BATCH);
-    }, [signature]);
 
     useEffect(() => {
         if (typeof IntersectionObserver === 'undefined') {

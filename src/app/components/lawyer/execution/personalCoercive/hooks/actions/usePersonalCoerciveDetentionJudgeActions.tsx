@@ -235,12 +235,8 @@ export function usePersonalCoerciveDetentionJudgeActions(ctx: PersonalCoerciveAc
             return false;
         }
         if (exId) {
-            closePersonalCoerciveSubtypeDecisionCycle({
-                executionId: exId,
-                subtype: 'executive_detention_judge',
-                debtorKey: activeDebtorKey,
-                primaryDebtorKey,
-            });
+            // لا تُغلق دورة قرار القاضي هنا — إغلاقها يفعّل cycleSuperseded ويُخفي بطاقة الحبس
+            // قبل أن يستقر detentionActive، ثم أثر التصفير يمسح المسار. تُغلق عند إخلاء السبيل.
             setLocalDecisionsTick((n) => n + 1);
         }
         setJudgeDetailsOpen(false);

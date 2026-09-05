@@ -5,6 +5,7 @@ import {
     loadTasksManagerModule,
 } from '@/app/runtime/fieldTasksHubLoader';
 import { TasksManagerOpenInstantChrome } from '@/app/components/lawyer/dashboard/tasksManager/TasksManagerOpenInstantChrome';
+import { removeTasksManagerInstantChrome } from '@/app/runtime/tasksManagerInstantPaint';
 
 type TasksManagerOverlayProps = React.ComponentProps<typeof TasksManagerOverlay>;
 type OverlayComponent = React.ComponentType<TasksManagerOverlayProps>;
@@ -16,7 +17,7 @@ function TasksManagerLoadError({ onRetry }: { onRetry: () => void }) {
     return (
         <div
             data-testid="tasks-manager-load-error"
-            className="fixed inset-0 z-[130] flex flex-col items-center justify-center gap-3 px-6 text-center"
+            className="fixed inset-0 z-[240] flex flex-col items-center justify-center gap-3 px-6 text-center bg-[#0A0F1C]"
             role="alert"
         >
             <p className="text-sm font-semibold text-[#F4F4F5]/85">تعذّر تحميل أجندة المهام</p>
@@ -34,7 +35,7 @@ function TasksManagerLoadError({ onRetry }: { onRetry: () => void }) {
 
 /** يحمّل أجندة المهام — chunk دافئ مخفياً؛ الفتح = إظهار فوري من الكاش أو قشرة فورية */
 export function FieldTasksManagerHost(props: TasksManagerOverlayProps): React.ReactElement | null {
-    const { open, onClose } = props;
+    const { open, onClose, keepAlive = false } = props;
     const [Component, setComponent] = useState<OverlayComponent | null>(() => getCachedTasksManagerOverlay());
     const [loadFailed, setLoadFailed] = useState(false);
     const [loadGeneration, setLoadGeneration] = useState(0);
@@ -45,59 +46,82 @@ export function FieldTasksManagerHost(props: TasksManagerOverlayProps): React.Re
     }, []);
 
     useLayoutEffect(() => {
+        let cancelled = false;
         const cached = getCachedTasksManagerOverlay();
         if (cached) {
             setComponent(() => cached);
             setLoadFailed(false);
-            return;
+        } else {
+            let attempts = 0;
+            const tryLoad = () => {
+                const hit = getCachedTasksManagerOverlay();
+                if (hit) {
+                    setComponent(() => hit);
+                    setLoadFailed(false);
+                    return;
+                }
+
+                void loadTasksManagerModule()
+                    .then((mod) => {
+                        if (cancelled) return;
+                        if (mod?.TasksManagerOverlay) {
+                            setComponent(() => mod.TasksManagerOverlay);
+                            setLoadFailed(false);
+                            return;
+                        }
+                        throw new Error('TasksManagerOverlay missing');
+                    })
+                    .catch(() => {
+                        if (cancelled) return;
+                        attempts += 1;
+                        if (attempts < MAX_LOAD_ATTEMPTS) {
+                            window.setTimeout(tryLoad, LOAD_RETRY_MS);
+                            return;
+                        }
+                        setLoadFailed(true);
+                    });
+            };
+            tryLoad();
         }
 
-        let cancelled = false;
-        let attempts = 0;
-
-        const tryLoad = () => {
-            const hit = getCachedTasksManagerOverlay();
-            if (hit) {
-                setComponent(() => hit);
-                setLoadFailed(false);
-                return;
-            }
-
-            void loadTasksManagerModule()
-                .then((mod) => {
-                    if (cancelled) return;
-                    if (mod?.TasksManagerOverlay) {
-                        setComponent(() => mod.TasksManagerOverlay);
-                        setLoadFailed(false);
-                        return;
-                    }
-                    throw new Error('TasksManagerOverlay missing');
-                })
-                .catch(() => {
-                    if (cancelled) return;
-                    attempts += 1;
-                    if (attempts < MAX_LOAD_ATTEMPTS) {
-                        window.setTimeout(tryLoad, LOAD_RETRY_MS);
-                        return;
-                    }
-                    setLoadFailed(true);
-                });
+        const warmCreate = () => {
+            void import('@/app/services/tasks/quantumTaskCreateLoad')
+                .then((m) => m.loadQuantumTaskCreateBundle())
+                .catch(() => undefined);
         };
-
-        tryLoad();
+        let idleId: number | null = null;
+        let timeoutId: number | null = null;
+        if (typeof requestIdleCallback === 'function') {
+            idleId = requestIdleCallback(warmCreate, { timeout: 2500 });
+        } else {
+            timeoutId = window.setTimeout(warmCreate, 800);
+        }
         return () => {
             cancelled = true;
+            if (idleId != null && typeof cancelIdleCallback === 'function') {
+                cancelIdleCallback(idleId);
+            }
+            if (timeoutId != null) window.clearTimeout(timeoutId);
         };
     }, [loadGeneration]);
 
+    useLayoutEffect(() => {
+        if (!loadFailed) return;
+        removeTasksManagerInstantChrome();
+    }, [loadFailed]);
+
     const ResolvedComponent = Component ?? getCachedTasksManagerOverlay();
 
-    if (!open) {
+    if (!open && !keepAlive) {
         return null;
     }
 
     if (ResolvedComponent) {
-        return <ResolvedComponent {...props} onClose={onClose} />;
+        return <ResolvedComponent {...props} onClose={onClose} keepAlive={keepAlive} />;
+    }
+
+    if (!open) {
+        return null;
     }
 
     if (loadFailed) {

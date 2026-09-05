@@ -15,6 +15,7 @@ export function useTransactionsHubSessionHydration({
     setView,
     setSelectedId,
     setListAddSheetOpen,
+    revealDetails,
 }: {
     open: boolean;
     userId: string;
@@ -26,6 +27,7 @@ export function useTransactionsHubSessionHydration({
     setView: Dispatch<SetStateAction<'list' | 'details'>>;
     setSelectedId: Dispatch<SetStateAction<string | null>>;
     setListAddSheetOpen: Dispatch<SetStateAction<boolean>>;
+    revealDetails: (transactionId: string) => void;
 }): void {
     useEffect(() => {
         if (open) return;
@@ -69,6 +71,10 @@ export function useTransactionsHubSessionHydration({
 
             focusPendingRef.current = undefined;
             onInitialFocusConsumed?.();
+            if (resolved.view === 'details' && resolved.selectedId) {
+                revealDetails(resolved.selectedId);
+                return;
+            }
             viewRef.current = resolved.view;
             setView(resolved.view);
             setSelectedId(resolved.selectedId);
@@ -108,5 +114,5 @@ export function useTransactionsHubSessionHydration({
         return () => {
             cancelled = true;
         };
-    }, [onInitialFocusConsumed, open, refreshTransactions, setUserId, userId]);
+    }, [onInitialFocusConsumed, open, refreshTransactions, revealDetails, setUserId, userId]);
 }

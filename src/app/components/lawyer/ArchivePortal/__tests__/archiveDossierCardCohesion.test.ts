@@ -38,6 +38,7 @@ describe('archive dossier card cohesion', () => {
     it('LawsuitArchiveFileGrid يستخدم LawsuitArchiveCard وليس UnifiedDossierCard', () => {
         const grid = fs.readFileSync(path.join(root, 'LawsuitArchiveFileGrid.tsx'), 'utf8');
         expect(grid).toContain('LawsuitArchiveCard');
+        expect(grid).toContain('LawsuitArchiveCardPaintSlot');
         expect(grid).not.toContain('UnifiedDossierCard');
     });
 });

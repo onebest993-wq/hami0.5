@@ -3,7 +3,7 @@ import { SearchIdlePanel } from '@/app/components/lawyer/GlobalSearchOverlay/com
 import { SearchResultsPanel } from '@/app/components/lawyer/GlobalSearchOverlay/components/SearchResultsPanel';
 import type { GlobalSearchOverlayShellProps } from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchOverlayShellTypes';
 
-export type GlobalSearchOverlayResultsRegionProps = Pick<
+type GlobalSearchOverlayResultsRegionProps = Pick<
     GlobalSearchOverlayShellProps,
     | 'showEmptyState'
     | 'recentSearches'

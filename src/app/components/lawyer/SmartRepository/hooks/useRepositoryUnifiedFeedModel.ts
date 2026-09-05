@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
@@ -10,6 +10,7 @@ import { useRepositoryLifecycle } from './useRepositoryLifecycle';
 import { useRepositoryEscapeStack } from './useRepositoryEscapeStack';
 import { useRepositoryRooms } from './useRepositoryRooms';
 import { useRepositoryRoomActions } from './useRepositoryRoomActions';
+import { resolveRepositoryFocusRoomFilter } from '../repositoryFeedFocus';
 
 export type UseRepositoryUnifiedFeedModelParams = {
     currentUserId?: string;
@@ -44,11 +45,23 @@ export function useRepositoryUnifiedFeedModel({
     escapeEnabled = true,
 }: UseRepositoryUnifiedFeedModelParams) {
     const feedScrollRef = useRef<HTMLDivElement>(null);
-    const [modalRoot, setModalRoot] = useState<HTMLDivElement | null>(null);
+    const appliedFocusRoomRef = useRef<string | null>(null);
     const effectiveInitialFilter: RepositoryFeedFilter = initialFilter ?? 'all';
     const roomsApi = useRepositoryRooms(currentUserId);
     const activeRoomIdRef = useRef(roomsApi.activeRoomId);
     activeRoomIdRef.current = roomsApi.activeRoomId;
+
+    useEffect(() => {
+        if (!focusNoteId) {
+            appliedFocusRoomRef.current = null;
+            return;
+        }
+        if (appliedFocusRoomRef.current === focusNoteId) return;
+        const nextRoom = resolveRepositoryFocusRoomFilter(notes, focusNoteId);
+        if (nextRoom == null) return;
+        appliedFocusRoomRef.current = focusNoteId;
+        roomsApi.setSelectedRoomId(nextRoom);
+    }, [focusNoteId, notes, roomsApi.setSelectedRoomId]);
 
     const vault = useSmartVault(() => undefined, currentUserId, {
         embedded: true,
@@ -65,8 +78,6 @@ export function useRepositoryUnifiedFeedModel({
         vaultSearchQuery: vault.searchQuery,
         roomFilter: roomsApi.selectedRoomId,
         initialFilter: effectiveInitialFilter,
-        focusNoteId,
-        feedScrollRef,
         vault,
     });
 
@@ -117,6 +128,7 @@ export function useRepositoryUnifiedFeedModel({
         editDocOpen: Boolean(vault.editDoc),
         pendingUploadOpen: Boolean(vault.pendingUpload),
         pendingUploadSaving: vault.isSavingMeta,
+        composeSaving: compose.saving,
         onResetComposer: compose.resetComposer,
         onCloseScanner: () => compose.setScannerOpen(false),
         onCloseVoice: () => compose.setShowVoiceRecorder(false),
@@ -128,8 +140,6 @@ export function useRepositoryUnifiedFeedModel({
 
     return {
         feedScrollRef,
-        modalRoot,
-        setModalRoot,
         roomsApi,
         roomsActions,
         vault,

@@ -1,10 +1,12 @@
 import {
     buildForumIdbPath,
+    deleteForumBlob,
     getForumBlobObjectUrl,
     parseForumIdbPath,
     putForumBlob,
 } from '@/app/services/forumBlobStore';
-import { LawyerStorage } from '@/app/services/lawyer-cloud';
+import { LawyerStorage } from '@/app/services/storage/lawyerStorageRuntime';
+import { signForumRepositoryDocumentUrl } from '@/app/services/forum/forumApi/forumApiRepository';
 import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
 import { inferRepositoryMimeType } from './components/repositoryMedia';
 import { withForumAsyncTimeout } from './forumAsync';
@@ -48,23 +50,6 @@ export function reserveRepositoryFileLocally(file: File): ReservedRepositoryFile
     };
 }
 
-/** حفظ محلي عند فشل رفع Supabase */
-export async function cacheRepositoryFileLocally(file: File): Promise<{
-    storagePath: string;
-    fileName: string;
-    mimeType: string;
-    fileSize: number;
-}> {
-    const reserved = reserveRepositoryFileLocally(file);
-    await reserved.persist();
-    return {
-        storagePath: reserved.storagePath,
-        fileName: reserved.fileName,
-        mimeType: reserved.mimeType,
-        fileSize: reserved.fileSize,
-    };
-}
-
 export async function resolveRepositoryStorageUrl(storagePath: string | undefined | null): Promise<string | null> {
     if (!storagePath?.trim()) return null;
 
@@ -85,6 +70,14 @@ export async function resolveRepositoryStorageUrl(storagePath: string | undefine
     }
 
     if (!storagePath.startsWith('idb:forum:')) {
+        // المكتبة المشتركة تُوقَّع عبر فهرس المنتدى — مسارات التخزين مقيّدة بمالكها.
+        const shared = await withForumAsyncTimeout(
+            signForumRepositoryDocumentUrl(storagePath),
+            SIGNED_URL_TIMEOUT_MS,
+            null,
+        );
+        if (shared) return shared;
+
         if (!isLawyerWorkCloudLive()) return null;
         return withForumAsyncTimeout(
             LawyerStorage.getSignedUrl(storagePath),
@@ -96,6 +89,16 @@ export async function resolveRepositoryStorageUrl(storagePath: string | undefine
 }
 
 export { releaseRepositoryBlobUrl };
+
+/** يحرر المعاينة الفورية ويمحو نسخة IndexedDB بعد اكتمال الرفع السحابي أو الحذف. */
+export function purgeRepositoryLocalFile(storagePath: string | undefined | null): void {
+    if (!storagePath?.trim()) return;
+    releaseRepositoryBlobUrl(storagePath);
+    const idbKey = parseForumIdbPath(storagePath);
+    if (idbKey && !idbKey.startsWith('inline:')) {
+        void deleteForumBlob(idbKey);
+    }
+}
 
 /** تنزيل ملف المستودع — يدعم blob محلي وروابط موقّعة */
 export async function downloadRepositoryFile(url: string, fileName: string): Promise<void> {

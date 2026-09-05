@@ -1,7 +1,10 @@
-import { lazy } from 'react';
-import { warmRepositoryDocsCache } from '@/app/services/forum/repositoryDocsWarmCache';
 import { readPersistedCommunitySection } from '@/app/components/lawyer/CommunityScreen/communitySectionState';
+import { prefetchCommunityFollowingPanel } from '@/app/components/lawyer/CommunityScreen/communityFollowingPrefetch';
+import { settleIdleChunkPrefetch } from '@/app/components/lawyer/CommunityScreen/settleIdleChunkPrefetch';
+import { isOpenSectionInnerJsPrefetchAllowed } from '@/app/runtime/sectionPrefetchPolicy';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
+
+export { prefetchCommunityFollowingPanel };
 
 const legalRepositoryImport = () =>
     import('@/app/components/lawyer/CommunityScreen/components/LegalRepository').then((m) => ({
@@ -11,35 +14,26 @@ const legalRepositoryImport = () =>
 const forumGroupsSectionImport = () =>
     import('@/app/components/lawyer/CommunityScreen/components/ForumGroupsSection');
 
-const forumFollowingPanelImport = () =>
-    import('@/app/components/lawyer/CommunityScreen/components/ForumFollowingPanel').then((m) => ({
-        default: m.ForumFollowingPanel,
-    }));
-
-export const LazyLegalRepository = lazy(legalRepositoryImport);
-export const LazyForumGroupsSection = lazy(forumGroupsSectionImport);
-export const LazyForumFollowingPanel = lazy(forumFollowingPanelImport);
-
 /** JS فقط — بلا listDocuments حتى لا ينافس تغذية المنتدى */
 export function prefetchCommunityRepositorySectionChunk(): Promise<void> {
     if (typeof window === 'undefined') return Promise.resolve();
-    return legalRepositoryImport().then(() => undefined).catch(() => undefined);
+    return settleIdleChunkPrefetch('forum-legal-repository', legalRepositoryImport());
 }
 
 export function prefetchCommunityRepositorySection(): Promise<void> {
     if (typeof window === 'undefined') return Promise.resolve();
-    warmRepositoryDocsCache();
+    void settleIdleChunkPrefetch(
+        'forum-repository-docs-warm',
+        import('@/app/services/forum/repositoryDocsWarmCache').then((m) => {
+            m.warmRepositoryDocsCache();
+        }),
+    );
     return prefetchCommunityRepositorySectionChunk();
 }
 
 export function prefetchCommunityGroupsSection(): Promise<void> {
     if (typeof window === 'undefined') return Promise.resolve();
-    return forumGroupsSectionImport().then(() => undefined).catch(() => undefined);
-}
-
-export function prefetchCommunityFollowingPanel(): void {
-    if (typeof window === 'undefined') return;
-    void forumFollowingPanelImport().catch(() => undefined);
+    return settleIdleChunkPrefetch('forum-groups-section', forumGroupsSectionImport());
 }
 
 /** JS للمستودع والمجموعات — مرة واحدة، بلا كاش شبكة */
@@ -49,6 +43,13 @@ export function prefetchCommunityLazySectionChunks(): Promise<void> {
         prefetchCommunityRepositorySectionChunk(),
         prefetchCommunityGroupsSection(),
     ]).then(() => undefined);
+}
+
+/** بعد فتح المنتدى: JS للأقسام الداخلية إن سمحت السياسة (خفيف نعم، شبكة بطيئة لا) */
+export function prefetchOpenForumInnerSectionChunks(): void {
+    if (typeof window === 'undefined') return;
+    if (!isOpenSectionInnerJsPrefetchAllowed()) return;
+    void prefetchCommunityLazySectionChunks();
 }
 
 /** مقطع القسم المحفوظ — JS فقط حتى لا ينافس تغذية المنتدى عند التحميل */

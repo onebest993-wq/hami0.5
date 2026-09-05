@@ -1,26 +1,23 @@
 import React from 'react';
 import { Lock } from '@/app/components/ui/icons/Lock';
-import { Scale } from '@/app/components/ui/icons/Scale';
 import { Unlock } from '@/app/components/ui/icons/Unlock';
 import { cn } from '@/app/components/ui/utils';
+import { PleadingCloseDecisionFlow } from '@/app/components/lawyer/smart-modal/layout/mainPanel/PleadingCloseDecisionFlow';
 
 type PersonalStatusPleadingActionsProps = {
     isPleadingsClosed?: boolean;
     showCloseJudgment: boolean;
-    onClosePleadings?: () => void;
     onReopenPleadings?: () => void;
-    onOpenJudgment: () => void;
+    /** يمرّر تاريخ القرار المختار من الشريط */
+    onOpenJudgment: (decisionDate?: string) => void;
     placement?: 'inline' | 'footer';
 };
 
 const FOOTER_BTN_BASE =
     'inline-flex items-center justify-center gap-2 min-h-[44px] px-3 rounded-md border font-bold text-[11px] transition-colors active:scale-[0.99] touch-manipulation';
 
-const FOOTER_RESERVE =
-    `${FOOTER_BTN_BASE} border-white/[0.14] bg-white/[0.04] text-[#ECE8E2] hover:bg-white/[0.08] hover:border-white/[0.20]`;
-
-const FOOTER_CLOSE =
-    `${FOOTER_BTN_BASE} border-white/[0.16] bg-white/[0.08] text-white/90 hover:bg-white/[0.12]`;
+const FOOTER_REOPEN =
+    `${FOOTER_BTN_BASE} border border-white/[0.14] bg-white/[0.04] text-[#ECE8E2] hover:bg-white/[0.08] hover:border-white/[0.20]`;
 
 const LOCKED_CHIP =
     'inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 rounded-md border border-white/[0.12] bg-white/[0.04] text-white/70 text-[10px] font-bold';
@@ -28,18 +25,15 @@ const LOCKED_CHIP =
 export function PersonalStatusPleadingActions({
     isPleadingsClosed,
     showCloseJudgment,
-    onClosePleadings,
     onReopenPleadings,
     onOpenJudgment,
     placement = 'inline',
 }: PersonalStatusPleadingActionsProps) {
-    const showReserve = !isPleadingsClosed && Boolean(onClosePleadings);
     const showClose = showCloseJudgment;
     const showLocked = Boolean(isPleadingsClosed);
-
-    if (!showReserve && !showClose && !showLocked) return null;
-
     const isFooter = placement === 'footer';
+
+    if (!showClose && !showLocked) return null;
 
     if (isFooter) {
         if (showLocked) {
@@ -57,7 +51,7 @@ export function PersonalStatusPleadingActions({
                         <button
                             type="button"
                             onClick={onReopenPleadings}
-                            className={`${FOOTER_RESERVE} w-full`}
+                            className={`${FOOTER_REOPEN} w-full`}
                             title="فتح باب المرافعة مجدداً"
                         >
                             <Unlock size={14} strokeWidth={2} aria-hidden />
@@ -68,37 +62,21 @@ export function PersonalStatusPleadingActions({
             );
         }
 
+        if (!showClose) return null;
+
         return (
             <div
-                className={cn(
-                    'rounded-xl border border-white/[0.14] bg-[#12121C] p-1.5 grid gap-1.5 w-full print:hidden',
-                    showReserve && showClose ? 'grid-cols-2' : 'grid-cols-1',
-                )}
+                className="rounded-xl border border-white/[0.14] bg-[#12121C] p-1.5 w-full print:hidden"
                 dir="rtl"
                 data-testid="personal-status-pleading-actions"
             >
-                {showReserve ? (
-                    <button
-                        type="button"
-                        onClick={onClosePleadings}
-                        className={`${FOOTER_RESERVE} w-full`}
-                        title="حجز الدعوى للقرار"
-                    >
-                        <Lock size={14} strokeWidth={2} aria-hidden />
-                        حجز للقرار
-                    </button>
-                ) : null}
-                {showClose ? (
-                    <button
-                        type="button"
-                        onClick={onOpenJudgment}
-                        className={`${FOOTER_CLOSE} w-full`}
-                        title="ختام المرافعة وإدخال قرار القاضي"
-                    >
-                        <Scale size={15} className="text-white/70" strokeWidth={2.1} aria-hidden />
-                        ختام المرافعة
-                    </button>
-                ) : null}
+                <PleadingCloseDecisionFlow
+                    primaryLabel="ختام المرافعة"
+                    showAdjournFork={false}
+                    tone="personal"
+                    primaryTestId="personal-status-close-pleading"
+                    onOpenJudgment={(decisionDate) => onOpenJudgment(decisionDate)}
+                />
             </div>
         );
     }
@@ -112,22 +90,21 @@ export function PersonalStatusPleadingActions({
                 </span>
             ) : null}
             {showLocked && onReopenPleadings ? (
-                <button type="button" onClick={onReopenPleadings} className={FOOTER_RESERVE}>
+                <button type="button" onClick={onReopenPleadings} className={FOOTER_REOPEN}>
                     <Unlock size={12} aria-hidden />
                     فتح المرافعة
                 </button>
             ) : null}
-            {showReserve ? (
-                <button type="button" onClick={onClosePleadings} className={FOOTER_RESERVE}>
-                    <Lock size={12} aria-hidden />
-                    حجز للقرار
-                </button>
-            ) : null}
             {showClose ? (
-                <button type="button" onClick={onOpenJudgment} className={cn(FOOTER_CLOSE, 'flex-1')}>
-                    <Scale size={14} aria-hidden />
-                    ختام المرافعة
-                </button>
+                <div className={cn('flex-1 min-w-[12rem]')}>
+                    <PleadingCloseDecisionFlow
+                        primaryLabel="ختام المرافعة"
+                        showAdjournFork={false}
+                        tone="personal"
+                        primaryTestId="personal-status-close-pleading-inline"
+                        onOpenJudgment={(decisionDate) => onOpenJudgment(decisionDate)}
+                    />
+                </div>
             ) : null}
         </div>
     );

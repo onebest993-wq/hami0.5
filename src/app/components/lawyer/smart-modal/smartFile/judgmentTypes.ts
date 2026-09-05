@@ -1,5 +1,34 @@
 export { JUDGMENT_TYPE_VOID } from './judgmentConstants';
 export type { FirstInstanceAppealAction, FirstInstanceAppealRights } from './firstInstanceAppealRightsTypes';
+export type {
+    StageOutcome,
+    JudgmentFormType,
+    CourtJurisdiction,
+    FirstInstanceDegree,
+    StageTransitionMetadata,
+    AppealStageMetadata,
+} from './judgmentStageMetadataTypes';
+export {
+    STAGE_OUTCOMES,
+    JUDGMENT_FORM_TYPES,
+    COURT_JURISDICTIONS,
+    FIRST_INSTANCE_DEGREES,
+    isStageOutcome,
+    isJudgmentFormType,
+    isCourtJurisdiction,
+    isFirstInstanceDegree,
+    normalizePartyId,
+    normalizePartyIdList,
+    parseJudgmentFormType,
+    resolveStructuredJudgmentForm,
+    legacyAppealOutcomeToStageOutcome,
+    stageOutcomeToLegacyAppealOutcome,
+    readAppellantPartyIds,
+    readAppelleePartyIds,
+    buildStageTransitionMetadata,
+    mergeAppealStageMetadata,
+} from './judgmentStageMetadataTypes';
+export { resolveCourtJurisdiction, resolveFirstInstanceDegree } from './stageJurisdictionResolution';
 export { resolveLawyerSide } from './lawyerSideResolution';
 export { isAppealStageName, isCassationStageName } from './judgmentStageNames';
 export { resolveClientMarkedParty } from './clientMarkedParty';
@@ -46,4 +75,6 @@ export {
     hasMeritJudgmentRecorded,
     shouldShowOpponentAppealWatchPostJudgmentFooter,
     shouldShowClientAppealPostJudgmentFooter,
+    isPartialBothInterestFinalDecision,
+    isPartialBothInterestStage,
 } from './opponentAppealMethods';

@@ -53,7 +53,7 @@ describe('interpleaderJudgmentEngine', () => {
         ).toBe('wait_opponent');
         expect(
             resolveInterpleaderHadoriAppealRights(INTERPLEADER_JUDGMENT_THIRD_PARTIAL, 'interpleader').action,
-        ).toBe('wait_opponent');
+        ).toBe('self_appeal');
         expect(
             resolveInterpleaderHadoriAppealRights(INTERPLEADER_JUDGMENT_THIRD_FULL, 'plaintiff').action,
         ).toBe('self_appeal');

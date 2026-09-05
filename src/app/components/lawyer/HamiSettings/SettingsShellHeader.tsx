@@ -1,20 +1,22 @@
 import React from 'react';
-import { Database } from '@/app/components/ui/icons/Database';
-import { Palette } from '@/app/components/ui/icons/Palette';
-import { Shield } from '@/app/components/ui/icons/Shield';
-import { User } from '@/app/components/ui/icons/User';
-import { X } from '@/app/components/ui/icons/X';
-import type { LucideIcon } from '@/app/components/ui/lucideIcons';
-import { SETTINGS_NAV, type SettingsSectionId } from '@/app/services/settings';
+import { SETTINGS_NAV, type SettingsSectionId } from '@/app/services/settings/nav';
 import { prefetchSettingsSection } from './settingsSectionLoad';
+import {
+    SettingsDatabaseIcon,
+    SettingsPaletteIcon,
+    SettingsShieldIcon,
+    SettingsUserIcon,
+    SettingsXIcon,
+    type SettingsStemIcon,
+} from './settingsStemIconsChrome';
 
 const SECTION_IDS = SETTINGS_NAV.map((item) => item.id);
 
-const TAB_ICON: Record<SettingsSectionId, LucideIcon> = {
-    appearance: Palette,
-    security: Shield,
-    data: Database,
-    account: User,
+const TAB_ICON: Record<SettingsSectionId, SettingsStemIcon> = {
+    appearance: SettingsPaletteIcon,
+    security: SettingsShieldIcon,
+    data: SettingsDatabaseIcon,
+    account: SettingsUserIcon,
 };
 
 export function SettingsShellHeader({
@@ -28,6 +30,11 @@ export function SettingsShellHeader({
     onSectionChange: (id: SettingsSectionId) => void;
     shellDir: 'ltr' | 'rtl';
 }) {
+    const selectSection = (id: SettingsSectionId) => {
+        prefetchSettingsSection(id);
+        if (id !== activeSection) onSectionChange(id);
+    };
+
     const onNavKeyDown = (event: React.KeyboardEvent) => {
         const idx = SECTION_IDS.indexOf(activeSection);
         if (idx < 0) return;
@@ -35,7 +42,7 @@ export function SettingsShellHeader({
             event.preventDefault();
             const next = event.key === 'Home' ? SECTION_IDS[0] : SECTION_IDS[SECTION_IDS.length - 1];
             if (!next) return;
-            onSectionChange(next);
+            selectSection(next);
             document.getElementById(`settings-tab-${next}`)?.focus();
             return;
         }
@@ -44,17 +51,17 @@ export function SettingsShellHeader({
             const ltrDelta = event.key === 'ArrowRight' ? 1 : -1;
             const delta = shellDir === 'rtl' ? -ltrDelta : ltrDelta;
             const next = SECTION_IDS[(idx + delta + SECTION_IDS.length) % SECTION_IDS.length]!;
-            onSectionChange(next);
+            selectSection(next);
             document.getElementById(`settings-tab-${next}`)?.focus();
         }
     };
 
     return (
         <header
-            className="hami-settings-header hami-settings-header--glass shrink-0 pt-[max(0.5rem,var(--hami-lawyer-header-safe-top,env(safe-area-inset-top)))] pb-2"
+            className="hami-settings-header shrink-0 pt-[max(0.5rem,var(--hami-lawyer-header-safe-top,env(safe-area-inset-top)))] pb-1"
         >
             <div className="hami-settings-header-inner">
-                <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="flex items-center justify-between gap-2 mb-1">
                     <div className="min-w-0">
                         <h1 className="hami-settings-title">مركز الإعدادات</h1>
                     </div>
@@ -74,7 +81,7 @@ export function SettingsShellHeader({
                             requestCloseGuarded(event);
                         }}
                     >
-                        <X size={18} strokeWidth={2.25} aria-hidden />
+                        <SettingsXIcon size={16} strokeWidth={2.25} aria-hidden />
                     </button>
                 </div>
 
@@ -96,13 +103,18 @@ export function SettingsShellHeader({
                                 aria-selected={active}
                                 aria-controls="settings-section-panel"
                                 tabIndex={active ? 0 : -1}
+                                onPointerEnter={() => {
+                                    prefetchSettingsSection(item.id);
+                                }}
+                                onFocus={() => {
+                                    prefetchSettingsSection(item.id);
+                                }}
                                 onPointerDown={(event) => {
                                     if (event.button !== 0) return;
-                                    prefetchSettingsSection(item.id);
-                                    if (!active) onSectionChange(item.id);
+                                    selectSection(item.id);
                                 }}
                                 onClick={() => {
-                                    if (!active) onSectionChange(item.id);
+                                    selectSection(item.id);
                                 }}
                                 data-testid={`settings-nav-${item.id}`}
                                 className={`hami-settings-tab min-h-[44px] min-w-[44px] touch-manipulation ${

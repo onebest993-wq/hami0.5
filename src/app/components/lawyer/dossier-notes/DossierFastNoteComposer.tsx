@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useCallback, useRef, useState } from 'react';
 import { Mic } from '@/app/components/ui/icons/Mic';
 import { Save } from '@/app/components/ui/icons/Save';
+import { X } from '@/app/components/ui/icons/X';
 import type { DossierNoteContext } from '@/app/services/dossier-notes/smartLawLinker';
 import { dossierNoteTimestampLabel } from '@/app/services/dossier-notes/dossierNoteTimestamp';
 import {
@@ -25,6 +26,12 @@ import {
     REPO_COMPOSE_SHELL,
     REPO_COMPOSE_TITLE,
 } from '@/app/components/lawyer/SmartRepository/smartRepositoryTheme';
+import {
+    VOICE_RECORDER_OVERLAY,
+    VAULT_RECORDER_SHELL,
+    VAULT_RECORDER_HEADER,
+    VAULT_RECORDER_INNER,
+} from '@/app/components/lawyer/ActionModals/voiceRecorderChrome';
 
 const VoiceRecorderModal = lazy(() =>
     import('@/app/components/lawyer/ActionModals/VoiceRecorderModal').then((mod) => ({
@@ -40,20 +47,38 @@ const VoiceRecorderErrorBoundary = lazy(() =>
 function VoiceRecorderLoadingFallback({ onClose }: { onClose: () => void }) {
     return (
         <div
-            className="fixed inset-0 z-[280] flex items-center justify-center bg-[#080f18]/90 backdrop-blur-sm p-4"
+            className={`${VOICE_RECORDER_OVERLAY} p-4`}
+            dir="rtl"
+            onClick={onClose}
             role="status"
-            aria-live="polite"
+            aria-busy="true"
+            aria-label="المسجل الذكي"
             data-testid="voice-recorder-loading"
         >
-            <div className="w-full max-w-sm rounded-2xl border border-[#E6C673]/25 bg-[#0E1B2E] px-5 py-6 text-center shadow-2xl">
-                <p className="text-sm font-bold text-[#E6C673]">جاري فتح المسجل الصوتي…</p>
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="mt-4 min-h-[44px] w-full rounded-xl border border-white/15 bg-white/[0.04] text-sm font-bold text-white/70 hover:bg-white/[0.08]"
-                >
-                    إلغاء
-                </button>
+            <div
+                className={`${VAULT_RECORDER_SHELL} font-['Tajawal','Cairo',sans-serif]`}
+                onClick={(event) => event.stopPropagation()}
+            >
+                <div className={VAULT_RECORDER_HEADER}>
+                    <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#B87333]/26 bg-[#132238] text-[#C4926A]">
+                            <Mic size={20} strokeWidth={1.75} />
+                        </div>
+                        <h3 className="text-base font-bold tracking-tight text-[#F4F0E8]">المسجل الذكي</h3>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full border border-[#D9CFC0]/12 bg-[#132238]/85 text-[#C9BCA8]/70 touch-manipulation"
+                        aria-label="إغلاق"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+                <div className="space-y-3 bg-[#0E1B2E] p-5" aria-hidden>
+                    <div className={`${VAULT_RECORDER_INNER} min-h-[72px]`} />
+                    <div className="min-h-[44px] rounded-xl border border-white/15 bg-white/[0.04]" />
+                </div>
             </div>
         </div>
     );

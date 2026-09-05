@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
 import { FileText } from '@/app/components/ui/icons/FileText';
+import { isCreationEnterCommit } from '../hooks/executionCreationRevealSteps';
 import { ecg } from './executionCreationGlassUi';
 
 interface SelectOption {
@@ -40,6 +41,15 @@ export interface InstrumentTypeIdentityFieldsProps {
 
     judgmentDate?: string;
     onJudgmentDateChange?: (v: string) => void;
+    revealDocNumber?: boolean;
+    revealJudgmentDate?: boolean;
+    revealClassification?: boolean;
+    revealClaimType?: boolean;
+    revealShariaIdentity?: boolean;
+    onCommitDocNumber?: () => void;
+    onCommitJudgmentDate?: () => void;
+    onCommitClassification?: () => void;
+    onCommitShariaIdentity?: () => void;
 }
 
 /**
@@ -72,6 +82,15 @@ export const InstrumentTypeIdentityFields: React.FC<InstrumentTypeIdentityFields
     onShariaIssuingCourtChange,
     judgmentDate = '',
     onJudgmentDateChange,
+    revealDocNumber = true,
+    revealJudgmentDate = true,
+    revealClassification = true,
+    revealClaimType = true,
+    revealShariaIdentity = true,
+    onCommitDocNumber,
+    onCommitJudgmentDate,
+    onCommitClassification,
+    onCommitShariaIdentity,
 }) => {
     const claimPickerLocked = (!docType && !classification) || docType === 'الأوراق التجارية';
     const claimPickerEmpty = !claimPickerLocked && claimTypeOptionsList.length === 0;
@@ -88,7 +107,15 @@ export const InstrumentTypeIdentityFields: React.FC<InstrumentTypeIdentityFields
                 <label className={ecg.labelGold}>نوع السند المنفذ</label>
                 <button
                     type="button"
-                    onClick={onOpenDocTypeSheet}
+                    data-creation-step="docType"
+                    aria-haspopup="dialog"
+                    aria-label="نوع السند المنفذ"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onOpenDocTypeSheet();
+                    }}
                     className={ecg.pickerBtn}
                 >
                     <ChevronDown size={18} className="text-gray-400 shrink-0" />
@@ -98,110 +125,57 @@ export const InstrumentTypeIdentityFields: React.FC<InstrumentTypeIdentityFields
                 </button>
             </div>
 
-            {docType === 'قرارات وأحكام المحاكم' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                        <label className={ecg.labelGold}>رقم الحكم</label>
-                        <input
-                            type="text"
-                            aria-label="رقم الحكم"
-                            value={docNumber}
-                            onChange={(e) => onDocNumberChange(e.target.value)}
-                            className={ecg.field}
-                        />
-                    </div>
-                    <div>
-                        <label className={ecg.labelGold} htmlFor="execution-creation-judgment-date">
-                            تاريخ الحكم
-                        </label>
-                        <input
-                            id="execution-creation-judgment-date"
-                            type="date"
-                            aria-label="تاريخ الحكم"
-                            data-testid="execution-creation-judgment-date"
-                            value={judgmentDate}
-                            onChange={(e) => onJudgmentDateChange?.(e.target.value)}
-                            style={{ direction: 'ltr', textAlign: 'right' }}
-                            className={`${ecg.field} text-sm`}
-                        />
-                    </div>
-                </div>
-            )}
-
-            {/* 2. CLASSIFICATION DROPDOWN (التصنيف) - PHASE 31: HIDE for Sharia Deeds */}
-            {docType !== 'الحجج الشرعية' && visibleClassificationOptions.length > 0 && (
+            {docType === 'قرارات وأحكام المحاكم' && revealDocNumber ? (
                 <div>
-                    <label className={ecg.labelGold}>التصنيف</label>
-                    {!docType ? (
-                        <div className="rounded-[1.2rem] border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm font-medium text-slate-500">
-                            -- اختر نوع السند أولاً --
-                        </div>
-                    ) : (
-                        <div className={ecg.choiceRow} role="group" aria-label="التصنيف">
-                            {visibleClassificationOptions.map((opt) => (
-                                <button
-                                    key={opt.value}
-                                    type="button"
-                                    onClick={() => onClassificationChange(opt.value)}
-                                    className={`${ecg.choiceBtn} ${
-                                        classification === opt.value
-                                            ? ecg.choiceBtnActive
-                                            : ecg.choiceBtnIdle
-                                    }`}
-                                >
-                                    {opt.label}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    <label className={ecg.labelGold}>رقم الحكم</label>
+                    <input
+                        type="text"
+                        aria-label="رقم الحكم"
+                        data-creation-step="docNumber"
+                        enterKeyHint="next"
+                        value={docNumber}
+                        onChange={(e) => onDocNumberChange(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (!isCreationEnterCommit(e)) return;
+                            e.preventDefault();
+                            if (docNumber.trim()) onCommitDocNumber?.();
+                        }}
+                        className={ecg.field}
+                    />
                 </div>
-            )}
+            ) : null}
 
-            {/* 3. CLAIM TYPE DROPDOWN (نوع المطالبة والتنفيذ) - PHASE 28: Unified */}
-            <div>
-                <label className={`${ecg.labelGold} flex items-center gap-2 flex-wrap`}>
-                    نوع المطالبة والتنفيذ
-                    {/* ✅ CRITICAL LOGIC: Auto-filled & Locked for Commercial Papers */}
-                    {docType === 'الأوراق التجارية' && (
-                        <span className="text-xs text-[#E6C673]/80 font-normal">(تلقائي - الصكوك دائماً مطالبات مالية)</span>
-                    )}
-                </label>
-                <button
-                    type="button"
-                    disabled={claimPickerLocked || claimPickerEmpty}
-                    onClick={() => {
-                        if (!claimPickerLocked && !claimPickerEmpty) {
-                            onOpenClaimTypeSheet();
-                        }
-                    }}
-                    className={`${ecg.pickerBtn} ${
-                        claimPickerLocked || claimPickerEmpty ? ecg.pickerBtnDisabled : ''
-                    }`}
-                >
-                    <ChevronDown size={18} className="text-gray-400 shrink-0" />
-                    <span className="flex-1 truncate font-medium">{claimButtonLabel}</span>
-                </button>
-                {effectiveClaimTypes.length > 1 ? (
-                    <div className="mt-2.5 flex flex-wrap gap-2 justify-end">
-                        {effectiveClaimTypes.map((ct) => (
-                            <button
-                                key={ct}
-                                type="button"
-                                onClick={() => onRemoveActiveClaimType(ct)}
-                                className={ecg.chip}
-                                title="إزالة من المطالبة المجمّعة"
-                            >
-                                {claimTypeOptionsList.find((o) => o.value === ct)?.label ?? ct} ×
-                            </button>
-                        ))}
-                    </div>
-                ) : null}
-            </div>
+            {docType === 'قرارات وأحكام المحاكم' && revealJudgmentDate ? (
+                <div>
+                    <label className={ecg.labelGold} htmlFor="execution-creation-judgment-date">
+                        تاريخ الحكم
+                    </label>
+                    <input
+                        id="execution-creation-judgment-date"
+                        type="date"
+                        aria-label="تاريخ الحكم"
+                        data-testid="execution-creation-judgment-date"
+                        data-creation-step="judgmentDate"
+                        value={judgmentDate}
+                        onChange={(e) => {
+                            onJudgmentDateChange?.(e.target.value);
+                            if (e.target.value) onCommitJudgmentDate?.();
+                        }}
+                        onKeyDown={(e) => {
+                            if (!isCreationEnterCommit(e)) return;
+                            e.preventDefault();
+                            if (judgmentDate) onCommitJudgmentDate?.();
+                        }}
+                        style={{ direction: 'ltr', textAlign: 'right' }}
+                        className={`${ecg.field} text-sm`}
+                    />
+                </div>
+            ) : null}
 
-            {/* ✅ حقل رقم السند تم نقله للأعلى في قسم "رقم الحكم" للأحكام القضائية */}
-            {/* يظهر فقط لغير الأحكام القضائية والحجج الشرعية */}
-            {/* ✅ CRITICAL LOGIC: Dynamic Labels for Commercial Papers */}
-            {docType !== 'الحجج الشرعية' && docType !== 'قرارات وأحكام المحاكم' && docType && (
+            {docType !== 'الحجج الشرعية' &&
+            docType !== 'قرارات وأحكام المحاكم' &&
+            docType &&
+            revealDocNumber ? (
                 <div>
                     {docType === 'الأوراق التجارية' && (
                         <label className={ecg.labelGold}>رقم الصك / الكمبيالة</label>
@@ -209,6 +183,8 @@ export const InstrumentTypeIdentityFields: React.FC<InstrumentTypeIdentityFields
                     <input
                         type="text"
                         aria-label={docType === 'الأوراق التجارية' ? 'رقم الصك / الكمبيالة' : 'رقم السند'}
+                        data-creation-step="docNumber"
+                        enterKeyHint="next"
                         value={docType === 'الأوراق التجارية' ? chequeNumber : docNumber}
                         onChange={(e) => {
                             if (docType === 'الأوراق التجارية') {
@@ -216,6 +192,13 @@ export const InstrumentTypeIdentityFields: React.FC<InstrumentTypeIdentityFields
                             } else {
                                 onDocNumberChange(e.target.value);
                             }
+                        }}
+                        onKeyDown={(e) => {
+                            if (!isCreationEnterCommit(e)) return;
+                            e.preventDefault();
+                            const current =
+                                docType === 'الأوراق التجارية' ? chequeNumber : docNumber;
+                            if (String(current).trim()) onCommitDocNumber?.();
                         }}
                         className={ecg.field}
                         disabled={docType === 'الأوراق التجارية'}
@@ -225,11 +208,17 @@ export const InstrumentTypeIdentityFields: React.FC<InstrumentTypeIdentityFields
                         <p className="text-xs text-gray-500 mt-1">✓ تم التحقق من البيانات</p>
                     )}
                 </div>
-            )}
+            ) : null}
 
-            {/* PHASE 49: SHARIA DEED IDENTIFICATION FIELDS */}
-            {docType === 'الحجج الشرعية' && (
-                <div className={`${ecg.subCard} animate-fade-in`}>
+            {docType === 'الحجج الشرعية' && revealShariaIdentity ? (
+                <div
+                    className={`${ecg.subCard} animate-fade-in`}
+                    onKeyDown={(e) => {
+                        if (!isCreationEnterCommit(e)) return;
+                        e.preventDefault();
+                        if (shariaDeedNumber.trim()) onCommitShariaIdentity?.();
+                    }}
+                >
                     <h4 className={`${ecg.subCardTitle} text-[#E6C673] border-b border-white/8 pb-2 mb-3 flex items-center gap-2`}>
                         <FileText size={16} />
                         بيانات الحجة الشرعية
@@ -240,6 +229,8 @@ export const InstrumentTypeIdentityFields: React.FC<InstrumentTypeIdentityFields
                             <input
                                 type="text"
                                 aria-label="العدد / رقم الحجة"
+                                data-creation-step="shariaIdentity"
+                                enterKeyHint="next"
                                 value={shariaDeedNumber}
                                 onChange={(e) => onShariaDeedNumberChange(e.target.value)}
                                 className={`${ecg.field} text-sm`}
@@ -279,7 +270,89 @@ export const InstrumentTypeIdentityFields: React.FC<InstrumentTypeIdentityFields
                         </div>
                     )}
                 </div>
-            )}
+            ) : null}
+
+            {/* 2. CLASSIFICATION DROPDOWN (التصنيف) - PHASE 31: HIDE for Sharia Deeds */}
+            {docType !== 'الحجج الشرعية' &&
+            visibleClassificationOptions.length > 0 &&
+            revealClassification ? (
+                <div>
+                    <label className={ecg.labelGold}>التصنيف</label>
+                    {!docType ? (
+                        <div className="rounded-[1.2rem] border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm font-medium text-slate-500">
+                            -- اختر نوع السند أولاً --
+                        </div>
+                    ) : (
+                        <div className={ecg.choiceRow} role="group" aria-label="التصنيف" data-creation-step="classification">
+                            {visibleClassificationOptions.map((opt) => (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => {
+                                        onClassificationChange(opt.value);
+                                        onCommitClassification?.();
+                                    }}
+                                    className={`${ecg.choiceBtn} ${
+                                        classification === opt.value
+                                            ? ecg.choiceBtnActive
+                                            : ecg.choiceBtnIdle
+                                    }`}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            ) : null}
+
+            {revealClaimType ? (
+            <div>
+                <label className={`${ecg.labelGold} flex items-center gap-2 flex-wrap`}>
+                    نوع المطالبة والتنفيذ
+                    {/* ✅ CRITICAL LOGIC: Auto-filled & Locked for Commercial Papers */}
+                    {docType === 'الأوراق التجارية' && (
+                        <span className="text-xs text-[#E6C673]/80 font-normal">(تلقائي - الصكوك دائماً مطالبات مالية)</span>
+                    )}
+                </label>
+                <button
+                    type="button"
+                    data-creation-step="claimType"
+                    aria-haspopup="dialog"
+                    aria-label="نوع المطالبة والتنفيذ"
+                    disabled={claimPickerLocked || claimPickerEmpty}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!claimPickerLocked && !claimPickerEmpty) {
+                            onOpenClaimTypeSheet();
+                        }
+                    }}
+                    className={`${ecg.pickerBtn} ${
+                        claimPickerLocked || claimPickerEmpty ? ecg.pickerBtnDisabled : ''
+                    }`}
+                >
+                    <ChevronDown size={18} className="text-gray-400 shrink-0" />
+                    <span className="flex-1 truncate font-medium">{claimButtonLabel}</span>
+                </button>
+                {effectiveClaimTypes.length > 1 ? (
+                    <div className="mt-2.5 flex flex-wrap gap-2 justify-end">
+                        {effectiveClaimTypes.map((ct) => (
+                            <button
+                                key={ct}
+                                type="button"
+                                onClick={() => onRemoveActiveClaimType(ct)}
+                                className={ecg.chip}
+                                title="إزالة من المطالبة المجمّعة"
+                            >
+                                {claimTypeOptionsList.find((o) => o.value === ct)?.label ?? ct} ×
+                            </button>
+                        ))}
+                    </div>
+                ) : null}
+            </div>
+            ) : null}
         </>
     );
 };

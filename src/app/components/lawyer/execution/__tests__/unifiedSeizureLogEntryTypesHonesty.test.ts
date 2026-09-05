@@ -4,66 +4,67 @@ import path from 'node:path';
 
 const EXECUTION = path.resolve(__dirname, '..');
 const DASH_UTILS = path.resolve(__dirname, '../../ExecutionDashboard/utils');
-const FOOTER = path.resolve(
-    __dirname,
-    '../../ExecutionDashboard/components/unifiedSeizureLogEntryFooter',
-);
-
+const DASH_HOOKS = path.resolve(__dirname, '../../ExecutionDashboard/hooks');
 const TYPES_FILE = path.join(EXECUTION, 'unifiedSeizureLogEntryTypes.ts');
+const TAB_TYPES_FILE = path.join(EXECUTION, 'unifiedSeizureLogTabTypes.ts');
 const MODAL_FILE = path.join(EXECUTION, 'UnifiedSeizureLogModal.tsx');
+const UNIFIED_HOOK = path.join(DASH_HOOKS, 'useUnifiedSeizureLog.ts');
+const ENTITY_HOOK = path.join(DASH_HOOKS, 'useSeizureLogEntityData.ts');
 
-const BUILDER_FILES = [
-    'unifiedSeizureLogEntries.ts',
-    'unifiedSeizureLogEntryInternalHelpers.ts',
-    'buildUnifiedSeizureLogPropertyEntries.ts',
-    'buildUnifiedSeizureLogSalaryEntries.ts',
-    'buildUnifiedSeizureLogMovableEntries.ts',
-    'buildUnifiedSeizureLogThirdPartyEntries.ts',
-    'buildUnifiedSeizureLogGuarantorEntries.ts',
-];
-
-const FOOTER_TYPE_FILES = [
-    'UnifiedSeizureLogEntryFooterProps.ts',
-    'unifiedSeizureLogEntryFooterHelpers.tsx',
-    'UnifiedSeizureLogFooterBranchCtx.ts',
-];
-
-function countSubstring(src: string, needle: string): number {
-    return src.split(needle).length - 1;
-}
-
-describe('unifiedSeizureLogEntryTypes cycle honesty', () => {
-    it('defines UnifiedSeizureLogEntry in a types-only module', () => {
-        expect(fs.existsSync(TYPES_FILE)).toBe(true);
-        const src = fs.readFileSync(TYPES_FILE, 'utf8');
-        expect(src).toContain('export type UnifiedSeizureLogEntry');
-        expect(src).not.toMatch(/from\s+['"].*UnifiedSeizureLogModal/);
-        expect(src).not.toMatch(/\b(jsx|tsx)\b/i);
-    });
-
-    it('modal re-exports entry types and does not own the canonical definition body', () => {
-        const modal = fs.readFileSync(MODAL_FILE, 'utf8');
-        expect(modal).toContain('unifiedSeizureLogEntryTypes');
-        expect(modal).toMatch(/export type \{\s*UnifiedSeizureLogEntry/);
-        expect(modal).not.toMatch(/export type UnifiedSeizureLogEntry\s*=\s*\{/);
-    });
-
-    it('builders/utils import entry types from types module, not the modal', () => {
-        for (const name of BUILDER_FILES) {
-            const src = fs.readFileSync(path.join(DASH_UTILS, name), 'utf8');
-            expect(src, name).toContain('unifiedSeizureLogEntryTypes');
-            expect(src, name).not.toMatch(
-                /import\s+type\s+\{[^}]*UnifiedSeizureLogEntry[^}]*\}\s+from\s+['"][^'"]*UnifiedSeizureLogModal/,
-            );
-            expect(countSubstring(src, 'UnifiedSeizureLogModal'), name).toBe(0);
+describe('unifiedSeizureLogEntryTypes — سجل الحجز مُزال', () => {
+    it('لا يبقى مودال/أنواع/هوكس السجل في المسار الحي', () => {
+        expect(fs.existsSync(TYPES_FILE)).toBe(false);
+        expect(fs.existsSync(TAB_TYPES_FILE)).toBe(false);
+        expect(fs.existsSync(MODAL_FILE)).toBe(false);
+        expect(fs.existsSync(UNIFIED_HOOK)).toBe(false);
+        expect(fs.existsSync(ENTITY_HOOK)).toBe(false);
+        expect(fs.existsSync(path.join(DASH_UTILS, 'unifiedSeizureLogEntries.ts'))).toBe(false);
+        expect(fs.existsSync(path.join(DASH_UTILS, 'buildUnifiedSeizureLogPropertyEntries.ts'))).toBe(
+            false,
+        );
+        expect(
+            fs.existsSync(
+                path.join(
+                    DASH_HOOKS,
+                    'executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogAssetModalBridge.tsx',
+                ),
+            ),
+        ).toBe(false);
+        expect(
+            fs.existsSync(
+                path.join(
+                    DASH_HOOKS,
+                    'executionDashboardCore/ExecutionDashboardHandlerClusterSeizureLogResolutionBridge.tsx',
+                ),
+            ),
+        ).toBe(false);
+        const coreDir = path.join(DASH_HOOKS, 'executionDashboardCore');
+        for (const file of [
+            'useExecutionDashboardCoreHandlerClusterSeizureAssetModal.ts',
+            'useExecutionDashboardSeizureAssetModalHandlers.ts',
+            'useExecutionDashboardSeizureAssetModalHandlers.types.ts',
+            'useExecutionDashboardSeizureAssetModalSaveHandlers.ts',
+            'useExecutionDashboardCoreHandlerClusterSeizureFollowupRequests.ts',
+            'useExecutionDashboardCoreHandlerClusterSeizureResolution.ts',
+        ]) {
+            expect(fs.existsSync(path.join(coreDir, file))).toBe(false);
         }
+        const pickCore = fs.readFileSync(path.join(coreDir, 'pickCoreAssemblyHandlers.ts'), 'utf8');
+        expect(pickCore).not.toContain('seizureAssetModalHandlers');
+        const heavy = fs.readFileSync(
+            path.join(coreDir, 'useExecutionDashboardCoreHandlerClusterSeizureHeavy.ts'),
+            'utf8',
+        );
+        expect(heavy).toContain('focusSeizurePropertyInlineCompletion: noopFocus');
+        expect(heavy).toContain('useExecutionDashboardCoreHandlerClusterSeizureFollowup');
     });
 
-    it('footer package imports entry types from types module, not the modal', () => {
-        for (const name of FOOTER_TYPE_FILES) {
-            const src = fs.readFileSync(path.join(FOOTER, name), 'utf8');
-            expect(src, name).toContain('unifiedSeizureLogEntryTypes');
-            expect(countSubstring(src, 'UnifiedSeizureLogModal'), name).toBe(0);
-        }
+    it('لا يبقى onShowSeizureLog في المركز المالي', () => {
+        const focRoot = path.resolve(__dirname, '../../FinancialOperationsCenter');
+        const props = fs.readFileSync(path.join(focRoot, 'focProps.ts'), 'utf8');
+        const header = fs.readFileSync(path.join(focRoot, 'components/FocFundsCardHeader.tsx'), 'utf8');
+        expect(props).not.toContain('onShowSeizureLog');
+        expect(header).not.toContain('onShowSeizureLog');
+        expect(header).not.toContain('سجل الحجوزات');
     });
 });

@@ -71,10 +71,19 @@ describe('scheduleIdleCommunityLazySectionPrefetch', () => {
 
     it('prefetchCommunityLazySectionChunks في المصدر مقطع JS فقط', () => {
         const start = lazySrc.indexOf('export function prefetchCommunityLazySectionChunks');
-        const next = lazySrc.indexOf('export function prefetchPersistedCommunitySectionChunk');
+        const next = lazySrc.indexOf('export function prefetchOpenForumInnerSectionChunks');
         const fn = lazySrc.slice(start, next);
         expect(fn).toContain('prefetchCommunityRepositorySectionChunk()');
         expect(fn).not.toContain('prefetchCommunityRepositorySection()');
+        expect(fn).not.toContain('warmRepositoryDocsCache');
+    });
+
+    it('prefetchOpenForumInnerSectionChunks يحترم سياسة JS داخل القسم', () => {
+        const start = lazySrc.indexOf('export function prefetchOpenForumInnerSectionChunks');
+        const next = lazySrc.indexOf('export function prefetchPersistedCommunitySectionChunk');
+        const fn = lazySrc.slice(start, next);
+        expect(fn).toContain('isOpenSectionInnerJsPrefetchAllowed');
+        expect(fn).toContain('prefetchCommunityLazySectionChunks()');
         expect(fn).not.toContain('warmRepositoryDocsCache');
     });
 

@@ -8,7 +8,7 @@ import { X } from '@/app/components/ui/icons/X';
 import type { RefObject } from 'react';
 import type { DossierLawArticleRichEditorHandle } from '@/app/components/lawyer/dossier-notes/DossierLawArticleRichEditor';
 import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
-import { isVaultImageFile } from '@/app/services/vaultUploadService';
+import { isVaultImageFile } from '@/app/services/vault/vaultFileGuards';
 import { revokeBlobUrlIfNeeded } from '@/app/services/vault/vaultDocUtils';
 import {
     REPO_COMPOSE_ATTACH_CHIP,

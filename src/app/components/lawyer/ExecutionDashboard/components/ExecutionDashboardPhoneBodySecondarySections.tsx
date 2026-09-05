@@ -2,14 +2,14 @@ import React, { startTransition, useMemo } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { Activity } from '@/app/components/ui/icons/Activity';
 import { Book } from '@/app/components/ui/icons/Book';
-import { Calendar } from '@/app/components/ui/icons/Calendar';
+import { CalendarClock } from '@/app/components/ui/icons/CalendarClock';
 import { ChevronUp } from '@/app/components/ui/icons/ChevronUp';
-import { ClipboardList } from '@/app/components/ui/icons/ClipboardList';
-import { CreditCard } from '@/app/components/ui/icons/CreditCard';
-import { FileText } from '@/app/components/ui/icons/FileText';
-import { FolderOpen } from '@/app/components/ui/icons/FolderOpen';
+import { FileArchive } from '@/app/components/ui/icons/FileArchive';
+import { Gavel } from '@/app/components/ui/icons/Gavel';
 import { History } from '@/app/components/ui/icons/History';
-import { Scale } from '@/app/components/ui/icons/Scale';
+import { ScrollText } from '@/app/components/ui/icons/ScrollText';
+import { StickyNote } from '@/app/components/ui/icons/StickyNote';
+import { Wallet } from '@/app/components/ui/icons/Wallet';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import type { VisitationScheduleBundle } from '@/app/types/visitationSchedule';
 import type { ExecutionTimelineFilterLabel } from '@/app/utils/timelineCategoryFilter';
@@ -47,7 +47,6 @@ export type ExecutionDashboardPhoneBodySecondaryScope = {
     dockPinnedTasks: CaseTaskRow[];
     executionActionsGridLocked: boolean;
     executionToolsTimelineLockedUi: boolean;
-    hasUnifiedSeizureLogContent: boolean;
     isEvictionExecutionModule: boolean;
     isHistoricalMode: boolean;
     isRepresentingDebtor: boolean;
@@ -63,8 +62,6 @@ export type ExecutionDashboardPhoneBodySecondaryScope = {
     mergedTimelineRadarPreviewLimit: number;
     moveCaseNoteToTrash: (id: string) => void;
     moveTimelineEventToTrash: (event: TimelineEvent) => void;
-    openUnifiedSeizureLog: () => void;
-    requestEditTimelineEvent: (event: TimelineEvent) => void;
     setActiveTimelineFilter: Dispatch<SetStateAction<string>>;
     setEmployeeCompulsoryBannerDismissed: (dismissed: boolean) => void;
     setShowOnlyActiveFileTimeline: Dispatch<SetStateAction<boolean>>;
@@ -134,10 +131,9 @@ export function ExecutionDashboardPhoneBodySecondarySections({
     const {
         debtorBrowserTabsMode,
         dockPinnedNotes,
-        dockPinnedTasks,
+        dockPinnedTasks: _dockPinnedTasks,
         executionActionsGridLocked,
         executionToolsTimelineLockedUi,
-        hasUnifiedSeizureLogContent,
         isEvictionExecutionModule,
         isHistoricalMode,
         isRepresentingDebtor,
@@ -146,8 +142,6 @@ export function ExecutionDashboardPhoneBodySecondarySections({
         mergedTimelineRadarPreviewLimit,
         moveCaseNoteToTrash,
         moveTimelineEventToTrash,
-        openUnifiedSeizureLog,
-        requestEditTimelineEvent,
         setActiveTimelineFilter,
         setEmployeeCompulsoryBannerDismissed,
         setShowOnlyActiveFileTimeline,
@@ -156,7 +150,7 @@ export function ExecutionDashboardPhoneBodySecondarySections({
         showToast,
         timelineFilterOptions,
         toggleCaseNotePin,
-        toggleCaseTaskPin,
+        toggleCaseTaskPin: _toggleCaseTaskPin,
         toggleTimelineEventPin,
         viewExecutionData,
         todayYmd,
@@ -228,12 +222,12 @@ export function ExecutionDashboardPhoneBodySecondarySections({
                 fallback={EXEC_ACTION_GRID_LAZY_FALLBACK}
                 lazyProps={{
                     Book,
-                    Calendar,
-                    FileText,
-                    FolderOpen,
-                    Scale,
-                    ClipboardList,
-                    CreditCard,
+                    Calendar: CalendarClock,
+                    FileText: StickyNote,
+                    FolderOpen: FileArchive,
+                    Scale: Gavel,
+                    ClipboardList: ScrollText,
+                    CreditCard: Wallet,
                     showEmployeeCompulsoryProceduresBanner,
                     executionToolsTimelineLockedUi,
                     executionActionsGridLocked,
@@ -248,15 +242,10 @@ export function ExecutionDashboardPhoneBodySecondarySections({
                             : undefined,
                     onOpenFinancialCenter: directOpenFinancialCenter,
                     onMemoFollowupClick: directHandleMemoFollowupClick,
-                    showSeizureLogButton:
-                        hasUnifiedSeizureLogContent &&
-                        !isRepresentingDebtor &&
-                        !Boolean(followupSpec.hideDossierFinancialTools),
-                    onOpenSeizureLog: () => openUnifiedSeizureLog(),
                     pinnedNotes: dockPinnedNotes,
-                    pinnedTasks: dockPinnedTasks,
+                    pinnedTasks: [],
                     onToggleNotePin: toggleCaseNotePin,
-                    onToggleTaskPin: toggleCaseTaskPin,
+                    onToggleTaskPin: _toggleCaseTaskPin,
                     onTrashPinnedNote: moveCaseNoteToTrash,
                 }}
             />
@@ -286,7 +275,6 @@ export function ExecutionDashboardPhoneBodySecondarySections({
                     timelineFilterOptions,
                     PremiumTimelineAuditLog: LazyPremiumTimelineAuditLog,
                     moveTimelineEventToTrash,
-                    onRequestEditTimelineEvent: requestEditTimelineEvent,
                     showOnlyActiveFileTimeline,
                     setShowOnlyActiveFileTimeline,
                     subFilesCount: safeSubFilesCount,

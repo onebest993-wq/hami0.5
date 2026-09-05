@@ -10,7 +10,7 @@ import { inertProps } from '@/app/utils/inertProps';
 import { reconcileClosedOverlayLayers } from '@/app/runtime/overlayLayerHygiene';
 import './notificationPanel.css';
 
-export type NotificationShellProps = {
+type NotificationShellProps = {
     isOpen: boolean;
     /** Host مركّب للتسخين/المنبثقات حتى لو اللوحة مغلقة */
     hostMounted?: boolean;

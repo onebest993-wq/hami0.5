@@ -22,7 +22,7 @@ export const FatalDeadlinesSection = React.memo(function FatalDeadlinesSection({
 
     return (
         <section
-            className={`${TASKS_GLASS_PANEL} px-4 py-3.5`}
+            className={`${TASKS_GLASS_PANEL} px-3 py-2.5`}
             aria-labelledby="fatal-deadlines-heading"
             data-testid="tasks-fatal-section"
         >
@@ -50,7 +50,7 @@ export const FatalDeadlinesSection = React.memo(function FatalDeadlinesSection({
                         >
                         <div className="flex flex-row-reverse items-start gap-2.5">
                             <span
-                                className="mt-0.5 size-2 shrink-0 rounded-full bg-rose-400/80 shadow-[0_0_8px_rgba(251,113,133,0.45)]"
+                                className="mt-1.5 size-1.5 shrink-0 rounded-full bg-rose-400/85"
                                 aria-hidden
                             />
                             <div className="min-w-0 flex-1 space-y-1">

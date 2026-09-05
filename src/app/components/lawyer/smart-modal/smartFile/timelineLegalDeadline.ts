@@ -33,14 +33,37 @@ export function shouldOpenAppointmentEditor(event: TimelineEvent): boolean {
     return event.type === 'appointment' && !isPleadingHearingAppointment(event);
 }
 
+export function isJudgmentDateTimelineEvent(event: TimelineEvent): boolean {
+    const id = String(event.id ?? '');
+    if (id.startsWith('appt_judgment_')) return true;
+    return /^تاريخ (الحكم|القرار|قرار)/.test(String(event.title ?? '').trim());
+}
+
+/** مواعيد المهلة المحسوبة — لا تُعرض في السجل المدني (لا إرشاد بالمدد المتبقية). */
+export function shouldHideDeadlineTeachingEvent(event: TimelineEvent): boolean {
+    if (!isLegalDeadlineTimelineEvent(event)) return false;
+    /*
+     * تاريخ القرار التمييزي في مرآة التقويم كان يُعرض كـ«آخر موعد للتمييز»
+     * رغم أن التمييز آخر درجة — أخفه من السجل المدني.
+     */
+    const title = String(event.title ?? '').trim();
+    if (/تاريخ القرار التمييزي/i.test(title)) return true;
+    return !isJudgmentDateTimelineEvent(event);
+}
+
 export function resolveLegalDeadlineDateLabel(event: TimelineEvent): string {
     const title = String(event.title ?? '').trim();
-    if (/تمييز/i.test(title)) return 'آخر موعد للتمييز';
+    /* تاريخ القرار قبل أي تطابق عام على كلمة «تمييز» */
+    if (isJudgmentDateTimelineEvent(event) || /^تاريخ (الحكم|القرار|قرار)/.test(title)) {
+        return 'تاريخ صدور القرار';
+    }
+    if (/مهلة التمييز|آخر موعد للتمييز|آخر موعد طعن على الحكم الاستئنافي/i.test(title)) {
+        return 'آخر موعد للتمييز';
+    }
     if (/اعتراض.*غياب|غيابي/i.test(title)) return 'آخر موعد للاعتراض الغيابي';
     if (/إعادة المحاكمة/i.test(title)) return 'آخر موعد لطلب إعادة المحاكمة';
     if (/طعن نهائي/i.test(title)) return 'آخر موعد للطعن النهائي';
     if (/الحكم البدائي/i.test(title) && /طعن/i.test(title)) return 'آخر موعد للاستئناف';
     if (/الحكم الاستئنافي/i.test(title) && /طعن/i.test(title)) return 'آخر موعد للتمييز';
-    if (/تاريخ الحكم|تاريخ القرار/i.test(title)) return 'تاريخ صدور القرار';
     return 'آخر موعد قانوني';
 }

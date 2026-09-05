@@ -18,12 +18,12 @@ type FollowupTabKeepAlivePanelProps = {
     dir?: 'rtl' | 'ltr';
 };
 
-/** يُبقي محتوى التبويب في DOM ويخفيه بـ hidden — يمنع unmount والوميض عند التنقل */
+/** لوحة تبويب — تُركَّب عند أول زيارة وتبقى مخفية عند المغادرة (keep-alive) */
 export function FollowupTabKeepAlivePanel({
     panelId,
     active,
     children,
-    className,
+    className = 'space-y-3',
     dir,
 }: FollowupTabKeepAlivePanelProps) {
     return (

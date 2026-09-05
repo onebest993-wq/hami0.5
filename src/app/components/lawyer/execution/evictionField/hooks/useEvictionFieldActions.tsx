@@ -25,6 +25,7 @@ import type { EvictionFieldProceduresPanelProps } from '../types';
 import type { useEvictionFieldPanelState } from './useEvictionFieldPanelState';
 import type { useEvictionFieldDecisions } from './useEvictionFieldDecisions';
 import { useEvictionFieldActionRenderers } from './useEvictionFieldActionRenderers';
+import { dispatchOpenDecisionsModalFromFollowup } from '@/app/utils/openDecisionsModalFromFollowup';
 
 export function useEvictionFieldActions(
     props: EvictionFieldProceduresPanelProps,
@@ -159,19 +160,21 @@ export function useEvictionFieldActions(
     );
 
     const openAppeals = React.useCallback(
-        (decisionId: string) => {
+        (decisionId: string, decisionRow?: Record<string, unknown> | null) => {
             if (!decisionsExecId || !decisionId) return;
-            try {
-                window.dispatchEvent(
-                    new CustomEvent('hami-open-decisions-modal', {
-                        detail: { executionId: decisionsExecId, tab: 'previous', decisionId },
-                    })
-                );
-            } catch {
-                /* ignore */
-            }
+            const list = Array.isArray(decisions) ? (decisions as Record<string, unknown>[]) : [];
+            const row =
+                decisionRow ??
+                list.find((r) => String(r.id || '').trim() === String(decisionId).trim()) ??
+                null;
+            dispatchOpenDecisionsModalFromFollowup({
+                storageExecutionId: decisionsExecId,
+                decisionId,
+                decisionRow: row,
+                executionData: executionData as Record<string, unknown> | null,
+            });
         },
-        [decisionsExecId]
+        [decisions, decisionsExecId, executionData]
     );
 
     const branchHasExistingHubRequest = React.useCallback(

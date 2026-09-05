@@ -1,6 +1,6 @@
 export type AccountLegalDocumentId = 'terms-and-usage';
 
-export type AccountLegalSection = {
+type AccountLegalSection = {
     title: string;
     paragraphs?: string[];
     bullets?: string[];

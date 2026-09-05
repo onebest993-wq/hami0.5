@@ -29,7 +29,7 @@ export function EncroachmentSurveyorRequestCard({
     setInlineActionGateKey,
     showToast,
     onExpenseRecorded,
-    onOpenAppeals,
+    onOpenDecisions,
     detailsOpen,
     setDetailsOpen,
 }: {
@@ -45,7 +45,7 @@ export function EncroachmentSurveyorRequestCard({
         opts?: { decisionsLink?: boolean }
     ) => void;
     onExpenseRecorded?: (row: EncroachmentCaseExpenseRow) => void;
-    onOpenAppeals: (decisionId: string) => void;
+    onOpenDecisions: (decisionId: string, decisionRow?: Record<string, unknown> | null) => void;
     detailsOpen: Record<string, boolean>;
     setDetailsOpen: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }) {
@@ -132,7 +132,7 @@ export function EncroachmentSurveyorRequestCard({
                     row={surveyorRow}
                     decisionRows={decisionRows}
                     executionId={executionId}
-                    onOpenAppeals={onOpenAppeals}
+                    onOpenDecisions={onOpenDecisions}
                 />
             ) : null}
 

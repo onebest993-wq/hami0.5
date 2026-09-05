@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import { X } from '@/app/components/ui/icons/X';
 import { FileText } from '@/app/components/ui/icons/FileText';
 import { Image } from '@/app/components/ui/icons/Image';
@@ -10,10 +9,20 @@ import { executionDocumentFoldersStorageKey, executionDocumentsStorageKey } from
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
-    prefetchVaultPdfViewerSurface,
-    VaultPdfViewerSurfaceLazy,
-} from '@/app/components/lawyer/SmartVaultModal/VaultPdfViewerSurfaceLazy';
+    prefetchVaultPdfJsViewer,
+    VaultPdfJsViewerLazy,
+} from '@/app/components/lawyer/SmartVaultModal/VaultPdfJsViewerLazy';
 import { ZoomableContainer } from '@/app/components/shared/ZoomableContainer';
+import {
+    EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_OVERLAY_FIELD,
+    EXEC_OVERLAY_HEADER,
+    EXEC_OVERLAY_NESTED_BACKDROP,
+    EXEC_OVERLAY_PHONE_BACKDROP,
+    EXEC_OVERLAY_PHONE_SHEET_WIDE,
+    EXEC_OVERLAY_PRIMARY_BTN,
+    EXEC_OVERLAY_TITLE,
+} from '@/app/components/lawyer/ExecutionDashboard/executionModalMobileShell';
 
 function loadPrivacyScreenSession() {
     return import('@/app/runtime/privacyScreenSession');
@@ -91,33 +100,41 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
     const documentsStorageKey = executionDocumentsStorageKey(executionId);
     const foldersStorageKey = executionDocumentFoldersStorageKey(executionId);
 
-    const loadVault = (): { docs: Document[]; folders: Folder[] } => {
-        const defaultFolder: Folder = { id: 'default', name: 'عام', createdAt: new Date().toISOString() };
-        let folders: Folder[] = [defaultFolder];
+    const makeDefaultFolder = (): Folder => ({
+        id: 'default',
+        name: 'عام',
+        createdAt: new Date().toISOString(),
+    });
+
+    const parseVault = (
+        docsRaw: string | null,
+        foldersRaw: string | null,
+    ): { docs: Document[]; folders: Folder[]; needsLegacyMigrate: boolean } => {
+        let folders: Folder[] = [makeDefaultFolder()];
         try {
-            const storedFolders = SecureStoreService.getItemSync(foldersStorageKey);
-            if (storedFolders) {
-                const parsed = JSON.parse(storedFolders);
+            if (foldersRaw) {
+                const parsed = JSON.parse(foldersRaw);
                 if (Array.isArray(parsed)) folders = parsed;
             }
         } catch {
             /* ignore */
         }
-        if (!folders.some((f) => f.id === 'default')) folders = [defaultFolder, ...folders];
+        if (!folders.some((f) => f.id === 'default')) folders = [makeDefaultFolder(), ...folders];
 
         let rawDocs: LegacyStoredDocument[] = [];
         try {
-            const storedDocs = SecureStoreService.getItemSync(documentsStorageKey);
-            if (storedDocs) {
-                const parsed = JSON.parse(storedDocs);
+            if (docsRaw) {
+                const parsed = JSON.parse(docsRaw);
                 if (Array.isArray(parsed)) rawDocs = parsed as LegacyStoredDocument[];
             }
         } catch {
             /* ignore */
         }
 
-        const looksNew = rawDocs.every((d) => d && typeof d === 'object' && 'folderId' in d && 'createdAt' in d && 'type' in d);
-        if (looksNew) return { docs: rawDocs as Document[], folders };
+        const looksNew = rawDocs.every(
+            (d) => d && typeof d === 'object' && 'folderId' in d && 'createdAt' in d && 'type' in d,
+        );
+        if (looksNew) return { docs: rawDocs as Document[], folders, needsLegacyMigrate: false };
 
         const byCategory = new Map<string, string>();
         const ensuredFolders: Folder[] = [...folders];
@@ -154,19 +171,60 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
             })
             .filter(Boolean);
 
-        try {
-            SecureStoreService.setItemSync(foldersStorageKey, JSON.stringify(ensuredFolders));
-            SecureStoreService.setItemSync(documentsStorageKey, JSON.stringify(docs));
-        } catch {
-            /* ignore */
-        }
-
-        return { docs, folders: ensuredFolders };
+        return { docs, folders: ensuredFolders, needsLegacyMigrate: rawDocs.length > 0 };
     };
 
-    const initial = loadVault();
-    const [folders] = useState<Folder[]>(initial.folders);
+    const readVaultSync = (): { docs: Document[]; folders: Folder[] } => {
+        if (
+            SecureStoreService.isUnreadSync(documentsStorageKey) ||
+            SecureStoreService.isUnreadSync(foldersStorageKey)
+        ) {
+            return { docs: [], folders: [makeDefaultFolder()] };
+        }
+        const parsed = parseVault(
+            SecureStoreService.getItemSync(documentsStorageKey),
+            SecureStoreService.getItemSync(foldersStorageKey),
+        );
+        return { docs: parsed.docs, folders: parsed.folders };
+    };
+
+    const initial = readVaultSync();
+    const [folders, setFolders] = useState<Folder[]>(initial.folders);
     const [documents, setDocuments] = useState<Document[]>(initial.docs);
+    const [vaultHydrated, setVaultHydrated] = useState(
+        () =>
+            !SecureStoreService.isUnreadSync(documentsStorageKey) &&
+            !SecureStoreService.isUnreadSync(foldersStorageKey),
+    );
+
+    useEffect(() => {
+        let cancelled = false;
+        void (async () => {
+            try {
+                await SecureStoreService.ensurePersistedReady();
+                const [docsRaw, foldersRaw] = await Promise.all([
+                    SecureStoreService.getItem(documentsStorageKey),
+                    SecureStoreService.getItem(foldersStorageKey),
+                ]);
+                if (cancelled) return;
+                const parsed = parseVault(docsRaw, foldersRaw);
+                setDocuments(parsed.docs);
+                setFolders(parsed.folders);
+                if (parsed.needsLegacyMigrate) {
+                    await SecureStoreService.setItem(foldersStorageKey, JSON.stringify(parsed.folders));
+                    await SecureStoreService.setItem(documentsStorageKey, JSON.stringify(parsed.docs));
+                    await SecureStoreService.waitForPendingSetItem(documentsStorageKey);
+                }
+            } catch {
+                /* keep sync snapshot */
+            } finally {
+                if (!cancelled) setVaultHydrated(true);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [documentsStorageKey, foldersStorageKey]);
     
     const [showUploadForm, setShowUploadForm] = useState(false);
     const activeFolderId = 'all';
@@ -223,16 +281,22 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
             reader.readAsDataURL(file);
         });
 
-    const persist = (nextDocs: Document[], nextFolders: Folder[]) => {
+    const persist = async (nextDocs: Document[], nextFolders: Folder[]): Promise<boolean> => {
         try {
-            SecureStoreService.setItemSync(documentsStorageKey, JSON.stringify(nextDocs));
+            await SecureStoreService.ensurePersistedReady();
+            if (
+                SecureStoreService.isUnreadSync(documentsStorageKey) &&
+                nextDocs.length === 0
+            ) {
+                return false;
+            }
+            await SecureStoreService.setItem(documentsStorageKey, JSON.stringify(nextDocs));
+            await SecureStoreService.setItem(foldersStorageKey, JSON.stringify(nextFolders));
+            await SecureStoreService.waitForPendingSetItem(documentsStorageKey);
+            await SecureStoreService.waitForPendingSetItem(foldersStorageKey);
+            return true;
         } catch {
-            /* ignore */
-        }
-        try {
-            SecureStoreService.setItemSync(foldersStorageKey, JSON.stringify(nextFolders));
-        } catch {
-            /* ignore */
+            return false;
         }
     };
 
@@ -304,8 +368,12 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
             };
 
             const updatedDocs = [nextDoc, ...documents];
+            const ok = await persist(updatedDocs, folders);
+            if (!ok) {
+                SmartToast.error('تعذر حفظ المستند على الجهاز. حاول مرة أخرى.');
+                return;
+            }
             setDocuments(updatedDocs);
-            persist(updatedDocs, folders);
 
             onDocumentUploaded?.({
                 title: nextDoc.name,
@@ -344,7 +412,7 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
 
     useEffect(() => {
         if (previewDocument?.type === 'pdf') {
-            prefetchVaultPdfViewerSurface();
+            prefetchVaultPdfJsViewer();
         }
     }, [previewDocument]);
 
@@ -361,7 +429,9 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
         if (!v) return;
         const updatedDocs = documents.map((d) => (d.id === renameDocId ? { ...d, name: v } : d));
         setDocuments(updatedDocs);
-        persist(updatedDocs, folders);
+        void persist(updatedDocs, folders).then((ok) => {
+            if (!ok) SmartToast.error('تعذر حفظ إعادة التسمية.');
+        });
         setRenameDocId(null);
         setRenameValue('');
     };
@@ -371,177 +441,167 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
         if (!target) return;
         const updatedDocs = documents.filter((d) => d.id !== docId);
         setDocuments(updatedDocs);
-        persist(updatedDocs, folders);
+        void persist(updatedDocs, folders).then((ok) => {
+            if (!ok) {
+                SmartToast.error('تعذر حذف المستند من التخزين.');
+                return;
+            }
+            SmartToast.success(`تم حذف «${target.name}»`);
+        });
         if (previewDocId === docId) setPreviewDocId(null);
         if (renameDocId === docId) {
             setRenameDocId(null);
             setRenameValue('');
         }
-        SmartToast.success(`تم حذف «${target.name}»`);
     };
 
     const getFileIcon = (type: string) => {
         switch (type) {
-            case 'image': return <Image size={20} className="text-blue-400" />;
-            case 'pdf': return <FileText size={20} className="text-rose-400" />;
-            default: return <File size={20} className="text-gray-400" />;
+            case 'image': return <Image size={20} className="text-slate-300" />;
+            case 'pdf': return <FileText size={20} className="text-slate-300" />;
+            default: return <File size={20} className="text-slate-500" />;
         }
     };
+
+    const selectClass = `${EXEC_OVERLAY_FIELD} min-h-[44px] text-[11px] font-bold`;
+    const idleAction =
+        'flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-white/10 bg-transparent px-4 py-2.5 text-sm font-bold text-slate-200 transition-colors hover:bg-white/[0.06] touch-manipulation';
     
     return (
-        <div className="fixed inset-0 bg-black/90 z-[110] flex items-center justify-center p-4" onClick={onClose}>
-            <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-[#0B1120] border-2 border-cyan-500/40 rounded-3xl w-[95%] md:w-[600px] max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+        <div
+            className={`${EXEC_OVERLAY_PHONE_BACKDROP} z-[110]`}
+            onClick={onClose}
+        >
+            <div
+                className={EXEC_OVERLAY_PHONE_SHEET_WIDE}
                 data-testid="document-vault-modal"
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Header */}
-                <div className="border-b border-cyan-500/30 p-4 flex justify-between items-center">
+                <div className={EXEC_OVERLAY_HEADER}>
+                    <h2 className={EXEC_OVERLAY_TITLE}>خزينة المستندات</h2>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all hover:bg-cyan-500/20 touch-manipulation"
+                        className={EXEC_MODAL_CLOSE_BTN_CLASS}
                         aria-label="إغلاق الخزينة"
                     >
-                        <X size={20} className="text-white" />
+                        <X size={22} />
                     </button>
-                    <h2 className="text-cyan-400 font-bold text-lg">خزينة المستندات</h2>
                 </div>
                 
-                <div className="p-3 border-b border-slate-700/30 space-y-3">
-                    <button type="button"
+                <div className="space-y-2 border-b border-white/10 px-3 py-2">
+                    <button
+                        type="button"
                         onClick={() => setShowUploadForm(!showUploadForm)}
-                        className="mx-auto flex min-h-[44px] w-full max-w-md items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/30 transition-all hover:from-cyan-500 hover:to-blue-500 touch-manipulation"
+                        className={`${EXEC_OVERLAY_PRIMARY_BTN} w-full`}
                     >
                         إضافة مستند
                     </button>
 
                     <div className="flex flex-wrap items-center justify-end gap-2">
-                        <div className="flex items-center gap-2">
-                            <select
-                                value={sortMode}
-                                onChange={(e) => {
-                                    const nextValue = e.target.value;
-                                    if (isDocumentSortMode(nextValue)) {
-                                        setSortMode(nextValue);
-                                    }
-                                }}
-                                className="min-h-[44px] bg-slate-800/40 border border-slate-700/40 rounded-lg px-3 py-2 text-white text-[11px] font-bold touch-manipulation"
-                                dir="rtl"
-                            >
-                                <option value="newest">الأحدث</option>
-                                <option value="oldest">الأقدم</option>
-                                <option value="name_asc">الاسم أ-ي</option>
-                            </select>
-                            <select
-                                value={filterType}
-                                onChange={(e) => {
-                                    const nextValue = e.target.value;
-                                    if (isDocumentFilterType(nextValue)) {
-                                        setFilterType(nextValue);
-                                    }
-                                }}
-                                className="min-h-[44px] bg-slate-800/40 border border-slate-700/40 rounded-lg px-3 py-2 text-white text-[11px] font-bold touch-manipulation"
-                                dir="rtl"
-                            >
-                                <option value="all">الكل</option>
-                                <option value="image">صور فقط</option>
-                                <option value="pdf">PDF فقط</option>
-                            </select>
-                        </div>
+                        <select
+                            value={sortMode}
+                            onChange={(e) => {
+                                const nextValue = e.target.value;
+                                if (isDocumentSortMode(nextValue)) {
+                                    setSortMode(nextValue);
+                                }
+                            }}
+                            className={selectClass}
+                            dir="rtl"
+                        >
+                            <option value="newest">الأحدث</option>
+                            <option value="oldest">الأقدم</option>
+                            <option value="name_asc">الاسم أ-ي</option>
+                        </select>
+                        <select
+                            value={filterType}
+                            onChange={(e) => {
+                                const nextValue = e.target.value;
+                                if (isDocumentFilterType(nextValue)) {
+                                    setFilterType(nextValue);
+                                }
+                            }}
+                            className={selectClass}
+                            dir="rtl"
+                        >
+                            <option value="all">الكل</option>
+                            <option value="image">صور فقط</option>
+                            <option value="pdf">PDF فقط</option>
+                        </select>
                     </div>
                 </div>
                 
-                <AnimatePresence>
-                    {showUploadForm && (
-                        <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="overflow-hidden border-b border-slate-700/30"
-                        >
-                            <div className="p-4 space-y-3 bg-slate-900/30">
-                                <input
-                                    id="vault-upload-input"
-                                    type="file"
-                                    accept="image/*,application/pdf"
-                                    onChange={handleUploadFileSelect}
-                                    className="hidden"
-                                />
-                                <input
-                                    id="vault-camera-input"
-                                    type="file"
-                                    accept="image/*"
-                                    capture="environment"
-                                    onChange={handleCameraCaptureSelect}
-                                    className="hidden"
-                                />
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <label
-                                        htmlFor="vault-upload-input"
-                                        className="cursor-pointer flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/40 px-4 py-3 text-sm font-bold text-white transition-all touch-manipulation"
-                                    >
-                                        رفع من الجهاز
-                                    </label>
-                                    <button
-                                        type="button"
-                                        onClick={openCameraCapture}
-                                        className="cursor-pointer flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/40 px-4 py-3 text-sm font-bold text-white transition-all w-full touch-manipulation"
-                                    >
-                                        التقاط بالكاميرا
-                                    </button>
-                                </div>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                {showUploadForm ? (
+                    <div className="border-b border-white/10 px-3 py-2">
+                        <input
+                            id="vault-upload-input"
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={handleUploadFileSelect}
+                            className="hidden"
+                        />
+                        <input
+                            id="vault-camera-input"
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={handleCameraCaptureSelect}
+                            className="hidden"
+                        />
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <label htmlFor="vault-upload-input" className={idleAction}>
+                                رفع من الجهاز
+                            </label>
+                            <button type="button" onClick={openCameraCapture} className={`${idleAction} w-full`}>
+                                التقاط بالكاميرا
+                            </button>
+                        </div>
+                    </div>
+                ) : null}
                 
-                {/* Documents List */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 py-2">
                     {visibleDocuments.length === 0 ? (
-                        <div className="text-center py-12">
-                            <FileText size={48} className="text-gray-600 mx-auto mb-3" />
-                            <p className="text-gray-500 text-sm">لا توجد مستندات بعد</p>
-                            <p className="text-gray-600 text-xs mt-1">المجلد: {activeFolderName}</p>
+                        <div className="py-10 text-center">
+                            <FileText size={28} className="mx-auto mb-2 text-slate-600" />
+                            <p className="text-sm text-slate-500">
+                                {vaultHydrated ? 'لا توجد مستندات بعد' : 'جاري استعادة المستندات…'}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-600">المجلد: {activeFolderName}</p>
                         </div>
                     ) : (
                         visibleDocuments.map((doc) => (
-                            <motion.div
+                            <div
                                 key={doc.id}
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                className="backdrop-blur-xl bg-slate-800/40 border border-slate-700/40 rounded-xl p-3 flex items-center gap-3 cursor-pointer"
+                                className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/[0.08] px-2.5 py-2"
                                 onClick={() => setPreviewDocId(doc.id)}
                             >
-                                <div className="w-12 h-12 bg-slate-900/60 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10">
                                     {doc.type === 'image' && doc.dataUrl ? (
-                                        <img src={doc.dataUrl} alt={doc.name} className="w-full h-full object-cover rounded-lg" />
+                                        <img src={doc.dataUrl} alt={doc.name} className="h-full w-full object-cover" />
                                     ) : (
                                         getFileIcon(doc.type)
                                     )}
                                 </div>
                                 
-                                <div className="flex-1 text-right min-w-0">
-                                    <p className="text-white font-semibold text-sm truncate">{doc.name}</p>
-                                    <p className="text-gray-400 text-xs truncate">
+                                <div className="min-w-0 flex-1 text-right">
+                                    <p className="truncate text-sm font-semibold text-white">{doc.name}</p>
+                                    <p className="truncate text-xs text-slate-400">
                                         {folders.find((f) => f.id === doc.folderId)?.name || 'عام'}
                                     </p>
-                                    <div className="flex items-center justify-end gap-2 mt-1">
-                                        <span className="text-gray-500 text-[10px]">
+                                    <div className="mt-0.5 flex items-center justify-end gap-2">
+                                        <span className="text-[10px] text-slate-500">
                                             {new Date(doc.createdAt).toLocaleDateString('ar-EG')}
                                         </span>
-                                        <Calendar size={10} className="text-gray-500" />
+                                        <Calendar size={10} className="text-slate-500" />
                                     </div>
                                 </div>
                                 
-                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                                     <button
                                         type="button"
                                         onClick={() => handleRename(doc.id)}
-                                        className="min-h-[44px] px-3 py-2 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/40 rounded-lg transition-all text-[11px] font-bold text-white touch-manipulation"
+                                        className="min-h-[44px] rounded-lg border border-white/10 px-3 py-2 text-[11px] font-bold text-slate-200 transition-colors hover:bg-white/[0.06] touch-manipulation"
                                         title="إعادة تسمية"
                                     >
                                         تسمية
@@ -549,209 +609,176 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                     <button
                                         type="button"
                                         onClick={() => handleDeleteDocument(doc.id)}
-                                        className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-950/30 px-3 py-2 text-[11px] font-bold text-rose-200 transition-all hover:bg-rose-950/50 touch-manipulation"
+                                        className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-rose-500/25 px-3 py-2 text-[11px] font-bold text-rose-200 transition-colors hover:bg-rose-950/40 touch-manipulation"
                                         title="حذف المستند"
                                     >
                                         <Trash2 size={13} />
                                         حذف
                                     </button>
                                 </div>
-                            </motion.div>
+                            </div>
                         ))
                     )}
                 </div>
 
-                <AnimatePresence>
-                    {showSaveModal && (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-[120] bg-black/80 flex items-center justify-center p-4"
-                            onClick={() => !isSaving && setShowSaveModal(false)}
+                {showSaveModal ? (
+                    <div
+                        className={EXEC_OVERLAY_NESTED_BACKDROP}
+                        onClick={() => !isSaving && setShowSaveModal(false)}
+                    >
+                        <div
+                            className={EXEC_OVERLAY_PHONE_SHEET_WIDE}
+                            onClick={(e) => e.stopPropagation()}
                         >
-                            <motion.div
-                                initial={{ scale: 0.96, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                exit={{ scale: 0.96, opacity: 0 }}
-                                className="bg-[#0B1120] border-2 border-cyan-500/40 rounded-3xl w-[95%] md:w-[600px] max-w-lg max-h-[90vh] overflow-y-auto"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <div className="border-b border-cyan-500/30 p-4 flex justify-between items-center">
-                                    <button type="button"
-                                        onClick={() => !isSaving && setShowSaveModal(false)}
-                                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all hover:bg-cyan-500/20 touch-manipulation"
-                                        aria-label="إغلاق"
-                                    >
-                                        <X size={20} className="text-white" />
-                                    </button>
-                                    <h3 className="text-cyan-400 font-bold text-sm">حفظ المستند</h3>
-                                </div>
-
-                                <div className="p-4 space-y-3 bg-slate-900/30">
-                                    <div>
-                                        <label className="text-xs font-bold text-cyan-400 mb-2 block">اسم المستند *</label>
-                                        <input
-                                            type="text"
-                                            value={pendingName}
-                                            onChange={(e) => setPendingName(e.target.value)}
-                                            className="w-full min-h-[44px] bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white text-right"
-                                            dir="rtl"
-                                        />
-                                    </div>
-
-                                    {pendingPreviewUrl ? (
-                                        <div className="border border-slate-700/50 rounded-xl p-2">
-                                            <img src={pendingPreviewUrl} alt="Preview" className="w-full h-32 object-contain" />
-                                        </div>
-                                    ) : null}
-
-                                    <button type="button"
-                                        onClick={() => void confirmSave()}
-                                        disabled={isSaving}
-                                        className="w-full min-h-[44px] bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/30 disabled:opacity-50 touch-manipulation"
-                                    >
-                                        حفظ
-                                    </button>
-                                </div>
-                            </motion.div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
-                <AnimatePresence>
-                    {renameDocId && (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-[120] bg-black/80 flex items-center justify-center p-4"
-                            onClick={() => setRenameDocId(null)}
-                        >
-                            <motion.div
-                                initial={{ scale: 0.96, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                exit={{ scale: 0.96, opacity: 0 }}
-                                className="bg-[#0B1120] border-2 border-cyan-500/40 rounded-3xl w-[95%] md:w-[600px] max-w-lg max-h-[90vh] overflow-y-auto"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <div className="border-b border-cyan-500/30 p-4 flex justify-between items-center">
-                                    <button
-                                        type="button"
-                                        onClick={() => setRenameDocId(null)}
-                                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all hover:bg-cyan-500/20 touch-manipulation"
-                                        aria-label="إغلاق"
-                                    >
-                                        <X size={20} className="text-white" />
-                                    </button>
-                                    <h3 className="text-cyan-400 font-bold text-sm">إعادة تسمية</h3>
-                                </div>
-                                <div className="p-4 space-y-3 bg-slate-900/30">
+                            <div className={EXEC_OVERLAY_HEADER}>
+                                <h3 className={EXEC_OVERLAY_TITLE}>حفظ المستند</h3>
+                                <button
+                                    type="button"
+                                    onClick={() => !isSaving && setShowSaveModal(false)}
+                                    className={EXEC_MODAL_CLOSE_BTN_CLASS}
+                                    aria-label="إغلاق"
+                                >
+                                    <X size={22} />
+                                </button>
+                            </div>
+                            <div className="space-y-3 overflow-y-auto px-3 py-3">
+                                <div>
+                                    <label className="mb-1.5 block text-xs font-bold text-slate-400">اسم المستند *</label>
                                     <input
                                         type="text"
-                                        value={renameValue}
-                                        onChange={(e) => setRenameValue(e.target.value)}
-                                        className="w-full min-h-[44px] bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white text-right"
+                                        value={pendingName}
+                                        onChange={(e) => setPendingName(e.target.value)}
+                                        className={EXEC_OVERLAY_FIELD}
                                         dir="rtl"
                                     />
+                                </div>
+                                {pendingPreviewUrl ? (
+                                    <div className="rounded-xl border border-white/10 p-2">
+                                        <img src={pendingPreviewUrl} alt="Preview" className="h-32 w-full object-contain" />
+                                    </div>
+                                ) : null}
+                                <button
+                                    type="button"
+                                    onClick={() => void confirmSave()}
+                                    disabled={isSaving}
+                                    className={`${EXEC_OVERLAY_PRIMARY_BTN} w-full disabled:opacity-50`}
+                                >
+                                    حفظ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
+
+                {renameDocId ? (
+                    <div
+                        className={EXEC_OVERLAY_NESTED_BACKDROP}
+                        onClick={() => setRenameDocId(null)}
+                    >
+                        <div
+                            className={EXEC_OVERLAY_PHONE_SHEET_WIDE}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className={EXEC_OVERLAY_HEADER}>
+                                <h3 className={EXEC_OVERLAY_TITLE}>إعادة تسمية</h3>
+                                <button
+                                    type="button"
+                                    onClick={() => setRenameDocId(null)}
+                                    className={EXEC_MODAL_CLOSE_BTN_CLASS}
+                                    aria-label="إغلاق"
+                                >
+                                    <X size={22} />
+                                </button>
+                            </div>
+                            <div className="space-y-3 px-3 py-3">
+                                <input
+                                    type="text"
+                                    value={renameValue}
+                                    onChange={(e) => setRenameValue(e.target.value)}
+                                    className={EXEC_OVERLAY_FIELD}
+                                    dir="rtl"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={confirmRename}
+                                    className={`${EXEC_OVERLAY_PRIMARY_BTN} w-full`}
+                                >
+                                    حفظ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
+
+                {previewDocId ? (
+                    <div
+                        className={EXEC_OVERLAY_NESTED_BACKDROP}
+                        onClick={() => setPreviewDocId(null)}
+                    >
+                        <div
+                            className={`${EXEC_OVERLAY_PHONE_SHEET_WIDE} sm:max-h-[min(90dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] sm:max-w-5xl`}
+                            data-testid="document-vault-preview"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className={`${EXEC_OVERLAY_HEADER} gap-2`}>
+                                <h3 className={EXEC_OVERLAY_TITLE}>
+                                    {previewDocument?.name || 'معاينة'}
+                                </h3>
+                                <div className="flex shrink-0 items-center gap-1">
                                     <button
                                         type="button"
-                                        onClick={confirmRename}
-                                        className="w-full min-h-[44px] bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/30 touch-manipulation"
+                                        onClick={() => handleDeleteDocument(previewDocId)}
+                                        className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-rose-500/25 px-2.5 py-1.5 text-[11px] font-bold text-rose-200 hover:bg-rose-950/40 touch-manipulation"
+                                        title="حذف المستند"
                                     >
-                                        حفظ
+                                        <Trash2 size={14} />
+                                        حذف
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPreviewDocId(null)}
+                                        className={EXEC_MODAL_CLOSE_BTN_CLASS}
+                                        aria-label="إغلاق المعاينة"
+                                    >
+                                        <X size={22} />
                                     </button>
                                 </div>
-                            </motion.div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
-                <AnimatePresence>
-                    {previewDocId ? (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-[120] bg-black/90 flex items-center justify-center p-4"
-                            onClick={() => setPreviewDocId(null)}
-                        >
-                            <motion.div
-                                initial={{ scale: 0.98, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                exit={{ scale: 0.98, opacity: 0 }}
-                                className="bg-[#0B1120] border-2 border-cyan-500/40 rounded-3xl w-[95%] max-w-5xl h-[85vh] max-h-[90vh] overflow-hidden flex flex-col"
-                                data-testid="document-vault-preview"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <div className="border-b border-cyan-500/30 p-4 flex justify-between items-center gap-2">
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            type="button"
-                                            onClick={() => setPreviewDocId(null)}
-                                            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all hover:bg-cyan-500/20 touch-manipulation"
-                                            aria-label="إغلاق المعاينة"
-                                        >
-                                            <X size={20} className="text-white" />
-                                        </button>
-                                        {previewDocId ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDeleteDocument(previewDocId)}
-                                                className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-950/30 px-2.5 py-1.5 text-[11px] font-bold text-rose-200 hover:bg-rose-950/50 touch-manipulation"
-                                                title="حذف المستند"
+                            </div>
+                            <div className="min-h-0 flex-1 overflow-hidden p-3">
+                                {previewDocument?.dataUrl ? (
+                                    previewDocument.type === 'pdf' ? (
+                                        <div className="h-full w-full rounded-xl border border-white/10 bg-[#0A0F1C] p-2">
+                                            <ZoomableContainer
+                                                key={previewDocument.id}
+                                                wheelZoom="modifier"
+                                                nativeVerticalScroll
+                                                showControls
                                             >
-                                                <Trash2 size={14} />
-                                                حذف
-                                            </button>
-                                        ) : null}
-                                    </div>
-                                    <h3 className="min-w-0 truncate text-cyan-400 font-bold text-sm">
-                                        {previewDocument?.name || 'معاينة'}
-                                    </h3>
-                                </div>
-                                <div className="flex-1 overflow-hidden p-3">
-                                    {(() => {
-                                        const d = previewDocument;
-                                        if (!d || !d.dataUrl) return null;
-                                        if (d.type === 'pdf') {
-                                            return (
-                                                <div className="w-full h-full rounded-2xl border border-white/10 bg-[#16111B] p-2">
-                                                    {/* التقريب بقرصة اللمس أو Ctrl+عجلة — العجلة العادية تبقى لتمرير الصفحات */}
-                                                    <ZoomableContainer
-                                                        key={d.id}
-                                                        wheelZoom="modifier"
-                                                        nativeVerticalScroll
-                                                        showControls
-                                                    >
-                                                        <VaultPdfViewerSurfaceLazy
-                                                            source={previewObject?.blob ?? d.dataUrl}
-                                                            title={d.name}
-                                                            openUrl={previewObject?.url}
-                                                            fallbackClassName="flex h-full items-center justify-center text-sm text-white/45"
-                                                        />
-                                                    </ZoomableContainer>
-                                                </div>
-                                            );
-                                        }
-                                        return (
-                                            <ZoomableContainer key={d.id} wheelZoom="plain">
-                                                <img
-                                                    src={previewObject?.url ?? d.dataUrl}
-                                                    alt={d.name}
-                                                    draggable={false}
-                                                    className="w-full h-full min-h-0 select-none object-contain rounded-2xl border border-white/10 bg-black"
+                                                <VaultPdfJsViewerLazy
+                                                    source={previewObject?.blob ?? previewDocument.dataUrl}
+                                                    title={previewDocument.name}
+                                                    openUrl={previewObject?.url}
+                                                    fallbackClassName="flex h-full items-center justify-center text-sm text-white/45"
                                                 />
                                             </ZoomableContainer>
-                                        );
-                                    })()}
-                                </div>
-                            </motion.div>
-                        </motion.div>
-                    ) : null}
-                </AnimatePresence>
+                                        </div>
+                                    ) : (
+                                        <ZoomableContainer key={previewDocument.id} wheelZoom="plain">
+                                            <img
+                                                src={previewObject?.url ?? previewDocument.dataUrl}
+                                                alt={previewDocument.name}
+                                                draggable={false}
+                                                className="h-full min-h-0 w-full select-none rounded-xl border border-white/10 bg-black object-contain"
+                                            />
+                                        </ZoomableContainer>
+                                    )
+                                ) : null}
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
 
-            </motion.div>
+            </div>
         </div>
     );
 };

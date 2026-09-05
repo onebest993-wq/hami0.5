@@ -115,6 +115,37 @@ describe('LawyerDashboard utils', () => {
         expect(990_001 === ('990001' as unknown as number)).toBe(false);
     });
 
+    it('coerceExecutionFilePreserveId prefers creditors[] name over stale parties', () => {
+        const normalized = coerceExecutionFilePreserveId({
+            id: 'exec-creditor-rename',
+            type: 'execution',
+            status: 'active',
+            creditors: [{ id: 'c-1', type: 'creditor', name: 'دائن جديد', phone: '', address: '' }],
+            debtors: [
+                {
+                    id: 'd-1',
+                    type: 'debtor',
+                    name: 'مدين',
+                    phone: '',
+                    address: '',
+                    notificationDate: null,
+                },
+            ],
+            parties: [
+                { id: 'c-1', name: 'دائن قديم', role: 'الدائن' },
+                { id: 'd-1', name: 'مدين', role: 'المدين' },
+            ],
+            clientName: 'دائن جديد',
+        });
+        expect(normalized.creditors?.[0]?.name).toBe('دائن جديد');
+        expect(normalized.clientName).toBe('دائن جديد');
+        expect(
+            (normalized.parties as Array<{ name?: string; role?: string }> | undefined)?.find(
+                (p) => p.role === 'الدائن',
+            )?.name,
+        ).toBe('دائن جديد');
+    });
+
     it('coerceExecutionFilePreserveId keeps debtor employment from debtors[] over creditor/debtor singletons', () => {
         const normalized = coerceExecutionFilePreserveId({
             id: 'exec-1',

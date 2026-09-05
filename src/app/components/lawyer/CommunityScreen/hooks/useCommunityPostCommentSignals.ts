@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { ForumApiService } from '@/app/services/forumApiService';
-import { NotificationDB } from '@/app/services/notifications/notificationForumStorage';
 import { checkForumRateLimit, peekForumRateLimit } from '../forumRateLimit';
 import { getCommentAuthorId, getPostAuthorId } from '../communityPermissions';
 import type { UseCommunityPostActionsParams } from './useCommunityPostActions.types';
@@ -56,16 +55,20 @@ export function useCommunityPostCommentSignals({
                 const bestComment = post.comments.find((c) => c.id === commentId);
                 const commentAuthorId = bestComment ? getCommentAuthorId(bestComment) : '';
                 if (!bestComment || !commentAuthorId || commentAuthorId === currentUserId) return;
-                void NotificationDB.addNotification({
-                    id: crypto.randomUUID(),
-                    userId: commentAuthorId,
-                    type: 'best_answer',
-                    title: 'تم تمييز إجابتك كأفضل إجابة',
-                    message: `اختار ${post.authorName} إجابتك كأفضل إجابة على منشور "${post.content.slice(0, 50)}..."`,
-                    postId,
-                    read: false,
-                    createdAt: new Date().toISOString(),
-                }).catch(() => undefined);
+                void import('@/app/services/notifications/notificationForumStorage')
+                    .then((m) =>
+                        m.NotificationDB.addNotification({
+                            id: crypto.randomUUID(),
+                            userId: commentAuthorId,
+                            type: 'best_answer',
+                            title: 'تم تمييز إجابتك كأفضل إجابة',
+                            message: `اختار ${post.authorName} إجابتك كأفضل إجابة على منشور "${post.content.slice(0, 50)}..."`,
+                            postId,
+                            read: false,
+                            createdAt: new Date().toISOString(),
+                        }),
+                    )
+                    .catch(() => undefined);
             });
         },
         [currentUserId, findPostById, runInflight, updatePostList],

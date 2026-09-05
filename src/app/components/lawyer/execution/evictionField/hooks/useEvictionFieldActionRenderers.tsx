@@ -7,6 +7,7 @@ import {
 } from '@/app/utils/executorSeizureDecisionQueue';
 import { isExecutorRequestAppealCycleSupersededFromRecord } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
 import { ExecutionInlineExecutorDecisionActions } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
+import { SeizureExecutorDecisionShortcut } from '@/app/components/lawyer/ExecutionDashboard/components/SeizureExecutorDecisionShortcut';
 import {
     ExecutorRequestFollowupBlockPanel,
     WaiveInitialAppealButton,
@@ -16,7 +17,7 @@ import type { EvictionAppealSyncView } from '@/app/utils/evictionAppealSync';
 
 export function useEvictionFieldActionRenderers(input: {
     resolvePanelExecutionId: () => string;
-    openAppeals: (decisionId: string) => void;
+    openAppeals: (decisionId: string, decisionRow?: Record<string, unknown> | null) => void;
     handleWaiveCassationFromPanel: (decisionId: string) => void;
     syncForBranch: (branch: string) => EvictionAppealSyncView;
     decisions: unknown;
@@ -39,7 +40,7 @@ export function useEvictionFieldActionRenderers(input: {
         setInlineExpandedByBranch,
     } = input;
 
-const renderBranchExecutorActionsStrip = React.useCallback(
+    const renderBranchExecutorActionsStrip = React.useCallback(
         (
             branch: string,
             row: Record<string, unknown>,
@@ -51,9 +52,33 @@ const renderBranchExecutorActionsStrip = React.useCallback(
             const execId = resolvePanelExecutionId();
             if (!execId) return null;
             const rejected = isExecutorRowRejectedAndFinal(row);
+            const pending =
+                !rejected &&
+                (String(row.executorOutcome ?? 'pending').trim() === 'pending' ||
+                    String(row.executorOutcome ?? '').trim() === '');
             const disabled = options?.disabled ?? rejected;
             const onOpenAppealCenter =
-                options?.onOpenAppealCenter ?? (rejected ? () => openAppeals(decisionId) : undefined);
+                options?.onOpenAppealCenter ?? (rejected ? () => openAppeals(decisionId, row) : undefined);
+
+            if (pending && !disabled) {
+                return (
+                    <div className="border-t border-white/10 px-3 py-3">
+                        <div
+                            className="flex flex-row-reverse items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-2.5"
+                            data-testid="eviction-field-pending-executor-decision"
+                        >
+                            <SeizureExecutorDecisionShortcut
+                                decision={row}
+                                onOpen={(id) => openAppeals(String(id || decisionId), row)}
+                                label="قرار المنفذ"
+                            />
+                            <p className="min-w-0 flex-1 text-right text-[10px] font-bold text-slate-300">
+                                {heading}
+                            </p>
+                        </div>
+                    </div>
+                );
+            }
 
             return (
                 <div className="border-t border-white/10 px-3 py-3">
@@ -109,7 +134,7 @@ const renderBranchExecutorActionsStrip = React.useCallback(
             if (!row?.id || !isEvictionProcedureRowPending(row) || !isEvictionProcedureRowActive(row, list)) {
                 return null;
             }
-            return renderBranchExecutorActionsStrip(branch, row, 'قرار المنفذ — قيد البت');
+            return renderBranchExecutorActionsStrip(branch, row, 'قيد البت');
         },
         [decisions, renderBranchExecutorActionsStrip]
     );
@@ -135,7 +160,7 @@ const renderBranchExecutorActionsStrip = React.useCallback(
                             requestKind="eviction_procedure"
                             disabled
                             suppressNavigatorToast
-                            onOpenAppealCenter={() => openAppeals(decisionId)}
+                            onOpenAppealCenter={() => openAppeals(decisionId, row)}
                         />
                         <WaiveInitialAppealButton
                             executionId={execId}

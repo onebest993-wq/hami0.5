@@ -12,7 +12,7 @@ vi.mock('../ExecutionDashboardPhoneBodySecondarySections', () => ({
     }) => (
         <>
             <button type="button" onClick={props.safeOpenAppointmentModal}>
-                إضافة موعد
+                الموعد
             </button>
             <button type="button" onClick={props.directOpenNotesModal}>
                 ملاحظات
@@ -74,7 +74,7 @@ const { patchLazyRegistry } = vi.hoisted(() => {
             }) => (
                 <>
                     <button type="button" onClick={props.onOpenAppointmentModal}>
-                        إضافة موعد
+                        الموعد
                     </button>
                     <button type="button" onClick={props.onOpenNotesModal}>
                         ملاحظات
@@ -123,13 +123,11 @@ const { patchLazyRegistry } = vi.hoisted(() => {
             LazyExecutorWorkflowConfirmModal: NullComponent,
             LazyPoliceAssistanceDetailsModal: NullComponent,
             LazyPartyDeathReportModal: NullComponent,
-            LazyRealEstateSeizurePostApprovalModal: NullComponent,
             LazyGuarantorDetailsPostApprovalModal: NullComponent,
             prefetchExecutionNotesAndAppointmentModals: vi.fn(),
             prefetchExecutionDocumentVault: vi.fn(),
             prefetchExecutionDecisionsModalContainer: vi.fn(),
             prefetchExecutionFinancialHubPortal: vi.fn(),
-            prefetchUnifiedSeizureLogHost: vi.fn(),
         };
     };
     return { patchLazyRegistry };
@@ -163,7 +161,7 @@ describe('ExecutionDashboardPhoneBody stale handler recovery', () => {
             </ExecutionPhoneBodyScopeProvider>,
         );
 
-        fireEvent.click(screen.getByRole('button', { name: 'إضافة موعد' }));
+        fireEvent.click(screen.getByRole('button', { name: 'الموعد' }));
 
         expect(useExecutionDashboardStore.getState().modals.showAppointmentModal).toBe(true);
         useExecutionDashboardStore.getState().closeAllModals();

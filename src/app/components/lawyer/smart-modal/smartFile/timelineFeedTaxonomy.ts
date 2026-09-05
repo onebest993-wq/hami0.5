@@ -9,7 +9,9 @@ import {
     isLegalDeadlineTimelineEvent,
     isPleadingHearingAppointment,
     resolveLegalDeadlineDateLabel,
+    shouldHideDeadlineTeachingEvent,
 } from './timelineLegalDeadline';
+import { stripDeadlineTeachingLines } from './appealWindowLapseEngine';
 
 export type TimelineFeedCategory =
     | 'all'
@@ -211,6 +213,10 @@ export function formatTimelineCardTitle(event: TimelineEvent): string {
         title = title.replace(/^طلب\s*[:：]?\s*/i, '').replace(STATUS_TAIL_RE, '').trim();
     }
 
+    if (/^فتح إضبارة\s*التمييز/.test(title) || title === 'فتح إضبارة التمييز') {
+        title = 'تاريخ تمييز القرار';
+    }
+
     return title || '—';
 }
 
@@ -227,7 +233,28 @@ export function formatTimelineCardBody(event: TimelineEvent): string {
             .trim();
     }
 
-    return refineCivilTimelineBody(event, body);
+    return stripDeadlineTeachingLines(refineCivilTimelineBody(event, body));
+}
+
+export function isCompactTimelineCardBody(body: string): boolean {
+    const t = body.trim();
+    if (!t) return true;
+    const lines = t.split('\n').filter(Boolean);
+    return t.length <= 88 && lines.length <= 1;
+}
+
+export function formatTimelineInlineMeta(event: TimelineEvent, body: string): string {
+    const appointmentLine = formatAppointmentDetailsLine(event);
+    if (appointmentLine) return appointmentLine;
+    const compact = body.trim();
+    if (!compact) return '';
+    const oneLine = compact.replace(/\s*\n+\s*/g, ' · ');
+    if (oneLine.length <= 64) return oneLine;
+    return `${oneLine.slice(0, 61)}…`;
+}
+
+export function visibleCivilTimelineEvents(events: TimelineEvent[]): TimelineEvent[] {
+    return events.filter((event) => !shouldHideDeadlineTeachingEvent(event));
 }
 
 function timelineEventSearchBlob(event: TimelineEvent): string {

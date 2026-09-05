@@ -1,9 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import {
-    getSaturdayOfWeekContaining,
     isDateInWorkWeek,
     isDeferredSnoozedTask,
-    isWeeklyPastDayCompact,
     finalizePastWeekTasks,
     promoteDueSnoozedTasks,
     partitionAgendaPendingTasks,
@@ -12,6 +10,7 @@ import {
     isTaskArchivedToHistory,
 } from '@/app/components/lawyer/dashboard/tasksManager/utils';
 import { WORK_WEEK, WORK_WEEK_LAST_OFFSET } from '@/app/components/lawyer/dashboard/tasksManager/constants';
+import { getSaturdayOfWeekContaining } from '@/app/services/tasks/taskAgendaStatusLite';
 import { legalTaskStub } from '@/app/services/tasks/__tests__/legalTaskStub';
 import { addDays, startOfLocalDay } from '@/app/utils/nlpParser';
 import {
@@ -52,18 +51,6 @@ describe('tasksManager/utils — work week', () => {
         const weekStart = getSaturdayOfWeekContaining(ref);
         const before = addDays(weekStart, -1);
         expect(isDateInWorkWeek(before, weekStart)).toBe(false);
-    });
-});
-
-describe('weekly agenda visibility', () => {
-    const now = localDate(2026, 7, 1);
-
-    it('يختزل اليوم المنتهي إن وُجدت مهام، ولا يختزل المستقبل الفارغ', () => {
-        const past = addDays(now, -1);
-        expect(isWeeklyPastDayCompact(past, 2, now)).toBe(true);
-        expect(isWeeklyPastDayCompact(past, 0, now)).toBe(false);
-        const future = addDays(now, 1);
-        expect(isWeeklyPastDayCompact(future, 0, now)).toBe(false);
     });
 });
 

@@ -119,16 +119,6 @@ vi.mock('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegist
             close payment calculator
         </button>
     ),
-    LazyRealEstateSeizurePostApprovalModal: (props: Record<string, unknown>) => (
-        <button
-            type="button"
-            onClick={() =>
-                (props.onOpenChange as ((open: boolean) => void) | undefined)?.(false)
-            }
-        >
-            close real estate seizure
-        </button>
-    ),
     LazySettlementCalculator: (props: Record<string, unknown>) => (
         <button type="button" onClick={props.onClose as (() => void) | undefined}>
             close settlement calculator
@@ -245,7 +235,6 @@ describe('ExecutionDashboardHeavyModals', () => {
 
     it('uses explicit close callbacks for heavy modal close flows', () => {
         const onCloseDocumentsModal = vi.fn();
-        const onCloseRealEstateSeizureModal = vi.fn();
         const onCloseDecisionsModal = vi.fn();
         const onCloseTimelineModal = vi.fn();
         const onCloseSeizedAssetsModal = vi.fn();
@@ -268,7 +257,6 @@ describe('ExecutionDashboardHeavyModals', () => {
             <ExecutionDashboardHeavyModals
                 {...createBaseProps({
                     showDocumentsModal: true,
-                    showRealEstateSeizureModal: true,
                     showDecisionsModal: true,
                     showTimelineModal: true,
                     showSeizedAssetsModal: true,
@@ -288,7 +276,6 @@ describe('ExecutionDashboardHeavyModals', () => {
                     showLinkedDossierTimeline: true,
                     linkedDossierToView: { id: 'ld-1' },
                     onCloseDocumentsModal,
-                    onCloseRealEstateSeizureModal,
                     onCloseDecisionsModal,
                     onCloseTimelineModal,
                     onCloseSeizedAssetsModal,
@@ -311,7 +298,6 @@ describe('ExecutionDashboardHeavyModals', () => {
         );
 
         fireEvent.click(screen.getByRole('button', { name: 'close documents' }));
-        fireEvent.click(screen.getByRole('button', { name: 'close real estate seizure' }));
         fireEvent.click(screen.getByRole('button', { name: 'close decisions' }));
         fireEvent.click(screen.getByRole('button', { name: 'close timeline' }));
         fireEvent.click(screen.getByRole('button', { name: 'close seized assets' }));
@@ -331,7 +317,6 @@ describe('ExecutionDashboardHeavyModals', () => {
         fireEvent.click(screen.getByRole('button', { name: 'close linked dossier timeline' }));
 
         expect(onCloseDocumentsModal).toHaveBeenCalledTimes(1);
-        expect(onCloseRealEstateSeizureModal).toHaveBeenCalledTimes(1);
         expect(onCloseDecisionsModal).toHaveBeenCalledTimes(1);
         expect(onCloseTimelineModal).toHaveBeenCalledTimes(1);
         expect(onCloseSeizedAssetsModal).toHaveBeenCalledTimes(1);

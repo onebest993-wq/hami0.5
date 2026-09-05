@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { releaseBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
+import { closeTransactionsLiteMenuIfOpen } from '../transactionsLiteMenuOpen';
 import {
     applyTransactionsEscapeAction,
     resolveTransactionsEscapeAction,
@@ -33,6 +34,7 @@ export function useTransactionsEscapeStack(params: UseTransactionsEscapeStackPar
         if (!enabled) return;
 
         const consumeBackStack = (): boolean => {
+            if (closeTransactionsLiteMenuIfOpen()) return true;
             const action = resolveTransactionsEscapeAction({ view, listAddSheetOpen, details });
             applyTransactionsEscapeAction(action, {
                 onBack: () => {

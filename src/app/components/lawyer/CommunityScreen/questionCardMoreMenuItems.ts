@@ -10,6 +10,7 @@ import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import { Unlock } from '@/app/components/ui/icons/Unlock';
 import { VolumeX } from '@/app/components/ui/icons/VolumeX';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
+import { canFollowThread, canMutePostAuthor, getPostAuthorId } from './communityPermissions';
 
 export type QuestionCardMoreMenuItem = {
     id: string;
@@ -25,7 +26,6 @@ type BuildQuestionCardMoreMenuItemsArgs = {
     currentUserId: string | null;
     isOwner: boolean;
     isAdmin: boolean;
-    isAnonymous: boolean;
     isPinned: boolean;
     isLocked: boolean;
     isThreadFollowing: boolean;
@@ -47,7 +47,6 @@ export function buildQuestionCardMoreMenuItems({
     currentUserId,
     isOwner,
     isAdmin,
-    isAnonymous,
     isPinned,
     isLocked,
     isThreadFollowing,
@@ -66,7 +65,7 @@ export function buildQuestionCardMoreMenuItems({
     items: QuestionCardMoreMenuItem[];
     destructiveItems: QuestionCardMoreMenuItem[];
 } {
-    const authorId = post.authorId || post.author_id || '';
+    const authorId = getPostAuthorId(post);
     const items: QuestionCardMoreMenuItem[] = [];
 
     if (onCopyPostText) {
@@ -85,7 +84,7 @@ export function buildQuestionCardMoreMenuItems({
             onClick: () => onSaveToVault!(post.id),
         });
     }
-    if (onToggleThreadFollow && currentUserId) {
+    if (onToggleThreadFollow && canFollowThread(post, currentUserId)) {
         items.push({
             id: 'thread-follow',
             label: isThreadFollowing ? 'إيقاف تنبيهات النقاش' : 'تنبيهات النقاش',
@@ -120,7 +119,7 @@ export function buildQuestionCardMoreMenuItems({
             active: isPinned,
         });
     }
-    if (!isOwner && !isAnonymous && onMuteUser) {
+    if (onMuteUser && canMutePostAuthor(post, currentUserId)) {
         items.push({
             id: 'mute',
             label: 'كتم هذا المحامي',

@@ -96,5 +96,12 @@ describe('transactions mobile close honesty', () => {
         expect(docs).toContain('detailsActive');
         const screen = readTx('TransactionDetailsScreen.tsx');
         expect(screen).toContain('onDocumentsEscapeSnapshotChange={vm.onDocumentsEscapeSnapshotChange}');
+        expect(screen).toContain('TxLazyIsland');
+        const escapeHook = readTx('hooks/useTransactionsEscapeStack.ts');
+        expect(escapeHook).toContain('closeTransactionsLiteMenuIfOpen');
+        const lite = readTx('transactionsLiteMenuOpen.ts');
+        expect(lite).toContain('data-hami-tx-lite-menu');
+        expect(readTx('DocumentsTabView.tsx')).toContain('addDocumentSheetOpen: false');
+        expect(readTx('taskThread/useTaskThreadController.ts')).toContain('taskEditOpen: false');
     });
 });

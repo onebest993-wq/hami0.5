@@ -11,8 +11,8 @@ export interface AmountGuarantorVisibilityInput {
 }
 
 /**
- * يتحكم بظهور «كفيل ضامن للمبلغ»:
- * لا يظهر إلا بعد إخلال تسوية (تسجيل تسوية ثم عدم السداد وإلغاؤها) مع وعاء مالي.
+ * يتحكم بظهور شارة الكفيل المرتبطة بالتسوية:
+ * تظهر عند وجود تسوية نشطة أو بعد إخلال تسوية، مع وعاء مالي متبقٍ.
  */
 export function resolveAmountGuarantorRequestVisible(input: AmountGuarantorVisibilityInput): boolean {
     if (input.hideAllGuarantorPresence) return false;
@@ -20,12 +20,10 @@ export function resolveAmountGuarantorRequestVisible(input: AmountGuarantorVisib
     const balance = Math.max(0, Math.round(Number(input.financialCenterTotalIqd) || 0));
     if (balance <= 0) return false;
 
+    if (input.pendingSettlement) return true;
+
     const breachAt = String(input.settlementBreachTriggeredAt || '').trim();
-    if (!breachAt) return false;
-
-    if (input.pendingSettlement) return false;
-
-    return true;
+    return Boolean(breachAt);
 }
 
 /** إلغاء التسوية بعد «لم يتم التسديد» — يُفعّل مسار الكفيل */

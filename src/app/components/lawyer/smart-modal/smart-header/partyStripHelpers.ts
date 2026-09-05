@@ -28,6 +28,4 @@ export interface PartySidePaneProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     parties: any[];
     keyPrefix: string;
-    openPartyKey: string | null;
-    onToggleParty: (key: string) => void;
 }

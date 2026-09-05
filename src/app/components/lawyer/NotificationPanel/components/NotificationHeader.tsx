@@ -7,6 +7,7 @@ import { inertProps } from '@/app/utils/inertProps';
 interface NotificationHeaderProps {
     panelRoute?: NotificationPanelRoute;
     unreadCount: number;
+    inboxUnreadCount?: number;
     showHeaderBusy?: boolean;
     isMarkingAllRead: boolean;
     onMarkAllRead: () => void;
@@ -22,6 +23,7 @@ interface NotificationHeaderProps {
 export function NotificationHeader({
     panelRoute = 'inbox',
     unreadCount,
+    inboxUnreadCount,
     showHeaderBusy = false,
     isMarkingAllRead,
     onMarkAllRead,
@@ -44,6 +46,7 @@ export function NotificationHeader({
             >
                 <NotificationHeaderInbox
                     unreadCount={unreadCount}
+                    inboxUnreadCount={inboxUnreadCount}
                     showHeaderBusy={showHeaderBusy}
                     isMarkingAllRead={isMarkingAllRead}
                     onMarkAllRead={onMarkAllRead}

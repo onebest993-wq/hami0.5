@@ -36,8 +36,6 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
         onClose: body.onClose,
         showExecutionTrashModal: body.showExecutionTrashModal,
         setShowExecutionTrashModal: body.setShowExecutionTrashModal,
-        showUnifiedSeizureLogModal: body.showUnifiedSeizureLogModal,
-        closeUnifiedSeizureLog: body.closeUnifiedSeizureLog,
         propertySeizureRequestModalOpen: body.propertySeizureRequestModalOpen,
         setPropertySeizureRequestModalOpen: body.setPropertySeizureRequestModalOpen,
         movableSeizureRequestModalOpen: body.movableSeizureRequestModalOpen,
@@ -126,7 +124,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
             />
 
             <div
-                className="flex-1 min-h-0 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700/50 scrollbar-track-transparent overscroll-contain"
+                className="flex-1 min-h-0 overflow-y-auto overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                 dir="rtl"
             >
                 <ExecutionDashboardPhoneBodyPrimarySections
@@ -181,9 +179,6 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                     <ExecutionDashboardPhoneBodyTertiaryPanels
                         scope={deferredScope}
                         tertiaryStageReady={body.tertiaryStageReady}
-                        propertyInlineSaveCtx={body.propertyInlineSaveCtx}
-                        movableInlineSaveCtx={body.movableInlineSaveCtx}
-                        saveSeizedMovableInitForDecision={body.saveSeizedMovableInitForDecision}
                         closeFinancialHubPortal={body.closeFinancialHubPortal}
                         toggleFinancialCenterExpanded={body.toggleFinancialCenterExpanded}
                         openGuarantorFollowupDetails={body.openGuarantorFollowupDetails}

@@ -23,7 +23,7 @@ describe('guarantorExternalUtils', () => {
             },
         } as ExecutionFile;
         expect(hasActiveFinancialGuarantorFollowup(file)).toBe(true);
-        expect(shouldShowGuarantorExternalHub(file)).toBe(true);
+        expect(shouldShowGuarantorExternalHub(file)).toBe(false);
         expect(isGuarantorSummonsEligible(file)).toBe(true);
     });
 

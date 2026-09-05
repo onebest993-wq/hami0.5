@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { TimelineEvent } from '@/app/types/execution';
-import { parseTimelineDeadlineDate } from '@/app/utils/timelineSmartDisplay';
+import { timelineOccurrenceSortMs } from '@/app/utils/timelineSmartDisplay';
 import {
     filterTimelineEventsForInabaDossier,
     filterTimelineEventsForParentDossier,
@@ -26,11 +26,7 @@ export function useMergedTimelineEvents(
     const mergedTimelineEvents = useMemo(() => {
         const events = Array.isArray(activeTimelineEvents) ? activeTimelineEvents : [];
         const files = Array.isArray(subFiles) ? subFiles : [];
-        const sortKeyMs = (e: TimelineSortable): number => {
-            const raw = e?.timestamp || e?.date || e?.createdAt;
-            const d = parseTimelineDeadlineDate(raw ? String(raw) : undefined);
-            return d ? d.getTime() : 0;
-        };
+        const sortKeyMs = (e: TimelineSortable): number => timelineOccurrenceSortMs(e);
         const parentId = String(parentDossierId || '').trim();
         const hasSubFiles = files.length > 0;
 

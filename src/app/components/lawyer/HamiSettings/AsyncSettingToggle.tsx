@@ -12,7 +12,7 @@ import { SettingsToggleTrack } from './settings-ui/SettingsToggleTrack';
 /** احتياط — يمنع تعليق المفتاح إذا علّق onCommit (بيومتري/حوار) */
 const ASYNC_TOGGLE_SAFETY_MS = 120_000;
 
-export type AsyncSettingToggleProps = {
+type AsyncSettingToggleProps = {
     checked: boolean;
     /** يُنفَّذ الإجراء الكامل (حوار/بصمة) — false = رفض/إلغاء */
     onCommit: (next: boolean) => Promise<boolean | void>;

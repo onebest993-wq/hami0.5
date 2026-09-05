@@ -1,11 +1,8 @@
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
-import { resolveDecisionsStorageExecutionId } from '@/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
-import {
-    runSaveSeizedMovableInitForDecision,
-    runSaveSeizedPropertyInitForDecision,
-    type SaveSeizedMovableInitInput,
-    type SaveSeizedPropertyInitInput,
+import type {
+    SaveSeizedMovableInitInput,
+    SaveSeizedPropertyInitInput,
 } from './executionDashboardFollowupSeizureInits';
 import {
     runSubmitMovableSeizureRequest,
@@ -27,11 +24,20 @@ export type UseExecutionDashboardFollowupSeizureHandlersParams = {
     setMovableSeizureSubjectDraft: Dispatch<SetStateAction<string>>;
 };
 
+export function adaptFollowupSeizureShowToast(
+    showToast: (
+        message: string,
+        type?: 'success' | 'error' | 'warning' | 'info',
+        opts?: unknown,
+    ) => void,
+): UseExecutionDashboardFollowupSeizureHandlersParams['showToast'] {
+    return (message, type, opts) =>
+        showToast(message, type as 'success' | 'error' | 'warning' | 'info' | undefined, opts);
+}
+
 export function useExecutionDashboardFollowupSeizureHandlers({
     decisionsStorageExecutionId,
-    executionDataRef,
     nextTimelineId,
-    persistExecutionMerge,
     pushTimelineEvent,
     showToast,
     propertySeizureSubjectDraft,
@@ -41,37 +47,6 @@ export function useExecutionDashboardFollowupSeizureHandlers({
     setMovableSeizureRequestModalOpen,
     setMovableSeizureSubjectDraft,
 }: UseExecutionDashboardFollowupSeizureHandlersParams) {
-    const seizureInitDeps = useCallback(
-        () => {
-            const data = executionDataRef.current as ExecutionFile | null | undefined;
-            const raw = String(decisionsStorageExecutionId ?? '').trim();
-            const resolved = resolveDecisionsStorageExecutionId(
-                raw || undefined,
-                data as Record<string, unknown> | undefined,
-            );
-            const exId =
-                resolved !== 'default'
-                    ? resolved
-                    : String(raw || data?.id || '').trim();
-            return {
-                exId,
-                executionDataRef,
-                nextTimelineId,
-                persistExecutionMerge,
-                pushTimelineEvent,
-                showToast,
-            };
-        },
-        [
-            decisionsStorageExecutionId,
-            executionDataRef,
-            nextTimelineId,
-            persistExecutionMerge,
-            pushTimelineEvent,
-            showToast,
-        ],
-    );
-
     const submitDeps = useCallback(
         () => ({
             exId: String(decisionsStorageExecutionId ?? '').trim(),
@@ -118,19 +93,13 @@ export function useExecutionDashboardFollowupSeizureHandlers({
         submitDeps,
     ]);
 
-    const saveSeizedPropertyInitForDecision = useCallback(
-        (input: SaveSeizedPropertyInitInput) => {
-            runSaveSeizedPropertyInitForDecision(input, seizureInitDeps());
-        },
-        [seizureInitDeps],
-    );
+    const saveSeizedPropertyInitForDecision = useCallback((_input: SaveSeizedPropertyInitInput) => {
+        /* post-approve init retired */
+    }, []);
 
-    const saveSeizedMovableInitForDecision = useCallback(
-        (input: SaveSeizedMovableInitInput) => {
-            runSaveSeizedMovableInitForDecision(input, seizureInitDeps());
-        },
-        [seizureInitDeps],
-    );
+    const saveSeizedMovableInitForDecision = useCallback((_input: SaveSeizedMovableInitInput) => {
+        /* post-approve init retired */
+    }, []);
 
     return {
         submitPropertySeizureRequest,

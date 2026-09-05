@@ -3,6 +3,7 @@ import {
     isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
     readExecutorDecisionsArray,
+    resolveExecutorDecisionRowContext,
 } from '@/app/utils/executorSeizureDecisionQueue';
 import {
     hubWithInferredAppealOrigin,
@@ -81,15 +82,30 @@ export const ExecutorDecisionFollowupMirrorReady: React.FC<ExecutorDecisionFollo
             decisionId?: string;
         }) => {
             if (!result.ok || !result.outcome) return;
+            const storageId = String(result.storageExecutionId || exId).trim();
+            const did = String(result.decisionId || decisionId).trim();
+            let fromStore: Record<string, unknown> | null = null;
+            if (storageId && did) {
+                try {
+                    fromStore = resolveExecutorDecisionRowContext(storageId, did)?.row ?? null;
+                } catch {
+                    fromStore = null;
+                }
+            }
+            // بعد موافقة طلبات التحكم تُطبَّق الآثار فوراً (specialFollowupAppliedAt) —
+            // بدون إعادة قراءة يبدو أن شيئاً لم يحدث («بانتظار تطبيق الآثار»).
             setLiveRow((prev) => ({
                 ...prev,
+                ...(fromStore || {}),
                 executorOutcome: result.outcome,
-                resolvedAt: new Date().toISOString(),
+                resolvedAt:
+                    String((fromStore as { resolvedAt?: string } | null)?.resolvedAt || '').trim() ||
+                    new Date().toISOString(),
                 status: result.outcome === 'rejected' ? 'rejected' : 'accepted',
             }));
             onOutcomeApplied?.();
         },
-        [onOutcomeApplied],
+        [decisionId, exId, onOutcomeApplied],
     );
 
     const openDecisions = useCallback(

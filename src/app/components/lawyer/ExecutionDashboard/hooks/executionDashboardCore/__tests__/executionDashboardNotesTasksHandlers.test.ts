@@ -62,7 +62,6 @@ describe('useExecutionDashboardNotesTasksHandlers', () => {
                 setTimelineEvents,
                 setShowNotesModal: vi.fn(),
                 openFollowupModalPersisted: vi.fn(),
-                closeUnifiedSeizureLog: vi.fn(),
             }),
         );
 
@@ -123,7 +122,6 @@ describe('useExecutionDashboardNotesTasksHandlers', () => {
                 setTimelineEvents: vi.fn(),
                 setShowNotesModal: vi.fn(),
                 openFollowupModalPersisted: vi.fn(),
-                closeUnifiedSeizureLog: vi.fn(),
             }),
         );
 

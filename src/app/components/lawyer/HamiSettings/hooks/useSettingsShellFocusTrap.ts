@@ -10,6 +10,40 @@ import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
 const FOCUSABLE_SELECTOR =
     'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+const NESTED_SHEET_PANEL_SELECTOR = '[data-testid="hami-settings-sheet-panel"]';
+
+function isSettingsNestedSheetTarget(target: EventTarget | null): boolean {
+    return target instanceof Element && Boolean(target.closest(NESTED_SHEET_PANEL_SELECTOR));
+}
+
+function listFocusables(root: HTMLElement): HTMLElement[] {
+    return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((el) => {
+        if (el.closest('[hidden]')) return false;
+        if (el.offsetParent !== null) return true;
+        /* position:fixed (ورقة متداخلة) — offsetParent غالباً null */
+        return el.getClientRects().length > 0;
+    });
+}
+
+function cycleTabWithin(root: HTMLElement, event: { shiftKey: boolean; preventDefault: () => void }): void {
+    const focusables = listFocusables(root);
+    if (focusables.length === 0) return;
+    const first = focusables[0]!;
+    const last = focusables[focusables.length - 1]!;
+    const active = document.activeElement as HTMLElement | null;
+    if (event.shiftKey) {
+        if (active === first || !root.contains(active)) {
+            event.preventDefault();
+            last.focus();
+        }
+        return;
+    }
+    if (active === last || !root.contains(active)) {
+        event.preventDefault();
+        first.focus();
+    }
+}
+
 function runSettingsEscape(onClose: () => void): void {
     const guards = readSettingsEscapeGuards();
     const action = resolveSettingsEscapeAction({
@@ -83,6 +117,7 @@ export function useSettingsShellFocusTrap(
             if (isSettingsFilePickerGraceActive()) return;
             const target = e.target;
             if (!(target instanceof Node) || root.contains(target)) return;
+            if (isSettingsNestedSheetTarget(target)) return;
             if (
                 isSmartDialogOpen() &&
                 target instanceof Element &&
@@ -92,23 +127,30 @@ export function useSettingsShellFocusTrap(
             }
             if (target instanceof HTMLInputElement && target.type === 'file') return;
             e.stopPropagation();
-            const focusables = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-                (el) => el.offsetParent !== null,
-            );
-            focusables[0]?.focus();
+            listFocusables(root)[0]?.focus();
+        };
+
+        const onDocTab = (e: globalThis.KeyboardEvent) => {
+            if (e.key !== 'Tab') return;
+            const panel = document.activeElement?.closest?.(NESTED_SHEET_PANEL_SELECTOR);
+            if (!(panel instanceof HTMLElement)) return;
+            cycleTabWithin(panel, e);
         };
 
         document.addEventListener('focusin', onFocusIn, true);
+        document.addEventListener('keydown', onDocTab, true);
         const closeBtn = root.querySelector<HTMLElement>('[data-testid="settings-shell-close"]');
         const focusRaf = requestAnimationFrame(() => {
             /* لا تسرق التركيز في التبديل السريع إن كان داخل الصدفة أصلاً */
             if (root.contains(document.activeElement)) return;
+            if (isSettingsNestedSheetTarget(document.activeElement)) return;
             closeBtn?.focus({ preventScroll: true });
         });
 
         return () => {
             cancelAnimationFrame(focusRaf);
             document.removeEventListener('focusin', onFocusIn, true);
+            document.removeEventListener('keydown', onDocTab, true);
             if (previousFocus?.isConnected) {
                 previousFocus.focus({ preventScroll: true });
             }
@@ -118,23 +160,8 @@ export function useSettingsShellFocusTrap(
     const onKeyDownCapture = useCallback(
         (e: KeyboardEvent) => {
             if (e.key !== 'Tab' || !shellRef.current) return;
-            const root = shellRef.current;
-            const focusables = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-                (el) => el.offsetParent !== null,
-            );
-            if (focusables.length === 0) return;
-            const first = focusables[0]!;
-            const last = focusables[focusables.length - 1]!;
-            const active = document.activeElement as HTMLElement | null;
-            if (e.shiftKey) {
-                if (active === first || !root.contains(active)) {
-                    e.preventDefault();
-                    last.focus();
-                }
-            } else if (active === last) {
-                e.preventDefault();
-                first.focus();
-            }
+            if (isSettingsNestedSheetTarget(document.activeElement)) return;
+            cycleTabWithin(shellRef.current, e);
         },
         [shellRef],
     );

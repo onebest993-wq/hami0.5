@@ -97,4 +97,34 @@ describe('useBusinessBackup — export', () => {
         expect(prompt).not.toHaveBeenCalled();
         expect(buildPayload).not.toHaveBeenCalled();
     });
+
+    it('لا يكتب ملف التصدير بعد مغادرة قسم البيانات', async () => {
+        const { runBusinessBackupExport } = await import(
+            '@/app/components/lawyer/HamiSettings/hooks/businessBackupExportFlow'
+        );
+        const sectionActiveRef = { current: true };
+        confirm.mockImplementation(async () => {
+            sectionActiveRef.current = false;
+            return true;
+        });
+
+        await runBusinessBackupExport({
+            buildSelection: () => ({
+                includeLawsuits: true,
+                includeExecution: true,
+                includeNotes: true,
+                includeVault: true,
+                includeUrgent: true,
+                includeUndated: true,
+                from: '2026-01-01',
+                to: '2026-12-31',
+            }),
+            setBackupPreview: vi.fn(),
+            exportInFlightRef: { current: false },
+            sectionActiveRef,
+        });
+
+        expect(prompt).not.toHaveBeenCalled();
+        expect(exportTextFile).not.toHaveBeenCalled();
+    });
 });

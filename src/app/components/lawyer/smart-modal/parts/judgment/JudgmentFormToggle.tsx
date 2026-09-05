@@ -1,6 +1,7 @@
 import React from 'react';
 import type { JudgmentModalStyles } from '../../smartFile/smartModalChrome';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../../smartFile/civilLawsuitTestIds';
+import { issuedJudgmentPresenceForm } from '@/app/domain/lawsuit/partyJudgmentDisposition';
 
 export function JudgmentFormToggle({
     styles: s,
@@ -11,17 +12,19 @@ export function JudgmentFormToggle({
     judgmentForm: string;
     onChange: (form: string) => void;
 }) {
+    const issued = issuedJudgmentPresenceForm(judgmentForm);
+    const present = issued !== 'غيابي';
     return (
         <div className={s.section}>
             <label className={s.label}>شكل الحكم</label>
-            <div className="flex gap-2 w-full">
+            <div className="flex flex-wrap gap-2 w-full">
                 <button
                     type="button"
                     data-testid={CIVIL_LAWSUIT_TEST_IDS.judgmentFormHadari}
-                    aria-pressed={judgmentForm === 'حضوري'}
+                    aria-pressed={present}
                     onClick={() => onChange('حضوري')}
                     className={`${s.toggle} ${
-                        judgmentForm === 'حضوري' ? s.toggleActive : s.toggleIdle
+                        present ? s.toggleActive : s.toggleIdle
                     }`}
                 >
                     حكم حضوري
@@ -29,10 +32,10 @@ export function JudgmentFormToggle({
                 <button
                     type="button"
                     data-testid={CIVIL_LAWSUIT_TEST_IDS.judgmentFormGhiabi}
-                    aria-pressed={judgmentForm === 'غيابي'}
+                    aria-pressed={issued === 'غيابي'}
                     onClick={() => onChange('غيابي')}
                     className={`${s.toggle} ${
-                        judgmentForm === 'غيابي' ? s.toggleActive : s.toggleIdle
+                        issued === 'غيابي' ? s.toggleActive : s.toggleIdle
                     }`}
                 >
                     حكم غيابي

@@ -11,8 +11,6 @@ export type UseExecutionDashboardPhoneBodyNavigationParams = {
     onClose?: () => void;
     showExecutionTrashModal: boolean;
     setShowExecutionTrashModal: (open: boolean) => void;
-    showUnifiedSeizureLogModal: boolean;
-    closeUnifiedSeizureLog: () => void;
     propertySeizureRequestModalOpen: boolean;
     setPropertySeizureRequestModalOpen: (open: boolean) => void;
     movableSeizureRequestModalOpen: boolean;
@@ -39,8 +37,6 @@ export function useExecutionDashboardPhoneBodyNavigation(
         onClose,
         showExecutionTrashModal,
         setShowExecutionTrashModal,
-        showUnifiedSeizureLogModal,
-        closeUnifiedSeizureLog,
         propertySeizureRequestModalOpen,
         setPropertySeizureRequestModalOpen,
         movableSeizureRequestModalOpen,
@@ -73,10 +69,6 @@ export function useExecutionDashboardPhoneBodyNavigation(
             setShowExecutionTrashModal(false);
             return true;
         }
-        if (showUnifiedSeizureLogModal) {
-            closeUnifiedSeizureLog();
-            return true;
-        }
         if (propertySeizureRequestModalOpen) {
             setPropertySeizureRequestModalOpen(false);
             return true;
@@ -98,8 +90,6 @@ export function useExecutionDashboardPhoneBodyNavigation(
         scopeRef,
         showExecutionTrashModal,
         setShowExecutionTrashModal,
-        showUnifiedSeizureLogModal,
-        closeUnifiedSeizureLog,
         propertySeizureRequestModalOpen,
         setPropertySeizureRequestModalOpen,
         movableSeizureRequestModalOpen,
@@ -143,7 +133,6 @@ export function useExecutionDashboardPhoneBodyNavigation(
         () =>
             resolveExecutionDossierNestedNav({
                 showExecutionTrashModal,
-                showUnifiedSeizureLogModal,
                 propertySeizureRequestModalOpen,
                 movableSeizureRequestModalOpen,
                 showExecutionFinancialHub,
@@ -157,7 +146,6 @@ export function useExecutionDashboardPhoneBodyNavigation(
             }),
         [
             showExecutionTrashModal,
-            showUnifiedSeizureLogModal,
             propertySeizureRequestModalOpen,
             movableSeizureRequestModalOpen,
             showExecutionFinancialHub,

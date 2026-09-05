@@ -2,11 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNotificationStore } from '@/app/stores/notificationStore';
 import type { NotificationTab } from '@/app/components/lawyer/NotificationPanel/types';
 import { isSystemNotification } from '@/app/components/lawyer/NotificationPanel/utils/notificationFilters';
-import { consumeNotificationPanelFocusId } from '@/app/services/notifications/notificationPanelFocus';
+import {
+    consumeNotificationPanelFocusId,
+    highlightNotificationCard,
+    NOTIFICATION_FOCUS_RETRY_MS,
+} from '@/app/services/notifications/notificationPanelFocus';
 import { HAMI_OS_NOTIFICATION_OPEN_PANEL_EVENT } from '@/app/services/notifications/notificationOsTapEvents';
 
 /**
  * تركيز بطاقة إشعار بعد فتح اللوحة من منبثق / نقر نظام التشغيل.
+ * المعرّف يبقى حتى العثور على البطاقة أو مهلة إعادة المحاولة — لا يُسقط بعد 120ms أثناء التحميل.
  */
 export function useNotificationPanelFocus(
     isOpen: boolean,
@@ -62,19 +67,22 @@ export function useNotificationPanelFocus(
     useEffect(() => {
         if (!isOpen || !focusNotificationId) return;
         const id = focusNotificationId;
-        const t = window.setTimeout(() => {
-            const el = document.querySelector(
-                `[data-testid="notification-card-${CSS.escape(id)}"]`,
-            );
-            if (el instanceof HTMLElement) {
-                el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-                el.setAttribute('data-hami-notif-focus', 'true');
-                window.setTimeout(() => el.removeAttribute('data-hami-notif-focus'), 2_400);
+        const started = Date.now();
+        let timer = 0;
+        const tick = () => {
+            if (highlightNotificationCard(id)) {
+                setFocusNotificationId(null);
+                return;
             }
-            setFocusNotificationId(null);
-        }, 120);
-        return () => window.clearTimeout(t);
-        // notificationsLength: إعادة المحاولة بعد وصول القائمة
+            if (Date.now() - started >= NOTIFICATION_FOCUS_RETRY_MS) {
+                setFocusNotificationId(null);
+                return;
+            }
+            timer = window.setTimeout(tick, 50);
+        };
+        timer = window.setTimeout(tick, 0);
+        return () => window.clearTimeout(timer);
+        // notificationsLength / activeTab: إعادة المحاولة بعد وصول القائمة أو تبديل التبويب
     }, [focusNotificationId, isOpen, activeTab, notificationsLength]);
 
     return { focusNotificationId };

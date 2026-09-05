@@ -1,5 +1,4 @@
 import React from 'react';
-import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import type { GlobalSearchEntry, GroupedSearchResults } from '@/app/services/globalSearchIndex';
 import { ResultsBody } from '@/app/components/lawyer/GlobalSearchOverlay/components/ResultsBody';
 import { GLOBAL_SEARCH_LISTBOX_ID } from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchA11yIds';
@@ -9,10 +8,9 @@ import {
     isGlobalSearchUiLoading,
     type GlobalSearchUiState,
 } from '@/app/components/lawyer/GlobalSearchOverlay/utils/searchUiState';
-import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { sanitizeSearchDisplayText } from '@/app/services/search/searchDisplayText';
 
-export interface SearchResultsPanelProps {
+interface SearchResultsPanelProps {
     query: string;
     searchUiState: GlobalSearchUiState;
     results: GroupedSearchResults | null;
@@ -35,20 +33,14 @@ export function SearchResultsPanel({
     activeIndex,
     onActiveIndexChange,
 }: SearchResultsPanelProps) {
-    const reduceMotion = useReduceMotion();
-
     if (isGlobalSearchUiLoading(searchUiState)) {
         return (
             <div
-                className="flex items-center justify-center py-4"
+                className="flex items-center justify-center py-3"
                 data-testid="global-search-loading"
                 aria-live="polite"
             >
-                <Loader2
-                    size={20}
-                    className={`text-white/40 ${reduceMotion ? '' : 'animate-spin'}`}
-                    aria-hidden
-                />
+                <span className="hami-gs-spinner" aria-hidden />
                 <span className="sr-only">جاري البحث</span>
             </div>
         );
@@ -57,7 +49,7 @@ export function SearchResultsPanel({
     if (searchUiState === 'empty') {
         return (
             <div
-                className="flex items-center justify-center px-4 py-4"
+                className="flex items-center justify-center px-3 py-3"
                 data-testid="global-search-no-results"
             >
                 <p className="text-center text-sm font-medium text-white/42">

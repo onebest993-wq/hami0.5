@@ -9,7 +9,7 @@ export function ExecutionFinancialHubFocBody(
     props: ExecutionFinancialHubPortalProps & { model: Model },
 ) {
     return (
-        <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4 pt-1">
+        <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-2.5 pb-3 pt-1 sm:px-3">
             <ExecutionFinancialHubFocCenter {...props} />
         </div>
     );

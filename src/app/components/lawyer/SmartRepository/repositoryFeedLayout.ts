@@ -11,7 +11,7 @@ export type RepositoryCardInnerLayout = 'stack' | 'row';
 
 const REPO_FEED_LAYOUT_STORAGE_KEY = 'hami:repository-feed-layout';
 
-export const REPOSITORY_FEED_LAYOUT_DEFAULT: RepositoryFeedLayoutId = 'grid';
+const REPOSITORY_FEED_LAYOUT_DEFAULT: RepositoryFeedLayoutId = 'grid';
 
 /** مفاتيح تخزين قديمة تُطبَّع إلى شبكة/قائمة دون كسر الحسابات المحفوظة */
 const LEGACY_STORED_LAYOUT_IDS = new Set(['grid', 'list', 'compact', 'timeline', 'gallery']);

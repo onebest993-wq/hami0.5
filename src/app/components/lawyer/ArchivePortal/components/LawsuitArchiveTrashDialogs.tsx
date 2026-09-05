@@ -1,13 +1,22 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Trash2 } from '@/app/components/ui/icons/Trash2';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import { unpinWorkspaceItem } from '@/app/workspace/unpinWorkspaceEntity';
 import { LAWSUIT_VAULT_TEST_IDS } from '@/app/components/lawyer/smart-modal/smartFile/lawsuitVaultTestIds';
+import {
+    beginLawsuitVaultCommitHold,
+    endLawsuitVaultCommitHold,
+} from '@/app/runtime/lawsuitVaultCommitHold';
+import { recordLawsuitLifecycleE2e } from '@/app/runtime/lawsuitLifecycleE2eProbe';
 import type { LooseArchiveFile } from '../types';
 import { ArchivePortalConfirmDialog } from './ArchivePortalConfirmDialog';
 
 const CONFIRM_DANGER =
     'inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 rounded-xl border border-rose-500/35 bg-rose-600/15 text-rose-100 text-sm font-bold hover:bg-rose-600/25 touch-manipulation';
+
+const TRASH_FAIL_MESSAGE =
+    'تعذّر تثبيت النقل إلى المهملات على القرص. أعد المحاولة بعد لحظات.';
 
 export type LawsuitArchiveTrashDialogsProps = {
     lawsuitTrashConfirmTarget: LooseArchiveFile | null;
@@ -16,9 +25,11 @@ export type LawsuitArchiveTrashDialogsProps = {
     setCriminalDeleteTarget: (t: { id: string; title: string } | null) => void;
     permanentDeleteOpen: boolean;
     setPermanentDeleteOpen: (v: boolean) => void;
-    confirmPermanentDelete: () => void;
+    confirmPermanentDelete: () => void | Promise<boolean>;
     permanentIdsRef: React.MutableRefObject<Array<string | number>>;
-    onMoveLawsuitToTrash?: (id: string | number) => void;
+    onMoveLawsuitToTrash?: (
+        id: string | number,
+    ) => void | boolean | Promise<void | boolean>;
     onDeleteCriminalCase?: (id: string) => boolean | void;
 };
 
@@ -38,12 +49,42 @@ export function LawsuitArchiveTrashDialogs({
     onMoveLawsuitToTrash,
     onDeleteCriminalCase,
 }: LawsuitArchiveTrashDialogsProps) {
+    const moveRef = useRef(onMoveLawsuitToTrash);
+    moveRef.current = onMoveLawsuitToTrash;
+    const permanentDeleteRef = useRef(confirmPermanentDelete);
+    permanentDeleteRef.current = confirmPermanentDelete;
+    const trashTargetIdRef = useRef<string | number | null>(null);
+    trashTargetIdRef.current = lawsuitTrashConfirmTarget?.id ?? null;
+
+    const [trashCommitPhase, setTrashCommitPhase] = useState<'idle' | 'pending' | 'ok' | 'fail'>(
+        'idle',
+    );
+
+    useLayoutEffect(() => {
+        setTrashCommitPhase('idle');
+    }, [lawsuitTrashConfirmTarget?.id]);
+
     const hasLayer =
         (lawsuitTrashConfirmTarget && onMoveLawsuitToTrash) ||
         (criminalDeleteTarget && onDeleteCriminalCase) ||
         permanentDeleteOpen;
 
+    useLayoutEffect(() => {
+        if (!hasLayer) return undefined;
+        beginLawsuitVaultCommitHold();
+        return () => {
+            endLawsuitVaultCommitHold();
+        };
+    }, [hasLayer]);
+
     if (!hasLayer || typeof document === 'undefined') return null;
+
+    const trashConfirmLabel =
+        trashCommitPhase === 'pending'
+            ? 'جاري النقل…'
+            : trashCommitPhase === 'fail'
+              ? 'إعادة المحاولة'
+              : 'تأكيد النقل إلى السلة';
 
     const layer = (
         <>
@@ -53,14 +94,46 @@ export function LawsuitArchiveTrashDialogs({
                     title="تأكيد النقل إلى سلة المهملات"
                     titleId="lawsuit-trash-confirm-title"
                     testId={LAWSUIT_VAULT_TEST_IDS.trashConfirmDialog}
-                    confirmLabel="تأكيد النقل إلى السلة"
+                    confirmLabel={trashConfirmLabel}
                     confirmTestId={LAWSUIT_VAULT_TEST_IDS.trashConfirmSubmit}
-                    onCancel={() => setLawsuitTrashConfirmTarget(null)}
-                    onConfirm={() => {
-                        const id = lawsuitTrashConfirmTarget.id;
-                        if (id === undefined || id === null || id === '') return;
-                        onMoveLawsuitToTrash(id);
+                    commitPhase={trashCommitPhase}
+                    failMessage={TRASH_FAIL_MESSAGE}
+                    onCancel={() => {
+                        if (trashCommitPhase === 'pending') return;
                         setLawsuitTrashConfirmTarget(null);
+                    }}
+                    onConfirm={async () => {
+                        const id = trashTargetIdRef.current ?? lawsuitTrashConfirmTarget.id;
+                        if (id === undefined || id === null || id === '') return false;
+                        const move = moveRef.current;
+                        if (!move) return false;
+                        recordLawsuitLifecycleE2e('ui-confirm', { kind: 'trash', ids: String(id) });
+                        setTrashCommitPhase('pending');
+                        try {
+                            const result = await move(id);
+                            if (result !== true) {
+                                recordLawsuitLifecycleE2e('ui-fail', {
+                                    kind: 'trash',
+                                    ids: String(id),
+                                });
+                                setTrashCommitPhase('fail');
+                                SmartToast.error(TRASH_FAIL_MESSAGE);
+                                return false;
+                            }
+                            setTrashCommitPhase('ok');
+                            unpinWorkspaceItem(id, 'lawsuit');
+                            setLawsuitTrashConfirmTarget(null);
+                            return true;
+                        } catch {
+                            recordLawsuitLifecycleE2e('ui-fail', {
+                                kind: 'trash',
+                                ids: String(id),
+                                reason: 'throw',
+                            });
+                            setTrashCommitPhase('fail');
+                            SmartToast.error(TRASH_FAIL_MESSAGE);
+                            return false;
+                        }
                     }}
                 >
                     <p>
@@ -113,7 +186,10 @@ export function LawsuitArchiveTrashDialogs({
                     confirmTestId={LAWSUIT_VAULT_TEST_IDS.permanentDeleteConfirm}
                     cancelLabel="إلغاء والاحتفاظ في السلة"
                     onCancel={() => setPermanentDeleteOpen(false)}
-                    onConfirm={confirmPermanentDelete}
+                    onConfirm={async () => {
+                        const result = await permanentDeleteRef.current();
+                        return result === true;
+                    }}
                     confirmClassName={CONFIRM_DANGER}
                 >
                     <p>

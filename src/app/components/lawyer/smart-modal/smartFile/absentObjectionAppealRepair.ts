@@ -64,6 +64,13 @@ export function inferAbsentObjectionOutcomeLoser(
 
     if (isPartial) return null;
 
+    const isFormReject =
+        combined.includes('رد الاعتراض شكلاً')
+        || combined.includes('إبطال الاعتراض')
+        || combined.includes('إبطاله للغياب');
+
+    if (isFormReject) return 'objector';
+
     const isFullModify =
         combined.includes('رد الدعوى كلياً')
         || combined.includes('تعديل الحكم الغيابي')
@@ -268,7 +275,7 @@ export function repairSingleAbsentObjectionAppealStage(
                 ),
         )
         .map((p) => p.id)
-        .filter((id): id is number | string => id != null);
+        .filter((id): id is NonNullable<typeof id> => id != null);
 
     const flipped = buildAppealStageParties(
         priorParties,
@@ -283,7 +290,7 @@ export function repairSingleAbsentObjectionAppealStage(
     const repairedAppellantIds = mergedParties
         .filter((p) => isAppellantAppealRole(String(p.role ?? '')))
         .map((p) => p.id)
-        .filter((id): id is number | string => id != null);
+        .filter((id): id is NonNullable<typeof id> => id != null);
 
     return {
         ...appealStage,

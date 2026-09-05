@@ -4,6 +4,10 @@ import {
     matchesExecutionOutcomeEvent,
     type ExecutionDecisionOutcomeDetail,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/executionDecisionOutcomeHelpers';
+import {
+    ensureSeizureApprovedPlanTask,
+    seizureRequestTitleForSubtype,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/seizureApprovedPlanTask';
 
 export function useSeizureApprovalToast(input: {
     executionDataId?: string;
@@ -24,7 +28,12 @@ export function useSeizureApprovalToast(input: {
             if (outcome !== 'approved' && outcome !== 'alternative') return;
             const decisionId = String(detail?.decisionId ?? '').trim();
             if (!decisionId) return;
-            const row = getExecutorDecisionRowById(myId, decisionId) as { seizureSubtype?: string; seizureRequestSavedAt?: string } | null;
+            const row = getExecutorDecisionRowById(myId, decisionId) as {
+                seizureSubtype?: string;
+                seizureRequestSavedAt?: string;
+                linkedQuantumTaskId?: string;
+                title?: string;
+            } | null;
             const subtype = String(row?.seizureSubtype || '').trim();
             const savedAt = String(row?.seizureRequestSavedAt || '').trim();
             if (!subtype || savedAt) return;
@@ -39,7 +48,14 @@ export function useSeizureApprovalToast(input: {
             ) {
                 return;
             }
-            showToast('تمت موافقة المنفذ على طلب الحجز.', 'success');
+            ensureSeizureApprovedPlanTask({
+                executionId: myId,
+                decisionId,
+                subtype,
+                requestTitle: seizureRequestTitleForSubtype(subtype, String(row?.title ?? '')),
+                linkedQuantumTaskId: String(row?.linkedQuantumTaskId ?? '').trim() || undefined,
+            });
+            showToast('تمت موافقة المنفذ — شارة «خطة» تفتح المتابعة في المهام.', 'success');
         };
 
         window.addEventListener('hami-execution-decision-outcome', onOutcome as EventListener);

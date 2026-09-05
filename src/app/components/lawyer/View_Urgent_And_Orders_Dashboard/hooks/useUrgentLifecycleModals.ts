@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { isAppForeground, subscribeAppForeground } from '@/app/runtime/appForegroundGate';
 import { unpinWorkspaceItem } from '@/app/workspace/unpinWorkspaceEntity';
 import type { UrgentCase } from '../../Component_Urgent_Card';
 
@@ -54,25 +55,48 @@ export function useUrgentLifecycleModals({
 
     useEffect(() => {
         if (!permanentDeleteModal.isOpen) return;
-        if (permanentDeleteTimerRef.current) {
-            window.clearInterval(permanentDeleteTimerRef.current);
-            permanentDeleteTimerRef.current = null;
-        }
-        permanentDeleteTimerRef.current = window.setInterval(() => {
-            setPermanentDeleteModal((prev) => {
-                const next = Math.max(0, prev.countdown - 1);
-                if (next === 0 && permanentDeleteTimerRef.current) {
-                    window.clearInterval(permanentDeleteTimerRef.current);
-                    permanentDeleteTimerRef.current = null;
-                }
-                return { ...prev, countdown: next };
-            });
-        }, 1000);
-        return () => {
+
+        const stopTimer = () => {
             if (permanentDeleteTimerRef.current) {
                 window.clearInterval(permanentDeleteTimerRef.current);
                 permanentDeleteTimerRef.current = null;
             }
+        };
+
+        const startTimer = () => {
+            stopTimer();
+            permanentDeleteTimerRef.current = window.setInterval(() => {
+                setPermanentDeleteModal((prev) => {
+                    const next = Math.max(0, prev.countdown - 1);
+                    if (next === 0 && permanentDeleteTimerRef.current) {
+                        window.clearInterval(permanentDeleteTimerRef.current);
+                        permanentDeleteTimerRef.current = null;
+                    }
+                    return { ...prev, countdown: next };
+                });
+            }, 1000);
+        };
+
+        const resetAndPause = () => {
+            stopTimer();
+            setPermanentDeleteModal((prev) =>
+                prev.isOpen ? { ...prev, countdown: 5 } : prev,
+            );
+        };
+
+        if (isAppForeground()) startTimer();
+        else resetAndPause();
+
+        const unsub = subscribeAppForeground({
+            onSuspend: resetAndPause,
+            onResume: () => {
+                if (isAppForeground()) startTimer();
+            },
+        });
+
+        return () => {
+            stopTimer();
+            unsub();
         };
     }, [permanentDeleteModal.isOpen]);
 

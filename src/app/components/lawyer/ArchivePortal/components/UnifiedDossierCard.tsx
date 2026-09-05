@@ -4,7 +4,13 @@
  * رسم أصلي (بلا Framer layout/spring) — الشبكة مسار حرج على الموبايل.
  */
 
-import { useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import {
+    useRef,
+    type KeyboardEvent,
+    type MouseEvent,
+    type PointerEvent,
+    type ReactNode,
+} from 'react';
 import { prepareLawsuitDossierChrome, prepareLawsuitDossierChromeOnce } from '@/app/runtime/lawsuitOpenContract';
 import { caseNoTextDir } from '@/app/components/lawyer/smart-modal/smart-header/smartHeaderPresentation';
 import { useScrollSafePress } from '@/app/hooks/useScrollSafePress';
@@ -64,6 +70,8 @@ type UnifiedDossierStatusBadge = {
 export type UnifiedDossierCardProps = {
     kind: DossierKind;
     typeBadgeLabel?: string;
+    /** شارة صغيرة داخل عنقود مترابط (أساس / طعن مستقل) */
+    relationBadge?: { label: string; className?: string; testId?: string };
     statusBadge?: UnifiedDossierStatusBadge;
     pinNode?: ReactNode;
     title: string;
@@ -105,6 +113,7 @@ function statusTextClass(className?: string): string {
 export const UnifiedDossierCard = ({
     kind,
     typeBadgeLabel,
+    relationBadge,
     statusBadge,
     pinNode,
     title,
@@ -161,6 +170,26 @@ export const UnifiedDossierCard = ({
             openDossier(event);
         }
     };
+    const isCardActionTarget = (target: EventTarget | null) =>
+        target instanceof Element && Boolean(target.closest('[data-dossier-card-actions]'));
+    const handleCardPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+        if (isCardActionTarget(event.target)) {
+            press.onPointerCancel();
+            return;
+        }
+        press.onPointerDown(event);
+    };
+    const handleCardPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+        if (isCardActionTarget(event.target)) {
+            press.onPointerCancel();
+            return;
+        }
+        press.onPointerUp(event);
+    };
+    const handleCardClick = (event: MouseEvent<HTMLDivElement>) => {
+        if (isCardActionTarget(event.target)) return;
+        press.onClick(event);
+    };
 
     const statusLabel = statusBadge ? stripLeadingEmoji(statusBadge.label) : null;
     const kindLabel = typeBadgeLabel ?? DEFAULT_KIND_LABEL[kind];
@@ -172,12 +201,12 @@ export const UnifiedDossierCard = ({
             role="button"
             tabIndex={0}
             aria-label={openLabel}
-            onClick={press.onClick}
+            onClick={handleCardClick}
             onKeyDown={handleCardKeyDown}
             onPointerEnter={warmDossierShell}
-            onPointerDown={press.onPointerDown}
+            onPointerDown={handleCardPointerDown}
             onPointerMove={press.onPointerMove}
-            onPointerUp={press.onPointerUp}
+            onPointerUp={handleCardPointerUp}
             onPointerCancel={press.onPointerCancel}
             onFocus={warmDossierShell}
             className={`group relative w-full cursor-pointer overflow-hidden border border-white/[0.1] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/40 touch-manipulation ${
@@ -197,8 +226,6 @@ export const UnifiedDossierCard = ({
             dir="rtl"
         >
             <div aria-hidden className={`absolute inset-x-0 top-0 h-px ${KIND_BAR[kind]}`} />
-
-            {overlayBadge}
 
             <div
                 className={`relative flex flex-col ${
@@ -227,6 +254,17 @@ export const UnifiedDossierCard = ({
                                     >
                                         {kindLabel}
                                     </span>
+                                    {relationBadge ? (
+                                        <span
+                                            data-testid={relationBadge.testId}
+                                            className={`rounded-md border px-2 py-0.5 text-[10px] font-bold tracking-wide ${
+                                                relationBadge.className
+                                                ?? 'border-white/15 bg-white/[0.06] text-white/70'
+                                            }`}
+                                        >
+                                            {relationBadge.label}
+                                        </span>
+                                    ) : null}
                                     {statusLabel ? (
                                         <span
                                             className={`text-[10px] font-bold ${statusTextClass(statusBadge?.className)}`}
@@ -256,13 +294,19 @@ export const UnifiedDossierCard = ({
                     </div>
 
                     <div
-                        className="flex shrink-0 items-center gap-0 opacity-70 transition-opacity group-hover:opacity-100"
+                        className={`flex shrink-0 items-center gap-0.5 ${
+                            overlayBadge ? 'opacity-100' : 'opacity-70 transition-opacity group-hover:opacity-100'
+                        }`}
                         data-dossier-card-actions
                         onPointerDown={(e) => e.stopPropagation()}
+                        onPointerMove={(e) => e.stopPropagation()}
+                        onPointerUp={(e) => e.stopPropagation()}
+                        onPointerCancel={(e) => e.stopPropagation()}
                         onClick={(e) => e.stopPropagation()}
                         onKeyDown={(e) => e.stopPropagation()}
                         role="presentation"
                     >
+                        {overlayBadge}
                         {pinNode}
                         {actions.map((action) => (
                             <button

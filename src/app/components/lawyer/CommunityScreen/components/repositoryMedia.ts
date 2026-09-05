@@ -1,6 +1,7 @@
 import type { RepositoryDocument } from '@/app/services/lawyer-cloud';
+import { getRepositoryMediaKind, type RepositoryMediaKind } from '@/app/services/forum/repositoryMediaKind';
 
-export type RepositoryMediaKind = 'image' | 'pdf' | 'document';
+export type { RepositoryMediaKind };
 export type RepositoryMediaIconKind = 'image' | 'file';
 
 export function inferRepositoryMimeType(file: File): string {
@@ -17,15 +18,7 @@ export function inferRepositoryMimeType(file: File): string {
     return (ext && map[ext]) || 'application/octet-stream';
 }
 
-export function getRepositoryMediaKind(mimeType: string, fileName: string): RepositoryMediaKind {
-    if (mimeType.startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(fileName)) {
-        return 'image';
-    }
-    if (mimeType === 'application/pdf' || /\.pdf$/i.test(fileName)) {
-        return 'pdf';
-    }
-    return 'document';
-}
+export { getRepositoryMediaKind };
 
 export function repositoryMediaLabel(kind: RepositoryMediaKind): string {
     switch (kind) {

@@ -1,6 +1,4 @@
 import React from 'react';
-import { CalendarDays } from '@/app/components/ui/icons/CalendarDays';
-import { Hash } from '@/app/components/ui/icons/Hash';
 import type { JudgmentModalStyles } from './smartFile/smartModalChrome';
 
 export type AppealTransitionModalFilingFieldsProps = {
@@ -11,7 +9,11 @@ export type AppealTransitionModalFilingFieldsProps = {
     setNewCaseNumber: (value: string) => void;
     caseNumberLabel: string;
     caseNumberOptional?: boolean;
-    caseNumberHint?: string;
+    /** محكمة الاستئناف عند أول طعن استئنافي أو إضبارة مستقلة */
+    showCourtField?: boolean;
+    courtName?: string;
+    setCourtName?: (value: string) => void;
+    courtFieldRequired?: boolean;
 };
 
 export function AppealTransitionModalFilingFields({
@@ -22,15 +24,15 @@ export function AppealTransitionModalFilingFields({
     setNewCaseNumber,
     caseNumberLabel,
     caseNumberOptional = true,
-    caseNumberHint,
+    showCourtField = false,
+    courtName = '',
+    setCourtName,
+    courtFieldRequired = false,
 }: AppealTransitionModalFilingFieldsProps) {
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="space-y-3 min-h-[11.5rem]">
             <div>
-                <label className={s.label}>
-                    <CalendarDays size={12} className={s.labelIcon} />
-                    تاريخ لائحة الطعن
-                </label>
+                <label className={s.label}>تاريخ لائحة الطعن</label>
                 <input
                     type="date"
                     value={filingDate}
@@ -38,28 +40,44 @@ export function AppealTransitionModalFilingFields({
                     className={s.field}
                 />
             </div>
+            {showCourtField ? (
+                <div>
+                    <label className={s.label} htmlFor="appeal-transition-court">
+                        المحكمة المختصة
+                        {courtFieldRequired ? '' : ' (اختياري)'}
+                    </label>
+                    <input
+                        id="appeal-transition-court"
+                        type="text"
+                        value={courtName}
+                        onChange={(e) => setCourtName?.(e.target.value)}
+                        placeholder="اسم محكمة الاستئناف"
+                        className={s.field}
+                        autoComplete="off"
+                        data-testid="independent-challenge-court"
+                        required={courtFieldRequired}
+                        aria-required={courtFieldRequired || undefined}
+                    />
+                </div>
+            ) : null}
             <div>
-                <label className={s.label}>
-                    <Hash size={12} className={s.labelIcon} />
+                <label className={s.label} htmlFor="appeal-transition-case-no">
                     {caseNumberLabel}
                     {caseNumberOptional ? ' (اختياري)' : ''}
                 </label>
                 <input
+                    id="appeal-transition-case-no"
                     type="text"
                     value={newCaseNumber}
                     onChange={(e) => setNewCaseNumber(e.target.value)}
-                    placeholder={
-                        caseNumberOptional
-                            ? 'اتركه فارغاً إذا لم يتوفر بعد'
-                            : 'يُشتق من رقم الدعوى الأصلية'
-                    }
                     className={s.field}
+                    dir="ltr"
                     autoComplete="off"
                     spellCheck={false}
+                    data-testid="independent-challenge-case-no"
+                    required={!caseNumberOptional}
+                    aria-required={!caseNumberOptional || undefined}
                 />
-                {caseNumberHint ? (
-                    <p className="mt-1.5 text-[11px] leading-relaxed text-white/40">{caseNumberHint}</p>
-                ) : null}
             </div>
         </div>
     );

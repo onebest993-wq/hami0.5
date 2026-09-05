@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { X } from '@/app/components/ui/icons/X';
@@ -11,13 +11,8 @@ import { lawsuitArchiveScrollRegionClass } from './lawsuitArchiveInstantLayout';
 import { ArchivePortalTrashBulkBar } from './components/ArchivePortalTrashBulkBar';
 import { ARCHIVE_ROYAL_GLASS_FAB } from './archiveToolbarStyles';
 import { LawsuitArchiveFileGrid } from './components/LawsuitArchiveFileGrid';
+import { LawsuitArchiveTrashDialogs } from './components/LawsuitArchiveTrashDialogs';
 import type { LawsuitArchivePortalViewModel } from './hooks/useLawsuitArchivePortalController';
-
-const LazyLawsuitArchiveTrashDialogs = lazy(() =>
-    import('./components/LawsuitArchiveTrashDialogs').then((m) => ({
-        default: m.LawsuitArchiveTrashDialogs,
-    })),
-);
 
 export function LawsuitArchiveChrome({
     onClose,
@@ -179,20 +174,18 @@ export function LawsuitArchiveChrome({
         permanentDeleteOpen;
 
     const trashDialogs = showTrashLayer ? (
-        <Suspense fallback={null}>
-            <LazyLawsuitArchiveTrashDialogs
-                lawsuitTrashConfirmTarget={lawsuitTrashConfirmTarget}
-                setLawsuitTrashConfirmTarget={setLawsuitTrashConfirmTarget}
-                criminalDeleteTarget={criminalDeleteTarget}
-                setCriminalDeleteTarget={setCriminalDeleteTarget}
-                permanentDeleteOpen={permanentDeleteOpen}
-                setPermanentDeleteOpen={setPermanentDeleteOpen}
-                confirmPermanentDelete={confirmPermanentDelete}
-                permanentIdsRef={permanentIdsRef}
-                onMoveLawsuitToTrash={onMoveLawsuitToTrash}
-                onDeleteCriminalCase={onDeleteCriminalCase}
-            />
-        </Suspense>
+        <LawsuitArchiveTrashDialogs
+            lawsuitTrashConfirmTarget={lawsuitTrashConfirmTarget}
+            setLawsuitTrashConfirmTarget={setLawsuitTrashConfirmTarget}
+            criminalDeleteTarget={criminalDeleteTarget}
+            setCriminalDeleteTarget={setCriminalDeleteTarget}
+            permanentDeleteOpen={permanentDeleteOpen}
+            setPermanentDeleteOpen={setPermanentDeleteOpen}
+            confirmPermanentDelete={confirmPermanentDelete}
+            permanentIdsRef={permanentIdsRef}
+            onMoveLawsuitToTrash={onMoveLawsuitToTrash}
+            onDeleteCriminalCase={onDeleteCriminalCase}
+        />
     ) : null;
 
     if (gridOnly) {

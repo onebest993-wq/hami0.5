@@ -59,7 +59,7 @@ export type LawsuitArchivePortalViewModel = {
     setSelectedTrashIds: (s: Set<string>) => void;
     permanentDeleteOpen: boolean;
     setPermanentDeleteOpen: (o: boolean) => void;
-    confirmPermanentDelete: () => void;
+    confirmPermanentDelete: () => Promise<boolean>;
     permanentIdsRef: MutableRefObject<Array<string | number>>;
     lawsuitTrashedCount: number;
     unifiedArchivedCount: number;

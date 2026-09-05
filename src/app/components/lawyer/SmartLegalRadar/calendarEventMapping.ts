@@ -73,6 +73,7 @@ function resolveSparkScanSource(e: CalendarEvent, bridged: boolean): UnifiedEven
 export function mapStoredEventsToUnified(customEvents: CalendarEvent[]): UnifiedEvent[] {
     const result: UnifiedEvent[] = [];
     for (const e of customEvents) {
+        if (typeof e?.date !== 'string' || !e.date.trim()) continue;
         if (!isUserAuthoredBridgedCalendarEvent(e)) continue;
         result.push(buildUnifiedEventFromCalendarRecord(e));
     }
@@ -83,6 +84,7 @@ export function mapStoredEventsToUnified(customEvents: CalendarEvent[]): Unified
 export function mapAllCalendarEventsForSparkScan(customEvents: CalendarEvent[]): UnifiedEvent[] {
     const result: UnifiedEvent[] = [];
     for (const e of customEvents) {
+        if (typeof e?.date !== 'string' || !e.date.trim()) continue;
         if (e.isCompleted) continue;
         const bridged = isBridgedCalendarEvent(e);
         const unified = buildUnifiedEventFromCalendarRecord(e);

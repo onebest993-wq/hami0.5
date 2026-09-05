@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Check } from '@/app/components/ui/icons/Check';
 import { motion, AnimatePresence } from '@/app/motion/overlayMotionRuntime';
 import { ecg } from './executionCreationGlassUi';
@@ -13,6 +13,7 @@ interface LawyerFeesToggleCardProps {
         setter: (val: string) => void,
     ) => void;
     onLawyerFeesAmountChange: (v: string) => void;
+    onCommitLawyerFees?: () => void;
 }
 
 /** بطاقة تفعيل المطالبة بأتعاب المحاماة المحكوم بها — مستخرجة من ExecutionCreationView (Phase-1 split). */
@@ -23,6 +24,7 @@ export const LawyerFeesToggleCard: React.FC<LawyerFeesToggleCardProps> = ({
     formatCurrency,
     handleAmountChange,
     onLawyerFeesAmountChange,
+    onCommitLawyerFees,
 }) => (
     <div
         className={[
@@ -35,8 +37,17 @@ export const LawyerFeesToggleCard: React.FC<LawyerFeesToggleCardProps> = ({
         <label className="flex min-h-[44px] flex-row-reverse items-center gap-3 px-3 py-2.5 cursor-pointer">
             <input
                 type="checkbox"
+                data-creation-step="lawyerFees"
                 checked={includeLawyerFees}
-                onChange={(e) => onIncludeLawyerFeesChange(e.target.checked)}
+                onChange={(e) => {
+                    onIncludeLawyerFeesChange(e.target.checked);
+                    onCommitLawyerFees?.();
+                }}
+                onKeyDown={(e) => {
+                    if (e.key !== 'Enter') return;
+                    e.preventDefault();
+                    onCommitLawyerFees?.();
+                }}
                 className="sr-only"
             />
             <span
@@ -70,10 +81,16 @@ export const LawyerFeesToggleCard: React.FC<LawyerFeesToggleCardProps> = ({
                         <div className={ecg.moneyWrap}>
                             <input
                                 type="text"
+                                enterKeyHint="next"
                                 value={formatCurrency(lawyerFeesAmount)}
                                 onChange={(e) =>
                                     handleAmountChange(e, onLawyerFeesAmountChange)
                                 }
+                                onKeyDown={(e) => {
+                                    if (e.key !== 'Enter') return;
+                                    e.preventDefault();
+                                    onCommitLawyerFees?.();
+                                }}
                                 className={ecg.moneyInput}
                                 aria-label="أتعاب المحاماة المحكوم بها (دينار)"
                             />

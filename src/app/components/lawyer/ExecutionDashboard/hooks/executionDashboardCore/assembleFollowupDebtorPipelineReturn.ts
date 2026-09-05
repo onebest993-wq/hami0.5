@@ -1,8 +1,7 @@
 import type { useExecutionDashboardDebtorWorkspaceContext } from './useExecutionDashboardDebtorWorkspaceContext';
 import type { useExecutionDashboardEmployeeAssignmentCoerciveState } from './useExecutionDashboardEmployeeAssignmentCoerciveState';
 import type { useFollowupModalSpecializationCluster } from './useFollowupModalSpecializationCluster';
-import type { useSeizureLogEntityData } from '../useSeizureLogEntityData';
-import type { useUnifiedSeizureLog } from '../useUnifiedSeizureLog';
+import type { useThirdPartyFundsDraft } from '../useThirdPartyFundsDraft';
 import type { useFollowupDebtorEntityFlags } from './useFollowupDebtorEntityFlags';
 import type { useExecutionDashboardFollowupTabAssembly } from './useExecutionDashboardFollowupTabAssembly';
 
@@ -17,8 +16,7 @@ export type AssembleFollowupDebtorPipelineReturnInput = {
         typeof useExecutionDashboardEmployeeAssignmentCoerciveState
     >;
     followupModalSpecializationCluster: ReturnType<typeof useFollowupModalSpecializationCluster>;
-    seizureLogEntity: ReturnType<typeof useSeizureLogEntityData>;
-    unifiedSeizureLog: ReturnType<typeof useUnifiedSeizureLog>;
+    thirdPartyFundsDraft: ReturnType<typeof useThirdPartyFundsDraft>;
     activeDebtorNameResolved: string;
     activeDebtorInitialWasEmployee: boolean | undefined;
     activeTimelineEventsDebtorScoped: ReturnType<
@@ -34,8 +32,7 @@ export function assembleFollowupDebtorPipelineReturn(p: AssembleFollowupDebtorPi
     const d = p.debtorWorkspaceContext;
     const c = p.employeeAssignmentCoercive;
     const spec = p.followupModalSpecializationCluster;
-    const s = p.seizureLogEntity;
-    const u = p.unifiedSeizureLog;
+    const funds = p.thirdPartyFundsDraft;
     const e = p.entityFlags;
     const t = p.followupTabAssembly;
     return {
@@ -86,21 +83,7 @@ export function assembleFollowupDebtorPipelineReturn(p: AssembleFollowupDebtorPi
         followupModalEntityKind: spec.followupModalEntityKind,
         followupModalSpecialization: spec.followupModalSpecialization,
         followupModalSpecializationEffective: spec.followupModalSpecializationEffective,
-        seizedPropertiesForSeizureLog: s.seizedPropertiesForSeizureLog,
-        seizedMovablesForSeizureLog: s.seizedMovablesForSeizureLog,
-        seizureLogExecutorDecisions: s.seizureLogExecutorDecisions,
-        unifiedSeizureLog: u,
-        showUnifiedSeizureLogModal: u.showUnifiedSeizureLogModal,
-        closeUnifiedSeizureLog: u.closeUnifiedSeizureLog,
-        unifiedSeizureLogTab: u.unifiedSeizureLogTab,
-        setUnifiedSeizureLogTab: u.setUnifiedSeizureLogTab,
-        unifiedSeizureLogEntries: u.unifiedSeizureLogEntries,
-        unifiedSeizureTabCounts: u.unifiedSeizureTabCounts,
-        hasUnifiedSeizureLogContent: u.hasUnifiedSeizureLogContent,
-        openUnifiedSeizureLog: u.openUnifiedSeizureLog,
-        thirdPartyFundsDraftById: u.thirdPartyFundsDraftById,
-        setThirdPartyFundsDraftById: u.setThirdPartyFundsDraftById,
-        clearThirdPartyFundsDraft: u.clearThirdPartyFundsDraft,
+        clearThirdPartyFundsDraft: funds.clearThirdPartyFundsDraft,
         activeDebtorNameResolved: p.activeDebtorNameResolved,
         activeDebtorInitialWasEmployee: p.activeDebtorInitialWasEmployee,
         activeTimelineEventsDebtorScoped: p.activeTimelineEventsDebtorScoped,

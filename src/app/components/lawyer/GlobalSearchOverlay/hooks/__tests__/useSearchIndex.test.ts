@@ -34,7 +34,6 @@ const baseOptions = {
     userId: null,
     profileLine: '',
     extras: null,
-    isLoadingExtras: false,
     indexVersion: 0,
 };
 

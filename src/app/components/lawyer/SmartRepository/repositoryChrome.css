@@ -18,6 +18,7 @@
     opacity: 1;
     pointer-events: auto !important;
     visibility: visible !important;
+    content-visibility: visible;
 }
 
 .hami-repository-overlay-layer--visible .hami-repository-panel {

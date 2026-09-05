@@ -5,7 +5,7 @@ import {
     beginProfileBackLock,
 } from '@/app/runtime/profileInstantPaint';
 import { markProfilePerfPhase } from '@/app/services/profile/profilePerfMetrics';
-import { HUB_TILE_BUTTON_A11Y } from '@/app/components/lawyer/dashboard/commandHub/commandHubTileClasses';
+import { HUB_TILE_BUTTON_A11Y } from '@/app/components/lawyer/dashboard/commandHubTileClasses';
 import { ForumTileProfileAvatarFace } from '@/app/components/lawyer/dashboard/forumProfile/ForumTileProfileAvatarFace';
 import {
     FORUM_TILE_PROFILE_TAP_STYLE,
@@ -79,7 +79,7 @@ export const ForumTileProfileQuarter = memo(function ForumTileProfileQuarter({
             aria-busy={identityPending || undefined}
             aria-label={
                 identityPending
-                    ? 'الملف المهني — جاري التحميل'
+                    ? 'الملف المهني'
                     : `الملف المهني — ${publicName || 'المحامي'}`
             }
             aria-controls="lawyer-dashboard-profile-surface"

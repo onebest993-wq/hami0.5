@@ -1,13 +1,14 @@
-import type { RefObject } from 'react';
+import { Suspense, useEffect, useState, type RefObject } from 'react';
 import { FORUM_FILTER_LABELS } from '../forumFilters';
 import {
     repositoryFilterSummary,
     repositoryHasActiveListFilters,
     type RepositorySortKey,
 } from '../repositoryListFilters';
+import { prefetchCommunityFilterOverlays } from '../communityOverlayPrefetch';
+import { LazyForumAppBarFilterOverlays } from '../communityScreenFilterLazy';
 import { ForumAppBarSearchField } from './ForumAppBarSearchField';
 import { ForumAppBarFilterTriggers } from './ForumAppBarFilterTriggers';
-import { ForumAppBarFilterOverlays } from './ForumAppBarFilterOverlays';
 import type { ForumSectionId } from './ForumSectionSwitch';
 
 type ForumAppBarSearchRowProps = {
@@ -36,6 +37,12 @@ type ForumAppBarSearchRowProps = {
 };
 
 export function ForumAppBarSearchRow(props: ForumAppBarSearchRowProps) {
+    const filtersOpen = props.showForumFilterPanel || props.showRepositoryFilterPanel;
+    const [filterOverlaysArmed, setFilterOverlaysArmed] = useState(false);
+    useEffect(() => {
+        if (filtersOpen) setFilterOverlaysArmed(true);
+    }, [filtersOpen]);
+
     const activeFilterLabel = FORUM_FILTER_LABELS[props.selectedFilterIndex] ?? FORUM_FILTER_LABELS[0];
     const hasForumFilter = props.selectedFilterIndex !== 0;
     const hasRepositoryFilter = repositoryHasActiveListFilters(
@@ -50,7 +57,7 @@ export function ForumAppBarSearchRow(props: ForumAppBarSearchRowProps) {
     );
 
     return (
-        <div className="px-4 pb-3 relative">
+        <div className="px-3 pb-2 relative">
             <div className="flex items-center gap-2">
                 <ForumAppBarSearchField
                     activeSection={props.activeSection}
@@ -72,24 +79,29 @@ export function ForumAppBarSearchRow(props: ForumAppBarSearchRowProps) {
                         forumFilterTriggerRef={props.forumFilterTriggerRef}
                         onForumFilterToggle={props.onForumFilterToggle}
                         onRepositoryFilterToggle={props.onRepositoryFilterToggle}
+                        onPrefetch={prefetchCommunityFilterOverlays}
                     />
                 </ForumAppBarSearchField>
             </div>
-            <ForumAppBarFilterOverlays
-                showForumFilterPanel={props.showForumFilterPanel}
-                showRepositoryFilterPanel={props.showRepositoryFilterPanel}
-                selectedFilterIndex={props.selectedFilterIndex}
-                onFilterSelect={props.onFilterSelect}
-                onCloseForumFilter={props.onCloseForumFilter}
-                forumFilterTriggerRef={props.forumFilterTriggerRef}
-                repositorySortBy={props.repositorySortBy}
-                repositorySelectedType={props.repositorySelectedType}
-                repositorySelectedTag={props.repositorySelectedTag}
-                onRepositorySortChange={props.onRepositorySortChange}
-                onRepositoryTypeChange={props.onRepositoryTypeChange}
-                onRepositoryTagChange={props.onRepositoryTagChange}
-                onCloseRepositoryFilter={props.onCloseRepositoryFilter}
-            />
+            {filtersOpen || filterOverlaysArmed ? (
+                <Suspense fallback={null}>
+                    <LazyForumAppBarFilterOverlays
+                        showForumFilterPanel={props.showForumFilterPanel}
+                        showRepositoryFilterPanel={props.showRepositoryFilterPanel}
+                        selectedFilterIndex={props.selectedFilterIndex}
+                        onFilterSelect={props.onFilterSelect}
+                        onCloseForumFilter={props.onCloseForumFilter}
+                        forumFilterTriggerRef={props.forumFilterTriggerRef}
+                        repositorySortBy={props.repositorySortBy}
+                        repositorySelectedType={props.repositorySelectedType}
+                        repositorySelectedTag={props.repositorySelectedTag}
+                        onRepositorySortChange={props.onRepositorySortChange}
+                        onRepositoryTypeChange={props.onRepositoryTypeChange}
+                        onRepositoryTagChange={props.onRepositoryTagChange}
+                        onCloseRepositoryFilter={props.onCloseRepositoryFilter}
+                    />
+                </Suspense>
+            ) : null}
         </div>
     );
 }

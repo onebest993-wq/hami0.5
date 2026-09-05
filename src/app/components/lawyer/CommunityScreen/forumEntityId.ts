@@ -1,5 +1,1 @@
-export function newForumEntityId(): string {
-    return typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
+export { createForumEntityId as newForumEntityId } from '@/app/services/forum/forumEntityIdCore';

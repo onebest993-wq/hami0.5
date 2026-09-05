@@ -1,4 +1,5 @@
-export { ExecutionPartyInteractiveBadges, buildPartyBadgeDefinitions } from './ExecutionPartyInteractiveBadges';
+export { ExecutionPartyInteractiveBadges } from './ExecutionPartyInteractiveBadges';
+export { buildPartyBadgeDefinitions } from './buildPartyBadgeDefinitions';
 export type {
     PartyBadgeParty,
     MemoBadgeInfo,

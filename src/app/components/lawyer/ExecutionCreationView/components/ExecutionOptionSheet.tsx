@@ -1,6 +1,7 @@
 import React from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { Check } from '@/app/components/ui/icons/Check';
+import { useOverlayBackdropArm } from '@/app/hooks/useOverlayBackdropArm';
 import { ecg } from './executionCreationGlassUi';
 
 export type ExecutionOptionSheetMultiSelectPanel = {
@@ -54,6 +55,8 @@ function ExecutionOptionSheet({
     exclusiveSectionTitle,
 }: ExecutionOptionSheetProps) {
     const draftSet = new Set(multiSelectPanel?.draftValues ?? []);
+    const backdropArmed = useOverlayBackdropArm(open);
+
     if (!open) return null;
 
     const hasExclusive = options.length > 0 || (comingSoonOptions?.length ?? 0) > 0;
@@ -104,8 +107,13 @@ function ExecutionOptionSheet({
     return (
         <>
             <div
-                className={ecg.sheetBackdrop}
-                onClick={onClose}
+                className={`${ecg.sheetBackdrop}${backdropArmed ? '' : ' pointer-events-none'}`}
+                data-testid="execution-creation-option-sheet-backdrop"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    if (!backdropArmed) return;
+                    onClose();
+                }}
                 onKeyDown={(e) => e.key === 'Escape' && onClose()}
                 role="presentation"
             />
@@ -115,6 +123,7 @@ function ExecutionOptionSheet({
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="execution-sheet-title"
+                onClick={(e) => e.stopPropagation()}
             >
                 <div className={ecg.sheetHeader}>
                     <button type="button" onClick={onClose} className={ecg.sheetClose}>

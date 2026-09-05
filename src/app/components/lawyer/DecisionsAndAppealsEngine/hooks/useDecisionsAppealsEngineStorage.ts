@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { writeExecutorDecisionsUnionForExecution, mergeExecutorDecisionsUnionForPersist, pruneRedundantDecisionsStorageAliases, type ExecutorDecisionsPersistOptions } from '@/app/utils/executionDecisionsNamespace';
-import { isSeizureDecisionFollowupComplete } from '@/app/components/lawyer/DecisionsAndAppealsEngine/seizureFollowupComplete';
+import {
+    writeExecutorDecisionsUnionForExecution,
+    mergeExecutorDecisionsUnionForPersist,
+    pruneRedundantDecisionsStorageAliases,
+    warmExecutorDecisionsStorage,
+    type ExecutorDecisionsPersistOptions,
+} from '@/app/utils/executionDecisionsNamespace';
 import {
     buildDomainReconcileSignature,
     filterDecisionsForDomainContext,
@@ -27,7 +32,6 @@ import {
 } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
 import { resolveAppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
-import type { ExecutionFile } from '@/app/types/execution';
 
 export type UseDecisionsAppealsEngineStorageParams = {
     executionId: string | undefined;
@@ -62,14 +66,8 @@ function normalizeDecisionsFromRaw(raw: Decision[], syncData: Record<string, unk
     normalized = reconciledAppealFinal.rows;
     const reconciledDeadlines = reconcileAppealDeadlineEnforcement(normalized);
     normalized = reconciledDeadlines.rows;
-    if (syncData) {
-        normalized = normalized.map((row) => {
-            if (String(row.seizureRequestSavedAt || '').trim()) return row;
-            if (!isSeizureDecisionFollowupComplete(row, syncData as unknown as ExecutionFile)) return row;
-            const ts = String(row.resolvedAt || row.date || new Date().toISOString()).trim();
-            return { ...row, seizureRequestSavedAt: ts || new Date().toISOString() };
-        });
-    }
+    // لا ختم seizureRequestSavedAt من اكتمال سير عمل الحجز — أُزيل مسار الإكمال
+    void syncData;
     return normalized;
 }
 
@@ -406,14 +404,40 @@ export function useDecisionsAppealsEngineStorage({
     }, [resolvedExecutionId]);
 
     useEffect(() => {
+        let cancelled = false;
         const cached = readDecisionsSessionCacheBest(storageCandidateIds);
         if (cached && cached.length > 0) {
             setDecisionsState(cached);
             setDecisionsHydrated(true);
         }
+        // قراءة متزامنة فورية إن كانت جاهزة في الكاش
         reloadFromStorage();
-        queueMicrotask(() => reconcileStorageOnce());
-    }, [resolvedExecutionId, reloadFromStorage, reconcileStorageOnce, storageCandidateIds]);
+
+        const syncData = getEffectiveExecutionData();
+        const warmId =
+            resolvePersistId() ??
+            (resolvedExecutionId && resolvedExecutionId !== 'default' ? resolvedExecutionId : null) ??
+            executionId;
+
+        // بعد Reload/انهيار الإقلاع قد تكون القرارات في IndexedDB فقط — بدون تسخين تختفي البطاقات
+        void warmExecutorDecisionsStorage(warmId || undefined, syncData).then(() => {
+            if (cancelled) return;
+            reloadFromStorage();
+            queueMicrotask(() => reconcileStorageOnce());
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        executionId,
+        resolvedExecutionId,
+        reloadFromStorage,
+        reconcileStorageOnce,
+        storageCandidateIds,
+        getEffectiveExecutionData,
+        resolvePersistId,
+    ]);
 
     useEffect(() => {
         const scheduleReload = () => {

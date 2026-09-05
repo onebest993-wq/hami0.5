@@ -40,6 +40,10 @@ export function RepositoryAddMenu({
     useEffect(() => {
         if (!open) return;
         void import('@/app/components/lawyer/SmartVaultModal/VaultUploadMetaSheet');
+        void import('@/app/components/lawyer/SmartVaultModal/SmartVaultScannerPanel');
+        void import('@/app/components/lawyer/ActionModals/VoiceRecorderModal');
+        void import('./RepositoryComposePanel');
+        void import('./RepositoryVaultOverlays');
         const onDoc = (e: MouseEvent) => {
             if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
         };

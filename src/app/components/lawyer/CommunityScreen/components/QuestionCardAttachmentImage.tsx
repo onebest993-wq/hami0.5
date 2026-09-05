@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { ZoomIn } from '@/app/components/ui/icons/ZoomIn';
-import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import { Download } from '@/app/components/ui/icons/Download';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
-import { AppDocumentPreviewOverlay } from '@/app/components/lawyer/SmartVaultModal/AppDocumentPreviewOverlay';
+import {
+    LazyAppDocumentPreviewOverlay,
+    prefetchAppDocumentPreviewOverlay,
+} from '@/app/components/lawyer/SmartVaultModal/AppDocumentPreviewOverlayLazy';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 
 type QuestionCardAttachmentImageProps = {
@@ -31,7 +33,7 @@ export function QuestionCardAttachmentImage({
     const imageContainerClassName = useMemo(
         () =>
             [
-                'w-full rounded-2xl overflow-hidden border border-[#2A3344]/50 bg-[#161E2C]',
+                'w-full rounded-xl overflow-hidden border border-[#2A3344]/50 bg-[#161E2C]',
                 'transition-all duration-200',
                 attachmentUrl ? 'cursor-zoom-in hover:border-[#E6C673]/40' : '',
             ].join(' '),
@@ -40,10 +42,15 @@ export function QuestionCardAttachmentImage({
 
     return (
         <>
-            <div className={`relative ${imageContainerClassName}`}>
+            <div
+                className={`relative ${imageContainerClassName}`}
+                aria-busy={attachmentLoading || !imageLoaded || undefined}
+            >
                 <button
                     type="button"
                     className="block w-full text-right"
+                    onPointerEnter={prefetchAppDocumentPreviewOverlay}
+                    onPointerDown={prefetchAppDocumentPreviewOverlay}
                     onClick={() => {
                         if (attachmentUrl) setShowImagePreview(true);
                     }}
@@ -51,12 +58,10 @@ export function QuestionCardAttachmentImage({
                 >
                     <div className="relative flex min-h-[320px] max-h-[70vh] w-full items-center justify-center bg-[#120D15]">
                         {attachmentLoading || !imageLoaded ? (
-                            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[linear-gradient(180deg,rgba(18,13,21,0.78),rgba(18,13,21,0.45))]">
-                                <Loader2 size={22} className="animate-spin text-white/45" />
-                                <span className="text-[11px] font-bold text-white/45">
-                                    {attachmentLoading ? 'جاري تحميل الصورة...' : 'جاري إظهار الصورة...'}
-                                </span>
-                            </div>
+                            <div
+                                className="absolute inset-0 z-10 bg-[linear-gradient(180deg,rgba(18,13,21,0.78),rgba(18,13,21,0.45))]"
+                                aria-hidden
+                            />
                         ) : null}
                         {attachmentUrl ? (
                             <>
@@ -98,14 +103,18 @@ export function QuestionCardAttachmentImage({
                 ) : null}
             </div>
 
-            <AppDocumentPreviewOverlay
-                isOpen={showImagePreview && Boolean(attachmentUrl)}
-                onClose={() => setShowImagePreview(false)}
-                title="صورة مرفقة"
-                fileUrl={attachmentUrl}
-                kind="image"
-                fileName="صورة مرفقة"
-            />
+            {showImagePreview && attachmentUrl ? (
+                <Suspense fallback={null}>
+                    <LazyAppDocumentPreviewOverlay
+                        isOpen
+                        onClose={() => setShowImagePreview(false)}
+                        title="صورة مرفقة"
+                        fileUrl={attachmentUrl}
+                        kind="image"
+                        fileName="صورة مرفقة"
+                    />
+                </Suspense>
+            ) : null}
         </>
     );
 }

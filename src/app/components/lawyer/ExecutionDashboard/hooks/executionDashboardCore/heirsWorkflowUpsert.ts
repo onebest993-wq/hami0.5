@@ -13,6 +13,33 @@ export function normalizeHeirWorkflowKey(name: string) {
         .replace(/[^\p{L}\p{N}\s]/gu, '');
 }
 
+export function seedHeirsNotificationWorkflow(
+    prev: ExecutionFile['heirs_notification_workflow'] | null | undefined,
+    heirNames: string[],
+): NonNullable<ExecutionFile['heirs_notification_workflow']> {
+    const byHeir: NonNullable<
+        NonNullable<ExecutionFile['heirs_notification_workflow']>['byHeir']
+    > = { ...(prev?.byHeir || {}) };
+    heirNames.forEach((raw) => {
+        const name = String(raw || '').trim();
+        const key = normalizeHeirWorkflowKey(name);
+        if (!name || !key) return;
+        if (byHeir[key]) return;
+        byHeir[key] = {
+            heirName: name,
+            memoStatus: 'none',
+            summonStatus: 'none',
+            investigationRequestStatus: 'none',
+            investigationDecisionStatus: 'none',
+            arrestWarrantStatus: 'none',
+        };
+    });
+    return {
+        hasReceivedInitialNotice: Boolean(prev?.hasReceivedInitialNotice),
+        byHeir,
+    };
+}
+
 export function computeDeadlineYmd(fromYmd: string, daysWindow: number) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(fromYmd)) return '';
     const d = parseLocalNotificationDate(fromYmd);

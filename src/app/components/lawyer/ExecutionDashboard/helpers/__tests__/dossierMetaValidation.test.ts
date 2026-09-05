@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     formatDossierFileRef,
+    normalizeDossierMetaFileParts,
     parseDossierFileRef,
     validateDossierMetaDraft,
 } from '../dossierMetaValidation';
@@ -10,6 +11,15 @@ describe('parseDossierFileRef / formatDossierFileRef', () => {
         expect(formatDossierFileRef('444', '2024')).toBe('444/2024');
         expect(parseDossierFileRef('444/2024')).toEqual({ fileNumber: '444', fileYear: '2024' });
         expect(parseDossierFileRef('444 / 2024')).toEqual({ fileNumber: '444', fileYear: '2024' });
+    });
+
+    it('splits combined iris/year onto independent draft fields', () => {
+        expect(normalizeDossierMetaFileParts({ fileNumber: 'ب / 2333', fileYear: '' })).toEqual(
+            expect.objectContaining({ fileNumber: 'ب', fileYear: '2333' }),
+        );
+        expect(normalizeDossierMetaFileParts({ fileNumber: '12', fileYear: '2026' })).toEqual(
+            expect.objectContaining({ fileNumber: '12', fileYear: '2026' }),
+        );
     });
 });
 

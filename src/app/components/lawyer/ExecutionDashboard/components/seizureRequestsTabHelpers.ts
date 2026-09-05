@@ -1,5 +1,6 @@
 import type { SeizureRequestSubtype } from '@/app/utils/executorDecisionContracts';
 import {
+    getExecutorDecisionRowById,
     getGoverningSeizureDecisionBySubtype,
     isExecutorHubRowInactiveForGoverning,
     isExecutorRowRejectedAndFinal,
@@ -7,6 +8,55 @@ import {
 import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 
 type SeizureDecisionRow = Record<string, unknown>;
+
+function resolvePreferredOrGoverning(
+    executionId: string,
+    decisions: SeizureDecisionRow[],
+    subtype: SeizureRequestSubtype,
+    preferredDecisionId?: string | null,
+): SeizureDecisionRow | null {
+    const forced = String(preferredDecisionId || '').trim();
+    if (forced) {
+        const fromList = decisions.find((row) => String(row?.id || '').trim() === forced);
+        if (fromList) return fromList;
+        const fromStorage = getExecutorDecisionRowById(executionId, forced);
+        if (fromStorage) return fromStorage;
+    }
+    return getGoverningSeizureDecisionBySubtype(executionId, subtype, decisions);
+}
+
+export function resolveGoverningMovableDecision(
+    executionId: string,
+    decisions: SeizureDecisionRow[],
+    preferredDecisionId?: string | null,
+): SeizureDecisionRow | null {
+    const forced = String(preferredDecisionId || '').trim();
+    if (forced) {
+        const fromList = decisions.find((row) => String(row?.id || '').trim() === forced);
+        if (fromList) return fromList;
+        const fromStorage = getExecutorDecisionRowById(executionId, forced);
+        if (fromStorage) return fromStorage;
+    }
+    const auction = getGoverningSeizureDecisionBySubtype(executionId, 'movable_auction', decisions);
+    if (auction) return auction;
+    return getGoverningSeizureDecisionBySubtype(executionId, 'movable', decisions);
+}
+
+export function resolveGoverningPropertyDecision(
+    executionId: string,
+    decisions: SeizureDecisionRow[],
+    preferredDecisionId?: string | null,
+): SeizureDecisionRow | null {
+    return resolvePreferredOrGoverning(executionId, decisions, 'property', preferredDecisionId);
+}
+
+export function resolveGoverningThirdPartyDecision(
+    executionId: string,
+    decisions: SeizureDecisionRow[],
+    preferredDecisionId?: string | null,
+): SeizureDecisionRow | null {
+    return resolvePreferredOrGoverning(executionId, decisions, 'third_party', preferredDecisionId);
+}
 
 function decisionText(row: SeizureDecisionRow, key: string): string {
     return String(row[key] ?? '');
@@ -18,8 +68,15 @@ function decisionIsoStamp(row: SeizureDecisionRow): string {
 
 export function resolveGoverningSalaryDecision(
     resolvedExecutionId: string,
-    decisions: SeizureDecisionRow[]
+    decisions: SeizureDecisionRow[],
+    preferredDecisionId?: string | null,
 ): SeizureDecisionRow | null {
+    const forced = String(preferredDecisionId || '').trim();
+    if (forced) {
+        const fromList = decisions.find((row) => String(row?.id || '').trim() === forced);
+        if (fromList) return fromList;
+    }
+
     const bySubtype = getGoverningSeizureDecisionBySubtype(
         resolvedExecutionId,
         'salary',
@@ -75,24 +132,14 @@ export function isSeizureRegistrationComplete(
     return Boolean(decisionText(row, 'seizureRequestSavedAt').trim());
 }
 
-export type UnifiedSeizureLogTab = 'movable' | 'property' | 'third_party' | 'salary';
+export type SeizureRequestLaneTab = 'movable' | 'property' | 'third_party' | 'salary';
 
-export const SEIZURE_LOG_TAB_SUBTYPE: Record<UnifiedSeizureLogTab, SeizureRequestSubtype> = {
+export const SEIZURE_LANE_SUBTYPE: Record<SeizureRequestLaneTab, SeizureRequestSubtype> = {
     movable: 'movable_auction',
     third_party: 'third_party',
     property: 'property',
     salary: 'salary',
 };
-
-export function openUnifiedSeizureLogTab(tab: UnifiedSeizureLogTab): void {
-    try {
-        window.dispatchEvent(
-            new CustomEvent('hami-open-unified-seizure-log', { detail: { tab } })
-        );
-    } catch {
-        /* ignore */
-    }
-}
 
 export function parseIsoFromYmd(ymd: string): string | null {
     const t = String(ymd || '').trim();

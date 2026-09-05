@@ -1,8 +1,10 @@
 import type { CaseStage, Party } from '../../LawyerShared';
+import { isCrossAppealFeatureEnabled } from '@/app/domain/lawsuit/litigationDecisionEngine';
 import {
     isPersonalStatusAppealContext,
     isPersonalStatusDossierFromStages,
 } from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
+import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import {
     classifyPartySideBucket,
     extractParentheticalUnderlyingSide,
@@ -12,6 +14,7 @@ import {
     isInterpleaderThirdPartyRole,
     isPlaintiffSideRole,
     partitionPartiesForHeader,
+    resolveAbsentObjectionOriginalSide,
 } from './partyRoleClassification';
 import {
     listAppellantPartiesForAppeal,
@@ -26,6 +29,10 @@ import {
     isNonMeritTerminationType,
     resolveFirstInstanceHadoriAppealRights,
 } from './judgmentTypes';
+import { isAppealStageName } from './judgmentStageNames';
+import { computeFirstInstanceAppealDeadline } from './appealDeadlineEngine';
+import { resolveClientAppealRole } from './appealStageJudgmentEngine';
+import { resolveClientMarkedParty } from './clientMarkedParty';
 import {
     isInterpleaderJudgmentType,
     resolveInterpleaderHadoriAppealRights,
@@ -33,6 +40,45 @@ import {
 } from './interpleaderJudgmentEngine';
 
 type PartyAppealBucket = LawyerJudgmentBucket;
+
+/** م/190: مدة الاستئناف الأصلي من تاريخ التبليغ (مع احتساب اليوم التالي كما في محرك المهل) */
+export const CROSS_APPEAL_ORIGINAL_WINDOW_DAYS = 15;
+
+/** أصلي يستمر ولو رُد الاستئناف شكلاً — تبعي يسقط بسقوط الأصلي */
+export type CrossAppealClassification = 'ORIGINAL' | 'DEPENDENT';
+
+export type CrossAppealClientRole = 'appellant' | 'appellee' | null;
+
+/**
+ * - client_files: الموكل مستأنف عليه ويقدّم متقابلاً بعد طعن الخصم
+ * - record_opponent: الموكل مستأنف أصلي ويسجّل متقابل الخصم (من له حق طعن متبادل)
+ */
+export type CrossAppealFilingMode = 'client_files' | 'record_opponent';
+
+export type CrossAppealEligibility = {
+    /** توافق UI الحالي — مرادف عملي لـ canFileCrossAppeal */
+    showButton: boolean;
+    /** م/190: هل يُسمح بتقديم/تسجيل استئناف متقابل الآن؟ */
+    canFileCrossAppeal: boolean;
+    reason?: string;
+    /** نص زر التذييل — بسيط حسب اتجاه التسجيل */
+    buttonLabel?: string;
+    filingMode?: CrossAppealFilingMode | null;
+    /** تصنيف متوقع إن قُدّم بتاريخ asOfDate / اليوم */
+    classification?: CrossAppealClassification;
+    isPleadingClosed: boolean;
+    isPartialJudgment: boolean;
+    hasStaggeredCoLitigants: boolean;
+    pendingCrossAppellants: Party[];
+    crossAppellees: Party[];
+    filedCrossAppellants: Party[];
+    clientRole: CrossAppealClientRole;
+    /** تاريخ التبليغ/القرار البدائي المستخدم لتصنيف أصلي/تبعي */
+    firstInstanceNotificationDate?: string | null;
+};
+
+/** اسم بديل للتقرير القانوني — نفس شكل CrossAppealEligibility */
+export type CrossAppealEligibilityResult = CrossAppealEligibility;
 
 function isPartialMeritJudgmentType(judgmentType?: string | null): boolean {
     const t = String(judgmentType ?? '').trim();
@@ -102,6 +148,32 @@ function resolvePreviousStage(
 ): CaseStage | null {
     if (!Array.isArray(stages) || appealStageIndex <= 0) return null;
     return stages[appealStageIndex - 1] ?? null;
+}
+
+function originalLitigationSide(party: Party): 'المدعي' | 'المدعى عليه' | null {
+    const fromObjection = resolveAbsentObjectionOriginalSide(party);
+    if (fromObjection) return fromObjection;
+    const fromParens = extractParentheticalUnderlyingSide(String(party.role ?? ''));
+    if (fromParens) return fromParens;
+    const role = String(party.role ?? '');
+    if (isDefendantSideRole(role) && !isPlaintiffSideRole(role)) return 'المدعى عليه';
+    if (isPlaintiffSideRole(role) && !role.includes('عليه')) return 'المدعي';
+    return null;
+}
+
+/** م/190: المتقابل قاصر على المستأنف عليه ضد المستأنف — لا ضد شريك في نفس الجبهة. */
+function isCoDefendantOfAppellant(params: {
+    candidate: Party;
+    appealStageParties: Party[];
+    initialAppellantIds: Set<string>;
+}): boolean {
+    const candidateSide = originalLitigationSide(params.candidate);
+    if (candidateSide !== 'المدعى عليه') return false;
+    return params.appealStageParties.some((party) => {
+        const id = partyIdKey(party.id);
+        if (!id || !params.initialAppellantIds.has(id)) return false;
+        return originalLitigationSide(party) === 'المدعى عليه';
+    });
 }
 
 function hasCrossAppealFiled(party: Party, crossAppealedIds: Set<string>): boolean {
@@ -186,7 +258,8 @@ function partyHasOwnAppealRight(input: {
     if (!bucket) return false;
 
     if (isInterpleaderJudgmentType(normalizedJudgmentType)) {
-        return resolveInterpleaderHadoriAppealRights(normalizedJudgmentType, bucket).action === 'self_appeal';
+        const action = resolveInterpleaderHadoriAppealRights(normalizedJudgmentType, bucket).action;
+        return action === 'self_appeal' || action === 'both_paths';
     }
 
     if (bucket === 'interpleader') {
@@ -203,7 +276,8 @@ function partyHasOwnAppealRight(input: {
               : null;
     if (!lawyerSide) return false;
 
-    return resolveFirstInstanceHadoriAppealRights(normalizedJudgmentType, lawyerSide).action === 'self_appeal';
+    const action = resolveFirstInstanceHadoriAppealRights(normalizedJudgmentType, lawyerSide).action;
+    return action === 'self_appeal' || action === 'both_paths';
 }
 
 function resolveEligibleCrossAppealCandidates(input: {
@@ -226,6 +300,15 @@ function resolveEligibleCrossAppealCandidates(input: {
         if (!id || initialAppellantIds.has(id)) return false;
         if (hasCrossAppealFiled(party, crossAppealedIds)) return false;
         if (isAppellantAppealRole(String(party.role ?? ''))) return false;
+        if (
+            isCoDefendantOfAppellant({
+                candidate: party,
+                appealStageParties,
+                initialAppellantIds,
+            })
+        ) {
+            return false;
+        }
         return partyHasOwnAppealRight({
             party,
             previousStage,
@@ -266,6 +349,15 @@ function resolveOmittedCoLitigants(input: {
         const onAppeal = appealById.get(id) ?? prior;
         if (hasCrossAppealFiled(onAppeal, crossAppealedIds)) continue;
         if (
+            isCoDefendantOfAppellant({
+                candidate: onAppeal,
+                appealStageParties,
+                initialAppellantIds,
+            })
+        ) {
+            continue;
+        }
+        if (
             !partyHasOwnAppealRight({
                 party: onAppeal,
                 previousStage,
@@ -293,106 +385,96 @@ function mergeUniqueParties(...lists: Party[][]): Party[] {
     return out;
 }
 
-export type CrossAppealEligibility = {
-    showButton: boolean;
-    isPartialJudgment: boolean;
-    hasStaggeredCoLitigants: boolean;
-    pendingCrossAppellants: Party[];
-    crossAppellees: Party[];
-    filedCrossAppellants: Party[];
-};
+function idleEligibility(
+    overrides: Partial<CrossAppealEligibility> = {},
+): CrossAppealEligibility {
+    return {
+        showButton: false,
+        canFileCrossAppeal: false,
+        filingMode: null,
+        buttonLabel: undefined,
+        isPleadingClosed: false,
+        isPartialJudgment: false,
+        hasStaggeredCoLitigants: false,
+        pendingCrossAppellants: [],
+        crossAppellees: [],
+        filedCrossAppellants: [],
+        clientRole: null,
+        ...overrides,
+    };
+}
+
+function resolveCrossAppealFilingPresentation(
+    clientRole: CrossAppealClientRole,
+): Pick<CrossAppealEligibility, 'filingMode' | 'buttonLabel'> {
+    if (clientRole === 'appellant') {
+        return {
+            filingMode: 'record_opponent',
+            buttonLabel: 'تسجيل استئناف متقابل للخصم',
+        };
+    }
+    return {
+        filingMode: 'client_files',
+        buttonLabel: 'تقديم استئناف متقابل',
+    };
+}
+
+/** م/190: ختام المرافعة أو صدور حكم استئنافي يقفل باب المتقابل */
+export function isCrossAppealPleadingClosed(appealStage: CaseStage): boolean {
+    if (appealStage.pleadingDoorReopened) return false;
+    if (appealStage.isPleadingsClosed) return true;
+    const fd = String(appealStage.finalDecision ?? '').trim();
+    if (fd && appealStage.status === 'completed') return true;
+    return false;
+}
+
+/**
+ * تاريخ التبليغ بالحكم البدائي إن وُجد، وإلا تاريخ القرار (حضوري).
+ * يُستخدم لتصنيف أصلي / تبعي فقط — لا يغيّر أهلية الظهور.
+ */
+export function resolveFirstInstanceNotificationAnchor(
+    previousStage?: CaseStage | null,
+): string | null {
+    const notif = String(previousStage?.absentJudgmentNotificationDate ?? '').trim().slice(0, 10);
+    if (notif) return notif;
+    const decision = String(previousStage?.decisionDate ?? '').trim().slice(0, 10);
+    if (decision) return decision;
+    return null;
+}
+
+/**
+ * أصلي إن قُدّم ضمن مدة الطعن الأصلية (15 يوماً من اليوم التالي للتبليغ/القرار).
+ * تبعي إن قُدّم بعدها (وحتى ختام المرافعة).
+ * عند غياب تاريخ التبليغ/القرار → DEPENDENT (أحوط: يسقط بسقوط الأصلي).
+ */
+export function classifyCrossAppealFiling(input: {
+    filingDate: string;
+    firstInstanceNotificationDate?: string | null;
+}): CrossAppealClassification {
+    const filing = String(input.filingDate ?? '').trim().slice(0, 10);
+    const anchor = String(input.firstInstanceNotificationDate ?? '').trim().slice(0, 10);
+    if (!filing || !anchor) return 'DEPENDENT';
+    const originalDeadline = computeFirstInstanceAppealDeadline(anchor);
+    return filing <= originalDeadline ? 'ORIGINAL' : 'DEPENDENT';
+}
 
 export function resolveCrossAppealEligibility(input: {
     appealStage: CaseStage;
     stages?: CaseStage[];
     appealStageIndex?: number;
+    /** تاريخ افتراضي للتصنيف المتوقع (افتراضي: اليوم) */
+    asOfDate?: string;
 }): CrossAppealEligibility {
-    const { appealStage, stages, appealStageIndex = -1 } = input;
-
-    if (
-        isPersonalStatusAppealContext(appealStage.stageName, stages)
-        || isPersonalStatusDossierFromStages(stages)
-    ) {
-        return {
-            showButton: false,
-            isPartialJudgment: false,
-            hasStaggeredCoLitigants: false,
-            pendingCrossAppellants: [],
-            crossAppellees: [],
-            filedCrossAppellants: [],
-        };
+    void input;
+    /** م/190 خامل — Feature Flag من محرك القرار النقي؛ لا واجهة ولا إضبارة جديدة */
+    if (!isCrossAppealFeatureEnabled()) {
+        return idleEligibility({
+            reason: 'أُلغي مسار الاستئناف المتقابل — الطعن اللاحق بإضبارة مستقلة',
+        });
     }
-
-    const meta = appealStage.appealMetadata;
-    const previousStage =
-        appealStageIndex >= 0
-            ? resolvePreviousStage(stages, appealStageIndex)
-            : null;
-
-    const priorJudgmentType = resolvePriorJudgmentType(appealStage, previousStage);
-    const normalizedJudgmentType = normalizeJudgmentTypeForAppealRights(
-        priorJudgmentType,
-        previousStage,
-    );
-
-    const isPartialJudgment =
-        normalizedJudgmentType === 'رد الدعوى جزئياً'
-        || isPartialMeritDecisionText(previousStage?.finalDecision)
-        || isPartialMeritDecisionText(previousStage?.lastJudgmentType);
-
-    const appellantSide = normalizeAppealSide(meta?.appellant);
-    const initialAppellantIds = new Set(
-        (meta?.initialAppellantPartyIds?.length
-            ? meta.initialAppellantPartyIds
-            : inferInitialAppellantIds(appealStage)
-        ).map(partyIdKey),
-    );
-
-    const crossAppealedIds = new Set((meta?.crossAppealPartyIds ?? []).map(partyIdKey));
-    const appealStageParties = appealStage.parties ?? [];
-    const { plaintiffs, defendants } = partitionPartiesForHeader(appealStageParties);
-
-    const appealAppellants = plaintiffs.filter((p) => isAppellantAppealRole(String(p.role ?? '')));
-    const appealAppellees = defendants.filter((p) => {
-        const role = String(p.role ?? '');
-        if (isAppellantAppealRole(role)) return false;
-        if (isAppelleeAppealRole(role)) return true;
-        if (isInterpleaderThirdPartyRole(role) || role.includes('شخص ثالث')) return true;
-        return false;
+    return idleEligibility({
+        reason: 'أُلغي مسار الاستئناف المتقابل — الطعن اللاحق بإضبارة مستقلة',
     });
-
-    const filedCrossAppellants = appealAppellees.filter((p) => hasCrossAppealFiled(p, crossAppealedIds));
-    const pendingOnStage = resolveEligibleCrossAppealCandidates({
-        appealStageParties,
-        initialAppellantIds,
-        crossAppealedIds,
-        previousStage,
-        normalizedJudgmentType,
-    });
-
-    const omittedCoLitigants = resolveOmittedCoLitigants({
-        previousStage,
-        appellantSide,
-        initialAppellantIds,
-        crossAppealedIds,
-        appealStageParties,
-        normalizedJudgmentType,
-    });
-    const hasStaggeredCoLitigants = omittedCoLitigants.length > 0;
-
-    const pendingCrossAppellants = mergeUniqueParties(
-        pendingOnStage,
-        omittedCoLitigants,
-    );
-
-    return {
-        showButton: pendingCrossAppellants.length > 0,
-        isPartialJudgment,
-        hasStaggeredCoLitigants,
-        pendingCrossAppellants,
-        crossAppellees: appealAppellants,
-        filedCrossAppellants,
-    };
 }
 
 export function markPartiesAsCrossAppellants(

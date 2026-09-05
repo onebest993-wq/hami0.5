@@ -6,7 +6,6 @@ const SECONDARY_SCOPE_KEYS = [
     'dockPinnedTasks',
     'executionActionsGridLocked',
     'executionToolsTimelineLockedUi',
-    'hasUnifiedSeizureLogContent',
     'isEvictionExecutionModule',
     'isHistoricalMode',
     'isRepresentingDebtor',
@@ -22,8 +21,6 @@ const SECONDARY_SCOPE_KEYS = [
     'mergedTimelineRadarPreviewLimit',
     'moveCaseNoteToTrash',
     'moveTimelineEventToTrash',
-    'openUnifiedSeizureLog',
-    'requestEditTimelineEvent',
     'setActiveTimelineFilter',
     'setEmployeeCompulsoryBannerDismissed',
     'setShowOnlyActiveFileTimeline',
@@ -55,3 +52,4 @@ export function buildPhoneBodySecondaryScope(
     }
     return out;
 }
+

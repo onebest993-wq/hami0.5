@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from 'react';
 import { useForumLifecycle } from './useForumLifecycle';
-import { warmForumSocialForUser } from '@/app/hooks/lawyerDashboard/forumIntentWarm';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { useForumNotificationStream } from '@/app/hooks/useForumNotificationStream';
 import { useCommunityScreenForumEscape } from './useCommunityScreenForumEscape';
@@ -58,7 +57,9 @@ export function useCommunityScreenController({
     );
     useEffect(() => {
         if (!forumNetworkLive) return;
-        warmForumSocialForUser(currentUserId);
+        void import('@/app/hooks/lawyerDashboard/forumIntentWarm').then((m) => {
+            m.warmForumSocialForUser(currentUserId);
+        });
     }, [currentUserId, forumNetworkLive]);
 
     const shell = useCommunityScreenShell();

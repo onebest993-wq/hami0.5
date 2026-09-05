@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { Trash2 } from '@/app/components/ui/icons/Trash2';
-import { SmartDialog } from '@/app/components/ui/SmartDialog';
+import { confirmRepositoryAction } from '@/app/components/lawyer/SmartRepository/repositoryDialog';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
     formatRepositoryTimestamp,
@@ -14,7 +14,7 @@ import {
 import { emitDossierNotesChanged } from '@/app/services/dossier-notes/dossierNoteSyncEvents';
 import { RepositoryEntryContentLayout } from '../RepositoryEntryContentLayout';
 import { REPO_BADGE_GOLD, REPO_CARD_ACTIONS, REPO_CARD_EDIT_LINK, REPO_CARD_ICON_BTN, REPO_CARD_ICON_BTN_ACTIVE, REPO_CARD_META, REPO_CARD_TIMESTAMP } from '../smartRepositoryTheme';
-import { EntryCardInlineEditor } from './EntryCardInlineEditor';
+import { EntryCardInlineEditorLazy } from './EntryCardInlineEditorLazy';
 import { useUniversalEntryCardEdit } from './useUniversalEntryCardEdit';
 import type { UniversalEntryCardProps } from './universalEntryCardTypes';
 
@@ -50,25 +50,38 @@ export const DossierEntryCard = React.memo(function DossierEntryCard({
     const timestamp = useMemo(() => formatRepositoryTimestamp(item.ref.date), [item.ref.date]);
 
     const deleteDossierNote = useCallback(async () => {
-        const ok = await SmartDialog.confirm('حذف هذه الملاحظة من الإضبارة؟');
+        const ok = await confirmRepositoryAction('حذف هذه الملاحظة من الإضبارة؟');
         if (!ok) return;
         const parsed = parseDossierNoteRefId(item.ref.id);
-        if (!parsed) return;
-        if (parsed.kind === 'lawsuit') {
-            const file = lawsuitFiles.find((f) => String(f.id) === parsed.dossierId);
-            if (!file) return;
-            onUpdateLawsuit(deleteLawsuitDossierNote(file, parsed.noteId));
-        } else {
-            const file = executionFiles.find((f) => String(f.id) === parsed.dossierId);
-            if (!file) return;
-            onUpdateExecution(deleteExecutionDossierNote(file, parsed.noteId));
+        if (!parsed) {
+            SmartToast.error('تعذّر حذف ملاحظة الإضبارة');
+            return;
         }
-        emitDossierNotesChanged({
-            dossierId: parsed.dossierId,
-            dossierKind: parsed.kind,
-            noteId: parsed.noteId,
-        });
-        SmartToast.success('تم حذف ملاحظة الإضبارة');
+        try {
+            if (parsed.kind === 'lawsuit') {
+                const file = lawsuitFiles.find((f) => String(f.id) === parsed.dossierId);
+                if (!file) {
+                    SmartToast.error('تعذّر العثور على إضبارة الدعوى');
+                    return;
+                }
+                onUpdateLawsuit(deleteLawsuitDossierNote(file, parsed.noteId));
+            } else {
+                const file = executionFiles.find((f) => String(f.id) === parsed.dossierId);
+                if (!file) {
+                    SmartToast.error('تعذّر العثور على إضبارة التنفيذ');
+                    return;
+                }
+                onUpdateExecution(deleteExecutionDossierNote(file, parsed.noteId));
+            }
+            emitDossierNotesChanged({
+                dossierId: parsed.dossierId,
+                dossierKind: parsed.kind,
+                noteId: parsed.noteId,
+            });
+            SmartToast.success('تم حذف ملاحظة الإضبارة');
+        } catch {
+            SmartToast.error('تعذّر حذف ملاحظة الإضبارة');
+        }
     }, [executionFiles, item.ref.id, lawsuitFiles, onUpdateExecution, onUpdateLawsuit]);
 
     return (
@@ -76,10 +89,11 @@ export const DossierEntryCard = React.memo(function DossierEntryCard({
             ref={cardRef}
             className={cardClass}
             data-testid={`repository-feed-dossier-${item.ref.id}`}
+            data-note-id={item.ref.id}
             data-repository-editing={edit.editing ? 'true' : undefined}
         >
             {edit.editing ? (
-                <EntryCardInlineEditor
+                <EntryCardInlineEditorLazy
                     title={edit.title}
                     bodyHtml={edit.bodyHtml}
                     editorReady={edit.editorReady}

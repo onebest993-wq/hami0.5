@@ -33,7 +33,6 @@ describe('buildQuestionCardMoreMenuItems', () => {
             currentUserId: 'owner',
             isOwner: true,
             isAdmin: false,
-            isAnonymous: false,
             isPinned: false,
             isLocked: false,
             isThreadFollowing: false,
@@ -51,7 +50,6 @@ describe('buildQuestionCardMoreMenuItems', () => {
             currentUserId: 'other',
             isOwner: false,
             isAdmin: false,
-            isAnonymous: false,
             isPinned: false,
             isLocked: false,
             isThreadFollowing: false,
@@ -60,5 +58,60 @@ describe('buildQuestionCardMoreMenuItems', () => {
             ...baseHandlers,
         });
         expect(destructiveItems.map((i) => i.id)).toEqual(['report']);
+    });
+
+    it('المالك لا يرى متابعة النقاش ولا كتم نفسه', () => {
+        const { items } = buildQuestionCardMoreMenuItems({
+            post: post(),
+            currentUserId: 'owner',
+            isOwner: true,
+            isAdmin: false,
+            isPinned: false,
+            isLocked: false,
+            isThreadFollowing: false,
+            canLockUnlock: false,
+            canSaveToVault: false,
+            onToggleThreadFollow: vi.fn(),
+            onMuteUser: vi.fn(),
+            ...baseHandlers,
+        });
+        expect(items.map((i) => i.id)).not.toContain('thread-follow');
+        expect(items.map((i) => i.id)).not.toContain('mute');
+    });
+
+    it('المشاهد يرى تنبيهات النقاش وكتم المؤلف الظاهر', () => {
+        const { items } = buildQuestionCardMoreMenuItems({
+            post: post({ isAnonymous: false }),
+            currentUserId: 'other',
+            isOwner: false,
+            isAdmin: false,
+            isPinned: false,
+            isLocked: false,
+            isThreadFollowing: false,
+            canLockUnlock: false,
+            canSaveToVault: false,
+            onToggleThreadFollow: vi.fn(),
+            onMuteUser: vi.fn(),
+            ...baseHandlers,
+        });
+        expect(items.map((i) => i.id)).toContain('thread-follow');
+        expect(items.map((i) => i.id)).toContain('mute');
+    });
+
+    it('لا كتم لمؤلف مجهول', () => {
+        const { items } = buildQuestionCardMoreMenuItems({
+            post: post({ isAnonymous: true }),
+            currentUserId: 'other',
+            isOwner: false,
+            isAdmin: false,
+            isPinned: false,
+            isLocked: false,
+            isThreadFollowing: false,
+            canLockUnlock: false,
+            canSaveToVault: false,
+            onMuteUser: vi.fn(),
+            ...baseHandlers,
+        });
+        expect(items.map((i) => i.id)).not.toContain('mute');
     });
 });

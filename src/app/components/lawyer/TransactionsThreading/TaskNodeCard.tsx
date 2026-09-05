@@ -1,18 +1,8 @@
 import { memo } from 'react';
-import { GitBranch } from '@/app/components/ui/icons/GitBranch';
-import { MoreVertical } from '@/app/components/ui/icons/MoreVertical';
-import { Pencil } from '@/app/components/ui/icons/Pencil';
-import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import { TransactionTaskStatus as TaskStatus, type TransactionTask } from '@/app/modules/transactionsThreading/types';
+import { TransactionsLiteMenu } from './TransactionsLiteMenu';
+import { GitBranchIcon } from './transactionsTheme/icons';
 import {
-    TransactionsDropdownMenu,
-    TransactionsDropdownMenuContent,
-    TransactionsDropdownMenuItem,
-    TransactionsDropdownMenuTrigger,
-    runAfterTransactionsMenuClose,
-} from './TransactionsDropdownMenu';
-import {
-    TX_DROPDOWN_FOCUS,
     TX_ICON_BTN,
     TX_TEXT_OCHRE,
     TX_TEXT_PRIMARY,
@@ -74,13 +64,39 @@ export const TaskNodeCard = memo(function TaskNodeCard({
   const dBadge = deadlineBadge(task.deadline);
   const hierarchy = taskHierarchyVisuals(depth);
 
+  const menuItems = [
+    {
+      label: 'تعديل',
+      testId: 'transactions-task-menu-edit',
+      onSelect: () => onEdit(task),
+    },
+    {
+      label: 'حذف',
+      testId: 'transactions-task-menu-delete',
+      accent: true,
+      onSelect: () => onDelete(task),
+    },
+    ...(task.status === TaskStatus.Blocked
+      ? [
+          {
+            label: 'استئناف',
+            testId: 'transactions-task-menu-resume',
+            onSelect: () => onSetTaskStatus(task, TaskStatus.InProgress),
+          },
+        ]
+      : task.status !== TaskStatus.Done
+        ? [
+            {
+              label: 'تعطيل',
+              testId: 'transactions-task-menu-block',
+              onSelect: () => onSetTaskStatus(task, TaskStatus.Blocked),
+            },
+          ]
+        : []),
+  ];
+
   return (
-    <div
-      dir="rtl"
-      className={`relative w-full min-w-0 overflow-hidden rounded-xl border [contain:layout] ${hierarchy.cardClass} ${
-        readOnly ? 'opacity-85' : ''
-      }`}
-    >
+    <div dir="rtl" className={`relative w-full min-w-0 [contain:layout] ${hierarchy.cardClass} ${readOnly ? 'opacity-85' : ''}`}>
       <div
         role="button"
         tabIndex={readOnly ? -1 : 0}
@@ -94,7 +110,7 @@ export const TaskNodeCard = memo(function TaskNodeCard({
             onToggleStatus(task);
           }
         }}
-        className={`w-full text-right px-3 pt-2 pb-1.5 ${readOnly ? '' : 'cursor-pointer'}`}
+        className={`w-full text-right px-1 pt-2 pb-1.5 ${readOnly ? '' : 'cursor-pointer'}`}
       >
         <div className="flex items-start gap-2 min-w-0">
           <span
@@ -114,7 +130,7 @@ export const TaskNodeCard = memo(function TaskNodeCard({
               {task.title}
             </div>
 
-            <div className="mt-1 flex items-center gap-2 flex-wrap text-[11px] font-bold">
+            <div className="mt-1 flex items-center gap-2 flex-wrap text-[11px] font-semibold">
               <span className={statusToneClass(task.status)}>{statusLabelAr(task.status)}</span>
               {dBadge ? <span className={dBadge.className}>{dBadge.label}</span> : null}
             </div>
@@ -122,7 +138,7 @@ export const TaskNodeCard = memo(function TaskNodeCard({
         </div>
 
         {isDone && task.officialReference ? (
-          <div className={`mt-1.5 mr-8 text-[11px] font-bold ${TX_TEXT_OCHRE}`}>
+          <div className={`mt-1.5 mr-8 text-[11px] font-semibold ${TX_TEXT_OCHRE}`}>
             الصادر/الوارد: {task.officialReference}
           </div>
         ) : null}
@@ -130,75 +146,17 @@ export const TaskNodeCard = memo(function TaskNodeCard({
 
       {!readOnly ? (
         <div
-          className="flex items-center justify-end gap-1 px-2 py-1 border-t border-white/[0.06]"
+          className="flex items-center justify-end gap-0.5 px-0.5 pb-1"
           onClick={(e) => e.stopPropagation()}
         >
-          <TransactionsDropdownMenu>
-            <TransactionsDropdownMenuTrigger asChild>
-              <button type="button" className={TX_ICON_BTN} aria-label="خيارات المهمة">
-                <MoreVertical className="w-4 h-4" />
-              </button>
-            </TransactionsDropdownMenuTrigger>
-            <TransactionsDropdownMenuContent>
-              <TransactionsDropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault();
-                  runAfterTransactionsMenuClose(() => onEdit(task));
-                }}
-                className={TX_DROPDOWN_FOCUS}
-                data-testid="transactions-task-menu-edit"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <Pencil className="w-4 h-4" />
-                  تعديل
-                </span>
-              </TransactionsDropdownMenuItem>
-              <TransactionsDropdownMenuItem
-                onSelect={(event) => {
-                  event.preventDefault();
-                  runAfterTransactionsMenuClose(() => onDelete(task));
-                }}
-                className={`${TX_DROPDOWN_FOCUS} text-[#E6C673] focus:text-[#E6C673]`}
-                data-testid="transactions-task-menu-delete"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <Trash2 className="w-4 h-4" />
-                  حذف
-                </span>
-              </TransactionsDropdownMenuItem>
-              {task.status === TaskStatus.Blocked ? (
-                <TransactionsDropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    runAfterTransactionsMenuClose(() => onSetTaskStatus(task, TaskStatus.InProgress));
-                  }}
-                  className={TX_DROPDOWN_FOCUS}
-                  data-testid="transactions-task-menu-resume"
-                >
-                  استئناف
-                </TransactionsDropdownMenuItem>
-              ) : task.status !== TaskStatus.Done ? (
-                <TransactionsDropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    runAfterTransactionsMenuClose(() => onSetTaskStatus(task, TaskStatus.Blocked));
-                  }}
-                  className={TX_DROPDOWN_FOCUS}
-                  data-testid="transactions-task-menu-block"
-                >
-                  تعطيل
-                </TransactionsDropdownMenuItem>
-              ) : null}
-            </TransactionsDropdownMenuContent>
-          </TransactionsDropdownMenu>
-
+          <TransactionsLiteMenu triggerLabel="خيارات المهمة" items={menuItems} />
           <button
             type="button"
             onClick={() => onAddSubTask(task)}
             className={TX_ICON_BTN}
             aria-label="متفرع"
           >
-            <GitBranch className="w-4 h-4" />
+            <GitBranchIcon className="w-4 h-4" />
           </button>
         </div>
       ) : null}

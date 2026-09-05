@@ -1,12 +1,9 @@
 /** Phase B Slice 2 — coercive + seizure release/receive (extracted from handler cluster) */
-import type { MutableRefObject } from 'react';
 import { useExecutionDashboardCoerciveActionBridge } from './useExecutionDashboardCoerciveActionBridge';
 import { useExecutionDashboardCoerciveActionHandlers } from './useExecutionDashboardCoerciveActionHandlers';
 import { useExecutionDashboardSeizureReleaseHandlers } from './useExecutionDashboardSeizureReleaseHandlers';
 import { useExecutionDashboardThirdPartyReceiveHandlers } from './useExecutionDashboardThirdPartyReceiveHandlers';
 import { useExecutionDashboardStandaloneMarkHandlers } from './useExecutionDashboardStandaloneMarkHandlers';
-import { useExecutionDashboardSalarySeizurePatch } from './useExecutionDashboardSalarySeizurePatch';
-import { useUnifiedSeizureLogFooterBridge } from '../useUnifiedSeizureLogFooterBridge';
 import type {
     ExecutionDashboardCoreHandlerClusterInput,
     HandlerClusterPushTimelineEvent,
@@ -14,10 +11,6 @@ import type {
 
 export type SeizureCoerciveClusterDeps = {
     pushTimelineEvent: HandlerClusterPushTimelineEvent;
-    focusSeizurePropertyInlineCompletion: unknown;
-    focusSeizureMovableInlineCompletion: unknown;
-    focusSeizureThirdPartyInlineCompletion: unknown;
-    focusSeizureNoticeInlineCompletion: unknown;
 };
 
 export function useExecutionDashboardCoreHandlerClusterSeizureCoercive(
@@ -69,8 +62,6 @@ export function useExecutionDashboardCoreHandlerClusterSeizureCoercive(
     } = c;
 
     const { pushTimelineEvent } = deps;
-    // Focus callbacks from Heavy are thin ref delegates. AssetModal bridge binds the
-    // real implementations onto focusSeizure*InlineRef — do not overwrite those refs.
 
     const coerciveActionBridge = useExecutionDashboardCoerciveActionBridge({
         saveCoerciveActionRef,
@@ -158,29 +149,12 @@ export function useExecutionDashboardCoreHandlerClusterSeizureCoercive(
         showToast,
     });
 
-    const salarySeizurePatch = useExecutionDashboardSalarySeizurePatch({
-        seizedAssets,
-        setSeizedAssets,
-        activeDebtorIsDeceased,
-        executionData,
-        decisionsStorageExecutionId,
-        executionId,
-        persistExecutionMerge,
-    });
-
-    useUnifiedSeizureLogFooterBridge({
-        openFollowupModalPersisted: c.openFollowupModalPersisted,
-        setShowUnifiedExecutionModal: setShowUnifiedExecutionModal as (show: boolean) => void,
-        openSeizureRequestsTabRef: openSeizureRequestsTabRef as MutableRefObject<(() => void) | null>,
-    });
-
     return {
         coerciveActionBridge,
         coerciveActionHandlers,
         seizureReleaseHandlers,
         thirdPartyReceiveHandlers,
         standaloneMarkHandlers,
-        salarySeizurePatch,
         clearActiveSalarySeizurePath,
     };
 }

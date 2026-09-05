@@ -69,31 +69,23 @@ describe('useExecutionDashboardPersistExecutionMerge ui-first', () => {
             });
         });
 
-        // فوري: ref + cache — بدون setState على المتجر أثناء نفس مسار الـ updater
-        expect(order).toEqual([]);
+        // هوية الأطراف أصبحت durable: tick + قرص + onUpdate في نفس مسار الحفظ
+        expect(order).toEqual(['tick', 'disk', 'onUpdate']);
         expect(executionDataRef.current?.creditors?.[0]?.name).toBe('جديد');
         expect(
             (storageCache.get(executionStorageKey('ex-ui-first')) as ExecutionFile | null)?.creditors?.[0]
                 ?.name,
         ).toBe('جديد');
-        expect(useExecutionDashboardStore.getState().currentFile?.creditors?.[0]?.name).toBe('قديم');
-        expect(blobSpy).not.toHaveBeenCalled();
-        expect(onUpdate).not.toHaveBeenCalled();
-
-        await act(async () => {
-            await Promise.resolve();
-        });
-
-        expect(order).toEqual(['tick', 'disk', 'onUpdate']);
         expect(useExecutionDashboardStore.getState().currentFile?.creditors?.[0]?.name).toBe('جديد');
+        expect(blobSpy).toHaveBeenCalledTimes(1);
+        expect(onUpdate).toHaveBeenCalledTimes(1);
         expect(blobSpy).toHaveBeenCalledWith(
             'ex-ui-first',
             expect.objectContaining({
                 creditors: [expect.objectContaining({ name: 'جديد' })],
             }),
-            { syncIndex: false },
+            { syncIndex: true },
         );
-        expect(onUpdate).toHaveBeenCalledTimes(1);
     });
 
     it('writes party-death patches to disk immediately and flushes heavy IDB', () => {
@@ -279,8 +271,8 @@ describe('useExecutionDashboardPersistExecutionMerge ui-first', () => {
             });
         });
 
-        expect(blobSpy).toHaveBeenCalledTimes(1);
-        expect(blobSpy).toHaveBeenCalledWith(
+        expect(blobSpy).toHaveBeenCalledTimes(2);
+        expect(blobSpy).toHaveBeenLastCalledWith(
             'ex-ui-first',
             expect.objectContaining({ is_creditor_deceased: true }),
             { syncIndex: true },
@@ -291,13 +283,13 @@ describe('useExecutionDashboardPersistExecutionMerge ui-first', () => {
             await Promise.resolve();
         });
 
-        // الكتابة المؤجّلة القديمة يجب أن تُلغى — لا تُستدعى مرة ثانية بلقطة بلا وفاة
-        expect(blobSpy).toHaveBeenCalledTimes(1);
+        // كلاهما durable — آخر كتابة هي الوفاة، ولا كتابة مؤجّلة قديمة تمسحها
+        expect(blobSpy).toHaveBeenCalledTimes(2);
         expect(executionDataRef.current).toEqual(
             expect.objectContaining({ is_creditor_deceased: true }),
         );
-        expect(onUpdate).toHaveBeenCalledTimes(1);
-        expect(onUpdate).toHaveBeenCalledWith(
+        expect(onUpdate).toHaveBeenCalledTimes(2);
+        expect(onUpdate).toHaveBeenLastCalledWith(
             expect.objectContaining({ is_creditor_deceased: true }),
         );
     });
@@ -343,6 +335,39 @@ describe('useExecutionDashboardPersistExecutionMerge ui-first', () => {
      * و`persistExecutionMerge` تُعيد `true` دائماً. فيرى المستخدم تغييره على
      * الشاشة وقد فشلت الكتابة على القرص، ولا شيء يُخبره.
      */
+    it('tells the user when a durable identity disk write fails', () => {
+        const file = makeFile();
+        const executionDataRef = { current: file as ExecutionFile | null };
+        const seizureDraftsByDecisionIdRef = { current: undefined };
+        const setExecutionStorageTick = vi.fn((updater: (n: number) => number) => updater(0));
+        const showToast = vi.fn();
+        vi.spyOn(dossierPersistence, 'persistExecutionDossierBlob').mockImplementation(() => false);
+
+        const { result } = renderHook(() =>
+            useExecutionDashboardPersistExecutionMerge({
+                executionId: 'ex-ui-first',
+                isUnifiedTabActive: false,
+                unifiedTabId: undefined,
+                onUpdate: vi.fn(),
+                executionDataRef,
+                seizureDraftsByDecisionIdRef,
+                setExecutionStorageTick,
+                showToast,
+            }),
+        );
+
+        let ok = true;
+        act(() => {
+            ok = result.current.persistExecutionMerge({
+                creditors: [{ id: 'c1', name: 'جديد', phone: '07701234567', address: 'ب' }],
+            });
+        });
+
+        expect(ok).toBe(false);
+        expect(showToast).toHaveBeenCalledTimes(1);
+        expect(String(showToast.mock.calls[0]?.[1])).toBe('error');
+    });
+
     it('tells the user when the deferred disk write fails', async () => {
         const file = makeFile();
         const executionDataRef = { current: file as ExecutionFile | null };
@@ -365,9 +390,7 @@ describe('useExecutionDashboardPersistExecutionMerge ui-first', () => {
         );
 
         act(() => {
-            result.current.persistExecutionMerge({
-                creditors: [{ id: 'c1', name: 'جديد', phone: '07701234567', address: 'ب' }],
-            });
+            result.current.persistExecutionMerge({ notes: 'ملاحظة مؤجّلة' });
         });
 
         expect(showToast).not.toHaveBeenCalled();

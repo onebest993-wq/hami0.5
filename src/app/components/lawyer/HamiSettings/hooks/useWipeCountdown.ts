@@ -1,20 +1,43 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { registerSettingsWipeCountdownGuard } from '@/app/components/lawyer/HamiSettings/settingsEscapeStack';
-import { useSettingsSectionActive } from '../settingsSectionActiveContext';
+import { isAppForeground, subscribeAppForeground } from '@/app/runtime/appForegroundGate';
+import { settingsFlowAbandoned, useSettingsSectionActiveRef } from '../settingsFlowGuard';
 
 const COUNTDOWN_SECONDS = 10;
 
+export type WipePhase = 'idle' | 'confirming' | 'countdown' | 'wiping';
+
 export function useWipeCountdown() {
-    const sectionActive = useSettingsSectionActive();
-    const sectionActiveRef = useRef(sectionActive);
-    sectionActiveRef.current = sectionActive;
+    const { sectionActive, sectionActiveRef } = useSettingsSectionActiveRef();
     const mountedRef = useRef(true);
     const countdownTimerRef = useRef<number | null>(null);
     const countdownResolveRef = useRef<((completed: boolean) => void) | null>(null);
     const cancelledRef = useRef(false);
-    const [wipePhase, setWipePhase] = useState<'idle' | 'countdown' | 'wiping'>('idle');
+    const requestInFlightRef = useRef(false);
+    const [wipePhase, setWipePhaseState] = useState<WipePhase>('idle');
+    const wipePhaseRef = useRef<WipePhase>(wipePhase);
     const [countdown, setCountdown] = useState(0);
+
+    const setWipePhase = useCallback((phase: WipePhase) => {
+        wipePhaseRef.current = phase;
+        setWipePhaseState(phase);
+    }, []);
+
+    const beginDangerRequest = useCallback((): boolean => {
+        if (requestInFlightRef.current || settingsFlowAbandoned(sectionActiveRef)) return false;
+        if (wipePhaseRef.current !== 'idle') return false;
+        requestInFlightRef.current = true;
+        setWipePhase('confirming');
+        return true;
+    }, [setWipePhase]);
+
+    const endDangerRequest = useCallback(() => {
+        requestInFlightRef.current = false;
+        if (wipePhaseRef.current === 'confirming') {
+            setWipePhase('idle');
+        }
+    }, [setWipePhase]);
 
     const finishCountdown = useCallback((completed: boolean) => {
         if (countdownTimerRef.current !== null) {
@@ -33,7 +56,7 @@ export function useWipeCountdown() {
         setWipePhase('idle');
         setCountdown(0);
         SmartToast.info('تم إلغاء المسح');
-    }, [finishCountdown]);
+    }, [finishCountdown, setWipePhase]);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -51,7 +74,7 @@ export function useWipeCountdown() {
         registerSettingsWipeCountdownGuard(false);
         setWipePhase('idle');
         setCountdown(0);
-    }, [finishCountdown, sectionActive, wipePhase]);
+    }, [finishCountdown, sectionActive, setWipePhase, wipePhase]);
 
     useEffect(() => {
         if (sectionActive && wipePhase === 'countdown') {
@@ -60,6 +83,18 @@ export function useWipeCountdown() {
         }
         registerSettingsWipeCountdownGuard(false);
     }, [wipePhase, cancelCountdown, sectionActive]);
+
+    useEffect(() => {
+        if (wipePhase !== 'countdown') return;
+        if (!isAppForeground()) {
+            cancelCountdown();
+            return;
+        }
+        return subscribeAppForeground({
+            onSuspend: cancelCountdown,
+            onResume: () => undefined,
+        });
+    }, [cancelCountdown, wipePhase]);
 
     const waitCountdown = useCallback((): Promise<boolean> => {
         cancelledRef.current = false;
@@ -83,7 +118,7 @@ export function useWipeCountdown() {
                 setCountdown(remaining);
             }, 1000);
         });
-    }, [finishCountdown]);
+    }, [finishCountdown, setWipePhase]);
 
     return {
         COUNTDOWN_SECONDS,
@@ -93,6 +128,8 @@ export function useWipeCountdown() {
         setCountdown,
         cancelCountdown,
         waitCountdown,
+        beginDangerRequest,
+        endDangerRequest,
         sectionActiveRef,
         mountedRef,
     };

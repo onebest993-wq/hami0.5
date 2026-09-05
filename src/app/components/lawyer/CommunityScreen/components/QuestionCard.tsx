@@ -78,7 +78,7 @@ export const QuestionCard = memo(function QuestionCard({
   const cardClassName = [
     FORUM_FEED_CARD,
     FORUM_FEED_CARD_READY,
-    model.isActiveUrgent ? 'ring-1 ring-[#C9A0A4]/30 shadow-[0_0_24px_rgba(201,160,164,0.08)]' : '',
+    model.isActiveUrgent ? 'ring-1 ring-[#C9A0A4]/25' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -128,7 +128,7 @@ export const QuestionCard = memo(function QuestionCard({
 
       <QuestionCardTagRow postId={post.id} tags={post.tags} />
 
-      <p className={`mb-3 line-clamp-6 whitespace-pre-wrap text-[15px] font-medium leading-[1.65] ${FORUM_TEXT_PRIMARY}`}>
+      <p className={`mb-2 line-clamp-6 whitespace-pre-wrap text-[14px] font-medium leading-[1.55] ${FORUM_TEXT_PRIMARY}`}>
         {model.displayContent}
       </p>
 
@@ -144,8 +144,6 @@ export const QuestionCard = memo(function QuestionCard({
       {model.isProcedureGuide ? (
         <QuestionCardProcedureCta postId={post.id} content={post.content} />
       ) : null}
-
-      <div className="mb-3 h-px w-full bg-[#9AA3B2]/20" />
 
       <QuestionCardFooter
         post={post}

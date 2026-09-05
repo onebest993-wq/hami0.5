@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { VAULT_MAX_FILE_SIZE } from '@/app/services/vaultUploadService';
+import { VAULT_MAX_FILE_SIZE } from '@/app/services/vault/vaultFileGuards';
 import {
     COMPOSE_SAVE_BLOCK_TOAST,
     resolveComposeSaveBlock,
@@ -69,5 +69,17 @@ describe('repositoryComposeSaveRules', () => {
             }),
         ).toBe('size');
         expect(COMPOSE_SAVE_BLOCK_TOAST.size).toContain('50');
+    });
+
+    it('يرفض مرفقاً بلا جلسة بدل حفظ المسودة بلا ملف', () => {
+        expect(
+            resolveComposeSaveBlock({
+                title: 'مسح',
+                plain: '',
+                attachmentFile: file('scan.jpg', 'image/jpeg'),
+                hasSession: false,
+            }),
+        ).toBe('unsigned');
+        expect(COMPOSE_SAVE_BLOCK_TOAST.unsigned).toContain('تسجيل الدخول');
     });
 });

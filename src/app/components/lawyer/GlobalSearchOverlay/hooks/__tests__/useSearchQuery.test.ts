@@ -45,7 +45,7 @@ describe('useSearchQuery', () => {
         expect(result.current.query).toBe('من القشرة');
     });
 
-    it('لا يعتبر بناء الفهرس isSearching — يظهر في اللوحة فقط', () => {
+    it('بعد الدمج مع فهرس يُحمَّل تبقى الحالة loading', () => {
         vi.useFakeTimers();
         const { result } = renderHook(() => useSearchQuery('', null, true, 0));
 
@@ -56,8 +56,7 @@ describe('useSearchQuery', () => {
             vi.advanceTimersByTime(GLOBAL_SEARCH_QUERY_DEBOUNCE_MS + 10);
         });
 
-        expect(result.current.debouncedQuery).toBe('دعوى');
-        expect(result.current.isSearching).toBe(false);
+        expect(result.current.searchUiState).toBe('loading');
         vi.useRealTimers();
     });
 });

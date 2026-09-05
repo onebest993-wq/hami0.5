@@ -1,8 +1,5 @@
 import React from 'react';
 import { applyDossierSpecialFollowupOutcome } from '@/app/components/lawyer/ExecutionDashboard/utils/applyDossierSpecialFollowupOutcome';
-import {
-    normalizeBaseDossierIdFromDecisionsKey,
-} from '../engine/decisionsEngineTypes';
 import type { DecisionsAppealsMutationsCoreParams } from './decisionsAppealsMutationsTypes';
 
 export type ExecutorResolveOptions = {
@@ -78,75 +75,8 @@ export function useDecisionsAppealsExecutorResolve(params: DecisionsAppealsMutat
                 queueMicrotask(() => setDecisionsHubTab('previous'));
             }
             if (resolution === 'approved' && row.requestKind === 'seizure') {
-                const dossierId =
-                    normalizeBaseDossierIdFromDecisionsKey(executionId) || String(executionId || '').trim();
-                const subtype = String((row as any).seizureSubtype || '').trim();
-                const resolvedSubtype = subtype
-                    ? subtype
-                    : /عقار/i.test(`${String(row.title || '')}\n${String(row.body || '')}`)
-                      ? 'property'
-                      : '';
-                if (resolvedSubtype === 'property') {
-                    const decisionId = String(row.id || '').trim();
-                    if (!decisionId) return;
-                    if (String((row as any).seizureRequestSavedAt || '').trim()) return;
-                    try {
-                        window.dispatchEvent(
-                            new CustomEvent('hami-open-seized-property-init', {
-                                detail: {
-                                    executionId: dossierId,
-                                    decisionId,
-                                    subject: String(row.title || '').trim() || 'طلب حجز عقار',
-                                },
-                            })
-                        );
-                    } catch {}
-                    dispatchExecutorToast('موافقة المنفذ على وضع إشارة الحجز — أكمل بيانات العقار.', 'success');
-                }
-                if (
-                    resolvedSubtype === 'property_expert' ||
-                    resolvedSubtype === 'property_auction' ||
-                    resolvedSubtype === 'property_final_award' ||
-                    resolvedSubtype === 'property_reauction_default'
-                ) {
-                    const rawJson = String((row as any).seizurePayloadJson || '').trim();
-                    let seizedPropertyId = '';
-                    let step: 'experts' | 'auction' | 'award' | 'reauction_default' | '' = '';
-                    if (rawJson) {
-                        try {
-                            const v = JSON.parse(rawJson) as any;
-                            seizedPropertyId = String(v?.seizedPropertyId ?? '').trim();
-                        } catch {}
-                    }
-                    const rowId = String(row.id || '').trim();
-                    if (!rowId) return;
-                    if (String((row as any).seizureRequestSavedAt || '').trim()) return;
-                    if (!seizedPropertyId) {
-                        dispatchExecutorToast('طلب عقاري بدون ربط seizedPropertyId داخل القرار.');
-                        return;
-                    }
-                    step =
-                        resolvedSubtype === 'property_expert'
-                            ? 'experts'
-                            : resolvedSubtype === 'property_auction'
-                              ? 'auction'
-                              : resolvedSubtype === 'property_final_award'
-                                ? 'award'
-                                : 'reauction_default';
-                    try {
-                        window.dispatchEvent(
-                            new CustomEvent('hami-open-seized-property-step', {
-                                detail: {
-                                    executionId: dossierId,
-                                    decisionId: rowId,
-                                    seizedPropertyId,
-                                    step,
-                                },
-                            })
-                        );
-                    } catch {}
-                    dispatchExecutorToast('موافقة المنفذ على خطوة عقارية — أكمل بيانات النتيجة.', 'success');
-                }
+                // طلبات الحجز تبقى صفوفاً في المركز فقط — بلا فتح سجل/إكمال مسار
+                return;
             }
 
             /** التوجيه الذكي: طلبات تبويب «التحكم في الإضبارة» */

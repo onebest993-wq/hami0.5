@@ -32,7 +32,7 @@ export const CommunicationsTab: React.FC<CommunicationsTabProps> = ({
     });
 
     return (
-        <div className="space-y-5 p-3 text-right" dir="rtl">
+        <div className="space-y-4 text-right" dir="rtl">
             {showSoftFieldProcedures && setInlineActionGateKey ? (
                 <LegalEntitySoftProceduresSection
                     decisionsStorageExecutionId={decisionsStorageExecutionId}

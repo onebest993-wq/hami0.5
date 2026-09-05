@@ -1,17 +1,28 @@
 import { PauseCircle } from '@/app/components/ui/icons/PauseCircle';
 import { Scale } from '@/app/components/ui/icons/Scale';
 import type { CaseStage } from '../../../LawyerShared';
-import { daysRemainingUntil } from '../../smartFile/absentJudgmentFlow';
 import {
     CASE_FLOW_BANNER_SHELL,
     formatInterruptionBannerText,
     resolveAbandonmentReviewDeadline,
 } from '../../smartFile/caseFlowStatusDisplay';
+import {
+    ART172_STAY_BADGE,
+    isArt172AppealStayActive,
+    resolvePriorFirstInstanceJudgmentSource,
+} from '../../smartFile/art172AppealStay';
+import { ART210_EXTENSION_NOTICE, hasArt210ExtensionLanes } from '@/app/domain/lawsuit/cassationArt210';
+import { CIVIL_LAWSUIT_TEST_IDS } from '../../smartFile/civilLawsuitTestIds';
+import type { SmartFileParentData } from '../../smartFile/parentDataInit';
+import { resolveObjectionAppealGuidanceNotices } from '../../smartFile/objectionAppealGuidance';
+import { ART172_STAY_CAUSE_LIFTED } from '@/app/domain/lawsuit/objectionAppealConsequence';
 
 export type SmartFileStatusBannersProps = {
     displayStage: CaseStage;
     status: string;
     interruptionData?: Record<string, unknown> | null;
+    stages?: CaseStage[];
+    parentIntegrity?: SmartFileParentData['disputeIntegrity'];
 };
 
 /** بانرات إعلامية فقط — الإجراء يُنفَّذ من التذييل (SmartFileStageFooterBar). */
@@ -19,12 +30,21 @@ export function SmartFileStatusBanners({
     displayStage,
     status,
     interruptionData,
+    stages,
+    parentIntegrity,
 }: SmartFileStatusBannersProps) {
     const interruptionText = formatInterruptionBannerText(interruptionData);
     const abandonmentYmd = displayStage?.abandonmentDate?.slice(0, 10);
     const abandonmentDeadline = abandonmentYmd ? resolveAbandonmentReviewDeadline(abandonmentYmd) : null;
-    const abandonmentDaysLeft =
-        abandonmentDeadline ? daysRemainingUntil(abandonmentDeadline) : null;
+    const art172StayActive = isArt172AppealStayActive(displayStage);
+    const laneSource = resolvePriorFirstInstanceJudgmentSource(stages) ?? displayStage;
+    const art210Extension = hasArt210ExtensionLanes(laneSource?.partyChallengeLanes);
+    /** بعد حسم الاعتراض تُخفى شارة الاستئخار — بلا بانرات توجيه تعليمية. */
+    const stayCauseLifted = resolveObjectionAppealGuidanceNotices({
+        displayStage,
+        stages,
+        parentIntegrity,
+    }).includes(ART172_STAY_CAUSE_LIFTED);
 
     return (
         <>
@@ -72,14 +92,6 @@ export function SmartFileStatusBanners({
                         {abandonmentDeadline ? (
                             <p className="text-[11px] text-amber-200/55 mt-1 tabular-nums">
                                 مهلة التجديد: {abandonmentDeadline}
-                                {abandonmentDaysLeft !== null ? (
-                                    <span className="font-bold">
-                                        {' '}
-                                        ({abandonmentDaysLeft < 0
-                                            ? 'انتهت المهلة'
-                                            : `متبقي ${abandonmentDaysLeft} يوم`})
-                                    </span>
-                                ) : null}
                             </p>
                         ) : null}
                         <p className="text-[10px] text-amber-200/45 mt-1.5">
@@ -113,6 +125,28 @@ export function SmartFileStatusBanners({
                         <Scale size={16} className="shrink-0 text-purple-300/80" />
                         الدعوى مجمدة: قيد نظر طلب رد القاضي أو نقل الدعوى
                     </span>
+                </div>
+            ) : null}
+
+            {art172StayActive && !stayCauseLifted ? (
+                <div
+                    className={`${CASE_FLOW_BANNER_SHELL} border-amber-500/20 bg-amber-500/[0.04]`}
+                    dir="rtl"
+                    data-testid={CIVIL_LAWSUIT_TEST_IDS.art172StayBadge}
+                >
+                    <p className="text-sm font-bold text-amber-200/90">
+                        {ART172_STAY_BADGE}
+                    </p>
+                </div>
+            ) : null}
+
+            {art210Extension ? (
+                <div
+                    className={`${CASE_FLOW_BANNER_SHELL} border-amber-500/20 bg-amber-500/[0.04]`}
+                    dir="rtl"
+                    data-testid={CIVIL_LAWSUIT_TEST_IDS.art210Extension}
+                >
+                    <p className="text-sm font-bold text-amber-200/90">{ART210_EXTENSION_NOTICE}</p>
                 </div>
             ) : null}
         </>

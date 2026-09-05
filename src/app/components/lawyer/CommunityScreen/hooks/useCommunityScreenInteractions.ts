@@ -1,5 +1,4 @@
 import { useCallback, useEffect } from 'react';
-import { prefetchRoyalLawyerProfile } from '@/app/utils/lazyComponents';
 import { scheduleCommunityProfileOverlayPrefetch } from '../communityOverlayPrefetch';
 import {
     COMMUNITY_USER_STATS_COMMENTS_PER_POST,
@@ -49,7 +48,9 @@ export function useCommunityScreenInteractions({
                 onOpenOwnProfile();
                 return;
             }
-            void prefetchRoyalLawyerProfile(userId);
+            void import('@/app/runtime/royalLawyerProfileLoader').then((m) => {
+                m.prefetchRoyalLawyerProfile(userId);
+            });
             void loadUserStats([userId]);
             setProfileView({ userId, displayName });
         },

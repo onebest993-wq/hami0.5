@@ -8,10 +8,10 @@ import {
     COMPLETED_TASK_RETENTION_DAYS,
     formatShortDate,
     groupArchivedTasksByWeek,
-    isTaskMarkedDone,
     taskCompletedAt,
     type CompletedTasksWeekGroup,
 } from './utils';
+import { isTaskMarkedDone } from '@/app/services/tasks/taskAgendaStatusLite';
 import { TASKS_DIALOG_BTN_CANCEL } from './tasksBoucleTheme';
 
 export type CompletedTasksArchiveSectionProps = {
@@ -27,7 +27,7 @@ function CompletedTaskRow({ task, onReopen }: { task: LegalTask; onReopen?: (tas
 
     return (
         <li
-            className={`flex flex-row-reverse items-start gap-3 rounded-xl border px-4 py-3 ${
+            className={`flex flex-row-reverse items-start gap-2.5 rounded-xl border px-3 py-2.5 ${
                 markedDone
                     ? 'border-white/[0.07] bg-white/[0.03]'
                     : 'border-rose-500/35 bg-rose-950/20'
@@ -87,11 +87,11 @@ export function CompletedTasksArchiveSection({ tasks, now, onBack, onReopen }: C
     const groups = groupArchivedTasksByWeek(tasks, now);
 
     return (
-        <section className="space-y-6">
+        <section className="space-y-3">
             <div className="flex flex-row-reverse items-center justify-between gap-3">
                 <div className="flex flex-row-reverse items-center gap-2 min-w-0">
                     <History className="size-5 text-[#E6C673]/80 shrink-0" aria-hidden />
-                    <h2 className="text-lg font-extrabold text-[#F4F4F5]">المهام المنتهية</h2>
+                    <h2 className="text-base font-semibold text-[#F4F4F5]">المهام المنتهية</h2>
                 </div>
                 <button
                     type="button"
@@ -107,11 +107,11 @@ export function CompletedTasksArchiveSection({ tasks, now, onBack, onReopen }: C
                 {COMPLETED_TASK_RETENTION_DAYS} يوماً.
             </p>
             {groups.length === 0 ? (
-                <p className="text-[#F4F4F5]/40 text-sm text-center font-medium py-12 rounded-2xl border border-dashed border-white/[0.1]">
+                <p className="text-[#F4F4F5]/40 text-sm text-center font-medium py-8 rounded-xl border border-dashed border-white/[0.1]">
                     لا توجد مهام في الأرشيف حالياً.
                 </p>
             ) : (
-                <div className="space-y-8">
+                <div className="space-y-5">
                     {groups.map((group) => (
                         <WeekGroupBlock key={group.key} group={group} onReopen={onReopen} />
                     ))}

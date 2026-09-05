@@ -7,18 +7,12 @@ import type { NotificationPanelRoute } from '@/app/components/lawyer/Notificatio
 type Props = {
     panelRef: RefObject<HTMLDivElement | null>;
     isOpen: boolean;
-    keepAlive: boolean;
     isInboxRoute: boolean;
     panelRoute: NotificationPanelRoute;
     showListLoading: boolean;
     sheetDragEnabled: boolean;
-    reduceMotion: boolean;
     keyboardInset: number;
     isDesktop: boolean;
-    overlayTransition: object;
-    sheetEnterTransition: object;
-    sheetInitial: false | object;
-    sheetExit: undefined | object;
     onClose: () => void;
     onKeyDownCapture: (e: React.KeyboardEvent) => void;
     children: ReactNode;
@@ -26,8 +20,8 @@ type Props = {
 
 /**
  * الخلفية + الورقة.
- * الظهور/الهبوط من CSS (html[data-hami-notifications-open]) حتى لا يسبق التعتيم المحتوى.
- * Motion للسحب من الهيدر فقط — قائمة التمرير لا تُغلق الورقة.
+ * الظهور/الهبوط من CSS (html[data-hami-notifications-open]).
+ * Motion للسحب من الهيدر فقط.
  */
 export function NotificationPanelSheet({
     panelRef,
@@ -98,9 +92,7 @@ export function NotificationPanelSheet({
                         if (info.offset.y > 108 || info.velocity.y > 620) onClose();
                     }}
                     initial={false}
-                    style={{
-                        ...resolveNotificationPanelSheetStyle(keyboardInset, isDesktop),
-                    }}
+                    style={resolveNotificationPanelSheetStyle(keyboardInset, isDesktop)}
                     className={NOTIFICATION_PANEL_SHEET_CLASS}
                     onClick={(e: React.MouseEvent) => e.stopPropagation()}
                 >

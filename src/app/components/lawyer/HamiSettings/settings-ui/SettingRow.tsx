@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useId, useMemo, useRef } from 'react';
-import type { LucideIcon } from '@/app/components/ui/lucideIcons';
+import type { SettingsStemIconProps } from '../settingsStemIconsCore';
 import { SETTING_ICON_BOX, SETTING_ROW_BORDER } from './tokens';
 
 function withRowAriaLabelledBy(action: React.ReactNode, labelId: string): React.ReactNode {
@@ -18,13 +18,16 @@ export const SettingRow = memo(function SettingRow({
     icon: Icon,
     label,
     subLabel,
+    reserveSubLabel,
     action,
     isLast,
     disabled,
 }: {
-    icon: LucideIcon;
+    icon: React.ComponentType<SettingsStemIconProps>;
     label: string;
     subLabel?: string;
+    /** يحجز سطر التلميح حتى لا يقفز الصف عند وصول النص لاحقاً (بصمة). */
+    reserveSubLabel?: boolean;
     action: React.ReactNode;
     isLast?: boolean;
     disabled?: boolean;
@@ -59,20 +62,29 @@ export const SettingRow = memo(function SettingRow({
 
     return (
         <div
-            className={`flex items-center justify-between gap-3 px-3.5 py-2.5 min-h-[48px] touch-manipulation ${!isLast ? SETTING_ROW_BORDER : ''} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
+            className={`flex items-center justify-between gap-2 px-3 py-1.5 min-h-[44px] touch-manipulation ${!isLast ? SETTING_ROW_BORDER : ''} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
             onPointerDown={activateRowSwitch}
             onClick={activateRowSwitch}
         >
             <div className="flex min-w-0 flex-1 items-center gap-2.5">
                 <div className={`${SETTING_ICON_BOX} text-[#E6C673]/80`}>
-                    <Icon size={16} />
+                    <Icon size={14} />
                 </div>
                 <div className="min-w-0">
                     <div id={labelId} className="text-[13px] font-medium text-white/95 truncate">
                         {label}
                     </div>
-                    {subLabel ? (
-                        <p className="text-[11px] text-white/40 mt-0.5 leading-snug">{subLabel}</p>
+                    {subLabel || reserveSubLabel ? (
+                        <p
+                            title={subLabel?.trim() || undefined}
+                            className={`text-[11px] text-white/40 mt-0.5 leading-snug ${
+                                reserveSubLabel
+                                    ? 'min-h-[2.25rem] max-h-[2.25rem] overflow-hidden line-clamp-2 break-words'
+                                    : ''
+                            }`}
+                        >
+                            {subLabel || '\u00a0'}
+                        </p>
                     ) : null}
                 </div>
             </div>

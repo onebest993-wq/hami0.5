@@ -1,3 +1,4 @@
+import type { ComponentType, SVGProps } from 'react';
 import type { LucideIcon } from '@/app/components/ui/lucideIcons';
 import type {
     ExecutionFile,
@@ -8,6 +9,12 @@ import type {
 } from '@/app/types/execution';
 
 export type PartyBadgeParty = 'creditor' | 'debtor';
+
+export type PartyBadgeIcon = LucideIcon | ComponentType<SVGProps<SVGSVGElement> & {
+    size?: number | string;
+    strokeWidth?: number | string;
+    className?: string;
+}>;
 
 export type MemoBadgeInfo = {
     anchor: string;
@@ -75,7 +82,7 @@ export type TimelineLite = {
 export type PartyInteractiveBadge = {
     id: string;
     shortLabel: string;
-    Icon: LucideIcon;
+    Icon: PartyBadgeIcon;
     tone: 'amber' | 'slate' | 'emerald' | 'sky' | 'rose' | 'orange' | 'indigo' | 'violet';
     /** أسطر التفاصيل داخل الـ popover */
     detailLines: { k: string; v: string }[];

@@ -21,8 +21,8 @@ import { OVERLAY_EDGE_GESTURE_PX } from '@/app/runtime/overlayEdgeBackGesture';
 import { useLawyerSettings } from '@/app/context/lawyerSettings/lawyerSettingsHooks';
 import { isSessionMuted } from '@/app/services/notifications/notificationSessionMute';
 import { useNotificationShellSnapSurface } from '@/app/hooks/lawyerDashboard/notifications/useNotificationShellSnap';
+import { isNotificationPanelListLive } from '@/app/components/lawyer/NotificationPanel/utils/notificationPanelListLive';
 import { useNotificationPanelKeyboardInsetScroll } from '@/app/components/lawyer/NotificationPanel/hooks/useNotificationPanelKeyboardInsetScroll';
-import './notificationPanel.css';
 
 export type { NotificationPanelProps } from '@/app/components/lawyer/NotificationPanel/types';
 
@@ -33,24 +33,17 @@ function NotificationPanelInner({
     userId,
     onNavigate,
 }: NotificationPanelProps) {
-    const {
-        reduceMotion,
-        keyboardInset,
-        isDesktop,
-        overlayTransition,
-        sheetEnterTransition,
-        sheetInitial,
-        sheetExit,
-    } = useNotificationPanelChrome(isOpen);
+    const { reduceMotion, keyboardInset, isDesktop } = useNotificationPanelChrome(isOpen);
 
     /* الستارة هي الحقيقة البصرية: تفاعل عند الفتح، وحضور حتى تنتهي حركة الهبوط */
     const snap = useNotificationShellSnapSurface();
+    const listLive = isNotificationPanelListLive(isOpen, snap.present);
     const surfaceInteractive = isOpen && snap.open;
     const surfacePresent = isOpen && snap.present;
 
     useBodyScrollLock(surfacePresent);
 
-    const panel = useNotificationPanel(isOpen, userId, onClose, onNavigate);
+    const panel = useNotificationPanel(isOpen, userId, onClose, onNavigate, listLive);
     const route = useNotificationPanelRoute(isOpen);
     const { settings } = useLawyerSettings();
     const isAlertsMuted = isSessionMuted(settings);
@@ -100,26 +93,21 @@ function NotificationPanelInner({
             <NotificationPanelSheet
                 panelRef={panelRef}
                 isOpen={surfaceInteractive}
-                keepAlive={keepAlive}
                 isInboxRoute={route.isInboxRoute}
                 panelRoute={route.panelRoute}
                 showListLoading={viewState.showListLoading}
                 sheetDragEnabled={
                     surfaceInteractive && !isDesktop && !reduceMotion && route.isInboxRoute
                 }
-                reduceMotion={reduceMotion}
                 keyboardInset={keyboardInset}
                 isDesktop={isDesktop}
-                overlayTransition={overlayTransition}
-                sheetEnterTransition={sheetEnterTransition}
-                sheetInitial={sheetInitial}
-                sheetExit={sheetExit}
                 onClose={onClose}
                 onKeyDownCapture={onKeyDownCapture}
             >
                 <NotificationHeader
                     panelRoute={route.panelRoute}
                     unreadCount={panel.unreadCount}
+                    inboxUnreadCount={panel.inboxUnreadCount}
                     showHeaderBusy={viewState.showHeaderBusy}
                     isMarkingAllRead={panel.isMarkingAllRead}
                     onMarkAllRead={panel.handleMarkAllRead}
@@ -147,7 +135,6 @@ function NotificationPanelInner({
                 <NotificationPanelScrollRegion
                     panelRoute={route.panelRoute}
                     isInboxRoute={route.isInboxRoute}
-                    reduceMotion={reduceMotion}
                     userId={userId}
                     hasCaseShareContent={panel.hasCaseShareContent}
                     caseShareAll={panel.caseShareAll}
@@ -158,7 +145,7 @@ function NotificationPanelInner({
                     onTap={panel.handleTap}
                     onScan={panel.handleScan}
                     tabSwipeHandlers={tabSwipeHandlers}
-                    contentArmed={isOpen}
+                    contentArmed={listLive}
                     ensureId={panel.focusNotificationId}
                 />
             </NotificationPanelSheet>

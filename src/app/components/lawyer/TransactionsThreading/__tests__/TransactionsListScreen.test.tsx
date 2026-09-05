@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { TransactionStatus, type Transaction } from '@/app/modules/transactionsThreading/types';
 import { clearTransactionsListQuerySession } from '@/app/components/lawyer/TransactionsThreading/utils/transactionsListQuerySession';
@@ -12,7 +12,6 @@ const mockTransactions: Transaction[] = [
         clientName: 'سارة',
         targetDepartment: 'دائرة A',
         status: TransactionStatus.Active,
-        agreedFees: 0,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
     },
@@ -22,7 +21,6 @@ const mockTransactions: Transaction[] = [
         clientName: 'محمد',
         targetDepartment: 'دائرة B',
         status: TransactionStatus.Completed,
-        agreedFees: 0,
         createdAt: '2026-01-02T00:00:00.000Z',
         updatedAt: '2026-01-02T00:00:00.000Z',
     },
@@ -122,10 +120,12 @@ describe('TransactionsListScreen', () => {
         expect(screen.queryByText('معاملة مكتملة')).not.toBeInTheDocument();
     });
 
-    it('يفتح ورقة الإضافة من FAB', () => {
+    it('يفتح ورقة الإضافة من FAB', async () => {
         render(<TransactionsListScreen />);
         fireEvent.click(screen.getByTestId('transactions-add-fab'));
-        expect(screen.getByTestId('transactions-add-sheet')).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByTestId('transactions-add-sheet')).toBeInTheDocument();
+        });
     });
 
     it('يستدعي onOpenDetails عند اختيار معاملة', () => {

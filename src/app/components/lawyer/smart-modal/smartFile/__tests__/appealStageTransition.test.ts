@@ -5,6 +5,7 @@ import {
     applyCassationRemand,
     applyCorrectionComplete,
     applyCorrectionRejected,
+    buildOpponentAppealArchiveDetails,
     flipPartiesForAppealStage,
     migrateAppealIncidentalCases,
     normalizeLegacyCassationRemandStages,
@@ -67,6 +68,7 @@ const baseStage = {
     isPleadingsClosed: true,
     awaitingOpponentAppeal: true,
     finalDecision: 'محسومة لصالح الموكل - بانتظار الطعن',
+    clientStageOutcome: 'WIN' as const,
 } as unknown as CaseStage;
 
 describe('appealStageTransition', () => {
@@ -81,6 +83,25 @@ describe('appealStageTransition', () => {
                 stages,
             }),
         ).toBe('الاستئناف');
+    });
+
+    it('qualifies extraordinary civil pleading names by source court layer', () => {
+        expect(
+            resolveAppealStageName('اعتراض الغير', { sourceStageName: 'بداءة بدرجة أولى' }),
+        ).toBe('اعتراض الغير (بداءة)');
+        expect(resolveAppealStageName('إعادة محاكمة', { sourceStageName: 'الاستئناف' })).toBe(
+            'إعادة المحاكمة (استئناف)',
+        );
+        expect(
+            resolveAppealStageName('اعتراض على الحكم الغيابي', {
+                sourceStageName: 'بداءة بدرجة أخيرة',
+            }),
+        ).toBe('اعتراض على الحكم الغيابي (بداءة)');
+        expect(
+            resolveAppealStageName('اعتراض على الحكم الغيابي', {
+                sourceStageName: 'الاستئناف',
+            }),
+        ).toBe('اعتراض على الحكم الغيابي (بداءة)');
     });
 
     it('maps استئناف to تمييز on personal-status dossier objection stage', () => {
@@ -164,6 +185,42 @@ describe('appealStageTransition', () => {
         expect(next.attachments).toHaveLength(1);
         expect(next.incidentalCases?.some((c) => c.type === 'counter')).toBe(false);
         expect(next.incidentalCases?.some((c) => c.type === 'joinder_appeal')).toBe(true);
+        expect(next.court).toBe('استئناف بغداد');
+        expect(next.judge).toBe('');
+    });
+
+    it('does not inherit first-instance court or judge when court is omitted', () => {
+        const source = {
+            ...baseStage,
+            court: 'الديوانية',
+            judge: 'حسام',
+        } as CaseStage;
+        const { updatedStages } = applyAppealStageTransition([source], 0, source, {
+            appealType: 'استئناف',
+            appellant: 'المدعى عليه',
+            filingDate: '2026-03-01',
+            newCaseNumber: '55/س/2026',
+        });
+        expect(updatedStages[0]?.court).toBe('الديوانية');
+        expect(updatedStages[0]?.judge).toBe('حسام');
+        expect(updatedStages[1]?.court).toBe('');
+        expect(updatedStages[1]?.judge).toBe('');
+    });
+
+    it('يرث محكمة وقاضي البداءة عند الاعتراض على الحكم الغيابي', () => {
+        const source = {
+            ...baseStage,
+            court: 'الديوانية',
+            judge: 'حسام',
+        } as CaseStage;
+        const { updatedStages } = applyAppealStageTransition([source], 0, source, {
+            appealType: 'اعتراض على الحكم الغيابي',
+            appellant: 'المدعى عليه',
+            filingDate: '2026-03-01',
+            newCaseNumber: '111/ب/اعتراضية/2026',
+        });
+        expect(updatedStages[1]?.court).toBe('الديوانية');
+        expect(updatedStages[1]?.judge).toBe('حسام');
     });
 
     it('leaves absent-objection case number empty when not entered', () => {
@@ -246,7 +303,7 @@ describe('appealStageTransition', () => {
         expect(newActiveIndex).toBe(0);
         expect(updatedStages[0]?.stageName).toBe('البداءة');
         expect(updatedStages[0]?.status).toBe('active');
-        expect(updatedStages[0]?.wasReopened).toBe(true);
+        expect(updatedStages[0]?.wasReopened).toBeUndefined();
         expect(updatedStages[0]?.timeline?.length).toBeGreaterThan(0);
         expect(updatedStages[0]?.parties?.[0]?.role).toBe('المدعي');
         expect(updatedStages[1]?.status).toBe('completed');
@@ -287,7 +344,7 @@ describe('appealStageTransition', () => {
         expect(newActiveIndex).toBe(1);
         expect(updatedStages[1]?.stageName).toBe('الاستئناف');
         expect(updatedStages[1]?.status).toBe('active');
-        expect(updatedStages[1]?.wasReopened).toBe(true);
+        expect(updatedStages[1]?.wasReopened).toBeUndefined();
         expect(updatedStages[1]?.caseNo).toBe('50/2026');
         expect(updatedStages[1]?.court).toBe('استئناف بغداد');
         expect(updatedStages[1]?.timeline?.length).toBeGreaterThan(appealTimeline.length);
@@ -323,7 +380,7 @@ describe('appealStageTransition', () => {
         expect(newActiveIndex).toBe(0);
         expect(updatedStages[0]?.stageName).toBe('أحوال شخصية');
         expect(updatedStages[0]?.status).toBe('active');
-        expect(updatedStages[0]?.wasReopened).toBe(true);
+        expect(updatedStages[0]?.wasReopened).toBeUndefined();
         expect(updatedStages[0]?.parties?.[0]?.role).toBe('المدعي');
         expect(updatedStages[0]?.timeline?.some((e) => e.id === 'ps_note')).toBe(true);
         expect(updatedStages[1]?.status).toBe('completed');
@@ -418,5 +475,24 @@ describe('appealStageTransition', () => {
         expect(updatedStages[0]?.status).toBe('active');
         expect(updatedStages[0]?.wasReopened).toBe(true);
         expect(updatedStages[2]?.status).toBe('completed');
+    });
+
+    it('omits المحكمة المختصة when appeal court is empty', () => {
+        const details = buildOpponentAppealArchiveDetails({
+            appealType: 'استئناف',
+            caseNo: '55/س/2026',
+        });
+        expect(details).toContain('رقم دعوى الطعن: 55/س/2026');
+        expect(details).not.toContain('المحكمة المختصة');
+        expect(details).not.toContain('غير محدد');
+    });
+
+    it('includes المحكمة المختصة only when court is provided', () => {
+        const details = buildOpponentAppealArchiveDetails({
+            appealType: 'استئناف',
+            caseNo: '55/س/2026',
+            court: 'استئناف الديوانية',
+        });
+        expect(details).toContain('المحكمة المختصة: استئناف الديوانية');
     });
 });

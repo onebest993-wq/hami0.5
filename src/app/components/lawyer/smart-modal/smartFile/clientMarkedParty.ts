@@ -1,13 +1,11 @@
 /** الطرف المعلّم موكلاً — isClient أو مكتبي */
-export function resolveClientMarkedParty(
-    parties?: Array<{
-        role?: string;
+export function resolveClientMarkedParty<
+    T extends {
         isClient?: boolean;
-        side?: 'right' | 'left';
         isMyOffice?: boolean;
         lawyer?: { isMyOffice?: boolean };
-    }>,
-) {
+    },
+>(parties?: T[] | null): T | null {
     if (!Array.isArray(parties)) return null;
     return (
         parties.find(

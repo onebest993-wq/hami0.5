@@ -24,6 +24,7 @@ import {
     sortTimeline,
     sumOptionalAmount,
 } from './caseConsolidationHelpers';
+import { areIndependentChallengePeers } from '@/app/domain/lawsuit/independentChallengeDossier';
 
 export function addExternalConsolidationRef(
     file: FileData,
@@ -75,8 +76,11 @@ export function mergeLawsuitFilesForConsolidation(
     secondary: FileData,
     meta: ConsolidationMergeMeta,
 ): { mergedPrimary: FileData; archivedSecondary: FileData } | { error: string } {
-    const stageCheck = assertConsolidationStageCompatibility(primary, secondary);
-    if (!stageCheck.ok) return { error: stageCheck.message };
+    const independentPeer = areIndependentChallengePeers(primary, secondary);
+    if (!independentPeer) {
+        const stageCheck = assertConsolidationStageCompatibility(primary, secondary);
+        if (!stageCheck.ok) return { error: stageCheck.message };
+    }
 
     const primaryStages = [...resolveStages(primary)];
     const secondaryStages = [...resolveStages(secondary)];
@@ -103,28 +107,45 @@ export function mergeLawsuitFilesForConsolidation(
         ref,
     );
 
-    const mergedTimeline = sortTimeline([
-        ...((primaryStage.timeline as TimelineEvent[] | undefined) ?? []),
-        ...((secondaryStage.timeline as TimelineEvent[] | undefined) ?? []),
-        buildConsolidationEvent(primaryCaseNo, secondaryCaseNo, meta, false),
-    ]);
+    const mergedTimeline = sortTimeline(
+        independentPeer
+            ? [
+                ...((primaryStage.timeline as TimelineEvent[] | undefined) ?? []),
+                buildConsolidationEvent(primaryCaseNo, secondaryCaseNo, meta, false),
+            ]
+            : [
+                ...((primaryStage.timeline as TimelineEvent[] | undefined) ?? []),
+                ...((secondaryStage.timeline as TimelineEvent[] | undefined) ?? []),
+                buildConsolidationEvent(primaryCaseNo, secondaryCaseNo, meta, false),
+            ],
+    );
 
-    const mergedTasks = mergeById<Task>(
-        (primaryStage.tasks as Task[] | undefined) ?? [],
-        (secondaryStage.tasks as Task[] | undefined) ?? [],
-    );
-    const mergedIncidental = mergeById<IncidentalCase>(
-        (primaryStage.incidentalCases as IncidentalCase[] | undefined) ?? [],
-        (secondaryStage.incidentalCases as IncidentalCase[] | undefined) ?? [],
-    );
-    const mergedThirdParties = mergeById(
-        (primaryStage.thirdParties as { id: string }[] | undefined) ?? [],
-        (secondaryStage.thirdParties as { id: string }[] | undefined) ?? [],
-    );
-    const mergedParties = mergeParties(
-        (primaryStage.parties as Party[] | undefined) ?? primary.parties ?? [],
-        (secondaryStage.parties as Party[] | undefined) ?? secondary.parties ?? [],
-    );
+    const mergedTasks = independentPeer
+        ? ((primaryStage.tasks as Task[] | undefined) ?? [])
+        : mergeById<Task>(
+            (primaryStage.tasks as Task[] | undefined) ?? [],
+            (secondaryStage.tasks as Task[] | undefined) ?? [],
+        );
+    const mergedIncidental = independentPeer
+        ? ((primaryStage.incidentalCases as IncidentalCase[] | undefined) ?? [])
+        : mergeById<IncidentalCase>(
+            (primaryStage.incidentalCases as IncidentalCase[] | undefined) ?? [],
+            (secondaryStage.incidentalCases as IncidentalCase[] | undefined) ?? [],
+        );
+    const mergedThirdParties = independentPeer
+        ? ((primaryStage.thirdParties as { id: string }[] | undefined) ?? [])
+        : mergeById(
+            (primaryStage.thirdParties as { id: string }[] | undefined) ?? [],
+            (secondaryStage.thirdParties as { id: string }[] | undefined) ?? [],
+        );
+    const mergedParties = independentPeer
+        ? ((primary.parties as Party[] | undefined)?.length
+            ? (primary.parties as Party[])
+            : ((primaryStage.parties as Party[] | undefined) ?? []))
+        : mergeParties(
+            (primaryStage.parties as Party[] | undefined) ?? primary.parties ?? [],
+            (secondaryStage.parties as Party[] | undefined) ?? secondary.parties ?? [],
+        );
     const mergedNotes = mergeNotes(primary.notes ?? [], secondary.notes ?? []);
     const mergedImages = mergeImages(primary.images, secondary.images);
     const mergedHistory = mergeHistory(primary.history, secondary.history);
@@ -137,7 +158,10 @@ export function mergeLawsuitFilesForConsolidation(
         timeline: mergedTimeline,
         tasks: mergedTasks,
         incidentalCases: mergedIncidental,
-        parties: mergedParties,
+        /** إضبارة الطعن المستقل: لا تُخلط أطراف المرحلة النشطة مع أطراف الملف الجذر */
+        parties: independentPeer
+            ? ((primaryStage.parties as Party[] | undefined) ?? primaryStage.parties)
+            : mergedParties,
         thirdParties: mergedThirdParties.length > 0 ? mergedThirdParties : primaryStage.thirdParties,
     };
 

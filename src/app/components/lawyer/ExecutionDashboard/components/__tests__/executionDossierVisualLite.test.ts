@@ -103,4 +103,29 @@ describe('execution dossier visual lite (explicit design permission)', () => {
         expect(read('DossierLifecyclePanel.tsx')).not.toContain('🟢');
         expect(read('DossierLifecyclePanel.tsx')).toContain('dossierLifecycleLabelAr(s)');
     });
+
+    it('نافذة بيانات الإضبارة أخف وتخفي أسماء الأطراف المتوفين', () => {
+        const modal = read('DossierMetaEditSection.tsx');
+        const fields = read('DossierMetaEditSectionFields.tsx');
+        expect(modal).toContain('EXEC_OVERLAY_HEADER');
+        expect(modal).toContain('EXEC_OVERLAY_PRIMARY_BTN');
+        expect(modal).not.toContain('border-amber-500/25');
+        expect(modal).not.toContain('bg-amber-700');
+        expect(modal).not.toContain('text-amber-200');
+        expect(fields).toContain('EXEC_OVERLAY_FIELD');
+        expect(fields).toContain('الأطراف');
+        expect(fields).toContain('partyNameFields.length > 0');
+        expect(fields).not.toContain('bg-amber-950/15');
+        expect(fields).not.toContain('text-amber-200/70');
+    });
+
+    it('أسماء الدائن والمدين في وسط البطاقة وقائمة الإجراءات لا تزاحم الاسم', () => {
+        expect(read('CreditorPartyCardCollapsed.tsx')).toContain('PartyCardCollapsedNameSlot');
+        expect(read('CreditorPartyCardCollapsed.tsx')).not.toContain('justify-start');
+        expect(read('DebtorCardRowCollapsed.tsx')).toContain('PartyCardCollapsedNameSlot');
+        expect(read('DebtorCardRowCollapsed.tsx')).not.toContain('justify-between');
+        expect(read('PartyCardCollapsedNameSlot.tsx')).toContain('absolute end-0 top-1/2');
+        expect(read('PartyCardCollapsedNameSlot.tsx')).toContain('-translate-y-1/2');
+        expect(read('PartyCardCollapsedNameSlot.tsx')).toContain('items-center justify-center');
+    });
 });

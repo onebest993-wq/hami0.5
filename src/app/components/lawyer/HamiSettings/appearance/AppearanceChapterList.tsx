@@ -3,6 +3,7 @@ import { SettingCard } from '../settings-ui/index';
 import { AppearanceChapterHeader } from './AppearanceChapterHeader';
 import { APPEARANCE_CHAPTERS, type AppearanceChapterId } from './appearanceChapters';
 import { AppearanceThemeAndSurfaceCard } from './AppearanceThemeAndSurfaceCard';
+import { SettingsSectionInstantSlots } from '../SettingsSectionInstantSlots';
 import type { AppearanceSectionViewModel } from './useAppearanceSection';
 
 const AppearanceWallpaperCard = lazy(() =>
@@ -21,7 +22,7 @@ function AppearanceChapterBody({
             return <AppearanceThemeAndSurfaceCard vm={vm} />;
         case 'wallpaper':
             return (
-                <Suspense fallback={null}>
+                <Suspense fallback={<SettingsSectionInstantSlots />}>
                     <AppearanceWallpaperCard vm={vm} />
                 </Suspense>
             );

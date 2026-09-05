@@ -14,6 +14,22 @@ export function listGlobalSearchFocusables(root: HTMLElement): HTMLElement[] {
     });
 }
 
+/** يمرّر داخل `.hami-gs-scroll` فقط — scrollIntoView كان يحرّك أسلاف اللوحة/الصفحة. */
+export function scrollGlobalSearchResultIntoView(el: HTMLElement): void {
+    const scroller = el.closest('.hami-gs-scroll');
+    if (!(scroller instanceof HTMLElement)) {
+        el.scrollIntoView?.({ block: 'nearest' });
+        return;
+    }
+    const rootRect = scroller.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    if (elRect.top < rootRect.top) {
+        scroller.scrollTop -= rootRect.top - elRect.top;
+    } else if (elRect.bottom > rootRect.bottom) {
+        scroller.scrollTop += elRect.bottom - rootRect.bottom;
+    }
+}
+
 export function useSearchKeyboard(
     overlayRef: RefObject<HTMLDivElement | null>,
     flatResults: GlobalSearchEntry[],
@@ -28,7 +44,7 @@ export function useSearchKeyboard(
             const el = root.querySelector<HTMLButtonElement>(`button[data-search-result-index="${index}"]`);
             if (!el) return;
             el.focus();
-            el.scrollIntoView?.({ block: 'nearest' });
+            scrollGlobalSearchResultIntoView(el);
         },
         [overlayRef],
     );

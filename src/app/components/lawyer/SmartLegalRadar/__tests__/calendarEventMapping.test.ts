@@ -1,14 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
     mapAllCalendarEventsForSparkScan,
     mapStoredEventsToUnified,
 } from '@/app/components/lawyer/SmartLegalRadar/calendarEventMapping';
 import type { CalendarEvent } from '@/app/services/lawyer-cloud';
-
-vi.mock('@/app/services/calendar/calendarEventAuthorship', () => ({
-    isBridgedCalendarEvent: (e: CalendarEvent) => Boolean(e.sourceModule),
-    isUserAuthoredBridgedCalendarEvent: () => true,
-}));
 
 describe('mapStoredEventsToUnified', () => {
     it('يحوّل موعداً عادياً', () => {
@@ -60,5 +55,15 @@ describe('mapStoredEventsToUnified', () => {
         };
         const out = mapAllCalendarEventsForSparkScan([stored]);
         expect(out[0]?.court).toBe('محكمة الكرخ');
+    });
+
+    it('يتخطّى المواعيد بلا تاريخ حتى لا ينهار الفهرس', () => {
+        const stored = {
+            id: 'bad',
+            title: 'بدون تاريخ',
+            type: 'hearing',
+        } as CalendarEvent;
+        expect(mapStoredEventsToUnified([stored])).toEqual([]);
+        expect(mapAllCalendarEventsForSparkScan([stored])).toEqual([]);
     });
 });

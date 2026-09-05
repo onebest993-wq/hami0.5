@@ -1,16 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RepositoryDB, type CommunityPost, type RepositoryDocument } from '@/app/services/lawyer-cloud';
-import { compareCommunityPostsForFeed } from '@/app/services/forum/forumUrgentConsultation';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CommunityPost, RepositoryDocument } from '@/app/services/lawyer-cloud';
+import { ForumApiService } from '@/app/services/forumApiService';
+import { resolveRepositoryDocTags } from '../repositoryTagUtils';
 import {
-    communityTagMatchesFilter,
-    resolveCommunityPostTags,
-    resolveRepositoryDocTags,
-    repositoryDocMatchesSearch,
-    repositoryDocMatchesTag,
-} from '../repositoryTagUtils';
-import { getRepositoryMediaKind } from '../components/repositoryMedia';
-import { archiveTextMatchesQuery } from '@/app/services/search/normalizeArabicSearch';
-import { clampGlobalSearchQuery } from '@/app/services/search/globalSearchQuerySecurity';
+    filterLocalForumPostsForSearch,
+    filterLocalRepositoryDocsForSearch,
+    hasForumCommunitySearchFilters,
+    mergeSearchHitsById,
+} from '../forumCommunitySearchFilter';
+
+const SEARCH_DEBOUNCE_MS = 300;
 
 export function useCommunityScreenSearchOverlay(posts: CommunityPost[], allTags: string[]) {
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -19,24 +18,65 @@ export function useCommunityScreenSearchOverlay(posts: CommunityPost[], allTags:
     const [filterHasPdf, setFilterHasPdf] = useState(false);
     const [filterHasImage, setFilterHasImage] = useState(false);
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
+    const [serverPosts, setServerPosts] = useState<CommunityPost[] | null>(null);
+    const [serverDocs, setServerDocs] = useState<RepositoryDocument[] | null>(null);
+    const searchSeqRef = useRef(0);
+
+    const filters = useMemo(
+        () => ({
+            q: searchQuery,
+            hasPdf: filterHasPdf,
+            hasImage: filterHasImage,
+            tag: selectedTag,
+        }),
+        [filterHasImage, filterHasPdf, searchQuery, selectedTag],
+    );
 
     useEffect(() => {
         if (!isSearchOpen) return;
         let cancelled = false;
-        void RepositoryDB.listDocuments().then((docs) => {
-            if (!cancelled) {
+        void import('@/app/services/cloud/lawyerRepositoryCloud').then(({ RepositoryDB }) => {
+            if (cancelled) return;
+            return RepositoryDB.listDocuments().then((docs) => {
+                if (cancelled) return;
                 setRepositoryDocs(
                     docs.map((doc) => ({
                         ...doc,
                         tags: resolveRepositoryDocTags(doc.title, doc.description, doc.tags),
                     })),
                 );
-            }
+            });
         });
         return () => {
             cancelled = true;
         };
     }, [isSearchOpen]);
+
+    useEffect(() => {
+        if (!isSearchOpen || !hasForumCommunitySearchFilters(filters)) {
+            setServerPosts(null);
+            setServerDocs(null);
+            return;
+        }
+        const seq = ++searchSeqRef.current;
+        const timer = window.setTimeout(() => {
+            void ForumApiService.searchCommunity(filters)
+                .then((res) => {
+                    if (seq !== searchSeqRef.current) return;
+                    setServerPosts(res.posts);
+                    setServerDocs(res.documents);
+                })
+                .catch(() => {
+                    if (seq !== searchSeqRef.current) return;
+                    setServerPosts(null);
+                    setServerDocs(null);
+                });
+        }, SEARCH_DEBOUNCE_MS);
+        return () => {
+            window.clearTimeout(timer);
+            searchSeqRef.current += 1;
+        };
+    }, [filters, isSearchOpen]);
 
     const allSearchTags = useMemo(() => {
         const fromRepo = repositoryDocs.flatMap((d) => d.tags ?? []);
@@ -45,49 +85,35 @@ export function useCommunityScreenSearchOverlay(posts: CommunityPost[], allTags:
 
     const filteredPosts = useMemo(() => {
         if (!isSearchOpen) return [];
-        const q = clampGlobalSearchQuery(searchQuery);
-        return posts
-            .filter((p) => {
-                const hay = [p.content, p.authorName, ...(p.tags ?? [])].join(' ');
-                const matchesSearch = !q.trim() || archiveTextMatchesQuery(hay, q);
-                const matchesPdf = !filterHasPdf || p.attachment?.type === 'document';
-                const matchesImage = !filterHasImage || p.attachment?.type === 'image';
-                const matchesTag = communityTagMatchesFilter(
-                    resolveCommunityPostTags(p.content, p.tags),
-                    selectedTag,
-                );
-                return matchesSearch && matchesPdf && matchesImage && matchesTag;
-            })
-            .sort((a, b) => compareCommunityPostsForFeed(a, b));
-    }, [isSearchOpen, posts, searchQuery, filterHasPdf, filterHasImage, selectedTag]);
+        const local = filterLocalForumPostsForSearch(posts, filters);
+        return serverPosts ? mergeSearchHitsById(serverPosts, local) : local;
+    }, [filters, isSearchOpen, posts, serverPosts]);
 
     const filteredRepositoryDocs = useMemo(() => {
         if (!isSearchOpen) return [];
-        return repositoryDocs.filter((doc) => {
-            const matchesSearch = repositoryDocMatchesSearch(doc, searchQuery);
-            const docTags = resolveRepositoryDocTags(doc.title, doc.description, doc.tags);
-            const matchesTag = repositoryDocMatchesTag(docTags, selectedTag);
-            const mediaKind = getRepositoryMediaKind(doc.mimeType, doc.fileName);
-            const matchesPdf = !filterHasPdf || mediaKind === 'pdf';
-            const matchesImage = !filterHasImage || mediaKind === 'image';
-            return matchesSearch && matchesTag && matchesPdf && matchesImage;
-        });
-    }, [isSearchOpen, repositoryDocs, searchQuery, selectedTag, filterHasPdf, filterHasImage]);
+        const local = filterLocalRepositoryDocsForSearch(repositoryDocs, filters);
+        return serverDocs ? mergeSearchHitsById(serverDocs, local) : local;
+    }, [filters, isSearchOpen, repositoryDocs, serverDocs]);
 
     const openSearchOverlay = useCallback(() => {
         setSearchQuery('');
         setFilterHasPdf(false);
         setFilterHasImage(false);
         setSelectedTag(null);
+        setServerPosts(null);
+        setServerDocs(null);
         setIsSearchOpen(true);
     }, []);
 
     const closeSearchOverlay = useCallback(() => {
+        searchSeqRef.current += 1;
         setIsSearchOpen(false);
         setSearchQuery('');
         setFilterHasPdf(false);
         setFilterHasImage(false);
         setSelectedTag(null);
+        setServerPosts(null);
+        setServerDocs(null);
     }, []);
 
     return {

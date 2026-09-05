@@ -13,6 +13,9 @@ export {
     migrateAppealIncidentalCases,
     applyAppealStageTransition,
     shouldShowFirstInstanceIncidentalUi,
+    buildOpponentAppealArchiveDetails,
+    type AppealStageTransitionResult,
+    type AppealTransitionParams,
 } from './appealStageTransitionApply';
 export {
     resolveCassationRemandTarget,

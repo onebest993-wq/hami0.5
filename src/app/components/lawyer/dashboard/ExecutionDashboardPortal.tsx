@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect } from 'react';
+import React, { Suspense, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import { ExecutionDashboardBootChrome } from '@/app/components/lawyer/dashboard/ExecutionDashboardBootChrome';
@@ -8,6 +8,7 @@ import { createPreloadableLazyComponent } from '@/app/utils/lazy/preloadableLazy
 import type { LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 import { HAMI_OVERLAY_SAFE_INSETS_CLASS } from '@/app/utils/overlayPortal';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { useOverlayGhostClickShield } from '@/app/hooks/useOverlayGhostClickShield';
 
 const LazyExecutionDashboard = createPreloadableLazyComponent(() =>
     loadExecutionDashboardModule().then((mod) => {
@@ -34,7 +35,21 @@ type ExecutionDashboardPortalProps = {
     open?: boolean;
 };
 
-function ExecutionDossierCrashFallback({ onExitToHome }: { onExitToHome: () => void }) {
+function ExecutionDossierCrashFallback({
+    onExitToHome,
+    onRetry,
+    error,
+}: {
+    onExitToHome: () => void;
+    onRetry?: () => void;
+    error?: Error | null;
+}) {
+    const detail =
+        (error && (error.message || String(error))) ||
+        (typeof window !== 'undefined'
+            ? String((window as unknown as { __HAMI_EXEC_DOSSIER_CRASH?: string }).__HAMI_EXEC_DOSSIER_CRASH || '').trim()
+            : '');
+
     return (
         <div
             className={`fixed inset-0 z-[230] flex flex-col items-center justify-center gap-3 bg-slate-950 px-6 text-center ${HAMI_OVERLAY_SAFE_INSETS_CLASS}`}
@@ -42,17 +57,33 @@ function ExecutionDossierCrashFallback({ onExitToHome }: { onExitToHome: () => v
             aria-modal="true"
             aria-label="تعذّر فتح الإضبارة"
             data-testid="execution-dossier-error-fallback"
-            data-error-message=""
+            data-error-message={detail}
         >
             <p className="text-sm font-bold text-red-300">تعذّر تحميل الإضبارة التنفيذية</p>
             <p className="max-w-sm text-xs text-white/45">يمكنك الإغلاق والمحاولة مجدداً دون فقدان باقي التطبيق.</p>
-            <button
-                type="button"
-                onClick={onExitToHome}
-                className="min-h-[44px] min-w-[44px] rounded-xl border border-[#E6C673]/40 px-4 text-xs font-bold text-[#E6C673] touch-manipulation"
-            >
-                إغلاق
-            </button>
+            {detail ? (
+                <p className="max-w-md break-words rounded-lg border border-red-400/20 bg-red-950/40 px-3 py-2 text-[10px] leading-relaxed text-red-200/90" dir="ltr">
+                    {detail}
+                </p>
+            ) : null}
+            <div className="flex flex-wrap items-center justify-center gap-2">
+                {onRetry ? (
+                    <button
+                        type="button"
+                        onClick={onRetry}
+                        className="min-h-[44px] min-w-[44px] rounded-xl border border-[#E6C673]/40 bg-[#E6C673]/15 px-4 text-xs font-bold text-[#E6C673] touch-manipulation"
+                    >
+                        إعادة المحاولة
+                    </button>
+                ) : null}
+                <button
+                    type="button"
+                    onClick={onExitToHome}
+                    className="min-h-[44px] min-w-[44px] rounded-xl border border-white/20 px-4 text-xs font-bold text-slate-200 touch-manipulation"
+                >
+                    إغلاق
+                </button>
+            </div>
         </div>
     );
 }
@@ -66,6 +97,8 @@ export function ExecutionDashboardPortal({
     open = true,
 }: ExecutionDashboardPortalProps) {
     useBodyScrollLock(open);
+    const layerRef = useRef<HTMLDivElement>(null);
+    useOverlayGhostClickShield(layerRef);
     useEffect(() => {
         if (!open) return;
         void import('@/app/runtime/deferredFeatureStyles')
@@ -77,6 +110,7 @@ export function ExecutionDashboardPortal({
 
     const layer = (
         <div
+            ref={layerRef}
             className="fixed inset-0 z-[230]"
             data-testid="execution-dashboard-portal-open"
             data-hami-overlay-safe="1"
@@ -84,7 +118,28 @@ export function ExecutionDashboardPortal({
         >
             <ErrorBoundary
                 key={file.id}
-                fallback={<ExecutionDossierCrashFallback onExitToHome={onExitToHome} />}
+                fallback={({ resetErrorBoundary, error }) => (
+                    <ExecutionDossierCrashFallback
+                        onExitToHome={onExitToHome}
+                        onRetry={() => {
+                            try {
+                                const w = window as unknown as { __HAMI_EXEC_DOSSIER_CRASH?: string };
+                                delete w.__HAMI_EXEC_DOSSIER_CRASH;
+                            } catch {
+                                /* ignore */
+                            }
+                            void import('@/app/runtime/executionDashboardModuleLoad')
+                                .then((m) => {
+                                    m.resetExecutionDashboardModuleCache();
+                                    resetErrorBoundary();
+                                })
+                                .catch(() => {
+                                    resetErrorBoundary();
+                                });
+                        }}
+                        error={error}
+                    />
+                )}
                 onError={(error, errorInfo) => {
                     const msg = error instanceof Error ? error.message : String(error);
                     try {

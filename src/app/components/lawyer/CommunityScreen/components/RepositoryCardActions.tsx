@@ -1,6 +1,5 @@
 import React from 'react';
 import { Download } from '@/app/components/ui/icons/Download';
-import { Loader2 } from '@/app/components/ui/icons/Loader2';
 import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import { Pencil } from '@/app/components/ui/icons/Pencil';
 import { Flag } from '@/app/components/ui/icons/Flag';
@@ -56,18 +55,15 @@ export function RepositoryCardActions({
                     type="button"
                     onClick={() => onDownload(doc)}
                     disabled={downloadingId === doc.id}
+                    aria-busy={downloadingId === doc.id || undefined}
                     className={`flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border px-2 py-2 text-[11px] font-bold transition-all touch-manipulation ${
                         downloadingId === doc.id
                             ? 'border-white/10 bg-white/5 text-white/30 cursor-not-allowed'
                             : 'border-[#E6C673]/25 bg-[#E6C673]/10 text-[#E6C673] hover:bg-[#E6C673]/15'
                     }`}
                 >
-                    {downloadingId === doc.id ? (
-                        <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                        <Download size={14} />
-                    )}
-                    <span className="truncate">{downloadingId === doc.id ? 'جاري الحفظ...' : 'حفظ في الجهاز'}</span>
+                    <Download size={14} />
+                    <span className="truncate">حفظ في الجهاز</span>
                 </button>
             </div>
 
@@ -93,6 +89,7 @@ export function RepositoryCardActions({
                                 onDelete(doc);
                             }}
                             disabled={deletingId === doc.id}
+                            aria-busy={deletingId === doc.id || undefined}
                             className={`inline-flex h-11 w-11 items-center justify-center rounded-xl transition-all touch-manipulation ${
                                 deletingId === doc.id
                                     ? 'text-white/20 cursor-not-allowed'
@@ -101,11 +98,7 @@ export function RepositoryCardActions({
                             title="حذف"
                             aria-label="حذف"
                         >
-                            {deletingId === doc.id ? (
-                                <Loader2 size={15} className="animate-spin" />
-                            ) : (
-                                <Trash2 size={15} />
-                            )}
+                            <Trash2 size={15} />
                         </button>
                     </>
                 ) : null}

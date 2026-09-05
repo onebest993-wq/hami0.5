@@ -24,7 +24,7 @@ export function NotificationTabs({ activeTab, onTabChange, tabCounts }: Notifica
     };
 
     return (
-        <div className="shrink-0 border-b border-white/[0.06] px-4 py-3" role="presentation">
+        <div className="shrink-0 border-b border-white/[0.06] px-3 py-2" role="presentation">
             <div
                 className="hami-notif-tabs-track"
                 role="tablist"

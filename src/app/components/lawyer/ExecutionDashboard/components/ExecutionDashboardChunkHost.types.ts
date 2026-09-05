@@ -26,7 +26,6 @@ export type ExecutionDashboardChunkHostProps = {
     loadFollowupOtherPartyHandlerCluster: boolean;
     loadSeizureHeavyHandlerCluster: boolean;
     loadSeizureRequestsHandlerCluster: boolean;
-    loadSeizureLogHandlerCluster: boolean;
     loadCoerciveHeavyHandlerCluster: boolean;
     loadPublicationNoticeHandlerCluster: boolean;
     loadDossierSupportHandlerCluster: boolean;

@@ -1,9 +1,14 @@
 import type { CaseStage, Party } from '../../../../LawyerShared';
 import { debug } from '@/app/utils/debug';
 import { getLocalTodayYmd } from '@/app/utils/localYmd';
-
-
-
+import {
+    resolveFirstInstanceHadoriAppealRights,
+    resolveLawyerSide,
+} from '../../../smartFile/judgmentTypes';
+import {
+    stageOutcomeFromFirstInstanceRights,
+    withClientStageOutcome,
+} from '../../../smartFile/stageOutcomeResolution';
 
 import type { JudgmentConfirmRuntime, JudgmentConfirmScope } from './judgmentConfirmTypes';
 
@@ -42,14 +47,24 @@ if (action === 'transition') {
         timelineTitle = '⚠️ حكم برد الدعوى جزئياً';
     }
 
+    const lawyerSide = resolveLawyerSide(parentData.representedParty, currentStage.parties);
+    const hadoriRights = resolveFirstInstanceHadoriAppealRights(judgmentType, lawyerSide, {
+        parties: currentStage.parties,
+        representedParty: parentData.representedParty,
+    });
+    const clientStageOutcome = stageOutcomeFromFirstInstanceRights(hadoriRights, judgmentType);
+
     // STEP 1: Archive Current Stage
-    updatedStages[activeStageIndex] = {
-        ...currentStage,
-        status: 'locked', 
-        finalDecision: decisionText, // ✅ DYNAMIC DECISION
-        decisionDate: judgmentDate,
-        judgmentForm: judgmentForm
-    };
+    updatedStages[activeStageIndex] = withClientStageOutcome(
+        {
+            ...currentStage,
+            status: 'locked',
+            finalDecision: decisionText,
+            decisionDate: judgmentDate,
+            judgmentForm: judgmentForm,
+        },
+        clientStageOutcome,
+    );
 
     // Add judgment event to archived stage
     updatedStages[activeStageIndex].timeline = [{

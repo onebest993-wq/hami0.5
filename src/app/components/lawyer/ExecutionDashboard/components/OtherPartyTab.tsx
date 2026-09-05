@@ -181,7 +181,7 @@ export const OtherPartyTab: React.FC<OtherPartyTabProps> = ({
 
     if (showCreditorRequestsMirror && creditorRequestsMirror) {
         return (
-            <div className="p-2 md:p-3" onClick={(e) => e.stopPropagation()}>
+            <div onClick={(e) => e.stopPropagation()}>
                 <OtherPartyEffectiveRequestsPanel
                     {...creditorRequestsMirror}
                     debtorAgentManualTrack
@@ -195,7 +195,7 @@ export const OtherPartyTab: React.FC<OtherPartyTabProps> = ({
     }
 
     return (
-        <div className="space-y-4 p-4" onClick={(e) => e.stopPropagation()}>
+        <div className="space-y-4" onClick={(e) => e.stopPropagation()}>
             <PreloadableOverlayGate
                 lazy={LazyOtherPartyActionsLog}
                 lazyProps={{

@@ -12,8 +12,6 @@ export function NotificationAlertControls() {
         notifications,
         quietHoursActive,
         mutedUntil,
-        dndMode,
-        setDndMode,
         muteUntilLocal,
         muteError,
         dndStatus,
@@ -26,6 +24,7 @@ export function NotificationAlertControls() {
         setMuteError,
         requestOsPermission,
         previewArrivalCue,
+        previewArrivalHaptic,
     } = useNotificationAlertControls();
 
     return (
@@ -53,14 +52,12 @@ export function NotificationAlertControls() {
                 ) : null}
 
                 <NotificationAlertDndPanel
-                    mode={dndMode}
                     mutedUntil={mutedUntil}
                     quietHours={notifications.quietHours}
                     quietHoursActive={quietHoursActive}
                     muteUntilLocal={muteUntilLocal}
                     muteError={muteError}
                     minDatetimeLocal={minDatetimeLocal}
-                    onModeChange={setDndMode}
                     onQuietHoursEnabled={(enabled) =>
                         patchNotifications({
                             quietHours: { ...notifications.quietHours, enabled },
@@ -107,7 +104,10 @@ export function NotificationAlertControls() {
                     <NotificationAlertToggleRow
                         label="الاهتزاز"
                         checked={notifications.vibrateMaster}
-                        onChange={(vibrateMaster) => patchNotifications({ vibrateMaster })}
+                        onChange={(vibrateMaster) => {
+                            patchNotifications({ vibrateMaster });
+                            if (vibrateMaster) previewArrivalHaptic();
+                        }}
                         testId="notification-vibrate-master"
                     />
                 </div>

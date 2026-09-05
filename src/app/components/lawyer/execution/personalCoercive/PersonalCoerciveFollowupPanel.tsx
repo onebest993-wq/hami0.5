@@ -135,6 +135,7 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
         setSendingKey,
         setTravelPanelOpen,
         showDossierPresentationCard,
+        dossierHandoffVisible,
         showEmbeddedSection,
         showForcedBringInSection,
         showInvestigationBlock,
@@ -237,6 +238,7 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                 handleExecutorInlineResolved={handleExecutorInlineResolved}
                 handleForcedBringHeaderClick={handleForcedBringHeaderClick}
                 hasOpenCardForSubtype={hasOpenCardForSubtype}
+                hideExecutorForcedBringActivation={hideExecutorForcedBringActivation}
                 kasabCoerciveEmphasis={kasabCoerciveEmphasis}
                 onOpenSummonsCenter={onOpenSummonsCenter}
                 recordForcedOutcome={recordForcedOutcome}
@@ -353,6 +355,7 @@ export const PersonalCoerciveFollowupPanel: React.FC<PersonalCoerciveFollowupPan
                 renderRejectedExecutorAppealSection={renderRejectedExecutorAppealSection}
                 runDossierPresentationSubmit={runDossierPresentationSubmit}
                 showDossierPresentationCard={showDossierPresentationCard}
+                dossierHandoffVisible={dossierHandoffVisible}
                 showEmbeddedSection={showEmbeddedSection}
             />
 

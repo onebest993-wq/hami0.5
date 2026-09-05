@@ -3,6 +3,7 @@ import type { SmartFileMainPanelProps } from './smartFileMainPanelTypes';
 import { storedFastTrackStatus } from '../../smartFile/fastTrackStatus';
 import { buildSessionRecordPayload, isSessionHubFocusEvent } from '../../smartFile/sessionRecordEngine';
 import { prefetchLegalActionsModalChunks } from '../../prefetchLegalActionsModalChunks';
+import { SmartFilePleadingHearingPrompt } from './SmartFilePleadingHearingPrompt';
 import {
     LazyCivilLawReferenceHub,
     LazyQuickActions,
@@ -40,6 +41,7 @@ export type SmartFileWorkflowHubsSectionProps = {
     handleAppealBriefOutcome: SmartFileMainPanelProps['handleAppealBriefOutcome'];
     handleCorrespondenceResponse: SmartFileMainPanelProps['handleCorrespondenceResponse'];
     setEditingTask: SmartFileMainPanelProps['setEditingTask'];
+    onRegisterPleadingHearing?: (presetTitle: string) => void;
 };
 
 export function SmartFileWorkflowHubsSection({
@@ -69,6 +71,7 @@ export function SmartFileWorkflowHubsSection({
     handleAppealBriefOutcome,
     handleCorrespondenceResponse,
     setEditingTask,
+    onRegisterPleadingHearing,
 }: SmartFileWorkflowHubsSectionProps) {
     return (
         <>
@@ -86,6 +89,12 @@ export function SmartFileWorkflowHubsSection({
                             }}
                         />
                     </Suspense>
+                    {!isCaseLinkViewOnly && onRegisterPleadingHearing ? (
+                        <SmartFilePleadingHearingPrompt
+                            displayStage={displayStage}
+                            onRegisterHearing={onRegisterPleadingHearing}
+                        />
+                    ) : null}
                 </div>
             )}
 
@@ -97,11 +106,13 @@ export function SmartFileWorkflowHubsSection({
                     <Suspense fallback={null}>
                         <LazyCivilLawReferenceHub compact />
                     </Suspense>
-                    {showSessionHubInStageTools ? (
+                    {showSessionHubInStageTools || handleAddAction ? (
                         <Suspense fallback={null}>
                             <LazySessionAndRequestsHub
+                                key={`${String(displayStage?.id ?? 'stage')}-${showSessionHubInStageTools ? 'tools' : 'hidden'}`}
                                 compose="session-only"
-                                compactSessionTrigger
+                                compactSessionTrigger={showSessionHubInStageTools}
+                                hideTrigger={!showSessionHubInStageTools}
                                 readOnly={isCaseLinkViewOnly}
                                 visualVariant="civil"
                                 timeline={displayTimeline}

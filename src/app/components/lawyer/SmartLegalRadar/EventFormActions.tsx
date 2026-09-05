@@ -50,7 +50,7 @@ export const EventFormActions = React.memo(function EventFormActions({
                 onClick={() => void onSave(localFormData)}
                 aria-label={editingEvent ? `تحديث الموعد ${editingEvent.title}` : 'إضافة الموعد'}
                 disabled={saving || !localFormData.title.trim() || !localFormData.date}
-                className={`flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-medium transition-colors touch-manipulation ${
+                className={`flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-colors touch-manipulation ${
                     saving || !localFormData.title.trim() || !localFormData.date
                         ? RADAR_FORM_BTN_DISABLED
                         : `${RADAR_BTN_PRIMARY} w-full`

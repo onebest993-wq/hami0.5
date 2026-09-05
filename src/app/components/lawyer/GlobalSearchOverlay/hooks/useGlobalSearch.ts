@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     clampRecentSearchLabel,
     globalSearchRecentStorageKey,
-    GLOBAL_SEARCH_MAX_RECENT_COUNT,
+    pushGlobalSearchRecentLabel,
 } from '@/app/services/search/globalSearchQuerySecurity';
 import {
     hydrateGlobalSearchRecentSearches,
@@ -16,9 +16,7 @@ import { useGlobalSearchRuntime } from '@/app/components/lawyer/GlobalSearchOver
 import { useSearchQuery } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useSearchQuery';
 import type { GlobalSearchUiState } from '@/app/components/lawyer/GlobalSearchOverlay/utils/searchUiState';
 
-export type { GlobalSearchNavigate, GroupedSearchResults };
-
-export interface UseGlobalSearchOptions {
+interface UseGlobalSearchOptions {
     files: FileData[];
     executionFiles?: (FileData & { executionTrashDeletedAt?: string | null })[];
     globalNotes: { id: number | string; title?: string; body?: string; type?: string }[];
@@ -30,7 +28,7 @@ export interface UseGlobalSearchOptions {
     overlayOpen?: boolean;
 }
 
-export interface UseGlobalSearchReturn {
+interface UseGlobalSearchReturn {
     query: string;
     setQuery: (value: string) => void;
     isEnrichingIndex: boolean;
@@ -50,21 +48,19 @@ export function useGlobalSearch(
     const criminalCases = options.criminalCases ?? [];
     const { fuse, extras, isLoadingIndex, isEnrichingIndex } = useGlobalSearchRuntime();
 
-    const { query, setQuery: setQueryState, searchUiState, results } = useSearchQuery(
+    const { query, setQuery, searchUiState, results } = useSearchQuery(
         options.initialQuery ?? '',
         fuse,
         isLoadingIndex,
         options.searchSessionKey ?? 0,
     );
 
-    const setQuery = useCallback((value: string) => {
-        setQueryState(value);
-    }, [setQueryState]);
-
     const recentStorageKey = globalSearchRecentStorageKey(options.userId);
     const [recentSearches, setRecentSearches] = useState<string[]>(() =>
         readGlobalSearchRecentSearchesSync(options.userId),
     );
+    const recentSearchesRef = useRef(recentSearches);
+    recentSearchesRef.current = recentSearches;
 
     useEffect(() => {
         if (!overlayOpen) return;
@@ -89,18 +85,16 @@ export function useGlobalSearch(
         (navigate: GlobalSearchNavigate, label: string) => {
             const safeLabel = clampRecentSearchLabel(label);
             if (safeLabel) {
-                const newRecent = [safeLabel, ...recentSearches.filter((s) => s !== safeLabel)].slice(
-                    0,
-                    GLOBAL_SEARCH_MAX_RECENT_COUNT,
-                );
-                setRecentSearches(newRecent);
+                const next = pushGlobalSearchRecentLabel(recentSearchesRef.current, safeLabel);
+                recentSearchesRef.current = next;
+                setRecentSearches(next);
                 if (recentStorageKey) {
-                    void SecureStoreService.setItem(recentStorageKey, JSON.stringify(newRecent));
+                    void SecureStoreService.setItem(recentStorageKey, JSON.stringify(next));
                 }
             }
             onNavigate(navigate);
         },
-        [recentSearches, onNavigate, recentStorageKey],
+        [onNavigate, recentStorageKey],
     );
 
     const clearRecent = useCallback(() => {

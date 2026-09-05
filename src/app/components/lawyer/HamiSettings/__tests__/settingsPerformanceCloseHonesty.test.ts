@@ -26,19 +26,40 @@ describe('settings performance close honesty', () => {
     it('التبويب يتبدّل عند pointerdown والأقسام المخفية لا تُخطَّط', () => {
         const header = read('src/app/components/lawyer/HamiSettings/SettingsShellHeader.tsx');
         expect(header).toContain('prefetchSettingsSection(item.id)');
-        expect(header).toContain('if (!active) onSectionChange(item.id)');
+        expect(header).toContain('onPointerEnter');
+        expect(header).toContain('if (id !== activeSection) onSectionChange(id)');
         expect(header).toContain('onPointerDown');
         const css = read('src/app/components/lawyer/HamiSettings/settingsChromeCards.css');
         expect(css).toContain('.hami-settings-section-frame > [hidden]');
         expect(css).toContain('content-visibility: hidden');
         expect(css).toContain('contain: strict');
+        expect(css).toContain("data-settings-section-park='1'");
+        expect(css).toContain('content-visibility: visible');
+        const router = read('src/app/components/lawyer/HamiSettings/SettingsSectionRouter.tsx');
+        expect(router).toContain('data-settings-section-park');
+        expect(router).toContain('isIncoming');
+        expect(router).toContain('SettingsSectionReveal');
+        expect(router).toContain('readyIdsRef');
+        const reveal = read('src/app/components/lawyer/HamiSettings/SettingsSectionReveal.tsx');
+        expect(reveal).toContain('data-settings-section-cover');
+        expect(reveal).toContain('isLaidOutSettingsInteractive');
+        expect(reveal).toContain('absolute inset-inline-0 top-0 opacity-0');
     });
 
-    it('prefetch الثانوي بعد الخمول والترقيع يتخطى القيم المطابقة', () => {
+    it('خمول المنزل لا يسخّن المنظر؛ المركز المفتوح يحمّل التبويبات لتفادي الشاشة الفارغة', () => {
         const warm = read('src/app/components/lawyer/HamiSettings/hooks/useSettingsSectionWarm.ts');
-        expect(warm).toContain('prefetchSecondarySettingsSections');
-        expect(warm).toContain('scheduleIdleWork');
+        expect(warm).toContain('prefetchSettingsSection(activeSection)');
+        expect(warm).toContain('prefetchSettingsOpenTabChunks');
+        expect(warm).toContain('overlayOpen');
+        expect(warm).not.toContain('prefetchSecondarySettingsSections');
+        expect(warm).not.toContain('scheduleIdleWork');
         expect(warm).not.toContain('setTimeout');
+        const load = read('src/app/components/lawyer/HamiSettings/settingsSectionLoad.ts');
+        expect(load).toContain("import('./appearance/AppearanceSection')");
+        expect(load).toContain('prefetchSettingsOpenTabChunks');
+        expect(load).not.toContain('prefetchSecondarySettingsSections');
+        expect(load).not.toMatch(/prefetchSettingsSection\('data'\)/);
+        expect(load).not.toMatch(/prefetchSettingsSection\('account'\)/);
         const patches = read('src/app/components/lawyer/HamiSettings/hooks/useSettingsPatches.ts');
         expect(patches).toContain('isUnchangedSlicePatch');
         const observe = read(

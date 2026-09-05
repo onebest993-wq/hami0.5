@@ -103,32 +103,7 @@ export function PartyBadgePopover({
                         />
                     </div>
                     <div className="space-y-1.5">
-                        <label className="block text-[9px] text-slate-500 mb-1">مكان العمل</label>
-                        <input
-                            ref={guarantorWorkInputRef}
-                            type="text"
-                            value={guarantorWorkplaceDraft}
-                            onChange={(e) => setGuarantorWorkplaceDraft(e.target.value)}
-                            className="w-full rounded-lg border border-white/12 bg-white/5 px-2 py-1.5 text-[11px] text-slate-100 placeholder:text-slate-600"
-                            placeholder="جهة / مكان العمل"
-                            dir="rtl"
-                        />
-                    </div>
-                    <div className="space-y-1.5">
-                        <label className="block text-[9px] text-slate-500 mb-1">الراتب (د.ع) إن وُجد</label>
-                        <input
-                            ref={guarantorSalaryInputRef}
-                            type="text"
-                            inputMode="decimal"
-                            value={guarantorSalaryDraft}
-                            onChange={(e) => setGuarantorSalaryDraft(formatNumberInput(e.target.value))}
-                            className="w-full rounded-lg border border-white/12 bg-white/5 px-2 py-1.5 text-[11px] text-slate-100 placeholder:text-slate-600 font-mono text-right"
-                            placeholder="اختياري"
-                            dir="ltr"
-                        />
-                    </div>
-                    <div className="space-y-1.5">
-                        <label className="block text-[9px] text-slate-500 mb-1">الاستقطاع من الراتب (د.ع)</label>
+                        <label className="block text-[9px] text-slate-500 mb-1">الاستقطاع (د.ع)</label>
                         <input
                             ref={guarantorDeductionInputRef}
                             type="text"
@@ -136,7 +111,7 @@ export function PartyBadgePopover({
                             value={guarantorDeductionDraft}
                             onChange={(e) => setGuarantorDeductionDraft(formatNumberInput(e.target.value))}
                             className="w-full rounded-lg border border-white/12 bg-white/5 px-2 py-1.5 text-[11px] text-slate-100 placeholder:text-slate-600 font-mono text-right"
-                            placeholder="اختياري"
+                            placeholder="مبلغ الاستقطاع"
                             dir="ltr"
                         />
                     </div>
@@ -144,21 +119,20 @@ export function PartyBadgePopover({
                         type="button"
                         onClick={() => {
                             const n = guarantorNameDraft.trim();
-                            const w = guarantorWorkplaceDraft.trim();
-                            if (!n || !w) return;
+                            if (!n) return;
                             const parseIqd = (s: string): number | null => {
-                                const n = parseAmount(s);
-                                return Number.isFinite(n) ? n : null;
+                                const parsed = parseAmount(s);
+                                return Number.isFinite(parsed) ? parsed : null;
                             };
-                            onPersistGuarantorFollowup(n, w, {
-                                salaryIqd: parseIqd(guarantorSalaryDraft),
+                            onPersistGuarantorFollowup(n, '—', {
+                                salaryIqd: null,
                                 deductionIqd: parseIqd(guarantorDeductionDraft),
                             });
                             onClose();
                         }}
                         className="w-full rounded-lg border border-indigo-400/45 bg-gradient-to-r from-indigo-950/70 to-indigo-900/65 py-2.5 text-[10px] font-extrabold text-indigo-100 hover:from-indigo-900/80 hover:to-indigo-800/80"
                     >
-                        تثبيت بجانب المدين
+                        حفظ
                     </button>
                 </div>
             ) : (

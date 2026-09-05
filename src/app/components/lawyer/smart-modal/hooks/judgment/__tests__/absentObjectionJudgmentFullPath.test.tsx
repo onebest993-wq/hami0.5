@@ -150,7 +150,10 @@ describe('مسار الحكم الكامل — اعتراض غيابي', () => {
         expect(screen.queryByRole('listbox')).toBeNull();
         expect(trigger.textContent ?? '').toContain('تأييد الحكم الغيابي — موكلك ربح الاعتراض');
 
-        fireEvent.click(screen.getByRole('button', { name: /حفظ الحكم وانتظار طعن الخصم/ }));
+        fireEvent.change(screen.getByTestId(CIVIL_LAWSUIT_TEST_IDS.judgmentDate), {
+            target: { value: '2026-08-04' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: /حفظ الحكم/ }));
 
         expect(setStages).toHaveBeenCalled();
         const saved = setStages.mock.calls[0][0][1] as CaseStage;

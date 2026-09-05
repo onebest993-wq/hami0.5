@@ -12,6 +12,7 @@ import {
     findCassationStageIndex,
 } from '../smartFile/extraordinaryAppealGateway';
 import { isCassationStageName } from '../smartFile/judgmentTypes';
+import { blocksCivilDossierFinality } from '../smartFile/art172AppealStay';
 import { AlertTriangle } from '@/app/components/ui/icons/AlertTriangle';
 import { ArrowLeftRight } from '@/app/components/ui/icons/ArrowLeftRight';
 import { GitMerge } from '@/app/components/ui/icons/GitMerge';
@@ -224,7 +225,12 @@ export const LegalActionsMenu = ({
         displayStage?.status === 'completed' ||
         displayStage?.timeline?.some((e) => e.type === 'decision');
     const caseStatus = parentData?.status ?? '';
-    const isFinal = caseStatus === 'مكتسبة الدرجة القطعية';
+    const art172BlocksFinality = blocksCivilDossierFinality({
+        stages,
+        parties: displayStage?.parties ?? (parentData?.parties as CaseStage['parties']),
+        parentIntegrity: parentData?.disputeIntegrity,
+    });
+    const isFinal = caseStatus === 'مكتسبة الدرجة القطعية' && !art172BlocksFinality;
     const isCassation = isCassationStageName(displayStage?.stageName ?? currentStageName);
     const cassationStageIndex =
         viewingStageIndex >= 0 && isCassationStageName(stages[viewingStageIndex]?.stageName)

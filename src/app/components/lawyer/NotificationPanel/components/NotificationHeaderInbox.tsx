@@ -7,6 +7,7 @@ import { X } from '@/app/components/ui/icons/X';
 
 type Props = {
     unreadCount: number;
+    inboxUnreadCount?: number;
     showHeaderBusy?: boolean;
     isMarkingAllRead: boolean;
     onMarkAllRead: () => void;
@@ -19,6 +20,7 @@ type Props = {
 
 export function NotificationHeaderInbox({
     unreadCount,
+    inboxUnreadCount = unreadCount,
     showHeaderBusy = false,
     isMarkingAllRead,
     onMarkAllRead,
@@ -31,7 +33,7 @@ export function NotificationHeaderInbox({
     const openedByPointerRef = useRef(false);
 
     return (
-        <div className="hami-notif-header relative shrink-0 border-b border-white/[0.06] px-4 pb-2.5 pt-[max(0.35rem,env(safe-area-inset-top))] sm:px-5 sm:pt-4">
+        <div className="hami-notif-header relative shrink-0 border-b border-white/[0.06] px-3 pb-2 pt-[max(0.25rem,env(safe-area-inset-top))] sm:px-4 sm:pt-3">
             {showDragHandle ? (
                 <div
                     className="hami-notif-handle touch-none"
@@ -90,7 +92,7 @@ export function NotificationHeaderInbox({
                     >
                         {isAlertsMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
                     </button>
-                    {unreadCount > 0 ? (
+                    {inboxUnreadCount > 0 ? (
                         <button
                             type="button"
                             data-testid="notification-mark-all-read"

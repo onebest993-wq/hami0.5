@@ -1,7 +1,6 @@
 /** Decisions sync + salary/asset request openers for SeizureRequestsTab */
 import React from 'react';
 import type { TimelineEvent } from '@/app/types/execution';
-import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import {
     closeSeizureSubtypeDecisionCycle,
     getGoverningSeizureDecisionBySubtype,
@@ -15,24 +14,15 @@ import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequest
 import {
     isSeizureRegistrationComplete,
     isSeizureRequestFullyRegistered,
-    openUnifiedSeizureLogTab,
-    resolveGoverningSalaryDecision,
-    SEIZURE_LOG_TAB_SUBTYPE,
-    type UnifiedSeizureLogTab,
-} from '../components/seizureRequestsTabHelpers';
-import type {
-    PropertyCompletionDraft,
-    VehicleCompletionDraft,
-} from '../components/SeizureRequestCompletionForms';
-import { useSeizureInlineFocusBridge } from '@/app/components/lawyer/ExecutionDashboard/hooks/useSeizureInlineFocusBridge';
-import {
     resolveGoverningMovableDecision,
     resolveGoverningPropertyDecision,
-} from '@/app/components/lawyer/ExecutionDashboard/utils/seizureInlineFocusUtils';
+    resolveGoverningSalaryDecision,
+    SEIZURE_LANE_SUBTYPE,
+    type SeizureRequestLaneTab,
+} from '../components/seizureRequestsTabHelpers';
 import { submitBasicSeizurePendingRequest } from '@/app/domain/seizure/seizureBasicRequestService';
 import {
     buildPendingSeizureDraftAsset,
-    dispatchOpenSeizureCompletion,
     mergeSeizureDraftPatch,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/seizureSalaryRequestFlow';
 
@@ -86,10 +76,6 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
     }, [executionData, executionId, normalizeExecutionId]);
     const resolvedExecutionId = executionIdsForDecisions[0] || '';
 
-    const { inlineFocusMovableDecisionId, inlineFocusPropertyDecisionId } = useSeizureInlineFocusBridge({
-        executionIds: executionIdsForDecisions,
-    });
-
     const [guarantorExistingWarningOpen, setGuarantorExistingWarningOpen] = React.useState(false);
     const [lastSalaryDecisionId, setLastSalaryDecisionId] = React.useState('');
 
@@ -97,12 +83,6 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
 
     const [thirdPartyNameDraft, setThirdPartyNameDraft] = React.useState('');
     const [thirdPartyAmountDraft, setThirdPartyAmountDraft] = React.useState('');
-    const [propertyDetailsDraftByDecisionId, setPropertyDetailsDraftByDecisionId] = React.useState<
-        Record<string, PropertyCompletionDraft>
-    >({});
-    const [vehicleDetailsDraftByDecisionId, setVehicleDetailsDraftByDecisionId] = React.useState<
-        Record<string, VehicleCompletionDraft>
-    >({});
 
     const { openAppeals, openDecisions, openGuarantorDetails } =
         useSeizureRequestsTabOpeners(resolvedExecutionId);
@@ -113,15 +93,12 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
     }, [decisions]);
 
     const acknowledgeSeizureRequestFromLog = React.useCallback(
-        (tab: UnifiedSeizureLogTab) => {
+        (tab: SeizureRequestLaneTab) => {
             if (!resolvedExecutionId) return;
-            openUnifiedSeizureLogTab(tab);
-            window.setTimeout(() => {
-                closeSeizureSubtypeDecisionCycle({
-                    executionId: resolvedExecutionId,
-                    subtype: SEIZURE_LOG_TAB_SUBTYPE[tab],
-                });
-            }, 0);
+            closeSeizureSubtypeDecisionCycle({
+                executionId: resolvedExecutionId,
+                subtype: SEIZURE_LANE_SUBTYPE[tab],
+            });
         },
         [resolvedExecutionId]
     );
@@ -132,7 +109,7 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
     );
     const salaryDecision = React.useMemo(
         () => resolveGoverningSalaryDecision(resolvedExecutionId, decisions),
-        [resolvedExecutionId, decisions]
+        [resolvedExecutionId, decisions],
     );
 
     React.useEffect(() => {
@@ -141,22 +118,12 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
         setLastSalaryDecisionId(did);
     }, [salaryDecision]);
     const propertyDecision = React.useMemo(
-        () =>
-            resolveGoverningPropertyDecision(
-                resolvedExecutionId,
-                decisions,
-                inlineFocusPropertyDecisionId,
-            ),
-        [resolvedExecutionId, decisions, inlineFocusPropertyDecisionId],
+        () => resolveGoverningPropertyDecision(resolvedExecutionId, decisions),
+        [resolvedExecutionId, decisions],
     );
     const movableDecision = React.useMemo(
-        () =>
-            resolveGoverningMovableDecision(
-                resolvedExecutionId,
-                decisions,
-                inlineFocusMovableDecisionId,
-            ),
-        [resolvedExecutionId, decisions, inlineFocusMovableDecisionId],
+        () => resolveGoverningMovableDecision(resolvedExecutionId, decisions),
+        [resolvedExecutionId, decisions],
     );
 
     const submitBasicSeizureRequest = React.useCallback(
@@ -343,6 +310,7 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
         acknowledgeSeizureRequestFromLog,
         submitBasicSeizureRequest,
         openAppeals,
+        openDecisions,
         saveCoerciveAction,
         showToast,
     };
@@ -357,10 +325,6 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
         setThirdPartyNameDraft,
         thirdPartyAmountDraft,
         setThirdPartyAmountDraft,
-        propertyDetailsDraftByDecisionId,
-        setPropertyDetailsDraftByDecisionId,
-        vehicleDetailsDraftByDecisionId,
-        setVehicleDetailsDraftByDecisionId,
         openAppeals,
         openDecisions,
         openGuarantorDetails,

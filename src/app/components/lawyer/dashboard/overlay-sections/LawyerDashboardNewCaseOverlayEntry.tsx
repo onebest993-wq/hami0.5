@@ -52,6 +52,7 @@ export function LawyerDashboardNewCaseOverlayEntry({
                     closeLawsuitsWorkspace();
                 });
             }
+            return saved;
         },
         [handleNewCaseSave, closeLawsuitsWorkspace],
     );

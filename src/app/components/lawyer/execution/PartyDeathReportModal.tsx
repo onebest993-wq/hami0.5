@@ -1,8 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from '@/app/components/ui/icons/X';
 import { Plus } from '@/app/components/ui/icons/Plus';
 import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import type { ExecutionFile } from '@/app/types/execution';
+import { EXEC_MODAL_Z } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardConstants';
+import { EXEC_MODAL_BACKDROP_SAFE_PAD } from '@/app/components/lawyer/ExecutionDashboard/executionModalMobileShell';
+import { useOverlayEscapeDismiss } from '@/app/hooks/useOverlayEscapeDismiss';
 
 export type PartyDeathSavePayload =
     | { action: 'death_only'; deceased_party: 'creditor' | 'debtor' }
@@ -27,13 +31,15 @@ export interface PartyDeathReportModalProps {
     partyDeathCase: ExecutionFile['party_death_case'] | null | undefined;
     existingPartyHeirs?: string[];
     existingPartyHeirDetails?: Array<{ name?: string; phone?: string; address?: string }>;
-    onPartyDeathSave: (input: PartyDeathSavePayload) => boolean;
+    onPartyDeathSave: (input: PartyDeathSavePayload) => boolean | Promise<boolean>;
     creditorDeathReportQueued?: boolean;
     onCreditorDeathOnlyQueued?: () => void;
     creditorSubstitutionRequestStatus?: 'none' | 'pending' | 'approved' | 'rejected' | 'alternative';
     onRequestCreditorSubstitution?: () => boolean;
     debtorSubstitutionRequestStatus?: 'none' | 'pending' | 'approved' | 'rejected' | 'alternative';
     onRequestDebtorSubstitution?: () => boolean;
+    /** صف قرار الإحلال مفتوح لإدخال الورثة — يظهر النموذج حتى لو حالة الطلب في الواجهة لم تُحدَّث بعد */
+    heirSubstitutionEntryUnlocked?: boolean;
 }
 
 function rowHasContent(s: string): boolean {
@@ -54,6 +60,7 @@ export const PartyDeathReportModal: React.FC<PartyDeathReportModalProps> = ({
     onRequestCreditorSubstitution: _onRequestCreditorSubstitution,
     debtorSubstitutionRequestStatus = 'none',
     onRequestDebtorSubstitution: _onRequestDebtorSubstitution,
+    heirSubstitutionEntryUnlocked = false,
 }) => {
     const makeRowId = useCallback(() => `heir_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`, []);
     const [draftData, setDraftData] = useState<{
@@ -63,7 +70,12 @@ export const PartyDeathReportModal: React.FC<PartyDeathReportModalProps> = ({
 
     const requestStatus =
         deceasedParty === 'creditor' ? creditorSubstitutionRequestStatus : debtorSubstitutionRequestStatus;
-    const approvedLike = requestStatus === 'approved' || requestStatus === 'alternative';
+    const caseFlow = String(_partyDeathCase?.flow || '').trim();
+    const approvedLike =
+        requestStatus === 'approved' ||
+        requestStatus === 'alternative' ||
+        heirSubstitutionEntryUnlocked ||
+        caseFlow === 'heir_substitution';
     const handleClose = useCallback(() => {
         setDraftData({ heirs: [{ id: makeRowId(), name: '', phone: '', address: '' }] });
         setFormError(null);
@@ -134,7 +146,7 @@ export const PartyDeathReportModal: React.FC<PartyDeathReportModalProps> = ({
         });
     }, []);
 
-    const confirmSubstitution = useCallback(() => {
+    const confirmSubstitution = useCallback(async () => {
         setFormError(null);
         if (!approvedLike) return;
         const heir_details = draftData.heirs
@@ -151,23 +163,28 @@ export const PartyDeathReportModal: React.FC<PartyDeathReportModalProps> = ({
         }
         const seen = new Set<string>();
         for (const row of heir_details) {
-            const k = `${row.name}::${row.phone || ''}`;
+            const k = row.name;
             if (seen.has(k)) {
-                setFormError('يوجد تكرار لنفس اسم الوارث مع نفس رقم الهاتف. غيّر الرقم أو الاسم.');
+                setFormError('يوجد تكرار لنفس اسم الوارث.');
                 return;
             }
             seen.add(k);
         }
-        const ok = onPartyDeathSave({
-            action: 'heir_substitution',
-            deceased_party: deceasedParty,
-            heir_names,
-            heir_details,
-        });
+        const ok = await Promise.resolve(
+            onPartyDeathSave({
+                action: 'heir_substitution',
+                deceased_party: deceasedParty,
+                heir_names,
+                heir_details,
+            }),
+        );
         if (ok) handleClose();
     }, [approvedLike, deceasedParty, draftData.heirs, handleClose, onPartyDeathSave]);
 
+    useOverlayEscapeDismiss(open, handleClose);
+
     if (!open) return null;
+    if (typeof document === 'undefined') return null;
 
     const title =
         approvedLike
@@ -178,9 +195,10 @@ export const PartyDeathReportModal: React.FC<PartyDeathReportModalProps> = ({
               ? 'طلب إحلال الورثة محل الدائن المتوفى'
               : 'طلب إحلال الورثة محل المدين المتوفى';
 
-    return (
+    return createPortal(
         <div
-            className="fixed inset-0 z-[195] flex items-center justify-center bg-black/70 p-3"
+            className={`fixed inset-0 flex items-center justify-center bg-black/70 p-3 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
+            style={{ zIndex: EXEC_MODAL_Z.nestedOverFollowUpPortal }}
             role="presentation"
             onClick={handleClose}
         >
@@ -195,7 +213,7 @@ export const PartyDeathReportModal: React.FC<PartyDeathReportModalProps> = ({
                     <button
                         type="button"
                         onClick={handleClose}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10"
+                        className="touch-manipulation inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1.5 text-slate-400 hover:bg-white/10"
                         aria-label="إغلاق"
                     >
                         <X size={16} />
@@ -207,7 +225,7 @@ export const PartyDeathReportModal: React.FC<PartyDeathReportModalProps> = ({
                     {approvedLike ? (
                         <>
                             <p className="text-[10px] leading-relaxed text-slate-300">
-                                الرجاء إدراج بيانات الورثة (الاسم، الهاتف، العنوان).
+                                الرجاء إدراج أسماء الورثة.
                             </p>
                             <div className="rounded-lg border border-white/10 bg-slate-900/50 p-2 space-y-2">
                                 {draftData.heirs.map((row, idx) => (
@@ -223,24 +241,6 @@ export const PartyDeathReportModal: React.FC<PartyDeathReportModalProps> = ({
                                             autoComplete="off"
                                             spellCheck={false}
                                             className="min-w-0 w-full rounded-lg border border-white/10 bg-slate-900/80 px-2 py-1.5 text-[11px] text-white placeholder:text-slate-600 text-right [unicode-bidi:plaintext]"
-                                        />
-											<label className="block text-[10px] text-slate-500">رقم هاتف الوارث #{idx + 1}</label>
-                                        <input
-                                            type="text"
-                                            value={row.phone}
-                                            onChange={(e) => setHeirAt(idx, 'phone', e.target.value)}
-                                            placeholder="رقم الهاتف..."
-                                            dir="rtl"
-                                            className="min-w-0 w-full rounded-lg border border-white/10 bg-slate-900/80 px-2 py-1.5 text-[11px] text-white placeholder:text-slate-600 text-right"
-                                        />
-											<label className="block text-[10px] text-slate-500">عنوان الوارث #{idx + 1}</label>
-                                        <input
-                                            type="text"
-                                            value={row.address}
-                                            onChange={(e) => setHeirAt(idx, 'address', e.target.value)}
-                                            placeholder="العنوان..."
-                                            dir="rtl"
-                                            className="min-w-0 w-full rounded-lg border border-white/10 bg-slate-900/80 px-2 py-1.5 text-[11px] text-white placeholder:text-slate-600 text-right"
                                         />
                                         {draftData.heirs.length > 1 ? (
                                             <button
@@ -266,7 +266,7 @@ export const PartyDeathReportModal: React.FC<PartyDeathReportModalProps> = ({
                             <button
                                 type="button"
                                 onClick={confirmSubstitution}
-                                className="w-full rounded-lg border border-[#E6C673]/35 bg-[#E6C673]/10 py-1.5 text-[10px] font-bold text-[#E6C673]"
+                                className="touch-manipulation min-h-[44px] w-full rounded-lg border border-[#E6C673]/35 bg-[#E6C673]/10 py-1.5 text-[10px] font-bold text-[#E6C673]"
                             >
                                 حفظ إحلال الورثة
                             </button>
@@ -290,6 +290,7 @@ export const PartyDeathReportModal: React.FC<PartyDeathReportModalProps> = ({
                     ) : null}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 };

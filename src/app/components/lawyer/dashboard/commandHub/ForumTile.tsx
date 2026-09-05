@@ -3,7 +3,7 @@ import { useScrollSafePress } from '@/app/hooks/useScrollSafePress';
 import type { HomeBlockStyleOverride } from '@/app/services/settings/homeLayout';
 import { resolveForumShellAriaLabel } from '@/app/services/forum/forumShellNavigation';
 import { resolveForumTileProfileChrome } from '@/app/services/profile/resolveForumTileProfileChrome';
-import { HUB_TILE_BUTTON_A11Y } from './commandHubTileClasses';
+import { HUB_TILE_BUTTON_A11Y } from '@/app/components/lawyer/dashboard/commandHubTileClasses';
 import { ForumTileMainFace } from './ForumTileMainFace';
 import { forumTileOpenButtonProps, forumTilePrefetchHandlers } from './forumTileOpenButtonProps';
 import { useForumTileChrome } from './useForumTileChrome';

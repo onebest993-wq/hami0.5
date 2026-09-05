@@ -8,6 +8,9 @@ import {
     canEditPost,
     canPinPost,
     canUpvotePost,
+    canFollowThread,
+    canMutePostAuthor,
+    canFollowPostAuthor,
 } from './communityPermissions';
 
 const post = (overrides: Partial<CommunityPost> = {}): CommunityPost => ({
@@ -123,5 +126,22 @@ describe('communityPermissions', () => {
     it('rejects unauthenticated comment edit', () => {
         const c = comment();
         expect(canEditComment(c, null)).toBe(false);
+    });
+
+    it('allows thread follow for viewers only', () => {
+        const p = post({ authorId: 'author-1' });
+        expect(canFollowThread(p, 'viewer')).toBe(true);
+        expect(canFollowThread(p, 'author-1')).toBe(false);
+        expect(canFollowThread(p, null)).toBe(false);
+    });
+
+    it('blocks mute of self or anonymous author', () => {
+        const named = post({ authorId: 'author-1', isAnonymous: false });
+        const anon = post({ authorId: 'author-1', isAnonymous: true });
+        expect(canMutePostAuthor(named, 'viewer')).toBe(true);
+        expect(canMutePostAuthor(named, 'author-1')).toBe(false);
+        expect(canMutePostAuthor(anon, 'viewer')).toBe(false);
+        expect(canFollowPostAuthor(named, 'viewer')).toBe(true);
+        expect(canFollowPostAuthor(anon, 'viewer')).toBe(false);
     });
 });

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { TransactionTask } from '@/app/modules/transactionsThreading/types';
 import type { TransactionsDetailsEscapeSnapshot } from '../transactionsEscapeStack';
-import type { TaskThreadDialogState } from './TaskThreadDialogs';
+import type { TaskThreadDialogState } from './TaskThreadDialogs.types';
 
 export function useTaskThreadOverlays({
     detailsActive,

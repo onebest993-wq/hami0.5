@@ -62,7 +62,6 @@ describe('lawyerHomeFx-android.css', () => {
     });
 
     it('disables radar blur/backdrop on Android WebView', () => {
-        expect(css).toContain('.hami-radar-bg-orb');
         expect(css).toContain('.hami-radar-glass-panel');
         expect(css).toContain('.hami-radar-form-panel');
         expect(css).toContain('.hami-forum-publish-fab');

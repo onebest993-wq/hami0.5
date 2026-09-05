@@ -70,6 +70,14 @@ describe('absentObjectionAppealRepair', () => {
         expect(inferAbsentObjectionOutcomeLoser(objectionStageUphold)).toBe('objector');
     });
 
+    it('infers objector as loser on form rejection', () => {
+        expect(
+            inferAbsentObjectionOutcomeLoser({
+                finalDecision: 'رد الاعتراض شكلاً — اكتسب الحكم الغيابي القطعية بحق المعترض',
+            }),
+        ).toBe('objector');
+    });
+
     it('detects corrupted flip when winner is marked المستأنف', () => {
         const appeal = corruptedAppealStage();
         expect(isAbsentObjectionAppealFlipCorrupted(objectionStageUphold, appeal)).toBe(true);

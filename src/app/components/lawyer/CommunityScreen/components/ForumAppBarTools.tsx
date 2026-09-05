@@ -1,9 +1,15 @@
+import { lazy, Suspense } from 'react';
 import { Users } from '@/app/components/ui/icons/Users';
 import { Bell } from '@/app/components/ui/icons/Bell';
 import { FORUM_APP_BAR_ICON } from '../forumPlumTheme';
-import { prefetchCommunityFollowingPanel } from '../communityScreenLazySections';
-import { ForumNotificationsPanel } from './ForumNotificationsPanel';
+import { prefetchCommunityFollowingPanel } from '../communityFollowingPrefetch';
+import {
+    importForumNotificationsPanel,
+    prefetchForumNotificationsPanel,
+} from '../communityNotificationsPrefetch';
 import type { ForumNotification } from '@/app/services/lawyer-cloud';
+
+const LazyForumNotificationsPanel = lazy(importForumNotificationsPanel);
 
 type ForumAppBarToolsProps = {
     showFollowing: boolean;
@@ -37,12 +43,13 @@ export function ForumAppBarTools({
     onNotificationDismiss,
 }: ForumAppBarToolsProps) {
     return (
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
             {showFollowing ? (
                 <button
                     type="button"
                     data-testid="forum-following-trigger"
                     onClick={onOpenFollowing}
+                    onPointerDown={prefetchCommunityFollowingPanel}
                     onPointerEnter={prefetchCommunityFollowingPanel}
                     aria-label="المتابَعون"
                     className={`${FORUM_APP_BAR_ICON} relative ${
@@ -64,6 +71,8 @@ export function ForumAppBarTools({
                     type="button"
                     data-testid="forum-notifications-trigger"
                     onClick={onBellClick}
+                    onPointerDown={prefetchForumNotificationsPanel}
+                    onPointerEnter={prefetchForumNotificationsPanel}
                     aria-label="التنبيهات"
                     aria-expanded={showNotifPanel}
                     className={`${FORUM_APP_BAR_ICON} text-[#9AA3B2] hover:text-[#E6C673] relative`}
@@ -75,16 +84,20 @@ export function ForumAppBarTools({
                         </span>
                     ) : null}
                 </button>
-                <ForumNotificationsPanel
-                    open={showNotifPanel}
-                    unreadCount={unreadCount}
-                    refreshing={refreshingNotifs}
-                    notifications={notifications}
-                    onClose={onCloseNotif}
-                    onMarkAllRead={onMarkAllRead}
-                    onNotificationClick={onNotificationClick}
-                    onNotificationDismiss={onNotificationDismiss}
-                />
+                {showNotifPanel ? (
+                    <Suspense fallback={null}>
+                        <LazyForumNotificationsPanel
+                            open
+                            unreadCount={unreadCount}
+                            refreshing={refreshingNotifs}
+                            notifications={notifications}
+                            onClose={onCloseNotif}
+                            onMarkAllRead={onMarkAllRead}
+                            onNotificationClick={onNotificationClick}
+                            onNotificationDismiss={onNotificationDismiss}
+                        />
+                    </Suspense>
+                ) : null}
             </div>
         </div>
     );

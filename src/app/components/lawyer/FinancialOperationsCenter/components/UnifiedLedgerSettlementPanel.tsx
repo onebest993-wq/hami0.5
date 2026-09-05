@@ -1,12 +1,7 @@
 import React from 'react';
 import { motion } from '@/app/motion/overlayMotionRuntime';
-import { BadgeCheck } from '@/app/components/ui/icons/BadgeCheck';
-import { CalendarClock } from '@/app/components/ui/icons/CalendarClock';
 import { ChevronDown } from '@/app/components/ui/icons/ChevronDown';
 import { ChevronUp } from '@/app/components/ui/icons/ChevronUp';
-import { Handshake } from '@/app/components/ui/icons/Handshake';
-import { X } from '@/app/components/ui/icons/X';
-import { XCircle } from '@/app/components/ui/icons/XCircle';
 import { formatIqdDisplay } from '../utils';
 import type { SettlementDuePhase } from '../utils';
 import type { UnifiedLedgerStore } from '../types';
@@ -121,26 +116,26 @@ export const UnifiedLedgerSettlementPanel: React.FC<UnifiedLedgerSettlementPanel
     return (
         <motion.div
             key={`${settlementUxTier}-${panelOpen ? 'open' : 'closed'}`}
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             layout
-            className="space-y-3 border-t border-white/10 pt-3"
+            className="space-y-2.5 border-t border-white/[0.07] pt-2.5"
         >
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2" dir="rtl">
+                <p className="flex-1 text-[12px] font-semibold text-slate-200 text-right">التسوية المالية</p>
                 <button
                     type="button"
                     onClick={handleCollapseToggle}
-                    className="shrink-0 inline-flex items-center justify-center rounded-lg border border-white/10 p-1.5 text-slate-400 transition hover:border-cyan-400/30 hover:text-cyan-200"
+                    className="shrink-0 inline-flex min-h-[32px] min-w-[32px] items-center justify-center rounded-md border border-white/10 text-slate-400 transition hover:bg-white/[0.05] hover:text-slate-200"
                     aria-label={bodyExpanded ? 'طي التسوية' : 'توسيع التسوية'}
                     aria-expanded={bodyExpanded}
                 >
                     {bodyExpanded ? (
-                        <ChevronUp size={16} strokeWidth={2.25} />
+                        <ChevronUp size={15} strokeWidth={2.25} />
                     ) : (
-                        <ChevronDown size={16} strokeWidth={2.25} />
+                        <ChevronDown size={15} strokeWidth={2.25} />
                     )}
                 </button>
-                <p className="text-sm text-cyan-100/90 text-right font-semibold flex-1">التسوية المالية</p>
             </div>
 
             {bodyExpanded && showNewSettlementForm ? (
@@ -159,44 +154,39 @@ export const UnifiedLedgerSettlementPanel: React.FC<UnifiedLedgerSettlementPanel
 
             {bodyExpanded && showPendingSummary ? (
                 <div className="space-y-2 text-right">
-                    <div className="flex flex-row-reverse items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                            <p className="text-[10px] font-medium text-cyan-300/80">تسوية مسجلة</p>
-                            <p className="text-[15px] font-black text-cyan-50 tabular-nums">
-                                {formatIqdDisplay(pending!.amount)} د.ع
+                    <div className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-2 text-right">
+                        <p className="text-[9px] font-medium text-slate-500">تسوية مسجلة</p>
+                        <p className="text-[14px] font-bold text-white tabular-nums">
+                            {formatIqdDisplay(pending!.amount)} د.ع
+                        </p>
+                        <p className="mt-1 text-[10px] text-slate-400">
+                            موعد السداد:{' '}
+                            <span className="font-semibold text-slate-200 tabular-nums">
+                                {pending!.dueDate}
+                            </span>
+                        </p>
+                        {duePhaseLabel ? (
+                            <p
+                                className={`mt-1 text-[10px] font-semibold ${
+                                    phase === 'waiting'
+                                        ? 'text-slate-400'
+                                        : phase === 'due'
+                                          ? 'text-amber-300'
+                                          : 'text-rose-300'
+                                }`}
+                            >
+                                {duePhaseLabel}
                             </p>
-                            <p className="mt-1 flex flex-row-reverse items-center gap-1.5 text-[10px] text-slate-400">
-                                <CalendarClock size={12} className="text-cyan-400/80" />
-                                موعد السداد:{' '}
-                                <span className="font-semibold text-slate-200 tabular-nums">
-                                    {pending!.dueDate}
-                                </span>
-                            </p>
-                            {duePhaseLabel ? (
-                                <p
-                                    className={`mt-1 text-[10px] font-bold ${
-                                        phase === 'waiting'
-                                            ? 'text-slate-400'
-                                            : phase === 'due'
-                                              ? 'text-amber-300'
-                                              : 'text-rose-300'
-                                    }`}
-                                >
-                                    {duePhaseLabel}
-                                </p>
-                            ) : null}
-                        </div>
-                        <Handshake size={16} className="shrink-0 text-cyan-400" />
+                        ) : null}
                     </div>
 
                     {showDueActions && !settlementBreachOpen ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                             <button
                                 type="button"
                                 onClick={markPendingSettlementPaid}
-                                className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-emerald-100 text-[11px] font-black hover:bg-emerald-500/20 transition flex items-center justify-center gap-2"
+                                className="w-full min-h-[40px] rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-[11px] font-bold text-emerald-100 transition hover:bg-emerald-500/16"
                             >
-                                <BadgeCheck size={14} className="text-emerald-400" />
                                 تم التسديد
                             </button>
                             <button
@@ -208,9 +198,8 @@ export const UnifiedLedgerSettlementPanel: React.FC<UnifiedLedgerSettlementPanel
                                         'warning'
                                     );
                                 }}
-                                className="w-full rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-rose-100 text-[11px] font-black hover:bg-rose-500/20 transition flex items-center justify-center gap-2"
+                                className="w-full min-h-[40px] rounded-lg border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-[11px] font-bold text-rose-100 transition hover:bg-rose-500/16"
                             >
-                                <X size={14} className="text-rose-300" />
                                 لم يتم التسديد
                             </button>
                         </div>
@@ -218,9 +207,9 @@ export const UnifiedLedgerSettlementPanel: React.FC<UnifiedLedgerSettlementPanel
 
                     {settlementBreachOpen ? (
                         <motion.div
-                            initial={{ opacity: 0, y: 6 }}
+                            initial={{ opacity: 0, y: 4 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="rounded-xl border border-rose-500/35 bg-rose-950/30 p-3 space-y-2"
+                            className="rounded-lg border border-rose-500/30 bg-rose-950/25 p-2.5 space-y-1.5"
                         >
                             <p className="text-[10px] text-rose-200/90 text-right leading-relaxed">
                                 نكس التسوية — يمكن إلغاؤها لإعادة دورة الحياة كما لم تكن موجودة.
@@ -231,15 +220,14 @@ export const UnifiedLedgerSettlementPanel: React.FC<UnifiedLedgerSettlementPanel
                                     cancelPendingSettlement();
                                     setSettlementBreachOpen(false);
                                 }}
-                                className="w-full rounded-xl border border-rose-400/40 bg-rose-500/20 px-3 py-2.5 text-rose-50 text-[11px] font-black hover:bg-rose-500/30 transition flex items-center justify-center gap-2"
+                                className="w-full min-h-[40px] rounded-lg border border-rose-400/35 bg-rose-500/18 px-3 py-2 text-[11px] font-bold text-rose-50 transition hover:bg-rose-500/26"
                             >
-                                <XCircle size={14} />
                                 إلغاء التسوية
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setSettlementBreachOpen(false)}
-                                className="w-full text-center text-[10px] text-slate-400 hover:text-slate-200 py-1"
+                                className="w-full py-1 text-center text-[10px] text-slate-400 hover:text-slate-200"
                             >
                                 تراجع
                             </button>

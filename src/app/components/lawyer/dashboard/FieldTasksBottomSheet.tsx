@@ -1,45 +1,40 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from '@/app/components/ui/icons/X';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { inertProps } from '@/app/utils/inertProps';
 import './fieldTasks/fieldTasksChrome.css';
 import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 import type { LegalTask } from '@/app/types/TaskEngine';
-import { listFieldDaySheetTasks } from '@/app/services/tasks/fieldCurtainTasks';
-import { useQuantumTasksActions, useQuantumTasksData } from '@/app/hooks/useQuantumTasksContext';
+import { useQuantumTasksActions } from '@/app/hooks/useQuantumTasksContext';
 import { useFatalTaskComplete } from '@/app/hooks/useFatalTaskComplete';
-import { buildLinkedCaseLookup } from '@/app/workspace/resolveLinkedCaseMeta';
 import {
     CURTAIN_BTN_MANAGE,
-    CURTAIN_CLOSE_BTN,
-    CURTAIN_FATAL_DIALOG,
     CURTAIN_FOOTER_ROW,
-    CURTAIN_GLASS_INNER,
-    CURTAIN_HEADER_ROW,
     CURTAIN_SHEET,
     CURTAIN_BACKDROP,
-    TASKS_BRONZE_LINE,
 } from '@/app/components/lawyer/dashboard/tasksManager/tasksBoucleTheme';
-import { FieldCurtainTaskCard } from '@/app/components/lawyer/dashboard/fieldTasks/FieldCurtainTaskCard';
 import { FieldTasksSheetDragHandle } from '@/app/components/lawyer/dashboard/fieldTasks/FieldTasksSheetDragHandle';
 import { useTasksLifecycle } from '@/app/components/lawyer/dashboard/fieldTasks/useTasksLifecycle';
-import { useLiveNow } from '@/app/components/lawyer/dashboard/fieldTasks/useLiveNow';
 import {
     blockTasksOverlayEscape,
     unblockTasksOverlayEscape,
 } from '@/app/components/lawyer/dashboard/fieldTasks/tasksEscapeCoordinator';
+import { isFieldTasksCloseSuppressed, isFieldTasksForceVisible, clearFieldTasksForceVisible, suppressFieldTasksClose, FIELD_TASKS_CLOSE_SUPPRESS_MS, removeFieldTasksInstantChrome, unlockFieldTasksLayerHits } from '@/app/runtime/fieldTasksInstantPaint';
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/app/components/ui/dialog';
-import { isFieldTasksCloseSuppressed, isFieldTasksForceVisible } from '@/app/runtime/fieldTasksInstantPaint';
+    drainFieldTasksInstantCompleteQueue,
+    FIELD_TASKS_INSTANT_COMPLETE_EVENT,
+} from '@/app/runtime/fieldTasksInstantActions';
+import { getPendingFieldTasksCountSnapshot, getQuantumPendingSnapshot } from '@/app/utils/quantumTasksMetrics';
+import { listFieldDaySheetTasks } from '@/app/services/tasks/fieldCurtainTasks';
+import { FIELD_TASKS_CURTAIN_PEEK_READY_EVENT } from '@/app/utils/quantumTasksCurtainPeek';
+import { isFieldTasksShellSnappedOpen } from '@/app/services/fieldTasks/fieldTasksShellSnap';
+import { FieldTasksSheetOpenBody } from '@/app/components/lawyer/dashboard/fieldTasks/FieldTasksSheetChrome';
 
-const CURTAIN_SHEET_Z = 215;
+const FieldTasksFatalDialog = lazy(() =>
+    import('@/app/components/lawyer/dashboard/fieldTasks/FieldTasksFatalDialog').then((m) => ({
+        default: m.FieldTasksFatalDialog,
+    })),
+);
 
 type FieldTasksBottomSheetProps = {
     open: boolean;
@@ -48,119 +43,6 @@ type FieldTasksBottomSheetProps = {
     lawsuitFiles?: unknown[];
     executionFiles?: unknown[];
 };
-
-type SheetListProps = {
-    lawsuitFiles: unknown[];
-    executionFiles: unknown[];
-    onCompleteRequest: (task: LegalTask) => void;
-    onReopenTask: (task: LegalTask) => void;
-    onToggleSubComplete: (parentId: string, subId: string) => void;
-    layerVisible: boolean;
-    onClose: () => void;
-};
-
-const FieldTasksEmptyHint = memo(function FieldTasksEmptyHint() {
-    return (
-        <div
-            className={`${CURTAIN_GLASS_INNER} flex flex-col items-center py-12 px-4 text-center`}
-            data-testid="field-tasks-empty"
-            role="status"
-        >
-            <p className="text-[#F4F4F5]/55 text-sm font-medium leading-relaxed max-w-xs">
-                لا مهام ميدانية ظاهرة الآن. أضف مهمة من مدير المهام، أو ثبّتها على الستارة، أو اجعل موعدها اليوم أو متأخراً ضمن الأسبوع.
-            </p>
-            <div className={`mt-4 w-20 ${TASKS_BRONZE_LINE}`} />
-        </div>
-    );
-});
-
-const FIELD_TASKS_SCROLLER_CLASS =
-    'hami-field-tasks-scroller flex-1 overflow-y-auto overscroll-y-contain px-4 py-3 min-h-0 relative z-[1]';
-
-const FieldTasksSheetHeader = memo(function FieldTasksSheetHeader({
-    count = 0,
-    closeTabIndex,
-    onClose,
-}: {
-    count?: number;
-    closeTabIndex: number;
-    onClose: () => void;
-}) {
-    return (
-        <div className={CURTAIN_HEADER_ROW}>
-            <div className="min-w-0 text-right">
-                <h2 id="field-tasks-sheet-title" className="text-[#F4F4F5] font-semibold text-base truncate">
-                    مهام اليوم الميدانية
-                </h2>
-                {count > 0 ? (
-                    <p className="text-[11px] text-white/45 font-medium">{count} مهمة</p>
-                ) : null}
-            </div>
-            <button
-                type="button"
-                onClick={onClose}
-                data-testid="field-tasks-close"
-                tabIndex={closeTabIndex}
-                className={CURTAIN_CLOSE_BTN}
-                aria-label="إغلاق مهام اليوم الميدانية"
-            >
-                <X size={20} />
-            </button>
-        </div>
-    );
-});
-
-/** يُركَّب فقط والستارة مفتوحة — لا يشترك في سياق المهام وهو مغلق (keep-alive) */
-const FieldTasksSheetOpenBody = memo(function FieldTasksSheetOpenBody({
-    lawsuitFiles,
-    executionFiles,
-    onCompleteRequest,
-    onReopenTask,
-    onToggleSubComplete,
-    layerVisible,
-    onClose,
-}: SheetListProps) {
-    const { pendingTasks } = useQuantumTasksData();
-    const now = useLiveNow(true);
-    const curtainTasks = useMemo(
-        () => listFieldDaySheetTasks(pendingTasks, now),
-        [pendingTasks, now],
-    );
-    const pinLookup = useMemo(
-        () => buildLinkedCaseLookup(lawsuitFiles, executionFiles),
-        [lawsuitFiles, executionFiles],
-    );
-
-    return (
-        <>
-            <FieldTasksSheetHeader
-                count={curtainTasks.length}
-                closeTabIndex={layerVisible ? 0 : -1}
-                onClose={onClose}
-            />
-            <div dir="rtl" className={FIELD_TASKS_SCROLLER_CLASS}>
-                {curtainTasks.length === 0 ? (
-                    <FieldTasksEmptyHint />
-                ) : (
-                    <ul className="space-y-2.5">
-                        {curtainTasks.map((task, i) => (
-                            <FieldCurtainTaskCard
-                                key={task.id}
-                                task={task}
-                                listOrdinal={{ index: i, total: curtainTasks.length }}
-                                now={now}
-                                pinLookup={pinLookup}
-                                onCompleteRequest={onCompleteRequest}
-                                onReopenTask={onReopenTask}
-                                onToggleSubComplete={onToggleSubComplete}
-                            />
-                        ))}
-                    </ul>
-                )}
-            </div>
-        </>
-    );
-});
 
 export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
     open,
@@ -175,16 +57,55 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
         useFatalTaskComplete(completeTask);
 
     const sheetRef = useRef<HTMLDivElement>(null);
-    const [sheetVisible, setSheetVisible] = useState(open);
+    const layerRootRef = useRef<HTMLDivElement>(null);
+    const [sheetVisible, setSheetVisible] = useState(
+        () => open || isFieldTasksForceVisible() || isFieldTasksShellSnappedOpen(),
+    );
     const [sheetHydrated, setSheetHydrated] = useState(false);
     const [sheetAnimating, setSheetAnimating] = useState(false);
     const [dragOffsetPx, setDragOffsetPx] = useState(0);
+    const closeArmedRef = useRef(false);
+
+    useLayoutEffect(() => {
+        if (!open) {
+            closeArmedRef.current = false;
+            return;
+        }
+        closeArmedRef.current = false;
+        suppressFieldTasksClose(FIELD_TASKS_CLOSE_SUPPRESS_MS);
+        const timer = window.setTimeout(() => {
+            closeArmedRef.current = true;
+        }, FIELD_TASKS_CLOSE_SUPPRESS_MS);
+        return () => window.clearTimeout(timer);
+    }, [open]);
+
+    useLayoutEffect(() => {
+        if (!(open && !fatalOpen)) return;
+        const unlock = () => {
+            const root = layerRootRef.current;
+            if (root) unlockFieldTasksLayerHits(root);
+        };
+        unlock();
+        const frame = window.requestAnimationFrame(unlock);
+        return () => window.cancelAnimationFrame(frame);
+    }, [open, fatalOpen]);
 
     useEffect(() => {
         if (!open) setSheetHydrated(false);
     }, [open]);
 
+    useEffect(() => {
+        return () => {
+            clearFieldTasksForceVisible();
+        };
+    }, []);
+
     useTasksLifecycle(open, sheetVisible, () => setSheetHydrated(true));
+
+    useEffect(() => {
+        if (!sheetHydrated) return;
+        void import('@/app/components/lawyer/dashboard/fieldTasks/FieldTasksFatalDialog');
+    }, [sheetHydrated]);
 
     useLayoutEffect(() => {
         if (!open) {
@@ -193,17 +114,54 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
             setDragOffsetPx(0);
             return;
         }
+        const handover = isFieldTasksForceVisible() || isFieldTasksShellSnappedOpen();
         setSheetVisible(true);
-        setSheetAnimating(true);
-        sheetRef.current?.classList.remove('hami-field-tasks-sheet--snap');
+        setSheetAnimating(!handover);
+        if (handover) {
+            sheetRef.current?.classList.add('hami-field-tasks-sheet--snap');
+        } else {
+            sheetRef.current?.classList.remove('hami-field-tasks-sheet--snap');
+        }
     }, [open]);
+
+    useLayoutEffect(() => {
+        if (!open || !sheetHydrated) return;
+        const releaseChrome = () => {
+            removeFieldTasksInstantChrome();
+            clearFieldTasksForceVisible();
+        };
+        const curtainReady =
+            listFieldDaySheetTasks(getQuantumPendingSnapshot(), new Date()).length > 0 ||
+            getPendingFieldTasksCountSnapshot() === 0;
+        if (curtainReady) {
+            releaseChrome();
+            return;
+        }
+        const onPeekReady = () => releaseChrome();
+        window.addEventListener(FIELD_TASKS_CURTAIN_PEEK_READY_EVENT, onPeekReady);
+        const fallback = window.setTimeout(releaseChrome, 800);
+        return () => {
+            window.removeEventListener(FIELD_TASKS_CURTAIN_PEEK_READY_EVENT, onPeekReady);
+            window.clearTimeout(fallback);
+        };
+    }, [open, sheetHydrated]);
 
     useBodyScrollLock(open);
 
     const handleClose = useCallback(() => {
-        if (isFieldTasksCloseSuppressed()) return;
         onClose();
     }, [onClose]);
+
+    const handleBackdropDismiss = useCallback(
+        (event: { preventDefault: () => void; stopPropagation: () => void }) => {
+            event.preventDefault();
+            event.stopPropagation();
+            /** نقرة الشبح من الدوك تصيب الخلفية فقط — الإغلاق والأزرار فورية */
+            if (!closeArmedRef.current || isFieldTasksCloseSuppressed()) return;
+            onClose();
+        },
+        [onClose],
+    );
 
     const handleDragOffset = useCallback((px: number) => {
         setDragOffsetPx(px);
@@ -215,6 +173,25 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
         },
         [reopenTask],
     );
+
+    useEffect(() => {
+        if (!open) return;
+        const completeByIds = (ids: string[]) => {
+            const unique = [...new Set(ids.filter(Boolean))];
+            const pending = getQuantumPendingSnapshot();
+            for (const id of unique) {
+                const task = pending.find((item) => item.id === id);
+                if (task) requestComplete(task);
+            }
+        };
+        completeByIds(drainFieldTasksInstantCompleteQueue());
+        const onInstantComplete = (event: Event) => {
+            const id = (event as CustomEvent<{ taskId?: string }>).detail?.taskId;
+            completeByIds(id ? [id, ...drainFieldTasksInstantCompleteQueue()] : drainFieldTasksInstantCompleteQueue());
+        };
+        window.addEventListener(FIELD_TASKS_INSTANT_COMPLETE_EVENT, onInstantComplete);
+        return () => window.removeEventListener(FIELD_TASKS_INSTANT_COMPLETE_EVENT, onInstantComplete);
+    }, [open, requestComplete]);
 
     useEffect(() => {
         if (!open && fatalOpen) {
@@ -241,68 +218,47 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
     if (typeof document === 'undefined') return null;
 
     const layerVisible = open || isFieldTasksForceVisible();
+    /** لا تسرق نقرات الرئيسية إذا بقي كشف DOM عالقاً بينما React ما زال مغلقاً */
+    const layerInteractive = open && !fatalOpen;
 
     return createPortal(
         <>
             {fatalOpen ? (
-                <Dialog
-                    open={fatalOpen}
-                    onOpenChange={(o) => {
-                        if (!o) cancelFatalComplete();
-                    }}
-                >
-                    <DialogContent className={CURTAIN_FATAL_DIALOG}>
-                        <DialogHeader className="text-right sm:text-right space-y-2">
-                            <DialogTitle className="text-[#E6C673] text-base font-semibold leading-relaxed">
-                                تحذير — موعد حتمي
-                            </DialogTitle>
-                            <DialogDescription className="text-[#F4F4F5]/80 text-sm leading-relaxed">
-                                هذا موعد حتمي (سقوط حق). هل أنت متأكد من إنجاز الإجراء القانوني بشكل نهائي؟
-                            </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter className="flex flex-row-reverse gap-2 sm:justify-start">
-                            <button
-                                type="button"
-                                onClick={confirmFatalComplete}
-                                className="min-h-[44px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold touch-manipulation"
-                            >
-                                تأكيد الإكمال
-                            </button>
-                            <button
-                                type="button"
-                                onClick={cancelFatalComplete}
-                                className="min-h-[44px] px-4 py-2 rounded-xl border border-white/[0.1] bg-transparent text-[#F4F4F5] text-xs font-semibold touch-manipulation"
-                            >
-                                إلغاء
-                            </button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                <Suspense fallback={null}>
+                    <FieldTasksFatalDialog
+                        open={fatalOpen}
+                        onConfirm={confirmFatalComplete}
+                        onCancel={cancelFatalComplete}
+                    />
+                </Suspense>
             ) : null}
 
             <div
+                ref={layerRootRef}
                 data-field-tasks-root=""
                 data-open={layerVisible ? 'true' : 'false'}
-                aria-hidden={!layerVisible}
+                data-interactive={layerInteractive ? 'true' : 'false'}
+                aria-hidden={!layerInteractive}
                 className={`hami-field-tasks-layer${layerVisible ? ' hami-field-tasks-layer--visible' : ''}`}
                 style={{
                     opacity: layerVisible ? 1 : 0,
                     visibility: layerVisible ? 'visible' : 'hidden',
-                    pointerEvents: layerVisible ? 'auto' : 'none',
+                    pointerEvents: layerInteractive ? 'auto' : 'none',
                 }}
-                {...inertProps(!layerVisible)}
+                {...inertProps(!layerInteractive)}
             >
                 <button
                     type="button"
                     aria-label="إغلاق الستارة"
-                    tabIndex={layerVisible ? 0 : -1}
+                    tabIndex={layerInteractive ? 0 : -1}
                     className={`${CURTAIN_BACKDROP} ${sheetVisible ? 'opacity-100' : 'opacity-0'}`}
-                    onClick={handleClose}
+                    onClick={handleBackdropDismiss}
+                    onPointerUp={handleBackdropDismiss}
                 />
                 <div
                     ref={sheetRef}
                     role="dialog"
-                    aria-modal={layerVisible ? true : undefined}
+                    aria-modal={layerInteractive ? true : undefined}
                     aria-labelledby="field-tasks-sheet-title"
                     aria-describedby="field-tasks-sheet-swipe-hint"
                     data-testid="field-tasks-sheet"
@@ -318,7 +274,6 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
                         sheetVisible ? 'translate-y-0' : 'translate-y-full'
                     }`}
                     style={{
-                        zIndex: CURTAIN_SHEET_Z,
                         marginBottom: keyboardInsetPx > 0 ? keyboardInsetPx : undefined,
                         transform: sheetVisible ? `translate3d(0, ${dragOffsetPx}px, 0)` : undefined,
                     }}
@@ -327,35 +282,31 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
                         اسحب المقبض للأسفل أو استخدم زر الإغلاق لإغلاق الستارة.
                     </p>
                     <FieldTasksSheetDragHandle
-                        enabled={layerVisible && !fatalOpen}
+                        enabled={layerInteractive}
                         onClose={handleClose}
                         onOffsetChange={handleDragOffset}
                     />
 
-                    {layerVisible ? (
-                        <FieldTasksSheetOpenBody
-                            lawsuitFiles={lawsuitFiles}
-                            executionFiles={executionFiles}
-                            onCompleteRequest={requestComplete}
-                            onReopenTask={handleReopenTask}
-                            onToggleSubComplete={toggleSubTaskComplete}
-                            layerVisible={layerVisible}
-                            onClose={handleClose}
-                        />
-                    ) : (
-                        <>
-                            <FieldTasksSheetHeader closeTabIndex={-1} onClose={handleClose} />
-                            <div dir="rtl" className={FIELD_TASKS_SCROLLER_CLASS}>
-                                <FieldTasksEmptyHint />
-                            </div>
-                        </>
-                    )}
+                    <FieldTasksSheetOpenBody
+                        lawsuitFiles={lawsuitFiles}
+                        executionFiles={executionFiles}
+                        onCompleteRequest={requestComplete}
+                        onReopenTask={handleReopenTask}
+                        onToggleSubComplete={toggleSubTaskComplete}
+                        layerVisible={layerVisible}
+                        onClose={handleClose}
+                    />
 
                     <div className={CURTAIN_FOOTER_ROW}>
                         <button
                             type="button"
                             data-testid="field-tasks-manage-all"
-                            tabIndex={layerVisible ? 0 : -1}
+                            tabIndex={layerInteractive ? 0 : -1}
+                            onPointerDown={() => {
+                                void import('@/app/runtime/fieldTasksHubLoader')
+                                    .then((m) => m.loadTasksManagerModule())
+                                    .catch(() => undefined);
+                            }}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onManageAll();

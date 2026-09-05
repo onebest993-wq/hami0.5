@@ -1,31 +1,25 @@
-import type {
-    SeizureDecisionOutcomeContext,
-    SeizureDecisionOutcomeDetail,
-} from './seizureDecisionOutcomeHandler.types';
-import { resolveSeizureOutcomeEvent } from './seizureOutcomeResolve';
+import type { SeizureDecisionOutcomeContext, SeizureDecisionOutcomeDetail } from './seizureDecisionOutcomeHandler.types';
 import { handleSeizureOutcomeInitPhase } from './seizureOutcomeInitPhase';
-import { handleSeizureOutcomePropertyPhase } from './seizureOutcomePropertyPhase';
-import { handleSeizureOutcomeMovablePhase } from './seizureOutcomeMovablePhase';
 
 export type { SeizureDecisionOutcomeDetail, SeizureDecisionOutcomeContext } from './seizureDecisionOutcomeHandler.types';
 
-/** موجّه رفيع — يفكك السياق ثم يمرّر لمراحل الموافقة المسجّلة */
+/**
+ * بعد موافقة طلب الحجز — لا مراحل إكمال/سير عمل.
+ * init-phase فقط (البت في مركز القرارات).
+ */
 export function handleSeizureDecisionOutcomeEvent(e: Event, ctx: SeizureDecisionOutcomeContext): void {
-    const ce = e as CustomEvent<SeizureDecisionOutcomeDetail>;
-    const event = resolveSeizureOutcomeEvent(ce.detail, ctx);
-    if (!event) return;
+    const ce = e as CustomEvent<SeizureDecisionOutcomeDetail & Record<string, unknown>>;
+    const detail = (ce.detail || {}) as Record<string, unknown>;
 
-    if (handleSeizureOutcomeInitPhase(ctx, event)) return;
+    const subtype = String(detail.seizureSubtype || detail.subtype || '').trim();
+    const requestKind = String(detail.requestKind || 'seizure').trim();
+    const savedAtEarly = Boolean(String(detail.seizureRequestSavedAt || '').trim());
+    const seizureTarget = String(detail.seizureTarget || '').trim();
 
-    const { resolved } = event;
-    if (!resolved.seizedPropertyId && !resolved.seizedMovableId) return;
-
-    if (resolved.seizedPropertyId) {
-        handleSeizureOutcomePropertyPhase(ctx, event);
-        return;
-    }
-
-    if (resolved.seizedMovableId) {
-        handleSeizureOutcomeMovablePhase(ctx, event);
-    }
+    handleSeizureOutcomeInitPhase(ctx, {
+        resolved: { subtype },
+        requestKind,
+        savedAtEarly,
+        seizureTarget,
+    });
 }

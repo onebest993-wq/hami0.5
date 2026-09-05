@@ -3,11 +3,7 @@ import { flushSync } from 'react-dom';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
-import { LawyerStorage } from '@/app/services/lawyer-cloud';
-import {
-    createInstantForumAttachmentPreview,
-    persistForumAttachmentFile,
-} from '@/app/services/forumAttachmentService';
+import { createInstantForumAttachmentPreview } from '@/app/services/forumAttachmentPreview';
 import { isSafeForumAttachmentUrl } from '@/app/services/forum/forumUrlSafety';
 import { FORUM_ATTACHMENT_MAX_BYTES } from '../communityScreenConstants';
 import { withForumAsyncTimeout } from '../forumAsync';
@@ -89,7 +85,8 @@ export function useCommunityAddQuestionAttachment(
             SmartToast.success(kind === 'audio' ? 'تم إرفاق المقطع الصوتي' : 'تم إرفاق الملف');
 
             void Promise.resolve().then(() =>
-                persistForumAttachmentFile(file)
+                import('@/app/services/forumAttachmentService')
+                    .then((m) => m.persistForumAttachmentFile(file))
                     .then((storagePath) => {
                         setNewAttachment((prev) =>
                             prev && prev.name === file.name ? { ...prev, storagePath } : prev,
@@ -105,6 +102,7 @@ export function useCommunityAddQuestionAttachment(
                 try {
                     const storageCategory =
                         kind === 'image' ? 'forum-media' : kind === 'audio' ? 'audio' : 'drafts';
+                    const { LawyerStorage } = await import('@/app/services/storage/lawyerStorageRuntime');
                     const uploaded = await withForumAsyncTimeout(
                         LawyerStorage.uploadSmartFile(userId, file, storageCategory),
                         FORUM_ATTACHMENT_UPLOAD_TIMEOUT_MS,

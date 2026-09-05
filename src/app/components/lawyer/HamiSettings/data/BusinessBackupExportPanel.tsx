@@ -11,7 +11,7 @@ export function BusinessBackupExportPanel({ backup }: { backup: BackupVm }) {
 
     return (
         <div
-            className="px-4 pb-4 border-b border-white/[0.04]"
+            className="px-3 pb-3 border-b border-white/[0.04]"
             data-testid="business-backup-export-panel"
         >
             <div className="text-[11px] text-white/50 mb-2">اختر ما تريد تصديره مع نطاق زمني اختياري</div>
@@ -48,16 +48,18 @@ export function BusinessBackupExportPanel({ backup }: { backup: BackupVm }) {
                     value={backup.backupFrom}
                     onChange={(e) => backup.setBackupFrom(e.target.value)}
                     onFocus={onDateFocus}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-xl min-h-[44px] py-2 px-3 text-xs text-white outline-none focus:border-[#E6C673]/50"
+                    className="flex-1 bg-white/5 border border-white/10 rounded-xl min-h-[44px] py-2 px-3 text-white outline-none focus:border-[#E6C673]/50"
                     aria-label="من تاريخ"
+                    style={{ fontSize: 16 }}
                 />
                 <input
                     type="date"
                     value={backup.backupTo}
                     onChange={(e) => backup.setBackupTo(e.target.value)}
                     onFocus={onDateFocus}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-xl min-h-[44px] py-2 px-3 text-xs text-white outline-none focus:border-[#E6C673]/50"
+                    className="flex-1 bg-white/5 border border-white/10 rounded-xl min-h-[44px] py-2 px-3 text-white outline-none focus:border-[#E6C673]/50"
                     aria-label="إلى تاريخ"
+                    style={{ fontSize: 16 }}
                 />
             </div>
             <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-3 py-2 mb-3">

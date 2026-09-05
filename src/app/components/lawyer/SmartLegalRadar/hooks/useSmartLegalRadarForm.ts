@@ -1,8 +1,15 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { prefetchCalendarCloudModule } from '@/app/services/calendar/calendarCloudRuntime';
 import { EMPTY_FORM, mapEventFormToCalendarFields, type EventFormData } from '@/app/components/lawyer/SmartLegalRadar/eventFormModel';
-import { storedCalendarIdFromUnified } from '@/app/components/lawyer/SmartLegalRadar/calendarFocusIds';
+import {
+    storedCalendarIdFromUnified,
+    unifiedCalendarEventId,
+} from '@/app/components/lawyer/SmartLegalRadar/calendarFocusIds';
+import {
+    consumeCalendarShellFormIntent,
+    subscribeCalendarShellSession,
+} from '@/app/services/calendar/calendarShellSession';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 import type { CalendarEvent } from '@/app/services/lawyer-cloud';
 
@@ -63,6 +70,34 @@ export function useSmartLegalRadarForm({
         setShowForm(false);
         setEditingEvent(null);
     }, [saving]);
+
+    useEffect(() => {
+        const applyIntent = () => {
+            const intent = consumeCalendarShellFormIntent();
+            if (!intent) return;
+            if (intent.kind === 'add') {
+                openAddForm();
+                return;
+            }
+            const storedId = storedCalendarIdFromUnified(intent.eventId);
+            const row = customEvents.find((event) => event.id === storedId);
+            if (!row) return;
+            openEditForm({
+                id: unifiedCalendarEventId(row.id),
+                title: row.title,
+                date: row.date,
+                time: row.time,
+                type: row.type,
+                location: row.location,
+                notes: row.notes,
+                clientName: row.clientName,
+                source: 'calendar',
+                reminderMinutesBefore: row.reminderMinutesBefore ?? null,
+            });
+        };
+        applyIntent();
+        return subscribeCalendarShellSession(applyIntent);
+    }, [customEvents, openAddForm, openEditForm]);
 
     const handleSave = useCallback(async (data: EventFormData) => {
         if (saveInFlightRef.current) return;

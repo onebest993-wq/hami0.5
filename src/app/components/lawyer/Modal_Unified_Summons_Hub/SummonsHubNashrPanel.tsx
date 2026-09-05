@@ -1,7 +1,5 @@
 import React from 'react';
 import { motion } from '@/app/motion/overlayMotionRuntime';
-import { CheckCircle } from '@/app/components/ui/icons/CheckCircle';
-import { Newspaper } from '@/app/components/ui/icons/Newspaper';
 import {
     daysRemainingUntilDeadline,
     isAssignmentDeadlinePassed,
@@ -137,7 +135,6 @@ export const SummonsHubNashrPanel: React.FC<SummonsHubNashrPanelProps> = ({
                     }}
                     className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"
                 >
-                    <CheckCircle size={18} />
                     حضور المدين
                 </button>
                 <button
@@ -250,7 +247,6 @@ export const SummonsHubNashrPanel: React.FC<SummonsHubNashrPanelProps> = ({
                     }}
                     className={`${HUB_GOLD_ACTION_CLASS} flex items-center justify-center gap-2`}
                 >
-                    <Newspaper size={18} />
                     تسجيل التبليغ بالنشر
                 </button>
             </>

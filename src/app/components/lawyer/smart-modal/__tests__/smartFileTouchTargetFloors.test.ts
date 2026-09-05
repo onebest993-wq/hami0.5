@@ -62,15 +62,16 @@ describe('smart file touch target floors', () => {
         expect(moroccan).toContain('min-w-[44px]');
     });
 
-    it('PartyChip and contentEntry shared interactive controls meet 44px', () => {
+    it('PartyChip is display-only; contentEntry shared interactive controls meet 44px', () => {
         const chip = readFileSync(resolve(__dirname, '../smart-header/PartyChip.tsx'), 'utf8');
         const shared = readFileSync(
             resolve(__dirname, '../modals/contentEntry/shared.tsx'),
             'utf8',
         );
-        expect(chip).toContain('min-h-[44px]');
-        expect(shared).toContain('min-h-[44px]');
+        expect(chip).not.toContain('عرض العنوان');
+        expect(chip).not.toContain('MapPin');
         expect(chip).not.toMatch(/h-8 w-8 items-center justify-center rounded-xl border bg-white/);
+        expect(shared).toContain('min-h-[44px]');
     });
 
     it('SmartFileMainPanel lazy-loads secondary hubs and personal body', () => {

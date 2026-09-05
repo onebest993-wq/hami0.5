@@ -98,7 +98,10 @@ describe('notifications security close honesty', () => {
         expect(paint).toContain('bridge.innerHTML');
         expect(paint).not.toMatch(/bridge\.innerHTML\s*=\s*[^\n]*\+/);
         const focus = read(`${panelRoot}/hooks/useNotificationPanelFocus.ts`);
-        expect(focus).toContain('CSS.escape(id)');
+        expect(focus).toContain('highlightNotificationCard');
+        expect(read('src/app/services/notifications/notificationPanelFocus.ts')).toContain(
+            'CSS.escape(id)',
+        );
         const sw = read('public/sw.js');
         expect(sw).toContain('asSafePushPayload');
         expect(sw).toContain('sameOriginSwAsset');

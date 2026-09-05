@@ -15,7 +15,6 @@ export function buildExecutionDashboardCoreChunkFingerprint(p: {
     executionStorageTick: number;
     financialPrincipalAmount: number;
     followupOrchestrator: { executionDebtorTabIndex: number };
-    showUnifiedSeizureLogModal: boolean;
     timelineAccordionExpanded: boolean;
     isFinancialCenterExpanded: boolean;
     isHeaderExpanded: boolean;
@@ -46,7 +45,6 @@ export function buildExecutionDashboardCoreChunkFingerprint(p: {
         executionStorageTick: p.executionStorageTick,
         financialPrincipalAmount: p.financialPrincipalAmount,
         executionDebtorTabIndex: followupOrchestrator.executionDebtorTabIndex,
-        showUnifiedSeizureLogModal: p.showUnifiedSeizureLogModal,
         timelineAccordionExpanded: p.timelineAccordionExpanded,
         isFinancialCenterExpanded: p.isFinancialCenterExpanded,
         isHeaderExpanded: p.isHeaderExpanded,

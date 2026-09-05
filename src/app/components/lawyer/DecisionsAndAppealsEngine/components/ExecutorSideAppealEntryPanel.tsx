@@ -3,7 +3,6 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { ManualAppealAppellantActor } from '../utils';
 import type { AppealDeadlineWindows } from '../utils';
 import type { AppealUiPerspective } from '../appealUiLabels';
-import { AppealSelectedDeadlineHint } from './AppealSelectedDeadlineHint';
 
 type AppealStage = 'grievance' | 'cassation';
 
@@ -25,7 +24,7 @@ type ExecutorSideAppealEntryPanelProps = {
     presetAppellant?: ManualAppealAppellantActor | null;
     /** طاعن التمييز المحدد مسبقاً بعد رد التظلم */
     presetCassationAppellant?: ManualAppealAppellantActor | null;
-    /** تاريخ القرار لعرض آخر موعد الطعن */
+    /** تاريخ القرار (احتياطي للمسارات الداخلية) */
     decisionAppealYmd?: string;
 };
 
@@ -58,7 +57,6 @@ export function ExecutorSideAppealEntryPanel({
     grievanceAlreadyFiled = false,
     presetAppellant = null,
     presetCassationAppellant = null,
-    decisionAppealYmd,
 }: ExecutorSideAppealEntryPanelProps) {
     const [open, setOpen] = useState(false);
     const cassationOnlyMode = cassationOnly || grievanceAlreadyFiled;
@@ -101,25 +99,6 @@ export function ExecutorSideAppealEntryPanel({
           : appellants;
     const canSubmit = effectiveAppellants.length > 0 && stageAllowed && !locked;
 
-    const deadlineKind = stage === 'grievance' ? 'tadhallum' : 'tamyeez';
-    const deadlineHint =
-        decisionAppealYmd ? (
-            <AppealSelectedDeadlineHint
-                kind={deadlineKind}
-                decisionYmd={decisionAppealYmd}
-                windows={windows}
-                inline={Boolean(lockedAppellant)}
-            />
-        ) : null;
-
-    const contextLine = grievanceAlreadyFiled
-        ? presetCassationAppellant
-            ? 'سُجِّل تمييز الطرف الذي رُد تظلمه.'
-            : 'بعد التظلم — يمكن تسجيل تمييز على القرار.'
-        : presetAppellant
-          ? null
-          : 'قرار صادر من المنفذ دون طلب مسبق — حدّد مرحلة الطعن ومن بادر به.';
-
     const resetPanel = () => {
         setOpen(false);
         setStage(cassationOnlyMode ? 'cassation' : 'grievance');
@@ -148,10 +127,6 @@ export function ExecutorSideAppealEntryPanel({
 
     return (
         <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
-            {contextLine ? (
-                <p className="text-[10px] leading-relaxed text-slate-400 text-right">{contextLine}</p>
-            ) : null}
-
             {!cassationOnlyMode ? (
                 <div className="space-y-1.5">
                     <p className="text-[11px] font-semibold text-slate-300 text-right">مرحلة الطعن</p>
@@ -177,10 +152,6 @@ export function ExecutorSideAppealEntryPanel({
             ) : (
                 <p className="text-[11px] font-semibold text-slate-300 text-right">مرحلة الطعن: تمييز</p>
             )}
-
-            {showAppellantPicker && deadlineHint ? (
-                <div className="flex flex-row-reverse flex-wrap items-center justify-end">{deadlineHint}</div>
-            ) : null}
 
             {showAppellantPicker ? (
                 <div className="space-y-1.5">
@@ -211,26 +182,16 @@ export function ExecutorSideAppealEntryPanel({
                     </div>
                 </div>
             ) : lockedAppellant ? (
-                <div className="flex flex-row-reverse flex-wrap items-center justify-end gap-x-2 gap-y-1">
-                    <p className="text-[11px] text-slate-400 text-right">
-                        الطاعن:{' '}
-                        <span className="font-semibold text-slate-200">
-                            {lockedAppellant === 'lawyer'
-                                ? 'الدائن'
-                                : appealPerspective === 'debtor_agent'
-                                  ? 'موكّلنا'
-                                  : 'المدين'}
-                        </span>
-                    </p>
-                    {deadlineHint ? (
-                        <>
-                            <span className="hidden text-[10px] text-slate-600 sm:inline" aria-hidden>
-                                ·
-                            </span>
-                            {deadlineHint}
-                        </>
-                    ) : null}
-                </div>
+                <p className="text-[11px] text-slate-400 text-right">
+                    الطاعن:{' '}
+                    <span className="font-semibold text-slate-200">
+                        {lockedAppellant === 'lawyer'
+                            ? 'الدائن'
+                            : appealPerspective === 'debtor_agent'
+                              ? 'موكّلنا'
+                              : 'المدين'}
+                    </span>
+                </p>
             ) : null}
 
             <div className="flex flex-col gap-2 sm:flex-row-reverse">

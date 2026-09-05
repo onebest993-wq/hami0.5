@@ -1,4 +1,5 @@
-import type { LegalTask } from '@/app/types/TaskEngine';
+import type { LegalSubTaskPlanStatus, LegalTask } from '@/app/types/TaskEngine';
+import { legalTaskUiSignature } from '@/app/services/tasks/legalTaskUiSignature';
 import type { DetailPanel } from './types';
 import type { TaskListOrdinal } from './TaskListOrdinalBadge';
 
@@ -12,11 +13,13 @@ export type TaskCardProps = {
     onReopenTask: (task: LegalTask) => void;
     onToggleFatal: (id: string) => void;
     onToggleFieldCurtainPin: (id: string) => void;
-    fatalPulse?: boolean;
     detailPanel: DetailPanel;
     setDetailPanel: (p: DetailPanel | ((prev: DetailPanel) => DetailPanel)) => void;
     addSubTask: (parentId: string, title: string, location: string | null) => void;
     toggleSubTaskComplete: (parentId: string, subId: string) => void;
+    setSubTaskPlanStatus: (parentId: string, subId: string, status: LegalSubTaskPlanStatus) => void;
+    renameSubTask: (parentId: string, subId: string, title: string) => void;
+    removeSubTask: (parentId: string, subId: string) => void;
     addDocumentRequirement: (parentId: string, text: string) => void;
     toggleDocumentRequirement: (parentId: string, itemId: string) => void;
     onEditRequest: (task: LegalTask) => void;
@@ -26,28 +29,11 @@ export type TaskCardProps = {
     onPostponeRequest?: (task: LegalTask) => void;
 };
 
-export function taskRevision(task: LegalTask): string {
-    return [
-        task.id,
-        task.title,
-        task.location ?? '',
-        task.status,
-        task.completedAt?.getTime() ?? '',
-        task.isFatalDeadline ? '1' : '0',
-        task.pinnedToFieldCurtain ? '1' : '0',
-        task.parsedDate?.getTime() ?? '',
-        task.reminderAt?.getTime() ?? '',
-        task.subTasks.map((st) => `${st.id}:${st.isCompleted}:${st.title}:${st.location ?? ''}:${st.kind ?? ''}`).join('|'),
-        task.documentRequirements.map((d) => `${d.id}:${d.isChecked}`).join('|'),
-        task.expenses.map((e) => `${e.id}:${e.amount}`).join('|'),
-        task.voiceRef ?? '',
-        task.voiceTranscript ?? '',
-        task.voiceDurationSec ?? '',
-    ].join('~');
+function taskRevision(task: LegalTask): string {
+    return legalTaskUiSignature(task);
 }
 
 export function areTaskCardPropsEqual(prev: TaskCardProps, next: TaskCardProps): boolean {
-    if (prev.fatalPulse !== next.fatalPulse) return false;
     if (prev.listOrdinal?.index !== next.listOrdinal?.index || prev.listOrdinal?.total !== next.listOrdinal?.total) {
         return false;
     }

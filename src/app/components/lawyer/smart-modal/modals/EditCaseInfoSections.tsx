@@ -2,6 +2,7 @@ import React from 'react';
 import { ArrowRightLeft } from '@/app/components/ui/icons/ArrowRightLeft';
 import { X } from '@/app/components/ui/icons/X';
 import { getLegalRoleTitle } from '../smartFile/legalRoleTitle';
+import { isAppealStageName } from '../smartFile/judgmentStageNames';
 import {
     EDIT_CASE_GLASS_FIELD,
     EDIT_CASE_GLASS_LABEL,
@@ -33,41 +34,15 @@ export function EditCaseInfoCaseFields({
     firstInstanceCaseNumber: string;
     firstInstanceCourt: string;
 }) {
+    const appealStage = isAppealStageName(stageName);
     return (
         <div className="space-y-4 border-b border-white/[0.06] pb-5">
             <h4 className="text-[#E6C673] text-sm font-bold">بيانات الدعوى</h4>
 
-            {stageName?.includes('استئناف') && (
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
-                    <h5 className="text-xs font-bold text-white/50">بيانات مرحلة البداءة (محفوظة)</h5>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label className={EDIT_CASE_GLASS_LABEL}>رقم دعوى البداءة</label>
-                            <input
-                                type="text"
-                                value={firstInstanceCaseNumber}
-                                readOnly
-                                className={`${EDIT_CASE_GLASS_FIELD} opacity-70 cursor-default`}
-                                dir="ltr"
-                            />
-                        </div>
-                        <div>
-                            <label className={EDIT_CASE_GLASS_LABEL}>محكمة البداءة</label>
-                            <input
-                                type="text"
-                                value={firstInstanceCourt}
-                                readOnly
-                                className={`${EDIT_CASE_GLASS_FIELD} opacity-70 cursor-default`}
-                            />
-                        </div>
-                    </div>
-                </div>
-            )}
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label className={EDIT_CASE_GLASS_LABEL}>
-                        {stageName?.includes('استئناف') ? 'رقم دعوى الاستئناف' : 'رقم الدعوى'}
+                        {appealStage ? 'رقم دعوى الاستئناف' : 'رقم الدعوى'}
                     </label>
                     <input
                         type="text"
@@ -79,7 +54,7 @@ export function EditCaseInfoCaseFields({
                 </div>
                 <div>
                     <label className={EDIT_CASE_GLASS_LABEL}>
-                        {stageName?.includes('استئناف') ? 'محكمة الاستئناف' : 'المحكمة المختصة'}
+                        {appealStage ? 'محكمة الاستئناف' : 'المحكمة المختصة'}
                     </label>
                     <input
                         type="text"
@@ -92,10 +67,12 @@ export function EditCaseInfoCaseFields({
                     <label className={EDIT_CASE_GLASS_LABEL}>نوع الدعوى</label>
                     <input type="text" value={caseType} onChange={e => setCaseType(e.target.value)} className={EDIT_CASE_GLASS_FIELD} />
                 </div>
+                {!appealStage ? (
                 <div>
                     <label className={EDIT_CASE_GLASS_LABEL}>اسم القاضي</label>
                     <input type="text" value={judge} onChange={e => setJudge(e.target.value)} className={EDIT_CASE_GLASS_FIELD} />
                 </div>
+                ) : null}
             </div>
         </div>
     );
@@ -137,15 +114,6 @@ function PartySideEditor({
                                 type="text"
                                 value={party.name || ''}
                                 onChange={e => onUpdate(index, 'name', e.target.value)}
-                                className={EDIT_CASE_GLASS_FIELD}
-                            />
-                        </div>
-                        <div>
-                            <label className={EDIT_CASE_GLASS_LABEL}>العنوان</label>
-                            <input
-                                type="text"
-                                value={party.address || ''}
-                                onChange={e => onUpdate(index, 'address', e.target.value)}
                                 className={EDIT_CASE_GLASS_FIELD}
                             />
                         </div>
@@ -195,7 +163,7 @@ export function EditCaseInfoCrossAppealToggle({
     hasCrossAppeal: boolean;
     setHasCrossAppeal: (v: boolean) => void;
 }) {
-    if (!stageName?.includes('استئناف')) return null;
+    if (!isAppealStageName(stageName)) return null;
 
     return (
         <div className="rounded-xl border border-indigo-400/25 bg-indigo-500/[0.08] p-4 space-y-3">

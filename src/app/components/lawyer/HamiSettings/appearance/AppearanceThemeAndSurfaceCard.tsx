@@ -1,14 +1,15 @@
 import React, { useId } from 'react';
 import { flushSync } from 'react-dom';
-import { ChevronLeft } from '@/app/components/ui/icons/ChevronLeft';
-import { Layers } from '@/app/components/ui/icons/Layers';
-import { Pause } from '@/app/components/ui/icons/Pause';
+import {
+    SettingsChevronLeftIcon,
+    SettingsLayersIcon,
+    SettingsPauseIcon,
+} from '../settingsStemIconsLazy';
 import { SettingsCollapseToggle } from '../components/SettingsCollapseToggle';
 import { SETTING_ROW_BORDER } from '../settings-ui/tokens';
 import { SettingRow, Toggle } from '../settings-ui/index';
 import type { AppearanceSectionViewModel } from './useAppearanceSection';
 import { AppearanceThemeSwatch } from './AppearanceThemeSwatch';
-import { AppearanceReadabilityRows } from './AppearanceReadabilityRows';
 import { prefetchAppearanceCustomizeSheet } from './appearanceCustomizeSheetLoad';
 
 export function AppearanceThemeAndSurfaceCard({ vm }: { vm: AppearanceSectionViewModel }) {
@@ -31,18 +32,18 @@ export function AppearanceThemeAndSurfaceCard({ vm }: { vm: AppearanceSectionVie
                     event.preventDefault();
                     event.stopPropagation();
                 }}
-                className={`flex w-full items-center justify-between gap-3 min-h-[48px] px-3.5 py-2.5 text-right touch-manipulation ${SETTING_ROW_BORDER}`}
+                className={`flex w-full items-center justify-between gap-2 min-h-[44px] px-3 py-1.5 text-right touch-manipulation ${SETTING_ROW_BORDER}`}
                 style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
             >
                 <span className="flex items-center gap-2.5 min-w-0">
-                    <Layers size={16} className="shrink-0 text-[#E6C673]/80" aria-hidden />
+                    <SettingsLayersIcon size={14} className="shrink-0 text-[#E6C673]/80" aria-hidden />
                     <span className="text-[13px] font-medium text-white/95">تخصيص قسم</span>
                 </span>
-                <ChevronLeft size={16} className="shrink-0 text-white/35" aria-hidden />
+                <SettingsChevronLeftIcon size={14} className="shrink-0 text-white/35" aria-hidden />
             </button>
 
-            <div className="px-3.5 py-3">
-                <div className="flex items-center justify-between gap-2 mb-2.5">
+            <div className="px-3 py-2">
+                <div className="flex items-center justify-between gap-2 mb-2">
                     <label id={colorLabelId} className="text-[13px] font-medium text-white/95">
                         لون الواجهة
                     </label>
@@ -67,9 +68,10 @@ export function AppearanceThemeAndSurfaceCard({ vm }: { vm: AppearanceSectionVie
             </div>
 
             <SettingRow
-                icon={Pause}
+                icon={SettingsPauseIcon}
                 label="تقليل الحركة"
-                subLabel="يقلّل الانتقالات في التطبيق"
+                subLabel="يقلّل الانتقالات"
+                isLast
                 action={
                     <Toggle
                         testId="settings-toggle-appearance-reduceMotion"
@@ -78,7 +80,6 @@ export function AppearanceThemeAndSurfaceCard({ vm }: { vm: AppearanceSectionVie
                     />
                 }
             />
-            <AppearanceReadabilityRows vm={vm} />
         </>
     );
 }

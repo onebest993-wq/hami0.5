@@ -1,12 +1,21 @@
 import React from 'react';
-import { motion } from '@/app/motion/overlayMotionRuntime';
 import { Send } from '@/app/components/ui/icons/Send';
+import {
+    FocLazyOverlay,
+    focPrepareOverlay,
+    prefetchFocGhuramaaModal,
+} from '../focOverlaySurfacesLazy';
+import {
+    LazyFocCreditorExpandedBodyCollapsible,
+    LazyUnifiedLedgerSettlementPanel,
+    prefetchFocUnifiedLedgerSettlementPanel,
+} from '../focLedgerMotionLazy';
 import type { SettlementDuePhase } from '../utils';
 import type { UnifiedLedgerStore, FinancialLedgerEntry } from '../types';
 import type { SettlementUxTier } from '../settlementUxMatrix';
 import { StandardFinancialLedger } from './StandardFinancialLedger';
-import { UnifiedLedgerSettlementPanel } from './UnifiedLedgerSettlementPanel';
 import { FocEvictionLedgerBody } from './FocEvictionLedgerBody';
+import { SettlementGuarantorBadge } from './SettlementGuarantorBadge';
 
 export interface FocCreditorExpandedBodyProps {
     embeddedInFinancialHub?: boolean;
@@ -53,7 +62,6 @@ export interface FocCreditorExpandedBodyProps {
     onOpenGhuramaaModal: () => void;
     evictionReenableCourtOrderedFees?: { grossAmount: number; onEnable: () => void };
     settlementInProgress: boolean;
-    onShowSeizureLog?: () => void;
     evictionLawyerFeeWaivedAtIntake?: boolean;
     sumLawyer: number;
     claimType?: string;
@@ -79,7 +87,12 @@ export interface FocCreditorExpandedBodyProps {
     onNotify: (message: string, type?: 'warning' | 'info' | 'success') => void;
     salarySeizureActive?: boolean;
     showAmountGuarantorRequest?: boolean;
-    onGuarantorRequest?: () => void;
+    onPersistSettlementGuarantor?: (
+        guarantorName: string,
+        deductionIqd: number | null,
+    ) => void;
+    settlementGuarantorName?: string | null;
+    settlementGuarantorDeductionIqd?: number | null;
 }
 
 /**
@@ -131,7 +144,6 @@ export const FocCreditorExpandedBody: React.FC<FocCreditorExpandedBodyProps> = (
     onOpenGhuramaaModal,
     evictionReenableCourtOrderedFees,
     settlementInProgress,
-    onShowSeizureLog,
     evictionLawyerFeeWaivedAtIntake,
     sumLawyer,
     claimType,
@@ -157,42 +169,46 @@ export const FocCreditorExpandedBody: React.FC<FocCreditorExpandedBodyProps> = (
     onNotify,
     salarySeizureActive,
     showAmountGuarantorRequest = false,
-    onGuarantorRequest,
+    onPersistSettlementGuarantor,
+    settlementGuarantorName,
+    settlementGuarantorDeductionIqd,
 }) => {
-    const renderUnifiedSettlementPanel = () => (
-        <UnifiedLedgerSettlementPanel
-            settlementUxTier={settlementUxTier}
-            panelOpen={settlementPanelOpen}
-            onClosePanel={onDeactivateSettlement}
-            store={store}
-            remainingUnified={remainingUnified}
-            settlementInput={settlementInput}
-            setSettlementInput={setSettlementInput}
-            settlementDueDateInput={settlementDueDateInput}
-            setSettlementDueDateInput={setSettlementDueDateInput}
-            showSettlementForm={showSettlementForm}
-            setShowSettlementForm={setShowSettlementForm}
-            registerSettlementPlan={registerSettlementPlan}
-            markPendingSettlementPaid={markPendingSettlementPaid}
-            cancelPendingSettlement={cancelPendingSettlement}
-            canApplySettlementAny={canApplySettlementAny}
-            showSettlementDueActions={showSettlementDueActions}
-            pendingSettlementDuePhase={pendingSettlementDuePhase}
-            pendingSettlementDueYmd={pendingSettlementDueYmd}
-            onNotify={onNotify}
-            salarySeizureActive={salarySeizureActive}
-        />
-    );
+    const renderUnifiedSettlementPanel = () => {
+        prefetchFocUnifiedLedgerSettlementPanel();
+        return (
+            <FocLazyOverlay
+                lazy={LazyUnifiedLedgerSettlementPanel}
+                lazyProps={{
+                    settlementUxTier,
+                    panelOpen: settlementPanelOpen,
+                    onClosePanel: onDeactivateSettlement,
+                    store,
+                    remainingUnified,
+                    settlementInput,
+                    setSettlementInput,
+                    settlementDueDateInput,
+                    setSettlementDueDateInput,
+                    showSettlementForm,
+                    setShowSettlementForm,
+                    registerSettlementPlan,
+                    markPendingSettlementPaid,
+                    cancelPendingSettlement,
+                    canApplySettlementAny,
+                    showSettlementDueActions,
+                    pendingSettlementDuePhase,
+                    pendingSettlementDueYmd,
+                    onNotify,
+                    salarySeizureActive,
+                }}
+                fallback={<div className="min-h-[44px]" aria-hidden />}
+            />
+        );
+    };
 
-    return (
-        <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className={`overflow-hidden ${
-                embeddedInFinancialHub ? 'mt-0 pt-0' : 'mt-1 border-t border-white/10 pt-2'
-            }`}
-        >
+    const ghuramaaPrepare = focPrepareOverlay(prefetchFocGhuramaaModal);
+
+    const body = (
+        <>
             {isAlimonyClaim ? (
                 <div className="space-y-3">
                     {shouldCalculateExecutionFee && executionFee > 0 ? (
@@ -255,7 +271,6 @@ export const FocCreditorExpandedBody: React.FC<FocCreditorExpandedBodyProps> = (
                     settlementInProgress={settlementInProgress}
                     onActivateSettlement={onActivateSettlement}
                     onDeactivateSettlement={onDeactivateSettlement}
-                    onShowSeizureLog={onShowSeizureLog}
                     setExpenseSheetOpen={setExpenseSheetOpen}
                     setFeesSheetOpen={setFeesSheetOpen}
                     evictionLawyerFeeWaivedAtIntake={evictionLawyerFeeWaivedAtIntake}
@@ -312,6 +327,7 @@ export const FocCreditorExpandedBody: React.FC<FocCreditorExpandedBodyProps> = (
                         <div className="px-2 pb-2" dir="rtl">
                             <button
                                 type="button"
+                                {...ghuramaaPrepare}
                                 onClick={onOpenGhuramaaModal}
                                 className="w-full rounded-xl bg-gradient-to-l from-amber-500 to-amber-700 py-3.5 px-4 text-[#0A0F1C] font-black text-xs shadow-md shadow-amber-900/25 flex items-center justify-center gap-2"
                             >
@@ -322,16 +338,27 @@ export const FocCreditorExpandedBody: React.FC<FocCreditorExpandedBodyProps> = (
                     ) : null}
                 </div>
             )}
-            {showAmountGuarantorRequest && onGuarantorRequest ? (
-                <button
-                    type="button"
-                    data-testid="foc-amount-guarantor-request"
-                    onClick={onGuarantorRequest}
-                    className="w-full min-h-[44px] rounded-xl border border-cyan-500/30 bg-cyan-500/[0.04] py-3 px-4 text-cyan-300/90 text-[11px] font-bold backdrop-blur-sm transition-all hover:bg-cyan-500/10 hover:border-cyan-400/40 flex items-center justify-center gap-2"
-                >
-                    طلب كفيل ضامن للمبلغ
-                </button>
+            {showAmountGuarantorRequest && onPersistSettlementGuarantor ? (
+                <SettlementGuarantorBadge
+                    guarantorName={settlementGuarantorName}
+                    guarantorDeductionIqd={settlementGuarantorDeductionIqd}
+                    onPersist={onPersistSettlementGuarantor}
+                />
             ) : null}
-        </motion.div>
+        </>
+    );
+
+    const shellClassName = `overflow-hidden ${
+        embeddedInFinancialHub ? 'mt-0 pt-0' : 'mt-1 border-t border-white/10 pt-2'
+    }`;
+    if (embeddedInFinancialHub) {
+        return <div className={shellClassName}>{body}</div>;
+    }
+    return (
+        <FocLazyOverlay
+            lazy={LazyFocCreditorExpandedBodyCollapsible}
+            lazyProps={{ className: shellClassName, children: body }}
+            fallback={<div className={`${shellClassName} min-h-[44px]`} aria-hidden />}
+        />
     );
 };

@@ -1,5 +1,4 @@
 import type { RepositoryFeedLayoutId } from './repositoryFeedLayout';
-import { REPOSITORY_FEED_VIRTUAL_SCROLL_THRESHOLD } from './repositoryFeedConstants';
 
 /** xl: 1280px — sm: 640px — تطابق شبكة repositoryFeedLayout */
 export function resolveRepositoryFeedColumnCount(
@@ -35,6 +34,3 @@ export function repositoryFeedRowGridClass(columnCount: number): string {
     return 'grid grid-cols-1 gap-2.5 sm:gap-3';
 }
 
-export function shouldVirtualizeRepositoryFeed(itemCount: number): boolean {
-    return itemCount >= REPOSITORY_FEED_VIRTUAL_SCROLL_THRESHOLD;
-}

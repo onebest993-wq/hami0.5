@@ -47,7 +47,7 @@ export interface DecisionsAndAppealsEngineProps {
      */
     evictionExecutorWorkflow?: {
         dossierId: string;
-        actions: ExecutorApprovalActions;
+        actions?: ExecutorApprovalActions | null;
     };
     /** عند فتح مركز القرارات من شارة الإضبارة: التبويب الابتدائي */
     bootHubTab?: 'current' | 'previous' | 'appeals' | null;

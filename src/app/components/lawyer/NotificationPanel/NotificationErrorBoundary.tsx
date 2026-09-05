@@ -16,15 +16,15 @@ export function NotificationErrorBoundary({
                     role="alertdialog"
                     aria-label="خطأ في الإشعارات"
                 >
-                    <div className="absolute inset-0 bg-[#010308]/75 backdrop-blur-[18px]" />
-                    <div className="relative w-full sm:max-w-sm rounded-t-[28px] sm:rounded-3xl border-t border-x sm:border border-rose-500/20 bg-[#080D18]/98 p-8 flex flex-col items-center gap-4 text-center pb-[max(20px,env(safe-area-inset-bottom))]">
+                    <div className="absolute inset-0 bg-[#010308]/70" />
+                    <div className="relative w-full sm:max-w-sm rounded-t-xl sm:rounded-xl border-t border-x sm:border border-white/[0.08] bg-[#0b1021] p-5 flex flex-col items-center gap-3 text-center pb-[max(12px,env(safe-area-inset-bottom))]">
                         <p className="text-white/70 text-sm max-w-xs leading-relaxed">
                             تعذّر تحميل الإشعارات. أغلق وحاول مرة أخرى.
                         </p>
                         <button
                             type="button"
                             onClick={onClose}
-                            className="min-h-[48px] px-8 rounded-2xl bg-[#E6C673]/12 text-[#E6C673] border border-[#E6C673]/25 active:bg-[#E6C673]/20 transition-colors text-sm font-bold"
+                            className="min-h-[44px] px-6 rounded-xl bg-[#E6C673]/12 text-[#E6C673] border border-[#E6C673]/25 active:bg-[#E6C673]/20 text-sm font-semibold touch-manipulation"
                         >
                             إغلاق
                         </button>

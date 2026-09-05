@@ -12,6 +12,9 @@ import {
 import { isAppealStageName } from './judgmentTypes';
 import { resolveLawyerOriginalSideInAbsentObjection } from './absentJudgmentFlow';
 import {
+    hasAbsentObjectionPartyRoles,
+    isAbsentObjectedRole,
+    isAbsentObjectorRole,
     isAppellantAppealRole,
     isAppelleeAppealRole,
     isInterpleaderThirdPartyRole,
@@ -19,26 +22,28 @@ import {
     isPlaintiffSideRole,
     isThirdPartyRole,
 } from './partyRoleClassification';
+import { isGhayabiObjectionAppealType } from '@/app/domain/lawsuit/challengeAppellantEligibility';
 import type { CaseStage } from '../../LawyerShared';
 import { INTERPLEADER_APPELLANT_SIDE } from './appealInterpleaderConstants';
+import { isDisputeIndivisible } from '@/app/domain/lawsuit/partyJudgmentDisposition';
 import {
     defaultIncludedAppellantIds,
-    defaultIncludedOpponentIds,
     listAppellantPartiesForAppeal,
-    listOpponentPartiesForAppeal,
     normalizePartyIdKey,
-    partyBelongsToAppealSide,
     partyIdInList,
+    resolveSelectedOpponentPartyIds,
     type AppealSide,
 } from './appealPartyListHelpers';
 export {
     defaultIncludedAppellantIds,
     defaultIncludedOpponentIds,
+    inferAppellantSideFromSelectedParties,
     listAppellantPartiesForAppeal,
     listOpponentPartiesForAppeal,
     normalizePartyIdKey,
     partyBelongsToAppealSide,
     partyIdInList,
+    resolveSelectedOpponentPartyIds,
     type AppealSide,
 } from './appealPartyListHelpers';
 import {
@@ -148,7 +153,7 @@ function hasThirdPartyInAppealContext(
     );
 }
 
-/** إظهار حاوية اختيار الأطراف — تُخفى في الدعوى الثنائية البسيطة بلا أشخاص ثالثة. */
+/** إظهار حاوية اختيار الأطراف — حتى الطرف الواحد يُكتب اسمه، لا تُخفى القائمة. */
 export function resolveAppealPartyPickerVisibility(params: {
     dossierLayout: AppealDossierLayout;
     visibleAppellantParties: Party[];
@@ -171,16 +176,16 @@ export function resolveAppealPartyPickerVisibility(params: {
 
     if (!hasThirdPartyInAppealContext(parties, incidentalCases)) {
         return {
-            showAppellantPicker: appellantPrimary.length > 1,
-            showOpponentPicker: opponentPrimary.length > 1,
+            showAppellantPicker: appellantPrimary.length > 0,
+            showOpponentPicker: opponentPrimary.length > 0,
         };
     }
 
     return {
         showAppellantPicker:
-            appellantPrimary.length > 1 || visibleAppellantParties.some(isInterpleaderAppealParty),
+            appellantPrimary.length > 0 || visibleAppellantParties.some(isInterpleaderAppealParty),
         showOpponentPicker:
-            opponentPrimary.length > 1 || visibleOpponentParties.some(isInterpleaderAppealParty),
+            opponentPrimary.length > 0 || visibleOpponentParties.some(isInterpleaderAppealParty),
     };
 }
 
@@ -236,8 +241,11 @@ function appendOmittedAppellantSideCoLitigants(
     appellantSide: AppealSide,
     incidentalCases: IncidentalCase[] | undefined,
     includedAppellantPartyIds: Array<number | string> | undefined,
+    disputeIntegrity?: string | null,
 ): Party[] {
+    if (!isDisputeIndivisible(disputeIntegrity)) return filtered;
     if (!includedAppellantPartyIds?.length) return filtered;
+    if (appellantSide !== 'المدعي') return filtered;
 
     const appellantIds = partyIdSet(includedAppellantPartyIds);
     const keptIds = partyIdSet(filtered.map((p) => p.id));
@@ -256,27 +264,26 @@ export function filterPartiesBeforeAppealFlip(
     incidentalCases: IncidentalCase[] | undefined,
     includedOpponentPartyIds: Array<number | string> | undefined,
     includedAppellantPartyIds?: Array<number | string>,
+    disputeIntegrity?: string | null,
 ): Party[] {
-    const appellantIds = partyIdSet(
-        includedAppellantPartyIds ?? defaultIncludedAppellantIds(parties, appellantSide, incidentalCases),
-    );
+    const appellantIdList =
+        includedAppellantPartyIds ?? defaultIncludedAppellantIds(parties, appellantSide, incidentalCases);
+    const appellantIds = partyIdSet(appellantIdList);
     const opponentIds = partyIdSet(
-        includedOpponentPartyIds ?? defaultIncludedOpponentIds(parties, appellantSide, incidentalCases),
+        resolveSelectedOpponentPartyIds(
+            parties,
+            appellantIdList,
+            includedOpponentPartyIds,
+            incidentalCases,
+        ),
     );
-    const hasExplicitSelection =
-        Boolean(includedAppellantPartyIds?.length || includedOpponentPartyIds?.length);
 
     const filtered = parties.filter((party) => {
         if (isInterpleaderPartyRecord(party, incidentalCases)) {
             return partyIdInSet(appellantIds, party.id) || partyIdInSet(opponentIds, party.id);
         }
-        if (hasExplicitSelection) {
-            return partyIdInSet(appellantIds, party.id) || partyIdInSet(opponentIds, party.id);
-        }
-        if (partyBelongsToAppealSide(party, appellantSide, incidentalCases)) {
-            return partyIdInSet(appellantIds, party.id);
-        }
-        return partyIdInSet(opponentIds, party.id);
+        if (partyIdInSet(appellantIds, party.id) || partyIdInSet(opponentIds, party.id)) return true;
+        return false;
     });
 
     return appendOmittedAppellantSideCoLitigants(
@@ -285,6 +292,7 @@ export function filterPartiesBeforeAppealFlip(
         appellantSide,
         incidentalCases,
         includedAppellantPartyIds,
+        disputeIntegrity,
     );
 }
 
@@ -347,6 +355,23 @@ export function repairAppealStagePartyRoles(
     });
 }
 
+/**
+ * استئناف/تمييز من مرحلة الاعتراض: الخصومة هي المعترض والمعترض عليه فقط.
+ * شركاء البداءة غير الداخلين في الاعتراض لا يُقلَبون مستأنفاً عليهم.
+ */
+export function litigantsForAppealHopFromObjection(
+    parties: Party[],
+    appealType: string,
+): Party[] {
+    if (isGhayabiObjectionAppealType(appealType)) return parties;
+    if (!hasAbsentObjectionPartyRoles(parties)) return parties;
+    const involved = parties.filter((party) => {
+        const role = String(party.role ?? '');
+        return isAbsentObjectorRole(role) || isAbsentObjectedRole(role);
+    });
+    return involved.length > 0 ? involved : parties;
+}
+
 export function buildAppealStageParties(
     parties: Party[],
     appellant: string,
@@ -355,19 +380,30 @@ export function buildAppealStageParties(
     includedOpponentPartyIds?: Array<number | string>,
     includedAppellantPartyIds?: Array<number | string>,
     dossierLayout?: AppealDossierLayout,
+    disputeIntegrity?: string | null,
 ): Party[] {
-    const flipSelection = buildAppealFlipSelection(
-        includedAppellantPartyIds,
-        includedOpponentPartyIds,
+    const hopParties = litigantsForAppealHopFromObjection(parties, appealType);
+    const appellantSide = resolveFilterAppellantSide(appellant, dossierLayout);
+    const defaultAppellantIds = defaultIncludedAppellantIds(hopParties, appellantSide, incidentalCases);
+    const requestedAppellant = includedAppellantPartyIds?.filter((id) =>
+        hopParties.some((party) => normalizePartyIdKey(party.id) === normalizePartyIdKey(id)),
     );
+    const appellantIdList = requestedAppellant?.length ? requestedAppellant : defaultAppellantIds;
+    const opponentIdList = resolveSelectedOpponentPartyIds(
+        hopParties,
+        appellantIdList,
+        includedOpponentPartyIds,
+        incidentalCases,
+    );
+    const flipSelection = buildAppealFlipSelection(appellantIdList, opponentIdList);
 
     if (dossierLayout && dossierLayout.mode !== 'standard') {
         const filtered = filterPartiesForAppealDossier(
-            parties,
+            hopParties,
             dossierLayout,
             incidentalCases,
-            includedAppellantPartyIds,
-            includedOpponentPartyIds,
+            appellantIdList,
+            opponentIdList,
             dossierLayout,
         );
         return flipPartiesForAppealStage(
@@ -376,16 +412,17 @@ export function buildAppealStageParties(
             appealType,
             incidentalCases,
             flipSelection,
+            disputeIntegrity,
         );
     }
 
-    const appellantSide = resolveFilterAppellantSide(appellant, dossierLayout);
     const filtered = filterPartiesBeforeAppealFlip(
-        parties,
+        hopParties,
         appellantSide,
         incidentalCases,
-        includedOpponentPartyIds,
-        includedAppellantPartyIds,
+        opponentIdList,
+        appellantIdList,
+        disputeIntegrity,
     );
     return flipPartiesForAppealStage(
         filtered,
@@ -393,6 +430,7 @@ export function buildAppealStageParties(
         appealType,
         incidentalCases,
         flipSelection,
+        disputeIntegrity,
     );
 }
 

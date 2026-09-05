@@ -9,7 +9,7 @@ export const STATUS_CYCLE: TransactionTaskStatus[] = [
     TransactionTaskStatus.Done,
 ];
 
-export const CHILD_NEST_CLASS = 'mt-3 space-y-3 w-full border-r-2 border-white/10 pr-3';
+export const CHILD_NEST_CLASS = 'mt-1.5 space-y-1 w-full border-r border-white/10 pr-2.5';
 
 export function emptyPathDismissKey(transactionId: string) {
     return `hami:tx:path-empty-dismiss:${transactionId}`;

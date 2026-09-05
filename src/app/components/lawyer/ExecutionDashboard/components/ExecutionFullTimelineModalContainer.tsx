@@ -16,18 +16,20 @@ import {
 import {
     EXECUTION_TIMELINE_FILTER_OPTIONS,
     adjacentExecutionTimelineFilter,
+    countExecutionTimelineEventsByFilter,
     filterExecutionTimelineEvents,
     type ExecutionTimelineFilterLabel,
 } from '@/app/utils/timelineCategoryFilter';
 import { dedupeTimelineEventsForDisplay } from '@/app/utils/timelineDedup';
+import { mergeLegacyEvictionResidentialGracePairs } from '@/app/utils/timelineSmartDisplay';
 import { ExecutionTimelineFilterBar } from './ExecutionTimelineFilterBar';
 
 type PremiumTimelineAuditLogComponent = React.ComponentType<{
     events: TimelineEvent[];
     onTogglePin: (ev: TimelineEvent) => void;
     onRequestTrash: (ev: TimelineEvent) => void;
-    onRequestEdit: (ev: TimelineEvent) => void;
     isHistoricalMode: boolean;
+    eventsAlreadyPrepared?: boolean;
 }>;
 
 export interface ExecutionFullTimelineModalContainerProps {
@@ -42,7 +44,6 @@ export interface ExecutionFullTimelineModalContainerProps {
     History: ElementType;
     toggleTimelineEventPin: (ev: TimelineEvent) => void;
     moveTimelineEventToTrash: (ev: TimelineEvent) => void;
-    onRequestEditTimelineEvent: (ev: TimelineEvent) => void;
     isHistoricalMode: boolean;
     activeTimelineFilter: string;
     setActiveTimelineFilter: Dispatch<SetStateAction<string>>;
@@ -64,7 +65,6 @@ export const ExecutionFullTimelineModalContainer: React.FC<
     History,
     toggleTimelineEventPin,
     moveTimelineEventToTrash,
-    onRequestEditTimelineEvent,
     isHistoricalMode,
     activeTimelineFilter,
     setActiveTimelineFilter,
@@ -86,7 +86,7 @@ export const ExecutionFullTimelineModalContainer: React.FC<
         const base = debtorBrowserTabsMode
             ? activeTimelineEventsDebtorScoped
             : activeTimelineEvents;
-        return dedupeTimelineEventsForDisplay(base);
+        return dedupeTimelineEventsForDisplay(mergeLegacyEvictionResidentialGracePairs(base));
     }, [debtorBrowserTabsMode, activeTimelineEventsDebtorScoped, activeTimelineEvents]);
 
     const scopedEvents = useMemo(
@@ -94,13 +94,10 @@ export const ExecutionFullTimelineModalContainer: React.FC<
         [dedupedAllEvents, activeTimelineFilter]
     );
 
-    const filterCounts = useMemo(() => {
-        const counts: Record<string, number> = {};
-        for (const label of timelineFilterOptions) {
-            counts[label] = filterExecutionTimelineEvents(dedupedAllEvents, label).length;
-        }
-        return counts;
-    }, [dedupedAllEvents, timelineFilterOptions]);
+    const filterCounts = useMemo(
+        () => countExecutionTimelineEventsByFilter(dedupedAllEvents, timelineFilterOptions),
+        [dedupedAllEvents, timelineFilterOptions],
+    );
 
     const appointmentsSplit = useMemo(() => {
         if (activeTimelineFilter !== 'مواعيد') return null;
@@ -234,8 +231,8 @@ export const ExecutionFullTimelineModalContainer: React.FC<
                                                 events={appointmentsSplit.active}
                                                 onTogglePin={toggleTimelineEventPin}
                                                 onRequestTrash={moveTimelineEventToTrash}
-                                                onRequestEdit={onRequestEditTimelineEvent}
                                                 isHistoricalMode={isHistoricalMode}
+                                                eventsAlreadyPrepared
                                             />
                                         </Suspense>
                                     </div>
@@ -246,8 +243,8 @@ export const ExecutionFullTimelineModalContainer: React.FC<
                                                 events={appointmentsSplit.ended}
                                                 onTogglePin={toggleTimelineEventPin}
                                                 onRequestTrash={moveTimelineEventToTrash}
-                                                onRequestEdit={onRequestEditTimelineEvent}
                                                 isHistoricalMode={isHistoricalMode}
+                                                eventsAlreadyPrepared
                                             />
                                         </Suspense>
                                     </div>
@@ -258,8 +255,8 @@ export const ExecutionFullTimelineModalContainer: React.FC<
                                         events={scopedEvents}
                                         onTogglePin={toggleTimelineEventPin}
                                         onRequestTrash={moveTimelineEventToTrash}
-                                        onRequestEdit={onRequestEditTimelineEvent}
                                         isHistoricalMode={isHistoricalMode}
+                                        eventsAlreadyPrepared
                                     />
                                 </Suspense>
                             )}

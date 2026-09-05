@@ -2,7 +2,6 @@ import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import type {
     ExecutionFile,
     SeizedAsset,
-    SeizedMovable,
     SeizedProperty,
     ThirdPartySeizure,
     ThirdPartySeizureAsset,
@@ -12,8 +11,6 @@ import type { UnifiedLedgerTotalParams } from '@/app/slices/financial/ledgerPubl
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import type { SeizureRequestSubjectModalProps } from './SeizureRequestSubjectModal.types';
 import type { VisitationScheduleConfig, VisitationSession } from '@/app/types/visitationSchedule';
-import type { SeizureLogTab } from '@/app/components/lawyer/execution/unifiedSeizureLogTabTypes';
-import type { UnifiedSeizureLogEntry } from '@/app/components/lawyer/execution/unifiedSeizureLogEntryTypes';
 
 export type GenericHandler = (...args: unknown[]) => unknown;
 
@@ -36,7 +33,6 @@ export type FinancialStatusBadge = {
     pulse: boolean;
 };
 
-export type ThirdPartyDraftMap = Record<string, string>;
 export type ExecutionStatusMetadata = Record<string, unknown> | null | undefined;
 export type ExecutionPhoneBodyDeferredViewData =
     | (ExecutionFile & {
@@ -58,6 +54,15 @@ export type ExecutionDashboardPhoneBodyDeferredScope = {
         decisionId?: string;
     };
     archiveAndClearGuarantor: () => void;
+    persistGuarantorFollowupDetails?: (
+        guarantorName: string,
+        guarantorWorkplace: string,
+        opts?: {
+            salaryIqd: number | null;
+            deductionIqd: number | null;
+            guaranteeType?: 'amount' | 'attendance';
+        }
+    ) => boolean | void;
     assignmentWorkspaceCtx: { activeDebtorKey: string };
     beginThirdPartyReceiveStep: GenericHandler;
     calculatedExecutionFee: number;
@@ -65,8 +70,6 @@ export type ExecutionDashboardPhoneBodyDeferredScope = {
     confirmThirdPartyReceive: GenericHandler;
     claimType: string;
     clearActiveSalarySeizurePath?: () => void;
-    closeUnifiedSeizureLog: () => void;
-    openUnifiedSeizureLog: () => void;
     decisionsReloadEpoch: number;
     decisionsStorageExecutionId: string | undefined;
     executionData: ExecutionFile | null | undefined;
@@ -130,7 +133,6 @@ export type ExecutionDashboardPhoneBodyDeferredScope = {
     remaining: number;
     salarySeizureRegistryAssets: SeizedAsset[];
     salarySeizureTabRows: SeizedAsset[];
-    seizureLogExecutorDecisions: Record<string, unknown>[];
     seizureMatrixLedgerParamsRef: MutableRefObject<UnifiedLedgerTotalParams>;
     setActiveFinancialTab: Dispatch<SetStateAction<number>>;
     setCaseTasksPending: Dispatch<SetStateAction<unknown[]>>;
@@ -153,23 +155,19 @@ export type ExecutionDashboardPhoneBodyDeferredScope = {
     setPropertySeizureRequestModalOpen: Dispatch<SetStateAction<boolean>>;
     setPropertySeizureSubjectDraft: SeizureRequestSubjectModalProps['onSubjectDraftChange'];
     setShowExecutionFinancialHub: Dispatch<SetStateAction<boolean>>;
-    setThirdPartyFundsDraftById: Dispatch<SetStateAction<ThirdPartyDraftMap>>;
     setThirdPartySeizuresUi: Dispatch<SetStateAction<ThirdPartySeizure[]>>;
     setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
     setUnifiedLedgerRevision: Dispatch<SetStateAction<number>>;
-    setUnifiedSeizureLogTab: (tab: string) => void;
     showExecutionFinancialHub: boolean;
     showToast: (
         message: string,
         type: 'success' | 'error' | 'warning' | 'info',
         options?: unknown,
     ) => void;
-    showUnifiedSeizureLogModal: boolean;
     standaloneExecutionMarks: SeizedAsset[];
     statusMetadata: ExecutionStatusMetadata;
     submitMovableSeizureRequest: SeizureRequestSubjectModalProps['onSubmit'];
     submitPropertySeizureRequest: SeizureRequestSubjectModalProps['onSubmit'];
-    thirdPartyFundsDraftById: ThirdPartyDraftMap;
     thirdPartySeizureRegistryAssets: ThirdPartySeizureAsset[];
     thirdPartySeizuresUi: ThirdPartySeizure[];
     timelineDebtorMetadata: (debtorKey: string) => Record<string, unknown>;
@@ -177,14 +175,6 @@ export type ExecutionDashboardPhoneBodyDeferredScope = {
     totalOwed: number;
     totalWithExecutionFee: number;
     total_execution_expenses: number;
-    unifiedSeizureLogEntries: UnifiedSeizureLogEntry[];
-    unifiedSeizureLogTab: SeizureLogTab;
-    unifiedSeizureTabCounts: {
-        property: number;
-        salary: number;
-        movable: number;
-        third_party: number;
-    };
     updateThirdPartyReceiveDraft: GenericHandler;
     viewExecutionData: ExecutionPhoneBodyDeferredViewData;
     visitChildNames: string[];
@@ -195,7 +185,4 @@ export type ExecutionDashboardPhoneBodyDeferredScope = {
     daysSinceNoticeCalculated: number;
     gracePeriodEnded: boolean;
     initiator: string;
-    hasUnifiedSeizureLogContent: boolean;
-    seizedPropertiesForSeizureLog: SeizedProperty[];
-    seizedMovablesForSeizureLog: SeizedMovable[];
 };

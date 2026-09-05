@@ -23,7 +23,7 @@ export const RadarDayNotices = React.memo(function RadarDayNotices({
             ) : null}
 
             {conflictMessage ? (
-                <div className="rounded-xl border border-[#E6C673]/22 bg-[#E6C673]/8 text-[#F4F4F5] text-sm p-3 text-right">
+                <div className="rounded-lg border border-[#E6C673]/22 bg-[#E6C673]/8 text-[#F4F4F5] text-sm p-2.5 text-right">
                     <span className="text-[#F4F4F5]/85">{conflictMessage}</span>
                 </div>
             ) : null}

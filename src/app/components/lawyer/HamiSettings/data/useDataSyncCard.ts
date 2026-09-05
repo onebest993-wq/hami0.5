@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useLawyerSettingsData, useLawyerSettingsSecurity } from '@/app/context/LawyerSettingsContext';
@@ -25,6 +25,15 @@ export function useDataSyncCard() {
     const security = useLawyerSettingsSecurity();
     const { patchData } = useSettingsPatches();
     const [syncNowPending, setSyncNowPending] = useState(false);
+    const syncInFlightRef = useRef(false);
+    const cloudSyncInFlightRef = useRef(false);
+    const syncMountedRef = useRef(true);
+    useEffect(() => {
+        syncMountedRef.current = true;
+        return () => {
+            syncMountedRef.current = false;
+        };
+    }, []);
 
     const runtime = useAggregateCloudSyncRuntime();
     const cloudBuildEnabled = isCloudSyncBuildEnabled();
@@ -90,6 +99,8 @@ export function useDataSyncCard() {
     );
 
     const runSyncAllNow = useCallback(async (): Promise<boolean> => {
+        if (syncInFlightRef.current) return false;
+        syncInFlightRef.current = true;
         setSyncNowPending(true);
         try {
             const summary = await useCloudSyncStatusStore.getState().syncAllNow();
@@ -107,7 +118,8 @@ export function useDataSyncCard() {
             SmartToast.warning('تعذر إكمال المزامنة الآن — أعد المحاولة عند استقرار الاتصال');
             return false;
         } finally {
-            setSyncNowPending(false);
+            syncInFlightRef.current = false;
+            if (syncMountedRef.current) setSyncNowPending(false);
         }
     }, []);
 
@@ -115,7 +127,7 @@ export function useDataSyncCard() {
         (event: MouseEvent<HTMLButtonElement>) => {
             event.preventDefault();
             event.stopPropagation();
-            if (!statusMessage.canSyncNow || syncNowPending) return;
+            if (!statusMessage.canSyncNow || syncNowPending || syncInFlightRef.current) return;
             void runSyncAllNow();
         },
         [runSyncAllNow, statusMessage.canSyncNow, syncNowPending],
@@ -127,9 +139,9 @@ export function useDataSyncCard() {
                 next,
                 patchData,
                 patchDataWithToast,
-                runSyncAllNow,
+                inFlightRef: cloudSyncInFlightRef,
             }),
-        [patchData, patchDataWithToast, runSyncAllNow],
+        [patchData, patchDataWithToast],
     );
 
     return {

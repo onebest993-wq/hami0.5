@@ -3,7 +3,7 @@ import type { Creditor, Debtor, ExecutionFile, TimelineEvent } from '@/app/types
 import type { AlimonyBeneficiaryProfile } from '@/app/utils/alimonyBeneficiaryDeathUtils';
 
 export type UseExecutionDashboardPartyDeathHandlersParams = {
-    executionDataRef: MutableRefObject<ExecutionFile | null | undefined>;
+    executionDataRef: MutableRefObject<ExecutionFile | null | undefined> | null | undefined;
     executionData: ExecutionFile | null | undefined;
     executionId: string | undefined;
     claimType: string | undefined;

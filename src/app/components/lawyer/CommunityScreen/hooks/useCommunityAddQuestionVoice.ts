@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { createMediaRecorder } from '@/app/components/lawyer/ActionModals/voiceRecorderMedia';
-import {
-    requestMicrophoneStream,
-    resolveMicrophoneAccessMessage,
-    type MicrophoneAccessErrorCode,
-} from '@/app/services/platform/requestMicrophoneStream';
+import type { MicrophoneAccessErrorCode } from '@/app/services/platform/requestMicrophoneStream';
 import { VOICE_RECORD_MAX_SEC } from '../communityScreenConstants';
 import {
     clearIntervalRef,
@@ -31,19 +26,55 @@ export function useCommunityAddQuestionVoice({
     const voiceStreamRef = useRef<MediaStream | null>(null);
     const voiceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    const haltVoiceSession = useCallback(() => {
-        stopMediaRecorderQuietly(mediaRecorderRef.current);
+    const haltVoiceSession = useCallback((opts?: { discard?: boolean }) => {
+        const recorder = mediaRecorderRef.current;
+        if (opts?.discard) {
+            if (recorder) {
+                recorder.ondataavailable = null;
+                recorder.onstop = null;
+            }
+            stopMediaRecorderQuietly(recorder);
+            mediaRecorderRef.current = null;
+            stopMediaStreamTracks(voiceStreamRef.current);
+            voiceStreamRef.current = null;
+        } else {
+            stopMediaRecorderQuietly(recorder);
+            mediaRecorderRef.current = null;
+        }
         clearIntervalRef(voiceTimerRef);
         setIsRecordingVoice(false);
     }, []);
 
     useEffect(() => {
         return () => {
-            clearIntervalRef(voiceTimerRef);
-            stopMediaRecorderQuietly(mediaRecorderRef.current);
+            const recorder = mediaRecorderRef.current;
+            if (recorder) {
+                recorder.ondataavailable = null;
+                recorder.onstop = null;
+            }
+            stopMediaRecorderQuietly(recorder);
+            mediaRecorderRef.current = null;
             stopMediaStreamTracks(voiceStreamRef.current);
+            voiceStreamRef.current = null;
+            clearIntervalRef(voiceTimerRef);
         };
     }, []);
+
+    useEffect(() => {
+        if (!isRecordingVoice) return;
+        let cancelled = false;
+        let unsub: (() => void) | undefined;
+        void import('@/app/services/platform/mediaCaptureBackgroundRelease').then((m) => {
+            if (cancelled) return;
+            unsub = m.subscribeCaptureBackgroundRelease(() => {
+                haltVoiceSession({ discard: true });
+            });
+        });
+        return () => {
+            cancelled = true;
+            unsub?.();
+        };
+    }, [haltVoiceSession, isRecordingVoice]);
 
     useEffect(() => {
         if (isAddQuestionOpen || !isRecordingVoice) return;
@@ -75,6 +106,10 @@ export function useCommunityAddQuestionVoice({
         }
 
         try {
+            const [{ requestMicrophoneStream }, { createMediaRecorder }] = await Promise.all([
+                import('@/app/services/platform/requestMicrophoneStream'),
+                import('@/app/components/lawyer/ActionModals/voiceRecorderMedia'),
+            ]);
             const stream = await requestMicrophoneStream();
             voiceStreamRef.current = stream;
             voiceChunksRef.current = [];
@@ -119,6 +154,9 @@ export function useCommunityAddQuestionVoice({
                 });
             }, 1000);
         } catch (err) {
+            const { resolveMicrophoneAccessMessage } = await import(
+                '@/app/services/platform/requestMicrophoneStream'
+            );
             const code = (err as { hamiCode?: MicrophoneAccessErrorCode }).hamiCode;
             SmartToast.warning(resolveMicrophoneAccessMessage(err, code));
         }

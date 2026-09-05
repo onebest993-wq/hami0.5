@@ -48,12 +48,12 @@ export function CaseShareCard({
 
     return (
         <div
-            className="rounded-2xl border border-[#E6C673]/20 bg-[#0A0F1C]/80 p-3.5"
+            className="rounded-xl border border-[#E6C673]/20 bg-[#0A0F1C]/80 p-3"
             data-testid={`case-share-card-${share.id}`}
         >
             <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="min-w-0">
-                    <p className="text-white font-bold text-sm truncate">{share.maskedView.title}</p>
+                    <p className="text-white font-semibold text-[13px] truncate">{share.maskedView.title}</p>
                     <p className="text-white/45 text-[11px] mt-0.5">{roleLabel}</p>
                 </div>
                 <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${statusBadgeClass(share.status)}`}>

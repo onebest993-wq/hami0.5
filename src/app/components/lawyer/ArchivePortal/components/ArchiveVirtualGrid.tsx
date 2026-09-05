@@ -11,12 +11,29 @@ import {
 /** آخر عرض مُقاس للشبكة — يمنع عمود-واحد ثم اتساع عند أول تركيب في الجلسة. */
 let lastMeasuredArchiveHostWidth = 0;
 
-function chunkRows<T>(items: T[], columns: number): T[][] {
-    if (columns <= 1) return items.map((item) => [item]);
+function chunkRows<T>(
+    items: T[],
+    columns: number,
+    isFullWidthItem?: (item: T) => boolean,
+): T[][] {
+    if (columns <= 1 && !isFullWidthItem) return items.map((item) => [item]);
     const rows: T[][] = [];
-    for (let i = 0; i < items.length; i += columns) {
-        rows.push(items.slice(i, i + columns));
+    let current: T[] = [];
+    const flush = () => {
+        if (current.length === 0) return;
+        rows.push(current);
+        current = [];
+    };
+    for (const item of items) {
+        if (isFullWidthItem?.(item)) {
+            flush();
+            rows.push([item]);
+            continue;
+        }
+        current.push(item);
+        if (current.length >= columns) flush();
     }
+    flush();
     return rows;
 }
 
@@ -28,12 +45,16 @@ function gridClassForMeasured(columns: number, fallbackClassName: string): strin
 export type ArchiveVirtualGridProps<T> = {
     items: T[];
     estimateRowSize?: number;
+    /** تقدير ارتفاع صف لعنصر بعرض كامل (عنقود مترابط) */
+    estimateFullWidthRowSize?: (item: T) => number;
     getItemKey: (item: T) => string | number;
     renderItem: (item: T) => React.ReactNode;
     className?: string;
     testId?: string;
     /** عدد الأعمدة حسب عرض الحاوية — افتراضي 1/2/3/4 */
     resolveColumns?: (width: number) => number;
+    /** عنصر يأخذ صفاً كاملاً (حاوية إضابير مترابطة) */
+    isFullWidthItem?: (item: T) => boolean;
     /**
      * عنصر التمرير الأب (InstantShell / Chrome overflow) —
      * مطلوب داخل overflow-y-auto؛ بدونها يُستخدم documentElement.
@@ -48,11 +69,13 @@ export type ArchiveVirtualGridProps<T> = {
 export function ArchiveVirtualGrid<T>({
     items,
     estimateRowSize = 220,
+    estimateFullWidthRowSize,
     getItemKey,
     renderItem,
     className = 'grid grid-cols-1 gap-2.5',
     testId = 'archive-virtual-grid',
     resolveColumns = resolveArchiveGridColumnCount,
+    isFullWidthItem,
     getScrollElement,
 }: ArchiveVirtualGridProps<T>) {
     const hostRef = useRef<HTMLDivElement>(null);
@@ -82,7 +105,10 @@ export function ArchiveVirtualGrid<T>({
         () => Math.max(1, resolveColumns(containerWidth) || 1),
         [resolveColumns, containerWidth],
     );
-    const rows = useMemo(() => chunkRows(items, columns), [items, columns]);
+    const rows = useMemo(
+        () => chunkRows(items, columns, isFullWidthItem),
+        [items, columns, isFullWidthItem],
+    );
     const lite = isLitePerformanceActiveFromDom() === true;
     const virtualize = shouldVirtualizeArchiveList(items.length);
     const [overscanReady, setOverscanReady] = useState(() => !virtualize);
@@ -110,7 +136,13 @@ export function ArchiveVirtualGrid<T>({
             if (nested) return nested;
             return typeof document !== 'undefined' ? document.documentElement : null;
         },
-        estimateSize: () => estimateRowSize,
+        estimateSize: (index) => {
+            const rowItems = rows[index] ?? [];
+            if (rowItems.length === 1 && isFullWidthItem?.(rowItems[0]!)) {
+                return estimateFullWidthRowSize?.(rowItems[0]!) ?? estimateRowSize * 1.35;
+            }
+            return estimateRowSize;
+        },
         overscan,
     });
 
@@ -121,7 +153,12 @@ export function ArchiveVirtualGrid<T>({
             {!virtualize ? (
                 <div className={measuredGridClass} data-hami-virtual-list="0">
                     {items.map((item) => (
-                        <React.Fragment key={getItemKey(item)}>{renderItem(item)}</React.Fragment>
+                        <div
+                            key={getItemKey(item)}
+                            className={isFullWidthItem?.(item) ? 'col-span-full min-w-0' : 'min-w-0'}
+                        >
+                            {renderItem(item)}
+                        </div>
                     ))}
                 </div>
             ) : (
@@ -132,6 +169,8 @@ export function ArchiveVirtualGrid<T>({
                 >
                     {virtualizer.getVirtualItems().map((virtualRow) => {
                         const rowItems = rows[virtualRow.index] ?? [];
+                        const fullWidth =
+                            rowItems.length === 1 && isFullWidthItem?.(rowItems[0]!);
                         return (
                             <div
                                 key={virtualRow.key}
@@ -140,11 +179,11 @@ export function ArchiveVirtualGrid<T>({
                                 className="absolute top-0 left-0 w-full pb-2.5"
                                 style={{ transform: `translate3d(0, ${virtualRow.start}px, 0)` }}
                             >
-                                <div className={measuredGridClass}>
+                                <div className={fullWidth ? 'grid grid-cols-1 gap-2.5' : measuredGridClass}>
                                     {rowItems.map((item) => (
-                                        <React.Fragment key={getItemKey(item)}>
+                                        <div key={getItemKey(item)} className="min-w-0">
                                             {renderItem(item)}
-                                        </React.Fragment>
+                                        </div>
                                     ))}
                                 </div>
                             </div>

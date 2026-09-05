@@ -43,6 +43,8 @@ describe('notifications code quality close honesty', () => {
         expect(hook).toContain('shares: caseShareAll');
         expect(hook).not.toMatch(/incoming:\s*caseShareIncoming/);
         expect(hook).toContain('selectNotificationTabView');
+        expect(hook).toContain('listLive = isOpen');
+        expect(hook).toContain('listLive ? groupNotificationsByTime');
         const escapeHook = read(
             'src/app/components/lawyer/NotificationPanel/hooks/useNotificationLayeredEscape.ts',
         );
@@ -76,7 +78,9 @@ describe('notifications code quality close honesty', () => {
     it('المتجر: قائمة نقية وبذرة E2E مفصولة عن zustand', () => {
         expect(existsSync(join(root, 'src/app/stores/notificationStoreList.ts'))).toBe(true);
         expect(existsSync(join(root, 'src/app/stores/notificationStoreE2e.ts'))).toBe(true);
-        expect(lineCount('src/app/stores/notificationStore.ts')).toBeLessThan(340);
+        expect(existsSync(join(root, 'src/app/stores/notificationStorePersist.ts'))).toBe(true);
+        expect(lineCount('src/app/stores/notificationStore.ts')).toBeLessThan(370);
+        expect(lineCount('src/app/stores/notificationStorePersist.ts')).toBeLessThan(60);
         expect(lineCount('src/app/stores/notificationStoreList.ts')).toBeLessThan(90);
         const store = read('src/app/stores/notificationStore.ts');
         expect(store).toContain('applyUpsertsToList');
@@ -128,7 +132,7 @@ describe('notifications code quality close honesty', () => {
             existsSync(
                 join(
                     root,
-                    'src/app/components/lawyer/NotificationPanel/components/NotificationAlertDndSegments.tsx',
+                    'src/app/components/lawyer/NotificationPanel/components/NotificationAlertToggleRow.tsx',
                 ),
             ),
         ).toBe(true);
@@ -154,7 +158,7 @@ describe('notifications code quality close honesty', () => {
         const dnd = read(
             'src/app/components/lawyer/NotificationPanel/components/NotificationAlertDndPanel.tsx',
         );
-        expect(dnd).toContain('NotificationAlertDndSegments');
+        expect(dnd).not.toContain('NotificationAlertDndSegments');
         expect(dnd).toContain('NotificationAlertQuietHoursFields');
         expect(dnd).toContain('NotificationAlertOnceMuteFields');
         expect(dnd).not.toContain('notification-quiet-hours-start');

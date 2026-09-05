@@ -3,6 +3,7 @@ import { ExternalLink } from '@/app/components/ui/icons/ExternalLink';
 import { Pencil } from '@/app/components/ui/icons/Pencil';
 import { Trash2 } from '@/app/components/ui/icons/Trash2';
 import { RADAR_ICON_BTN, RADAR_TEXT_MUTED } from './radarTheme';
+import { prefetchRadarEventForm } from '@/app/components/lawyer/dashboard/schedule/prefetchRadarEventForm';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 
 type EventCardActionsProps = {
@@ -44,6 +45,8 @@ export const EventCardActions = React.memo(function EventCardActions({
                         type="button"
                         data-testid={`radar-event-edit-${event.id}`}
                         onClick={() => onEdit(event)}
+                        onPointerDown={prefetchRadarEventForm}
+                        onFocus={prefetchRadarEventForm}
                         aria-label={`تعديل الموعد ${event.title}`}
                         className={`${RADAR_ICON_BTN} ${RADAR_TEXT_MUTED}`}
                     >

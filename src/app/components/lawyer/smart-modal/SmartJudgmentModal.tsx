@@ -11,13 +11,25 @@ import {
     isSubjectMatterJudgmentType,
     type JudgmentPayload,
 } from './smartFile/judgmentTypes';
+import { formatJudgmentOutcomeDisplayLabel } from './smartFile/judgmentOutcomeDisplay';
+import {
+    clientDefendantEligibleForGhayabiObjection,
+    coerceJudgmentTypeForReleasedOperatives,
+    hasAnyReleasedDisposition,
+    isJudgmentPresenceForm,
+    resolveJudgmentTypeFromPartyOperatives,
+    type BoundMeritExtent,
+} from '@/app/domain/lawsuit/partyJudgmentDisposition';
 import {
     canOfferAbsentObjectionToDefendant,
     hasAbsentObjectionStageInDossier,
 } from './smartFile/absentJudgmentFlow';
 import { isAbsentObjectionStageName } from './smartFile/absentJudgmentStageNames';
 import { resolveAbsentObjectionAppealRights } from './smartFile/absentJudgmentAppealRights';
-import { isInterpleaderJudgmentType } from './smartFile/interpleaderJudgmentEngine';
+import {
+    hasInterpleaderParties,
+    isInterpleaderJudgmentType,
+} from './smartFile/interpleaderJudgmentEngine';
 import { filterPetitionVoidFromJudgmentOptions } from './smartFile/petitionVoidFlow';
 import {
     findCassationStageIndex,
@@ -45,9 +57,18 @@ import {
 import { judgmentOptionsForStage } from './parts/judgment/judgmentOptionsForStage';
 import { DiamondJudgmentPicker } from './parts/judgment/DiamondJudgmentPicker';
 import { JudgmentFormToggle } from './parts/judgment/JudgmentFormToggle';
+import { JudgmentDefendantFormList } from './parts/judgment/JudgmentDefendantFormList';
+import { JudgmentBoundMeritToggle } from './parts/judgment/JudgmentBoundMeritToggle';
+import { usePartyJudgmentFormState } from './parts/judgment/usePartyJudgmentFormState';
 import { JudgmentDateField } from './parts/judgment/JudgmentDateField';
 import { JudgmentOutcomeActions } from './parts/judgment/JudgmentOutcomeActions';
 import { CIVIL_LAWSUIT_TEST_IDS } from './smartFile/civilLawsuitTestIds';
+import { JudgmentCassationGroundsScope } from './parts/judgment/JudgmentCassationGroundsScope';
+import {
+    CASSATION_JUDGMENT_REMANDED,
+    parseCassationGroundsScope,
+    type CassationGroundsScope,
+} from '@/app/domain/lawsuit/cassationArt210';
 
 interface SmartJudgmentModalProps {
     isOpen: boolean;
@@ -61,6 +82,7 @@ interface SmartJudgmentModalProps {
     activeStageIndex?: number;
     /** تاريخ القرار من شريط ختام المرافعة — إن وُجد يُخفى حقل التاريخ */
     presetJudgmentDate?: string;
+    caseDocType?: string | null;
 }
 
 export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
@@ -74,13 +96,35 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
     caseStatus,
     activeStageIndex = -1,
     presetJudgmentDate = '',
+    caseDocType = '',
 }) => {
     const s = useJudgmentModalStyles();
     const [judgmentType, setJudgmentType] = useState<string>('');
-    const [judgmentForm, setJudgmentForm] = useState<string>('حضوري');
     const [nextStage, setNextStage] = useState<string>('');
     const [judgmentDate, setJudgmentDate] = useState<string>('');
     const [courtName, setCourtName] = useState<string>('');
+    const [cassationGroundsScope, setCassationGroundsScope] = useState<CassationGroundsScope>('COMMON');
+    const [boundMerit, setBoundMerit] = useState<BoundMeritExtent>('full');
+    const isAbsentObjectionStage = isAbsentObjectionStageName(currentStage);
+    const activeStage =
+        stages[activeStageIndex >= 0 ? activeStageIndex : Math.max(0, stages.length - 1)];
+    const {
+        defendants,
+        multiDefendant,
+        judgmentForm,
+        setUniformForm,
+        dispositions,
+        setPartyForm,
+        setPartyOperative,
+        setUniformOperative,
+    } = usePartyJudgmentFormState({
+        isOpen,
+        parties: currentParties,
+        docType: caseDocType,
+        existingDispositions: activeStage?.partyJudgmentDispositions,
+        existingIntegrity: activeStage?.disputeIntegrity,
+        forceHadari: isAbsentObjectionStage || isAppealStageName(currentStage) || isCassationStageName(currentStage),
+    });
 
     const lawyerSide = useMemo(
         () => resolveLawyerSide(representedParty, currentParties),
@@ -132,7 +176,6 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
             ),
         [currentStage, currentParties],
     );
-    const isAbsentObjectionStage = isAbsentObjectionStageName(currentStage);
     const isPersonalAppealCtx = isPersonalStatusAppealContext(currentStage, stages);
     const isFirstInstance = isFirstInstanceStageName(currentStage);
     const isSubjectMatterJudgmentStage = useMemo(() => {
@@ -148,12 +191,15 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
                 currentStage,
                 stages,
                 judgmentForm,
+                representedParty,
+                partyJudgmentDispositions: dispositions,
+                parties: currentParties,
                 finalDecision:
                     judgmentType ??
                     stages?.[activeStageIndex >= 0 ? activeStageIndex : stages.length - 1]
                         ?.finalDecision,
             }),
-        [currentStage, stages, judgmentForm, judgmentType, activeStageIndex],
+        [currentStage, stages, judgmentForm, judgmentType, activeStageIndex, representedParty, dispositions, currentParties],
     );
     const isCorrectionStage = isCassationCorrectionStageName(currentStage);
     const hasPresetJudgmentDate = Boolean(String(presetJudgmentDate ?? '').trim());
@@ -190,20 +236,73 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
         setJudgmentType('');
         setNextStage('');
         setCourtName('');
+        setCassationGroundsScope('COMMON');
+        const prior = String(activeStage?.finalDecision ?? '').trim();
+        const priorRows = activeStage?.partyJudgmentDispositions;
+        setBoundMerit(
+            prior.includes('جزئياً') && !hasAnyReleasedDisposition(priorRows)
+                ? 'partial'
+                : 'full',
+        );
         setJudgmentDate(String(presetJudgmentDate ?? '').trim());
-        if (isAbsentObjectionStageName(currentStage)) {
-            setJudgmentForm('حضوري');
-        }
-    }, [isOpen, currentStage, presetJudgmentDate]);
+    }, [isOpen, currentStage, presetJudgmentDate, activeStage]);
     const absentObjectionAlreadyFiled = hasAbsentObjectionStageInDossier(stages);
     const showJudgmentFormToggle =
         isSubjectMatterJudgmentStage &&
         !isAbsentObjectionStage &&
         !absentObjectionAlreadyFiled;
 
+    /** تعدد المدعى عليهم في موضوعية عادية: إلزام/رد لكل خصم → اشتقاق كسب/خسارة/جزئي. */
+    const deriveOutcomeFromOperatives =
+        multiDefendant
+        && showJudgmentFormToggle
+        && !hasInterpleaderParties(currentParties);
+
+    const effectiveJudgmentType = useMemo(() => {
+        if (deriveOutcomeFromOperatives) {
+            return (
+                resolveJudgmentTypeFromPartyOperatives(dispositions, boundMerit)
+                || coerceJudgmentTypeForReleasedOperatives(judgmentType, dispositions)
+            );
+        }
+        return coerceJudgmentTypeForReleasedOperatives(judgmentType, dispositions);
+    }, [deriveOutcomeFromOperatives, judgmentType, dispositions, boundMerit]);
+
+    const showPartyOperative = deriveOutcomeFromOperatives;
+    const showBoundMeritToggle =
+        deriveOutcomeFromOperatives && !hasAnyReleasedDisposition(dispositions);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        if (deriveOutcomeFromOperatives) {
+            const derived = resolveJudgmentTypeFromPartyOperatives(dispositions, boundMerit);
+            if (derived && derived !== judgmentType) setJudgmentType(derived);
+            return;
+        }
+        if (!judgmentType) return;
+        if (effectiveJudgmentType && effectiveJudgmentType !== judgmentType) {
+            setJudgmentType(effectiveJudgmentType);
+        }
+    }, [
+        isOpen,
+        deriveOutcomeFromOperatives,
+        dispositions,
+        boundMerit,
+        judgmentType,
+        effectiveJudgmentType,
+    ]);
+
     const handleJudgmentChange = (value: string) => {
         setJudgmentType(value);
         setNextStage('');
+        if (
+            value === 'إجابة الدعوى بالكامل'
+            || value === 'إجابة الدعوى'
+        ) {
+            setUniformOperative('bound');
+        } else if (value === 'رد الدعوى كلياً' || value === 'رد الدعوى') {
+            setUniformOperative('released');
+        }
     };
 
     const handleSaveJudgment = (actionType: string) => {
@@ -221,7 +320,6 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
             if (isAppealStageName(currentStage)) {
                 finalAction = 'waiting_for_cassation';
             } else {
-                openAppealTransitionModal = true;
                 finalAction = 'waiting_for_appeal';
             }
         } else if (actionType === 'objection') {
@@ -238,6 +336,7 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
             finalAction = 'finalize_non_merit';
         } else if (
             actionType === 'final_ratification'
+            || actionType === 'reverse_final'
             || actionType === 'remand_to_lower'
             || actionType === 'correction_request'
             || actionType === 'correction_complete'
@@ -246,10 +345,15 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
             finalAction = actionType;
         }
 
-        const savedForm = isAbsentObjectionStage ? 'حضوري' : (showJudgmentFormToggle ? judgmentForm : (judgmentForm || 'حضوري'));
+        const savedForm =
+            isAbsentObjectionStage
+            || isAppealStageName(currentStage)
+            || isCassationStageName(currentStage)
+                ? 'حضوري'
+                : (showJudgmentFormToggle ? judgmentForm : (judgmentForm || 'حضوري'));
         const saved = onConfirm({
             action: finalAction,
-            judgmentType,
+            judgmentType: effectiveJudgmentType || judgmentType,
             judgmentForm: savedForm,
             judgmentDate,
             notes: '',
@@ -259,26 +363,35 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
             openAppealTransitionModal,
             openRegisterOpponentAppealModal,
             isPleadingsClosed: true,
-            lastJudgmentType: savedForm,
+            ...(savedForm === 'حضوري' || savedForm === 'غيابي' ? { lastJudgmentType: savedForm } : {}),
+            ...(showJudgmentFormToggle && dispositions.length > 0
+                ? {
+                    partyJudgmentDispositions: dispositions,
+                    ...(multiDefendant ? { disputeIntegrity: 'indivisible' as const } : {}),
+                }
+                : {}),
             newCourt:
                 isCassationStageName(currentStage) || isCorrectionStage
                     ? 'محكمة التمييز الاتحادية'
                     : String(courtName ?? '').trim() || undefined,
+            ...(isCassationStageName(currentStage) && judgmentType === CASSATION_JUDGMENT_REMANDED
+                ? { cassationGroundsScope: parseCassationGroundsScope(cassationGroundsScope) }
+                : {}),
         });
         if (saved !== false) onClose();
     };
 
     const appealRights = useMemo(() => {
         if (isAbsentObjectionStage) {
-            return resolveAbsentObjectionAppealRights(judgmentType, currentParties);
+            return resolveAbsentObjectionAppealRights(effectiveJudgmentType, currentParties);
         }
-        return resolveFirstInstanceHadoriAppealRights(judgmentType, lawyerSide, {
+        return resolveFirstInstanceHadoriAppealRights(effectiveJudgmentType, lawyerSide, {
             parties: currentParties,
             representedParty,
         });
     }, [
         isAbsentObjectionStage,
-        judgmentType,
+        effectiveJudgmentType,
         lawyerSide,
         currentParties,
         representedParty,
@@ -290,18 +403,58 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
             return;
         }
         const confirmed = window.confirm(
-            `سيتم قفل مرحلة المرافعة وحفظ الحكم.\n\n${appealRights.hint}\n\nتبقى الملاحظات والمستندات والسجل الزمني ظاهرة حتى تسجّل طعن الخصم.\n\nهل تريد المتابعة؟`,
+            `سيتم قفل مرحلة المرافعة وحفظ الحكم.\n\n${appealRights.hint}\n\nمسارات الطعن والاعتراض (إن وُجدت) تظهر في تذييل الإضبارة بعد الحفظ.\n\nهل تريد المتابعة؟`,
         );
         if (!confirmed) return;
         handleSaveJudgment('wait');
     };
 
     const hadoriAppealRights = appealRights;
+    const showClientAbsentObjection = useMemo(
+        () =>
+            Boolean(lawyerSide === 'المدعى عليه')
+            && clientDefendantEligibleForGhayabiObjection(currentParties, dispositions)
+            && canOfferAbsentObjection
+            && !isAbsentObjectionStage,
+        [
+            lawyerSide,
+            currentParties,
+            dispositions,
+            canOfferAbsentObjection,
+            isAbsentObjectionStage,
+        ],
+    );
+    const opponentMayFileAbsentObjection = useMemo(
+        () =>
+            Boolean(lawyerSide === 'المدعي')
+            && dispositions.some(
+                (row) => row.form === 'غيابي' && row.operative !== 'released',
+            )
+            && canOfferAbsentObjectionToDefendant({
+                currentStage,
+                stages,
+                judgmentForm,
+                representedParty: 'المدعى عليه',
+                partyJudgmentDispositions: dispositions,
+                parties: currentParties,
+                finalDecision: effectiveJudgmentType,
+                opponentRegistration: true,
+            }),
+        [
+            lawyerSide,
+            judgmentForm,
+            dispositions,
+            currentStage,
+            stages,
+            currentParties,
+            effectiveJudgmentType,
+        ],
+    );
 
     const showFirstInstanceHadoriAppealActions = useMemo(() => {
-        if (!judgmentType) return false;
+        if (!effectiveJudgmentType) return false;
         if (isAbsentObjectionStage) return false;
-        if (judgmentType === 'إبطال' || judgmentType === 'إبطال عريضة الدعوى وعريضة التدخل') {
+        if (effectiveJudgmentType === 'إبطال' || effectiveJudgmentType === 'إبطال عريضة الدعوى وعريضة التدخل') {
             return false;
         }
         if (
@@ -311,18 +464,23 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
         ) {
             return false;
         }
-        if (isNonMeritTerminationType(judgmentType)) return false;
-        if (judgmentType === 'إبطال عريضة الدعوى وعريضة التدخل') return false;
+        if (isNonMeritTerminationType(effectiveJudgmentType)) return false;
+        if (effectiveJudgmentType === 'إبطال عريضة الدعوى وعريضة التدخل') return false;
         if (
-            !isSubjectMatterJudgmentType(judgmentType)
-            && !isInterpleaderJudgmentType(judgmentType)
+            !isSubjectMatterJudgmentType(effectiveJudgmentType)
+            && !isInterpleaderJudgmentType(effectiveJudgmentType)
         ) {
             return false;
         }
 
-        return judgmentForm === 'حضوري' || judgmentForm === 'غيابي';
+        return (
+            judgmentForm === 'حضوري'
+            || judgmentForm === 'غيابي'
+            || judgmentForm === 'مختلط'
+            || judgmentForm === 'بمثابة الحضوري'
+        );
     }, [
-        judgmentType,
+        effectiveJudgmentType,
         judgmentForm,
         currentStage,
         isAbsentObjectionStage,
@@ -330,18 +488,11 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
     ]);
 
     const showAbsentObjectionAppealActions = Boolean(
-        isAbsentObjectionStage && judgmentType && !isNonMeritTerminationType(judgmentType),
+        isAbsentObjectionStage && effectiveJudgmentType && !isNonMeritTerminationType(effectiveJudgmentType),
     );
 
-    const showAbsentJudgmentRoleActions =
-        judgmentForm === 'غيابي' &&
-        canOfferAbsentObjection &&
-        !isAbsentObjectionStage &&
-        judgmentType !== 'إبطال' &&
-        judgmentType !== 'إبطال عريضة الدعوى وعريضة التدخل' &&
-        currentStage !== 'الاستئناف' &&
-        !isNonMeritTerminationType(judgmentType) &&
-        !showFirstInstanceHadoriAppealActions;
+    /** الاعتراض الغيابي يُدمَج في Hadori — لا مسار منفصل متزامن. */
+    const showAbsentJudgmentRoleActions = false;
 
     const btnGold = s.isPearl ? s.btnPrimary : GLASS_BTN_GOLD;
     const btnNeutral = s.isPearl ? s.btnNeutral : GLASS_BTN_NEUTRAL;
@@ -354,13 +505,13 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
     const selfAppealHintFallback = isPersonalAppealCtx || s.isPearl
         ? 'يحق لموكلك الطعن تمييزاً — سجّل الطعن في بوابة الانتقال'
         : 'يحق لموكلك الطعن — اختر الاستئناف أو التمييز في بوابة الانتقال';
-    const appealTransitionLabel = 'حفظ والانتقال للمرحلة التالية';
+    const appealTransitionLabel = 'حفظ الحكم';
 
     if (typeof document === 'undefined') return null;
 
     return createPortal(
         <div
-            className={s.overlay}
+            className={`${s.overlay}${isOpen ? '' : ' pointer-events-none'}`}
             dir="rtl"
             data-testid={CIVIL_LAWSUIT_TEST_IDS.judgmentModal}
             hidden={!isOpen}
@@ -385,27 +536,69 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
                         </div>
 
                         <div className={s.body}>
-                            {showJudgmentFormToggle && (
+                            {showJudgmentFormToggle && multiDefendant ? (
+                                <JudgmentDefendantFormList
+                                    styles={s}
+                                    defendants={defendants}
+                                    dispositions={dispositions}
+                                    onPartyFormChange={setPartyForm}
+                                    onPartyOperativeChange={setPartyOperative}
+                                    showOperative={showPartyOperative}
+                                />
+                            ) : showJudgmentFormToggle ? (
                                 <JudgmentFormToggle
                                     styles={s}
                                     judgmentForm={judgmentForm}
-                                    onChange={setJudgmentForm}
+                                    onChange={(form) => {
+                                        if (isJudgmentPresenceForm(form)) setUniformForm(form);
+                                    }}
                                 />
-                            )}
+                            ) : null}
+
+                            {showBoundMeritToggle ? (
+                                <JudgmentBoundMeritToggle
+                                    styles={s}
+                                    value={boundMerit}
+                                    onChange={setBoundMerit}
+                                />
+                            ) : null}
 
                             <div className={s.diamondSection}>
                                 <label className={s.label}>
                                     {isAbsentObjectionStage
                                         ? 'قرار الحكم في الاعتراض على الحكم الغيابي'
-                                        : 'قرار الحكم (نتيجة الدعوى)'}
+                                        : deriveOutcomeFromOperatives
+                                          ? 'نتيجة الدعوى'
+                                          : 'قرار الحكم (نتيجة الدعوى)'}
                                 </label>
-                                <DiamondJudgmentPicker
-                                    value={judgmentType}
-                                    onChange={handleJudgmentChange}
-                                    options={judgmentOptions}
-                                    styles={s}
-                                />
+                                {deriveOutcomeFromOperatives ? (
+                                    <p
+                                        className={`${s.hint} text-white/70 border-white/[0.08] bg-white/[0.02]`}
+                                        dir="rtl"
+                                        data-testid={CIVIL_LAWSUIT_TEST_IDS.judgmentDerivedOutcome}
+                                    >
+                                        {formatJudgmentOutcomeDisplayLabel(
+                                            effectiveJudgmentType || '',
+                                        ) || 'حدّد إلزام أو رد بحق كل مدعى عليه'}
+                                    </p>
+                                ) : (
+                                    <DiamondJudgmentPicker
+                                        value={judgmentType}
+                                        onChange={handleJudgmentChange}
+                                        options={judgmentOptions}
+                                        styles={s}
+                                    />
+                                )}
                             </div>
+
+                            {isCassationStageName(currentStage)
+                            && judgmentType === CASSATION_JUDGMENT_REMANDED ? (
+                                <JudgmentCassationGroundsScope
+                                    styles={s}
+                                    value={cassationGroundsScope}
+                                    onChange={setCassationGroundsScope}
+                                />
+                            ) : null}
 
                             {isNoCourtStage && hasPresetJudgmentDate ? (
                                 <p
@@ -433,7 +626,7 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
 
                             <JudgmentOutcomeActions
                                 styles={s}
-                                judgmentType={judgmentType}
+                                judgmentType={effectiveJudgmentType || judgmentType}
                                 currentStage={currentStage}
                                 isCorrectionStage={isCorrectionStage}
                                 showAbsentObjectionAppealActions={showAbsentObjectionAppealActions}
@@ -452,6 +645,8 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
                                 waitHintFallback={waitHintFallback}
                                 selfAppealHintFallback={selfAppealHintFallback}
                                 appealTransitionLabel={appealTransitionLabel}
+                                opponentMayFileAbsentObjection={opponentMayFileAbsentObjection}
+                                showClientAbsentObjection={showClientAbsentObjection}
                                 onClose={onClose}
                                 onWaitForOpponent={handleWaitForOpponent}
                                 onSaveJudgment={handleSaveJudgment}

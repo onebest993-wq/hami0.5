@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { ForumApiService } from '@/app/services/forumApiService';
-import { NotificationDB } from '@/app/services/notifications/notificationForumStorage';
 import { flushSync } from 'react-dom';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { canUpvotePost, getPostAuthorId } from '../communityPermissions';
@@ -55,16 +54,20 @@ export function useCommunityPostUpvote({
                 return;
             }
             if (wasUpvote && targetUserId && targetUserId !== currentUserId && authUser) {
-                void NotificationDB.addNotification({
-                    id: crypto.randomUUID(),
-                    userId: targetUserId,
-                    type: 'upvote',
-                    title: 'إعجاب بمنشورك',
-                    message: `أعجب ${authUser?.user_metadata?.fullName || 'أحد المستخدمين'} بمنشورك`,
-                    postId,
-                    read: false,
-                    createdAt: new Date().toISOString(),
-                }).catch(() => undefined);
+                void import('@/app/services/notifications/notificationForumStorage')
+                    .then((m) =>
+                        m.NotificationDB.addNotification({
+                            id: crypto.randomUUID(),
+                            userId: targetUserId,
+                            type: 'upvote',
+                            title: 'إعجاب بمنشورك',
+                            message: `أعجب ${authUser?.user_metadata?.fullName || 'أحد المستخدمين'} بمنشورك`,
+                            postId,
+                            read: false,
+                            createdAt: new Date().toISOString(),
+                        }),
+                    )
+                    .catch(() => undefined);
             }
         },
         [authUser, currentUserId, findPostById, updatePostList],

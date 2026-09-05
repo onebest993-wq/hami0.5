@@ -10,7 +10,7 @@ describe('resolveExecutionShellOverlayInstantPaint', () => {
             setShowNotesModal: vi.fn(),
         });
         expect(paint.kind).toBe('notes');
-        expect(paint.title).toBe('سجل الملاحظات والمهام');
+        expect(paint.title).toBe('سجل الملاحظات');
         paint.onClose();
         expect(onCloseNotesModal).toHaveBeenCalledTimes(1);
     });

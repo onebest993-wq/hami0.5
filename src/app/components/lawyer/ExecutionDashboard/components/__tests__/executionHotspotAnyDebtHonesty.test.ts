@@ -31,7 +31,7 @@ const TARGETS: Array<{ rel: string; maxAny: number; mustContain?: string[] }> = 
     {
         rel: 'src/app/components/lawyer/ExecutionDashboard/components/SeizureThirdPartyRequestBlock.tsx',
         maxAny: 0,
-        mustContain: ['SeizureAssetDecisionRow', 'ExecutionFile', 'TimelineEvent'],
+        mustContain: ['SharedAssetBlockProps', 'submitBasicSeizureRequest'],
     },
     {
         rel: 'src/app/components/lawyer/ExecutionDashboard/hooks/useSeizureRequestsTabDecisions.ts',
@@ -124,14 +124,14 @@ const TARGETS: Array<{ rel: string; maxAny: number; mustContain?: string[] }> = 
         mustContain: ['ExecutionFile', 'Debtor'],
     },
     {
-        rel: 'src/app/components/lawyer/ExecutionDashboard/components/SeizureRequestCompletionForms.tsx',
+        rel: 'src/app/components/lawyer/ExecutionDashboard/components/SeizureRequestsTabAssetCompletions.tsx',
         maxAny: 0,
         mustContain: ['AssetBlockShowToast', 'PropertyCompletionDraft'],
     },
     {
-        rel: 'src/app/components/lawyer/ExecutionDashboard/components/seizureRequestsTabDecisionSteps.tsx',
+        rel: 'src/app/components/lawyer/ExecutionDashboard/components/SeizurePropertyRequestBlock.tsx',
         maxAny: 0,
-        mustContain: ['SeizureDecisionStepRow', 'ExecutionInlineStep'],
+        mustContain: ['طلب حجز عقار', 'submitBasicSeizureRequest'],
     },
     {
         rel: 'src/app/components/lawyer/ExecutionDashboard/components/ExecutionFollowupModalDossierControlsPanel.tsx',
@@ -161,7 +161,7 @@ const TARGETS: Array<{ rel: string; maxAny: number; mustContain?: string[] }> = 
     {
         rel: 'src/app/components/lawyer/ExecutionDashboard/components/SeizureRequestsTabSalaryBlock.tsx',
         maxAny: 0,
-        mustContain: ['SeizureAssetDecisionRow', 'SubmitBasicSeizureRequest'],
+        mustContain: ['SubmitBasicSeizureRequest', 'طلب حجز'],
     },
     {
         rel: 'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardPhoneBodySafeHandlers.ts',
@@ -174,9 +174,9 @@ const TARGETS: Array<{ rel: string; maxAny: number; mustContain?: string[] }> = 
         mustContain: ['ExecutionFile', 'parentId'],
     },
     {
-        rel: 'src/app/components/lawyer/ExecutionDashboard/components/unifiedSeizureLogEntryFooter/UnifiedSeizureLogEntryFooterProps.ts',
+        rel: 'src/app/components/lawyer/ExecutionDashboard/types/salarySeizureDetailsPatch.ts',
         maxAny: 0,
-        mustContain: ['ThirdPartySeizureAsset', 'TimelineEvent'],
+        mustContain: ['SalarySeizureDetailsPatch'],
     },
     {
         rel: 'src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardHeavyModals.tsx',

@@ -14,7 +14,7 @@ export function NotificationHeaderAlertControls({
     onBackToInbox,
 }: Props) {
     return (
-        <div className="hami-notif-header relative shrink-0 border-b border-white/[0.06] px-4 pb-2.5 pt-[max(0.35rem,env(safe-area-inset-top))] sm:px-5 sm:pt-4">
+        <div className="hami-notif-header relative shrink-0 border-b border-white/[0.06] px-3 pb-2 pt-[max(0.25rem,env(safe-area-inset-top))] sm:px-4 sm:pt-3">
             <div className="flex items-center gap-2">
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                     <button

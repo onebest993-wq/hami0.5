@@ -61,4 +61,22 @@ describe('LegalActionsMenu', () => {
         expect(menu).toContain('legalActionsSwipeHandle');
         expect(menu).not.toContain('backdrop-blur-[7px]');
     });
+
+    it('يعرض توحيد الدعاوى في تبويب الإجراءات عند ربط المسار', () => {
+        const setShowCaseConsolidationModal = vi.fn();
+        render(
+            <SmartFileModalThemeProvider variant="civil">
+                <LegalActionsMenu
+                    isOpen
+                    onClose={vi.fn()}
+                    onAction={vi.fn()}
+                    displayStage={{ status: 'active', stageName: 'الاستئناف' } as never}
+                    setShowCaseConsolidationModal={setShowCaseConsolidationModal}
+                />
+            </SmartFileModalThemeProvider>,
+        );
+
+        fireEvent.click(screen.getByRole('button', { name: 'توحيد الدعاوى' }));
+        expect(setShowCaseConsolidationModal).toHaveBeenCalledWith(true);
+    });
 });

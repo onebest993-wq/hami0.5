@@ -10,6 +10,14 @@ import { CaseFlowActionsPanel } from '../parts/CaseFlowActionsPanel';
 import { ColleagueConsultationHeaderButton } from '@/app/components/lawyer/caseShare/ColleagueConsultationHeaderButton';
 import { DossierHeaderNavButtons } from '@/app/components/lawyer/dashboard/DossierHeaderNavButtons';
 import { resolveDossierHeaderNavVisibility } from '@/app/components/lawyer/dashboard/resolveDossierHeaderNavVisibility';
+import {
+    SMART_FILE_FOOTER_CHIP,
+    SMART_FILE_FOOTER_CHIP_ACCENT,
+} from './mainPanel/smartFileFooterChip';
+
+/** شريحة طعن بجانب شريط المراحل — نفس هوية التذييل بلا w-full */
+const CHROME_CHALLENGE_CHIP = `${SMART_FILE_FOOTER_CHIP} !w-auto shrink-0 whitespace-nowrap px-2.5`;
+const CHROME_CHALLENGE_CHIP_ACCENT = `${SMART_FILE_FOOTER_CHIP_ACCENT} !w-auto shrink-0 whitespace-nowrap px-2.5`;
 
 export type SmartFileChromeProps = {
     onClose: () => void;
@@ -45,8 +53,25 @@ export type SmartFileChromeProps = {
     >;
     isPaused?: boolean;
     isInterrupted?: boolean;
+    pauseLabel?: string;
+    pauseConfirmTitle?: string;
+    pauseConfirmMessage?: string;
+    pauseTestId?: string;
     /** إخفاء «سير الدعوى» في إضبارة الانتظار بعد قفل المرافعة */
     hideCaseFlowActions?: boolean;
+    /** طعن متبقٍ بعد hop — شريط المراحل العلوي */
+    showRemainingOpponentChallenge?: boolean;
+    remainingOpponentChallengeLabel?: string;
+    onRemainingOpponentChallenge?: () => void;
+    showIndependentClientChallenge?: boolean;
+    onIndependentClientChallenge?: () => void;
+    /** تعدد مستحقين — أزرار مسمّاة من محرك القرار */
+    namedChallengeActions?: Array<{
+        challengerId: string;
+        challengerName: string;
+        label: string;
+    }>;
+    onNamedChallengeAction?: (challengerId: string) => void;
 };
 export function SmartFileChrome({
     onClose,
@@ -74,16 +99,33 @@ export function SmartFileChrome({
     flowStage,
     isPaused,
     isInterrupted,
+    pauseLabel,
+    pauseConfirmTitle,
+    pauseConfirmMessage,
+    pauseTestId,
     hideCaseFlowActions = false,
+    showRemainingOpponentChallenge = false,
+    remainingOpponentChallengeLabel = 'قام الخصم بالطعن',
+    onRemainingOpponentChallenge,
+    showIndependentClientChallenge = false,
+    onIndependentClientChallenge,
+    namedChallengeActions = [],
+    onNamedChallengeAction,
 }: SmartFileChromeProps) {
     const stageStripItems = buildChromeStageStripItems(stages, activeStageIndex, viewingStageIndex);
     const dossierBack = onDossierBack ?? onClose;
     const dossierExit = onDossierExit ?? onClose;
     const navVisibility = resolveDossierHeaderNavVisibility(dossierNestedNav || isTrashOpen);
+    const hasNamedChallenges = namedChallengeActions.length > 0 && Boolean(onNamedChallengeAction);
+    const showPostHopChallenge =
+        !isViewingArchived
+        && (showRemainingOpponentChallenge
+            || showIndependentClientChallenge
+            || hasNamedChallenges);
 
     return (
         <>
-            <div className="sticky top-0 z-50 w-full shrink-0 bg-[#0A0F1C] border-b border-white/[0.08] print:hidden">
+            <div className="sticky top-0 z-50 w-full shrink-0 bg-[#0A0F1C] border-b border-white/[0.06] print:hidden">
                 <div className="flex items-center justify-between gap-2 px-3 py-2 min-w-0">
                     <div className="flex items-center gap-1.5 shrink-0">
                         <DossierHeaderNavButtons
@@ -113,6 +155,10 @@ export function SmartFileChrome({
                                 flowStage={flowStage}
                                 isPaused={isPaused}
                                 isInterrupted={isInterrupted}
+                                pauseLabel={pauseLabel}
+                                pauseConfirmTitle={pauseConfirmTitle}
+                                pauseConfirmMessage={pauseConfirmMessage}
+                                pauseTestId={pauseTestId}
                             />
                         )}
                     </div>
@@ -123,7 +169,7 @@ export function SmartFileChrome({
                                 <button
                                     type="button"
                                     onClick={() => setShowEditInfoModal(true)}
-                                    className="p-2 rounded-full bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-all hover:text-[#E6C673] hover:bg-[#E6C673]/10"
+                                    className="p-2 rounded-full bg-white/[0.04] text-white/55 hover:text-white hover:bg-white/[0.08] transition-colors"
                                     title="تعديل بيانات الدعوى"
                                 >
                                     <Edit2 size={20} />
@@ -156,23 +202,17 @@ export function SmartFileChrome({
                 </div>
             </div>
 
-            <div className="sticky top-[3.75rem] z-40 w-full bg-[#0A0F1C] border-b border-white/[0.07] print:hidden">
+            <div className="sticky top-[3.75rem] z-40 w-full bg-[#0A0F1C] border-b border-white/[0.06] print:hidden">
                 <div className="px-3 py-1.5">
-                    <div className="flex items-center overflow-x-auto scrollbar-hide">
-                            <div className="inline-flex items-stretch rounded-lg border border-white/[0.08] bg-white/[0.02] p-0.5">
-                                {stageStripItems.map((item, idx) => {
+                    <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+                            <div className="inline-flex items-stretch rounded-lg border border-white/[0.06] bg-white/[0.02] p-0.5 shrink-0">
+                                {stageStripItems.map((item) => {
                                     const isCurrentlyViewing = item.isViewing;
                                     const isPast = item.isPast;
                                     const stageId = item.realIndex !== null ? `stg_${item.realIndex + 1}` : '';
 
                                     return (
                                         <Fragment key={item.key}>
-                                            {idx > 0 ? (
-                                                <span
-                                                    className="w-px self-stretch my-1 bg-white/[0.08] shrink-0"
-                                                    aria-hidden
-                                                />
-                                            ) : null}
                                             {item.isPlaceholder ? (
                                                 <span
                                                     className="relative inline-flex items-center gap-1 px-2.5 py-1 rounded-[10px] text-xs font-bold whitespace-nowrap shrink-0 border border-dashed border-white/15 text-white/30"
@@ -213,6 +253,64 @@ export function SmartFileChrome({
                                     );
                                 })}
                             </div>
+                            {showPostHopChallenge ? (
+                                <div
+                                    className="flex items-center gap-1.5 shrink-0"
+                                    data-testid={CIVIL_LAWSUIT_TEST_IDS.postHopChallengeChrome}
+                                >
+                                    {hasNamedChallenges
+                                        ? namedChallengeActions.map((action) => (
+                                              <button
+                                                  key={action.challengerId}
+                                                  type="button"
+                                                  data-testid={CIVIL_LAWSUIT_TEST_IDS.namedChallengeAction(
+                                                      action.challengerId,
+                                                  )}
+                                                  onClick={() =>
+                                                      onNamedChallengeAction?.(action.challengerId)
+                                                  }
+                                                  onPointerEnter={() => {
+                                                      void import('../AppealTransitionModal').catch(
+                                                          () => undefined,
+                                                      );
+                                                  }}
+                                                  className={CHROME_CHALLENGE_CHIP_ACCENT}
+                                                  title={action.label}
+                                              >
+                                                  {action.label}
+                                              </button>
+                                          ))
+                                        : null}
+                                    {!hasNamedChallenges
+                                    && showIndependentClientChallenge
+                                    && onIndependentClientChallenge ? (
+                                        <button
+                                            type="button"
+                                            data-testid={CIVIL_LAWSUIT_TEST_IDS.independentChallengeSpawn}
+                                            onClick={onIndependentClientChallenge}
+                                            onPointerEnter={() => {
+                                                void import('../AppealTransitionModal').catch(() => undefined);
+                                            }}
+                                            className={CHROME_CHALLENGE_CHIP_ACCENT}
+                                        >
+                                            إنشاء طعن استئنافي مستقل
+                                        </button>
+                                    ) : null}
+                                    {showRemainingOpponentChallenge && onRemainingOpponentChallenge ? (
+                                        <button
+                                            type="button"
+                                            data-testid={CIVIL_LAWSUIT_TEST_IDS.remainingOpponentChallenge}
+                                            onClick={onRemainingOpponentChallenge}
+                                            onPointerEnter={() => {
+                                                void import('../AppealTransitionModal').catch(() => undefined);
+                                            }}
+                                            className={CHROME_CHALLENGE_CHIP}
+                                        >
+                                            {remainingOpponentChallengeLabel}
+                                        </button>
+                                    ) : null}
+                                </div>
+                            ) : null}
                     </div>
                 </div>
             </div>

@@ -91,7 +91,7 @@ export const AddQuestionSheet = ({
                         exit={reduceMotion && !exitInstant ? undefined : { y: '100%' }}
                         transition={sheetTransition}
                         style={sheetStyle}
-                        className={`fixed bottom-0 left-0 right-0 z-[70] ${FORUM_PANEL} rounded-t-[24px] p-6 border-t border-white/[0.1] pb-[max(1.5rem,env(safe-area-inset-bottom))]`}
+                        className={`fixed bottom-0 left-0 right-0 z-[70] ${FORUM_PANEL} rounded-t-2xl px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-white/[0.1]`}
                     >
                         <ForumSheetSwipeHandle
                             onClose={requestClose}

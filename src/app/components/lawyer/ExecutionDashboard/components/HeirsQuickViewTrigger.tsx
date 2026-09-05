@@ -13,8 +13,10 @@ export function HeirsQuickViewTrigger({ label, onOpen, className }: HeirsQuickVi
             type="button"
             className={
                 className ??
-                'shrink-0 text-amber-500 text-xl font-bold cursor-pointer hover:underline bg-transparent border-0 p-0'
+                'pointer-events-auto shrink-0 text-amber-500 text-xl font-bold cursor-pointer hover:underline bg-transparent border-0 p-0'
             }
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();

@@ -1,5 +1,26 @@
 import type { Party, ConsolidationSecondaryRef } from './fileDataTypes';
 import type { IncidentalCase } from './incidentalTypes';
+import type { AppealStageMetadata } from './stageTransitionMetadataTypes';
+
+export type {
+    StageOutcome,
+    JudgmentFormType,
+    CourtJurisdiction,
+    FirstInstanceDegree,
+    StageTransitionMetadata,
+    AppealStageMetadata,
+} from './stageTransitionMetadataTypes';
+
+export {
+    STAGE_OUTCOMES,
+    JUDGMENT_FORM_TYPES,
+    COURT_JURISDICTIONS,
+    FIRST_INSTANCE_DEGREES,
+    isStageOutcome,
+    isJudgmentFormType,
+    isCourtJurisdiction,
+    isFirstInstanceDegree,
+} from './stageTransitionMetadataTypes';
 
 export type EventType =
     | 'appointment'
@@ -65,7 +86,7 @@ export interface CaseStage {
     name: string;
     status: 'locked' | 'active' | 'completed' | 'abandoned' | 'future' | 'voided';
     defendantNotificationStatus?: NotificationStatus;
-    hasCrossAppeal?: boolean;
+    hasCrossAppeal?: boolean; // م/190 خامل — Feature Flag؛ لا يفتح مسارات متقابل
     incidentalCases?: IncidentalCase[];
     timeline?: TimelineEvent[];
     stageName?: string;
@@ -79,6 +100,15 @@ export interface CaseStage {
     provisionalOrders?: ProvisionalOrder[];
     thirdParties?: ThirdParty[];
     lastJudgmentType?: 'حضوري' | 'غيابي';
+    /** استئخار مرحلة الاستئناف لحين الفصل في اعتراض الشريك الغائب (م/172) */
+    isSuspended?: boolean;
+    suspensionReason?: 'PENDING_CO_DEFENDANT_OBJECTION';
+    /** صفة الحكم لكل مدعى عليه — إن وُجدت تتقدّم على judgmentForm الموحّد */
+    partyJudgmentDispositions?: import('@/app/domain/lawsuit/partyJudgmentDisposition').PartyJudgmentDisposition[];
+    /** وحدة النزاع عند تعدد المدعى عليهم */
+    disputeIntegrity?: import('@/app/domain/lawsuit/partyJudgmentDisposition').DisputeIntegrity;
+    /** بطاقات الطعن الفردية لكل خصم — لا تفتح مراحل متوازية */
+    partyChallengeLanes?: import('@/app/domain/lawsuit/partyChallengeLanes').PartyChallengeLane[];
     // Abandonment Logic
     abandonmentDate?: string;
     abandonmentCount?: number;
@@ -100,6 +130,10 @@ export interface CaseStage {
     isPleadingsClosed?: boolean;
     /** مرحلة البداءة مقفولة بانتظار طعن الخصم — ليست مؤرشفة */
     awaitingOpponentAppeal?: boolean;
+    /** سجّل المحامي انتهاء مدة الاستئناف دون طعن — يبقى التمييز */
+    appealWindowLapsed?: boolean;
+    /** سجّل المحامي انتهاء مدة التمييز دون طعن */
+    cassationWindowLapsed?: boolean;
     appealDeadline?: string;
     /** تاريخ تبليغ الحكم الغيابي للمدعى عليه */
     absentJudgmentNotificationDate?: string;
@@ -107,6 +141,10 @@ export interface CaseStage {
     awaitingAbsentJudgmentNotification?: boolean;
     judgmentForm?: string;
     wasReopened?: boolean;
+    /** بعد فتح باب المرافعة (تأجيل) — لعرض شارة «معاد فتحها» */
+    pleadingDoorReopened?: boolean;
+    /** نتيجة الموكل في هذه المرحلة — مصدر structured pipeline */
+    clientStageOutcome?: import('./stageTransitionMetadataTypes').StageOutcome;
     isUnderObjection?: boolean;
     interruptionDate?: string;
     consolidatedWith?: string;
@@ -121,19 +159,7 @@ export interface CaseStage {
         defaultObjectionDeadline?: string;
     };
     previousCaseNumber?: string;
-    appealMetadata?: {
-        appealType?: string;
-        appellant?: string;
-        filingDate?: string;
-        previousCaseNumber?: string;
-        previousStage?: string;
-        priorJudgmentType?: string;
-        initialAppellantPartyIds?: Array<number | string>;
-        hasCrossAppeal?: boolean;
-        crossAppealDate?: string;
-        crossAppealReceipt?: string;
-        crossAppealPartyIds?: Array<number | string>;
-    };
+    appealMetadata?: AppealStageMetadata;
     isJudgeRecusalPending?: boolean;
     judgeRecusalData?: { reason: string; requestDate: string };
     isAttorneyResigned?: boolean;
