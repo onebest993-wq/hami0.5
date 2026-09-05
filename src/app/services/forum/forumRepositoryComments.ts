@@ -1,6 +1,11 @@
 import { UserRole } from '@/app/types/admin-types';
 import type { CommunityComment, CommunityPost } from '@/app/services/forum/forumTypes';
 import { addCommunityComment, deleteCommunityComment, editCommunityComment } from '@/app/services/forum/forumCommunityRuntime';
+import { sanitizeForumPostContent } from '@/app/services/forum/forumInputSecurity';
+import {
+    assertForumPostAcceptsComments,
+    resolveForumReplyParentId,
+} from '@/app/services/forum/forumCommentAddGuard';
 import { loadForumSupabaseAdmin } from './loadForumSupabaseAdmin';
 
 export type ForumPostReader = {
@@ -10,6 +15,11 @@ export type ForumPostReader = {
 export function createForumCommentRepository(posts: ForumPostReader) {
     return {
         async addComment(postId: string, comment: CommunityComment): Promise<CommunityPost> {
+            const existingPost = await posts.getPostById(postId);
+            if (!existingPost) throw new Error('المنشور غير موجود');
+            assertForumPostAcceptsComments(existingPost);
+            resolveForumReplyParentId(existingPost.comments, comment.parentId);
+
             const admin = await loadForumSupabaseAdmin();
             if (!admin) {
                 await addCommunityComment(postId, comment);
@@ -26,10 +36,6 @@ export function createForumCommentRepository(posts: ForumPostReader) {
                 await dispatchCommentNotifications({ post, comment, parentComment });
                 return post;
             }
-
-            const existingPost = await posts.getPostById(postId);
-            if (!existingPost) throw new Error('المنشور غير موجود');
-            if (existingPost.isLocked) throw new Error('النقاش على هذا المنشور مقفل');
 
             const { error } = await admin.from('forum_comments').insert({
                 id: comment.id,
@@ -118,7 +124,7 @@ export function createForumCommentRepository(posts: ForumPostReader) {
             if (post.bestCommentId === commentId) {
                 throw new Error('لا يمكن تعديل تعليق مميّز كأفضل إجابة');
             }
-            const trimmed = content.trim();
+            const trimmed = sanitizeForumPostContent(content);
             if (trimmed.length < 2) throw new Error('نص التعليق قصير جداً');
             if (trimmed.length > 5_000) throw new Error('نص التعليق طويل جداً');
 

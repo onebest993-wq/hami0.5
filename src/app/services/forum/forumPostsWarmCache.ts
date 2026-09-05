@@ -39,6 +39,19 @@ export function peekForumPostsCache(): CommunityPost[] | null {
     return warmedPosts;
 }
 
+/** لقطة محلية مشفّرة — بلا شبكة. تملأ الكاش قبل الجلب إن كان فارغاً. */
+export function warmForumPostsCacheFromLocal(): void {
+    if (warmedPosts && warmedPosts.length > 0) return;
+    void import('@/app/services/forum/forumCommunityRuntime')
+        .then((m) => m.CommunityDB.listPosts())
+        .then((rows) => {
+            if (warmedPosts && warmedPosts.length > 0) return;
+            const local = sortCommunityPosts(rows).filter((p) => !p.groupId);
+            if (local.length > 0) warmedPosts = local;
+        })
+        .catch(() => undefined);
+}
+
 export async function readForumPostsCache(): Promise<CommunityPost[]> {
     if (warmedPosts) return warmedPosts;
     warmForumPostsCache();

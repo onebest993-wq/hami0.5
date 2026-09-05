@@ -3,8 +3,11 @@ import {
     clampForumText,
     sanitizeForumPostContent,
     sanitizeForumTagsInput,
+    sanitizeForumActorLabel,
+    sanitizeForumReportReason,
     FORUM_POST_MAX_LENGTH,
     FORUM_TAGS_MAX_LENGTH,
+    FORUM_REPORT_REASON_MAX,
 } from '@/app/services/forum/forumInputSecurity';
 
 describe('forumInputSecurity', () => {
@@ -23,5 +26,11 @@ describe('forumInputSecurity', () => {
     it('يزيل null bytes ومحارف C0 من نص المنشور', () => {
         expect(sanitizeForumPostContent('مرحبا\u0000عالم\u0007')).toBe('مرحباعالم');
         expect(sanitizeForumPostContent('سطر\nثاني')).toBe('سطر\nثاني');
+    });
+
+    it('يزيل أقواس الوسوم من الوسوم واسم الممثل', () => {
+        expect(sanitizeForumTagsInput('<img src=x>قانون')).toBe('img src=xقانون');
+        expect(sanitizeForumActorLabel('  <b>محامٍ</b>  ')).toBe('bمحامٍ/b');
+        expect(sanitizeForumReportReason(`${'س'.repeat(600)}`).length).toBe(FORUM_REPORT_REASON_MAX);
     });
 });

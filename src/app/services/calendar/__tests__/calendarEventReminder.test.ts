@@ -55,6 +55,33 @@ describe('calendarEventReminder', () => {
         expect(fired).toEqual(['evt-1']);
     });
 
+    it('يلتقط التذكير المتأخر ما دام الموعد لم يبدأ', () => {
+        const fired: string[] = [];
+        const now = new Date('2026-08-07T09:56:00');
+        scanAndFireCalendarReminders(
+            [baseEvent({ reminderMinutesBefore: 10 })],
+            now,
+            (event) => fired.push(event.id),
+        );
+        expect(fired).toEqual(['evt-1']);
+    });
+
+    it('لا يطلق بعد بداية الموعد', () => {
+        const fired: string[] = [];
+        scanAndFireCalendarReminders(
+            [baseEvent({ reminderMinutesBefore: 10 })],
+            new Date('2026-08-07T10:01:00'),
+            (event) => fired.push(event.id),
+        );
+        expect(fired).toEqual([]);
+    });
+
+    it('يفهم الوقت المخزَّن بالثواني', () => {
+        const fireAt = computeCalendarReminderFireAt('2026-08-07', '10:00:00', 10);
+        expect(fireAt?.getHours()).toBe(9);
+        expect(fireAt?.getMinutes()).toBe(50);
+    });
+
     it('يُنسّق تسمية التذكير', () => {
         expect(formatCalendarReminderLabel(10)).toBe('قبل 10 د');
         expect(formatCalendarReminderLabel(60)).toBe('قبل ساعة');

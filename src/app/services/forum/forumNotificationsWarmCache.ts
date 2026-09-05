@@ -85,9 +85,14 @@ export async function readForumNotificationsCache(
     };
 }
 
-export function resetForumNotificationsCacheForTests(): void {
-    warmedNotifications = null;
-    warmedUnread = 0;
-    warmedUserId = null;
-    warmPromise = null;
+export async function readForumNotificationsCacheTimed(
+    userId: string,
+    ms: number,
+    fallback: () => { notifications: ForumNotification[]; unreadCount: number },
+): Promise<{ notifications: ForumNotification[]; unreadCount: number; timedOut: boolean }> {
+    return withForumAsyncTimeout(
+        readForumNotificationsCache(userId).then((snapshot) => ({ timedOut: false, ...snapshot })),
+        ms,
+        () => ({ timedOut: true, ...fallback() }),
+    );
 }

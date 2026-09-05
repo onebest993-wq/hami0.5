@@ -1,11 +1,21 @@
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
+import { isBridgedCalendarEvent } from '@/app/services/calendar/bridgePersistence/lite';
 
-export function isBridgedCalendarEvent(event: CalendarEvent): boolean {
-    const mod = event.sourceModule;
-    return Boolean(mod && mod !== 'manual' && event.sourceEntityId && event.sourceEventId);
+export { isBridgedCalendarEvent };
+
+/** مهام/معرّفات مُولَّدة آلياً (مستعجل سريع، إجراءات نظام) */
+export function isEphemeralLawsuitTaskId(taskId: string): boolean {
+    const id = taskId.trim();
+    return (
+        id.startsWith('task_fast_') ||
+        id.startsWith('auto_') ||
+        id.startsWith('sys_') ||
+        id.startsWith('system_')
+    );
 }
 
-function isSyntheticBridgeSourceEventId(sourceEventId: string): boolean {
+/** أحداث سجل قديم أو مسار سريع — لا تُعرض كمواعيد تقويم */
+export function isSyntheticBridgeSourceEventId(sourceEventId: string): boolean {
     const id = String(sourceEventId ?? '').trim();
     if (!id) return true;
     if (id.startsWith('legacy_')) return true;
@@ -13,12 +23,7 @@ function isSyntheticBridgeSourceEventId(sourceEventId: string): boolean {
     if (id.startsWith('verdict_appeal_')) return true;
     if (id.startsWith('trial_verdict_appeal_')) return true;
     const taskRaw = id.startsWith('task_') ? id.slice('task_'.length) : id;
-    return (
-        taskRaw.startsWith('task_fast_') ||
-        taskRaw.startsWith('auto_') ||
-        taskRaw.startsWith('sys_') ||
-        taskRaw.startsWith('system_')
-    );
+    return isEphemeralLawsuitTaskId(taskRaw);
 }
 
 /** موعد أدخله المستخدم صراحةً — ليس مساراً آلياً أو مُكتملاً */

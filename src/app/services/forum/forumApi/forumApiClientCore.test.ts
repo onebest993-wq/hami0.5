@@ -1,3 +1,9 @@
+vi.mock('@/app/services/settings/collaborationNetworkGate', () => ({
+    canReachCollaborationNetwork: () => true,
+    COLLABORATION_NETWORK_OFF: 'COLLABORATION_NETWORK_OFF',
+    assertCollaborationNetworkReachable: () => undefined,
+}));
+
 vi.mock('@/app/services/secureApiNetworkFeatures', () => ({
     canReachProtectedServerNetwork: () => true,
     resolveDeniedNetworkFeatureResponse: () => null,
@@ -27,7 +33,7 @@ vi.mock('@/app/utils/liveAuthUserId', () => ({
 
 import { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
 import { getLiveAuthUserId } from '@/app/utils/liveAuthUserId';
-import { getForumSessionUserId, hasForumRemoteSession } from './forumApiClientCore';
+import { getForumSessionUserId, hasForumRemoteSession, shouldPersistMergedForumPosts } from './forumApiClientCore';
 
 describe('forum BFF session', () => {
     afterEach(() => {
@@ -47,5 +53,34 @@ describe('forum BFF session', () => {
         vi.mocked(getLiveAuthUserId).mockReturnValue('guest-lawyer-1');
         expect(await hasForumRemoteSession()).toBe(false);
         expect(await getForumSessionUserId()).toBeNull();
+    });
+});
+
+describe('shouldPersistMergedForumPosts', () => {
+    it('يتخطى الكتابة إن البصمة مطابقة', () => {
+        const post = {
+            id: 'p1',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            upvoterIds: [],
+            comments: [],
+            isPinned: false,
+            isLocked: false,
+            bestCommentId: null,
+        };
+        expect(shouldPersistMergedForumPosts([post as never], [post as never])).toBe(false);
+    });
+
+    it('يكتب عند تغيّر أفضل تعليق', () => {
+        const local = {
+            id: 'p1',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            upvoterIds: [],
+            comments: [],
+            isPinned: false,
+            isLocked: false,
+            bestCommentId: null,
+        };
+        const merged = { ...local, bestCommentId: 'c1' };
+        expect(shouldPersistMergedForumPosts([local as never], [merged as never])).toBe(true);
     });
 });

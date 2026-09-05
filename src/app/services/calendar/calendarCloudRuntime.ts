@@ -1,3 +1,7 @@
+/**
+ * hop ثانٍ فوق calendarCloudLoader — يقطع ربط الواجهة الحية بمقطع CalendarDB
+ * حتى لا يذوب lawyerCalendarCloud في جذع الرئيسية. لا تُدمَج الطبقتان.
+ */
 type CalendarCloudLoaderModule = typeof import('@/app/services/calendar/calendarCloudLoader');
 
 let calendarCloudLoaderPromise: Promise<CalendarCloudLoaderModule> | null = null;

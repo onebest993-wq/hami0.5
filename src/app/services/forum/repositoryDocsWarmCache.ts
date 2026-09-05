@@ -1,7 +1,7 @@
 import {
     listRepositoryDocumentsSync,
     RepositoryDB,
-} from '@/app/services/lawyer-cloud';
+} from '@/app/services/cloud/lawyerRepositoryCloud';
 import type { RepositoryDocument } from '@/app/services/vault/vaultTypes';
 import { withForumAsyncTimeout } from '@/app/components/lawyer/CommunityScreen/forumAsync';
 import { warmRepositoryThumbnailUrls } from '@/app/services/forum/repositoryThumbUrlCache';

@@ -6,10 +6,8 @@ import type { DossierSyncStats, SyncScope } from './types';
 import { shouldExcludeExecutionFromCalendar } from './exclusions';
 import { isRecord, readEntityId, readStr } from './shared';
 import { syncExecutionTaskDue, syncExecutionTimelineAppointment } from './incrementalSync';
-import {
-    EXECUTION_VISIT_NEXT_EVENT_ID,
-    resolveNextExecutionVisitation,
-} from './visitationCalendarSync';
+import { EXECUTION_VISIT_NEXT_EVENT_ID } from './executionVisitNextEventId';
+import { resolveNextExecutionVisitation } from './visitationCalendarSync';
 
 export function syncOneExecutionFile(
     file: Record<string, unknown>,

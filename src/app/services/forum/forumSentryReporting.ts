@@ -64,8 +64,3 @@ export function reportForumOpenToSentry(
         });
     });
 }
-
-/** للاختبارات */
-export function resetForumSentryModuleForTests(): void {
-    sentryModulePromise = null;
-}

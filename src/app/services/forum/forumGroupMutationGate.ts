@@ -17,15 +17,3 @@ export async function assertForumPostGroupAccess(
         throw new Error('يجب الانضمام للمجموعة قبل التفاعل مع منشوراتها');
     }
 }
-
-export async function loadPostWithGroupAccess(
-    getPostById: (postId: string) => Promise<CommunityPost | null>,
-    postId: string,
-    userId: string,
-    isAdmin: boolean,
-): Promise<CommunityPost> {
-    const post = await getPostById(postId);
-    if (!post) throw new Error('المنشور غير موجود');
-    await assertForumPostGroupAccess(post, userId, isAdmin);
-    return post;
-}

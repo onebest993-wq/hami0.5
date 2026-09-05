@@ -2,7 +2,7 @@
  * معرّفات الجسر الصالحة — ما يزال مصدره موجوداً في الإضابير.
  */
 import { buildStableBridgeId, normalizeDateToYmd } from '@/app/services/calendarBridge';
-import { TransactionDB, TransactionsThreadingDB } from '@/app/services/cloud/lawyerTransactionsCloud';
+import { TransactionsThreadingDB } from '@/app/services/cloud/lawyerTransactionsCloud';
 import { loadCriminalCasesRaw } from '@/app/utils/criminalCasesStorage';
 import { loadExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
 import { loadGlobalNotesRaw } from '@/app/utils/globalNotesStorage';
@@ -18,10 +18,8 @@ import {
 } from './exclusions';
 import { collectDiscoveredBridgeIdsForFile } from './discoveredDates';
 import { collectStageLegalCalendarSpecs } from '@/app/services/lawsuitTimelineCalendarMirror';
-import {
-    EXECUTION_VISIT_NEXT_EVENT_ID,
-    resolveNextExecutionVisitation,
-} from './visitationCalendarSync';
+import { EXECUTION_VISIT_NEXT_EVENT_ID } from './executionVisitNextEventId';
+import { resolveNextExecutionVisitation } from './visitationCalendarSync';
 import {
     isFieldTaskCalendarEligible,
     isRecord,
@@ -234,24 +232,6 @@ export async function collectValidBridgeIdsAsync(
                             ids.add(buildStableBridgeId('urgent', caseId, `${hid}_next`));
                         }
                     }
-                }
-            }
-        }
-    } catch {
-        /* ignore */
-    }
-    try {
-        const txs = (await TransactionDB.getTransactions(userId)) as unknown[];
-        for (const tx of txs) {
-            if (!isRecord(tx)) continue;
-            const txId = String(tx.id ?? '');
-            if (!txId) continue;
-            const steps = Array.isArray(tx.steps) ? tx.steps : [];
-            for (const s of steps) {
-                if (!isRecord(s)) continue;
-                const stepId = String(s.id ?? '');
-                if (stepId && s.appointmentDate) {
-                    ids.add(buildStableBridgeId('transaction', txId, stepId));
                 }
             }
         }

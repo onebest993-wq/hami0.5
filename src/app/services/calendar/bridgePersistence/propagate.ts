@@ -14,7 +14,6 @@ import {
     patchGlobalNote,
     patchFieldTaskDue,
     patchUrgentHearing,
-    patchTransactionStep,
     applyCriminalCalendarUpdate,
     applyCriminalCalendarRemoval,
     patchThreadingTaskDeadline,
@@ -90,12 +89,8 @@ export async function propagateBridgedCalendarUpdate(event: CalendarEvent): Prom
             break;
         }
         case 'transaction':
-            ok = await patchTransactionStep(event.userId, entityId, sourceEventId, {
-                appointmentDate: `${dateYmd}T12:00:00.000Z`,
-                appointmentTime: event.time ?? null,
-                label: event.title,
-            });
-            break;
+            /* مسار steps معطّل — التطهير يزيل أحداثه؛ المصدر الحيّ هو threading */
+            return false;
         case 'note':
             if (sourceEventId === 'reminder') {
                 ok = patchGlobalNote(entityId, {
@@ -183,11 +178,7 @@ export async function propagateBridgedCalendarRemoval(event: CalendarEvent): Pro
             ok = await patchUrgentHearing(event.userId, entityId, sourceEventId, null);
             break;
         case 'transaction':
-            ok = await patchTransactionStep(event.userId, entityId, sourceEventId, {
-                appointmentDate: null,
-                appointmentTime: null,
-            });
-            break;
+            return false;
         case 'note':
             if (sourceEventId === 'reminder') {
                 ok = patchGlobalNote(entityId, { apptDate: '' });

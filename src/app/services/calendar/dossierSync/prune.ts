@@ -4,8 +4,14 @@
  */
 import { CalendarBridge, resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { CalendarDB } from '@/app/services/cloud/lawyerCalendarCloud';
+import SecureStoreService from '@/app/services/SecureStoreService';
+import {
+    EXECUTION_FILES_STORAGE_KEY,
+    LAWSUIT_FILES_STORAGE_KEY,
+} from '@/app/services/dossierPersistence/dossierStorageKeys';
 import { debug } from '@/app/utils/debug';
 import { loadCriminalCasesRaw } from '@/app/utils/criminalCasesStorage';
+import { CRIMINAL_STORE_KEY } from '@/app/utils/criminalCasesStorageHelpers';
 import { loadExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
 import { loadLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
 import { isBridgedCalendarEvent } from '@/app/services/calendarBridgePersistence';
@@ -24,6 +30,33 @@ import {
 import { dispatchCalendarUpdated, isRecord, readEntityId } from './shared';
 import { collectValidBridgeIdsAsync } from './pruneValidIds';
 
+/** أصل مشفَّر بارد وفارغ في الذاكرة ≠ «لا إضابير» — التقليم عندها يمسح مواعيد حيّة. */
+function isSourceModuleStorageUnread(sourceModule: string): boolean {
+    try {
+        if (sourceModule === 'lawsuit') {
+            return (
+                SecureStoreService.isUnreadSync(LAWSUIT_FILES_STORAGE_KEY) &&
+                loadLawsuitFilesRaw().length === 0
+            );
+        }
+        if (sourceModule === 'execution') {
+            return (
+                SecureStoreService.isUnreadSync(EXECUTION_FILES_STORAGE_KEY) &&
+                loadExecutionFilesRaw().length === 0
+            );
+        }
+        if (sourceModule === 'criminal') {
+            return (
+                SecureStoreService.isUnreadSync(CRIMINAL_STORE_KEY) &&
+                loadCriminalCasesRaw().length === 0
+            );
+        }
+    } catch {
+        return false;
+    }
+    return false;
+}
+
 export async function pruneOrphanedBridgedEventsForEntity(
     sourceModule: Parameters<typeof CalendarBridge.remove>[0],
     sourceEntityId: string | number,
@@ -33,7 +66,7 @@ export async function pruneOrphanedBridgedEventsForEntity(
     const uid = resolveCalendarUserId(userId);
     const entityKey = String(sourceEntityId);
     try {
-        const events = await CalendarDB.getEvents(uid);
+        const events = await CalendarDB.getAllStoredEvents();
         let removed = 0;
         for (const e of events) {
             if (!isBridgedCalendarEvent(e)) continue;
@@ -41,7 +74,7 @@ export async function pruneOrphanedBridgedEventsForEntity(
             if (String(e.sourceEntityId) !== entityKey) continue;
             const evSourceId = String(e.sourceEventId ?? '');
             if (expectedSourceEventIds.has(evSourceId)) continue;
-            await CalendarBridge.remove(sourceModule, entityKey, evSourceId, uid);
+            await CalendarBridge.remove(sourceModule, entityKey, evSourceId, e.userId || uid);
             removed++;
         }
         if (removed > 0) dispatchCalendarUpdated();
@@ -61,13 +94,13 @@ export async function removeAllBridgedEventsForEntity(
     const uid = resolveCalendarUserId(userId);
     const entityKey = String(sourceEntityId);
     try {
-        const events = await CalendarDB.getEvents(uid);
+        const events = await CalendarDB.getAllStoredEvents();
         let removed = 0;
         for (const e of events) {
             if (!isBridgedCalendarEvent(e)) continue;
             if (e.sourceModule !== sourceModule) continue;
             if (String(e.sourceEntityId) !== entityKey) continue;
-            await CalendarBridge.remove(sourceModule, entityKey, String(e.sourceEventId), uid);
+            await CalendarBridge.remove(sourceModule, entityKey, String(e.sourceEventId), e.userId || uid);
             removed++;
         }
         if (removed > 0) dispatchCalendarUpdated();
@@ -166,6 +199,7 @@ export async function pruneOrphanedBridgeEvents(
         let removed = 0;
         for (const e of events) {
             if (!isBridgedCalendarEvent(e)) continue;
+            if (isSourceModuleStorageUnread(String(e.sourceModule ?? ''))) continue;
             if (valid.has(e.id)) continue;
             const eventUserId = e.userId || uid;
             await CalendarBridge.remove(

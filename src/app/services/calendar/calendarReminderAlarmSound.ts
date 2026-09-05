@@ -4,6 +4,10 @@
  */
 
 import { HAMI_LEGAL_ALARM_SOUND_WEB } from '@/app/services/notifications/native/hamiNativeSound';
+import {
+    HAMI_LEGAL_ALARM_VIBRATE_PATTERN,
+    playDeviceHaptic,
+} from '@/app/services/platform/deviceHaptic';
 
 type ChimeStep =
     | { kind: 'tone'; freq: number; duration: number; gain: number; wave?: OscillatorType; detune?: number }
@@ -108,12 +112,7 @@ function playSequenceOnContext(ctx: AudioContext, destination: AudioNode, startO
 }
 
 function vibrateLegalAlarm(): void {
-    if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
-    try {
-        navigator.vibrate([180, 90, 180, 90, 320, 120, 420]);
-    } catch {
-        /* ignore */
-    }
+    playDeviceHaptic(HAMI_LEGAL_ALARM_VIBRATE_PATTERN);
 }
 
 async function playWebLegalAlarmWav(loop: boolean): Promise<HTMLAudioElement | null> {

@@ -15,7 +15,14 @@
  */
 import { fetchCalendarEvents } from '@/app/services/calendar/calendarCloudRuntime';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
-import { setCachedCalendarEvents } from '@/app/services/calendar/calendarEventsCache';
+import {
+    getCachedCalendarEvents,
+    setCachedCalendarEvents,
+} from '@/app/services/calendar/calendarEventsCache';
+import {
+    peekLocalCalendarSnapshotSync,
+    readLocalCalendarSnapshotSync,
+} from '@/app/services/calendar/calendarLocalSnapshot';
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
 
 let registeredWarmUserId: string | null | undefined;
@@ -33,6 +40,37 @@ export function registerScheduleWarmUserId(userId: string | null | undefined): (
 /** المُسجَّل الحالي — يقرأه خطّ تسخين الجدول بدل نسخ الحالة */
 export function getRegisteredScheduleWarmUserId(): string | null | undefined {
     return registeredWarmUserId;
+}
+
+/**
+ * يملأ كاش الذاكرة من لقطة peek قبل أول رسم للقشرة — بلا ترحيل تشفير.
+ * لا يكتب مصفوفة فارغة حتى لا يحجب الجلب من القرص.
+ */
+export function primeCalendarEventsCacheFromPeek(userId?: string | null): boolean {
+    if (typeof window === 'undefined') return false;
+    const uid = resolveCalendarUserId(userId ?? registeredWarmUserId ?? null);
+    if (!uid) return false;
+    const cached = getCachedCalendarEvents(uid);
+    if (cached && cached.length > 0) return true;
+    const events = peekLocalCalendarSnapshotSync(uid);
+    if (events.length === 0) return false;
+    setCachedCalendarEvents(uid, events);
+    return true;
+}
+
+/** ترحيل مرآة leftover بعد الإطار — ليس على مسار النقرة */
+export function drainCalendarLegacyMirrorsWhenIdle(userId?: string | null): void {
+    if (typeof window === 'undefined') return;
+    const uid = resolveCalendarUserId(userId ?? registeredWarmUserId ?? null);
+    if (!uid) return;
+    const run = () => {
+        readLocalCalendarSnapshotSync(uid);
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(run, { timeout: 2_200 });
+        return;
+    }
+    window.setTimeout(run, 400);
 }
 
 /** ينتظر جلب الأحداث الجاري إن وُجد — يمنع fetch مكرر عند فتح الرادار */

@@ -3,6 +3,7 @@ import type { ForumNotification } from '@/app/services/forum/forumTypes';
 import { emitForumUnreadCount } from '@/app/services/forum/forumNotificationEvents';
 import { notifyForumActivity } from '@/app/services/notifications/domainNotifications';
 import { canReachProtectedServerNetwork } from '@/app/services/secureApiNetworkFeatures';
+import { isAppForeground, subscribeAppForeground } from '@/app/runtime/appForegroundGate';
 import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
 
 export type ForumStreamPayload = {
@@ -19,6 +20,9 @@ let refCount = 0;
 let streamUserId: string | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let lastPushedId: string | null = null;
+let releaseForegroundGate: (() => void) | null = null;
+/** الخلفية تُغلق البثّ لكنها لا تُلغي الاشتراك — العودة تعيد فتحه لنفس المشتركين. */
+let suspendedForBackground = false;
 const handlers = new Set<StreamHandler>();
 
 function canStartForumStream(userId: string): boolean {
@@ -101,7 +105,10 @@ function scheduleReconnect(userId: string): void {
     if (reconnectTimer) clearTimeout(reconnectTimer);
     reconnectTimer = setTimeout(() => {
         reconnectTimer = null;
-        if (running && refCount > 0) void ForumNotificationStreamService.start(userId);
+        /* إعادة الوصل للمقدّمة فقط: في الخلفية تتحوّل إلى دورة إشعال للراديو */
+        if (running && refCount > 0 && isAppForeground()) {
+            void ForumNotificationStreamService.start(userId);
+        }
     }, 3_000);
 }
 
@@ -109,6 +116,34 @@ function abortActiveStream(): void {
     const abort = (ForumNotificationStreamService as { _abort?: AbortController })._abort;
     abort?.abort();
     (ForumNotificationStreamService as { _abort?: AbortController })._abort = undefined;
+}
+
+/*
+ * البثّ لا يُترك مفتوحاً والتطبيق في الخلفية: الاتصال المفتوح يُبقي الراديو مستيقظاً،
+ * والنظام يقطعه فتدخل `scheduleReconnect` دورة إعادة وصل كل ٣ ثوانٍ بلا نهاية.
+ * التسليم في الخلفية يمرّ عبر دفع FCM، فلا يُفقد تنبيه بإغلاق البثّ هنا.
+ */
+function bindForegroundGate(): void {
+    if (releaseForegroundGate) return;
+    releaseForegroundGate = subscribeAppForeground({
+        onSuspend: () => {
+            if (!running && !reconnectTimer) return;
+            suspendedForBackground = true;
+            ForumNotificationStreamService.stop();
+        },
+        onResume: () => {
+            if (!suspendedForBackground) return;
+            suspendedForBackground = false;
+            const userId = streamUserId;
+            if (refCount > 0 && userId) void ForumNotificationStreamService.start(userId);
+        },
+    });
+}
+
+function unbindForegroundGate(): void {
+    releaseForegroundGate?.();
+    releaseForegroundGate = null;
+    suspendedForBackground = false;
 }
 
 export const ForumNotificationStreamService = {
@@ -127,19 +162,24 @@ export const ForumNotificationStreamService = {
         refCount += 1;
         const userChanged = streamUserId !== userId;
         streamUserId = userId;
+        bindForegroundGate();
 
         if (userChanged && running) {
             abortActiveStream();
             running = false;
         }
-        if (!running) {
+        /* في الخلفية لا يُفتح بثّ عند الاشتراك — العودة للمقدّمة هي التي تفتحه */
+        if (!running && isAppForeground()) {
             void ForumNotificationStreamService.start(userId);
+        } else if (!running) {
+            suspendedForBackground = true;
         }
 
         return () => {
             refCount = Math.max(0, refCount - 1);
             if (refCount === 0) {
                 streamUserId = null;
+                unbindForegroundGate();
                 ForumNotificationStreamService.stop();
             }
         };
@@ -148,6 +188,12 @@ export const ForumNotificationStreamService = {
     async start(userId: string | null): Promise<void> {
         if (!userId || typeof window === 'undefined') return;
         if (!canStartForumStream(userId)) {
+            running = false;
+            return;
+        }
+        if (!isAppForeground()) {
+            /* فحص الصحّة الدوري قد ينادي `start` بعد الخلفية — لا يُفتح بثّ هناك */
+            suspendedForBackground = true;
             running = false;
             return;
         }
@@ -195,6 +241,7 @@ export const ForumNotificationStreamService = {
         streamUserId = null;
         lastPushedId = null;
         handlers.clear();
+        unbindForegroundGate();
         this.stop();
     },
 };

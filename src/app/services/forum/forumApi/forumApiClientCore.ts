@@ -1,8 +1,8 @@
 import { SecureAPIClient, SecureFetchError } from '@/app/services/SecureAPIClient';
-import { supabase } from '@/app/lib/supabase-client';
 import { BanDB, CommunityDB } from '@/app/services/forum/forumCommunityRuntime';
 import type { CommunityPost } from '@/app/services/forum/forumTypes';
 import { canReachProtectedServerNetwork } from '@/app/services/secureApiNetworkFeatures';
+import { canReachCollaborationNetwork } from '@/app/services/settings/collaborationNetworkGate';
 import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
 import { humanizeUnknownError, isSilentOfflineError } from '@/app/utils/humanizeAppError';
 import { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
@@ -39,19 +39,25 @@ function liveNetworkUserId(): string | null {
     return id;
 }
 
+async function readSupabaseAuthSession() {
+    const { supabase } = await import('@/app/lib/supabase-client');
+    return supabase.auth.getSession();
+}
+
 export async function getForumSessionUserId(explicitUserId?: string | null): Promise<string | null> {
     if (explicitUserId) return explicitUserId;
     if (isBffAuthEnabled()) {
         const live = liveNetworkUserId();
         if (live) return live;
     }
-    const { data } = await supabase.auth.getSession();
+    const { data } = await readSupabaseAuthSession();
     const fromSession = data.session?.user?.id ?? null;
     if (fromSession) return fromSession;
     return readPersistedSupabaseAuth().user?.id ?? null;
 }
 
 export async function hasForumRemoteSession(): Promise<boolean> {
+    if (!canReachCollaborationNetwork()) return false;
     const explicit = liveNetworkUserId();
     if (explicit) {
         const persisted = readPersistedSupabaseAuth();
@@ -61,7 +67,7 @@ export async function hasForumRemoteSession(): Promise<boolean> {
     if (isBffAuthEnabled()) {
         return false;
     }
-    const { data } = await supabase.auth.getSession();
+    const { data } = await readSupabaseAuthSession();
     const userId = data.session?.user?.id ?? readPersistedSupabaseAuth().user?.id ?? null;
     const meta = (data.session?.user?.user_metadata ??
         readPersistedSupabaseAuth().user?.user_metadata ??
@@ -103,6 +109,20 @@ export function sliceForumPostsPage(
     offset: number,
 ): { posts: CommunityPost[]; total: number } {
     return { posts: posts.slice(offset, offset + limit), total: posts.length };
+}
+
+export function forumPostsPersistFingerprint(posts: CommunityPost[]): string {
+    return posts
+        .map(
+            (p) =>
+                `${p.id}:${p.updatedAt}:${p.upvoterIds?.length ?? 0}:${p.comments?.length ?? 0}:${p.isPinned ? 1 : 0}:${p.isLocked ? 1 : 0}:${p.bestCommentId ?? ''}:${p.content?.length ?? 0}`,
+        )
+        .join('|');
+}
+
+/** لا تكتب IndexedDB إن الدمج لم يُضف شيئاً على النسخة المحلية */
+export function shouldPersistMergedForumPosts(local: CommunityPost[], merged: CommunityPost[]): boolean {
+    return forumPostsPersistFingerprint(local) !== forumPostsPersistFingerprint(merged);
 }
 
 export async function withForumReadFallback<T>(

@@ -11,13 +11,21 @@ function isSvgDataUrl(url: string): boolean {
 export function isSafeForumAttachmentUrl(url: string): boolean {
     const trimmed = url.trim();
     if (!trimmed) return false;
+    if (/[\0\r\n\\]/.test(trimmed)) return false;
+    /* //cdn.evil/x يُفسَّر في المتصفح كـ https:// — رفض صريح */
+    if (trimmed.startsWith('//')) return false;
     if (trimmed.startsWith('data:')) {
         if (isSvgDataUrl(trimmed)) return false;
         return trimmed.startsWith('data:image/') || trimmed.startsWith('data:audio/');
     }
     if (trimmed.startsWith('blob:')) return true;
+    if (trimmed.startsWith('idb:')) {
+        return !trimmed.includes('..');
+    }
     /* مسارات تخزين محلية/نسبية بلا مخطط شبكة */
-    if (trimmed.startsWith('idb:') || !HAS_SCHEME.test(trimmed)) return true;
+    if (!HAS_SCHEME.test(trimmed)) {
+        return !trimmed.includes('..');
+    }
     if (BLOCKED_URL_SCHEMES.test(trimmed)) return false;
     try {
         const parsed = new URL(trimmed);
@@ -25,6 +33,14 @@ export function isSafeForumAttachmentUrl(url: string): boolean {
     } catch {
         return false;
     }
+}
+
+/** غلاف مجموعة/صورة عرض — يُرفض إن لم يكن رابط مرفق آمناً */
+export function sanitizeForumCoverImage(url: string | null | undefined): string | null {
+    const trimmed = typeof url === 'string' ? url.trim() : '';
+    if (!trimmed) return null;
+    if (!isSafeForumAttachmentUrl(trimmed)) return null;
+    return trimmed.slice(0, 2_000);
 }
 
 export function isSafeRepositorySharePath(storagePath: string): boolean {

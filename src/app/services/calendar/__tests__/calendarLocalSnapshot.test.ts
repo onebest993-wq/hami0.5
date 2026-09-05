@@ -3,10 +3,10 @@ import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     CALENDAR_LOCAL_STORAGE_KEY,
     readLocalCalendarSnapshotSync,
-    hasLocalCalendarSnapshot,
-    mirrorCalendarEventsToLocalStorage,
+    peekLocalCalendarSnapshotSync,
     clearCalendarEventsLocalStorageMirror,
 } from '@/app/services/calendar/calendarLocalSnapshot';
+import { CALENDAR_TOMBSTONES_STORAGE_KEY } from '@/app/services/calendar/calendarStorageKeys';
 import { BOOT_SHELL_WARM_KEYS } from '@/app/services/dossierPersistence/protectedStorageKeys';
 
 const USER = 'lawyer-test-1';
@@ -64,7 +64,6 @@ describe('calendarLocalSnapshot', () => {
         const events = readLocalCalendarSnapshotSync(USER);
         expect(events).toHaveLength(1);
         expect(events[0]?.id).toBe('ev-1');
-        expect(hasLocalCalendarSnapshot(USER)).toBe(true);
         expect(localStorage.getItem(CALENDAR_LOCAL_STORAGE_KEY)).toBeNull();
         expect(secureMem.get(CALENDAR_LOCAL_STORAGE_KEY)).toBeTruthy();
     });
@@ -85,16 +84,15 @@ describe('calendarLocalSnapshot', () => {
             ]),
         );
         localStorage.setItem(
-            'hami:calendar:tombstones:v1',
+            CALENDAR_TOMBSTONES_STORAGE_KEY,
             JSON.stringify({
                 [USER]: [{ eventId: 'ev-deleted', deletedAt: '2026-01-02T00:00:00.000Z' }],
             }),
         );
 
         expect(readLocalCalendarSnapshotSync(USER)).toHaveLength(0);
-        expect(hasLocalCalendarSnapshot(USER)).toBe(false);
-        expect(localStorage.getItem('hami:calendar:tombstones:v1')).toBeNull();
-        expect(secureMem.get('hami:calendar:tombstones:v1')).toBeTruthy();
+        expect(localStorage.getItem(CALENDAR_TOMBSTONES_STORAGE_KEY)).toBeNull();
+        expect(secureMem.get(CALENDAR_TOMBSTONES_STORAGE_KEY)).toBeTruthy();
     });
 
     it('يقرأ من SecureStore sync cache عند غياب localStorage', () => {
@@ -118,16 +116,59 @@ describe('calendarLocalSnapshot', () => {
 
     it('مفتاح التقويم وشواهد القبر في قشرة الإقلاع — رادار الرئيسية يقرأ لقطة متزامنة', () => {
         expect([...BOOT_SHELL_WARM_KEYS]).toContain(CALENDAR_LOCAL_STORAGE_KEY);
-        expect([...BOOT_SHELL_WARM_KEYS]).toContain('hami:calendar:tombstones:v1');
+        expect([...BOOT_SHELL_WARM_KEYS]).toContain(CALENDAR_TOMBSTONES_STORAGE_KEY);
     });
 
-    it('mirrorCalendarEventsToLocalStorage يمحو المرآة الصريحة ولا يكتبها', () => {
+    it('يتجاهل الصفوف بلا تاريخ أو معرف', () => {
+        localStorage.setItem(
+            CALENDAR_LOCAL_STORAGE_KEY,
+            JSON.stringify([
+                {
+                    id: 'ev-ok',
+                    userId: USER,
+                    title: 'جلسة',
+                    date: '2026-06-01',
+                    type: 'hearing',
+                    createdAt: '2026-01-01T00:00:00.000Z',
+                    updatedAt: '2026-01-01T00:00:00.000Z',
+                },
+                { id: 'ev-nodate', userId: USER, title: 'فاسد' },
+                { userId: USER, title: 'بلا معرف', date: '2026-06-02' },
+                null,
+            ]),
+        );
+
+        const events = readLocalCalendarSnapshotSync(USER);
+        expect(events).toHaveLength(1);
+        expect(events[0]?.id).toBe('ev-ok');
+    });
+
+    it('peek يقرأ المرآة دون ترحيل أو مسح', () => {
+        const payload = JSON.stringify([
+            {
+                id: 'ev-peek',
+                userId: USER,
+                title: 'جلسة',
+                date: '2026-06-01',
+                type: 'hearing',
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+        ]);
+        localStorage.setItem(CALENDAR_LOCAL_STORAGE_KEY, payload);
+
+        const events = peekLocalCalendarSnapshotSync(USER);
+        expect(events).toHaveLength(1);
+        expect(events[0]?.id).toBe('ev-peek');
+        expect(localStorage.getItem(CALENDAR_LOCAL_STORAGE_KEY)).toBe(payload);
+        expect(secureMem.get(CALENDAR_LOCAL_STORAGE_KEY)).toBeUndefined();
+    });
+
+    it('clearCalendarEventsLocalStorageMirror يمحو المرآة الصريحة', () => {
         const payload = JSON.stringify([
             { id: 'ev-m', userId: USER, title: 'x', date: '2026-06-01', type: 'custom', createdAt: '', updatedAt: '' },
         ]);
         localStorage.setItem(CALENDAR_LOCAL_STORAGE_KEY, payload);
-        mirrorCalendarEventsToLocalStorage(payload);
-        expect(localStorage.getItem(CALENDAR_LOCAL_STORAGE_KEY)).toBeNull();
         clearCalendarEventsLocalStorageMirror();
         expect(localStorage.getItem(CALENDAR_LOCAL_STORAGE_KEY)).toBeNull();
     });

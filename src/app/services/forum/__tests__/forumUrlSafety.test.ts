@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRepositoryPublicFileUrl, isSafeForumAttachmentUrl, isSafeRepositorySharePath } from '@/app/services/forum/forumUrlSafety';
+import { buildRepositoryPublicFileUrl, isSafeForumAttachmentUrl, isSafeRepositorySharePath, sanitizeForumCoverImage } from '@/app/services/forum/forumUrlSafety';
 
 describe('forumUrlSafety', () => {
     it('يرفض javascript و data:text/html و file:', () => {
@@ -17,6 +17,8 @@ describe('forumUrlSafety', () => {
         expect(isSafeForumAttachmentUrl('data:audio/webm;base64,aaa')).toBe(true);
         expect(isSafeForumAttachmentUrl('idb:forum:abc')).toBe(true);
         expect(isSafeForumAttachmentUrl('users/u1/drafts/a.jpg')).toBe(true);
+        expect(isSafeForumAttachmentUrl('//evil.example/x.png')).toBe(false);
+        expect(isSafeForumAttachmentUrl('users/../etc/passwd')).toBe(false);
     });
 
     it('يرفض مسارات مشاركة خبيثة ويبني رابطاً آمناً', () => {
@@ -30,5 +32,12 @@ describe('forumUrlSafety', () => {
     it('يرفض data:image/svg+xml لأنها قابلة لحقن سكربت', () => {
         expect(isSafeForumAttachmentUrl('data:image/svg+xml;base64,PHN2Zy8+')).toBe(false);
         expect(isSafeForumAttachmentUrl('DATA:IMAGE/SVG+XML,<svg></svg>')).toBe(false);
+    });
+
+    it('يعقّم غلاف المجموعة', () => {
+        expect(sanitizeForumCoverImage('javascript:alert(1)')).toBeNull();
+        expect(sanitizeForumCoverImage('//cdn.evil/x')).toBeNull();
+        expect(sanitizeForumCoverImage('https://cdn.example/cover.jpg')).toBe('https://cdn.example/cover.jpg');
+        expect(sanitizeForumCoverImage('  ')).toBeNull();
     });
 });

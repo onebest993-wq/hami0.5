@@ -12,7 +12,13 @@ export type ForumRateAction =
     | 'group_join'
     | 'bookmark'
     | 'mute'
-    | 'comment_mutate';
+    | 'comment_mutate'
+    | 'group_create'
+    | 'pin'
+    | 'search'
+    | 'repository'
+    | 'repository_mutate'
+    | 'repository_read';
 
 type RateLimitRule = {
     scope: string;
@@ -57,6 +63,24 @@ function rulesForAction(action: ForumRateAction): RateLimitRule[] {
             return [{ scope: 'forum:mute:min', maxRequests: 30, windowMs: 60_000 }];
         case 'comment_mutate':
             return [{ scope: 'forum:comment_mutate:min', maxRequests: 40, windowMs: 60_000 }];
+        case 'group_create':
+            return [
+                { scope: 'forum:group_create:burst', maxRequests: 1, windowMs: 20_000 },
+                { scope: 'forum:group_create:hour', maxRequests: 8, windowMs: 60 * 60_000 },
+            ];
+        case 'pin':
+            return [{ scope: 'forum:pin:min', maxRequests: 30, windowMs: 60_000 }];
+        case 'search':
+            return [{ scope: 'forum:search:min', maxRequests: 40, windowMs: 60_000 }];
+        case 'repository':
+            return [
+                { scope: 'forum:repository:burst', maxRequests: 1, windowMs: 20_000 },
+                { scope: 'forum:repository:hour', maxRequests: 20, windowMs: 60 * 60_000 },
+            ];
+        case 'repository_mutate':
+            return [{ scope: 'forum:repository_mutate:min', maxRequests: 40, windowMs: 60_000 }];
+        case 'repository_read':
+            return [{ scope: 'forum:repository_read:min', maxRequests: 120, windowMs: 60_000 }];
         default:
             return [];
     }

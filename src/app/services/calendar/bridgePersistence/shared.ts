@@ -1,19 +1,28 @@
 
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
-import { loadLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
-import { applyLawsuitMonolithicMergeToSegments } from '@/app/domain/lawsuit/lawsuitSegmentStorage';
+import { persistLawsuitActiveBundle } from '@/app/domain/lawsuit/lawsuitDurabilityGate';
+import {
+    readLawsuitActiveSegment,
+    readLawsuitArchivedSegment,
+    readLawsuitLifecycleIndex,
+    readLawsuitTrashSegment,
+} from '@/app/domain/lawsuit/lawsuitSegmentPersist';
+import { buildLawsuitLifecycleIndex } from '@/app/domain/lawsuit/lawsuitLifecycleIndex';
+import { readLawsuitDossierTombstoneIds } from '@/app/utils/lawsuitDossierTombstones';
+import type { FileData } from '@/app/domain/lawsuit/lawsuitFileTypes';
 import { loadGlobalNotesRaw, saveGlobalNotesRaw } from '@/app/utils/globalNotesStorage';
 import {
+    persistQuantumTasksSync,
     QUANTUM_TASKS_STORAGE_KEY,
     deserializeQuantumTasks,
-    serializeQuantumTasks,
 } from '@/app/utils/quantumTasksStorage';
+import { QUANTUM_TASKS_CHANGED_EVENT } from '@/app/utils/quantumTasksEvents';
 import { UrgentActionsDB } from '@/app/services/urgent-actions-db';
 import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
 import { debug } from '@/app/utils/debug';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
 import type { CalendarSourceModule } from '@/app/services/calendarBridge.types';
-import { FIRST_HEARING_TIMELINE_APPT_ID } from '@/app/domain/lawsuit/lawsuitFileFactory';
+import { FIRST_HEARING_TIMELINE_APPT_ID } from '@/app/domain/lawsuit/firstHearingTimelineId';
 export {
     CALENDAR_SOURCE_PATCHED_EVENT,
     isBridgedCalendarEvent,
@@ -182,7 +191,6 @@ export async function patchThreadingTaskDeadline(
         await TransactionsThreadingDB.saveState(uid, {
             transactions: state.transactions,
             tasks,
-            financeRecords: [],
             documents: state.documents,
         });
         return true;
@@ -200,19 +208,32 @@ export function patchLawsuitStorage(
     fileId: string,
     mutator: (file: Record<string, unknown>) => Record<string, unknown>,
 ): boolean {
-    const files = loadLawsuitFilesRaw();
-    const idx = files.findIndex((f) => fileIdMatch(f, fileId));
+    const id = String(fileId ?? '').trim();
+    if (!id) return false;
+    try {
+        if (readLawsuitDossierTombstoneIds().has(id)) return false;
+    } catch {
+        /* شواهد باردة — لا تُحيِ محذوفاً من المرآة */
+    }
+    const active = readLawsuitActiveSegment();
+    const idx = active.findIndex((f) => fileIdMatch(f, fileId));
     if (idx < 0) return false;
-    const row = files[idx];
+    const row = active[idx];
     if (!row || typeof row !== 'object') return false;
-    const next = [...files];
-    next[idx] = mutator({ ...(row as Record<string, unknown>) });
-    /*
-     * سابقاً: مرآة monolithic فقط → المقاطع تكتب فوقها وتُضيّع تعديل التقويم.
-     * الآن: دمج إلى المقاطع (مرآة + جدولة تثبيت قرص).
-     */
-    applyLawsuitMonolithicMergeToSegments(next as never[]);
-    return true;
+    const nextActive = [...active];
+    nextActive[idx] = mutator({ ...(row as unknown as Record<string, unknown>) }) as unknown as FileData;
+    const archived = readLawsuitArchivedSegment();
+    const trash = readLawsuitTrashSegment();
+    const index =
+        readLawsuitLifecycleIndex() ??
+        buildLawsuitLifecycleIndex(nextActive, archived, trash);
+    const written = persistLawsuitActiveBundle({
+        active: nextActive,
+        index,
+        archived,
+        trash,
+    });
+    return written.ok;
 }
 
 function mapStages(
@@ -224,33 +245,6 @@ function mapStages(
         if (!s || typeof s !== 'object') return s;
         return mapStage({ ...(s as Record<string, unknown>) });
     });
-}
-
-export async function patchTransactionStep(
-    userId: string,
-    transactionId: string,
-    stepId: string,
-    patch: { appointmentDate?: string | null; appointmentTime?: string | null; label?: string },
-): Promise<boolean> {
-    try {
-        const uid = resolveCalendarUserId(userId);
-        const { TransactionDB } = await import('@/app/services/cloud/lawyerTransactionsCloud');
-        const list = (await TransactionDB.getTransactions(uid)) as Array<Record<string, unknown>>;
-        const idx = list.findIndex((t) => String(t.id) === String(transactionId));
-        if (idx < 0) return false;
-        const tx = list[idx];
-        const steps = Array.isArray(tx.steps) ? [...(tx.steps as unknown[])] : [];
-        const sIdx = steps.findIndex((s) => s && typeof s === 'object' && String((s as { id?: unknown }).id) === String(stepId));
-        if (sIdx < 0) return false;
-        const step = { ...(steps[sIdx] as Record<string, unknown>), ...patch };
-        steps[sIdx] = step;
-        const updated = { ...tx, steps, updatedAt: new Date().toISOString() };
-        await TransactionDB.updateTransaction({ ...updated, userId: uid } as Parameters<typeof TransactionDB.updateTransaction>[0]);
-        return true;
-    } catch (err) {
-        debug.warn('[CalendarBridgePersistence] transaction patch failed:', err);
-        return false;
-    }
 }
 
 export function applyLawsuitCalendarUpdate(
@@ -461,7 +455,14 @@ export function patchFieldTaskDue(
             }
         }
         tasks[idx] = t;
-        persistenceRepository.save(QUANTUM_TASKS_STORAGE_KEY, serializeQuantumTasks(tasks));
+        if (!persistQuantumTasksSync(tasks)) return false;
+        try {
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent(QUANTUM_TASKS_CHANGED_EVENT));
+            }
+        } catch {
+            /* ignore */
+        }
         return true;
     } catch (err) {
         debug.warn('[CalendarBridgePersistence] field task patch failed:', err);

@@ -5,6 +5,7 @@ import {
     invalidateCalendarEventsCache,
     resetCalendarEventsCacheForTests,
     setCachedCalendarEvents,
+    subscribeCalendarEventsCache,
 } from '@/app/services/calendar/calendarEventsCache';
 import type { CalendarEvent } from '@/app/services/lawyer-cloud';
 
@@ -69,5 +70,15 @@ describe('calendarEventsCache', () => {
         setCachedCalendarEvents(USER, [sampleEvent('a')]);
         invalidateCalendarEventsCache(USER);
         expect(getCachedCalendarEvents(USER)).toBeNull();
+    });
+
+    it('subscribeCalendarEventsCache يُخطر عند الكتابة', () => {
+        const listener = vi.fn();
+        const unsub = subscribeCalendarEventsCache(listener);
+        setCachedCalendarEvents(USER, [sampleEvent('a')]);
+        expect(listener).toHaveBeenCalledTimes(1);
+        unsub();
+        setCachedCalendarEvents(USER, [sampleEvent('b')]);
+        expect(listener).toHaveBeenCalledTimes(1);
     });
 });

@@ -1,14 +1,10 @@
 import type { CommunityAttachment, CommunityComment, CommunityPost } from '@/app/services/forum/forumTypes';
+import { createForumEntityId } from '@/app/services/forum/forumEntityIdCore';
 import { isSafeForumAttachmentUrl } from '@/app/services/forum/forumUrlSafety';
-import { sanitizeForumPostContent } from '@/app/services/forum/forumInputSecurity';
+import { sanitizeForumPostContent, sanitizeForumTagsInput } from '@/app/services/forum/forumInputSecurity';
 
 /** معرّف خادم فقط — لا يُقبل معرّف من العميل في مسارات الإنشاء. */
-export function mintForumEntityId(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-        return crypto.randomUUID();
-    }
-    return `forum_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-}
+export const mintForumEntityId = createForumEntityId;
 
 export function isCloudForumStoragePath(path: string | undefined | null): boolean {
     const trimmed = path?.trim() ?? '';
@@ -60,7 +56,8 @@ export function sanitizeCommunityPostForCreate(post: CommunityPost, authorId: st
     const tags = Array.isArray(post.tags)
         ? post.tags
               .filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0)
-              .map((tag) => tag.trim())
+              .map((tag) => sanitizeForumTagsInput(tag))
+              .filter((tag) => tag.length > 0)
               .slice(0, 12)
         : [];
 

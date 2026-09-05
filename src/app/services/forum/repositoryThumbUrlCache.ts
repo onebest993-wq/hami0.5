@@ -8,7 +8,6 @@ function isRepositoryImage(doc: { mimeType?: string; fileName?: string }): boole
 
 async function resolveRepositoryThumbUrl(storagePath: string): Promise<string | null> {
     const { getForumBlobObjectUrl, parseForumIdbPath } = await import('@/app/services/forumBlobStore');
-    const { LawyerStorage } = await import('@/app/services/lawyer-cloud');
 
     const idbKey = parseForumIdbPath(storagePath);
     if (idbKey && !idbKey.startsWith('inline:')) {
@@ -16,6 +15,13 @@ async function resolveRepositoryThumbUrl(storagePath: string): Promise<string | 
         if (fromIdb) return fromIdb;
     }
     if (!storagePath.startsWith('idb:forum:')) {
+        const { signForumRepositoryDocumentUrl } = await import(
+            '@/app/services/forum/forumApi/forumApiRepository'
+        );
+        const shared = await signForumRepositoryDocumentUrl(storagePath);
+        if (shared) return shared;
+
+        const { LawyerStorage } = await import('@/app/services/lawyer-cloud');
         try {
             return await LawyerStorage.getSignedUrl(storagePath);
         } catch {

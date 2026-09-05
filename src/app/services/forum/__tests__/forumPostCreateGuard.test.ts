@@ -51,12 +51,31 @@ describe('sanitizeCommunityPostForCreate', () => {
         expect(safe.tags).toEqual(['قانون']);
     });
 
+    it('ينظّف وسوماً فيها أقواس HTML', () => {
+        const safe = sanitizeCommunityPostForCreate(buildPost({ tags: ['<b>قانون</b>'] }), 'user-1');
+        expect(safe.tags).toEqual(['bقانون/b']);
+    });
+
     it('يرفض مرفقات javascript:', () => {
         const safe = sanitizeCommunityPostForCreate(
             buildPost({
                 attachment: {
                     type: 'image',
                     url: 'javascript:alert(1)',
+                    name: 'x.png',
+                },
+            }),
+            'user-1',
+        );
+        expect(safe.attachment).toBeNull();
+    });
+
+    it('يرفض مرفقاً برابط بروتوكول نسبي', () => {
+        const safe = sanitizeCommunityPostForCreate(
+            buildPost({
+                attachment: {
+                    type: 'image',
+                    url: '//evil.example/x.png',
                     name: 'x.png',
                 },
             }),

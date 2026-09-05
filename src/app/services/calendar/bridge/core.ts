@@ -16,14 +16,6 @@ export function buildStableBridgeId(
     return `${BRIDGE_ID_PREFIX}_${safe(sourceModule)}_${safe(sourceEntityId)}_${safe(sourceEventId)}`;
 }
 
-function stableBridgeId(
-    sourceModule: string,
-    sourceEntityId: string,
-    sourceEventId: string,
-): string {
-    return buildStableBridgeId(sourceModule, sourceEntityId, sourceEventId);
-}
-
 /** يستخرج معرّف المحامي من الجلسة المحفوظة أو يستخدم معرّف التطوير */
 export function resolveCalendarUserId(preferred?: string | null): string {
     if (preferred && String(preferred).trim()) return String(preferred).trim();
@@ -51,10 +43,6 @@ export function resolveCalendarUserId(preferred?: string | null): string {
     return '';
 }
 
-/** معرّف موحّد للتقويم — يُستخدم في كل الأقسام */
-export const getCanonicalCalendarUserId = resolveCalendarUserId;
-
-/** YYYY-MM-DD من ISO أو نص محلي */
 /**
  * يُطبّع تواريخ متعدّدة الصيغ إلى YYYY-MM-DD بـ Asia/Baghdad.
  *

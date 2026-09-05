@@ -3,11 +3,6 @@ import { resolveLawyerDisplayName } from '@/app/services/profile/resolveLawyerDi
 const DISPLAY_NAME_CACHE_TTL_MS = 60_000;
 const displayNameCache = new Map<string, { name: string; expiresAt: number }>();
 
-/** للاختبارات فقط */
-export function resetForumAuthorResolverCacheForTests(): void {
-    displayNameCache.clear();
-}
-
 function readCachedName(userId: string): string | undefined {
     const cached = displayNameCache.get(userId);
     if (!cached) return undefined;

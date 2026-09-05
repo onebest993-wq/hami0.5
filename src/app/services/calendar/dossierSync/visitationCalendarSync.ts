@@ -1,9 +1,16 @@
-import { normalizeDateToYmd } from '@/app/services/calendar/bridge';
+import { normalizeDateToYmd } from '@/app/services/calendar/bridge/core';
 import { getLocalTodayYmd } from '@/app/utils/localYmd';
-import { isRecord, readStr } from './shared';
 
-/** معرّف ثابت — موعد مشاهدة واحد قادم لكل إضبارة تنفيذ، بلا إغراق الجدول المولَّد */
-export const EXECUTION_VISIT_NEXT_EVENT_ID = 'visit_next';
+export { EXECUTION_VISIT_NEXT_EVENT_ID } from './executionVisitNextEventId';
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+    return Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+}
+
+function readStr(o: Record<string, unknown>, key: string): string {
+    const v = o[key];
+    return typeof v === 'string' ? v.trim() : '';
+}
 
 type NextVisitation = {
     date: string;

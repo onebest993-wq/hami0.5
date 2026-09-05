@@ -1,9 +1,6 @@
 /**
- * مزامنة منهجية: أي موعد/تاريخ في إضبارة (دعوى، تنفيذ، مستعجل، معاملة، جزائي، Threading)
- * يُرفع إلى التقويم المركزي عبر معرّف ثابت — لا ربط عشوائي لكل زر على حدة.
- *
- * النقاط هنا: Threading + خطوات المعاملات القديمة (steps.appointmentDate).
- * المستعجل/ميدان/ملاحظات: مساراتها في urgentSync / incrementalSync.
+ * مزامنة منهجية: مواعيد/مهل Threading الحيّة، ولقطة خطوات المعاملات القديمة
+ * (steps.appointmentDate) للاختبارات ومسح الجسور — المسار الحيّ لا يستدعي اللقطة.
  */
 import {
     CalendarBridge,
@@ -16,24 +13,6 @@ import { TransactionTaskStatus } from '@/app/modules/transactionsThreading/types
 import { debug } from '@/app/utils/debug';
 import type { DossierSyncStats } from './types';
 import { isRecord, readStr } from './shared';
-import { readSecureOrDrainLegacySync } from '@/app/services/storage/readSecureOrDrainLegacySync';
-
-const TRANSACTIONS_LOCAL_KEY = 'hami:transactions:v1';
-
-/** قراءة محلية خفيفة — بدون سحابة في المسار الساخن للتقويم */
-export function loadTransactionsLocalForCalendar(userId: string): unknown[] {
-    const uid = String(userId ?? '').trim();
-    if (!uid) return [];
-    try {
-        const raw = readSecureOrDrainLegacySync(TRANSACTIONS_LOCAL_KEY);
-        if (!raw?.trim()) return [];
-        const parsed: unknown = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return [];
-        return parsed.filter((t) => isRecord(t) && String(t.userId ?? '') === uid);
-    } catch {
-        return [];
-    }
-}
 
 function stepAppointmentYmd(step: Record<string, unknown>): string | null {
     const raw = step.appointmentDate;
@@ -83,15 +62,6 @@ export function syncTransactionsCalendarSnapshot(
             });
             stats.transactionSteps++;
         }
-    }
-}
-
-export async function syncTransactions(userId: string, stats: DossierSyncStats): Promise<void> {
-    const uid = resolveCalendarUserId(userId);
-    try {
-        syncTransactionsCalendarSnapshot(uid, loadTransactionsLocalForCalendar(uid), stats);
-    } catch (err) {
-        debug.warn('[calendarDossierSync] transactions sync failed:', err);
     }
 }
 

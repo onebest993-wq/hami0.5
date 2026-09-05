@@ -37,9 +37,11 @@ export function pruneOrphanedBridgeEvents(userId?: string | null): void {
 
 export function syncLawsuitTimelineAppointment(
     p: Parameters<DossierSyncModule['syncLawsuitTimelineAppointment']>[0],
-): void {
-    void loadDossierSync()
-        .then((m) => m.syncLawsuitTimelineAppointment(p))
+): Promise<void> {
+    return loadDossierSync()
+        .then((m) => {
+            m.syncLawsuitTimelineAppointment(p);
+        })
         .catch(() => undefined);
 }
 

@@ -19,7 +19,7 @@ describe('hami legal alarm wav', () => {
     it('ملف المنبّه القانوني PCM حقيقي في الويب وAndroid', () => {
         assertPcmWav(resolve(process.cwd(), 'public/sounds/hami_legal_alarm.wav'), 80_000);
         assertPcmWav(resolve(process.cwd(), 'android/app/src/main/res/raw/hami_legal_alarm.wav'), 80_000);
-        assertPcmWav(resolve(process.cwd(), 'public/sounds/hami_arrival.wav'), 4_000);
-        assertPcmWav(resolve(process.cwd(), 'android/app/src/main/res/raw/hami_arrival.wav'), 4_000);
+        assertPcmWav(resolve(process.cwd(), 'public/sounds/hami_arrival.wav'), 20_000);
+        assertPcmWav(resolve(process.cwd(), 'android/app/src/main/res/raw/hami_arrival.wav'), 20_000);
     });
 });

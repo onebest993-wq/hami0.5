@@ -6,7 +6,7 @@ import {
 
 const MARK_PREFIX = 'hami:forum:';
 
-export type ForumPerfPhase = 'open-request' | 'first-paint' | 'interactive' | 'chunk-ready';
+type ForumPerfPhase = 'open-request' | 'first-paint' | 'interactive' | 'chunk-ready';
 
 export type { ForumPerfReportContext };
 
@@ -37,13 +37,6 @@ export function getForumOpenToInteractiveMs(): number | null {
     const interactive = performance.getEntriesByName(`${MARK_PREFIX}interactive`, 'mark')[0];
     if (!open || !interactive) return null;
     return Math.round(interactive.startTime - open.startTime);
-}
-
-export function reportForumPerfIfDev(context?: string): void {
-    if (!import.meta.env.DEV) return;
-    const ms = getForumOpenToInteractiveMs();
-    if (ms == null) return;
-    debug.log(`[ForumPerf] open→interactive ${ms}ms`, context ?? '');
 }
 
 /** DEV: log — PROD (مع DSN): Sentry breadcrumb + metric */

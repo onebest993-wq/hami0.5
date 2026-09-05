@@ -1,5 +1,13 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
+vi.mock('@/app/services/secureApiNetworkFeatures', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/app/services/secureApiNetworkFeatures')>();
+    return {
+        ...actual,
+        canReachProtectedServerNetwork: () => true,
+    };
+});
+
 vi.mock('@/app/services/SecureAPIClient', () => ({
     SecureAPIClient: {
         fetchSecureResponse: vi.fn(() =>

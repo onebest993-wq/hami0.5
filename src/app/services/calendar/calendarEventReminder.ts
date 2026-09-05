@@ -8,10 +8,16 @@ export const CALENDAR_REMINDER_OPTIONS_MINUTES = [5, 10, 15, 30, 60] as const;
 
 export type CalendarReminderMinutes = (typeof CALENDAR_REMINDER_OPTIONS_MINUTES)[number];
 
-/** نافذة إطلاق التذكير — 5 دقائق لتفادي فوات الفحص */
-export const CALENDAR_REMINDER_FIRE_WINDOW_MS = 5 * 60_000;
-
 const firedReminderKeys = new Set<string>();
+
+/** HH:mm أو HH:mm:ss — بدون لاحقة :00 التي تفسد الوقت المخزَّن بالثواني */
+function parseCalendarDateTime(date: string, time: string | undefined): Date | null {
+    const ymd = date?.trim().slice(0, 10);
+    const match = time?.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+    if (!ymd || !match) return null;
+    const parsed = new Date(`${ymd}T${match[1].padStart(2, '0')}:${match[2]}:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
 
 export function formatCalendarReminderLabel(minutes: number): string {
     if (minutes >= 60 && minutes % 60 === 0) {
@@ -50,15 +56,12 @@ export function computeCalendarReminderFireAt(
     time: string | undefined,
     minutesBefore: number | null | undefined,
 ): Date | null {
-    const ymd = date?.trim().slice(0, 10);
-    const hm = time?.trim();
     const lead = minutesBefore ?? 0;
-    if (!ymd || !hm || lead <= 0) return null;
-
-    const fire = new Date(`${ymd}T${hm}:00`);
-    if (Number.isNaN(fire.getTime())) return null;
-    fire.setMinutes(fire.getMinutes() - lead);
-    return fire;
+    if (lead <= 0) return null;
+    const start = parseCalendarDateTime(date, time);
+    if (!start) return null;
+    start.setMinutes(start.getMinutes() - lead);
+    return start;
 }
 
 export function isCalendarReminderKeyFired(key: string): boolean {
@@ -106,9 +109,10 @@ export function scanAndFireCalendarReminders(
         const minutes = event.reminderMinutesBefore;
         if (!minutes || minutes <= 0) continue;
         const fireAt = computeCalendarReminderFireAt(event.date, event.time, minutes);
-        if (!fireAt) continue;
+        const eventStart = parseCalendarDateTime(event.date, event.time);
+        if (!fireAt || !eventStart) continue;
         const fireMs = fireAt.getTime();
-        if (nowMs < fireMs || nowMs > fireMs + CALENDAR_REMINDER_FIRE_WINDOW_MS) continue;
+        if (nowMs < fireMs || nowMs >= eventStart.getTime()) continue;
 
         const key = buildCalendarReminderKey(event.id, event.date, event.time ?? '', minutes);
         if (options?.isSnoozed?.(key)) continue;

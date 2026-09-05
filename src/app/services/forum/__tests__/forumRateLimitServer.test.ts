@@ -45,4 +45,16 @@ describe('checkForumActionRateLimit (server)', () => {
             scope: 'forum:report',
         }));
     });
+
+    it('يطبق قواعد إنشاء المجموعة والتثبيت', async () => {
+        expect(await checkForumActionRateLimit('user-1', 'group_create')).toBe(true);
+        expect(consumeRateLimitSlotMock).toHaveBeenCalledWith('user-1', expect.objectContaining({
+            scope: 'forum:group_create:burst',
+        }));
+        consumeRateLimitSlotMock.mockClear();
+        expect(await checkForumActionRateLimit('user-1', 'pin')).toBe(true);
+        expect(consumeRateLimitSlotMock).toHaveBeenCalledWith('user-1', expect.objectContaining({
+            scope: 'forum:pin:min',
+        }));
+    });
 });

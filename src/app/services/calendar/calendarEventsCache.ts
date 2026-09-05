@@ -7,6 +7,19 @@ type CacheEntry = {
 
 const memoryByUser = new Map<string, CacheEntry>();
 const inFlightByUser = new Map<string, Promise<CalendarEvent[]>>();
+const cacheListeners = new Set<() => void>();
+
+function notifyCalendarEventsCacheListeners(): void {
+    for (const listener of cacheListeners) listener();
+}
+
+/** إشعار خفيف عند امتلاء الكاش — قشرة الفتح ترسم نقاط الأسبوع دون قراءة SecureStore */
+export function subscribeCalendarEventsCache(listener: () => void): () => void {
+    cacheListeners.add(listener);
+    return () => {
+        cacheListeners.delete(listener);
+    };
+}
 
 function eventsSignature(events: CalendarEvent[]): string {
     if (events.length === 0) return '0';
@@ -36,16 +49,19 @@ export function setCachedCalendarEvents(userId: string, events: CalendarEvent[])
         events,
         contentSig: eventsSignature(events),
     });
+    notifyCalendarEventsCacheListeners();
 }
 
 export function invalidateCalendarEventsCache(userId?: string): void {
     if (userId) {
         memoryByUser.delete(userId);
         inFlightByUser.delete(userId);
+        notifyCalendarEventsCacheListeners();
         return;
     }
     memoryByUser.clear();
     inFlightByUser.clear();
+    notifyCalendarEventsCacheListeners();
 }
 
 /**
@@ -86,5 +102,6 @@ export function dedupeCalendarGetEvents(
 
 /** للاختبارات */
 export function resetCalendarEventsCacheForTests(): void {
+    cacheListeners.clear();
     invalidateCalendarEventsCache();
 }

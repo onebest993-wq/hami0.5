@@ -55,10 +55,3 @@ export async function readForumSocialCache(userId: string): Promise<{
         followers: warmedFollowers ?? [],
     };
 }
-
-export function resetForumSocialCacheForTests(): void {
-    warmedFollowing = null;
-    warmedFollowers = null;
-    warmPromise = null;
-    warmedUserId = null;
-}
