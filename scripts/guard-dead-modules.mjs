@@ -203,9 +203,19 @@ if (process.argv.includes('--list')) for (const f of dead) console.log(`  ${f}`)
 console.log(`[dead modules] scanned ${graph.size} modules, reachable ${seen.size}, dead ${dead.length}`);
 
 fs.mkdirSync(path.dirname(BASELINE), { recursive: true });
-if (process.argv.includes('--save') || !fs.existsSync(BASELINE)) {
+if (process.argv.includes('--save')) {
     fs.writeFileSync(BASELINE, `${JSON.stringify({ savedAt: new Date().toISOString(), count: dead.length, dead }, null, 2)}\n`);
     console.log(`[dead modules] baseline saved: ${dead.length}`);
+    process.exit(0);
+}
+
+if (!fs.existsSync(BASELINE)) {
+    if (process.env.CI === 'true') {
+        console.error('[dead modules] FAIL on CI — no baseline found. Run locally with --save, commit the .audit file, then re-run CI.');
+        process.exit(1);
+    }
+    fs.writeFileSync(BASELINE, `${JSON.stringify({ savedAt: new Date().toISOString(), count: dead.length, dead }, null, 2)}\n`);
+    console.log(`[dead modules] baseline saved (local auto-init): ${dead.length}`);
     process.exit(0);
 }
 

@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-09-05T21:55:07.690Z",
+  "generatedAt": "2026-09-05T22:11:38.532Z",
   "seeds": 35,
   "missingSeeds": [],
   "totals": {
     "closureFiles": 5315,
     "inventoryFiles": 1890,
     "gapsNotAudited": 4085,
-    "gapLines": 419581,
+    "gapLines": 419587,
     "hotGaps": 991,
     "hotGapLines": 105164,
     "unreachableInInventory": 701,
@@ -12742,6 +12742,11 @@
       "lines": 150
     },
     {
+      "path": "src/app/components/lawyer/ExecutionDashboard/components/EvictionResidentialGraceFollowupModal.tsx",
+      "depth": 8,
+      "lines": 149
+    },
+    {
       "path": "src/app/components/lawyer/RoyalLawyerProfile/components/settings/ProfileCanvasBackgroundEditor.tsx",
       "depth": 8,
       "lines": 149
@@ -12755,11 +12760,6 @@
       "path": "src/app/components/lawyer/SmartVaultModal/SmartVaultScannerPanel.tsx",
       "depth": 8,
       "lines": 148
-    },
-    {
-      "path": "src/app/components/lawyer/ExecutionDashboard/components/EvictionResidentialGraceFollowupModal.tsx",
-      "depth": 8,
-      "lines": 147
     },
     {
       "path": "src/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileDisplayCustomization.ts",
@@ -12977,6 +12977,11 @@
       "lines": 121
     },
     {
+      "path": "src/app/components/lawyer/ExecutionDashboard/components/EvictionExpenseFollowupModal.tsx",
+      "depth": 8,
+      "lines": 120
+    },
+    {
       "path": "src/app/components/lawyer/smart-modal/smartFile/requestsHubEngine.ts",
       "depth": 8,
       "lines": 120
@@ -12990,11 +12995,6 @@
       "path": "src/app/components/lawyer/dashboard/schedule/DashboardTabSurface.tsx",
       "depth": 8,
       "lines": 120
-    },
-    {
-      "path": "src/app/components/lawyer/ExecutionDashboard/components/EvictionExpenseFollowupModal.tsx",
-      "depth": 8,
-      "lines": 118
     },
     {
       "path": "src/app/components/lawyer/criminal-system/casePhaseResolveCore.ts",
@@ -13022,6 +13022,11 @@
       "lines": 115
     },
     {
+      "path": "src/app/components/lawyer/ExecutionDashboard/components/EvictionLawyerFeeFollowupModal.tsx",
+      "depth": 8,
+      "lines": 114
+    },
+    {
       "path": "src/app/components/lawyer/criminal-system/stageFinalDecisionTypes.ts",
       "depth": 8,
       "lines": 114
@@ -13040,11 +13045,6 @@
       "path": "src/app/components/lawyer/criminal-system/stageFinalDecisionBadge.ts",
       "depth": 8,
       "lines": 113
-    },
-    {
-      "path": "src/app/components/lawyer/ExecutionDashboard/components/EvictionLawyerFeeFollowupModal.tsx",
-      "depth": 8,
-      "lines": 112
     },
     {
       "path": "src/app/components/lawyer/criminal-system/juvenileMixedCaseSplitEngine.ts",

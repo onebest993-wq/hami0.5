@@ -146,7 +146,7 @@ if (missing) {
 }
 
 fs.mkdirSync(path.dirname(BASELINE), { recursive: true });
-if (process.argv.includes('--save') || !fs.existsSync(BASELINE)) {
+if (process.argv.includes('--save')) {
     const budgets = Object.fromEntries(
         Object.entries(measured).map(([k, v]) => [k, { maxKb: Math.round(v.kb + SLACK_KB), modules: v.modules }]),
     );
@@ -155,6 +155,25 @@ if (process.argv.includes('--save') || !fs.existsSync(BASELINE)) {
         `${JSON.stringify({ savedAt: new Date().toISOString(), slackKb: SLACK_KB, budgets }, null, 2)}\n`,
     );
     console.log('[screen-closure] baseline saved:');
+    for (const [k, v] of Object.entries(measured)) {
+        console.log(`  ${v.kb} KB (${v.modules} modules)  ${k}`);
+    }
+    process.exit(0);
+}
+
+if (!fs.existsSync(BASELINE)) {
+    if (process.env.CI === 'true') {
+        console.error('[screen-closure] FAIL on CI — no baseline found. Run locally with --save, commit the .audit file, then re-run CI.');
+        process.exit(1);
+    }
+    const budgets = Object.fromEntries(
+        Object.entries(measured).map(([k, v]) => [k, { maxKb: Math.round(v.kb + SLACK_KB), modules: v.modules }]),
+    );
+    fs.writeFileSync(
+        BASELINE,
+        `${JSON.stringify({ savedAt: new Date().toISOString(), slackKb: SLACK_KB, budgets }, null, 2)}\n`,
+    );
+    console.log('[screen-closure] baseline saved (local auto-init):');
     for (const [k, v] of Object.entries(measured)) {
         console.log(`  ${v.kb} KB (${v.modules} modules)  ${k}`);
     }

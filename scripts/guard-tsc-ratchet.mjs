@@ -71,13 +71,27 @@ if (forbiddenHits.length) {
     process.exit(1);
 }
 
-if (process.argv.includes('--save') || !existsSync(join(ROOT, BASELINE))) {
+if (process.argv.includes('--save')) {
     writeFileSync(
         join(ROOT, BASELINE),
         JSON.stringify({ savedAt: new Date().toISOString(), total, perCode, perFile }, null, 2),
         'utf8',
     );
     console.log(`[tsc ratchet] baseline saved: ${total} errors across ${Object.keys(perFile).length} files`);
+    process.exit(0);
+}
+
+if (!existsSync(join(ROOT, BASELINE))) {
+    if (process.env.CI === 'true') {
+        console.error('[tsc ratchet] FAIL on CI — no baseline found. Run locally with --save, commit the .audit file, then re-run CI.');
+        process.exit(1);
+    }
+    writeFileSync(
+        join(ROOT, BASELINE),
+        JSON.stringify({ savedAt: new Date().toISOString(), total, perCode, perFile }, null, 2),
+        'utf8',
+    );
+    console.log(`[tsc ratchet] baseline saved (local auto-init): ${total} errors across ${Object.keys(perFile).length} files`);
     process.exit(0);
 }
 

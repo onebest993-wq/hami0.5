@@ -18,6 +18,10 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(ROOT, 'dist');
 
 if (!fs.existsSync(DIST)) {
+    if (process.env.CI === 'true') {
+        console.error('[guard-dist-no-sourcemaps] FAIL — dist/ missing on CI (build step must run before this guard).');
+        process.exit(1);
+    }
     console.log('[guard-dist-no-sourcemaps] dist غير موجود — تخطٍّ');
     process.exit(0);
 }

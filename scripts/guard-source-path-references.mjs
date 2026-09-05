@@ -84,13 +84,27 @@ const BASELINE = path.join(ROOT, '.audit', 'source-path-refs-baseline.json');
 const current = [...broken.keys()].sort();
 
 fs.mkdirSync(path.dirname(BASELINE), { recursive: true });
-if (process.argv.includes('--save') || !fs.existsSync(BASELINE)) {
+if (process.argv.includes('--save')) {
     const detail = Object.fromEntries([...broken].map(([k, v]) => [k, [...v].sort()]));
     fs.writeFileSync(
         BASELINE,
         `${JSON.stringify({ savedAt: new Date().toISOString(), count: current.length, broken: current, referrers: detail }, null, 2)}\n`,
     );
     console.log(`[source-path-refs] baseline saved: ${current.length}`);
+    process.exit(0);
+}
+
+if (!fs.existsSync(BASELINE)) {
+    if (process.env.CI === 'true') {
+        console.error('[source-path-refs] FAIL on CI — no baseline found. Run locally with --save, commit the .audit file, then re-run CI.');
+        process.exit(1);
+    }
+    const detail = Object.fromEntries([...broken].map(([k, v]) => [k, [...v].sort()]));
+    fs.writeFileSync(
+        BASELINE,
+        `${JSON.stringify({ savedAt: new Date().toISOString(), count: current.length, broken: current, referrers: detail }, null, 2)}\n`,
+    );
+    console.log(`[source-path-refs] baseline saved (local auto-init): ${current.length}`);
     process.exit(0);
 }
 

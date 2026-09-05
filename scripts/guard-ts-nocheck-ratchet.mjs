@@ -52,13 +52,27 @@ for (const dir of SCAN_DIRS) {
 offenders.sort();
 
 const save = process.argv.includes('--save');
-if (save || !existsSync(join(ROOT, BASELINE))) {
+if (save) {
     writeFileSync(
         join(ROOT, BASELINE),
         JSON.stringify({ savedAt: new Date().toISOString(), count: offenders.length, files: offenders }, null, 2),
         'utf8',
     );
     console.log(`[ts-nocheck ratchet] baseline saved: ${offenders.length} files`);
+    process.exit(0);
+}
+
+if (!existsSync(join(ROOT, BASELINE))) {
+    if (process.env.CI === 'true') {
+        console.error('[ts-nocheck ratchet] FAIL on CI — no baseline found. Run locally with --save, commit the .audit file, then re-run CI.');
+        process.exit(1);
+    }
+    writeFileSync(
+        join(ROOT, BASELINE),
+        JSON.stringify({ savedAt: new Date().toISOString(), count: offenders.length, files: offenders }, null, 2),
+        'utf8',
+    );
+    console.log(`[ts-nocheck ratchet] baseline saved (local auto-init): ${offenders.length} files`);
     process.exit(0);
 }
 

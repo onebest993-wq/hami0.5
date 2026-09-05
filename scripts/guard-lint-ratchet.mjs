@@ -76,7 +76,7 @@ for (const file of results) {
 
 const totalErrors = Object.values(byRule).reduce((s, n) => s + n, 0);
 
-if (process.argv.includes('--save') || !existsSync(join(ROOT, BASELINE))) {
+if (process.argv.includes('--save')) {
     writeFileSync(
         join(ROOT, BASELINE),
         JSON.stringify(
@@ -87,6 +87,24 @@ if (process.argv.includes('--save') || !existsSync(join(ROOT, BASELINE))) {
         'utf8',
     );
     console.log(`[lint ratchet] baseline saved: ${totalErrors} errors across ${Object.keys(byRule).length} rules`);
+    process.exit(0);
+}
+
+if (!existsSync(join(ROOT, BASELINE))) {
+    if (process.env.CI === 'true') {
+        console.error('[lint ratchet] FAIL on CI — no baseline found. Run locally with --save, commit the .audit file, then re-run CI.');
+        process.exit(1);
+    }
+    writeFileSync(
+        join(ROOT, BASELINE),
+        JSON.stringify(
+            { savedAt: new Date().toISOString(), totalErrors, byRule, crashFiles: Object.keys(crashFiles).sort() },
+            null,
+            2,
+        ),
+        'utf8',
+    );
+    console.log(`[lint ratchet] baseline saved (local auto-init): ${totalErrors} errors across ${Object.keys(byRule).length} rules`);
     process.exit(0);
 }
 

@@ -152,6 +152,9 @@ jobs:
       - name: No new lint errors, no new Rules-of-Hooks violations
         run: npm run guard:lint
 
+      - name: Security test suite (wife validator, CSRF, CSP, red team, kv-proxy, upload sanitizer)
+        run: npm run test:security
+
       - name: No newly failing tests
         run: npm run guard:tests
 
@@ -217,3 +220,36 @@ jobs:
             .audit/vitest-run.json
           if-no-files-found: ignore
           retention-days: 7
+
+  e2e-boot-fail-closed:
+    name: Boot E2E — fail-closed auth shell (VITE_SHELL_AUTH_OPEN=false)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: gate
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: E2E build (SHELL_AUTH_OPEN=false — must still boot structurally)
+        env:
+          VITE_SUPABASE_URL: https://ci-hami-gate.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjaS1oYW1pLWdhdGUifQ.ci-hami-quality-gate-anon-key
+          VITE_SHELL_AUTH_OPEN: 'false'
+          VITE_BFF_AUTH: 'true'
+        run: npm run build:e2e
+
+      - name: Boot E2E (smoke + full path probe under fail-closed auth)
+        env:
+          E2E_SKIP_BUILD: '1'
+        run: npm run test:e2e:boot

@@ -96,12 +96,25 @@ if (process.argv.includes('--list')) {
 console.log(`[duplicate logic] ${clones.length} cloned function(s), ${wastedBytes.toLocaleString('en-US')} excess bytes`);
 
 fs.mkdirSync(path.dirname(BASELINE), { recursive: true });
-if (process.argv.includes('--save') || !fs.existsSync(BASELINE)) {
+if (process.argv.includes('--save')) {
     fs.writeFileSync(
         BASELINE,
         `${JSON.stringify({ savedAt: new Date().toISOString(), count: clones.length, wastedBytes, keys: clones.map((c) => c.key).sort() }, null, 2)}\n`,
     );
     console.log(`[duplicate logic] baseline saved: ${clones.length} clone(s)`);
+    process.exit(0);
+}
+
+if (!fs.existsSync(BASELINE)) {
+    if (process.env.CI === 'true') {
+        console.error('[duplicate logic] FAIL on CI — no baseline found. Run locally with --save, commit the .audit file, then re-run CI.');
+        process.exit(1);
+    }
+    fs.writeFileSync(
+        BASELINE,
+        `${JSON.stringify({ savedAt: new Date().toISOString(), count: clones.length, wastedBytes, keys: clones.map((c) => c.key).sort() }, null, 2)}\n`,
+    );
+    console.log(`[duplicate logic] baseline saved (local auto-init): ${clones.length} clone(s)`);
     process.exit(0);
 }
 

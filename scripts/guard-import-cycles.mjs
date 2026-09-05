@@ -289,13 +289,27 @@ if (groups.length && !process.argv.includes('--list')) {
 
 fs.mkdirSync(path.dirname(BASELINE), { recursive: true });
 
-if (process.argv.includes('--save') || !fs.existsSync(BASELINE)) {
+if (process.argv.includes('--save')) {
     fs.writeFileSync(
         BASELINE,
         JSON.stringify({ savedAt: new Date().toISOString(), ...summary, groups }, null, 2),
         'utf8',
     );
     console.log(`\n[import cycles] baseline saved: ${summary.cycleGroups} group(s), ${filesInCycles} file(s)`);
+    process.exit(0);
+}
+
+if (!fs.existsSync(BASELINE)) {
+    if (process.env.CI === 'true') {
+        console.error('\n[import cycles] FAIL on CI — no baseline found. Run locally with --save, commit the .audit file, then re-run CI.');
+        process.exit(1);
+    }
+    fs.writeFileSync(
+        BASELINE,
+        JSON.stringify({ savedAt: new Date().toISOString(), ...summary, groups }, null, 2),
+        'utf8',
+    );
+    console.log(`\n[import cycles] baseline saved (local auto-init): ${summary.cycleGroups} group(s), ${filesInCycles} file(s)`);
     process.exit(0);
 }
 

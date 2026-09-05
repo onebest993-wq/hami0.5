@@ -188,6 +188,10 @@ if (SAVE) {
 }
 
 if (!fs.existsSync(BASELINE)) {
+    if (process.env.CI === 'true') {
+        console.error('[dead exports] FAIL on CI — no baseline found. Run locally with --save, commit the .audit file, then re-run CI.');
+        process.exit(1);
+    }
     console.log('[dead exports] no baseline — run with --save to lock in the current count');
     process.exit(0);
 }

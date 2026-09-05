@@ -71,13 +71,27 @@ const summary = {
     numFailedTestSuites: report.numFailedTestSuites ?? 0,
 };
 
-if (process.argv.includes('--save') || !existsSync(join(ROOT, BASELINE))) {
+if (process.argv.includes('--save')) {
     writeFileSync(
         join(ROOT, BASELINE),
         JSON.stringify({ savedAt: new Date().toISOString(), ...summary, failures }, null, 2),
         'utf8',
     );
     console.log(`[test ratchet] baseline saved: ${failures.length} failing tests of ${summary.numTotalTests}`);
+    process.exit(0);
+}
+
+if (!existsSync(join(ROOT, BASELINE))) {
+    if (process.env.CI === 'true') {
+        console.error('[test ratchet] FAIL on CI — no baseline found. Run locally with --save, commit the .audit file, then re-run CI.');
+        process.exit(1);
+    }
+    writeFileSync(
+        join(ROOT, BASELINE),
+        JSON.stringify({ savedAt: new Date().toISOString(), ...summary, failures }, null, 2),
+        'utf8',
+    );
+    console.log(`[test ratchet] baseline saved (local auto-init): ${failures.length} failing tests of ${summary.numTotalTests}`);
     process.exit(0);
 }
 
