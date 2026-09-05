@@ -1,5 +1,5 @@
 /**
- * تحضير كروم المنزل تحت الغطاء — يُحمَّل من preamble فقط.
+ * تحضير كروم المنزل تحت الغطاء — يُحمَّل من preamble فقط.
  * ليس داخل lawyer-home-paint: HomeTab يقرأ الحالة من homeBootChromeState.
  */
 import {
@@ -15,6 +15,8 @@ import {
     markHomeBootChromePrepared,
     resetHomeBootChromeForTests as resetHomeBootChromeStateForTests,
 } from '@/app/bootstrap/homeBootChromeState';
+import { BOOT_REVEAL_DONE_EVENT } from '@/app/bootstrap/bootReveal';
+import { peekBootSessionPeekSync } from '@/boot/peekBootSessionUserId';
 
 export {
     isHomeBootChromeReady,
@@ -30,30 +32,102 @@ export function resetHomeBootChromeForTests(): void {
     resetHomeBootChromeStateForTests();
 }
 
+const DATA_HAMI_ATTRS: MutationObserverInit['attributeFilter'] = [
+    'data-hami-boot-revealed',
+    'data-hami-theme',
+    'data-hami-wallpaper',
+    'data-hami-home-container-border',
+    'data-hami-color-mode',
+    'data-hami-shape',
+    'data-hami-native',
+    'data-hami-initial-boot',
+];
+
+/**
+ * انتظار حتى ينتهي تسخين الملف أو انتهاء المهلة — عبر أحداث لا busy-polling.
+ *
+ * قبل: while(isPending) { await sleep(16ms) } — 60 wakeup/ثانية على Main Thread.
+ * الآن: استماع لـ LAWYER_PROFILE_UPDATED + BOOT_REVEAL_DONE_EVENT + MutationObserver
+ *       على data-hami-* attrs، مع مهلة صارمة كحارس أخير بنفس maxMs الأصلي.
+ * النتيجة: 0 wakeups — يستيقظ فقط عند حدوث تغير فعلي أو انتهاء المهلة.
+ */
 async function waitWhileProfileWarmPending(maxMs: number): Promise<void> {
+    if (!isLawyerProfileBootWarmPending()) return;
     const started = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    while (isLawyerProfileBootWarmPending()) {
-        const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-        if (now - started >= maxMs) return;
-        await new Promise<void>((resolve) => {
-            setTimeout(resolve, 16);
-        });
-    }
+    await new Promise<void>((resolve) => {
+        let done = false;
+        const finish = () => {
+            if (done) return;
+            done = true;
+            window.removeEventListener(LAWYER_PROFILE_UPDATED, check);
+            window.removeEventListener(BOOT_REVEAL_DONE_EVENT, check);
+            if (observer) observer.disconnect();
+            resolve();
+        };
+        const check = () => {
+            const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+            if (!isLawyerProfileBootWarmPending() || now - started >= maxMs) {
+                finish();
+            }
+        };
+        const observer =
+            typeof MutationObserver !== 'undefined' && typeof document !== 'undefined'
+                ? new MutationObserver(check)
+                : null;
+        if (observer && document.documentElement) {
+            observer.observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: DATA_HAMI_ATTRS,
+            });
+        }
+        window.addEventListener(LAWYER_PROFILE_UPDATED, check, { passive: true });
+        window.addEventListener(BOOT_REVEAL_DONE_EVENT, check, { once: true, passive: true });
+        setTimeout(check, maxMs);
+    });
 }
 
+/**
+ * نفس النمط event-driven: انتظار حتى يصبح الملف المحلي مقروءاً.
+ * استبدال while+16ms بـ MutationObserver + events + timeout guard.
+ * لا يختبر الشرط إلا عند حدوث تغير فعلي — 0 ضجيج على Main Thread.
+ */
 async function waitWhileLocalProfileUnread(maxMs: number): Promise<void> {
-    const session = await peekBootSession();
+    const session = peekBootSessionPeekSync();
     const uid = session?.userId?.trim();
     if (!uid) return;
     const { isLawyerProfileLocalUnread } = await import('@/app/services/profile/lawyerProfileLocalRead');
+    if (!isLawyerProfileLocalUnread(uid)) return;
     const started = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    while (isLawyerProfileLocalUnread(uid)) {
-        const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-        if (now - started >= maxMs) return;
-        await new Promise<void>((resolve) => {
-            setTimeout(resolve, 16);
-        });
-    }
+    await new Promise<void>((resolve) => {
+        let done = false;
+        const finish = () => {
+            if (done) return;
+            done = true;
+            window.removeEventListener(LAWYER_PROFILE_UPDATED, check);
+            window.removeEventListener(BOOT_REVEAL_DONE_EVENT, check);
+            if (observer) observer.disconnect();
+            resolve();
+        };
+        const check = () => {
+            const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+            if (!isLawyerProfileLocalUnread(uid) || now - started >= maxMs) {
+                finish();
+            }
+        };
+        const observer =
+            typeof MutationObserver !== 'undefined' && typeof document !== 'undefined'
+                ? new MutationObserver(check)
+                : null;
+        if (observer && document.documentElement) {
+            observer.observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: DATA_HAMI_ATTRS,
+            });
+        }
+        window.addEventListener(LAWYER_PROFILE_UPDATED, check, { passive: true });
+        window.addEventListener(BOOT_REVEAL_DONE_EVENT, check, { once: true, passive: true });
+        setTimeout(check, maxMs);
+    });
 }
 
 function notifyProfileChromeUpdated(userId: string): void {
@@ -65,21 +139,8 @@ function notifyProfileChromeUpdated(userId: string): void {
     }
 }
 
-async function peekBootSession(): Promise<{
-    userId?: string;
-    userMetadata?: Record<string, unknown>;
-} | null> {
-    const { peekBootSessionPeekSync } = await import('@/boot/peekBootSessionUserId');
-    const session = peekBootSessionPeekSync();
-    if (!session) return null;
-    return {
-        userId: session.userId,
-        userMetadata: session.userMetadata ?? undefined,
-    };
-}
-
 async function prepareIdentityChrome(): Promise<void> {
-    const session = await peekBootSession();
+    const session = peekBootSessionPeekSync();
     const uid = session?.userId?.trim();
     if (!uid) return;
 
@@ -103,7 +164,6 @@ async function prepareIdentityChrome(): Promise<void> {
     const avatarUrl = sanitizeProfileMediaUrl(cached?.header?.profileImage) ?? '';
     const displayName =
         resolveFirstPaintLawyerDisplayName(cached?.header?.name, uid, session?.userMetadata) || '';
-    /* لقطة ذرّية من peek — بلا انتظار img ولا فك الملف. الاسم الفارغ حساب جديد جاهز للحرف. */
     const settledName = displayName.trim();
     publishUserIdentityUiState({
         userId: uid,
@@ -155,11 +215,11 @@ async function prepareLiveHomeModules(): Promise<void> {
 
 /** تسخين رادار المنزل تحت الغطاء — لا يُنتظر ولا يحجب markPrepared. */
 function kickHomeHubRadarWarm(): void {
-    void peekBootSession()
-        .then(async (session) => {
-            const uid = session?.userId?.trim();
-            if (!uid) return;
-            const { warmHomeHubRadarCache } = await import('@/app/services/alerts/homeHubRadarWarmCache');
+    const session = peekBootSessionPeekSync();
+    const uid = session?.userId?.trim();
+    if (!uid) return;
+    void import('@/app/services/alerts/homeHubRadarWarmCache')
+        .then(({ warmHomeHubRadarCache }) => {
             warmHomeHubRadarCache(uid);
         })
         .catch(() => undefined);
@@ -171,8 +231,8 @@ function markPrepared(): void {
 
 /**
  * يُستدعى من preamble بعد بدء تسخين الملف — لا بعد انتهائه.
- * مقاطع المنزل تُحمَّل فوراً تحت الغطاء بينما تُنشر لقطة الهوية من peek.
- * فك الملف المحلي يُغني الاسم بعد الكشف. بطاقة المركز تُسخَّن دون حجب الكروم.
+ * مقاطع المنزل تُحمَّل فوراً تحت الغطاء بينما تُنشر لقطة الهوية من peek.
+ * فك الملف المحلي يُغني الاسم بعد الكشف. بطاقة المركز تُسخَّن دون حجب الكروم.
  */
 export function prepareHomeBootChrome(): Promise<void> {
     if (isHomeBootChromePrepared()) return Promise.resolve();
