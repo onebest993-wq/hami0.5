@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { HOME_HUB_FULLY_EMPTY_COPY, HOME_HUB_PANEL_LABELS } from '@/app/services/alerts/homeHubCardLogic';
+import { LoadingSkeleton } from '@/app/components/ui/LoadingStates';
 import { peekHomeHubBootHasItems } from './peekHomeHubBootHasItems';
 import { HomeHubEmptyState } from './HomeHubEmptyState';
 
@@ -15,7 +16,7 @@ export function HomeHubCardSkeleton({
     onActivate?: () => void;
 } = {}): React.ReactElement {
     const interactive = Boolean(onActivate);
-    const hasItems = peekHomeHubBootHasItems();
+    const hasItems = useMemo(peekHomeHubBootHasItems, []);
     return (
         <section
             data-hami-block="alerts"
@@ -57,11 +58,17 @@ export function HomeHubCardSkeleton({
                 className="hami-hub-readable-panels hami-hub-card-body--feed"
                 data-testid="home-hub-skeleton-empty"
             >
-                <HomeHubEmptyState
-                    message={HOME_HUB_FULLY_EMPTY_COPY}
-                    testId="home-hub-skeleton-empty-copy"
-                    compact
-                />
+                {hasItems ? (
+                    <div className="hami-hub-empty hami-hub-empty--compact min-h-[44px] flex items-center px-3">
+                        <LoadingSkeleton lines={3} className="w-full" />
+                    </div>
+                ) : (
+                    <HomeHubEmptyState
+                        message={HOME_HUB_FULLY_EMPTY_COPY}
+                        testId="home-hub-skeleton-empty-copy"
+                        compact
+                    />
+                )}
             </div>
         </section>
     );
