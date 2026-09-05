@@ -10,6 +10,7 @@ const config: CapacitorConfig = {
     webDir: 'dist',
     server: {
         androidScheme: 'https',
+        allowNavigation: [],
     },
     ios: {
         contentInset: 'automatic',
@@ -18,6 +19,8 @@ const config: CapacitorConfig = {
     android: {
         allowMixedContent: false,
         backgroundColor: '#0A0F1C',
+        hardwareAccelerated: true,
+        webContentsDebuggingEnabled: false,
     },
     plugins: {
         SplashScreen: {

@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * قالب native-ready — يطابق MainActivity الإنتاجي (حدث HamiBoot، طبقة شعار، بلا poll).
  */
 public class MainActivity extends BridgeActivity {
-    private static final long SAFETY_FAILSAFE_MS = 8_000L;
+    private static final long SAFETY_FAILSAFE_MS = 29_000L;
     private static final int BOOT_OVERLAY_FADE_MS = 150;
     private static final int BOOT_NAVY = Color.parseColor("#0A0F1C");
 

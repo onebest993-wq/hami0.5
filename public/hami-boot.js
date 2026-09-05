@@ -308,7 +308,7 @@
     layer.id = 'hami-boot-failure';
     layer.setAttribute('data-testid', 'hami-boot-failure');
     layer.style.cssText =
-      'position:fixed;inset:0;z-index:99999;background:#000;display:none;align-items:center;justify-content:center;padding:24px;direction:rtl;';
+      'position:fixed;inset:0;z-index:99999;background:#0a0f1c;display:none;align-items:center;justify-content:center;padding:24px;direction:rtl;';
     document.body.appendChild(layer);
     return layer;
   }
