@@ -1,10 +1,17 @@
 /**
  * كان مسحاً واحداً لكل أضابير المحامي — استُبدل بأوراق مجال منفصلة.
  * يبقى الملف كي لا تنكسر إشارات التجميع القديمة.
+ *
+ * ملاحظة: إعلانات @source الصريحة التالية مكرّرة في الملفات الفرعية
+ * (dossiers-execution / dossiers-criminal / dossiers-smart) عبر @import.
+ * تُكرّر هنا صراحة لتتطابق مع عقد الحارس guard-tailwind-source-surface
+ * الذي لا يوسّع سطور @import عند فحص النص الصريح للملفات الرئيسية الثلاث.
  */
 @source '../app/components/lawyer/ExecutionDashboard/**';
 @source '../app/components/lawyer/criminal-system/**';
 @source '../app/components/lawyer/smart-modal/**';
+@source '../app/components/lawyer/dossier-notes/**';
+@source '../app/components/lawyer/execution/**';
 @import './tailwind-features-dossiers-execution.css';
 @import './tailwind-features-dossiers-criminal.css';
 @import './tailwind-features-dossiers-smart.css';
