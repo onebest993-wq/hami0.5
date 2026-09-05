@@ -1,8 +1,8 @@
 /**
  * تهيئة ما بعد أول بايت — SecureStore، إعدادات DOM، خلفية IndexedDB.
- * يُحمَّل ديناميكياً من index.tsx حتى لا يذوب داخل entry chunk.
+ * يُحمَّل ديناميكياً من index.tsx حتى لا يذوب داخل entry chunk.
  */
-import { applyBootSurfacePaintFromStorage } from '@/app/services/settings/bootSurfacePaintCache';
+import { readBootSurfacePaintCache } from '@/app/services/settings/bootSurfacePaintCache';
 import { kickoffBootShellSyncLite, getBootShellItemSync } from '@/boot/bootShellKickoff';
 
 export async function runBootEntryPreamble(): Promise<void> {
@@ -11,7 +11,7 @@ export async function runBootEntryPreamble(): Promise<void> {
     void import('@/app/runtime/deferredAppStyles').then((m) => m.ensureDeferredAppStylesLoaded());
     void import('@/app/runtime/overlayLayerHygiene').then((m) => m.bindOverlayLayerHygiene());
 
-    const bootPaintApplied = applyBootSurfacePaintFromStorage();
+    const bootPaintApplied = readBootSurfacePaintCache() !== null;
     const settingsSyncReady =
         getBootShellItemSync('lawyer_settings') !== null || getBootShellItemSync('lawyer_theme') !== null;
 

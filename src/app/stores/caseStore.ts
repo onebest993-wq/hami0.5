@@ -271,6 +271,10 @@ export const useCaseStore = create<CaseState>()(
         storageKey: CASE_STORE_KEY,
         version: CASE_STORE_PERSIST_VERSION,
       }),
+      partialize: (state) => ({
+        cases: state.cases,
+        selectedCaseId: state.selectedCaseId,
+      }),
     }
   )
 );
