@@ -2007,12 +2007,12 @@ export function bootSecureStoreShellSync(): void {
  * kickoffBootShellSync محمية بـ bootShellSyncDone داخلياً، لذا الاستدعاء المزدوج
  * (fallback + markBootRevealDone) آمن تماماً ولا يسبب تكرار الترحيل.
  */
-if (typeof window !== 'undefined' && !import.meta.env.VITEST) {
+if (typeof window !== 'undefined') {
     const fire = () => SecureStoreService.kickoffBootShellSync();
     if (typeof (globalThis as { requestIdleCallback?: unknown }).requestIdleCallback === 'function') {
         (globalThis as { requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback(fire, { timeout: 2000 });
     } else {
-        setTimeout(fire, 100);
+        setTimeout(fire, import.meta.env.VITEST ? 0 : 100);
     }
 }
 

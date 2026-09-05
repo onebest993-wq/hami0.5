@@ -20,8 +20,6 @@ export function resolveAmountGuarantorRequestVisible(input: AmountGuarantorVisib
     const balance = Math.max(0, Math.round(Number(input.financialCenterTotalIqd) || 0));
     if (balance <= 0) return false;
 
-    if (input.pendingSettlement) return true;
-
     const breachAt = String(input.settlementBreachTriggeredAt || '').trim();
     return Boolean(breachAt);
 }
