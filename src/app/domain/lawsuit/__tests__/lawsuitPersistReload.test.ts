@@ -57,7 +57,7 @@ describe('lawsuit persistence reload safety', () => {
         expect(lawsuitStorageMayHaveUnreadData(emptyLawsuitLifecycleIndex())).toBe(true);
     });
 
-    it('migrate uses monolithic fallback when segments cold but lawyer_files readable', async () => {
+    it('migrate does not import monolith while lawsuit segments are still unread', async () => {
         const { loadLawsuitFilesRaw } = await import('@/app/utils/lawsuitFilesStorage');
         await SecureStoreService.setItem(LAWSUIT_FILES_ACTIVE_KEY, JSON.stringify([]));
         await SecureStoreService.setItem(
@@ -72,8 +72,7 @@ describe('lawsuit persistence reload safety', () => {
         vi.mocked(loadLawsuitFilesRaw).mockReturnValue([file(7)]);
 
         const boot = migrateLawsuitMonolithicToSegmentsIfNeeded();
-        expect(boot.active).toHaveLength(1);
-        expect(boot.active[0]?.id).toBe(7);
+        expect(boot.active).toHaveLength(0);
     });
 
     it('loadInitialLawsuitFilesAsync awaits ensureLawsuitKeysReady before read', async () => {
@@ -334,8 +333,8 @@ describe('lawsuit persistence reload safety', () => {
     });
 
     it('archive last active file empties active segment on disk via verified empty', async () => {
-        const { applyLawsuitArchiveSegments } = await import(
-            '@/app/domain/lawsuit/lawsuitFilesSegmentMutations'
+        const { executeLawsuitLifecycleTransaction } = await import(
+            '@/app/domain/lawsuit/lawsuitLifecycleTransaction'
         );
         const { awaitLawsuitWorkspaceCommit } = await import(
             '@/app/domain/lawsuit/lawsuitPersistFlush'
@@ -351,19 +350,20 @@ describe('lawsuit persistence reload safety', () => {
         persistLawsuitLifecycleIndex(buildLawsuitLifecycleIndex([row], [], []));
         await awaitLawsuitWorkspaceCommit({ timeoutMs: 5_000, requireActiveFileId: 12 });
 
-        const next = applyLawsuitArchiveSegments(
+        const result = await executeLawsuitLifecycleTransaction(
             {
                 active: [row],
                 archived: [],
                 trash: [],
                 index: buildLawsuitLifecycleIndex([row], [], []),
             },
-            12,
+            'archive',
+            [12],
         );
+        expect(result.ok).toBe(true);
+        const next = result.next!;
         expect(next.active).toHaveLength(0);
         expect(next.archived).toHaveLength(1);
-        const commit = await awaitLawsuitWorkspaceCommit({ timeoutMs: 5_000 });
-        expect(commit.ok).toBe(true);
         SecureStoreService.dropMemoryMirrorsForTests([
             LAWSUIT_FILES_ACTIVE_KEY,
             LAWSUIT_FILES_ARCHIVED_KEY,

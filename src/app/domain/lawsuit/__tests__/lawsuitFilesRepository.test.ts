@@ -38,7 +38,8 @@ const file = (id: number, status: FileData['status'] = 'active'): FileData => ({
 });
 
 describe('lawsuitFilesRepository segments', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
+        await SecureStoreService.waitForAllPendingPersist();
         SecureStoreService.listKeysSync().forEach((k) => SecureStoreService.deleteItemSync(k));
     });
 
@@ -68,6 +69,30 @@ describe('lawsuitFilesRepository segments', () => {
         ready.mockRestore();
     });
 
+    it('loadInitialLawsuitFilesAsync لا يستورد المرآة فوق السلة', async () => {
+        const { loadLawsuitFilesRaw } = await import('@/app/utils/lawsuitFilesStorage');
+        const trashed = file(1, 'deleted');
+        SecureStoreService.setItemSync(LAWSUIT_FILES_ACTIVE_KEY, '[]', {
+            allowVerifiedEmptyOverwrite: true,
+            allowShrink: true,
+        });
+        SecureStoreService.setItemSync(LAWSUIT_FILES_TRASH_KEY, JSON.stringify([trashed]));
+        SecureStoreService.setItemSync(
+            LAWSUIT_FILES_INDEX_KEY,
+            JSON.stringify({
+                v: 1,
+                entries: { '1': { id: '1', status: 'deleted', updatedAt: 1 } },
+                counts: { active: 0, archived: 0, trash: 1 },
+            }),
+        );
+        vi.mocked(loadLawsuitFilesRaw).mockReturnValue([file(1)]);
+        const loaded = await loadInitialLawsuitFilesAsync();
+        expect(loaded).toHaveLength(0);
+        const activeRaw = SecureStoreService.getItemSync(LAWSUIT_FILES_ACTIVE_KEY);
+        const activeRows = activeRaw ? (JSON.parse(String(activeRaw)) as Array<{ id?: number }>) : [];
+        expect(activeRows.some((row) => Number(row.id) === 1)).toBe(false);
+    });
+
     it('applyLawsuitTrashSegments ينقل إلى مقطع trash', () => {
         const segments = {
             ...emptyLawsuitFileSegments(),
@@ -84,8 +109,9 @@ describe('lawsuitFilesRepository segments', () => {
         expect(next.trash).toHaveLength(1);
         expect(next.trash?.[0]?.status).toBe('deleted');
         expect(next.trash?.[0]?.deletedAt).toEqual(expect.any(Number));
-        expect(SecureStoreService.getItemSync(LAWSUIT_FILES_TRASH_KEY)).toBeTruthy();
-        expect(SecureStoreService.getItemSync(LAWSUIT_FILES_ACTIVE_KEY)).toBeTruthy();
+        /* الانتقال نقي؛ الكتابة مسؤولية lawsuitLifecycleTransaction فقط */
+        expect(SecureStoreService.getItemSync(LAWSUIT_FILES_TRASH_KEY)).toBeNull();
+        expect(SecureStoreService.getItemSync(LAWSUIT_FILES_ACTIVE_KEY)).toBeNull();
     });
 
     it('applyLawsuitRestoreFromTrashSegments يعيد إلى active', () => {
@@ -106,6 +132,23 @@ describe('lawsuitFilesRepository segments', () => {
         expect(next.trash).toHaveLength(0);
     });
 
+    it('الاستعادة النقية لا تكتب شاهد الحذف من داخل React updater', () => {
+        const trashed = { ...file(1), status: 'deleted' as const, deletedAt: Date.now() };
+        const segments = {
+            ...emptyLawsuitFileSegments(),
+            active: [],
+            trash: [trashed],
+            index: {
+                v: 1 as const,
+                entries: {},
+                counts: { active: 0, archived: 0, trash: 1 },
+            },
+        };
+        const next = applyLawsuitRestoreFromTrashSegments(segments, 1);
+        expect(next.active[0]?.id).toBe(1);
+        expect(next.trash).toEqual([]);
+    });
+
     it('applyLawsuitArchiveSegments ثم permanent delete من trash', () => {
         const active = {
             ...emptyLawsuitFileSegments(),
@@ -120,7 +163,7 @@ describe('lawsuitFilesRepository segments', () => {
         };
         const archived = applyLawsuitArchiveSegments(active, 1);
         expect(archived.archived).toHaveLength(1);
-        expect(SecureStoreService.getItemSync(LAWSUIT_FILES_ARCHIVED_KEY)).toBeTruthy();
+        expect(SecureStoreService.getItemSync(LAWSUIT_FILES_ARCHIVED_KEY)).toBeNull();
 
         const withTrash = applyLawsuitTrashSegments(
             { ...archived, trash: [] },
@@ -129,7 +172,7 @@ describe('lawsuitFilesRepository segments', () => {
         const remaining = applyLawsuitPermanentDeleteSegments(withTrash, [2]);
         expect(remaining.trash).toHaveLength(0);
         expect(remaining.active.some((f) => f.id === 2)).toBe(false);
-        expect(SecureStoreService.getItemSync(LAWSUIT_FILES_INDEX_KEY)).toBeTruthy();
+        expect(SecureStoreService.getItemSync(LAWSUIT_FILES_INDEX_KEY)).toBeNull();
     });
 });
 
@@ -140,10 +183,11 @@ describe('mirrorLawsuitSegmentsSafe (B2)', () => {
         const storage = fs.readFileSync(path.join(root, 'lawsuitSegmentStorage.ts'), 'utf8');
         const repo = fs.readFileSync(path.join(root, 'lawsuitFilesRepository.ts'), 'utf8');
         const mut = fs.readFileSync(path.join(root, 'lawsuitFilesSegmentMutations.ts'), 'utf8');
+        const tx = fs.readFileSync(path.join(root, 'lawsuitLifecycleTransaction.ts'), 'utf8');
         expect(persist).toContain('export function mirrorLawsuitSegmentsSafe');
         expect(storage).toContain('mirrorLawsuitSegmentsSafe');
         expect(repo).toContain('persistLawsuitActiveBundle');
-        expect(mut).toContain('persistLawsuitLifecycleMirrorBundle');
+        expect(tx).toContain('SecureStoreService.setItemsAtomically');
         expect(repo).not.toContain('function mirrorSegmentsSafe');
         expect(mut).not.toContain('function mirrorSegmentsSafe');
     });

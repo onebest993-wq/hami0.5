@@ -10,6 +10,11 @@ import {
 } from '@/app/services/dossierPersistence/dossierStorageKeys';
 import { persistLawsuitActiveBundle } from '@/app/domain/lawsuit/lawsuitDurabilityGate';
 import {
+    collectHeldOutOfActiveIds,
+    healLawsuitArchivedAgainstActive,
+    healLawsuitTrashAgainstActive,
+} from '@/app/domain/lawsuit/lawsuitFilesStatePolicy';
+import {
     persistLawsuitActiveSegment,
     persistLawsuitArchivedSegment,
     persistLawsuitTrashSegment,
@@ -25,6 +30,11 @@ import {
     type LawsuitLifecycleIndex,
 } from './lawsuitLifecycleIndex';
 import { isLawsuitArchived, isLawsuitInTrash } from '@/app/utils/lawsuitTrash';
+import {
+    areLawsuitDossierTombstonesUnreadSync,
+    excludeTombstonedLawsuitFiles,
+    readLawsuitDossierTombstoneIds,
+} from '@/app/utils/lawsuitDossierTombstones';
 
 export {
     mirrorLawsuitSegmentsSafe,
@@ -79,6 +89,48 @@ export function lawsuitStorageMayHaveUnreadData(index: LawsuitLifecycleIndex): b
     return index.counts.active > 0 || index.counts.archived > 0 || index.counts.trash > 0;
 }
 
+function keyOccupiedAndUnread(key: string): boolean {
+    return SecureStoreService.hasItemSync(key) && SecureStoreService.isUnreadSync(key);
+}
+
+/**
+ * النشط الفارغ بعد سلة/أرشيف ليس «خزنة ضائعة» تُستورد من lawyer_files.
+ * الاستيراد كان يعيد إضبارة محذوفة من مرآة/localStorage قديمة عند كل reload.
+ */
+export function shouldRefuseEmptyActiveMonolithRecovery(
+    index: LawsuitLifecycleIndex | null,
+): boolean {
+    if (areLawsuitDossierTombstonesUnreadSync()) return true;
+    if (
+        keyOccupiedAndUnread(LAWSUIT_FILES_ACTIVE_KEY) ||
+        keyOccupiedAndUnread(LAWSUIT_FILES_INDEX_KEY) ||
+        keyOccupiedAndUnread(LAWSUIT_FILES_ARCHIVED_KEY) ||
+        keyOccupiedAndUnread(LAWSUIT_FILES_TRASH_KEY) ||
+        keyOccupiedAndUnread(LAWSUIT_FILES_STORAGE_KEY)
+    ) {
+        return true;
+    }
+    if (index && (index.counts.trash > 0 || index.counts.archived > 0)) return true;
+    if (index) {
+        for (const entry of Object.values(index.entries)) {
+            if (entry.status === 'deleted' || entry.status === 'archived') return true;
+        }
+    }
+    if (
+        SecureStoreService.hasItemSync(LAWSUIT_FILES_TRASH_KEY) &&
+        readLawsuitTrashSegment().length > 0
+    ) {
+        return true;
+    }
+    if (
+        SecureStoreService.hasItemSync(LAWSUIT_FILES_ARCHIVED_KEY) &&
+        readLawsuitArchivedSegment().length > 0
+    ) {
+        return true;
+    }
+    return false;
+}
+
 export function segmentsAlreadyPresent(): boolean {
     const activeReadable = readLawsuitJsonArray(LAWSUIT_FILES_ACTIVE_KEY);
     const indexReadable = readLawsuitLifecycleIndex();
@@ -97,6 +149,17 @@ function persistLawsuitSegmentBundle(
     options?: { allowLifecycleRedistribute?: boolean },
 ): void {
     const redistribute = Boolean(options?.allowLifecycleRedistribute);
+    let nextActive = active;
+    /*
+     * إعادة التوزيع من السحابة/المرآة لا تُفرّغ النشط فوق قرص أغنى.
+     * ممنوع allowVerifiedEmpty على النشط هنا — كان يشرعن [] بعد held خاطئ.
+     */
+    if (redistribute && nextActive.length === 0) {
+        const diskActive = readLawsuitActiveSegment();
+        if (diskActive.length > 0) {
+            nextActive = diskActive;
+        }
+    }
     persistLawsuitArchivedSegment(archived, {
         allowVerifiedEmpty: redistribute && archived.length === 0,
         allowShrink: redistribute,
@@ -106,16 +169,18 @@ function persistLawsuitSegmentBundle(
         allowShrink: redistribute,
     });
     persistLawsuitActiveBundle({
-        active,
-        index,
+        active: nextActive,
+        index:
+            nextActive.length === active.length
+                ? index
+                : buildLawsuitLifecycleIndex(nextActive, archived, trash),
         archived,
         trash,
-        options: redistribute
-            ? {
-                  allowVerifiedEmpty: active.length === 0,
-                  allowShrink: true,
-              }
-            : undefined,
+        /*
+         * إعادة التوزيع من السحابة/المرآة: لا allowShrink أعمى —
+         * كان يكتب قائمة أفقر فوق أغنى عند قراءة sync مسمّمة.
+         * التقلّص العمدي يبقى لمسارات الأرشفة/السلة فقط.
+         */
     });
 }
 
@@ -135,14 +200,54 @@ export function migrateLawsuitMonolithicToSegmentsIfNeeded(): LawsuitBootState {
         const index = readLawsuitLifecycleIndex() ?? buildLawsuitLifecycleIndex(active, [], []);
 
         if (active.length === 0) {
+            /*
+             * شواهد غير مقروءة أو دورة حياة قائمة: لا تستورد المرآة —
+             * كانت تُعيد محذوفاً/منقولاً للسلة من lawyer_files القديم.
+             */
+            if (shouldRefuseEmptyActiveMonolithRecovery(index)) {
+                return { active, archived: null, trash: null, index, migrated: false };
+            }
             const monolithic = loadLawsuitFilesRaw() as FileData[];
             if (monolithic.length > 0) {
                 const split = splitMonolithic(monolithic);
-                active = split.active;
+                const diskTrash = readLawsuitTrashSegment();
+                const diskArchived = readLawsuitArchivedSegment();
+                const held = collectHeldOutOfActiveIds({
+                    trash: [...split.trash, ...diskTrash],
+                    archived: [...split.archived, ...diskArchived],
+                    index,
+                    preferActiveIds: active,
+                    includeTombstones: true,
+                });
+                let tombstoned = new Set<string>();
+                try {
+                    tombstoned = readLawsuitDossierTombstoneIds();
+                } catch {
+                    /* ignore */
+                }
+                active = excludeTombstonedLawsuitFiles(
+                    split.active.filter((f) => !held.has(String(f.id ?? '').trim())),
+                );
+                const healedArchivedRaw = [
+                    ...split.archived,
+                    ...diskArchived.filter(
+                        (f) => !split.archived.some((a) => String(a.id) === String(f.id)),
+                    ),
+                ].filter((f) => !tombstoned.has(String(f.id ?? '').trim()));
+                let healedTrash = [
+                    ...split.trash,
+                    ...diskTrash.filter(
+                        (f) => !split.trash.some((t) => String(t.id) === String(f.id)),
+                    ),
+                ].filter((f) => !tombstoned.has(String(f.id ?? '').trim()));
+                healedTrash = healLawsuitTrashAgainstActive(active, healedTrash) ?? healedTrash;
+                const healedArchived =
+                    healLawsuitArchivedAgainstActive(active, healedArchivedRaw) ??
+                    healedArchivedRaw;
                 const healedIndex = buildLawsuitLifecycleIndex(
-                    split.active,
-                    split.archived,
-                    split.trash,
+                    active,
+                    healedArchived,
+                    healedTrash,
                 );
                 /*
                  * عرض فقط حتى يستقر القرص. الكتابة هنا فوق ciphertext غير مقروء
@@ -150,13 +255,14 @@ export function migrateLawsuitMonolithicToSegmentsIfNeeded(): LawsuitBootState {
                  */
                 if (
                     !shouldSkipBootSegmentPersist() &&
-                    (active.length > 0 || split.archived.length > 0 || split.trash.length > 0)
+                    (active.length > 0 || healedArchived.length > 0 || healedTrash.length > 0)
                 ) {
                     persistLawsuitSegmentBundle(
-                        split.active,
-                        split.archived,
-                        split.trash,
+                        active,
+                        healedArchived,
+                        healedTrash,
                         healedIndex,
+                        { allowLifecycleRedistribute: true },
                     );
                 }
                 return {
@@ -166,6 +272,60 @@ export function migrateLawsuitMonolithicToSegmentsIfNeeded(): LawsuitBootState {
                     index: healedIndex,
                     migrated: false,
                 };
+            }
+        }
+
+        /* نشط غير فارغ: اشفِ تكرار السلة/الأرشيف أولاً — لا تفرّغ النشط بسبب صف مكرّر */
+        {
+            const diskTrash = readLawsuitTrashSegment();
+            const diskArchived = readLawsuitArchivedSegment();
+            const healedTrash = healLawsuitTrashAgainstActive(active, diskTrash);
+            const healedArchived = healLawsuitArchivedAgainstActive(active, diskArchived);
+            if (
+                healedTrash &&
+                healedTrash.length !== diskTrash.length &&
+                !shouldSkipBootSegmentPersist()
+            ) {
+                persistLawsuitTrashSegment(healedTrash, {
+                    allowShrink: true,
+                    allowVerifiedEmpty: healedTrash.length === 0,
+                });
+            }
+            if (
+                healedArchived &&
+                healedArchived.length !== diskArchived.length &&
+                !shouldSkipBootSegmentPersist()
+            ) {
+                persistLawsuitArchivedSegment(healedArchived, {
+                    allowShrink: true,
+                    allowVerifiedEmpty: healedArchived.length === 0,
+                });
+            }
+            const held = collectHeldOutOfActiveIds({
+                trash: healedTrash ?? diskTrash,
+                archived: healedArchived ?? diskArchived,
+                preferActiveIds: active,
+                includeTombstones: true,
+            });
+            if (held.size > 0) {
+                const cleaned = active.filter((f) => !held.has(String(f.id ?? '').trim()));
+                if (cleaned.length !== active.length) {
+                    /*
+                     * عرض فقط — لا تكتب تقلّص نشط من مسار الإقلاع/الترحيل.
+                     * الكتابة هنا كانت تثبّت wipe جزئياً عند كل reload.
+                     */
+                    return {
+                        active: cleaned,
+                        archived: null,
+                        trash: null,
+                        index: buildLawsuitLifecycleIndex(
+                            cleaned,
+                            healedArchived ?? diskArchived,
+                            healedTrash ?? diskTrash,
+                        ),
+                        migrated: false,
+                    };
+                }
             }
         }
 
@@ -216,6 +376,7 @@ export function loadLawsuitFullSegmentsFromStorage(): {
 /**
  * دمج حمولة (سحابة/تقويم/مرآة) مع المقاطع على القرص دون إسقاط معرّفات محلية.
  * الحمولة مصدر حقيقة لحالتها؛ ما ليس فيها يبقى في مقطعه على القرص.
+ * لا تُعاد إضبارة من السحابة إلى النشط إن كانت محلياً في السلة/الأرشيف.
  */
 export function unionLawsuitPayloadWithDiskSegments(payload: FileData[]): {
     active: FileData[];
@@ -225,19 +386,44 @@ export function unionLawsuitPayloadWithDiskSegments(payload: FileData[]): {
     const rows = Array.isArray(payload) ? payload : [];
     const split = splitMonolithic(rows);
     const payloadIds = new Set(rows.map((f) => String(f?.id ?? '')).filter(Boolean));
+    const diskTrash = readLawsuitTrashSegment();
+    const diskArchived = readLawsuitArchivedSegment();
+    const diskActive = readLawsuitActiveSegment();
+    const diskActiveIds = new Set(
+        diskActive.map((f) => String(f.id ?? '').trim()).filter(Boolean),
+    );
+    const preferActive = new Set(diskActiveIds);
+    const heldOutOfActive = collectHeldOutOfActiveIds({
+        trash: [...split.trash, ...diskTrash],
+        archived: [...split.archived, ...diskArchived],
+        preferActiveIds: preferActive,
+        includeTombstones: true,
+    });
+
+    const active = [
+        ...split.active.filter((f) => !heldOutOfActive.has(String(f.id ?? '').trim())),
+        ...diskActive.filter(
+            (f) =>
+                !payloadIds.has(String(f.id)) && !heldOutOfActive.has(String(f.id ?? '').trim()),
+        ),
+    ];
+    let archived = [
+        ...split.archived,
+        ...diskArchived.filter((f) => !payloadIds.has(String(f.id))),
+    ];
+    let trash = [
+        ...split.trash.filter((f) => !diskActiveIds.has(String(f.id ?? '').trim())),
+        ...diskTrash.filter(
+            (f) =>
+                !payloadIds.has(String(f.id)) && !diskActiveIds.has(String(f.id ?? '').trim()),
+        ),
+    ];
+    trash = healLawsuitTrashAgainstActive(active, trash) ?? trash;
+    archived = healLawsuitArchivedAgainstActive(active, archived) ?? archived;
     return {
-        active: [
-            ...split.active,
-            ...readLawsuitActiveSegment().filter((f) => !payloadIds.has(String(f.id))),
-        ],
-        archived: [
-            ...split.archived,
-            ...readLawsuitArchivedSegment().filter((f) => !payloadIds.has(String(f.id))),
-        ],
-        trash: [
-            ...split.trash,
-            ...readLawsuitTrashSegment().filter((f) => !payloadIds.has(String(f.id))),
-        ],
+        active: excludeTombstonedLawsuitFiles(active),
+        archived: excludeTombstonedLawsuitFiles(archived),
+        trash: excludeTombstonedLawsuitFiles(trash),
     };
 }
 
@@ -259,7 +445,7 @@ export function collectLawsuitLocalRowsForSync(): FileData[] {
         add(readLawsuitArchivedSegment());
         add(readLawsuitTrashSegment());
         add((loadLawsuitFilesRaw() as FileData[]) ?? []);
-        return out;
+        return excludeTombstonedLawsuitFiles(out);
     } catch {
         return [];
     }
@@ -277,6 +463,9 @@ export function applyLawsuitMonolithicMergeToSegments(merged: FileData[]): {
 } {
     const payload = Array.isArray(merged) ? merged : [];
     const current = loadLawsuitFullSegmentsFromStorage();
+    if (areLawsuitDossierTombstonesUnreadSync()) {
+        return current;
+    }
     const hasDisk =
         current.active.length > 0 ||
         current.archived.length > 0 ||
@@ -322,24 +511,28 @@ export function removeLawsuitSegmentRecords(
     segmentKey: typeof LAWSUIT_FILES_ACTIVE_KEY | typeof LAWSUIT_FILES_ARCHIVED_KEY | typeof LAWSUIT_FILES_TRASH_KEY,
     ids: Array<string | number>,
     current: FileData[],
-): FileData[] {
+): { next: FileData[]; ok: boolean } {
     const idSet = new Set(ids.map(String));
     const next = current.filter((f) => !idSet.has(String(f.id)));
+    if (next.length === current.length) {
+        return { next, ok: true };
+    }
+    let ok = false;
     if (segmentKey === LAWSUIT_FILES_ACTIVE_KEY) {
-        persistLawsuitActiveSegment(next, {
+        ok = persistLawsuitActiveSegment(next, {
             allowVerifiedEmpty: next.length === 0,
             allowShrink: true,
         });
     } else if (segmentKey === LAWSUIT_FILES_ARCHIVED_KEY) {
-        persistLawsuitArchivedSegment(next, {
+        ok = persistLawsuitArchivedSegment(next, {
             allowVerifiedEmpty: next.length === 0,
             allowShrink: true,
         });
     } else {
-        persistLawsuitTrashSegment(next, {
+        ok = persistLawsuitTrashSegment(next, {
             allowVerifiedEmpty: next.length === 0,
             allowShrink: true,
         });
     }
-    return next;
+    return { next, ok };
 }

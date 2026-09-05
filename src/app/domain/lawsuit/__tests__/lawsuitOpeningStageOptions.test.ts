@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
     computeOpeningDegreeOptions,
     computeOpeningLawsuitStageOptions,
-    OPENING_LATE_STAGE_OPTIONS,
     OPENING_STAGE_FIRST_DEGREE,
     OPENING_STAGE_LAST_DEGREE,
     parseLawsuitClaimValueAmount,
@@ -10,7 +9,7 @@ import {
 } from '../lawsuitStageOptions';
 
 describe('computeOpeningLawsuitStageOptions', () => {
-    it('يُبقي الاستئناف والطعون ويُظهر الدرجتين عند غياب القيمة', () => {
+    it('يخفي الاستئناف والاعتراض الغيابي ويبقي اعتراض الغير وإعادة المحاكمة', () => {
         const options = computeOpeningLawsuitStageOptions({
             claimValue: '',
             isUndeterminedValue: false,
@@ -20,15 +19,14 @@ describe('computeOpeningLawsuitStageOptions', () => {
         expect(options).toEqual([
             OPENING_STAGE_FIRST_DEGREE,
             OPENING_STAGE_LAST_DEGREE,
-            ...OPENING_LATE_STAGE_OPTIONS,
+            'اعتراض الغير',
+            'إعادة المحاكمة',
         ]);
-        expect(options).toContain('استئناف');
-        expect(options).toContain('اعتراض على الحكم الغيابي');
-        expect(options).toContain('اعتراض الغير');
-        expect(options).toContain('إعادة المحاكمة');
+        expect(options).not.toContain('استئناف');
+        expect(options).not.toContain('اعتراض على الحكم الغيابي');
     });
 
-    it('أقل من مليون أو غير مقدّرة أو رسم مقطوع → بدرجة أخيرة فقط مع الطعون', () => {
+    it('أقل من مليون أو غير مقدّرة أو رسم مقطوع → بدرجة أخيرة فقط', () => {
         expect(
             computeOpeningDegreeOptions({
                 claimValue: '444,444',
@@ -45,7 +43,7 @@ describe('computeOpeningLawsuitStageOptions', () => {
                 isFixedFee: false,
                 caseType: 'كمبيالة',
             }),
-        ).toEqual([OPENING_STAGE_LAST_DEGREE, ...OPENING_LATE_STAGE_OPTIONS]);
+        ).toEqual([OPENING_STAGE_LAST_DEGREE, 'اعتراض الغير', 'إعادة المحاكمة']);
 
         expect(
             computeOpeningDegreeOptions({
@@ -75,7 +73,7 @@ describe('computeOpeningLawsuitStageOptions', () => {
         ).toEqual([OPENING_STAGE_LAST_DEGREE]);
     });
 
-    it('أكثر من مليون دون استثناء → بدرجة أولى فقط مع الطعون', () => {
+    it('أكثر من مليون دون استثناء → بدرجة أولى فقط', () => {
         expect(
             computeOpeningDegreeOptions({
                 claimValue: '1,500,000',
@@ -91,7 +89,7 @@ describe('computeOpeningLawsuitStageOptions', () => {
                 isFixedFee: false,
                 caseType: 'تعويض',
             }),
-        ).toEqual([OPENING_STAGE_FIRST_DEGREE, ...OPENING_LATE_STAGE_OPTIONS]);
+        ).toEqual([OPENING_STAGE_FIRST_DEGREE, 'اعتراض الغير', 'إعادة المحاكمة']);
     });
 
     it('تخلي وشيوع → بدرجة أخيرة حتى لو القيمة عالية', () => {
@@ -105,8 +103,16 @@ describe('computeOpeningLawsuitStageOptions', () => {
         ).toEqual([OPENING_STAGE_LAST_DEGREE]);
     });
 
-    it('snapOpeningStageToDegrees لا يمسح الاستئناف ويُثبّت الدرجة الوحيدة', () => {
-        expect(snapOpeningStageToDegrees('استئناف', [OPENING_STAGE_LAST_DEGREE])).toBe('استئناف');
+    it('snapOpeningStageToDegrees يمسح الاستئناف والاعتراض الغيابي ويبقي اعتراض الغير', () => {
+        expect(snapOpeningStageToDegrees('استئناف', [OPENING_STAGE_LAST_DEGREE])).toBe(
+            OPENING_STAGE_LAST_DEGREE,
+        );
+        expect(snapOpeningStageToDegrees('اعتراض على الحكم الغيابي', [OPENING_STAGE_FIRST_DEGREE])).toBe(
+            OPENING_STAGE_FIRST_DEGREE,
+        );
+        expect(snapOpeningStageToDegrees('اعتراض الغير', [OPENING_STAGE_LAST_DEGREE])).toBe(
+            'اعتراض الغير',
+        );
         expect(snapOpeningStageToDegrees('إعادة المحاكمة', [OPENING_STAGE_FIRST_DEGREE])).toBe(
             'إعادة المحاكمة',
         );

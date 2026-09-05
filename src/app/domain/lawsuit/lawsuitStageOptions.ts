@@ -47,16 +47,10 @@ function forcesLastDegreeType(caseType: string): boolean {
     return caseType.includes('تخلي') || caseType.includes('شيوع');
 }
 
-/** طعون واستئناف تبقى في قائمة الفتح — الفلترة تخص درجتي البداءة فقط. */
-export const OPENING_LATE_STAGE_OPTIONS = [
-    'استئناف',
-    'اعتراض على الحكم الغيابي',
-    'اعتراض الغير',
-    'إعادة المحاكمة',
-] as const;
-
 /**
  * درجة البداءة عند الإنشاء: أولى أو أخيرة حصراً حسب القيمة.
+ * الاستئناف والاعتراض على الحكم الغيابي ليستا خياري فتح — يُرفعان من داخل الإضبارة.
+ * اعتراض الغير وإعادة المحاكمة تبقيان خياري إنشاء مستقلّين.
  * أقل من مليون / غير مقدّرة / رسم مقطوع / تخلي أو شيوع → بدرجة أخيرة فقط.
  * أكثر من مليون دون تلك الحالات → بدرجة أولى فقط.
  */
@@ -76,8 +70,15 @@ export function computeOpeningDegreeOptions(input: OpeningLawsuitStageInput): st
     return [OPENING_STAGE_FIRST_DEGREE, OPENING_STAGE_LAST_DEGREE];
 }
 
+/** طعون استثنائية تُفتح ملفاً جديداً — ليست استئنافاً ولا اعتراضاً غيابياً. */
+export const OPENING_EXTRAORDINARY_STAGES = ['اعتراض الغير', 'إعادة المحاكمة'] as const;
+
+export function isOpeningExtraordinaryStage(stage: string): boolean {
+    return (OPENING_EXTRAORDINARY_STAGES as readonly string[]).includes(stage);
+}
+
 export function computeOpeningLawsuitStageOptions(input: OpeningLawsuitStageInput): string[] {
-    return [...computeOpeningDegreeOptions(input), ...OPENING_LATE_STAGE_OPTIONS];
+    return [...computeOpeningDegreeOptions(input), ...OPENING_EXTRAORDINARY_STAGES];
 }
 
 export function isOpeningDegreeStage(stage: string): boolean {
@@ -86,11 +87,11 @@ export function isOpeningDegreeStage(stage: string): boolean {
 
 /**
  * يُثبّت درجة البداءة عندما لا يبقى إلا خيار واحد.
- * لا يمسّ الاستئناف أو الطعون الاستثنائية، ولا يختار مرحلة تلقائياً إن بقيت الدرجتان.
+ * يُبقي اعتراض الغير وإعادة المحاكمة. يمسح الاستئناف والاعتراض الغيابي من نموذج الفتح.
  */
 export function snapOpeningStageToDegrees(currentStage: string, degrees: string[]): string {
-    if (currentStage && !isOpeningDegreeStage(currentStage)) return currentStage;
+    if (isOpeningExtraordinaryStage(currentStage)) return currentStage;
     if (degrees.includes(currentStage)) return currentStage;
     if (degrees.length === 1) return degrees[0]!;
-    return currentStage;
+    return '';
 }

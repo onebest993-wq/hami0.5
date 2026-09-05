@@ -8,8 +8,11 @@ import {
     LAWSUIT_FILES_STORAGE_KEY,
     LAWSUIT_FILES_TRASH_KEY,
 } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { loadLawsuitFilesRaw, saveLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
+import { clearLawsuitPendingCreatesForTests } from '@/app/domain/lawsuit/lawsuitPendingCreateStore';
 import {
     applyLawsuitMonolithicMergeToSegments,
+    collectLawsuitLocalRowsForSync,
     findLawsuitFileAcrossSegments,
     loadLawsuitBootState,
     migrateLawsuitMonolithicToSegmentsIfNeeded,
@@ -20,10 +23,14 @@ import {
     resolveLazyLawsuitSegmentForMirror,
     mirrorLawsuitSegmentsSafe,
 } from '@/app/domain/lawsuit/lawsuitSegmentStorage';
-import { loadInitialLawsuitFiles, applyLawsuitTrashSegments, applyLawsuitConsolidationSegments } from '@/app/domain/lawsuit/lawsuitFilesRepository';
-import { emptyLawsuitFileSegments } from '@/app/domain/lawsuit/lawsuitFilesRepository';
-import { saveLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
-import { clearLawsuitPendingCreatesForTests } from '@/app/domain/lawsuit/lawsuitPendingCreateStore';
+import { buildLawsuitLifecycleIndex } from '@/app/domain/lawsuit/lawsuitLifecycleIndex';
+import { markLawsuitDossierTombstone, LAWSUIT_DOSSIER_TOMBSTONES_KEY } from '@/app/utils/lawsuitDossierTombstones';
+import {
+    loadInitialLawsuitFiles,
+    applyLawsuitTrashSegments,
+    applyLawsuitConsolidationSegments,
+    emptyLawsuitFileSegments,
+} from '@/app/domain/lawsuit/lawsuitFilesRepository';
 
 vi.mock('@/app/utils/lawsuitFilesStorage', () => ({
     loadLawsuitFilesRaw: vi.fn(() => []),
@@ -45,6 +52,7 @@ const file = (id: number, status: FileData['status'] = 'active'): FileData => ({
 
 describe('lawsuitSegmentStorage boot', () => {
     beforeEach(() => {
+        vi.mocked(loadLawsuitFilesRaw).mockReturnValue([]);
         SecureStoreService.listKeysSync().forEach((k) => SecureStoreService.deleteItemSync(k));
         clearLawsuitPendingCreatesForTests();
         try {
@@ -58,6 +66,12 @@ describe('lawsuitSegmentStorage boot', () => {
         localStorage.removeItem(LAWSUIT_FILES_INDEX_KEY);
         localStorage.removeItem(LAWSUIT_FILES_STORAGE_KEY);
         localStorage.removeItem(LAWSUIT_FILES_TRASH_KEY);
+        try {
+            SecureStoreService.deleteItemSync(LAWSUIT_DOSSIER_TOMBSTONES_KEY);
+        } catch {
+            /* ignore */
+        }
+        localStorage.removeItem(LAWSUIT_DOSSIER_TOMBSTONES_KEY);
     });
 
     it('loadLawsuitBootState returns active only with null lazy segments', () => {
@@ -93,6 +107,27 @@ describe('lawsuitSegmentStorage boot', () => {
         expect(readLawsuitTrashSegment()).toHaveLength(1);
     });
 
+    it('empty active does not resurrect from stale monolith when trash already exists', async () => {
+        const trashed = file(1, 'deleted');
+        SecureStoreService.setItemSync(LAWSUIT_FILES_ACTIVE_KEY, '[]');
+        SecureStoreService.setItemSync(LAWSUIT_FILES_ARCHIVED_KEY, '[]');
+        SecureStoreService.setItemSync(LAWSUIT_FILES_TRASH_KEY, JSON.stringify([trashed]));
+        SecureStoreService.setItemSync(
+            LAWSUIT_FILES_INDEX_KEY,
+            JSON.stringify(buildLawsuitLifecycleIndex([], [], [trashed])),
+        );
+        const { loadLawsuitFilesRaw } = await import('@/app/utils/lawsuitFilesStorage');
+        vi.mocked(loadLawsuitFilesRaw).mockReturnValue([file(1)]);
+
+        const boot = migrateLawsuitMonolithicToSegmentsIfNeeded();
+
+        expect(boot.active).toHaveLength(0);
+        expect(readLawsuitActiveSegment()).toEqual([]);
+        expect(readLawsuitTrashSegment()).toEqual([
+            expect.objectContaining({ id: 1, status: 'deleted' }),
+        ]);
+    });
+
     it('persistLawsuitActiveSegment يرفض إفراغ النشط بدون allowShrink', () => {
         SecureStoreService.setItemSync(LAWSUIT_FILES_ACTIVE_KEY, JSON.stringify([file(1), file(2)]));
         persistLawsuitActiveSegment([]);
@@ -116,6 +151,30 @@ describe('lawsuitSegmentStorage boot', () => {
         persistLawsuitActiveSegment([], { allowShrink: true, allowVerifiedEmpty: true });
         const raw = SecureStoreService.getItemSync(LAWSUIT_FILES_ACTIVE_KEY);
         expect(JSON.parse(String(raw))).toEqual([]);
+    });
+
+    it('loadLawsuitBootState لا يفرّغ النشط عند تكرار سلة∩نشط', () => {
+        SecureStoreService.setItemSync(
+            LAWSUIT_FILES_ACTIVE_KEY,
+            JSON.stringify([file(1), file(2)]),
+        );
+        SecureStoreService.setItemSync(
+            LAWSUIT_FILES_TRASH_KEY,
+            JSON.stringify([file(1, 'deleted'), file(2, 'deleted')]),
+        );
+        SecureStoreService.setItemSync(
+            LAWSUIT_FILES_INDEX_KEY,
+            JSON.stringify({
+                v: 1,
+                entries: {},
+                counts: { active: 2, archived: 0, trash: 2 },
+            }),
+        );
+        const boot = loadLawsuitBootState();
+        expect(boot.active.map((f) => Number(f.id)).sort((a, b) => a - b)).toEqual([1, 2]);
+        expect(readLawsuitActiveSegment().map((f) => Number(f.id)).sort((a, b) => a - b)).toEqual([
+            1, 2,
+        ]);
     });
 
     it('loadInitialLawsuitFiles returns active segment only', () => {
@@ -245,8 +304,8 @@ describe('lawsuitSegmentStorage boot', () => {
         const next = applyLawsuitTrashSegments(segments, 1);
         expect(next.trash).toHaveLength(2);
         expect(next.trash?.map((f) => f.id).sort()).toEqual([1, 90]);
-        expect(readLawsuitTrashSegment()).toHaveLength(2);
-        expect(readLawsuitTrashSegment().map((f) => f.id).sort()).toEqual([1, 90]);
+        expect(readLawsuitTrashSegment()).toHaveLength(1);
+        expect(readLawsuitTrashSegment().map((f) => f.id)).toEqual([90]);
     });
 
     it('applyLawsuitConsolidationSegments يضع الثانوية في archived لا active', () => {
@@ -295,5 +354,25 @@ describe('lawsuitSegmentStorage boot', () => {
         persistLawsuitActiveSegment([file(3)]);
         expect(localStorage.getItem(LAWSUIT_FILES_ACTIVE_KEY)).toBeNull();
         expect(readLawsuitActiveSegment().some((f) => Number(f.id) === 3)).toBe(true);
+    });
+
+    it('دمج السحابة لا يُعيد إضبارة عليها شاهد حذف', () => {
+        persistLawsuitActiveSegment([file(1)]);
+        markLawsuitDossierTombstone(2);
+        applyLawsuitMonolithicMergeToSegments([file(1), file(2)]);
+        expect(readLawsuitActiveSegment().map((f) => Number(f.id))).toEqual([1]);
+        expect(
+            collectLawsuitLocalRowsForSync()
+                .map((f) => Number(f.id))
+                .sort((a, b) => a - b),
+        ).toEqual([1]);
+    });
+
+    it('collectLawsuitLocalRowsForSync يستبعد شواهد الحذف من كل المقاطع', () => {
+        persistLawsuitActiveSegment([file(1)]);
+        SecureStoreService.setItemSync(LAWSUIT_FILES_TRASH_KEY, JSON.stringify([file(9, 'deleted')]));
+        markLawsuitDossierTombstone(9);
+        const ids = collectLawsuitLocalRowsForSync().map((f) => Number(f.id));
+        expect(ids).toEqual([1]);
     });
 });

@@ -24,6 +24,17 @@ export function lawsuitActiveIdSet(files: readonly FileData[]): Set<string> {
     return new Set(files.map((f) => String(f.id)).filter(Boolean));
 }
 
+export function excludeLawsuitIdsBySet(
+    files: readonly FileData[],
+    excludedIds: ReadonlySet<string>,
+): FileData[] {
+    if (excludedIds.size === 0) return [...files];
+    return files.filter((f) => {
+        const id = String(f.id ?? '').trim();
+        return id !== '' && !excludedIds.has(id);
+    });
+}
+
 /** هل المقترح أفقر من الموجود (يفقد معرّفات)؟ */
 export function isPoorerLawsuitActiveList(
     proposed: readonly FileData[],
@@ -73,6 +84,22 @@ export function mergeRicherLawsuitActive(
         out.push(row);
     }
     return out;
+}
+
+/**
+ * دمج أغنى دون إعادة إحياء معرّفات نُقلت عمداً إلى الأرشيف/السلة (أو tombstone).
+ * يمنع forceRewrite من إرجاع محذوف عندما القرص ما زال يحمل القائمة القديمة.
+ */
+export function mergeRicherLawsuitActiveRespectingHeldIds(
+    proposed: readonly FileData[],
+    existing: readonly FileData[],
+    heldOutOfActiveIds: ReadonlySet<string>,
+): FileData[] {
+    const existingSansHeld = excludeLawsuitIdsBySet(existing, heldOutOfActiveIds);
+    if (!isPoorerLawsuitActiveList(proposed, existingSansHeld)) {
+        return [...proposed];
+    }
+    return mergeRicherLawsuitActive(proposed, existingSansHeld);
 }
 
 export function parseLawsuitActiveFiles(raw: string | null | undefined): FileData[] {

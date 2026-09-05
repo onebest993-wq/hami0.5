@@ -102,4 +102,61 @@ describe('lawsuitDurabilityGate', () => {
         const parsed = JSON.parse(String(raw)) as Array<{ id: number }>;
         expect(parsed.map((r) => r.id).sort((a, b) => a - b)).toEqual([1, 2]);
     });
+
+    it('allowShrink + trash duplicate of every active id does not wipe active to []', () => {
+        const LAWSUIT_FILES_TRASH_KEY = 'lawyer_files_trash';
+        persistLawsuitActiveSegment([file(1), file(2)]);
+        SecureStoreService.setItemSync(
+            LAWSUIT_FILES_TRASH_KEY,
+            JSON.stringify([
+                { ...file(1), status: 'deleted', deletedAt: 1 },
+                { ...file(2), status: 'deleted', deletedAt: 1 },
+            ]),
+        );
+        const result = persistLawsuitActiveBundle({
+            active: [file(1), file(2)],
+            index: emptyLawsuitLifecycleIndex(),
+            trash: [
+                { ...file(1), status: 'deleted', deletedAt: 1 } as FileData,
+                { ...file(2), status: 'deleted', deletedAt: 1 } as FileData,
+            ],
+            options: { allowShrink: true },
+        });
+        expect(result.ok).toBe(true);
+        expect(result.active.map((r) => Number(r.id)).sort((a, b) => a - b)).toEqual([1, 2]);
+        const raw = SecureStoreService.getItemSync(LAWSUIT_FILES_ACTIVE_KEY);
+        const parsed = JSON.parse(String(raw)) as Array<{ id: number }>;
+        expect(parsed.map((r) => r.id).sort((a, b) => a - b)).toEqual([1, 2]);
+    });
+
+    it('allowShrink without trash/archive proof refuses emptying richer disk', () => {
+        persistLawsuitActiveSegment([file(1), file(2), file(3)]);
+        const result = persistLawsuitActiveBundle({
+            active: [],
+            index: emptyLawsuitLifecycleIndex(),
+            trash: [],
+            archived: [],
+            options: { allowShrink: true, allowVerifiedEmpty: true },
+        });
+        const raw = SecureStoreService.getItemSync(LAWSUIT_FILES_ACTIVE_KEY);
+        const parsed = JSON.parse(String(raw)) as Array<{ id: number }>;
+        expect(parsed.map((r) => r.id).sort((a, b) => a - b)).toEqual([1, 2, 3]);
+        expect(result.active.map((r) => Number(r.id)).sort((a, b) => a - b)).toEqual([1, 2, 3]);
+    });
+
+    it('allowShrink with proven trash move shrinks only the moved id', () => {
+        persistLawsuitActiveSegment([file(1), file(2)]);
+        const trashed = { ...file(1), status: 'deleted' as const, deletedAt: 1 };
+        const result = persistLawsuitActiveBundle({
+            active: [file(2)],
+            index: emptyLawsuitLifecycleIndex(),
+            trash: [trashed],
+            options: { allowShrink: true },
+        });
+        expect(result.ok).toBe(true);
+        expect(result.active.map((r) => Number(r.id))).toEqual([2]);
+        const raw = SecureStoreService.getItemSync(LAWSUIT_FILES_ACTIVE_KEY);
+        const parsed = JSON.parse(String(raw)) as Array<{ id: number }>;
+        expect(parsed.map((r) => r.id)).toEqual([2]);
+    });
 });

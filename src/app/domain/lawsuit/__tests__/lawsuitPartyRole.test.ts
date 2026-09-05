@@ -27,6 +27,19 @@ describe('lawsuitPartyRole', () => {
         expect(normalizeLawsuitPartyRoleLabel('creditor', 'المدعي')).toBe('المدعي');
         expect(normalizeLawsuitPartyRoleLabel('opponent', 'المدعى عليه')).toBe('المدعى عليه');
     });
+
+    it('لا يخلط المستأنف عليه (المدعي) مع عمود المستأنف', () => {
+        const appellee = { id: 1, name: 'أحمد', role: 'المستأنف عليه (المدعي)' };
+        const appellant = { id: 2, name: 'حسن', role: 'المستأنف (المدعى عليه)' };
+        expect(isLawsuitPlaintiffRecord(appellee)).toBe(false);
+        expect(isLawsuitDefendantRecord(appellee)).toBe(true);
+        expect(isLawsuitPlaintiffRecord(appellant)).toBe(true);
+        expect(isLawsuitDefendantRecord(appellant)).toBe(false);
+
+        const { plaintiffs, defendants } = partitionLawsuitPartiesByRole([appellee, appellant]);
+        expect(plaintiffs.map((p) => p.id)).toEqual([2]);
+        expect(defendants.map((p) => p.id)).toEqual([1]);
+    });
 });
 
 describe('lawsuitStageOptions', () => {

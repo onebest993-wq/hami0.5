@@ -32,6 +32,7 @@ describe('lawsuit vault — no recover CTA, intentional lifecycle only', () => {
         expect(src).toContain('lawsuitDurabilityHasUncommittedWrites');
         expect(src).toContain('pickRicherSegments(prev, candidate)');
         expect(src).toContain('applyLawsuitDurabilityOverlaysToSegments');
+        expect(src).toContain('adoptHydratedLawsuitActive');
     });
 
     it('writeJsonArray and wipe guard refuse colder/poorer lawsuit overwrites', () => {
@@ -98,6 +99,20 @@ describe('lawsuit vault — no recover CTA, intentional lifecycle only', () => {
         expect(gate).not.toContain('pruneVerifiedLawsuitJournalEntries');
         expect(verify).toContain('tryFinalizeLawsuitJournalAfterProof');
         expect(verify).toContain('pruneVerifiedLawsuitJournalEntries');
+    });
+
+    it('empty-active boot never imports lawyer_files over trash or unread segments', () => {
+        const segment = fs.readFileSync(
+            path.join(process.cwd(), 'src/app/domain/lawsuit/lawsuitSegmentStorage.ts'),
+            'utf8',
+        );
+        const repo = fs.readFileSync(
+            path.join(process.cwd(), 'src/app/domain/lawsuit/lawsuitFilesRepository.ts'),
+            'utf8',
+        );
+        expect(segment).toContain('shouldRefuseEmptyActiveMonolithRecovery');
+        expect(segment).toContain('keyOccupiedAndUnread');
+        expect(repo).toContain('shouldRefuseEmptyActiveMonolithRecovery(boot.index)');
     });
 
     it('write journal — append-only حتى إثبات القرص', () => {

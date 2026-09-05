@@ -165,15 +165,15 @@ export function readLawsuitLifecycleIndex(): LawsuitLifecycleIndex | null {
 export function persistLawsuitArchivedSegment(
     files: FileData[],
     options?: { allowVerifiedEmpty?: boolean; allowShrink?: boolean },
-): void {
-    writeJsonArray(LAWSUIT_FILES_ARCHIVED_KEY, files, options);
+): boolean {
+    return writeJsonArray(LAWSUIT_FILES_ARCHIVED_KEY, files, options);
 }
 
 export function persistLawsuitTrashSegment(
     files: FileData[],
     options?: { allowVerifiedEmpty?: boolean; allowShrink?: boolean },
-): void {
-    writeJsonArray(LAWSUIT_FILES_TRASH_KEY, files, options);
+): boolean {
+    return writeJsonArray(LAWSUIT_FILES_TRASH_KEY, files, options);
 }
 
 export function persistLawsuitLifecycleIndex(index: LawsuitLifecycleIndex): void {

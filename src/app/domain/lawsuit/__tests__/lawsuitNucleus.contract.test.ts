@@ -52,12 +52,13 @@ describe('lawsuit nucleus architecture', () => {
         const grid = read(
             'src/app/components/lawyer/ArchivePortal/components/LawsuitArchiveFileGrid.tsx',
         );
+        const decryptFlag = read('src/app/runtime/lawsuitDecryptBlockedFlag.ts');
         expect(chrome).not.toContain('saveLawsuitFilesRaw');
         expect(host).not.toContain('saveLawsuitFilesRaw');
         expect(host).toContain('lawsuitArchivePool');
         expect(host).not.toContain('lawsuitFileFactory');
         expect(grid).not.toContain('saveLawsuitFilesRaw');
-        expect(grid).toContain('isLawsuitDecryptBlocked');
+        expect(decryptFlag).toContain('isLawsuitDecryptBlocked');
         expect(host).not.toContain('persistLawsuitActiveSegment');
     });
 

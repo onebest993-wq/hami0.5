@@ -7,19 +7,14 @@ import {
     removeLawsuitFromIndex,
     upsertLawsuitIndexEntry,
 } from './lawsuitLifecycleIndex';
-import { LAWSUIT_FILES_TRASH_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
 import {
     persistLawsuitArchivedSegment,
     persistLawsuitTrashSegment,
     readLawsuitArchivedSegment,
     readLawsuitTrashSegment,
-    removeLawsuitSegmentRecords,
     resolveLazyLawsuitSegmentForMirror,
 } from './lawsuitSegmentStorage';
-import {
-    persistLawsuitActiveBundle,
-    persistLawsuitLifecycleMirrorBundle,
-} from './lawsuitDurabilityGate';
+import { persistLawsuitActiveBundle } from './lawsuitDurabilityGate';
 import { pruneLawsuitDurabilityOverlaysForFileIds } from './lawsuitDurabilityOverlay';
 import type { LawsuitFileSegments } from './lawsuitFileSegments';
 
@@ -78,18 +73,6 @@ export function applyLawsuitTrashSegments(
         trash: nextTrash,
         index: nextIndex,
     };
-    pruneLawsuitDurabilityOverlaysForFileIds([idStr]);
-    persistLawsuitActiveBundle({
-        active: nextActive,
-        index: nextIndex,
-        archived: segments.archived,
-        trash: nextTrash,
-        options: {
-            allowVerifiedEmpty: nextActive.length === 0,
-            allowShrink: true,
-        },
-    });
-    persistLawsuitTrashSegment(nextTrash);
     return next;
 }
 
@@ -117,16 +100,6 @@ export function applyLawsuitRestoreFromTrashSegments(
         trash: nextTrash,
         index: nextIndex,
     };
-    persistLawsuitActiveBundle({
-        active: nextActive,
-        index: nextIndex,
-        archived: segments.archived,
-        trash: nextTrash,
-    });
-    persistLawsuitTrashSegment(nextTrash, {
-        allowVerifiedEmpty: nextTrash.length === 0,
-        allowShrink: true,
-    });
     return next;
 }
 
@@ -156,18 +129,6 @@ export function applyLawsuitArchiveSegments(
         trash: segments.trash,
         index: nextIndex,
     };
-    pruneLawsuitDurabilityOverlaysForFileIds([idStr]);
-    persistLawsuitActiveBundle({
-        active: nextActive,
-        index: nextIndex,
-        archived: nextArchived,
-        trash: segments.trash,
-        options: {
-            allowVerifiedEmpty: nextActive.length === 0,
-            allowShrink: true,
-        },
-    });
-    persistLawsuitArchivedSegment(nextArchived);
     return next;
 }
 
@@ -195,13 +156,6 @@ export function applyLawsuitRestoreFromArchiveSegments(
         trash: segments.trash,
         index: nextIndex,
     };
-    persistLawsuitActiveBundle({
-        active: nextActive,
-        index: nextIndex,
-        archived: nextArchived,
-        trash: segments.trash,
-    });
-    persistLawsuitArchivedSegment(nextArchived, { allowVerifiedEmpty: nextArchived.length === 0, allowShrink: true });
     return next;
 }
 
@@ -209,29 +163,24 @@ export function applyLawsuitPermanentDeleteSegments(
     segments: LawsuitFileSegments,
     ids: Array<string | number>,
 ): LawsuitFileSegments {
+    const idSet = new Set(ids.map(String));
     const trash = resolveTrashForMutation(segments);
-    const nextTrash = removeLawsuitSegmentRecords(LAWSUIT_FILES_TRASH_KEY, ids, trash);
+    const nextTrash = trash.filter((f) => !idSet.has(String(f.id)));
+    const archived = resolveArchivedForMutation(segments);
+    const nextArchived = archived.filter((f) => !idSet.has(String(f.id)));
+    const nextActive = segments.active.filter((f) => !idSet.has(String(f.id)));
     let nextIndex = segments.index;
     for (const id of ids) {
         nextIndex = removeLawsuitFromIndex(nextIndex, id);
     }
     const next: LawsuitFileSegments = {
-        active: segments.active,
-        archived: segments.archived,
+        active: nextActive,
+        archived: segments.archived === null && nextArchived === archived
+            ? null
+            : nextArchived,
         trash: nextTrash,
         index: nextIndex,
     };
-    persistLawsuitTrashSegment(nextTrash, {
-        allowVerifiedEmpty: nextTrash.length === 0,
-        allowShrink: true,
-    });
-    pruneLawsuitDurabilityOverlaysForFileIds(ids);
-    persistLawsuitLifecycleMirrorBundle({
-        active: segments.active,
-        index: nextIndex,
-        archived: segments.archived,
-        trash: nextTrash,
-    });
     return next;
 }
 

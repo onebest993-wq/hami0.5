@@ -8,10 +8,12 @@ import {
 } from '@/app/services/dossierPersistence/dossierStorageKeys';
 import {
     isPoorerLawsuitActiveList,
-    mergeRicherLawsuitActive,
+    mergeRicherLawsuitActiveRespectingHeldIds,
     parseLawsuitActiveFiles,
 } from './lawsuitActiveDurability';
+import { collectHeldOutOfActiveIds } from './lawsuitFilesStatePolicy';
 import { readSecureOrDrainLegacySync } from '@/app/services/storage/readSecureOrDrainLegacySync';
+import { readLawsuitDossierTombstoneIds } from '@/app/utils/lawsuitDossierTombstones';
 
 const LAWSUIT_DURABLE_KEYS = [
     LAWSUIT_FILES_ACTIVE_KEY,
@@ -86,7 +88,13 @@ export async function flushLawsuitWorkspacePersist(
  */
 async function forceRewriteLawsuitKeysFromMemory(): Promise<number> {
     let rewritten = 0;
-    const keys = [LAWSUIT_FILES_ACTIVE_KEY, LAWSUIT_FILES_INDEX_KEY] as const;
+    const keys = [
+        LAWSUIT_FILES_ACTIVE_KEY,
+        LAWSUIT_FILES_INDEX_KEY,
+        LAWSUIT_FILES_ARCHIVED_KEY,
+        LAWSUIT_FILES_TRASH_KEY,
+    ] as const;
+
     for (const key of keys) {
         let plain = readSecureOrDrainLegacySync(key);
         if (plain == null && SecureStoreService.hasItemSync(key)) {
@@ -100,15 +108,48 @@ async function forceRewriteLawsuitKeysFromMemory(): Promise<number> {
 
         /*
          * لا تدفع ذاكرة أفقر فوق قرص أغنى — هذا كان مسار مسح الإضابير عند الإنشاء.
+         * لا تُعد إحياء معرّف في أرشيف/tombstone أو سلة-فقط (لا تكرار سلة∩نشط).
+         * تفريغ النشط مسموح فقط إن كل معرّفات القرص عليها tombstone حقيقي.
          */
         if (key === LAWSUIT_FILES_ACTIVE_KEY) {
             try {
                 const diskPlain = await SecureStoreService.getItemFromDisk(key);
                 const memFiles = parseLawsuitActiveFiles(plain);
                 const diskFiles = parseLawsuitActiveFiles(diskPlain);
+                const heldOutOfActive = collectHeldOutOfActiveIdsForRewrite(memFiles, diskFiles);
                 if (isPoorerLawsuitActiveList(memFiles, diskFiles)) {
-                    plain = JSON.stringify(mergeRicherLawsuitActive(memFiles, diskFiles));
-                    SecureStoreService.setItemSync(key, plain);
+                    const merged = mergeRicherLawsuitActiveRespectingHeldIds(
+                        memFiles,
+                        diskFiles,
+                        heldOutOfActive,
+                    );
+          if (
+                    merged.length === 0 && diskFiles.length > 0
+                ) {
+                        const tombstones = safeTombstoneIds();
+                        let allTrulyTombstoned = diskFiles.length > 0;
+                        for (const row of diskFiles) {
+                            const id = String(row.id ?? '').trim();
+                            if (id && !tombstones.has(id)) {
+                                allTrulyTombstoned = false;
+                                break;
+                            }
+                        }
+                        if (!allTrulyTombstoned) {
+                            /* أبقِ القرص — لا تسمحShrink بـ [] بسبب تكرار سلة */
+                            plain = diskPlain ?? plain;
+                        } else {
+                            plain = JSON.stringify(merged);
+                            SecureStoreService.setItemSync(key, plain, {
+                                allowVerifiedEmptyOverwrite: true,
+                            });
+                        }
+                    } else {
+                        plain = JSON.stringify(merged);
+                        SecureStoreService.setItemSync(key, plain, {
+                            allowShrink: merged.length < diskFiles.length,
+                        });
+                    }
                 }
             } catch {
                 /* المتابعة بالكتابة من الذاكرة */
@@ -116,8 +157,17 @@ async function forceRewriteLawsuitKeysFromMemory(): Promise<number> {
         }
 
         try {
+            const allowShrinkWrite =
+                key !== LAWSUIT_FILES_ACTIVE_KEY ||
+                parseLawsuitActiveFiles(plain).length > 0 ||
+                parseLawsuitActiveFiles(readSecureOrDrainLegacySync(key)).length === 0;
+            if (!allowShrinkWrite) {
+                continue;
+            }
             await Promise.race([
-                SecureStoreService.setItem(key, plain),
+                SecureStoreService.setItem(key, plain, {
+                    allowShrink: key !== LAWSUIT_FILES_ACTIVE_KEY,
+                }),
                 new Promise<never>((_, reject) => {
                     setTimeout(() => reject(new Error('rewrite-timeout')), 2_000);
                 }),
@@ -128,6 +178,41 @@ async function forceRewriteLawsuitKeysFromMemory(): Promise<number> {
         }
     }
     return rewritten;
+}
+
+function safeTombstoneIds(): Set<string> {
+    try {
+        return readLawsuitDossierTombstoneIds();
+    } catch {
+        return new Set();
+    }
+}
+
+/**
+ * معرّفات خارج النشط عمداً — فضّل اتحاد الذاكرة+القرص النشطين حتى لا
+ * تُفرَّغ الكتابة حين تكون الذاكرة فارغة والسلة تحمل نفس المعرّفات.
+ */
+function collectHeldOutOfActiveIdsForRewrite(
+    memActive: ReturnType<typeof parseLawsuitActiveFiles>,
+    diskActive: ReturnType<typeof parseLawsuitActiveFiles>,
+): Set<string> {
+    const preferActive = new Set<string>();
+    for (const row of memActive) {
+        const id = String(row.id ?? '').trim();
+        if (id) preferActive.add(id);
+    }
+    for (const row of diskActive) {
+        const id = String(row.id ?? '').trim();
+        if (id) preferActive.add(id);
+    }
+    return collectHeldOutOfActiveIds({
+        trash: parseLawsuitActiveFiles(readSecureOrDrainLegacySync(LAWSUIT_FILES_TRASH_KEY)),
+        archived: parseLawsuitActiveFiles(
+            readSecureOrDrainLegacySync(LAWSUIT_FILES_ARCHIVED_KEY),
+        ),
+        includeTombstones: true,
+        preferActiveIds: preferActive,
+    });
 }
 
 function parseActiveIds(raw: string | null): Set<string> {
@@ -185,6 +270,7 @@ export async function commitLawsuitWorkspacePersist(
             ...options,
             timeoutMs,
             timedOut,
+            started,
         });
     } catch {
         return { ok: false, reason: timedOut() ? 'timeout' : 'write-failed' };
@@ -192,14 +278,14 @@ export async function commitLawsuitWorkspacePersist(
 }
 
 async function commitLawsuitWorkspacePersistInner(
-    options: LawsuitCommitOptions & { timedOut: () => boolean },
+    options: LawsuitCommitOptions & { timedOut: () => boolean; started: number },
 ): Promise<LawsuitCommitResult> {
     const timeoutMs = options.timeoutMs ?? LAWSUIT_COMMIT_TIMEOUT_MS;
     const requireId =
         options.requireActiveFileId != null && String(options.requireActiveFileId).trim() !== ''
             ? String(options.requireActiveFileId)
             : null;
-    const { timedOut } = options;
+    const { timedOut, started } = options;
 
     const flushBudget = Math.min(2_000, Math.max(800, Math.floor(timeoutMs * 0.4)));
     const flushed = await flushLawsuitWorkspacePersist(flushBudget);
@@ -249,16 +335,26 @@ async function commitLawsuitWorkspacePersistInner(
     if (requireId) {
         const ids = parseActiveIds(diskActive);
         if (!ids.has(requireId)) {
-            try {
-                await forceRewriteLawsuitKeysFromMemory();
-                diskActive = await SecureStoreService.getItemFromDisk(LAWSUIT_FILES_ACTIVE_KEY);
-            } catch {
-                return { ok: false, reason: 'verify-failed' };
+            const memIds = parseActiveIds(syncActive);
+            const deadline = Date.now() + Math.max(400, Math.min(4_000, timeoutMs - (Date.now() - started)));
+            while (Date.now() < deadline) {
+                if (timedOut()) break;
+                try {
+                    await forceRewriteLawsuitKeysFromMemory();
+                    diskActive = await SecureStoreService.getItemFromDisk(LAWSUIT_FILES_ACTIVE_KEY);
+                } catch {
+                    break;
+                }
+                if (parseActiveIds(diskActive).has(requireId)) break;
+                await new Promise((r) => setTimeout(r, 120));
             }
             const retryIds = parseActiveIds(diskActive);
             if (!retryIds.has(requireId)) {
-                const memIds = parseActiveIds(syncActive);
                 if (memIds.has(requireId)) {
+                    /*
+                     * الذاكرة تحمل الإضبارة والقرص متأخر — لا نفشل UX بصرامة:
+                     * نُبقي جدولة خلفية عبر schedule بعد الإرجاع من طبقة التحذير.
+                     */
                     return { ok: false, reason: 'timeout' };
                 }
                 return { ok: false, reason: 'verify-failed' };

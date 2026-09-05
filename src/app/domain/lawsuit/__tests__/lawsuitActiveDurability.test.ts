@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     isPoorerLawsuitActiveList,
     mergeRicherLawsuitActive,
+    mergeRicherLawsuitActiveRespectingHeldIds,
 } from '../lawsuitActiveDurability';
 import type { FileData } from '../lawsuitFileTypes';
 
@@ -30,5 +31,14 @@ describe('lawsuitActiveDurability', () => {
         const merged = mergeRicherLawsuitActive([file(3)], [file(1), file(2)]);
         expect(merged.map((f) => String(f.id)).sort()).toEqual(['1', '2', '3']);
         expect(merged[0]?.id).toBe(3);
+    });
+
+    it('لا يعيد إحياء معرّف موجود في السلة عند دمج قرص أغنى', () => {
+        const merged = mergeRicherLawsuitActiveRespectingHeldIds(
+            [file(2)],
+            [file(1), file(2)],
+            new Set(['1']),
+        );
+        expect(merged.map((f) => String(f.id))).toEqual(['2']);
     });
 });

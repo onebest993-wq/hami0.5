@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { CryptoService } from '@/app/services/CryptoService';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     LAWSUIT_FILES_ACTIVE_KEY,
@@ -21,6 +22,8 @@ import {
 } from '@/app/domain/lawsuit/lawsuitWriteJournal';
 import type { FileData } from '../lawsuitFileTypes';
 
+const CRYPTO_PASSPHRASE = 'lawsuit-reload-durability-test';
+
 const file = (id: number): FileData =>
     ({
         id,
@@ -35,8 +38,33 @@ const file = (id: number): FileData =>
         date: '2026-01-01',
     }) as FileData;
 
+async function ensureCryptoReady(): Promise<void> {
+    if (!CryptoService.hasMasterKey()) {
+        await CryptoService.initialize(CRYPTO_PASSPHRASE);
+    }
+    expect(CryptoService.hasMasterKey()).toBe(true);
+}
+
+async function flushPendingPersist(): Promise<void> {
+    await SecureStoreService.waitForAllPendingPersist().catch(() => undefined);
+}
+
 describe('lawsuit reload durability — root causes', () => {
+    beforeAll(async () => {
+        await CryptoService.initialize(CRYPTO_PASSPHRASE);
+        CryptoService.pinMasterKeyForAtomicWrite();
+        expect(CryptoService.hasMasterKey()).toBe(true);
+    });
+
+    afterAll(async () => {
+        await flushPendingPersist();
+        CryptoService.unpinMasterKeyForAtomicWrite();
+        CryptoService.destroy();
+    });
+
     beforeEach(async () => {
+        await flushPendingPersist();
+        await ensureCryptoReady();
         SecureStoreService.dropMemoryMirrorsForTests?.();
         try {
             SecureStoreService.deleteItemSync(LAWSUIT_FILES_ACTIVE_KEY);
@@ -49,7 +77,7 @@ describe('lawsuit reload durability — root causes', () => {
         }
         clearLawsuitPendingCreatesForTests();
         localStorage.removeItem(LAWSUIT_WRITE_JOURNAL_KEY);
-        await SecureStoreService.waitForAllPendingPersist();
+        await flushPendingPersist();
         try {
             SecureStoreService.deleteItemSync(LAWSUIT_FILES_ACTIVE_KEY);
             SecureStoreService.deleteItemSync(LAWSUIT_FILES_INDEX_KEY);
@@ -60,6 +88,11 @@ describe('lawsuit reload durability — root causes', () => {
             /* ignore */
         }
         SecureStoreService.dropMemoryMirrorsForTests?.();
+        await ensureCryptoReady();
+    });
+
+    afterEach(async () => {
+        await flushPendingPersist();
     });
 
     it('wipe guard rejects poorer non-empty lawyer_files_active write', () => {
@@ -74,9 +107,10 @@ describe('lawsuit reload durability — root causes', () => {
         expect(shouldRejectDossierWipe(LAWSUIT_FILES_ACTIVE_KEY, incoming, cipher)).toBe(true);
     });
 
-    it('persist poorer list does not shrink readable active segment', () => {
+    it('persist poorer list does not shrink readable active segment', async () => {
         SecureStoreService.setItemSync(LAWSUIT_FILES_ACTIVE_KEY, JSON.stringify([file(1), file(2)]));
         persistLawsuitActiveSegment([file(9)]);
+        await flushPendingPersist();
         const raw = SecureStoreService.getItemSync(LAWSUIT_FILES_ACTIVE_KEY);
         const parsed = JSON.parse(String(raw)) as Array<{ id: number }>;
         const ids = parsed.map((r) => r.id).sort((a, b) => a - b);
@@ -101,8 +135,10 @@ describe('lawsuit reload durability — root causes', () => {
         );
         SecureStoreService.setItemSync(LAWSUIT_FILES_STORAGE_KEY, cipher);
         SecureStoreService.clearDecryptedMemoryCache();
+        await ensureCryptoReady();
 
         persistLawsuitFiles([file(99)]);
+        await flushPendingPersist();
 
         const indexRaw = SecureStoreService.getItemSync(LAWSUIT_FILES_INDEX_KEY);
         expect(String(indexRaw)).toContain('"active":3');
@@ -124,6 +160,7 @@ describe('lawsuit reload durability — root causes', () => {
 
         stagePendingLawsuitCreate(file(42));
         persistLawsuitFiles([file(42)]);
+        await flushPendingPersist();
         SecureStoreService.dropMemoryMirrorsForTests?.([LAWSUIT_FILES_ACTIVE_KEY]);
 
         const afterReload = loadInitialLawsuitFiles();
@@ -145,6 +182,7 @@ describe('lawsuit reload durability — root causes', () => {
         } as FileData;
 
         persistLawsuitFiles([file(1)]);
+        await flushPendingPersist();
         stagePendingLawsuitCreate(personal);
         SecureStoreService.dropMemoryMirrorsForTests?.([LAWSUIT_FILES_ACTIVE_KEY]);
 
@@ -154,8 +192,9 @@ describe('lawsuit reload durability — root causes', () => {
         expect(ids).toContain(77);
     });
 
-    it('write journal survives memory drop and merges back into active list', () => {
+    it('write journal survives memory drop and merges back into active list', async () => {
         stageLawsuitJournalRecords([file(43)]);
+        await flushPendingPersist();
         expect(listLawsuitJournalEntries()).toHaveLength(1);
 
         SecureStoreService.dropMemoryMirrorsForTests?.([LAWSUIT_FILES_ACTIVE_KEY]);
@@ -163,9 +202,10 @@ describe('lawsuit reload durability — root causes', () => {
         expect(merged.map((f) => Number(f.id))).toEqual([43]);
     });
 
-    it('allowShrink permits intentional archive shrink past wipe guard', () => {
+    it('allowShrink permits intentional archive shrink past wipe guard', async () => {
         SecureStoreService.setItemSync(LAWSUIT_FILES_ACTIVE_KEY, JSON.stringify([file(1), file(2)]));
         persistLawsuitActiveSegment([file(1)], { allowShrink: true });
+        await flushPendingPersist();
         const raw = SecureStoreService.getItemSync(LAWSUIT_FILES_ACTIVE_KEY);
         expect(JSON.parse(String(raw))).toHaveLength(1);
     });

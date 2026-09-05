@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { FileData } from '../lawsuitFileTypes';
 import {
     clearLawsuitPendingCreatesForTests,
+    LAWSUIT_PENDING_CREATES_KEY,
     stagePendingLawsuitCreate,
 } from '../lawsuitPendingCreateStore';
 import {
@@ -14,13 +15,11 @@ import {
     mergeLawsuitDurabilityOverlaysInto,
     pruneLawsuitDurabilityOverlaysForFileIds,
 } from '../lawsuitDurabilityOverlay';
-import {
-    applyLawsuitArchiveSegments,
-    emptyLawsuitFileSegments,
-} from '../lawsuitFilesRepository';
+import { emptyLawsuitFileSegments } from '../lawsuitFilesRepository';
 import { resetLawsuitPageWriteGuardForTests } from '../lawsuitPageWriteGuard';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { LAWSUIT_FILES_ACTIVE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { executeLawsuitLifecycleTransaction } from '../lawsuitLifecycleTransaction';
 
 const file = (id: number): FileData =>
     ({
@@ -37,19 +36,16 @@ const file = (id: number): FileData =>
     }) as FileData;
 
 describe('lawsuitDurabilityOverlay', () => {
-    beforeEach(() => {
-        SecureStoreService.dropMemoryMirrorsForTests?.();
-        try {
-            SecureStoreService.deleteItemSync(LAWSUIT_FILES_ACTIVE_KEY);
-        } catch {
-            /* ignore */
+    beforeEach(async () => {
+        await SecureStoreService.waitForAllPendingPersist();
+        for (const key of [
+            LAWSUIT_FILES_ACTIVE_KEY,
+            LAWSUIT_PENDING_CREATES_KEY,
+            LAWSUIT_WRITE_JOURNAL_KEY,
+        ]) {
+            await SecureStoreService.deleteItem(key);
         }
         clearLawsuitPendingCreatesForTests();
-        try {
-            SecureStoreService.deleteItemSync(LAWSUIT_WRITE_JOURNAL_KEY);
-        } catch {
-            /* ignore */
-        }
         localStorage.removeItem(LAWSUIT_WRITE_JOURNAL_KEY);
         resetLawsuitPageWriteGuardForTests();
     });
@@ -69,7 +65,7 @@ describe('lawsuitDurabilityOverlay', () => {
         expect(lawsuitDurabilityHasUncommittedWrites()).toBe(false);
     });
 
-    it('archive lifecycle prunes durability overlays for moved file', () => {
+    it('archive transaction prunes durability overlays for moved file', async () => {
         stagePendingLawsuitCreate(file(8));
         stageLawsuitJournalRecords([file(8)]);
         const segments = {
@@ -81,7 +77,8 @@ describe('lawsuitDurabilityOverlay', () => {
                 counts: { active: 1, archived: 0, trash: 0 },
             },
         };
-        applyLawsuitArchiveSegments(segments, 8);
+        const result = await executeLawsuitLifecycleTransaction(segments, 'archive', [8]);
+        expect(result.ok).toBe(true);
         expect(lawsuitDurabilityHasUncommittedWrites()).toBe(false);
     });
 
