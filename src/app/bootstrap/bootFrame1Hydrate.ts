@@ -63,7 +63,7 @@ function resolveUnreadCount(userId: string | null, fallback: number): number {
 /** لقطة sync — آمنة للاستدعاء المتكرر قبل markBootRevealDone */
 export function ensureFrame1HydrateSync(): Frame1HydrateSnapshot {
     const session = peekBootSessionPeekSync();
-    const userId = session?.userId ?? peekBootSessionUserIdSync();
+    const userId = session?.userId ?? null;
     if (userId) {
         hydrateProfileWarmCachePeekSync(userId, session?.userMetadata, userId);
     }

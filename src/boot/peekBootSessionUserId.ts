@@ -5,6 +5,11 @@ export type BootSessionPeek = {
     userMetadata: Record<string, unknown> | null;
 };
 
+const NO_RESULT_SENTINEL: unique symbol = Symbol('NO_RESULT_SENTINEL');
+type CacheState = BootSessionPeek | null | typeof NO_RESULT_SENTINEL;
+
+let cachedPeek: CacheState = NO_RESULT_SENTINEL;
+
 function readBootSessionPeek(): BootSessionPeek | null {
     if (typeof localStorage === 'undefined') return null;
     try {
@@ -31,10 +36,27 @@ function readBootSessionPeek(): BootSessionPeek | null {
     return null;
 }
 
+function getCachedBootSessionPeek(): BootSessionPeek | null {
+    if (cachedPeek === NO_RESULT_SENTINEL) {
+        cachedPeek = readBootSessionPeek();
+    }
+    return cachedPeek;
+}
+
+/**
+ * ينظّف ذاكرة التخزين المؤقت للوحدات — للاستخدام في الاختبارات فقط
+ * (حيث يتم استدعاء beforeEach/localStorage.clear بعد كل حالة).
+ * في الإنتاج تظل القيمة مخزنة لمرة واحدة عبر عمر الصفحة لأن جلسة
+ * الإقلاع لا تتغير بدون full-page reload.
+ */
+export function resetPeekBootSessionCacheForTests(): void {
+    cachedPeek = NO_RESULT_SENTINEL;
+}
+
 export function peekBootSessionUserIdSync(): string | null {
-    return readBootSessionPeek()?.userId ?? null;
+    return getCachedBootSessionPeek()?.userId ?? null;
 }
 
 export function peekBootSessionPeekSync(): BootSessionPeek | null {
-    return readBootSessionPeek();
+    return getCachedBootSessionPeek();
 }

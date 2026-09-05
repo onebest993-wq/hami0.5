@@ -1,10 +1,15 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-import { peekBootSessionPeekSync, peekBootSessionUserIdSync } from '@/boot/peekBootSessionUserId';
+import {
+    peekBootSessionPeekSync,
+    peekBootSessionUserIdSync,
+    resetPeekBootSessionCacheForTests,
+} from '@/boot/peekBootSessionUserId';
 
 describe('peekBootSessionUserIdSync', () => {
     beforeEach(() => {
         localStorage.clear();
+        resetPeekBootSessionCacheForTests();
     });
 
     it('يقرأ معرّف المستخدم من توكن Supabase المحلي', () => {
