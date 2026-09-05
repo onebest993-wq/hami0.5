@@ -98,6 +98,7 @@ const test = spawnSync(
         'src/app/services/notifications/fcm/__tests__',
         'src/app/stores/__tests__/notificationStore.test.ts',
         'src/app/stores/__tests__/notificationStoreList.test.ts',
+        'src/app/stores/__tests__/notificationStorePersist.test.ts',
         'src/app/infrastructure/__tests__/notificationModel.test.ts',
         'src/app/infrastructure/__tests__/NotificationRepository.test.ts',
         'src/app/services/__tests__/auditLogPublisher.test.ts',
@@ -121,6 +122,8 @@ const test = spawnSync(
         'src/app/services/forum/__tests__/forumNotificationDispatchExtras.test.ts',
         'src/app/services/forum/__tests__/forumNotificationDispatchPush.test.ts',
         'src/app/runtime/__tests__/notificationsSectionSurgicalCloseHonesty.test.ts',
+        'src/app/services/platform/__tests__/deviceHaptic.test.ts',
+        'src/app/services/calendar/__tests__/hamiLegalAlarmWav.test.ts',
     ],
     { stdio: 'inherit', shell: true },
 );

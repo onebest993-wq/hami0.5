@@ -1,5 +1,7 @@
 # قسم الإشعارات (لوحة الجرس + المنتدى + النظام + الأصلي/Push) — فحص ذرّي، إغلاق صادق
 
+> **أرشيف ٩ آب ٢٠٢٦.** إغلاق القسم الحالي: `.audit/PHASE_NOTIFICATIONS_SECTION_CLOSE.md` (٣٠ آب).
+
 **التاريخ:** ٩ آب ٢٠٢٦
 
 **النطاق:** كل ما يخصّ لوحة الإشعارات المنبثقة من زر الجرس في شريط المحامي: العرض (`NotificationPanel`)، حالة Zustand (`notificationStore`)، الطبقة التحتية (`NotificationRepository`/`notificationModel`)، خدمات `services/notifications/**` (تخزين خادم/KV، دمج، أمان تنقّل، مزامنة، تنبيهات، Sentry)، جسر المنتدى (`forumNotificationBridge`/`forumNotificationDispatch*`)، الجسر الأصلي (`HamiNotificationBridge` + Capacitor `local-notifications`)، Push الويب (`PushNotificationService` + `public/sw.js`)، مسارات API (`/api/notifications/*`)، ترحيلات Supabase (`027`/`028`)، بطاقات مشاركة الإضبارة الواردة داخل اللوحة (`CaseShareIncoming*`). **لا يشمل** إشعارات التنفيذ الخاصة بالمدين (`ExecutionDebtorNotification*`، `ExecutionHeirsNotification*`) ولا لوحة إشعارات المنتدى المستقلة (`ForumNotificationsPanel.tsx` ضمن `CommunityScreen`) إلا حيث تتقاطع مباشرة (الجسر المشترك، سياسة التنبيه).

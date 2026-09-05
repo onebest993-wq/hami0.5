@@ -24,9 +24,10 @@ for (const rel of files) {
 }
 
 /**
- * عقد shellAuth.ts المقصود (fail-closed):
- * - تجاوز صريح فقط عبر VITE_SHELL_AUTH_OPEN=true
- * - false أو غير مضبوط → بوابة الدخول (لا ضيف تلقائي)
+ * عقد shellAuth.ts المقصود (fail-closed في الإنتاج):
+ * - تجاوز صريح عبر VITE_SHELL_AUTH_OPEN=true
+ * - MODE=development يفتح الشِل محلياً ما لم يُضبط false
+ * - إنتاج / قياس: false أو غير مضبوط → بوابة الدخول
  * - ممنوع أي مسار يفتح الإنتاج ضمنياً عبر BFF/SPA
  */
 const shellAuth = fs.readFileSync(path.join(ROOT, 'src/app/services/auth/shellAuth.ts'), 'utf8');

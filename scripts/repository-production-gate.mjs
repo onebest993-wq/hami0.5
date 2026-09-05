@@ -22,6 +22,7 @@ const criticalPaths = [
     'src/app/components/lawyer/SmartRepository/hooks/useRepositoryEscapeStack.ts',
     'src/app/components/lawyer/SmartRepository/hooks/useRepositoryLifecycle.ts',
     'src/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardRepositoryOverlayEntry.tsx',
+    'src/app/components/lawyer/dashboard/LawyerDashboardRepositoryFeatureSurfaces.tsx',
     'src/app/components/lawyer/dashboard/commandHub/DockHalfTile.tsx',
     'src/app/runtime/repositoryInstantPaint.ts',
     'src/app/services/platform/mediaCaptureBackgroundRelease.ts',

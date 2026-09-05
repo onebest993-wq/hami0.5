@@ -56,6 +56,11 @@ if (namedChunks.status !== 0) {
     process.exit(namedChunks.status || 1);
 }
 
+const sharedTax = run(process.execPath, ['scripts/guard-first-open-shared-tax.mjs'], { stdio: 'inherit' });
+if (sharedTax.status !== 0) {
+    process.exit(sharedTax.status || 1);
+}
+
 const mojibake = run(process.execPath, ['scripts/clean-mojibake.mjs', '--check'], { stdio: 'inherit' });
 if (mojibake.status !== 0) {
     process.exit(mojibake.status || 1);

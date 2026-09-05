@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * يولّد نغمات حامي الحقيقية (PCM WAV 16-bit / 44.1kHz):
- * - hami_arrival.wav — وصول إشعار قصير
+ * - hami_arrival.wav — ختم وصول رسمي (قرار → خامسة → نداء ذهبي)
  * - hami_legal_alarm.wav — منبّه المواعيد (تسلسل قانوني أطول)
  *
  * المخرجات: android res/raw + public/sounds (+ ios/App/App إن وُجد)
@@ -13,12 +13,12 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SAMPLE_RATE = 44100;
 
-/** يطابق ARRIVAL_CHIME في notificationArrivalSound.ts */
-const ARRIVAL_TONES = [
-    { freq: 523.25, duration: 0.12, gain: 0.28 },
-    { freq: 659.25, duration: 0.16, gain: 0.34 },
-    { freq: 783.99, duration: 0.22, gain: 0.26 },
-];
+const arrivalSpec = JSON.parse(
+    fs.readFileSync(
+        path.join(ROOT, 'src/app/services/notifications/native/hamiArrivalChime.json'),
+        'utf8',
+    ),
+);
 
 /**
  * يطابق HAMI_LEGAL_ALARM_SEQUENCE في calendarReminderAlarmSound.ts
@@ -49,6 +49,30 @@ function synthTone(freq, durationSec, gain) {
                   ? (n - i) / (n * 0.28)
                   : 1;
         samples[i] = Math.sin(2 * Math.PI * freq * t) * gain * env;
+    }
+    return samples;
+}
+
+/** ختم رسمي: جيب نقي + توافقي خفيف + طبقة ذهبية اختيارية. بلا مزمار. */
+function synthSealTone(freq, durationSec, gain, opts = {}) {
+    const n = Math.floor(SAMPLE_RATE * durationSec);
+    const samples = new Float32Array(n);
+    const attackN = Math.max(1, Math.floor(SAMPLE_RATE * 0.008));
+    const releaseStart = Math.floor(n * 0.38);
+    const goldFreq = typeof opts.goldFreq === 'number' ? opts.goldFreq : 0;
+    const goldGain = typeof opts.goldGain === 'number' ? opts.goldGain : 0;
+    for (let i = 0; i < n; i += 1) {
+        const t = i / SAMPLE_RATE;
+        let env = 1;
+        if (i < attackN) env = i / attackN;
+        else if (i > releaseStart) env = (n - i) / Math.max(1, n - releaseStart);
+        const s = Math.sin(2 * Math.PI * freq * t);
+        const h2 = Math.sin(2 * Math.PI * freq * 2 * t) * 0.07;
+        let sample = (s + h2) * gain * env;
+        if (goldFreq > 0 && goldGain > 0) {
+            sample += Math.sin(2 * Math.PI * goldFreq * t) * goldGain * env;
+        }
+        samples[i] = sample;
     }
     return samples;
 }
@@ -92,10 +116,17 @@ function encodeWav(floatSamples) {
 
 function buildArrival() {
     const parts = [];
-    for (let i = 0; i < ARRIVAL_TONES.length; i += 1) {
-        const tone = ARRIVAL_TONES[i];
-        parts.push(synthTone(tone.freq, tone.duration, tone.gain));
-        if (i < ARRIVAL_TONES.length - 1) parts.push(silence(0.04));
+    const tones = arrivalSpec.tones;
+    const gap = arrivalSpec.gapSec;
+    for (let i = 0; i < tones.length; i += 1) {
+        const tone = tones[i];
+        parts.push(
+            synthSealTone(tone.freq, tone.duration, tone.gain, {
+                goldFreq: tone.goldFreq,
+                goldGain: tone.goldGain,
+            }),
+        );
+        if (i < tones.length - 1) parts.push(silence(gap));
     }
     return concat(parts);
 }

@@ -13,8 +13,8 @@ export const FOLLOWUP_PORTAL_OPTIONAL_COMPONENT_KEYS = new Set([
     'SeizureRequestsTab',
 ]);
 
-/** يُقرأ من followup لـ live handlers وليس من قائمة snapshot المُولَّدة */
-export const FOLLOWUP_PORTAL_LIVE_HANDLER_KEYS = new Set(['submitSpecialFollowupRequest']);
+/** مفاتيح تُقرأ من followup وليست في قائمة snapshot — يجب أن تبقى فارغة؛ المعالجات الحية من snapshot */
+export const FOLLOWUP_PORTAL_LIVE_HANDLER_KEYS = new Set();
 
 export function extractFollowupSnapshotFieldKeysFromSource(keysSource) {
     return [...keysSource.matchAll(/'([^']+)'/g)].map((m) => m[1]);

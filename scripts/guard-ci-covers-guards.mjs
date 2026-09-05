@@ -61,7 +61,7 @@ for (const script of scripts) {
      * كل فحص مصدر ينتمي إلى wave0 ليكون تشغيله محلياً أمراً واحداً. المستثنى هو
      * ما يحتاج `dist` أو شبكة: لا معنى لطلبه قبل بناء.
      */
-    const needsBuild = /dist|bundle|cold-entry:dist|boot-critical-weight|lawyer-inner-weight/.test(script);
+    const needsBuild = /dist|bundle|cold-entry:dist|boot-critical-weight|lawyer-inner-weight|first-open-shared-tax/.test(script);
     if (!needsBuild && !wave0.has(script) && !NOT_FOR_CI.has(script)) {
         missingFromWave0.push(script);
     }

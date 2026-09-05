@@ -34,6 +34,11 @@ const criticalPaths = [
     'src/app/components/lawyer/GlobalSearchOverlay/components/SearchScopeChipList.tsx',
     'src/app/services/search/globalSearchCriminalOwnership.ts',
     'src/app/components/lawyer/LawyerDashboardParts/components/HeaderSearchTrigger.tsx',
+    'src/app/services/globalSearchFuseRank.ts',
+    'src/app/services/globalSearchLoad.ts',
+    'src/app/services/globalSearchIndexPrepare.ts',
+    'src/app/components/lawyer/GlobalSearchOverlay/searchInstantChromeClasses.ts',
+    'src/app/services/globalSearchExtrasSignature.ts',
 ];
 
 let failed = false;
@@ -74,6 +79,10 @@ const test = spawnSync(
         'src/app/runtime/__tests__/globalSearchInstantPaint.test.ts',
         'src/app/services/__tests__/globalSearchIndex.test.ts',
         'src/app/services/__tests__/globalSearchFuseRank.test.ts',
+        'src/app/services/__tests__/globalSearchIndexRuntime.test.ts',
+        'src/app/services/__tests__/globalSearchExtrasCache.test.ts',
+        'src/app/services/__tests__/globalSearchExtrasSignature.test.ts',
+        'src/app/services/__tests__/globalSearchLoad.test.ts',
         'src/app/runtime/__tests__/globalSearchSectionSurgicalCloseHonesty.test.ts',
         'src/app/services/search/__tests__',
         'src/app/components/lawyer/GlobalSearchOverlay',

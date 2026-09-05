@@ -90,6 +90,7 @@ const requiredPlugins = [
     'capacitor-filesystem',
     'capacitor-geolocation',
     'capacitor-keyboard',
+    'capacitor-haptics',
     'capacitor-local-notifications',
     'capacitor-push-notifications',
 ];

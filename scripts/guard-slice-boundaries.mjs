@@ -91,7 +91,6 @@ const SLICES = [
             /^src\/app\/components\/lawyer\/FinancialOperationsCenter/,
             /^src\/app\/components\/lawyer\/ExecutionDashboard\//,
             /^src\/app\/components\/lawyer\/AlimonyFinancialBlock/,
-            /^src\/app\/components\/lawyer\/Modal_Guarantor_Registration/,
             /^src\/app\/utils\/alimony/,
             /^src\/app\/utils\/financial/,
             /^src\/app\/components\/lawyer\/ArchivePortal\//,

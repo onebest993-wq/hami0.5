@@ -45,12 +45,14 @@ const forumAuth = read('src/app/api/forum/_auth.ts');
 record(
   'code:forum-fail-closed',
   /FORUM_VERIFICATION_REQUIRED/.test(forumAuth) &&
-    /بلا سجل KV/.test(forumAuth) &&
-    /FORUM_VERIFICATION_UNAVAILABLE/.test(forumAuth),
+    /status !== 'active'/.test(forumAuth) &&
+    /catch\s*\{[\s\S]{0,400}FORUM_VERIFICATION_UNAVAILABLE/.test(forumAuth),
   'forum denies missing/non-active KV and KV errors',
 );
 
 const signup = read('src/app/api/auth/signup/route.ts');
+/* تخصيص حساب GoTrue انتقل إلى وحدة مستقلة — تعميم الأخطاء يُفحص في مصدره. */
+const signupProvision = read('src/app/api/auth/provisionLawyerGoTrueAccount.ts');
 record(
   'code:signup-pending-forced',
   /verificationStatus:\s*'pending'/.test(signup) && /accountType/.test(signup),
@@ -58,7 +60,9 @@ record(
 );
 record(
   'code:signup-generic-errors',
-  /Signup failed/.test(signup) && !/error: duplicate\s*\?[\s\S]*: message/.test(signup) && /resolveGoTrueUserId/.test(signup),
+  /Signup failed/.test(signupProvision) &&
+    !/error:\s*rawGoTrueMessage/.test(signupProvision) &&
+    /resolveGoTrueUserId/.test(signup),
   'signup maps GoTrue errors generically and refuses cookies without a subject',
 );
 record(
@@ -68,14 +72,26 @@ record(
 );
 
 const ban = read('src/app/api/admin/ban/route.ts');
+/*
+ * حظر GoTrue وقفل الدخول انتقلا إلى `headquartersAccountControl`، ورفض مدير المنصّة
+ * إلى `headquartersControlTarget`. الفحص يتبع الخاصية إلى وحدتها بدل نصّ المسار.
+ */
+const hqAccountControl = read('src/app/api/security/headquartersAccountControl.ts');
+const hqControlTarget = read('src/app/api/security/headquartersControlTarget.ts');
+const hqAccount = read('src/app/api/admin/account/route.ts');
 record(
   'code:ban-whitelist',
-  /ALLOWED_BAN_UPDATE_KEYS/.test(ban) && /ban_duration/.test(ban),
+  /ALLOWED_BAN_UPDATE_KEYS/.test(ban) &&
+    /liftGoTrueLoginBan/.test(ban) &&
+    /ban_duration/.test(hqAccountControl) &&
+    /applyGoTrueLoginBan/.test(hqAccount),
   'ban whitelist + GoTrue ban_duration revoke',
 );
 record(
   'code:hq-ban-trusted-device',
-  /requireTrustedHeadquartersAdmin/.test(ban) && /isHeadquartersProtectedAdminId/.test(ban),
+  /requireTrustedHeadquartersAdmin/.test(ban) &&
+    /rejectHeadquartersTargetId/.test(ban) &&
+    /isHeadquartersProtectedAdminId/.test(hqControlTarget),
   'HQ ban requires trusted device and refuses platform-admin UUID',
 );
 record(
@@ -84,11 +100,13 @@ record(
     /requireTrustedHeadquartersAdmin/.test(read('src/app/api/admin/role/route.ts')),
   'HQ role BFF refuses admin promotion and requires trusted device',
 );
+const hqConsultations = read('src/app/api/admin/consultations/route.ts');
 record(
   'code:hq-stats-consultations-gate',
   /requireTrustedHeadquartersAdmin/.test(read('src/app/api/admin/stats/route.ts')) &&
-    /requireTrustedHeadquartersAdmin/.test(read('src/app/api/admin/consultations/route.ts')) &&
-    /deletePostAuthorized/.test(read('src/app/api/admin/consultations/route.ts')) &&
+    /requireTrustedHeadquartersAdmin/.test(hqConsultations) &&
+    /deleteHeadquartersConsultation/.test(hqConsultations) &&
+    /isPostgresUuidSubject\(postId\)/.test(hqConsultations) &&
     /requireTrustedHeadquartersAdmin/.test(read('src/app/api/admin/status/route.ts')),
   'HQ stats, consultations, and status require trusted device; delete is server-authorized',
 );
@@ -120,9 +138,17 @@ record(
 );
 
 const login = read('src/app/api/auth/login/route.ts');
+/*
+ * `isUserActiveLive` + نص «Account unavailable» استُبدلا بـ `getWifeUserRestrictionLive`
+ * و`accountLoginDeniedPayload`: نفس الرفض الحيّ برسالة عربية ورمز ثابت `ACCOUNT_LOCKED`.
+ */
+const restrictionCopy = read('src/app/api/security/accountRestrictionCopy.ts');
 record(
   'code:login-generic-errors',
-  /Invalid credentials/.test(login) && /Account unavailable/.test(login) && /isUserActiveLive/.test(login),
+  /Invalid credentials/.test(login) &&
+    /getWifeUserRestrictionLive/.test(login) &&
+    /accountLoginDeniedPayload/.test(login) &&
+    /ACCOUNT_LOCKED_CODE/.test(restrictionCopy),
   'login maps GoTrue errors, rejects inactive accounts, no raw leak',
 );
 record(
@@ -134,8 +160,15 @@ record(
 const refresh = read('src/app/api/auth/refresh/route.ts');
 record(
   'code:refresh-live-ban',
-  /isUserActiveLive/.test(refresh) && /Account unavailable/.test(refresh) && /revokeGoTrueSession/.test(refresh),
+  /getWifeUserRestrictionLive/.test(refresh) &&
+    /accountLoginDeniedPayload/.test(refresh) &&
+    /revokeGoTrueSession/.test(refresh),
   'refresh re-checks live account status, revokes GoTrue, and clears cookies',
+);
+record(
+  'code:refresh-abuse-budget',
+  /scope: 'auth-refresh-ip'/.test(refresh) && /scope: 'auth-refresh-token'/.test(refresh),
+  'refresh is rate limited per IP and per refresh token',
 );
 
 const bffClient = read('src/app/utils/bffAuthClient.ts');
@@ -157,6 +190,31 @@ record(
   'code:forgot-email-budget',
   /emailAllowed/.test(forgot) && /auth-forgot-email/.test(forgot),
   'forgot-password honors per-email recover budget without enumerating',
+);
+
+/* عقود رمز التحقق: استهلاك ذرّي، طول مضبوط، وبلا كشف رقم لمسار مفتوح. */
+const otpStore = read('src/app/api/auth/otp/authOtpStore.ts');
+record(
+  'code:otp-single-use-atomic',
+  /\.is\('consumed_at', null\)/.test(otpStore) &&
+    /\.select\('id'\)/.test(otpStore) &&
+    /!consumedRow\?\.id/.test(otpStore),
+  'OTP consumption is atomic: a concurrent replay loses the row and is rejected',
+);
+
+const otpComplete = read('src/app/api/auth/otp/complete/route.ts');
+record(
+  'code:otp-exact-code-length',
+  /code\.length !== AUTH_OTP_CODE_LEN/.test(otpComplete),
+  'OTP complete rejects any length other than the issued code length',
+);
+
+const otpPreview = read('src/app/api/auth/otp/preview/route.ts');
+record(
+  'code:otp-preview-no-phone-leak',
+  /* بلا `phoneTail` بأي صيغة — الاختصار `phoneTail,` كان هو التسريب الأصلي. */
+  !/phoneTail/.test(otpPreview) && /hasWhatsAppNumber/.test(otpPreview),
+  'unauthenticated OTP preview reveals channel readiness only, never phone digits',
 );
 
 const resend = read('src/app/api/auth/resend-confirmation/route.ts');
