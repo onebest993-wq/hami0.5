@@ -225,13 +225,17 @@ export class CryptoService {
       return this.adoptMasterKeyFromBits(fromBase64Url(record.raw.trim()));
     }
     if (record.key instanceof CryptoKey) {
+      if (record.key.extractable) {
+        try {
+          const legacyBits = await crypto.subtle.exportKey('raw', record.key);
+          return this.adoptMasterKeyFromBits(legacyBits);
+        } catch {
+          return false;
+        }
+      }
       this.masterKey = record.key;
       this.isInitialized = true;
-      try {
-        this.masterKeyBits = await crypto.subtle.exportKey('raw', record.key);
-      } catch {
-        this.masterKeyBits = null;
-      }
+      this.masterKeyBits = null;
       return true;
     }
     return false;

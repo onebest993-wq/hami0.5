@@ -163,7 +163,7 @@ async function prepareIdentityChrome(): Promise<void> {
     const cached = getProfileWarmCacheRaw(uid);
     const avatarUrl = sanitizeProfileMediaUrl(cached?.header?.profileImage) ?? '';
     const displayName =
-        resolveFirstPaintLawyerDisplayName(cached?.header?.name, uid, session?.userMetadata) || '';
+        resolveFirstPaintLawyerDisplayName(cached?.header?.name, uid, session?.userMetadata ?? undefined) || '';
     const settledName = displayName.trim();
     publishUserIdentityUiState({
         userId: uid,

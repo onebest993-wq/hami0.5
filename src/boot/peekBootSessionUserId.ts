@@ -37,10 +37,12 @@ function readBootSessionPeek(): BootSessionPeek | null {
 }
 
 function getCachedBootSessionPeek(): BootSessionPeek | null {
-    if (cachedPeek === NO_RESULT_SENTINEL) {
-        cachedPeek = readBootSessionPeek();
+    if (cachedPeek !== NO_RESULT_SENTINEL && cachedPeek !== null) {
+        return cachedPeek;
     }
-    return cachedPeek;
+    const scanned = readBootSessionPeek();
+    cachedPeek = scanned;
+    return scanned;
 }
 
 /**
