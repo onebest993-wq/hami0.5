@@ -1,6 +1,7 @@
 /** أقل مدة عرض لطبقة الإقلاع — سطح صامت بنفس لون اللوحة: صفر. أي حد أدنى = انتظار بلا مبرر. */
 /** إزالة #hami-static-boot ليست هنا — مالك التسليم = homeMainGridPaintGate (تلاشي وليس قصّاً). */
 import { FIRST_TAB_OPEN_EVENT, HOME_MAIN_GRID_PAINTED_EVENT } from '@/app/bootstrap/bootEventNames';
+import { bootSecureStoreShellSync } from '@/app/services/SecureStoreService';
 
 export function getBootRevealMinMs(): number {
     return 0;
@@ -139,6 +140,7 @@ export function markBootRevealDone(): void {
     };
 
     applyRevealedDom();
+    bootSecureStoreShellSync();
     if (firstMark && typeof window !== 'undefined') {
         void import('@/app/runtime/nativeBootTelemetry').then((m) => m.publishNativeBootTelemetry());
     }

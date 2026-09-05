@@ -1983,8 +1983,37 @@ bindDeletedIdsPersist((storageKey, ids) => {
 
 bindDeletedIdsUnreadProbe((storageKey) => SecureStoreService.isUnreadSync(storageKey));
 
+/**
+ * تهيئة SecureStoreService على المسار غير الحرج: بعد اكتمال الإقلاع والرسمل paint.
+ * تُستدعى من markBootRevealDone() لتجنّب import-level side-effect الذي يتنافس
+ * مع Frame 0. الدقيقة.
+ *
+ * السلوك متطابق مع التأثير الجانبي القديم: تخطّي إذا كاننا في VITEST أو غير بيئة المتصفح.
+ */
+export function bootSecureStoreShellSync(): void {
+    if (typeof window !== 'undefined' && !import.meta.env.VITEST) {
+        SecureStoreService.kickoffBootShellSync();
+    }
+}
+
+/**
+ * Fallback مهلّل لإطلاق SecureStoreService إذا لم يُدعَ markBootRevealDone أبداً
+ * (مثل: بعض مسارات الاختبار أو سيناريوهات دخول غير متوقعة).
+ *
+ * الاستراتيجية: requestIdleCallback بحد أقصى 2000ms؛ إن لم يكن مدعوماً نستخدم
+ * setTimeout(100ms). كلا المسارين يعملان بعد اكتمال paint مباشرة، وبالتالي لا
+ * يخالف الهدف من تأجيل التهيئة.
+ *
+ * kickoffBootShellSync محمية بـ bootShellSyncDone داخلياً، لذا الاستدعاء المزدوج
+ * (fallback + markBootRevealDone) آمن تماماً ولا يسبب تكرار الترحيل.
+ */
 if (typeof window !== 'undefined' && !import.meta.env.VITEST) {
-  SecureStoreService.kickoffBootShellSync();
+    const fire = () => SecureStoreService.kickoffBootShellSync();
+    if (typeof (globalThis as { requestIdleCallback?: unknown }).requestIdleCallback === 'function') {
+        (globalThis as { requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback(fire, { timeout: 2000 });
+    } else {
+        setTimeout(fire, 100);
+    }
 }
 
 bindSecureStoreE2eBridge(SecureStoreService);
